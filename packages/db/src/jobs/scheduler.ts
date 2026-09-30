@@ -65,8 +65,20 @@ export function plannedRuns(
 
 const LEADER_LOCK_KEY = 0x77_34_73_63; // "w4sc"
 
+/**
+ * Work the leader does every so often between schedule ticks: a check that
+ * has no run time of its own, such as the quiet-device sweep (M1-16). One
+ * sweep's error is logged and never costs the leadership.
+ */
+export interface Sweep {
+  readonly name: string;
+  readonly everyMs: number;
+  run(now: Temporal.Instant): Promise<void>;
+}
+
 export interface SchedulerOptions {
   readonly schedules: readonly Schedule[];
+  readonly sweeps?: readonly Sweep[];
   readonly clock: Clock;
   readonly tickMs?: number;
   readonly log?: (line: string) => void;
@@ -159,10 +171,34 @@ export class Scheduler {
     return added;
   }
 
+  private readonly sweptAt = new Map<string, number>();
+
+  /** Runs every sweep that is due at `now`. Returns the names run. */
+  async runSweeps(now: Temporal.Instant = this.options.clock.now()): Promise<string[]> {
+    const ran: string[] = [];
+    for (const sweep of this.options.sweeps ?? []) {
+      const last = this.sweptAt.get(sweep.name);
+      if (last !== undefined && Date.now() - last < sweep.everyMs) continue;
+      this.sweptAt.set(sweep.name, Date.now());
+      try {
+        await sweep.run(now);
+        ran.push(sweep.name);
+      } catch (error) {
+        this.options.log?.(
+          `sweep ${sweep.name}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    return ran;
+  }
+
   private async run(): Promise<void> {
     while (!this.stopped) {
       try {
-        if (await this.tryLead()) await this.tick();
+        if (await this.tryLead()) {
+          await this.tick();
+          await this.runSweeps();
+        }
       } catch (error) {
         this.options.log?.(`scheduler: ${error instanceof Error ? error.message : String(error)}`);
         await this.releaseLeadership().catch(() => {});

@@ -13,7 +13,13 @@ import {
   replay,
   requestHash,
 } from "./idempotency.js";
-import { ANONYMOUS, principalId, principalIs, type Principal } from "./principal.js";
+import {
+  ANONYMOUS,
+  principalId,
+  principalIs,
+  type Principal,
+  type SignedDevice,
+} from "./principal.js";
 import { installRegistry, type RegisteredRoute, type RouteSpec } from "./registry.js";
 import type { ModuleGate } from "./module-gate.js";
 import type { PermissionGate } from "./permission-gate.js";
@@ -64,6 +70,7 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   app.decorateRequest("requestId", "");
   app.decorateRequest("forbidden", false);
   app.decorateRequest("venueId", undefined);
+  app.decorateRequest("signedDevice", undefined);
   (app.decorateRequest as (name: string, value: unknown) => void)("inVenue", null);
 
   // Staff routes get the per-venue rate limit unless the route turns it off.
@@ -102,8 +109,10 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     return payload;
   });
 
-  // Who is calling, and may they call this route?
-  app.addHook("onRequest", async (request, reply) => {
+  // Who is calling, and may they call this route? This runs at preValidation,
+  // after the body is parsed, because a device's signature covers its body
+  // (M1-15, M1-16): at onRequest the body isn't there yet.
+  app.addHook("preValidation", async (request, reply) => {
     request.requestId = randomUUID();
     request.principal = ANONYMOUS;
     for (const authenticate of options.authenticators ?? []) {
@@ -240,6 +249,7 @@ declare module "fastify" {
   interface FastifyRequest {
     idempotencyId: string | undefined;
     forbidden: boolean;
+    signedDevice: SignedDevice | undefined;
   }
 }
 

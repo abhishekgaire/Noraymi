@@ -47,14 +47,22 @@ export interface DeviceRow {
   readonly room_id: string | null;
   readonly user_id: string | null;
   readonly training: boolean;
-  readonly last_seen_at: string | null;
   readonly disabled_at: string | null;
   readonly revoked_at: string | null;
   readonly created_at: string;
 }
 
+/** A device as Admin → Printers & devices lists it: the row plus what its heartbeats say (M1-16). */
+export interface DeviceListRow extends DeviceRow {
+  readonly last_seen_at: string | null;
+  /** Seen at least once and not flagged offline by the sweep. */
+  readonly online: boolean;
+  readonly clock_skew_ms: number | null;
+  readonly app_version: string | null;
+}
+
 const COLS =
-  "id, kind, name, room_id, user_id, training, last_seen_at::text, disabled_at::text, revoked_at::text, created_at::text";
+  "id, kind, name, room_id, user_id, training, disabled_at::text, revoked_at::text, created_at::text";
 
 /** A manager makes a one-time code. Inside a venue transaction. Returns the code (shown once) and when it expires. */
 export async function createPairingCode(
@@ -141,9 +149,14 @@ export async function resolveDevice(
     : null;
 }
 
-export async function listDevices(client: Queryable, venueId: string): Promise<DeviceRow[]> {
-  const r = await client.query<DeviceRow>(
-    `select ${COLS} from devices where venue_id = $1 order by kind, name`,
+export async function listDevices(client: Queryable, venueId: string): Promise<DeviceListRow[]> {
+  const r = await client.query<DeviceListRow>(
+    `select d.id, d.kind, d.name, d.room_id, d.user_id, d.training,
+            d.disabled_at::text, d.revoked_at::text, d.created_at::text,
+            h.last_seen_at::text, (h.last_seen_at is not null and h.offline_since is null) as online,
+            h.clock_skew_ms, h.app_version
+       from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
+      where d.venue_id = $1 order by d.kind, d.name`,
     [venueId],
   );
   return r.rows;

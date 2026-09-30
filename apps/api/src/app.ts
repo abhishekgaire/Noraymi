@@ -134,7 +134,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
-      devicesRoutes(scope);
+      devicesRoutes(scope, { clock });
     }
     await options.extraRoutes?.(scope);
   });

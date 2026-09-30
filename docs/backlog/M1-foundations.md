@@ -438,7 +438,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-16 · Record heartbeats and clock offsets, and alert when a device goes quiet
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-06, M1-12, M1-15
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Clocks, Heartbeats; [API](../spec/08-api.md) · Live events (`device.offline`, `device.online`)
@@ -447,13 +447,17 @@ Definition of done: see CLAUDE.md.
   - `clock_skew_ms` from the reading against `server_time`; a device more than 30 seconds off raises an alert.
   - Two minutes of silence during opening hours (M1-12) raises `device.offline`, and the next heartbeat raises `device.online`. Alerts go to the venue's managers, grouped into one "venue offline" alert when every device drops at once.
 - **Acceptance:**
-  - [ ] A tablet that stops at 10:41 PM raises `device.offline` at 10:43 PM on the simulated clock; one that stops at 4:30 AM, after the close, raises nothing.
-  - [ ] A device 45 seconds off raises the clock alert, and one 20 seconds off doesn't.
-  - [ ] When all 28 seeded devices go quiet together, managers get one "venue offline" alert, not 28.
-  - [ ] No heartbeat is in `audit_log`.
+  - [x] A tablet that stops at 10:41 PM raises `device.offline` at 10:43 PM on the simulated clock; one that stops at 4:30 AM, after the close, raises nothing.
+  - [x] A device 45 seconds off raises the clock alert, and one 20 seconds off doesn't.
+  - [x] When all 28 seeded devices go quiet together, managers get one "venue offline" alert, not 28.
+  - [x] No heartbeat is in `audit_log`.
 - **Tests:** integration tests on the simulated clock.
 - **Notes:** The heartbeat route isn't in the API table; the spec only says devices check in every 30 seconds. Paging us when a money path is at risk is M8. Until M2 names the manager on duty (M2-15), these alerts go to every manager's phone.
-
+  - **Built (Sep 30).** Migration `0013_heartbeats.sql`: `device_heartbeats` (one row per device: last seen, app version, network, clock skew, offline-since, clock-alerted-at) and `venue_outages` (one row per venue, `offline_since` set while the whole venue is down). Neither is audited; 0004 already said heartbeats never reach `audit_log`. The four heartbeat columns left `devices` (an audited table), and `resolve_device` no longer stamps `last_seen_at` on every signed request, which had been writing an audit row per request. `POST /v1/devices/heartbeat` in `apps/api/src/routes/devices.ts`: signed by any device kind (the authenticator now records the signed device on the request even for kinds that aren't principals, such as staff phones); body `{ app_version, network, clock, attached? }`; answers `clock_skew_ms` (device clock minus the server's real clock), `clock_alert`, `back_online` and `attached_ignored`. `recordHeartbeat` and `flagQuietDevices` in `packages/db/src/heartbeats.ts`; the sweep in `apps/api/src/jobs/device-watch.ts`, run every 15 s by the scheduler's leader through a new `sweeps` option on `Scheduler`. `GET /devices` now includes `last_seen_at`, `online`, `clock_skew_ms` and `app_version`.
+  - **Events.** `device.offline` and `device.online` to the venue (board and Admin), `venue.offline` and `venue.online` and `device.clock_skew` to managers only. Spec 08's live-events table names the three new types. There is no push or text yet: the alert is the live event on the managers' sockets until the notification work lands.
+  - **Cautious defaults.** A venue with no `hours` setting is never "open", so nothing is raised there. A device that has never heartbeated isn't tracked (it's "not set up", not offline). A device whose last heartbeat said `network.type = "cellular"` (a manager's phone on LTE) doesn't count toward "the whole venue dropped", or the grouped alert could never fire while one such phone is online. `venue.offline` fires when every tracked device is quiet in one pass; devices flagged during a venue-wide outage each raise `device.online` when they return, and the first one back raises `venue.online`. The clock alert fires once per episode and clears silently when the clock is back within 30 s. Skew is against the server's real clock, like the signature window, so staging's simulated clock doesn't make every device look wrong.
+  - **Fixed on the way.** Authentication moved from `onRequest` to `preValidation` in `conventions.ts`: at `onRequest` the body isn't parsed yet, so a signed POST's body hash was always the hash of "" and any client that signed its body was refused. M1-15's tests only signed GETs and never saw it. Also `USB printers and NFC readers report through their host`: the host lists them in `attached`; other kinds and other venues' ids are ignored and named back in `attached_ignored`.
+  - **Later.** M1-17 seeds the 28 devices with heartbeats; the Board and Admin → Printers & devices screens show these events; M2-15 narrows the managers' alerts to the manager on duty; M8 pages us when a money path is at risk. Fifteen-second sweeps mean an alert lands within 2:15 of the last heartbeat.
 ### M1-17 · Load the M1 part of the demo seed into staging and local dev
 
 - **Status:** todo

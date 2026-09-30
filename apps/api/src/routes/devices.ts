@@ -5,13 +5,23 @@ import {
   deviceKinds,
   emitEvent,
   listDevices,
+  recordHeartbeat,
   revokeDevice,
   updateDevice,
+  withVenue,
   type DeviceKind,
 } from "@west4/db";
+import { Temporal, type Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+
+export interface DevicesOptions {
+  /** The venue's clock: what last_seen_at is stamped with. */
+  readonly clock: Clock;
+  /** The server's real clock, which the device's own reading is compared to. Tests may pin it. */
+  readonly realNow?: () => number;
+}
 
 interface VenueParams {
   venueId: string;
@@ -33,6 +43,24 @@ const patchBody = z
     room_id: z.string().uuid().nullable().optional(),
   })
   .strict();
+const isInstant = (s: string): boolean => {
+  try {
+    Temporal.Instant.from(s);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const heartbeatBody = z
+  .object({
+    app_version: z.string().max(80).nullable().optional(),
+    network: z.record(z.string(), z.unknown()).nullable().optional(),
+    /** The device's own clock at the moment it sent this, ISO 8601 with an offset. */
+    clock: z.string().refine(isInstant, "clock must be an ISO 8601 instant"),
+    /** Attached printers and NFC readers the host computer can see right now. */
+    attached: z.array(z.string().uuid()).max(50).optional(),
+  })
+  .strict();
 
 /**
  * Devices (spec 08 · Sign-in, team and devices; M1-15):
@@ -41,8 +69,10 @@ const patchBody = z
  *   GET   /v1/venues/{v}/devices             the venue's devices
  *   PATCH /v1/venues/{v}/devices/{d}         the name, and a tablet's room
  *   POST  /v1/venues/{v}/devices/{d}/revoke  ends the device's sessions and closes its sockets at once
+ *   POST  /v1/devices/heartbeat              every 30 seconds from every device, signed (M1-16)
  */
-export function devicesRoutes(app: FastifyInstance): void {
+export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): void {
+  const realNow = options.realNow ?? Date.now;
   const admin = route({
     principals: ["owner_manager"],
     module: "core",
@@ -93,6 +123,53 @@ export function devicesRoutes(app: FastifyInstance): void {
           "that code isn't valid: it was used, it expired, or it never existed",
         );
       return reply.code(201).send({ device_id: claimed.deviceId, venue_id: claimed.venueId });
+    },
+  );
+
+  // The heartbeat has no venue in its path: the signature names the device, and
+  // the device names its venue. Any signed device may send one, including the
+  // kinds that never act as a principal (a staff phone); an unsigned request is 403.
+  app.post<{ Body: unknown }>(
+    "/v1/devices/heartbeat",
+    {
+      config: route({
+        principals: ["public"],
+        module: "core",
+        idempotency: "none",
+        rateLimit: { max: 600, windowMs: 60_000 },
+      }),
+    },
+    async (request) => {
+      const device = request.signedDevice;
+      if (!device) throw new ApiError("forbidden", "a heartbeat is signed by the device");
+      const parsed = heartbeatBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+        );
+      const clockSkewMs = Temporal.Instant.from(parsed.data.clock).epochMilliseconds - realNow();
+      const result = await withVenue(
+        app.db.pool,
+        { venueId: device.venueId, requestId: request.requestId },
+        (c) =>
+          recordHeartbeat(c, {
+            venueId: device.venueId,
+            deviceId: device.deviceId,
+            now: options.clock.now(),
+            appVersion: parsed.data.app_version ?? null,
+            network: parsed.data.network ?? null,
+            clockSkewMs,
+            attached: parsed.data.attached ?? [],
+          }),
+      );
+      return {
+        device_id: device.deviceId,
+        clock_skew_ms: clockSkewMs,
+        clock_alert: result.clockAlert,
+        back_online: result.backOnline,
+        attached_ignored: result.attachedIgnored,
+      };
     },
   );
 

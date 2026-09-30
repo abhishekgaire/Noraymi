@@ -1,5 +1,7 @@
-import type { JobHandler, Schedule } from "@west4/db";
+import type pg from "pg";
+import type { JobHandler, Schedule, Sweep } from "@west4/db";
 import type { S3Settings } from "../s3.js";
+import { deviceWatchSweep } from "./device-watch.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
 import {
   EVENTS_CLEANUP_KIND,
@@ -36,3 +38,8 @@ export const schedules: Schedule[] = [
   idempotencyCleanupSchedule,
   eventsCleanupSchedule,
 ];
+
+/** What the scheduler's leader checks between ticks (M1-16: quiet devices). */
+export function makeSweeps(pool: pg.Pool, log?: (line: string) => void): Sweep[] {
+  return [deviceWatchSweep(pool, log)];
+}

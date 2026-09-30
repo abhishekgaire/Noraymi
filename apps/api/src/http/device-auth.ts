@@ -63,6 +63,7 @@ export function deviceAuthenticator(pool: pg.Pool, now: () => number = Date.now)
     ) {
       throw new ApiError("forbidden", "bad device signature");
     }
+    request.signedDevice = { deviceId, venueId: device.venueId, kind: device.kind };
     if (
       device.kind === "staff_phone" ||
       device.kind === "reader" ||

@@ -2,7 +2,7 @@ import pg from "pg";
 import { Scheduler, Worker } from "@west4/db";
 import { loadConfig } from "./config.js";
 import { makeClock } from "./clock.js";
-import { makeHandlers, schedules } from "./jobs/registry.js";
+import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
 import { makeS3 } from "./s3.js";
 
 // The job workers and the scheduler (M1-06). Three pools so a slow export
@@ -20,7 +20,7 @@ const handlers = makeHandlers(makeS3());
 const workers = (["critical", "normal", "bulk"] as const).map(
   (name) => new Worker(pool, { pool: name, handlers: handlers[name], clock, log }),
 );
-const scheduler = new Scheduler(pool, { schedules, clock, log });
+const scheduler = new Scheduler(pool, { schedules, sweeps: makeSweeps(pool, log), clock, log });
 
 for (const worker of workers) worker.start();
 scheduler.start();

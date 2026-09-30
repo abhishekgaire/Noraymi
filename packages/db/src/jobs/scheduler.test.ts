@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Temporal } from "@west4/shared";
-import { plannedRuns, runInstant, type Schedule, type VenueClock } from "./scheduler.js";
+import { Temporal, FrozenClock, SEED_NOW } from "@west4/shared";
+import { plannedRuns, runInstant, type Schedule, type VenueClock, Scheduler } from "./scheduler.js";
 
 const west4: VenueClock = { id: "v1", timeZone: "America/New_York", dayCutover: "06:00" };
 const at0130: Schedule = { kind: "nightly.0130", at: "01:30", pool: "normal" };
@@ -41,5 +41,31 @@ describe("plannedRuns", () => {
       expect(runs[0]?.key).toBe("nightly.0130:v1:2026-10-31");
       expect(runs[0]?.runAt.toString()).toBe("2026-11-01T05:30:00Z");
     }
+  });
+});
+
+describe("sweeps (M1-16)", () => {
+  it("runs each sweep once per interval, and one sweep's error is logged, not thrown", async () => {
+    const lines: string[] = [];
+    const ran: string[] = [];
+    const scheduler = new Scheduler({} as never, {
+      schedules: [],
+      clock: new FrozenClock(SEED_NOW),
+      log: (l) => lines.push(l),
+      sweeps: [
+        { name: "devices.watch", everyMs: 60_000, run: async () => void ran.push("devices") },
+        {
+          name: "broken",
+          everyMs: 60_000,
+          run: async () => {
+            throw new Error("no such table");
+          },
+        },
+      ],
+    });
+    expect(await scheduler.runSweeps()).toEqual(["devices.watch"]);
+    expect(lines).toEqual(["sweep broken: no such table"]);
+    expect(await scheduler.runSweeps()).toEqual([]);
+    expect(ran).toEqual(["devices"]);
   });
 });

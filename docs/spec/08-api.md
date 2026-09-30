@@ -73,4 +73,4 @@ One JSON API over HTTPS serves every screen. Every write is safe to retry, every
 | `song_queue.updated` | Bar screen, song queue screen, Up next display, singers' queue pages ("2 singers before you") |
 | `drawer.updated` | Night close, front desk |
 | `settings.changed`, `menu.changed` | Every screen, the website cache, the menu PDF job |
-| `device.offline`, `device.online`, `venue.backup_internet` | Board alerts, Admin → Printers & devices |
+| `device.offline`, `device.online`, `device.clock_skew`, `venue.offline`, `venue.online`, `venue.backup_internet` | Board alerts, Admin → Printers & devices. `venue.offline` is the one "venue offline" alert managers get when every device drops at once; `device.clock_skew` is a device more than 30 seconds off |

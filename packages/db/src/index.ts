@@ -64,4 +64,13 @@ export {
   updateDevice,
   revokeDevice,
 } from "./devices.js";
-export type { DeviceKind, DeviceRow, ResolvedDevice } from "./devices.js";
+export type { DeviceKind, DeviceRow, DeviceListRow, ResolvedDevice } from "./devices.js";
+export {
+  HEARTBEAT_EVERY_MS,
+  DEVICE_SILENCE_MS,
+  CLOCK_SKEW_LIMIT_MS,
+  ATTACHED_KINDS,
+  recordHeartbeat,
+  flagQuietDevices,
+} from "./heartbeats.js";
+export type { HeartbeatInput, HeartbeatResult, QuietSweepResult } from "./heartbeats.js";

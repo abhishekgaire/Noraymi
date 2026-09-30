@@ -4,5 +4,5 @@ export { retryDelaySeconds, FIRST_RETRY_SECONDS, MAX_RETRY_SECONDS } from "./bac
 export { Worker } from "./worker.js";
 export type { JobContext, JobHandler, WorkerOptions } from "./worker.js";
 export { Scheduler, plannedRuns, runInstant, dedupeKey } from "./scheduler.js";
-export type { Schedule, VenueClock, SchedulerOptions } from "./scheduler.js";
+export type { Schedule, Sweep, VenueClock, SchedulerOptions } from "./scheduler.js";
 export { StoredClock } from "./clock-store.js";

@@ -1,3 +1,4 @@
+import type { DeviceKind } from "@west4/db";
 /**
  * Who is calling (spec 02 · Who can call what). Each authenticator (device
  * signatures in M1-15, passkeys in M1-19, PIN and badge in M1-24 and M1-25,
@@ -57,6 +58,17 @@ export type Principal =
   | { readonly kind: "webhook"; readonly provider: "stripe" | "twilio" };
 
 export const ANONYMOUS: Principal = { kind: "anonymous" };
+
+/**
+ * The device whose signature this request carried, whatever its kind: set by
+ * the device authenticator even for kinds that don't act as a principal (a
+ * staff phone, a router), so the heartbeat route knows who checked in.
+ */
+export interface SignedDevice {
+  readonly deviceId: string;
+  readonly venueId: string;
+  readonly kind: DeviceKind;
+}
 
 /** Does this caller count as one of the principal names a route declares? */
 export function principalIs(p: Principal, name: PrincipalName, venueId?: string): boolean {
