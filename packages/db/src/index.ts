@@ -26,3 +26,14 @@ export {
 } from "./outside-calls.js";
 export { emitEvent, toWire, Relay, Tail } from "./events.js";
 export type { EmitEvent, EventAudience, StampedEvent, WireEvent } from "./events.js";
+export {
+  signRulePack,
+  verifyRulePack,
+  generateSigningKey,
+  publicKeyOf,
+  keyIdOf,
+  rulePackFor,
+  rulePackVersions,
+  publishRulePack,
+} from "./rule-packs.js";
+export type { RulePackRow, ResolvedRulePack } from "./rule-packs.js";

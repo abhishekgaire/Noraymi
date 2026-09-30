@@ -53,10 +53,6 @@ data "aws_iam_policy_document" "task" {
     resources = [aws_kms_key.data.arn]
   }
   statement {
-    actions   = ["kms:Sign", "kms:Verify", "kms:GetPublicKey"]
-    resources = [aws_kms_key.rule_pack_signing.arn]
-  }
-  statement {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [for s in aws_secretsmanager_secret.app : s.arn]
   }

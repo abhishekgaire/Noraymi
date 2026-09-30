@@ -2,6 +2,7 @@ import { createDatabase, dropDatabase } from "./admin.js";
 import { databaseUrl, migrationsDir } from "./config.js";
 import { migrate } from "./migrate.js";
 import { ensureAppRoleLogin } from "./roles.js";
+import { loadBuiltInRulePacks } from "./bootstrap.js";
 
 const command = process.argv[2];
 const log = (line: string) => process.stdout.write(`${line}\n`);
@@ -17,6 +18,7 @@ async function main(): Promise<void> {
           : `applied ${result.applied.length} migration(s)`,
       );
       await ensureAppRoleLogin(url, log);
+      await loadBuiltInRulePacks(url, log);
       return;
     }
     case "reset": {
@@ -34,6 +36,7 @@ async function main(): Promise<void> {
       const result = await migrate({ databaseUrl: url, dir: migrationsDir, log });
       log(`applied ${result.applied.length} migration(s)`);
       await ensureAppRoleLogin(url, log);
+      await loadBuiltInRulePacks(url, log);
       return;
     }
     default:

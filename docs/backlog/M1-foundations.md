@@ -291,7 +291,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-10 · Load the New York County rule pack and resolve its versions
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-04, M1-05
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Rule packs; [Data model](../spec/04-data-model.md) · `rule_packs`; [Security and data retention](../spec/12-security-retention.md) 11
@@ -302,12 +302,17 @@ Definition of done: see CLAUDE.md.
   - `rulePackFor(venue, businessDate)`: the newest signed version with two approvers whose `effective_on` is on or before the business date, so a new version starts at a business-date boundary. Every read returns the version string, which check revisions store from M4.
   - The data behind Admin's notice: what changes between the version in force and a later one, and the date it starts. The Console's publishing and Admin's notice are built in M1-36.
 - **Acceptance:**
-  - [ ] West 4 reads `us-ny-new-york-county` `2026.09` on business date Fri Sep 25, 2026.
-  - [ ] A version with a bad signature, or with fewer than two approvers, is never used.
-  - [ ] A version effective Sat Sep 26 isn't used at 4:00 AM on Sat Sep 26 (business date Sep 25), and is used from 6:00 AM.
-  - [ ] `app_rw` can't insert or update `rule_packs`.
+  - [x] West 4 reads `us-ny-new-york-county` `2026.09` on business date Fri Sep 25, 2026.
+  - [x] A version with a bad signature, or with fewer than two approvers, is never used.
+  - [x] A version effective Sat Sep 26 isn't used at 4:00 AM on Sat Sep 26 (business date Sep 25), and is used from 6:00 AM.
+  - [x] `app_rw` can't insert or update `rule_packs`.
 - **Tests:** unit tests for version resolution across the cutover; a signature test.
-- **Notes:** `2026.09` is loaded by a bootstrap script that signs it with the staging key and records two named approvers from our side; later versions go through the Console (M1-36). `salesTax.jurisdictionCode` and `surchargeTaxable` wait for the accountant ([Open technical questions](../spec/14-open-questions.md)).
+- **Notes:** `2026.09` is loaded by a bootstrap script that signs it with the staging key and records two named approvers from our side; later versions go through the Console (M1-36). `salesTax.jurisdictionCode` and `surchargeTaxable` wait for the accountant ([Open technical questions](../spec/14-open-questions.md)). Built Sep 30, 2026:
+  - **Types and data** in `packages/shared/src/rule-pack.ts`: `RulePack`, `newYorkCounty` (2026.09, the spec's values; `salesTax.jurisdictionCode` is `null` until the accountant answers and `surchargeTaxable` keeps the spec's `true`), `canonicalJson` (keys sorted at every level, so the same pack always signs to the same bytes) and `rulePackChanges(current, next)`, the data behind Admin's notice.
+  - **Migration `0007_rule_packs.sql`:** `rule_packs (id, version, effective_on, data, approved_by text[], signature, key_id, published_at)` and `rule_pack_signing_keys (key_id, public_key, retired_at)`. `app_rw` may only select both (tested).
+  - **Signing** (`packages/db/src/rule-packs.ts`): Ed25519 over the canonical JSON, base64. The private key is `RULE_PACK_SIGNING_KEY` (PEM), held on staging in Secrets Manager under the data KMS key; the public keys live in the table, so a key can be rotated or retired and old versions re-checked. AWS KMS has no Ed25519, which is why the key is a KMS-encrypted secret rather than a KMS key; the unused asymmetric KMS key left Terraform (never applied).
+  - **`rulePackFor(client, packId, businessDate)`** returns the newest version with a valid signature against an active key, at least two distinct approvers and `effective_on` on or before the business date, with its version string. `rulePackVersions()` lists every usable version for the notice. Both run as `app_rw`.
+  - **Bootstrap.** `db:migrate` now also calls `loadBuiltInRulePacks()`: `publishRulePack()` with `RULE_PACK_APPROVERS` (cautious default "Abhishek Gaire,Claude Code"; change it in the environment) and `RULE_PACK_EFFECTIVE_ON` (default 2026-09-01). Locally, with no key set, a throwaway key signs the load; on staging the task carries the secret. Idempotent.
 
 ### M1-11 · Build versioned venue settings with the rule-pack checks on every save
 

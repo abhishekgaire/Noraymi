@@ -14,6 +14,7 @@ locals {
   app_env = [
     { name = "WEST4_ENV", value = var.environment },
     { name = "ALLOW_STAGING_FEATURES", value = var.environment == "staging" ? "true" : "false" },
+    { name = "RULE_PACK_APPROVERS", value = "Abhishek Gaire,Claude Code" },
     { name = "HOST", value = "0.0.0.0" },
     { name = "DB_HOST", value = aws_db_instance.main.address },
     { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
@@ -21,13 +22,13 @@ locals {
     { name = "DB_USER", value = aws_db_instance.main.username },
     { name = "S3_BUCKET_FILES", value = aws_s3_bucket.files.bucket },
     { name = "S3_BUCKET_AUDIT", value = aws_s3_bucket.audit.bucket },
-    { name = "KMS_RULE_PACK_SIGNING_KEY", value = aws_kms_key.rule_pack_signing.arn },
   ]
   # The API and the worker connect as app_rw, behind the venue wall (M1-05).
   app_secrets = [
     { name = "APP_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.app["app-db-password"].arn },
     { name = "PIN_PEPPER", valueFrom = aws_secretsmanager_secret.app["pin-pepper"].arn },
     { name = "BADGE_MASTER_KEY", valueFrom = aws_secretsmanager_secret.app["badge-master-key"].arn },
+    { name = "RULE_PACK_SIGNING_KEY", valueFrom = aws_secretsmanager_secret.app["rule-pack-signing-key"].arn },
   ]
   # CI replaces the image on every deploy; Terraform's copy is the template.
   bootstrap_image = { api = "${aws_ecr_repository.images["api"].repository_url}:bootstrap", guest = "${aws_ecr_repository.images["guest"].repository_url}:bootstrap" }
@@ -102,6 +103,7 @@ resource "aws_ecs_task_definition" "migrate" {
     secrets = [
       { name = "DB_PASSWORD", valueFrom = "${local.db_secret_arn}:password::" },
       { name = "APP_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.app["app-db-password"].arn },
+      { name = "RULE_PACK_SIGNING_KEY", valueFrom = aws_secretsmanager_secret.app["rule-pack-signing-key"].arn },
     ]
     logConfiguration = {
       logDriver = "awslogs"

@@ -11,3 +11,5 @@ export type {
   SocketLike,
   WireEvent as ClientWireEvent,
 } from "./events-client.js";
+export { newYorkCounty, builtInRulePacks, canonicalJson, rulePackChanges } from "./rule-pack.js";
+export type { RulePack, RulePackChange } from "./rule-pack.js";
