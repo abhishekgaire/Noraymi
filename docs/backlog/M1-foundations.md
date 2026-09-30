@@ -343,7 +343,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-12 · Build closures and each business date's opening hours
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-11
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `hours`, One place for each fact; [Data model](../spec/04-data-model.md) · `closures`; [API](../spec/08-api.md) · Bookings (`POST /closures`); [Money rules](../spec/05-money-rules.md) 2
@@ -351,11 +351,14 @@ Definition of done: see CLAUDE.md.
   - `closures` (venue_id, date, kind, opens, closes, note): special dates and closed dates in one list. `GET` and `POST /closures`.
   - `hoursFor(venue, businessDate)`: the opening, the close and the house last call as instants, from `hours.weekly` and any closure, resolved on the wall clock (a close of "04:00" belongs to the business date it ends). Screens and jobs read "open now" from it and the venue's clock, never the device's.
 - **Acceptance:**
-  - [ ] Fri Sep 25, 2026 opens at 4:00 PM and closes Sat at 4:00 AM EDT; Sat Oct 31 closes at 4:00 AM EST on Nov 1.
-  - [ ] A closure for Thu Dec 24 closing at 11:00 PM moves that night's close to 11:00 PM, and its last call to no later than 11:00 PM.
-  - [ ] "Open now" is true at 10:41 PM on the seed and false at 4:30 AM.
+  - [x] Fri Sep 25, 2026 opens at 4:00 PM and closes Sat at 4:00 AM EDT; Sat Oct 31 closes at 4:00 AM EST on Nov 1.
+  - [x] A closure for Thu Dec 24 closing at 11:00 PM moves that night's close to 11:00 PM, and its last call to no later than 11:00 PM.
+  - [x] "Open now" is true at 10:41 PM on the seed and false at 4:30 AM.
 - **Tests:** unit tests on a normal night and both daylight-saving nights; an API test for closures.
-- **Notes:** Pushing the hours to Google Business Profile is M5. Listing the bookings a closed date affects is M2 (M2-33). A `closures` row has no last call of its own; cautious reading built here: the house last call is never later than that night's close (flagged).
+- **Notes:** Pushing the hours to Google Business Profile is M5. Listing the bookings a closed date affects is M2 (M2-33). A `closures` row has no last call of its own; cautious reading built here: the house last call is never later than that night's close (flagged). Built Sep 30, 2026:
+  - **Migration `0009_closures.sql`:** `closures (id, venue_id, date, kind closed|special, opens, closes, note, created_by, created_at)`, one row per venue and business date, a special date needing an opening or a close; `app_rw` may select, insert and update (nothing deletes a closure; a mistaken one is edited, and Admin's editing screen is M1-33). Audited.
+  - **`hoursFor(venue, businessDate, hours, closure)`** in `packages/rules/src/hours.ts` returns the opening, the close and the house last call as instants, from `hours.weekly` for the business date's weekday (Sunday 0 to Saturday 6, like JavaScript's `Date.getDay()`, since spec 03 leaves the numbering open) overridden by a special closure, resolved with `wallClock` so "04:00" lands on the next calendar day and the two daylight-saving nights come out 15 and 13 hours long. `openNow(hours, at)` is opening ≤ at < close.
+  - **Routes** (`apps/api/src/routes/closures.ts`): `GET /closures` (date order, `?from=`, `?to=`, cursor by date) and `POST /closures` for owners and managers; `GET /hours?business_date=` for every staff principal and shared devices, answering the instants in the venue's zone and `open_now` from the app clock. `GET /hours` isn't in the API table (flagged). A new closure sends `settings.changed` with entity `closures`, since the calendar, the board and the site cache read hours like a setting; the spec's event table names no closure event.
 
 ### M1-13 · Build modules, their dependencies, `404 module_off` and venue flags
 

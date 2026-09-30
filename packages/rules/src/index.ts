@@ -11,3 +11,5 @@ export {
   IN_PERSON_CARD_COST_PCT,
 } from "./settings-checks.js";
 export type { CheckContext } from "./settings-checks.js";
+export { hoursFor, openNow } from "./hours.js";
+export type { Closure, VenueTime, BusinessDateHours } from "./hours.js";
