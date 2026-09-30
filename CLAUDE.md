@@ -55,9 +55,9 @@ If the spec is silent or contradicts itself, don't invent an answer. Ask the fou
 
 - `/ticket <ID>` (`.claude/skills/ticket`) is the working loop below, written to read only what a ticket names and to run the checks once.
 - `pnpm check` runs lint, typecheck, unit, integration and the migration linter and prints one line per suite; `pnpm check --e2e` adds the smoke tests; `pnpm check unit` runs one suite.
-- `scripts/spec-section.sh <file> '<heading>'` prints one section of a doc. Never `cat` a spec, the seed JSON or the canvas; the hooks in `.claude/settings.json` block that and warn on oversized output.
+- `scripts/spec-section.sh <file> '<heading>'` prints one section of a doc. Never print a spec, the seed JSON or the canvas whole; the hooks in `.claude/settings.json` block an unfiltered dump (a pipe through head/grep/sed passes, and `WEST4_ALLOW_FULL=1` in front of a command allows a deliberate full read) and warn on oversized output.
 - Format before you edit (`pnpm exec prettier --write <file>`), then match the exact on-disk text.
-- Record each ticket's approximate token cost in its Notes (the `Tokens:` line), and start a fresh session (`/clear`) every ticket or two.
+- Start a fresh session (`/clear`) every ticket or two; the SessionStart hook prints the next ticket.
 - A test that fails twice the same way gets a ten-line probe script, not another suite run. A spec section over about 200 lines is read by an Explore subagent, not printed. Explanations for the founder come once, at the end of a ticket.
 
 ## How to work a ticket

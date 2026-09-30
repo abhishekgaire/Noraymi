@@ -1,6 +1,6 @@
 ---
 name: ticket
-description: Work one backlog ticket (for example /ticket M1-16) the CLAUDE.md way, with the least context: read only what the ticket names, build, run pnpm check, write the notes, record the token cost and commit.
+description: Work one backlog ticket (for example /ticket M1-16) the CLAUDE.md way, with the least context: read only what the ticket names, build, run pnpm check, write the notes and commit.
 ---
 
 # Work a ticket: /ticket <ID>
@@ -9,7 +9,6 @@ The ID is `$ARGUMENTS` (for example `M1-16`). Follow these steps in order. Every
 
 ## 1. Open the ticket, not the file
 
-- Note the `<total_tokens>` marker from the latest system reminder: this is the ticket's starting figure.
 - Print the ticket alone: `scripts/spec-section.sh docs/backlog/<milestone file> '### <ID> '` (the M1 file is `docs/backlog/M1-foundations.md`).
 - Set its Status to `doing` with one `sed` on the ticket's own block.
 
@@ -24,7 +23,7 @@ The ID is `$ARGUMENTS` (for example `M1-16`). Follow these steps in order. Every
 
 - Write files with heredocs or the Write tool. To change an existing file, run `pnpm exec prettier --write <file>` first, then edit with the exact on-disk text (`sed -n` the lines to see them). A replace that silently misses costs a whole test cycle.
 - While iterating, run only the test file you're on: `pnpm exec vitest run --project <name> <path>` or `--config vitest.integration.config.ts --project <name> <path>`, with `--reporter=dot`.
-- Filter every command's output (`grep -E`, `tail`, `head`). The output hook reminds you when you don't.
+- Filter every command's output (`grep -E`, `tail`, `head`). The output hook reminds you when you don't. If a whole file is genuinely needed, pipe it through `head -c` or prefix the command with `WEST4_ALLOW_FULL=1`; the guard hook allows both.
 - Make independent tool calls in one message.
 - When the same test fails twice for the same reason, stop rerunning the suite: write a ten-line probe script (a `zz-probe.ts` under the package, deleted afterwards) that reproduces the one call and prints the error, fix from that, then run the suite once.
 - When a spec section the ticket names runs past about 200 lines, have an Explore subagent read it and return the facts the ticket needs, instead of printing it into this context.
@@ -39,10 +38,9 @@ The ID is `$ARGUMENTS` (for example `M1-16`). Follow these steps in order. Every
 
 - Every Acceptance line ticked (`- [x]`) with a test behind it; anything that can't be checked yet stays `- [ ]` with a one-line reason.
 - Notes: what was built and where, every cautious default and why, what differs from the spec, what a later ticket must pick up. If the behaviour differs from the spec, change the spec in the same commit and add a `docs/decisions.md` row.
-- Add a `Tokens:` line to Notes: the difference between the starting figure and the current `<total_tokens>` marker, rounded to the thousand, labelled "context growth".
 - Update CLAUDE.md's Commands section if a command was added or renamed.
 - Commit as `<ID>: <ticket title>` with a short body, then `git push -q origin main`.
 
 ## 6. Report
 
-Tell the founder, in plain words for someone new to programming: what the ticket does for the venue, what was built, what differs from the ticket, the token figure, and the next ticket. No file dumps. Then, unless told to keep going, suggest `/clear` before the next ticket: a fresh session with the SessionStart hook is the cheapest way to start one.
+Tell the founder, in plain words for someone new to programming: what the ticket does for the venue, what was built, what differs from the ticket, and the next ticket. No file dumps. Then, unless told to keep going, suggest `/clear` before the next ticket: a fresh session with the SessionStart hook is the cheapest way to start one.
