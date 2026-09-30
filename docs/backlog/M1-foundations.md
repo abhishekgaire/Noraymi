@@ -94,7 +94,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-03 · Add the migration linter
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-01
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Releases; [Tenancy and access](../spec/02-tenancy-access.md) · The database walls; [Data model](../spec/04-data-model.md) · the intro and The money core
@@ -106,13 +106,19 @@ Definition of done: see CLAUDE.md.
   - `app_rw` is granted `update` on a money column, or `delete`, `truncate`, `references` or `trigger` on anything;
   - a backfill doesn't run as the audited migration role.
 - **Acceptance:**
-  - [ ] A migration without `lock_timeout` fails `pnpm db:lint`, naming the file and the line.
-  - [ ] A venue table without `force row level security`, or without `unique (venue_id, id)`, fails.
-  - [ ] `references checks (id)` fails and `references checks (venue_id, id)` passes.
-  - [ ] `grant delete on check_lines to app_rw` fails.
-  - [ ] CI runs the linter, and a failure blocks the merge.
+  - [x] A migration without `lock_timeout` fails `pnpm db:lint`, naming the file and the line.
+  - [x] A venue table without `force row level security`, or without `unique (venue_id, id)`, fails.
+  - [x] `references checks (id)` fails and `references checks (venue_id, id)` passes.
+  - [x] `grant delete on check_lines to app_rw` fails.
+  - [ ] CI runs the linter, and a failure blocks the merge. *(The "Migration lint" job runs on every PR; blocking the merge waits on branch protection, see M1-01's notes.)*
 - **Tests:** a passing and a failing fixture migration for each rule.
-- **Notes:** The money tables arrive in M2 and M4; the rules for them go in now so no later migration slips past.
+- **Notes:** The money tables arrive in M2 and M4; the rules for them go in now so no later migration slips past. Built Sep 30, 2026:
+  - `pnpm db:lint [files...]` lints `packages/db/migrations` in order and prints `file:line: rule: message`. It runs in CI as the "Migration lint" job, and the db package's unit tests run it on the real migrations too.
+  - **How it reads SQL.** A statement splitter (comments, strings, dollar quotes, line numbers) and per-statement patterns, not a full SQL parser: the DDL the spec uses (`force row level security`, `create policy`, column grants) is outside what the pure-JS parsers cover, and the native Postgres parser needs a compiled binding. Anything the patterns don't recognise is ignored, so a rule can be fooled by unusual syntax; the fixtures pin the shapes the spec uses.
+  - **Lists** live in `packages/db/src/lint/config.ts`: the money core (`checks`, `check_revisions`, `check_lines`, `payments`, `payment_attempts`, `payment_allocations`, `payment_events`, `refunds`, `venue_counters`, `drawer_moves`, `tip_pools`, `night_closes`), the append-only tables (those plus `venue_settings`, `audit_log`, `venue_events`, `webhook_events`, `rule_pack_versions`), the money columns (`*_cents`, `qty`, `amount`) and the tenancy roots (`organizations`, `venues`, `users`), which a foreign key may reference by `id` alone. Add to them as tables land.
+  - **Cautious default: the audited migration role is `app_migrator`.** The spec says backfills run "as an audited migration role" without naming it. A backfill (an `update`, `delete` or `insert` on a table the file didn't create) must sit between `set role app_migrator` and `reset role`. M1-07's audit triggers should record that role.
+  - The venue-wall rule checks the file that adds `venue_id` (by `create table` or `add column`) for `enable` and `force row level security`, the `venue_isolation` policy and `unique (venue_id, id)`, the last only when the table has an `id` column (`room_blocks` has none). Venue tables are carried from one migration to the next, so `references checks (id)` fails in any later file.
+  - `create index` without `concurrently` is allowed only on a table the same file creates.
 
 ### M1-04 · Write the business-date and money helpers test-first
 

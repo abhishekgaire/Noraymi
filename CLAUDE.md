@@ -101,6 +101,7 @@ pnpm install            # install everything
 docker compose up -d    # Postgres 16 (localhost:5432) and the local S3 store (RustFS, localhost:9000)
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
 pnpm db:reset           # local only: drop, recreate and migrate the database
+pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
 pnpm seed               # load the demo seed (built in M1-17; the simulated clock is Fri Sep 25, 2026, 10:41 PM)
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 pnpm lint && pnpm typecheck && pnpm test
