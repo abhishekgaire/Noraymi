@@ -1,4 +1,4 @@
-import { databaseUrl } from "@west4/db";
+import { appDatabaseUrl } from "@west4/db";
 
 export type West4Env = "local" | "staging" | "production";
 
@@ -12,6 +12,7 @@ export interface Config {
   readonly allowStagingFeatures: boolean;
   readonly port: number;
   readonly host: string;
+  /** The app_rw connection: behind the venue wall, never the table owner. */
   readonly databaseUrl: string;
 }
 
@@ -35,6 +36,6 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     allowStagingFeatures,
     port: Number(source["PORT"] ?? 3000),
     host: source["HOST"] ?? "127.0.0.1",
-    databaseUrl: databaseUrl(source),
+    databaseUrl: appDatabaseUrl(source),
   };
 }

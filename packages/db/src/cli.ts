@@ -1,6 +1,7 @@
 import { createDatabase, dropDatabase } from "./admin.js";
 import { databaseUrl, migrationsDir } from "./config.js";
 import { migrate } from "./migrate.js";
+import { ensureAppRoleLogin } from "./roles.js";
 
 const command = process.argv[2];
 const log = (line: string) => process.stdout.write(`${line}\n`);
@@ -15,6 +16,7 @@ async function main(): Promise<void> {
           ? `nothing to apply (${result.skipped.length} already applied)`
           : `applied ${result.applied.length} migration(s)`,
       );
+      await ensureAppRoleLogin(url, log);
       return;
     }
     case "reset": {
@@ -31,6 +33,7 @@ async function main(): Promise<void> {
       await createDatabase(url);
       const result = await migrate({ databaseUrl: url, dir: migrationsDir, log });
       log(`applied ${result.applied.length} migration(s)`);
+      await ensureAppRoleLogin(url, log);
       return;
     }
     default:

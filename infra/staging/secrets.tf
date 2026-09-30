@@ -8,6 +8,7 @@ locals {
     "stripe"           = "Stripe test-mode keys: secret_key, publishable_key, webhook_secret (M4)"
     "twilio"           = "Twilio test credentials: account_sid, auth_token, from_number"
     "origin-verify"    = "Shared header CloudFront sends the load balancer"
+    "app-db-password"  = "Login password of the app_rw database role (M1-05); db:migrate sets it"
   }
 }
 

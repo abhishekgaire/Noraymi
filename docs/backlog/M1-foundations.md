@@ -149,7 +149,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-05 · Build the tenancy tables and row-level security
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-03
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · The hierarchy, The database walls; [Data model](../spec/04-data-model.md) · Venue, people and platform; [Security and data retention](../spec/12-security-retention.md) 2; [Testing and operations](../spec/13-testing-operations.md) · Capacity
@@ -161,13 +161,19 @@ Definition of done: see CLAUDE.md.
   - The pattern for requests that arrive without a venue: `SECURITY DEFINER` functions owned by the no-login role, with a pinned `search_path`, that take a secret and return only ids. `resolve_device` comes with devices (M1-15), `resolve_sms_number` in M2, `resolve_room_session` in M3, `resolve_stripe_account` in M4 and `resolve_booking_token` in M5.
   - Test helpers in `packages/db` for two venues, A and B.
 - **Acceptance:**
-  - [ ] With `app.venue_id` unset, `select * from memberships` raises an error instead of returning rows.
-  - [ ] As venue A, selecting venue B's membership by its id returns nothing, and inserting a row with venue B's `venue_id` fails the policy.
-  - [ ] `app_rw` has no `BYPASSRLS`, and the M1-03 linter passes on every table.
-  - [ ] `org_read` returns rows only in a read-only transaction with `app.scope = 'org'`, only for venues where the user is an active owner.
-  - [ ] A user sees their own row and the members of the current venue, and no one else.
+  - [x] With `app.venue_id` unset, `select * from memberships` raises an error instead of returning rows.
+  - [x] As venue A, selecting venue B's membership by its id returns nothing, and inserting a row with venue B's `venue_id` fails the policy.
+  - [x] `app_rw` has no `BYPASSRLS`, and the M1-03 linter passes on every table.
+  - [x] `org_read` returns rows only in a read-only transaction with `app.scope = 'org'`, only for venues where the user is an active owner.
+  - [x] A user sees their own row and the members of the current venue, and no one else.
 - **Tests:** integration tests in `packages/db`, one for each statement above.
-- **Notes:** Auth tables the data model implies but doesn't name come in M1-19, M1-20 and M1-23.
+- **Notes:** Auth tables the data model implies but doesn't name come in M1-19, M1-20 and M1-23. Built Sep 30, 2026:
+  - **Migration `0002_tenancy.sql`:** `organizations`, `venues`, `users`, `memberships` with the spec's columns; the roles `app_rw` (no login in the migration, no BYPASSRLS, `noinherit`, 5-second `statement_timeout` and `idle_in_transaction_session_timeout`), `app_definer` (owns the definer functions) and `app_migrator` (the audited backfill role, M1-03); `app_venue_id()` raises when `app.venue_id` isn't set; `owner_venues()` and `current_org_id()` are `SECURITY DEFINER` with a pinned `search_path`, owned by `app_definer`, executable only by `app_rw`.
+  - **Policies name their role.** Permissive policies are OR-ed per role, so a policy "for everyone" fires inside the definer functions too and raises. `venue_isolation` on `memberships` is `to app_rw`; `app_definer` gets its own read policy. On `venues`, `venue_self` steps aside in org scope so `org_read` decides alone; outside org scope a missing venue still errors.
+  - **`org_read` lives on `venues` for now** (owner reports list the organization's venues). Report tables in later milestones copy the same policy; it must never go on `guests`, `messages` or `id_checks`.
+  - **The request wrapper** is `withVenue(pool, {venueId, userId, requestId}, work)` and `withOrgScope(pool, {userId}, work)` in `packages/db` (`src/tenancy.ts`), and `apps/api/src/db.ts` exposes them as `app.db` on Fastify. Routes get the principal-aware version with M1-08 and M1-14.
+  - **How the API connects.** `APP_DATABASE_URL` (app_rw) is separate from `DATABASE_URL` (the table owner, migrations). Locally `packages/db/local/init-roles.sql` creates the login on a fresh Compose volume (an existing one needs it run once by hand). On staging, `db:migrate` gives `app_rw` the password in `APP_DB_PASSWORD`, which comes from the new `west4/staging/app-db-password` secret; the API and worker tasks connect as `app_rw` and only the migration task holds the owner password.
+  - **Tests** connect as the owner and `set role app_rw` (the migration grants the roles to the owner), so no `app_rw` password is needed in CI. `seedTwoVenues()` and `appPool()` in `packages/db/src/test-helpers.ts` are the venue A and B helpers every later venue-wall test uses.
 
 ### M1-06 · Build the jobs table, the workers, the scheduler and the simulated clock
 

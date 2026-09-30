@@ -111,7 +111,7 @@ pnpm e2e                # Playwright smoke tests; starts the dev servers itself 
 pnpm format             # Prettier --write
 ```
 
-Copy `.env.example` to `.env` for local values. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.
+Copy `.env.example` to `.env` for local values. `DATABASE_URL` is the table owner (migrations); `APP_DATABASE_URL` is `app_rw`, what the API connects as. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.
 
 Staging runs on AWS (`infra/README.md`). Infrastructure changes are `terraform plan` then `terraform apply` in `infra/staging`, from a laptop with the admin profile. Merging to `main` deploys the application code through `.github/workflows/deploy-staging.yml`.
 

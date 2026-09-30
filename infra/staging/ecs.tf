@@ -23,8 +23,9 @@ locals {
     { name = "S3_BUCKET_AUDIT", value = aws_s3_bucket.audit.bucket },
     { name = "KMS_RULE_PACK_SIGNING_KEY", value = aws_kms_key.rule_pack_signing.arn },
   ]
+  # The API and the worker connect as app_rw, behind the venue wall (M1-05).
   app_secrets = [
-    { name = "DB_PASSWORD", valueFrom = "${local.db_secret_arn}:password::" },
+    { name = "APP_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.app["app-db-password"].arn },
     { name = "PIN_PEPPER", valueFrom = aws_secretsmanager_secret.app["pin-pepper"].arn },
     { name = "BADGE_MASTER_KEY", valueFrom = aws_secretsmanager_secret.app["badge-master-key"].arn },
   ]
@@ -97,7 +98,11 @@ resource "aws_ecs_task_definition" "migrate" {
     command     = ["node", "node_modules/@west4/db/dist/cli.js", "migrate"]
     essential   = true
     environment = local.app_env
-    secrets     = local.app_secrets
+    # Migrations run as the table owner (the RDS master user) and give app_rw its login.
+    secrets = [
+      { name = "DB_PASSWORD", valueFrom = "${local.db_secret_arn}:password::" },
+      { name = "APP_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.app["app-db-password"].arn },
+    ]
     logConfiguration = {
       logDriver = "awslogs"
       options   = { awslogs-group = aws_cloudwatch_log_group.app["migrate"].name, awslogs-region = var.region, awslogs-stream-prefix = "migrate" }

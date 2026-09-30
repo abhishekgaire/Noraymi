@@ -32,6 +32,25 @@ export function databaseUrl(env: Record<string, string | undefined> = process.en
   return defaultDatabaseUrl;
 }
 
+/**
+ * What the API connects as: APP_DATABASE_URL, or the same parts as
+ * databaseUrl() with APP_DB_USER and APP_DB_PASSWORD, else the local app_rw.
+ */
+export function appDatabaseUrl(env: Record<string, string | undefined> = process.env): string {
+  const direct = env["APP_DATABASE_URL"];
+  if (direct !== undefined && direct !== "") return direct;
+  const host = env["DB_HOST"];
+  if (host !== undefined && host !== "") {
+    return databaseUrl({
+      ...env,
+      DATABASE_URL: undefined,
+      DB_USER: env["APP_DB_USER"] ?? "app_rw",
+      DB_PASSWORD: env["APP_DB_PASSWORD"],
+    });
+  }
+  return "postgres://app_rw:app_rw@localhost:5432/west4";
+}
+
 /** The same server, a different database. Used to create and drop databases. */
 export function withDatabase(url: string, database: string): string {
   const parsed = new URL(url);

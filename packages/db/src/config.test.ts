@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { databaseName, databaseUrl, defaultDatabaseUrl, withDatabase } from "./config.js";
+import {
+  appDatabaseUrl,
+  databaseName,
+  databaseUrl,
+  defaultDatabaseUrl,
+  withDatabase,
+} from "./config.js";
 
 describe("databaseUrl", () => {
   it("prefers DATABASE_URL", () => {
@@ -28,5 +34,17 @@ describe("databaseUrl", () => {
       "postgres://u:p@h:5432/postgres?sslmode=require",
     );
     expect(databaseName("postgres://u:p@h:5432/west4")).toBe("west4");
+  });
+});
+
+describe("appDatabaseUrl", () => {
+  it("uses APP_DATABASE_URL, else app_rw on the same host as the owner, else the local app_rw", () => {
+    expect(appDatabaseUrl({ APP_DATABASE_URL: "postgres://app_rw:x@h/west4" })).toBe(
+      "postgres://app_rw:x@h/west4",
+    );
+    expect(
+      appDatabaseUrl({ DB_HOST: "h", DB_PASSWORD: "owner-pw", APP_DB_PASSWORD: "app-pw" }),
+    ).toBe("postgres://app_rw:app-pw@h:5432/west4?sslmode=require");
+    expect(appDatabaseUrl({})).toBe("postgres://app_rw:app_rw@localhost:5432/west4");
   });
 });
