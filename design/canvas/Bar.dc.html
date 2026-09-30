@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bar screen — room orders</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+@keyframes alarm{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+.alarm{animation:alarm .8s ease-in-out infinite}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,61,166,0)}50%{box-shadow:0 0 0 4px rgba(255,61,166,.55)}}
+.flash{animation:flash 1s ease-in-out infinite}
+@keyframes ring{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+.ring{animation:ring .25s ease-in-out infinite;transform-origin:50% 0}
+@keyframes tick{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.tick{animation:tick .25s ease both}
+@media (prefers-reduced-motion:reduce){.alarm,.ring,.tick,.flash{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 900px; height: 640px; box-sizing: border-box; display: flex; flex-direction: column; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 20px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <div style="display: flex; align-items: baseline; gap: 12px"><span class="disp" style="font-size: 28px">Bar</span><span class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994; white-space: nowrap">Room orders · West 4</span></div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span class="mono" style="font-size: 11px; color: #8E8994; white-space: nowrap">{{clock}}</span>
+      <sc-if value="{{needTap}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; letter-spacing: .06em; color: #FFB13D; padding: 6px 10px; border-radius: 999px; border: 1px dashed #FFB13D88; white-space: nowrap">Tap once for the chime</span></sc-if>
+      <button type="button" class="btn" onClick="{{toggleSound}}" style="appearance: none; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700; white-space: nowrap; {{soundStyle}}">{{soundLabel}}</button>
+      <button type="button" class="btn" onClick="{{demoOrder}}" style="appearance: none; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 600; white-space: nowrap; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">Demo: a room orders</button>
+    </div>
+  </header>
+
+  <sc-if value="{{hasAlarm}}" hint-placeholder-val="{{true}}">
+    <div class="{{alarmClass}}" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 20px; color: #0b0a0d; font-weight: 800; font-size: 16px; background: {{alarmColor}}">
+      <span style="display: inline-flex; align-items: center; gap: 10px"><svg class="{{ringClass}}" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3a5 5 0 0 0-5 5v3l-2 3h14l-2-3V8a5 5 0 0 0-5-5zM8 17a2 2 0 0 0 4 0"/></svg>{{alarmLine}}</span>
+      <span class="mono" style="font-size: 11px; letter-spacing: .1em">{{alarmRight}}</span>
+    </div>
+  </sc-if>
+
+  <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 0; flex: 1; min-height: 0">
+    <section style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; overflow: auto; border-right: 1px solid rgba(244,241,234,.08)">
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Waiting for you · {{pendingCount}}</div>
+      <sc-for list="{{pending}}" as="o" hint-placeholder-count="2">
+        <div class="{{o.cls}}" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; background: #16141b; border: 2px solid {{o.color}}">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="disp" style="font-size: 26px">{{o.room}}</span><span class="mono" style="font-size: 12px; font-weight: 700; color: {{o.color}}">{{o.ago}}</span></div>
+          <div style="font-size: 14px; line-height: 1.5; color: #F4F1EA">{{o.items}}</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap"><sc-for list="{{o.flags}}" as="f" hint-placeholder-count="1"><span class="mono" style="font-size: 10px; padding: 4px 8px; border-radius: 7px; {{f.style}}">{{f.label}}</span></sc-for></div>
+          <div style="display: flex; gap: 8px">
+            <button type="button" class="btn" onClick="{{o.accept}}" style="flex: 1; appearance: none; border: 0; border-radius: 10px; padding: 12px; font-weight: 800; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d">Accept · print ticket</button>
+            <button type="button" class="btn" onClick="{{o.hold}}" style="appearance: none; border-radius: 10px; padding: 12px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Hold · text the room</button>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{noPending}}" hint-placeholder-val="{{false}}"><div style="padding: 20px; border-radius: 14px; border: 1px dashed rgba(244,241,234,.16); color: #8E8994; font-size: 13px; text-align: center">Nothing waiting. Orders from the rooms land here and on the bar POS, oldest first.</div></sc-if>
+
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-top: 10px">Making · {{makingCount}}</div>
+      <sc-for list="{{making}}" as="m" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.1)">
+          <span class="disp" style="font-size: 20px; width: 84px; flex: none">{{m.room}}</span>
+          <span style="flex: 1; font-size: 13px; color: #C9C5CE">{{m.items}}</span>
+          <span class="mono" style="font-size: 10px; color: #8E8994">{{m.by}}</span>
+          <button type="button" class="btn" onClick="{{m.done}}" style="appearance: none; border-radius: 10px; padding: 9px 12px; font-weight: 700; font-size: 12px; background: transparent; color: var(--acc, #D4FF3F); border: 1px solid var(--acc, #D4FF3F)">Sent to room</button>
+        </div>
+      </sc-for>
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-top: 10px">Delivered tonight · {{doneCount}}</div>
+      <sc-for list="{{done}}" as="d" hint-placeholder-count="2"><div style="display: flex; gap: 12px; padding: 6px 14px; font-size: 12px; color: #6F6B78"><span class="mono" style="width: 60px">{{d.t}}</span><span style="width: 70px">{{d.room}}</span><span style="flex: 1">{{d.items}}</span></div></sc-for>
+    </section>
+
+    <section style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow: auto">
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Printer · Epson at the bar</div>
+      <sc-if value="{{hasTicket}}" hint-placeholder-val="{{true}}">
+        <div class="tick" style="align-self: center; width: 260px; background: #F4F1EA; color: #141218; padding: 16px 16px 22px; font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.6; box-shadow: 0 20px 40px -20px rgba(0,0,0,.9)">
+          <div style="text-align: center; font-weight: 700; letter-spacing: .12em">WEST 4 · ROOM ORDER</div>
+          <div style="text-align: center; font-size: 11px; color: #5b5764">{{ticket.when}} · accepted by {{ticket.by}}</div>
+          <div style="border-top: 1px dashed #b8b4bd; margin: 10px 0"></div>
+          <div style="font-size: 22px; font-weight: 700">{{ticket.room}}</div>
+          <div style="font-size: 11px; color: #5b5764">{{ticket.who}}</div>
+          <div style="border-top: 1px dashed #b8b4bd; margin: 10px 0"></div>
+          <sc-for list="{{ticket.lines}}" as="l" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between"><span>{{l.q}} × {{l.n}}</span><span>{{l.p}}</span></div></sc-for>
+          <div style="border-top: 1px dashed #b8b4bd; margin: 10px 0"></div>
+          <div style="display: flex; justify-content: space-between; font-weight: 700"><span>ON THE TAB</span><span>{{ticket.total}}</span></div>
+          <div style="font-size: 10px; color: #5b5764; margin-top: 6px">Nothing charged now. Settles at close-out.</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{noTicket}}" hint-placeholder-val="{{false}}"><div style="padding: 20px; border-radius: 14px; border: 1px dashed rgba(244,241,234,.16); color: #8E8994; font-size: 13px; text-align: center">Accept an order and the ticket prints here.</div></sc-if>
+      <div style="padding: 12px 14px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+        <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Out tonight · hidden on every room screen</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{outList}}" as="x" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{x.back}}" style="appearance: none; border-radius: 999px; padding: 6px 10px; font-weight: 600; font-size: 12px; background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666">{{x.name}} ×</button></sc-for>
+          <sc-if value="{{noOut}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #6F6B78">Everything is in stock.</span></sc-if>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; background: #0b0a0d; border: 1px solid rgba(244,241,234,.16); border-radius: 8px; padding: 0 10px">
+          <svg width="14" height="14" fill="none" stroke="#8E8994" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5l3.5 3.5"/></svg>
+          <input type="text" value="{{outQ}}" onInput="{{setOutQ}}" placeholder="Ran out of something? Search the menu" aria-label="Search the menu to mark an item out" style="flex: 1; min-width: 0; appearance: none; background: transparent; border: 0; outline: 0; color: #F4F1EA; padding: 9px 0; font-family: inherit; font-size: 12px">
+        </div>
+        <sc-if value="{{hasMatches}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{matches}}" as="mt" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{mt.pick}}" style="appearance: none; text-align: left; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #1c1a21; color: #F4F1EA; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 600">{{mt.name}}</b> <span style="color: #8E8994">· {{mt.cat}}</span></span><span style="font-weight: 700; color: #FF3DA6; white-space: nowrap">Mark out</span></button></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{noMatch}}" hint-placeholder-val="{{false}}"><div style="font-size: 11px; color: #FFB13D">Nothing on the menu matches “{{outQ}}”.</div></sc-if>
+        <div style="font-size: 11px; color: #6F6B78">Pick from the menu so the name matches every room screen. Tap one above to bring it back. Resets at close.</div>
+      </div>
+      <div style="margin-top: auto; padding: 12px 14px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 12px; line-height: 1.55; color: #8E8994">Color is the alert, because a chime is lost at karaoke volume: cyan when new, amber after 2 minutes, flashing pink after 4, when the front desk and Andy get a text too. The chime is a backup. The guest's phone shows <b style="color: #F4F1EA">Received → Accepted → On its way</b> as you tap. Hold sends them “Give us five minutes.” Every order is stamped with whoever accepted it.</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":900,"height":640}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    const now = Date.now();
+    // The chime is a backup to the colors: on by default, "mute 1 min" silences it and it comes back by itself after 60 s.
+    this.state = { tick: 0, muteUntil: 0, audioOk: false, ticket: null, n: 3, out: ["Casamigos Blanco, drink", "Casamigos Blanco, bottle", "Hoegaarden"], outQ: "",
+      orders: [
+        { id: 1, room: "Room 9", who: "Marcus T. · party of 12", at: now - 42000, status: "pending", ids: [12, 12], lines: [["Margarita · Peach", 2, 13]] },
+        { id: 6, room: "Room 5", who: "Kenji W. · party of 5", at: now - 131000, status: "pending", ids: [4, 5], lines: [["Bud Light", 4, 8]] },
+        { id: 4, room: "Room 9", who: "Marcus T. · party of 12", at: now - 8400000, status: "done", doneAt: "8:21 PM", by: "Maya", lines: [["Large bucket, 10 beers", 1, 70], ["Soju, Chamisul Fresh", 2, 20]] },
+        { id: 5, room: "Room 9", who: "Marcus T. · party of 12", at: now - 3600000, status: "done", doneAt: "9:48 PM", by: "Diego", lines: [["Jäger Bomb", 4, 12]] },
+        { id: 2, room: "Room 3", who: "Priya R. · party of 5", at: now - 240000, status: "making", by: "Maya", lines: [["Margarita · Peach", 2, 13], ["Margarita · Strawberry", 1, 13]] },
+        { id: 3, room: "VIP room", who: "Bianca L. · party of 22", at: now - 900000, status: "done", doneAt: "10:26 PM", by: "Diego", lines: [["Moët & Chandon", 1, 180], ["Soda, pitcher · Coke", 1, 18], ["Soda, pitcher · Sprite", 1, 18]] }
+      ] };
+  }
+  // Browsers only allow sound after a tap, so the AudioContext is made on the first tap or key press anywhere.
+  unlockAudio() {
+    if (typeof window === "undefined") return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      if (!this.ctx) this.ctx = new AC();
+      if (this.ctx.state === "suspended") this.ctx.resume();
+      if (this.ctx.state === "running" && !this.state.audioOk) this.setState({ audioOk: true });
+    } catch (e) {}
+  }
+  componentDidMount() {
+    this.onFirstTap = () => this.unlockAudio();
+    if (typeof document !== "undefined") { document.addEventListener("pointerdown", this.onFirstTap, true); document.addEventListener("keydown", this.onFirstTap, true); }
+    this.timer = setInterval(() => {
+      if (this.ctx && this.ctx.state === "running" && !this.state.audioOk) this.setState({ audioOk: true });
+      this.setState({ tick: this.state.tick + 1 });
+      const pending = this.state.orders.some((o) => o.status === "pending");
+      if (pending && Date.now() >= this.state.muteUntil && this.ctx && this.ctx.state === "running") {
+        try { const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.frequency.value = 880; g.gain.value = 0.08; o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime + 0.18); } catch (e) {}
+      }
+    }, 1000);
+  }
+  componentWillUnmount() {
+    if (this.timer) clearInterval(this.timer);
+    if (typeof document !== "undefined" && this.onFirstTap) { document.removeEventListener("pointerdown", this.onFirstTap, true); document.removeEventListener("keydown", this.onFirstTap, true); }
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    // Demo "now" is Fri Sep 25, 10:41 PM — the same moment as the Room, Order and Staff screens.
+    const clock = "10:41 PM";
+    // The real menu, copied from the room ordering screen so marked-out names match exactly.
+    const RAW = [
+      ["Cocktails", ["", ""], [["Tequila Sunrise", "", 12], ["Blue Hawaii", "", 12], ["Jolly Rancher", "", 12], ["Melon Ball", "", 12], ["Black Russian", "", 12], ["Sex on the Beach", "", 12], ["Paloma", "", 12], ["Midori Sour", "", 12], ["Amaretto Sour", "", 12], ["Kamikaze-tini", "", 12], ["Lemon Drop-tini", "", 13], ["Moscow Mule", "", 13], ["Dark 'n' Stormy", "", 13], ["Mai Tai", "", 13], ["Yogurt Soju Cocktail", "", 13], ["Malibu Bay Breeze", "", 13], ["Margarita", "Raspberry, peach or strawberry", 13], ["Iced Tea", "Long Island, Long Beach, Ruby Strawberry, Blue Lemonade or Tokyo Melon", 13]]],
+      ["Mocktails", ["", ""], [["Mule", "Peach, strawberry or raspberry", 11], ["Shirley Temple", "", 11]]],
+      ["Beer", ["glass", "pitcher"], [["Bud Light", "", 8], ["Budweiser", "", 8], ["Michelob Ultra", "", 8], ["Modelo", "", 9], ["Angry Orchard", "", 9], ["Heineken", "", 9], ["Corona", "", 9], ["Goose Island IPA", "", 9], ["Guinness", "", 9], ["Hoegaarden", "", 9], ["Blue Moon", "", 9], ["Stella Artois", "", 9], ["Kirin, draft", "", [9, 31]], ["Nütrl hard seltzer", "Lemonade, pineapple, watermelon, orange, black cherry or cranberry", 10]]],
+      ["Buckets", ["", ""], [["Small bucket", "6 beers", 40], ["Large bucket", "10 beers", 70]]],
+      ["Soju", ["", ""], [["Chamisul Fresh", "Bottle", 20], ["Jinro Is Back", "Bottle", 20], ["Strawberry", "Bottle", 20], ["Grapefruit", "Bottle", 20], ["Green Grape", "Bottle", 20], ["Peach", "Bottle", 20], ["Plum", "Bottle", 20]]],
+      ["Shots", ["", ""], [["Lemon Drop", "", 9], ["Buttery Nipple", "", 9], ["Kamikaze", "", 9], ["Woo Woo", "", 9], ["Orgasm", "", 9], ["Green Tea", "", 10], ["Red Headed Slut", "", 10], ["Jäger Bomb", "", 12]]],
+      ["Wine", ["glass", "bottle"], [["Malbec", "", [10, 40]], ["Merlot", "", [10, 40]], ["Cabernet", "", [10, 40]], ["Sauvignon Blanc", "", [10, 40]], ["Pinot Grigio", "", [10, 40]], ["Prosecco", "Sparkling", [10, 40]]]],
+      ["Champagne", ["", ""], [["André Brut", "Bottle", 40], ["Moët & Chandon", "Bottle", 180]]],
+      ["Whiskey", ["drink", "bottle"], [["Jameson", "", [12, 250]], ["Jack Daniel's", "", [12, 250]], ["Johnnie Walker Black", "", [12, 300]], ["Fireball", "", [13, 250]], ["Jack Daniel's Honey", "", [13, 300]], ["Maker's Mark", "", [13, 300]], ["Hennessy", "", [13, 300]], ["Bulleit Bourbon", "", [13, 330]], ["Basil Hayden", "", [13, 330]], ["The Glenlivet 12", "", [14, 350]]]],
+      ["Vodka", ["drink", "bottle"], [["Tito's", "", [12, 250]], ["Stoli", "Citrus, raspberry or blueberry", [12, 250]], ["Ketel One", "", [12, 330]], ["Grey Goose", "", [13, 350]]]],
+      ["Tequila", ["drink", "bottle"], [["Patrón", "", [13, 300]], ["Casamigos Blanco", "", [13, 330]], ["Mezcal", "", [14, 350]]]],
+      ["Rum", ["drink", "bottle"], [["Bacardi", "", [12, 275]], ["Captain Morgan", "", [12, 275]], ["Malibu", "", [12, 250]]]],
+      ["Gin", ["drink", "bottle"], [["Tanqueray", "", [12, 250]], ["Bombay", "", [12, 250]], ["Hendrick's", "", [13, 300]]]],
+      ["Packages", ["", ""], [["2 soju bottles + 1 small bucket", "", 70], ["4 soju bottles + 1 large bucket", "", 120], ["12 house shots + 2 small buckets", "", 150], ["1 bottle + 1 large bucket", "Free pitcher of soda", 300], ["2 bottles + 3 large buckets", "Free pitcher of soda", 680]]],
+      ["Soft drinks", ["cup", "pitcher"], [["Soda", "Coke, Diet Coke, Sprite or ginger ale", [5, 18]], ["Lemonade", "", [5, 18]], ["Cranberry juice", "", [5, 18]], ["Seltzer", "", [2, 16]], ["Ginger beer", "", 9], ["Red Bull", "", 6]]]
+    ];
+    const MENU = [];
+    RAW.forEach(([cat, [a, b], rows]) => rows.forEach(([name, sub, price]) => {
+      if (Array.isArray(price)) { MENU.push({ name: name + ", " + a, cat }); MENU.push({ name: name + ", " + b, cat }); }
+      else MENU.push({ name, cat, sub });
+    }));
+    const oq = (st.outQ || "").trim().toLowerCase();
+    const matches = oq ? MENU.filter((m) => st.out.indexOf(m.name) < 0 && (m.name + " " + m.cat + " " + (m.sub || "")).toLowerCase().includes(oq)).slice(0, 6).map((m) => ({
+      name: m.name, cat: m.cat, pick: () => this.setState({ out: st.out.concat([m.name]), outQ: "" })
+    })) : [];
+    const muteLeft = Math.max(0, Math.ceil((st.muteUntil - Date.now()) / 1000));
+    const muted = muteLeft > 0;
+    const ago = (t) => { const s = Math.max(0, Math.floor((Date.now() - t) / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+    const stageOf = (t) => { const s = (Date.now() - t) / 1000; return s >= 240 ? 2 : s >= 120 ? 1 : 0; };
+    const STAGE = ["#3DF2FF", "#FFB13D", "#FF3DA6"];
+    const money = (n) => "$" + n.toFixed(2);
+    const itemsOf = (o) => o.lines.map((l) => l[1] + " × " + l[0]).join(" · ");
+    const upd = (id, patch) => this.setState({ orders: st.orders.map((o) => o.id === id ? Object.assign({}, o, patch) : o) });
+    const pendingList = st.orders.filter((o) => o.status === "pending");
+    const flagStyle = (k) => k === "ok" ? "background: rgba(212,255,63,.1); color: " + acc + ";" : k === "warn" ? "background: rgba(255,177,61,.14); color: #FFB13D;" : "background: rgba(255,61,166,.14); color: #FF3DA6;";
+    const pending = pendingList.map((o) => ({
+      room: o.room, ago: ago(o.at) + " waiting", items: itemsOf(o), color: STAGE[stageOf(o.at)], cls: stageOf(o.at) === 2 ? "flash" : "tick",
+      flags: [o.ids ? (o.ids[0] >= o.ids[1] ? { label: "ID ✓ " + o.ids[0] + " of " + o.ids[1], style: flagStyle("ok") } : { label: "ID ✓ " + o.ids[0] + " of " + o.ids[1] + " · runner checks the last ID at the room", style: flagStyle("warn") }) : { label: "ID not scanned · runner checks every ID", style: flagStyle("warn") }]
+        .concat(stageOf(o.at) === 2 ? [{ label: "Waiting 4+ min · front desk and Andy texted", style: flagStyle("bad") }] : []),
+      accept: () => { const t = { when: clock, by: "Maya", room: o.room, who: o.who, lines: o.lines.map((l) => ({ q: l[1], n: l[0], p: money(l[1] * l[2]) })), total: money(o.lines.reduce((a, l) => a + l[1] * l[2], 0)) }; this.setState({ ticket: t, orders: st.orders.map((x) => x.id === o.id ? Object.assign({}, x, { status: "making", by: "Maya" }) : x) }); },
+      hold: () => upd(o.id, { status: "making", by: "Maya · held" })
+    }));
+    const making = st.orders.filter((o) => o.status === "making").map((o) => ({ room: o.room, items: itemsOf(o), by: o.by, done: () => upd(o.id, { status: "done", doneAt: clock }) }));
+    const done = st.orders.filter((o) => o.status === "done").map((o) => ({ t: o.doneAt || "9:12 PM", room: o.room, items: itemsOf(o) }));
+    const rooms = ["Room 1", "Room 6", "Room 11", "Room 3"], menus = [[["Corona", 4, 9]], [["Jäger Bomb", 6, 12], ["Red Bull", 2, 6]], [["Small bucket, 6 beers", 1, 40], ["Nütrl hard seltzer · Watermelon", 2, 10]], [["Iced Tea · Tokyo Melon", 2, 13]]];
+    return {
+      accent: acc, clock,
+      hasAlarm: pendingList.length > 0,
+      alarmColor: pendingList.length ? STAGE[Math.max.apply(null, pendingList.map((o) => stageOf(o.at)))] : STAGE[0],
+      alarmClass: pendingList.some((o) => stageOf(o.at) === 2) ? "alarm" : "", ringClass: pendingList.some((o) => stageOf(o.at) === 2) ? "ring" : "",
+      alarmRight: pendingList.some((o) => stageOf(o.at) === 2) ? "FRONT DESK AND ANDY TEXTED" : "OLDEST FIRST · ALSO ON THE BAR POS",
+      alarmLine: pendingList.length === 1 ? pendingList[0].room + " ordered · " + ago(pendingList[0].at) + " ago" : pendingList.length + " rooms waiting · oldest " + ago(Math.min.apply(null, pendingList.map((o) => o.at))) + " ago",
+      toggleSound: () => { this.unlockAudio(); this.setState({ muteUntil: muted ? 0 : Date.now() + 60000 }); },
+      soundLabel: muted ? "Chime back in " + muteLeft + "s" : "Mute chime 1 min",
+      soundStyle: muted ? "background: #FFB13D; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);",
+      needTap: !st.audioOk,
+      demoOrder: () => { const i = st.n % rooms.length; this.setState({ n: st.n + 1, orders: st.orders.concat([{ id: 100 + st.n, room: rooms[i], who: "Walk-in", at: Date.now(), status: "pending", lines: menus[i] }]) }); },
+      outList: st.out.map((name) => ({ name, back: () => this.setState({ out: st.out.filter((x) => x !== name) }) })), noOut: st.out.length === 0,
+      outQ: st.outQ, setOutQ: (e) => this.setState({ outQ: e.target.value }),
+      matches, hasMatches: matches.length > 0, noMatch: !!oq && matches.length === 0,
+      pending, pendingCount: pending.length, noPending: pending.length === 0,
+      making, makingCount: making.length, done, doneCount: done.length,
+      hasTicket: !!st.ticket, noTicket: !st.ticket, ticket: st.ticket || { when: "", by: "", room: "", who: "", lines: [], total: "" }
+    };
+  }
+}
+</script>
+</body>
+</html>

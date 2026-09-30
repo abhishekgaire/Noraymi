@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Reports</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rail a{transition:background .15s ease}.rail a:hover{background:rgba(244,241,234,.06)}
+.card{padding:14px 16px;border-radius:14px;background:#121016;border:1px solid rgba(244,241,234,.08);display:flex;flex-direction:column;gap:10px;min-width:0}
+.lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;height:100%;position:relative}
+.col .tip{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;padding:4px 8px;border-radius:6px;background:#F4F1EA;color:#0b0a0d;font-size:11px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .12s ease;z-index:5}
+.col .b{align-self:center;width:min(100%,40px)}
+.col:hover .tip{opacity:1}.col:hover .b{filter:brightness(1.15)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,166,.6)}50%{box-shadow:0 0 0 8px rgba(255,61,166,0)}}
+.pulse{animation:pulse 1.2s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden; position: relative">
+
+  <nav class="rail" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Boho Karaoke · desktop</span></div>
+    <a href="Board.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Tonight</a>
+    <a href="DeskCalendar.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Calendar</a>
+    <a href="DeskMessages.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Messages <span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d">2</span></a>
+    <a href="Rail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar POS</a>
+    <a href="Bar.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Bar orders <span class="mono pulse" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #FF3DA6; color: #0b0a0d">1</span></a>
+    <a href="Night.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Close the night</a>
+    <a href="DeskReports.dc.html" aria-current="page" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 700; color: #0b0a0d; background: var(--acc, #D4FF3F)">Reports</a>
+    <a href="AdminDesk.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Admin</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Drawer</span><br><b>Andy</b> since 6:00 PM<br><span style="color: #8E8994">Opened at $300.00</span></div>
+      <a href="Pin.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-size: 12px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.1)">Lock · PIN</a>
+    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid rgba(244,241,234,.08); white-space: nowrap">
+      <div style="display: flex; flex-direction: column; gap: 3px"><span class="disp" style="font-size: 26px">Reports</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">{{rangeLine}}</span></div>
+      <div style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); margin-left: 16px">
+        <button type="button" class="btn" onClick="{{tabWeek}}" style="appearance: none; border: 0; border-radius: 7px; padding: 8px 14px; font-weight: 700; font-size: 13px; {{weekStyle}}">This week</button>
+        <button type="button" class="btn" onClick="{{tabTrends}}" style="appearance: none; border: 0; border-radius: 7px; padding: 8px 14px; font-weight: 700; font-size: 13px; {{trendStyle}}">Trends · 8 weeks</button>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center">
+        <a href="Night.dc.html" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 13px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Tonight → Close the night</a>
+        <button type="button" class="btn" onClick="{{exportIt}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; white-space: nowrap; background: var(--acc, #D4FF3F); color: #0b0a0d">{{exportLabel}}</button>
+      </div>
+    </header>
+
+    <sc-if value="{{showWeek}}" hint-placeholder-val="{{true}}">
+      <section style="flex: 1; min-height: 0; overflow: auto; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+            <div class="card" style="gap: 6px"><span class="mono lbl">{{k.label}}</span><span class="disp" style="font-size: 36px; {{k.valStyle}}">{{k.value}}</span><span style="font-size: 12px; color: #8E8994">{{k.note}}</span></div>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="mono lbl">Sales by night</span><span class="mono" style="font-size: 10px; color: #8E8994">before tax &amp; gratuity</span></div>
+            <div style="display: flex; align-items: flex-end; gap: 8px; height: 150px; padding-top: 14px">
+              <sc-for list="{{nights}}" as="n" hint-placeholder-count="7"><div class="col"><span class="tip">{{n.tip}}</span><span class="mono" style="font-size: 10px; text-align: center; color: #C9C5CE; margin-bottom: 4px; {{n.labelStyle}}">{{n.v}}</span><div class="b" style="border-radius: 4px 4px 0 0; {{n.style}}"></div></div></sc-for>
+            </div>
+            <div style="display: flex; gap: 8px; border-top: 1px solid rgba(244,241,234,.12); padding-top: 6px"><sc-for list="{{nights}}" as="n" hint-placeholder-count="7"><span class="mono" style="flex: 1; text-align: center; font-size: 10px; color: #8E8994">{{n.l}}</span></sc-for></div>
+            <div style="font-size: 12px; color: #8E8994">Saturday led at $8.1K. Tuesday was the soft spot at $1.9K.</div>
+          </div>
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="mono lbl">Rooms in use by hour · Fri &amp; Sat average</span><span class="mono" style="font-size: 10px; color: #8E8994">of 14</span></div>
+            <div style="display: flex; align-items: flex-end; gap: 4px; height: 150px; padding-top: 14px">
+              <sc-for list="{{hours}}" as="h" hint-placeholder-count="12"><div class="col"><span class="tip">{{h.tip}}</span><span class="mono" style="font-size: 10px; text-align: center; color: #C9C5CE; margin-bottom: 4px; {{h.labelStyle}}">{{h.v}}</span><div class="b" style="border-radius: 4px 4px 0 0; {{h.style}}"></div></div></sc-for>
+            </div>
+            <div style="display: flex; gap: 4px; border-top: 1px solid rgba(244,241,234,.12); padding-top: 6px"><sc-for list="{{hours}}" as="h" hint-placeholder-count="12"><span class="mono" style="flex: 1; text-align: center; font-size: 9px; color: #8E8994">{{h.l}}</span></sc-for></div>
+            <div style="font-size: 12px; color: #8E8994">Full from 10 PM to midnight. Room 4 was off all week (mic).</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px">
+          <div class="card">
+            <span class="mono lbl">Best sellers · drinks to rooms &amp; bar</span>
+            <sc-for list="{{sellers}}" as="s" hint-placeholder-count="5"><div style="display: flex; align-items: center; gap: 10px; font-size: 13px" title="{{s.tip}}"><span style="width: 150px; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.name}}</span><div style="flex: 1; height: 8px; border-radius: 4px; background: rgba(244,241,234,.08); overflow: hidden"><div style="height: 100%; border-radius: 4px; {{s.style}}"></div></div><span class="mono" style="font-size: 11px; width: 36px; text-align: right; color: #C9C5CE">{{s.n}}</span></div></sc-for>
+          </div>
+          <div class="card" style="gap: 8px; font-size: 13px">
+            <span class="mono lbl">Bookings</span>
+            <div style="display: flex; justify-content: space-between"><span>Booked online</span><span class="mono">164</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Walk-ins seated</span><span class="mono">58</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Big parties (20+)</span><span class="mono">3</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Stayed past booked time</span><span class="mono">41</span></div>
+            <div style="display: flex; justify-content: space-between; color: #FFB13D"><span>No-shows · deposit kept</span><span class="mono">7</span></div>
+          </div>
+          <div class="card" style="gap: 8px; font-size: 13px">
+            <span class="mono lbl">People &amp; money</span>
+            <div style="display: flex; justify-content: space-between"><span>Refunds issued</span><span class="mono">4 · $212 · Andy</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Comps and voids</span><span class="mono">23 · $388</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Damage fees</span><span class="mono">1 · $150</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Reviews from the morning text</span><span class="mono">19 · 4.8</span></div>
+            <div style="display: flex; justify-content: space-between"><span>Gratuity pool paid out</span><span class="mono">$5,874</span></div>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{showTrends}}" hint-placeholder-val="{{false}}">
+      <section style="flex: 1; min-height: 0; overflow: auto; padding: 14px 20px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start">
+        <div class="card" style="grid-column: 1 / -1">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="mono lbl">Weekly sales · Fri to Thu</span><span class="mono" style="font-size: 10px; color: #8E8994">$K before tax &amp; gratuity</span></div>
+          <div style="display: flex; align-items: flex-end; gap: 14px; height: 170px; padding-top: 14px">
+            <sc-for list="{{weeks}}" as="w" hint-placeholder-count="8"><div class="col"><span class="tip">{{w.tip}}</span><span class="mono" style="font-size: 10px; text-align: center; color: #C9C5CE; margin-bottom: 4px; {{w.labelStyle}}">{{w.v}}</span><div class="b" style="border-radius: 4px 4px 0 0; {{w.style}}"></div></div></sc-for>
+          </div>
+          <div style="display: flex; gap: 14px; border-top: 1px solid rgba(244,241,234,.12); padding-top: 6px"><sc-for list="{{weeks}}" as="w" hint-placeholder-count="8"><span class="mono" style="flex: 1; text-align: center; font-size: 10px; color: #8E8994">{{w.l}}</span></sc-for></div>
+          <div style="font-size: 12px; color: #8E8994">Up 20% since the start of August. Last week was the best of the eight.</div>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="mono lbl">No-show rate by week</span><span class="mono" style="font-size: 10px; color: #8E8994">% of bookings</span></div>
+          <div style="display: flex; align-items: flex-end; gap: 10px; height: 140px; padding-top: 14px">
+            <sc-for list="{{noshows}}" as="w" hint-placeholder-count="8"><div class="col"><span class="tip">{{w.tip}}</span><span class="mono" style="font-size: 10px; text-align: center; color: #C9C5CE; margin-bottom: 4px; {{w.labelStyle}}">{{w.v}}</span><div class="b" style="border-radius: 4px 4px 0 0; {{w.style}}"></div></div></sc-for>
+          </div>
+          <div style="display: flex; gap: 10px; border-top: 1px solid rgba(244,241,234,.12); padding-top: 6px"><sc-for list="{{noshows}}" as="w" hint-placeholder-count="8"><span class="mono" style="flex: 1; text-align: center; font-size: 10px; color: #8E8994">{{w.l}}</span></sc-for></div>
+          <div style="font-size: 12px; color: #8E8994">Deposits went on in the week of Aug 21. No-shows fell from about 11% to 4.1%.</div>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="mono lbl">Average sales by weekday</span><span class="mono" style="font-size: 10px; color: #8E8994">last 8 weeks · $K</span></div>
+          <div style="display: flex; align-items: flex-end; gap: 10px; height: 140px; padding-top: 14px">
+            <sc-for list="{{dows}}" as="w" hint-placeholder-count="7"><div class="col"><span class="tip">{{w.tip}}</span><span class="mono" style="font-size: 10px; text-align: center; color: #C9C5CE; margin-bottom: 4px; {{w.labelStyle}}">{{w.v}}</span><div class="b" style="border-radius: 4px 4px 0 0; {{w.style}}"></div></div></sc-for>
+          </div>
+          <div style="display: flex; gap: 10px; border-top: 1px solid rgba(244,241,234,.12); padding-top: 6px"><sc-for list="{{dows}}" as="w" hint-placeholder-count="7"><span class="mono" style="flex: 1; text-align: center; font-size: 10px; color: #8E8994">{{w.l}}</span></sc-for></div>
+          <div style="font-size: 12px; color: #8E8994">Fri and Sat make half the week. Tuesday is the one to work on.</div>
+        </div>
+      </section>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor() { super(...arguments); this.state = { tab: "week", exported: false }; }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const seg = (on) => on ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;";
+    // Demo numbers. The live report is computed from closed nights' bookings and tabs. Tonight counts once it is closed.
+    // bars(rows, max, px, fmt, labelWhich): one hue, value labels only on the high and low marks.
+    const bars = (rows, px, fmt, tipFmt, best) => {
+      const vals = rows.map((r) => r[1]);
+      const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals), star = best === "last" ? vals[vals.length - 1] : hi;
+      return rows.map(([l, v]) => {
+        const show = v === hi || v === lo;
+        return { l, v: fmt(v), labelStyle: show ? "" : "visibility: hidden;", tip: tipFmt(l, v),
+          style: "height: " + Math.max(3, v / hi * px) + "px; background: " + (v === star ? acc : acc + "8c") + ";" };
+      });
+    };
+    const k = (v) => "$" + v.toFixed(1) + "K";
+    const nights = bars([["Fri 18", 7.4], ["Sat 19", 8.1], ["Sun 20", 4.2], ["Mon 21", 2.6], ["Tue 22", 1.9], ["Wed 23", 2.4], ["Thu 24", 4.8]], 110, k, (l, v) => l + " · " + k(v));
+    const hours = bars([["4p", 1], ["5p", 2], ["6p", 4], ["7p", 7], ["8p", 10], ["9p", 12], ["10p", 13], ["11p", 13], ["12a", 13], ["1a", 10], ["2a", 6], ["3a", 2]], 110, (v) => String(v), (l, v) => v + " of 14 rooms at " + l);
+    const weeks = bars([["Jul 31", 26.2], ["Aug 7", 27.0], ["Aug 14", 25.8], ["Aug 21", 28.4], ["Aug 28", 29.1], ["Sep 4", 27.9], ["Sep 11", 29.6], ["Sep 18", 31.4]], 130, k, (l, v) => "Week of " + l + " · " + k(v));
+    const noshows = bars([["Jul 31", 11.2], ["Aug 7", 10.8], ["Aug 14", 11.0], ["Aug 21", 9.6], ["Aug 28", 6.8], ["Sep 4", 5.2], ["Sep 11", 4.6], ["Sep 18", 4.1]], 100, (v) => v.toFixed(1) + "%", (l, v) => "Week of " + l + " · " + v.toFixed(1) + "% no-shows", "last");
+    const dows = bars([["Mon", 2.4], ["Tue", 1.8], ["Wed", 2.3], ["Thu", 4.5], ["Fri", 7.1], ["Sat", 7.9], ["Sun", 4.0]], 100, k, (l, v) => l + " average · " + k(v));
+    const sellers = [["Soju, Chamisul Fresh", 212], ["Large bucket, 10 beers", 96], ["Margarita", 88], ["Jäger Bomb", 81], ["Kirin, draft glass", 64]].map(([name, n]) => ({ name, n: String(n), tip: name + ": " + n + " sold", style: "width: " + (n / 212 * 100) + "%; background: " + acc + ";" }));
+    const kpis = [
+      { label: "Sales", value: "$31.4K", note: "+6% on the week before", valStyle: "color: " + acc + ";" },
+      { label: "Room hours sold", value: "1,012", note: "of 1,144 open room-hours · 88%", valStyle: "" },
+      { label: "No-shows", value: "4.1%", note: "was about 11% before deposits", valStyle: "" },
+      { label: "Average party", value: "6.4", note: "people · 1.9 hr in the room", valStyle: "" }
+    ];
+    return {
+      accent: acc,
+      rangeLine: st.tab === "week" ? "Fri Sep 18 – Thu Sep 24 · closed nights only" : "8 weeks · Jul 31 – Sep 24",
+      tabWeek: () => this.setState({ tab: "week" }), tabTrends: () => this.setState({ tab: "trends" }),
+      weekStyle: seg(st.tab === "week"), trendStyle: seg(st.tab === "trends"),
+      showWeek: st.tab === "week", showTrends: st.tab === "trends",
+      kpis, nights, hours, sellers, weeks, noshows, dows,
+      exportIt: () => this.setState({ exported: true }), exportLabel: st.exported ? "Emailed · CSV" : "Email CSV"
+    };
+  }
+}
+</script>
+</body>
+</html>

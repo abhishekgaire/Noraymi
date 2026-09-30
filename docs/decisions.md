@@ -1,0 +1,173 @@
+# Decision log
+
+Sep 29, 2026 · the decisions development builds on, newest first. Each row gives the date, the decision, why it was made and where it's specified. To change a decision, add a new row that names the one it replaces.
+
+- **Where it's specified** points to the [spec](spec/README.md) section that builds it, or to the [blueprint](blueprint.md) or [milestones](milestones.md). "FB §" is a section of the Sep 28 [fix brief](archive/fix-brief-sep28.md), which is final and wins over the reviews.
+- **Why** cites the finding behind each decision: F from the [flows review](archive/review-flows-sep28.md), C from the [completeness review](archive/review-completeness-sep28.md), K from the [competitive review](archive/review-competitive-sep28.md) and GA- from the earlier [gap analysis](archive/research/karaoke-bar-pos-gap-analysis.md).
+- The design canvas is frozen (D78): where it and the spec differ, build what the spec says.
+- Questions still open stay in the blueprint's [Open decisions](blueprint.md#open-decisions) until they're settled here.
+
+## Sep 29, 2026
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D78 | Sep 29, 2026 | The design canvas is frozen at v39, its 27 screens as they are. Where the canvas and the spec differ, the spec wins | Development starts from the repo, and the canvas doesn't have the Sep 28 changes, such as the bar-mode, receipt and join screens | [design/canvas](../design/canvas/boards.json); [blueprint → Every module](blueprint.md#every-module) |
+| D79 | Sep 29, 2026 | Module statuses are "Not started", "Specified, no screen", "In progress" and "Prototyped (canvas)". "Prototyped (canvas)" means a clickable design prototype; no production code exists yet | "Built" was never defined and read as working software (C23) | [blueprint → Every module](blueprint.md#every-module) |
+| D80 | Sep 29, 2026 | The gap analysis's items are named GA-M1 to GA-M11, GA-S1 to GA-S12 and GA-N1 to GA-N12, and the go-live gate is judged against the table that maps each GA-M item to its spec section and milestone | "M1–M11 closed" clashed with milestone numbers and with the gap review's own codes (C3) | [milestones → Must-fix items](milestones.md#must-fix-items-and-where-they-close) |
+| D81 | Sep 29, 2026 | Phase 1 ships every deliverable the spec describes, including the guest site pages, the Admin screens, the desktop app shell with offline queue mode, receipts and email, a minimal internal Console, the ID check with the door counter, room faults, packages, plan billing, retention jobs and the licenses register | No milestone shipped several things West 4 can't open without (C1, C8) | [milestones](milestones.md); [blueprint → Build plan](blueprint.md#build-plan) |
+| D82 | Sep 29, 2026 | Settings, module switches and the New York rule pack are phase 1. Phase 2 adds only the rule packs for other counties and the multi-venue settings | Milestone 1 already ships settings and the rule pack, and module states are phase 1 data (C26) | [Settings, rule packs and modules](spec/03-settings-rule-packs-modules.md) |
+| D83 | Sep 29, 2026 | Phase 1 adds a one-room trial of a switched outlet on the mic receiver, only with West 4's approval and after a Playbox warranty check. It also reserves in the data model, with no screens: a prepaid-value ledger, a booked-by or host field and merging two sessions onto one check, and bands in every rate mode with billing increments | Until Playbox signs, nothing ends the singing after close-out; the data items would mean rewrites if added later (K1, K5, K9, K13) | [Song systems and texts](spec/11-song-systems-texts.md) · Mic power trial; [Data model](spec/04-data-model.md); Settings · `prices` |
+| D84 | Sep 29, 2026 | Later competitive gaps. Phase 2: K3, K7, the native-app decision for offline cards (K10), K12, K14, K15, K17, gift cards (K5), guest profiles (K11), KJ tips and paid priority (K6), the KaraFun adapter, and Korean and Chinese screens. Phase 3, before the pilots: K8, K9's commission report, WeChat Pay, bottle keep (lawyer first), stored value, loyalty and campaigns, and K18 | Ranked by impact, with the Koreatown and Flushing items landing before those pilots (K review) | [blueprint → Build plan](blueprint.md#build-plan); [milestones → Not in phase 1](milestones.md#not-in-phase-1) |
+
+## Sep 28, 2026
+
+From the [fix brief](archive/fix-brief-sep28.md), sections 2 to 4. All final.
+
+### Roles, sign-in and approvals
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D14 | Sep 28, 2026 | Five default roles everywhere: Owner, Manager, Bartender, Front desk and Staff (a runner), with the permissions in FB §2's table | Diego works the front desk but also takes cash, runs bar tabs and closes out rooms, which the old Staff role couldn't (C2, F28) | [Tenancy and access](spec/02-tenancy-access.md) · Roles; FB §2 |
+| D15 | Sep 28, 2026 | The front desk takes payments and room close-outs; runs check-in, the waitlist, bookings and guest texts; comps and voids within the limit; cuts off; and uses the bar POS and accepts room orders when covering the bar, which Admin can switch off | West 4's front desk covers the bar while the bartender is on break (C2) | Tenancy and access · Roles |
+| D16 | Sep 28, 2026 | Staff (runners) carry runs and help with check-in and the waitlist. They take no payments and don't cut off: a runner returns the order with a reason, and a manager decides | Runners carry drinks, not money, and a cut-off needs someone who answers for it (FB §2) | Tenancy and access · Roles |
+| D17 | Sep 28, 2026 | Sign-in is a badge or name and PIN: 6-digit PINs for owners and managers, 4 for everyone else. Refunds, cash counts and no-sale ask for the PIN again. Admin needs a passkey and a PIN never opens it; a manager's Admin has no Payments, Team or Console | Screens disagreed on whether a PIN opens Admin, and some still said only "name and PIN" (C25, F46) | Tenancy and access · Who can call what, PINs and Badges |
+| D18 | Sep 28, 2026 | Comps and voids up to $25 each and $75 a shift per person need only a reason. The shift total counts every screen: the Rail, Room, DeskRoom and the Board | The limit worked three different ways on three screens (F11, C15) | Tenancy and access · The reason-only limit |
+| D19 | Sep 28, 2026 | Approvals (comps and voids over the limit, refunds, clock pauses, tips over 25%, paid-outs, a lower party size after gratuity) happen on the approver's own phone, never the requester's device. Nobody approves their own request, so a manager's go to the owner. The manager's phone has "Approvals · N", and the requester sees "Waiting for Andy" | No screen let a manager approve, and the manager could approve himself (F11, C12) | Tenancy and access · Approvals |
+| D20 | Sep 28, 2026 | A paper-slip tip over 25% goes to a manager, or to the owner if that manager entered the slip | Nobody approves their own request (FB §2) | Tenancy and access · Approvals; [Payment flows](spec/07-payment-flows.md) · Bar tab, Close |
+| D21 | Sep 28, 2026 | Bartenders count the bar drawer and the front desk counts its own; owners and managers can count either | Each drawer is counted by the people who work it (FB §2) | Tenancy and access · Roles; [Money rules](spec/05-money-rules.md) 15 |
+| D22 | Sep 28, 2026 | Bartenders, the front desk and runners share tips and gratuity; owners and managers never do | The gratuity goes only to eligible service staff, as the rule pack requires (FB §2) | Tenancy and access · Roles; [Settings](spec/03-settings-rule-packs-modules.md) · `pay` |
+
+### West 4's setup
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D23 | Sep 28, 2026 | Two cash drawers, at the bar and the front desk, each a house drawer the manager on duty answers for. Cash goes into the drawer where it's taken, the log names who took it, and Night counts both blind. A drawer per person stays the switch in Admin → Cash drawers | The bar POS opened a drawer the bar didn't have (C19, F17) | [Devices](spec/09-devices-printing-offline.md) · Cash drawers at West 4; Money rules 15 |
+| D24 | Sep 28, 2026 | A Stripe Reader S710 is installed at the bar, beside the front desk's | Bar tabs open on a bar reader that Admin listed as "on order" (F17) | Devices · Devices at West 4 |
+| D25 | Sep 28, 2026 | 14 automatic texts: 12 service texts, "You're up next" among them, and 2 marketing texts (review ask, birthday) that stay off until they have their own opt-in. "The bar needs a few minutes" and "On its way" are room-screen messages, not texts | Three screens listed different texts, and "You're up next" had no template (C34) | [Song systems and texts](spec/11-song-systems-texts.md) · The automatic texts |
+| D26 | Sep 28, 2026 | No invented occupancy limit: until West 4 enters one, screens show "Limit not set · Admin → Safety" | The Board showed a headcount with no limit to warn against (F51) | [Settings](spec/03-settings-rule-packs-modules.md); Devices · Safety |
+
+### Room orders
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D27 | Sep 28, 2026 | One pipeline and one set of words on every screen: Ringing → Asked to wait → Being made → Ready for a runner → On its way → Delivered | Four screens used four vocabularies, and no screen handed an order to a runner (F1) | [Staff screens](spec/10-staff-screens-bar-pos.md) · Room orders at the bar; [Data model](spec/04-data-model.md) · Room orders |
+| D28 | Sep 28, 2026 | The sale happens at Accept: the order joins the check then, and Delivered charges nothing | The staff phone implied the charge came at delivery (F1) | [Money rules](spec/05-money-rules.md) 6 |
+| D29 | Sep 28, 2026 | "Asked to wait" keeps the order under "Waiting for you", still aging and still needing Accept. Nothing reaches Ready or Delivered before Accept | "Hold" moved an order into Making without accepting it, so it could be delivered unpaid (F2) | Data model · Room orders |
+| D30 | Sep 28, 2026 | Side exits: Returned (the runner's reason; the bar voids it not made or made, or remakes it; "too drunk" offers a cut-off), Cancelled by the guest (only while ringing or asked to wait), Declined by the bar (a reason the guest sees) and Cancelled at 4:00 AM | Returns reached no screen, and declines gave no reason (F1, F20) | Data model · Room orders |
+| D31 | Sep 28, 2026 | `orders.status` is ringing, held, accepted, ready, on_the_way, delivered, returned or cancelled; `cancel_reason` is guest, staff, declined, alcohol_closed or cut_off. `ready` replaces `sent`, and `claimed_by` and `claimed_at` go with `on_the_way` | The old `sent` read as delivered (F1) | Data model · Room orders |
+| D32 | Sep 28, 2026 | The guest's phone reads: Sent to the bar · you can still cancel → The bar needs a few minutes → Being made · on your tab → On its way to Room 9 → Delivered, plus the returned, declined, 4 AM and cut-off messages in FB §4.1 | The guest's words didn't match the bar's (F1, F41) | Staff screens · Words on every staff screen; FB §4.1 |
+| D33 | Sep 28, 2026 | Escalation, in this sentence wherever it's described: "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup." The Board alerts at 2 min, then shows "on Andy's phone" at 4 and "texted Andy" at 6 | Screens described escalation three different ways (C24, F36) | [Devices](spec/09-devices-printing-offline.md) · Room orders at the bar |
+| D34 | Sep 28, 2026 | A failed print shows "Ticket didn't print · Reprint" on the bar screens, and the reprint prints "REPRINT 2" | Print failures had no screen (F36) | Devices · Tickets |
+
+### Check-in, waitlist and room moves
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D35 | Sep 28, 2026 | One check-in sheet on the Board and the phone: party size with the billable minimum, IDs checked "x of n" (the runner checks the rest), the room, the clock start (now or the booked time), the deposit applied and a new room code texted with the join link. It calls `POST /bookings/{b}/check-in` | The Board couldn't check anyone in, and the phone did it in one tap with no ID count, party check or code (F3) | [API](spec/08-api.md); FB §4.2 |
+| D36 | Sep 28, 2026 | Arriving and late bookings show on their room's tile with Check in and Mark no-show; no-show is allowed after the 15-minute grace. A walk-in with no wait opens the same sheet with a free room | There was no way to check in or no-show from the Board (F3) | Staff screens · The board and staff phones; FB §4.2 |
+| D37 | Sep 28, 2026 | A waitlist offer picks the smallest room that fits and is free for an hour, or a bigger one no booking tonight needs. It holds the room 10 minutes, texts and counts down, shows "Not delivered · Call" if the text fails, and releases the room to the next party that fits when it expires. Seat opens check-in | Staff couldn't offer or seat a room from the waitlist (F4) | Data model · Room assignment |
+| D38 | Sep 28, 2026 | A room move lists only rooms that fit and are free for the time needed, opens a new clock segment and room code, tells the guests' phones and sends the old room to cleaning | The phone could move 12 guests into a 3–6 room with no new code (F22) | Data model · Room assignment; Money rules 3 |
+| D39 | Sep 28, 2026 | Party size +/− shows the new rate and billable minimum and closes the clock segment; lowering it after the gratuity applies needs approval; the ID chip follows the new size | Party size couldn't change once a room was running (F23) | Money rules 3 and 9 |
+
+### Close-out, comps and refunds
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D40 | Sep 28, 2026 | Close-out starts with "Present the check", which finalizes it and locks ordering from the room. Ringing or asked-to-wait orders are listed first, and a manager can reopen the check | Rooms went to cleaning with an order still ringing, and guests could order during payment (F13) | [Payment flows](spec/07-payment-flows.md) · Room close-out; Money rules 6 |
+| D41 | Sep 28, 2026 | Ways to pay, mixed as needed: tap on either reader, with its waiting, declined, "Checking with Stripe · don't retry", offline and busy states; card on file only after the guest confirms on their phone, or a manager approves if they've left; the Rail's cash panel; split even or by item, with shares kept and leftover cents to the first shares; and guests paying their own shares | Every card path landed on "Paid", and cash recorded no amount or change (F14, F15, F16) | Payment flows · Room close-out and What staff see during a card payment |
+| D42 | Sep 28, 2026 | Room checks carry the gratuity, so the reader skips its tip screen. Staff can add an "Additional tip (optional)" line, and the receipt prints "Gratuity included (20%)" | A tip on top of a gratuity must be optional and labeled (F47) | Payment flows · Additional tip; Money rules 9 |
+| D43 | Sep 28, 2026 | Paid in full offers Text, Email, Print or No receipt. A room goes to cleaning only when nothing on it is ringing, asked to wait or unpaid, and an order accepted after payment opens a new check | The receipt was always texted, and rooms closed with orders open (F47, F13) | Payment flows · Paid in full, then the receipt |
+| D44 | Sep 28, 2026 | One comp, void or move panel on every screen: made or not made, a reason, "$X left this shift". Lines read VOID or COMP | Each screen handled comps its own way, and a void read "COMP · void" (F11, F41) | Staff screens · Changing a sent drink |
+| D45 | Sep 28, 2026 | Refunds: only owners and managers ask, and a second person approves on their own phone. Screens show "Refund pending" until Stripe confirms, then "Refunded". A refund never exceeds what that payment captured, less earlier refunds. It's offered on the phone (from the booking), on DeskRoom and under the Rail's Closed tonight | The only refund screen refunded $360 against a $120 deposit, at once and with no approval (F8, C16) | Payment flows · Refunds; Money rules 14 |
+
+### Alcohol
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D46 | Sep 28, 2026 | Owners, managers, bartenders and the front desk can cut off a tab, a room or a guest, from the Rail's tab, the Board tile, DeskRoom and the Room phone. It records who, why and when, and logs a refusal. Every screen then shows "Cut off by Andy at 10:30 PM" and greys out alcohol, alcohol can't move onto the tab, and the guest reads "Your server has paused alcohol for this room" | Only the bar POS could cut off, and nothing could stop a room (C5, F20, GA-M7) | Money rules 5; Data model |
+| D47 | Sep 28, 2026 | At 4:00 AM alcohol greys out on every screen, and alcohol orders nobody accepted cancel automatically with a message to the room. There's no Decline button after 4 AM, and the bar orders screen lists "Cancelled at 4:00 AM" | The bar POS showed a manual Decline while the spec cancels automatically (C4, F20, GA-M6) | Money rules 5 |
+| D48 | Sep 28, 2026 | The clear-out check at 4:30 AM, the close plus drinking-up time, on the Board and Night: "Walk every room and the bar · no drinks left out", and Done records who and when | It was one sentence with no storage and no screen (C4, GA-M6) | Money rules 5; Data model; API |
+
+### Bar tabs
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D49 | Sep 28, 2026 | New tab shows a line the bartender reads before the tap, with "Read to guest ✓" recording who read it, and the tab slip repeats it: "We'll hold $50 on this card and add to it as you order. We charge your tab when you close out, or at 4:30 AM if it's still open. Add your tip on the reader." | The spec required a read-out consent that no screen had (C14) | Payment flows · The consent line |
+| D50 | Sep 28, 2026 | A split survives leaving the pay panel and switching tabs, shows "Partly paid · $16.33 of $32.66", works in cents with any extra cent on the first share, can take a share in cash, and ends with "Stop splitting · charge the rest to …" | A paid share was forgotten once the bartender left the panel, and shares were a cent off (F9, C30) | Payment flows · Split; Money rules 1 and 13 |
+| D51 | Sep 28, 2026 | A reopened, captured tab has no hold and no "Close to card". New drinks are paid by a new tap, cash, or "Charge the saved card" with the guest's confirmation or a manager's OK; with $0 due, no pay buttons show | A reopened tab still offered to close to a hold already captured (F10) | Payment flows · Reopen |
+| D52 | Sep 28, 2026 | "Move tab to a room" moves every line as a transfer, closes the tab as "Moved to Room 9" and releases its hold once the room has a payment method. A move runs the hold-raise check, and alcohol can't move onto a cut-off tab | Moving a tab left a $0 tab holding $50, and drinks could move onto a cut-off tab (F18, F19) | Payment flows · Moving a tab into a room |
+
+### Outages
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D53 | Sep 28, 2026 | Banners on the Board, Rail and Bar: amber "On backup internet · card readers may take up to 2 min to switch"; pink "Offline · read-only · orders queue with an offline code", with rounds marked "queued · not charged"; after reconnect, "Confirm replayed orders", each landing as asked to wait and needing Accept; and vendor banners for Stripe and texts. The Board footer reads "Online · synced 4 s ago", never "works offline" | The outage had no screens, and "works offline" promised more than the design allows (F12, C11) | Devices · Outages |
+| D54 | Sep 28, 2026 | Night gets "Review after outage" and a one-page break-glass card: take cards with Tap to Pay in Stripe's Dashboard app on the manager's phone, then match them under "Unmatched payments" | Managers need a rehearsed way to take cards when everything is down (F12) | Devices · Review after outage and Break-glass card; [Scope and architecture](spec/01-scope-architecture.md) · When our cloud is down |
+
+### Room problems and safety
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D55 | Sep 28, 2026 | "Report a fault" on the Board and DeskRoom logs it on the room, with Out of service, "Pause the clock" (needs approval) and "Comp 15 min of room time" (reason only). Open faults show on the tile | A mic failing mid-session had no remedy but a refund later (F24, GA-S5) | Staff screens · The board and staff phones; Data model |
+| D56 | Sep 28, 2026 | A damage fee ($150 at West 4) needs a photo and a reason before it's added, and never says "photo attached" without one | DeskRoom said "photo attached" when no photo was taken (F24) | Data model; FB §4.10 |
+| D57 | Sep 28, 2026 | Lost and found lives on the Board: "Found in Room 9 · kept at the bar · claimed by …" | There was no lost-item log (F50) | Data model; Staff screens |
+| D58 | Sep 28, 2026 | The guest's private help alert lands only on managers' phones, with I'm on it and notes that go to the incident log. The Board shows only a "Manager needed" pin, with no room and no reason | The alert reached no screen (F25, GA-S6) | API; Staff screens |
+| D59 | Sep 28, 2026 | Room calls ("Another mic, please") go to the Board and every staff phone's Calls list, and the guest reads "Staff get it on their phones" | Calls reached only the desktop, and the guest was told the bar screen lights up (F26) | Staff screens · The board and staff phones |
+
+### Bar mode
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D60 | Sep 28, 2026 | West 4's offer is "Buy a drink, get a song": each drink earns one credit, which posts a $0.00 song line when the song starts. With no song price set, every song needs a credit, and Admin shows "Song price · not set" | Bar mode is on at West 4 and needed a defined offer (F6, C10) | [Song systems and texts](spec/11-song-systems-texts.md) · Bar mode, Credits |
+| D61 | Sep 28, 2026 | Singers join from their phones or at the bar with a display name and a phone number confirmed once by code. Songs rotate round-robin, one per singer per round (the limit comes from Admin). Staff mark Started, which posts the song line or uses a credit, or Skip, which is free and returns a prepaid credit; any override is logged with a reason | No screen had a singer queue (F6, C10) | Song systems and texts · Joining, Rotation, Started and Skip |
+| D62 | Sep 28, 2026 | Singer alerts by push and service text: "2 singers before you" and "You're up next at the bar · come to the stage". The Up next TV shows now singing, the next 5 singers and a join QR code, never phone numbers. The KJ gets a song-queue screen | Otherwise singers watch the TV or miss their turn, and the KJ calls names over the mic (K6) | Song systems and texts · Alerts and Screens |
+| D63 | Sep 28, 2026 | The KJ songbook is a CSV upload (title, artist, code). West 4's Playbox catalog comes only from Playbox or West 4, never scraped | A KJ's own library couldn't be searched, and integrations are partnerships only (K6) | Song systems and texts · Songbook |
+| D64 | Sep 28, 2026 | "Send the singer a drink" is a gift order that rings the bar, checks the alcohol window and the receiving tab, and has ID checked at hand-off | A gift drink must not get around a cut-off (GA-M11) | Song systems and texts · Send the singer a drink; Data model · Room orders |
+
+### Guest extras
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D65 | Sep 28, 2026 | Pay my share ships in phase 1: on the room page, "My items" or "An even share (1 of N)", with the guest's share of tax and gratuity, by Apple Pay, Google Pay or card. It's a venue setting, on at West 4, and the booker's card still guarantees the rest | A party of 12 leaving at 3:45 AM otherwise queues at one reader (K2) | Payment flows · Pay my share |
+| D66 | Sep 28, 2026 | Same again ships in phase 1: the room's last delivered rounds, re-ordered in one tap, still ringing the bar | Guests otherwise hunt through a 127-item menu (K16) | Data model · Same again |
+| D67 | Sep 28, 2026 | Minimum spend ships in phase 1, set per room size and day in Admin → Hours & prices, off at West 4. Where it's set, the tile, DeskRoom and the room page show "$84 to your minimum" | VIP rooms and KTVs sell on minimums, and adding it later would mean a rewrite (K4) | [Settings](spec/03-settings-rule-packs-modules.md) · `prices`; Money rules |
+
+### Staff
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D68 | Sep 28, 2026 | Clock-in asks for the duty (Bar, Front desk, Runner, Manager), which the tip pool uses. Clock-out checks open tabs and unsent drinks to hand over, the cash drop or bank count (drawer per person only) and declared cash tips. The bar POS shows "Maya · on break" | Clock-out ignored three open tabs and cash, and nothing recorded the duty (F29) | Staff screens · Shifts |
+| D69 | Sep 28, 2026 | Training mode, per person or per device, in Admin → Team: a permanent "TRAINING · not real money" band, and check numbers that start with T- | New hires learn on the real screens, which had no training state (F39) | Data model · Training mode; [Testing and operations](spec/13-testing-operations.md) |
+| D70 | Sep 28, 2026 | Staff screens launch in English and Spanish, picked per person in Admin → Team and at sign-in; Korean and Chinese follow in phase 2. This closes the blueprint's "Launch languages" question | The spec promised four staff languages that no milestone shipped (C9) | Tenancy and access · Languages; Staff screens rule 11 |
+
+### Modules, words and closing the night
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D71 | Sep 28, 2026 | Ordering from the room needs Bar screen & tickets: turning the bar screen off while ordering is on asks "Room orders would have nowhere to ring. Turn off Ordering from the room too?" Admin shows what each module hides, and with booking off the site's "Book a room" becomes "Call to book" | Turning the bar screen off mid-service was instant, with no warning (F37) | Settings, rule packs and modules · Modules |
+| D72 | Sep 28, 2026 | One set of words: "Ask the room to wait" ("Hold" now means only a card authorization), "Charge the remaining tabs" ("Last call" is only the house time), "Tab & close out →", "Ready" and "Ready for a runner", "Back to the sale", VOID or COMP, "Lock", "their phones explain", "Being made", "Stay on by the minute until we close at 4 AM", and "badge or name and PIN" | Several words meant two things to a first-shift bartender (F41, C24, C25) | Staff screens rule 12 and Words on every staff screen; FB §4.17 |
+| D73 | Sep 28, 2026 | Site prices read "$10 a person an hour, plus tax and a 20% gratuity" and "VIP room $250 an hour" | The rooms page left out the gratuity, and "and up" contradicted a flat VIP rate (C32) | FB §4.17 |
+| D74 | Sep 28, 2026 | Admin's "Ring the bar until someone accepts" alarm toggle is removed; the aging times, the chime and Mute replace it | The spec has no such setting, and color is the alarm (C17) | Staff screens rule 7 |
+| D75 | Sep 28, 2026 | Before closing, Night checks staff still on the clock, open waitlist entries, ringing or asked-to-wait orders, pending approvals, rooms still cleaning, unsent drinks, the clear-out check, paper slips not entered ("3 slips not entered · tips post to Sat Sep 26") and both drawers counted, each with a link to fix it | Night said no slips were waiting while the phone had three, and other checks were missing (F30) | Money rules 16; FB §4.18 |
+| D76 | Sep 28, 2026 | The Z report splits Drinks into room checks and bar tabs, and takes the gratuity from room checks only: 20% of room time, room drinks and packages sold to rooms, less room comps and refunds | The gratuity was 20% of all sales, bar tabs included (F31, C29) | Money rules 9 and 16 |
+| D77 | Sep 28, 2026 | "Print Z report" appears only after the night is closed; before that it's "Print X report (running)", and the log runs in time order | A Z report printed before the close would still be running (F42) | Money rules 16 |
+
+## Sep 26, 2026
+
+The decisions behind the Sep 26 spec and the blueprint's first Decided list.
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D1 | Sep 26, 2026 | Multi-tenant from day one: an organization owns one Stripe account and one or more venues, every venue-owned row carries `venue_id`, and Postgres row-level security walls venues apart | Venue two should need setup, not a rewrite, and one bad query mustn't leak another venue's data | [Tenancy and access](spec/02-tenancy-access.md); [Scope and architecture](spec/01-scope-architecture.md) |
+| D2 | Sep 26, 2026 | We build the whole POS ourselves on Stripe Connect and Terminal, not on top of Toast or Square | Restaurant POS has no room sessions, so a check that holds room time, bar orders and the booking's deposit can't sit on top of it | [blueprint → Decided](blueprint.md#decided) |
+| D3 | Sep 26, 2026 | Venues pay Stripe directly on their own accounts, with Managed Risk on: Stripe collects the fees, covers losses and files the venues' 1099-Ks, and our revenue is the subscription | At list prices, reselling processing leaves about $107 a month on $100,000 of card volume, and we hold no reserves | [Stripe setup](spec/06-stripe-setup.md) 1; [blueprint → Platform](blueprint.md#platform) |
+| D4 | Sep 26, 2026 | Direct charges: each organization has its own connected account and each venue one Terminal Location, and every call names the account with `Stripe-Account` | The pattern Stripe documents for SaaS platforms and for Terminal, and readers can't cross venues | Stripe setup; blueprint → Platform |
+| D5 | Sep 26, 2026 | Server-driven readers: staff screens ask our API, which drives the reader through Stripe. An S710 at every pay point with cellular on; no M2 | Any device works with nothing installed, and a phone on cellular can still take a card when the venue's internet is down | Scope and architecture · Why server-driven readers; Stripe setup 4 |
+| D6 | Sep 26, 2026 | No stored offline card payments in phase 1. When the line and the backup LTE are both down, orders queue under an offline code and managers take cards by Tap to Pay; whether phase 2 adds a native app stays open | Server-driven readers can't store payments offline, and store-and-forward needs Stripe's native SDK | Scope and architecture · When the venue's internet drops; [Devices](spec/09-devices-printing-offline.md) |
+| D7 | Sep 26, 2026 | Card fee: each venue picks off (the default), a credit-only surcharge capped at its in-person card cost and Visa's 3%, starting 30 days after notice, or a cash discount. West 4 starts off | West 4's flat 3.5% was over Visa's and Stripe's caps (GA-M1) | [Settings](spec/03-settings-rule-packs-modules.md) · `CardFee`; [Money rules](spec/05-money-rules.md) 10; [Payment flows](spec/07-payment-flows.md) |
+| D8 | Sep 26, 2026 | Gratuity: each venue picks off, room tabs, parties of a set size or every tab, at its own %. It always reads "Gratuity", and all of it goes to eligible staff, never owners or managers. West 4 keeps 20% on room tabs | The hand-typed 20% had to behave exactly like a gratuity (GA-M2) | Settings · `pay`; Money rules 9 |
+| D9 | Sep 26, 2026 | A staff-first bar POS: one home per role, a fixed grid where nothing moves, one-tap repeat rounds, undo instead of confirmations, approvals that never hold up the bar, tips on the reader, one-tap cash, room orders that age on screen instead of an alarm, and Charge the remaining tabs at close | At peak one bartender rings, pours and answers 14 rooms at about 81 dBA with wet hands, and a new hire runs the screen on their first shift | [Staff screens](spec/10-staff-screens-bar-pos.md) |
+| D10 | Sep 26, 2026 | Badges (NTAG 424 DNA) on a USB NFC reader at each shared screen, with name and PIN as the fallback; no fingerprint readers | A tap takes about a second against about 5 for a PIN, and New York's Labor Law §201-a bars requiring fingerprints | Tenancy and access · Badges |
+| D11 | Sep 26, 2026 | Modules at two levels: our control panel sets what each venue's plan allows, and the venue's Admin moves each module between on, stopping and off. Four core modules are always on | One product serves private rooms, bar-style karaoke and kitchens, which many venues mix | Settings, rule packs and modules · Modules |
+| D12 | Sep 26, 2026 | Legal limits live in versioned rule packs picked from the venue's address, New York first. A new version needs two approvers on our side and takes effect at a business-date boundary | Rules vary by county, tax jurisdiction and wage region, and expansion should add tables, not code | Settings, rule packs and modules · Rule packs; [Security](spec/12-security-retention.md) 11 |
+| D13 | Sep 26, 2026 | Phase 1 runs every song system as `none`: our clock, bar queue and song charges, with staff tapping "started". Adapters come one vendor at a time, and only through partner programs or written agreements (Playbox only once it signs), never by scraping or reverse-engineering | Playbox publishes no API, and the product must work with any player | [Song systems and texts](spec/11-song-systems-texts.md) · The adapter |

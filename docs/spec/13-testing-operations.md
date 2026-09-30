@@ -1,0 +1,38 @@
+## Testing and operations
+
+Money code gets the heaviest testing, and the service is watched against its published targets.
+
+**Environments.** Local (Docker Postgres and Stripe's sandbox), staging and production. Staging copies production's setup on a connected Stripe sandbox account, so reader events arrive exactly as they will live, with [simulated readers](https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven) and one real S710 on test cards.
+
+**The demo seed.** Staging is seeded from the [demo seed](../demo-seed.md): West 4 at Fri Sep 25, 2026, 10:41 PM, with its 14 rooms, 127-line menu, team, bookings, waitlist, room orders, bar tabs, drawers, singer queue and the Room 9 story: the one set of facts every screen is built to show, so a screen and the build can be checked against each other. The end-to-end tests load the same seed as their fixture, so a failing test names a fact from the seed, and the checks in [milestones](../milestones.md) use its names and numbers.
+
+**Training mode.** New hires learn on the real screens. Admin → Team turns it on for a person (`memberships.training`), or for a device during a new hire's first shifts (`devices.training`). Practice checks are numbered T-… from their own counter and pay only through Stripe's sandbox with simulated readers, so a practice request never touches the live account or a live reader. Every screen in training shows a permanent "TRAINING · not real money" band, and practice checks stay out of Z reports, tax, exports, tip pools and the reason-only totals ([Security and data retention](12-security-retention.md) 15).
+
+**Tests**
+
+| Kind | What it proves |
+| --- | --- |
+| Pricing unit and property tests | Rounding, segments and the first-hour minimum, bands by business date, gratuity basis, tax once per rate, card fee; shares and tip splits always add up to the cent; both daylight-saving nights, Nov 1, 2026 and Mar 14, 2027 |
+| Stripe flow tests on a connected sandbox | Every flow in Payment flows, including unknown results (timeouts, a reader dropping mid-payment, missing webhooks), declined raises, awaiting tip, walkout and sweeper captures |
+| Payment chaos tests | The API is killed between Stripe's success and our commit; the reconciler adopts or cancels the payment, and nobody is charged twice |
+| Offline replay tests | Replayed orders never attach to a paid check or an earlier night; failures land on the review list |
+| Principal and venue-wall tests | Every endpoint called as every principal, and as venue A with venue B's ids; jobs and webhooks too |
+| Role and approval tests | Every action in the role table tried as every role; an approval can't be decided by the requester or on the requester's device; reason-only totals add up per person across the bar POS, Room, DeskRoom and the board |
+| Clock tests | On a simulated clock, on a normal night and both daylight-saving nights: at 4:00:00 AM alcohol stops and unaccepted alcohol orders cancel themselves; at 4:30 the clear-out check is raised and open tabs are charged; the business date turns at 6:00 AM |
+| Training-mode tests | A practice request can't reach the live Stripe account, a live key or a live reader; practice checks are numbered T-… and never reach a Z report, export, tip pool or reason-only total |
+| Module tests | Dependencies and their confirms; `404 module_off` on every route of a module that's off; each module's row in the effects table matches what the screens hide |
+| Language tests | Every staff string exists in English and Spanish, and each staff screen renders its longest translation without cut-off text |
+| End-to-end browser tests | Board, room tab, the bar POS, the bar orders screen, runs, close-out, Pay my share, charging the remaining tabs and night close, on phone and desktop sizes, with the demo seed as the fixture |
+| Timed staff trial | Before go-live, three bartenders new to the system and a front-desk person run a scripted 20-minute rush in the venue, music on and hands wet, in training mode; we count taps, errors and seconds per task against the targets in [Staff screens and the bar POS](10-staff-screens-bar-pos.md). The run repeats after the first real Friday, and a missed target changes the design, not the target |
+| Friday-night load test | 20 venues peaking together, with Stripe mocked at delays sampled from real calls, a reconnect storm and a heavy report; the alarm still rings within 3 seconds |
+| Outage drills | Internet down with the Wi-Fi up; the access point off; the router's LTE off too; and our cloud down, using the break-glass card to take cards with Tap to Pay on each manager's phone. Each drill checks the screens too: "On backup internet" (amber); "Offline · read-only · orders queue with an offline code" (pink) with rounds marked "queued · not charged"; "Confirm replayed orders (N)" after reconnect, with every replayed order landing as asked to wait; the Stripe and texting banners; "Review after outage" on Close the night; and every break-glass payment in Unmatched payments |
+
+**Watching production.** Metrics, logs and traces through OpenTelemetry, error tracking with personal data stripped, and a public status page. Alerts page us only when a target is burning or money is at risk: payment failures, a failed capture sweep, money jobs in the dead-letter queue, a database failover, webhook lag over a minute, or a payout that doesn't reconcile. Device problems go to the venue's manager. A synthetic order and a simulated-reader payment run every 5 minutes during New York opening hours, and every alert has a runbook.
+
+**On call.** A second responder is in place before the 4-week go-live gate starts, and a page nobody acknowledges within 10 minutes goes to them. On-call works from the minimal Console that ships in phase 1: a support grant the venue's owner approves, read-only on masked views, or the emergency path, which allows only the support actions that fix things at 3 AM (re-sync a payment, cancel a reader action, requeue a print, close a stuck night) and needs a second approver on our side. Every support action is time-boxed, needs a reason, notifies the venue's owner and is audited ([Tenancy and access](02-tenancy-access.md)).
+
+**Backups and restore.** Continuous point-in-time backups for 35 days, copied continuously to a second region, so losing a region costs at most 15 minutes of data. A per-venue restore brings one venue back from a scratch copy without touching the others: settings and menu come back as new versions, and money rows are only inserted, never overwritten, each one audited. After any restore, a job pulls Stripe and Twilio activity since the restore point. A monthly drill is timed and checked (row-level policies and roles in place, the app boots, counts match Stripe), and the region failover is drilled once a year.
+
+**Releases.** Deploys roll out at any time and drain WebSockets slowly. Migrations only expand and later contract: new columns on append-only tables are nullable, and money rows are never rewritten. A linter enforces `lock_timeout` and `CREATE INDEX CONCURRENTLY`, and backfills run in batches as an audited migration role, since forced row security blocks the table owner. The previous client version stays supported, the desktop app updates at the business-day cutover, and a rollback redeploys the previous image while the schema stays expanded. New behavior reaches our own test venue first through `venue_flags`.
+
+**Capacity.** The app role has 5-second limits on statements and on idle transactions, reports run on a replica, staff routes are rate-limited per venue, a token bucket sits in front of Stripe, and night-close captures are staggered across venues.

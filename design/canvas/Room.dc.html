@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Room tab and clock</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.in{width:100%;box-sizing:border-box;background:#1c1a21;border:1px solid rgba(244,241,234,.14);border-radius:10px;padding:11px 12px;color:#F4F1EA;font:inherit;font-size:14px;outline:0}
+.in:focus{border-color:#D4FF3F}
+@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.sheet{animation:up .3s cubic-bezier(.2,.7,.2,1) both}
+.stick{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 0 0 120px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <a href="Staff.dc.html" style="display: inline-flex; align-items: center; gap: 8px; color: #F4F1EA; text-decoration: none; font-size: 13px; font-weight: 600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7H2M6 3L2 7l4 4"/></svg>Tonight</a>
+    <span class="mono" style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Room 9 · Marcus T. · party of 12</span>
+  </header>
+  <div style="display: flex; align-items: center; gap: 10px; margin: 12px 16px 0; padding: 10px 12px; border-radius: 12px; background: #FFB13D14; border: 1px solid #FFB13D55; font-size: 13px">
+    <span style="width: 8px; height: 8px; border-radius: 50%; background: #FFB13D; flex: none"></span>
+    <span style="flex: 1; min-width: 0">Called staff · “Another mic, please”</span>
+    <span class="mono" style="font-size: 10px; color: #FFB13D; white-space: nowrap">2 min ago</span>
+  </div>
+
+  <section style="padding: 18px 16px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="padding: 18px; border-radius: 20px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 12px; {{clockBorder}}">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Room clock</span>
+        <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">Booked 8:00–11:00 PM</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 12px">
+        <span class="disp" style="font-size: 64px; color: #F4F1EA">{{elapsed}}</span>
+        <span style="font-size: 14px; color: #8E8994">elapsed</span>
+      </div>
+      <div style="height: 8px; border-radius: 4px; background: rgba(244,241,234,.08); overflow: hidden"><div style="height: 100%; border-radius: 4px; {{barStyle}}"></div></div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; line-height: 1.4; {{leftStyle}}">{{leftLine}}</span>
+        <span class="mono" style="font-size: 12px; color: #8E8994">{{rateLine}}</span>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" class="btn" onClick="{{stayAction}}" style="flex: 1; appearance: none; border: 0; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 13px; line-height: 1.3; {{stayStyle}}">{{stayLabel}}</button>
+        <button type="button" class="btn" onClick="{{toggleWaiting}}" style="appearance: none; border-radius: 12px; padding: 12px 12px; font-weight: 600; font-size: 12px; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">{{demoLabel}}</button>
+      </div>
+    </div>
+
+    <div style="padding: 16px; border-radius: 20px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Tab</span>
+        <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">{{tabCount}} items · $120 deposit paid</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 8px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid rgba(244,241,234,.08)"><span>Room time, by the minute</span><span style="flex: 1; border-bottom: 1px dotted rgba(244,241,234,.25); transform: translateY(-4px)"></span><span class="mono">{{roomCharge}}</span></div>
+      <sc-for list="{{tab}}" as="t" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 4px 0; border-bottom: 1px solid rgba(244,241,234,.08); {{t.rowStyle}}">
+          <span style="min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.qty}} × {{t.name}}<sc-if value="{{t.comped}}" hint-placeholder-val="{{false}}"> <span class="mono" style="font-size: 10px; color: #FFB13D">COMP · {{t.why}}</span></sc-if></span>
+          <span class="mono" style="white-space: nowrap">{{t.total}}</span>
+          <button type="button" class="btn" onClick="{{t.remove}}" aria-label="Remove or comp" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 18px; line-height: 1; padding: 4px 6px">×</button>
+        </div>
+      </sc-for>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #FF3DA614; border: 1px dashed #FF3DA666; font-size: 13px">
+        <span style="min-width: 0; flex: 1">2 × Margarita · Peach <span style="color: #8E8994">· ringing at the bar, not on the tab yet</span></span>
+        <span class="mono" style="white-space: nowrap; color: #8E8994">$26.00</span>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; padding-top: 6px">
+        <sc-for list="{{quick}}" as="q" hint-placeholder-count="6"><button type="button" class="btn" onClick="{{q.add}}" style="appearance: none; border-radius: 999px; padding: 9px 12px; font-size: 12px; font-weight: 600; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18)">+ {{q.label}}</button></sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08); font-size: 13px; color: #C9C5CE">
+        <div style="display: flex; justify-content: space-between"><span>Subtotal</span><span class="mono">{{subtotal}}</span></div>
+        <div style="display: flex; justify-content: space-between"><span>NYC tax 8.875%</span><span class="mono">{{tax}}</span></div>
+        <div style="display: flex; justify-content: space-between"><span>Gratuity 20% · to tonight’s pool</span><span class="mono">{{tip}}</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; color: #F4F1EA; padding-top: 6px"><span>Total</span><span class="mono">{{total}}</span></div>
+        <sc-if value="{{hasFeeLine}}" hint-placeholder-val="{{false}}"><div style="display: flex; justify-content: space-between; font-size: 12px; color: #8E8994"><span>{{feeLineLabel}}</span><span class="mono">{{feeLineAmt}}</span></div></sc-if>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+      <button type="button" class="btn" onClick="{{damage}}" style="appearance: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 13px; background: transparent; color: #FF3DA6; border: 1px solid #FF3DA6">{{damageLabel}}</button>
+      <button type="button" class="btn" onClick="{{textGuest}}" style="appearance: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">{{textLabel}}</button>
+    </div>
+    <div style="font-size: 12px; line-height: 1.5; color: #6F6B78">Card on file: Amex · 1005 · $120 deposit paid at booking, taken off the tab. ID checked at the door. {{logLine}}</div>
+  </section>
+
+  <sc-if value="{{comping}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 55; background: rgba(0,0,0,.6)">
+      <div class="sheet" style="position: absolute; left: 0; right: 0; bottom: 0; border-radius: 22px 22px 0 0; background: #141218; border-top: 1px solid rgba(244,241,234,.12); padding: 14px 16px 28px; display: flex; flex-direction: column; gap: 10px">
+        <div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(244,241,234,.25); margin: 0 auto 4px"></div>
+        <div class="disp" style="font-size: 30px">Take off {{compName}}</div>
+        <div style="font-size: 13px; color: #8E8994; margin-top: -4px">{{compRuleLine}}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
+          <sc-for list="{{compKinds}}" as="k" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{k.pick}}" style="appearance: none; border-radius: 10px; padding: 11px; font-weight: 700; font-size: 13px; {{k.style}}">{{k.label}}</button></sc-for>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap">
+          <sc-for list="{{compReasons}}" as="r" hint-placeholder-count="5"><button type="button" class="btn" onClick="{{r.pick}}" style="appearance: none; border-radius: 999px; padding: 9px 12px; font-weight: 600; font-size: 12px; {{r.style}}">{{r.label}}</button></sc-for>
+        </div>
+        <sc-if value="{{compAsked}}" hint-placeholder-val="{{false}}">
+          <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: #3DF2FF10; border: 1px solid #3DF2FF66">
+            <span style="width: 9px; height: 9px; border-radius: 50%; background: #3DF2FF; flex: none"></span>
+            <span style="flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; color: #C9C5CE">Sent to Andy C.’s phone. It comes off the tab when he approves.</span>
+            <button type="button" class="btn" onClick="{{approveDemo}}" style="appearance: none; flex: none; border-radius: 999px; padding: 8px 12px; font-weight: 700; font-size: 12px; background: transparent; color: #3DF2FF; border: 1px dashed #3DF2FF99">Demo: Andy approves</button>
+          </div>
+        </sc-if>
+        <button type="button" class="btn" onClick="{{confirmComp}}" style="appearance: none; border: 0; border-radius: 999px; padding: 15px; font-weight: 700; font-size: 15px; {{confirmCompStyle}}">{{confirmCompLabel}}</button>
+        <button type="button" class="btn" onClick="{{cancelComp}}" style="appearance: none; border-radius: 999px; padding: 12px; font-weight: 600; font-size: 13px; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">Keep it on the tab</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{closing}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 50; background: rgba(0,0,0,.6)">
+      <div class="sheet" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; overflow: auto; border-radius: 22px 22px 0 0; background: #141218; border-top: 1px solid rgba(244,241,234,.12); padding: 14px 16px 28px; display: flex; flex-direction: column; gap: 12px">
+        <div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(244,241,234,.25); margin: 0 auto 4px"></div>
+        <div class="disp" style="font-size: 34px">Close out</div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 14px; color: #C9C5CE">Room 9 · Marcus T. · after $120 deposit</span><span class="disp" style="font-size: 30px">{{payTotal}}</span></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <button type="button" class="btn" onClick="{{payTap}}" style="appearance: none; border-radius: 12px; padding: 14px 6px; font-weight: 700; font-size: 13px; {{payTapStyle}}">Tap card</button>
+          <button type="button" class="btn" onClick="{{payCard}}" style="appearance: none; border-radius: 12px; padding: 14px 6px; font-weight: 700; font-size: 13px; {{payCardStyle}}">Card on file</button>
+          <button type="button" class="btn" onClick="{{payCash}}" style="appearance: none; border-radius: 12px; padding: 14px 6px; font-weight: 700; font-size: 13px; {{payCashStyle}}">Cash</button>
+          <button type="button" class="btn" onClick="{{paySplit}}" style="appearance: none; border-radius: 12px; padding: 14px 6px; font-weight: 700; font-size: 13px; {{paySplitStyle}}">Split</button>
+        </div>
+        <sc-if value="{{hasPayNote}}" hint-placeholder-val="{{true}}"><div style="font-size: 12px; color: #8E8994; line-height: 1.5">{{payNote}}</div></sc-if>
+        <sc-if value="{{isSplit}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: #1c1a21">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <span style="font-size: 14px">How many paying</span>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <button type="button" class="btn" onClick="{{splitDec}}" aria-label="Fewer" style="appearance: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; font-size: 18px">−</button>
+                <span class="disp" style="font-size: 24px; width: 24px; text-align: center">{{splitN}}</span>
+                <button type="button" class="btn" onClick="{{splitInc}}" aria-label="More" style="appearance: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; font-size: 18px">+</button>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
+              <button type="button" class="btn" onClick="{{splitEven}}" style="appearance: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 12px; {{splitEvenStyle}}">Evenly · {{splitEach}} each</button>
+              <button type="button" class="btn" onClick="{{splitItems}}" style="appearance: none; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 12px; {{splitItemsStyle}}">By item</button>
+            </div>
+            <sc-if value="{{byItem}}" hint-placeholder-val="{{false}}">
+              <div style="font-size: 12px; color: #8E8994">Room time splits evenly. Tap a drink to pass it to the next person.</div>
+              <sc-for list="{{assign}}" as="a" hint-placeholder-count="3">
+                <button type="button" class="btn" onClick="{{a.next}}" style="appearance: none; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 10px; background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12); font-size: 13px"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{a.line}}</span><span class="mono" style="flex: none; font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d">Person {{a.who}}</span></button>
+              </sc-for>
+            </sc-if>
+            <div style="font-size: 12px; color: #8E8994; padding-top: 2px">Tap a person to switch them between card and cash.{{splitFeeNote}}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px">
+              <sc-for list="{{shares}}" as="s" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{s.toggle}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border-radius: 10px; background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12)"><span style="display: flex; justify-content: space-between; font-size: 12px"><span>{{s.who}}</span><span class="mono" style="font-size: 10px; padding: 1px 6px; border-radius: 999px; {{s.methodStyle}}">{{s.method}}</span></span><span class="mono" style="font-size: 14px">{{s.amt}}</span></button></sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <button type="button" class="btn" onClick="{{confirmPay}}" style="appearance: none; border: 0; border-radius: 999px; padding: 16px; font-weight: 700; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d">{{payLabel}}</button>
+        <button type="button" class="btn" onClick="{{cancelClose}}" style="appearance: none; border-radius: 999px; padding: 12px; font-weight: 600; font-size: 13px; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">Not yet</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{paid}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 50; background: #0b0a0d; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center">
+      <div class="disp" style="font-size: 64px; color: var(--acc, #D4FF3F)">Paid.</div>
+      <div style="font-size: 15px; color: #C9C5CE; max-width: 300px; line-height: 1.5">{{paidLine}} Receipt texted to (917) 555-0187. Room 9 goes to cleaning, then opens on the board.</div>
+      <a href="Staff.dc.html" style="margin-top: 10px; display: inline-flex; padding: 14px 22px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; font-weight: 700; font-size: 15px">Back to tonight</a>
+    </div>
+  </sc-if>
+
+  <div class="stick" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 10px; padding: 10px 14px; background: linear-gradient(180deg, rgba(11,10,13,0), rgba(11,10,13,.95) 40%)">
+    <button type="button" class="btn" onClick="{{openClose}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 15px; font-weight: 700; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d; display: flex; justify-content: space-between; align-items: center"><span>Close out</span><span class="mono" style="font-size: 12px">{{total}}</span></button>
+    <a href="Order.dc.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 15px 16px; border-radius: 999px; font-weight: 700; font-size: 13px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Guest view</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    // Demo room: Marcus T., party of 12 at $10 a head, booked 8:00 to 11:00 PM. Opens at 10:41 PM (2 hr 41 min in) and the clock runs for real from there.
+    // Rooms are open-ended: when nobody is waiting they stay by the minute; when someone is, the board asks them to wrap up.
+    this.state = { start: Date.now() - (2 * 3600 + 41 * 60) * 1000, booked: 3, tick: 0, waiting: false, closing: false, pay: "tap", split: 2, splitMode: "even", paid: false, damage: false,
+      comp: null, compKind: "comp", compReason: "", compAsked: false, log: [],
+      tab: [{ name: "Large bucket, 10 beers", price: 70, qty: 1, who: 1 }, { name: "Soju, Chamisul Fresh", price: 20, qty: 2, who: 1 }, { name: "Jäger Bomb", price: 12, qty: 4, who: 2 }] };
+  }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 1000); }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const party = 12, rate = 10, deposit = 120;
+    const secs = Math.max(0, Math.floor((Date.now() - st.start) / 1000));
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+    const two = (n) => (n < 10 ? "0" : "") + n;
+    const elapsed = h + ":" + two(m) + ":" + two(s);
+    const bookedSecs = st.booked * 3600;
+    const left = bookedSecs - secs;
+    const pct = Math.min(100, secs / bookedSecs * 100);
+    const past = left < 0;
+    const warn = st.waiting && left >= 0 && left <= 600;
+    const mustGo = st.waiting && past;
+    // Room charge: the first hour is charged in full, then by the minute.
+    const billableMin = Math.max(60, Math.floor(secs / 60));
+    const roomCharge = party * rate * billableMin / 60;
+    const money = (n) => "$" + n.toFixed(2);
+    const items = st.tab.map((t, i) => ({
+      qty: t.qty, name: t.name, total: t.comped ? "$0.00" : money(t.price * t.qty), comped: !!t.comped, why: t.why || "",
+      rowStyle: t.comped ? "opacity: .55; text-decoration: line-through;" : "",
+      remove: () => { if (!t.comped) this.setState({ comp: i, compKind: "comp", compReason: "", compAsked: false }); }
+    }));
+    const live = st.tab.filter((t) => !t.comped);
+    const itemsTotal = live.reduce((a, t) => a + t.price * t.qty, 0);
+    const damageFee = st.damage ? 150 : 0;
+    const sub = roomCharge + itemsTotal + damageFee;
+    const tax = sub * 0.08875, tip = (roomCharge + itemsTotal) * 0.2;
+    const total = sub + tax + tip;
+    const due = Math.max(0, total - deposit);
+    // Comes from Admin → Card fee & gratuity. In the app every screen reads the same saved setting.
+    // "off" · "surcharge" (credit cards only; the reader drops it for debit and prepaid) · "discount" (cash pays pct less).
+    const CARD_FEE = { mode: "off", pct: 2.7 };
+    const feeK = CARD_FEE.pct / 100, feeSur = CARD_FEE.mode === "surcharge", feeDisc = CARD_FEE.mode === "discount";
+    const cardF = feeSur ? 1 + feeK : 1, cashF = feeDisc ? 1 - feeK : 1;
+    const cardDue = due * cardF, cashDue = due * cashF;
+    const add = (name, price) => () => { const tab = st.tab.slice(); const i = tab.findIndex((t) => t.name === name && !t.comped); if (i >= 0) tab[i] = Object.assign({}, tab[i], { qty: tab[i].qty + 1 }); else tab.push({ name, price, qty: 1, who: 1 }); this.setState({ tab }); };
+    const quick = [["Cocktail", 12], ["Beer", 9], ["Shot", 9], ["Soju bottle", 20], ["Small bucket", 40], ["Pitcher of soda", 18]].map(([label, price]) => ({ label: label + " $" + price, add: add(label, price) }));
+    // Comp / void sheet
+    const ct = st.comp !== null ? st.tab[st.comp] : null;
+    const compKinds = [["comp", "Comp · guest keeps it"], ["void", "Void · never made"]].map(([id, label]) => ({ label, pick: () => this.setState({ compKind: id }), style: st.compKind === id ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);" }));
+    const compReasons = ["Made wrong", "Guest didn’t like it", "Rang in by mistake", "Manager’s call", "Spilled"].map((label) => ({ label, pick: () => this.setState({ compReason: label }), style: st.compReason === label ? "background: " + acc + "; color: #0b0a0d;" : "background: #1c1a21; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);" }));
+    // Approval comes from a manager on their own phone, never a PIN typed on this one.
+    const compReady = !!st.compReason;
+    // Split
+    const heads = st.split;
+    const roomShare = (roomCharge + damageFee) / heads;
+    const shares = Array.from({ length: heads }, (_, k) => {
+      const drinks = live.filter((t) => ((t.who - 1) % heads) + 1 === k + 1).reduce((a, t) => a + t.price * t.qty, 0);
+      const mine = st.splitMode === "even" ? sub / heads : roomShare + drinks;
+      const withTax = mine * 1.08875 + (st.splitMode === "even" ? tip / heads : (roomCharge / heads + drinks) * 0.2);
+      const byCash = (st.payBy || {})[k] === "cash";
+      const base = Math.max(0, withTax - deposit / heads);
+      return { who: "Person " + (k + 1), base, byCash, amt: money(byCash ? base * cashF : base * cardF), method: byCash ? "CASH" : "CARD",
+        methodStyle: byCash ? "background: #FFB13D; color: #0b0a0d;" : "background: " + acc + "; color: #0b0a0d;",
+        toggle: () => { const pb = Object.assign({}, st.payBy || {}); pb[k] = byCash ? "card" : "cash"; this.setState({ payBy: pb }); } };
+    });
+    const nCash = shares.filter((x) => x.byCash).length, nCard = heads - nCash;
+    const splitTotal = shares.reduce((a, x) => a + (x.byCash ? x.base * cashF : x.base * cardF), 0);
+    const assign = live.map((t) => ({ line: t.qty + " × " + t.name + " · " + money(t.price * t.qty), who: ((t.who - 1) % heads) + 1, next: () => { const tab = st.tab.slice(); const i = st.tab.indexOf(t); tab[i] = Object.assign({}, t, { who: (((t.who - 1) % heads) + 1) % heads + 1 }); this.setState({ tab }); } }));
+    const payStyle = (k) => st.pay === k ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);";
+    const endClock = "11:00";
+    const leftLine = mustGo ? "Room 9 is needed · they were due out at " + endClock + ", over by " + Math.ceil(-left / 60) + " min"
+      : warn ? "Someone is waiting for Room 9 · " + Math.ceil(left / 60) + " min to wrap up"
+      : past ? "Past " + endClock + " · nobody’s waiting, so they can stay · by the minute"
+      : st.waiting ? Math.ceil(left / 60) + " min left · a party is waiting for this room at " + endClock
+      : Math.ceil(left / 60) + " min left · nobody’s waiting, they can stay past " + endClock;
+    return {
+      accent: acc,
+      elapsed,
+      clockBorder: mustGo ? "border-color: #FF3DA6;" : (warn ? "border-color: #FFB13D;" : ""),
+      barStyle: "width: " + pct + "%; background: " + (mustGo ? "#FF3DA6" : (warn ? "#FFB13D" : acc)) + ";",
+      leftLine,
+      leftStyle: mustGo ? "color: #FF3DA6; font-weight: 700;" : (warn ? "color: #FFB13D; font-weight: 700;" : "color: #C9C5CE;"),
+      rateLine: party + " × $" + rate + " = $" + (party * rate) + " / hr · $" + (party * rate / 60).toFixed(2) + " a minute after the first hour",
+      stayAction: () => this.setState({ log: st.log.concat([st.waiting ? "Texted “please wrap up by " + endClock + "”" : "Texted “stay as long as you like”"]) }),
+      stayLabel: st.waiting ? "Text: please wrap up by " + endClock : "Text: stay as long as you like, by the minute",
+      stayStyle: st.waiting ? "background: #FFB13D; color: #0b0a0d;" : "background: " + acc + "; color: #0b0a0d;",
+      toggleWaiting: () => this.setState({ waiting: !st.waiting }),
+      demoLabel: st.waiting ? "Demo: nobody waiting" : "Demo: party waiting",
+      tab: items, tabCount: live.reduce((a, t) => a + t.qty, 0), quick,
+      roomCharge: money(roomCharge), subtotal: money(sub), tax: money(tax), tip: money(tip), total: money(total),
+      hasFeeLine: feeSur || feeDisc, feeLineLabel: feeSur ? "If paid by credit card, +" + CARD_FEE.pct + "%" : "If paid in cash, −" + CARD_FEE.pct + "%",
+      feeLineAmt: money(total * (feeSur ? cardF : cashF)),
+      splitFeeNote: feeSur ? " Credit cards add " + CARD_FEE.pct + "%; debit and cash don’t." : feeDisc ? " Cash takes " + CARD_FEE.pct + "% off." : "",
+      damage: () => this.setState({ damage: !st.damage }), damageLabel: st.damage ? "Damage fee added · $150" : "Add damage fee $150 + photo",
+      textGuest: () => this.setState({ log: st.log.concat(["Texted the guest"]) }), textLabel: "Text Marcus",
+      logLine: st.log.length ? "Tonight: " + st.log.join(" · ") + "." : "",
+      comping: st.comp !== null, compName: ct ? ct.qty + " × " + ct.name : "", compKinds, compReasons,
+      compAsked: st.compAsked,
+      compRuleLine: ct && ct.price * ct.qty <= 25 ? "Up to $25 each and $75 a shift, a reason is enough, and it goes on tonight’s exceptions report. Above that, a manager OKs it on their own phone." : "Over $25, so a manager OKs it on their own phone, with the reason. It goes on tonight’s log.",
+      confirmCompLabel: st.compAsked ? "Waiting for Andy…" : compReady ? (ct && ct.price * ct.qty <= 25 ? (st.compKind === "comp" ? "Comp " : "Void ") + money(ct.price * ct.qty) : "Ask Andy to approve · " + (st.compKind === "comp" ? "comp " : "void ") + (ct ? money(ct.price * ct.qty) : "")) : "Pick a reason",
+      confirmCompStyle: compReady && !st.compAsked ? "background: " + acc + "; color: #0b0a0d;" : "background: #1c1a21; color: #8E8994;",
+      confirmComp: () => {
+        if (!compReady || st.compAsked || !ct) return;
+        if (ct.price * ct.qty <= 25) { const tab = st.tab.slice(); tab[st.comp] = Object.assign({}, ct, { comped: true, why: (st.compKind === "comp" ? "comp" : "void") + " · " + st.compReason }); this.setState({ tab, comp: null, compAsked: false, log: st.log.concat([(st.compKind === "comp" ? "Comped " : "Voided ") + ct.qty + " × " + ct.name + " (" + st.compReason + ") · reason only, on the exceptions report"]) }); return; }
+        this.setState({ compAsked: true });
+      },
+      approveDemo: () => { if (!ct) return; const tab = st.tab.slice(); tab[st.comp] = Object.assign({}, ct, { comped: true, why: (st.compKind === "comp" ? "comp" : "void") + " · " + st.compReason }); this.setState({ tab, comp: null, compAsked: false, log: st.log.concat([(st.compKind === "comp" ? "Comped " : "Voided ") + ct.qty + " × " + ct.name + " (" + st.compReason + ") · approved by Andy C. on his phone"]) }); },
+      cancelComp: () => this.setState({ comp: null, compAsked: false }),
+      openClose: () => this.setState({ closing: true }), cancelClose: () => this.setState({ closing: false }),
+      closing: st.closing && !st.paid,
+      payTap: () => this.setState({ pay: "tap" }), payCard: () => this.setState({ pay: "card" }), payCash: () => this.setState({ pay: "cash" }), paySplit: () => this.setState({ pay: "split" }),
+      payTapStyle: payStyle("tap"), payCardStyle: payStyle("card"), payCashStyle: payStyle("cash"), paySplitStyle: payStyle("split"),
+      hasPayNote: st.pay !== "split",
+      payNote: st.pay === "tap" ? "Sends the total to the handheld reader. Bring it to the room and the guest taps. The cheapest way for the venue: 2.7% + 5¢."
+        : st.pay === "card" ? "Texts Marcus to confirm on his phone first, then charges Amex · 1005 and texts an itemized receipt. Costs the venue 2.9% + 30¢."
+        : "The drawer opens when you mark it paid.",
+      isSplit: st.pay === "split", splitN: heads, splitInc: () => this.setState({ split: Math.min(12, heads + 1) }), splitDec: () => this.setState({ split: Math.max(2, heads - 1) }),
+      splitEven: () => this.setState({ splitMode: "even" }), splitItems: () => this.setState({ splitMode: "items" }),
+      splitEvenStyle: st.splitMode === "even" ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);",
+      splitItemsStyle: st.splitMode === "items" ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);",
+      byItem: st.splitMode === "items", assign, shares,
+      splitEach: money(cardDue / heads),
+      payTotal: money(st.pay === "cash" ? cashDue : (st.pay === "split" ? splitTotal : cardDue)),
+      payLabel: st.pay === "tap" ? "Send " + money(cardDue) + " to the reader" : st.pay === "card" ? "Text Marcus to confirm " + money(cardDue) : (st.pay === "cash" ? "Mark paid in cash " + money(cashDue) + " · opens drawer" : "Take " + [nCard ? nCard + " card" + (nCard > 1 ? "s" : "") : "", nCash ? nCash + " cash" : ""].filter(Boolean).join(" + ") + " · " + money(splitTotal) + (nCash ? " · opens drawer" : "")),
+      confirmPay: () => this.setState({ paid: true, closing: false }),
+      paid: st.paid,
+      paidLine: st.pay === "tap" ? money(cardDue) + " paid by tap on the reader after the $120 deposit." : st.pay === "card" ? "Marcus confirmed on his phone. " + money(cardDue) + " charged to Amex · 1005 after the $120 deposit, receipt texted." : (st.pay === "cash" ? money(cashDue) + " taken in cash after the $120 deposit." : money(splitTotal) + " split " + heads + " ways" + (nCash ? ", " + nCash + " in cash." : " on cards."))
+    };
+  }
+}
+</script>
+</body>
+</html>

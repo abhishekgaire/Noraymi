@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Staff sign-in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease,background .15s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px);background:#2a272f}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.shake{animation:shake .3s ease}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 20px 24px 40px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 22px">
+  <div role="group" aria-label="Which device is this" style="display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px">
+    <span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding: 0 6px 0 10px">This is</span>
+    <button type="button" class="btn" onClick="{{pickBar}}" aria-pressed="{{barOn}}" style="appearance: none; border: 0; border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; {{barStyle}}">Bar computer</button>
+    <button type="button" class="btn" onClick="{{pickPhone}}" aria-pressed="{{phoneOn}}" style="appearance: none; border: 0; border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; {{phoneStyle}}">Staff phone</button>
+  </div>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+    <span class="mono" style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--acc, #D4FF3F)">{{deviceLine}}</span>
+    <span class="disp" style="font-size: 40px">{{title}}</span>
+    <span role="status" style="font-size: 13px; line-height: 1.45; max-width: 320px; {{hintStyle}}">{{hint}}</span>
+  </div>
+  <sc-if value="{{showBadge}}" hint-placeholder-val="{{true}}">
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 340px">
+      <div style="display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 16px; background: #141218; border: 1px solid {{badgeBorder}}">
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#D4FF3F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><rect x="4" y="3" width="11" height="16" rx="2"/><path d="M8 7h3"/><path d="M18 8.5a4.5 4.5 0 0 1 0 6"/><path d="M20.5 6.5a8 8 0 0 1 0 10"/></svg>
+        <span style="display: flex; flex-direction: column; gap: 4px"><b style="font-size: 16px">Tap your badge on the reader</b><span style="font-size: 12px; line-height: 1.45; color: #A39FA8">About a second. It takes over from whoever’s on, and their unsent drinks stay theirs.</span></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+        <button type="button" class="btn" onClick="{{badgeMaya}}" style="appearance: none; border-radius: 12px; min-height: 44px; padding: 6px 8px; font-weight: 700; font-size: 12px; background: transparent; color: #8E8994; border: 1px dashed rgba(244,241,234,.22)">Demo: Maya’s badge</button>
+        <button type="button" class="btn" onClick="{{badgeDiego}}" style="appearance: none; border-radius: 12px; min-height: 44px; padding: 6px 8px; font-weight: 700; font-size: 12px; background: transparent; color: #8E8994; border: 1px dashed rgba(244,241,234,.22)">Demo: Diego’s badge</button>
+      </div>
+      <button type="button" class="btn" onClick="{{badgeUnknown}}" style="appearance: none; border-radius: 12px; min-height: 44px; padding: 6px 8px; font-weight: 700; font-size: 12px; background: transparent; color: #8E8994; border: 1px dashed rgba(244,241,234,.22)">Demo: a badge that isn’t on the team</button>
+      <span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; text-align: center; padding-top: 6px">No badge? Tap your name, then your PIN</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{showTiles}}" hint-placeholder-val="{{true}}">
+    <div role="group" aria-label="Who is signing in" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 340px">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+        <button type="button" class="btn" onClick="{{t.pick}}" aria-label="{{t.aria}}" style="appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid rgba(244,241,234,.12); background: #141218; color: #F4F1EA; text-align: left; min-height: 116px; box-sizing: border-box">
+          <span style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; {{t.avatarStyle}}">{{t.initials}}</span>
+          <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><b style="font-size: 16px">{{t.name}}</b><span style="font-size: 12px; {{t.subStyle}}">{{t.sub}}</span></span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{showPad}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 22px">
+      <div aria-hidden="true" style="display: flex; gap: 14px; padding: 6px 0">
+        <sc-for list="{{dots}}" as="d" hint-placeholder-count="4"><span style="width: 14px; height: 14px; border-radius: 50%; {{d.style}}"></span></sc-for>
+      </div>
+      <div class="{{padClass}}" style="display: grid; grid-template-columns: repeat(3, 82px); gap: 12px; {{padStyle}}">
+        <sc-for list="{{keys}}" as="k" hint-placeholder-count="12">
+          <button type="button" class="btn" onClick="{{k.press}}" aria-label="{{k.aria}}" disabled="{{k.disabled}}" style="appearance: none; width: 82px; height: 82px; border-radius: 50%; border: 1px solid rgba(244,241,234,.14); background: #141218; color: #F4F1EA; font-size: 28px; font-weight: 600; font-family: inherit; {{k.style}}">{{k.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{showClock}}" hint-placeholder-val="{{false}}">
+    <div role="group" aria-label="Time clock" style="display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 340px; padding: 16px 14px; border-radius: 16px; background: #141218; border: 1px solid rgba(244,241,234,.1); box-sizing: border-box; text-align: center">
+      <span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Time clock</span>
+      <b role="status" style="font-size: 16px; line-height: 1.3; {{clockStyle}}">{{clockLine}}</b>
+      <sc-if value="{{hasClockSub}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #8E8994">{{clockSub}}</span></sc-if>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center">
+        <sc-for list="{{clockBtns}}" as="c" hint-placeholder-count="2">
+          <button type="button" class="btn" onClick="{{c.press}}" style="appearance: none; border-radius: 999px; padding: 10px 16px; font-weight: 700; font-size: 13px; {{c.style}}">{{c.label}}</button>
+        </sc-for>
+      </div>
+      <span style="font-size: 11px; line-height: 1.45; color: #6F6B78; max-width: 280px">Signing out doesn’t clock you out. A wrong punch gets fixed by a manager, with a reason, and the change is logged.</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{goBar}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+      <a href="{{homeHref}}" style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 26px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; font-weight: 700; font-size: 16px">{{homeLabel}}</a>
+      <a href="{{altHref}}" style="font-size: 13px; font-weight: 600; color: #C9C5CE">{{altLabel}}</a>
+    </div>
+  </sc-if>
+  <sc-if value="{{goPhone}}" hint-placeholder-val="{{false}}"><a href="Staff.dc.html" style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 26px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; font-weight: 700; font-size: 16px">Open tonight →</a></sc-if>
+  <sc-if value="{{canBack}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{back}}" style="appearance: none; border: 0; background: transparent; color: #C9C5CE; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; padding: 6px 10px">{{backLabel}}</button></sc-if>
+  <div style="font-size: 12px; line-height: 1.5; color: #6F6B78; text-align: center; max-width: 320px">{{footer}}</div>
+  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center">
+    <span class="mono" style="font-size: 10px; letter-spacing: .06em; color: #57535E; text-align: center">{{demoLine}}</span>
+    <sc-if value="{{canReset}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{resetDemo}}" style="appearance: none; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #8E8994; border-radius: 999px; padding: 4px 10px; font-size: 11px">Reset demo</button></sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":800}}'>
+class Component extends DCLogic {
+  constructor() { super(...arguments); this.state = { device: "bar", sel: "", pin: "", who: "", via: "", badgeBad: false, locks: {}, devWrong: { bar: 0, phone: 0 }, paused: { bar: false, phone: false }, justWrong: false, tick: 0, punch: this.startPunches() }; }
+  // Demo night: it's 7:00 PM. Maya (4:00 PM) and Andy (6:00 PM) are on the clock; Diego is starting his shift.
+  // Same shifts as Night's tip pool and Admin → Team.
+  startPunches() { return { maya: { s: "on", in: 960 }, andy: { s: "on", in: 1080 } }; }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  ensureTimer() {
+    if (this.timer) return;
+    this.timer = setInterval(() => {
+      const now = Date.now();
+      const any = Object.keys(this.state.locks).some((k) => this.state.locks[k].until > now);
+      if (!any) { clearInterval(this.timer); this.timer = null; }
+      this.setState({ tick: this.state.tick + 1 });
+    }, 1000);
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const now = Date.now();
+    // Comes from Admin → Team. In the app the device gets names and roles only; the server checks every PIN.
+    // Demo PINs only. Staff PINs have 4 digits, owner and manager PINs 6; common ones like 1234 or 0000 are refused.
+    const TEAM = [
+      { id: "abhishek", name: "Abhishek G.", role: "Owner", digits: 6, pin: "915204" },
+      { id: "andy", name: "Andy C.", role: "Manager", digits: 6, pin: "730915" },
+      { id: "maya", name: "Maya S.", role: "Bartender", digits: 4, pin: "4071" },
+      { id: "diego", name: "Diego R.", role: "Staff", digits: 4, pin: "6358" }
+    ];
+    // A staff phone is paired to one person, so it only asks for that person's PIN.
+    const PHONE_OWNER = "maya";
+    const TRIES = 5, LOCK_MIN = [1, 5, 15], DEVICE_MAX = 10;
+    const dev = st.device, phone = dev === "phone";
+    const paused = !!st.paused[dev];
+    const selId = phone ? PHONE_OWNER : st.sel;
+    const person = TEAM.find((p) => p.id === selId) || null;
+    const key = (id) => dev + ":" + id;
+    const lockOf = (id) => st.locks[key(id)] || { wrong: 0, until: 0, level: 0 };
+    const secsLeft = (id) => Math.max(0, Math.ceil((lockOf(id).until - now) / 1000));
+    const clock = (s) => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    const lockLen = (id) => LOCK_MIN[Math.min(lockOf(id).level, LOCK_MIN.length - 1)];
+    const first = (p) => p.name.split(" ")[0];
+    const signedIn = !!st.who;
+    const locked = !!person && secsLeft(person.id) > 0;
+    const setLock = (id, v) => { const l = Object.assign({}, st.locks); l[key(id)] = v; return l; };
+    const setDev = (obj, v) => { const o = Object.assign({}, obj); o[dev] = v; return o; };
+
+    const press = (d) => () => {
+      if (!person || signedIn || locked || paused) return;
+      const pin = (st.pin + d).slice(0, person.digits);
+      if (pin.length < person.digits) { this.setState({ pin, justWrong: false }); return; }
+      if (pin === person.pin) {
+        this.setState({ pin: "", who: person.id, justWrong: false, locks: setLock(person.id, { wrong: 0, until: 0, level: 0 }), devWrong: setDev(st.devWrong, 0) });
+        return;
+      }
+      const l = lockOf(person.id);
+      const wrong = l.wrong + 1;
+      const inARow = (st.devWrong[dev] || 0) + 1;
+      const next = wrong >= TRIES ? { wrong: 0, until: Date.now() + lockLen(person.id) * 60000, level: l.level + 1 } : { wrong, until: l.until, level: l.level };
+      const patch = { pin: "", justWrong: true, locks: setLock(person.id, next), devWrong: setDev(st.devWrong, inARow) };
+      if (inARow >= DEVICE_MAX) patch.paused = setDev(st.paused, true);
+      this.setState(patch);
+      if (wrong >= TRIES) this.ensureTimer();
+    };
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"].map((label) => ({
+      label, aria: label === "⌫" ? "Delete" : (label || "blank"), disabled: locked || paused,
+      press: label === "⌫" ? () => { if (!locked && !signedIn) this.setState({ pin: st.pin.slice(0, -1) }); } : (label ? press(label) : () => {}),
+      style: label ? (locked ? "cursor: not-allowed;" : "") : "visibility: hidden;"
+    }));
+    const digits = person ? person.digits : 4;
+    const dots = Array.from({ length: digits }, (_, i) => ({ style: i < st.pin.length ? "background: " + acc + "; box-shadow: 0 0 10px " + acc + ";" : "border: 1px solid rgba(244,241,234,.3); box-sizing: border-box;" }));
+    const tiles = TEAM.map((p) => {
+      const s = secsLeft(p.id);
+      return {
+        name: p.name, initials: p.name.split(" ").map((w) => w.charAt(0)).join("").slice(0, 2),
+        sub: s ? "Locked here · " + clock(s) : p.role,
+        subStyle: s ? "color: #FF3DA6; font-weight: 700;" : "color: #8E8994;",
+        avatarStyle: p.digits === 6 ? "background: rgba(61,242,255,.14); color: #3DF2FF;" : "background: rgba(212,255,63,.12); color: " + acc + ";",
+        aria: p.name + ", " + p.role + (s ? ", locked on this computer for " + clock(s) : ""),
+        pick: () => this.setState({ sel: p.id, pin: "", justWrong: false })
+      };
+    });
+    const badgeIn = (id) => () => { if (paused) return; this.setState({ who: id, via: "badge", sel: "", pin: "", justWrong: false, badgeBad: false }); };
+    const seg = (on) => on ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;";
+
+    // Time clock: staff clock in and out after name and PIN. Minutes from midnight on the business date.
+    const NOW = 1140;
+    const hm = (m) => { const h = Math.floor(m / 60) % 24, mm = String(m % 60).padStart(2, "0"); return ((h + 11) % 12 + 1) + ":" + mm + (h < 12 ? " AM" : " PM"); };
+    const dur = (m) => Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m";
+    const setPunch = (id, v) => { const o = Object.assign({}, st.punch); o[id] = v; this.setState({ punch: o }); };
+    const btn = (label, primary, fn) => ({ label, press: fn, style: primary ? "border: 0; background: " + acc + "; color: #0b0a0d;" : "border: 1px solid rgba(244,241,234,.22); background: transparent; color: #F4F1EA;" });
+    let clockLine = "", clockSub = "", clockStyle = "color: #F4F1EA;", clockBtns = [];
+    if (signedIn) {
+      const id = st.who, pc = st.punch[id] || { s: "off" };
+      if (pc.s === "on") {
+        clockLine = "On the clock since " + hm(pc.in);
+        clockSub = dur(NOW - pc.in) + " so far tonight";
+        clockStyle = "color: " + acc + ";";
+        clockBtns = [btn("Start break", false, () => setPunch(id, { s: "break", in: pc.in, br: NOW })), btn("Clock out", false, () => setPunch(id, { s: "out", in: pc.in, out: NOW }))];
+      } else if (pc.s === "break") {
+        clockLine = "On break since " + hm(pc.br);
+        clockSub = "On the clock since " + hm(pc.in);
+        clockStyle = "color: #FFB13D;";
+        clockBtns = [btn("End break", true, () => setPunch(id, { s: "on", in: pc.in }))];
+      } else if (pc.s === "out") {
+        clockLine = "Clocked out at " + hm(pc.out);
+        clockSub = hm(pc.in) + " to " + hm(pc.out) + " · " + dur(pc.out - pc.in);
+        clockBtns = [btn("Clock in again", false, () => setPunch(id, { s: "on", in: NOW }))];
+      } else {
+        clockLine = "Not on the clock yet";
+        clockStyle = "color: #C9C5CE;";
+        clockBtns = [btn("Clock in · " + hm(NOW), true, () => setPunch(id, { s: "on", in: NOW }))];
+      }
+    }
+
+    let title, hint, hintStyle = "color: #8E8994;";
+    if (paused) {
+      title = "Paused";
+      hint = (phone ? "10 wrong PINs in a row on this phone. " : "10 wrong PINs in a row on this computer, across any names. ")
+        + "PIN sign-in is paused here until a manager pairs it again, and Andy’s phone got an alert. "
+        + (phone ? "Alerts still come through." : "New orders still show on the bar screens.");
+      hintStyle = "color: #FF3DA6; font-weight: 700;";
+    } else if (signedIn) {
+      const p = TEAM.find((x) => x.id === st.who);
+      title = "Hi, " + first(p);
+      hint = p.name + " · " + p.role + (st.via === "badge" ? " · signed in with your badge" : "");
+    } else if (!person && !phone) {
+      title = "Who’s on?";
+      hint = st.badgeBad ? "That badge isn’t on the team. A manager adds badges in Admin → Team; until then, use your name and PIN." : "Tap your badge. No badge? Your name, then your PIN.";
+      if (st.badgeBad) hintStyle = "color: #FF3DA6; font-weight: 700;";
+    } else if (!person) {
+      title = "Who’s on?";
+      hint = "Tap your name, then enter your PIN.";
+    } else if (locked) {
+      title = "Locked";
+      hint = TRIES + " wrong tries for " + first(person) + (phone ? " on this phone" : " on this computer") + ". Try again in " + clock(secsLeft(person.id)) + ". The next lock is " + lockLen(person.id) + " minutes.";
+      hintStyle = "color: #FF3DA6; font-weight: 700;";
+    } else {
+      const l = lockOf(person.id), left = TRIES - l.wrong;
+      title = person.name;
+      if (l.wrong) {
+        hint = "Not right · " + left + (left === 1 ? " try" : " tries") + " before a " + lockLen(person.id) + "-minute lock";
+        hintStyle = "color: #FFB13D;";
+      } else hint = person.digits === 6 ? "Your 6-digit " + person.role.toLowerCase() + " PIN" : "Your 4-digit PIN";
+    }
+    const anyLock = Object.keys(st.locks).some((k) => st.locks[k].until > now || st.locks[k].wrong || st.locks[k].level);
+    const inARow = st.devWrong[dev] || 0;
+    return {
+      accent: acc, keys, dots, tiles,
+      pickBar: () => this.setState({ device: "bar", sel: "", pin: "", who: "", via: "", justWrong: false, badgeBad: false }),
+      pickPhone: () => this.setState({ device: "phone", pin: "", who: "", justWrong: false }),
+      barOn: dev === "bar" ? "true" : "false", phoneOn: phone ? "true" : "false",
+      barStyle: seg(dev === "bar"), phoneStyle: seg(phone),
+      deviceLine: phone ? "Maya’s phone · West 4" : "Bar computer · shared · West 4",
+      title, hint, hintStyle,
+      showTiles: !phone && !person && !signedIn && !paused,
+      showBadge: !phone && !person && !signedIn && !paused, badgeBorder: st.badgeBad ? "rgba(255,61,166,.5)" : "rgba(244,241,234,.12)",
+      badgeMaya: badgeIn("maya"), badgeDiego: badgeIn("diego"), badgeUnknown: () => this.setState({ badgeBad: true }),
+      showPad: !!person && !signedIn && !paused,
+      showClock: signedIn && !paused, clockLine, clockSub, hasClockSub: !!clockSub, clockStyle, clockBtns,
+      goBar: signedIn && !phone, goPhone: signedIn && phone,
+      homeHref: st.who === "maya" ? "Rail.dc.html" : "Board.dc.html", homeLabel: st.who === "maya" ? "Open the bar POS →" : "Open tonight’s board →",
+      altHref: st.who === "maya" ? "Board.dc.html" : "Rail.dc.html", altLabel: st.who === "maya" ? "Tonight’s board" : "Bar POS",
+      canBack: !phone && !paused && (signedIn || !!person),
+      backLabel: signedIn ? "Sign out" : "Not " + (person ? first(person) : "you") + "? Pick your name",
+      back: () => this.setState({ sel: "", pin: "", who: "", via: "", justWrong: false, badgeBad: false }),
+      padClass: st.justWrong && !st.pin && !locked ? "shake" : "",
+      padStyle: locked ? "opacity: .35;" : "",
+      footer: (phone
+        ? "This phone is paired to Maya, so it only asks for her PIN. "
+        : "Badges are the fast way in: each one belongs to one person and a lost one is switched off in Admin → Team. Refunds, cash counts and Admin ask for the PIN again. No fingerprint readers: New York doesn’t let employers require them. Without a badge, tap your name, then your PIN, so every wrong try counts against one person. ")
+        + "Every check-in, refund and text is stamped with who did it. The screen locks after 3 minutes idle. "
+        + "5 wrong tries lock that name on this device for 1 minute, then 5, then 15. 10 wrong in a row pause PIN sign-in on the device until a manager pairs it again; "
+        + (phone ? "alerts still come through." : "new orders still show on the bar screens.")
+        + (inARow && !paused ? " Wrong in a row here: " + inARow + " of " + DEVICE_MAX + "." : ""),
+      demoLine: phone ? "Demo PIN: Maya 4071" : "Demo PINs: Maya 4071 · Diego 6358 · Andy 730915",
+      canReset: anyLock || paused || inARow > 0 || JSON.stringify(st.punch) !== JSON.stringify(this.startPunches()),
+      resetDemo: () => { if (this.timer) { clearInterval(this.timer); this.timer = null; } this.setState({ sel: "", pin: "", who: "", via: "", badgeBad: false, locks: {}, devWrong: { bar: 0, phone: 0 }, paused: { bar: false, phone: false }, justWrong: false, punch: this.startPunches() }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

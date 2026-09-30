@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reports — this week and trends</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.bar{transition:opacity .15s ease}.bar:hover{opacity:.75}
+.stick{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 0 0 120px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <a href="Staff.dc.html" style="display: inline-flex; align-items: center; gap: 8px; color: #F4F1EA; text-decoration: none; font-size: 13px; font-weight: 600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7H2M6 3L2 7l4 4"/></svg>Tonight</a>
+    <span class="disp" style="font-size: 26px">Reports</span>
+    <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">Trends</span>
+  </header>
+
+  <section style="padding: 14px 16px 12px">
+    <a href="Night.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-radius: 16px; background: #121016; border: 1px solid var(--acc, #D4FF3F); color: #F4F1EA; text-decoration: none">
+      <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Fri, Sep 25 · in progress</span><span style="font-weight: 700; font-size: 16px">Tonight’s end-of-night report</span><span style="font-size: 12px; color: #8E8994">Sales, tax, tips and the cash drawer, closed out at 4 AM</span></span>
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M3 10h14M11 4l6 6-6 6"/></svg>
+    </a>
+  </section>
+
+  <sc-if value="{{showWeek}}" hint-placeholder-val="{{true}}">
+    <section style="padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="disp" style="font-size: 28px; white-space: nowrap">Sep 18 to 24</span><span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; white-space: nowrap">vs the week before</span></div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <div style="padding: 12px 10px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 26px; color: var(--acc, #D4FF3F)">$31.4K</div><div class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994; margin-top: 4px">Sales · +6%</div></div>
+        <div style="padding: 12px 10px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 26px">4.1%</div><div class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994; margin-top: 4px">No-shows · was 11%</div></div>
+        <div style="padding: 12px 10px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 26px">6.4</div><div class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994; margin-top: 4px">Avg party · 1.9 hr</div></div>
+      </div>
+      <div style="padding: 16px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 10px">
+        <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Sales by night</div>
+        <div style="display: flex; align-items: flex-end; gap: 6px; height: 120px">
+          <sc-for list="{{nights}}" as="n" hint-placeholder-count="7"><div class="bar" title="{{n.tip}}" style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%"><span class="mono" style="font-size: 9px; text-align: center; color: #C9C5CE; margin-bottom: 3px; {{n.labelStyle}}">{{n.v}}</span><div style="border-radius: 4px 4px 0 0; {{n.style}}"></div></div></sc-for>
+        </div>
+        <div style="display: flex; gap: 6px"><sc-for list="{{nights}}" as="n" hint-placeholder-count="7"><span class="mono" style="flex: 1; text-align: center; font-size: 9px; color: #6F6B78">{{n.l}}</span></sc-for></div>
+        <div style="font-size: 12px; color: #8E8994">Tuesday is the soft spot. A happy-hour push or a Tuesday deal would go here.</div>
+      </div>
+      <div style="padding: 16px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+        <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-bottom: 4px">Best sellers</div>
+        <sc-for list="{{sellers}}" as="s" hint-placeholder-count="5"><div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 110px; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.name}}</span><div style="flex: 1; height: 8px; border-radius: 4px; background: rgba(244,241,234,.08); overflow: hidden"><div style="height: 100%; border-radius: 4px; {{s.style}}"></div></div><span class="mono" style="font-size: 11px; width: 40px; text-align: right; color: #C9C5CE">{{s.n}}</span></div></sc-for>
+      </div>
+      <div style="padding: 16px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+        <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-bottom: 4px">People</div>
+        <div style="display: flex; justify-content: space-between"><span>Refunds issued</span><span class="mono">4 · $212 · all by Andy</span></div>
+        <div style="display: flex; justify-content: space-between"><span>Reviews from the morning text</span><span class="mono">19 · 4.8 avg</span></div>
+        <div style="display: flex; justify-content: space-between"><span>Birthday list</span><span class="mono">340 · +22 this week</span></div>
+      </div>
+    </section>
+  </sc-if>
+
+  <div class="stick" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 10px; padding: 10px 14px; background: linear-gradient(180deg, rgba(11,10,13,0), rgba(11,10,13,.95) 40%)">
+    <a href="Staff.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Tonight</a>
+    <a href="Calendar.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Calendar</a>
+    <a href="Messages.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Messages</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    // Demo numbers. The live report is computed from the last seven closed nights.
+    const nts = [["Fri", 7.4], ["Sat", 8.1], ["Sun", 4.2], ["Mon", 2.6], ["Tue", 1.9], ["Wed", 2.4], ["Thu", 4.8]];
+    const nights = nts.map(([l, v]) => ({ l, v: (v === 8.1 || v === 1.9) ? "$" + v + "K" : "", labelStyle: (v === 8.1 || v === 1.9) ? "" : "visibility: hidden;", tip: l + ": $" + v + "K", style: "height: " + Math.max(4, v / 8.1 * 100) + "px; background: " + (v === 8.1 ? acc : (v === 1.9 ? "rgba(244,241,234,.35)" : acc + "99")) + ";" }));
+    const sellers = [["Soju bottles", 212], ["Large bucket", 96], ["Margarita", 88], ["Jäger Bomb", 81], ["Kirin pitcher", 64]].map(([name, n]) => ({ name, n: String(n), style: "width: " + (n / 212 * 100) + "%; background: " + acc + ";" }));
+    return {
+      accent: acc,
+      showWeek: true,
+      nights, sellers
+    };
+  }
+}
+</script>
+</body>
+</html>

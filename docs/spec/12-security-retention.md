@@ -1,0 +1,47 @@
+## Security and data retention
+
+This is the minimum before the product holds another business's money or guests' data, and all of it ships in phase 1.
+
+1. **Cards and PCI.** Card numbers never touch our servers. The booking page's payment step runs on its own origin (a `pay.` subdomain of ours) with no website-builder content, no service worker, `Cross-Origin-Opener-Policy: same-origin` and `frame-ancestors 'none'`, plus a nonce- or hash-based Content Security Policy, subresource integrity, a short list of scripts with a reason for each, and a check for changed scripts and headers on every deploy and weekly. That's what [SAQ A now asks merchants to confirm](https://blog.pcisecuritystandards.org/important-updates-announced-for-merchants-validating-to-self-assessment-questionnaire-a), and each venue gets a responsibility matrix and our signed confirmation. If that proves heavy, Stripe-hosted Checkout replaces it. The S700, S710 and WisePOS E are listed in Stripe's validated P2PE solution ([instruction manual v2.3](https://docs.stripecdn.com/Stripe_PCI-P2PE-PIM_v2.3.pdf)), so venues can validate with SAQ P2PE instead of [SAQ C](https://support.stripe.com/questions/pci-compliance-for-stripe-terminal), and a QSA confirms which validation we file ourselves.
+2. **Venue walls.** Row-level security on every table, resolver functions for requests that arrive without a venue, foreign keys that name the venue, the read-only org scope, and the principal and venue-wall test suites in CI, jobs and webhooks included.
+3. **Sign-in.** Passkeys or an authenticator app for owners and managers, with session limits and a second check for risky actions; badge or name and PIN on shared screens, with NTAG 424 DNA badges checked by their SUN message, 6-digit manager PINs, a blocklist, lockouts and a peppered hash; Admin only in a passkey session, never from a PIN; signed device keys that can be revoked; approvals on the approver's own phone, never the requester's; offboarding in one step; recovery codes for owners.
+4. **Money records.** The app role can't update, delete or truncate money or audit rows; audit rows come from triggers, are hash-chained and have their daily heads in write-once storage, and DDL or TRUNCATE raises an alert. Check numbers run in order per venue, and payouts are matched every night.
+5. **Stripe and other keys.** Restricted Stripe keys per service, usable only from our IP addresses; account and reader ids checked against the request's venue; a signing secret per webhook endpoint and a live-mode check on every event; keys in the secrets manager, rotated with at most 7 days of overlap and after any staff change.
+6. **Data in transit and at rest.** TLS everywhere; encrypted database, backups and files; the desktop cache encrypted and its token in the operating system's keychain (Electron's `safeStorage`); ID-scan fields encrypted with a key per venue and business date, held in the key service and destroyed after 7 days.
+7. **Our own staff.** Single sign-on with FIDO2 keys into the minimal Console that ships in phase 1, and support access only through a grant the venue's owner approved: read-only on masked views, where an approved write allows only the one named action, once, with both identities in every audit row. The emergency path is limited to the listed actions, needs two approvers on our side and tells the owner.
+8. **Public forms and texts.** A CAPTCHA checked on the server for booking, waitlist, enquiries and phone codes; 10-minute holds on pending bookings; daily limits per phone number, IP address and device; one PaymentIntent per booking; Radar rules where the venue's account allows them, plus our own [decline-rate alarm](https://docs.stripe.com/disputes/prevention/card-testing) per venue; Twilio for +1 numbers only, with [SMS pumping protection](https://www.twilio.com/docs/messaging/guides/preventing-messaging-fraud).
+9. **Guest links.** Room access through the join step and a 128-bit cookie token that rotates; manage links of 128 bits, stored hashed; token routes send `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, stay out of CDN logs and expire after the booking.
+10. **Desktop app.** Electron's [security checklist](https://www.electronjs.org/docs/latest/tutorial/security): context isolation, sandboxing, no Node.js in remote content, checked senders on every IPC message, and code-signed updates.
+11. **Rule packs.** Two people approve every version in the Console, versions are signed, and venues see what changes before it takes effect.
+12. **Dependencies and monitoring.** Dependency and container scanning, error tracking with personal data stripped, and alerts on unusual activity, such as refund spikes, voids after a cash payment or sign-ins from new countries.
+13. **Breaches.** For guest and staff data we work on the venue's behalf, so the data processing addendum commits us to tell the venue immediately, and within 72 hours at most, since [GBL §899-aa(3)](https://www.nysenate.gov/legislation/laws/GBS/899-AA) requires a business holding data it doesn't own to tell the owner "immediately", within 30 days of discovery at most, and a joint runbook says who tells residents and the state: the venue does, within the 30 days [GBL §899-aa](https://www.nysenate.gov/legislation/laws/GBS/899-AA) allows. A named person runs it. SOC 2 waits until groups ask for it, as the blueprint plans.
+14. **Accessibility.** [WCAG 2.2 AA](https://www.w3.org/TR/WCAG22/) is the bar for the guest web and room tablets. The website builder enforces 4.5:1 text contrast, alt text, heading order and focus states; CI runs automated checks, and a person does a screen-reader pass on booking, manage, waitlist and ordering. The menu is HTML first, with a tagged PDF. Every tablet action also works from a phone or through staff, and countdowns are announced and can be extended.
+15. **Training mode.** Practice checks are numbered T-… from their own counter (`checks.training`) and pay only through Stripe's sandbox with simulated readers: a practice request can't reach the live account, a live key or a live reader. Every screen in training shows a permanent "TRAINING · not real money" band that can't be closed, and printed tickets and receipts say TRAINING too. Practice checks never reach the Z report, tax, exports, tip pools, the reason-only totals or the exceptions report, and they never text or email a guest.
+
+**How long we keep things**
+
+| Data | Kept for | Why |
+| --- | --- | --- |
+| Checks, check lines, payments, refunds, night closes | At least 3 years | New York's record-keeping for guest checks |
+| Time punches, tip pools, shares and the tip ledger | 6 years | New York's hospitality wage records |
+| Audit log | 6 years, with old and new values but no guest contact details | Explains the records above without copying guest details |
+| Scanned ID fields | 7 days by default, until the lawyer answers; destroying that night's key after 7 days erases every copy, backups included | SHIELD Act and ABC Law §65-b |
+| Incidents | 3 years | The blueprint's incident log |
+| Messages and consents | 4 years after the last text | The federal time limit for texting claims |
+| Guests | Pseudonymized after 24 months without a visit, or erased on request | Disposal under GBL §899-bb |
+| Bookings, waitlist entries, enquiries | 3 years, then pseudonymized | They explain the checks |
+| Print job payloads | 30 days | Reprints and debugging |
+| Webhook payloads | 90 days | Enough to debug; Stripe holds the originals |
+| Logs and error reports | 30 days, with personal data stripped | Debugging |
+| Desktop cache | The current business date | The offline view only |
+| Saved cards at Stripe | Detached 30 days after the booking closes | Off-session charges only as agreed |
+| Cards saved on bar tabs | Detached 7 days after the tab closes | Only for charging what a tab still owes |
+| Singers in the bar queue | Deleted 30 days after their last song, unless they still owe money | Only for the queue and their tab |
+| Files | As long as what they belong to: damage photos and dispute evidence with their check, menu PDFs until replaced | Evidence for disputes and the records |
+| Opt-outs | Kept after a guest is erased, as a hash of the number | So an erased guest is never texted again |
+| Message bodies at Twilio | Deleted after 30 days | Our own copy follows the messages row |
+| Backups | 35 days of point-in-time restore, copied continuously to a second region | Recovery, not archiving |
+
+A nightly job deletes or pseudonymizes whatever has passed its time, drops expired monthly partitions under its own role, and logs what it removed.
+
+**Erasing a guest.** On request, the venue erases a guest (`POST /guests/{g}/erase`): their name, phone and email are blanked, saved cards are detached at Stripe, and message bodies that aren't under a legal hold are purged here and at Twilio. Checks, payments and the audit log stay, because they carry no contact details, and the opt-out stays as a hash of the number, so an erased guest is never texted again. A singer who asks is erased the same way once their tab owes nothing; otherwise singers are deleted 30 days after their last song, as the table says.

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>In the room — order and time</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.chips{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.chips::-webkit-scrollbar{display:none}
+@keyframes toast{0%{opacity:0;transform:translateY(10px)}12%,85%{opacity:1;transform:none}100%{opacity:0}}
+.toast{animation:toast 3s ease both}
+@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.sheet{animation:up .3s cubic-bezier(.2,.7,.2,1) both}
+.stick{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+@media (prefers-reduced-motion:reduce){.toast,.sheet{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 0 0 130px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+
+  <header style="padding: 18px 16px 12px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <span class="mono" style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--acc, #D4FF3F)">{{youLine}}</span>
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 10px">
+      <span class="disp" style="font-size: 30px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{hello}}</span>
+      <span class="mono" style="flex: none; white-space: nowrap; font-size: 10px; letter-spacing: .06em; color: #8E8994; padding-bottom: 2px">Code <b style="color: #F4F1EA; font-weight: 700">KX4M7</b></span>
+    </div>
+  </header>
+
+  <section style="padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px">
+    <div style="padding: 16px; border-radius: 18px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 10px; {{timeBorder}}">
+      <div style="display: flex; align-items: center; gap: 14px">
+        <div style="flex: 1">
+          <div class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Your room until</div>
+          <div class="disp" style="font-size: 40px; margin-top: 4px">{{until}}</div>
+        </div>
+        <div style="text-align: right"><div class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">After that</div><div class="mono" style="font-size: 13px; margin-top: 4px">{{perMin}}</div></div>
+      </div>
+      <div style="font-size: 13px; line-height: 1.5; {{stayStyle}}">{{stayLine}}</div>
+    </div>
+
+    <sc-if value="{{hasOrders}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994; padding-top: 4px">{{ordersTitle}}</div>
+        <sc-for list="{{orders}}" as="o" hint-placeholder-count="2">
+          <div style="padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+              <span style="font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{o.what}}</span>
+              <span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; white-space: nowrap; {{o.pillStyle}}">{{o.status}}</span>
+            </div>
+            <div style="display: flex; gap: 4px">
+              <span style="flex: 1; height: 4px; border-radius: 2px; {{o.s1}}"></span><span style="flex: 1; height: 4px; border-radius: 2px; {{o.s2}}"></span><span style="flex: 1; height: 4px; border-radius: 2px; {{o.s3}}"></span><span style="flex: 1; height: 4px; border-radius: 2px; {{o.s4}}"></span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #8E8994"><span>{{o.note}}</span><span style="display: flex; align-items: center; gap: 10px"><span class="mono">{{o.total}}</span><sc-if value="{{o.canCancel}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{o.cancel}}" style="appearance: none; border-radius: 999px; padding: 5px 10px; font-weight: 700; font-size: 11px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2)">Cancel</button></sc-if></span></div>
+          </div>
+        </sc-for>
+        <sc-for list="{{calls}}" as="c" hint-placeholder-count="1">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #121016; border: 1px solid #FFB13D55; font-size: 13px">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #FFB13D; flex: none"></span>
+            <span style="flex: 1; min-width: 0">Staff called · “{{c.what}}”</span>
+            <span class="mono" style="font-size: 10px; color: #FFB13D; white-space: nowrap">{{c.when}}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{hasDelivered}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 12px; color: #A39FA8; line-height: 1.45">
+            <span style="flex: 1; min-width: 0"><b style="color: #F4F1EA; font-weight: 600">On your tab</b><br>{{deliveredLine}}</span>
+            <span class="mono" style="font-size: 12px; color: #F4F1EA; white-space: nowrap">{{tabDrinks}}</span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{friendLocked}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.2)">
+        <svg width="16" height="16" fill="none" stroke="#F4F1EA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5 7V5a3 3 0 0 1 6 0v2"/></svg>
+        <div style="min-width: 0"><div style="font-size: 13px; font-weight: 700">Marcus has locked ordering</div><div style="font-size: 11px; color: #8E8994; line-height: 1.4">You can look through the menu. Ask Marcus to add anything to the tab.</div></div>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 6px">
+      <span class="disp" style="font-size: 30px">Order to the room</span>
+      <span class="mono" style="flex: none; white-space: nowrap; font-size: 10px; letter-spacing: .1em; color: #8E8994">Goes on your tab</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; background: #121016; border: 1px solid rgba(244,241,234,.12); border-radius: 12px; padding: 2px 6px 2px 14px">
+      <svg width="16" height="16" fill="none" stroke="#8E8994" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/></svg>
+      <input type="text" value="{{q}}" onInput="{{setQ}}" placeholder="Search the whole menu" aria-label="Search the menu" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 15px; font-family: inherit; padding: 11px 0">
+      <sc-if value="{{searching}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{clearQ}}" aria-label="Clear" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 18px; padding: 6px 8px">×</button></sc-if>
+    </div>
+    <div class="chips" style="display: flex; gap: 8px; white-space: nowrap; margin: 0 -16px; padding: 0 16px">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="15"><button type="button" class="btn" onClick="{{c.pick}}" style="appearance: none; border-radius: 999px; padding: 9px 14px; font-weight: 700; font-size: 12px; flex: none; {{c.style}}">{{c.label}}</button></sc-for>
+    </div>
+    <div class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">{{listLine}}</div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); {{it.rowStyle}}">
+          <div style="min-width: 0; flex: 1"><div style="font-weight: 600; font-size: 15px">{{it.name}}</div><div style="font-size: 12px; color: #8E8994">{{it.sub}}</div></div>
+          <span class="mono" style="font-size: 13px; white-space: nowrap">{{it.price}}</span>
+          <sc-if value="{{it.out}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #FF3DA6; white-space: nowrap">Out tonight</span></sc-if>
+          <sc-if value="{{it.in}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; align-items: center; gap: 6px">
+              <sc-if value="{{it.has}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{it.dec}}" aria-label="Fewer" style="appearance: none; width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; font-size: 18px">−</button><span class="mono" style="width: 14px; text-align: center; font-size: 13px">{{it.qty}}</span></sc-if>
+              <button type="button" class="btn" onClick="{{it.inc}}" aria-label="Add" style="appearance: none; width: 34px; height: 34px; border-radius: 10px; border: 0; background: var(--acc, #D4FF3F); color: #0b0a0d; font-size: 20px; font-weight: 700">+</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{hasCart}}" hint-placeholder-val="{{true}}">
+      <div style="padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid var(--acc, #D4FF3F); display: flex; flex-direction: column; gap: 6px">
+        <div class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Your order · not sent yet</div>
+        <sc-for list="{{cartLines}}" as="l" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{l.line}}</span><span class="mono" style="font-size: 12px">{{l.total}}</span><button type="button" class="btn" onClick="{{l.remove}}" aria-label="Remove" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 18px; line-height: 1; padding: 2px 4px">×</button></div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+
+    <div style="padding: 14px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+      <div class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Tonight so far</div>
+      <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Room time, {{roomDur}}</span><span class="mono">{{roomCost}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Drinks on your tab</span><span class="mono">{{tabDrinks}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 15px; font-weight: 700; padding-top: 6px; border-top: 1px solid rgba(244,241,234,.08)"><span>Tab so far</span><span class="mono">{{tabSoFar}}</span></div>
+      <div style="font-size: 12px; line-height: 1.5; color: #8E8994">Before tax and gratuity. Room time keeps counting by the minute ($2.00 a minute for 12). Your $120 deposit comes off when you settle up.</div>
+    </div>
+    <sc-if value="{{isHost}}" hint-placeholder-val="{{true}}">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+      <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{lockTitle}}</div><div style="font-size: 11px; color: #8E8994; line-height: 1.4">{{lockHint}}</div></div>
+      <button type="button" class="btn" onClick="{{toggleLock}}" aria-label="Lock ordering" style="appearance: none; border: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{lockTrack}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{lockKnob}}"></span></button>
+    </div>
+    </sc-if>
+    <div style="display: flex; gap: 8px">
+      <button type="button" class="btn" onClick="{{help}}" style="flex: 1; appearance: none; border-radius: 12px; padding: 12px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Call staff to the room</button>
+    </div>
+    <button type="button" class="btn" onClick="{{openSafe}}" style="appearance: none; align-self: center; border: 0; background: transparent; color: #8E8994; font-size: 12px; padding: 4px 8px; text-decoration: underline; text-underline-offset: 3px">Need a manager, privately? Get help</button>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 6px">
+      <button type="button" class="btn" onClick="{{toggleMe}}" style="appearance: none; border-radius: 999px; padding: 7px 12px; font-size: 11px; background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.18)">{{meLabel}}</button>
+      <button type="button" class="btn" onClick="{{toggleWaiting}}" style="appearance: none; border-radius: 999px; padding: 7px 12px; font-size: 11px; background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.18)">{{demoLabel}}</button>
+    </div>
+  </section>
+
+  <sc-if value="{{picking}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; inset: 0; z-index: 70; background: rgba(11,10,13,.7); display: flex; align-items: flex-end">
+      <div class="sheet" style="width: 100%; box-sizing: border-box; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #15131a; border-top: 1px solid rgba(244,241,234,.1); display: flex; flex-direction: column; gap: 8px">
+        <div class="disp" style="font-size: 26px">{{pickName}}</div>
+        <div style="font-size: 12px; color: #8E8994; margin-top: -4px">Which one? The bar gets it on the ticket.</div>
+        <sc-for list="{{pickOptions}}" as="o" hint-placeholder-count="4">
+          <button type="button" class="btn" onClick="{{o.pick}}" style="appearance: none; text-align: left; border-radius: 14px; padding: 14px 16px; font-weight: 600; font-size: 15px; background: #1c1a21; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12); display: flex; justify-content: space-between; align-items: center"><span>{{o.label}}</span><span style="font-size: 18px; color: var(--acc, #D4FF3F)">+</span></button>
+        </sc-for>
+        <button type="button" class="btn" onClick="{{closePick}}" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-weight: 600; font-size: 13px; padding: 10px">Never mind</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{asking}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; inset: 0; z-index: 70; background: rgba(11,10,13,.7); display: flex; align-items: flex-end">
+      <div class="sheet" style="width: 100%; box-sizing: border-box; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #15131a; border-top: 1px solid rgba(244,241,234,.1); display: flex; flex-direction: column; gap: 10px">
+        <div class="disp" style="font-size: 26px">What do you need?</div>
+        <div style="font-size: 12px; color: #8E8994; margin-top: -4px">Room 9 lights up on the bar screen with your reason.</div>
+        <sc-for list="{{reasons}}" as="r" hint-placeholder-count="4">
+          <button type="button" class="btn" onClick="{{r.pick}}" style="appearance: none; text-align: left; border-radius: 14px; padding: 14px 16px; font-weight: 600; font-size: 15px; background: #1c1a21; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12); display: flex; justify-content: space-between; align-items: center"><span>{{r.label}}</span><span style="font-size: 18px; color: var(--acc, #D4FF3F)">→</span></button>
+        </sc-for>
+        <button type="button" class="btn" onClick="{{closeAsk}}" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-weight: 600; font-size: 13px; padding: 10px">Never mind</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{safeOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; inset: 0; z-index: 70; background: rgba(11,10,13,.7); display: flex; align-items: flex-end">
+      <div class="sheet" role="dialog" aria-label="Get help privately" style="width: 100%; box-sizing: border-box; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #15131a; border-top: 1px solid rgba(244,241,234,.1); display: flex; flex-direction: column; gap: 10px">
+        <sc-if value="{{safeAsk}}" hint-placeholder-val="{{true}}">
+          <div class="disp" style="font-size: 26px">Get help privately</div>
+          <div style="font-size: 12px; line-height: 1.5; color: #8E8994; margin-top: -4px">Only tonight’s managers see what you send. It never shows on the room’s screens or on anyone else’s phone.</div>
+          <sc-for list="{{safeReasons}}" as="r" hint-placeholder-count="3">
+            <button type="button" class="btn" onClick="{{r.pick}}" style="appearance: none; text-align: left; border-radius: 14px; padding: 14px 16px; font-weight: 600; font-size: 15px; background: #1c1a21; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12); display: flex; justify-content: space-between; align-items: center"><span>{{r.label}}</span><span style="font-size: 18px; color: #3DF2FF">→</span></button>
+          </sc-for>
+          <button type="button" class="btn" onClick="{{closeSafe}}" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-weight: 600; font-size: 13px; padding: 10px">Never mind</button>
+        </sc-if>
+        <sc-if value="{{safeSent}}" hint-placeholder-val="{{false}}">
+          <div class="disp" style="font-size: 26px">Sent to the managers</div>
+          <div role="status" style="font-size: 14px; line-height: 1.5; color: #C9C5CE">A manager is coming to find you. Stay wherever you feel comfortable, or come to the front desk.</div>
+          <a href="tel:911" style="font-size: 13px; color: #3DF2FF">In an emergency, call 911</a>
+          <button type="button" class="btn" onClick="{{closeSafe}}" style="appearance: none; border-radius: 999px; padding: 14px; font-weight: 700; font-size: 15px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2)">Close</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: fixed; left: 16px; right: 16px; bottom: 96px; z-index: 60; padding: 14px 16px; border-radius: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 14px">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: fixed; left: 16px; right: 16px; bottom: 96px; z-index: 60; padding: 14px 16px; border-radius: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 14px">{{toast}}</div></sc-if>
+
+  <div class="stick" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px 14px; background: linear-gradient(180deg, rgba(11,10,13,0), rgba(11,10,13,.95) 40%)">
+    <button type="button" class="btn" onClick="{{send}}" style="width: 100%; appearance: none; border: 0; border-radius: 999px; padding: 16px 20px; font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; align-items: center; {{sendStyle}}"><span>{{sendLabel}}</span><span class="mono" style="font-size: 12px">{{cartTotal}}</span></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    // Demo: Marcus T., Room 9, party of 12, booked 8:00–11:00 PM. Opens at 10:41 PM (161 min in); room time keeps counting from there.
+    this.state = { cat: "Cocktails", q: "", cart: {}, cartOrder: [], until: 23, waiting: false, locked: false, me: "host", toast: "", toastN: 0, asking: false, pick: null, safe: "",
+      start: Date.now() - 161 * 60000, tick: 0,
+      calls: [{ what: "Another mic, please", at: Date.now() - 120000 }],
+      orders: [
+        { id: 1, what: "1 × Large bucket, 10 beers", total: 70, step: 4 },
+        { id: 2, what: "2 × Soju, Chamisul Fresh", total: 40, step: 4 },
+        { id: 3, what: "4 × Jäger Bomb", total: 48, step: 4 },
+        { id: 4, what: "2 × Margarita · Peach", total: 26, step: 1 }
+      ] };
+  }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 15000); }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+  advance(id, step) {
+    const orders = this.state.orders.map((o) => (o.id === id && o.step < step && o.step > 0 ? Object.assign({}, o, { step }) : o));
+    this.setState({ orders });
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    // The full menu — same data as the menu page and the PDF. Two-price items become two lines (glass / pitcher, drink / bottle).
+    const RAW = [
+      ["Cocktails", ["", ""], [["Tequila Sunrise", "", 12], ["Blue Hawaii", "", 12], ["Jolly Rancher", "", 12], ["Melon Ball", "", 12], ["Black Russian", "", 12], ["Sex on the Beach", "", 12], ["Paloma", "", 12], ["Midori Sour", "", 12], ["Amaretto Sour", "", 12], ["Kamikaze-tini", "", 12], ["Lemon Drop-tini", "", 13], ["Moscow Mule", "", 13], ["Dark 'n' Stormy", "", 13], ["Mai Tai", "", 13], ["Yogurt Soju Cocktail", "", 13], ["Malibu Bay Breeze", "", 13], ["Margarita", "Raspberry, peach or strawberry", 13], ["Iced Tea", "Long Island, Long Beach, Ruby Strawberry, Blue Lemonade or Tokyo Melon", 13]]],
+      ["Mocktails", ["", ""], [["Mule", "Peach, strawberry or raspberry", 11], ["Shirley Temple", "", 11]]],
+      ["Beer", ["glass", "pitcher"], [["Bud Light", "", 8], ["Budweiser", "", 8], ["Michelob Ultra", "", 8], ["Modelo", "", 9], ["Angry Orchard", "", 9], ["Heineken", "", 9], ["Corona", "", 9], ["Goose Island IPA", "", 9], ["Guinness", "", 9], ["Hoegaarden", "", 9], ["Blue Moon", "", 9], ["Stella Artois", "", 9], ["Kirin, draft", "", [9, 31]], ["Nütrl hard seltzer", "Lemonade, pineapple, watermelon, orange, black cherry or cranberry", 10]]],
+      ["Buckets", ["", ""], [["Small bucket", "6 beers", 40], ["Large bucket", "10 beers", 70]]],
+      ["Soju", ["", ""], [["Chamisul Fresh", "Bottle", 20], ["Jinro Is Back", "Bottle", 20], ["Strawberry", "Bottle", 20], ["Grapefruit", "Bottle", 20], ["Green Grape", "Bottle", 20], ["Peach", "Bottle", 20], ["Plum", "Bottle", 20]]],
+      ["Shots", ["", ""], [["Lemon Drop", "", 9], ["Buttery Nipple", "", 9], ["Kamikaze", "", 9], ["Woo Woo", "", 9], ["Orgasm", "", 9], ["Green Tea", "", 10], ["Red Headed Slut", "", 10], ["Jäger Bomb", "", 12]]],
+      ["Wine", ["glass", "bottle"], [["Malbec", "", [10, 40]], ["Merlot", "", [10, 40]], ["Cabernet", "", [10, 40]], ["Sauvignon Blanc", "", [10, 40]], ["Pinot Grigio", "", [10, 40]], ["Prosecco", "Sparkling", [10, 40]]]],
+      ["Champagne", ["", ""], [["André Brut", "Bottle", 40], ["Moët & Chandon", "Bottle", 180]]],
+      ["Whiskey", ["drink", "bottle"], [["Jameson", "", [12, 250]], ["Jack Daniel's", "", [12, 250]], ["Johnnie Walker Black", "", [12, 300]], ["Fireball", "", [13, 250]], ["Jack Daniel's Honey", "", [13, 300]], ["Maker's Mark", "", [13, 300]], ["Hennessy", "", [13, 300]], ["Bulleit Bourbon", "", [13, 330]], ["Basil Hayden", "", [13, 330]], ["The Glenlivet 12", "", [14, 350]]]],
+      ["Vodka", ["drink", "bottle"], [["Tito's", "", [12, 250]], ["Stoli", "Citrus, raspberry or blueberry", [12, 250]], ["Ketel One", "", [12, 330]], ["Grey Goose", "", [13, 350]]]],
+      ["Tequila", ["drink", "bottle"], [["Patrón", "", [13, 300]], ["Casamigos Blanco", "", [13, 330]], ["Mezcal", "", [14, 350]]]],
+      ["Rum", ["drink", "bottle"], [["Bacardi", "", [12, 275]], ["Captain Morgan", "", [12, 275]], ["Malibu", "", [12, 250]]]],
+      ["Gin", ["drink", "bottle"], [["Tanqueray", "", [12, 250]], ["Bombay", "", [12, 250]], ["Hendrick's", "", [13, 300]]]],
+      ["Packages", ["", ""], [["2 soju bottles + 1 small bucket", "", 70], ["4 soju bottles + 1 large bucket", "", 120], ["12 house shots + 2 small buckets", "", 150], ["1 bottle + 1 large bucket", "Free pitcher of soda", 300], ["2 bottles + 3 large buckets", "Free pitcher of soda", 680]]],
+      ["Soft drinks", ["cup", "pitcher"], [["Soda", "Coke, Diet Coke, Sprite or ginger ale", [5, 18]], ["Lemonade", "", [5, 18]], ["Cranberry juice", "", [5, 18]], ["Seltzer", "", [2, 16]], ["Ginger beer", "", 9], ["Red Bull", "", 6]]]
+    ];
+    // Items that need a choice before they can go on a ticket.
+    const CHOICES = {
+      "Margarita": ["Raspberry", "Peach", "Strawberry"], "Iced Tea": ["Long Island", "Long Beach", "Ruby Strawberry", "Blue Lemonade", "Tokyo Melon"],
+      "Mule": ["Peach", "Strawberry", "Raspberry"], "Nütrl hard seltzer": ["Lemonade", "Pineapple", "Watermelon", "Orange", "Black cherry", "Cranberry"],
+      "Stoli, drink": ["Plain", "Citrus", "Raspberry", "Blueberry"], "Stoli, bottle": ["Plain", "Citrus", "Raspberry", "Blueberry"],
+      "Soda, cup": ["Coke", "Diet Coke", "Sprite", "Ginger ale"], "Soda, pitcher": ["Coke", "Diet Coke", "Sprite", "Ginger ale"],
+      "1 bottle + 1 large bucket": ["Jack Daniel's", "Jameson", "Fireball", "Tito's", "Stoli", "Bombay", "Tanqueray", "Casamigos", "Patrón", "Bacardi", "Captain Morgan"],
+      "2 bottles + 3 large buckets": ["Jack Daniel's", "Jameson", "Fireball", "Tito's", "Stoli", "Bombay", "Tanqueray", "Casamigos", "Patrón", "Bacardi", "Captain Morgan"]
+    };
+    // 86'd tonight — the bar screen sets this and every room sees it at once.
+    const OUT = { "Casamigos Blanco, drink": true, "Casamigos Blanco, bottle": true, "Hoegaarden": true };
+    const MENU = {};
+    RAW.forEach(([cat, [a, b], rows]) => {
+      MENU[cat] = [];
+      rows.forEach(([name, sub, price]) => {
+        if (Array.isArray(price)) { MENU[cat].push([name + ", " + a, sub, price[0]]); MENU[cat].push([name + ", " + b, sub, price[1]]); }
+        else MENU[cat].push([name, sub, price]);
+      });
+    });
+    const q = (st.q || "").trim().toLowerCase();
+    const searching = q.length > 0;
+    const cats = Object.keys(MENU).map((label) => ({ label, pick: () => this.setState({ cat: label, q: "" }), style: !searching && st.cat === label ? "background: " + acc + "; color: #0b0a0d;" : "background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);" }));
+    const setQty = (key, base, price, qty) => {
+      const cart = Object.assign({}, st.cart); let order = st.cartOrder.filter((k) => k !== key);
+      if (qty <= 0) delete cart[key]; else { cart[key] = { base, price, qty }; order = order.concat([key]); }
+      this.setState({ cart, cartOrder: order });
+    };
+    const isHostNow = st.me === "host";
+    const qtyOf = (base) => Object.keys(st.cart).reduce((a, k) => a + (st.cart[k].base === base ? st.cart[k].qty : 0), 0);
+    const source = searching
+      ? Object.keys(MENU).reduce((a, k) => a.concat(MENU[k].filter(([n, s]) => (n + " " + s + " " + k).toLowerCase().includes(q)).map((r) => [r[0], r[1] || k, r[2]])), []).slice(0, 30)
+      : MENU[st.cat];
+    const items = source.map(([name, sub, price]) => {
+      const qty = qtyOf(name), out = !!OUT[name], choices = CHOICES[name];
+      const lastKey = st.cartOrder.slice().reverse().find((k) => st.cart[k] && st.cart[k].base === name);
+      return {
+        name, sub: choices ? "Pick one: " + sub.toLowerCase() : sub, price: "$" + price, qty, has: qty > 0, out, in: !out,
+        rowStyle: out ? "opacity: .5;" : "",
+        inc: () => { if (!isHostNow && st.locked) { this.notify("Marcus has locked ordering for Room 9"); return; } if (choices) this.setState({ pick: { name, price, choices } }); else setQty(name, name, price, qty + 1); },
+        dec: () => { if (lastKey) setQty(lastKey, name, price, st.cart[lastKey].qty - 1); }
+      };
+    });
+    const count = Object.keys(st.cart).reduce((a, k) => a + st.cart[k].qty, 0);
+    const totalN = Object.keys(st.cart).reduce((a, k) => a + st.cart[k].qty * st.cart[k].price, 0);
+    const cartLines = st.cartOrder.filter((k) => st.cart[k]).map((k) => ({ line: st.cart[k].qty + " × " + k, total: "$" + (st.cart[k].qty * st.cart[k].price).toFixed(2), remove: () => setQty(k, st.cart[k].base, st.cart[k].price, 0) }));
+    const listLine = searching ? (items.length ? items.length + " match" + (items.length > 1 ? "es" : "") + " for “" + st.q + "”" : "Nothing called “" + st.q + "” — try the categories") : MENU[st.cat].length + " in " + st.cat + " · " + Object.keys(MENU).reduce((a, k) => a + MENU[k].length, 0) + " on the menu";
+    const fmt = (t) => { const m = Math.round((t % 1) * 60); const hh = Math.floor(t); return (((hh + 11) % 12) + 1) + ":" + (m < 10 ? "0" : "") + m + (hh >= 12 && hh < 24 ? " PM" : " AM"); };
+    const until = fmt(st.until);
+    const STEPS = ["Received", "Bar accepted", "On its way", "Delivered"];
+    const NOTES = ["Ringing at the bar · not on your tab yet · you can still cancel", "On your tab · ticket printed, being made", "On your tab · coming up to Room 9", "On your tab"];
+    const on = "background: " + acc + ";", off = "background: rgba(244,241,234,.12);";
+    const orders = st.orders.filter((o) => o.step > 0 && o.step < 4).slice().reverse().map((o) => ({
+      what: o.what, total: "$" + o.total.toFixed(2),
+      status: STEPS[o.step - 1], note: NOTES[o.step - 1],
+      pillStyle: o.step >= 3 ? "background: " + acc + "; color: #0b0a0d;" : "background: rgba(244,241,234,.08); color: #F4F1EA;",
+      s1: o.step >= 1 ? on : off, s2: o.step >= 2 ? on : off, s3: o.step >= 3 ? on : off, s4: o.step >= 4 ? on : off,
+      canCancel: o.step === 1 && st.me === "host", cancel: () => { this.setState({ orders: st.orders.map((x) => x.id === o.id ? Object.assign({}, x, { step: 0 }) : x) }); this.notify("Cancelled before the bar took it. Nothing on your tab."); }
+    }));
+    const delivered = st.orders.filter((o) => o.step >= 4);
+    // An order joins the tab when the bar accepts it (step 2), not when it's delivered.
+    const drinksN = st.orders.filter((o) => o.step >= 2).reduce((a, o) => a + o.total, 0);
+    const tabDrinks = "$" + drinksN.toFixed(2);
+    // Room time: $10 × 12 = $120 an hour, by the minute. 161 min at 10:41 PM = $322.00.
+    const mins = Math.max(60, Math.floor((Date.now() - st.start) / 60000));
+    const roomN = mins * 2;
+    const roomDur = Math.floor(mins / 60) + " hr " + (mins % 60) + " min";
+    const isHost = st.me === "host";
+    const blocked = !isHost && st.locked;
+    const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? "just now" : m + " min ago"; };
+    const calls = st.calls.slice().reverse().map((c) => ({ what: c.what, when: ago(c.at) }));
+    const reasons = ["Another mic, please", "TV or song isn't working", "Check, please", "Something else"].map((label) => ({
+      label, pick: () => { this.setState({ asking: false, calls: st.calls.concat([{ what: label, at: Date.now() }]) }); this.notify("Room 9 · " + label + " — someone is coming"); }
+    }));
+    const pickOptions = st.pick ? st.pick.choices.map((c) => ({ label: c, pick: () => { const key = st.pick.name + " · " + c; const cur = st.cart[key] ? st.cart[key].qty : 0; setQty(key, st.pick.name, st.pick.price, cur + 1); this.setState({ pick: null }); } })) : [];
+    return {
+      accent: acc, cats, items, listLine,
+      q: st.q, searching, setQ: (e) => this.setState({ q: e.target.value }), clearQ: () => this.setState({ q: "" }),
+      until, perMin: "$2.00 / min",
+      stayLine: st.waiting ? "Another party has Room 9 after you, so please wrap up by " + until + ". Sing the big one now." : "Nobody’s waiting for Room 9 tonight, so you can stay past " + until + " as long as you like. The clock just keeps going by the minute.",
+      stayStyle: st.waiting ? "color: #FFB13D;" : "color: #C9C5CE;",
+      timeBorder: st.waiting ? "border-color: #FFB13D66;" : "",
+      toggleWaiting: () => this.setState({ waiting: !st.waiting }), demoLabel: st.waiting ? "Demo: nobody waiting after us" : "Demo: a party is booked after us",
+      help: () => this.setState({ asking: true }),
+      asking: st.asking, reasons, closeAsk: () => this.setState({ asking: false }),
+      // Help goes to POST /room-session/help: an incident for the managers' phones only. It is never added to
+      // the room's call list, so it can't show on the room tablet, the bar screen or another guest's phone.
+      openSafe: () => this.setState({ safe: "ask" }), closeSafe: () => this.setState({ safe: "" }),
+      safeOpen: !!st.safe, safeAsk: st.safe === "ask", safeSent: st.safe === "sent",
+      safeReasons: ["I feel unsafe", "Someone here needs help", "Something else"].map((label) => ({ label, pick: () => this.setState({ safe: "sent" }) })),
+      picking: !!st.pick, pickName: st.pick ? st.pick.name : "", pickOptions, closePick: () => this.setState({ pick: null }),
+      hasCart: count > 0, cartLines,
+      hasOrders: orders.length > 0 || delivered.length > 0 || calls.length > 0, orders, tabDrinks, calls,
+      ordersTitle: isHost ? "Your orders tonight" : "Room 9’s orders tonight",
+      hasDelivered: st.orders.some((o) => o.step >= 2), deliveredLine: st.orders.filter((o) => o.step >= 2).map((o) => o.what).join(" · "),
+      roomDur, roomCost: "$" + roomN.toFixed(2), tabSoFar: "$" + (roomN + drinksN).toFixed(2),
+      hello: isHost ? "Hey Marcus." : "Hey there.", youLine: isHost ? "You are in Room 9" : "You are in Room 9 · Marcus’s booking",
+      isHost, friendLocked: blocked,
+      toggleMe: () => this.setState({ me: isHost ? "friend" : "host" }), meLabel: isHost ? "Demo: I’m a friend" : "Demo: I’m Marcus",
+      lockTitle: st.locked ? "Only Marcus can order" : "Anyone in the room can order",
+      lockHint: st.locked ? "Others who scan the wall can see the menu but the send button is off for them." : "Tonight’s code KX4M7 only works for this booking. Lock it if you want to be the only one adding to the tab.",
+      toggleLock: () => this.setState({ locked: !st.locked }), lockTrack: st.locked ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", lockKnob: st.locked ? "right: 3px;" : "left: 3px;",
+      send: () => {
+        if (count > 0 && !blocked) {
+          const what = st.cartOrder.filter((k) => st.cart[k]).map((k) => (st.cart[k].qty > 1 ? st.cart[k].qty + "× " : "") + k).join(", ");
+          const id = Date.now();
+          this.setState({ cart: {}, cartOrder: [], orders: st.orders.concat([{ id, what, total: totalN, step: 1 }]) });
+          this.notify("Sent. The bar is ringing for Room 9 — it goes on your tab.");
+          setTimeout(() => this.advance(id, 2), 5000);
+          setTimeout(() => this.advance(id, 3), 10000);
+          setTimeout(() => this.advance(id, 4), 20000);
+        }
+      },
+      sendLabel: blocked ? "Ordering is locked by Marcus" : (count > 0 ? "Send " + count + " to the bar" : "Add drinks to order"),
+      sendStyle: count > 0 && !blocked ? "background: " + acc + "; color: #0b0a0d;" : "background: #1c1a21; color: #8E8994; border: 1px solid rgba(244,241,234,.14);",
+      cartTotal: count > 0 && !blocked ? "$" + totalN.toFixed(2) : "",
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

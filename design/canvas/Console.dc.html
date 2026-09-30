@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console — venues and plans</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.trow:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rail button{transition:background .15s ease}.rail button:hover{background:rgba(244,241,234,.06)}
+.trow{cursor:pointer;transition:background .15s ease}.trow:hover{background:rgba(244,241,234,.04)}
+.in{width:100%;box-sizing:border-box;background:#0b0a0d;border:1px solid rgba(244,241,234,.16);border-radius:8px;padding:9px 11px;color:#F4F1EA;font:inherit;font-size:13px;outline:0}
+.in:focus{border-color:#D4FF3F}
+.scroll::-webkit-scrollbar{width:8px;height:8px}.scroll::-webkit-scrollbar-thumb{background:rgba(244,241,234,.14);border-radius:8px}.scroll::-webkit-scrollbar-track{background:transparent}
+@keyframes slide{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.panel{animation:slide .25s cubic-bezier(.2,.7,.2,1) both}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.pop{animation:pop .2s cubic-bezier(.2,.7,.2,1) both}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,177,61,.6)}50%{box-shadow:0 0 0 6px rgba(255,177,61,0)}}
+.pulse{animation:pulse 1.4s ease-out infinite}
+@keyframes toast{0%{opacity:0;transform:translateY(8px)}12%,85%{opacity:1;transform:none}100%{opacity:0}}
+.toast{animation:toast 3s ease both}
+@media (prefers-reduced-motion:reduce){.panel,.pop,.pulse,.toast{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav class="rail" aria-label="Console" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">Console</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Venue software · our team</span></div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="6">
+      <button type="button" onClick="{{n.pick}}" aria-current="{{n.current}}" style="appearance: none; border: 0; cursor: pointer; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-family: inherit; font-size: 14px; {{n.style}}">{{n.label}}<sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; {{n.badgeStyle}}">{{n.badge}}</span></sc-if></button>
+    </sc-for>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Signed in · our staff</span><br><b>{{staff}}</b> · Console admin</div>
+      <span class="mono" style="font-size: 9px; letter-spacing: .1em; color: #6F6B78; text-align: center">Every action here is logged</span>
+    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-bottom: 1px solid rgba(244,241,234,.08); white-space: nowrap">
+      <div style="display: flex; flex-direction: column"><span class="disp" style="font-size: 26px">{{title}}</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">{{subtitle}}</span></div>
+      <div style="margin-left: auto; display: flex; gap: 6px; align-items: center">
+        <sc-for list="{{stats}}" as="s" hint-placeholder-count="4"><span style="padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><b style="{{s.style}}">{{s.n}}</b> {{s.label}}</span></sc-for>
+      </div>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+
+      <sc-if value="{{showTable}}" hint-placeholder-val="{{true}}">
+        <section class="scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 16px">
+          <div class="scroll" style="border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); overflow-x: auto; flex: none">
+            <div style="min-width: 980px">
+              <div style="display: grid; grid-template-columns: {{vCols}}; gap: 10px; align-items: center; padding: 11px 14px; border-bottom: 1px solid rgba(244,241,234,.08)">
+                <sc-for list="{{vHead}}" as="h" hint-placeholder-count="8"><span class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">{{h}}</span></sc-for>
+              </div>
+              <sc-for list="{{venueRows}}" as="v" hint-placeholder-count="4">
+                <button type="button" class="trow" onClick="{{v.open}}" aria-label="{{v.aria}}" style="appearance: none; width: 100%; box-sizing: border-box; text-align: left; display: grid; grid-template-columns: {{vCols}}; gap: 10px; align-items: center; padding: 13px 14px; background: transparent; color: #F4F1EA; border: 0; border-bottom: 1px solid rgba(244,241,234,.06); font-family: inherit">
+                  <div style="min-width: 0"><div style="font-size: 14px; font-weight: 700; line-height: 1.3">{{v.name}}</div><div style="font-size: 11px; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{v.where}}</div></div>
+                  <span style="justify-self: start; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; {{v.statusStyle}}">{{v.status}}</span>
+                  <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{v.planName}}</div><div style="font-size: 11px; color: #8E8994">{{v.modsLine}}</div></div>
+                  <span class="mono" style="font-size: 13px">{{v.rooms}}</span>
+                  <div><div class="mono" style="font-size: 13px; font-weight: 700">{{v.mrr}}</div><div style="font-size: 11px; color: #8E8994">{{v.mrrSub}}</div></div>
+                  <div style="display: flex; flex-direction: column; gap: 6px"><div style="height: 6px; border-radius: 999px; background: rgba(244,241,234,.1); overflow: hidden"><div style="height: 100%; border-radius: 999px; {{v.barStyle}}"></div></div><span style="font-size: 11px; color: #C9C5CE">{{v.setupLine}}</span></div>
+                  <div><div style="font-size: 13px">{{v.devices}}</div><div style="font-size: 11px; color: #8E8994">{{v.sync}}</div></div>
+                  <div style="display: flex; align-items: flex-start; gap: 8px; min-width: 0"><span style="width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; flex: none; {{v.dotStyle}}"></span><div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{v.health}}</div><div style="font-size: 11px; color: #8E8994">{{v.healthSub}}</div></div></div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #6F6B78">Pick a venue to see its plan, what it may use, setup, billing and support access. Pilots are placeholders, not real businesses.</div>
+
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr); gap: 8px; align-items: stretch">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--acc, #D4FF3F)">1 · We allow · here in Console</span>
+              <div style="font-size: 16px; font-weight: 700">The plan’s modules, add-ons we switch on, beta flags</div>
+              <div style="font-size: 12px; color: #8E8994; line-height: 1.5">Set per venue. Prices in Console are proposed. Core modules (payments, alcohol rules, admin, devices) are always on.</div>
+            </div>
+            <div aria-hidden="true" style="display: flex; align-items: center; justify-content: center; font-size: 22px; color: #6F6B78">→</div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">2 · The venue turns on · its Admin → Features</span>
+              <div style="font-size: 16px; font-weight: 700">Only what it uses, inside what we allow</div>
+              <div style="font-size: 12px; color: #8E8994; line-height: 1.5">What isn’t allowed shows “Not in your plan” with an Ask to add button. Turning a module off hides its screens everywhere.</div>
+              <a href="AdminDesk.dc.html" style="align-self: flex-start; margin-top: 2px; font-size: 12px; font-weight: 700">See West 4’s Features →</a>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{showSplit}}" hint-placeholder-val="{{false}}">
+        <section class="scroll" style="width: 270px; flex: none; box-sizing: border-box; overflow: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; border-right: 1px solid rgba(244,241,234,.08)">
+          <button type="button" class="btn" onClick="{{closeVenue}}" style="appearance: none; align-self: flex-start; border: 0; background: transparent; color: #C9C5CE; padding: 4px 2px 8px; font-size: 12px; font-weight: 700">← All venues</button>
+          <sc-for list="{{venueRows}}" as="v" hint-placeholder-count="4">
+            <button type="button" class="btn" onClick="{{v.open}}" aria-label="{{v.aria}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; font-family: inherit; color: #F4F1EA; {{v.listStyle}}">
+              <span style="display: flex; align-items: center; gap: 8px; width: 100%"><span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700; line-height: 1.3">{{v.name}}</span><span style="width: 8px; height: 8px; border-radius: 50%; flex: none; {{v.dotStyle}}"></span></span>
+              <span style="font-size: 11px; color: #8E8994; line-height: 1.4">{{v.listLine}}</span>
+              <sc-if value="{{v.supportOpen}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #FFB13D">Support access open</span></sc-if>
+              <sc-if value="{{v.supportPending}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #3DF2FF">Support request waiting</span></sc-if>
+            </button>
+          </sc-for>
+        </section>
+
+        <aside class="panel scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 16px 20px 22px; display: flex; flex-direction: column; gap: 12px; background: #0e0d11">
+          <div style="display: flex; align-items: flex-start; gap: 12px">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><span class="disp" style="font-size: 28px">{{d.name}}</span><span style="font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; {{d.statusStyle}}">{{d.status}}</span></div>
+              <span style="font-size: 12px; color: #C9C5CE">{{d.where}}</span>
+              <span class="mono" style="font-size: 10px; letter-spacing: .08em; color: #8E8994">{{d.facts}}</span>
+            </div>
+            <button type="button" class="btn" onClick="{{closeVenue}}" aria-label="Close venue" style="appearance: none; flex: none; width: 30px; height: 30px; border-radius: 8px; padding: 0; font-size: 13px; font-weight: 700; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">✕</button>
+          </div>
+
+          <sc-if value="{{d.sIdle}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#8E8994" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" style="flex: none"><circle cx="6" cy="9" r="3.2"/><path d="M9.2 9H16M13.5 9v2.6M16 9v2"/></svg>
+              <div style="flex: 1; min-width: 0"><div style="font-size: 13px; font-weight: 700">Support access · closed</div><div style="font-size: 11px; color: #8E8994; line-height: 1.45">We get into {{d.short}}’s Admin only after its owner or a manager approves a request: up to 60 minutes, read-only on masked views unless they approve one change, and every visit is logged. Emergency fixes (re-sync a payment, cancel a reader action, requeue a print, close a stuck night) need a second approver here and tell the owner at once.</div></div>
+              <button type="button" class="btn" onClick="{{d.askAccess}}" style="appearance: none; flex: none; border-radius: 10px; padding: 9px 13px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2); white-space: nowrap">Request support access</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{d.sAsking}}" hint-placeholder-val="{{false}}">
+            <div class="pop" style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 12px; background: #141218; border: 1px solid #FFB13D77">
+              <label for="cs-reason" style="font-size: 13px; font-weight: 700">Why do you need access to {{d.short}}?</label>
+              <input id="cs-reason" class="in" type="text" value="{{reason}}" onChange="{{setReason}}" placeholder="e.g. Owner asked for help with the menu">
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><span style="font-size: 11px; color: #8E8994; margin-right: 2px">Quick reason:</span><sc-for list="{{reasons}}" as="r" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{r.pick}}" style="appearance: none; border-radius: 999px; padding: 5px 10px; font-weight: 600; font-size: 12px; {{r.style}}">{{r.label}}</button></sc-for></div>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px">
+                <div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 11px; color: #8E8994">What we can do</span><div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px"><sc-for list="{{scopes}}" as="m" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="appearance: none; border-radius: 8px; padding: 8px 6px; font-weight: 700; font-size: 12px; white-space: nowrap; {{m.style}}">{{m.label}}</button></sc-for></div></div>
+                <div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 11px; color: #8E8994">For how long</span><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><sc-for list="{{lengths}}" as="m" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="appearance: none; border-radius: 8px; padding: 8px 6px; font-weight: 700; font-size: 12px; white-space: nowrap; {{m.style}}">{{m.label}}</button></sc-for></div></div>
+              </div>
+              <sc-if value="{{writeScope}}" hint-placeholder-val="{{false}}"><input class="in" type="text" value="{{writeWhat}}" onChange="{{setWriteWhat}}" placeholder="The one change, e.g. fix the prices in Drinks" aria-label="The one change we would make"></sc-if>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <button type="button" class="btn" onClick="{{d.sendRequest}}" style="appearance: none; border: 0; flex: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; white-space: nowrap; {{startStyle}}">Send request</button>
+                <button type="button" class="btn" onClick="{{cancelAsk}}" style="appearance: none; flex: none; border-radius: 10px; padding: 10px 12px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button>
+                <span style="font-size: 11px; color: #6F6B78; line-height: 1.45">{{d.short}}’s owner and managers get it in Admin. Nothing opens until one of them approves.</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{d.sPending}}" hint-placeholder-val="{{false}}">
+            <div class="pop" role="status" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #3DF2FF10; border: 1px solid #3DF2FF77">
+              <span class="pulse" style="width: 10px; height: 10px; border-radius: 50%; flex: none; background: #3DF2FF"></span>
+              <div style="flex: 1; min-width: 0">
+                <div style="font-size: 13px; font-weight: 700; color: #3DF2FF">Waiting for {{d.short}} to approve</div>
+                <div class="mono" style="font-size: 11px; color: #F4F1EA; margin-top: 4px; line-height: 1.5">{{d.sPendLine}}</div>
+                <div style="font-size: 11px; color: #8E8994; margin-top: 2px">It waits in {{d.short}}’s Admin for the owner or a manager. Nobody approves their own request.</div>
+              </div>
+              <button type="button" class="btn" onClick="{{d.approveDemo}}" style="appearance: none; flex: none; border-radius: 10px; padding: 9px 12px; font-weight: 700; font-size: 12px; background: transparent; color: #3DF2FF; border: 1px dashed #3DF2FF99; white-space: nowrap">{{d.approveLabel}}</button>
+              <button type="button" class="btn" onClick="{{d.cancelRequest}}" style="appearance: none; flex: none; border-radius: 10px; padding: 9px 12px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2); white-space: nowrap">Withdraw</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{d.sOpen}}" hint-placeholder-val="{{false}}">
+            <div class="pop" role="status" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #FFB13D12; border: 1px solid #FFB13D99">
+              <span class="pulse" style="width: 10px; height: 10px; border-radius: 50%; flex: none; background: #FFB13D"></span>
+              <div style="flex: 1; min-width: 0">
+                <div style="font-size: 13px; font-weight: 700; color: #FFB13D">Support access open · {{d.sLeft}}</div>
+                <div class="mono" style="font-size: 11px; color: #F4F1EA; margin-top: 4px; line-height: 1.5">{{d.sAudit}}</div>
+                <div style="font-size: 11px; color: #8E8994; margin-top: 2px">{{d.sScopeLine}} {{d.short}} sees a banner in its Admin until this ends.</div>
+              </div>
+              <button type="button" class="btn" onClick="{{d.endAccess}}" style="appearance: none; flex: none; border-radius: 10px; padding: 9px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #FF3DA6; border: 1px solid #FF3DA6; white-space: nowrap">End now</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{d.hasAudit}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; flex-direction: column; gap: 3px; padding: 0 4px">
+              <span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Audit log · support access</span>
+              <sc-for list="{{d.audit}}" as="a" hint-placeholder-count="2"><span class="mono" style="font-size: 11px; color: #C9C5CE">{{a}}</span></sc-for>
+            </div>
+          </sc-if>
+
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 258px; gap: 14px; align-items: start">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 14px 12px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); min-width: 0">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Modules · what {{d.short}} may use</span><span style="font-size: 11px; color: #C9C5CE; white-space: nowrap">{{d.countLine}}</span></div>
+              <div style="font-size: 11px; color: #8E8994; line-height: 1.5"><b style="color: #C9C5CE">Core, always on:</b> Payments &amp; checks · Alcohol controls &amp; rule pack · Admin &amp; settings · Devices &amp; printers</div>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 84px 54px 84px; gap: 8px; align-items: center; padding: 6px 8px 4px; border-bottom: 1px solid rgba(244,241,234,.08)">
+                <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Module</span>
+                <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Access</span>
+                <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Allowed</span>
+                <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Venue is using</span>
+              </div>
+              <sc-for list="{{d.mods}}" as="m" hint-placeholder-count="19">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 84px 54px 84px; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 8px; {{m.rowStyle}}">
+                  <span title="{{m.what}}" style="min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.3; {{m.nameStyle}}">{{m.name}}</span>
+                  <span class="mono" style="justify-self: start; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; white-space: nowrap; {{m.accessStyle}}">{{m.access}}</span>
+                  <sc-if value="{{m.canToggle}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{m.toggle}}" role="switch" aria-checked="{{m.allowed}}" aria-label="{{m.aria}}" style="appearance: none; border: 0; padding: 0; width: 36px; height: 20px; border-radius: 999px; position: relative; {{m.trackStyle}}"><span style="position: absolute; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #0b0a0d; {{m.knobStyle}}"></span></button></sc-if>
+                  <sc-if value="{{m.locked}}" hint-placeholder-val="{{true}}"><span title="{{m.lockWhy}}" style="display: inline-block; width: 36px; height: 20px; border-radius: 999px; position: relative; {{m.trackStyle}}"><span style="position: absolute; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #0b0a0d; {{m.knobStyle}}"></span></span></sc-if>
+                  <span style="font-size: 12px; line-height: 1.3; {{m.usingStyle}}">{{m.using}}</span>
+                </div>
+                <sc-if value="{{m.hasNote}}" hint-placeholder-val="{{false}}">
+                  <div class="pop" style="margin: 0 0 2px; padding: 8px 10px; border-radius: 8px; font-size: 11px; line-height: 1.5; {{m.noteStyle}}">{{m.note}}<sc-if value="{{m.noteLink}}" hint-placeholder-val="{{false}}"> <a href="AdminDesk.dc.html" style="font-weight: 700">Open West 4’s Admin → Features</a></sc-if></div>
+                </sc-if>
+                <sc-if value="{{m.hasConfirm}}" hint-placeholder-val="{{false}}">
+                  <div class="pop" role="alertdialog" aria-label="{{m.confirmText}}" style="display: flex; align-items: center; gap: 10px; margin: 0 0 2px; padding: 10px; border-radius: 8px; background: #FF3DA60f; border: 1px solid #FF3DA666">
+                    <span style="flex: 1; font-size: 12px; line-height: 1.45">{{m.confirmText}}</span>
+                    <button type="button" class="btn" onClick="{{m.confirmYes}}" style="appearance: none; border: 0; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; white-space: nowrap; background: #FF3DA6; color: #0b0a0d">Stop allowing</button>
+                    <button type="button" class="btn" onClick="{{m.confirmNo}}" style="appearance: none; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; white-space: nowrap; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Keep</button>
+                  </div>
+                </sc-if>
+              </sc-for>
+              <div style="font-size: 11px; color: #8E8994; line-height: 1.5; padding: 6px 8px 0; border-top: 1px solid rgba(244,241,234,.08)">We decide what’s allowed. {{d.short}} decides what’s on, in its own Admin → Features. In-plan modules can’t be switched off here; change the plan instead.</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+                <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Plan · proposed prices</span>
+                <sc-for list="{{d.planOpts}}" as="p" hint-placeholder-count="3">
+                  <button type="button" class="btn" onClick="{{p.pick}}" aria-pressed="{{p.current}}" style="appearance: none; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border-radius: 10px; font-family: inherit; {{p.style}}"><span style="font-size: 13px; font-weight: 700">{{p.name}}</span><span class="mono" style="font-size: 11px; white-space: nowrap">{{p.price}}</span></button>
+                </sc-for>
+                <sc-if value="{{d.hasPlanAsk}}" hint-placeholder-val="{{false}}">
+                  <div class="pop" role="alertdialog" aria-label="Confirm plan change" style="display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: #FF3DA60f; border: 1px solid #FF3DA666">
+                    <span style="font-size: 12px; line-height: 1.5">{{d.planAskText}}</span>
+                    <div style="display: flex; gap: 6px"><button type="button" class="btn" onClick="{{d.planAskYes}}" style="appearance: none; border: 0; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; background: #FF3DA6; color: #0b0a0d">{{d.planAskLabel}}</button><button type="button" class="btn" onClick="{{d.planAskNo}}" style="appearance: none; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button></div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+                <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Billing · proposed</span>
+                <sc-for list="{{d.bill}}" as="b" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px"><span style="color: #C9C5CE; min-width: 0">{{b.k}}</span><span class="mono" style="white-space: nowrap; {{b.style}}">{{b.v}}</span></div></sc-for>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-top: 6px; border-top: 1px solid rgba(244,241,234,.08)"><span style="font-size: 13px; font-weight: 700">A month</span><span class="mono" style="font-size: 15px; font-weight: 700">{{d.total}}</span></div>
+                <span style="font-size: 11px; line-height: 1.45; {{d.nextStyle}}">{{d.next}}</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994; white-space: nowrap">Setup · {{d.stepsLine}}</span><a href="Setup.dc.html" style="font-size: 12px; font-weight: 700; color: #0b0a0d; background: var(--acc, #D4FF3F); text-decoration: none; padding: 6px 10px; border-radius: 8px; white-space: nowrap">Open setup</a></div>
+                <div style="height: 6px; border-radius: 999px; background: rgba(244,241,234,.1); overflow: hidden"><div style="height: 100%; border-radius: 999px; {{d.barStyle}}"></div></div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px">
+                  <sc-for list="{{d.steps}}" as="s" hint-placeholder-count="10"><span style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; min-width: 0; {{s.style}}"><span class="mono" style="width: 16px; height: 16px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; {{s.markStyle}}">{{s.mark}}</span>{{s.label}}</span></sc-for>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+                <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Beta flags · we switch these</span>
+                <sc-for list="{{d.beta}}" as="f" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; gap: 10px">
+                    <div style="flex: 1; min-width: 0"><div style="font-size: 12.5px; font-weight: 700">{{f.name}}</div><div style="font-size: 11px; color: #8E8994; line-height: 1.35">{{f.what}}</div></div>
+                    <button type="button" class="btn" onClick="{{f.toggle}}" role="switch" aria-checked="{{f.on}}" aria-label="{{f.aria}}" style="appearance: none; border: 0; padding: 0; width: 36px; height: 20px; flex: none; border-radius: 999px; position: relative; {{f.trackStyle}}"><span style="position: absolute; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #0b0a0d; {{f.knobStyle}}"></span></button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </sc-if>
+
+      <sc-if value="{{showPlans}}" hint-placeholder-val="{{false}}">
+        <section class="scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 18px 22px 22px; display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 16px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+              <sc-for list="{{plans}}" as="p" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 5px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span class="disp" style="font-size: 22px">{{p.name}}</span><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; color: #FFB13D; border: 1px solid #FFB13D66; white-space: nowrap">Proposed</span></div>
+                  <div style="display: flex; align-items: baseline; gap: 6px"><span class="mono" style="font-size: 22px; font-weight: 700">{{p.price}}</span><span style="font-size: 12px; color: #C9C5CE">{{p.priceLine}}</span></div>
+                  <span style="font-size: 11px; color: #8E8994">{{p.example}}</span>
+                  <span style="font-size: 11px; color: #C9C5CE">{{p.count}} · {{p.venues}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-direction: column; padding: 8px 14px 12px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 118px); gap: 8px; align-items: center; padding: 8px 4px; border-bottom: 1px solid rgba(244,241,234,.08)">
+                <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Module</span>
+                <sc-for list="{{plans}}" as="p" hint-placeholder-count="3"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">{{p.name}}</span></sc-for>
+              </div>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 118px); gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid rgba(244,241,234,.06)">
+                <span style="font-size: 12px; color: #C9C5CE"><b>Core</b> · payments, alcohol rules, admin, devices</span>
+                <span style="font-size: 11px; color: #C9C5CE">Always on</span><span style="font-size: 11px; color: #C9C5CE">Always on</span><span style="font-size: 11px; color: #C9C5CE">Always on</span>
+              </div>
+              <sc-for list="{{matrix}}" as="r" hint-placeholder-count="19">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 118px); gap: 8px; align-items: center; padding: 4px; border-bottom: 1px solid rgba(244,241,234,.05)">
+                  <span title="{{r.what}}" style="font-size: 12px; font-weight: 600">{{r.name}}</span>
+                  <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="3"><span style="font-size: 11px; font-weight: 700; {{c.style}}">{{c.label}}</span></sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Add-ons · any plan · no price yet</span>
+              <sc-for list="{{addOnList}}" as="a" hint-placeholder-count="5">
+                <div style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                  <div style="flex: 1; min-width: 0"><div style="font-size: 13px; font-weight: 700">{{a.name}}</div><div style="font-size: 11px; color: #8E8994; line-height: 1.4">{{a.note}}</div><div style="font-size: 11px; color: #C9C5CE; margin-top: 2px">{{a.where}}</div></div>
+                  <span class="mono" style="font-size: 9px; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; white-space: nowrap; color: #3DF2FF; background: #3DF2FF12; border: 1px solid #3DF2FF44">Add-on</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">How a bill adds up</span>
+              <div style="font-size: 13px; line-height: 1.5">Plan price + $12 a room (Rooms plans) + add-ons.</div>
+              <div class="mono" style="font-size: 12px; color: #C9C5CE; line-height: 1.6">{{billExample}}</div>
+              <div style="font-size: 11px; color: #6F6B78">Venues see the plan name and price only. “Proposed” shows here in Console.</div>
+            </div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{showPacks}}" hint-placeholder-val="{{false}}">
+        <section class="scroll" style="width: 250px; flex: none; box-sizing: border-box; overflow: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 5px; border-right: 1px solid rgba(244,241,234,.08)">
+          <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding: 0 6px 6px">States</span>
+          <sc-for list="{{packs}}" as="k" hint-placeholder-count="9">
+            <button type="button" class="btn" onClick="{{k.pick}}" aria-pressed="{{k.current}}" style="appearance: none; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border-radius: 10px; font-family: inherit; color: #F4F1EA; {{k.style}}"><span style="font-size: 13px; font-weight: 700">{{k.name}}</span><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; {{k.statusStyle}}">{{k.status}}</span></button>
+          </sc-for>
+        </section>
+        <section class="scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 14px">
+          <sc-if value="{{packNY}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="disp" style="font-size: 30px">New York</span><span style="font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; {{liveChip}}">Live</span></div>
+              <span style="font-size: 13px; color: #C9C5CE">Rule pack · alcohol closing times, sales tax and wage rules by place. Part of the core Alcohol controls &amp; rule pack module.</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+              <sc-for list="{{nyTiles}}" as="t" hint-placeholder-count="5">
+                <div style="padding: 12px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">{{t.k}}</div><div style="font-size: 15px; font-weight: 700; margin-top: 5px; white-space: nowrap; {{t.style}}">{{t.v}}</div></div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-direction: column; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); overflow: hidden">
+              <div style="padding: 12px 14px 4px"><span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Example locations</span></div>
+              <div class="scroll" style="overflow-x: auto">
+                <div style="min-width: 620px">
+                  <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; padding: 8px 14px; border-bottom: 1px solid rgba(244,241,234,.08)">
+                    <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Place</span><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Alcohol close</span><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Sales tax</span><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Wage region</span>
+                  </div>
+                  <sc-for list="{{nyRows}}" as="x" hint-placeholder-count="3">
+                    <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; align-items: center; padding: 11px 14px; border-bottom: 1px solid rgba(244,241,234,.05)">
+                      <div><div style="font-size: 13px; font-weight: 700">{{x.place}}</div><div style="font-size: 11px; color: #8E8994">{{x.note}}</div></div>
+                      <span class="mono" style="font-size: 13px">{{x.close}}</span>
+                      <span class="mono" style="font-size: 13px">{{x.tax}}</span>
+                      <span style="font-size: 13px">{{x.wage}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Used by</span>
+              <span style="font-size: 13px; line-height: 1.5">{{nyUsedBy}}</span>
+              <span style="font-size: 11px; color: #6F6B78">Each venue gets its county’s closing time, tax rate and wage region from its address in setup step 1.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{packOther}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="disp" style="font-size: 30px">{{packName}}</span><span style="font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; color: #8E8994; border: 1px solid rgba(244,241,234,.16)">Not started</span></div>
+              <span style="font-size: 13px; color: #C9C5CE">No rule pack yet. A venue in {{packName}} can’t go live until its pack is ready.</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+              <div style="padding: 14px; border-radius: 12px; background: #121016; border: 1px dashed rgba(244,241,234,.16)"><div style="font-size: 13px; font-weight: 700">Alcohol closing times</div><div style="font-size: 11px; color: #8E8994; margin-top: 3px">By county or city</div><div class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; margin-top: 8px">NOT STARTED</div></div>
+              <div style="padding: 14px; border-radius: 12px; background: #121016; border: 1px dashed rgba(244,241,234,.16)"><div style="font-size: 13px; font-weight: 700">Sales tax</div><div style="font-size: 11px; color: #8E8994; margin-top: 3px">Every tax jurisdiction</div><div class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; margin-top: 8px">NOT STARTED</div></div>
+              <div style="padding: 14px; border-radius: 12px; background: #121016; border: 1px dashed rgba(244,241,234,.16)"><div style="font-size: 13px; font-weight: 700">Wage regions</div><div style="font-size: 11px; color: #8E8994; margin-top: 3px">Minimum wage by region</div><div class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; margin-top: 8px">NOT STARTED</div></div>
+            </div>
+          </sc-if>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{showSupport}}" hint-placeholder-val="{{false}}">
+        <section class="scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 12px">
+          <div class="scroll" style="border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); overflow-x: auto">
+            <div style="min-width: 900px">
+              <div style="display: grid; grid-template-columns: {{tCols}}; gap: 10px; align-items: center; padding: 11px 14px; border-bottom: 1px solid rgba(244,241,234,.08)">
+                <sc-for list="{{tHead}}" as="h" hint-placeholder-count="7"><span class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">{{h}}</span></sc-for>
+              </div>
+              <sc-for list="{{tickets}}" as="t" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: {{tCols}}; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid rgba(244,241,234,.06)">
+                  <span class="mono" style="font-size: 12px; color: #8E8994">#{{t.n}}</span>
+                  <div style="min-width: 0"><div style="font-size: 13px; font-weight: 700">{{t.venue}}</div><div style="font-size: 11px; color: #8E8994">{{t.venueSub}}</div></div>
+                  <div style="min-width: 0"><div style="font-size: 13px; line-height: 1.4">{{t.what}}</div><div style="font-size: 11px; color: #8E8994">{{t.step}}</div></div>
+                  <span style="justify-self: start; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; {{t.sevStyle}}">{{t.sev}}</span>
+                  <span class="mono" style="font-size: 12px">{{t.age}}</span>
+                  <span style="font-size: 12px; color: #C9C5CE">{{t.status}}</span>
+                  <button type="button" class="btn" onClick="{{t.open}}" style="appearance: none; justify-self: end; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; white-space: nowrap; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18)">Open venue</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #6F6B78">Open tickets only. Pilots are placeholder venues. Opening a venue from here shows our side only: plan, modules, setup and billing. To see inside its Admin, request support access there; the venue approves it.</div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{showBilling}}" hint-placeholder-val="{{false}}">
+        <section class="scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 12px">
+          <div class="scroll" style="border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); overflow-x: auto">
+            <div style="min-width: 960px">
+              <div style="display: grid; grid-template-columns: {{bCols}}; gap: 10px; align-items: center; padding: 11px 14px; border-bottom: 1px solid rgba(244,241,234,.08)">
+                <sc-for list="{{bHead}}" as="h" hint-placeholder-count="8"><span class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">{{h}}</span></sc-for>
+              </div>
+              <sc-for list="{{billRows}}" as="b" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: {{bCols}}; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid rgba(244,241,234,.06)">
+                  <span style="font-size: 13px; font-weight: 700">{{b.name}}</span>
+                  <span style="font-size: 13px">{{b.plan}}</span>
+                  <span class="mono" style="font-size: 12px">{{b.base}}</span>
+                  <span class="mono" style="font-size: 12px; color: #C9C5CE">{{b.rooms}}</span>
+                  <span style="font-size: 12px; color: #C9C5CE">{{b.addOns}}</span>
+                  <span class="mono" style="font-size: 13px; font-weight: 700">{{b.total}}</span>
+                  <span style="font-size: 12px; {{b.statusStyle}}">{{b.status}}</span>
+                  <span style="font-size: 12px; color: #C9C5CE">{{b.next}}</span>
+                </div>
+              </sc-for>
+              <div style="display: grid; grid-template-columns: {{bCols}}; gap: 10px; align-items: center; padding: 12px 14px">
+                <span style="font-size: 13px; font-weight: 700">Billed now · MRR</span><span></span><span></span><span></span><span></span>
+                <span class="mono" style="font-size: 14px; font-weight: 700; color: var(--acc, #D4FF3F)">{{mrr}}</span>
+                <span style="font-size: 12px; color: #8E8994">{{goLiveLine}}</span><span></span>
+              </div>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #6F6B78">Proposed prices. Add-ons have no price yet. Pilots are not billed during setup.</div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{showReleases}}" hint-placeholder-val="{{false}}">
+        <section class="scroll" style="flex: 1; min-width: 0; overflow: auto; padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 12px">
+          <sc-for list="{{flags}}" as="f" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div style="min-width: 0"><div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 14px; font-weight: 700">{{f.name}}</span><span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; color: #3DF2FF; border: 1px solid #3DF2FF55">Beta</span></div><div style="font-size: 12px; color: #8E8994; margin-top: 3px">{{f.what}}</div></div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px"><span style="font-size: 11px; color: #8E8994">On at:</span><sc-for list="{{f.on}}" as="o" hint-placeholder-count="2"><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; {{f.chipStyle}}">{{o}}</span></sc-for><sc-if value="{{f.none}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; color: #6F6B78">no venue yet</span></sc-if></div>
+              <span class="mono" style="font-size: 11px; color: #C9C5CE; white-space: nowrap">{{f.count}}</span>
+            </div>
+          </sc-for>
+          <div style="font-size: 11px; color: #6F6B78">Switch a flag for one venue in Venues → pick the venue → Beta flags.</div>
+        </section>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Our company's control panel (not a venue screen). It decides what each venue is ALLOWED:
+  // its plan's modules, plus add-ons we switch on, plus beta flags. The venue's own Admin → Features decides what is ON.
+  // Module ids and names are the same everywhere (see Admin → Features). line = one line; what = full description.
+  static MODULES = [
+    { id: "website", name: "Website", line: "Your public site, made in the builder", what: "The venue’s public site made in the website builder" },
+    { id: "booking", name: "Online booking & deposits", needs: "rooms", line: "Book online with a deposit rule", what: "Book a room online, deposit rule, manage-booking page" },
+    { id: "waitlist", name: "Walk-in waitlist", line: "Door QR, place in line, ready texts", what: "QR at the door, place in line, “room ready” texts" },
+    { id: "rooms", name: "Rooms & room clock", line: "Room board and room-time billing", what: "Room board, per-person/per-room time billing, soft end time" },
+    { id: "roomOrdering", name: "Ordering from the room", needs: "rooms", line: "Guests order from phones to the tab", what: "Guests order from their phones to the room tab" },
+    { id: "barScreen", name: "Bar screen & tickets", line: "Orders ring the bar, tickets print", what: "Orders ring the bar until accepted, ticket prints" },
+    { id: "barTabs", name: "Bar tabs & quick sale", line: "Card-hold tabs and quick sale", what: "Card hold that grows with the tab, quick sale, move tab to a room" },
+    { id: "barMode", name: "Bar mode", needs: "barTabs", line: "Phone song queue, per-song charges", what: "Phone song queue, per-song charges, Up next TV, send the singer a drink" },
+    { id: "kitchen", name: "Kitchen & food", line: "Kitchen screens, stations, coursing", what: "Kitchen screens, stations, coursing, allergy notice" },
+    { id: "packages", name: "Packages & specials", needs: "rooms", line: "Room, bottle and food packages", what: "Room + bottle + food packages with liquor-law checks" },
+    { id: "songControl", name: "Song system control", needs: "rooms", line: "Room locks, TV countdown, volume cap", what: "Lock rooms between sessions, on-TV countdown, volume cap, play log" },
+    { id: "messages", name: "Guest texts", line: "Confirmations, reminders, receipts", what: "Confirmations, reminders, room ready, receipts" },
+    { id: "marketing", name: "Marketing texts", needs: "messages", line: "Birthday and review texts", what: "Birthday and review texts with separate opt-in" },
+    { id: "team", name: "Team, time clock & tips", line: "Roles, PINs, time clock, tip pool", what: "Roles, PINs, time clock, tip pool" },
+    { id: "safety", name: "Safety & ID records", line: "Help alert, incident log, ID limits", what: "Discreet help alert, incident log, ID scan limits, headcount" },
+    { id: "reports", name: "Reports & accounting", line: "Trends, tax quarters, exports", what: "Trends, tax quarters, accounting export" },
+    { id: "events", name: "Event sales", needs: "rooms", line: "Proposals, contracts, deposit plans", what: "Proposals, contracts, deposit schedules for big parties" },
+    { id: "crm", name: "Guests, loyalty & gift cards", line: "Guest profiles, gift and punch cards", what: "Guest profiles, gift cards, punch cards" },
+    { id: "multiLocation", name: "Multiple locations", line: "One login for all your venues", what: "One owner login across venues, shared menus and reports" }
+  ];
+  // Plans — proposed prices, not final.
+  static PLANS = [
+    { id: "bar", name: "Bar", base: 149, perRoom: 0,
+      modules: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports"] },
+    { id: "rooms", name: "Rooms", base: 249, perRoom: 12,
+      modules: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports", "booking", "rooms", "roomOrdering", "packages", "songControl"] },
+    { id: "roomsKitchen", name: "Rooms + Kitchen", base: 349, perRoom: 12,
+      modules: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports", "booking", "rooms", "roomOrdering", "packages", "songControl", "kitchen"] }
+  ];
+  // Add-ons on any plan (kitchen only for plans without it). No price yet.
+  static ADDONS = ["kitchen", "marketing", "events", "crm", "multiLocation"];
+  // Beta flags we can switch on per venue.
+  static BETA = [
+    { id: "playboxLink", name: "Playbox room link", what: "Song system control talks to the room players" },
+    { id: "menuPhoto", name: "Menu from a photo", what: "Setup reads a paper menu from a photo" }
+  ];
+  // The 10 setup wizard steps (Setup.dc.html).
+  static STEPS = ["Venue", "What you run", "Rooms & pricing", "Menu", "Songs", "Team", "Payments", "Devices", "Website", "Test night"];
+  static STAFF = "Abhishek G.";
+  // Demo clock: Fri Sep 25, 10:41 PM — the same "now" as every other screen.
+  static NOW = 22 * 60 + 41;
+  static REASONS = ["Venue asked for help", "Check a setup step", "Look at a device", "Billing question"];
+  // Rule packs by state. Only New York is built. Use only these numbers.
+  static PACKS = [["NY", "New York"], ["NJ", "New Jersey"], ["CT", "Connecticut"], ["PA", "Pennsylvania"], ["MA", "Massachusetts"], ["CA", "California"], ["TX", "Texas"], ["FL", "Florida"], ["IL", "Illinois"]];
+  static NY_ROWS = [
+    { place: "New York County", note: "Manhattan · West 4 is here", close: "4 AM", tax: "8.875%", wage: "NYC" },
+    { place: "Putnam County", note: "", close: "3 AM", tax: "8.375%", wage: "Rest of state · $16.00" },
+    { place: "Monroe County", note: "", close: "2 AM", tax: "8%", wage: "Rest of state" }
+  ];
+  constructor() {
+    super(...arguments);
+    this.state = {
+      view: "venues", sel: "", toast: "", toastN: 0, tick: 0, pack: "NY",
+      ask: "", reason: "", scope: "read", mins: 30, writeWhat: "", planAsk: null, allowAsk: null, fresh: {},
+      // West 4 is the one real venue (facts from the brief). Pilots A–C are clearly fictional placeholders.
+      venues: [
+        { id: "w4", name: "West 4 Boho Karaoke", short: "West 4", where: "186 W 4th St, New York, NY 10014", pack: "New York County · New York pack",
+          status: "live", plan: "rooms", rooms: 14, addOns: ["marketing"],
+          using: ["website", "booking", "waitlist", "rooms", "roomOrdering", "barScreen", "barTabs", "barMode", "packages", "messages", "team", "safety", "reports"],
+          steps: 10, devices: "7/7 online", sync: "synced 12 s ago", health: "Healthy", healthSub: "All devices online", tone: "ok",
+          beta: { playboxLink: false, menuPhoto: false }, nextInvoice: "Oct 1, 2026", support: null, audit: [] },
+        { id: "pa", name: "Pilot A · Koreatown room venue", short: "Pilot A", where: "Placeholder pilot · New York pack", pack: "New York pack",
+          status: "setup", plan: "rooms", rooms: 10, addOns: [],
+          using: ["website", "booking", "waitlist", "rooms", "roomOrdering", "barScreen", "barTabs", "packages", "messages", "team", "safety", "reports"],
+          steps: 6, devices: "—", sync: "not set up yet", health: "Waiting on Stripe", healthSub: "Payments step · 5 h", tone: "warn",
+          beta: { playboxLink: false, menuPhoto: true }, nextInvoice: "", support: null, audit: [] },
+        { id: "pb", name: "Pilot B · Flushing KTV with kitchen", short: "Pilot B", where: "Placeholder pilot · New York pack", pack: "New York pack",
+          status: "setup", plan: "roomsKitchen", rooms: 18, addOns: ["events"],
+          using: ["website", "booking", "rooms", "roomOrdering", "barScreen", "barTabs", "kitchen", "packages", "messages", "team", "safety", "reports"],
+          steps: 3, devices: "—", sync: "not set up yet", health: "Needs help", healthSub: "1 high ticket", tone: "bad",
+          beta: { playboxLink: false, menuPhoto: true }, nextInvoice: "", support: null, audit: [] },
+        { id: "pc", name: "Pilot C · Bar-style karaoke", short: "Pilot C", where: "Placeholder pilot · invited Sep 23", pack: "Rule pack set in setup step 1",
+          status: "invited", plan: "bar", rooms: 0, addOns: [], using: [],
+          steps: 0, devices: "—", sync: "not set up yet", health: "Invite not opened", healthSub: "Sent 2 days ago", tone: "idle",
+          beta: { playboxLink: false, menuPhoto: false }, nextInvoice: "", support: null, audit: [] }
+      ],
+      // Open tickets — pilots only.
+      tickets: [
+        { n: 1042, venue: "pb", what: "Menu upload stops at 40 items", step: "Setup step 4 · Menu", sev: "High", age: "35 min", status: "Open" },
+        { n: 1041, venue: "pa", what: "Stripe asks for more documents", step: "Setup step 7 · Payments", sev: "Medium", age: "5 h", status: "Waiting on venue" },
+        { n: 1040, venue: "pb", what: "Price rooms 15–18 per room, not per person", step: "Setup step 3 · Rooms & pricing", sev: "Medium", age: "1 day", status: "Open" },
+        { n: 1038, venue: "pc", what: "Invite email not received", step: "Invite", sev: "Low", age: "2 days", status: "Open" }
+      ]
+    };
+  }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 15000); }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const C = Component;
+    const byId = {}, planById = {};
+    C.MODULES.forEach((m) => { byId[m.id] = m; });
+    C.PLANS.forEach((p) => { planById[p.id] = p; });
+    const money = (n) => "$" + Number(n).toLocaleString("en-US");
+    const cents = (n) => money(n) + ".00";
+    const fmt = (min) => { const h = Math.floor(min / 60) % 24, mm = min % 60; return ((h % 12) || 12) + ":" + String(mm).padStart(2, "0") + " " + (h >= 12 ? "PM" : "AM"); };
+    const tint = (c, a1, a2) => "background: " + c + a1 + "; color: " + c + "; border: 1px solid " + c + a2 + ";";
+    const T = {
+      acc: tint(acc, "1f", "55"), pink: tint("#FF3DA6", "1f", "55"), amber: tint("#FFB13D", "1a", "55"), cyan: tint("#3DF2FF", "12", "44"),
+      grey: "background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.16);"
+    };
+    const DOT = { ok: acc, warn: "#FFB13D", bad: "#FF3DA6", idle: "#6F6B78" };
+    const STATUS = { live: ["Live", T.acc], setup: ["Setup in progress", T.amber], invited: ["Invited", T.grey] };
+    // Switch look. dim = a locked switch (in plan: on but fixed; not allowed: off and fixed).
+    const sw = (on, dim) => ({ trackStyle: (on ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);") + (dim ? " opacity: " + (on ? ".5" : ".35") + "; cursor: default;" : ""), knobStyle: on ? "right: 3px;" : "left: 3px;" });
+    const monthly = (v) => { const p = planById[v.plan]; return p.base + p.perRoom * v.rooms; };
+    // What a venue may use on a given plan: the plan's modules, plus add-ons we allowed (if what they need is allowed too).
+    const allowedOn = (v, planId, id) => {
+      const P = planById[planId];
+      if (P.modules.indexOf(id) >= 0) return true;
+      if (C.ADDONS.indexOf(id) < 0 || v.addOns.indexOf(id) < 0) return false;
+      const need = byId[id].needs;
+      return !need || allowedOn(v, planId, need);
+    };
+    // plan = in the plan · addon = we can allow it · blocked = an add-on whose need the plan lacks · no = needs a bigger plan
+    const access = (v, id) => {
+      const P = planById[v.plan];
+      if (P.modules.indexOf(id) >= 0) return "plan";
+      if (C.ADDONS.indexOf(id) < 0) return "no";
+      const need = byId[id].needs;
+      return need && !allowedOn(v, v.plan, need) ? "blocked" : "addon";
+    };
+    const firstPlanWith = (id) => (C.PLANS.find((p) => p.modules.indexOf(id) >= 0) || { name: "a bigger" }).name;
+    const upd = (id, patch) => this.setState({ venues: st.venues.map((v) => (v.id === id ? Object.assign({}, v, patch) : v)) });
+    // Support access: we request (reason, scope, length); the venue's owner or a manager approves in Admin.
+    const isOpen = (v) => !!v.support && v.support.status === "open";
+    const isPending = (v) => !!v.support && v.support.status === "pending";
+    const minsLeft = (v) => (isOpen(v) ? v.support.mins - Math.floor((Date.now() - v.support.at) / 60000) : 0);
+    const scopeWords = (x) => x.scope === "write" ? "read + one change: " + x.what : "read only";
+    const live = st.venues.filter((v) => v.status === "live"), later = st.venues.filter((v) => v.status !== "live");
+    const mrrN = live.reduce((a, v) => a + monthly(v), 0), laterN = later.reduce((a, v) => a + monthly(v), 0);
+
+    // ---- Venues ----
+    const venueRows = st.venues.map((v) => {
+      const s = STATUS[v.status], pct = v.steps * 10, P = planById[v.plan];
+      return {
+        id: v.id, name: v.name, where: v.where, status: s[0], statusStyle: s[1], aria: "Open " + v.name,
+        planName: P.name, modsLine: v.using.length ? v.using.length + " modules on" : "nothing on yet",
+        rooms: v.rooms ? String(v.rooms) : "—", mrr: money(monthly(v)) + "/mo", mrrSub: v.status === "live" ? "billed monthly" : "at go-live",
+        barStyle: "width: " + pct + "%; background: " + (pct === 100 ? acc : "#FFB13D") + ";", setupLine: pct + "% · " + v.steps + " of 10 steps",
+        devices: v.devices, sync: v.sync, health: v.health, healthSub: v.healthSub, dotStyle: "background: " + DOT[v.tone] + ";",
+        open: () => this.setState({ sel: v.id, ask: "", reason: "", planAsk: null, allowAsk: null }),
+        listStyle: st.sel === v.id ? "background: #17151c; border: 1px solid " + acc + ";" : "background: transparent; border: 1px solid rgba(244,241,234,.08);",
+        listLine: s[0] + " · " + P.name + (v.rooms ? " · " + v.rooms + " rooms" : "") + " · " + money(monthly(v)) + "/mo",
+        supportOpen: isOpen(v) && minsLeft(v) > 0, supportPending: isPending(v)
+      };
+    });
+    const v = st.venues.find((x) => x.id === st.sel);
+    let d = { name: "", short: "", mods: [], planOpts: [], bill: [], steps: [], beta: [], audit: [], sIdle: true, sAsking: false, sPending: false, sOpen: false, hasAudit: false, hasPlanAsk: false };
+    if (v) {
+      const P = planById[v.plan], s = STATUS[v.status], left = minsLeft(v), sOpen = isOpen(v) && left > 0, sPending = isPending(v);
+      const toggleAllow = (id) => {
+        const m = byId[id], has = v.addOns.indexOf(id) >= 0, key = v.id + ":" + id;
+        if (has) {
+          if (v.using.indexOf(id) >= 0) { this.setState({ allowAsk: { venue: v.id, mod: id } }); return; }
+          upd(v.id, { addOns: v.addOns.filter((x) => x !== id) });
+          this.setState({ fresh: Object.assign({}, st.fresh, { [key]: false }), allowAsk: null });
+          this.notify(m.name + " is no longer allowed for " + v.short);
+        } else {
+          upd(v.id, { addOns: v.addOns.concat([id]) });
+          this.setState({ fresh: Object.assign({}, st.fresh, { [key]: true }), allowAsk: null });
+          this.notify(m.name + " allowed for " + v.short + " · they decide in Admin → Features");
+        }
+      };
+      const mods = C.MODULES.map((m) => {
+        const a = access(v, m.id), allowed = a === "plan" || (a === "addon" && v.addOns.indexOf(m.id) >= 0);
+        const using = allowed && v.using.indexOf(m.id) >= 0;
+        const fresh = a === "addon" && allowed && !!st.fresh[v.id + ":" + m.id];
+        const confirming = !!st.allowAsk && st.allowAsk.venue === v.id && st.allowAsk.mod === m.id;
+        const why = a === "blocked" ? "Needs " + byId[m.needs].name : "Needs the " + firstPlanWith(m.id) + " plan";
+        return Object.assign({
+          name: m.name, what: m.what,
+          access: { plan: "In plan", addon: "Add-on", blocked: "Not allowed", no: "Not allowed" }[a],
+          accessStyle: { plan: T.acc, addon: T.cyan, blocked: T.grey, no: T.grey }[a],
+          canToggle: a === "addon", locked: a !== "addon", allowed,
+          lockWhy: a === "plan" ? "In the " + P.name + " plan · change the plan to remove it" : why,
+          toggle: () => toggleAllow(m.id), aria: (allowed ? "Stop allowing " : "Allow ") + m.name + " for " + v.short,
+          using: allowed ? (using ? "On" : "Off") : (a === "addon" ? "—" : a === "blocked" ? "Needs rooms" : "Needs " + firstPlanWith(m.id)),
+          usingStyle: using ? "color: " + acc + "; font-weight: 700;" : (allowed ? "color: #C9C5CE;" : "color: #6F6B78; font-size: 11px;"),
+          nameStyle: allowed ? "color: #F4F1EA;" : "color: #8E8994;",
+          rowStyle: fresh || confirming ? "background: " + (confirming ? "#FF3DA60a" : acc + "0d") + ";" : "",
+          hasNote: fresh, noteLink: fresh && v.id === "w4",
+          note: m.name + " is now on " + v.short + "’s allowed list. " + v.short + " decides in its own Admin → Features whether to use it.",
+          noteStyle: "background: " + acc + "12; border: 1px solid " + acc + "44; color: #F4F1EA;",
+          hasConfirm: confirming, confirmText: v.short + " is using " + m.name + ". Stop allowing it and it turns off for them.",
+          confirmYes: () => { upd(v.id, { addOns: v.addOns.filter((x) => x !== m.id), using: v.using.filter((x) => x !== m.id) }); this.setState({ allowAsk: null }); this.notify(m.name + " turned off for " + v.short); },
+          confirmNo: () => this.setState({ allowAsk: null })
+        }, sw(allowed, a !== "addon"));
+      });
+      const nAllowed = mods.filter((m) => m.allowed).length;
+      const planOpts = C.PLANS.map((p) => {
+        const cur = p.id === v.plan;
+        return {
+          name: p.name, current: cur, price: p.perRoom ? "$" + p.base + " + $" + p.perRoom + "/room" : "$" + p.base,
+          style: cur ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : "background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);",
+          pick: () => {
+            if (cur) return;
+            const lost = v.using.filter((id) => !allowedOn(v, p.id, id));
+            if (lost.length) { this.setState({ planAsk: { venue: v.id, plan: p.id } }); return; }
+            upd(v.id, { plan: p.id }); this.setState({ planAsk: null });
+            this.notify(v.short + " moved to " + p.name + " · " + money(p.base + p.perRoom * v.rooms) + "/month");
+          }
+        };
+      });
+      const pa = st.planAsk && st.planAsk.venue === v.id ? planById[st.planAsk.plan] : null;
+      const lostNames = pa ? v.using.filter((id) => !allowedOn(v, pa.id, id)).map((id) => byId[id].name) : [];
+      const extraAddOns = v.addOns.filter((id) => P.modules.indexOf(id) < 0 && allowedOn(v, v.plan, id));
+      const bill = [{ k: P.name + " plan", v: cents(P.base), style: "" }, { k: P.perRoom ? v.rooms + " rooms × $" + P.perRoom : "Rooms", v: P.perRoom ? cents(v.rooms * P.perRoom) : "not billed on Bar", style: P.perRoom ? "" : "color: #8E8994;" }]
+        .concat(extraAddOns.length ? extraAddOns.map((id) => ({ k: byId[id].name, v: "Add-on · no price yet", style: "color: #3DF2FF;" })) : [{ k: "Add-ons", v: "none", style: "color: #8E8994;" }]);
+      const steps = C.STEPS.map((label, i) => {
+        const done = i < v.steps, now = i === v.steps && v.status !== "live";
+        return {
+          label, mark: done ? "✓" : String(i + 1),
+          style: done ? "color: #F4F1EA;" : (now ? "color: #FFB13D; font-weight: 700;" : "color: #8E8994;"),
+          markStyle: done ? "background: " + acc + "; color: #0b0a0d;" : (now ? "border: 1px solid #FFB13D; color: #FFB13D;" : "border: 1px solid rgba(244,241,234,.2); color: #8E8994;")
+        };
+      });
+      d = {
+        name: v.name, short: v.short, status: s[0], statusStyle: s[1], where: v.where,
+        facts: [P.name + " plan", v.rooms ? v.rooms + " rooms" : "", v.using.length ? v.using.length + " modules on" : "nothing on yet", v.devices !== "—" ? "devices " + v.devices : "", v.devices !== "—" ? v.sync : "", v.pack].filter(Boolean).join(" · "),
+        countLine: nAllowed + " allowed · " + v.using.length + " in use",
+        mods, planOpts,
+        hasPlanAsk: !!pa, planAskLabel: pa ? "Move to " + pa.name : "",
+        planAskText: pa ? v.short + " uses " + lostNames.length + " module" + (lostNames.length === 1 ? "" : "s") + " that " + pa.name + " doesn’t have: " + lostNames.join(", ") + ". They turn off for " + v.short + "." : "",
+        planAskYes: () => {
+          if (!pa) return;
+          upd(v.id, { plan: pa.id, using: v.using.filter((id) => allowedOn(v, pa.id, id)) }); this.setState({ planAsk: null });
+          this.notify(v.short + " moved to " + pa.name + " · " + money(pa.base + pa.perRoom * v.rooms) + "/month");
+        },
+        planAskNo: () => this.setState({ planAsk: null }),
+        bill, total: cents(monthly(v)),
+        next: v.status === "live" ? "Next invoice " + v.nextInvoice + " · " + cents(monthly(v)) : "Not billed during setup · first invoice at go-live",
+        nextStyle: v.status === "live" ? "color: #C9C5CE;" : "color: #FFB13D;",
+        stepsLine: v.steps + " of 10", barStyle: "width: " + v.steps * 10 + "%; background: " + (v.steps === 10 ? acc : "#FFB13D") + ";", steps,
+        beta: C.BETA.map((f) => Object.assign({
+          name: f.name, what: f.what, on: !!v.beta[f.id], aria: f.name + " for " + v.short,
+          toggle: () => { upd(v.id, { beta: Object.assign({}, v.beta, { [f.id]: !v.beta[f.id] }) }); this.notify(f.name + (v.beta[f.id] ? " off" : " on") + " for " + v.short); }
+        }, sw(!!v.beta[f.id]))),
+        sIdle: !sOpen && !sPending && st.ask !== v.id, sAsking: !sOpen && !sPending && st.ask === v.id, sOpen, sPending,
+        sLeft: left + " min left",
+        sPendLine: sPending ? "Sent " + fmt(v.support.reqAt) + " by " + C.STAFF + " · " + scopeWords(v.support) + " · " + v.support.mins + " min · “" + v.support.reason + "”" : "",
+        sAudit: sOpen ? "Approved by " + v.support.by + " · asked by " + C.STAFF + " · “" + v.support.reason + "” · ends " + fmt(v.support.start + v.support.mins) : "",
+        sScopeLine: sOpen ? (v.support.scope === "write" ? "Read-only on masked views, plus one change: " + v.support.what + "." : "Read-only on masked views: no ID scans, no guest phone numbers.") : "",
+        askAccess: () => this.setState({ ask: v.id, reason: "", scope: "read", mins: 30, writeWhat: "" }),
+        sendRequest: () => {
+          const r = (st.reason || "").trim(), w = (st.writeWhat || "").trim();
+          if (!r) { this.notify("Add a reason first"); return; }
+          if (st.scope === "write" && !w) { this.notify("Say which one change you need to make"); return; }
+          const req = { status: "pending", reason: r, scope: st.scope, what: w, mins: st.mins, reqAt: C.NOW };
+          upd(v.id, { support: req, audit: [fmt(C.NOW) + " · Requested by " + C.STAFF + " · " + scopeWords(req) + " · " + st.mins + " min · " + r].concat(v.audit) });
+          this.setState({ ask: "", reason: "", writeWhat: "" });
+          this.notify("Request sent to " + v.short + "’s Admin · logged");
+        },
+        // Demo only: in the product this happens in the venue's Admin, on the approver's phone.
+        approveLabel: "Demo: " + v.short + " approves",
+        approveDemo: () => {
+          const by = v.id === "w4" ? "Andy C., manager" : v.short + "’s owner";
+          upd(v.id, { support: Object.assign({}, v.support, { status: "open", at: Date.now(), start: C.NOW, by }), audit: [fmt(C.NOW) + " · Approved by " + by + " in Admin · " + v.support.mins + " min"].concat(v.audit) });
+          this.notify("Approved by " + by + " · open for " + v.support.mins + " min · logged");
+        },
+        cancelRequest: () => {
+          upd(v.id, { support: null, audit: [fmt(C.NOW) + " · Request withdrawn by " + C.STAFF].concat(v.audit) });
+          this.notify("Request withdrawn · logged");
+        },
+        endAccess: () => {
+          const at = v.support.start + Math.max(0, v.support.mins - left);
+          upd(v.id, { support: null, audit: [fmt(at) + " · Ended by " + C.STAFF].concat(v.audit) });
+          this.notify("Support access ended · logged");
+        },
+        audit: v.audit.slice(0, 3), hasAudit: v.audit.length > 0
+      };
+    }
+
+    // ---- Plans ----
+    const plans = C.PLANS.map((p) => {
+      const on = st.venues.filter((x) => x.plan === p.id).map((x) => x.short);
+      return {
+        name: p.name, price: money(p.base), priceLine: p.perRoom ? "a venue + $" + p.perRoom + " a room, monthly" : "a venue, monthly",
+        example: p.perRoom ? "14 rooms: $" + p.base + " + 14 × $" + p.perRoom + " = " + money(p.base + 14 * p.perRoom) + " a month" : "Rooms aren’t billed on Bar",
+        count: p.modules.length + " modules", venues: on.length ? "On it: " + on.join(", ") : "No venues yet"
+      };
+    });
+    const matrix = C.MODULES.map((m) => ({
+      name: m.name, what: m.what,
+      cells: C.PLANS.map((p) => {
+        const inP = p.modules.indexOf(m.id) >= 0, add = C.ADDONS.indexOf(m.id) >= 0, blocked = add && m.needs && p.modules.indexOf(m.needs) < 0;
+        return inP ? { label: "✓ In plan", style: "color: " + acc + ";" } : blocked ? { label: "Needs rooms", style: "color: #6F6B78; font-weight: 400;" } : add ? { label: "Add-on", style: "color: #3DF2FF;" } : { label: "—", style: "color: #6F6B78;" };
+      })
+    }));
+    const addOnNotes = { kitchen: "Only for plans without it · in Rooms + Kitchen", marketing: "Needs Guest texts · separate opt-in", events: "Needs rooms", crm: "Guest profiles, gift and punch cards", multiLocation: "One owner login across venues" };
+    const addOnList = C.ADDONS.map((id) => {
+      const at = st.venues.filter((x) => x.addOns.indexOf(id) >= 0 && planById[x.plan].modules.indexOf(id) < 0).map((x) => x.short);
+      return { name: byId[id].name, note: addOnNotes[id], where: at.length ? "Allowed at: " + at.join(", ") : "Not allowed anywhere yet" };
+    });
+    const w4 = st.venues.find((x) => x.id === "w4");
+    const w4p = planById[w4.plan];
+    const billExample = "West 4 · " + w4p.name + ": " + money(w4p.base) + (w4p.perRoom ? " + " + w4.rooms + " × $" + w4p.perRoom : "") + " = " + money(monthly(w4)) + " a month";
+
+    // ---- Rule packs ----
+    const packs = C.PACKS.map(([id, name]) => ({
+      name, current: st.pack === id, status: id === "NY" ? "Live" : "Not started",
+      statusStyle: id === "NY" ? "color: " + acc + ";" : "color: #6F6B78;",
+      style: st.pack === id ? "background: #17151c; border: 1px solid " + acc + ";" : "background: transparent; border: 1px solid rgba(244,241,234,.08);",
+      pick: () => this.setState({ pack: id })
+    }));
+    const packName = (C.PACKS.find((x) => x[0] === st.pack) || C.PACKS[0])[1];
+    const nyTiles = [["Counties", "62"], ["Tax jurisdictions", "Loaded"], ["Wage regions", "Loaded"], ["Last updated", "Sep 14, 2026"], ["Next review", "Dec 1, 2026"]]
+      .map(([k, val]) => ({ k, v: val, style: val === "Loaded" ? "color: " + acc + ";" : "" }));
+    const nyUsed = st.venues.filter((x) => x.pack.indexOf("New York") >= 0).map((x) => (x.id === "w4" ? x.name + " (New York County)" : x.short));
+
+    // ---- Support ----
+    const SEV = { High: T.pink, Medium: T.amber, Low: T.grey };
+    const tickets = st.tickets.map((t) => {
+      const tv = st.venues.find((x) => x.id === t.venue);
+      const parts = tv.name.split(" · ");
+      return { n: t.n, venue: parts[0], venueSub: parts.slice(1).join(" · "), what: t.what, step: t.step, sev: t.sev, sevStyle: SEV[t.sev], age: t.age, status: t.status,
+        open: () => this.setState({ view: "venues", sel: t.venue, ask: "", reason: "", planAsk: null, allowAsk: null }) };
+    });
+    const high = st.tickets.filter((t) => t.sev === "High").length;
+
+    // ---- Billing ----
+    const billRows = st.venues.map((x) => {
+      const p = planById[x.plan], adds = x.addOns.filter((id) => p.modules.indexOf(id) < 0 && allowedOn(x, x.plan, id)).map((id) => byId[id].name);
+      return {
+        name: x.name, plan: p.name, base: cents(p.base), rooms: p.perRoom ? x.rooms + " × $" + p.perRoom + " = " + cents(x.rooms * p.perRoom) : "not billed on Bar",
+        addOns: adds.length ? adds.join(", ") + " (no price yet)" : "—", total: cents(monthly(x)),
+        status: x.status === "live" ? "Billed monthly" : (x.status === "invited" ? "Invited · not billed" : "Setup · not billed"),
+        statusStyle: x.status === "live" ? "color: " + acc + ";" : "color: #FFB13D;",
+        next: x.status === "live" ? x.nextInvoice : "At go-live"
+      };
+    });
+
+    // ---- Releases ----
+    const flags = C.BETA.map((f) => {
+      const on = st.venues.filter((x) => x.beta[f.id]).map((x) => x.short);
+      return { name: f.name, what: f.what, on, none: on.length === 0, count: on.length + " of " + st.venues.length + " venues", chipStyle: T.cyan };
+    });
+
+    // ---- Frame ----
+    const VIEWS = [["venues", "Venues"], ["plans", "Plans"], ["packs", "Rule packs"], ["support", "Support"], ["billing", "Billing"], ["releases", "Releases"]];
+    const nav = VIEWS.map(([id, label]) => ({
+      label, current: st.view === id ? "page" : undefined,
+      pick: () => this.setState({ view: id, ask: "", planAsk: null, allowAsk: null }),
+      style: st.view === id ? "font-weight: 700; color: #0b0a0d; background: " + acc + ";" : "font-weight: 600; color: #F4F1EA; background: transparent;",
+      hasBadge: id === "venues" || id === "support", badge: id === "venues" ? String(st.venues.length) : String(st.tickets.length),
+      badgeStyle: id === "support" && high ? "background: #FF3DA6; color: #0b0a0d;" : (st.view === id ? "background: #0b0a0d; color: " + acc + ";" : "background: rgba(244,241,234,.12); color: #F4F1EA;")
+    }));
+    const stat = (n, label, style) => ({ n: String(n), label, style: style || "" });
+    const HEAD = {
+      venues: ["Venues", "Fri Sep 25 · 10:41 PM · our customers", [stat(live.length, "live", "color: " + acc + ";"), stat(st.venues.filter((x) => x.status === "setup").length, "in setup", "color: #FFB13D;"), stat(st.venues.filter((x) => x.status === "invited").length, "invited"), stat(money(mrrN), "MRR")]],
+      plans: ["Plans", "Proposed prices · not final", [stat(C.PLANS.length, "plans"), stat(C.ADDONS.length, "add-ons"), stat("Proposed", "prices", "color: #FFB13D;")]],
+      packs: ["Rule packs", "Alcohol closing times, sales tax and wages by place", [stat(1, "state live", "color: " + acc + ";"), stat(C.PACKS.length - 1, "listed, not started")]],
+      support: ["Support", "Open tickets · pilots", [stat(st.tickets.length, "open"), stat(high, "high", "color: #FF3DA6;")]],
+      billing: ["Billing", "Proposed prices · monthly", [stat(money(mrrN), "MRR", "color: " + acc + ";"), stat(money(laterN), "more at go-live")]],
+      releases: ["Releases", "Beta flags by venue", [stat(C.BETA.length, "beta flags", "color: #3DF2FF;")]]
+    }[st.view];
+    const showVenues = st.view === "venues";
+    return {
+      accent: acc, staff: C.STAFF, nav, title: HEAD[0], subtitle: HEAD[1], stats: HEAD[2],
+      showTable: showVenues && !v, showSplit: showVenues && !!v, closeVenue: () => this.setState({ sel: "", ask: "", planAsk: null, allowAsk: null }),
+      vCols: "minmax(176px, 1.4fr) 130px minmax(108px, .8fr) 48px 86px 116px 92px minmax(140px, 1fr)",
+      vHead: ["Venue", "Status", "Plan", "Rooms", "MRR", "Setup", "Devices", "Health"],
+      venueRows, d,
+      reason: st.reason, setReason: (e) => this.setState({ reason: e.target.value }), cancelAsk: () => this.setState({ ask: "", reason: "" }),
+      startStyle: (st.reason || "").trim() ? "background: #FFB13D; color: #0b0a0d;" : "background: #2a2730; color: #8E8994;",
+      scopes: [["read", "Read only"], ["write", "Read + one change"]].map(([k, label]) => ({ label, on: st.scope === k, pick: () => this.setState({ scope: k }), style: st.scope === k ? "background: #FFB13D; color: #0b0a0d; border: 1px solid #FFB13D;" : "background: transparent; color: #C9C5CE; border: 1px solid rgba(244,241,234,.16);" })),
+      lengths: [15, 30, 60].map((m) => ({ label: m + " min", on: st.mins === m, pick: () => this.setState({ mins: m }), style: st.mins === m ? "background: #FFB13D; color: #0b0a0d; border: 1px solid #FFB13D;" : "background: transparent; color: #C9C5CE; border: 1px solid rgba(244,241,234,.16);" })),
+      writeScope: st.scope === "write", writeWhat: st.writeWhat, setWriteWhat: (e) => this.setState({ writeWhat: e.target.value }),
+      reasons: C.REASONS.map((r) => ({ label: r, pick: () => this.setState({ reason: r }), style: st.reason === r ? "background: #FFB13D; color: #0b0a0d; border: 1px solid #FFB13D;" : "background: transparent; color: #C9C5CE; border: 1px solid rgba(244,241,234,.16);" })),
+      showPlans: st.view === "plans", plans, matrix, addOnList, billExample,
+      showPacks: st.view === "packs", packs, packNY: st.pack === "NY", packOther: st.pack !== "NY", packName, nyTiles, nyRows: C.NY_ROWS,
+      nyUsedBy: nyUsed.join(" · ") + ".", liveChip: T.acc,
+      showSupport: st.view === "support", tickets, tCols: "64px minmax(150px, 1fr) minmax(220px, 1.8fr) 90px 70px 130px 110px", tHead: ["#", "Venue", "What", "Severity", "Age", "Status", ""],
+      showBilling: st.view === "billing", billRows, mrr: cents(mrrN), goLiveLine: money(laterN) + " more at go-live",
+      bCols: "minmax(170px, 1.3fr) 104px 80px 140px minmax(120px, 1fr) 84px 124px 92px", bHead: ["Venue", "Plan", "Plan price", "Rooms × $12", "Add-ons", "A month", "Status", "Next invoice"],
+      showReleases: st.view === "releases", flags,
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

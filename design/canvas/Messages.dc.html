@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Messages — guest texts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.stick{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 0 0 120px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <a href="Staff.dc.html" style="display: inline-flex; align-items: center; gap: 8px; color: #F4F1EA; text-decoration: none; font-size: 13px; font-weight: 600"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7H2M6 3L2 7l4 4"/></svg>Tonight</a>
+    <span class="disp" style="font-size: 26px">Messages</span>
+    <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; white-space: nowrap">{{textNumber}}</span>
+  </header>
+
+  <div style="display: flex; gap: 4px; margin: 12px 16px; padding: 4px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+    <button type="button" class="btn" onClick="{{tabInbox}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 6px; font-weight: 700; font-size: 13px; {{segInbox}}">Inbox {{unreadBadge}}</button>
+    <button type="button" class="btn" onClick="{{tabAuto}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 6px; font-weight: 700; font-size: 13px; {{segAuto}}">Automatic texts</button>
+  </div>
+
+  <sc-if value="{{showInbox}}" hint-placeholder-val="{{true}}">
+    <sc-if value="{{noThread}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 6px; padding: 0 16px">
+        <sc-for list="{{threads}}" as="t" hint-placeholder-count="5">
+          <button type="button" class="btn" onClick="{{t.open}}" style="appearance: none; text-align: left; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); color: #F4F1EA; {{t.style}}">
+            <span class="disp" style="width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">{{t.ini}}</span>
+            <span style="min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 700; font-size: 14px">{{t.name}}</span><span class="mono" style="font-size: 10px; color: #8E8994">{{t.when}}</span></span><span style="font-size: 12px; color: #A39FA8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.last}}</span></span>
+            <sc-if value="{{t.unread}}" hint-placeholder-val="{{false}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--acc, #D4FF3F); flex: none"></span></sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{hasThread}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 16px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+          <button type="button" class="btn" onClick="{{back}}" style="appearance: none; border: 0; background: transparent; color: #F4F1EA; font-size: 13px; font-weight: 600; padding: 6px 0">‹ All messages</button>
+          <span class="mono" style="font-size: 10px; letter-spacing: .08em; color: #8E8994">{{thr.meta}}</span>
+        </div>
+        <div class="disp" style="font-size: 28px">{{thr.name}}</div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{thr.msgs}}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 3px; {{m.align}}">
+              <div style="max-width: 82%; padding: 10px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; {{m.style}}">{{m.text}}</div>
+              <span class="mono" style="font-size: 9px; letter-spacing: .06em; color: #6F6B78; padding: 0 4px">{{m.who}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px">
+          <sc-for list="{{canned}}" as="c" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{c.send}}" style="appearance: none; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 600; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18)">{{c.label}}</button></sc-for>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; background: #141218; border: 1px solid rgba(244,241,234,.14); border-radius: 16px; padding: 4px 4px 4px 14px">
+          <input type="text" value="{{draft}}" onChange="{{onDraft}}" placeholder="Reply as West 4" aria-label="Reply" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 15px; font-family: inherit; padding: 11px 0">
+          <button type="button" class="btn" onClick="{{sendDraft}}" style="appearance: none; border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Send</button>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{showAuto}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 16px">
+      <div style="font-size: 13px; line-height: 1.5; color: #8E8994; padding-bottom: 4px">These go out by themselves. Tap one to switch it off, or edit the words in Admin → Texts. Marketing texts stay off until they have their own opt-in and the lawyer answers.</div>
+      <sc-for list="{{autos}}" as="a" hint-placeholder-count="7">
+        <button type="button" class="btn" onClick="{{a.toggle}}" style="appearance: none; text-align: left; display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); color: #F4F1EA; {{a.rowStyle}}">
+          <span style="width: 34px; height: 20px; border-radius: 999px; flex: none; margin-top: 2px; position: relative; {{a.switch}}"><span style="position: absolute; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #0b0a0d; {{a.knob}}"></span></span>
+          <span style="min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px">
+            <span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 700; font-size: 14px">{{a.name}}</span><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: #8E8994">{{a.when}}</span></span>
+            <sc-if value="{{a.hasAlt}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: #6F6B78; padding-top: 2px">{{a.label1}}</span></sc-if>
+            <span style="font-size: 12px; line-height: 1.45; color: #A39FA8">“{{a.text}}”</span>
+            <sc-if value="{{a.hasAlt}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: #6F6B78; padding-top: 2px">{{a.label2}}</span><span style="font-size: 12px; line-height: 1.45; color: #A39FA8">“{{a.alt}}”</span></sc-if>
+            <span class="mono" style="font-size: 9px; letter-spacing: .08em; color: #6F6B78">{{a.stat}}</span>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <div class="stick" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 10px; padding: 10px 14px; background: linear-gradient(180deg, rgba(11,10,13,0), rgba(11,10,13,.95) 40%)">
+    <a href="Staff.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Tonight</a>
+    <a href="Calendar.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Calendar</a>
+    <a href="Reports.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 15px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #F4F1EA; text-decoration: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">Reports</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    this.state = {
+      tab: "inbox", open: null, draft: "", off: { rev: true, bday: true },
+      threads: [
+        { id: 1, name: "Dana K.", ini: "DK", meta: "Party of 4 · 8:30 tonight", unread: true, msgs: [["auto", "Reminder: your room at West 4 is at 8:30 PM tonight. Reply if anything changes."], ["them", "running 15 late, is that ok??"]] },
+        { id: 2, name: "Bianca L.", ini: "BL", meta: "Birthday · 22 · VIP room", unread: true, msgs: [["auto", "Your VIP room is confirmed for Fri 9:30 PM. Deposit received, thank you."], ["them", "can we bring a cake?"]] },
+        { id: 3, name: "Jae", ini: "J", meta: "Party of 8 · 9:00 tonight", unread: false, msgs: [["them", "do you have a room for 8 at 9 tonight"], ["us", "We do. Booking link: west4karaoke.com/book"], ["auto", "Booked. Room for 8 at 9:00 PM. See you tonight."]] },
+        { id: 4, name: "Marcus T.", ini: "MT", meta: "Room 9 now · booked 8–11 PM", unread: false, msgs: [["auto", "Booked. Room for 12 at 8:00 PM, Fri Sep 25. Deposit $120 paid, comes off your tab."], ["them", "if we're having fun can we stay past 11?"], ["us", "Nobody has Room 9 after you tonight, so stay as long as you like. After 11 it just runs by the minute."]] },
+        { id: 5, name: "Tanya W.", ini: "TW", meta: "Paid · left 9:10", unread: false, msgs: [["auto", "Thanks for singing with us. Your receipt for $154.65: west4karaoke.com/rc/7Hq2kT9mWx4LpZ3nVb8cRd"]] }
+      ],
+      autos: [
+        { id: "conf", name: "Booking confirmed", when: "Right away", text: "Booked. Room for 6 at 9:30 PM, Sat Sep 26. Deposit $60 paid, comes off your tab. Free to cancel until Fri 9:30 PM: west4karaoke.com/b/k7Qm9xT2vR4pLw8nZc3eYh", stat: "Sent 212 this month" },
+        { id: "rem", name: "Reminder", when: "Afternoon of", text: "Tonight at West 4: room for 6 at 9:30 PM. 186 W 4th St. Reply if anything changes.", stat: "Cut no-shows from 11% to 4%" },
+        { id: "ready", name: "Room ready", when: "Staff taps", text: "Your room is ready. You have 10 minutes to claim it at the door.", stat: "Waitlist only" },
+        { id: "ten", name: "Booked time ending", when: "10 min before end", label1: "Nobody waiting for the room", text: "Your booked time in Room 9 ends at 11:00 PM. Nobody’s waiting, so stay as long as you like, by the minute.", label2: "Someone waiting for the room", alt: "Ten minutes left in Room 9. Another party is waiting, so please wrap up by 11:00 PM.", stat: "Picks the version from the board" },
+        { id: "rcpt", name: "Receipt", when: "After paying", text: "Thanks for singing with us. Your receipt for $154.65: west4karaoke.com/rc/7Hq2kT9mWx4LpZ3nVb8cRd", stat: "Every close-out" },
+        { id: "rev", name: "Review ask", when: "Next morning 11 AM", text: "Hope last night was a good one. Two taps to tell Google: g.page/west4/review", stat: "Marketing · off until it has its own opt-in and the lawyer answers", marketing: true },
+        { id: "bday", name: "Birthday", when: "A week before", text: "Your birthday's coming up. Book a room this month and the first song's on us.", stat: "Marketing · off until it has its own opt-in and the lawyer answers", marketing: true }
+      ]
+    };
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    // Comes from Admin → Phone. In the app every screen reads the same saved setting.
+    const PHONE = { call: "(212) 255-0011", text: "(212) 255-0011" };
+    const seg = (on) => on ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;";
+    const unread = st.threads.filter((t) => t.unread).length;
+    const threads = st.threads.map((t) => ({
+      name: t.name, ini: t.ini, when: t.id <= 2 ? "now" : (t.id === 3 ? "4:12 PM" : (t.id === 4 ? "9:41 PM" : "9:12 PM")), last: t.msgs[t.msgs.length - 1][1], unread: t.unread,
+      style: t.unread ? "border-color: " + acc + "55;" : "",
+      open: () => this.setState({ open: t.id, draft: "", threads: st.threads.map((x) => x.id === t.id ? Object.assign({}, x, { unread: false }) : x) })
+    }));
+    const cur = st.threads.find((t) => t.id === st.open);
+    const push = (text) => { if (!cur || !text.trim()) return; this.setState({ draft: "", threads: st.threads.map((x) => x.id === cur.id ? Object.assign({}, x, { msgs: x.msgs.concat([["us", text.trim()]]) }) : x) }); };
+    const thr = cur ? { name: cur.name, meta: cur.meta, msgs: cur.msgs.map(([who, text]) => ({
+      text, who: who === "them" ? cur.name : (who === "us" ? "You · West 4" : "Automatic"),
+      align: who === "them" ? "align-items: flex-start;" : "align-items: flex-end;",
+      style: who === "them" ? "background: #1c1a21; color: #F4F1EA;" : (who === "us" ? "background: " + acc + "; color: #0b0a0d;" : "background: rgba(244,241,234,.08); color: #C9C5CE; border: 1px solid rgba(244,241,234,.12);")
+    })) } : { name: "", meta: "", msgs: [] };
+    const canned = ["No problem, we'll hold it", "Yes, cake is fine", "Room's ready when you are", "Call us: " + PHONE.call].map((label) => ({ label, send: () => push(label) }));
+    const autos = st.autos.map((a) => {
+      const off = !!st.off[a.id];
+      return Object.assign({ hasAlt: !!a.alt, label1: "", label2: "", alt: "" }, a, {
+        toggle: () => { if (a.marketing) return; const o = Object.assign({}, st.off); if (o[a.id]) delete o[a.id]; else o[a.id] = true; this.setState({ off: o }); },
+        switch: off ? "background: rgba(244,241,234,.18);" : "background: " + acc + ";",
+        knob: off ? "left: 3px;" : "left: 17px;",
+        rowStyle: off ? "opacity: .55;" : ""
+      });
+    });
+    return {
+      accent: acc, textNumber: PHONE.text,
+      tabInbox: () => this.setState({ tab: "inbox" }), tabAuto: () => this.setState({ tab: "auto" }),
+      segInbox: seg(st.tab === "inbox"), segAuto: seg(st.tab === "auto"), showInbox: st.tab === "inbox", showAuto: st.tab === "auto",
+      unreadBadge: unread ? "· " + unread : "",
+      threads, noThread: !cur, hasThread: !!cur, thr, canned,
+      back: () => this.setState({ open: null }),
+      draft: st.draft, onDraft: (e) => this.setState({ draft: e.target.value }), sendDraft: () => push(st.draft),
+      autos
+    };
+  }
+}
+</script>
+</body>
+</html>

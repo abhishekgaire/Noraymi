@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Private parties</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+html{scroll-behavior:smooth}
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.nav{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.outline{color:transparent;-webkit-text-stroke:1px rgba(244,241,234,.22)}
+.btn{cursor:pointer;font-family:inherit;transition:transform .15s ease}.btn:hover{transform:translateY(-2px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.in:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.card{transition:transform .15s ease,border-color .2s ease}.card:hover{transform:translateY(-2px);border-color:rgba(244,241,234,.3)}
+.in{appearance:none;width:100%;box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.14);color:#F4F1EA;border-radius:14px;padding:13px 14px;font-family:inherit;font-size:16px;outline:0;color-scheme:dark}
+.in::placeholder{color:#5b5764}
+@keyframes breathe{0%,100%{transform:scale(.94);opacity:.75}50%{transform:scale(1.06);opacity:1}}
+.breathe{animation:breathe 9s ease-in-out infinite}
+@keyframes rise{from{opacity:0;transform:translateY(36px)}to{opacity:1;transform:none}}
+.rv{animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
+@supports (animation-timeline: view()){.rv{animation:rise linear both;animation-timeline:view();animation-range:entry 0% entry 40%}}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.pop{animation:up .3s cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion: reduce){.breathe,.rv,.pop{animation:none!important}}
+@media (min-width: 900px){.wrap{max-width:1100px;margin:0 auto}}
+</style>
+</helmet>
+<div id="top" style="--acc: {{accent}}; position: relative; z-index: 0; width: 100%; min-height: 100%; box-sizing: border-box; overflow-x: clip; padding: 0 0 20px; background: linear-gradient(180deg, #151219 0px, #151219 600px, #0b0a0d 1300px, #07060a 2400px, #07060a 100%); color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+  <div aria-hidden="true" style="position: absolute; z-index: -1; top: 60px; right: -120px; width: 380px; height: 340px; pointer-events: none"><div class="breathe" style="width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(closest-side, #FF3DA6 0%, transparent 70%); opacity: .3"></div></div>
+  <div aria-hidden="true" style="position: absolute; z-index: -1; top: 1150px; left: -120px; width: 360px; height: 300px; pointer-events: none"><div class="breathe" style="width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(closest-side, var(--acc, #D4FF3F) 0%, transparent 70%); opacity: .2"></div></div>
+  <div aria-hidden="true" style="position: absolute; z-index: -1; top: 2300px; right: -100px; width: 340px; height: 300px; pointer-events: none"><div class="breathe" style="width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(closest-side, #3DF2FF 0%, transparent 70%); opacity: .14"></div></div>
+
+  <header class="nav" style="position: sticky; top: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: rgba(11,10,13,.55); border-bottom: 1px solid rgba(244,241,234,.08)">
+    <a href="Main.dc.html" class="disp" style="font-size: 22px; color: #F4F1EA; text-decoration: none; letter-spacing: 0; display: flex; align-items: baseline; gap: 8px">W4 <span class="mono" style="font-weight: 400; font-size: 10px; letter-spacing: .18em; color: #8E8994; text-transform: uppercase">Boho Karaoke</span></a>
+    <div style="display: flex; align-items: center; gap: 16px; font-size: 13px; font-weight: 600">
+      <a href="#ask" style="color: #F4F1EA; text-decoration: none">Enquire</a>
+      <a href="Main.dc.html#book" class="btn" style="background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; padding: 9px 14px; border-radius: 999px; font-weight: 700">Book</a>
+    </div>
+  </header>
+
+  <section class="wrap" style="padding: 40px 20px 8px; display: flex; flex-direction: column; gap: 18px">
+    <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">↓ Private parties</div>
+    <h1 class="disp" style="margin: 0; font-size: clamp(58px, 17vw, 150px)">Your night.<br><span style="color: var(--acc, #D4FF3F)">Your door.</span></h1>
+    <p style="margin: 0; font-size: 16px; line-height: 1.5; color: #C9C5CE; max-width: 340px">Fourteen rooms on W 4th St, from three friends up to the VIP room for 40. Open till 4 AM. The door closes and the mic is yours.</p>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap">
+      <a href="#ask" class="btn" style="display: inline-flex; align-items: center; gap: 10px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; font-weight: 700; font-size: 15px; padding: 15px 20px; border-radius: 999px; box-shadow: 0 12px 40px -10px var(--acc, #D4FF3F)">Plan a party <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+      <a href="{{telHref}}" style="display: inline-flex; align-items: center; gap: 9px; color: #F4F1EA; text-decoration: none; font-size: 14px; font-weight: 600; padding: 14px 16px; border-radius: 999px; border: 1px solid rgba(244,241,234,.18)">Call {{callNumber}}</a>
+    </div>
+  </section>
+
+  <section class="wrap" style="padding: 40px 20px 0; display: flex; flex-direction: column; gap: 10px">
+    <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994; margin-bottom: 6px">↓ What we host</div>
+    <div class="rv" style="padding: 18px; border-radius: 20px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 10px"><span class="disp" style="font-size: 34px">Birthdays</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #FF3DA6; white-space: nowrap">3 TO 20</span></div>
+      <div style="font-size: 14px; line-height: 1.5; color: #A39FA8">A room sized to your crew at $10 a person an hour. Bring your own food, cake included. Drinks go on one tab.</div>
+    </div>
+    <div class="rv" style="padding: 18px; border-radius: 20px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 10px"><span class="disp" style="font-size: 34px">Bachelorettes</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #FF3DA6; white-space: nowrap">TILL 4 AM</span></div>
+      <div style="font-size: 14px; line-height: 1.5; color: #A39FA8">113,000 songs and a closed door. Order to the room from your phone and it lands on the tab you settle when you leave.</div>
+    </div>
+    <div class="rv" style="padding: 18px; border-radius: 20px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 10px"><span class="disp" style="font-size: 34px">Office nights</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #FF3DA6; white-space: nowrap">20 TO 40</span></div>
+      <div style="font-size: 14px; line-height: 1.5; color: #A39FA8">The whole team in the VIP room at $250 an hour, however many of you come. Fewer than 20? Take a large room.</div>
+    </div>
+    <div class="rv" style="padding: 18px; border-radius: 20px; background: #121016; border: 1px solid var(--acc, #D4FF3F); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 10px"><span class="disp" style="font-size: 34px">Full buyouts</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: var(--acc, #D4FF3F); white-space: nowrap">ALL 14 ROOMS</span></div>
+      <div style="font-size: 14px; line-height: 1.5; color: #A39FA8">Every room and the bar, just for you. Tell us the date and the headcount and we’ll work it out together.</div>
+    </div>
+  </section>
+
+  <section class="wrap" style="padding: 56px 20px 0; display: flex; flex-direction: column; gap: 16px">
+    <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">↓ The rooms</div>
+    <h2 class="disp rv" style="margin: 0; font-size: clamp(50px, 14vw, 130px)">Three friends<br>or forty.</h2>
+    <div style="display: flex; flex-direction: column; border-radius: 18px; background: #121016; border: 1px solid rgba(244,241,234,.1); padding: 4px 16px">
+      <sc-for list="{{rooms}}" as="r" hint-placeholder-count="4">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; {{r.line}}">
+          <div style="min-width: 0"><div style="font-weight: 700; font-size: 15px">{{r.name}}</div><div style="font-size: 12px; color: #8E8994">{{r.count}}</div></div>
+          <div style="text-align: right"><div class="mono" style="font-size: 13px; {{r.priceStyle}}">{{r.price}}</div><div style="font-size: 12px; color: #8E8994">fits {{r.fits}}</div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="padding: 16px; border-radius: 18px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 12px">
+      <div class="mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Rough room cost</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 6px; border-radius: 14px; background: #0b0a0d; border: 1px solid rgba(244,241,234,.1)">
+          <button type="button" class="btn" onClick="{{decG}}" aria-label="Fewer guests" style="width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 20px; line-height: 1; appearance: none">−</button>
+          <div style="text-align: center"><div class="disp" style="font-size: 30px; line-height: 1">{{eg}}</div><div style="font-size: 10px; color: #8E8994">guests</div></div>
+          <button type="button" class="btn" onClick="{{incG}}" aria-label="More guests" style="width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 20px; line-height: 1; appearance: none">+</button>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 6px; border-radius: 14px; background: #0b0a0d; border: 1px solid rgba(244,241,234,.1)">
+          <button type="button" class="btn" onClick="{{decH}}" aria-label="Fewer hours" style="width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 20px; line-height: 1; appearance: none">−</button>
+          <div style="text-align: center"><div class="disp" style="font-size: 30px; line-height: 1">{{eh}}</div><div style="font-size: 10px; color: #8E8994">{{hLabel}}</div></div>
+          <button type="button" class="btn" onClick="{{incH}}" aria-label="More hours" style="width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 20px; line-height: 1; appearance: none">+</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 5px; font-size: 14px">
+        <div style="display: flex; justify-content: space-between; gap: 10px"><span style="color: #A39FA8">{{estLabel}}</span><span class="mono" style="font-size: 13px">{{estSub}}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 10px"><span style="color: #A39FA8">NYC tax 8.875%</span><span class="mono" style="font-size: 13px">{{estTax}}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 10px"><span style="color: #A39FA8">Gratuity 20%</span><span class="mono" style="font-size: 13px">{{estTip}}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px dashed rgba(244,241,234,.14); font-weight: 700"><span>Room time, all in</span><span class="mono" style="font-size: 14px">{{estTotal}}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 10px; color: var(--acc, #D4FF3F)"><span>Deposit to hold it</span><span class="mono" style="font-size: 13px">{{estDep}}</span></div>
+      </div>
+      <div style="font-size: 12px; line-height: 1.5; color: #8E8994">{{estNote}}</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 4px">
+      <div style="display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.45"><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: var(--acc, #D4FF3F); width: 22px; flex: none; padding-top: 3px">01</span>1 hour minimum, then by the minute. Stay later if nobody’s booked after you.</div>
+      <div style="display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.45"><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: var(--acc, #D4FF3F); width: 22px; flex: none; padding-top: 3px">02</span>Fri and Sat rooms need 4 guests, weeknights 3.</div>
+      <div style="display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.45"><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: var(--acc, #D4FF3F); width: 22px; flex: none; padding-top: 3px">03</span>{{policy}}</div>
+      <div style="display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.45"><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: var(--acc, #D4FF3F); width: 22px; flex: none; padding-top: 3px">04</span>Bring your own food. No outside drinks. 21 and over, with ID.</div>
+    </div>
+  </section>
+
+  <section class="wrap" style="margin: 56px 20px 0; padding: 22px 18px; border-radius: 24px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden">
+    <div aria-hidden="true" style="position: absolute; right: -90px; top: -70px; width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(closest-side, #FF3DA6, transparent 70%); opacity: .28; pointer-events: none"></div>
+    <div class="mono" style="position: relative; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">Room packages · from the menu</div>
+    <h2 class="disp" style="position: relative; margin: 0; font-size: clamp(44px, 12vw, 110px)">Drinks,<br>sorted.</h2>
+    <div style="position: relative; display: flex; flex-direction: column">
+      <sc-for list="{{packages}}" as="p" hint-placeholder-count="5">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <div style="min-width: 0"><div style="font-weight: 600; font-size: 15px">{{p.name}}</div><sc-if value="{{p.hasSub}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #8E8994">{{p.sub}}</div></sc-if></div>
+          <span class="disp" style="font-size: 24px; color: var(--acc, #D4FF3F); white-space: nowrap">{{p.price}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="position: relative; font-size: 12px; line-height: 1.5; color: #8E8994">Bottles: Jack Daniel's, Jameson, Fireball, Tito's, Stoli, Bombay, Tanqueray, Casamigos, Patrón, Bacardi or Captain Morgan. Ordered to your room, on your tab.</div>
+    <a href="Menu.dc.html" class="btn" style="position: relative; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; background: transparent; color: #F4F1EA; text-decoration: none; padding: 12px 16px; border-radius: 999px; border: 1px solid rgba(244,241,234,.18); font-weight: 600; font-size: 14px">Full menu <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h10M8 3l4 4-4 4"/></svg></a>
+  </section>
+
+  <section id="ask" class="wrap" style="padding: 64px 20px 0; display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 70px">
+    <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">↓ Tell us the plan</div>
+    <h2 class="disp rv" style="margin: 0; font-size: clamp(50px, 14vw, 130px)">Plan a<br>party.</h2>
+
+    <sc-if value="{{sent}}" hint-placeholder-val="{{false}}">
+      <div class="pop" style="padding: 22px 18px; border-radius: 20px; background: #121016; border: 1px solid var(--acc, #D4FF3F); display: flex; flex-direction: column; gap: 10px">
+        <div class="disp" style="font-size: 46px; color: var(--acc, #D4FF3F)">Sent.</div>
+        <div style="font-size: 16px; font-weight: 700">We’ll reply by text.</div>
+        <div style="font-size: 14px; line-height: 1.5; color: #C9C5CE">{{sentLine}}</div>
+        <button type="button" class="btn" onClick="{{reset}}" style="appearance: none; align-self: flex-start; border-radius: 999px; padding: 10px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18)">Send another</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{editing}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 13px; color: #A39FA8">What’s the occasion?</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <sc-for list="{{occasions}}" as="o" hint-placeholder-count="5"><button type="button" class="btn" onClick="{{o.pick}}" style="appearance: none; border-radius: 999px; padding: 10px 14px; font-weight: 700; font-size: 13px; {{o.style}}">{{o.label}}</button></sc-for>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+            <label for="pt-date" style="font-size: 13px; color: #A39FA8">Date</label>
+            <input id="pt-date" class="in" type="date" value="{{date}}" onInput="{{setDate}}">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+            <label for="pt-guests" style="font-size: 13px; color: #A39FA8">Guests</label>
+            <input id="pt-guests" class="in" type="number" inputmode="numeric" min="3" value="{{guests}}" onInput="{{setGuests}}" placeholder="How many?">
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="pt-name" style="font-size: 13px; color: #A39FA8">Your name</label>
+          <input id="pt-name" class="in" type="text" value="{{name}}" onInput="{{setName}}" placeholder="First and last" autocomplete="name">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="pt-contact" style="font-size: 13px; color: #A39FA8">Phone or email</label>
+          <input id="pt-contact" class="in" type="text" value="{{contact}}" onInput="{{setContact}}" placeholder="(917) 555-0142" autocomplete="tel">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <label for="pt-notes" style="font-size: 13px; color: #A39FA8">Anything else?</label>
+          <textarea id="pt-notes" class="in" rows="3" value="{{notes}}" onInput="{{setNotes}}" placeholder="Start time, how long, a cake coming…" style="resize: vertical; min-height: 88px"></textarea>
+        </div>
+        <sc-if value="{{showErr}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; color: #FF3DA6">{{err}}</div></sc-if>
+        <button type="button" class="btn" onClick="{{send}}" style="appearance: none; border: 0; width: 100%; padding: 18px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 16px; box-shadow: 0 12px 40px -12px var(--acc, #D4FF3F)">Send enquiry</button>
+        <div style="font-size: 12px; line-height: 1.5; color: #8E8994; text-align: center">Nothing to pay yet. We text back with what’s free and how to hold it.</div>
+      </div>
+    </sc-if>
+  </section>
+
+  <section class="wrap" style="padding: 48px 20px 0; display: flex; flex-direction: column; gap: 12px">
+    <a href="Main.dc.html#book" class="btn" style="display: flex; align-items: center; justify-content: space-between; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; padding: 22px 24px; border-radius: 22px; box-shadow: 0 20px 60px -20px var(--acc, #D4FF3F)">
+      <span style="display: flex; flex-direction: column; gap: 6px"><span class="disp" style="font-size: 34px">Book the VIP room</span><span class="mono" style="font-size: 10px; letter-spacing: .12em">20–40 GUESTS · $250 / HR</span></span>
+      <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h20M16 6l8 8-8 8"/></svg>
+    </a>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <a href="https://www.google.com/maps/place/Boho+Karaoke+-+West+4th/@40.7325873,-74.0046555,17z" class="card" style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: #121016; border: 1px solid rgba(244,241,234,.1); color: #F4F1EA; text-decoration: none">
+        <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Address</span>
+        <span style="font-weight: 700; font-size: 15px; line-height: 1.3">186 W 4th St<br>New York, NY 10014</span>
+      </a>
+      <a href="{{telHref}}" class="card" style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: #121016; border: 1px solid rgba(244,241,234,.1); color: #F4F1EA; text-decoration: none">
+        <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Call</span>
+        <span style="font-weight: 700; font-size: 15px; line-height: 1.3">{{callNumber}}</span>
+        <span style="font-size: 12px; color: #8E8994; line-height: 1.4">Open till 4 AM</span>
+      </a>
+    </div>
+    <div class="disp outline" style="font-size: 34vw; line-height: .8; white-space: nowrap; margin: 24px 0 -.1em; letter-spacing: -.03em" aria-hidden="true">Parties</div>
+    <div class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #6F6B78; padding: 10px 0 12px; display: flex; justify-content: space-between; gap: 12px"><span>© West 4 · Boho Karaoke</span><span>21+ · 186 W 4th St</span></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1400}}'>
+class Component extends DCLogic {
+  // Comes from Admin → Website. In the app every screen reads the same saved setting.
+  static SETTINGS = { call: "(212) 255-0011", text: "(212) 255-0011" };
+  // The deposit rule comes from Admin → Deposits & cancelling. Same object on every screen.
+  // mode: "hour" (first hour of room time) | "person" ($ per guest) | "flat" ($ per booking) | "percent" (of the room total)
+  static DEPOSIT = { on: true, mode: "hour", value: 0, vip: 250, refundHours: 24, late: "keep", noShow: "keep", graceMin: 15 };
+  constructor() {
+    super(...arguments);
+    this.state = { eg: 12, eh: 2, occasion: "Birthday", date: "", guests: "", name: "", contact: "", notes: "", err: "", sent: false };
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const S = Component.SETTINGS, R = Component.DEPOSIT;
+    const money = (n) => "$" + n.toFixed(2);
+
+    // Room sizes — the same 14 rooms as the rest of the site: 5 small, 5 medium, 3 large, 1 VIP.
+    const ROOMS = [["Small rooms", "5 rooms", "3–6", "$10 / person / hr"], ["Medium rooms", "5 rooms", "6–12", "$10 / person / hr"], ["Large rooms", "3 rooms", "12–20", "$10 / person / hr"], ["VIP room", "1 room", "20–40", "$250 / hr"]];
+    const rooms = ROOMS.map(([name, count, fits, price], i) => ({ name, count, fits, price, line: i < ROOMS.length - 1 ? "border-bottom: 1px solid rgba(244,241,234,.08);" : "", priceStyle: i === ROOMS.length - 1 ? "color: " + acc + ";" : "" }));
+
+    // Room packages — straight from the menu.
+    const packages = [["2 soju bottles + 1 small bucket", "", 70], ["4 soju bottles + 1 large bucket", "", 120], ["12 house shots + 2 small buckets", "", 150], ["1 bottle + 1 large bucket", "Free pitcher of soda", 300], ["2 bottles + 3 large buckets", "Free pitcher of soda", 680]]
+      .map(([name, sub, p]) => ({ name, sub, hasSub: !!sub, price: "$" + p }));
+
+    // Estimator — same math as the booking section.
+    const eg = Math.min(40, Math.max(3, st.eg)), eh = Math.min(6, Math.max(1, st.eh));
+    const vip = eg >= 20;
+    const sub = vip ? 250 * eh : 10 * eg * eh;
+    const dep = !R.on ? 0 : vip ? R.vip : R.mode === "hour" ? 10 * eg : R.mode === "person" ? R.value * eg : R.mode === "flat" ? R.value : sub * R.value / 100;
+
+    const amtWords = R.mode === "hour" ? "the first hour" : R.mode === "person" ? "$" + R.value + " a person" : R.mode === "flat" ? "$" + R.value : R.value + "% of the room";
+    const lateWords = { keep: "the deposit is kept", half: "half comes back", refund: "it still comes back" }[R.late];
+    const policy = R.on
+      ? "A deposit holds your room: " + amtWords + ", or $" + R.vip + " for the VIP room. Cancel at least " + R.refundHours + " hours ahead and it all comes back; later than that, " + lateWords + ". It comes off your tab."
+      : "No deposit. We hold your room " + R.graceMin + " minutes past your start time.";
+
+    const OCC = ["Birthday", "Bachelorette", "Office night", "Full buyout", "Something else"];
+    const occasions = OCC.map((label) => ({ label, pick: () => this.setState({ occasion: label }), style: st.occasion === label ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18);" }));
+    const field = (k) => (e) => this.setState({ [k]: e.target.value, err: "" });
+    const when = st.date ? (() => { const p = st.date.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); })() : "your date";
+    return {
+      accent: acc, rooms, packages, policy,
+      telHref: "tel:+1" + S.call.replace(/\D/g, ""), callNumber: S.call,
+      eg, eh, hLabel: eh === 1 ? "hour · min" : "hours",
+      decG: () => this.setState({ eg: Math.max(3, eg - 1) }), incG: () => this.setState({ eg: Math.min(40, eg + 1) }),
+      decH: () => this.setState({ eh: Math.max(1, eh - 1) }), incH: () => this.setState({ eh: Math.min(6, eh + 1) }),
+      estLabel: vip ? "VIP room × " + eh + " hr × $250" : eg + " × " + eh + " hr × $10",
+      estSub: money(sub), estTax: money(sub * 0.08875), estTip: money(sub * 0.2), estTotal: money(sub * 1.28875), estDep: money(dep),
+      estNote: (vip ? "20 or more fits the VIP room, one price for the room." : eg > 12 ? "Fits a large room (12–20)." : eg > 6 ? "Fits a medium room (6–12)." : "Fits a small room (3–6).") + " Drinks go on the same tab. Same price, cash or card.",
+      occasions,
+      date: st.date, guests: st.guests, name: st.name, contact: st.contact, notes: st.notes,
+      setDate: field("date"), setGuests: field("guests"), setName: field("name"), setContact: field("contact"), setNotes: field("notes"),
+      showErr: !!st.err, err: st.err,
+      send: () => {
+        if (!st.date) return this.setState({ err: "Pick a date so we can check what’s free." });
+        if (!(Number(st.guests) >= 3)) return this.setState({ err: "How many guests? Rooms start at 3." });
+        if (!st.name.trim()) return this.setState({ err: "Add your name." });
+        if (st.contact.trim().length < 6) return this.setState({ err: "Add a phone number or email so we can reply." });
+        this.setState({ sent: true, err: "" });
+      },
+      sent: st.sent, editing: !st.sent,
+      sentLine: st.occasion + " for " + (st.guests || "?") + " on " + when + ". We’ll check which room fits and text you back from " + S.text + ".",
+      reset: () => this.setState({ sent: false, date: "", guests: "", name: "", contact: "", notes: "" })
+    };
+  }
+}
+</script>
+</body>
+</html>

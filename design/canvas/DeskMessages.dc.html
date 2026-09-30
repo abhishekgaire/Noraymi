@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Messages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rail a{transition:background .15s ease}.rail a:hover{background:rgba(244,241,234,.06)}
+.lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,166,.6)}50%{box-shadow:0 0 0 8px rgba(255,61,166,0)}}
+.pulse{animation:pulse 1.2s ease-out infinite}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden; position: relative">
+
+  <nav class="rail" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Boho Karaoke · desktop</span></div>
+    <a href="Board.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Tonight</a>
+    <a href="DeskCalendar.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Calendar</a>
+    <a href="DeskMessages.dc.html" aria-current="page" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 700; color: #0b0a0d; background: var(--acc, #D4FF3F)">Messages <span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #0b0a0d; color: var(--acc, #D4FF3F)">2</span></a>
+    <a href="Rail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar POS</a>
+    <a href="Bar.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Bar orders <span class="mono pulse" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #FF3DA6; color: #0b0a0d">1</span></a>
+    <a href="Night.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Close the night</a>
+    <a href="DeskReports.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Reports</a>
+    <a href="AdminDesk.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Admin</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Drawer</span><br><b>Andy</b> since 6:00 PM<br><span style="color: #8E8994">Opened at $300.00</span></div>
+      <a href="Pin.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-size: 12px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.1)">Lock · PIN</a>
+    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid rgba(244,241,234,.08); white-space: nowrap">
+      <div style="display: flex; flex-direction: column; gap: 3px"><span class="disp" style="font-size: 26px">Messages</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">Guests text {{textNumber}} · replies go out from the same number</span></div>
+      <span style="margin-left: 14px; padding: 8px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><b style="color: var(--acc, #D4FF3F)">{{unread}}</b> unread</span>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 10px; padding: 2px 12px; width: 220px"><svg width="14" height="14" fill="none" stroke="#8E8994" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg><input type="text" value="{{q}}" onInput="{{setQ}}" placeholder="Find a name or phone" aria-label="Search messages" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 13px; font-family: inherit; padding: 8px 0"></div>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <section style="width: 270px; flex: none; border-right: 1px solid rgba(244,241,234,.08); padding: 12px; display: flex; flex-direction: column; gap: 6px; overflow: auto">
+        <div class="mono lbl" style="padding: 2px 4px 4px">Inbox</div>
+        <sc-for list="{{threads}}" as="t" hint-placeholder-count="5">
+          <button type="button" class="btn" onClick="{{t.open}}" style="appearance: none; text-align: left; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; color: #F4F1EA; {{t.style}}">
+            <span class="disp" style="width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; flex: none; background: #1c1a21; border: 1px solid rgba(244,241,234,.14)">{{t.ini}}</span>
+            <span style="min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 700; font-size: 13px; white-space: nowrap">{{t.name}}</span><span class="mono" style="font-size: 10px; color: #8E8994; white-space: nowrap">{{t.when}}</span></span><span style="font-size: 12px; color: #A39FA8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.last}}</span></span>
+            <sc-if value="{{t.unread}}" hint-placeholder-val="{{false}}"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--acc, #D4FF3F); flex: none"></span></sc-if>
+          </button>
+        </sc-for>
+        <sc-if value="{{noMatch}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #6F6B78; padding: 6px 4px">No one matches that.</div></sc-if>
+      </section>
+
+      <section style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1"><span class="disp" style="font-size: 24px">{{thr.name}}</span><span class="mono" style="font-size: 10px; letter-spacing: .08em; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{thr.phone}}</span><span style="font-size: 12px; color: #C9C5CE; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{thr.meta}}</span></div>
+          <sc-if value="{{thr.hasRoom}}" hint-placeholder-val="{{false}}"><a href="DeskRoom.dc.html" style="flex: none; display: inline-flex; padding: 8px 12px; border-radius: 10px; font-weight: 700; font-size: 12px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16); white-space: nowrap">Room 9 tab &amp; clock</a></sc-if>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow: auto; padding: 16px 18px; display: flex; flex-direction: column-reverse">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{thr.msgs}}" as="m" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 3px; {{m.align}}">
+              <div style="max-width: 72%; padding: 10px 13px; border-radius: 14px; font-size: 14px; line-height: 1.45; {{m.style}}">{{m.text}}</div>
+              <span class="mono" style="font-size: 9px; letter-spacing: .06em; color: #6F6B78; padding: 0 4px">{{m.who}}</span>
+            </div>
+          </sc-for>
+          </div>
+        </div>
+        <div style="padding: 10px 18px 16px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap">
+            <sc-for list="{{canned}}" as="c" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{c.send}}" style="appearance: none; border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 600; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18); white-space: nowrap">{{c.label}}</button></sc-for>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; background: #141218; border: 1px solid rgba(244,241,234,.14); border-radius: 12px; padding: 4px 4px 4px 14px">
+            <input type="text" value="{{draft}}" onInput="{{onDraft}}" placeholder="Reply as West 4" aria-label="Reply" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 14px; font-family: inherit; padding: 10px 0">
+            <button type="button" class="btn" onClick="{{sendDraft}}" style="appearance: none; border: 0; border-radius: 9px; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <aside style="width: 300px; flex: none; border-left: 1px solid rgba(244,241,234,.08); background: #0e0d11; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; overflow: auto">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 2px 2px 0"><span class="mono lbl">Automatic texts</span><a href="AdminDesk.dc.html" style="font-size: 11px; font-weight: 600">Edit words in Admin</a></div>
+        <div style="font-size: 12px; color: #8E8994; line-height: 1.45; padding: 0 2px">These go out by themselves. Click one to switch it off.</div>
+        <sc-for list="{{autos}}" as="a" hint-placeholder-count="7">
+          <button type="button" class="btn" onClick="{{a.toggle}}" style="appearance: none; text-align: left; display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08); color: #F4F1EA; {{a.rowStyle}}">
+            <span style="width: 30px; height: 18px; border-radius: 999px; flex: none; margin-top: 1px; position: relative; {{a.switch}}"><span style="position: absolute; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #0b0a0d; {{a.knob}}"></span></span>
+            <span style="min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px">
+              <span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 700; font-size: 13px">{{a.name}}</span><span class="mono" style="font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: #8E8994; white-space: nowrap">{{a.when}}</span></span>
+              <span style="font-size: 12px; line-height: 1.4; color: #A39FA8">“{{a.text}}”</span>
+              <span class="mono" style="font-size: 9px; letter-spacing: .06em; color: #6F6B78">{{a.stat}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Comes from Admin → Site & phone. In the app every screen reads the same saved setting.
+  static PHONE = { call: "(212) 255-0011", text: "(212) 255-0011" };
+  constructor() {
+    super(...arguments);
+    this.state = {
+      open: 3, draft: "", q: "", off: { rev: true, bday: true },
+      threads: [
+        { id: 1, name: "Sam O.", ini: "SO", phone: "(212) 555-0110", meta: "Party of 3 · 10:30 tonight · Room 2", when: "10:31 PM", unread: true, msgs: [["auto", "Tonight at West 4: room for 3 at 10:30 PM. 186 W 4th St. Reply if anything changes.", "4:00 PM"], ["them", "running 15 late, is that ok??", "10:31 PM"]] },
+        { id: 2, name: "Priya K.", ini: "PK", phone: "(646) 555-0148", meta: "Waitlist · party of 6 · quoted 20 min", when: "10:36 PM", unread: true, msgs: [["auto", "You’re on the West 4 waitlist, party of 6. About 20 minutes. We’ll text you when your room is ready.", "10:22 PM"], ["them", "we’re at the bar next door, how close are we?", "10:36 PM"]] },
+        { id: 3, name: "Marcus T.", ini: "MT", phone: "(917) 555-0187", room: true, meta: "Room 9 now · party of 12 · 8:00–11:00 PM", when: "10:02 PM", unread: false, msgs: [
+          ["auto", "Booked. Room for 12 at 8:00 PM, Fri Sep 25. Deposit $120 paid, comes off your tab. Free to cancel until Thu 8:00 PM.", "Mon"],
+          ["auto", "Tonight at West 4: room for 12 at 8:00 PM. 186 W 4th St. Reply if anything changes.", "4:00 PM"],
+          ["auto", "Welcome to Room 9. To order drinks from your phone, scan the code on the wall and enter room code KX4M7.", "8:00 PM"],
+          ["them", "can we stay past 11?", "9:58 PM"],
+          ["us", "Yes. Nobody is booked into Room 9 after you, so stay as long as you like. After 11:00 it’s by the minute, $2.00 a minute for 12. We’ll only ask you to wrap up if someone needs the room.", "10:02 PM"]] },
+        { id: 4, name: "Bianca L.", ini: "BL", phone: "(718) 555-0199", meta: "Birthday · 22 · VIP room · 9:30 tonight", when: "7:14 PM", unread: false, msgs: [["them", "can we bring a cake?", "Thu"], ["us", "Yes, cake is fine. We’ll keep it in the fridge behind the bar and bring it out at 10:30.", "Thu"], ["them", "amazing thank you!!", "7:14 PM"]] },
+        { id: 5, name: "Priya R.", ini: "PR", phone: "(212) 555-0141", meta: "Room 3 now · party of 5", when: "7:00 PM", unread: false, msgs: [["auto", "Welcome to Room 3. To order drinks from your phone, scan the code on the wall and enter room code PL8R2.", "7:00 PM"]] }
+      ],
+      autos: [
+        { id: "conf", name: "Booking confirmed", when: "Right away", text: "Booked. Room for 12 at 8:00 PM, Fri Sep 25. Deposit $120 paid, comes off your tab. Free to cancel until Thu 8:00 PM.", stat: "Sent 212 this month" },
+        { id: "rem", name: "Reminder", when: "4 PM day of", text: "Tonight at West 4: room for 12 at 8:00 PM. 186 W 4th St. Reply if anything changes.", stat: "Every booking" },
+        { id: "code", name: "Room code", when: "At check-in", text: "Welcome to Room 9. To order drinks from your phone, scan the code on the wall and enter room code KX4M7.", stat: "Every check-in" },
+        { id: "ready", name: "Room ready", when: "Staff clicks", text: "Your room is ready. You have 10 minutes to claim it at the door.", stat: "Waitlist only" },
+        { id: "wrap", name: "Please wrap up", when: "Someone waiting", text: "10 minutes left in your room. The next party is here, so please start wrapping up. Thank you!", stat: "Only when a party is waiting or booked next" },
+        { id: "rcpt", name: "Receipt", when: "After paying", text: "Thanks for singing with us. Your receipt for $154.65: west4karaoke.com/rc/7Hq2kT9mWx4LpZ3nVb8cRd", stat: "Every close-out" },
+        { id: "rev", name: "Review ask", when: "Next day 11 AM", text: "Hope last night was a good one. Two taps to tell Google how we did.", stat: "Next morning", marketing: true },
+        { id: "bday", name: "Birthday", when: "A week before", text: "Your birthday’s coming up. Book a room this month and the first song’s on us.", stat: "Birthday list", marketing: true }
+      ]
+    };
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const PH = Component.PHONE;
+    const q = st.q.trim().toLowerCase();
+    const unread = st.threads.filter((t) => t.unread).length;
+    const shown = st.threads.filter((t) => !q || (t.name + " " + t.phone).toLowerCase().includes(q) || t.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "") || "~"));
+    const threads = shown.map((t) => ({
+      name: t.name, ini: t.ini, when: t.when, last: t.msgs[t.msgs.length - 1][1], unread: t.unread,
+      style: t.id === st.open ? "background: #1c1a21; border: 1px solid " + acc + "88;" : (t.unread ? "background: #121016; border: 1px solid " + acc + "44;" : "background: #121016; border: 1px solid rgba(244,241,234,.08);"),
+      open: () => this.setState({ open: t.id, draft: "", threads: st.threads.map((x) => x.id === t.id ? Object.assign({}, x, { unread: false }) : x) })
+    }));
+    const cur = st.threads.find((t) => t.id === st.open) || st.threads[0];
+    const nowT = "10:41 PM";
+    const push = (text) => { if (!text.trim()) return; this.setState({ draft: "", threads: st.threads.map((x) => x.id === cur.id ? Object.assign({}, x, { when: nowT, msgs: x.msgs.concat([["us", text.trim(), nowT]]) }) : x) }); };
+    const thr = { name: cur.name, phone: cur.phone, meta: cur.meta, hasRoom: !!cur.room, msgs: cur.msgs.map(([who, text, when]) => ({
+      text, who: (who === "them" ? cur.name : (who === "us" ? "You · West 4" : "Automatic")) + " · " + when,
+      align: who === "them" ? "align-items: flex-start;" : "align-items: flex-end;",
+      style: who === "them" ? "background: #1c1a21; color: #F4F1EA;" : (who === "us" ? "background: " + acc + "; color: #0b0a0d;" : "background: rgba(244,241,234,.06); color: #C9C5CE; border: 1px solid rgba(244,241,234,.12);")
+    })) };
+    const CANNED = {
+      1: ["No problem, we’ll hold it until 10:45", "See you soon"],
+      2: ["About 10 more minutes", "Your room is ready, 10 minutes to claim it"],
+      3: ["Stay as long as you like, it’s by the minute", "Another mic is on its way"],
+      4: ["Cake’s in the fridge, see you at 9:30"],
+      5: ["Need anything? Use the call button on the room screen"]
+    };
+    const canned = (CANNED[cur.id] || []).concat(["Call us: " + PH.call]).map((label) => ({ label, send: () => push(label) }));
+    const autos = st.autos.map((a) => {
+      const off = !!st.off[a.id];
+      return Object.assign({}, a, {
+        // Marketing texts stay off until they have their own opt-in and the lawyer answers (Admin → Texts).
+        toggle: () => { if (a.marketing) return; const o = Object.assign({}, st.off); if (o[a.id]) delete o[a.id]; else o[a.id] = true; this.setState({ off: o }); },
+        switch: off ? "background: rgba(244,241,234,.18);" : "background: " + acc + ";",
+        knob: off ? "left: 3px;" : "left: 15px;",
+        rowStyle: off ? "opacity: .5;" : "",
+        stat: a.marketing ? "Marketing · off until it has its own opt-in and the lawyer answers" : off ? "Off · not sending" : a.stat
+      });
+    });
+    return {
+      accent: acc, textNumber: PH.text, unread,
+      q: st.q, setQ: (e) => this.setState({ q: e.target.value }),
+      threads, noMatch: threads.length === 0, thr, canned,
+      draft: st.draft, onDraft: (e) => this.setState({ draft: e.target.value }), sendDraft: () => push(st.draft),
+      autos
+    };
+  }
+}
+</script>
+</body>
+</html>

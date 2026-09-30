@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Staff portal — Tonight</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease,opacity .2s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.row{transition:background .2s ease}
+@keyframes up{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.sheet{animation:up .3s cubic-bezier(.2,.7,.2,1) both}
+@keyframes toast{0%{opacity:0;transform:translateY(10px)}12%,85%{opacity:1;transform:none}100%{opacity:0}}
+.toast{animation:toast 2.8s ease both}
+.stick{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.scroll{scrollbar-width:none;-webkit-overflow-scrolling:touch}.scroll::-webkit-scrollbar{display:none}
+@media (prefers-reduced-motion:reduce){.sheet,.toast{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 0 0 120px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span class="mono" style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Staff · West 4</span>
+      <span class="disp" style="font-size: 30px">Tonight</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span class="mono" style="font-size: 11px; letter-spacing: .06em; color: #8E8994">{{clock}}</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.12); font-size: 12px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 50%; background: var(--acc, #D4FF3F)"></span>Andy · Manager</span>
+    </div>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px 16px">
+    <div style="padding: 12px 10px; border-radius: 14px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 30px; color: var(--acc, #D4FF3F)">{{inUse}}</div><div class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994; margin-top: 4px">In room</div></div>
+    <div style="padding: 12px 10px; border-radius: 14px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 30px">{{open}}</div><div class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994; margin-top: 4px">Open</div></div>
+    <div style="padding: 12px 10px; border-radius: 14px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 30px">{{arriving}}</div><div class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994; margin-top: 4px">Arriving</div></div>
+    <div style="padding: 12px 10px; border-radius: 14px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="disp" style="font-size: 30px; color: #FF3DA6">{{waiting}}</div><div class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994; margin-top: 4px">Waitlist</div></div>
+  </div>
+
+  <div style="display: flex; gap: 6px; padding: 0 16px 10px">
+    <a href="Calendar.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 12px; font-size: 12px; font-weight: 700; color: #F4F1EA; text-decoration: none; background: #121016; border: 1px solid rgba(244,241,234,.1)">Calendar</a>
+    <a href="Messages.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 12px; font-size: 12px; font-weight: 700; color: #F4F1EA; text-decoration: none; background: #121016; border: 1px solid rgba(244,241,234,.1)">Messages <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--acc, #D4FF3F)"></span></a>
+    <a href="Reports.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 12px; font-size: 12px; font-weight: 700; color: #F4F1EA; text-decoration: none; background: #121016; border: 1px solid rgba(244,241,234,.1)">Reports</a>
+    <a href="Pin.dc.html" aria-label="Lock the iPad" style="display: inline-flex; align-items: center; justify-content: center; width: 40px; border-radius: 12px; color: #8E8994; text-decoration: none; background: #121016; border: 1px solid rgba(244,241,234,.1)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="10" height="7" rx="2"/><path d="M4 6V4a3 3 0 0 1 6 0v2"/></svg></a>
+  </div>
+  <div style="display: flex; gap: 4px; margin: 0 16px 12px; padding: 4px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+    <button type="button" class="btn" onClick="{{tabRooms}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 2px; font-weight: 700; font-size: 12px; {{segRooms}}">Timeline</button>
+    <button type="button" class="btn" onClick="{{tabTonight}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 2px; font-weight: 700; font-size: 12px; {{segTonight}}">List</button>
+    <button type="button" class="btn" onClick="{{tabWait}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 2px; font-weight: 700; font-size: 12px; {{segWait}}">Waitlist</button>
+    <button type="button" class="btn" onClick="{{tabRuns}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 2px; font-weight: 700; font-size: 12px; {{segRuns}}">{{runsTab}}</button>
+    <button type="button" class="btn" onClick="{{tabTips}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 11px 2px; font-weight: 700; font-size: 12px; {{segTips}}">Tips</button>
+  </div>
+
+  <sc-if value="{{showTonight}}" hint-placeholder-val="{{true}}">
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 16px">
+      <sc-for list="{{list}}" as="r" hint-placeholder-count="6">
+        <div class="row" style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); {{r.rowStyle}}">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <div class="disp" style="font-size: 26px; width: 74px; flex: none">{{r.time}}</div>
+            <div style="min-width: 0; flex: 1">
+              <div style="font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.name}}</div>
+              <div style="font-size: 12px; color: #8E8994">{{r.meta}}</div>
+            </div>
+            <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; white-space: nowrap; {{r.pillStyle}}">{{r.status}}</span>
+          </div>
+          <div style="display: flex; gap: 8px">
+            <button type="button" class="btn" onClick="{{r.primary}}" style="flex: 1; appearance: none; border: 0; border-radius: 10px; padding: 10px; font-weight: 700; font-size: 13px; {{r.primaryStyle}}">{{r.primaryLabel}}</button>
+            <button type="button" class="btn" onClick="{{r.open}}" style="appearance: none; border-radius: 10px; padding: 10px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Details</button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showWait}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 16px">
+      <sc-for list="{{wait}}" as="w" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+          <div class="disp" style="font-size: 26px; width: 44px; flex: none; color: #FF3DA6">{{w.n}}</div>
+          <div style="min-width: 0; flex: 1">
+            <div style="font-weight: 700; font-size: 15px">{{w.name}}</div>
+            <div style="font-size: 12px; color: #8E8994">{{w.meta}}</div>
+          </div>
+          <button type="button" class="btn" onClick="{{w.text}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; {{w.btnStyle}}">{{w.btnLabel}}</button>
+        </div>
+      </sc-for>
+      <button type="button" class="btn" style="appearance: none; border: 1px dashed rgba(244,241,234,.25); background: transparent; color: #F4F1EA; border-radius: 16px; padding: 14px; font-weight: 600; font-size: 14px">+ Add a walk-in</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showRuns}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 16px">
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Runs · {{runsLeft}}</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #8E8994">Drinks the bar made for the rooms, oldest first. Take one, carry it, mark it delivered; the room’s screen shows it’s on its way. Check the IDs the door didn’t.</div>
+      <sc-for list="{{runRows}}" as="r" hint-placeholder-count="2">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #121016; border: 1px solid {{r.border}}">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span class="disp" style="font-size: 24px">{{r.room}}</span><span class="mono" style="font-size: 11px; font-weight: 700; {{r.ageStyle}}">{{r.age}}</span></div>
+          <div style="font-size: 14px; line-height: 1.45">{{r.items}}</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="mono" style="font-size: 10px; padding: 4px 8px; border-radius: 7px; {{r.idStyle}}">{{r.idLine}}</span><span class="mono" style="font-size: 10px; padding: 4px 8px; border-radius: 7px; background: rgba(244,241,234,.07); color: #C9C5CE">{{r.by}}</span></div>
+          <sc-if value="{{r.canTake}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{r.take}}" style="appearance: none; border: 0; border-radius: 12px; min-height: 52px; font-weight: 800; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d">I’ve got it</button></sc-if>
+          <sc-if value="{{r.mine}}" hint-placeholder-val="{{false}}">
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px">
+              <button type="button" class="btn" onClick="{{r.deliver}}" style="appearance: none; border: 0; border-radius: 12px; min-height: 52px; font-weight: 800; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d">Delivered</button>
+              <button type="button" class="btn" onClick="{{r.cant}}" aria-expanded="{{r.cantOpen}}" style="appearance: none; border-radius: 12px; min-height: 52px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2)">Couldn’t serve</button>
+            </div>
+            <sc-if value="{{r.showWhy}}" hint-placeholder-val="{{false}}"><div style="display: flex; flex-direction: column; gap: 6px"><sc-for list="{{r.whys}}" as="w" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{w.pick}}" style="appearance: none; text-align: left; border-radius: 12px; min-height: 46px; padding: 0 14px; font-weight: 700; font-size: 13px; background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14)">{{w.label}}</button></sc-for></div></sc-if>
+          </sc-if>
+          <sc-if value="{{r.isDone}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; font-weight: 600; line-height: 1.4; {{r.doneStyle}}">{{r.doneLine}}</div></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showTips}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 16px">
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Tips to enter · {{tipsLeft}}</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #8E8994">Paper slips only: bar tips are normally picked on the reader when the tab closes, so they never land here. Type the tip from each signed slip; the photo stays with the tab. A tip over 25% or $50, or one entered more than 2 hours late, goes to another manager’s phone to approve.</div>
+      <sc-for list="{{tipRows}}" as="t" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); {{t.rowStyle}}">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span style="font-weight: 700; font-size: 15px">{{t.name}}</span><span class="mono" style="font-size: 12px">{{t.total}}</span></div>
+          <div style="font-size: 12px; color: #8E8994">{{t.meta}}</div>
+          <sc-if value="{{t.open}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; gap: 8px; align-items: center">
+              <div style="flex: 1; display: flex; align-items: center; gap: 8px; background: #0b0a0d; border: 1px solid rgba(244,241,234,.14); border-radius: 12px; padding: 4px 4px 4px 14px">
+                <span class="mono" style="font-size: 15px; color: #8E8994">$</span>
+                <input type="number" inputmode="decimal" value="{{t.val}}" onChange="{{t.set}}" aria-label="{{t.aria}}" placeholder="Tip on the receipt" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 16px; font-family: inherit; padding: 10px 0">
+              </div>
+              <button type="button" class="btn" onClick="{{t.save}}" style="appearance: none; border: 0; border-radius: 12px; padding: 12px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Save</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{t.done}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; font-weight: 600; line-height: 1.4; {{t.doneStyle}}">{{t.doneLine}}</div></sc-if>
+        </div>
+      </sc-for>
+
+      <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-top: 12px">My tips · {{myWho}}</div>
+      <sc-if value="{{myIsAndy}}" hint-placeholder-val="{{true}}">
+        <div style="padding: 14px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 13px; line-height: 1.5; color: #C9C5CE">Managers aren’t in the tip pool (New York law), so nothing shows here for you. Everyone in the pool sees each shift they worked: the pool, everyone’s hours and their own share.</div>
+        <button type="button" class="btn" onClick="{{seeMaya}}" style="appearance: none; align-self: center; border-radius: 999px; padding: 8px 12px; font-size: 11px; background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.18)">Demo: see Maya’s</button>
+      </sc-if>
+      <sc-if value="{{myIsMaya}}" hint-placeholder-val="{{false}}">
+        <sc-for list="{{myShifts}}" as="m" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span style="font-weight: 700; font-size: 15px">{{m.day}}</span><span class="disp" style="font-size: 24px; {{m.shareStyle}}">{{m.share}}</span></div>
+            <div style="font-size: 12px; color: #8E8994">{{m.shift}}</div>
+            <div class="mono" style="font-size: 10px; letter-spacing: .03em; line-height: 1.55; color: #6F6B78">{{m.detail}}</div>
+          </div>
+        </sc-for>
+        <div style="font-size: 11px; line-height: 1.5; color: #6F6B78">Each line is your tip record for that shift, as New York requires (12 NYCRR 146-2.17): what the pool took in by kind, everyone’s hours and how your share was worked out.</div>
+        <button type="button" class="btn" onClick="{{seeAndy}}" style="appearance: none; align-self: center; border-radius: 999px; padding: 8px 12px; font-size: 11px; background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.18)">Demo: back to Andy</button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showRooms}}" hint-placeholder-val="{{false}}">
+    <div style="padding: 0 0 0 16px">
+      <div style="display: flex; justify-content: space-between; gap: 10px; padding: 0 16px 8px 0; font-size: 12px; color: #8E8994"><span>Room by room, 4 PM to 4 AM</span><span>Tap a block for details</span></div>
+      <div style="display: flex; border-radius: 16px 0 0 16px; background: #121016; border: 1px solid rgba(244,241,234,.08); border-right: 0; overflow: hidden">
+        <div style="width: 132px; flex: none; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(244,241,234,.1); background: #121016">
+          <div style="height: 28px; border-bottom: 1px solid rgba(244,241,234,.08)"></div>
+          <sc-for list="{{grid}}" as="g" hint-placeholder-count="8"><div style="height: 44px; display: flex; align-items: center; padding: 0 8px 0 10px; font-size: 11.5px; font-weight: 700; border-bottom: 1px solid rgba(244,241,234,.06); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; {{g.nameStyle}}">{{g.name}}</div></sc-for>
+        </div>
+        <div class="scroll" ref="{{scrollRef}}" style="overflow-x: auto; flex: 1; min-width: 0">
+          <div style="position: relative; width: 780px">
+            <div style="display: flex; height: 28px; border-bottom: 1px solid rgba(244,241,234,.08)">
+              <sc-for list="{{hoursRow}}" as="h" hint-placeholder-count="12"><div class="mono" style="width: 65px; flex: none; box-sizing: border-box; font-size: 9px; letter-spacing: .08em; color: #8E8994; display: flex; align-items: center; padding-left: 6px; border-left: 1px solid rgba(244,241,234,.06)">{{h.label}}</div></sc-for>
+            </div>
+            <sc-for list="{{grid}}" as="g" hint-placeholder-count="8">
+              <div style="position: relative; height: 44px; border-bottom: 1px solid rgba(244,241,234,.06); background-image: repeating-linear-gradient(90deg, rgba(244,241,234,.06) 0 1px, transparent 1px 65px); {{g.rowStyle}}">
+                <sc-for list="{{g.blocks}}" as="b" hint-placeholder-count="1"><button type="button" class="btn" onClick="{{b.open}}" style="position: absolute; top: 6px; height: 32px; border-radius: 8px; padding: 0 8px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; appearance: none; box-sizing: border-box; {{b.style}}">{{b.label}}</button></sc-for>
+              </div>
+            </sc-for>
+            <div style="position: absolute; top: 0; bottom: 0; width: 2px; background: #FF3DA6; box-shadow: 0 0 8px #FF3DA6; {{nowStyle}}"></div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 14px; padding: 10px 16px 0 0; font-size: 11px; color: #8E8994; flex-wrap: wrap">
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--acc, #D4FF3F)"></span>In room</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(244,241,234,.4); box-sizing: border-box"></span>Booked</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FF3DA6"></span>Late</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 2px; height: 12px; background: #FF3DA6"></span>Now</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasSel}}" hint-placeholder-val="{{false}}">
+    <div style="position: fixed; left: 0; top: 0; right: 0; bottom: 0; z-index: 50; background: rgba(0,0,0,.6)">
+      <div class="sheet" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; overflow: auto; border-radius: 22px 22px 0 0; background: #141218; border-top: 1px solid rgba(244,241,234,.12); padding: 14px 16px 28px; display: flex; flex-direction: column; gap: 14px">
+        <div style="width: 40px; height: 4px; border-radius: 2px; background: rgba(244,241,234,.25); margin: 0 auto 4px"></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+          <div>
+            <div class="disp" style="font-size: 34px">{{s.name}}</div>
+            <div style="font-size: 13px; color: #8E8994; margin-top: 4px">{{s.meta}} · {{s.time}}</div>
+          </div>
+          <button type="button" class="btn" onClick="{{close}}" aria-label="Close" style="appearance: none; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; width: 38px; height: 38px; border-radius: 50%; font-size: 18px; line-height: 1">×</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <a href="tel:+12125550100" style="display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #1c1a21; text-decoration: none; color: #F4F1EA"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Phone</span><span style="font-weight: 600; font-size: 14px">{{s.phone}}</span></a>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #1c1a21"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Card on file</span><span style="font-weight: 600; font-size: 14px">{{s.card}}</span></div>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #1c1a21"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Room</span><span style="font-weight: 600; font-size: 14px">{{s.room}}</span></div>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: #1c1a21"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Charged</span><span style="font-weight: 600; font-size: 14px">{{s.charged}}</span></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <button type="button" class="btn" onClick="{{arrive}}" style="appearance: none; border: 0; border-radius: 12px; padding: 12px 6px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Check in</button>
+          <button type="button" class="btn" onClick="{{extend}}" style="appearance: none; border-radius: 12px; padding: 12px 6px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Let them stay</button>
+          <button type="button" class="btn" onClick="{{text}}" style="appearance: none; border-radius: 12px; padding: 12px 6px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Text guest</button>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button type="button" class="btn" onClick="{{move}}" style="flex: 1; appearance: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">{{moveLabel}}</button>
+          <a href="Room.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 13px; color: #0b0a0d; text-decoration: none; background: var(--acc, #D4FF3F)">Room tab and clock →</a>
+        </div>
+
+        <sc-if value="{{refundOpen}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: #1c1a21; border: 1px solid #FF3DA6">
+            <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 700; font-size: 15px">Refund</span><span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">STRIPE · MANAGER ONLY</span></div>
+            <label for="st-amt" style="font-size: 12px; color: #8E8994">Amount</label>
+            <div style="display: flex; align-items: center; gap: 8px; background: #0b0a0d; border: 1px solid rgba(244,241,234,.14); border-radius: 12px; padding: 4px 4px 4px 14px">
+              <span class="mono" style="font-size: 16px; color: #8E8994">$</span>
+              <input id="st-amt" type="number" inputmode="decimal" value="{{refundAmt}}" onChange="{{onAmt}}" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 18px; font-family: inherit; padding: 10px 0">
+              <button type="button" class="btn" onClick="{{fullAmt}}" style="appearance: none; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; border-radius: 9px; padding: 8px 10px; font-size: 12px; font-weight: 600">Full</button>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap">
+              <sc-for list="{{reasons}}" as="rs" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{rs.pick}}" style="appearance: none; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 600; {{rs.style}}">{{rs.label}}</button></sc-for>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <button type="button" class="btn" onClick="{{doRefund}}" style="flex: 1; appearance: none; border: 0; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 14px; background: #FF3DA6; color: #0b0a0d">{{refundLabel}}</button>
+              <button type="button" class="btn" onClick="{{refundToggle}}" style="appearance: none; border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{refundClosed}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; gap: 8px">
+            <button type="button" class="btn" onClick="{{refundToggle}}" style="flex: 1; appearance: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 13px; background: transparent; color: #FF3DA6; border: 1px solid #FF3DA6">Refund a charge</button>
+            <button type="button" class="btn" onClick="{{noShow}}" style="flex: 1; appearance: none; border-radius: 12px; padding: 12px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Mark no-show</button>
+          </div>
+        </sc-if>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid rgba(244,241,234,.08)">
+          <div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-top: 8px">History</div>
+          <sc-for list="{{s.log}}" as="l" hint-placeholder-count="3"><div style="display: flex; gap: 10px; font-size: 13px"><span class="mono" style="font-size: 11px; color: #8E8994; width: 64px; flex: none">{{l.t}}</span><span style="color: #C9C5CE">{{l.what}}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}">
+    <div class="toast" style="position: fixed; left: 16px; right: 16px; bottom: 90px; z-index: 60; padding: 14px 16px; border-radius: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 14px; box-shadow: 0 20px 40px -16px rgba(0,0,0,.8)">{{toast}}</div>
+  </sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}">
+    <div class="toast" style="position: fixed; left: 16px; right: 16px; bottom: 90px; z-index: 60; padding: 14px 16px; border-radius: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 14px; box-shadow: 0 20px 40px -16px rgba(0,0,0,.8)">{{toast}}</div>
+  </sc-if>
+
+  <div class="stick" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 10px; padding: 10px 14px; background: linear-gradient(180deg, rgba(11,10,13,0), rgba(11,10,13,.95) 40%)">
+    <button type="button" class="btn" onClick="{{tabWait}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 15px; font-weight: 700; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d">+ Walk-in</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1320}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    // Demo reservations for the prototype. The live portal reads these from the booking database.
+    this.state = {
+      tab: "rooms", sel: null, refund: false, amt: "", reason: "", toast: "", toastN: 0, texted: {},
+      // Bar tabs whose receipts were printed and signed: awaiting_tip until someone types the tip in.
+      tipTabs: [
+        { id: 1, name: "Bar tab · Dev S.", total: 48, meta: "Receipt signed 10:12 PM · Visa · 4417 · photo saved" },
+        { id: 2, name: "Bar tab · Tom W.", total: 36, meta: "Receipt signed 10:26 PM · Mastercard · 0932 · photo saved" },
+        { id: 3, name: "Bar tab · Ana R.", total: 62.5, meta: "Receipt signed 10:35 PM · Amex · 3006 · photo saved" }
+      ],
+      tipVals: {}, tipsSaved: {}, my: "andy",
+      // Room orders the bar accepted and made, waiting for someone to carry them. Same orders as the bar screens.
+      runs: [
+        { id: 2, room: "Room 3", items: "2 × Margarita · Peach · 1 × Margarita · Strawberry", by: "Made by Maya", age: 240, ids: [5, 5], st: "ready" },
+        { id: 7, room: "Room 1", items: "4 × Corona", by: "Made by Diego", age: 95, ids: [3, 4], st: "ready" }
+      ],
+      res: [
+        { id: 1, time: "7:00", name: "Priya R.", party: 5, hours: 2, room: "Room 3", phone: "(212) 555-0141", card: "Visa · 4242", charged: "$50.00 deposit", status: "seated", log: [["7:04 PM", "Checked in by Andy · deposit applied"], ["6:58 PM", "Reminder text sent"], ["Tue", "Booked online, $50 deposit paid"]] },
+        { id: 2, time: "8:00", name: "Marcus T.", party: 12, hours: 3, room: "Room 9", phone: "(917) 555-0187", card: "Amex · 1005", charged: "$120.00 deposit", status: "seated", log: [["10:40 PM", "Ordered 2 × Margarita · Peach from the room"], ["10:39 PM", "Called staff: “Another mic, please”"], ["8:00 PM", "Checked in · room clock started"], ["Mon", "Booked online, $120 deposit paid"]] },
+        { id: 3, time: "8:30", name: "Dana K.", party: 4, hours: 1, room: "Room 1", phone: "(646) 555-0122", card: "Mastercard · 8810", charged: "$40.00 deposit", status: "late", log: [["8:31 PM", "Not arrived, 15-min grace"], ["Yesterday", "Booked online"]] },
+        { id: 4, time: "9:00", name: "Jae & co.", party: 8, hours: 2, room: "Room 6", phone: "(347) 555-0165", card: "Visa · 7731", charged: "$80.00 deposit", status: "confirmed", log: [["4:10 PM", "Confirmed by text"], ["Wed", "Booked online, $80 deposit paid"]] },
+        { id: 5, time: "9:30", name: "Bianca L. — birthday", party: 22, hours: 3, room: "VIP room", phone: "(718) 555-0199", card: "Visa · 2290", charged: "$250.00 deposit", status: "confirmed", log: [["Thu", "VIP request, called back"], ["Thu", "Booked online, $250 deposit paid"]] },
+        { id: 6, time: "10:00", name: "Sam O.", party: 3, hours: 1, room: "Room 2", phone: "(212) 555-0110", card: "Visa · 3391", charged: "$40.00 deposit", status: "confirmed", log: [["Today", "Booked online, $40 deposit paid (Friday minimum of 4)"]] },
+        { id: 7, time: "11:00", name: "The Nguyens", party: 6, hours: 2, room: "Room 8", phone: "(929) 555-0173", card: "Discover · 6001", charged: "$60.00 deposit", status: "confirmed", log: [["Today", "Booked online, $60 deposit paid"]] }
+      ],
+      wait: [
+        { id: 1, name: "Walk-in · Leo", meta: "Party of 4 · waiting 22 min · wants any room", n: "1" },
+        { id: 2, name: "Walk-in · Amara", meta: "Party of 7 · waiting 12 min · at the bar", n: "2" },
+        { id: 3, name: "Walk-in · Chris", meta: "Party of 3 · waiting 4 min", n: "3" }
+      ]
+    };
+  }
+  static NOW_H = 22 + 41 / 60;
+  // Opens the timeline scrolled so "now" sits about a third of the way in. Stable function, so it runs once per mount.
+  scrollRef = (el) => { if (el && !el.dataset.scrolled) { el.dataset.scrolled = "1"; el.scrollLeft = Math.max(0, (Component.NOW_H - 16) * 65 - 90); } };
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    // Demo "now" is Fri Sep 25, 10:41 PM — the same moment as the Room, Order and Bar screens.
+    const clock = "10:41 PM";
+    const pill = (status) => ({
+      seated: "background: " + acc + "22; color: " + acc + "; border: 1px solid " + acc + "66;",
+      late: "background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666;",
+      confirmed: "background: rgba(244,241,234,.06); color: #C9C5CE; border: 1px solid rgba(244,241,234,.16);",
+      done: "background: rgba(244,241,234,.04); color: #6F6B78; border: 1px solid rgba(244,241,234,.1);",
+      noshow: "background: rgba(244,241,234,.04); color: #6F6B78; border: 1px solid rgba(244,241,234,.1);"
+    })[status];
+    const label = { seated: "In room", late: "Late", confirmed: "Confirmed", done: "Done", noshow: "No-show" };
+    const update = (id, patch, logLine) => {
+      const res = st.res.map((r) => r.id === id ? Object.assign({}, r, patch, { log: logLine ? [[clock, logLine]].concat(r.log) : r.log }) : r);
+      this.setState({ res });
+    };
+    const list = st.res.map((r) => {
+      const seated = r.status === "seated";
+      const closed = r.status === "done" || r.status === "noshow";
+      return {
+        time: r.time, name: r.name, status: label[r.status], pillStyle: pill(r.status),
+        meta: "Party of " + r.party + " · " + r.hours + " hr · " + r.room,
+        rowStyle: r.status === "late" ? "border-color: #FF3DA666;" : (closed ? "opacity: .55;" : ""),
+        primaryLabel: seated ? "Close out" : (closed ? "Reopen" : "Check in"),
+        primaryStyle: seated || closed ? "background: #1c1a21; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" : "background: " + acc + "; color: #0b0a0d;",
+        primary: () => {
+          if (seated) { update(r.id, { status: "done" }, "Closed out, paid at the bar"); this.notify(r.name + " closed out"); }
+          else if (closed) { update(r.id, { status: "confirmed" }, "Reopened"); }
+          else { update(r.id, { status: "seated" }, "Checked in by Andy"); this.notify(r.name + " checked in · " + r.room); }
+        },
+        open: () => this.setState({ sel: r.id, refund: false, amt: "", reason: "" })
+      };
+    });
+    const sel = st.res.find((r) => r.id === st.sel);
+    const s = sel ? {
+      name: sel.name, time: sel.time + " PM", phone: sel.phone, card: sel.card, room: sel.room, charged: sel.charged,
+      meta: "Party of " + sel.party + " · " + sel.hours + " hr",
+      log: sel.log.map((l) => ({ t: l[0], what: l[1] }))
+    } : { name: "", time: "", phone: "", card: "", room: "", charged: "", meta: "", log: [] };
+    const full = sel ? String(sel.party * 10 * sel.hours) : "0";
+    const reasons = ["Card charged twice", "Left early", "Room issue", "Goodwill"].map((label) => ({
+      label, pick: () => this.setState({ reason: label }),
+      style: st.reason === label ? "background: #FF3DA6; color: #0b0a0d; border: 1px solid #FF3DA6;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18);"
+    }));
+    const amt = st.amt === "" ? full : st.amt;
+    const wait = st.wait.map((w) => {
+      const done = !!st.texted[w.id];
+      return Object.assign({}, w, {
+        text: () => { const t = Object.assign({}, st.texted); t[w.id] = clock; this.setState({ texted: t }); this.notify("Texted " + w.name.replace("Walk-in · ", "") + ": your room is ready"); },
+        btnLabel: done ? "Texted " + st.texted[w.id] : "Text: room ready",
+        btnStyle: done ? "background: #1c1a21; color: #8E8994; border: 1px solid rgba(244,241,234,.14);" : "background: " + acc + "; color: #0b0a0d;"
+      });
+    });
+    const seatedRooms = st.res.filter((r) => r.status === "seated").length;
+    const toH = (t) => { const p = t.split(":"); let h = Number(p[0]); const m = Number(p[1] || 0); if (h <= 3) h += 24; else if (h < 12) h += 12; return h + m / 60; };
+    const blockStyle = (r) => ({
+      seated: "background: " + acc + "; color: #0b0a0d;",
+      late: "background: #FF3DA633; color: #FF3DA6; border: 1px solid #FF3DA6;",
+      confirmed: "background: rgba(244,241,234,.08); color: #F4F1EA; border: 1px solid rgba(244,241,234,.28);",
+      done: "background: rgba(244,241,234,.04); color: #6F6B78; border: 1px solid rgba(244,241,234,.1);",
+      noshow: "background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.2);"
+    })[r.status];
+    const block = (r) => ({
+      label: r.name.split(" —")[0] + " · " + r.party,
+      style: "left: " + ((toH(r.time) - 16) * 65 + 2) + "px; width: " + (r.hours * 65 - 5) + "px; " + blockStyle(r),
+      open: () => this.setState({ sel: r.id, refund: false, amt: "", reason: "" })
+    });
+    const roomNames = [];
+    for (let i = 1; i <= 13; i++) roomNames.push("Room " + i);
+    roomNames.push("VIP room");
+    const grid = roomNames.map((name) => {
+      const closed = name === "Room 4";
+      const cap = name === "VIP room" ? "20–40" : (parseInt(name.slice(5)) <= 5 ? "3–6" : (parseInt(name.slice(5)) <= 10 ? "6–12" : "12–20"));
+      return { name: closed ? name + " · closed" : name + " · " + cap, nameStyle: closed ? "color: #FF3DA6;" : "", rowStyle: closed ? "background-image: repeating-linear-gradient(135deg, rgba(255,61,166,.08) 0 6px, transparent 6px 12px);" : "",
+        blocks: st.res.filter((r) => r.room === name).map(block) };
+    });
+    // Every booking holds a room from the moment it's made (room blocks can't overlap), so there's no "not assigned" row.
+    const hoursRow = ["4 PM", "5", "6", "7", "8", "9", "10", "11", "12 AM", "1", "2", "3"].map((label) => ({ label }));
+    const nowH = Component.NOW_H;
+    const nowStyle = (nowH >= 16 && nowH <= 28) ? "left: " + ((nowH - 16) * 65) + "px;" : "display: none;";
+    const rooms = [];
+    const busy = {}; st.res.forEach((r) => { if (r.status === "seated" || r.status === "confirmed" || r.status === "late") busy[r.room] = true; });
+    const nextOpen = roomNames.find((n) => n !== "Room 4" && n !== "VIP room" && !busy[n]) || "Room 1";
+    const seg = (on) => on ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;";
+    // Tips to enter: a tip over 25% of the tab or over $50 goes to someone else to approve (Admin → Card fee & gratuity).
+    const m$ = (n) => "$" + n.toFixed(2);
+    const tipRows = st.tipTabs.map((t) => {
+      const saved = st.tipsSaved[t.id];
+      const val = st.tipVals[t.id] || "";
+      return {
+        name: t.name, total: m$(t.total), meta: t.meta, val, aria: "Tip for " + t.name,
+        open: !saved, done: !!saved,
+        set: (e) => this.setState({ tipVals: Object.assign({}, st.tipVals, { [t.id]: e.target.value }) }),
+        save: () => {
+          const v = Number(val);
+          if (val === "" || !(v >= 0)) { this.notify("Type the tip from the signed receipt"); return; }
+          const review = v > 50 || v > t.total * 0.25;
+          this.setState({ tipsSaved: Object.assign({}, st.tipsSaved, { [t.id]: { amt: v, review } }) });
+          this.notify(review ? "Sent to Abhishek’s phone to approve" : t.name.replace("Bar tab · ", "") + "’s tab captured with a " + m$(v) + " tip");
+        },
+        doneLine: saved ? (saved.review ? "Tip " + m$(saved.amt) + " is over 25% · waiting for Abhishek to approve on his phone" : "Tip " + m$(saved.amt) + " saved · the tab is captured") : "",
+        doneStyle: saved && saved.review ? "color: #FFB13D;" : "color: " + acc + ";",
+        rowStyle: saved ? "opacity: .85;" : ""
+      };
+    });
+    const tipsLeft = st.tipTabs.filter((t) => !st.tipsSaved[t.id]).length;
+    const setRun = (id, patch) => this.setState({ runs: st.runs.map((r) => r.id === id ? Object.assign({}, r, patch) : r) });
+    const runRows = st.runs.map((r) => {
+      const idsOk = r.ids[0] >= r.ids[1];
+      return {
+        room: r.room, items: r.items, by: r.st === "mine" ? "You’re taking it" : r.by,
+        age: r.st === "done" || r.st === "back" ? "" : Math.floor(r.age / 60) + ":" + String(r.age % 60).padStart(2, "0") + " since made", ageStyle: r.age >= 180 ? "color: #FFB13D;" : "color: #8E8994;",
+        idLine: idsOk ? "ID ✓ " + r.ids[0] + " of " + r.ids[1] : "ID ✓ " + r.ids[0] + " of " + r.ids[1] + " · check the last one at the room",
+        idStyle: idsOk ? "background: rgba(212,255,63,.1); color: " + acc + ";" : "background: rgba(255,177,61,.14); color: #FFB13D;",
+        border: r.st === "mine" ? acc + "88" : !idsOk && r.st === "ready" ? "rgba(255,177,61,.45)" : "rgba(244,241,234,.08)",
+        canTake: r.st === "ready", mine: r.st === "mine", showWhy: r.st === "mine" && !!r.why, cantOpen: r.why ? "true" : "false", isDone: r.st === "done" || r.st === "back",
+        take: () => { setRun(r.id, { st: "mine" }); this.notify(r.room + " · on its way · their screen says so"); },
+        deliver: () => { setRun(r.id, { st: "done" }); this.notify(r.room + " · delivered · on the room’s tab"); },
+        cant: () => setRun(r.id, { why: !r.why }),
+        whys: ["No ID for someone who ordered", "Someone looks too drunk to serve", "Nobody in the room"].map((w) => ({ label: w, pick: () => { setRun(r.id, { st: "back", note: w }); this.notify("Back to the bar · Maya and Andy see why · the room’s screen explains"); } })),
+        doneLine: r.st === "done" ? "Delivered · on the room’s tab" : "Brought back: " + (r.note || "").toLowerCase() + ". The bar counts it as made, and Andy decides the rest.",
+        doneStyle: r.st === "done" ? "color: " + acc + ";" : "color: #FFB13D;"
+      };
+    });
+    const runsOpen = st.runs.filter((r) => r.st === "ready" || r.st === "mine").length;
+    // My tips, from the tip ledger and time punches (GET /me/tips). Shares by hours, largest remainder, as on Close the night.
+    const myShifts = [
+      { day: "Tonight · Fri Sep 25", share: "After close", shareStyle: "color: #8E8994; font-size: 16px;", shift: "Bar · on the clock since 4:00 PM · 6h 41m so far", detail: "Your share posts when the night closes, from the pool and everyone’s punches." },
+      { day: "Thu Sep 24", share: "$1,003.42", shareStyle: "color: " + acc + ";", shift: "Bar · 4:00 PM–12:40 AM · 8h 40m", detail: "Pool $1,640.20 = gratuity $1,210.00 + card tips $302.20 + cash $128.00 · 2 people, 14h 10m · you 8h 40m = 61.2%" },
+      { day: "Wed Sep 23", share: "$623.64", shareStyle: "color: " + acc + ";", shift: "Bar · 5:00 PM–12:00 AM · 7h 00m", detail: "Pool $980.00 = gratuity $690.00 + card tips $214.40 + cash $75.60 · 2 people, 11h 00m · you 7h 00m = 63.6%" }
+    ];
+    return {
+      accent: acc, clock,
+      inUse: seatedRooms, open: 13 - seatedRooms, arriving: st.res.filter((r) => r.status === "confirmed").length, waiting: st.wait.length - Object.keys(st.texted).length,
+      tabTonight: () => this.setState({ tab: "tonight" }), tabWait: () => this.setState({ tab: "wait" }), tabRooms: () => this.setState({ tab: "rooms" }), tabTips: () => this.setState({ tab: "tips" }), tabRuns: () => this.setState({ tab: "runs" }),
+      segTonight: seg(st.tab === "tonight"), segWait: seg(st.tab === "wait"), segRooms: seg(st.tab === "rooms"), segTips: seg(st.tab === "tips"), segRuns: seg(st.tab === "runs"), runsTab: runsOpen ? "Runs · " + runsOpen : "Runs",
+      showTonight: st.tab === "tonight", showWait: st.tab === "wait", showRooms: st.tab === "rooms", showTips: st.tab === "tips", showRuns: st.tab === "runs", runRows, runsLeft: runsOpen ? runsOpen + " to carry" : "all delivered",
+      tipRows, tipsLeft: tipsLeft ? tipsLeft + " left" : "all entered",
+      myWho: st.my === "maya" ? "Maya S., bar" : "Andy C., manager", myIsAndy: st.my !== "maya", myIsMaya: st.my === "maya", myShifts,
+      seeMaya: () => this.setState({ my: "maya" }), seeAndy: () => this.setState({ my: "andy" }),
+      list, wait, rooms, grid, hoursRow, nowStyle, scrollRef: this.scrollRef,
+      hasSel: !!sel, s,
+      move: () => { if (sel) { update(sel.id, { room: nextOpen }, "Moved to " + nextOpen); this.notify(sel.name + " → " + nextOpen); } },
+      moveLabel: "Move to " + nextOpen,
+      close: () => this.setState({ sel: null, refund: false }),
+      arrive: () => { if (sel) { update(sel.id, { status: "seated" }, "Checked in by Andy"); this.notify(sel.name + " checked in"); } },
+      extend: () => { if (sel) { update(sel.id, {}, "Texted: stay as long as you like, by the minute"); this.notify("Texted " + sel.name + ": stay as long as you like, by the minute"); } },
+      text: () => { if (sel) { update(sel.id, {}, "Text sent: “Your room is ready when you are”"); this.notify("Text sent to " + sel.name); } },
+      noShow: () => { if (sel) { update(sel.id, { status: "noshow" }, "Marked no-show · deposit kept, per the policy they accepted"); this.notify("Marked no-show · deposit kept"); this.setState({ sel: null }); } },
+      refundOpen: !!sel && st.refund, refundClosed: !!sel && !st.refund,
+      refundToggle: () => this.setState({ refund: !st.refund, amt: "", reason: "" }),
+      refundAmt: amt, onAmt: (e) => this.setState({ amt: e.target.value }), fullAmt: () => this.setState({ amt: full }),
+      reasons, refundLabel: "Refund $" + (Number(amt) || 0).toFixed(2),
+      doRefund: () => { if (sel) { const v = (Number(amt) || 0).toFixed(2); update(sel.id, { charged: "Refunded $" + v }, "Refunded $" + v + (st.reason ? " · " + st.reason : "") + " · Stripe re_8Kz…"); this.notify("Refunded $" + v + " to " + sel.card); this.setState({ refund: false }); } },
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

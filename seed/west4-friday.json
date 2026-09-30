@@ -1,0 +1,4574 @@
+{
+ "meta": {
+  "name": "west4-friday",
+  "what": "The one Friday every screen, staging and end-to-end test uses: West 4 Boho Karaoke, Fri Sep 25, 2026, 10:41 PM. Source: docs/archive/fix-brief-sep28.md section 3 and 4.5. The narrative is docs/demo-seed.md.",
+  "now": "2026-09-25T22:41:00-04:00",
+  "business_date": "2026-09-25",
+  "later_tonight_at": "2026-09-26T04:12:00-04:00",
+  "alcohol_stop_demo_at": "2026-09-26T04:02:00-04:00",
+  "conventions": {
+   "money": "Integer cents. No floats anywhere.",
+   "times": "ISO 8601 with the -04:00 offset (EDT). Sat Sep 26 times after midnight belong to business date 2026-09-25.",
+   "ids": "Stable slugs. The loader maps each to a UUID and keeps the slug as an external id.",
+   "nulls": "null means the brief does not say. Nothing is invented to fill it.",
+   "phones": "Fictional 555-01xx numbers. Seven come from the Staff canvas; the ones marked phone_made_up were made up for this seed.",
+   "check_numbers": "Only Room 9's check is fixed (#1042). The loader numbers the others from the venue counter; no test may depend on them.",
+   "room_codes": "Only Room 9's code is fixed (KX4M7). The loader generates the rest.",
+   "derived": "Numbers under expected_at_now, if_presented_now and expected_* are computed with docs/spec/05-money-rules.md and match fix brief 3a and 4.5. seed/money-cases.json holds the same numbers as test vectors."
+  },
+  "demo_pin_warning": "DEMO ONLY. The PINs in `team` are the fix brief's demo PINs for the staging seed and the design canvas. Never load them into production, where each person chooses their own.",
+  "flags": [
+   "Room 3 is a 3–6 room (small tier). Fix brief 3b calls Manage's demo booking 'Room 3 (medium tier)'. This seed uses small.",
+   "Room-ready text has two wordings (fix brief 3i #4: 'You have 10 minutes to claim it at the front desk.'; 4.3: 'Come to the front desk within 10 minutes.'). Pick one before build.",
+   "The Rail canvas lists 119 items and Admin → Menu 127 lines. The 8 spirit bottles only Admin lists are added here as in_rail_canvas false.",
+   "Maya's $12 of reason-only use is only a running total in the brief (reason_only_used_tonight). No comp line backs it. Spec 02 and 04 total a person's comps and voids from their lines over the open shift, so before a test asserts '$63 left this shift', seed a $12.00 comp line for Maya or write the total as a shift counter.",
+   "o4's void ($36.00) is over the $25 reason-only limit. The spec does not say whether the bar's choice after a return (Void · not made, Void · made, Remake) counts against the limit.",
+   "The brief fixes the five bar tabs' names, cards and states. Their lines and holds (Tariq A.'s $100, for one) come from the Rail canvas.",
+   "Room 7's ID count is not in the brief (null).",
+   "Drawer opening times and per-drawer cash are not in the brief (null). The starting bank is spec 03's $300.",
+   "Most check numbers, most room codes and the whole night's Z totals are not in the brief and are not seeded (see conventions). Only #1042 and KX4M7 are fixed.",
+   "The brief has no phone numbers. 10 guests and all 7 singers have made-up numbers (phone_made_up: true); the other 7 guests' numbers come from the Staff canvas. All are fictional 555-01xx numbers."
+  ]
+ },
+ "venue": {
+  "id": "west4",
+  "name": "West 4 Boho Karaoke",
+  "address": "186 W 4th St, New York, NY",
+  "phone_e164": "+12122550011",
+  "phone_source": "AdminDesk canvas demo",
+  "time_zone": "America/New_York",
+  "slug": "west4karaoke",
+  "site": "west4karaoke.com",
+  "rooms": 14,
+  "rule_pack_id": "us-ny-new-york-county",
+  "modules_on": [
+   "website",
+   "booking",
+   "waitlist",
+   "rooms",
+   "roomOrdering",
+   "barScreen",
+   "barTabs",
+   "barMode",
+   "packages",
+   "messages",
+   "team",
+   "safety",
+   "reports"
+  ],
+  "modules_off": [
+   "kitchen",
+   "songControl",
+   "marketing",
+   "events",
+   "crm",
+   "multiLocation"
+  ],
+  "modules_source": "AdminDesk canvas FEATURES; 13 on, as Setup and the Console show"
+ },
+ "settings": {
+  "note": "Values the brief, the spec and the AdminDesk canvas state for West 4; keys follow docs/spec/03-settings-rule-packs-modules.md.",
+  "hours": {
+   "timeZone": "America/New_York",
+   "dayCutover": "06:00",
+   "lastCall": "04:00",
+   "weekly": [
+    {
+     "day": "Mon",
+     "opens": "16:00",
+     "closes": "04:00"
+    },
+    {
+     "day": "Tue",
+     "opens": "16:00",
+     "closes": "04:00"
+    },
+    {
+     "day": "Wed",
+     "opens": "16:00",
+     "closes": "04:00"
+    },
+    {
+     "day": "Thu",
+     "opens": "16:00",
+     "closes": "04:00"
+    },
+    {
+     "day": "Fri",
+     "opens": "16:00",
+     "closes": "04:00"
+    },
+    {
+     "day": "Sat",
+     "opens": "14:00",
+     "closes": "04:00"
+    },
+    {
+     "day": "Sun",
+     "opens": "14:00",
+     "closes": "04:00"
+    }
+   ],
+   "weekly_source": "AdminDesk canvas demo hours (the brief only fixes the 4 AM close)"
+  },
+  "prices": {
+   "rate": {
+    "mode": "perPerson",
+    "perPersonCents": 1000
+   },
+   "minGuests": {
+    "weeknight": 3,
+    "friSat": 4
+   },
+   "firstHourMinimum": true,
+   "vip": {
+    "roomIds": [
+     "room_vip"
+    ],
+    "hourlyCents": 25000,
+    "fromGuests": 20
+   },
+   "damageFeeCents": 15000,
+   "billingStepMin": 1
+  },
+  "deposit": {
+   "on": true,
+   "mode": "firstHour",
+   "refundHours": 24,
+   "graceMin": 15,
+   "bigParty": {
+    "fromGuests": 20,
+    "deposit": {
+     "kind": "flat",
+     "cents": 25000
+    },
+    "minSpendCents": 0,
+    "refundHours": 24
+   }
+  },
+  "pay": {
+   "cardFee": {
+    "mode": "off"
+   },
+   "gratuity": {
+    "auto": "rooms",
+    "pct": 20
+   },
+   "tipScreen": {
+    "on": true,
+    "pcts": [
+     18,
+     20,
+     22
+    ]
+   },
+   "tipReview": {
+    "overPct": 25,
+    "overCents": 5000,
+    "lateHours": 2
+   },
+   "pool": "hours",
+   "roomHold": {
+    "on": false,
+    "cents": 0
+   }
+  },
+  "tabs": {
+   "openingHoldCents": 5000,
+   "flagCents": 60000,
+   "cutOffAt": "04:30",
+   "consentVersion": 1,
+   "consentText": "We'll hold $50 on this card and add to it as you order. We charge your tab when you close out, or at 4:30 AM if it's still open. Add your tip on the reader."
+  },
+  "pos": {
+   "reasonOnly": {
+    "eachCents": 2500,
+    "perShiftCents": 7500
+   },
+   "idleLockMin": 3,
+   "wipeLockSec": 10,
+   "barTabTip": "reader",
+   "orderAging": {
+    "phonesSec": 30,
+    "amberSec": 120,
+    "pinkSec": 240,
+    "callSec": 360
+   },
+   "chime": true,
+   "muteSec": 60
+  },
+  "drawer": {
+   "drawer": "house",
+   "startingBankCents": 30000,
+   "noteOverCents": 2000
+  },
+  "ordering": {
+   "on": true,
+   "hostLockDefault": false,
+   "cancelUntil": "accepted"
+  },
+  "rooms": {
+   "cleaningEndsBy": "staff",
+   "flagCleaningAfterMin": 8
+  },
+  "barMode": {
+   "on": true,
+   "offer": "Buy a drink, get a song",
+   "songPriceCents": null,
+   "songsPerSingerPerRound": 1,
+   "freeNights": []
+  },
+  "minimumSpend": {
+   "on": false,
+   "note": "Off at West 4; screens show nothing for it."
+  },
+  "occupancy": {
+   "maxOccupancy": null,
+   "text": "Limit not set · Admin → Safety"
+  },
+  "rulePack": {
+   "id": "us-ny-new-york-county",
+   "version": "2026.09",
+   "salesTaxRate": "8.875%",
+   "taxedCategories": [
+    "room_time",
+    "drink",
+    "damage"
+   ],
+   "alcohol": {
+    "lastSale": "04:00",
+    "drinkingUpMin": 30
+   }
+  }
+ },
+ "role_permissions": [
+  {
+   "action": "Take payments (card and cash), room close-out",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": false
+  },
+  {
+   "action": "Bar POS: quick sale and bar tabs",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": false,
+   "notes": {
+    "front_desk": "when covering the bar; Admin can switch it off"
+   }
+  },
+  {
+   "action": "Accept room orders at the bar, 86 an item",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": false,
+   "notes": {
+    "front_desk": "when covering the bar"
+   }
+  },
+  {
+   "action": "Check in, waitlist, bookings, guest texts",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": "limited",
+   "notes": {
+    "staff": "check-in and waitlist only"
+   }
+  },
+  {
+   "action": "Carry runs (I've got it, Delivered, Couldn't serve)",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": true
+  },
+  {
+   "action": "Comp or void within the reason-only limit",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": false
+  },
+  {
+   "action": "Cut off a tab, a room or a guest",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": false,
+   "notes": {
+    "staff": "a runner returns the order with a reason, and a manager decides"
+   }
+  },
+  {
+   "action": "Approve (comps and voids over the limit, refunds, clock pauses, tips over 25%, paid-outs, a lower party size after gratuity)",
+   "owner": true,
+   "manager": true,
+   "bartender": false,
+   "front_desk": false,
+   "staff": false
+  },
+  {
+   "action": "Ask for a refund",
+   "owner": true,
+   "manager": true,
+   "bartender": false,
+   "front_desk": false,
+   "staff": false
+  },
+  {
+   "action": "Count a drawer",
+   "owner": true,
+   "manager": true,
+   "bartender": true,
+   "front_desk": true,
+   "staff": false,
+   "notes": {
+    "bartender": "bar drawer",
+    "front_desk": "front-desk drawer"
+   }
+  },
+  {
+   "action": "Admin (needs a passkey; a PIN never opens it)",
+   "owner": true,
+   "manager": true,
+   "bartender": false,
+   "front_desk": false,
+   "staff": false,
+   "notes": {
+    "manager": "no Payments, Team or Console"
+   }
+  },
+  {
+   "action": "Shares tips and gratuity",
+   "owner": false,
+   "manager": false,
+   "bartender": true,
+   "front_desk": true,
+   "staff": true
+  }
+ ],
+ "team": [
+  {
+   "id": "abhishek",
+   "name": "Abhishek G.",
+   "role": "owner",
+   "demo_pin": "915204",
+   "pin_digits": 6,
+   "locale": "en",
+   "badge": true,
+   "phone_paired": true,
+   "on_shift": false,
+   "shift": null,
+   "note": "Not on shift. Approves Andy's own requests."
+  },
+  {
+   "id": "andy",
+   "name": "Andy C.",
+   "role": "manager",
+   "demo_pin": "730915",
+   "pin_digits": 6,
+   "locale": "en",
+   "badge": true,
+   "phone_paired": true,
+   "on_shift": true,
+   "manager_on_duty": true,
+   "shift": {
+    "duty": "manager",
+    "clock_in": "2026-09-25T18:00:00-04:00"
+   },
+   "reason_only_used_cents": 0,
+   "note": "The staff-phone demo is Andy's phone."
+  },
+  {
+   "id": "maya",
+   "name": "Maya S.",
+   "role": "bartender",
+   "demo_pin": "4071",
+   "pin_digits": 4,
+   "locale": "en",
+   "badge": true,
+   "phone_paired": true,
+   "on_shift": true,
+   "shift": {
+    "duty": "bar",
+    "clock_in": "2026-09-25T16:00:00-04:00"
+   },
+   "reason_only_used_cents": 1200,
+   "open_bar_tabs": [
+    "tab_t4",
+    "tab_t1",
+    "tab_t2"
+   ],
+   "note": "Has used $12 of her $75 reason-only limit tonight."
+  },
+  {
+   "id": "diego",
+   "name": "Diego R.",
+   "role": "front_desk",
+   "demo_pin": "6358",
+   "pin_digits": 4,
+   "locale": "en",
+   "badge": true,
+   "phone_paired": true,
+   "on_shift": true,
+   "shift": {
+    "duty": "front_desk",
+    "clock_in": "2026-09-25T19:00:00-04:00"
+   },
+   "reason_only_used_cents": 0,
+   "open_bar_tabs": [
+    "tab_t5",
+    "tab_t3"
+   ],
+   "covers_bar_when_maya_on_break": true,
+   "note": "Was 'Staff' in the old canvas; Front desk now."
+  }
+ ],
+ "badges": [
+  {
+   "id": "badge_abhishek",
+   "person": "abhishek",
+   "type": "NTAG 424 DNA"
+  },
+  {
+   "id": "badge_andy",
+   "person": "andy",
+   "type": "NTAG 424 DNA"
+  },
+  {
+   "id": "badge_maya",
+   "person": "maya",
+   "type": "NTAG 424 DNA"
+  },
+  {
+   "id": "badge_diego",
+   "person": "diego",
+   "type": "NTAG 424 DNA"
+  }
+ ],
+ "guests": [
+  {
+   "id": "g_tanya",
+   "name": "Tanya W.",
+   "phone_e164": "+16465550134",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_marcus",
+   "name": "Marcus T.",
+   "phone_e164": "+19175550187",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_rob",
+   "name": "Rob & Kim",
+   "phone_e164": "+19175550148",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_priya",
+   "name": "Priya R.",
+   "phone_e164": "+12125550141",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_omar",
+   "name": "Omar F.",
+   "phone_e164": "+12125550156",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_dana",
+   "name": "Dana K.",
+   "phone_e164": "+16465550122",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_bianca",
+   "name": "Bianca L.",
+   "phone_e164": "+17185550199",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_sam",
+   "name": "Sam O.",
+   "phone_e164": "+12125550110",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_jae",
+   "name": "Jae & co.",
+   "phone_e164": "+13475550165",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_parks",
+   "name": "The Parks",
+   "phone_e164": "+17185550169",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_nguyens",
+   "name": "The Nguyens",
+   "phone_e164": "+19295550173",
+   "phone_made_up": false
+  },
+  {
+   "id": "g_leo",
+   "name": "Leo M.",
+   "phone_e164": "+12125550103",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_amara",
+   "name": "Amara B.",
+   "phone_e164": "+13475550177",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_nadia",
+   "name": "Nadia K.",
+   "phone_e164": "+19295550181",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_chris",
+   "name": "Chris P.",
+   "phone_e164": "+16465550192",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_ella",
+   "name": "Ella S.",
+   "phone_e164": "+19175550116",
+   "phone_made_up": true
+  },
+  {
+   "id": "g_yuki",
+   "name": "Yuki H.",
+   "phone_e164": "+17185550128",
+   "phone_made_up": true
+  }
+ ],
+ "rooms": [
+  {
+   "id": "room_1",
+   "name": "Room 1",
+   "size_tier": "small",
+   "capacity_min": 3,
+   "capacity_max": 6,
+   "is_vip": false,
+   "state": "in_use",
+   "board_label": "In room · 49 min left",
+   "occupied": true,
+   "tablet_online": true
+  },
+  {
+   "id": "room_2",
+   "name": "Room 2",
+   "size_tier": "small",
+   "capacity_min": 3,
+   "capacity_max": 6,
+   "is_vip": false,
+   "state": "available",
+   "board_label": "Open · held for Sam O. until 10:45",
+   "occupied": false,
+   "tablet_online": true,
+   "hold": {
+    "for": "g_sam",
+    "until": "2026-09-25T22:45:00-04:00",
+    "booking": "bk_sam"
+   }
+  },
+  {
+   "id": "room_3",
+   "name": "Room 3",
+   "size_tier": "small",
+   "capacity_min": 3,
+   "capacity_max": 6,
+   "is_vip": false,
+   "state": "wrap_up",
+   "board_label": "Wrap up · 4 min left",
+   "occupied": true,
+   "tablet_online": true,
+   "next": {
+    "booking": "bk_jae",
+    "at": "2026-09-25T23:00:00-04:00",
+    "party": 5
+   }
+  },
+  {
+   "id": "room_4",
+   "name": "Room 4",
+   "size_tier": "small",
+   "capacity_min": 3,
+   "capacity_max": 6,
+   "is_vip": false,
+   "state": "out_of_service",
+   "board_label": "Out of service",
+   "occupied": false,
+   "tablet_online": false,
+   "fault": {
+    "text": "Mic dead since Tue. Replacement ordered.",
+    "reported_on": "2026-09-22",
+    "reported_at": null,
+    "out_of_service": true
+   }
+  },
+  {
+   "id": "room_5",
+   "name": "Room 5",
+   "size_tier": "small",
+   "capacity_min": 3,
+   "capacity_max": 6,
+   "is_vip": false,
+   "state": "in_use",
+   "board_label": "In room · 79 min left",
+   "occupied": true,
+   "tablet_online": true
+  },
+  {
+   "id": "room_6",
+   "name": "Room 6",
+   "size_tier": "medium",
+   "capacity_min": 6,
+   "capacity_max": 12,
+   "is_vip": false,
+   "state": "cleaning",
+   "board_label": "Needs a wipe · left 10:33 PM (8 min)",
+   "occupied": false,
+   "tablet_online": true,
+   "note": "TV remote goes missing. Check under the couch."
+  },
+  {
+   "id": "room_7",
+   "name": "Room 7",
+   "size_tier": "medium",
+   "capacity_min": 6,
+   "capacity_max": 12,
+   "is_vip": false,
+   "state": "wrap_up",
+   "board_label": "Needed now · 11 min past",
+   "occupied": true,
+   "tablet_online": true,
+   "next": {
+    "booking": "bk_parks",
+    "at": "2026-09-25T23:00:00-04:00",
+    "party": 8
+   }
+  },
+  {
+   "id": "room_8",
+   "name": "Room 8",
+   "size_tier": "medium",
+   "capacity_min": 6,
+   "capacity_max": 12,
+   "is_vip": false,
+   "state": "available",
+   "board_label": "Open · next 11:00",
+   "occupied": false,
+   "tablet_online": true,
+   "next": {
+    "booking": "bk_nguyens",
+    "at": "2026-09-25T23:00:00-04:00",
+    "party": 6,
+    "note": "Not free for an hour, so no waitlist offer."
+   }
+  },
+  {
+   "id": "room_9",
+   "name": "Room 9",
+   "size_tier": "medium",
+   "capacity_min": 6,
+   "capacity_max": 12,
+   "is_vip": false,
+   "state": "in_use",
+   "board_label": "In room · 19 min left",
+   "occupied": true,
+   "tablet_online": true,
+   "note": "Nothing booked next, so he may stay by the minute.",
+   "call": {
+    "kind": "another_mic",
+    "text": "Another mic, please",
+    "at": "2026-09-25T22:39:00-04:00",
+    "acked": false
+   }
+  },
+  {
+   "id": "room_10",
+   "name": "Room 10",
+   "size_tier": "medium",
+   "capacity_min": 6,
+   "capacity_max": 12,
+   "is_vip": false,
+   "state": "in_use",
+   "board_label": "Staying · 41 min past",
+   "occupied": true,
+   "tablet_online": true,
+   "note": "Nothing booked next, so she stays by the minute."
+  },
+  {
+   "id": "room_11",
+   "name": "Room 11",
+   "size_tier": "large",
+   "capacity_min": 12,
+   "capacity_max": 20,
+   "is_vip": false,
+   "state": "available",
+   "board_label": "Open · free all night",
+   "occupied": false,
+   "tablet_online": true,
+   "note": "Free all night; no booking tonight needs it. The waitlist offer goes here."
+  },
+  {
+   "id": "room_12",
+   "name": "Room 12",
+   "size_tier": "large",
+   "capacity_min": 12,
+   "capacity_max": 20,
+   "is_vip": false,
+   "state": "in_use",
+   "board_label": "In room · 79 min left",
+   "occupied": true,
+   "tablet_online": true
+  },
+  {
+   "id": "room_13",
+   "name": "Room 13",
+   "size_tier": "large",
+   "capacity_min": 12,
+   "capacity_max": 20,
+   "is_vip": false,
+   "state": "cleaning",
+   "board_label": "Needs a wipe · left 10:36 PM (5 min)",
+   "occupied": false,
+   "tablet_online": true
+  },
+  {
+   "id": "room_vip",
+   "name": "VIP room",
+   "size_tier": "vip",
+   "capacity_min": 20,
+   "capacity_max": 40,
+   "is_vip": true,
+   "state": "in_use",
+   "board_label": "In room · 109 min left",
+   "occupied": true,
+   "tablet_online": true,
+   "note": "Cake at 11:00, in the fridge behind the bar."
+  }
+ ],
+ "bookings": [
+  {
+   "id": "bk_tanya",
+   "guest": "g_tanya",
+   "party_size": 9,
+   "room": "room_10",
+   "starts_at": "2026-09-25T19:00:00-04:00",
+   "ends_at": "2026-09-25T22:00:00-04:00",
+   "length_hours": 3,
+   "business_date": "2026-09-25",
+   "deposit_cents": 9000,
+   "status": "checked_in",
+   "board_status": "Seated · staying past 10:00",
+   "deposit_captured_cents": 9000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_marcus",
+   "guest": "g_marcus",
+   "party_size": 12,
+   "room": "room_9",
+   "starts_at": "2026-09-25T20:00:00-04:00",
+   "ends_at": "2026-09-25T23:00:00-04:00",
+   "length_hours": 3,
+   "business_date": "2026-09-25",
+   "deposit_cents": 12000,
+   "status": "checked_in",
+   "board_status": "Seated",
+   "deposit_card": {
+    "brand": "Amex",
+    "last4": "1005"
+   },
+   "deposit_captured_cents": 12000,
+   "deposit_refunded_cents": 0
+  },
+  {
+   "id": "bk_rob",
+   "guest": "g_rob",
+   "party_size": 7,
+   "room": "room_7",
+   "starts_at": "2026-09-25T20:30:00-04:00",
+   "ends_at": "2026-09-25T22:30:00-04:00",
+   "length_hours": 2,
+   "business_date": "2026-09-25",
+   "deposit_cents": 7000,
+   "status": "checked_in",
+   "board_status": "Seated · 11 min past, and the Parks are next",
+   "deposit_captured_cents": 7000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_priya",
+   "guest": "g_priya",
+   "party_size": 5,
+   "room": "room_3",
+   "starts_at": "2026-09-25T20:45:00-04:00",
+   "ends_at": "2026-09-25T22:45:00-04:00",
+   "length_hours": 2,
+   "business_date": "2026-09-25",
+   "deposit_cents": 5000,
+   "status": "checked_in",
+   "board_status": "Seated",
+   "deposit_captured_cents": 5000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_omar",
+   "guest": "g_omar",
+   "party_size": 14,
+   "room": "room_12",
+   "starts_at": "2026-09-25T21:00:00-04:00",
+   "ends_at": "2026-09-26T00:00:00-04:00",
+   "length_hours": 3,
+   "business_date": "2026-09-25",
+   "deposit_cents": 14000,
+   "status": "checked_in",
+   "board_status": "Seated",
+   "deposit_card": {
+    "brand": "Visa",
+    "last4": "6630"
+   },
+   "deposit_captured_cents": 14000,
+   "deposit_refunded_cents": 0
+  },
+  {
+   "id": "bk_dana",
+   "guest": "g_dana",
+   "party_size": 4,
+   "room": "room_1",
+   "starts_at": "2026-09-25T21:30:00-04:00",
+   "ends_at": "2026-09-25T23:30:00-04:00",
+   "length_hours": 2,
+   "business_date": "2026-09-25",
+   "deposit_cents": 4000,
+   "status": "checked_in",
+   "board_status": "Seated",
+   "deposit_captured_cents": 4000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_bianca",
+   "guest": "g_bianca",
+   "party_size": 22,
+   "room": "room_vip",
+   "starts_at": "2026-09-25T21:30:00-04:00",
+   "ends_at": "2026-09-26T00:30:00-04:00",
+   "length_hours": 3,
+   "business_date": "2026-09-25",
+   "deposit_cents": 25000,
+   "status": "checked_in",
+   "board_status": "Seated · big party",
+   "occasion": "birthday",
+   "deposit_card": {
+    "brand": "Visa",
+    "last4": "2290"
+   },
+   "deposit_captured_cents": 25000,
+   "deposit_refunded_cents": 0
+  },
+  {
+   "id": "bk_sam",
+   "guest": "g_sam",
+   "party_size": 3,
+   "room": "room_2",
+   "starts_at": "2026-09-25T22:30:00-04:00",
+   "ends_at": "2026-09-25T23:30:00-04:00",
+   "length_hours": 1,
+   "business_date": "2026-09-25",
+   "deposit_cents": 4000,
+   "status": "confirmed",
+   "board_status": "Late · \"running 15 late\" · held until 10:45",
+   "billable_guests": 4,
+   "running_late_until": "2026-09-25T22:45:00-04:00",
+   "grace_min": 15,
+   "deposit_captured_cents": 4000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_jae",
+   "guest": "g_jae",
+   "party_size": 5,
+   "room": "room_3",
+   "starts_at": "2026-09-25T23:00:00-04:00",
+   "ends_at": "2026-09-26T01:00:00-04:00",
+   "length_hours": 2,
+   "business_date": "2026-09-25",
+   "deposit_cents": 5000,
+   "status": "confirmed",
+   "board_status": "Booked",
+   "deposit_paid_on": "2026-09-23",
+   "manage_demo": "Manage.dc.html shows this booking",
+   "deposit_captured_cents": 5000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_parks",
+   "guest": "g_parks",
+   "party_size": 8,
+   "room": "room_7",
+   "starts_at": "2026-09-25T23:00:00-04:00",
+   "ends_at": "2026-09-26T01:00:00-04:00",
+   "length_hours": 2,
+   "business_date": "2026-09-25",
+   "deposit_cents": 8000,
+   "status": "confirmed",
+   "board_status": "Booked",
+   "deposit_captured_cents": 8000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  },
+  {
+   "id": "bk_nguyens",
+   "guest": "g_nguyens",
+   "party_size": 6,
+   "room": "room_8",
+   "starts_at": "2026-09-25T23:00:00-04:00",
+   "ends_at": "2026-09-26T01:00:00-04:00",
+   "length_hours": 2,
+   "business_date": "2026-09-25",
+   "deposit_cents": 6000,
+   "status": "confirmed",
+   "board_status": "Booked",
+   "deposit_captured_cents": 6000,
+   "deposit_refunded_cents": 0,
+   "deposit_card": null
+  }
+ ],
+ "sessions": [
+  {
+   "id": "sess_room1",
+   "room": "room_1",
+   "booking": "bk_dana",
+   "guest": "g_dana",
+   "party_size": 4,
+   "started_at": "2026-09-25T21:30:00-04:00",
+   "booked_end_at": "2026-09-25T23:30:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room1",
+   "billable_guests": 4,
+   "segments": [
+    {
+     "started_at": "2026-09-25T21:30:00-04:00",
+     "ended_at": null,
+     "billable_guests": 4,
+     "rate_kind": "per_person",
+     "hourly_cents": 4000,
+     "minutes_at_now": 71,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 3,
+    "of": 4
+   },
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking",
+   "id_status_text": "ID ✓ 3 of 4 · the runner checks the last ID"
+  },
+  {
+   "id": "sess_room3",
+   "room": "room_3",
+   "booking": "bk_priya",
+   "guest": "g_priya",
+   "party_size": 5,
+   "started_at": "2026-09-25T20:45:00-04:00",
+   "booked_end_at": "2026-09-25T22:45:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room3",
+   "billable_guests": 5,
+   "segments": [
+    {
+     "started_at": "2026-09-25T20:45:00-04:00",
+     "ended_at": null,
+     "billable_guests": 5,
+     "rate_kind": "per_person",
+     "hourly_cents": 5000,
+     "minutes_at_now": 116,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 5,
+    "of": 5
+   },
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking"
+  },
+  {
+   "id": "sess_room5",
+   "room": "room_5",
+   "booking": null,
+   "guest": "g_leo",
+   "party_size": 4,
+   "started_at": "2026-09-25T22:00:00-04:00",
+   "booked_end_at": "2026-09-26T00:00:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room5",
+   "billable_guests": 4,
+   "segments": [
+    {
+     "started_at": "2026-09-25T22:00:00-04:00",
+     "ended_at": null,
+     "billable_guests": 4,
+     "rate_kind": "per_person",
+     "hourly_cents": 4000,
+     "minutes_at_now": 41,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 4,
+    "of": 4
+   },
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "walk_in_from_waitlist",
+   "note": "Walk-in, 2 hr, until 12:00 AM, no deposit. Seated from the waitlist at 10:00 PM."
+  },
+  {
+   "id": "sess_room7",
+   "room": "room_7",
+   "booking": "bk_rob",
+   "guest": "g_rob",
+   "party_size": 7,
+   "started_at": "2026-09-25T20:30:00-04:00",
+   "booked_end_at": "2026-09-25T22:30:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room7",
+   "billable_guests": 7,
+   "segments": [
+    {
+     "started_at": "2026-09-25T20:30:00-04:00",
+     "ended_at": null,
+     "billable_guests": 7,
+     "rate_kind": "per_person",
+     "hourly_cents": 7000,
+     "minutes_at_now": 131,
+     "paused": false
+    }
+   ],
+   "ids_checked": null,
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking"
+  },
+  {
+   "id": "sess_room9",
+   "room": "room_9",
+   "booking": "bk_marcus",
+   "guest": "g_marcus",
+   "party_size": 12,
+   "started_at": "2026-09-25T20:00:00-04:00",
+   "booked_end_at": "2026-09-25T23:00:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room9",
+   "billable_guests": 12,
+   "segments": [
+    {
+     "started_at": "2026-09-25T20:00:00-04:00",
+     "ended_at": null,
+     "billable_guests": 12,
+     "rate_kind": "per_person",
+     "hourly_cents": 12000,
+     "minutes_at_now": 161,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 12,
+    "of": 12
+   },
+   "room_code": "KX4M7",
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking",
+   "called_staff": {
+    "kind": "another_mic",
+    "text": "Another mic, please",
+    "at": "2026-09-25T22:39:00-04:00",
+    "acked": false
+   }
+  },
+  {
+   "id": "sess_room10",
+   "room": "room_10",
+   "booking": "bk_tanya",
+   "guest": "g_tanya",
+   "party_size": 9,
+   "started_at": "2026-09-25T19:00:00-04:00",
+   "booked_end_at": "2026-09-25T22:00:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room10",
+   "billable_guests": 9,
+   "segments": [
+    {
+     "started_at": "2026-09-25T19:00:00-04:00",
+     "ended_at": null,
+     "billable_guests": 9,
+     "rate_kind": "per_person",
+     "hourly_cents": 9000,
+     "minutes_at_now": 221,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 9,
+    "of": 9
+   },
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking"
+  },
+  {
+   "id": "sess_room12",
+   "room": "room_12",
+   "booking": "bk_omar",
+   "guest": "g_omar",
+   "party_size": 14,
+   "started_at": "2026-09-25T21:00:00-04:00",
+   "booked_end_at": "2026-09-26T00:00:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_room12",
+   "billable_guests": 14,
+   "segments": [
+    {
+     "started_at": "2026-09-25T21:00:00-04:00",
+     "ended_at": null,
+     "billable_guests": 14,
+     "rate_kind": "per_person",
+     "hourly_cents": 14000,
+     "minutes_at_now": 101,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 14,
+    "of": 14
+   },
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking"
+  },
+  {
+   "id": "sess_vip",
+   "room": "room_vip",
+   "booking": "bk_bianca",
+   "guest": "g_bianca",
+   "party_size": 22,
+   "started_at": "2026-09-25T21:30:00-04:00",
+   "booked_end_at": "2026-09-26T00:30:00-04:00",
+   "ended_at": null,
+   "business_date": "2026-09-25",
+   "check": "chk_vip",
+   "billable_guests": 22,
+   "segments": [
+    {
+     "started_at": "2026-09-25T21:30:00-04:00",
+     "ended_at": null,
+     "billable_guests": 22,
+     "rate_kind": "vip",
+     "hourly_cents": 25000,
+     "minutes_at_now": 71,
+     "paused": false
+    }
+   ],
+   "ids_checked": {
+    "checked": 22,
+    "of": 22
+   },
+   "room_code": null,
+   "host_lock": false,
+   "ordering_locked": false,
+   "alcohol_cut_off_at": null,
+   "min_spend_cents": null,
+   "source": "booking"
+  }
+ ],
+ "earlier_sessions": [
+  {
+   "room": "room_6",
+   "guest": "g_ella",
+   "party_size": 8,
+   "left_at": "2026-09-25T22:33:00-04:00",
+   "paid": true
+  },
+  {
+   "room": "room_13",
+   "guest": "g_yuki",
+   "party_size": 12,
+   "left_at": "2026-09-25T22:36:00-04:00",
+   "paid": true
+  }
+ ],
+ "checks": [
+  {
+   "id": "chk_room1",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room1",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T21:30:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 71,
+      "hourly_cents": 4000
+     }
+    ],
+    "amount_cents": 4733
+   },
+   "lines": [
+    {
+     "id": "ln_room1_1",
+     "kind": "item",
+     "item_id": "bucket_s",
+     "description": "Small bucket · 6 beers",
+     "qty": 1,
+     "unit_cents": 4000,
+     "amount_cents": 4000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null,
+     "delivered_at": "2026-09-25T21:52:00-04:00"
+    },
+    {
+     "id": "ln_room1_2",
+     "kind": "item",
+     "item_id": "corona",
+     "description": "Corona",
+     "qty": 4,
+     "unit_cents": 900,
+     "amount_cents": 3600,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": "o4"
+    }
+   ],
+   "deposit_cents": 4000,
+   "expected_at_now": {
+    "room_time_cents": 4733,
+    "drinks_cents": 7600,
+    "tab_so_far_cents": 12333
+   },
+   "if_presented_now": {
+    "tax_cents": 1095,
+    "gratuity_cents": 2467,
+    "total_cents": 15895,
+    "left_to_pay_cents": 11895
+   }
+  },
+  {
+   "id": "chk_room3",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room3",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T20:45:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 116,
+      "hourly_cents": 5000
+     }
+    ],
+    "amount_cents": 9667
+   },
+   "lines": [
+    {
+     "id": "ln_room3_1",
+     "kind": "item",
+     "item_id": "sj_peach",
+     "description": "Peach soju",
+     "qty": 2,
+     "unit_cents": 2000,
+     "amount_cents": 4000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_room3_2",
+     "kind": "item",
+     "item_id": "marg",
+     "description": "Margarita",
+     "qty": 2,
+     "unit_cents": 1300,
+     "amount_cents": 2600,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": "o3",
+     "options": {
+      "flavor": "Peach"
+     }
+    },
+    {
+     "id": "ln_room3_3",
+     "kind": "item",
+     "item_id": "marg",
+     "description": "Margarita",
+     "qty": 1,
+     "unit_cents": 1300,
+     "amount_cents": 1300,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": "o3",
+     "options": {
+      "flavor": "Strawberry"
+     }
+    }
+   ],
+   "deposit_cents": 5000,
+   "expected_at_now": {
+    "room_time_cents": 9667,
+    "drinks_cents": 7900,
+    "tab_so_far_cents": 17567
+   },
+   "if_presented_now": {
+    "tax_cents": 1559,
+    "gratuity_cents": 3513,
+    "total_cents": 22639,
+    "left_to_pay_cents": 17639
+   }
+  },
+  {
+   "id": "chk_room5",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room5",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T22:00:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 41,
+      "hourly_cents": 4000
+     }
+    ],
+    "amount_cents": 4000
+   },
+   "lines": [],
+   "deposit_cents": 0,
+   "expected_at_now": {
+    "room_time_cents": 4000,
+    "drinks_cents": 0,
+    "tab_so_far_cents": 4000
+   },
+   "if_presented_now": {
+    "tax_cents": 355,
+    "gratuity_cents": 800,
+    "total_cents": 5155,
+    "left_to_pay_cents": 5155
+   },
+   "pending_orders": [
+    "o2"
+   ]
+  },
+  {
+   "id": "chk_room7",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room7",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T20:30:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 131,
+      "hourly_cents": 7000
+     }
+    ],
+    "amount_cents": 15283
+   },
+   "lines": [
+    {
+     "id": "ln_room7_1",
+     "kind": "item",
+     "item_id": "bucket_s",
+     "description": "Small bucket · 6 beers",
+     "qty": 1,
+     "unit_cents": 4000,
+     "amount_cents": 4000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_room7_2",
+     "kind": "item",
+     "item_id": "s_drop",
+     "description": "Lemon Drop shot",
+     "qty": 2,
+     "unit_cents": 900,
+     "amount_cents": 1800,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    }
+   ],
+   "deposit_cents": 7000,
+   "expected_at_now": {
+    "room_time_cents": 15283,
+    "drinks_cents": 5800,
+    "tab_so_far_cents": 21083
+   },
+   "if_presented_now": {
+    "tax_cents": 1871,
+    "gratuity_cents": 4217,
+    "total_cents": 27171,
+    "left_to_pay_cents": 20171
+   }
+  },
+  {
+   "id": "chk_room9",
+   "number": 1042,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room9",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T20:00:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 161,
+      "hourly_cents": 12000
+     }
+    ],
+    "amount_cents": 32200
+   },
+   "lines": [
+    {
+     "id": "ln_room9_1",
+     "kind": "item",
+     "item_id": "bucket_l",
+     "description": "Large bucket · 10 beers",
+     "qty": 1,
+     "unit_cents": 7000,
+     "amount_cents": 7000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_room9_2",
+     "kind": "item",
+     "item_id": "chamisul",
+     "description": "Chamisul Fresh",
+     "qty": 2,
+     "unit_cents": 2000,
+     "amount_cents": 4000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_room9_3",
+     "kind": "item",
+     "item_id": "jager",
+     "description": "Jäger Bomb",
+     "qty": 4,
+     "unit_cents": 1200,
+     "amount_cents": 4800,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": "e2"
+    }
+   ],
+   "deposit_cents": 12000,
+   "expected_at_now": {
+    "room_time_cents": 32200,
+    "drinks_cents": 15800,
+    "tab_so_far_cents": 48000
+   },
+   "if_presented_now": {
+    "tax_cents": 4260,
+    "gratuity_cents": 9600,
+    "total_cents": 61860,
+    "left_to_pay_cents": 49860
+   },
+   "expected_if_o1_accepted_first": {
+    "subtotal_cents": 50600,
+    "tax_cents": 4491,
+    "gratuity_cents": 10120,
+    "total_cents": 65211,
+    "left_to_pay_cents": 53211
+   },
+   "pending_orders": [
+    "o1"
+   ]
+  },
+  {
+   "id": "chk_room10",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room10",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T19:00:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 221,
+      "hourly_cents": 9000
+     }
+    ],
+    "amount_cents": 33150
+   },
+   "lines": [
+    {
+     "id": "ln_room10_1",
+     "kind": "item",
+     "item_id": "bucket_l",
+     "description": "Large bucket · 10 beers",
+     "qty": 1,
+     "unit_cents": 7000,
+     "amount_cents": 7000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_room10_2",
+     "kind": "item",
+     "item_id": "chamisul",
+     "description": "Chamisul Fresh",
+     "qty": 2,
+     "unit_cents": 2000,
+     "amount_cents": 4000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    }
+   ],
+   "deposit_cents": 9000,
+   "expected_at_now": {
+    "room_time_cents": 33150,
+    "drinks_cents": 11000,
+    "tab_so_far_cents": 44150
+   },
+   "if_presented_now": {
+    "tax_cents": 3918,
+    "gratuity_cents": 8830,
+    "total_cents": 56898,
+    "left_to_pay_cents": 47898
+   }
+  },
+  {
+   "id": "chk_room12",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_room12",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T21:00:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 101,
+      "hourly_cents": 14000
+     }
+    ],
+    "amount_cents": 23567
+   },
+   "lines": [
+    {
+     "id": "ln_room12_1",
+     "kind": "item",
+     "item_id": "p_soju2",
+     "description": "2 soju + small bucket",
+     "qty": 1,
+     "unit_cents": 7000,
+     "amount_cents": 7000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    }
+   ],
+   "deposit_cents": 14000,
+   "expected_at_now": {
+    "room_time_cents": 23567,
+    "drinks_cents": 7000,
+    "tab_so_far_cents": 30567
+   },
+   "if_presented_now": {
+    "tax_cents": 2713,
+    "gratuity_cents": 6113,
+    "total_cents": 39393,
+    "left_to_pay_cents": 25393
+   }
+  },
+  {
+   "id": "chk_vip",
+   "number": null,
+   "kind": "room",
+   "business_date": "2026-09-25",
+   "room_session": "sess_vip",
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T21:30:00-04:00",
+   "room_time": {
+    "live": true,
+    "basis": "round(sum(hourly_cents x minutes / 60)), first-hour minimum applied",
+    "segments": [
+     {
+      "minutes": 71,
+      "hourly_cents": 25000
+     }
+    ],
+    "amount_cents": 29583
+   },
+   "lines": [
+    {
+     "id": "ln_vip_1",
+     "kind": "item",
+     "item_id": "b_hennessy",
+     "description": "Hennessy · bottle",
+     "qty": 1,
+     "unit_cents": 30000,
+     "amount_cents": 30000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_vip_2",
+     "kind": "item",
+     "item_id": "moet",
+     "description": "Moët & Chandon · bottle",
+     "qty": 1,
+     "unit_cents": 18000,
+     "amount_cents": 18000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": "e1"
+    }
+   ],
+   "deposit_cents": 25000,
+   "expected_at_now": {
+    "room_time_cents": 29583,
+    "drinks_cents": 48000,
+    "tab_so_far_cents": 77583
+   },
+   "if_presented_now": {
+    "tax_cents": 6885,
+    "gratuity_cents": 15517,
+    "total_cents": 99985,
+    "left_to_pay_cents": 74985
+   }
+  },
+  {
+   "id": "chk_t4",
+   "number": null,
+   "kind": "bar",
+   "business_date": "2026-09-25",
+   "room_session": null,
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T21:10:00-04:00",
+   "lines": [
+    {
+     "id": "ln_t4_1",
+     "kind": "item",
+     "item_id": "chamisul",
+     "description": "Chamisul Fresh",
+     "qty": 1,
+     "unit_cents": 2000,
+     "amount_cents": 2000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_t4_2",
+     "kind": "item",
+     "item_id": "sj_peach",
+     "description": "Peach soju",
+     "qty": 1,
+     "unit_cents": 2000,
+     "amount_cents": 2000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    }
+   ],
+   "deposit_cents": 0,
+   "expected_at_now": {
+    "drinks_cents": 4000,
+    "tax_cents": 355,
+    "gratuity_cents": 0,
+    "total_cents": 4355
+   }
+  },
+  {
+   "id": "chk_t1",
+   "number": null,
+   "kind": "bar",
+   "business_date": "2026-09-25",
+   "room_session": null,
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T21:40:00-04:00",
+   "lines": [
+    {
+     "id": "ln_t1_1",
+     "kind": "item",
+     "item_id": "modelo",
+     "description": "Modelo",
+     "qty": 2,
+     "unit_cents": 900,
+     "amount_cents": 1800,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_t1_2",
+     "kind": "item",
+     "item_id": "jager",
+     "description": "Jäger Bomb",
+     "qty": 1,
+     "unit_cents": 1200,
+     "amount_cents": 1200,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    }
+   ],
+   "deposit_cents": 0,
+   "expected_at_now": {
+    "drinks_cents": 3000,
+    "tax_cents": 266,
+    "gratuity_cents": 0,
+    "total_cents": 3266
+   }
+  },
+  {
+   "id": "chk_t2",
+   "number": null,
+   "kind": "bar",
+   "business_date": "2026-09-25",
+   "room_session": null,
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T21:55:00-04:00",
+   "lines": [
+    {
+     "id": "ln_t2_1",
+     "kind": "item",
+     "item_id": "bucket_s",
+     "description": "Small bucket · 6 beers",
+     "qty": 1,
+     "unit_cents": 4000,
+     "amount_cents": 4000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_t2_2",
+     "kind": "item",
+     "item_id": "s_drop",
+     "description": "Lemon Drop shot",
+     "qty": 2,
+     "unit_cents": 900,
+     "amount_cents": 1800,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    },
+    {
+     "id": "ln_t2_4",
+     "kind": "item",
+     "item_id": "jager",
+     "description": "Jäger Bomb",
+     "qty": 1,
+     "unit_cents": 1200,
+     "amount_cents": 1200,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null,
+     "added_at": "2026-09-25T22:02:00-04:00"
+    },
+    {
+     "id": "ln_t2_5",
+     "kind": "comp",
+     "item_id": "jager",
+     "description": "COMP · Jäger Bomb",
+     "qty": 1,
+     "unit_cents": -1200,
+     "amount_cents": -1200,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null,
+     "comp_of": "ln_t2_4",
+     "reason": "Dropped it at the bar",
+     "made": true,
+     "by": "maya",
+     "reason_only": true,
+     "added_at": "2026-09-25T22:05:00-04:00"
+    },
+    {
+     "id": "ln_t2_3",
+     "kind": "song",
+     "item_id": null,
+     "description": "Mr. Brightside · The Killers",
+     "qty": 1,
+     "unit_cents": 0,
+     "amount_cents": 0,
+     "tax_category": "song",
+     "alcohol": false,
+     "order": null,
+     "paid_with": "drink_credit",
+     "added_at": "2026-09-25T22:39:00-04:00"
+    }
+   ],
+   "deposit_cents": 0,
+   "expected_at_now": {
+    "drinks_cents": 5800,
+    "tax_cents": 515,
+    "gratuity_cents": 0,
+    "total_cents": 6315
+   }
+  },
+  {
+   "id": "chk_t5",
+   "number": null,
+   "kind": "bar",
+   "business_date": "2026-09-25",
+   "room_session": null,
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T22:02:00-04:00",
+   "lines": [
+    {
+     "id": "ln_t5_1",
+     "kind": "item",
+     "item_id": "bucket_l",
+     "description": "Large bucket · 10 beers",
+     "qty": 1,
+     "unit_cents": 7000,
+     "amount_cents": 7000,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null,
+     "void_pending": {
+      "approval": "appr_1",
+      "reason": "rang it wrong",
+      "requested_by": "diego"
+     }
+    },
+    {
+     "id": "ln_t5_2",
+     "kind": "item",
+     "item_id": "modelo",
+     "description": "Modelo",
+     "qty": 1,
+     "unit_cents": 900,
+     "amount_cents": 900,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null
+    }
+   ],
+   "deposit_cents": 0,
+   "expected_at_now": {
+    "drinks_cents": 7900,
+    "tax_cents": 701,
+    "gratuity_cents": 0,
+    "total_cents": 8601
+   },
+   "expected_after_void_approved": {
+    "drinks_cents": 900,
+    "tax_cents": 80,
+    "total_cents": 980
+   }
+  },
+  {
+   "id": "chk_t3",
+   "number": null,
+   "kind": "bar",
+   "business_date": "2026-09-25",
+   "room_session": null,
+   "status": "open",
+   "revision": 0,
+   "training": false,
+   "opened_at": "2026-09-25T22:20:00-04:00",
+   "lines": [
+    {
+     "id": "ln_t3_1",
+     "kind": "item",
+     "item_id": "titos",
+     "description": "Tito’s",
+     "qty": 1,
+     "unit_cents": 1200,
+     "amount_cents": 1200,
+     "tax_category": "drink",
+     "alcohol": true,
+     "order": null,
+     "options": {
+      "how": "Rocks",
+      "mixer": "Soda"
+     }
+    }
+   ],
+   "deposit_cents": 0,
+   "expected_at_now": {
+    "drinks_cents": 1200,
+    "tax_cents": 107,
+    "gratuity_cents": 0,
+    "total_cents": 1307
+   }
+  }
+ ],
+ "orders": [
+  {
+   "id": "o1",
+   "room": "room_9",
+   "session": "sess_room9",
+   "check": "chk_room9",
+   "source": "room",
+   "status": "ringing",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "marg",
+     "name": "Margarita",
+     "qty": 2,
+     "unit_cents": 1300,
+     "alcohol": true,
+     "options": {
+      "flavor": "Peach"
+     }
+    }
+   ],
+   "amount_cents": 2600,
+   "placed_at": "2026-09-25T22:40:17-04:00",
+   "age_sec_at_now": 43,
+   "on_check": false,
+   "ids_text": "ID ✓ 12 of 12",
+   "staff_words": "Ringing · 0:43",
+   "guest_words": "Sent to the bar · you can still cancel"
+  },
+  {
+   "id": "o2",
+   "room": "room_5",
+   "session": "sess_room5",
+   "check": "chk_room5",
+   "source": "room",
+   "status": "ringing",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "bud",
+     "name": "Bud Light",
+     "qty": 4,
+     "unit_cents": 800,
+     "alcohol": true
+    }
+   ],
+   "amount_cents": 3200,
+   "placed_at": "2026-09-25T22:38:49-04:00",
+   "age_sec_at_now": 131,
+   "on_check": false,
+   "aging": "amber",
+   "ids_text": "ID ✓ 4 of 4",
+   "staff_words": "Ringing · 2:11",
+   "guest_words": "Sent to the bar · you can still cancel"
+  },
+  {
+   "id": "o3",
+   "room": "room_3",
+   "session": "sess_room3",
+   "check": "chk_room3",
+   "source": "room",
+   "status": "ready",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "marg",
+     "name": "Margarita",
+     "qty": 2,
+     "unit_cents": 1300,
+     "alcohol": true,
+     "options": {
+      "flavor": "Peach"
+     }
+    },
+    {
+     "item_id": "marg",
+     "name": "Margarita",
+     "qty": 1,
+     "unit_cents": 1300,
+     "alcohol": true,
+     "options": {
+      "flavor": "Strawberry"
+     }
+    }
+   ],
+   "amount_cents": 3900,
+   "placed_at": null,
+   "accepted_by": "maya",
+   "accepted_at": "2026-09-25T22:33:00-04:00",
+   "ready_at": "2026-09-25T22:37:00-04:00",
+   "age_sec_at_now": 240,
+   "on_check": true,
+   "ticket_printed": true,
+   "ids_text": "ID ✓ 5 of 5",
+   "staff_words": "Ready for a runner · 4:00",
+   "guest_words": "Being made · on your tab"
+  },
+  {
+   "id": "o4",
+   "room": "room_1",
+   "session": "sess_room1",
+   "check": "chk_room1",
+   "source": "room",
+   "status": "ready",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "corona",
+     "name": "Corona",
+     "qty": 4,
+     "unit_cents": 900,
+     "alcohol": true
+    }
+   ],
+   "amount_cents": 3600,
+   "placed_at": null,
+   "accepted_by": "maya",
+   "accepted_at": "2026-09-25T22:38:00-04:00",
+   "ready_at": "2026-09-25T22:39:25-04:00",
+   "age_sec_at_now": 95,
+   "on_check": true,
+   "ticket_printed": true,
+   "ids_text": "ID ✓ 3 of 4 · runner checks the last ID",
+   "staff_words": "Ready for a runner · 1:35",
+   "guest_words": "Being made · on your tab"
+  },
+  {
+   "id": "e1",
+   "room": "room_vip",
+   "session": "sess_vip",
+   "check": "chk_vip",
+   "source": "room",
+   "status": "delivered",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "moet",
+     "name": "Moët & Chandon · bottle",
+     "qty": 1,
+     "unit_cents": 18000,
+     "alcohol": true
+    }
+   ],
+   "amount_cents": 18000,
+   "placed_at": null,
+   "accepted_at": null,
+   "delivered_at": "2026-09-25T22:05:00-04:00",
+   "delivered_by": "andy",
+   "on_check": true,
+   "note": "earlier",
+   "staff_words": "Delivered · 10:05 PM · Andy",
+   "guest_words": "Delivered"
+  },
+  {
+   "id": "e2",
+   "room": "room_9",
+   "session": "sess_room9",
+   "check": "chk_room9",
+   "source": "room",
+   "status": "delivered",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "jager",
+     "name": "Jäger Bomb",
+     "qty": 4,
+     "unit_cents": 1200,
+     "alcohol": true
+    }
+   ],
+   "amount_cents": 4800,
+   "placed_at": null,
+   "accepted_at": null,
+   "delivered_at": "2026-09-25T21:58:00-04:00",
+   "delivered_by": "diego",
+   "on_check": true,
+   "note": "earlier",
+   "staff_words": "Delivered · 9:58 PM · Diego",
+   "guest_words": "Delivered"
+  },
+  {
+   "id": "e0",
+   "room": "room_1",
+   "session": "sess_room1",
+   "check": "chk_room1",
+   "source": "room",
+   "status": "delivered",
+   "cancel_reason": null,
+   "items": [
+    {
+     "item_id": "bucket_s",
+     "name": "Small bucket · 6 beers",
+     "qty": 1,
+     "unit_cents": 4000,
+     "alcohol": true
+    }
+   ],
+   "amount_cents": 4000,
+   "placed_at": null,
+   "delivered_at": "2026-09-25T21:52:00-04:00",
+   "delivered_by": null,
+   "on_check": true,
+   "note": "earlier; the brief gives the delivery time only",
+   "staff_words": "Delivered · 9:52 PM",
+   "guest_words": "Delivered"
+  }
+ ],
+ "order_drafts": [
+  {
+   "membership": "diego",
+   "tab": "tab_t5",
+   "lines": [
+    {
+     "item_id": "redbull",
+     "qty": 1,
+     "unit_cents": 600
+    }
+   ],
+   "note": "Unsent; never part of a check."
+  }
+ ],
+ "waitlist": [
+  {
+   "id": "wl_1",
+   "position": 1,
+   "guest": "g_amara",
+   "name": "Amara B.",
+   "party_size": 7,
+   "joined_at": "2026-09-25T22:15:00-04:00",
+   "waited_min": 26,
+   "quoted_min": 25,
+   "status": "waiting",
+   "note": "at the bar",
+   "suggested_offer": {
+    "room": "room_11",
+    "when": "now",
+    "hold_min": 10,
+    "text_template": "room_ready"
+   }
+  },
+  {
+   "id": "wl_2",
+   "position": 2,
+   "guest": "g_nadia",
+   "name": "Nadia K.",
+   "party_size": 6,
+   "joined_at": "2026-09-25T22:21:00-04:00",
+   "waited_min": 20,
+   "quoted_min": 20,
+   "status": "waiting",
+   "note": "Renamed from 'Priya K.' so it can't be confused with Priya R.",
+   "suggested_offer": {
+    "room": "room_6",
+    "when": "once wiped"
+   }
+  },
+  {
+   "id": "wl_3",
+   "position": 3,
+   "guest": "g_chris",
+   "name": "Chris P.",
+   "party_size": 3,
+   "billable_guests": 4,
+   "joined_at": "2026-09-25T22:37:00-04:00",
+   "waited_min": 4,
+   "quoted_min": 40,
+   "status": "waiting",
+   "note": "Bills as 4 on Friday.",
+   "suggested_offer": {
+    "room": "room_13",
+    "when": "once wiped",
+    "note": "Big for them, but nothing else is free for an hour."
+   }
+  }
+ ],
+ "waitlist_earlier": [
+  {
+   "id": "wl_0",
+   "guest": "g_leo",
+   "name": "Leo M.",
+   "party_size": 4,
+   "joined_at": null,
+   "status": "seated",
+   "seated_at": "2026-09-25T22:00:00-04:00",
+   "room": "room_5"
+  }
+ ],
+ "waitlist_page_demo": {
+  "guest_joins_as_party": 4,
+  "parties_ahead_text": "3 parties ahead",
+  "room_ready_text": "Room 2 is ready · 10:00 to claim it",
+  "why": "Sam O. no-showed at 10:45, so Room 2 frees up."
+ },
+ "board_alerts": [
+  {
+   "rank": 1,
+   "color": "pink",
+   "text": "Room 7 is 11 min past its time, and the Parks (8) are booked into Room 7 at 11:00.",
+   "actions": [
+    "Text Rob & Kim: please wrap up",
+    "Move a room…"
+   ],
+   "note": "The Move sheet lists Room 11 as free all night."
+  },
+  {
+   "rank": 2,
+   "color": "pink",
+   "text": "Room 9 called for another mic, 2 min ago.",
+   "actions": [
+    "On it"
+   ]
+  },
+  {
+   "rank": 3,
+   "color": "amber",
+   "text": "Room 5's order has been ringing 2:11 (4 × Bud Light).",
+   "actions": [
+    "Show"
+   ],
+   "note": "The 2-minute escalation (F36)."
+  },
+  {
+   "rank": 4,
+   "color": "amber",
+   "text": "Room 3: 4 min left, and Jae & co. are booked at 11:00.",
+   "actions": [
+    "Text Priya: please wrap up"
+   ]
+  },
+  {
+   "rank": 5,
+   "color": "lime",
+   "text": "Room 11 is free all night, and Amara B. (7) has waited 26 min.",
+   "actions": [
+    "Offer Room 11 · 10 min to claim"
+   ]
+  },
+  {
+   "rank": 6,
+   "color": "grey",
+   "text": "Rooms 6 and 13 need a wipe (8 and 5 min), and Nadia K. and Chris P. are waiting.",
+   "actions": [
+    "Show"
+   ]
+  },
+  {
+   "rank": 7,
+   "color": "grey",
+   "text": "Sam O. texted \"running 15 late\" for the 10:30 in Room 2, and it's held until 10:45.",
+   "actions": [
+    "Reply \"no problem\"",
+    "Check in",
+    "Mark no-show"
+   ]
+  }
+ ],
+ "bar_tabs": [
+  {
+   "id": "tab_t4",
+   "check": "chk_t4",
+   "name": "Hana K.",
+   "label": "Seat 1",
+   "state": "open",
+   "card_brand": "Visa",
+   "card_last4": "5120",
+   "hold_cents": 5000,
+   "opened_at": "2026-09-25T21:10:00-04:00",
+   "owner": "maya",
+   "consent_text_version": 1,
+   "consent_read_by": null,
+   "cut_off_at": "2026-09-25T22:30:00-04:00",
+   "cut_off_by": "andy",
+   "cut_off_text": "Cut off by Andy at 10:30 PM"
+  },
+  {
+   "id": "tab_t1",
+   "check": "chk_t1",
+   "name": "Jess P.",
+   "label": "Seat 3",
+   "state": "open",
+   "card_brand": "Visa",
+   "card_last4": "4417",
+   "hold_cents": 5000,
+   "opened_at": "2026-09-25T21:40:00-04:00",
+   "owner": "maya",
+   "consent_text_version": 1,
+   "consent_read_by": null
+  },
+  {
+   "id": "tab_t2",
+   "check": "chk_t2",
+   "name": "Luis M.",
+   "label": "Seat 5",
+   "state": "open",
+   "card_brand": "Mastercard",
+   "card_last4": "2281",
+   "hold_cents": 8000,
+   "opened_at": "2026-09-25T21:55:00-04:00",
+   "owner": "maya",
+   "consent_text_version": 1,
+   "consent_read_by": null,
+   "hold_grew": true,
+   "hold_note": "Opened at $50; grew to $80 as rounds were sent."
+  },
+  {
+   "id": "tab_t5",
+   "check": "chk_t5",
+   "name": "Tariq A.",
+   "label": "Standing · by the stage",
+   "state": "open",
+   "card_brand": "Visa",
+   "card_last4": "8830",
+   "hold_cents": 10000,
+   "opened_at": "2026-09-25T22:02:00-04:00",
+   "owner": "diego",
+   "consent_text_version": 1,
+   "consent_read_by": null,
+   "pending_approval": "appr_1",
+   "badge_text": "Waiting for Andy"
+  },
+  {
+   "id": "tab_t3",
+   "check": "chk_t3",
+   "name": "Seat 6 · blue jacket",
+   "label": "Tapped a phone, no name",
+   "state": "open",
+   "card_brand": "Amex",
+   "card_last4": "7712",
+   "hold_cents": 5000,
+   "opened_at": "2026-09-25T22:20:00-04:00",
+   "owner": "diego",
+   "consent_text_version": 1,
+   "consent_read_by": null
+  }
+ ],
+ "approvals": [
+  {
+   "id": "appr_1",
+   "kind": "comp_void",
+   "line_kind": "void",
+   "target": "ln_t5_1",
+   "tab": "tab_t5",
+   "item": "Large bucket · 10 beers",
+   "amount_cents": 7000,
+   "reason": "rang it wrong",
+   "made": false,
+   "requested_by": "diego",
+   "requested_at": null,
+   "routed_to": "andy",
+   "status": "pending",
+   "why_needed": "Over the $25 reason-only limit. Nobody approves their own request; Andy's own requests would go to Abhishek.",
+   "requester_screen": "Waiting for Andy",
+   "approver_screen": "Approvals · 1 on Andy's phone"
+  }
+ ],
+ "reason_only_used_tonight": [
+  {
+   "person": "maya",
+   "cents": 1200,
+   "of_shift_limit_cents": 7500,
+   "lines": [
+    "ln_t2_5"
+   ],
+   "note": "Totals come from comp and void lines; this is the only one tonight, so $63 is left."
+  },
+  {
+   "person": "diego",
+   "cents": 0,
+   "of_shift_limit_cents": 7500
+  }
+ ],
+ "tip_slips": [
+  {
+   "id": "slip_1",
+   "name": "Bar tab · Dev S.",
+   "card_brand": "Visa",
+   "card_last4": "3318",
+   "tab_total_cents": 4800,
+   "signed_at": "2026-09-25T22:12:00-04:00",
+   "photo_saved": true,
+   "tip_entered_cents": null,
+   "state": "to_enter",
+   "source": "cards from fix brief 3f; totals and signed times from the Staff canvas demo",
+   "posts_to": "Sat Sep 26"
+  },
+  {
+   "id": "slip_2",
+   "name": "Bar tab · Tom W.",
+   "card_brand": "Mastercard",
+   "card_last4": "0457",
+   "tab_total_cents": 3600,
+   "signed_at": "2026-09-25T22:26:00-04:00",
+   "photo_saved": true,
+   "tip_entered_cents": null,
+   "state": "to_enter",
+   "source": "cards from fix brief 3f; totals and signed times from the Staff canvas demo",
+   "posts_to": "Sat Sep 26"
+  },
+  {
+   "id": "slip_3",
+   "name": "Bar tab · Ana R.",
+   "card_brand": "Amex",
+   "card_last4": "2204",
+   "tab_total_cents": 6250,
+   "signed_at": "2026-09-25T22:35:00-04:00",
+   "photo_saved": true,
+   "tip_entered_cents": null,
+   "state": "to_enter",
+   "source": "cards from fix brief 3f; totals and signed times from the Staff canvas demo",
+   "posts_to": "Sat Sep 26"
+  }
+ ],
+ "drawers": [
+  {
+   "id": "drawer_bar",
+   "name": "Bar drawer",
+   "kick_port_of": "dev_bar_printer",
+   "screen": "dev_bar_computer",
+   "session": {
+    "id": "ds_bar",
+    "model": "house",
+    "state": "open",
+    "responsible": "andy",
+    "opening_cents": 30000,
+    "opened_at": null
+   }
+  },
+  {
+   "id": "drawer_front",
+   "name": "Front-desk drawer",
+   "kick_port_of": "dev_front_printer",
+   "screen": "dev_front_computer",
+   "session": {
+    "id": "ds_front",
+    "model": "house",
+    "state": "open",
+    "responsible": "andy",
+    "opening_cents": 30000,
+    "opened_at": null
+   }
+  }
+ ],
+ "devices": [
+  {
+   "id": "dev_bar_computer",
+   "kind": "bar_computer",
+   "name": "Bar computer",
+   "where": "Bar",
+   "runs": "bar POS, bar orders screen, song queue",
+   "cash_drawer": "drawer_bar",
+   "online": true
+  },
+  {
+   "id": "dev_bar_nfc",
+   "kind": "nfc_reader",
+   "name": "Bar badge reader (USB)",
+   "where": "Bar",
+   "host": "dev_bar_computer",
+   "online": true
+  },
+  {
+   "id": "dev_bar_printer",
+   "kind": "printer",
+   "name": "Bar receipt printer",
+   "where": "Bar",
+   "prints": "tickets and receipts",
+   "drawer": "drawer_bar",
+   "online": true
+  },
+  {
+   "id": "dev_bar_reader",
+   "kind": "reader",
+   "name": "Bar S710",
+   "where": "Bar",
+   "model": "Stripe Reader S710",
+   "cellular": true,
+   "online": true
+  },
+  {
+   "id": "dev_front_computer",
+   "kind": "front_desk",
+   "name": "Front-desk computer",
+   "where": "Front desk",
+   "runs": "Board, DeskRoom and the rest",
+   "cash_drawer": "drawer_front",
+   "online": true
+  },
+  {
+   "id": "dev_front_nfc",
+   "kind": "nfc_reader",
+   "name": "Front-desk badge reader (USB)",
+   "where": "Front desk",
+   "host": "dev_front_computer",
+   "online": true
+  },
+  {
+   "id": "dev_front_printer",
+   "kind": "printer",
+   "name": "Front-desk receipt printer",
+   "where": "Front desk",
+   "drawer": "drawer_front",
+   "online": true
+  },
+  {
+   "id": "dev_front_reader",
+   "kind": "reader",
+   "name": "Front desk S710",
+   "where": "Front desk",
+   "model": "Stripe Reader S710",
+   "cellular": true,
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_1",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 1",
+   "room": "room_1",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_2",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 2",
+   "room": "room_2",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_3",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 3",
+   "room": "room_3",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_4",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 4",
+   "room": "room_4",
+   "online": false,
+   "note": "Off because the room is out of service."
+  },
+  {
+   "id": "dev_tablet_room_5",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 5",
+   "room": "room_5",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_6",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 6",
+   "room": "room_6",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_7",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 7",
+   "room": "room_7",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_8",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 8",
+   "room": "room_8",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_9",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 9",
+   "room": "room_9",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_10",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 10",
+   "room": "room_10",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_11",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 11",
+   "room": "room_11",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_12",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 12",
+   "room": "room_12",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_13",
+   "kind": "room_tablet",
+   "name": "Tablet · Room 13",
+   "room": "room_13",
+   "online": true
+  },
+  {
+   "id": "dev_tablet_room_vip",
+   "kind": "room_tablet",
+   "name": "Tablet · VIP room",
+   "room": "room_vip",
+   "online": true
+  },
+  {
+   "id": "dev_up_next_tv",
+   "kind": "up_next_display",
+   "name": "Up next TV",
+   "where": "Bar",
+   "online": true,
+   "shows_phone_numbers": false
+  },
+  {
+   "id": "dev_router",
+   "kind": "router",
+   "name": "Dual-WAN router",
+   "where": "Venue",
+   "cellular_backup": true,
+   "backup_text": "Backup internet · on",
+   "on_backup_now": false,
+   "online": true
+  },
+  {
+   "id": "dev_phone_abhishek",
+   "kind": "staff_phone",
+   "name": "Abhishek's phone",
+   "owner": "abhishek",
+   "paired": true
+  },
+  {
+   "id": "dev_phone_andy",
+   "kind": "staff_phone",
+   "name": "Andy's phone",
+   "owner": "andy",
+   "paired": true
+  },
+  {
+   "id": "dev_phone_maya",
+   "kind": "staff_phone",
+   "name": "Maya's phone",
+   "owner": "maya",
+   "paired": true
+  },
+  {
+   "id": "dev_phone_diego",
+   "kind": "staff_phone",
+   "name": "Diego's phone",
+   "owner": "diego",
+   "paired": true
+  }
+ ],
+ "singers": [
+  {
+   "id": "sg_luis",
+   "name": "Luis M.",
+   "phone_e164": "+13475550138",
+   "check": "chk_t2",
+   "credits": 0,
+   "note": "Credit used for the song now singing.",
+   "phone_made_up": true
+  },
+  {
+   "id": "sg_jess",
+   "name": "Jess P.",
+   "phone_e164": "+12125550145",
+   "check": "chk_t1",
+   "credits": 1,
+   "phone_made_up": true
+  },
+  {
+   "id": "sg_kira",
+   "name": "Kira",
+   "phone_e164": "+19295550152",
+   "check": null,
+   "credits": 1,
+   "note": "Bought a drink at the bar.",
+   "phone_made_up": true
+  },
+  {
+   "id": "sg_ben",
+   "name": "Ben T.",
+   "phone_e164": "+16465550163",
+   "check": null,
+   "credits": 1,
+   "note": "The SingQueue phone demo's guest: \"2 singers before you\".",
+   "phone_made_up": true
+  },
+  {
+   "id": "sg_tariq",
+   "name": "Tariq A.",
+   "phone_e164": "+19175550171",
+   "check": "chk_t5",
+   "credits": 2,
+   "phone_made_up": true
+  },
+  {
+   "id": "sg_hana",
+   "name": "Hana K.",
+   "phone_e164": "+17185550184",
+   "check": "chk_t4",
+   "credits": 1,
+   "note": "Cut off from alcohol; singing is fine.",
+   "phone_made_up": true
+  },
+  {
+   "id": "sg_sofia",
+   "name": "Sofia R.",
+   "phone_e164": "+13475550195",
+   "check": null,
+   "credits": 0,
+   "note": "Flagged \"Needs a drink credit\".",
+   "phone_made_up": true
+  }
+ ],
+ "song_queue": {
+  "bar_mode_started_at": "2026-09-25T21:00:00-04:00",
+  "songs_sung_so_far": 23,
+  "round": 3,
+  "songs_per_singer_per_round": 1,
+  "song_price_cents": null,
+  "song_price_text": "Song price · not set · songs need a drink credit",
+  "offer": "Buy a drink, get a song",
+  "now_singing": {
+   "singer": "sg_luis",
+   "title": "Mr. Brightside",
+   "artist": "The Killers",
+   "started_by": "maya",
+   "started_at": "2026-09-25T22:39:00-04:00",
+   "pay_with": "credit",
+   "check": "chk_t2",
+   "song_line_cents": 0,
+   "tab": "t2"
+  },
+  "up_next": [
+   {
+    "position": 1,
+    "singer": "sg_jess",
+    "title": "Dancing Queen",
+    "artist": "ABBA",
+    "tab": "t1",
+    "credits": 1
+   },
+   {
+    "position": 2,
+    "singer": "sg_kira",
+    "title": "Valerie",
+    "artist": "Amy Winehouse",
+    "tab": null,
+    "credits": 1
+   },
+   {
+    "position": 3,
+    "singer": "sg_ben",
+    "title": "Livin' on a Prayer",
+    "artist": "Bon Jovi",
+    "tab": null,
+    "credits": 1,
+    "singers_before": 2
+   },
+   {
+    "position": 4,
+    "singer": "sg_tariq",
+    "title": "Sweet Caroline",
+    "artist": "Neil Diamond",
+    "tab": "t5",
+    "credits": 2
+   },
+   {
+    "position": 5,
+    "singer": "sg_hana",
+    "title": "Someone Like You",
+    "artist": "Adele",
+    "tab": "t4",
+    "credits": 1,
+    "note": "tab cut off from alcohol"
+   },
+   {
+    "position": 6,
+    "singer": "sg_sofia",
+    "title": "Bohemian Rhapsody",
+    "artist": "Queen",
+    "tab": null,
+    "credits": 0,
+    "flag": "Needs a drink credit"
+   }
+  ],
+  "rail_header": "Song queue · 6"
+ },
+ "up_next_tv": {
+  "device": "dev_up_next_tv",
+  "now_singing": "sg_luis",
+  "next_5": [
+   "sg_jess",
+   "sg_kira",
+   "sg_ben",
+   "sg_tariq",
+   "sg_hana"
+  ],
+  "qr_to_join": true,
+  "shows_phone_numbers": false
+ },
+ "texts": [
+  {
+   "n": 1,
+   "id": "conf",
+   "name": "Booking confirmed",
+   "category": "service",
+   "when": "Right away",
+   "on": true,
+   "body_source": "fix brief 3i",
+   "body": "Booked. Room for 6 at 9:30 PM, Sat Sep 26. A 20% gratuity is added to room tabs. Deposit $60 paid, comes off your bill. Free to cancel until Fri 9:30 PM: west4karaoke.com/b/…"
+  },
+  {
+   "n": 2,
+   "id": "rem",
+   "name": "Reminder",
+   "category": "service",
+   "when": "Afternoon of",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "Tonight at West 4: room for 6 at 9:30 PM. 186 W 4th St. Reply if anything changes."
+  },
+  {
+   "n": 3,
+   "id": "code",
+   "name": "Room code",
+   "category": "service",
+   "when": "At check-in",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "Welcome to Room 9. To order drinks from your phone, scan the code on the wall and enter room code KX4M7.",
+   "note": "Spec 09: the host's text also carries the join link."
+  },
+  {
+   "n": 4,
+   "id": "ready",
+   "name": "Room ready",
+   "category": "service",
+   "when": "When staff offer a room",
+   "on": true,
+   "body_source": "fix brief 3i",
+   "body": "Your room is ready: Room 11. You have 10 minutes to claim it at the front desk.",
+   "note": "Fix brief 4.3 words the same text 'Come to the front desk within 10 minutes.' Pick one before build."
+  },
+  {
+   "n": 5,
+   "id": "offer",
+   "name": "Offer expiring",
+   "category": "service",
+   "when": "5 min left",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "5 minutes left to claim your room at West 4. After that it goes to the next party in line."
+  },
+  {
+   "n": 6,
+   "id": "wrap",
+   "name": "Please wrap up",
+   "category": "service",
+   "when": "Someone booked next, 10 min before end",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "10 minutes left in Room 9. The next party is here, so please start wrapping up. Thank you!"
+  },
+  {
+   "n": 7,
+   "id": "ten",
+   "name": "Booked time ending",
+   "category": "service",
+   "when": "10 min before end",
+   "on": true,
+   "body_source": "fix brief 3i",
+   "body": "Your booked time in Room 9 ends at 11:00 PM. Nobody's booked after you, so you can stay on by the minute until we close at 4 AM."
+  },
+  {
+   "n": 8,
+   "id": "rcpt",
+   "name": "Receipt",
+   "category": "service",
+   "when": "After paying",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "Thanks for singing with us. Your receipt for $154.65: west4karaoke.com/rc/…"
+  },
+  {
+   "n": 9,
+   "id": "refund",
+   "name": "Deposit refund",
+   "category": "service",
+   "when": "When a refund goes out",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "Your $60.00 deposit for Sat Sep 26 is on its way back to your card. It takes 5–10 days to show."
+  },
+  {
+   "n": 10,
+   "id": "paylink",
+   "name": "Payment link",
+   "category": "service",
+   "when": "Staff or big-party booking",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "West 4 is holding the VIP room for 22 on Fri Sep 25 at 9:30 PM. Agree to the terms and pay the $250.00 deposit here: west4karaoke.com/b/…"
+  },
+  {
+   "n": 11,
+   "id": "late",
+   "name": "Running late reply",
+   "category": "service",
+   "when": "Guest says they're late",
+   "on": true,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "No problem. We'll hold your room until 10:45 PM."
+  },
+  {
+   "n": 12,
+   "id": "upnext",
+   "name": "You're up next",
+   "category": "service",
+   "when": "Bar mode · when 1 singer is ahead",
+   "on": true,
+   "body_source": "fix brief 3i",
+   "body": "You're up next at the bar. Come to the stage when this song ends."
+  },
+  {
+   "n": 13,
+   "id": "rev",
+   "name": "Review ask",
+   "category": "marketing",
+   "when": "Next morning 11 AM",
+   "on": false,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "Hope last night was a good one. Two taps to tell Google: g.page/west4/review",
+   "note": "Off until it has its own opt-in and the lawyer answers."
+  },
+  {
+   "n": 14,
+   "id": "bday",
+   "name": "Birthday",
+   "category": "marketing",
+   "when": "A week before",
+   "on": false,
+   "body_source": "AdminDesk canvas demo wording",
+   "body": "Your birthday's coming up. Book a room this month and the first song's on us.",
+   "note": "Off until it has its own opt-in and the lawyer answers."
+  }
+ ],
+ "room_screen_messages_not_texts": [
+  "The bar needs a few minutes",
+  "On its way"
+ ],
+ "inbox": [
+  {
+   "id": "th_sam",
+   "guest": "g_sam",
+   "context": "booking bk_sam",
+   "unread": true,
+   "messages": [
+    {
+     "dir": "in",
+     "at": "2026-09-25T22:24:00-04:00",
+     "body": "running 15 late"
+    }
+   ],
+   "pending_reply": "No problem. We'll hold your room until 10:45 PM.",
+   "source": "fix brief 3i"
+  },
+  {
+   "id": "th_marcus",
+   "guest": "g_marcus",
+   "context": "room session sess_room9",
+   "unread": false,
+   "messages": [
+    {
+     "dir": "auto",
+     "at": null,
+     "body": "Booked. Room for 12 at 8:00 PM, Fri Sep 25. Deposit $120 paid, comes off your bill."
+    },
+    {
+     "dir": "in",
+     "at": null,
+     "body": "if we're having fun can we stay past 11?"
+    },
+    {
+     "dir": "out",
+     "at": null,
+     "body": "Nobody has Room 9 after you tonight, so you can stay on by the minute until we close at 4 AM."
+    }
+   ],
+   "source": "Messages canvas thread, reply reworded per fix brief 4.17"
+  },
+  {
+   "id": "th_bianca",
+   "guest": "g_bianca",
+   "context": "room session sess_vip",
+   "unread": false,
+   "messages": [
+    {
+     "dir": "auto",
+     "at": null,
+     "body": "Your VIP room is confirmed for Fri 9:30 PM. Deposit received, thank you."
+    },
+    {
+     "dir": "in",
+     "at": null,
+     "body": "can we bring a cake?"
+    }
+   ],
+   "source": "Messages canvas thread; matches the VIP note 'Cake at 11:00, in the fridge behind the bar.'"
+  }
+ ],
+ "counts": {
+  "rooms": {
+   "in_use_or_wrap_up": 8,
+   "open": 3,
+   "cleaning": 2,
+   "out_of_service": 1,
+   "total": 14
+  },
+  "people_inside": {
+   "in_rooms": 77,
+   "on_bar_tabs": 5,
+   "waiting": 16,
+   "total": 98,
+   "limit": null,
+   "limit_text": "Limit not set · Admin → Safety"
+  },
+  "waitlist_parties": 3,
+  "bar_orders_badge": {
+   "text": "Bar orders · 2",
+   "counts": "every ringing and asked-to-wait order"
+  },
+  "room_tablets": {
+   "online": 13,
+   "total": 14
+  },
+  "songs_sung_tonight": 23
+ },
+ "menu": {
+  "count": 127,
+  "out_tonight": [
+   "hoe",
+   "casa",
+   "b_casa"
+  ],
+  "option_groups": {
+   "marg": {
+    "label": "Flavor",
+    "required": true,
+    "choices": [
+     "Raspberry",
+     "Peach",
+     "Strawberry"
+    ]
+   },
+   "tea": {
+    "label": "Kind",
+    "required": true,
+    "choices": [
+     "Long Island",
+     "Long Beach",
+     "Ruby Strawberry",
+     "Blue Lemonade",
+     "Tokyo Melon"
+    ]
+   },
+   "nutrl": {
+    "label": "Flavor",
+    "required": true,
+    "choices": [
+     "Lemonade",
+     "Pineapple",
+     "Watermelon",
+     "Orange",
+     "Black cherry",
+     "Cranberry"
+    ]
+   },
+   "stoli": {
+    "label": "Flavor",
+    "required": true,
+    "choices": [
+     "Plain",
+     "Citrus",
+     "Raspberry",
+     "Blueberry"
+    ]
+   },
+   "soda": {
+    "label": "Which",
+    "required": true,
+    "choices": [
+     "Coke",
+     "Diet Coke",
+     "Sprite",
+     "Ginger ale"
+    ]
+   },
+   "mule": {
+    "label": "Flavor",
+    "required": true,
+    "choices": [
+     "Peach",
+     "Strawberry",
+     "Raspberry"
+    ]
+   },
+   "bottle": {
+    "label": "Bottle",
+    "required": true,
+    "choices": [
+     "Tito’s",
+     "Jameson",
+     "Jack Daniel’s",
+     "Fireball",
+     "Stoli",
+     "Bombay",
+     "Tanqueray",
+     "Patrón",
+     "Casamigos",
+     "Bacardi",
+     "Captain Morgan"
+    ]
+   },
+   "spirit": {
+    "label": "How",
+    "required": false,
+    "default": "Rocks",
+    "choices": [
+     "Rocks",
+     "Neat",
+     "Up",
+     "Shot"
+    ],
+    "mixers": [
+     [
+      "Soda",
+      0
+     ],
+     [
+      "Tonic",
+      0
+     ],
+     [
+      "Coke",
+      0
+     ],
+     [
+      "Sprite",
+      0
+     ],
+     [
+      "Ginger ale",
+      0
+     ],
+     [
+      "Cranberry",
+      0
+     ],
+     [
+      "Pineapple",
+      0
+     ],
+     [
+      "OJ",
+      0
+     ],
+     [
+      "Red Bull",
+      600
+     ]
+    ]
+   }
+  },
+  "items": [
+   {
+    "id": "bud",
+    "name": "Bud Light",
+    "section": "Beer",
+    "unit_cents": 800,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "budw",
+    "name": "Budweiser",
+    "section": "Beer",
+    "unit_cents": 800,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "ultra",
+    "name": "Michelob Ultra",
+    "section": "Beer",
+    "unit_cents": 800,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "modelo",
+    "name": "Modelo",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "orchard",
+    "name": "Angry Orchard",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "heineken",
+    "name": "Heineken",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "corona",
+    "name": "Corona",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "goose",
+    "name": "Goose Island IPA",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "guinness",
+    "name": "Guinness",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "hoe",
+    "name": "Hoegaarden",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "bluemoon",
+    "name": "Blue Moon",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "stella",
+    "name": "Stella Artois",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "kirin_g",
+    "name": "Kirin draft · glass",
+    "section": "Beer",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "kirin_p",
+    "name": "Kirin draft · pitcher",
+    "section": "Beer",
+    "unit_cents": 3100,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "nutrl",
+    "name": "Nütrl hard seltzer",
+    "section": "Beer",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": "nutrl",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "chamisul",
+    "name": "Chamisul Fresh",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jinro",
+    "name": "Jinro Is Back",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sj_straw",
+    "name": "Strawberry soju",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sj_grape",
+    "name": "Grapefruit soju",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sj_green",
+    "name": "Green Grape soju",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sj_peach",
+    "name": "Peach soju",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sj_plum",
+    "name": "Plum soju",
+    "section": "Soju",
+    "unit_cents": 2000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sunrise",
+    "name": "Tequila Sunrise",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "hawaii",
+    "name": "Blue Hawaii",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jolly",
+    "name": "Jolly Rancher",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "melon",
+    "name": "Melon Ball",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "russian",
+    "name": "Black Russian",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sotb",
+    "name": "Sex on the Beach",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "paloma",
+    "name": "Paloma",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "midori",
+    "name": "Midori Sour",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "amaretto",
+    "name": "Amaretto Sour",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "kamitini",
+    "name": "Kamikaze-tini",
+    "section": "Cocktails",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "droptini",
+    "name": "Lemon Drop-tini",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "mule_c",
+    "name": "Moscow Mule",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "stormy",
+    "name": "Dark ’n’ Stormy",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "maitai",
+    "name": "Mai Tai",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "yogurt",
+    "name": "Yogurt Soju Cocktail",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "malibubay",
+    "name": "Malibu Bay Breeze",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "marg",
+    "name": "Margarita",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "marg",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "tea",
+    "name": "Iced Tea",
+    "section": "Cocktails",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "tea",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_drop",
+    "name": "Lemon Drop shot",
+    "section": "Shots",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_butter",
+    "name": "Buttery Nipple",
+    "section": "Shots",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_kami",
+    "name": "Kamikaze shot",
+    "section": "Shots",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_woo",
+    "name": "Woo Woo",
+    "section": "Shots",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_org",
+    "name": "Orgasm",
+    "section": "Shots",
+    "unit_cents": 900,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_green",
+    "name": "Green Tea shot",
+    "section": "Shots",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "s_rhs",
+    "name": "Red Headed Slut",
+    "section": "Shots",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jager",
+    "name": "Jäger Bomb",
+    "section": "Shots",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jameson",
+    "name": "Jameson",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jack",
+    "name": "Jack Daniel’s",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jwb",
+    "name": "Johnnie Walker Black",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "fireball",
+    "name": "Fireball",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "jackh",
+    "name": "Jack Daniel’s Honey",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "makers",
+    "name": "Maker’s Mark",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "hennessy",
+    "name": "Hennessy",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "bulleit",
+    "name": "Bulleit Bourbon",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "basil",
+    "name": "Basil Hayden",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "glen",
+    "name": "The Glenlivet 12",
+    "section": "Spirits",
+    "unit_cents": 1400,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "titos",
+    "name": "Tito’s",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "stoli",
+    "name": "Stoli",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "stoli",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "ketel",
+    "name": "Ketel One",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "goosev",
+    "name": "Grey Goose",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "patron",
+    "name": "Patrón",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "casa",
+    "name": "Casamigos Blanco",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "mezcal",
+    "name": "Mezcal",
+    "section": "Spirits",
+    "unit_cents": 1400,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "bacardi",
+    "name": "Bacardi",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "captain",
+    "name": "Captain Morgan",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "malibu",
+    "name": "Malibu",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "tanq",
+    "name": "Tanqueray",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "bombay",
+    "name": "Bombay",
+    "section": "Spirits",
+    "unit_cents": 1200,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "hendricks",
+    "name": "Hendrick’s",
+    "section": "Spirits",
+    "unit_cents": 1300,
+    "alcohol": true,
+    "option_group": "spirit",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "malbec_g",
+    "name": "Malbec · glass",
+    "section": "Wine",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "malbec_b",
+    "name": "Malbec · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "merlot_g",
+    "name": "Merlot · glass",
+    "section": "Wine",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "merlot_b",
+    "name": "Merlot · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "cab_g",
+    "name": "Cabernet · glass",
+    "section": "Wine",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "cab_b",
+    "name": "Cabernet · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sauv_g",
+    "name": "Sauvignon Blanc · glass",
+    "section": "Wine",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "sauv_b",
+    "name": "Sauvignon Blanc · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "pinot_g",
+    "name": "Pinot Grigio · glass",
+    "section": "Wine",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "pinot_b",
+    "name": "Pinot Grigio · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "pros_g",
+    "name": "Prosecco · glass",
+    "section": "Wine",
+    "unit_cents": 1000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "pros_b",
+    "name": "Prosecco · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "andre",
+    "name": "André Brut · bottle",
+    "section": "Wine",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "moet",
+    "name": "Moët & Chandon · bottle",
+    "section": "Wine",
+    "unit_cents": 18000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "soda_c",
+    "name": "Soda · cup",
+    "section": "Soft drinks",
+    "unit_cents": 500,
+    "alcohol": false,
+    "option_group": "soda",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "soda_p",
+    "name": "Soda · pitcher",
+    "section": "Soft drinks",
+    "unit_cents": 1800,
+    "alcohol": false,
+    "option_group": "soda",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "lem_c",
+    "name": "Lemonade · cup",
+    "section": "Soft drinks",
+    "unit_cents": 500,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "lem_p",
+    "name": "Lemonade · pitcher",
+    "section": "Soft drinks",
+    "unit_cents": 1800,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "cran_c",
+    "name": "Cranberry juice · cup",
+    "section": "Soft drinks",
+    "unit_cents": 500,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "cran_p",
+    "name": "Cranberry juice · pitcher",
+    "section": "Soft drinks",
+    "unit_cents": 1800,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "selt_c",
+    "name": "Seltzer · cup",
+    "section": "Soft drinks",
+    "unit_cents": 200,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "selt_p",
+    "name": "Seltzer · pitcher",
+    "section": "Soft drinks",
+    "unit_cents": 1600,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "gbeer",
+    "name": "Ginger beer",
+    "section": "Soft drinks",
+    "unit_cents": 900,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "redbull",
+    "name": "Red Bull",
+    "section": "Soft drinks",
+    "unit_cents": 600,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "mule_m",
+    "name": "Mule mocktail",
+    "section": "Soft drinks",
+    "unit_cents": 1100,
+    "alcohol": false,
+    "option_group": "mule",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "shirley",
+    "name": "Shirley Temple",
+    "section": "Soft drinks",
+    "unit_cents": 1100,
+    "alcohol": false,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_jameson",
+    "name": "Jameson · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_jack",
+    "name": "Jack Daniel’s · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_jwb",
+    "name": "Johnnie Walker Black · bottle",
+    "section": "Bottles",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_fireball",
+    "name": "Fireball · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_hennessy",
+    "name": "Hennessy · bottle",
+    "section": "Bottles",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_makers",
+    "name": "Maker’s Mark · bottle",
+    "section": "Bottles",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_bulleit",
+    "name": "Bulleit · bottle",
+    "section": "Bottles",
+    "unit_cents": 33000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_glen",
+    "name": "Glenlivet 12 · bottle",
+    "section": "Bottles",
+    "unit_cents": 35000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_titos",
+    "name": "Tito’s · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_goose",
+    "name": "Grey Goose · bottle",
+    "section": "Bottles",
+    "unit_cents": 35000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_patron",
+    "name": "Patrón · bottle",
+    "section": "Bottles",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_casa",
+    "name": "Casamigos · bottle",
+    "section": "Bottles",
+    "unit_cents": 33000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_bacardi",
+    "name": "Bacardi · bottle",
+    "section": "Bottles",
+    "unit_cents": 27500,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_hendricks",
+    "name": "Hendrick’s · bottle",
+    "section": "Bottles",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_tanq",
+    "name": "Tanqueray · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "bucket_s",
+    "name": "Small bucket · 6 beers",
+    "section": "Buckets",
+    "unit_cents": 4000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "bucket_l",
+    "name": "Large bucket · 10 beers",
+    "section": "Buckets",
+    "unit_cents": 7000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "p_soju2",
+    "name": "2 soju + small bucket",
+    "section": "Buckets",
+    "unit_cents": 7000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "p_soju4",
+    "name": "4 soju + large bucket",
+    "section": "Buckets",
+    "unit_cents": 12000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "p_shots",
+    "name": "12 house shots + 2 small buckets",
+    "section": "Buckets",
+    "unit_cents": 15000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": true
+   },
+   {
+    "id": "p_bottle1",
+    "name": "1 bottle + large bucket",
+    "section": "Buckets",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": "bottle",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "p_bottle2",
+    "name": "2 bottles + 3 large buckets",
+    "section": "Buckets",
+    "unit_cents": 68000,
+    "alcohol": true,
+    "option_group": "bottle",
+    "in_rail_canvas": true
+   },
+   {
+    "id": "b_jackh",
+    "name": "Jack Daniel’s Honey · bottle",
+    "section": "Bottles",
+    "unit_cents": 30000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_basil",
+    "name": "Basil Hayden · bottle",
+    "section": "Bottles",
+    "unit_cents": 33000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_stoli",
+    "name": "Stoli · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_ketel",
+    "name": "Ketel One · bottle",
+    "section": "Bottles",
+    "unit_cents": 33000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_mezcal",
+    "name": "Mezcal · bottle",
+    "section": "Bottles",
+    "unit_cents": 35000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_captain",
+    "name": "Captain Morgan · bottle",
+    "section": "Bottles",
+    "unit_cents": 27500,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_malibu",
+    "name": "Malibu · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   },
+   {
+    "id": "b_bombay",
+    "name": "Bombay · bottle",
+    "section": "Bottles",
+    "unit_cents": 25000,
+    "alcohol": true,
+    "option_group": null,
+    "in_rail_canvas": false
+   }
+  ]
+ },
+ "later_tonight": {
+  "screen": "Night.dc.html",
+  "label": "Later tonight · Sat 4:12 AM",
+  "at": "2026-09-26T04:12:00-04:00",
+  "business_date": "2026-09-25",
+  "timeline": [
+   {
+    "at": "2026-09-26T04:00:00-04:00",
+    "what": "The alcohol window closes. Every alcohol button greys out on every screen. Alcohol orders nobody accepted are cancelled (alcohol_closed, nothing charged). Guests see \"The bar stopped serving alcohol at 4 AM · your order was cancelled, nothing charged\". The bar orders screen lists \"Cancelled at 4:00 AM\". No Decline button."
+   },
+   {
+    "at": "2026-09-26T04:02:00-04:00",
+    "what": "The Rail's late demo (\"Demo: it's 4:02 AM\")."
+   },
+   {
+    "at": "2026-09-26T04:12:00-04:00",
+    "what": "Close the night screen (\"Later tonight · Sat 4:12 AM\")."
+   },
+   {
+    "at": "2026-09-26T04:30:00-04:00",
+    "what": "Close plus 30 minutes' drinking-up: the clear-out check is due, and the tab cut-off job captures every open tab at its balance."
+   },
+   {
+    "at": "2026-09-26T04:31:00-04:00",
+    "what": "Clear-out check · Andy · 4:31 AM (Done)."
+   },
+   {
+    "at": "2026-09-26T04:48:00-04:00",
+    "what": "Night closed · 4:48 AM."
+   }
+  ],
+  "checks_before_closing": [
+   "Staff still on the clock",
+   "Open waitlist entries",
+   "Ringing or asked-to-wait orders",
+   "Pending approvals",
+   "Rooms still cleaning",
+   "Unsent drinks",
+   "The clear-out check (4:30 AM)",
+   "Paper slips not entered: \"3 slips not entered · tips post to Sat Sep 26\"",
+   "Both drawers counted"
+  ],
+  "z_report_rules": [
+   "Drinks split into Room checks and Bar tabs",
+   "Gratuity from room checks only, as the sum of their gratuity lines",
+   "\"Print X report (running)\" until the night closes, then \"Print Z report\""
+  ],
+  "not_seeded": "Z-report totals for the whole night are not in the brief; the Night canvas figures are pre-fix and disagree with this seed."
+ },
+ "scenarios": [
+  {
+   "id": "accept_o1",
+   "do": "Accept o1 (2 × Margarita · Peach) from the bar POS or the bar orders screen.",
+   "expect": "o1 leaves Ringing and joins Room 9's check: drinks $158.00 → $184.00, tab so far $480.00 → $506.00. A ticket prints. Bar orders · 2 becomes Bar orders · 1. Room 9's phone reads \"Being made · on your tab\"."
+  },
+  {
+   "id": "ask_room5_wait",
+   "do": "On o2 (Room 5, 4 × Bud Light, ringing 2:11) tap Ask the room to wait.",
+   "expect": "o2 shows Asked to wait, stays under Waiting for you and keeps aging; the badge stays at 2; no screen offers Ready or Delivered until Accept. Room 5's phone reads \"The bar needs a few minutes\"."
+  },
+  {
+   "id": "accept_o2",
+   "do": "Accept o2.",
+   "expect": "Room 5's tab so far $40.00 → $72.00 (first-hour minimum $40.00 + $32.00). The room's ID chip reads ID ✓ 4 of 4."
+  },
+  {
+   "id": "runner_o3",
+   "do": "On Andy's phone open Runs, tap I've got it on o3 (Room 3), then Delivered.",
+   "expect": "o3 goes Ready for a runner · 4:00 → On its way · Andy → Delivered · time · Andy. Delivered charges nothing; the $39.00 was charged at Accept."
+  },
+  {
+   "id": "runner_returns_o4",
+   "do": "Demo: a runner brings o4 (Room 1, 4 × Corona) back with \"No ID for someone who ordered\".",
+   "expect": "o4 shows Couldn't serve: No ID for someone who ordered · Andy under Returned; the manager on duty sees it; the bar picks Void · not made, Void · made (waste) or Remake. The $36.00 void is over the $25 reason-only limit: the spec does not say whether return resolutions count against the limit (flagged)."
+  },
+  {
+   "id": "andy_approves_void",
+   "do": "On Andy's phone open Approvals · 1 and tap Approve on Diego's void of the Large bucket.",
+   "expect": "Tariq A.'s tab drops $79.00 → $9.00 of drinks, tax $0.80, total $9.80 (was $86.01). Diego's screen showed \"Waiting for Andy\" and then the decision. Tip choices on the reader change to $1, $2, $3 because the drinks are under $10."
+  },
+  {
+   "id": "reason_only",
+   "do": "As Maya, comp a $13.00 drink with a reason.",
+   "expect": "No approval: her shift total goes $12.00 → $25.00 and the screen shows \"$50 left this shift\". A $25.01 comp, or a shift total over $75.00, goes to Andy."
+  },
+  {
+   "id": "sam_check_in",
+   "do": "At 10:44 check Sam O. in (party 3).",
+   "expect": "The sheet shows \"3 guests · Fridays bill at least 4\", deposit applied −$40.00, a new room code texted to the host with the join link. Room time bills 4 × $10.00 an hour with the one-hour minimum ($40.00)."
+  },
+  {
+   "id": "sam_no_show",
+   "do": "At 10:45 tap Mark no-show instead.",
+   "expect": "Allowed only after the 15-minute grace (10:30 + 15). Room 2 frees up; the guest waitlist page reads \"Room 2 is ready · 10:00 to claim it\"."
+  },
+  {
+   "id": "offer_room11",
+   "do": "Tap Offer Room 11 · 10 min to claim for Amara B. (7).",
+   "expect": "Room 11 is held for 10 minutes with a countdown and the Room ready text goes out. If the text fails: \"Not delivered · Call\". Seat opens check-in in Room 11. If unclaimed, the room is released and offered to the next party that fits (Nadia K.)."
+  },
+  {
+   "id": "room9_closeout",
+   "do": "Close out Room 9 (Marcus T.).",
+   "expect": "Present the check is refused while o1 rings (\"2 × Margarita · Peach is ringing at the bar · accept or cancel it first\"). With o1 cancelled: check #1042 totals $618.60, deposit −$120.00, $498.60 left. With o1 accepted first: $652.11 total, $532.11 left. Gratuity is on the check, so the reader skips its tip screen and the receipt says \"Gratuity included (20%)\". Marcus's refund cap is $120.00 (only the deposit is captured tonight)."
+  },
+  {
+   "id": "pay_my_share",
+   "do": "On the guests' phones open Your bill and pay 1 of 12.",
+   "expect": "Each share of $498.60 is $41.55. The log line reads \"Paid by a guest · Kevin (share 1 of 12) $41.55\". The booker's Amex ··1005 still guarantees the rest."
+  },
+  {
+   "id": "room7_move",
+   "do": "Tap Move a room… on Room 7's alert.",
+   "expect": "The sheet lists only rooms that fit and are free for the time needed; Room 11 is free all night. Moving opens a new segment, a new room code and \"You've moved to Room 11 · new code …\" on the guests' phones; Room 7 goes to cleaning for the Parks (8) at 11:00."
+  },
+  {
+   "id": "cut_off_hana",
+   "do": "Look at Hana K.'s tab (t4).",
+   "expect": "\"Cut off by Andy at 10:30 PM\" on every screen for that tab; alcohol greyed; moves of alcohol onto it refused; her song (position 5) still plays."
+  },
+  {
+   "id": "alcohol_stop",
+   "do": "Use the Rail's \"Demo: it's 4:02 AM\".",
+   "expect": "Every alcohol button is greyed with the reason in words; unaccepted alcohol orders show Cancelled at 4:00 AM; there is no Decline button."
+  },
+  {
+   "id": "night_close",
+   "do": "Open Close the night at Sat 4:12 AM (business date Fri Sep 25).",
+   "expect": "Nine checks each link to their fix; \"3 slips not entered · tips post to Sat Sep 26\"; both drawers counted blind; the clear-out check is due at 4:30 AM and closes as \"Clear-out check · Andy · 4:31 AM\"; the demo ends \"Night closed · 4:48 AM\"."
+  }
+ ]
+}

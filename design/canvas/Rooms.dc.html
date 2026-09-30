@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The rooms</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#07060a;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.rm-disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.rm-mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.rm-btn{transition:transform .15s ease;cursor:pointer;font-family:inherit}
+.rm-btn:hover{transform:translateY(-1px)}.rm-btn:active{transform:translateY(1px)}
+.rm-btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rm-dot{transition:background .25s ease,box-shadow .25s ease,transform .25s ease}
+.rm-cta{transition:transform .15s ease}.rm-cta:hover{transform:translateY(-2px)}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; box-sizing: border-box; overflow: hidden; padding: 40px 20px 28px; display: flex; flex-direction: column; gap: 18px; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+  <div style="position: absolute; right: -150px; top: -40px; width: 380px; height: 380px; border-radius: 50%; background: radial-gradient(closest-side, #3DF2FF, transparent 70%); opacity: .14; pointer-events: none"></div>
+  <div class="rm-mono" style="position: relative; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">↓ The rooms</div>
+  <h2 class="rm-disp" style="position: relative; margin: 0; font-size: clamp(50px, 14vw, 130px); color: #F4F1EA">14 rooms.<br>Three to forty.</h2>
+  <p style="position: relative; margin: 0; font-size: 15px; line-height: 1.45; color: #A39FA8; max-width: 340px">Every room is private: your screen, your mics, your playlist, door closed. Tell us how many and we match the room.</p>
+
+  <div style="position: relative; border-radius: 22px; padding: 18px; background: #121016; border: 1px solid rgba(244,241,234,.1); display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+      <span class="rm-mono" style="font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F)">How many of you?</span>
+      <span class="rm-mono" style="font-size: 11px; letter-spacing: .08em; color: #8E8994">max 40</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px" aria-hidden="true">
+      <sc-for list="{{dots}}" as="d" hint-placeholder-count="40"><span class="rm-dot" style="display: block; aspect-ratio: 1 / 1; border-radius: 50%; {{d.style}}"></span></sc-for>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+      <button type="button" class="rm-btn" onClick="{{dec}}" aria-label="Fewer people" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">−</button>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <div class="rm-disp" style="font-size: 52px; line-height: 1; color: #F4F1EA">{{count}}</div>
+        <div style="font-size: 12px; color: #8E8994">people</div>
+      </div>
+      <button type="button" class="rm-btn" onClick="{{inc}}" aria-label="More people" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">+</button>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid rgba(244,241,234,.08)">
+      <div style="min-width: 0">
+        <div style="font-weight: 700; font-size: 16px">{{fitLine}}</div>
+        <div style="font-size: 12px; color: #8E8994; line-height: 1.4">{{fitNote}}</div>
+      </div>
+      <a href="#book" class="rm-cta" style="display: inline-flex; align-items: center; gap: 8px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; padding: 12px 16px; border-radius: 999px; font-weight: 700; font-size: 14px; white-space: nowrap">Book it <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h10M8 3l4 4-4 4"/></svg></a>
+    </div>
+  </div>
+
+  <div style="position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: rgba(244,241,234,.04); border: 1px solid rgba(244,241,234,.1)">
+      <span class="rm-mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Private rooms</span>
+      <span class="rm-disp" style="font-size: 30px; color: #F4F1EA">$10</span>
+      <span style="font-size: 12px; color: #A39FA8; line-height: 1.45">per person, per hour. Groups of 3 and up, one hour minimum.</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 18px; background: rgba(244,241,234,.04); border: 1px solid rgba(244,241,234,.1)">
+      <span class="rm-mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">VIP room</span>
+      <span class="rm-disp" style="font-size: 30px; color: var(--acc, #D4FF3F)">$250</span>
+      <span style="font-size: 12px; color: #A39FA8; line-height: 1.45">per hour and up. Parties of 20 or more, up to 40.</span>
+    </div>
+  </div>
+
+  <div style="position: relative; border-radius: 18px; overflow: hidden; border: 1px solid rgba(244,241,234,.1)">
+    <img src="/_blob/eb5ebe9c2a330dad1dcefd7612ad51e5" alt="A private room at West 4: graffiti walls, black leather couches, two screens and disco lights across the floor" style="display: block; width: 100%; height: 250px; object-fit: cover; object-position: 50% 62%">
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 48px 14px 12px; background: linear-gradient(180deg, rgba(7,6,10,0), rgba(7,6,10,.88)); display: flex; justify-content: space-between; align-items: flex-end; gap: 10px">
+      <span class="rm-mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #F4F1EA">One of the fourteen</span>
+      <span class="rm-mono" style="font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F); text-align: right">Two screens · disco floor</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1040}}'>
+class Component extends DCLogic {
+  constructor() { super(...arguments); this.state = { count: 8 }; }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const count = Math.min(40, Math.max(3, this.state.count));
+    const vip = count >= 20;
+    const dots = [];
+    for (let i = 0; i < 40; i++) {
+      const lit = i < count;
+      dots.push({ style: lit
+        ? "background: " + acc + "; box-shadow: 0 0 10px " + acc + "; transform: scale(1);"
+        : "background: rgba(244,241,234,.08); box-shadow: none; transform: scale(.8);" });
+    }
+    return {
+      accent: acc,
+      count,
+      dots,
+      inc: () => this.setState({ count: Math.min(40, count + 1) }),
+      dec: () => this.setState({ count: Math.max(3, count - 1) }),
+      fitLine: vip ? "The VIP room, 20 to 40" : "A private room for " + count,
+      fitNote: vip ? "From $250 per hour, plus tax" : "$" + (count * 10) + " an hour, plus tax"
+    };
+  }
+}
+</script>
+</body>
+</html>

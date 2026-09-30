@@ -1,0 +1,1300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Venue setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&family=Archivo:wdth,wght@62..125,700..900&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease,box-shadow .2s ease,background .15s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.in:focus-visible,.up:focus-within{outline:2px solid #F4F1EA;outline-offset:2px}
+.btn[disabled]{cursor:not-allowed}.btn[disabled]:hover,.btn[disabled]:active{transform:none}
+.stp{transition:background .15s ease}.stp:hover{background:rgba(244,241,234,.06)}
+.in{width:100%;box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.14);border-radius:8px;padding:9px 11px;color:#F4F1EA;font:inherit;font-size:13px;outline:0;min-width:0}
+.in:focus{border-color:#D4FF3F}.in::placeholder{color:#6F6B78}
+select.in{appearance:none;-webkit-appearance:none;color-scheme:dark;padding-right:26px;background-image:linear-gradient(45deg,transparent 50%,#8E8994 50%),linear-gradient(135deg,#8E8994 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.card{padding:16px;border-radius:14px;background:#121016;border:1px solid rgba(244,241,234,.08);display:flex;flex-direction:column;gap:12px;box-sizing:border-box;min-width:0}
+.eye{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+.lbl{font-size:11px;color:#8E8994}
+.hint{font-size:11px;color:#6F6B78;line-height:1.5}
+.seg{appearance:none;border-radius:8px;padding:9px 6px;font-weight:700;font-size:12px;font-family:inherit;cursor:pointer}
+.sw{appearance:none;border:0;width:42px;height:24px;border-radius:999px;position:relative;flex:none;cursor:pointer;padding:0}
+.sw>span{position:absolute;top:3px;width:18px;height:18px;border-radius:50%;background:#0b0a0d;transition:left .15s ease}
+.ghost{appearance:none;border-radius:10px;padding:10px 14px;font-weight:700;font-size:13px;background:transparent;color:#F4F1EA;border:1px solid rgba(244,241,234,.16);white-space:nowrap}
+.pri{appearance:none;border:0;border-radius:10px;padding:10px 18px;font-weight:700;font-size:13px;background:var(--acc,#D4FF3F);color:#0b0a0d;white-space:nowrap}
+.up{position:relative;overflow:hidden;cursor:pointer}.up input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.bigbtn,.bigbtn:hover{color:#0b0a0d}a.ghost,a.ghost:hover{color:#F4F1EA}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}12%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+.toast{animation:toast 3.2s ease both}
+@keyframes pane{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pane{animation:pane .22s cubic-bezier(.2,.7,.2,1) both}
+@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.pop{animation:pop .18s ease both}
+@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin .8s linear infinite}
+@media (prefers-reduced-motion:reduce){.toast,.pane,.pop,.spin{animation:none!important}.toast{transform:translateX(-50%)}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden">
+
+  <aside style="width: 272px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 18px 12px 14px; box-sizing: border-box; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 5px; padding: 4px 10px 14px">
+      <span class="disp" style="font-size: 26px">Set up</span>
+      <span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{venueLine}}</span>
+    </div>
+    <nav aria-label="Setup steps" style="display: flex; flex-direction: column; gap: 2px">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="10">
+        <button type="button" class="btn stp" onClick="{{s.go}}" aria-current="{{s.aria}}" style="appearance: none; border: 0; text-align: left; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; font-family: inherit; {{s.rowStyle}}">
+          <span class="mono" style="width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; box-sizing: border-box; {{s.dotStyle}}">{{s.mark}}</span>
+          <span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.label}}</span><span style="font-size: 11px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.sub}}</span></span>
+        </button>
+      </sc-for>
+    </nav>
+    <div style="margin-top: auto; padding: 12px; border-radius: 10px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 11px; color: #8E8994; line-height: 1.5">Nothing goes public until you press Go live. Every answer stays editable later in Admin.</div>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: flex-start; gap: 16px; padding: 16px 24px 12px">
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+        <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">{{stepEyebrow}}</span>
+        <h1 class="disp" style="margin: 0; font-size: 32px">{{stepTitle}}</h1>
+        <span style="font-size: 13px; color: #C9C5CE; line-height: 1.4">{{stepHint}}</span>
+      </div>
+      <div role="group" aria-label="Demo data" style="flex: none; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.12)">
+        <span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994; padding: 0 6px 0 9px">Demo</span>
+        <sc-for list="{{demoModes}}" as="d" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="appearance: none; border: 0; border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 700; white-space: nowrap; {{d.style}}">{{d.label}}</button></sc-for>
+      </div>
+    </header>
+    <div style="display: flex; align-items: center; gap: 12px; padding: 0 24px 12px; border-bottom: 1px solid rgba(244,241,234,.08)">
+      <div role="progressbar" aria-label="Setup progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="{{doneCount}}" style="flex: 1; height: 6px; border-radius: 999px; background: rgba(244,241,234,.1); overflow: hidden"><div style="height: 100%; border-radius: 999px; background: var(--acc, #D4FF3F); transition: width .3s ease; {{progressStyle}}"></div></div>
+      <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; white-space: nowrap">{{progressLine}}</span>
+    </div>
+
+    <section ref="{{bodyRef}}" style="flex: 1; min-height: 0; overflow: auto; padding: 18px 24px 24px; display: flex; flex-direction: column; gap: 14px">
+
+      <sc-if value="{{s1}}" hint-placeholder-val="{{true}}">
+        <div class="pane" style="display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+          <div class="card" style="gap: 14px">
+            <div><label for="su-name" class="lbl">Business name, the way guests see it</label><input id="su-name" class="in" type="text" value="{{name}}" onChange="{{setName}}" placeholder="e.g. the name on your sign" style="margin-top: 4px"></div>
+            <div><label for="su-addr" class="lbl">Street address</label><input id="su-addr" class="in" type="text" value="{{address}}" onChange="{{setAddress}}" placeholder="Street, city, state, ZIP" style="margin-top: 4px"></div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <span class="lbl">Liquor license type, as printed on the license</span>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+                <sc-for list="{{licModes}}" as="m" hint-placeholder-count="2"><button type="button" class="btn seg" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-align: left; {{m.style}}"><span style="font-size: 13px">{{m.label}}</span><span style="font-size: 11px; font-weight: 500; opacity: .75">{{m.hint}}</span></button></sc-for>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <span class="lbl">Do you let in guests under 21?</span>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+                <sc-for list="{{u21Modes}}" as="m" hint-placeholder-count="2"><button type="button" class="btn seg" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="padding: 10px 12px; text-align: left; font-size: 13px; {{m.style}}">{{m.label}}</button></sc-for>
+              </div>
+              <span style="font-size: 12px; color: #C9C5CE; line-height: 1.45">{{u21Line}}</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="eye">Set from your address · New York rule pack</div>
+            <sc-if value="{{hasPack}}" hint-placeholder-val="{{true}}">
+              <sc-for list="{{pack}}" as="p" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                  <span style="font-size: 12px; color: #8E8994">{{p.k}}</span>
+                  <div style="min-width: 0"><div style="font-size: 16px; font-weight: 700">{{p.v}}</div><div style="font-size: 11px; color: #8E8994; margin-top: 2px">{{p.hint}}</div></div>
+                </div>
+              </sc-for>
+              <div class="hint">These drive last call, the tax on every check and staff pay rules. We keep the tables current. You can set an earlier last call in Admin, never a later one.</div>
+            </sc-if>
+            <sc-if value="{{packUnknown}}" hint-placeholder-val="{{false}}">
+              <div style="padding: 14px; border-radius: 10px; border: 1px dashed #FFB13D88; font-size: 13px; line-height: 1.5; color: #F4F1EA">We can't place this address yet. This demo knows New York City ZIP codes only; the real rule pack covers every New York county.</div>
+            </sc-if>
+            <sc-if value="{{packEmpty}}" hint-placeholder-val="{{false}}">
+              <div style="padding: 14px; border-radius: 10px; border: 1px dashed rgba(244,241,234,.2); font-size: 13px; line-height: 1.5; color: #8E8994">Type your address and this card fills in your county, the alcohol closing hour, the sales tax rate and the wage region.</div>
+              <sc-for list="{{packBlank}}" as="p" hint-placeholder-count="4"><div style="display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(244,241,234,.06)"><span style="font-size: 12px; color: #6F6B78">{{p}}</span><span style="font-size: 13px; color: #3a3841">—</span></div></sc-for>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s2}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: flex; flex-direction: column; gap: 14px">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{runCards}}" as="c" hint-placeholder-count="3">
+              <button type="button" class="btn" onClick="{{c.toggle}}" aria-pressed="{{c.on}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 14px; font-family: inherit; min-height: 124px; box-sizing: border-box; {{c.style}}">
+                <span style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; width: 100%"><span class="disp" style="font-size: 26px">{{c.label}}</span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; box-sizing: border-box; {{c.boxStyle}}">{{c.tick}}</span></span>
+                <span style="font-size: 13px; line-height: 1.4; opacity: .85">{{c.hint}}</span>
+                <span class="mono" style="margin-top: auto; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; opacity: .7">{{c.adds}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start">
+            <div class="card">
+              <div class="eye">Recommended plan</div>
+              <sc-if value="{{hasPlan}}" hint-placeholder-val="{{true}}">
+                <div class="disp" style="font-size: 34px; color: var(--acc, #D4FF3F)">{{planName}}</div>
+                <div style="font-size: 22px; font-weight: 700">{{planPrice}}</div>
+                <div class="mono" style="font-size: 11px; color: #C9C5CE">{{planMath}}</div>
+                <div style="font-size: 12px; color: #C9C5CE; line-height: 1.5">{{planIncludes}}</div>
+              </sc-if>
+              <sc-if value="{{noPlan}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; color: #8E8994; line-height: 1.5">Pick at least one card above and the plan that fits shows here.</div></sc-if>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+                <sc-for list="{{planRows}}" as="p" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 5px 8px; border-radius: 8px; {{p.style}}"><span style="font-weight: 700">{{p.name}}</span><span class="mono" style="font-size: 11px; white-space: nowrap">{{p.price}}</span></div></sc-for>
+                <div class="hint" style="padding: 4px 8px 0">Add-ons on any plan: Kitchen, Marketing texts, Event sales, Guests &amp; loyalty, Multiple locations.</div>
+              </div>
+              <div style="font-size: 12px; color: #F4F1EA; padding: 10px 12px; border-radius: 10px; background: #141218">You can change these any time in Admin → Features.</div>
+            </div>
+            <div class="card">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><div class="eye">Modules · switched on from your choice</div><span class="mono" style="font-size: 10px; color: #8E8994; white-space: nowrap">{{modCount}}</span></div>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+                <sc-for list="{{coreMods}}" as="c" hint-placeholder-count="4"><div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 10px; background: #0e0d11; border: 1px dashed rgba(244,241,234,.14)"><span style="font-size: 13px; font-weight: 600; min-width: 0">{{c}}</span><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: #8E8994; white-space: nowrap">Always on</span></div></sc-for>
+              </div>
+              <sc-if value="{{noPlan}}" hint-placeholder-val="{{false}}"><div style="padding: 18px; border-radius: 10px; border: 1px dashed rgba(244,241,234,.2); font-size: 13px; color: #8E8994; line-height: 1.5">Pick at least one card above. The modules that fit what you run switch on here, and you can fine-tune them.</div></sc-if>
+              <sc-if value="{{hasPlan}}" hint-placeholder-val="{{true}}">
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+                <sc-for list="{{mods}}" as="m" hint-placeholder-count="19">
+                  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 42px; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08); {{m.rowStyle}}">
+                    <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                      <span style="font-size: 13px; font-weight: 600">{{m.name}}</span>
+                      <span style="font-size: 11px; color: #8E8994; line-height: 1.35">{{m.what}}</span>
+                      <sc-if value="{{m.hasTag}}" hint-placeholder-val="{{false}}"><span class="mono" style="align-self: flex-start; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; margin-top: 3px; {{m.tagStyle}}">{{m.tag}}</span></sc-if>
+                    </div>
+                    <button type="button" class="sw" role="switch" onClick="{{m.toggle}}" aria-checked="{{m.on}}" aria-label="{{m.name}}" disabled="{{m.locked}}" style="{{m.trackStyle}}"><span style="{{m.knobStyle}}"></span></button>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s3skip}}" hint-placeholder-val="{{false}}">
+        <div class="pane card" style="align-items: flex-start; padding: 28px; border-style: dashed; background: transparent">
+          <div class="disp" style="font-size: 26px; color: #8E8994">{{s3skipTitle}}</div>
+          <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5; max-width: 520px">{{s3skipBody}}</div>
+          <button type="button" class="btn ghost" onClick="{{s3skipAct}}">{{s3skipCta}}</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s3}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+          <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <div class="eye">Your rooms</div>
+              <div style="display: flex; align-items: center; gap: 6px">
+                <button type="button" class="btn ghost" onClick="{{roomsMinus}}" aria-label="One room less" style="padding: 6px 11px">−</button>
+                <input class="in" type="number" min="0" max="60" value="{{roomCount}}" onChange="{{setRoomCount}}" aria-label="Number of rooms" placeholder="0" style="width: 64px; text-align: center; padding: 7px 6px">
+                <button type="button" class="btn ghost" onClick="{{roomsPlus}}" aria-label="One room more" style="padding: 6px 11px">+</button>
+                <span style="font-size: 12px; color: #8E8994">rooms</span>
+              </div>
+            </div>
+            <sc-if value="{{hasRoomRows}}" hint-placeholder-val="{{true}}">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 118px 92px; gap: 8px; padding: 0 2px"><span class="lbl">Name</span><span class="lbl">Size</span><span class="lbl">Fits</span></div>
+              <div style="display: flex; flex-direction: column; gap: 5px">
+                <sc-for list="{{roomRows}}" as="r" hint-placeholder-count="14">
+                  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 118px 92px; gap: 8px">
+                    <input class="in" type="text" value="{{r.name}}" onChange="{{r.setName}}" placeholder="{{r.ph}}" aria-label="{{r.aria}}" style="padding: 7px 10px">
+                    <select class="in" value="{{r.tier}}" onChange="{{r.setTier}}" aria-label="Room size" style="padding: 7px 26px 7px 10px"><option value="">Size…</option><option value="Small">Small</option><option value="Medium">Medium</option><option value="Large">Large</option><option value="VIP">VIP</option></select>
+                    <input class="in" type="text" value="{{r.cap}}" onChange="{{r.setCap}}" placeholder="e.g. 6–12" aria-label="How many people fit" style="padding: 7px 10px">
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{noRoomRows}}" hint-placeholder-val="{{false}}"><div style="padding: 18px; border-radius: 10px; border: 1px dashed rgba(244,241,234,.2); font-size: 13px; color: #8E8994; line-height: 1.5">How many rooms do you have? Set the number above and a row appears for each one.</div></sc-if>
+            <div class="hint">“Fits” is the most people allowed in the room, from your fire safety plan. Booking never goes over it.</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+            <div class="card">
+              <div class="eye">How you charge for room time</div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+                <sc-for list="{{priceModes}}" as="m" hint-placeholder-count="3"><button type="button" class="btn seg" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.label}}</button></sc-for>
+              </div>
+              <sc-if value="{{pmNone}}" hint-placeholder-val="{{false}}"><div class="hint">Pick how you charge and the price fields appear.</div></sc-if>
+              <sc-if value="{{pmPP}}" hint-placeholder-val="{{true}}">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px"><div><label for="su-pp" class="lbl">Per person, per hour $</label><input id="su-pp" class="in" type="number" min="0" value="{{pp}}" onChange="{{setPp}}" placeholder="e.g. 10" style="margin-top: 4px"></div></div>
+              </sc-if>
+              <sc-if value="{{pmBase}}" hint-placeholder-val="{{false}}">
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+                  <div><label for="su-base" class="lbl">Base, per hour $</label><input id="su-base" class="in" type="number" min="0" value="{{base}}" onChange="{{setBase}}" style="margin-top: 4px"></div>
+                  <div><label for="su-bn" class="lbl">Covers the first … guests</label><input id="su-bn" class="in" type="number" min="1" value="{{baseN}}" onChange="{{setBaseN}}" style="margin-top: 4px"></div>
+                  <div><label for="su-ex" class="lbl">Each extra guest, per hour $</label><input id="su-ex" class="in" type="number" min="0" value="{{extra}}" onChange="{{setExtra}}" style="margin-top: 4px"></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{pmFlat}}" hint-placeholder-val="{{false}}">
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+                  <div><label for="su-fs" class="lbl">Small room, per hour $</label><input id="su-fs" class="in" type="number" min="0" value="{{flatS}}" onChange="{{setFlatS}}" style="margin-top: 4px"></div>
+                  <div><label for="su-fm" class="lbl">Medium room, per hour $</label><input id="su-fm" class="in" type="number" min="0" value="{{flatM}}" onChange="{{setFlatM}}" style="margin-top: 4px"></div>
+                  <div><label for="su-fl" class="lbl">Large room, per hour $</label><input id="su-fl" class="in" type="number" min="0" value="{{flatL}}" onChange="{{setFlatL}}" style="margin-top: 4px"></div>
+                </div>
+              </sc-if>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+                <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">VIP room has its own flat rate</div><div class="lbl">{{vipLine}}</div></div>
+                <button type="button" class="sw" role="switch" onClick="{{toggleVip}}" aria-checked="{{vipOn}}" aria-label="VIP room flat rate" style="{{vipTrack}}"><span style="{{vipKnob}}"></span></button>
+              </div>
+              <sc-if value="{{vipOn}}" hint-placeholder-val="{{true}}">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px">
+                  <div><label for="su-vr" class="lbl">VIP room, per hour $</label><input id="su-vr" class="in" type="number" min="0" value="{{vipRate}}" onChange="{{setVipRate}}" style="margin-top: 4px"></div>
+                  <div><label for="su-vf" class="lbl">For parties of … or more</label><input id="su-vf" class="in" type="number" min="1" value="{{vipFrom}}" onChange="{{setVipFrom}}" style="margin-top: 4px"></div>
+                </div>
+              </sc-if>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+                <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">Time bands · optional</div><div class="lbl">{{bandLine}}</div></div>
+                <button type="button" class="sw" role="switch" onClick="{{toggleBands}}" aria-checked="{{bandsOn}}" aria-label="Time bands" style="{{bandTrack}}"><span style="{{bandKnob}}"></span></button>
+              </div>
+              <sc-if value="{{bandsOn}}" hint-placeholder-val="{{false}}">
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+                  <div><label for="su-bat" class="lbl">Rate changes at</label><select id="su-bat" class="in" value="{{bandAt}}" onChange="{{setBandAt}}" style="margin-top: 4px"><option value="6:00 PM">6:00 PM</option><option value="7:00 PM">7:00 PM</option><option value="8:00 PM">8:00 PM</option><option value="9:00 PM">9:00 PM</option><option value="10:00 PM">10:00 PM</option></select></div>
+                  <div><label for="su-bb" class="lbl">{{bandBeforeLabel}}</label><input id="su-bb" class="in" type="number" min="0" value="{{bandBefore}}" onChange="{{setBandBefore}}" style="margin-top: 4px"></div>
+                  <div><label for="su-ba" class="lbl">{{bandAfterLabel}}</label><input id="su-ba" class="in" type="number" min="0" value="{{bandAfter}}" onChange="{{setBandAfter}}" style="margin-top: 4px"></div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div class="card">
+              <div class="eye">Minimums</div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end">
+                <div><label for="su-mh" class="lbl">Shortest booking, hrs</label><input id="su-mh" class="in" type="number" min="0" step="0.5" value="{{minHours}}" onChange="{{setMinHours}}" style="margin-top: 4px"></div>
+                <div><label for="su-mwk" class="lbl">Min. people, weeknights</label><input id="su-mwk" class="in" type="number" min="0" value="{{minWk}}" onChange="{{setMinWk}}" style="margin-top: 4px"></div>
+                <div><label for="su-mwe" class="lbl">Min. people, Fri &amp; Sat</label><input id="su-mwe" class="in" type="number" min="0" value="{{minWe}}" onChange="{{setMinWe}}" style="margin-top: 4px"></div>
+              </div>
+              <div style="font-size: 12px; color: #C9C5CE">{{minLine}}</div>
+            </div>
+
+            <div class="card">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+                <div style="min-width: 0"><div style="font-size: 14px; font-weight: 700">Deposit when people book online</div><div class="lbl">Same options as Admin → Deposits &amp; cancelling</div></div>
+                <button type="button" class="sw" role="switch" onClick="{{toggleDep}}" aria-checked="{{depOn}}" aria-label="Deposit on or off" style="{{depTrack}}"><span style="{{depKnob}}"></span></button>
+              </div>
+              <sc-if value="{{depOn}}" hint-placeholder-val="{{true}}">
+                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px"><sc-for list="{{depModes}}" as="m" hint-placeholder-count="4"><button type="button" class="btn seg" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="{{m.style}}">{{m.label}}</button></sc-for></div>
+                <div style="display: flex; gap: 10px">
+                  <sc-if value="{{depHasValue}}" hint-placeholder-val="{{false}}"><div style="flex: 1; min-width: 0"><label for="su-dv" class="lbl">{{depValueLabel}}</label><input id="su-dv" class="in" type="number" min="0" value="{{depValue}}" onChange="{{setDepValue}}" style="margin-top: 4px"></div></sc-if>
+                  <div style="flex: 1; min-width: 0"><label for="su-dc" class="lbl">Full refund if they cancel … hours ahead</label><input id="su-dc" class="in" type="number" min="0" value="{{cancel}}" onChange="{{setCancel}}" placeholder="e.g. 24" style="margin-top: 4px"></div>
+                </div>
+              </sc-if>
+              <div style="font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; background: #141218"><span class="eye" style="display: block; margin-bottom: 4px">Guests read</span>{{depPolicy}}</div>
+            </div>
+
+            <div class="card" style="gap: 6px">
+              <div class="eye">{{tryTitle}}</div>
+              <sc-for list="{{tryRows}}" as="x" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid rgba(244,241,234,.06)"><span style="color: #C9C5CE">{{x.k}}</span><span class="mono" style="white-space: nowrap">{{x.v}}</span></div></sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s4}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: flex; flex-direction: column; gap: 14px">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{menuWays}}" as="w" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; box-sizing: border-box; {{w.style}}">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px"><span style="font-size: 15px; font-weight: 700">{{w.label}}</span><span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994; white-space: nowrap">{{w.kind}}</span></div>
+                <span style="font-size: 12px; color: #C9C5CE; line-height: 1.4">{{w.hint}}</span>
+                <sc-if value="{{w.isFile}}" hint-placeholder-val="{{true}}"><label class="btn up ghost" style="align-self: flex-start; padding: 8px 12px; font-size: 12px">{{w.cta}}<input type="file" accept="{{w.accept}}" onChange="{{w.pickFile}}" aria-label="{{w.cta}}"></label></sc-if>
+                <sc-if value="{{w.isType}}" hint-placeholder-val="{{false}}"><button type="button" class="btn ghost" onClick="{{w.pick}}" style="align-self: flex-start; padding: 8px 12px; font-size: 12px">{{w.cta}}</button></sc-if>
+                <sc-if value="{{w.hasStatus}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; font-weight: 600; color: var(--acc, #D4FF3F); line-height: 1.4">{{w.status}}</span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #3DF2FF0d; border: 1px solid #3DF2FF3d; font-size: 12px; color: #F4F1EA; line-height: 1.45"><span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #3DF2FF; white-space: nowrap">One list</span><span>Your website's menu page and the menu PDF are made from this list, and so is room ordering. Change a price once and all three update.</span></div>
+          <sc-if value="{{typing}}" hint-placeholder-val="{{false}}">
+            <div class="card" style="flex-direction: row; align-items: flex-end; gap: 10px; padding: 12px 14px">
+              <div style="flex: 1.4; min-width: 0"><label for="su-ni" class="lbl">Item</label><input id="su-ni" class="in" type="text" value="{{niName}}" onChange="{{setNiName}}" placeholder="e.g. Margarita" style="margin-top: 4px"></div>
+              <div style="flex: 1; min-width: 0"><label for="su-nc" class="lbl">Category</label><input id="su-nc" class="in" type="text" value="{{niCat}}" onChange="{{setNiCat}}" placeholder="e.g. Cocktails" style="margin-top: 4px"></div>
+              <div style="width: 96px"><label for="su-np" class="lbl">Price $</label><input id="su-np" class="in" type="number" min="0" value="{{niPrice}}" onChange="{{setNiPrice}}" style="margin-top: 4px"></div>
+              <div style="flex: 1.2; min-width: 0"><label for="su-no" class="lbl">Options · optional</label><input id="su-no" class="in" type="text" value="{{niOpts}}" onChange="{{setNiOpts}}" placeholder="e.g. peach or strawberry" style="margin-top: 4px"></div>
+              <button type="button" class="btn seg" onClick="{{toggleNiAlc}}" aria-pressed="{{niAlc}}" style="padding: 9px 10px; white-space: nowrap; {{niAlcStyle}}">{{niAlcLabel}}</button>
+              <button type="button" class="btn pri" onClick="{{addItem}}">+ Add item</button>
+            </div>
+          </sc-if>
+
+          <div class="card" style="gap: 10px">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><div class="eye">What we read · check it before it goes anywhere</div><span class="mono" style="font-size: 10px; color: #8E8994; white-space: nowrap">{{menuCounts}}</span></div>
+            <sc-if value="{{hasChecks}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border-radius: 10px; background: #FFB13D14; border: 1px solid #FFB13D55">
+                <span style="font-size: 12px; font-weight: 800; color: #FFB13D">Check these · {{checkCount}}</span>
+                <sc-for list="{{checks}}" as="c" hint-placeholder-count="3"><div style="display: flex; align-items: center; gap: 10px; font-size: 12px; line-height: 1.4"><span style="flex: 1; min-width: 0">{{c.text}}</span><button type="button" class="btn" onClick="{{c.ok}}" style="appearance: none; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 11px; background: transparent; color: #FFB13D; border: 1px solid #FFB13D66; white-space: nowrap">Looks right</button></div></sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{hasItems}}" hint-placeholder-val="{{true}}">
+              <div style="display: grid; grid-template-columns: minmax(0, 1.1fr) 104px 74px 96px minmax(0, 1.3fr) 76px; gap: 10px; padding: 0 10px"><span class="eye">Item</span><span class="eye">Category</span><span class="eye">Price</span><span class="eye">{{cardHead}}</span><span class="eye">Options</span><span class="eye">Alcohol</span></div>
+              <div style="display: flex; flex-direction: column; gap: 4px">
+                <sc-for list="{{items}}" as="m" hint-placeholder-count="6">
+                  <div style="display: grid; grid-template-columns: minmax(0, 1.1fr) 104px 74px 96px minmax(0, 1.3fr) 76px; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; background: #141218; border: 1px solid rgba(244,241,234,.08); {{m.rowStyle}}">
+                    <span style="font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{m.name}}</span>
+                    <span style="font-size: 12px; color: #C9C5CE; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{m.cat}}</span>
+                    <input class="in" type="number" min="0" value="{{m.price}}" onChange="{{m.setPrice}}" aria-label="{{m.priceAria}}" style="padding: 5px 8px">
+                    <span class="mono" style="font-size: 12px; color: #C9C5CE; white-space: nowrap">{{m.card}}</span>
+                    <span style="font-size: 12px; color: #8E8994; line-height: 1.35; min-width: 0">{{m.opts}}</span>
+                    <button type="button" class="btn" onClick="{{m.toggleAlc}}" aria-pressed="{{m.alc}}" aria-label="{{m.alcAria}}" style="appearance: none; border-radius: 999px; padding: 5px 0; font-weight: 700; font-size: 11px; {{m.alcStyle}}">{{m.alcLabel}}</button>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{hasMore}}" hint-placeholder-val="{{true}}"><div style="font-size: 12px; color: #8E8994; padding: 2px 10px">{{moreLine}}</div></sc-if>
+            </sc-if>
+            <sc-if value="{{menuEmpty}}" hint-placeholder-val="{{false}}"><div style="padding: 22px; border-radius: 10px; border: 1px dashed rgba(244,241,234,.2); font-size: 13px; color: #8E8994; line-height: 1.5; text-align: center">No items yet. Upload your menu, import a spreadsheet, or type items above. Your site shows no menu until items are here.</div></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s5}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: flex; flex-direction: column; gap: 14px">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+            <sc-for list="{{songCards}}" as="c" hint-placeholder-count="6">
+              <button type="button" class="btn" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; font-family: inherit; box-sizing: border-box; min-height: 104px; {{c.style}}">
+                <span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%"><span class="disp" style="font-size: 22px">{{c.name}}</span><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; white-space: nowrap; {{c.chipStyle}}">{{c.chip}}</span></span>
+                <span style="font-size: 12px; line-height: 1.4; opacity: .85">{{c.line}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 16px; align-items: start">
+            <div class="card">
+              <div class="eye">{{capTitle}}</div>
+              <sc-if value="{{hasSong}}" hint-placeholder-val="{{true}}">
+                <sc-for list="{{caps}}" as="c" hint-placeholder-count="4">
+                  <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: start; padding: 9px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                    <span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; box-sizing: border-box; {{c.dotStyle}}">{{c.mark}}</span>
+                    <div style="min-width: 0"><div style="font-size: 13px; font-weight: 700">{{c.label}}</div><div style="font-size: 12px; color: #8E8994; line-height: 1.4; margin-top: 2px">{{c.hint}}</div></div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{hasSongNote}}" hint-placeholder-val="{{false}}"><div class="hint">{{songNote}}</div></sc-if>
+              </sc-if>
+              <sc-if value="{{noSong}}" hint-placeholder-val="{{false}}"><div style="padding: 18px; border-radius: 10px; border: 1px dashed rgba(244,241,234,.2); font-size: 13px; color: #8E8994; line-height: 1.5">Pick the system your rooms use. The room clock and billing work with every one of them; only the song control differs.</div></sc-if>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+              <div class="card" style="gap: 8px">
+                <div class="eye">Song system control · step 2</div>
+                <div style="font-size: 15px; font-weight: 700; {{songCtrlStyle}}">{{songCtrlTitle}}</div>
+                <div style="font-size: 12px; color: #C9C5CE; line-height: 1.45">{{songCtrlLine}}</div>
+              </div>
+              <div class="card" style="gap: 8px">
+                <label for="su-songs" class="lbl">Songs in your catalog, shown on your site</label>
+                <input id="su-songs" class="in" type="text" value="{{songs}}" onChange="{{setSongs}}" placeholder="e.g. the count your song system shows">
+                <div class="hint">Leave it empty and the site doesn't mention a song count.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s6}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: flex; flex-direction: column; gap: 12px">
+          <div class="card" style="gap: 8px">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><div class="eye">Your team</div><span class="mono" style="font-size: 10px; color: #8E8994">{{teamCount}}</span></div>
+            <div style="display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(0, .8fr) 336px 104px 30px; gap: 10px; padding: 0 12px"><span></span><span class="lbl">Name</span><span class="lbl">Invite</span><span class="lbl">Role</span><span class="lbl">Tip pool</span><span></span></div>
+            <sc-for list="{{team}}" as="p" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(0, .8fr) 336px 104px 30px; gap: 10px; align-items: center; padding: 6px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                <span class="mono" style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; background: #1c1a21; border: 1px solid rgba(244,241,234,.12)">{{p.initials}}</span>
+                <input class="in" type="text" value="{{p.name}}" onChange="{{p.setName}}" placeholder="{{p.ph}}" aria-label="Name" style="padding: 7px 10px; font-weight: 600">
+                <div style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; {{p.statusStyle}}">{{p.status}}</span><span style="font-size: 11px; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.contact}}</span></div>
+                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px"><sc-for list="{{p.roles}}" as="r" hint-placeholder-count="4"><button type="button" class="btn seg" onClick="{{r.pick}}" aria-pressed="{{r.on}}" disabled="{{r.locked}}" style="padding: 7px 2px; font-size: 11px; {{r.style}}">{{r.label}}</button></sc-for></div>
+                <button type="button" class="btn" role="checkbox" onClick="{{p.toggleTips}}" aria-checked="{{p.tips}}" aria-label="{{p.tipsAria}}" style="appearance: none; border: 0; background: transparent; color: #F4F1EA; display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; font-weight: 600"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; box-sizing: border-box; {{p.boxStyle}}">{{p.tick}}</span>{{p.tipsLabel}}</button>
+                <sc-if value="{{p.canRemove}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{p.remove}}" aria-label="{{p.removeAria}}" style="appearance: none; width: 28px; height: 28px; border-radius: 8px; padding: 0; font-size: 12px; font-weight: 700; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">✕</button></sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{soloTeam}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #8E8994; padding: 4px 12px">Just you so far. Invite the people who work your nights below.</div></sc-if>
+          </div>
+          <div class="card" style="gap: 10px">
+            <div class="eye">Invite someone</div>
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) 150px auto; gap: 10px; align-items: end">
+              <div><label for="su-in" class="lbl">Name</label><input id="su-in" class="in" type="text" value="{{invName}}" onChange="{{setInvName}}" placeholder="First name and initial" style="margin-top: 4px"></div>
+              <div><label for="su-ic" class="lbl">Phone or email</label><input id="su-ic" class="in" type="text" value="{{invContact}}" onChange="{{setInvContact}}" placeholder="Where the invite goes" style="margin-top: 4px"></div>
+              <div><label for="su-ir" class="lbl">Role</label><select id="su-ir" class="in" value="{{invRole}}" onChange="{{setInvRole}}" style="margin-top: 4px"><option value="1">Manager</option><option value="2">Bartender</option><option value="3">Staff</option><option value="0">Owner</option></select></div>
+              <button type="button" class="btn pri" onClick="{{invite}}" style="padding: 10px 16px">+ Send invite</button>
+            </div>
+            <div class="hint">They get a text or an email with a link. Each person sets their own PIN from that link on their own phone: 4 digits for staff, 6 for owners and managers. Nobody else ever sees it.</div>
+          </div>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px">
+            <div style="padding: 14px 16px; border-radius: 14px; background: #D4FF3F12; border: 1px solid #D4FF3F44; display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 13px; font-weight: 800; color: var(--acc, #D4FF3F)">Tip pool: decided by duties, not titles</span>
+              <span style="font-size: 12px; color: #C9C5CE; line-height: 1.5">People who serve guests as a regular part of the job can share. Owners and managers never can. Not sure about a job, like door or security? Ask your lawyer before you tick it.</span>
+            </div>
+            <div style="padding: 14px 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 13px; font-weight: 700">What each role can do</span>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px"><sc-for list="{{roleHelp}}" as="r" hint-placeholder-count="4"><span style="font-size: 12px; color: #C9C5CE; line-height: 1.4"><b style="color: #F4F1EA">{{r.k}}</b> · {{r.v}}</span></sc-for></div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s7}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+            <div class="card">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px"><div class="eye">Card payments and payouts</div><span class="mono" style="font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; white-space: nowrap; {{stripeChipStyle}}">{{stripeChip}}</span></div>
+              <div style="font-size: 20px; font-weight: 800; letter-spacing: -.01em">Stripe</div>
+              <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5">{{stripeLine}}</div>
+              <sc-if value="{{stripeOff}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{connectStripe}}" style="appearance: none; border: 0; align-self: flex-start; border-radius: 10px; padding: 12px 18px; font-weight: 800; font-size: 14px; background: #635BFF; color: #FFFFFF">Connect with Stripe</button></sc-if>
+              <sc-if value="{{stripeBusy}}" hint-placeholder-val="{{false}}"><div style="display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: #C9C5CE"><span class="spin" aria-hidden="true" style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(244,241,234,.2); border-top-color: #F4F1EA; box-sizing: border-box"></span>Waiting for Stripe's form…</div></sc-if>
+              <sc-if value="{{stripeOn}}" hint-placeholder-val="{{false}}"><button type="button" class="btn ghost" onClick="{{disconnectStripe}}" style="align-self: flex-start; font-size: 12px; padding: 8px 12px">Disconnect (demo)</button></sc-if>
+              <div class="hint">You fill in Stripe's own form, so your bank details never pass through us.</div>
+            </div>
+            <div class="card">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+                <div style="min-width: 0"><div style="font-size: 14px; font-weight: 700">Cash accepted</div><div class="lbl">Always on in New York</div></div>
+                <button type="button" class="sw" role="switch" aria-checked="true" aria-label="Cash accepted, always on" disabled="{{true}}" style="background: var(--acc, #D4FF3F); opacity: .6; cursor: not-allowed"><span style="left: 21px"></span></button>
+              </div>
+              <div style="font-size: 12px; color: #C9C5CE; line-height: 1.5">New York law says you take cash for every on-site payment, room orders too, and never charge more for cash.</div>
+            </div>
+            <div class="card">
+              <div class="eye">How you keep cash</div>
+              <div role="radiogroup" aria-label="Cash drawer model" style="display: flex; flex-direction: column; gap: 8px">
+                <sc-for list="{{drawerModes}}" as="m" hint-placeholder-count="2">
+                  <button type="button" class="btn" role="radio" onClick="{{m.pick}}" aria-checked="{{m.on}}" style="appearance: none; text-align: left; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; font-family: inherit; {{m.style}}">
+                    <span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; margin-top: 1px; {{m.dotStyle}}"></span>
+                    <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 14px; font-weight: 700">{{m.label}}</span><span style="font-size: 12px; opacity: .8; line-height: 1.4">{{m.hint}}</span></span>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><label for="su-bank" style="font-size: 13px; color: #8E8994">Starting bank $</label><input id="su-bank" class="in" type="number" min="0" value="{{bank}}" onChange="{{setBank}}" style="width: 96px"></div>
+              <div class="hint">Every count is blind, and you can switch later in Admin → Cash drawers; a switch starts with the next business date.</div>
+            </div>
+            <div class="card" style="flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px">
+              <span style="font-size: 13px; color: #C9C5CE">Sales tax on every check</span>
+              <span class="mono" style="font-size: 13px; white-space: nowrap; {{taxStyle}}">{{taxLine}}</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+            <div class="card">
+              <div class="eye">Card fee</div>
+              <sc-for list="{{surModes}}" as="m" hint-placeholder-count="3">
+                <button type="button" class="btn" role="radio" onClick="{{m.pick}}" aria-checked="{{m.on}}" style="appearance: none; text-align: left; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px; border-radius: 12px; font-family: inherit; {{m.style}}">
+                  <span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; margin-top: 1px; {{m.dotStyle}}"></span>
+                  <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 14px; font-weight: 700">{{m.label}}</span><span style="font-size: 12px; opacity: .8; line-height: 1.4">{{m.hint}}</span></span>
+                </button>
+              </sc-for>
+              <sc-if value="{{surHasPct}}" hint-placeholder-val="{{false}}"><div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><input class="in" type="number" step="0.1" min="0" value="{{surPct}}" onChange="{{setSurPct}}" aria-label="{{surPctAria}}" style="width: 84px; {{surPctStyle}}"><span style="font-size: 13px; color: #8E8994">{{surUnit}}</span></div></sc-if>
+              <div style="font-size: 12px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; background: #141218; {{surRuleStyle}}">{{surRule}}</div>
+              <sc-if value="{{hasSurNote}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #FFB13D; line-height: 1.5">{{surNote}}</div></sc-if>
+            </div>
+            <div class="card">
+              <div style="min-width: 0"><div style="font-size: 14px; font-weight: 700">Gratuity</div><div class="lbl">Added on its own line, and always called “Gratuity”</div></div>
+              <div role="radiogroup" aria-label="Add a gratuity automatically" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px"><sc-for list="{{gratModes}}" as="m" hint-placeholder-count="4"><button type="button" class="btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 4px; font-weight: 700; font-size: 12px; white-space: nowrap; {{m.style}}">{{m.label}}</button></sc-for></div>
+              <sc-if value="{{gratOn}}" hint-placeholder-val="{{true}}">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><input class="in" type="number" min="0" max="30" value="{{grat}}" onChange="{{setGrat}}" aria-label="Gratuity percent" placeholder="e.g. 18" style="width: 90px"><span style="font-size: 13px; color: #8E8994">{{gratWhere}}</span><sc-if value="{{gratParty}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="font-size: 13px; color: #8E8994">from</span><input class="in" type="number" min="2" value="{{partyMin}}" onChange="{{setPartyMin}}" aria-label="Party size for the gratuity" style="width: 64px"><span style="font-size: 13px; color: #8E8994">guests</span></span></sc-if></div>
+                <div style="display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #141218; font-size: 13px"><span>Gratuity, paid in full to service staff</span><span class="mono" style="white-space: nowrap">{{gratPct}}</span></div>
+              </sc-if>
+              <sc-if value="{{gratOff}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #8E8994">No gratuity line.</div></sc-if>
+              <div class="hint">The card reader asks for a tip when there's no gratuity on the tab. Tip choices and who shares tips are in Admin.</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s8}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 16px; align-items: start">
+          <div class="card" style="gap: 10px">
+            <div class="eye">Hardware · shipped to your venue, ready to use</div>
+            <sc-for list="{{devGroups}}" as="g" hint-placeholder-count="4">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 12px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+                  <div style="min-width: 0"><div style="font-size: 14px; font-weight: 700">{{g.name}}</div><div style="font-size: 12px; color: #8E8994">{{g.note}}</div></div>
+                  <button type="button" class="btn" role="checkbox" onClick="{{g.toggleHave}}" aria-checked="{{g.have}}" style="appearance: none; border: 0; background: transparent; color: #F4F1EA; display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; font-weight: 600; white-space: nowrap"><span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; box-sizing: border-box; {{g.boxStyle}}">{{g.tick}}</span>I already have these</button>
+                </div>
+                <sc-if value="{{g.have}}" hint-placeholder-val="{{false}}"><input class="in" type="text" value="{{g.haveText}}" onChange="{{g.setHave}}" placeholder="What you have, e.g. brand and where it sits" aria-label="{{g.haveAria}}" style="padding: 7px 10px"></sc-if>
+                <sc-if value="{{g.order}}" hint-placeholder-val="{{true}}">
+                  <sc-for list="{{g.items}}" as="i" hint-placeholder-count="1">
+                    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 86px 118px; gap: 10px; align-items: center">
+                      <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{i.name}}</div><div style="font-size: 11px; color: #8E8994">{{i.note}}</div></div>
+                      <span class="mono" style="font-size: 12px; color: #C9C5CE; text-align: right; white-space: nowrap">{{i.price}}</span>
+                      <div style="display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; gap: 4px; align-items: center">
+                        <button type="button" class="btn ghost" onClick="{{i.minus}}" aria-label="{{i.minusAria}}" style="padding: 5px 0">−</button>
+                        <span class="mono" style="text-align: center; font-size: 14px; font-weight: 700">{{i.qty}}</span>
+                        <button type="button" class="btn ghost" onClick="{{i.plus}}" aria-label="{{i.plusAria}}" style="padding: 5px 0">+</button>
+                      </div>
+                    </div>
+                  </sc-for>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div class="card" style="gap: 10px">
+            <div class="eye">On the list</div>
+            <sc-if value="{{hasOrder}}" hint-placeholder-val="{{false}}">
+              <sc-for list="{{orderLines}}" as="o" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 5px 0; border-bottom: 1px solid rgba(244,241,234,.06)"><span>{{o.k}}</span><span class="mono" style="white-space: nowrap">{{o.v}}</span></div></sc-for>
+              <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 15px; font-weight: 800"><span>To order</span><span class="mono">{{orderTotal}}</span></div>
+              <sc-if value="{{hasAtCost}}" hint-placeholder-val="{{false}}"><div class="hint">Printers, tablets and routers are sold at cost. We confirm the price with you before anything ships.</div></sc-if>
+            </sc-if>
+            <sc-if value="{{noOrder}}" hint-placeholder-val="{{true}}"><div style="font-size: 13px; color: #8E8994">Nothing to order.</div></sc-if>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+              <span class="eye">Already have</span>
+              <sc-for list="{{haveLines}}" as="h" hint-placeholder-count="3"><div style="font-size: 13px; line-height: 1.4"><b>{{h.k}}</b><span style="color: #8E8994"> · {{h.v}}</span></div></sc-for>
+              <sc-if value="{{noHave}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #8E8994">Nothing marked yet.</span></sc-if>
+            </div>
+            <div style="font-size: 12px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; {{readerNoteStyle}}">{{readerNote}}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s9}}" hint-placeholder-val="{{false}}">
+        <div class="pane" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+            <div class="card">
+              <div class="eye">Pick a starting style</div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+                <button type="button" class="btn" onClick="{{pickNeon}}" aria-pressed="{{neonOn}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 7px 7px 10px; border-radius: 14px; font-family: inherit; color: #F4F1EA; min-width: 0; {{neonCard}}">
+                  <span aria-hidden="true" style="display: block; position: relative; height: 96px; border-radius: 9px; overflow: hidden; background: radial-gradient(70px 44px at 78% 26%, {{neonGlow}}, transparent 70%), radial-gradient(70px 50px at 16% 90%, #FF3DA644, transparent 70%), #151219; border: 1px solid rgba(244,241,234,.1)">
+                    <span style="position: absolute; left: 9px; top: 9px; width: 22px; height: 5px; border-radius: 2px; background: #F4F1EA"></span><span style="position: absolute; right: 9px; top: 8px; width: 20px; height: 8px; border-radius: 999px; background: {{neonAcc}}"></span>
+                    <span class="disp" style="position: absolute; left: 9px; right: 9px; top: 22px; font-size: 17px; line-height: .92; color: {{neonAcc}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; {{thumbH1Style}}">{{thumbH1}}</span>
+                    <span style="position: absolute; left: 9px; top: 58px; width: 70%; height: 4px; border-radius: 2px; background: rgba(244,241,234,.35)"></span>
+                    <span style="position: absolute; left: 9px; bottom: 10px; width: 50px; height: 14px; border-radius: 999px; background: {{neonAcc}}"></span><span style="position: absolute; left: 65px; bottom: 10px; width: 36px; height: 14px; border-radius: 999px; border: 1px solid rgba(244,241,234,.3); box-sizing: border-box"></span>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 1px; padding: 0 3px"><span style="font-size: 14px; font-weight: 700">Neon</span><span style="font-size: 11px; color: #8E8994">{{neonSub}}</span></span>
+                </button>
+                <button type="button" class="btn" onClick="{{pickFlyer}}" aria-pressed="{{flyerOn}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 7px 7px 10px; border-radius: 14px; font-family: inherit; color: #F4F1EA; min-width: 0; {{flyerCard}}">
+                  <span aria-hidden="true" style="display: block; position: relative; height: 96px; border-radius: 3px; overflow: hidden; background: #F4EEE1; border: 2px solid #14120F; box-sizing: border-box">
+                    <span style="position: absolute; left: 0; right: 0; top: 0; height: 11px; background: #FFD338; border-bottom: 2px solid #14120F"></span>
+                    <span style="position: absolute; right: 8px; top: 19px; width: 24px; height: 24px; border-radius: 50%; background: #FFD338; border: 2px solid #14120F; box-sizing: border-box; transform: rotate(10deg)"></span>
+                    <span style="position: absolute; left: 8px; right: 36px; top: 18px; font-family: 'Archivo', Impact, sans-serif; font-variation-settings: 'wdth' 125; font-weight: 900; text-transform: uppercase; font-size: 12px; line-height: 1; color: #14120F; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; {{thumbH1Style}}">{{thumbH1}}</span>
+                    <span style="position: absolute; left: 8px; top: 48px; width: 62%; height: 4px; background: #14120F; opacity: .5"></span>
+                    <span style="position: absolute; left: 8px; bottom: 10px; width: 52px; height: 15px; background: {{flyerAcc}}; border: 2px solid #14120F; box-shadow: 3px 3px 0 #14120F; box-sizing: border-box"></span>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 1px; padding: 0 3px"><span style="font-size: 14px; font-weight: 700">Flyer</span><span style="font-size: 11px; color: #8E8994">Paper, ink, red</span></span>
+                </button>
+                <button type="button" class="btn" onClick="{{pickLounge}}" aria-pressed="{{loungeOn}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 7px 7px 10px; border-radius: 14px; font-family: inherit; color: #F4F1EA; min-width: 0; {{loungeCard}}">
+                  <span aria-hidden="true" style="display: block; position: relative; height: 96px; border-radius: 9px; overflow: hidden; background: radial-gradient(80px 60px at 50% 10%, {{loungeGlow}}, transparent 70%), #2A0B15; border: 1px solid rgba(243,233,215,.16)">
+                    <span style="position: absolute; left: 9px; top: 12px; width: 16px; height: 1px; background: {{loungeAcc}}"></span><span style="position: absolute; left: 29px; top: 10px; width: 34px; height: 4px; border-radius: 2px; background: {{loungeAcc}}; opacity: .7"></span>
+                    <span style="position: absolute; left: 9px; right: 9px; top: 20px; font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-style: italic; font-size: 17px; line-height: 1; color: #F3E9D7; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; {{thumbH1Style}}">{{thumbH1}}</span>
+                    <span style="position: absolute; left: 9px; top: 58px; width: 66%; height: 3px; border-radius: 2px; background: rgba(243,233,215,.35)"></span>
+                    <span style="position: absolute; left: 9px; bottom: 10px; width: 58px; height: 15px; border-radius: 999px; background: {{loungeAcc}}"></span>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 1px; padding: 0 3px"><span style="font-size: 14px; font-weight: 700">Lounge</span><span style="font-size: 11px; color: #8E8994">Velvet, brass, serif</span></span>
+                </button>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+                <span style="font-size: 13px">Accent color</span>
+                <sc-if value="{{hasStyle}}" hint-placeholder-val="{{true}}"><div style="display: flex; gap: 8px"><sc-for list="{{swatches}}" as="w" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{w.pick}}" aria-pressed="{{w.on}}" aria-label="{{w.aria}}" style="appearance: none; width: 28px; height: 28px; border-radius: 50%; padding: 0; box-sizing: border-box; {{w.style}}"></button></sc-for></div></sc-if>
+                <sc-if value="{{noStyle}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #8E8994">Pick a style first</span></sc-if>
+              </div>
+            </div>
+            <div class="card">
+              <div class="eye">Photos · your own, never stock</div>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+                <sc-for list="{{photos}}" as="ph" hint-placeholder-count="2">
+                  <div style="display: flex; flex-direction: column; gap: 5px; min-width: 0">
+                    <div style="position: relative; height: 88px; border-radius: 10px; overflow: hidden; background: linear-gradient(135deg, #2a2233, #141218); border: 1px solid rgba(244,241,234,.1)"><img src="{{ph.src}}" alt="{{ph.alt}}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; color: transparent"><button type="button" class="btn" onClick="{{ph.remove}}" aria-label="{{ph.removeAria}}" style="appearance: none; position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%; padding: 0; border: 0; background: rgba(11,10,13,.75); color: #F4F1EA; font-size: 11px; font-weight: 700">✕</button></div>
+                    <span style="font-size: 11px; color: #8E8994; line-height: 1.35">{{ph.cap}}</span>
+                  </div>
+                </sc-for>
+                <label class="btn up" style="height: 88px; border-radius: 10px; border: 1px dashed rgba(244,241,234,.28); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #F4F1EA; font-size: 13px; font-weight: 700; box-sizing: border-box"><span style="font-size: 20px; line-height: 1">+</span>Upload photo<input type="file" accept="image/*" onChange="{{addPhoto}}" aria-label="Upload photo"></label>
+              </div>
+              <sc-if value="{{noPhotos}}" hint-placeholder-val="{{false}}"><div class="hint">Add your rooms and your bar. Until you do, the site shows color and text only.</div></sc-if>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+            <div class="card">
+              <div><label for="su-h1" class="lbl">Headline</label><input id="su-h1" class="in" type="text" value="{{h1}}" onChange="{{setH1}}" placeholder="A few words, big on the first screen" style="margin-top: 4px; font-size: 15px; font-weight: 700"></div>
+              <div><label for="su-intro" class="lbl">One-line intro</label><textarea id="su-intro" class="in" rows="2" value="{{intro}}" onChange="{{setIntro}}" placeholder="What you are and where, in one line" style="margin-top: 4px; display: block; resize: none; line-height: 1.4"></textarea></div>
+            </div>
+            <div class="card" style="gap: 10px">
+              <div class="eye">Web address</div>
+              <div style="display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 14px; border-radius: 12px; {{freeStyle}}">
+                <button type="button" class="btn" role="radio" onClick="{{pickFree}}" aria-checked="{{freeOn}}" aria-label="Use a free address" style="appearance: none; width: 20px; height: 20px; border-radius: 50%; padding: 0; margin-top: 1px; box-sizing: border-box; {{freeDot}}"></button>
+                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+                  <span style="font-size: 14px; font-weight: 700">Free address</span>
+                  <div style="display: flex; align-items: center; gap: 6px; min-width: 0"><input class="in" type="text" value="{{sub}}" onChange="{{setSub}}" onFocus="{{pickFree}}" placeholder="yourname" aria-label="Free address name" style="width: 150px; padding: 7px 10px"><span class="mono" style="font-size: 13px; white-space: nowrap">.<span title="Product name not chosen yet" style="color: #C9C5CE; border-bottom: 1px dashed #8E8994">&lt;product&gt;</span>.com</span></div>
+                  <span style="font-size: 11px; color: #8E8994; line-height: 1.4">&lt;product&gt; is our product name, not chosen yet.</span>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 14px; border-radius: 12px; {{ownStyle}}">
+                <button type="button" class="btn" role="radio" onClick="{{pickOwn}}" aria-checked="{{ownOn}}" aria-label="Connect your own domain" style="appearance: none; width: 20px; height: 20px; border-radius: 50%; padding: 0; margin-top: 1px; box-sizing: border-box; {{ownDot}}"></button>
+                <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+                  <span style="font-size: 14px; font-weight: 700">Connect your own domain</span>
+                  <input class="in" type="text" value="{{domain}}" onChange="{{setDomain}}" onFocus="{{pickOwn}}" placeholder="e.g. yourvenue.com" aria-label="Your own domain" style="padding: 7px 10px">
+                  <span style="font-size: 11px; color: #8E8994; line-height: 1.4">You add one record where you bought the domain. We show you exactly what to paste.</span>
+                </div>
+              </div>
+            </div>
+            <a href="SiteBuilder.dc.html" class="btn bigbtn" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 20px; border-radius: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none">
+              <span style="display: flex; flex-direction: column; gap: 5px; min-width: 0"><span class="disp" style="font-size: 24px">Open the website builder</span><span style="font-size: 12px; font-weight: 600; opacity: .75; line-height: 1.4">Then refine each section: hero, rooms, booking, songbook, bar &amp; menu, private parties, find us</span></span>
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 13h16M14 6l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{s10}}" hint-placeholder-val="{{false}}">
+        <sc-if value="{{notLive}}" hint-placeholder-val="{{true}}">
+          <div class="pane" style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 16px; align-items: start">
+            <div class="card" style="gap: 8px">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><div class="eye">Test night · try each one once, for real</div><span class="mono" style="font-size: 10px; color: #8E8994; white-space: nowrap">{{checksLine}}</span></div>
+              <sc-for list="{{tests}}" as="t" hint-placeholder-count="5">
+                <div style="display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08); {{t.rowStyle}}">
+                  <button type="button" class="btn" role="checkbox" onClick="{{t.toggle}}" aria-checked="{{t.done}}" aria-label="{{t.label}}" disabled="{{t.na}}" style="appearance: none; width: 28px; height: 28px; border-radius: 50%; padding: 0; font-size: 13px; font-weight: 800; box-sizing: border-box; {{t.boxStyle}}">{{t.tick}}</button>
+                  <div style="min-width: 0"><div style="font-size: 14px; font-weight: 700">{{t.label}}</div><div style="font-size: 12px; color: #8E8994; line-height: 1.4; margin-top: 2px">{{t.hint}}</div></div>
+                  <sc-if value="{{t.canRun}}" hint-placeholder-val="{{true}}"><button type="button" class="btn ghost" onClick="{{t.run}}" style="padding: 7px 12px; font-size: 12px">{{t.cta}}</button></sc-if>
+                  <sc-if value="{{t.showState}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; {{t.stateStyle}}">{{t.state}}</span></sc-if>
+                </div>
+              </sc-for>
+              <div style="display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; box-sizing: border-box; {{licBoxStyle}}">{{licTick}}</span>
+                <div style="min-width: 0; display: flex; flex-direction: column; gap: 8px">
+                  <div><div style="font-size: 14px; font-weight: 700">Music licenses on file</div><div style="font-size: 12px; color: #8E8994; line-height: 1.4; margin-top: 2px">Playing songs for guests needs a license from each group. Tap each one you hold; we keep the number and renewal date.</div></div>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap"><sc-for list="{{lics}}" as="l" hint-placeholder-count="4"><button type="button" class="btn" role="checkbox" onClick="{{l.toggle}}" aria-checked="{{l.on}}" style="appearance: none; border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; {{l.style}}">{{l.label}}</button></sc-for></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="eye">Go live</div>
+              <div class="disp" style="font-size: 30px">{{liveTitle}}</div>
+              <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5">{{liveLine}}</div>
+              <button type="button" class="btn" onClick="{{goLive}}" disabled="{{liveBlocked}}" style="appearance: none; border: 0; border-radius: 14px; padding: 18px; font-family: inherit; {{goLiveStyle}}"><span class="disp" style="font-size: 32px">Go live</span></button>
+              <div class="hint">Going live turns on your web address, online booking and guest texts. You can pause any of them later in Admin.</div>
+              <div style="display: flex; flex-direction: column; gap: 5px"><sc-for list="{{blockers}}" as="b" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{b.go}}" style="appearance: none; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; background: #FFB13D14; border: 1px solid #FFB13D55; color: #F4F1EA; font-size: 12px; font-family: inherit"><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.text}}</span><span class="mono" style="font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #FFB13D; white-space: nowrap">{{b.cta}}</span></button></sc-for></div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{isLive}}" hint-placeholder-val="{{false}}">
+          <div class="pane card" style="padding: 28px; gap: 16px; background: radial-gradient(420px 220px at 85% 0%, #D4FF3F1f, transparent 70%), #121016">
+            <div class="eye">Setup finished</div>
+            <div class="disp" style="font-size: 64px; color: var(--acc, #D4FF3F)">You're live</div>
+            <div style="font-size: 15px; color: #F4F1EA; line-height: 1.5; max-width: 640px">{{liveSummary}}</div>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+              <sc-for list="{{liveFacts}}" as="f" hint-placeholder-count="4"><div style="padding: 12px 14px; border-radius: 12px; background: #141218; border: 1px solid rgba(244,241,234,.08); min-width: 0"><div class="eye">{{f.k}}</div><div style="font-size: 14px; font-weight: 700; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.v}}</div></div></sc-for>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+              <a href="Board.dc.html" class="btn bigbtn" style="display: inline-flex; align-items: center; padding: 13px 20px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 800; font-size: 14px; text-decoration: none">Open tonight's board</a>
+              <sc-if value="{{isW4}}" hint-placeholder-val="{{true}}"><a href="Main.dc.html" class="btn ghost" style="text-decoration: none">See the website</a></sc-if>
+              <sc-if value="{{isBlank}}" hint-placeholder-val="{{false}}"><a href="SiteBuilder.dc.html" class="btn ghost" style="text-decoration: none">Open the website builder</a></sc-if>
+              <button type="button" class="btn ghost" onClick="{{unLive}}">Back to the checklist (demo)</button>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+
+    </section>
+
+    <footer style="display: flex; align-items: center; gap: 12px; padding: 12px 24px; border-top: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+      <button type="button" class="btn ghost" onClick="{{saveLater}}">Save and finish later</button>
+      <span class="mono" style="font-size: 10px; letter-spacing: .08em; color: #8E8994; white-space: nowrap">{{savedLine}}</span>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+        <span style="font-size: 12px; color: #8E8994; white-space: nowrap">{{nextHint}}</span>
+        <sc-if value="{{hasBack}}" hint-placeholder-val="{{true}}"><button type="button" class="btn ghost" onClick="{{back}}">← Back</button></sc-if>
+        <sc-if value="{{hasNext}}" hint-placeholder-val="{{true}}"><button type="button" class="btn pri" onClick="{{next}}" style="padding: 10px 24px">Continue →</button></sc-if>
+      </div>
+    </footer>
+  </main>
+
+  <sc-if value="{{hasConfirm}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; top: 0; width: 1280px; height: 800px; z-index: 50; background: rgba(0,0,0,.62); display: flex; align-items: center; justify-content: center">
+      <div class="pop" role="alertdialog" aria-modal="true" aria-labelledby="su-cf-t" style="width: 440px; box-sizing: border-box; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+        <div id="su-cf-t" class="disp" style="font-size: 26px; line-height: .95">{{cfTitle}}</div>
+        <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5">{{cfBody}}</div>
+        <div style="display: flex; flex-direction: column; gap: 4px"><sc-for list="{{cfList}}" as="x" hint-placeholder-count="4"><div style="font-size: 13px; font-weight: 600; padding: 7px 10px; border-radius: 8px; background: #0e0d11; border: 1px solid rgba(244,241,234,.08)">{{x}}</div></sc-for></div>
+        <div style="display: flex; gap: 8px; padding-top: 4px">
+          <button type="button" class="btn pri" onClick="{{cfYes}}" style="flex: 1; padding: 12px">{{cfYesLabel}}</button>
+          <button type="button" class="btn ghost" onClick="{{cfNo}}" style="padding: 12px 16px">{{cfNoLabel}}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 76px; z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 76px; z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Module ids and names: the same list the Console and Admin → Features use.
+  // Core modules are always on (legal and money basics). Each row: [id, name, what it is, needs].
+  static CORE = ["Payments & checks", "Alcohol controls & rule pack", "Admin & settings", "Devices & printers"];
+  static MODS = [
+    ["website", "Website", "The venue's public site made in the website builder", ""],
+    ["booking", "Online booking & deposits", "Book a room online, deposit rule, manage-booking page", "rooms"],
+    ["waitlist", "Walk-in waitlist", "QR at the door, place in line, “room ready” texts", ""],
+    ["rooms", "Rooms & room clock", "Room board, per-person/per-room time billing, soft end time", ""],
+    ["roomOrdering", "Ordering from the room", "Guests order from their phones to the room tab", "rooms"],
+    ["barScreen", "Bar screen & tickets", "Orders ring the bar until accepted, ticket prints", ""],
+    ["barTabs", "Bar tabs & quick sale", "Card hold that grows with the tab, quick sale, move tab to a room", ""],
+    ["barMode", "Bar mode", "Phone song queue, per-song charges, Up next TV, send the singer a drink", "barTabs"],
+    ["kitchen", "Kitchen & food", "Kitchen screens, stations, coursing, allergy notice", ""],
+    ["packages", "Packages & specials", "Room + bottle + food packages with liquor-law checks", "rooms"],
+    ["songControl", "Song system control", "Lock rooms between sessions, on-TV countdown, volume cap, play log", "rooms"],
+    ["messages", "Guest texts", "Confirmations, reminders, room ready, receipts", ""],
+    ["marketing", "Marketing texts", "Birthday and review texts with separate opt-in", "messages"],
+    ["team", "Team, time clock & tips", "Roles, PINs, time clock, tip pool", ""],
+    ["safety", "Safety & ID records", "Discreet help alert, incident log, ID scan limits, headcount", ""],
+    ["reports", "Reports & accounting", "Trends, tax quarters, accounting export", ""],
+    ["events", "Event sales", "Proposals, contracts, deposit schedules for big parties", "rooms"],
+    ["crm", "Guests, loyalty & gift cards", "Guest profiles, gift cards, punch cards", ""],
+    ["multiLocation", "Multiple locations", "One owner login across venues, shared menus and reports", ""]
+  ];
+  // Plans (venue-facing: name and price only). [name, $ per venue per month, $ per room per month]
+  static PLANS = { bar: ["Bar", 149, 0], rooms: ["Rooms", 249, 12], rk: ["Rooms + Kitchen", 349, 12] };
+  static PLAN_MODS = {
+    bar: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports"],
+    rooms: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports", "booking", "rooms", "roomOrdering", "packages", "songControl"],
+    rk: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports", "booking", "rooms", "roomOrdering", "packages", "songControl", "kitchen"]
+  };
+  static ADDONS = ["kitchen", "marketing", "events", "crm", "multiLocation"];
+  // What each song system lets us control (integration research): only KaraFun has a documented venue API.
+  static SONGS = [
+    { id: "playbox", name: "Playbox", chip: "No API yet", line: "Room clock and billing still work. Song lock not available.", ctrl: false, note: "Playbox has no public API yet. If it opens one, song control can switch on here." },
+    { id: "karafun", name: "KaraFun", chip: "Has an API", line: "Its venue API lets us start and stop sessions and lock rooms.", ctrl: true, note: "KaraFun Box only; KaraFun Pro has no API. Song-start events aren't documented, so the play log may be partial." },
+    { id: "singa", name: "Singa", chip: "No API yet", line: "Sessions are set in Singa's own admin. Clock and billing still work.", ctrl: false, note: "Staff set timed sessions and codes in Singa's admin page. Singa caps each guest at 3 song requests." },
+    { id: "tj", name: "TJ Media", chip: "No link", line: "No connection. The room clock and billing run outside the player.", ctrl: false, note: "Common in Korean-style rooms. There are no English integration docs, so there's no link." },
+    { id: "openkj", name: "OpenKJ", chip: "Requests", line: "Phone song requests go to the KJ through its request server.", ctrl: false, req: true, note: "Made for KJ-run bar nights, not for locking private rooms." },
+    { id: "none", name: "Other / none", chip: "No link", line: "The room clock, billing and ordering work the same.", ctrl: false, none: true, note: "" }
+  ];
+  // NYC ZIP prefixes → county. Every NYC county: alcohol close 4:00 AM, sales tax 8.875%, wage region NYC.
+  static NYC = { "100": ["New York County", "Manhattan"], "101": ["New York County", "Manhattan"], "102": ["New York County", "Manhattan"], "103": ["Richmond County", "Staten Island"], "104": ["Bronx County", "The Bronx"], "111": ["Queens County", "Queens"], "112": ["Kings County", "Brooklyn"], "113": ["Queens County", "Queens"], "114": ["Queens County", "Queens"], "116": ["Queens County", "Queens"] };
+  static STYLES = { neon: ["#D4FF3F", "#FF3DA6", "#3DF2FF", "#FFB13D"], flyer: ["#FF3B1F", "#FFD338", "#FF6BD6", "#35D06B"], lounge: ["#D4A757", "#E0B0A0", "#B8C9A8", "#F3E9D7"] };
+  // West 4's real photos (artifact assets; they 404 when run locally).
+  static W4_PHOTOS = [
+    { src: "/_blob/8a55cb8f9d89a7828f1270d6a558ec1e", alt: "The bar at West 4, lit purple, with disco balls", cap: "The bar, lit purple" },
+    { src: "/_blob/eb5ebe9c2a330dad1dcefd7612ad51e5", alt: "A private room: graffiti walls, black leather couches, two screens", cap: "A private room" }
+  ];
+  // A few lines as read from West4-Menu.pdf (127 items in 15 categories; same data as Admin → Menu).
+  static W4_MENU = [
+    { name: "Margarita", cat: "Cocktails", price: "13", opts: "Raspberry, peach or strawberry", alc: true, check: "" },
+    { name: "Iced Tea", cat: "Cocktails", price: "13", opts: "Long Island, Long Beach, Ruby Strawberry, Blue Lemonade or Tokyo Melon", alc: true, check: "Iced Tea lists 5 kinds on one line, so we made them options guests pick." },
+    { name: "Kirin, draft glass", cat: "Beer", price: "9", opts: "", alc: true, check: "Kirin, draft has a glass and a pitcher price, so it became two items." },
+    { name: "Kirin, draft pitcher", cat: "Beer", price: "31", opts: "", alc: true, check: "" },
+    { name: "Mule", cat: "Mocktails", price: "11", opts: "Peach, strawberry or raspberry", alc: false, check: "Mule sits under Mocktails, so we marked it no alcohol." },
+    { name: "Jäger Bomb", cat: "Shots", price: "12", opts: "", alc: true, check: "" }
+  ];
+  static w4Rooms() {
+    return Array.from({ length: 14 }, (_, i) => i === 13 ? { name: "VIP room", tier: "VIP", cap: "20–40" }
+      : { name: "Room " + (i + 1), tier: i < 5 ? "Small" : (i < 10 ? "Medium" : "Large"), cap: i < 5 ? "3–6" : (i < 10 ? "6–12" : "12–20") });
+  }
+  static planOf(runs) { return runs.rooms ? (runs.kitchen ? "rk" : "rooms") : ((runs.bar || runs.kitchen) ? "bar" : ""); }
+  // Module switches pre-set from what the venue runs.
+  static defaultsFor(runs, song) {
+    const plan = Component.planOf(runs), ids = plan ? Component.PLAN_MODS[plan] : [];
+    const on = {};
+    Component.MODS.forEach((m) => { on[m[0]] = ids.indexOf(m[0]) >= 0; });
+    if (!runs.bar) on.barMode = false;
+    if (plan === "bar" && runs.kitchen) on.kitchen = true;
+    const s = Component.SONGS.find((x) => x.id === song);
+    if (!s || !s.ctrl) on.songControl = false;
+    return on;
+  }
+  // Address → the New York rule pack's county. null = nothing typed yet, "?" = not in this demo's lookup.
+  static lookup(addr) {
+    const a = String(addr || "").trim();
+    if (a.length < 8) return null;
+    const zips = a.match(/\b1\d{4}\b/g), p = zips ? zips[zips.length - 1].slice(0, 3) : "";
+    if (Component.NYC[p]) return Component.NYC[p];
+    const t = a.toLowerCase();
+    const names = [["manhattan", "100"], ["new york, ny", "100"], ["brooklyn", "112"], ["queens", "113"], ["flushing", "113"], ["astoria", "111"], ["bronx", "104"], ["staten island", "103"]];
+    for (let i = 0; i < names.length; i++) if (t.indexOf(names[i][0]) >= 0) return Component.NYC[names[i][1]];
+    return "?";
+  }
+  static preset(mode) {
+    const w = mode === "w4";
+    const mods = {};
+    Component.MODS.forEach((m) => { mods[m[0]] = false; });
+    // West 4 today (from the brief): on = the modules in use; songControl off (Playbox has no link), marketing off (opt-in setup).
+    if (w) ["website", "booking", "waitlist", "rooms", "roomOrdering", "barScreen", "barTabs", "barMode", "packages", "messages", "team", "safety", "reports"].forEach((id) => { mods[id] = true; });
+    return {
+      mode, done: {}, confirm: null, live: false, stripe: "none", dirty: false, savedAt: "", running: "",
+      name: w ? "West 4 Boho Karaoke" : "", address: w ? "186 W 4th St, New York, NY 10014" : "", license: w ? "restaurant" : "", u21: w ? "no" : "",
+      runs: { rooms: w, bar: w, kitchen: false }, mods, notes: w ? { marketing: "waiting on opt-in setup" } : {},
+      rooms: w ? Component.w4Rooms() : [], roomCount: w ? "14" : "",
+      pm: w ? "pp" : "", pp: w ? "10" : "", base: "", baseN: "", extra: "", flatS: "", flatM: "", flatL: "",
+      vipOn: w, vipRate: w ? "250" : "", vipFrom: w ? "20" : "",
+      bandsOn: false, bandAt: "8:00 PM", bandBefore: "", bandAfter: "",
+      minHours: w ? "1" : "", minWk: w ? "3" : "", minWe: w ? "4" : "",
+      depOn: w, depMode: 0, depValue: "", cancel: w ? "24" : "",
+      menuWay: w ? "pdf" : "", menuFile: w ? "West4-Menu.pdf" : "", menuRead: w ? 127 : 0, menuCats: w ? 15 : 0, upName: "", upWay: "",
+      items: w ? Component.W4_MENU.map((x) => Object.assign({ ok: false }, x)) : [], cardOk: !w,
+      ni: { name: "", cat: "", price: "", opts: "", alc: true },
+      song: w ? "playbox" : "", songs: w ? "113,000" : "",
+      team: w ? [
+        { name: "Abhishek G.", role: 0, tips: false, you: true, contact: "", sent: false },
+        { name: "Andy C.", role: 1, tips: false, contact: "", sent: true },
+        { name: "Maya S.", role: 2, tips: true, contact: "", sent: true },
+        { name: "Diego R.", role: 3, tips: true, contact: "", sent: true }
+      ] : [{ name: "", role: 0, tips: false, you: true, contact: "", sent: false }],
+      inv: { name: "", contact: "", role: "3" },
+      drawerMode: "house", bank: w ? "300" : "200", sur: "off", surPct: "2.7", gratMode: w ? "rooms" : "off", grat: w ? "20" : "", partyMin: "8",
+      qty: { s710: w ? 1 : 0, s700: 0, wisepose: 0, tprint: 0, rprint: 0, tablet: 0, router: w ? 1 : 0 },
+      have: { reader: w, tprint: w, rprint: w, tablet: w, router: false },
+      haveText: w ? { reader: "Stripe Reader S710 · front desk", tprint: "Epson TM-T88 · bar computer", rprint: "Star TSP143 + cash drawer · front desk PC", tablet: "14 room tablets + front desk iPad", router: "" } : { reader: "", tprint: "", rprint: "", tablet: "", router: "" },
+      style: w ? "neon" : "", siteAcc: w ? "#D4FF3F" : "", photos: w ? Component.W4_PHOTOS.map((p) => Object.assign({}, p)) : [],
+      h1: w ? "Lose your voice." : "", intro: w ? "14 private karaoke rooms in the West Village. Strong drinks. Louder friends. Zero judgment." : "",
+      addr: w ? "own" : "free", sub: w ? "west4" : "", domain: w ? "west4karaoke.com" : "",
+      tests: { booking: false, order: false, tab: false, ticket: false, texts: false },
+      lic: { ASCAP: false, BMI: false, SESAC: false, GMR: false }
+    };
+  }
+  constructor() {
+    super(...arguments);
+    this.state = Object.assign({ step: 1, toast: "", toastN: 0 }, Component.preset("w4"));
+    this.bodyRef = (el) => { this.body = el; };
+  }
+  componentDidUpdate(pp, ps) { if (ps && ps.step !== this.state.step && this.body) this.body.scrollTop = 0; }
+  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); }
+  change(patch) { this.setState(Object.assign({ dirty: true }, patch)); }
+  notify(msg) { this.setState((s) => ({ toast: msg, toastN: s.toastN + 1 })); }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state, C = Component, w4 = st.mode === "w4";
+    const field = (k) => (e) => this.change({ [k]: e.target.value });
+    const seg = (on) => on ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : "background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);";
+    const pick = (on) => on ? "background: " + acc + "14; color: #F4F1EA; border: 1.5px solid " + acc + ";" : "background: #121016; color: #F4F1EA; border: 1.5px solid rgba(244,241,234,.1);";
+    const track = (on) => on ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);";
+    const knob = (on) => on ? "left: 21px;" : "left: 3px;";
+    const box = (on) => on ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: transparent; border: 1.5px solid rgba(244,241,234,.35);";
+    const num = (v) => { const n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.]/g, "")); return isNaN(n) ? 0 : n; };
+    const money = (n) => "$" + n.toFixed(2);
+    const amber = "color: #FFB13D; border: 1px solid #FFB13D66;";
+
+    // ---- 1 · Your venue ----
+    const pack = C.lookup(st.address), packOk = !!pack && pack !== "?";
+    const pack4 = packOk ? [
+      { k: "County", v: pack[0], hint: pack[1] },
+      { k: "Alcohol closing hour", v: "4:00 AM", hint: "Every night · your last call can be earlier" },
+      { k: "Sales tax", v: "8.875%", hint: "State 4% + city 4.5% + MCTD 0.375%" },
+      { k: "Wage region", v: "NYC", hint: "$17.00 an hour minimum in 2026" }
+    ] : [];
+    const licModes = [["bar", "Bar / tavern", "On-premises bar or tavern"], ["restaurant", "Restaurant", "On-premises restaurant"]].map(([k, label, hint]) => ({ label, hint, on: st.license === k, pick: () => this.change({ license: k }), style: seg(st.license === k) }));
+    const u21Modes = [["no", "No, 21 and over only"], ["yes", "Yes, under 21 allowed"]].map(([k, label]) => ({ label, on: st.u21 === k, pick: () => this.change({ u21: k }), style: seg(st.u21 === k) }));
+    const u21Line = st.u21 === "no" ? "Staff check ID at the door, so everyone inside is 21 or over." : (st.u21 === "yes" ? "Alcohol orders from the rooms wait until staff have checked ID." : "Pick one. It sets how the bar checks ID.");
+
+    // ---- 2 · What you run → plan and modules ----
+    const plan = C.planOf(st.runs), P = plan ? C.PLANS[plan] : null;
+    const nRooms = Math.max(0, Math.min(60, Math.round(num(st.roomCount))));
+    const sInfo = C.SONGS.find((x) => x.id === st.song) || null;
+    const planIds = plan ? C.PLAN_MODS[plan] : [];
+    const nameOf = (id) => (C.MODS.find((m) => m[0] === id) || [])[1] || id;
+    const needOf = (id) => (C.MODS.find((m) => m[0] === id) || [])[3] || "";
+    const avail = (id) => {
+      if (!plan) return { ok: false, tag: "Pick what you run", warn: false };
+      const inPlan = planIds.indexOf(id) >= 0, addon = C.ADDONS.indexOf(id) >= 0 && !inPlan;
+      if (!inPlan && !addon) return { ok: false, tag: "Needs Rooms plan", warn: false };
+      const need = needOf(id);
+      if (need && planIds.indexOf(need) < 0) return { ok: false, tag: "Needs Rooms plan", warn: false };
+      if (id === "songControl" && !(sInfo && sInfo.ctrl)) return { ok: false, tag: !sInfo ? "Pick a song system · step 5" : (sInfo.none ? "No song system linked" : "Needs " + sInfo.name + " link"), warn: true };
+      return { ok: true, tag: addon ? "Add-on" : "", warn: false };
+    };
+    const hasRooms = !!st.runs.rooms && !!st.mods.rooms && avail("rooms").ok;
+    // Step 3 is skipped only once step 2 is answered without rooms; before that it waits for step 2.
+    const skip3 = !!plan && !hasRooms, wait3 = !plan;
+    const allDeps = (id) => { const out = []; const walk = (x) => C.MODS.forEach((m) => { if (m[3] === x && out.indexOf(m[0]) < 0) { out.push(m[0]); walk(m[0]); } }); walk(id); return out; };
+    const toggleMod = (id) => {
+      if (!avail(id).ok) return;
+      if (st.mods[id]) {
+        const hit = allDeps(id).filter((d) => st.mods[d] && avail(d).ok);
+        if (hit.length) this.setState({ confirm: { kind: "off", id, ids: hit } });
+        else this.change({ mods: Object.assign({}, st.mods, { [id]: false }) });
+      } else {
+        const need = needOf(id);
+        if (need && !st.mods[need]) this.setState({ confirm: { kind: "on", id, ids: [need] } });
+        else this.change({ mods: Object.assign({}, st.mods, { [id]: true }) });
+      }
+    };
+    const mods = C.MODS.map(([id, name, what]) => {
+      const a = avail(id), on = a.ok && !!st.mods[id], note = a.ok && !on ? (st.notes[id] || "") : "";
+      const tag = a.tag + (note ? (a.tag ? " · " : "") + note : "");
+      return {
+        name, what, on, locked: !a.ok, hasTag: !!tag, tag,
+        tagStyle: a.warn || note ? amber : (a.ok ? "color: #3DF2FF; border: 1px solid #3DF2FF55;" : "color: #8E8994; border: 1px solid rgba(244,241,234,.16);"),
+        rowStyle: a.ok ? "" : "opacity: .6;", trackStyle: track(on) + (a.ok ? "" : " cursor: not-allowed;"), knobStyle: knob(on),
+        toggle: () => toggleMod(id)
+      };
+    });
+    const RUNS = [
+      ["rooms", "Private rooms", "Groups book a room by the hour and sing on their own.", "Adds booking, the room clock, room orders"],
+      ["bar", "Bar with a karaoke mic", "One shared mic. Guests queue songs from their phones.", "Adds the phone song queue, Up next TV"],
+      ["kitchen", "Kitchen", "You cook food, not just drinks.", "Adds kitchen screens and stations"]
+    ];
+    const runCards = RUNS.map(([k, label, hint, adds]) => ({
+      label, hint, adds, on: !!st.runs[k], tick: st.runs[k] ? "✓" : "", boxStyle: box(!!st.runs[k]), style: pick(!!st.runs[k]),
+      toggle: () => { const runs = Object.assign({}, st.runs, { [k]: !st.runs[k] }); this.change({ runs, mods: C.defaultsFor(runs, st.song), confirm: null }); }
+    }));
+    const planPrice = !P ? "" : (P[2] ? (nRooms ? "$" + (P[1] + P[2] * nRooms) + " / month" : "$" + P[1] + " + $" + P[2] + " a room") : "$" + P[1] + " / month");
+    const planMath = !P ? "" : (P[2] ? (nRooms ? "$" + P[1] + " + " + nRooms + " rooms × $" + P[2] : "Set your room count in step 3") : "One price per venue");
+    const planIncludes = ({
+      bar: "Website, waitlist, bar screen, bar tabs, bar mode, texts, team, safety and reports." + (st.runs.kitchen ? " Kitchen comes as an add-on." : ""),
+      rooms: "Everything in Bar, plus online booking, the room clock, ordering from the room, packages and song control.",
+      rk: "Everything in Rooms, plus kitchen screens, stations and food in packages."
+    })[plan] || "";
+    const planRows = ["bar", "rooms", "rk"].map((k) => ({ name: C.PLANS[k][0], price: "$" + C.PLANS[k][1] + (C.PLANS[k][2] ? " + $12/room" : "/mo"), style: k === plan ? "background: " + acc + "22; color: " + acc + ";" : "color: #8E8994;" }));
+    const cf = st.confirm;
+
+    // ---- 3 · Rooms & pricing ----
+    const upRoom = (i, patch) => { const rr = st.rooms.slice(); rr[i] = Object.assign({}, rr[i], patch); this.change({ rooms: rr }); };
+    const setCount = (v) => {
+      const n = Math.max(0, Math.min(60, Math.round(num(v))));
+      const rr = st.rooms.slice();
+      while (rr.length < n) rr.push({ name: "", tier: "", cap: "" });
+      this.change({ roomCount: v === "" ? "" : String(n), rooms: rr });
+    };
+    const roomRows = st.rooms.slice(0, nRooms).map((r, i) => ({
+      name: r.name, tier: r.tier, cap: r.cap, ph: "Room " + (i + 1), aria: "Room " + (i + 1) + " name",
+      setName: (e) => upRoom(i, { name: e.target.value }), setTier: (e) => upRoom(i, { tier: e.target.value }), setCap: (e) => upRoom(i, { cap: e.target.value })
+    }));
+    const priceModes = [["pp", "Per person / hour"], ["base", "Base + extra guest"], ["flat", "Flat by room size"]].map(([k, label]) => ({ label, on: st.pm === k, pick: () => this.change({ pm: k }), style: seg(st.pm === k) }));
+    const priceSet = st.pm === "pp" ? num(st.pp) > 0 : st.pm === "base" ? num(st.base) > 0 : st.pm === "flat" ? (num(st.flatS) + num(st.flatM) + num(st.flatL)) > 0 : false;
+    const perWord = st.pm === "pp" ? "per person $" : "per hour $";
+    const DM = [["First hour", ""], ["$ per person", "$ per guest"], ["Flat $", "$ per booking"], ["% of booking", "% of the room total"]];
+    const dv = num(st.depValue);
+    const depWords = st.depMode === 0 ? "the first hour of room time" : st.depMode === 1 ? "$" + (st.depValue || "…") + " a person" : st.depMode === 2 ? "$" + (st.depValue || "…") : (st.depValue || "…") + "% of the room";
+    const depPolicy = st.depOn ? "A deposit of " + depWords + " holds your room. Cancel at least " + (st.cancel || "…") + " hours ahead and it all comes back. The deposit comes off your tab." : "No deposit. Guests book without paying ahead.";
+    // Try it: 6 guests, 2 hours, Friday 9:30 PM (after an 8 PM band, if one is set).
+    const g = 6, hrs = 2;
+    const fits = (cap) => { const m = /(\d+)\D+(\d+)/.exec(cap || ""); return m ? g >= Number(m[1]) && g <= Number(m[2]) : false; };
+    const tier6 = (st.rooms.slice(0, nRooms).find((r) => fits(r.cap)) || {}).tier || "Small";
+    const late = st.bandsOn && st.bandAfter !== "" ? num(st.bandAfter) : null;
+    const billed = Math.max(g, num(st.minWe));
+    const hourly = st.pm === "pp" ? (late != null ? late : num(st.pp)) * billed
+      : st.pm === "base" ? (late != null ? late : num(st.base)) + Math.max(0, g - (num(st.baseN) || g)) * num(st.extra)
+      : st.pm === "flat" ? (late != null ? late : num(({ Small: st.flatS, Medium: st.flatM, Large: st.flatL, VIP: st.vipRate })[tier6] || st.flatS)) : 0;
+    const roomAmt = hourly * Math.max(hrs, num(st.minHours));
+    const depAmt = !st.depOn ? 0 : st.depMode === 0 ? hourly : st.depMode === 1 ? dv * g : st.depMode === 2 ? dv : roomAmt * dv / 100;
+    const tryRows = st.pm && priceSet ? [
+      { k: "Room time" + (st.pm === "flat" ? " · " + tier6.toLowerCase() + " room" : ""), v: money(roomAmt) },
+      { k: "Deposit when they book", v: st.depOn ? money(depAmt) : "none" },
+      { k: "Left for the end of the night, before tax", v: money(Math.max(0, roomAmt - depAmt)) }
+    ] : [{ k: "Room time", v: "set a price first" }];
+
+    // ---- 4 · Menu ----
+    // Card fee from step 7: "off", "credit" (surcharge, credit cards only, capped) or "discount" (cash pays less).
+    const CAP = 2.7, feeP = Math.max(0, num(st.surPct));
+    const cardOn = st.sur === "credit", cashOff = st.sur === "discount";
+    const surF = cardOn ? 1 + Math.min(feeP, CAP) / 100 : 1, discF = cashOff ? 1 - feeP / 100 : 1;
+    const pctS = (v) => String(Math.round(v * 10) / 10);
+    const upItem = (i, patch) => { const it = st.items.slice(); it[i] = Object.assign({}, it[i], patch); this.change({ items: it }); };
+    const base6 = st.menuRead ? C.W4_MENU.length : 0;
+    const totalItems = st.menuRead + (st.items.length - base6);
+    const items = st.items.map((m, i) => ({
+      name: m.name, cat: m.cat, price: m.price, card: money(num(m.price) * (cashOff ? discF : surF)), opts: m.opts || "—", alc: !!m.alc,
+      alcLabel: m.alc ? "Yes" : "No", alcAria: m.name + " has alcohol", priceAria: m.name + " price",
+      alcStyle: m.alc ? "background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666;" : "background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.16);",
+      rowStyle: m.check && !m.ok ? "border-color: #FFB13D77;" : "",
+      toggleAlc: () => upItem(i, { alc: !m.alc }), setPrice: (e) => upItem(i, { price: e.target.value })
+    }));
+    const checks = st.items.map((m, i) => (m.check && !m.ok ? { text: m.check, ok: () => upItem(i, { ok: true }) } : null)).filter(Boolean);
+    if (w4 && !st.cardOk && st.menuRead) checks.push({ text: "Your menu says cards add 3.5%. Card prices now follow your choice in step 7, Payments.", ok: () => this.change({ cardOk: true }) });
+    const WAYS = [
+      ["pdf", "Upload a PDF or photo", "PDF, JPG, PNG", "We read it into items for you to check.", "Choose a file", ".pdf,image/*"],
+      ["sheet", "Import a spreadsheet", "CSV, Excel", "One row per item: name, category, price, options, alcohol.", "Choose a spreadsheet", ".csv,.xlsx,.xls"],
+      ["type", "Type items", "By hand", "Start from nothing and add items one at a time.", "Start typing", ""]
+    ];
+    const menuWays = WAYS.map(([id, label, kind, hint, cta, accept]) => {
+      const mine = st.upWay === id && st.upName;
+      const status = mine ? "“" + st.upName + "” picked. In the app we read it into items for you to check; this prototype only has West 4's sample."
+        : (id === "pdf" && st.menuRead ? "✓ " + st.menuFile + " · read " + st.menuRead + " items" : (id === "type" && st.menuWay === "type" ? "Typing below" : ""));
+      return {
+        label, kind, hint, cta, accept, isFile: id !== "type", isType: id === "type", hasStatus: !!status, status,
+        style: st.menuWay === id ? "background: " + acc + "10; border: 1.5px solid " + acc + ";" : "background: #121016; border: 1.5px solid rgba(244,241,234,.1);",
+        pick: () => this.change({ menuWay: id }),
+        pickFile: (e) => { const f = e && e.target && e.target.files && e.target.files[0]; if (!f) return; this.change({ menuWay: id, upWay: id, upName: f.name }); }
+      };
+    });
+    const addItem = () => {
+      const ni = st.ni;
+      if (!ni.name.trim() || ni.price === "") { this.notify("Add a name and a price first"); return; }
+      this.change({ items: [{ name: ni.name.trim(), cat: ni.cat.trim() || "Other", price: ni.price, opts: ni.opts.trim(), alc: ni.alc, check: "", ok: true }].concat(st.items), ni: { name: "", cat: ni.cat, price: "", opts: "", alc: ni.alc } });
+      this.notify(ni.name.trim() + " added");
+    };
+    const setNi = (k) => (e) => this.change({ ni: Object.assign({}, st.ni, { [k]: e.target.value }) });
+
+    // ---- 5 · Songs ----
+    const songCards = C.SONGS.map((s) => ({
+      name: s.name, chip: s.chip, line: s.line, on: st.song === s.id, style: pick(st.song === s.id),
+      chipStyle: s.ctrl ? "color: " + acc + "; border: 1px solid " + acc + "66;" : (s.req ? "color: #3DF2FF; border: 1px solid #3DF2FF55;" : (s.none ? "color: #8E8994; border: 1px solid rgba(244,241,234,.2);" : amber)),
+      pick: () => {
+        const m = Object.assign({}, st.mods);
+        if (!s.ctrl) m.songControl = false;
+        else if (planIds.indexOf("songControl") >= 0 && st.mods.rooms) m.songControl = true;
+        this.change({ song: s.id, mods: m });
+      }
+    }));
+    const caps = !sInfo ? [] : [
+      { ok: true, label: "Room clock, time billing and ordering", hint: "These run in our system, so they work with any player." },
+      { ok: !!sInfo.ctrl, label: "Song control: lock rooms between sessions, TV countdown, volume cap, play log", hint: sInfo.ctrl ? "Through KaraFun's venue API: sessions start and stop with the booking." : "Not available: " + (sInfo.none ? "no song system is linked." : sInfo.name + " gives us no way in yet.") + " Rooms still get our countdown on the room tablet, and staff get the wrap-up alert." },
+      { ok: true, label: "Bar song queue", hint: sInfo.req ? "Our phone queue, and requests also go straight to OpenKJ." : "Our own phone queue; staff mark each song as it starts." }
+    ].map((c) => ({ label: c.label, hint: c.hint, mark: c.ok ? "✓" : "✕", dotStyle: c.ok ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #FFB13D; border: 1.5px solid #FFB13D;" }));
+    const scInPlan = planIds.indexOf("songControl") >= 0;
+    const songCtrl = !sInfo ? ["Waiting for your pick", "Song system control can only switch on with a system that allows it.", "color: #8E8994;"]
+      : !scInPlan ? ["Not in your plan", "Song control is for private rooms, on the Rooms plans.", "color: #8E8994;"]
+      : !sInfo.ctrl ? ["Off · " + (sInfo.none ? "no song system linked" : "needs " + sInfo.name + " link"), "The module stays off. The room clock and billing are not affected.", "color: #FFB13D;"]
+      : st.mods.songControl ? ["On", "Rooms lock between sessions and the TV shows the countdown.", "color: " + acc + ";"]
+      : ["Available", "Switch it on in step 2 whenever you're ready.", "color: #3DF2FF;"];
+
+    // ---- 6 · Team ----
+    const ROLES = ["Owner", "Manager", "Bartender", "Staff"];
+    const initials = (n) => String(n || "").trim().split(/\s+/).map((x) => x.charAt(0)).join("").slice(0, 2).toUpperCase() || "?";
+    const upP = (i, patch) => { const t = st.team.slice(); t[i] = Object.assign({}, t[i], patch); this.change({ team: t }); };
+    const team = st.team.map((p, i) => ({
+      name: p.name, ph: p.you ? "Your name" : "Name", initials: initials(p.name),
+      status: p.you ? "You · the owner" : (p.sent ? "Invite sent" : "Invite ready"), statusStyle: p.you ? "color: " + acc + ";" : "",
+      contact: p.you ? "Signed in now" : (p.contact ? p.contact + " · PIN on first sign-in" : "PIN on first sign-in"),
+      roles: ROLES.map((label, r) => ({ label, on: p.role === r, locked: !!p.you, pick: () => upP(i, r <= 1 ? { role: r, tips: false } : { role: r }), style: seg(p.role === r) + (p.you && p.role !== r ? " opacity: .35;" : "") })),
+      tips: !!p.tips, tick: p.tips ? "✓" : "", boxStyle: box(!!p.tips), tipsLabel: p.tips ? "In pool" : "Not in pool", tipsAria: "Tip pool: " + (p.name || "this person"),
+      toggleTips: () => { if (p.role <= 1) { this.notify("Owners and managers can't share in the tip pool"); return; } upP(i, { tips: !p.tips }); },
+      canRemove: !p.you, removeAria: "Remove " + (p.name || "this person"), remove: () => this.change({ team: st.team.filter((_, j) => j !== i) }),
+      setName: (e) => upP(i, { name: e.target.value })
+    }));
+    const inPool = st.team.filter((p) => p.tips).length;
+    const invite = () => {
+      const n = st.inv.name.trim(), c = st.inv.contact.trim();
+      if (!n || !c) { this.notify("Add a name and a phone or email"); return; }
+      this.change({ team: st.team.concat([{ name: n, contact: c, role: Number(st.inv.role) || 0, tips: false, sent: true }]), inv: { name: "", contact: "", role: st.inv.role } });
+      this.notify("Invite sent to " + n);
+    };
+    const setInv = (k) => (e) => this.change({ inv: Object.assign({}, st.inv, { [k]: e.target.value }) });
+
+    // ---- 7 · Payments ----
+    const stripeOn = st.stripe === "on", stripeBusy = st.stripe === "busy";
+    // How cash is kept: one house drawer everyone shares, or a drawer per person (Admin → Cash drawers).
+    const drawerModes = [
+      ["house", "One house drawer", "Everyone rings cash into the same drawer, and the manager on duty answers for it."],
+      ["person", "A drawer per person", "Each bartender has their own drawer or tray, and over or short is theirs."]
+    ].map(([k, label, hint]) => ({ label, hint, on: st.drawerMode === k, pick: () => this.change({ drawerMode: k }), style: pick(st.drawerMode === k), dotStyle: st.drawerMode === k ? "border: 6px solid " + acc + "; background: #0b0a0d;" : "border: 1.5px solid rgba(244,241,234,.35); background: transparent;" }));
+    const surModes = [
+      ["off", "Off", "Every card pays the menu price."],
+      ["credit", "Credit card surcharge", "Credit cards pay more, up to what a card costs you."],
+      ["discount", "Cash discount", "Menu prices are card prices. Cash pays less."]
+    ].map(([k, label, hint]) => ({ label, hint, on: st.sur === k, pick: () => this.change({ sur: k }), style: pick(st.sur === k), dotStyle: st.sur === k ? "border: 6px solid " + acc + "; background: #0b0a0d;" : "border: 1.5px solid rgba(244,241,234,.35); background: transparent;" }));
+
+    // ---- 8 · Devices ----
+    const DEV = [
+      { id: "reader", name: "Card readers", note: hasRooms ? "For tabs at the bar, in the rooms and at the door" : "For tabs at the bar and at the door", items: [["s710", "Stripe Reader S710", "Handheld, own screen · cellular backup, $10 a month", 299], ["s700", "Stripe Reader S700", "Same reader, Wi-Fi only", 299], ["wisepose", "BBPOS WisePOS E", "Countertop · Wi-Fi or Ethernet, no cellular", 249]] },
+      { id: "tprint", name: "Ticket printer", note: hasRooms ? "Room and bar orders print here" : "Bar orders print here", items: [["tprint", "Ticket printer", "Star CloudPRNT or Epson Server Direct Print; USB ones need a computer running the app", 0]] },
+      { id: "rprint", name: "Receipt printer and cash drawer", note: "The drawer opens from the printer", items: [["rprint", "Receipt printer + cash drawer", "Star or Epson; USB ones need a computer running the app", 0]] },
+      { id: "tablet", name: "Tablets", note: hasRooms ? "One per room for ordering and the clock, one for the door" : "For the door, the waitlist and the bar", items: [["tablet", "Tablet", "Or any tablet you already have on your Wi-Fi", 0]] },
+      { id: "router", name: "Backup internet", note: "Keeps the venue online if your line drops, on a different carrier from the readers", items: [["router", "Dual-WAN router with LTE", "Registered to your venue; failover tested every month", 0]] }
+    ];
+    const setQty = (id, n) => this.change({ qty: Object.assign({}, st.qty, { [id]: Math.max(0, Math.min(99, n)) }) });
+    const devGroups = DEV.map((gp) => ({
+      name: gp.name, note: gp.note, have: !!st.have[gp.id], order: !st.have[gp.id] || gp.id === "reader", tick: st.have[gp.id] ? "✓" : "", boxStyle: box(!!st.have[gp.id]),
+      toggleHave: () => this.change({ have: Object.assign({}, st.have, { [gp.id]: !st.have[gp.id] }) }),
+      haveText: st.haveText[gp.id] || "", haveAria: "Which " + gp.name.toLowerCase() + " you have",
+      setHave: (e) => this.change({ haveText: Object.assign({}, st.haveText, { [gp.id]: e.target.value }) }),
+      items: gp.items.map(([id, name, note, price]) => ({ name, note, price: price ? "$" + price + " each" : "At cost", qty: st.qty[id] || 0, minus: () => setQty(id, (st.qty[id] || 0) - 1), plus: () => setQty(id, (st.qty[id] || 0) + 1), minusAria: "One less: " + name, plusAria: "One more: " + name }))
+    }));
+    const orderLines = [], haveLines = [];
+    let orderSum = 0, atCost = false, readers = 0, units = 0;
+    DEV.forEach((gp) => {
+      if (st.have[gp.id]) haveLines.push({ k: gp.name, v: (st.haveText[gp.id] || "").trim() || "details to add" });
+      if (st.have[gp.id] && gp.id !== "reader") return;
+      gp.items.forEach(([id, name, , price]) => { const q = st.qty[id] || 0; if (!q) return; units += q; if (gp.id === "reader") readers += q; if (price) orderSum += price * q; else atCost = true; orderLines.push({ k: q + " × " + name, v: price ? money(price * q) : "at cost" }); });
+    });
+    const readerOk = !!st.have.reader || readers > 0;
+
+    // ---- 9 · Website ----
+    const S = C.STYLES;
+    const accFor = (k) => (st.style === k && st.siteAcc ? st.siteAcc : S[k][0]);
+    const pickStyle = (k) => () => this.change({ style: k, siteAcc: S[k][0] });
+    const styleCard = (k) => st.style === k ? "background: " + acc + "14; border: 1.5px solid " + acc + ";" : "background: #141218; border: 1.5px solid rgba(244,241,234,.1);";
+    const swatches = st.style ? S[st.style].map((c) => ({ on: st.siteAcc === c, aria: "Accent color " + c, pick: () => this.change({ siteAcc: c }), style: "background: " + c + "; border: 2px solid " + (st.siteAcc === c ? "#F4F1EA" : "rgba(244,241,234,.12)") + ";" + (st.siteAcc === c ? " box-shadow: 0 0 0 2px #0b0a0d inset;" : "") })) : [];
+    const photos = st.photos.map((p, i) => ({ src: p.src, alt: p.alt, cap: p.cap, removeAria: "Remove photo: " + (p.cap || "photo"), remove: () => this.change({ photos: st.photos.filter((_, j) => j !== i) }) }));
+    const addPhoto = (e) => { const f = e && e.target && e.target.files && e.target.files[0]; if (!f) return; let src = ""; try { src = URL.createObjectURL(f); } catch (x) { src = ""; } this.change({ photos: st.photos.concat([{ src, alt: "", cap: f.name }]) }); };
+    const dot = (on) => on ? "border: 6px solid " + acc + "; background: #0b0a0d;" : "border: 1.5px solid rgba(244,241,234,.35); background: transparent;";
+    const rowSel = (on) => on ? "background: " + acc + "10; border: 1px solid " + acc + "66;" : "background: #141218; border: 1px solid rgba(244,241,234,.08);";
+    const web = st.addr === "own" ? (st.domain.trim() || "your domain") : (st.sub.trim() || "yourname") + ".<product>.com";
+
+    // ---- completeness, used by the step list and Go live ----
+    const miss = {
+      1: !st.name.trim() ? "add your business name" : !st.address.trim() ? "add your address" : !st.license ? "pick your license type" : !st.u21 ? "answer the under-21 question" : "",
+      2: !plan ? "pick what you run" : "",
+      3: wait3 ? "pick what you run first" : !hasRooms ? "" : !nRooms ? "set how many rooms" : !st.pm ? "pick how you charge" : !priceSet ? "set your room price" : "",
+      4: totalItems > 0 ? "" : "add your menu",
+      5: st.song ? "" : "pick your song system",
+      6: st.team.length && st.team[0].name.trim() ? "" : "add your own name",
+      7: !stripeOn ? "connect Stripe" : (st.sur === "credit" && num(st.surPct) > CAP ? "lower the surcharge to " + CAP + "%" : (st.gratMode !== "off" && !(num(st.grat) > 0) ? "set the gratuity %" : "")),
+      8: readerOk ? "" : "order or list a card reader",
+      9: !st.style ? "pick a style" : !st.h1.trim() ? "write a headline" : (st.addr === "own" ? !st.domain.trim() : !st.sub.trim()) ? "choose a web address" : ""
+    };
+
+    // ---- 10 · Test night ----
+    const TESTS = [
+      ["booking", "Make a sample booking", "Book a room on your site with a test card. The deposit and the confirmation text should come through.", "Book a test room", !hasRooms || !st.mods.booking, "Booking went through"],
+      ["order", "Send a sample room order", "Order from a room tablet. It has to ring the bar until someone accepts it.", "Send test order", !hasRooms || !st.mods.roomOrdering, "The bar rang and accepted it"],
+      ["tab", "Close out a test tab", "Pay one by card and one in cash, then check the receipt lines.", "Open a test tab", false, "Test tab closed"],
+      ["ticket", "Print a ticket", "The bar printer should print the order ticket.", "Print test ticket", false, "Ticket printed"],
+      ["texts", "Texts registered", "Your texting number is registered with the phone carriers (10DLC), so texts aren't blocked.", "Check status", !st.mods.messages, "Texting number registered"]
+    ];
+    const run = (id, msg) => { this.setState({ running: id }); clearTimeout(this.t2); this.t2 = setTimeout(() => { this.setState({ running: "", dirty: true, tests: Object.assign({}, this.state.tests, { [id]: true }) }); this.notify(msg); }, 900); };
+    const tests = TESTS.map(([id, label, hint, cta, na, msg]) => {
+      const done = !!st.tests[id], busy = st.running === id;
+      return {
+        label, hint, cta, na, done: done || na, tick: done ? "✓" : (na ? "–" : ""), canRun: !done && !na && !busy, showState: done || na || busy,
+        state: na ? "Not used" : busy ? "Testing…" : (id === "texts" ? "Registered" : "Passed"),
+        stateStyle: na ? "color: #6F6B78;" : busy ? "color: #C9C5CE;" : "color: " + acc + ";",
+        rowStyle: na ? "opacity: .5;" : "", boxStyle: done ? box(true) : (na ? "background: transparent; color: #6F6B78; border: 1.5px dashed rgba(244,241,234,.25);" : box(false)),
+        toggle: () => { if (!na) this.change({ tests: Object.assign({}, st.tests, { [id]: !done }) }); }, run: () => run(id, msg)
+      };
+    });
+    const licAll = ["ASCAP", "BMI", "SESAC", "GMR"].every((k) => st.lic[k]);
+    const lics = ["ASCAP", "BMI", "SESAC", "GMR"].map((k) => ({ label: (st.lic[k] ? "✓ " : "") + k, on: !!st.lic[k], toggle: () => this.change({ lic: Object.assign({}, st.lic, { [k]: !st.lic[k] }) }), style: st.lic[k] ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.22);" }));
+    // Tests for modules that are off don't count either way.
+    const testsLive = tests.filter((t) => !t.na);
+    const checksTotal = testsLive.length + 1, checksDone = testsLive.filter((t) => t.done).length + (licAll ? 1 : 0);
+
+    // ---- steps, progress, navigation ----
+    const TITLES = [
+      [1, "Your venue", "Name, address and license. Your address sets the local rules."],
+      [2, "What you run", "Pick what you run. Only what you need gets switched on."],
+      [3, "Rooms & pricing", "Your rooms, how you charge, minimums and the deposit."],
+      [4, "Menu", "Bring your menu in once. The site, the PDF and room ordering all use it."],
+      [5, "Songs", "Tell us your song system and we show what we can control."],
+      [6, "Team", "Invite the people who work your nights. Everyone gets their own PIN."],
+      [7, "Payments", "Stripe for cards, cash always, and how fees and gratuity work."],
+      [8, "Devices", "Card readers, printers, tablets and backup internet. Order them, or tell us what you have."],
+      [9, "Website", "Start from a style, add your photos and words, pick your address."],
+      [10, "Test night & go live", "Try everything once with a test card, then open for real."]
+    ];
+    const status = (n) => (n === 3 && skip3) ? "skip" : n === 10 ? (st.live ? "done" : "todo") : (st.done[n] ? (miss[n] ? "warn" : "done") : "todo");
+    const applicable = (n) => !(n === 3 && skip3);
+    const nextOf = (n) => { let k = n + 1; while (k < 10 && !applicable(k)) k++; return Math.min(k, 10); };
+    const prevOf = (n) => { let k = n - 1; while (k > 1 && !applicable(k)) k--; return Math.max(k, 1); };
+    const goStep = (n) => { if (n === st.step) return; this.setState({ step: n, done: st.step < 10 ? Object.assign({}, st.done, { [st.step]: true }) : st.done }); };
+    const subs = {
+      1: st.name.trim() ? st.name.trim() + (packOk ? " · " + pack[1] : "") : "Name, address, license",
+      2: plan ? C.PLANS[plan][0] + " plan" + (planPrice ? " · " + planPrice : "") : "Rooms, bar, kitchen",
+      3: skip3 ? "Skipped · no private rooms" : (hasRooms && nRooms ? nRooms + " rooms" + (st.pm === "pp" && num(st.pp) ? " · $" + num(st.pp) + "/person/hr" : "") : "Rooms, prices, deposit"),
+      4: totalItems ? totalItems + " items" + (checks.length ? " · " + checks.length + " to check" : "") : "Upload or type it in",
+      5: sInfo ? sInfo.name + " · " + sInfo.chip : "Pick your song system",
+      6: st.team.length + (st.team.length === 1 ? " person" : " people") + " · " + inPool + " in tip pool",
+      7: stripeOn ? "Stripe connected" : "Stripe not connected",
+      8: units ? units + " to order" + (orderSum ? " · $" + orderSum : "") : (haveLines.length ? "Nothing to order" : "Readers, printers, tablets"),
+      9: st.style ? ({ neon: "Neon", flyer: "Flyer", lounge: "Lounge" })[st.style] + " · " + web : "Style, photos, address",
+      10: st.live ? "Live" : checksDone + " of " + checksTotal + " checks"
+    };
+    const steps = TITLES.map(([n, label]) => {
+      const s = status(n), cur = st.step === n;
+      return {
+        label, sub: subs[n], go: () => goStep(n), aria: cur ? "step" : null,
+        mark: s === "done" ? "✓" : (s === "warn" ? "!" : (s === "skip" ? "–" : String(n))),
+        rowStyle: cur ? "background: " + acc + "; color: #0b0a0d;" : ("background: transparent; color: #F4F1EA;" + (s === "skip" ? " opacity: .5;" : "")),
+        dotStyle: cur ? "background: #0b0a0d; color: " + acc + "; border: 0;" : s === "done" ? "background: " + acc + "; color: #0b0a0d; border: 0;" : s === "warn" ? "background: transparent; color: #FFB13D; border: 1.5px solid #FFB13D;" : s === "skip" ? "background: transparent; color: #8E8994; border: 1.5px dashed rgba(244,241,234,.3);" : "background: transparent; color: #C9C5CE; border: 1.5px solid rgba(244,241,234,.25);"
+      };
+    });
+    const doneCount = TITLES.filter(([n]) => status(n) === "done" || status(n) === "skip").length;
+    const blockers = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((n) => applicable(n) && !(n === 3 && wait3) && (miss[n] || !st.done[n])).map((n) => ({ text: "Step " + n + " · " + (miss[n] || "not checked yet"), cta: "Go", go: () => goStep(n) }));
+    const ready = checksDone === checksTotal && blockers.length === 0;
+    const cur = TITLES[st.step - 1];
+    const next = () => { const d = Object.assign({}, st.done, { [st.step]: true }); this.setState({ done: d, step: nextOf(st.step), dirty: false, savedAt: "when you continued" }); };
+    const switchMode = (k) => { if (st.mode === k) return; clearTimeout(this.t1); clearTimeout(this.t2); this.setState(Object.assign(C.preset(k), { step: st.step })); this.notify(k === "w4" ? "West 4 filled in" : "Blank venue: every field is empty"); };
+    const show = (n) => st.step === n;
+    return {
+      accent: acc, bodyRef: this.bodyRef,
+      venueLine: st.name.trim() ? st.name.trim() + (packOk ? " · " + pack[1] : "") : "New venue",
+      steps, stepEyebrow: "Step " + st.step + " of 10" + (st.step === 3 && skip3 ? " · skipped" : ""), stepTitle: cur[1], stepHint: cur[2],
+      demoModes: [["w4", "West 4"], ["blank", "Blank venue"]].map(([k, label]) => ({ label, on: st.mode === k, pick: () => switchMode(k), style: st.mode === k ? "background: #F4F1EA; color: #0b0a0d;" : "background: transparent; color: #C9C5CE;" })),
+      doneCount, progressStyle: "width: " + doneCount * 10 + "%;", progressLine: doneCount + " of 10 done",
+      s1: show(1), s2: show(2), s3: show(3) && hasRooms, s3skip: show(3) && !hasRooms, s4: show(4), s5: show(5), s6: show(6), s7: show(7), s8: show(8), s9: show(9), s10: show(10),
+      // 1
+      name: st.name, setName: field("name"), address: st.address, setAddress: field("address"), licModes, u21Modes, u21Line,
+      hasPack: packOk, pack: pack4, packUnknown: pack === "?", packEmpty: !pack, packBlank: ["County", "Alcohol closing hour", "Sales tax", "Wage region"],
+      // 2
+      runCards, hasPlan: !!plan, noPlan: !plan, planName: P ? P[0] : "", planPrice, planMath, planIncludes, planRows,
+      coreMods: C.CORE, mods, modCount: mods.filter((m) => m.on).length + " of " + mods.length + " modules on, plus the 4 core ones",
+      hasConfirm: !!cf,
+      cfTitle: !cf ? "" : cf.kind === "off" ? "Turn off " + nameOf(cf.id) + "?" : "Also turn on " + nameOf(cf.ids[0]) + "?",
+      cfBody: !cf ? "" : cf.kind === "off" ? "These need it, so they turn off too. Their screens disappear everywhere: rail items, staff phones and website sections." : nameOf(cf.id) + " needs " + nameOf(cf.ids[0]) + " to work, so both turn on:",
+      cfList: !cf ? [] : cf.kind === "off" ? cf.ids.map(nameOf) : [nameOf(cf.ids[0]), nameOf(cf.id)],
+      cfYesLabel: !cf ? "" : cf.kind === "off" ? "Turn all " + (cf.ids.length + 1) + " off" : "Turn both on",
+      cfNoLabel: !cf ? "" : cf.kind === "off" ? "Keep it on" : "Cancel",
+      cfYes: () => { if (!cf) return; const m = Object.assign({}, st.mods); m[cf.id] = cf.kind !== "off"; cf.ids.forEach((d) => { m[d] = cf.kind !== "off"; }); this.change({ mods: m, confirm: null }); },
+      cfNo: () => this.setState({ confirm: null }),
+      // 3
+      s3skipTitle: wait3 ? "First, tell us what you run" : "Skipped · no private rooms",
+      s3skipBody: wait3 ? "Rooms and room prices are set here once you pick Private rooms in step 2." : "You didn't pick Private rooms in step 2, so there are no rooms to price. Room time, deposits and online booking stay off.",
+      s3skipCta: wait3 ? "Go to step 2" : "I do have private rooms",
+      s3skipAct: wait3 ? () => goStep(2) : () => { const runs = Object.assign({}, st.runs, { rooms: true }); this.change({ runs, mods: C.defaultsFor(runs, st.song) }); },
+      addRooms: () => { const runs = Object.assign({}, st.runs, { rooms: true }); this.change({ runs, mods: C.defaultsFor(runs, st.song) }); },
+      roomCount: st.roomCount, setRoomCount: (e) => setCount(e.target.value), roomsMinus: () => setCount(String(Math.max(0, nRooms - 1))), roomsPlus: () => setCount(String(nRooms + 1)),
+      roomRows, hasRoomRows: roomRows.length > 0, noRoomRows: roomRows.length === 0,
+      priceModes, pmNone: !st.pm, pmPP: st.pm === "pp", pmBase: st.pm === "base", pmFlat: st.pm === "flat",
+      pp: st.pp, setPp: field("pp"), base: st.base, setBase: field("base"), baseN: st.baseN, setBaseN: field("baseN"), extra: st.extra, setExtra: field("extra"),
+      flatS: st.flatS, setFlatS: field("flatS"), flatM: st.flatM, setFlatM: field("flatM"), flatL: st.flatL, setFlatL: field("flatL"),
+      vipOn: st.vipOn, toggleVip: () => this.change({ vipOn: !st.vipOn }), vipTrack: track(st.vipOn), vipKnob: knob(st.vipOn),
+      vipLine: st.vipOn ? (st.vipRate && st.vipFrom ? "$" + st.vipRate + " an hour for " + st.vipFrom + " or more, instead of the normal rate" : "Set the rate and the party size below") : "Off · the VIP room uses the normal rate",
+      vipRate: st.vipRate, setVipRate: field("vipRate"), vipFrom: st.vipFrom, setVipFrom: field("vipFrom"),
+      bandsOn: st.bandsOn, toggleBands: () => this.change({ bandsOn: !st.bandsOn }), bandTrack: track(st.bandsOn), bandKnob: knob(st.bandsOn),
+      bandLine: st.bandsOn ? "The rate changes at " + st.bandAt + ", even mid-session" : "Off · one rate all night",
+      bandAt: st.bandAt, setBandAt: field("bandAt"), bandBefore: st.bandBefore, setBandBefore: field("bandBefore"), bandAfter: st.bandAfter, setBandAfter: field("bandAfter"),
+      bandBeforeLabel: "Before, " + perWord, bandAfterLabel: "After, " + perWord,
+      minHours: st.minHours, setMinHours: field("minHours"), minWk: st.minWk, setMinWk: field("minWk"), minWe: st.minWe, setMinWe: field("minWe"),
+      minLine: (num(st.minHours) ? "At least " + num(st.minHours) + (num(st.minHours) === 1 ? " hour" : " hours") + ", then by the minute." : "No shortest booking: billed by the minute from the start.") + (num(st.minWk) || num(st.minWe) ? " Smaller groups pay for the minimum." : ""),
+      depOn: st.depOn, toggleDep: () => this.change({ depOn: !st.depOn }), depTrack: track(st.depOn), depKnob: knob(st.depOn),
+      depModes: DM.map(([label], i) => ({ label, on: st.depMode === i, pick: () => this.change({ depMode: i }), style: seg(st.depMode === i) })),
+      depHasValue: st.depMode > 0, depValueLabel: DM[st.depMode][1], depValue: st.depValue, setDepValue: field("depValue"), cancel: st.cancel, setCancel: field("cancel"), depPolicy,
+      tryTitle: "Try it · " + g + " people, " + hrs + " hours, Friday 9:30 PM", tryRows,
+      // 4
+      menuWays, typing: st.menuWay === "type",
+      niName: st.ni.name, setNiName: setNi("name"), niCat: st.ni.cat, setNiCat: setNi("cat"), niPrice: st.ni.price, setNiPrice: setNi("price"), niOpts: st.ni.opts, setNiOpts: setNi("opts"),
+      niAlc: st.ni.alc, toggleNiAlc: () => this.change({ ni: Object.assign({}, st.ni, { alc: !st.ni.alc }) }), niAlcLabel: st.ni.alc ? "Alcohol: yes" : "Alcohol: no", niAlcStyle: st.ni.alc ? "background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666;" : "background: #141218; color: #C9C5CE; border: 1px solid rgba(244,241,234,.14);",
+      addItem, items, hasItems: items.length > 0, menuEmpty: items.length === 0, cardHead: cardOn ? "Credit +" + pctS(Math.min(feeP, CAP)) + "%" : cashOff ? "Cash −" + pctS(feeP) + "%" : "Card · same",
+      checks, hasChecks: checks.length > 0, checkCount: checks.length,
+      menuCounts: totalItems ? totalItems + " items" + (st.menuCats ? " · " + st.menuCats + " categories" : "") + " · " + checks.length + " to check" : "0 items",
+      hasMore: st.menuRead > base6, moreLine: "+ " + (st.menuRead - base6) + " more items read from " + st.menuFile + ", all editable later in Admin → Menu.",
+      // 5
+      songCards, caps, hasSong: !!sInfo, noSong: !sInfo, capTitle: sInfo ? "With " + sInfo.name + ", here's what works" : "What works with your song system",
+      hasSongNote: !!(sInfo && sInfo.note), songNote: sInfo ? sInfo.note : "",
+      songCtrlTitle: songCtrl[0], songCtrlLine: songCtrl[1], songCtrlStyle: songCtrl[2], songs: st.songs, setSongs: field("songs"),
+      // 6
+      team, soloTeam: st.team.length === 1, teamCount: st.team.length + (st.team.length === 1 ? " person" : " people") + " · " + inPool + " in the tip pool",
+      invName: st.inv.name, setInvName: setInv("name"), invContact: st.inv.contact, setInvContact: setInv("contact"), invRole: st.inv.role, setInvRole: setInv("role"), invite,
+      roleHelp: [{ k: "Owner", v: "everything, including payouts and the plan" }, { k: "Manager", v: "refunds, comps, hours, rooms, menu" }, { k: "Bartender", v: "bar screen, tabs, quick sale" }, { k: "Staff", v: "check-ins, walk-ins, texts" }],
+      // 7
+      stripeOn, stripeBusy, stripeOff: st.stripe === "none",
+      stripeChip: stripeOn ? "Connected" : (stripeBusy ? "Connecting" : "Not connected"), stripeChipStyle: stripeOn ? "color: " + acc + "; border: 1px solid " + acc + "66;" : amber,
+      stripeLine: stripeOn ? "Connected. Online deposits, card readers and payouts now run on your own Stripe account." : "Connect your Stripe account, or make one, to take deposits online and cards in person.",
+      connectStripe: () => { this.setState({ stripe: "busy" }); clearTimeout(this.t1); this.t1 = setTimeout(() => { this.setState({ stripe: "on", dirty: true }); this.notify("Stripe connected"); }, 1100); },
+      disconnectStripe: () => this.change({ stripe: "none" }),
+      taxLine: packOk ? "8.875% · from your address" : "Set by your address in step 1", taxStyle: packOk ? "color: #F4F1EA;" : "color: #8E8994;",
+      drawerModes, bank: st.bank, setBank: field("bank"), surModes, surHasPct: st.sur !== "off", surPct: st.surPct, setSurPct: field("surPct"),
+      surPctAria: st.sur === "discount" ? "Cash discount, percent" : "Credit card surcharge, percent", surUnit: st.sur === "discount" ? "% off for cash" : "% added to credit cards",
+      surPctStyle: st.sur === "credit" && feeP > CAP ? "border-color: #FF3DA6;" : "",
+      surRule: st.sur === "credit" ? (feeP > CAP ? "Over the cap. New York allows no more than a card costs you: " + CAP + "% at Stripe's price (2.7% + 5¢ a tap)." : "New York: credit cards only, never more than a card costs you (" + CAP + "% here), and the credit price shown on the menu, the site and the receipt. Never on debit. Visa caps it at 3%. Visa, Mastercard and Stripe need 30 days' notice first.")
+        : st.sur === "discount" ? "Menus, the site and booking show the card price. Cash gets " + pctS(feeP) + "% off at the till, on its own receipt line."
+        : "You pay Stripe's fees from your payouts: 2.7% + 5¢ a tap, 2.9% + 30¢ online (Stripe's list price).",
+      surRuleStyle: st.sur === "credit" && feeP > CAP ? "color: #FF3DA6; font-weight: 600;" : "color: #F4F1EA;",
+      hasSurNote: w4, surNote: "West 4 adds 3.5% to every card today. New York caps a surcharge at what a card costs you, credit cards only, so it starts Off. Pick Credit card surcharge to keep a fee.",
+      gratModes: [["off", "Off"], ["rooms", "Room tabs"], ["parties", "Big parties"], ["all", "Every tab"]].map(([k, label]) => ({ label, on: st.gratMode === k, pick: () => this.change({ gratMode: k }), style: seg(st.gratMode === k) })),
+      gratOn: st.gratMode !== "off", gratOff: st.gratMode === "off", gratParty: st.gratMode === "parties", partyMin: st.partyMin, setPartyMin: field("partyMin"),
+      gratWhere: st.gratMode === "rooms" ? "% of room time and drinks, room tabs" : st.gratMode === "all" ? "% of every tab, before tax" : "% of the tab, before tax",
+      grat: st.grat, setGrat: field("grat"), gratPct: num(st.grat) ? num(st.grat) + "%" : "…%",
+      // 8
+      devGroups, orderLines, haveLines, hasOrder: orderLines.length > 0, noOrder: orderLines.length === 0, noHave: haveLines.length === 0,
+      orderTotal: money(orderSum) + (atCost ? " + at cost" : ""), hasAtCost: atCost,
+      readerNote: readerOk ? "Card readers arrive registered to your venue's Stripe account, ready to take cards." : "You need at least one card reader to take cards in person. Order one, or tick “I already have these”.",
+      readerNoteStyle: readerOk ? "background: #141218; color: #C9C5CE;" : "background: #FFB13D14; color: #FFB13D; border: 1px solid #FFB13D55;",
+      // 9
+      pickNeon: pickStyle("neon"), pickFlyer: pickStyle("flyer"), pickLounge: pickStyle("lounge"),
+      neonOn: st.style === "neon", flyerOn: st.style === "flyer", loungeOn: st.style === "lounge",
+      neonCard: styleCard("neon"), flyerCard: styleCard("flyer"), loungeCard: styleCard("lounge"),
+      neonAcc: accFor("neon"), flyerAcc: accFor("flyer"), loungeAcc: accFor("lounge"), neonGlow: accFor("neon") + "55", loungeGlow: accFor("lounge") + "44",
+      neonSub: w4 ? "Dark, lime · West 4's style" : "Dark, lime",
+      thumbH1: st.h1.trim() || "Your headline", thumbH1Style: st.h1.trim() ? "" : "opacity: .45;",
+      hasStyle: !!st.style, noStyle: !st.style, swatches,
+      photos, addPhoto, noPhotos: photos.length === 0,
+      h1: st.h1, setH1: field("h1"), intro: st.intro, setIntro: field("intro"),
+      freeOn: st.addr === "free", ownOn: st.addr === "own", pickFree: () => { if (st.addr !== "free") this.change({ addr: "free" }); }, pickOwn: () => { if (st.addr !== "own") this.change({ addr: "own" }); },
+      freeStyle: rowSel(st.addr === "free"), ownStyle: rowSel(st.addr === "own"), freeDot: dot(st.addr === "free"), ownDot: dot(st.addr === "own"),
+      sub: st.sub, setSub: (e) => this.change({ sub: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }), domain: st.domain, setDomain: (e) => this.change({ domain: e.target.value.trim().toLowerCase() }),
+      // 10
+      notLive: !st.live, isLive: st.live, tests, lics, checksLine: checksDone + " of " + checksTotal + " done",
+      licTick: licAll ? "✓" : "", licBoxStyle: box(licAll),
+      liveTitle: ready ? "Ready" : "Not yet", blockers,
+      liveLine: ready ? "Everything is set. Press Go live when you want real guests to see it." : ((checksDone < checksTotal ? (checksTotal - checksDone) + " test-night " + (checksTotal - checksDone === 1 ? "check" : "checks") + " left." : "All checks done.") + (blockers.length ? " These steps still need you:" : "")),
+      liveBlocked: !ready, goLiveStyle: ready ? "background: " + acc + "; color: #0b0a0d; cursor: pointer;" : "background: #1c1a21; color: #6F6B78;",
+      goLive: () => { if (!ready) return; this.setState({ live: true, dirty: false, savedAt: "just now", done: Object.assign({}, st.done, { 10: true }) }); this.notify("You're live"); },
+      unLive: () => this.change({ live: false }),
+      liveSummary: (() => { const parts = [hasRooms && st.mods.booking ? "bookings" : "", hasRooms && st.mods.roomOrdering ? "room orders" : "", st.mods.messages ? "texts" : ""].filter(Boolean); const list = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0]; return (st.name.trim() || "Your venue") + " is open on " + web + "." + (list ? " " + list.charAt(0).toUpperCase() + list.slice(1) + " now reach real guests." : ""); })(),
+      liveFacts: [{ k: "Website", v: web }, { k: "Plan", v: P ? P[0] + (planPrice ? " · " + planPrice : "") : "—" }, { k: "Rooms", v: hasRooms ? nRooms + " rooms" : "None" }, { k: "Team", v: st.team.length + (st.team.length === 1 ? " person" : " people") }],
+      isW4: w4, isBlank: !w4,
+      // footer
+      hasBack: st.step > 1, back: () => goStep(prevOf(st.step)), hasNext: st.step < 10, next,
+      nextHint: st.step < 10 ? "Next: " + TITLES[nextOf(st.step) - 1][1] : "",
+      savedLine: st.dirty ? "Unsaved changes" : (st.savedAt ? "Saved " + st.savedAt : "Nothing changed yet"),
+      saveLater: () => { this.setState({ dirty: false, savedAt: "just now" }); this.notify("Saved. Open setup any time to pick up at step " + st.step + "."); },
+      toast: st.toast, toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0
+    };
+  }
+}
+</script>
+</body>
+</html>

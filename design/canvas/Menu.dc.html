@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>West 4 Boho Karaoke — Menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+html{scroll-behavior:smooth}
+body{margin:0;background:#FFFFFF;color:#0b0a0d;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:#0b0a0d}a:hover{color:#3a3841}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.bar{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.stick{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.btn{transition:transform .15s ease;cursor:pointer;font-family:inherit}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #0b0a0d;outline-offset:2px}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rv{animation:rise .6s cubic-bezier(.2,.7,.2,1) both}
+@supports (animation-timeline: view()){.rv{animation:rise linear both;animation-timeline:view();animation-range:entry 0% entry 25%}}
+@media (prefers-reduced-motion: reduce){.rv{animation:none!important}}
+@media (min-width: 900px){.wrap{max-width:600px;margin:0 auto}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; overflow-x: clip; padding: 64px 0 100px; background: #FFFFFF; color: #0b0a0d; font-family: 'Instrument Sans', system-ui, sans-serif">
+
+  <header class="bar" style="position: fixed; top: 0; left: 0; right: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,.9); border-bottom: 1px solid #0b0a0d">
+    <a href="Main.dc.html" aria-label="Back to the homepage" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; color: #0b0a0d; text-decoration: none; border: 1px solid #0b0a0d; flex: none"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7H2M6 3L2 7l4 4"/></svg></a>
+    <div style="display: flex; flex-direction: column; min-width: 0; flex: 1">
+      <span class="disp" style="font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">The menu</span>
+      <span class="mono" style="font-size: 9.5px; letter-spacing: .08em; color: #6F6B78">{{feeNote}}</span>
+    </div>
+    <sc-if value="{{hasToggle}}" hint-placeholder-val="{{false}}"><div style="display: flex; gap: 3px; padding: 3px; border-radius: 999px; border: 1px solid #0b0a0d; flex: none">
+      <button type="button" class="btn" onClick="{{showMain}}" style="appearance: none; border: 0; border-radius: 999px; padding: 7px 11px; font-weight: 700; font-size: 12px; white-space: nowrap; {{segMain}}">{{segMainLabel}}</button>
+      <button type="button" class="btn" onClick="{{showAlt}}" style="appearance: none; border: 0; border-radius: 999px; padding: 7px 11px; font-weight: 700; font-size: 12px; white-space: nowrap; {{segAlt}}">{{segAltLabel}}</button>
+    </div></sc-if>
+    <a href="/_blob/2638923a09d16297ea177133ce29ce29" download="West4-Menu.pdf" target="_blank" aria-label="Download the menu PDF" class="btn" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; border: 1px solid #0b0a0d; flex: none"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M2 14h12"/></svg></a>
+  </header>
+
+  <div class="wrap" style="display: flex; flex-direction: column">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--acc, #D4FF3F); color: #0b0a0d; border-bottom: 1px solid #0b0a0d">
+      <span class="disp" style="font-size: 22px; white-space: nowrap">Happy hour</span>
+      <span style="font-size: 12.5px; line-height: 1.35; text-align: right"><b style="font-weight: 700">[Days and hours]</b><br>[Deals]</span>
+    </div>
+
+    <sc-for list="{{pages}}" as="p" hint-placeholder-count="3">
+      <section class="rv" style="position: relative; padding: 22px 16px 14px; display: flex; flex-direction: column">
+        <sc-if value="{{p.hasTitle}}" hint-placeholder-val="{{false}}">
+          <div style="padding-bottom: 12px">
+            <h2 class="disp" style="margin: 0; font-size: 36px; color: #0b0a0d">{{p.title}}</h2>
+            <div class="mono" style="font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: #6F6B78; margin-top: 5px; line-height: 1.6">{{p.eyebrow}}</div>
+          </div>
+        </sc-if>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start">
+          <sc-for list="{{p.cols}}" as="c" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; min-width: 0">
+              <sc-for list="{{c.secs}}" as="s" hint-placeholder-count="2">
+                <div id="{{s.id}}" style="display: flex; flex-direction: column; padding-bottom: 18px">
+                  <h2 class="disp" style="margin: 0; font-size: 24px; color: #0b0a0d">{{s.title}}</h2>
+                  <div class="mono" style="font-size: 7.5px; letter-spacing: .14em; text-transform: uppercase; color: #6F6B78; margin: 4px 0 6px; line-height: 1.5">{{s.eyebrow}}</div>
+                  <sc-for list="{{s.rows}}" as="r" hint-placeholder-count="6">
+                    <div style="display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(11,10,13,.16)">
+                      <div style="min-width: 0"><div style="font-weight: 600; font-size: 12px; line-height: 1.25">{{r.name}}</div><sc-if value="{{r.hasSub}}" hint-placeholder-val="{{false}}"><div style="font-size: 9.5px; color: #6F6B78; margin-top: 1px; line-height: 1.35">{{r.sub}}</div></sc-if></div>
+                      <span class="mono" style="margin-left: auto; font-size: 11px; white-space: nowrap; padding-left: 6px">{{r.price}}</span>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{s.hasNote}}" hint-placeholder-val="{{false}}"><div style="font-size: 9.5px; line-height: 1.45; color: #6F6B78; padding-top: 8px">{{s.note}}</div></sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div class="mono" style="display: flex; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid #0b0a0d; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: #6F6B78"><span>West 4 · Boho Karaoke</span><span>{{p.foot}}</span></div>
+      </section>
+    </sc-for>
+
+    <section class="rv" style="position: relative; padding: 22px 16px 14px; display: flex; flex-direction: column; gap: 14px">
+      <h2 class="disp" style="margin: 0; font-size: 36px">The room</h2>
+      <div style="display: flex; align-items: baseline; gap: 10px"><span class="disp" style="font-size: 52px">{{roomPrice}}</span><span style="font-size: 14px; color: #6F6B78">a person, an hour</span></div>
+      <div style="font-size: 13px; line-height: 1.5; color: #3a3841; max-width: 340px">Three people minimum on weeknights, four on Friday and Saturday. One hour minimum, then by the minute. {{roomNote}}</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding-top: 4px">
+        <div><div class="mono" style="font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: #6F6B78">Hours</div><div style="font-size: 12.5px; line-height: 1.5; margin-top: 4px"><sc-for list="{{hourRows}}" as="hr" hint-placeholder-count="2"><div>{{hr.days}} {{hr.v}}</div></sc-for></div></div>
+        <div><div class="mono" style="font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: #6F6B78">Find us</div><div style="font-size: 12.5px; line-height: 1.5; margin-top: 4px"><a href="https://www.google.com/maps/place/Boho+Karaoke+-+West+4th/@40.7325873,-74.0046555,17z" style="color: #0b0a0d">186 W 4th St</a><br><a href="{{callHref}}" style="color: #0b0a0d">{{callNumber}}</a></div></div>
+      </div>
+      <div><div class="mono" style="font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: #6F6B78">House rules</div><div style="font-size: 12.5px; line-height: 1.5; margin-top: 4px; color: #3a3841">Bring your own food, no outside drinks. 21 and over with ID. Broken microphones, tablets or TVs are {{damage}}.</div></div>
+      <a href="Main.dc.html" class="btn" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #0b0a0d; color: #FFFFFF; text-decoration: none; padding: 16px 18px; margin-top: 6px"><span class="disp" style="font-size: 24px">Book a room</span><span class="mono" style="font-size: 9px; letter-spacing: .12em; color: var(--acc, #D4FF3F); text-align: right; line-height: 1.6">west4karaoke.com<br>{{callNumber}}</span></a>
+      <div class="mono" style="display: flex; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid #0b0a0d; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: #6F6B78"><span>West 4 · Boho Karaoke</span><span>{{backFoot}}</span></div>
+    </section>
+
+  </div>
+
+  <div class="stick" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 10px 14px; display: flex; gap: 10px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.96) 40%)">
+    <a href="Main.dc.html" class="btn" style="flex: 1; display: flex; align-items: center; justify-content: space-between; background: #0b0a0d; color: #FFFFFF; text-decoration: none; padding: 16px 20px; border-radius: 999px; font-weight: 700; font-size: 16px"><span>Book a room</span><span class="mono" style="font-size: 11px; letter-spacing: .1em; color: var(--acc, #D4FF3F)">$10 / PERSON / HR</span></a>
+    <a href="/_blob/2638923a09d16297ea177133ce29ce29" download="West4-Menu.pdf" target="_blank" aria-label="Download the menu as a PDF" style="width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--acc, #D4FF3F); color: #0b0a0d; border: 1px solid #0b0a0d; box-sizing: border-box; flex: none"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M6 9l4 4 4-4M4 17h12"/></svg></a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":4800}}'>
+class Component extends DCLogic {
+  constructor() { super(...arguments); this.state = { alt: false }; }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    // Comes from Admin → Hours. In the app every screen reads the same saved setting.
+    const HOURS = {
+      week: { Mon: { open: "4:00 PM", close: "4:00 AM" }, Tue: { open: "4:00 PM", close: "4:00 AM" }, Wed: { open: "4:00 PM", close: "4:00 AM" }, Thu: { open: "4:00 PM", close: "4:00 AM" },
+        Fri: { open: "4:00 PM", close: "4:00 AM" }, Sat: { open: "2:00 PM", close: "4:00 AM" }, Sun: { open: "2:00 PM", close: "4:00 AM" } },
+      special: [{ date: "2026-09-30", label: "Wed, Sep 30", closed: true, note: "Private event" }]
+    };
+    // Comes from Admin → Phone. In the app every screen reads the same saved setting.
+    const PHONE = { call: "(212) 255-0011", text: "(212) 255-0011" };
+    const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const short = (t) => t.replace(":00", "");
+    const span = (d) => { const x = HOURS.week[d]; return !x || x.closed ? "Closed" : short(x.open) + " to " + short(x.close); };
+    // Group days with the same hours: "Mon to Fri 4 PM to 4 AM", "Sat and Sun 2 PM to 4 AM".
+    const hourRows = [];
+    DAYS.forEach((d) => { const v = span(d); const last = hourRows[hourRows.length - 1]; if (last && last.v === v) last.to = d; else hourRows.push({ from: d, to: d, v }); });
+    hourRows.forEach((r) => { const n = DAYS.indexOf(r.to) - DAYS.indexOf(r.from); r.days = n === 0 ? r.from : (n === 1 ? r.from + " and " + r.to : r.from + " to " + r.to); });
+    const telHref = (p) => "tel:+1" + p.replace(/[^0-9]/g, "");
+
+    // Comes from Admin → Card fee & gratuity. In the app every screen reads the same saved setting.
+    // "off": one price for cash and cards · "surcharge": credit cards pay pct more, so the menu shows the credit price first
+    // (New York wants the card price posted) · "discount": menu prices are card prices and cash pays pct less.
+    const CARD_FEE = { mode: "off", pct: 2.7 };
+    const k = CARD_FEE.pct / 100, sur = CARD_FEE.mode === "surcharge", disc = CARD_FEE.mode === "discount";
+    const alt = !!this.state.alt;
+    const factor = sur ? (alt ? 1 : 1 + k) : disc ? (alt ? 1 - k : 1) : 1;
+    const money = (n) => factor === 1 ? "$" + n : "$" + (Math.round(n * factor * 100) / 100).toFixed(2);
+    const eg = (f) => "$" + (Math.round(12 * f * 100) / 100).toFixed(2);
+    const price = (p) => Array.isArray(p) ? p.map(money).join(" / ") : money(p);
+    const S = {
+      cocktails: { title: "Cocktails", eyebrow: "Mixed and shaken · add Red Bull to any drink for $2", items: [
+        ["Tequila Sunrise", "", 12], ["Blue Hawaii", "", 12], ["Jolly Rancher", "", 12], ["Melon Ball", "", 12], ["Black Russian", "", 12],
+        ["Sex on the Beach", "", 12], ["Paloma", "", 12], ["Midori Sour", "", 12], ["Amaretto Sour", "", 12], ["Kamikaze-tini", "", 12],
+        ["Lemon Drop-tini", "", 13], ["Moscow Mule", "", 13], ["Dark 'n' Stormy", "", 13], ["Mai Tai", "", 13], ["Yogurt Soju Cocktail", "", 13],
+        ["Malibu Bay Breeze", "", 13], ["Margarita", "Raspberry, peach or strawberry", 13],
+        ["Iced Tea", "Long Island, Long Beach, Ruby Strawberry, Blue Lemonade or Tokyo Melon", 13]
+      ] },
+      mocktails: { title: "Mocktails", eyebrow: "No alcohol, all song", items: [
+        ["Mule", "Peach, strawberry or raspberry", 11], ["Shirley Temple", "", 11]
+      ] },
+      beer: { title: "Beer", eyebrow: "Bottles, cans and Kirin on draft", items: [
+        ["Bud Light", "", 8], ["Budweiser", "", 8], ["Michelob Ultra", "", 8], ["Modelo", "", 9], ["Angry Orchard", "", 9], ["Heineken", "", 9],
+        ["Corona", "", 9], ["Goose Island IPA", "", 9], ["Guinness", "", 9], ["Hoegaarden", "", 9], ["Blue Moon", "", 9], ["Stella Artois", "", 9],
+        ["Kirin, draft", "Glass / pitcher", [9, 31]],
+        ["Nütrl hard seltzer", "Lemonade, pineapple, watermelon, orange, black cherry or cranberry", 10]
+      ] },
+      buckets: { title: "Buckets", eyebrow: "For the room", items: [
+        ["Small bucket", "6 beers", 40], ["Large bucket", "10 beers", 70]
+      ] },
+      soju: { title: "Soju", eyebrow: "By the bottle", items: [
+        ["Chamisul Fresh", "", 20], ["Jinro Is Back", "", 20], ["Strawberry", "", 20], ["Grapefruit", "", 20], ["Green Grape", "", 20], ["Peach", "", 20], ["Plum", "", 20]
+      ] },
+      shots: { title: "Shots", eyebrow: "One each, then sing", items: [
+        ["Lemon Drop", "", 9], ["Buttery Nipple", "", 9], ["Kamikaze", "", 9], ["Woo Woo", "", 9], ["Orgasm", "", 9], ["Green Tea", "", 10], ["Red Headed Slut", "", 10], ["Jäger Bomb", "", 12]
+      ] },
+      wine: { title: "Wine", eyebrow: "Glass / bottle", items: [
+        ["Malbec", "", [10, 40]], ["Merlot", "", [10, 40]], ["Cabernet", "", [10, 40]], ["Sauvignon Blanc", "", [10, 40]], ["Pinot Grigio", "", [10, 40]], ["Prosecco", "Sparkling", [10, 40]]
+      ] },
+      champagne: { title: "Champagne", eyebrow: "Bottles only", items: [
+        ["André Brut", "", 40], ["Moët & Chandon", "", 180]
+      ] },
+      whiskey: { title: "Whiskey", eyebrow: "Drink / bottle", items: [
+        ["Jameson", "", [12, 250]], ["Jack Daniel's", "", [12, 250]], ["Johnnie Walker Black", "", [12, 300]], ["Fireball", "", [13, 250]], ["Jack Daniel's Honey", "", [13, 300]],
+        ["Maker's Mark", "", [13, 300]], ["Hennessy", "", [13, 300]], ["Bulleit Bourbon", "", [13, 330]], ["Basil Hayden", "", [13, 330]], ["The Glenlivet 12", "", [14, 350]]
+      ] },
+      vodka: { title: "Vodka", eyebrow: "Drink / bottle", items: [
+        ["Tito's", "", [12, 250]], ["Stoli", "Citrus, raspberry or blueberry", [12, 250]], ["Ketel One", "", [12, 330]], ["Grey Goose", "", [13, 350]]
+      ] },
+      tequila: { title: "Tequila", eyebrow: "Drink / bottle", items: [
+        ["Patrón", "", [13, 300]], ["Casamigos Blanco", "", [13, 330]], ["Mezcal", "", [14, 350]]
+      ] },
+      rum: { title: "Rum", eyebrow: "Drink / bottle", items: [
+        ["Bacardi", "", [12, 275]], ["Captain Morgan", "", [12, 275]], ["Malibu", "", [12, 250]]
+      ] },
+      gin: { title: "Gin", eyebrow: "Drink / bottle", items: [
+        ["Tanqueray", "", [12, 250]], ["Bombay", "", [12, 250]], ["Hendrick's", "", [13, 300]]
+      ] },
+      packages: { title: "Room packages", eyebrow: "Ordered to your room", note: "Bottles: Jack Daniel's, Jameson, Fireball, Tito's, Stoli, Bombay, Tanqueray, Casamigos, Patrón, Bacardi or Captain Morgan. Free pitcher of soda with any bottle.", items: [
+        ["2 soju bottles + 1 small bucket", "", 70], ["4 soju bottles + 1 large bucket", "", 120], ["12 house shots + 2 small buckets", "", 150], ["1 bottle + 1 large bucket", "", 300], ["2 bottles + 3 large buckets", "", 680]
+      ] },
+      soft: { title: "Soft drinks", eyebrow: "Cup / pitcher", items: [
+        ["Soda", "Coke, Diet Coke, Sprite or ginger ale", [5, 18]], ["Lemonade", "", [5, 18]], ["Cranberry juice", "", [5, 18]], ["Seltzer", "Glass / pitcher", [2, 16]], ["Ginger beer", "", 9], ["Red Bull", "", 6]
+      ] }
+    };
+    const sec = (id) => {
+      const s = S[id];
+      return { id, title: s.title, eyebrow: s.eyebrow, note: s.note || "", hasNote: !!s.note,
+        rows: s.items.map((it) => ({ name: it[0], sub: it[1], hasSub: !!it[1], price: price(it[2]) })) };
+    };
+    const plan = [
+      { cols: [["beer", "buckets"], ["cocktails", "mocktails"]] },
+      { cols: [["soju", "shots", "soft"], ["wine", "champagne", "packages"]] },
+      { title: "Spirits", eyebrow: "Drink / bottle · every bottle comes with a free pitcher of soda", cols: [["whiskey", "rum"], ["vodka", "tequila", "gin"]] }
+    ];
+    const foot = sur ? (alt ? "Cash and debit prices" : "Credit card prices") : disc ? (alt ? "Cash prices" : "Card prices") : "Prices before tax";
+    const pages = plan.map((p, i) => ({
+      hasTitle: !!p.title, title: p.title || "", eyebrow: p.eyebrow || "",
+      cols: p.cols.map((ids) => ({ secs: ids.map(sec) })),
+      foot: foot + " · " + (i + 1) + "/4"
+    }));
+    const seg = (on) => on ? "background: #0b0a0d; color: #FFFFFF;" : "background: transparent; color: #0b0a0d;";
+    return {
+      accent: acc,
+      pages, hourRows, callNumber: PHONE.call, callHref: telHref(PHONE.call),
+      backFoot: foot + " · 4/4",
+      hasToggle: sur || disc,
+      showMain: () => this.setState({ alt: false }), showAlt: () => this.setState({ alt: true }),
+      segMain: seg(!alt), segAlt: seg(alt),
+      segMainLabel: sur ? "Credit" : "Card", segAltLabel: sur ? "Cash, debit" : "Cash",
+      feeNote: sur ? (alt ? "Cash and debit prices" : "Credit card prices, " + CARD_FEE.pct + "% in") : disc ? (alt ? "Cash prices, " + CARD_FEE.pct + "% off" : "Card prices") : "Same price, cash or card",
+      roomNote: sur ? "Tax is added to the bill. Credit cards add " + CARD_FEE.pct + "%, so a $12 drink is " + eg(1 + k) + "; debit and cash pay the menu price."
+        : disc ? "Tax is added to the bill. Cash takes " + CARD_FEE.pct + "% off, so a $12 drink is " + eg(1 - k) + " in cash."
+        : "Tax is added to the bill. Same price, cash or card.",
+      roomPrice: money(10),
+      damage: money(150)
+    };
+  }
+}
+</script>
+</body>
+</html>

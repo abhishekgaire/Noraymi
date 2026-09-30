@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Walk-in waitlist</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.in:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.in{appearance:none;width:100%;box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.14);color:#F4F1EA;border-radius:14px;padding:14px;font-family:inherit;font-size:16px;outline:0}
+.in::placeholder{color:#5b5764}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.pop{animation:up .3s cubic-bezier(.2,.7,.2,1) both}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.blink{animation:blink 1.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.pop,.blink{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; min-height: 100%; box-sizing: border-box; padding: 0 0 36px; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow-x: clip">
+  <div aria-hidden="true" style="position: absolute; left: -170px; top: 90px; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(closest-side, var(--acc, #D4FF3F), transparent 70%); opacity: .12; pointer-events: none"></div>
+  <div aria-hidden="true" style="position: absolute; right: -150px; top: 520px; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(closest-side, #FF3DA6, transparent 70%); opacity: .14; pointer-events: none"></div>
+
+  <header style="position: relative; padding: 18px 16px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid rgba(244,241,234,.08)">
+    <a href="Main.dc.html" class="disp" style="font-size: 20px; color: #F4F1EA; text-decoration: none; letter-spacing: 0; display: flex; align-items: baseline; gap: 8px">W4 <span class="mono" style="font-weight: 400; font-size: 9px; letter-spacing: .18em; color: #8E8994; text-transform: uppercase">Boho Karaoke</span></a>
+    <span class="mono" style="display: inline-flex; align-items: center; gap: 7px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994"><span class="blink" style="width: 7px; height: 7px; border-radius: 50%; background: var(--acc, #D4FF3F)"></span>Walk-in list</span>
+  </header>
+
+  <sc-if value="{{isForm}}" hint-placeholder-val="{{true}}">
+    <section style="position: relative; padding: 26px 16px 0; display: flex; flex-direction: column; gap: 18px">
+      <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">↓ Scanned at the door</div>
+      <h1 class="disp" style="margin: 0; font-size: clamp(50px, 14vw, 110px)">No room yet?<br>Get in line.</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #A39FA8; max-width: 340px">All rooms are singing right now. Put your name down and go have fun. We’ll text you the moment one opens.</p>
+      <div style="display: flex; gap: 8px">
+        <div style="flex: 1; min-width: 0; padding: 12px 12px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Ahead of you</div><div class="disp" style="font-size: 30px; margin-top: 4px; white-space: nowrap">{{ahead}} parties</div></div>
+        <div style="flex: 1; min-width: 0; padding: 12px 12px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Wait for {{guests}}</div><div class="disp" style="font-size: 30px; margin-top: 4px; white-space: nowrap; color: var(--acc, #D4FF3F)">~{{wait}} min</div></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="wl-name" style="font-size: 13px; color: #A39FA8">Name for the list</label>
+        <input id="wl-name" class="in" type="text" value="{{name}}" onInput="{{setName}}" placeholder="First name is fine" autocomplete="given-name">
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 13px; color: #A39FA8">How many of you?</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px; border-radius: 20px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+          <button type="button" class="btn" onClick="{{decG}}" aria-label="Fewer guests" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">−</button>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+            <div class="disp" style="font-size: 46px; line-height: 1">{{guests}}</div>
+            <div style="font-size: 12px; color: #8E8994">{{sizeNote}}</div>
+          </div>
+          <button type="button" class="btn" onClick="{{incG}}" aria-label="More guests" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">+</button>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="wl-phone" style="font-size: 13px; color: #A39FA8">Mobile, for the “room ready” text</label>
+        <input id="wl-phone" class="in" type="tel" value="{{phone}}" onInput="{{setPhone}}" placeholder="(917) 555-0142" autocomplete="tel">
+      </div>
+
+      <sc-if value="{{showErr}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; color: #FF3DA6">{{err}}</div></sc-if>
+      <button type="button" class="btn" onClick="{{join}}" style="appearance: none; border: 0; width: 100%; padding: 18px; border-radius: 999px; font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: center; background: var(--acc, #D4FF3F); color: #0b0a0d; box-shadow: 0 12px 40px -12px var(--acc, #D4FF3F)"><span>Join the list</span><span class="mono" style="font-size: 11px; letter-spacing: .1em">~{{wait}} MIN</span></button>
+      <div style="font-size: 12px; line-height: 1.5; color: #8E8994; text-align: center">Free to join. Rooms are $10 a person an hour once you’re in. Everyone 21+ with ID.</div>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{isWaiting}}" hint-placeholder-val="{{false}}">
+    <section class="pop" style="position: relative; padding: 26px 16px 0; display: flex; flex-direction: column; gap: 16px">
+      <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--acc, #D4FF3F)">You’re on the list, {{shownName}}</div>
+      <div style="padding: 20px 18px; border-radius: 22px; background: #121016; border: 1px solid rgba(244,241,234,.1); display: flex; flex-direction: column; gap: 14px">
+        <div class="disp" style="font-size: 84px; color: var(--acc, #D4FF3F)">{{place}}</div>
+        <div class="disp" style="font-size: 34px; margin-top: -8px">in line</div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+          <div style="padding: 10px 12px; border-radius: 12px; background: rgba(244,241,234,.05)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Estimated wait</div><div class="disp" style="font-size: 28px; margin-top: 4px">~{{wait}} min</div></div>
+          <div style="padding: 10px 12px; border-radius: 12px; background: rgba(244,241,234,.05)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Party</div><div class="disp" style="font-size: 28px; margin-top: 4px">{{guests}} · {{roomShort}}</div></div>
+        </div>
+        <div style="font-size: 15px; line-height: 1.5; color: #C9C5CE">We’ll text you when your room is ready — you’ll have 10 minutes to come back.</div>
+        <div class="mono" style="font-size: 10px; letter-spacing: .06em; color: #8E8994">Texting {{phoneShown}} · {{roomLine}}</div>
+      </div>
+      <a href="Main.dc.html#bar" class="btn" style="display: flex; align-items: center; justify-content: space-between; background: var(--acc, #D4FF3F); color: #0b0a0d; text-decoration: none; padding: 16px 20px; border-radius: 999px; font-weight: 700; font-size: 15px"><span>Sing at the bar while you wait</span><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h12M10 4l5 5-5 5"/></svg></a>
+      <button type="button" class="btn" onClick="{{leave}}" style="appearance: none; width: 100%; padding: 14px; border-radius: 999px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18); font-weight: 600; font-size: 14px">Leave the list</button>
+      <button type="button" class="btn" onClick="{{demoReady}}" style="appearance: none; align-self: center; border-radius: 999px; padding: 7px 12px; font-size: 11px; background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.18)">Demo: your room is ready</button>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{isReady}}" hint-placeholder-val="{{false}}">
+    <section class="pop" style="position: relative; padding: 26px 16px 0; display: flex; flex-direction: column; gap: 16px">
+      <div class="mono" style="font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Your room is ready</div>
+      <div style="padding: 22px 18px; border-radius: 22px; background: #121016; border: 1px solid var(--acc, #D4FF3F); box-shadow: 0 20px 60px -30px var(--acc, #D4FF3F); display: flex; flex-direction: column; gap: 12px">
+        <div class="disp" style="font-size: 64px">{{readyRoom}}</div>
+        <div style="font-size: 15px; line-height: 1.5; color: #C9C5CE">Come back to the door and show this screen, {{shownName}}. We’re holding it for your party of {{guests}}.</div>
+        <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px dashed rgba(244,241,234,.14)">
+          <div><div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding-top: 12px">Time to claim it</div><div class="disp" style="font-size: 72px; margin-top: 6px; {{countStyle}}">{{countdown}}</div></div>
+          <span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994; padding-bottom: 6px">of 10:00</span>
+        </div>
+        <div style="height: 6px; border-radius: 3px; background: rgba(244,241,234,.1); overflow: hidden"><div style="height: 100%; border-radius: 3px; {{barStyle}}"></div></div>
+        <div style="font-size: 12px; line-height: 1.5; {{expireStyle}}">{{expireLine}}</div>
+      </div>
+      <button type="button" class="btn" onClick="{{leave}}" style="appearance: none; width: 100%; padding: 14px; border-radius: 999px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18); font-weight: 600; font-size: 14px">We’re not coming · give it away</button>
+      <button type="button" class="btn" onClick="{{backToLine}}" style="appearance: none; align-self: center; border-radius: 999px; padding: 7px 12px; font-size: 11px; background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.18)">Demo: back to waiting</button>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{isLeft}}" hint-placeholder-val="{{false}}">
+    <section class="pop" style="position: relative; padding: 26px 16px 0; display: flex; flex-direction: column; gap: 16px">
+      <h1 class="disp" style="margin: 0; font-size: clamp(50px, 14vw, 110px)">You’re off<br>the list.</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #A39FA8">No text will come. Changed your mind? Join again and you’ll go to the back of the line.</p>
+      <button type="button" class="btn" onClick="{{again}}" style="appearance: none; border: 0; width: 100%; padding: 16px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 15px">Join again</button>
+      <a href="Main.dc.html#bar" style="display: flex; align-items: center; justify-content: center; padding: 14px; border-radius: 999px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.18); font-weight: 600; font-size: 14px">Sing at the bar instead</a>
+    </section>
+  </sc-if>
+
+  <div style="position: relative; padding: 28px 16px 0; display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: #8E8994">
+    <span>186 W 4th St · open till 4 AM</span>
+    <a href="{{telHref}}" style="color: #F4F1EA; text-decoration: none; font-weight: 600">{{callNumber}}</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1000}}'>
+class Component extends DCLogic {
+  // Comes from Admin → Website. In the app every screen reads the same saved setting.
+  static SETTINGS = { call: "(212) 255-0011", text: "(212) 255-0011" };
+  constructor() {
+    super(...arguments);
+    // Demo night is Fri Sep 25: Fri & Sat rooms need 4. Two parties are already on the list.
+    this.state = { step: "form", name: "", phone: "", guests: 5, err: "", left: 600 };
+    this.timer = null;
+  }
+  componentWillUnmount() { this.stop(); }
+  stop() { if (this.timer) { clearInterval(this.timer); this.timer = null; } }
+  startClock() {
+    this.stop();
+    this.setState({ step: "ready", left: 600 });
+    this.timer = setInterval(() => {
+      const l = this.state.left - 1;
+      this.setState({ left: Math.max(0, l) });
+      if (l <= 0) this.stop();
+    }, 1000);
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const S = Component.SETTINGS;
+    const min = 4, ahead = 2;
+    const g = st.guests;
+    // Wait estimate by party size — small rooms turn over fastest.
+    const wait = g <= 6 ? 20 : g <= 12 ? 30 : 45;
+    const room = g >= 20 ? ["VIP room", "VIP", "the VIP room (20–40)", "VIP room"] : g > 12 ? ["Large room", "large", "a large room (12–20)", "Room 12"] : g > 6 ? ["Medium room", "medium", "a medium room (6–12)", "Room 8"] : ["Small room", "small", "a small room (3–6)", "Room 4"];
+    const ord = (n) => n + (n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th");
+    const mm = Math.floor(st.left / 60), ss = st.left % 60;
+    const pct = Math.round((st.left / 600) * 100);
+    const shownName = (st.name || "").trim() || "friend";
+    return {
+      accent: acc,
+      isForm: st.step === "form", isWaiting: st.step === "waiting", isReady: st.step === "ready", isLeft: st.step === "left",
+      ahead, wait, guests: g,
+      name: st.name, phone: st.phone,
+      setName: (e) => this.setState({ name: e.target.value, err: "" }),
+      setPhone: (e) => this.setState({ phone: e.target.value, err: "" }),
+      decG: () => this.setState({ guests: Math.max(min, g - 1) }),
+      incG: () => this.setState({ guests: Math.min(40, g + 1) }),
+      sizeNote: g === min ? "guests · Fri & Sat: 4 minimum" : g >= 20 ? "guests · VIP room" : "guests",
+      showErr: !!st.err, err: st.err,
+      join: () => {
+        if (!(st.name || "").trim()) return this.setState({ err: "Add a name so the host can call you." });
+        if ((st.phone || "").replace(/\D/g, "").length < 10) return this.setState({ err: "Add a mobile number so we can text you." });
+        this.setState({ step: "waiting", err: "" });
+      },
+      shownName, place: ord(ahead + 1),
+      roomShort: room[1], roomLine: room[2],
+      phoneShown: st.phone || "your phone",
+      leave: () => { this.stop(); this.setState({ step: "left" }); },
+      again: () => this.setState({ step: "form" }),
+      demoReady: () => this.startClock(),
+      backToLine: () => { this.stop(); this.setState({ step: "waiting", left: 600 }); },
+      readyRoom: room[3],
+      countdown: mm + ":" + (ss < 10 ? "0" : "") + ss,
+      countStyle: st.left <= 120 ? "color: #FF3DA6;" : "color: var(--acc, #D4FF3F);",
+      barStyle: "width: " + pct + "%; background: " + (st.left <= 120 ? "#FF3DA6" : acc) + ";",
+      expireLine: st.left === 0 ? "Time’s up and the room went to the next party. Talk to the host at the door — we’ll get you the next one that fits." : "After 10 minutes the room goes to the next party on the list.",
+      expireStyle: st.left === 0 ? "color: #FF3DA6;" : "color: #8E8994;",
+      telHref: "tel:+1" + S.call.replace(/\D/g, ""), callNumber: S.call
+    };
+  }
+}
+</script>
+</body>
+</html>

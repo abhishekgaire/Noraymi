@@ -1,0 +1,1667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Website builder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,400..700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease,box-shadow .2s ease,background .15s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.b-sw:focus-visible,.b-ar:focus-visible,.b-nm:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.b-scroll{scrollbar-width:thin;scrollbar-color:rgba(244,241,234,.16) transparent}
+.b-in{width:100%;box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.14);border-radius:8px;padding:9px 11px;color:#F4F1EA;font:inherit;font-size:13px;outline:0;min-width:0}
+.b-in:focus{border-color:var(--acc,#D4FF3F)}
+.b-in::placeholder{color:#625d6c}
+textarea.b-in{resize:none;line-height:1.45;display:block}
+.b-lbl{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#8E8994}
+.b-gl{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+.b-grp{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:#121016;border:1px solid rgba(244,241,234,.08)}
+.b-hint{font-size:11px;line-height:1.45;color:#8E8994}
+.b-sw{appearance:none;border:0;width:38px;height:22px;border-radius:999px;position:relative;flex:none;padding:0;cursor:pointer;transition:background .15s ease}
+.b-sw > span{position:absolute;top:3px;width:16px;height:16px;border-radius:50%;background:#0b0a0d;transition:left .15s ease}
+.b-sw:disabled{cursor:not-allowed}
+.b-ar{appearance:none;width:22px;height:17px;border-radius:5px;border:0;background:transparent;color:#8E8994;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.b-ar:hover:not(:disabled){background:rgba(244,241,234,.08);color:#F4F1EA}
+.b-ar:disabled{opacity:.22;cursor:default}
+.b-nm{appearance:none;flex:1;min-width:0;border:0;background:transparent;color:#F4F1EA;text-align:left;padding:3px 2px;display:flex;flex-direction:column;gap:2px;cursor:pointer;font-family:inherit}
+.b-row{border-radius:12px;background:#121016;border:1px solid rgba(244,241,234,.08);transition:border-color .15s ease}
+@keyframes flA{0%{background:color-mix(in srgb,var(--acc,#D4FF3F) 20%,#121016)}100%{background:#121016}}
+@keyframes flB{0%{background:color-mix(in srgb,var(--acc,#D4FF3F) 20%,#121016)}100%{background:#121016}}
+.flA{animation:flA 1.1s ease both}.flB{animation:flB 1.1s ease both}
+input[type=color]{-webkit-appearance:none}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:0;border-radius:6px}
+.fs-0-neon{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em}
+.fs-1-neon{font-family:'Instrument Sans',system-ui,sans-serif;font-weight:700;letter-spacing:-.03em}
+.fs-0-flyer{font-family:'Archivo',Impact,sans-serif;font-variation-settings:'wdth' 125;font-weight:900;text-transform:uppercase}
+.fs-1-flyer{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-weight:700;text-transform:uppercase;letter-spacing:-.04em}
+.fs-0-lounge{font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400}
+.fs-1-lounge{font-family:'DM Sans',system-ui,sans-serif;font-weight:600;letter-spacing:-.03em}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}12%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+.toast{animation:toast 3.4s ease both}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.pop{animation:pop .18s ease both}
+
+/* ---------- frame around the preview ---------- */
+.fr-in{position:absolute;left:0;top:0;transform-origin:0 0;box-sizing:border-box}
+.fr-phone{padding:12px;border-radius:62px;background:#1d1c22;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 0 0 1px rgba(0,0,0,.7),0 60px 100px -40px #000}
+.fr-desk{border-radius:16px;background:#1d1c22;box-shadow:0 0 0 1px rgba(244,241,234,.14),0 60px 100px -50px #000;overflow:hidden}
+.fr-screen{position:relative;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--scr,#0b0a0d)}
+.fr-phone .fr-screen{border-radius:50px}
+.fr-scroll{position:relative;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;overscroll-behavior:contain}
+.fr-scroll::-webkit-scrollbar{display:none}
+.fr-status{position:relative;flex:none;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 30px 0 38px;font:600 15px system-ui,-apple-system,sans-serif}
+.fr-island{position:absolute;left:50%;top:10px;width:118px;height:33px;margin-left:-59px;border-radius:20px;background:#000}
+.fr-url{flex:none;height:56px;display:flex;align-items:flex-start;justify-content:center;padding-top:8px}
+.fr-url > span{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:14px;font:500 14px system-ui,-apple-system,sans-serif}
+.fr-bar{flex:none;height:46px;display:flex;align-items:center;gap:16px;padding:0 16px;background:#1d1c22;border-bottom:1px solid rgba(244,241,234,.08);color:#C9C5CE;font:500 15px system-ui,-apple-system,sans-serif}
+
+/* ---------- the site preview: one markup, three styles, two widths ---------- */
+.pv{position:relative;min-height:100%;overflow-x:clip;color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;line-height:1.35;transition:color .3s ease}
+.pv *{box-sizing:border-box}
+.pv p{margin:0}
+.st-neon{--ink:#F4F1EA;--mut:#C9C5CE;--mut2:#8E8994;--line:rgba(244,241,234,.1);--body:'Instrument Sans',system-ui,sans-serif;--mono:'Space Mono',ui-monospace,Menlo,monospace;background:linear-gradient(180deg,#151219 0,#151219 700px,#0b0a0d 1400px,#07060a 2400px,#07060a 100%)}
+.st-flyer{--ink:#14120F;--mut:#14120F;--mut2:#4a443a;--line:#14120F;--body:'Archivo',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;background:#F4EEE1}
+.st-lounge{--ink:#F3E9D7;--mut:#E4D6C3;--mut2:#B39A8E;--line:rgba(243,233,215,.22);--body:'DM Sans',system-ui,sans-serif;--mono:'DM Sans',system-ui,sans-serif;background:linear-gradient(180deg,#2A0B15 0,#2A0B15 900px,#1B060D 2200px,#1B060D 100%)}
+.st-neon .no-n,.st-flyer .no-f,.st-lounge .no-l,.dv-phone .no-p,.dv-desk .no-d{display:none!important}
+.pv .ph{opacity:.34;text-decoration-line:underline;text-decoration-style:dashed;text-decoration-thickness:1px;text-underline-offset:.16em}
+.pv .acc{color:var(--acc)}
+.pv .it{font-style:italic}
+.st-neon .hd{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.st-neon.hf-1 .hd{font-family:'Instrument Sans',system-ui,sans-serif;font-variation-settings:normal;font-weight:700;text-transform:none;letter-spacing:-.035em;line-height:.94}
+.st-flyer .hd{font-family:'Archivo',Impact,sans-serif;font-variation-settings:'wdth' 125;font-weight:900;text-transform:uppercase;letter-spacing:-.01em;line-height:.9}
+.st-flyer.hf-1 .hd{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-variation-settings:normal;font-weight:700;letter-spacing:-.05em;line-height:.95}
+.st-lounge .hd{font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:-.01em;line-height:1}
+.st-lounge.hf-1 .hd{font-family:'DM Sans',system-ui,sans-serif;font-weight:600;letter-spacing:-.045em;line-height:.98}
+@keyframes pvdrift{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes pvblink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes pvbreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.08)}}
+
+.pv-nav{position:sticky;top:0;z-index:6;height:60px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 20px}
+.dv-desk .pv-nav{height:72px;padding:0 40px}
+.st-neon .pv-nav{background:rgba(11,10,13,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(244,241,234,.08)}
+.st-flyer .pv-nav{background:#F4EEE1;border-bottom:2px solid #14120F}
+.st-lounge .pv-nav{background:rgba(42,11,21,.62);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(243,233,215,.12)}
+.pv-logo{display:flex;align-items:baseline;gap:8px;min-width:0;white-space:nowrap;overflow:hidden}
+.pv-mark{font-size:22px;letter-spacing:0}
+.st-lounge .pv-mark{font-size:24px;font-style:italic}
+.dv-desk .pv-mark{font-size:28px}
+.pv-tagl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut2);overflow:hidden;text-overflow:ellipsis}
+.st-flyer .pv-tagl{color:#14120F;letter-spacing:.14em;font-weight:500}
+.dv-desk .pv-tagl{font-size:12px}
+.pv-links{display:flex;align-items:center;gap:14px;flex:none;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.st-flyer .pv-links{font-weight:700}
+.st-lounge .pv-links{text-transform:none;letter-spacing:0}
+.dv-desk .pv-links{gap:28px;font-size:15px}
+.pv-book{padding:9px 14px;font-weight:700}
+.st-neon .pv-book{background:var(--acc);color:var(--on-acc);border-radius:999px}
+.st-flyer .pv-book{background:var(--acc);color:var(--on-acc);border:2px solid #14120F;box-shadow:3px 3px 0 #14120F}
+.st-lounge .pv-book{color:var(--acc);border:1px solid var(--acc);border-radius:999px;padding:8px 16px}
+.dv-desk .pv-book{padding:12px 20px}
+.pv-lang{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:none;padding:4px 8px;border-radius:999px;border:1px solid var(--line);font-weight:500}
+.st-flyer .pv-lang{border:2px solid #14120F;border-radius:0}
+.dv-desk .pv-lang{font-size:12px;padding:6px 10px}
+
+.pv-sec{position:relative;cursor:pointer}
+.pv-sec::after{content:"";position:absolute;left:6px;top:6px;right:6px;bottom:6px;border:2px dashed transparent;border-radius:14px;pointer-events:none;z-index:4;transition:border-color .15s ease}
+.pv-sec:hover::after{border-color:rgba(142,137,148,.5)}
+.pv-sec.is-edit::after{border-color:var(--acc)}
+.st-neon .first.sec-hero::after,.st-lounge .first.sec-hero::after{top:66px}
+.pv-etag{position:absolute;right:14px;top:14px;z-index:5;display:none;font-family:'Space Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:5px 8px;border-radius:6px;background:var(--acc);color:var(--on-acc);pointer-events:none}
+.pv-sec.is-edit .pv-etag{display:block}
+.st-neon .first.sec-hero .pv-etag,.st-lounge .first.sec-hero .pv-etag{top:74px}
+.dv-desk .pv-etag{font-size:14px;padding:7px 11px;right:22px;top:22px}
+.dv-desk.st-neon .first.sec-hero .pv-etag,.dv-desk.st-lounge .first.sec-hero .pv-etag{top:94px}
+
+.pv-h{position:relative;overflow:hidden}
+.st-neon .pv-h{min-height:700px;display:flex;flex-direction:column;justify-content:flex-end;padding:120px 20px 0;background:#151219}
+.dv-desk.st-neon .pv-h{min-height:880px;padding:150px 40px 0}
+.st-neon .first.sec-hero,.st-lounge .first.sec-hero{margin-top:-60px}
+.dv-desk.st-neon .first.sec-hero,.dv-desk.st-lounge .first.sec-hero{margin-top:-72px}
+.pv-hbg{position:absolute;left:0;top:0;width:100%;height:100%}
+.pv-hbg img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 40%}
+.pv-hsh{position:absolute;left:0;top:0;width:100%;height:100%;background:linear-gradient(180deg,rgba(21,18,25,.45) 0%,rgba(21,18,25,.1) 28%,rgba(21,18,25,.78) 58%,#151219 100%)}
+.dv-desk .pv-hsh{background:linear-gradient(90deg,rgba(21,18,25,.92) 0%,rgba(21,18,25,.55) 45%,rgba(21,18,25,.08) 100%),linear-gradient(180deg,rgba(21,18,25,.3) 0%,rgba(21,18,25,0) 45%,#151219 100%)}
+.pv-hno{position:absolute;left:20px;right:20px;top:84px;height:230px;border:1.5px dashed rgba(244,241,234,.28);border-radius:18px;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;font-size:12px;line-height:1.5;color:rgba(244,241,234,.45)}
+.dv-desk .pv-hno{left:auto;right:40px;top:110px;width:420px;height:250px;font-size:16px}
+.pv-glow{position:absolute;pointer-events:none;border-radius:50%}
+.st-neon .pv-glow{left:50%;top:30px;width:380px;height:320px;margin-left:-80px;background:radial-gradient(closest-side,rgba(177,60,255,.42),transparent 70%)}
+.st-lounge .pv-glow{left:50%;top:70px;width:520px;height:520px;margin-left:-260px;background:radial-gradient(closest-side,rgba(212,167,87,.3),rgba(212,167,87,0) 72%);animation:pvbreathe 7s ease-in-out infinite}
+.dv-desk.st-lounge .pv-glow{left:72%;top:120px;width:760px;height:760px;margin-left:-380px}
+.pv-hw{position:relative;display:flex;flex-direction:column;gap:20px;width:100%}
+.dv-desk .pv-hw{max-width:1100px;margin:0 auto}
+.st-flyer .pv-hw{padding:26px 20px 36px;gap:24px}
+.st-lounge .pv-hw{padding:88px 20px 44px;gap:26px}
+.dv-desk.st-flyer .pv-hw,.dv-desk.st-lounge .pv-hw{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-items:center;padding:64px 40px 76px}
+.dv-desk.st-lounge .pv-hw{padding-top:136px}
+.pv-hfr{position:relative;color:var(--ink)}
+.st-flyer .pv-hfr{height:220px;margin:0 6px 6px 0;border:2px solid #14120F;box-shadow:6px 6px 0 #14120F;transform:rotate(-1.5deg);background:#e8dfcc}
+.st-lounge .pv-hfr{height:300px;padding:6px;border:1px solid var(--acc);border-radius:200px 200px 18px 18px}
+.dv-desk .pv-hfr{order:2}
+.dv-desk.st-flyer .pv-hfr{height:500px}
+.dv-desk.st-lounge .pv-hfr{height:600px;border-radius:300px 300px 22px 22px}
+.pv-hfr img{display:block;width:100%;height:100%;object-fit:cover}
+.st-lounge .pv-hfr img{border-radius:194px 194px 13px 13px}
+.dv-desk.st-lounge .pv-hfr img{border-radius:294px 294px 17px 17px}
+.pv-hfr .pv-phb{height:100%}
+.pv-stk{position:absolute;right:-8px;bottom:-22px;width:76px;height:76px;border-radius:50%;background:#FFD338;color:#14120F;border:2px solid #14120F;box-shadow:4px 4px 0 #14120F;transform:rotate(10deg);display:flex;align-items:center;justify-content:center;font-size:24px}
+.dv-desk .pv-stk{width:110px;height:110px;font-size:34px;right:-18px;bottom:-30px}
+.pv-ht{position:relative;display:flex;flex-direction:column;gap:20px;min-width:0}
+.dv-desk .pv-ht{gap:26px}
+.pv-eye{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);line-height:1.5}
+.pv-eye i{display:inline-block;width:28px;height:1px;background:currentColor;flex:none}
+.st-flyer .pv-eye{color:#14120F;letter-spacing:.16em}
+.st-flyer .pv-eye i{width:10px;height:10px;background:var(--acc);border:2px solid #14120F}
+.st-lounge .pv-eye{font-weight:600}
+.dv-desk .pv-eye{font-size:14px}
+.pv-h1{margin:0;display:flex;flex-direction:column;color:var(--ink)}
+.pv-hl{display:block;overflow-wrap:break-word}
+.st-neon .pv-hl.i1{padding-left:.16em}.st-neon .pv-hl.i2{padding-left:.32em}.st-neon .pv-hl.i3{padding-left:.48em}
+.st-lounge .pv-h1{gap:6px}
+.st-lounge .pv-hl.i0{line-height:.88}
+.pv-hi{max-width:340px;font-size:17px;line-height:1.45;color:var(--mut)}
+.st-flyer .pv-hi{font-weight:500;line-height:1.4}
+.st-lounge .pv-hi{line-height:1.5}
+.dv-desk .pv-hi{max-width:480px;font-size:20px}
+.pv-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.pv-b1{display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+.st-neon .pv-b1{background:var(--acc);color:var(--on-acc);font-weight:700;font-size:16px;padding:16px 22px;border-radius:999px;box-shadow:0 12px 40px -10px var(--acc)}
+.st-flyer .pv-b1{background:#14120F;color:#F4EEE1;border:2px solid #14120F;box-shadow:5px 5px 0 var(--acc);font-family:'Archivo',Impact,sans-serif;font-variation-settings:'wdth' 125;font-weight:900;text-transform:uppercase;font-size:18px;padding:15px 18px}
+.st-lounge .pv-b1{background:var(--acc);color:var(--on-acc);font-weight:700;font-size:15px;padding:16px 24px;border-radius:999px}
+.dv-desk .pv-b1{font-size:19px;padding:19px 28px}
+.pv-b2{display:inline-flex;align-items:center;gap:9px;white-space:nowrap;font-size:14px;font-weight:600}
+.pv-b2 i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc);animation:pvblink 1.2s ease-in-out infinite}
+.st-neon .pv-b2{padding:14px 16px;border-radius:999px;border:1px solid rgba(244,241,234,.18)}
+.st-flyer .pv-b2{background:#1D3BFF;color:#F4EEE1;border:2px solid #14120F;box-shadow:3px 3px 0 #14120F;padding:8px 12px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;transform:rotate(-3deg)}
+.st-flyer .pv-b2 i{background:#FFD338;box-shadow:none}
+.st-lounge .pv-b2{color:var(--ink);border-bottom:1px solid var(--acc);padding:4px 0;font-weight:500}
+.st-lounge .pv-b2 i{box-shadow:none}
+.dv-desk .pv-b2{font-size:16px}
+.pv-waves{position:relative;height:90px;margin:18px -20px 0;overflow:hidden;opacity:.9}
+.dv-desk .pv-waves{margin:30px -40px 0;height:120px}
+.pv-waves svg{position:absolute;left:0;top:0;width:200%;height:100%;display:block}
+.pv-w1{animation:pvdrift 7s linear infinite}.pv-w2{animation:pvdrift 11s linear infinite reverse;opacity:.5}
+.pv-tick{background:#FFD338;color:#14120F;border-bottom:2px solid #14120F;padding:9px 0;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;overflow:hidden;white-space:nowrap}
+.dv-desk .pv-tick{font-size:14px;padding:11px 0}
+.pv-tick-in{display:inline-block;animation:pvdrift 28s linear infinite}
+.pv-tick-in > span{display:inline-block;padding-right:36px}
+.st-flyer .pv-h{border-bottom:2px solid #14120F}
+
+.pv-sx{position:relative;padding:64px 20px 28px}
+.dv-desk .pv-sx{max-width:1180px;margin:0 auto;padding:110px 40px 40px}
+.pv-lb{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut2);margin-bottom:18px}
+.st-flyer .pv-lb{color:#14120F;letter-spacing:.16em;font-weight:500}
+.st-lounge .pv-lb{color:var(--acc);font-weight:600}
+.dv-desk .pv-lb{font-size:13px;margin-bottom:24px}
+.pv-h2{margin:0 0 18px;font-size:54px;color:var(--ink)}
+.pv-h2 > span{display:block}
+.st-flyer .pv-h2{font-size:46px}
+.st-lounge .pv-h2{font-size:46px;line-height:.98}
+.dv-desk .pv-h2{font-size:104px;margin-bottom:26px}
+.dv-desk.st-flyer .pv-h2{font-size:84px}
+.dv-desk.st-lounge .pv-h2{font-size:84px}
+.dv-desk .pv-2 .pv-h2{font-size:80px}
+.dv-desk.st-flyer .pv-2 .pv-h2{font-size:64px}
+.dv-desk.st-lounge .pv-2 .pv-h2{font-size:72px}
+.pv-p{font-size:15px;line-height:1.5;color:var(--mut);max-width:340px;margin:0 0 22px}
+.st-neon .pv-p{color:#A39FA8}
+.st-flyer .pv-p{font-weight:500;color:#14120F}
+.st-lounge .pv-p{line-height:1.55}
+.dv-desk .pv-p{font-size:18px;max-width:520px}
+.pv-2{display:block}
+.dv-desk .pv-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
+.pv-phb{display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;min-height:120px;height:100%;border:1.5px dashed currentColor;border-radius:inherit;opacity:.4;font-size:12px;line-height:1.45}
+.dv-desk .pv-phb{font-size:16px}
+.pv-dots{flex:1;min-width:12px;border-bottom:1px dotted rgba(243,233,215,.45);transform:translateY(-4px)}
+.st-neon .sec-rooms .pv-sx::before{content:"";position:absolute;right:-150px;top:-40px;width:380px;height:380px;border-radius:50%;background:radial-gradient(closest-side,#3DF2FF,transparent 70%);opacity:.13;pointer-events:none}
+.st-neon .sec-booking .pv-sx::before{content:"";position:absolute;left:-170px;top:120px;width:400px;height:400px;border-radius:50%;background:radial-gradient(closest-side,#FF3DA6,transparent 70%);opacity:.14;pointer-events:none}
+.st-neon .sec-numbers .pv-sx::before{content:"";position:absolute;left:-170px;top:260px;width:440px;height:440px;border-radius:50%;background:radial-gradient(closest-side,#FF3DA6,transparent 70%);opacity:.14;pointer-events:none}
+
+.pv-nl{display:flex;flex-direction:column;gap:6px}
+.pv-ni{position:relative;display:flex;flex-direction:column;gap:4px;padding:0 0 26px 18px;border-left:1px solid rgba(244,241,234,.12);min-width:0}
+.dv-phone.st-neon .pv-ni.i1{margin-left:24px}.dv-phone.st-neon .pv-ni.i2{margin-left:48px}.dv-phone.st-neon .pv-ni.i3{margin-left:72px}
+.st-neon .pv-ni.acc{border-left-color:var(--acc)}
+.pv-nv{font-size:108px;color:var(--ink)}
+.pv-ni.acc .pv-nv{color:var(--acc)}
+.pv-nc{font-size:16px;line-height:1.4;color:#A39FA8;max-width:300px}
+.dv-desk .pv-nl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
+.dv-desk .pv-nv{font-size:86px}
+.dv-desk .pv-nc{font-size:17px}
+.st-flyer .pv-nl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.st-flyer .pv-ni{border:2px solid #14120F;background:#FFFDF7;box-shadow:4px 4px 0 #14120F;padding:14px 12px 16px;gap:8px}
+.st-flyer .pv-ni.acc{background:var(--acc)}
+.st-flyer .pv-ni.acc .pv-nv,.st-flyer .pv-ni.acc .pv-nc{color:var(--on-acc)}
+.st-flyer .pv-nv{font-size:46px}
+.st-flyer .pv-nc{font-size:13px;color:#14120F;font-weight:500}
+.dv-desk.st-flyer .pv-nl{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.dv-desk.st-flyer .pv-nv{font-size:64px}
+.dv-desk.st-flyer .pv-nc{font-size:15px}
+.st-lounge .pv-nl{gap:0}
+.st-lounge .pv-ni{border-left:0;border-top:1px solid var(--line);padding:20px 0 22px 46px}
+.pv-nr{position:absolute;left:0;top:26px;font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:22px;color:var(--acc)}
+.st-lounge .pv-nv{font-size:74px}
+.st-lounge .pv-nc{color:var(--mut)}
+.dv-desk.st-lounge .pv-nl{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px}
+.dv-desk.st-lounge .pv-nv{font-size:84px}
+
+.pv-rg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.pv-rc{display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:18px;background:rgba(244,241,234,.04);border:1px solid rgba(244,241,234,.1);min-width:0}
+.pv-rk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut2)}
+.pv-rp{font-size:30px;color:var(--ink)}
+.pv-rc.vip .pv-rp{color:var(--acc)}
+.pv-rn{font-size:12px;line-height:1.45;color:#A39FA8}
+.pv-rph{position:relative;height:250px;border-radius:18px;overflow:hidden;border:1px solid rgba(244,241,234,.1);background:#141218;color:var(--ink)}
+.pv-rph img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 62%}
+.dv-desk .pv-rph{height:560px;margin-top:38px}
+.dv-desk .pv-rp{font-size:44px}
+.dv-desk .pv-rk{font-size:12px}
+.dv-desk .pv-rn{font-size:15px}
+.st-flyer .pv-rc{border:2px solid #14120F;border-radius:0;background:#FFFDF7;box-shadow:4px 4px 0 #14120F}
+.st-flyer .pv-rk,.st-flyer .pv-rn{color:#14120F}
+.st-flyer .pv-rc.vip{background:var(--acc)}
+.st-flyer .pv-rc.vip .pv-rp,.st-flyer .pv-rc.vip .pv-rk,.st-flyer .pv-rc.vip .pv-rn{color:var(--on-acc)}
+.st-flyer .pv-rph{border:2px solid #14120F;border-radius:0;box-shadow:6px 6px 0 #14120F;background:#e8dfcc;overflow:visible}
+.st-lounge .pv-rc{border-radius:14px;border:1px solid var(--line);background:transparent}
+.st-lounge .pv-rk{color:var(--acc);font-weight:600}
+.st-lounge .pv-rp{font-size:40px}
+.st-lounge .pv-rn{color:var(--mut)}
+.st-lounge .pv-rph{border-radius:16px;border:1px solid var(--acc);padding:6px;background:transparent}
+.st-lounge .pv-rph img{border-radius:10px}
+
+.pv-bc{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:22px;background:#121016;border:1px solid rgba(244,241,234,.1)}
+.pv-bl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc)}
+.pv-bseg{display:flex;gap:4px;padding:4px;border-radius:999px;background:#0b0a0d;border:1px solid rgba(244,241,234,.1)}
+.pv-bseg > span{flex:1;text-align:center;padding:10px 4px;border-radius:999px;font-weight:700;font-size:13px;white-space:nowrap}
+.pv-bseg > span.on{background:var(--acc);color:var(--on-acc)}
+.pv-bstep{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px;border-radius:16px;background:#0b0a0d;border:1px solid rgba(244,241,234,.1)}
+.pv-bstep i{font-style:normal;width:44px;height:44px;flex:none;border-radius:12px;border:1px solid rgba(244,241,234,.14);background:#1c1a21;display:flex;align-items:center;justify-content:center;font-size:22px}
+.pv-bstep > span{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.pv-bstep b{font-size:40px;line-height:1;font-weight:inherit}
+.pv-bstep em{font-style:normal;font-size:11px;color:var(--mut2);text-align:center}
+.pv-bt{display:flex;flex-wrap:wrap;gap:6px}
+.pv-bt > span{padding:9px 12px;border-radius:999px;border:1px solid rgba(244,241,234,.18);font-size:13px;font-weight:600;white-space:nowrap}
+.pv-bt > span.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.pv-bsum{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:12px;padding-top:12px;border-top:1px dashed rgba(244,241,234,.16);color:var(--mut)}
+.pv-bpay{display:flex;align-items:center;justify-content:center;padding:15px;border-radius:999px;background:#F4F1EA;color:#0b0a0d;font-weight:700;font-size:15px}
+.dv-desk .pv-bc{padding:26px;gap:16px}
+.dv-desk .pv-bseg > span,.dv-desk .pv-bt > span{font-size:15px}
+.pv-notch{position:absolute;top:50%;width:28px;height:28px;margin-top:-14px;border-radius:50%;background:#F4EEE1;border:2px solid #14120F}
+.pv-notch.l{left:-15px;clip-path:inset(0 0 0 50%)}.pv-notch.r{right:-15px;clip-path:inset(0 50% 0 0)}
+.st-flyer .pv-bc{border-radius:0;background:#FFFDF7;border:2px solid #14120F;box-shadow:8px 8px 0 #14120F}
+.st-flyer .pv-bl{color:#14120F;font-weight:700}
+.st-flyer .pv-bseg{background:transparent;border:0;padding:0;gap:6px}
+.st-flyer .pv-bseg > span{border:2px solid #14120F;text-transform:uppercase;font-size:12px;font-weight:800}
+.st-flyer .pv-bseg > span.on{background:#14120F;color:#F4EEE1}
+.st-flyer .pv-bstep{border-radius:0;background:transparent;border:2px solid #14120F}
+.st-flyer .pv-bstep i{border-radius:0;border:2px solid #14120F;background:#F4EEE1}
+.st-flyer .pv-bstep em{color:#14120F}
+.st-flyer .pv-bt > span{border:2px solid #14120F;border-radius:0;font-weight:700}
+.st-flyer .pv-bt > span.on{background:#FFD338;color:#14120F;border-color:#14120F}
+.st-flyer .pv-bsum{border-top:2px dashed #14120F;color:#14120F}
+.st-flyer .pv-bpay{border-radius:0;background:var(--acc);color:var(--on-acc);border:2px solid #14120F;box-shadow:4px 4px 0 #14120F;font-family:'Archivo',Impact,sans-serif;font-variation-settings:'wdth' 125;font-weight:900;text-transform:uppercase;font-size:17px}
+.st-lounge .pv-bc{background:#F3E9D7;color:#2A0B15;border-radius:8px;border:0;box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
+.st-lounge .pv-bl{color:#6B3B49;font-weight:700}
+.st-lounge .pv-bseg{background:transparent;border:1px solid rgba(42,11,21,.3)}
+.st-lounge .pv-bseg > span{font-weight:600}
+.st-lounge .pv-bseg > span.on{background:#2A0B15;color:#F3E9D7}
+.st-lounge .pv-bstep{background:#FBF5EA;border:1px solid rgba(42,11,21,.22)}
+.st-lounge .pv-bstep i{background:transparent;border:1px solid rgba(42,11,21,.3)}
+.st-lounge .pv-bstep em{color:#6B3B49}
+.st-lounge .pv-bt > span{border-color:rgba(42,11,21,.3)}
+.st-lounge .pv-bt > span.on{background:#2A0B15;color:#F3E9D7;border-color:#2A0B15}
+.st-lounge .pv-bsum{color:#6B3B49;border-top-color:rgba(42,11,21,.25)}
+.st-lounge .pv-bpay{background:#2A0B15;color:#F3E9D7}
+
+.pv-sbox{display:flex;align-items:center;gap:10px;background:#141218;border:1px solid rgba(244,241,234,.14);border-radius:16px;padding:4px 6px 4px 14px}
+.pv-sbox svg{flex:none}
+.pv-sph{flex:1;min-width:0;color:#8E8994;font-size:16px;padding:13px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv-sgo{background:var(--acc);color:var(--on-acc);padding:11px 15px;border-radius:12px;font-weight:700;font-size:14px;flex:none}
+.pv-sres{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.pv-smeta{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut2);padding:4px 2px}
+.pv-srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(244,241,234,.04)}
+.pv-srow > span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pv-st{font-weight:600;font-size:15px}
+.pv-sa{font-size:13px;color:var(--mut2)}
+.pv-sn{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--acc);white-space:nowrap}
+.pv-snote{font-size:12px;line-height:1.5;color:#6F6B78;padding:6px 2px 0}
+.dv-desk .pv-sph{font-size:18px}.dv-desk .pv-st{font-size:17px}.dv-desk .pv-snote{font-size:14px}
+.st-flyer .pv-sbox{border-radius:0;background:#FFFDF7;border:2px solid #14120F;box-shadow:4px 4px 0 #14120F}
+.st-flyer .pv-sph{color:#5c554a}
+.st-flyer .pv-sgo{border-radius:0;background:#FFD338;color:#14120F;border:2px solid #14120F;text-transform:uppercase;font-weight:800}
+.st-flyer .pv-srow{border-radius:0;background:transparent;border-top:2px solid #14120F;padding:12px 2px}
+.st-flyer .pv-sa{color:#4a443a}
+.st-flyer .pv-sn{color:#14120F;font-weight:700}
+.st-flyer .pv-snote{color:#4a443a}
+.st-lounge .pv-sbox{background:transparent;border:0;border-bottom:1px solid var(--acc);border-radius:0;padding:4px 0}
+.st-lounge .pv-sph{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:21px;color:var(--mut2)}
+.st-lounge .pv-sgo{background:transparent;color:var(--acc);border:1px solid var(--acc);border-radius:999px}
+.st-lounge .pv-srow{background:transparent;border-bottom:1px solid var(--line);border-radius:0;padding:12px 0}
+.st-lounge .pv-snote{color:var(--mut2)}
+
+.pv-mc{position:relative;overflow:hidden;border-radius:24px;background:#121016;border:1px solid rgba(244,241,234,.08);padding:28px 22px 30px}
+.st-neon .pv-mc::before{content:"";position:absolute;right:-90px;top:-60px;width:280px;height:280px;border-radius:50%;background:radial-gradient(closest-side,#FF3DA6,transparent 70%);opacity:.3;pointer-events:none}
+.pv-mc > *{position:relative}
+.dv-desk .pv-mc{padding:56px}
+.pv-mt{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 16px}
+.pv-mti{display:flex;flex-direction:column;padding:12px 14px;border-radius:14px;background:rgba(244,241,234,.05);border:1px solid rgba(244,241,234,.08);min-width:0}
+.pv-mk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut2)}
+.pv-mv{font-size:26px;margin-top:4px;white-space:nowrap}
+.dv-desk .pv-mv{font-size:36px}.dv-desk .pv-mk{font-size:12px}
+.pv-btns{display:flex;flex-wrap:wrap;gap:10px}
+.pv-ba{display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border-radius:999px;background:var(--acc);color:var(--on-acc);font-weight:700;font-size:14px;white-space:nowrap}
+.pv-bo{display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border-radius:999px;border:1px solid rgba(244,241,234,.18);font-weight:600;font-size:14px;white-space:nowrap}
+.dv-desk .pv-ba,.dv-desk .pv-bo{font-size:16px;padding:15px 22px}
+.st-flyer .pv-mc{border-radius:0;background:#FFFDF7;border:2px solid #14120F;box-shadow:8px 8px 0 #14120F}
+.st-flyer .pv-mti{border-radius:0;background:#F4EEE1;border:2px solid #14120F}
+.st-flyer .pv-mk{color:#14120F}
+.st-flyer .pv-ba{border-radius:0;border:2px solid #14120F;box-shadow:3px 3px 0 #14120F;text-transform:uppercase;font-weight:800;font-size:13px}
+.st-flyer .pv-bo{border-radius:0;border:2px solid #14120F;box-shadow:3px 3px 0 #14120F;font-weight:800;text-transform:uppercase;font-size:13px}
+.st-lounge .pv-mc{background:transparent;border:1px solid var(--line);border-radius:18px}
+.st-lounge .pv-mt{display:flex;flex-direction:column;gap:14px;margin-bottom:22px}
+.st-lounge .pv-mti{flex-direction:row;align-items:baseline;gap:10px;padding:0;background:none;border:0;border-radius:0}
+.st-lounge .pv-mk{font-family:'DM Sans',system-ui,sans-serif;font-size:15px;letter-spacing:0;text-transform:none;color:var(--ink)}
+.st-lounge .pv-mv{font-size:22px;margin:0}
+.st-lounge .pv-ba{color:var(--on-acc)}
+.st-lounge .pv-bo{border-color:var(--line)}
+
+.pv-pc{position:relative;overflow:hidden;border-radius:24px;padding:30px 22px;background:linear-gradient(140deg,rgba(255,61,166,.18),#121016 62%);border:1px solid var(--acc)}
+.dv-desk .pv-pc{padding:64px}
+.pv-pc .pv-p{margin-bottom:22px}
+.st-flyer .pv-pc{border-radius:0;background:var(--acc);color:var(--on-acc);border:2px solid #14120F;box-shadow:8px 8px 0 #14120F}
+.st-flyer .pv-pc .pv-lb,.st-flyer .pv-pc .pv-p,.st-flyer .pv-pc .pv-h2,.st-flyer .pv-pc .pv-h2 .acc{color:inherit}
+.st-flyer .pv-pc .pv-ba{background:#14120F;color:#F4EEE1}
+.st-lounge .pv-pc{background:transparent;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:0;text-align:center;padding:44px 8px}
+.st-lounge .pv-pc .pv-p{margin-left:auto;margin-right:auto}
+.st-lounge .pv-pc .pv-h2 .acc{font-style:italic}
+.st-lounge .pv-pc .pv-ba{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+
+.pv-fg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pv-fc{display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:18px;background:#121016;border:1px solid rgba(244,241,234,.1);min-width:0}
+.pv-fk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut2)}
+.pv-fv{font-weight:700;font-size:15px;line-height:1.3;overflow-wrap:break-word}
+.pv-fv.tel{white-space:nowrap}
+.pv-fn{font-size:12px;line-height:1.4;color:var(--mut2)}
+.dv-desk .pv-fv{font-size:19px}.dv-desk .pv-fn{font-size:14px}.dv-desk .pv-fk{font-size:12px}
+.pv-fh{display:flex;flex-direction:column;border-radius:18px;background:#121016;border:1px solid rgba(244,241,234,.1);padding:4px 16px;margin-top:10px}
+.dv-desk .pv-fh{margin-top:0;padding:8px 24px}
+.pv-fr{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(244,241,234,.08);font-size:14px}
+.pv-fr:last-child{border-bottom:0}
+.dv-desk .pv-fr{font-size:17px;padding:16px 0}
+.pv-fr .k{color:#A39FA8}
+.pv-fr .v{font-weight:600;text-align:right}
+.pv-fr.sp .v{color:#FF3DA6}
+.pv-now{display:inline-flex;align-items:center;gap:8px;color:var(--acc)}
+.pv-now i{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc);animation:pvblink 1.2s ease-in-out infinite}
+.pv-soc{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.pv-soc > span{display:inline-flex;gap:8px;padding:12px 16px;border-radius:999px;border:1px solid rgba(244,241,234,.16);font-size:13px;font-weight:600}
+.pv-soc > span > em{font-style:normal;color:var(--mut2);font-weight:400}
+.dv-desk .pv-soc > span{font-size:15px}
+.st-flyer .pv-fc{border-radius:0;background:#FFFDF7;border:2px solid #14120F;box-shadow:5px 5px 0 #14120F}
+.st-flyer .pv-fk,.st-flyer .pv-fn{color:#14120F}
+.st-flyer .pv-fv{font-weight:800}
+.st-flyer .pv-fh{border-radius:0;background:#FFFDF7;border:2px solid #14120F;box-shadow:5px 5px 0 #14120F;padding:0 16px;margin-top:16px}
+.st-flyer .pv-fr{border-bottom:2px solid #14120F;margin:0 -16px;padding:12px 16px}
+.st-flyer .pv-fr:last-child{border-bottom:0}
+.st-flyer .pv-fr .k{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#14120F}
+.st-flyer .pv-fr .v{font-weight:800}
+.st-flyer .pv-fr.sp .v{color:#14120F;background:#FFD338;padding:2px 6px}
+.st-flyer .pv-now{color:#14120F}
+.st-flyer .pv-now i{background:#14120F;box-shadow:none}
+.st-flyer .pv-soc > span{border:0;border-radius:0;padding:0;font-weight:700;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
+.st-flyer .pv-soc > span > em{color:inherit;font-weight:700}
+.st-lounge .pv-fc{background:transparent;border:0;border-top:1px solid var(--line);border-radius:0;padding:14px 0}
+.st-lounge .pv-fk{color:var(--acc);font-weight:600}
+.st-lounge .pv-fh{background:transparent;border:0;padding:0;margin-top:16px}
+.st-lounge .pv-fr{border-bottom:0;padding:8px 0;align-items:baseline;justify-content:flex-start;gap:10px}
+.st-lounge .pv-fr .k{color:var(--ink)}
+.st-lounge .pv-fr .v{font-family:'Instrument Serif',Georgia,serif;font-size:20px;font-weight:400}
+.st-lounge .pv-fr.sp .v{color:var(--acc);font-style:italic}
+.st-lounge .pv-now{font-style:italic}
+.st-lounge .pv-now i{display:none}
+.st-lounge .pv-soc > span{border-color:var(--line)}
+
+.pv-ft{position:relative;overflow:hidden;padding:44px 20px 26px}
+.dv-desk .pv-ft{padding:90px 40px 40px}
+.pv-fw{font-size:128px;line-height:.8;white-space:nowrap;letter-spacing:-.03em;margin:0 0 -.06em}
+.dv-desk .pv-fw{font-size:300px}
+.st-neon .pv-fw{color:transparent;-webkit-text-stroke:1px rgba(244,241,234,.24)}
+.st-lounge .pv-fw{font-style:italic;color:transparent;-webkit-text-stroke:1px var(--acc);opacity:.55}
+.pv-fw.ph{text-decoration:none;opacity:.2}
+.pv-stamp{width:210px;height:210px;margin:0 auto 22px;border:4px double var(--acc);border-radius:50%;color:var(--acc);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;transform:rotate(-5deg);mix-blend-mode:multiply}
+.pv-st1{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;max-width:150px}
+.pv-st2{font-size:86px}
+.dv-desk .pv-stamp{width:300px;height:300px}.dv-desk .pv-st2{font-size:120px}.dv-desk .pv-st1{font-size:13px}
+.pv-fl{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#6F6B78;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 12px;padding-top:14px;border-top:1px solid var(--line)}
+.st-flyer .pv-fl{color:#14120F;border-top:2px solid #14120F;justify-content:center;gap:8px 16px}
+.st-lounge .pv-fl{color:var(--mut2)}
+.dv-desk .pv-fl{font-size:13px}
+
+.pv-stick{position:sticky;bottom:0;z-index:6;display:flex;gap:10px;padding:10px 14px 12px;transition:transform .35s cubic-bezier(.2,.7,.2,1),opacity .35s ease}
+.pv-stick.hide{transform:translateY(120%);opacity:0;pointer-events:none}
+.st-neon .pv-stick{background:linear-gradient(180deg,rgba(11,10,13,0),rgba(11,10,13,.92) 40%)}
+.st-flyer .pv-stick{background:#14120F}
+.st-lounge .pv-stick{background:linear-gradient(180deg,rgba(27,6,13,0),rgba(27,6,13,.94) 40%)}
+.pv-sb{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px;font-weight:700;font-size:16px;white-space:nowrap}
+.pv-sb > span{flex:none}
+.pv-sb > .pv-sbp{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:11px;letter-spacing:.1em}
+.st-neon .pv-sb{background:var(--acc);color:var(--on-acc);border-radius:999px;box-shadow:0 10px 30px -8px var(--acc)}
+.st-flyer .pv-sb{background:var(--acc);color:var(--on-acc);border:2px solid #14120F;box-shadow:4px 4px 0 #F4EEE1;padding:15px 18px;font-family:'Archivo',Impact,sans-serif;font-variation-settings:'wdth' 125;font-weight:900;text-transform:uppercase;font-size:18px}
+.st-flyer .pv-sb > .pv-sbp{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:500;text-transform:none}
+.st-lounge .pv-sb{background:var(--acc);color:var(--on-acc);border-radius:999px;font-size:15px}
+.st-lounge .pv-sb > .pv-sbp{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:16px;letter-spacing:0}
+.pv-sc{width:54px;height:54px;flex:none;display:flex;align-items:center;justify-content:center}
+.st-neon .pv-sc{border-radius:50%;background:#1c1a21;border:1px solid rgba(244,241,234,.14);color:#F4F1EA}
+.st-flyer .pv-sc{background:#F4EEE1;border:2px solid #14120F;color:#14120F}
+.st-lounge .pv-sc{border-radius:50%;background:rgba(243,233,215,.08);border:1px solid rgba(243,233,215,.25);color:#F3E9D7}
+.pv-none{padding:140px 30px;text-align:center;font-size:14px;line-height:1.5;opacity:.45}
+@media (prefers-reduced-motion:reduce){.pv-w1,.pv-w2,.pv-tick-in,.pv-glow,.pv-b2 i,.pv-now i,.toast,.pop,.flA,.flB{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 1280px; height: 800px; box-sizing: border-box; display: flex; flex-direction: column; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden">
+
+  <header style="position: relative; z-index: 20; height: 56px; flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid rgba(244,241,234,.08); background: #0e0d11; white-space: nowrap">
+    <a href="AdminDesk.dc.html" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.14)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7H2M6 3L2 7l4 4"/></svg>Admin</a>
+    <div style="display: flex; flex-direction: column; gap: 3px; padding-left: 4px"><span class="disp" style="font-size: 23px">Website</span><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">{{venueLine}}</span></div>
+    <button type="button" class="btn" onClick="{{toggleDomain}}" aria-label="Site address" aria-expanded="{{popDomain}}" style="appearance: none; display: inline-flex; align-items: center; gap: 8px; margin-left: 8px; padding: 7px 12px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.12); color: #F4F1EA; font-size: 12px">
+      <span style="width: 8px; height: 8px; border-radius: 50%; flex: none; {{domainDot}}"></span>
+      <span class="mono" style="font-size: 11px">{{liveHost}}</span>
+      <span style="color: #8E8994">· {{domainState}}</span>
+      <svg width="10" height="10" fill="none" stroke="#8E8994" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3"/></svg>
+    </button>
+    <div style="flex: 1"></div>
+    <div role="group" aria-label="Preview size" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+      <button type="button" class="btn" onClick="{{setPhone}}" aria-pressed="{{isPhone}}" style="appearance: none; display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 8px; border: 0; font-size: 12px; font-weight: 700; {{phoneSeg}}"><svg width="11" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="1" y="1" width="9" height="13" rx="2"/><path d="M4.5 11.5h2" stroke-linecap="round"/></svg>Phone</button>
+      <button type="button" class="btn" onClick="{{setDesk}}" aria-pressed="{{isDesk}}" style="appearance: none; display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 8px; border: 0; font-size: 12px; font-weight: 700; {{deskSeg}}"><svg width="16" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="1" y="1" width="14" height="9" rx="1.5"/><path d="M5 13h6M8 10v3"/></svg>Desktop</button>
+    </div>
+    <div style="flex: 1"></div>
+    <sc-if value="{{hasLive}}" hint-placeholder-val="{{true}}">
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Preview live site<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h6v6M10 2L3 9"/></svg></a>
+    </sc-if>
+    <sc-if value="{{noLive}}" hint-placeholder-val="{{false}}">
+      <span style="padding: 9px 13px; border-radius: 10px; font-size: 13px; font-weight: 600; color: #6F6B78; border: 1px dashed rgba(244,241,234,.14)">{{noLiveLabel}}</span>
+    </sc-if>
+    <span style="display: inline-flex; align-items: center; gap: 7px; font-size: 12px; min-width: 150px; justify-content: flex-end; {{statusStyle}}"><span style="width: 7px; height: 7px; border-radius: 50%; flex: none; {{statusDot}}"></span>{{statusLine}}</span>
+    <button type="button" class="btn" onClick="{{publish}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 20px; font-weight: 700; font-size: 13px; {{pubStyle}}">Publish</button>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex">
+
+    <aside style="width: 380px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+      <div role="tablist" aria-label="Builder" style="flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 14px 16px 12px; padding: 4px; border-radius: 12px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3"><button type="button" role="tab" class="btn" onClick="{{t.pick}}" aria-selected="{{t.on}}" style="appearance: none; border: 0; border-radius: 9px; padding: 9px 6px; font-size: 13px; font-weight: 700; {{t.style}}">{{t.label}}</button></sc-for>
+      </div>
+
+      <div class="b-scroll" ref="{{panelRef}}" style="position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 22px; display: flex; flex-direction: column; gap: 12px">
+
+        <sc-if value="{{isStyle}}" hint-placeholder-val="{{true}}">
+          <div class="b-grp">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span class="b-gl">Look</span><span class="b-hint">One click changes the whole site</span></div>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+              <sc-for list="{{styles}}" as="c" hint-placeholder-count="3">
+                <button type="button" class="btn" onClick="{{c.pick}}" aria-pressed="{{c.on}}" aria-label="{{c.aria}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 5px 5px 9px; border-radius: 12px; background: #141218; color: #F4F1EA; min-width: 0; {{c.ring}}">
+                  <sc-if value="{{c.isNeon}}" hint-placeholder-val="{{true}}">
+                    <span aria-hidden="true" style="position: relative; display: block; height: 74px; border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #231a2e 0%, #0b0a0d 100%)">
+                      <span style="position: absolute; right: -22px; top: -18px; width: 72px; height: 72px; border-radius: 50%; background: radial-gradient(closest-side, #b13cff, transparent 70%)"></span>
+                      <span style="position: absolute; left: 6px; right: 6px; top: 6px; display: flex; justify-content: space-between; align-items: center"><span style="width: 14px; height: 4px; border-radius: 2px; background: rgba(244,241,234,.55)"></span><span style="width: 16px; height: 6px; border-radius: 999px; background: {{c.acc}}"></span></span>
+                      <span class="{{c.fcls}}" style="position: absolute; left: 7px; right: 4px; top: 17px; display: flex; flex-direction: column; font-size: 13.5px; line-height: .88; color: #F4F1EA; overflow: hidden">
+                        <sc-for list="{{c.lines}}" as="l" hint-placeholder-count="3"><span style="display: block; white-space: nowrap; {{l.style}}">{{l.t}}</span></sc-for>
+                      </span>
+                      <svg viewBox="0 0 100 20" preserveAspectRatio="none" style="position: absolute; left: 0; bottom: 3px; width: 100%; height: 12px"><path d="M0 10 Q 12.5 1 25 10 T 50 10 T 75 10 T 100 10" fill="none" style="stroke: {{c.acc}}" stroke-width="1.6"/></svg>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{c.isFlyer}}" hint-placeholder-val="{{false}}">
+                    <span aria-hidden="true" style="position: relative; display: block; height: 74px; border-radius: 4px; overflow: hidden; background: #F4EEE1; border: 1.5px solid #14120F; box-sizing: border-box">
+                      <span style="position: absolute; left: 0; right: 0; top: 0; height: 8px; background: #FFD338; border-bottom: 1.5px solid #14120F"></span>
+                      <span class="{{c.fcls}}" style="position: absolute; left: 6px; right: 22px; top: 15px; display: flex; flex-direction: column; font-size: 13px; line-height: .9; color: #14120F; overflow: hidden">
+                        <sc-for list="{{c.lines}}" as="l" hint-placeholder-count="3"><span style="display: block; white-space: nowrap; {{l.style}}">{{l.t}}</span></sc-for>
+                      </span>
+                      <span style="position: absolute; right: 5px; top: 14px; width: 17px; height: 17px; border-radius: 50%; background: #FFD338; border: 1.5px solid #14120F; box-sizing: border-box; transform: rotate(10deg); font-size: 9px; line-height: 14px; text-align: center; color: #14120F; font-weight: 900">★</span>
+                      <span style="position: absolute; left: 6px; bottom: 6px; width: 34px; height: 9px; background: #14120F; box-shadow: 2px 2px 0 {{c.acc}}"></span>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{c.isLounge}}" hint-placeholder-val="{{false}}">
+                    <span aria-hidden="true" style="position: relative; display: block; height: 74px; border-radius: 8px; overflow: hidden; background: #2A0B15">
+                      <span style="position: absolute; left: 50%; top: -30px; width: 120px; height: 100px; margin-left: -40px; border-radius: 50%; background: radial-gradient(closest-side, rgba(212,167,87,.45), transparent 72%)"></span>
+                      <span class="{{c.fcls}}" style="position: absolute; left: 7px; right: 4px; top: 12px; display: flex; flex-direction: column; font-size: 17px; line-height: .95; color: #F3E9D7; overflow: hidden">
+                        <sc-for list="{{c.lines}}" as="l" hint-placeholder-count="2"><span style="display: block; white-space: nowrap; {{l.style}}">{{l.t}}</span></sc-for>
+                      </span>
+                      <span style="position: absolute; left: 7px; right: 44px; bottom: 19px; height: 1px; background: {{c.acc}}; opacity: .5"></span>
+                      <span style="position: absolute; left: 7px; bottom: 6px; width: 32px; height: 9px; border-radius: 999px; border: 1px solid {{c.acc}}; box-sizing: border-box"></span>
+                    </span>
+                  </sc-if>
+                  <span style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 3px">
+                    <span style="font-size: 13px; font-weight: 700">{{c.name}}</span>
+                    <sc-if value="{{c.on}}" hint-placeholder-val="{{false}}"><span style="width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: {{accent}}; color: #0b0a0d; font-size: 10px; font-weight: 800">✓</span></sc-if>
+                  </span>
+                  <span style="font-size: 10.5px; line-height: 1.3; color: #8E8994; padding: 0 3px">{{c.desc}}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div class="b-hint">Your words and photos stay the same. Only fonts, colors and shapes change.</div>
+          </div>
+
+          <div class="b-grp">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span class="b-gl">Accent color</span><span class="b-hint">{{accentHint}}</span></div>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <sc-for list="{{swatches}}" as="w" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{w.pick}}" aria-label="{{w.aria}}" aria-pressed="{{w.on}}" style="appearance: none; width: 30px; height: 30px; flex: none; border-radius: 50%; padding: 0; border: 0; {{w.style}}"></button></sc-for>
+              <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 3px 3px 3px 4px; border-radius: 9px; background: #141218; border: 1px solid rgba(244,241,234,.14); {{hexBox}}">
+                <input type="color" ref="{{colorRef}}" onChange="{{onColor}}" aria-label="Pick any color" style="width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; cursor: pointer; flex: none">
+                <input type="text" value="{{hexText}}" onChange="{{onHex}}" aria-label="Custom accent color, hex" placeholder="#D4FF3F" spellCheck="false" class="mono" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 12px; padding: 6px 4px; text-transform: uppercase">
+              </div>
+            </div>
+            <sc-if value="{{hexBad}}" hint-placeholder-val="{{false}}"><div class="b-hint" style="color: #FF3DA6">That is not a color yet. Type # and 6 digits or letters A to F, like #D4FF3F.</div></sc-if>
+            <sc-if value="{{lowContrast}}" hint-placeholder-val="{{false}}"><div class="b-hint" style="color: #FFB13D">{{contrastLine}}</div></sc-if>
+          </div>
+
+          <div class="b-grp">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span class="b-gl">Heading font</span><span class="b-hint" style="text-align: right">{{fontHint}}</span></div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <sc-for list="{{fontOpts}}" as="o" hint-placeholder-count="2">
+                <button type="button" class="btn" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border-radius: 10px; background: #141218; color: #F4F1EA; min-width: 0; {{o.ring}}">
+                  <span class="{{o.cls}}" style="font-size: 22px; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%">{{o.sample}}</span>
+                  <span style="font-size: 12px; font-weight: 700">{{o.name}}</span>
+                  <span style="font-size: 10.5px; color: #8E8994; line-height: 1.3">{{o.role}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div class="b-grp">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+              <span class="b-gl">Photos · {{photoCount}}</span>
+              <label for="sb-upload" class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 8px; font-size: 12px; font-weight: 700; background: {{accent}}; color: #0b0a0d"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 1v10M1 6h10"/></svg>Upload photo</label>
+            </div>
+            <input id="sb-upload" type="file" accept="image/*" onChange="{{onUpload}}" style="display: none">
+            <sc-for list="{{photos}}" as="p" hint-placeholder-count="2">
+              <div style="display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; padding: 8px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                <div style="position: relative; width: 88px; height: 100px; border-radius: 8px; overflow: hidden; background: linear-gradient(135deg, #2a2233, #141218)">
+                  <img loading="lazy" src="{{p.src}}" alt="{{p.alt}}" style="display: block; width: 100%; height: 100%; object-fit: cover">
+                  <sc-if value="{{p.hasTags}}" hint-placeholder-val="{{true}}"><span class="mono" style="position: absolute; left: 4px; bottom: 4px; padding: 2px 5px; border-radius: 4px; background: rgba(11,10,13,.8); color: {{accent}}; font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase">{{p.tags}}</span></sc-if>
+                </div>
+                <div style="min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                  <label for="{{p.fid}}" class="b-lbl"><span>Alt text</span><span style="{{p.altNoteStyle}}">{{p.altNote}}</span></label>
+                  <textarea id="{{p.fid}}" class="b-in" rows="{{p.rows}}" value="{{p.alt}}" onChange="{{p.setAlt}}" placeholder="Say what is in it, for Google and screen readers" style="padding: 7px 9px; font-size: 12px"></textarea>
+                  <div style="display: flex; align-items: center; gap: 5px">
+                    <span style="font-size: 11px; color: #8E8994">Use on</span>
+                    <button type="button" class="btn" onClick="{{p.useHero}}" aria-pressed="{{p.onHero}}" style="appearance: none; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; {{p.heroStyle}}">Hero</button>
+                    <button type="button" class="btn" onClick="{{p.useRooms}}" aria-pressed="{{p.onRooms}}" style="appearance: none; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; {{p.roomsStyle}}">Rooms</button>
+                    <button type="button" class="btn" onClick="{{p.remove}}" aria-label="Remove this photo" style="appearance: none; margin-left: auto; width: 24px; height: 24px; border-radius: 7px; padding: 0; font-size: 11px; font-weight: 700; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">✕</button>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{noPhotos}}" hint-placeholder-val="{{false}}">
+              <label for="sb-upload" class="btn" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 16px; border-radius: 12px; border: 1.5px dashed rgba(244,241,234,.2); text-align: center; color: #C9C5CE; font-size: 13px">
+                <svg width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="22" height="17" rx="3"/><circle cx="9" cy="11" r="2.2"/><path d="M24 18l-6-6-9 10"/></svg>
+                <span style="font-weight: 700">No photos yet</span>
+                <span class="b-hint">Upload your own rooms, bar and crowd. The top of the page stays empty until you add one.</span>
+              </label>
+            </sc-if>
+            <div class="b-hint">Pick where each photo goes. One photo can be on both.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isSections}}" hint-placeholder-val="{{false}}">
+          <div class="b-hint" style="padding: 0 2px">Arrows change the order. The switch hides a section. Click a name to edit its words; the preview jumps to it.</div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{secRows}}" as="s" hint-placeholder-count="9">
+              <div class="b-row {{s.rowCls}}" data-row="{{s.id}}" style="{{s.rowStyle}}">
+                <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 5px">
+                  <div style="display: flex; flex-direction: column; gap: 1px; flex: none">
+                    <button type="button" class="b-ar" onClick="{{s.up}}" disabled="{{s.noUp}}" aria-label="{{s.upAria}}"><svg width="10" height="7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 5.5L5 2l3.5 3.5"/></svg></button>
+                    <button type="button" class="b-ar" onClick="{{s.down}}" disabled="{{s.noDown}}" aria-label="{{s.downAria}}"><svg width="10" height="7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5L5 5l3.5-3.5"/></svg></button>
+                  </div>
+                  <button type="button" class="b-nm" onClick="{{s.toggleOpen}}" aria-expanded="{{s.isOpen}}">
+                    <span style="display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; {{s.nameStyle}}"><span class="mono" style="font-size: 10px; font-weight: 400; color: #6F6B78">{{s.num}}</span>{{s.name}}<sc-if value="{{s.locked}}" hint-placeholder-val="{{false}}"><svg width="11" height="12" fill="none" stroke="#FFB13D" stroke-width="1.8" stroke-linecap="round" aria-label="Needs a feature"><rect x="1" y="5.5" width="9" height="6" rx="1.5"/><path d="M3 5.5V4a2.5 2.5 0 0 1 5 0v1.5"/></svg></sc-if></span>
+                    <span style="font-size: 11.5px; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; {{s.sumStyle}}">{{s.summary}}</span>
+                  </button>
+                  <svg width="12" height="12" fill="none" stroke="#6F6B78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; transition: transform .15s ease; {{s.chev}}"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg>
+                  <button type="button" class="b-sw" onClick="{{s.toggleOn}}" disabled="{{s.locked}}" aria-label="{{s.swAria}}" aria-pressed="{{s.on}}" style="{{s.track}}"><span style="{{s.knob}}"></span></button>
+                </div>
+                <sc-if value="{{s.locked}}" hint-placeholder-val="{{false}}">
+                  <div style="margin: 0 10px 10px 33px; padding: 8px 10px; border-radius: 8px; background: rgba(255,177,61,.07); border: 1px solid rgba(255,177,61,.28); font-size: 12px; line-height: 1.45; color: #E9E4DA">{{s.why}}. <a href="AdminDesk.dc.html" style="color: #FFB13D; font-weight: 700; white-space: nowrap">{{s.fix}} →</a></div>
+                </sc-if>
+                <sc-if value="{{s.isOpen}}" hint-placeholder-val="{{false}}">
+                  <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 14px 33px; border-top: 1px solid rgba(244,241,234,.06)">
+                    <sc-if value="{{s.hasLockBody}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; line-height: 1.5; color: #C9C5CE">{{s.lockBody}}</div></sc-if>
+                    <sc-for list="{{s.stats}}" as="n" hint-placeholder-count="1">
+                      <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid rgba(244,241,234,.06)">
+                        <div style="display: flex; align-items: center; gap: 8px">
+                          <button type="button" class="b-sw" onClick="{{n.toggle}}" disabled="{{n.disabled}}" aria-label="{{n.aria}}" aria-pressed="{{n.on}}" style="{{n.track}}"><span style="{{n.knob}}"></span></button>
+                          <span class="disp" title="{{n.srcLine}}" style="flex: none; min-width: 56px; box-sizing: border-box; font-size: 21px; text-align: center; padding: 6px 8px 5px; border-radius: 8px; background: rgba(244,241,234,.04); border: 1px dashed rgba(244,241,234,.18); {{n.valStyle}}">{{n.val}}</span>
+                          <span class="b-hint" style="min-width: 0; line-height: 1.35">{{n.srcLine}}</span>
+                        </div>
+                        <textarea class="b-in" rows="{{n.rows}}" value="{{n.cap}}" onChange="{{n.set}}" placeholder="Words under the number" aria-label="{{n.aria2}}" style="{{n.inStyle}}"></textarea>
+                      </div>
+                    </sc-for>
+                    <sc-for list="{{s.fields}}" as="f" hint-placeholder-count="2">
+                      <div style="display: flex; flex-direction: column; gap: 5px">
+                        <label for="{{f.fid}}" class="b-lbl"><span>{{f.label}}</span><span style="color: #6F6B78">{{f.meta}}</span></label>
+                        <div style="display: flex; align-items: stretch; gap: 6px">
+                          <sc-if value="{{f.hasPrefix}}" hint-placeholder-val="{{false}}"><span title="{{f.prefixTitle}}" style="flex: none; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 8px; font-size: 12px; font-weight: 700; white-space: nowrap; {{f.prefixStyle}}">{{f.prefix}}</span></sc-if>
+                          <sc-if value="{{f.multi}}" hint-placeholder-val="{{false}}"><textarea id="{{f.fid}}" class="b-in" rows="{{f.rows}}" value="{{f.value}}" onChange="{{f.set}}" placeholder="{{f.ph}}"></textarea></sc-if>
+                          <sc-if value="{{f.single}}" hint-placeholder-val="{{true}}"><input id="{{f.fid}}" class="b-in" type="text" value="{{f.value}}" onChange="{{f.set}}" placeholder="{{f.ph}}"></sc-if>
+                        </div>
+                        <sc-if value="{{f.hasHint}}" hint-placeholder-val="{{false}}"><span class="b-hint">{{f.hint}}</span></sc-if>
+                      </div>
+                    </sc-for>
+                    <sc-for list="{{s.infos}}" as="i" hint-placeholder-count="1">
+                      <div style="display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 9px; background: #141218; border: 1px dashed rgba(244,241,234,.14)">
+                        <span style="display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #8E8994"><span>{{i.k}}</span><span class="mono" style="font-size: 9.5px; letter-spacing: .04em; white-space: nowrap">{{i.src}}</span></span>
+                        <span style="font-size: 12.5px; line-height: 1.45; {{i.vStyle}}">{{i.v}}</span>
+                      </div>
+                    </sc-for>
+                    <sc-for list="{{s.toggles}}" as="g" hint-placeholder-count="1">
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+                        <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{g.label}}</div><div class="b-hint">{{g.sub}}</div></div>
+                        <button type="button" class="b-sw" onClick="{{g.toggle}}" disabled="{{g.disabled}}" aria-label="{{g.label}}" aria-pressed="{{g.on}}" style="{{g.track}}"><span style="{{g.knob}}"></span></button>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{s.hasNote}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; line-height: 1.5; color: #C9C5CE; padding: 9px 11px; border-radius: 9px; background: color-mix(in srgb, {{accent}} 6%, transparent); border: 1px solid color-mix(in srgb, {{accent}} 22%, transparent)">{{s.note}}</div></sc-if>
+                    <sc-if value="{{s.hasLinks}}" hint-placeholder-val="{{false}}">
+                      <div style="display: flex; flex-wrap: wrap; gap: 6px 14px">
+                        <sc-for list="{{s.actions}}" as="x" hint-placeholder-count="1"><button type="button" class="btn" onClick="{{x.act}}" style="appearance: none; border: 0; background: transparent; padding: 0; color: {{accent}}; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px">{{x.label}} →</button></sc-for>
+                        <sc-for list="{{s.links}}" as="l" hint-placeholder-count="1"><a href="{{l.href}}" style="font-size: 12px; font-weight: 700; text-underline-offset: 3px">{{l.label}} →</a></sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div class="b-hint" style="padding: 2px">A section that needs a feature your venue has switched off stays greyed out until Admin turns it on. Nothing is made up to fill it.</div>
+        </sc-if>
+
+        <sc-if value="{{isDetails}}" hint-placeholder-val="{{false}}">
+          <div class="b-grp">
+            <span class="b-gl">Google search</span>
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <label for="sb-title" class="b-lbl"><span>Page title</span><span style="{{titleCountStyle}}">{{titleCount}}</span></label>
+              <input id="sb-title" class="b-in" type="text" value="{{seoTitle}}" onChange="{{setSeoTitle}}" placeholder="Your name, what you are, where">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <label for="sb-desc" class="b-lbl"><span>Description</span><span style="{{descCountStyle}}">{{descCount}}</span></label>
+              <textarea id="sb-desc" class="b-in" rows="{{descRows}}" value="{{seoDesc}}" onChange="{{setSeoDesc}}" placeholder="Two short sentences Google shows under the title"></textarea>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 10px; background: #FFFFFF; color: #202124; font-family: Arial, system-ui, sans-serif">
+              <div style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #0b0a0d; color: {{accent}}; font-size: 8px; font-weight: 800; flex: none">{{serpFav}}</span><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 12px; color: #202124; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{serpName}}</span><span style="font-size: 11px; color: #4d5156">https://{{liveHost}}</span></span></div>
+              <div style="font-size: 16px; line-height: 1.3; color: #1a0dab; {{serpTitleStyle}}">{{serpTitle}}</div>
+              <div style="font-size: 12px; line-height: 1.5; color: #4d5156; {{serpDescStyle}}">{{serpDesc}}</div>
+            </div>
+            <div class="b-hint">This is how the homepage shows up on Google. Keep the title under 60 characters.</div>
+          </div>
+
+          <div class="b-grp">
+            <span class="b-gl">Social links</span>
+            <sc-for list="{{socials}}" as="x" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; align-items: center">
+                <label for="{{x.fid}}" style="font-size: 12px; font-weight: 600; color: #C9C5CE">{{x.label}}</label>
+                <input id="{{x.fid}}" class="b-in" type="text" value="{{x.value}}" onChange="{{x.set}}" placeholder="@yourhandle" spellCheck="false">
+              </div>
+            </sc-for>
+            <div class="b-hint">Filled ones show in Find us. Empty ones stay off the site.</div>
+          </div>
+
+          <div class="b-grp">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <div style="min-width: 0"><div style="font-size: 13px; font-weight: 700">Google Business hours sync</div><div class="b-hint">{{gLine}}</div></div>
+              <button type="button" class="b-sw" onClick="{{gToggle}}" disabled="{{gCannot}}" aria-label="Google Business hours sync" aria-pressed="{{gOn}}" style="{{gTrack}}"><span style="{{gKnob}}"></span></button>
+            </div>
+            <sc-if value="{{gCannot}}" hint-placeholder-val="{{false}}"><a href="AdminDesk.dc.html" style="font-size: 12px; font-weight: 700">Connect Google Business in Admin → Connections →</a></sc-if>
+          </div>
+
+          <div class="b-grp">
+            <span class="b-gl">Languages for guest pages</span>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+              <sc-for list="{{langs}}" as="l" hint-placeholder-count="4">
+                <button type="button" class="btn" onClick="{{l.toggle}}" aria-pressed="{{l.on}}" style="appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border-radius: 10px; text-align: left; {{l.style}}">
+                  <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-size: 14px; font-weight: 700">{{l.label}}</span><span style="font-size: 10.5px; color: #8E8994">{{l.sub}}</span></span>
+                  <span style="font-size: 12px; font-weight: 800; {{l.markStyle}}">{{l.mark}}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div class="b-hint">Guests pick a language at the top. Buttons, booking steps and receipts switch; your own words show as you typed them.</div>
+          </div>
+
+          <div class="b-grp">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <div style="min-width: 0"><div style="font-size: 13px; font-weight: 700">Cookie-free visit counts</div><div class="b-hint">{{anLine}}</div></div>
+              <button type="button" class="b-sw" onClick="{{anToggle}}" aria-label="Cookie-free analytics" aria-pressed="{{anOn}}" style="{{anTrack}}"><span style="{{anKnob}}"></span></button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </aside>
+
+    <main style="position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; background-color: #09080b; background-image: radial-gradient(rgba(244,241,234,.07) 1px, transparent 1.3px); background-size: 18px 18px">
+      <div style="position: relative; flex: none; margin-top: 14px; {{frame.outer}}">
+        <div class="fr-in {{frame.cls}}" style="{{frame.inner}}">
+          <div class="fr-screen">
+            <sc-if value="{{isPhone}}" hint-placeholder-val="{{true}}">
+              <div class="fr-status" style="{{chrome.status}}" aria-hidden="true">
+                <span>10:41</span><span class="fr-island"></span>
+                <span style="display: inline-flex; align-items: center; gap: 6px"><svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="27" height="13" viewBox="0 0 27 13" fill="none" stroke="currentColor"><rect x=".5" y=".5" width="23" height="12" rx="3.5" opacity=".45"/><rect x="2.5" y="2.5" width="17" height="8" rx="2" fill="currentColor" stroke="none"/><path d="M25.5 4.5v4" stroke-linecap="round" opacity=".45"/></svg></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{isDesk}}" hint-placeholder-val="{{false}}">
+              <div class="fr-bar" aria-hidden="true">
+                <span style="display: flex; gap: 8px; flex: none"><span style="display: block; width: 13px; height: 13px; border-radius: 50%; background: #ff5f57"></span><span style="display: block; width: 13px; height: 13px; border-radius: 50%; background: #febc2e"></span><span style="display: block; width: 13px; height: 13px; border-radius: 50%; background: #28c840"></span></span>
+                <span style="display: flex; align-items: center; gap: 8px; max-width: 330px; min-width: 0; padding: 7px 14px; border-radius: 9px; background: #2a2930; color: #F4F1EA; flex: none"><span style="width: 18px; height: 18px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; background: #0b0a0d; color: {{pv.acc}}; font-size: 8px; font-weight: 800; flex: none">{{serpFav}}</span><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{chrome.title}}</span></span>
+                <span style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 9px; background: #141218; color: #C9C5CE"><svg width="12" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="6" width="10" height="7" rx="1.5"/><path d="M3.5 6V4.5a2.5 2.5 0 0 1 5 0V6"/></svg>{{liveHost}}</span>
+              </div>
+            </sc-if>
+
+            <div class="fr-scroll" ref="{{pvRef}}">
+              <div class="pv {{pv.cls}}" style="--acc: {{pv.acc}}; --on-acc: {{pv.onAcc}}">
+
+                <div class="pv-nav">
+                  <span class="pv-logo"><span class="hd pv-mark {{nav.mark.cls}}">{{nav.mark.t}}</span><sc-if value="{{nav.hasTag}}" hint-placeholder-val="{{true}}"><span class="pv-tagl">{{nav.tag}}</span></sc-if></span>
+                  <span class="pv-links">
+                    <sc-for list="{{nav.links}}" as="n" hint-placeholder-count="2"><span>{{n.label}}</span></sc-for>
+                    <sc-if value="{{nav.hasLang}}" hint-placeholder-val="{{false}}"><span class="pv-lang">{{nav.lang}}</span></sc-if>
+                    <sc-if value="{{nav.hasBook}}" hint-placeholder-val="{{true}}"><span class="pv-book">Book</span></sc-if>
+                  </span>
+                </div>
+
+                <sc-for list="{{pvSecs}}" as="s" hint-placeholder-count="4">
+                  <div class="pv-sec {{s.cls}}" data-sec="{{s.id}}" onClick="{{s.pick}}" title="Click to edit {{s.name}}">
+                    <span class="pv-etag">Editing · {{s.name}}</span>
+
+                    <sc-if value="{{s.isHero}}" hint-placeholder-val="{{true}}">
+                      <div class="pv-h">
+                        <div class="pv-hbg no-f no-l">
+                          <sc-if value="{{hero.hasPhoto}}" hint-placeholder-val="{{true}}"><img loading="lazy" src="{{hero.src}}" alt="{{hero.alt}}"></sc-if>
+                          <div class="pv-hsh"></div>
+                          <sc-if value="{{hero.noPhoto}}" hint-placeholder-val="{{false}}"><div class="pv-hno">Hero photo goes here.<br>Pick one in Style → Photos.</div></sc-if>
+                        </div>
+                        <div class="pv-glow no-f" aria-hidden="true"></div>
+                        <sc-if value="{{hero.hasTicker}}" hint-placeholder-val="{{false}}"><div class="pv-tick no-n no-l" aria-hidden="true"><span class="pv-tick-in"><span>{{hero.ticker}}</span><span>{{hero.ticker}}</span></span></div></sc-if>
+                        <div class="pv-hw">
+                          <div class="pv-hfr no-n">
+                            <sc-if value="{{hero.hasPhoto}}" hint-placeholder-val="{{true}}"><img loading="lazy" src="{{hero.src}}" alt="{{hero.alt}}"></sc-if>
+                            <sc-if value="{{hero.noPhoto}}" hint-placeholder-val="{{false}}"><div class="pv-phb">Hero photo goes here · pick one in Style → Photos</div></sc-if>
+                            <sc-if value="{{hero.hasSticker}}" hint-placeholder-val="{{false}}"><span class="hd pv-stk no-l">{{hero.sticker}}</span></sc-if>
+                          </div>
+                          <div class="pv-ht">
+                            <div class="pv-eye"><i></i><span class="{{hero.eye.cls}}"><sc-for list="{{hero.eyeParts}}" as="e" hint-placeholder-count="3"><span style="white-space: nowrap">{{e.t}}</span> </sc-for></span></div>
+                            <h1 class="hd pv-h1 {{hero.headCls}}"><sc-for list="{{hero.lines}}" as="l" hint-placeholder-count="3"><span class="pv-hl {{l.cls}}" style="{{l.style}}">{{l.t}}</span></sc-for></h1>
+                            <p class="pv-hi {{hero.intro.cls}}">{{hero.intro.t}}</p>
+                            <div class="pv-cta">
+                              <span class="pv-b1 {{hero.btn.cls}}">{{hero.btn.t}}<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h12M10 4l5 5-5 5"/></svg></span>
+                              <sc-if value="{{hero.hasOpen}}" hint-placeholder-val="{{true}}"><span class="pv-b2"><i></i>{{hero.open}}</span></sc-if>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="pv-waves no-f no-l" aria-hidden="true">
+                          <svg class="pv-w1" viewBox="0 0 1600 90" preserveAspectRatio="none"><path d="M0 45 Q50 -7 100 45 T200 45 T300 45 T400 45 T500 45 T600 45 T700 45 T800 45 T900 45 T1000 45 T1100 45 T1200 45 T1300 45 T1400 45 T1500 45 T1600 45" fill="none" style="stroke: var(--acc)" stroke-width="2.2" stroke-linecap="round"/></svg>
+                          <svg class="pv-w2" viewBox="0 0 1600 90" preserveAspectRatio="none"><path d="M0 45 Q40 15 80 45 T160 45 T240 45 T320 45 T400 45 T480 45 T560 45 T640 45 T720 45 T800 45 T880 45 T960 45 T1040 45 T1120 45 T1200 45 T1280 45 T1360 45 T1440 45 T1520 45 T1600 45" fill="none" style="stroke: var(--acc)" stroke-width="1.6" stroke-linecap="round"/></svg>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isNumbers}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-lb">{{lbl.numbers}}</div>
+                        <div class="pv-nl">
+                          <sc-for list="{{numbers}}" as="n" hint-placeholder-count="4">
+                            <div class="pv-ni {{n.cls}}">
+                              <span class="pv-nr no-n no-f">{{n.roman}}</span>
+                              <div class="hd pv-nv {{n.valCls}}">{{n.val}}</div>
+                              <div class="pv-nc"><span class="{{n.capCls}}">{{n.cap}}</span><sc-if value="{{n.hasAuto}}" hint-placeholder-val="{{false}}"><span>{{n.auto}}</span></sc-if></div>
+                            </div>
+                          </sc-for>
+                        </div>
+                        <sc-if value="{{noNumbers}}" hint-placeholder-val="{{false}}"><div class="pv-phb" style="min-height: 80px">Every number is switched off</div></sc-if>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isRooms}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-2">
+                          <div>
+                            <div class="pv-lb">{{lbl.rooms}}</div>
+                            <h2 class="hd pv-h2"><span class="{{rooms.count.cls}}">{{rooms.count.t}}</span><span class="{{rooms.tag.cls}}">{{rooms.tag.t}}</span></h2>
+                            <p class="pv-p {{rooms.intro.cls}}">{{rooms.intro.t}}</p>
+                            <div class="pv-rg">
+                              <div class="pv-rc"><span class="pv-rk">Private rooms</span><span class="hd pv-rp {{rooms.priceCls}}">{{rooms.price}}</span><span class="pv-rn {{rooms.line.cls}}">{{rooms.line.t}}</span></div>
+                              <sc-if value="{{rooms.hasVip}}" hint-placeholder-val="{{true}}"><div class="pv-rc vip"><span class="pv-rk">VIP room</span><span class="hd pv-rp">{{rooms.vipPrice}}</span><span class="pv-rn">{{rooms.vipLine}}</span></div></sc-if>
+                            </div>
+                          </div>
+                          <div class="pv-rph">
+                            <sc-if value="{{rooms.hasPhoto}}" hint-placeholder-val="{{true}}"><img loading="lazy" src="{{rooms.src}}" alt="{{rooms.alt}}"></sc-if>
+                            <sc-if value="{{rooms.noPhoto}}" hint-placeholder-val="{{false}}"><div class="pv-phb">Rooms photo goes here · pick one in Style → Photos</div></sc-if>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isBooking}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-2">
+                          <div>
+                            <div class="pv-lb">{{lbl.book}}</div>
+                            <h2 class="hd pv-h2 {{book.head.cls}}"><sc-for list="{{book.head.lines}}" as="l" hint-placeholder-count="2"><span class="{{l.cls}}">{{l.t}}</span></sc-for></h2>
+                            <p class="pv-p"><span class="{{book.intro.cls}}">{{book.intro.t}}</span><span>{{book.dep}}</span></p>
+                          </div>
+                          <div class="pv-bc">
+                            <span class="pv-notch l no-n no-l"></span><span class="pv-notch r no-n no-l"></span>
+                            <div class="pv-bl">01 · When</div>
+                            <div class="pv-bseg"><span class="on">Tonight</span><span>Tomorrow</span><span>A date</span></div>
+                            <div class="pv-bl">02 · How many</div>
+                            <div class="pv-bstep"><i>−</i><span><b class="hd">6</b><em>{{book.minNote}}</em></span><i>+</i></div>
+                            <div class="pv-bl">03 · What time</div>
+                            <div class="pv-bt"><span>7:00 PM</span><span>8:30 PM</span><span class="on">9:30 PM</span><span>11:00 PM</span></div>
+                            <div class="pv-bsum"><span>{{book.sumL}}</span><span>{{book.sumR}}</span></div>
+                            <div class="pv-bpay">{{book.pay}}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isSongs}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-2">
+                          <div>
+                            <div class="pv-lb">{{lbl.songs}}</div>
+                            <h2 class="hd pv-h2"><span class="{{songs.count.cls}}">{{songs.count.t}}</span><span class="{{songs.tag.cls}}">{{songs.tag.t}}</span></h2>
+                            <p class="pv-p {{songs.intro.cls}}">{{songs.intro.t}}</p>
+                          </div>
+                          <div>
+                            <div class="pv-sbox"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="opacity: .55"><circle cx="9" cy="9" r="6"/><path d="M14 14l4 4"/></svg><span class="pv-sph {{songs.hint.cls}}">{{songs.hint.t}}</span><span class="pv-sgo">Search</span></div>
+                            <div class="pv-sres">
+                              <div class="pv-smeta">Example · 3 songs for “brightside”</div>
+                              <sc-for list="{{songRows}}" as="r" hint-placeholder-count="3"><div class="pv-srow"><span><span class="pv-st">{{r.title}}</span><span class="pv-sa">{{r.artist}}</span></span><span class="pv-sn">{{r.number}}</span></div></sc-for>
+                              <div class="pv-snote">{{songs.note}}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isBar}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-mc">
+                          <div class="pv-2">
+                            <div>
+                              <div class="pv-lb">{{lbl.bar}}</div>
+                              <h2 class="hd pv-h2 {{bar.head.cls}}"><sc-for list="{{bar.head.lines}}" as="l" hint-placeholder-count="2"><span class="{{l.cls}}">{{l.t}}</span></sc-for></h2>
+                              <p class="pv-p {{bar.intro.cls}}">{{bar.intro.t}}</p>
+                            </div>
+                            <div>
+                              <sc-if value="{{bar.showTiles}}" hint-placeholder-val="{{true}}"><div class="pv-mt"><sc-for list="{{bar.tiles}}" as="t" hint-placeholder-count="4"><div class="pv-mti"><span class="pv-mk">{{t.k}}</span><span class="pv-dots no-n no-f"></span><span class="hd pv-mv">{{t.v}}</span></div></sc-for></div></sc-if>
+                              <sc-if value="{{bar.noMenu}}" hint-placeholder-val="{{false}}"><div class="pv-phb" style="min-height: 90px; margin-bottom: 14px; border-radius: 14px">No menu yet · add drinks in Admin → Menu and prices show here</div></sc-if>
+                              <sc-if value="{{bar.hasMenu}}" hint-placeholder-val="{{true}}"><div class="pv-btns"><span class="pv-ba">Full menu<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg></span><span class="pv-bo"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2v8M3.5 6.5L7 10l3.5-3.5M2 12h10"/></svg>Menu PDF</span></div></sc-if>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isParties}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-pc">
+                          <div class="pv-lb">{{lbl.parties}}</div>
+                          <h2 class="hd pv-h2 {{party.head.cls}}"><sc-for list="{{party.head.lines}}" as="l" hint-placeholder-count="2"><span class="{{l.cls}}">{{l.t}}</span></sc-for></h2>
+                          <p class="pv-p {{party.intro.cls}}">{{party.intro.t}}</p>
+                          <span class="pv-ba {{party.btn.cls}}">{{party.btn.t}}<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg></span>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isFind}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-sx">
+                        <div class="pv-2">
+                          <div>
+                            <div class="pv-lb">{{lbl.find}}</div>
+                            <h2 class="hd pv-h2 {{find.head.cls}}"><sc-for list="{{find.head.lines}}" as="l" hint-placeholder-count="2"><span class="{{l.cls}}">{{l.t}}</span></sc-for></h2>
+                            <div class="pv-fg">
+                              <div class="pv-fc"><span class="pv-fk">Address</span><span class="pv-fv"><span class="{{find.addr.cls}}">{{find.addr.t}}</span><sc-if value="{{find.hasCity}}" hint-placeholder-val="{{true}}"><br><span>{{find.city}}</span></sc-if></span><sc-if value="{{find.hasDir}}" hint-placeholder-val="{{true}}"><span class="pv-fn">{{find.dir}}</span></sc-if></div>
+                              <div class="pv-fc"><span class="pv-fk">Call</span><span class="pv-fv tel {{find.phone.cls}}">{{find.phone.t}}</span><span class="pv-fn">{{find.phoneNote}}</span></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div class="pv-fh">
+                              <sc-for list="{{hourRows}}" as="h" hint-placeholder-count="2"><div class="pv-fr"><span class="k">{{h.days}}</span><span class="pv-dots no-n no-f"></span><span class="v">{{h.v}}</span></div></sc-for>
+                              <sc-for list="{{specialRows}}" as="h" hint-placeholder-count="1"><div class="pv-fr sp"><span class="k">{{h.days}}</span><span class="pv-dots no-n no-f"></span><span class="v">{{h.v}}</span></div></sc-for>
+                              <sc-if value="{{find.hasNow}}" hint-placeholder-val="{{true}}"><div class="pv-fr"><span class="k">Right now</span><span class="pv-dots no-n no-f"></span><span class="v pv-now"><i></i>{{find.now}}</span></div></sc-if>
+                              <sc-if value="{{find.noHours}}" hint-placeholder-val="{{false}}"><div class="pv-fr"><span class="k ph">Opening hours show here · add them in Admin → Hours &amp; prices</span></div></sc-if>
+                            </div>
+                            <sc-if value="{{find.hasSoc}}" hint-placeholder-val="{{true}}"><div class="pv-soc"><sc-for list="{{find.soc}}" as="p" hint-placeholder-count="2"><span>{{p.k}} <em>{{p.v}}</em></span></sc-for></div></sc-if>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{s.isFooter}}" hint-placeholder-val="{{false}}">
+                      <div class="pv-ft">
+                        <sc-if value="{{foot.hasStamp}}" hint-placeholder-val="{{true}}"><div class="pv-stamp no-n no-l" aria-hidden="true"><span class="pv-st1">{{foot.stTop}}</span><span class="hd pv-st2">{{foot.stMid}}</span><span class="pv-st1">{{foot.stBot}}</span></div></sc-if>
+                        <div class="hd pv-fw no-f {{foot.word.cls}}" aria-hidden="true">{{foot.word.t}}</div>
+                        <div class="pv-fl"><span class="{{foot.line.cls}}">{{foot.line.t}}</span><span>{{foot.meta}}</span></div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{pvEmpty}}" hint-placeholder-val="{{false}}"><div class="pv-none">Every section is switched off. Turn one on in Sections.</div></sc-if>
+
+                <sc-if value="{{stick.on}}" hint-placeholder-val="{{true}}">
+                  <div class="pv-stick no-d {{stick.cls}}">
+                    <span class="pv-sb"><span class="{{stick.label.cls}}">{{stick.label.t}}</span><span class="pv-sbp">{{stick.price}}</span></span>
+                    <span class="pv-sc" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 12l5 2v4a1 1 0 0 1-1 1C9 19 1 11 1 3a1 1 0 0 1 1-1z"/></svg></span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+
+            <sc-if value="{{isPhone}}" hint-placeholder-val="{{true}}">
+              <div class="fr-url" style="{{chrome.url}}" aria-hidden="true"><span style="{{chrome.urlPill}}"><svg width="10" height="12" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="5" width="8" height="6" rx="1.4"/><path d="M3 5V3.8a2 2 0 0 1 4 0V5"/></svg>{{liveHost}}</span></div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="position: absolute; left: 16px; right: 16px; bottom: 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+        <div role="group" aria-label="Demo controls" style="display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 12px; background: rgba(20,18,24,.94); border: 1px solid rgba(244,241,234,.12); white-space: nowrap">
+          <span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #FFB13D">Demo</span>
+          <div style="display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #0b0a0d">
+            <button type="button" class="btn" onClick="{{setW4}}" aria-pressed="{{isW4}}" style="appearance: none; border: 0; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 700; {{w4Seg}}">West 4</button>
+            <button type="button" class="btn" onClick="{{setNew}}" aria-pressed="{{isNew}}" style="appearance: none; border: 0; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 700; {{newSeg}}">New venue</button>
+          </div>
+          <span style="width: 1px; height: 18px; background: rgba(244,241,234,.12)"></span>
+          <span style="font-size: 11px; color: #C9C5CE" title="Really switched in Admin → Features">Booking module</span>
+          <div style="display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #0b0a0d">
+            <button type="button" class="btn" onClick="{{bookOn}}" aria-pressed="{{modBooking}}" style="appearance: none; border: 0; border-radius: 6px; padding: 5px 9px; font-size: 11px; font-weight: 700; {{bookOnSeg}}">On</button>
+            <button type="button" class="btn" onClick="{{bookOff}}" aria-pressed="{{modBookingOff}}" style="appearance: none; border: 0; border-radius: 6px; padding: 5px 9px; font-size: 11px; font-weight: 700; {{bookOffSeg}}">Off</button>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right">
+          <span class="mono" style="font-size: 10px; letter-spacing: .08em; color: #8E8994">{{frameCaption}}</span>
+          <span style="font-size: 11px; color: #6F6B78"><span style="opacity: .55; text-decoration: underline dashed; text-underline-offset: 3px">Faint text</span> = empty field, hidden on the live site</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{hasPop}}" hint-placeholder-val="{{false}}"><div onClick="{{closePop}}" style="position: absolute; left: 0; top: 0; width: 1280px; height: 800px; z-index: 30"></div></sc-if>
+
+  <sc-if value="{{popDomain}}" hint-placeholder-val="{{false}}">
+    <div class="pop" style="position: absolute; z-index: 40; top: 58px; left: 196px; width: 340px; padding: 14px; border-radius: 14px; background: #141218; border: 1px solid rgba(244,241,234,.14); box-shadow: 0 30px 60px -20px #000; display: flex; flex-direction: column; gap: 10px">
+      <span class="b-gl">Where the site lives</span>
+      <sc-for list="{{domainRows}}" as="d" hint-placeholder-count="2">
+        <div style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: #0e0d11; border: 1px solid rgba(244,241,234,.08)">
+          <div style="display: flex; justify-content: space-between; gap: 10px; align-items: baseline"><span class="mono" style="font-size: 12px">{{d.host}}</span><span style="font-size: 11px; font-weight: 700; {{d.style}}">{{d.state}}</span></div>
+          <div class="b-hint">{{d.note}}</div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{popPublish}}" hint-placeholder-val="{{false}}">
+    <div class="pop" style="position: absolute; z-index: 40; top: 58px; right: 16px; width: 336px; padding: 16px; border-radius: 14px; background: #141218; border: 1px solid rgba(244,241,234,.14); box-shadow: 0 30px 60px -20px #000; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 15px; font-weight: 700">{{missingTitle}}</div>
+      <div class="b-hint">Empty parts are simply left out of the live site. Nothing is written for you.</div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{missing}}" as="m" hint-placeholder-count="2"><div style="display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; line-height: 1.4"><span style="width: 6px; height: 6px; border-radius: 50%; background: #FFB13D; flex: none; transform: translateY(-1px)"></span>{{m.t}}</div></sc-for>
+      </div>
+      <div style="display: flex; gap: 8px; padding-top: 4px">
+        <button type="button" class="btn" onClick="{{publishAnyway}}" style="flex: 1; appearance: none; border: 0; border-radius: 10px; padding: 11px; font-weight: 700; font-size: 13px; background: {{accent}}; color: #0b0a0d">Publish anyway</button>
+        <button type="button" class="btn" onClick="{{closePop}}" style="appearance: none; border-radius: 10px; padding: 11px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Keep editing</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: absolute; left: 830px; bottom: 66px; z-index: 60; width: max-content; max-width: 430px; padding: 10px 16px; border-radius: 12px; background: {{accent}}; color: #0b0a0d; font-weight: 700; font-size: 12.5px; line-height: 1.4; text-align: center; box-shadow: 0 16px 40px -12px #000">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: absolute; left: 830px; bottom: 66px; z-index: 60; width: max-content; max-width: 430px; padding: 10px 16px; border-radius: 12px; background: {{accent}}; color: #0b0a0d; font-weight: 700; font-size: 12.5px; line-height: 1.4; text-align: center; box-shadow: 0 16px 40px -12px #000">{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Comes from Admin → Venue. In the app every screen reads the same saved setting.
+  static VENUE = { name: "West 4", tag: "Boho Karaoke", short: "W4", area: "West Village", street: "186 W 4th St", city: "New York, NY 10014",
+    directions: "Between Jones and Barrow. A/C/E/B/D/F/M to W 4th.", minAge: 21, slug: "west4", domain: "west4karaoke.com" };
+  // Comes from Admin → Hours & prices. In the app every screen reads the same saved setting.
+  static HOURS = {
+    week: { Mon: { open: "4:00 PM", close: "4:00 AM" }, Tue: { open: "4:00 PM", close: "4:00 AM" }, Wed: { open: "4:00 PM", close: "4:00 AM" }, Thu: { open: "4:00 PM", close: "4:00 AM" },
+      Fri: { open: "4:00 PM", close: "4:00 AM" }, Sat: { open: "2:00 PM", close: "4:00 AM" }, Sun: { open: "2:00 PM", close: "4:00 AM" } },
+    special: [{ date: "2026-09-30", label: "Wed, Sep 30", closed: true, note: "Private event" }]
+  };
+  // Comes from Admin → Hours & prices. In the app every screen reads the same saved setting.
+  static PRICES = { perPerson: 10, vip: 250, minWk: 3, minWe: 4 };
+  // Comes from Admin → Phone & texts. In the app every screen reads the same saved setting.
+  static PHONE = { call: "(212) 255-0011", text: "(212) 255-0011" };
+  // Comes from Admin → Rooms. In the app every screen reads the same saved setting.
+  static ROOMS = { count: 14, vipMin: 20, vipMax: 40 };
+  // Comes from Admin → Deposits & cancelling. In the app every screen reads the same saved setting.
+  // mode: "hour" (first hour of room time) | "person" ($ per guest) | "flat" ($ per booking) | "percent" (of the room total)
+  static DEPOSIT = { on: true, mode: "hour", value: 0, vip: 250, refundHours: 24, late: "keep", noShow: "keep", graceMin: 15 };
+  // Comes from Admin → Menu. In the app every screen reads the same saved setting.
+  // The price ranges are worked out from the menu items; the menu page and the PDF are generated from the same list.
+  static MENU = { categories: 15, tiles: [["Cocktails", "$12 – 13"], ["Beer", "from $8"], ["Soju bottles", "$20"], ["Beer buckets", "from $40"]] };
+  // Comes from Admin → Connections. In the app every screen reads the same saved setting.
+  // catalog: Playbox's song file has arrived under the agreement (not yet). googleBusiness: the Google connection is set up (not yet).
+  static CONNECTIONS = { songSystem: "Playbox", songs: 113000, catalog: false, googleBusiness: false };
+  // Comes from Admin → Features. In the app every screen reads the same saved setting.
+  static MODULES = { website: true, booking: true, waitlist: true, rooms: true, roomOrdering: true, barScreen: true, barTabs: true, barMode: true, kitchen: false,
+    packages: true, songControl: false, messages: true, marketing: false, team: true, safety: true, reports: true, events: false, crm: false, multiLocation: false };
+  // Demo "New venue": a venue that has just signed up, so nothing is filled in Admin yet.
+  static NEW_VENUE = {
+    venue: { name: "", tag: "", short: "", area: "", street: "", city: "", directions: "", minAge: 0, slug: "new-venue", domain: "" },
+    hours: null, prices: { perPerson: 0, vip: 0, minWk: 0, minWe: 0 }, phone: { call: "", text: "" }, rooms: { count: 0, vipMin: 0, vipMax: 0 },
+    deposit: { on: false, refundHours: 0 }, menu: { categories: 0, tiles: [] }, connections: { songSystem: "", songs: 0, catalog: false, googleBusiness: false },
+    modules: { website: true, rooms: true, booking: false }
+  };
+  // Our free address for every venue. "<product>" stands in until the product has its name.
+  static FREE_DOMAIN = "<product>.com";
+  // The words West 4 typed into the builder: the text on west4karaoke.com today.
+  static WORDS = {
+    heroHead: "Lose your voice.", heroIntro: "14 private karaoke rooms in the West Village. Strong drinks. Louder friends. Zero judgment.", heroBtn: "Book a room",
+    capRooms: "private rooms. Three friends or forty.", capSongs: "songs. English, Spanish, Japanese, Chinese, Korean, and the one you are thinking of.",
+    capClose: "closing time, every single night.", capPrice: "per person, per hour.",
+    roomsTag: "Three to forty.", roomsIntro: "Every room is private: your screen, your mics, your playlist, door closed. Tell us how many and we match the room.",
+    roomsPrice: "per person, per hour. Groups of 3 and up, one hour minimum.",
+    bookHead: "Three taps. You're in.", bookIntro: "Pick a night, count heads, say how long. We match you to the right-sized room.",
+    songsTag: "Is yours here?", songsIntro: "English, Spanish, Japanese, Chinese, Korean and more. Search the whole book right here, then walk in with a plan.", songsHint: "Try Mr. Brightside",
+    barHead: "Sing at the bar.", barIntro: "Buy a drink, get a song. The bar mic runs every night until 4 AM, and it is the fastest way to make thirty new friends.",
+    partyHead: "Your night. Your door.", partyIntro: "Fourteen rooms on W 4th St, from three friends up to the VIP room for 40. Open till 4 AM. The door closes and the mic is yours.", partyBtn: "Plan a party",
+    findHead: "Find the door.", footWord: "West 4th", footLine: "© West 4 · Boho Karaoke",
+    seoTitle: "West 4 Boho Karaoke · Private karaoke rooms, West Village",
+    seoDesc: "14 private karaoke rooms in the West Village. 113,000 songs, strong drinks, open till 4 AM. $10 per person per hour at 186 W 4th St.",
+    instagram: "@bohow4th", tiktok: "@bohowest4", facebook: "", youtube: ""
+  };
+  // West 4's two photos, stored as the canvas's own assets (they only load once the canvas is published).
+  static PHOTOS = [
+    { id: "bar", src: "/_blob/8a55cb8f9d89a7828f1270d6a558ec1e", alt: "The bar at West 4, lit purple, with disco balls", name: "bar.webp" },
+    { id: "room", src: "/_blob/eb5ebe9c2a330dad1dcefd7612ad51e5", alt: "A private room: graffiti walls, black leather couches, two screens", name: "room.webp" }
+  ];
+  static SECTIONS = [["hero", "Hero"], ["numbers", "Numbers"], ["rooms", "Rooms"], ["booking", "Booking"], ["songs", "Songbook search"], ["bar", "Bar & menu"], ["parties", "Private parties"], ["find", "Find us"], ["footer", "Footer"]];
+  // The three starting looks (Main, Flyer and Lounge). k = rough width of a capital letter in the heading font, used to size big headlines to fit.
+  static STYLES = {
+    neon: { name: "Neon", desc: "Dark, lime, loud", bg: "#151219", inkDark: "#0b0a0d", inkLight: "#F4F1EA", swatches: ["#D4FF3F", "#FF3DA6", "#3DF2FF", "#FFB13D"],
+      fonts: [["Bricolage Grotesque", "Tall, condensed caps"], ["Instrument Sans", "The body font, in bold"]], k: [0.58, 0.6],
+      status: ["#151219", "#F4F1EA"], urlBg: "#0b0a0d", urlPill: "rgba(244,241,234,.1)" },
+    flyer: { name: "Flyer", desc: "Paper, ink, red", bg: "#F4EEE1", inkDark: "#14120F", inkLight: "#FFFDF7", swatches: ["#FF3B1F", "#FFD338", "#FF6BD6", "#35D06B"],
+      fonts: [["Archivo Expanded", "Wide, heavy poster caps"], ["IBM Plex Mono", "Typewriter caps"]], k: [0.8, 0.64],
+      status: ["#F4EEE1", "#14120F"], urlBg: "#F4EEE1", urlPill: "rgba(20,18,15,.08)" },
+    lounge: { name: "Lounge", desc: "Velvet, brass, serif", bg: "#2A0B15", inkDark: "#2A0B15", inkLight: "#F3E9D7", swatches: ["#D4A757", "#E0B0A0", "#B8C9A8", "#F3E9D7"],
+      fonts: [["Instrument Serif", "Classic serif, italic accents"], ["DM Sans", "The body font, semibold"]], k: [0.46, 0.58],
+      status: ["#2A0B15", "#F3E9D7"], urlBg: "#1B060D", urlPill: "rgba(243,233,215,.1)" }
+  };
+  static PHONE_SCALE = 0.8;
+  static DESK_SCALE = 0.665;
+
+  static fresh(venue) {
+    const w4 = venue === "w4";
+    const words = {};
+    Object.keys(Component.WORDS).forEach((k) => { words[k] = w4 ? Component.WORDS[k] : ""; });
+    const on = {};
+    Component.SECTIONS.forEach(([id]) => { on[id] = true; });
+    return {
+      venue, tab: "style", device: "phone", style: "neon",
+      accents: { neon: "#D4FF3F", flyer: "#FF3B1F", lounge: "#D4A757" }, hexDraft: null, fonts: { neon: 0, flyer: 0, lounge: 0 },
+      photos: w4 ? Component.PHOTOS.map((p) => Object.assign({}, p)) : [], slots: w4 ? { hero: "bar", rooms: "room" } : { hero: "", rooms: "" },
+      order: Component.SECTIONS.map(([id]) => id), on, open: "", stats: { rooms: true, songs: true, close: true, price: true }, barTiles: true,
+      words, gSync: w4, langs: { ko: false, zh: false, es: false }, analytics: true,
+      modBooking: w4, dirty: false, published: w4 ? "2 min ago" : "", pop: "", toast: "", toastN: 0, movedId: "", movedN: 0, stickShow: false
+    };
+  }
+
+  constructor() {
+    super(...arguments);
+    this.state = Component.fresh("w4");
+    // Like the live site, the phone's sticky "Book" bar stays hidden while the hero or the booking section is on screen.
+    this.onPvScroll = () => this.checkStick();
+    this.pvRef = (el) => {
+      if (this.pvEl) this.pvEl.removeEventListener("scroll", this.onPvScroll);
+      this.pvEl = el;
+      if (el) el.addEventListener("scroll", this.onPvScroll, { passive: true });
+    };
+    this.panelRef = (el) => { this.panelEl = el; };
+    // The native color picker is left uncontrolled (it only accepts #rrggbb); it is kept in step with the accent here.
+    this.colorRef = (el) => { this.colorEl = el; this.syncColor(); };
+  }
+  syncColor() {
+    const el = this.colorEl;
+    if (!el) return;
+    const v = (this.state.accents[this.state.style] || "").toLowerCase();
+    if (/^#[0-9a-f]{6}$/.test(v) && el.value !== v) el.value = v;
+  }
+  checkStick() {
+    const box = this.pvEl;
+    if (!box) return;
+    const sc = this.state.device === "desk" ? Component.DESK_SCALE : Component.PHONE_SCALE;
+    const b = box.getBoundingClientRect(), vh = box.clientHeight;
+    const rel = (id) => { const e = box.querySelector('[data-sec="' + id + '"]'); if (!e) return null; const r = e.getBoundingClientRect(); return { top: (r.top - b.top) / sc, bottom: (r.bottom - b.top) / sc }; };
+    const hero = rel("hero"), bk = rel("booking");
+    const heroIn = !!hero && hero.bottom > 90 && hero.top < vh;
+    const bookIn = !!bk && bk.top < vh * 0.85 && bk.bottom > vh * 0.15;
+    const show = !heroIn && !bookIn;
+    if (show !== this.state.stickShow) this.setState({ stickShow: show });
+  }
+  componentDidMount() { this.syncColor(); this.checkStick(); }
+  componentDidUpdate() { this.syncColor(); this.checkStick(); }
+  componentWillUnmount() { if (this.pvEl) this.pvEl.removeEventListener("scroll", this.onPvScroll); }
+
+  change(patch) { this.setState(Object.assign({ dirty: true }, patch)); }
+  notify(msg) { this.setState((s) => ({ toast: msg, toastN: s.toastN + 1 })); }
+  setWord(key, v) { this.setState((s) => ({ dirty: true, words: Object.assign({}, s.words, { [key]: v }) })); }
+
+  pickTab(id) {
+    this.setState({ tab: id, pop: "" });
+    if (this.panelEl) this.panelEl.scrollTop = 0;
+  }
+  openSection(id) {
+    const next = this.state.open === id ? "" : id;
+    this.setState({ open: next }, () => { if (next) this.scrollPreviewTo(next); });
+  }
+  pickFromPreview(id) {
+    this.setState({ tab: "sections", open: id, pop: "" }, () => this.scrollPanelTo(id));
+  }
+  scrollPanelTo(id) {
+    const p = this.panelEl;
+    if (!p) return;
+    const row = p.querySelector('[data-row="' + id + '"]');
+    if (!row) return;
+    p.scrollTop = Math.max(0, row.getBoundingClientRect().top - p.getBoundingClientRect().top + p.scrollTop - 34);
+  }
+  // Scroll the phone or desktop frame so the section being edited is in view. The frame is scaled, so screen pixels are divided back.
+  scrollPreviewTo(id) {
+    const box = this.pvEl;
+    if (!box) return;
+    const el = box.querySelector('[data-sec="' + id + '"]');
+    if (!el) return;
+    const desk = this.state.device === "desk";
+    const sc = desk ? Component.DESK_SCALE : Component.PHONE_SCALE;
+    const top = (el.getBoundingClientRect().top - box.getBoundingClientRect().top) / sc + box.scrollTop - (desk ? 64 : 52);
+    try { box.scrollTo({ top: Math.max(0, top), behavior: "smooth" }); } catch (err) { box.scrollTop = Math.max(0, top); }
+  }
+  setDevice(d) {
+    if (this.state.device === d) return;
+    this.setState({ device: d }, () => { if (this.state.open) this.scrollPreviewTo(this.state.open); else if (this.pvEl) this.pvEl.scrollTop = 0; });
+  }
+  move(id, d) {
+    const s = this.state;
+    const i = s.order.indexOf(id), j = i + d;
+    if (i < 0 || j < 0 || j >= s.order.length) return;
+    const order = s.order.slice();
+    order[i] = order[j];
+    order[j] = id;
+    this.setState({ order, dirty: true, movedId: id, movedN: s.movedN + 1 }, () => { if (this.state.on[id]) this.scrollPreviewTo(id); });
+  }
+  setAccent(hex) { const s = this.state; this.setState({ accents: Object.assign({}, s.accents, { [s.style]: hex }), hexDraft: null, dirty: true }); }
+  setFont(i) { const s = this.state; this.setState({ fonts: Object.assign({}, s.fonts, { [s.style]: i }), dirty: true }); }
+  setPhoto(id, patch) { const s = this.state; this.setState({ photos: s.photos.map((p) => (p.id === id ? Object.assign({}, p, patch) : p)), dirty: true }); }
+  useSlot(slot, id) { const s = this.state; this.setState({ slots: Object.assign({}, s.slots, { [slot]: s.slots[slot] === id ? "" : id }), dirty: true }); }
+  removePhoto(id) {
+    const s = this.state;
+    const slots = Object.assign({}, s.slots);
+    Object.keys(slots).forEach((k) => { if (slots[k] === id) slots[k] = ""; });
+    this.setState({ photos: s.photos.filter((p) => p.id !== id), slots, dirty: true });
+  }
+  upload(e) {
+    const file = e && e.target && e.target.files && e.target.files[0];
+    if (!file) return;
+    let src = "";
+    try { src = URL.createObjectURL(file); } catch (err) { src = ""; }
+    const s = this.state;
+    const id = "up" + (s.photos.length + 1) + "_" + s.toastN;
+    const slots = Object.assign({}, s.slots);
+    let where = "";
+    if (!slots.hero) { slots.hero = id; where = " It is on the hero now."; } else if (!slots.rooms) { slots.rooms = id; where = " It is on the rooms section now."; }
+    this.setState({ photos: s.photos.concat([{ id, src, alt: "", name: file.name }]), slots, dirty: true });
+    this.notify("Photo added." + where + " Add alt text so Google and screen readers know what is in it.");
+    try { e.target.value = ""; } catch (err) { /* some browsers lock the file field */ }
+  }
+  setVenue(v) {
+    if (this.state.venue === v) return;
+    const keep = { device: this.state.device, tab: this.state.tab, toastN: this.state.toastN + 1,
+      toast: v === "new" ? "Demo: a new venue. Empty site in Neon, nothing filled in Admin yet." : "Demo: back to West 4." };
+    this.setState(Object.assign(Component.fresh(v), keep));
+    if (this.pvEl) this.pvEl.scrollTop = 0;
+    if (this.panelEl) this.panelEl.scrollTop = 0;
+  }
+  setBookingModule(on) {
+    if (this.state.modBooking === on) return;
+    this.setState({ modBooking: on });
+    this.notify(on ? "Demo: Online booking & deposits is back on." : "Demo: Online booking & deposits is off in Admin → Features, so Booking greys out.");
+  }
+  doPublish(host) {
+    this.setState({ dirty: false, published: "just now", pop: "" });
+    this.notify("Published to " + host + ". Live in a few seconds.");
+  }
+
+  renderVals() {
+    const st = this.state;
+    const app = this.props.accent ?? "#D4FF3F";
+    const w4 = st.venue === "w4";
+    const NV = Component.NEW_VENUE;
+    const V = w4 ? Component.VENUE : NV.venue;
+    const HOURS = w4 ? Component.HOURS : NV.hours;
+    const PR = w4 ? Component.PRICES : NV.prices;
+    const PHN = w4 ? Component.PHONE : NV.phone;
+    const RM = w4 ? Component.ROOMS : NV.rooms;
+    const DEP = w4 ? Component.DEPOSIT : NV.deposit;
+    const MENU = w4 ? Component.MENU : NV.menu;
+    const CON = w4 ? Component.CONNECTIONS : NV.connections;
+    const MOD = w4 ? Component.MODULES : NV.modules;
+    const W = st.words;
+    const STY = Component.STYLES;
+    const S = STY[st.style];
+    const acc = st.accents[st.style];
+    const desk = st.device === "desk";
+    const fi = st.fonts[st.style];
+
+    // ---------- helpers ----------
+    const T = (v, ph) => { const t = (v || "").trim(); return t ? { t, cls: "" } : { t: ph, cls: "ph" }; };
+    const sentences = (s) => s.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const H2 = (v, ph, accLast) => {
+      const t = (v || "").trim();
+      if (!t) return { cls: "ph", lines: [{ t: ph, cls: "" }] };
+      const ls = sentences(t);
+      return { cls: "", lines: ls.map((x, i) => ({ t: x, cls: accLast && ls.length > 1 && i === ls.length - 1 ? "acc" : "" })) };
+    };
+    const groupLines = (text, max) => {
+      const w = text.split(/\s+/).filter(Boolean);
+      if (w.length <= max) return w;
+      const per = w.join(" ").length / max;
+      const out = [];
+      let cur = "";
+      w.forEach((x) => { if (cur && (cur + " " + x).length > per * 1.15 && out.length < max - 1) { out.push(cur); cur = x; } else cur = cur ? cur + " " + x : x; });
+      if (cur) out.push(cur);
+      return out;
+    };
+    const hexOk = (h) => /^#?[0-9a-f]{6}$/i.test((h || "").trim());
+    const norm = (h) => "#" + (h || "").trim().replace("#", "").toUpperCase();
+    const lum = (h) => { const x = norm(h).slice(1); const c = [0, 2, 4].map((i) => { const v = parseInt(x.slice(i, i + 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const sw = (on) => ({ track: "background: " + (on ? app : "rgba(244,241,234,.18)") + ";", knob: "left: " + (on ? 19 : 3) + "px;" });
+    const swOff = { track: "background: rgba(244,241,234,.07);", knob: "left: 3px; opacity: .4;" };
+    const fmt = (n) => Number(n).toLocaleString("en-US");
+    const kfmt = (n) => (n >= 1000 ? Math.round(n / 1000) + "K" : String(n));
+    const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const short = (t) => (t || "").replace(":00", "");
+    const NAMES = {};
+    Component.SECTIONS.forEach(([id, name]) => { NAMES[id] = name; });
+
+    // ---------- hours (from Admin), grouped the way the site reads them ----------
+    let hourRows = [], specialRows = [], closeLabel = "", nowLine = "", openLine = "", closeNow = "", isOpen = false;
+    if (HOURS) {
+      const span = (d) => { const x = HOURS.week[d]; return !x || x.closed ? "Closed" : short(x.open) + " to " + short(x.close); };
+      const groups = [];
+      DAYS.forEach((d) => { const v = span(d); const g = groups[groups.length - 1]; if (g && g.v === v) g.to = d; else groups.push({ from: d, to: d, v }); });
+      hourRows = groups.map((g) => { const n = DAYS.indexOf(g.to) - DAYS.indexOf(g.from); return { days: n === 0 ? g.from : (n === 1 ? g.from + " and " + g.to : g.from + " to " + g.to), v: g.v }; });
+      const closes = DAYS.map((d) => HOURS.week[d]).filter((x) => x && !x.closed).map((x) => x.close);
+      closeLabel = closes.length && closes.every((c) => c === closes[0]) ? short(closes[0]) : "";
+      // "Open now" in New York time, the same rule as the live site: after midnight the night still belongs to the day before.
+      const ny = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const toH = (t) => { const m = /(\d+):(\d+)\s*(AM|PM)/i.exec(t || ""); if (!m) return null; let h = Number(m[1]) % 12 + Number(m[2]) / 60; if (/PM/i.test(m[3])) h += 12; return h; };
+      const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const sched = (d) => { const sp = HOURS.special.find((x) => x.date === ymd(d)); if (sp && sp.closed) return { closed: true }; const w = HOURS.week[DAYS[(d.getDay() + 6) % 7]]; return !w || w.closed ? { closed: true } : { open: toH(w.open), close: toH(w.close), openLabel: short(w.open), closeLabel: short(w.close) }; };
+      const h = ny.getHours() + ny.getMinutes() / 60;
+      const ys = sched(new Date(ny.getTime() - 86400000)), ts = sched(ny);
+      const late = !ys.closed && ys.close < ys.open && h < ys.close;
+      isOpen = late || (!ts.closed && h >= ts.open);
+      closeNow = late ? ys.closeLabel : (ts.closeLabel || "");
+      openLine = isOpen ? "Open now, until " + closeNow : (ts.closed ? "Closed today" : "Opens at " + ts.openLabel + " today");
+      nowLine = isOpen ? "Open until " + closeNow : (ts.closed ? "Closed today" : "Closed, opens " + ts.openLabel);
+      specialRows = HOURS.special.filter((x) => x.date >= ymd(ny)).map((x) => ({ days: x.label, v: x.closed ? "Closed" + (x.note ? " · " + x.note.toLowerCase() : "") : short(x.open) + " to " + short(x.close) }));
+    }
+
+    // ---------- what Admin → Features allows on the site ----------
+    const bookingOn = !!MOD.rooms && !!st.modBooking;
+    const LOCK = {
+      rooms: MOD.rooms ? null : { why: "Needs Rooms & room clock", fix: "Turn on in Admin → Features", body: "Turn on Rooms & room clock in Admin → Features to show your rooms and room prices here." },
+      booking: bookingOn ? null : { why: "Needs Online booking & deposits", fix: "Turn on in Admin → Features", body: "When Online booking & deposits is on, this section fills itself in with your deposit rule, prices and open times from Admin. Until then the site has no booking form." },
+      songs: CON.catalog ? null : { why: "Needs a song catalog", fix: "Load it in Admin → Connections", body: "Once your song vendor sends its catalog file under your agreement (Admin → Connections), guests can search your real songbook here. Until then the search stays hidden on the live site; the heading and song count still show." }
+    };
+    const lockOf = (id) => LOCK[id] || null;
+    const visible = st.order.filter((id) => st.on[id] && !lockOf(id));
+    const vis = (id) => visible.indexOf(id) >= 0;
+
+    // ---------- photos ----------
+    const photoById = (id) => st.photos.find((p) => p.id === id) || null;
+    const heroP = photoById(st.slots.hero), roomsP = photoById(st.slots.rooms);
+
+    // ---------- hero headline, sized to fit its column ----------
+    const headT = (W.heroHead || "").trim();
+    const k = STY[st.style].k[fi];
+    // Width of the headline's column: phone 390 − 40 padding; desktop Neon is full width, Flyer and Lounge share the row with the photo.
+    const colW = desk ? (st.style === "neon" ? 1100 : 500) : 350;
+    let heroLines;
+    if (!headT) heroLines = [{ t: "Your headline", cls: "i0", style: "font-size: " + (desk ? 100 : 60) + "px;" }];
+    else if (st.style === "lounge") {
+      const w = headT.split(/\s+/);
+      const a = w.length > 1 ? w.slice(0, -1).join(" ") : w[0], b = w.length > 1 ? w[w.length - 1] : "";
+      const s1 = Math.max(40, Math.min(desk ? 168 : 104, Math.floor(colW / (Math.max(a.length, 3) * k))));
+      const s2 = b ? Math.max(30, Math.min(Math.round(s1 * 0.74), Math.floor(colW / (Math.max(b.length, 3) * k * 1.05)))) : 0;
+      heroLines = [{ t: a, cls: "i0", style: "font-size: " + s1 + "px;" }].concat(b ? [{ t: b, cls: "i1 acc it", style: "font-size: " + s2 + "px;" }] : []);
+    } else if (st.style === "neon") {
+      const ls = groupLines(headT, 4);
+      const maxLen = Math.max.apply(null, ls.map((x, i) => x.length + 0.5 * i));
+      const size = Math.max(36, Math.min(desk ? 200 : 84, Math.floor(colW / (maxLen * k))));
+      heroLines = ls.map((t, i) => ({ t, cls: "i" + i + (ls.length > 1 && i === ls.length - 1 ? " acc" : ""), style: "font-size: " + size + "px;" }));
+    } else {
+      const ls = groupLines(headT, 4);
+      heroLines = ls.map((t, i) => ({ t, cls: "i" + i + (ls.length > 1 && i === ls.length - 1 ? " acc" : ""),
+        style: "font-size: " + Math.max(30, Math.min(desk ? 190 : 118, Math.floor(colW / (Math.max(t.length, 3) * k)))) + "px;" }));
+    }
+    const eyeText = (st.style === "lounge" ? [V.tag, V.street] : (st.style === "flyer" ? [V.area, V.street] : [V.area, V.street, closeLabel ? "till " + closeLabel : ""])).filter(Boolean).join(" · ");
+    const tickerParts = [closeLabel ? "Open till " + closeLabel : "", MOD.rooms && RM.count ? RM.count + " private rooms" : "", MOD.rooms && PR.perPerson ? "$" + PR.perPerson + " per person per hour" : "",
+      CON.songs ? fmt(CON.songs) + " songs" : "", V.minAge ? V.minAge + "+" : "", V.area].filter(Boolean);
+    const eyeList = eyeText ? eyeText.split(" · ") : ["Area · street · hours, from Admin"];
+    const hero = {
+      lines: heroLines, headCls: headT ? "" : "ph",
+      intro: T(W.heroIntro, "One line about your place"), btn: T(W.heroBtn, "Button text"),
+      eye: T(eyeText, ""), eyeParts: eyeList.map((t, i) => ({ t: eyeText && i < eyeList.length - 1 ? t + " ·" : t })),
+      hasOpen: !!HOURS, open: st.style === "flyer" && isOpen ? "Open now · till " + closeNow : openLine,
+      hasPhoto: !!heroP, noPhoto: !heroP, src: heroP ? heroP.src : "", alt: heroP ? heroP.alt : "",
+      hasTicker: tickerParts.length > 0, ticker: tickerParts.join(" ★ ") + " ★", hasSticker: !!V.minAge, sticker: V.minAge + "+"
+    };
+
+    // ---------- the other sections ----------
+    const depLine = bookingOn && DEP.on ? " A deposit holds your room, refunded if you cancel " + DEP.refundHours + " hours ahead." : "";
+    const statDefs = [
+      { key: "rooms", label: "Rooms", ok: !!MOD.rooms, val: RM.count ? String(RM.count) : "", src: "From Admin → Rooms", miss: "No rooms in Admin yet", capKey: "capRooms" },
+      { key: "songs", label: "Songs", ok: !!CON.songSystem, val: CON.songs ? kfmt(CON.songs) : "", src: "From " + (CON.songSystem || "the song system"), miss: "No song system connected", capKey: "capSongs" },
+      { key: "close", label: "Closing time", ok: true, val: closeLabel ? closeLabel.replace(" ", "") : "", src: "From Admin → Hours & prices", miss: "No hours in Admin yet", capKey: "capClose" },
+      { key: "price", label: "Price", ok: !!MOD.rooms, val: PR.perPerson ? "$" + PR.perPerson : "", src: "From Admin → Hours & prices", miss: "No price in Admin yet", capKey: "capPrice", auto: depLine }
+    ];
+    const ROMAN = ["I.", "II.", "III.", "IV."];
+    const shown = statDefs.filter((d) => d.ok && st.stats[d.key]);
+    const numbers = shown.map((d, i) => { const c = T(W[d.capKey], "What this number means"); return { roman: ROMAN[i], val: d.val || "—", valCls: d.val ? "" : "ph", cap: c.t, capCls: c.cls, auto: d.auto || "", hasAuto: !!d.auto, cls: "i" + i + (d.key === "price" ? " acc" : "") }; });
+    const rooms = {
+      count: T(RM.count ? RM.count + " rooms." : "", "— rooms."), tag: T(W.roomsTag, "A short line"), intro: T(W.roomsIntro, "A line about your rooms"),
+      price: PR.perPerson ? "$" + PR.perPerson : "$ —", priceCls: PR.perPerson ? "" : "ph", line: T(W.roomsPrice, "Price details"),
+      hasVip: !!(PR.vip && RM.vipMin), vipPrice: "$" + PR.vip, vipLine: "per hour and up. Parties of " + RM.vipMin + " or more, up to " + RM.vipMax + ".",
+      hasPhoto: !!roomsP, noPhoto: !roomsP, src: roomsP ? roomsP.src : "", alt: roomsP ? roomsP.alt : ""
+    };
+    // Same deposit rule as Book.dc.html: first hour, $ per guest, flat, or a share of the room total.
+    const depFor = (g, hrs) => !DEP.on ? 0 : DEP.mode === "hour" ? PR.perPerson * g : DEP.mode === "person" ? DEP.value * g : DEP.mode === "flat" ? DEP.value : PR.perPerson * g * hrs * DEP.value / 100;
+    const depWords = DEP.mode === "person" ? "$" + DEP.value + " a person" : DEP.mode === "flat" ? "$" + DEP.value + " a booking" : DEP.mode === "percent" ? DEP.value + "% of the room" : "the first hour of room time";
+    const book = {
+      head: H2(W.bookHead, "Booking heading"), intro: T(W.bookIntro, "A line about booking"),
+      dep: DEP.on ? " A small deposit holds it, and you get it back if you cancel " + DEP.refundHours + " hours ahead." : "",
+      minNote: PR.minWe ? "guests · Fri & Sat: " + PR.minWe + " minimum" : "guests",
+      sumL: PR.perPerson ? "6 guests × 2 hr × $" + PR.perPerson : "Prices come from Admin", sumR: PR.perPerson ? "$" + (12 * PR.perPerson).toFixed(2) : "",
+      pay: DEP.on && PR.perPerson ? "Pay $" + depFor(6, 2).toFixed(2) + " deposit" : "Book it"
+    };
+    const songs = {
+      count: T(CON.songs ? fmt(CON.songs) + " songs." : "", "— songs."), tag: T(W.songsTag, "A short line"), intro: T(W.songsIntro, "A line about the songbook"),
+      hint: T(W.songsHint, "Search box hint"),
+      note: CON.catalog ? "The number is what you punch into the room's tablet. Results come from " + CON.songSystem + "'s song list." : ""
+    };
+    // Example rows the song system returns for "brightside" (same as the live site's mockup).
+    const songRows = [
+      { number: "963923", title: "Mr. Brightside [MV]", artist: "The Killers" },
+      { number: "913625", title: "Mr. Brightside", artist: "The Killers" },
+      { number: "917789", title: "Always Look on the Bright Side of Life", artist: "Musical: Spamalot" }
+    ];
+    const bar = { head: H2(W.barHead, "Bar heading"), intro: T(W.barIntro, "A line about the bar"), tiles: MENU.tiles.map(([kk, v]) => ({ k: kk, v })),
+      showTiles: st.barTiles && MENU.tiles.length > 0, noMenu: MENU.tiles.length === 0, hasMenu: MENU.tiles.length > 0 };
+    const party = { head: H2(W.partyHead, "Party heading", true), intro: T(W.partyIntro, "A line about parties"), btn: T(W.partyBtn, "Button text") };
+    const SOC = [["instagram", "Instagram"], ["tiktok", "TikTok"], ["facebook", "Facebook"], ["youtube", "YouTube"]];
+    const soc = SOC.filter(([kk]) => (W[kk] || "").trim()).map(([kk, label]) => ({ k: label, v: W[kk].trim() }));
+    const find = {
+      head: H2(W.findHead, "Find us heading"), addr: T(V.street, "Street address, from Admin"), city: V.city, hasCity: !!V.city, dir: V.directions, hasDir: !!V.directions,
+      phone: T(PHN.call, "Phone, from Admin"), phoneNote: PHN.call ? (PHN.text && PHN.text !== PHN.call ? "Texts: " + PHN.text : "Call or text.") : "Admin → Phone & texts",
+      hasNow: !!HOURS, now: nowLine, noHours: !HOURS, hasSoc: soc.length > 0, soc
+    };
+    const meta = [V.minAge ? V.minAge + "+" : "", V.street, PHN.call ? (PHN.text === PHN.call ? "Call or text " + PHN.call : "Call " + PHN.call) : ""].filter(Boolean).join(" · ");
+    const foot = { word: T(W.footWord, "Big word"), line: T(W.footLine, "Footer line"), meta, hasStamp: !!V.short, stTop: V.tag, stMid: V.short, stBot: V.street };
+    const ar = st.style === "neon" ? "↓ " : "";
+    const lbl = { numbers: ar + "The numbers", rooms: ar + "The rooms", book: ar + "Book a room", songs: ar + "The songbook", bar: ar + "The bar", parties: ar + "Private parties", find: ar + "Find us" };
+    const extra = [["ko", "한국어"], ["zh", "中文"], ["es", "ES"]].filter(([id]) => st.langs[id]);
+    const linkDefs = desk ? [["rooms", "Rooms"], ["songs", "Songs"], ["bar", "Menu"], ["parties", "Parties"], ["find", "Find us"]] : (extra.length ? [["bar", "Menu"]] : [["rooms", "Rooms"], ["bar", "Menu"]]);
+    const nav = {
+      mark: T(st.style === "lounge" ? V.name : V.short, st.style === "lounge" ? "Venue name" : "Name"), tag: V.tag, hasTag: !!V.tag && st.style !== "lounge" && !(extra.length && !desk),
+      links: linkDefs.filter(([id]) => vis(id)).map(([, label]) => ({ label })), hasBook: vis("booking"), hasLang: extra.length > 0, lang: ["EN"].concat(extra.map((x) => x[1])).join(" · ")
+    };
+    const stick = { on: vis("booking") && !desk, cls: st.stickShow ? "" : "hide", label: T(W.heroBtn, "Button text"),
+      price: PR.perPerson ? (st.style === "lounge" ? "$" + PR.perPerson + " a person, an hour" : (st.style === "flyer" ? "$" + PR.perPerson + " / PP / HR" : "$" + PR.perPerson + " / PERSON / HR")) : "" };
+    const pvSecs = visible.map((id, i) => ({
+      id, name: NAMES[id], pick: () => this.pickFromPreview(id), cls: "sec-" + id + (i === 0 ? " first" : "") + (st.open === id ? " is-edit" : ""),
+      isHero: id === "hero", isNumbers: id === "numbers", isRooms: id === "rooms", isBooking: id === "booking", isSongs: id === "songs",
+      isBar: id === "bar", isParties: id === "parties", isFind: id === "find", isFooter: id === "footer"
+    }));
+    const onAcc = ratio(acc, S.inkDark) >= ratio(acc, S.inkLight) ? S.inkDark : S.inkLight;
+
+    // ---------- top bar ----------
+    const freeHost = (V.slug || "new-venue") + "." + Component.FREE_DOMAIN;
+    const liveHost = V.domain || freeHost;
+    const everPub = !!st.published;
+    const canPub = st.dirty || !everPub;
+    const missing = [];
+    if (st.on.hero && !headT) missing.push({ t: "The hero has no headline" });
+    if (st.on.hero && !heroP) missing.push({ t: "No photo at the top of the page" });
+    if (!HOURS) missing.push({ t: "No opening hours in Admin yet, so Find us shows none" });
+    if (!(W.seoTitle || "").trim()) missing.push({ t: "No page title for Google (Details tab)" });
+    const segOn = (on) => (on ? "background: " + app + "; color: #0b0a0d;" : "background: transparent; color: #C9C5CE;");
+    const segW = (on) => (on ? "background: #F4F1EA; color: #0b0a0d;" : "background: transparent; color: #8E8994;");
+
+    // ---------- Style tab ----------
+    const thumbLines = (id) => {
+      const a = st.accents[id];
+      if (!headT) return [{ t: "Aa", style: "color: " + a + ";" }];
+      if (id === "lounge") {
+        const w = headT.split(/\s+/);
+        const first = w.length > 1 ? w.slice(0, -1).join(" ") : w[0], last = w.length > 1 ? w[w.length - 1] : "";
+        return [{ t: first, style: "" }].concat(last ? [{ t: last, style: "color: " + a + "; font-style: italic;" }] : []);
+      }
+      const ls = groupLines(headT, 3).slice(0, 3);
+      return ls.map((t, i) => ({ t, style: ls.length > 1 && i === ls.length - 1 ? "color: " + a + ";" : "" }));
+    };
+    const styles = ["neon", "flyer", "lounge"].map((id) => {
+      const X = STY[id], on = st.style === id;
+      return { id, name: X.name, desc: X.desc, on, aria: X.name + " style: " + X.desc, isNeon: id === "neon", isFlyer: id === "flyer", isLounge: id === "lounge",
+        acc: st.accents[id], lines: thumbLines(id), fcls: "fs-" + st.fonts[id] + "-" + id,
+        pick: () => { if (this.state.style !== id) this.setState({ style: id, hexDraft: null, dirty: true }); },
+        ring: on ? "border: 2px solid " + app + "; box-shadow: 0 0 0 3px " + app + "26;" : "border: 2px solid rgba(244,241,234,.08);" };
+    });
+    const swatches = S.swatches.map((hex) => { const on = norm(acc) === hex; return { hex, on, aria: "Accent " + hex, pick: () => this.setAccent(hex),
+      style: "background: " + hex + "; box-shadow: " + (on ? "0 0 0 2px #121016, 0 0 0 4px " + hex : "inset 0 0 0 1px rgba(0,0,0,.3)") + ";" }; });
+    const draft = st.hexDraft;
+    const hexBad = draft !== null && draft.replace("#", "").trim().length >= 6 && !hexOk(draft);
+    const cr = ratio(acc, S.bg);
+    const sample = headT ? headT.split(/\s+/).slice(0, 2).join(" ") : "Aa Bb";
+    const fontOpts = S.fonts.map(([name, role], i) => ({ name, role: i === 0 ? role + " · the default" : role, sample, cls: "fs-" + i + "-" + st.style, on: fi === i,
+      pick: () => this.setFont(i), ring: fi === i ? "border: 2px solid " + app + ";" : "border: 2px solid rgba(244,241,234,.08);" }));
+    const chip = (on) => (on ? "background: " + app + "; color: #0b0a0d; border: 1px solid " + app + ";" : "background: transparent; color: #C9C5CE; border: 1px solid rgba(244,241,234,.18);");
+    const photos = st.photos.map((p) => {
+      const onH = st.slots.hero === p.id, onR = st.slots.rooms === p.id, noAlt = !(p.alt || "").trim();
+      return { fid: "alt-" + p.id, src: p.src, alt: p.alt, rows: Math.min(4, Math.max(2, Math.ceil(((p.alt || "").length + 2) / 28))), setAlt: (e) => this.setPhoto(p.id, { alt: e.target.value }),
+        useHero: () => this.useSlot("hero", p.id), useRooms: () => this.useSlot("rooms", p.id), onHero: onH, onRooms: onR, heroStyle: chip(onH), roomsStyle: chip(onR),
+        remove: () => this.removePhoto(p.id), altNote: noAlt ? "Needed" : "", altNoteStyle: "color: #FFB13D;",
+        tags: [onH ? "Hero" : "", onR ? "Rooms" : ""].filter(Boolean).join(" + "), hasTags: onH || onR };
+    });
+
+    // ---------- Sections tab ----------
+    const field = (key, label, ph, o) => {
+      o = o || {};
+      const len = (W[key] || "").length;
+      return { fid: "f-" + key, label, value: W[key] || "", ph, multi: !!o.multi, single: !o.multi, set: (e) => this.setWord(key, e.target.value),
+        rows: Math.min(7, Math.max(2, Math.ceil((len + 2) / (o.prefix ? 27 : 37)))),
+        hasPrefix: !!o.prefix, prefix: o.prefix || "", prefixTitle: o.prefixTitle || "",
+        prefixStyle: o.missing ? "background: rgba(255,177,61,.08); color: #FFB13D; border: 1px dashed rgba(255,177,61,.45);" : "background: color-mix(in srgb, " + app + " 10%, transparent); color: " + app + "; border: 1px solid color-mix(in srgb, " + app + " 35%, transparent);",
+        hasHint: !!o.hint, hint: o.hint || "", meta: o.meta || (o.prefix ? "chip = from Admin" : "") };
+    };
+    const info = (kk, src, v, empty) => ({ k: kk, src, v: v || empty, vStyle: v ? "color: #F4F1EA;" : "color: #FFB13D;" });
+    const toggleItem = (label, sub, on, toggle, disabled) => { const s2 = disabled ? swOff : sw(on); return { label, sub, on: !!on && !disabled, toggle, disabled: !!disabled, track: s2.track, knob: s2.knob }; };
+    const photoAct = [{ label: "Change the photo in Style", act: () => this.pickTab("style") }];
+    const hoursText = hourRows.map((r) => r.days + " " + r.v).join(" · ");
+    const specialText = specialRows.map((r) => r.days + " · " + r.v).join(" · ");
+    const statItems = statDefs.map((d) => {
+      const on = !!st.stats[d.key] && d.ok, s2 = d.ok ? sw(on) : swOff;
+      return { label: d.label, on, disabled: !d.ok, track: s2.track, knob: s2.knob, val: d.ok && d.val ? d.val : "—",
+        valStyle: d.ok && d.val ? "color: #F4F1EA;" : "color: #FFB13D;", cap: W[d.capKey] || "", rows: Math.min(4, Math.max(1, Math.ceil(((W[d.capKey] || "").length + 2) / 40))), set: (e) => this.setWord(d.capKey, e.target.value),
+        toggle: () => { if (d.ok) this.change({ stats: Object.assign({}, this.state.stats, { [d.key]: !this.state.stats[d.key] }) }); },
+        aria: "Show the " + d.label.toLowerCase() + " number", aria2: "Words under the " + d.label.toLowerCase() + " number", inStyle: on ? "" : "opacity: .5;",
+        srcLine: !d.ok ? d.miss + (d.key === "songs" ? " · connect one in Admin → Connections" : " · turn on Rooms in Admin → Features") : (d.val ? d.src : d.miss) + (d.auto ? " · adds the deposit line from Admin" : "") };
+    });
+    const BODY = {
+      hero: {
+        fields: [field("heroHead", "Headline", "The big line at the top"), field("heroIntro", "Intro line", "One or two sentences: what you are and where", { multi: true }),
+          field("heroBtn", "Button text", "What the main button says", { hint: bookingOn ? "The button opens the booking section." : "Online booking is off, so the button scrolls to Find us." })],
+        infos: [info("Line above the headline", "From Admin", eyeText, "Nothing yet · add the address and hours in Admin"),
+          info("Photo", "Style → Photos", heroP ? (heroP.alt || "A photo with no alt text yet") : "", "No photo yet, so the top of the page looks empty")],
+        actions: photoAct
+      },
+      numbers: { note: "The big numbers come from Admin, so they are never typed twice. You write the words under them." },
+      rooms: {
+        fields: [field("roomsTag", "Heading", "A short line after the room count", { prefix: RM.count ? RM.count + " rooms." : "— rooms.", prefixTitle: "Room count from Admin → Rooms", missing: !RM.count }),
+          field("roomsIntro", "Intro", "What a room is like", { multi: true }),
+          field("roomsPrice", "Price line", "Who it is for, the minimum", { multi: true, prefix: PR.perPerson ? "$" + PR.perPerson : "$ —", prefixTitle: "Price per person per hour, from Admin → Hours & prices", missing: !PR.perPerson })],
+        infos: [info("VIP room card", "Admin → Hours & prices", PR.vip ? "$" + PR.vip + " an hour · parties of " + RM.vipMin + " to " + RM.vipMax : "", "No VIP price in Admin, so no card"),
+          info("Photo", "Style → Photos", roomsP ? (roomsP.alt || "A photo with no alt text yet") : "", "No photo yet")],
+        actions: photoAct, links: [{ label: "Edit rooms and prices in Admin", href: "AdminDesk.dc.html" }]
+      },
+      booking: {
+        fields: [field("bookHead", "Heading", "The booking headline"),
+          field("bookIntro", "Intro", "How booking works, in a sentence", { multi: true, hint: DEP.on ? "Adds from Admin: “A small deposit holds it, and you get it back if you cancel " + DEP.refundHours + " hours ahead.”" : "" })],
+        infos: [info("Deposit rule", "Admin → Deposits", DEP.on ? "A deposit of " + depWords + ", taken off the tab. Full refund if they cancel " + DEP.refundHours + " hours ahead." : "", "No deposit set"),
+          info("Prices and minimums", "Admin → Hours & prices", PR.perPerson ? "$" + PR.perPerson + " a person an hour · at least " + PR.minWk + " guests weeknights, " + PR.minWe + " on Fri and Sat" : "", "No prices in Admin yet")],
+        links: [{ label: "Edit the deposit rule in Admin", href: "AdminDesk.dc.html" }],
+        note: (DEP.on ? "Guests pick a night, a headcount and a time, pay the deposit and get a text." : "Guests pick a night, a headcount and a time and get a text. No deposit is taken until you set one in Admin → Deposits.") + " It runs on Online booking & deposits, switched on in Admin → Features."
+      },
+      songs: {
+        fields: [field("songsTag", "Heading", "A short line after the song count", { prefix: CON.songs ? fmt(CON.songs) + " songs." : "— songs.", prefixTitle: "Song count from " + (CON.songSystem || "your song system"), missing: !CON.songs }),
+          field("songsIntro", "Intro", "What guests can find", { multi: true }), field("songsHint", "Search box hint", "Faint text inside the search box")],
+        infos: [info("Song system", "Admin → Connections", CON.catalog ? CON.songSystem + " · " + fmt(CON.songs) + " songs from its catalog file · guests see the real song numbers" : (CON.songSystem ? CON.songSystem + " · waiting for its catalog file · search stays hidden" : ""), "No catalog yet · search stays hidden")]
+          .concat(CON.songSystem && !MOD.songControl ? [info("Room control", "Admin → Features", "Song system control is off: needs Playbox link. Search on the site needs only the catalog file.", "")] : [])
+      },
+      bar: {
+        fields: [field("barHead", "Heading", "The bar headline"), field("barIntro", "Intro", "What happens at the bar", { multi: true })],
+        toggles: [toggleItem("Show price ranges", MENU.tiles.length ? MENU.tiles.map((x) => x[0]).join(", ") + ", worked out from the menu" : "Needs drinks in Admin → Menu", st.barTiles,
+          () => { if (MENU.tiles.length) this.change({ barTiles: !this.state.barTiles }); }, !MENU.tiles.length)],
+        note: "The menu page and the PDF are generated from Admin → Menu. Change a price there and the site, the PDF and the room screens update together.",
+        links: [{ label: "Edit the menu in Admin → Menu", href: "AdminDesk.dc.html" }, { label: "Open the menu page", href: "Menu.dc.html" }]
+      },
+      parties: {
+        fields: [field("partyHead", "Heading", "The party headline"), field("partyIntro", "Intro", "Who it is for, how big", { multi: true }), field("partyBtn", "Button text", "What the button says")],
+        note: "Needs nothing extra. The button opens your Private parties page, where guests send an enquiry.",
+        links: [{ label: "Open the Private parties page", href: "Parties.dc.html" }]
+      },
+      find: {
+        fields: [field("findHead", "Heading", "The find-us headline")],
+        infos: [info("Address", "Admin → Venue", V.street ? V.street + ", " + V.city : "", "No address in Admin yet"),
+          info("Directions", "Admin → Venue", V.directions, "None yet"),
+          info("Phone", "Admin → Phone & texts", PHN.call ? PHN.call + (PHN.text === PHN.call ? " · calls and texts" : " · texts from " + PHN.text) : "", "No phone in Admin yet"),
+          info("Hours", "Admin → Hours & prices", hoursText, "No hours in Admin yet")].concat(specialRows.length ? [info("Special dates", "Admin → Hours & prices", specialText, "")] : []),
+        links: [{ label: "Edit in Admin", href: "AdminDesk.dc.html" }],
+        note: "Hours, phone and address are pulled from Admin, never typed twice. Change them there and the site, Google and the booking page all follow."
+      },
+      footer: {
+        fields: [field("footWord", "Big word", "The large word across the bottom"), field("footLine", "Sign-off line", "Your name, the way you sign off")],
+        infos: [info("Also in the footer", "From Admin", meta, "Nothing yet · age rule, address and phone come from Admin")]
+      }
+    };
+    const SUM = {
+      hero: headT || "No headline yet",
+      numbers: shown.length + " of 4 numbers · " + (shown.every((d) => d.val) ? "figures from Admin" : shown.filter((d) => !d.val).length + " waiting on Admin"),
+      rooms: RM.count ? RM.count + " rooms · $" + PR.perPerson + " a person an hour" : "No rooms in Admin yet",
+      booking: DEP.on ? (DEP.mode === "hour" ? "First-hour deposit" : "Deposit " + depWords) + " · refund " + DEP.refundHours + " h ahead" : "No deposit set in Admin",
+      songs: CON.songSystem ? CON.songSystem + " · " + fmt(CON.songs) + " songs" : "",
+      bar: MENU.tiles.length ? "Menu page and PDF from Admin → Menu" : "No menu in Admin yet",
+      parties: "Opens your Private parties page",
+      find: HOURS ? "Hours, phone and address from Admin" : "Nothing in Admin yet",
+      footer: (W.footLine || "").trim() || "No sign-off yet"
+    };
+    const secRows = st.order.map((id, i) => {
+      const lock = lockOf(id), isOn = !!st.on[id] && !lock, isOpenRow = st.open === id, s2 = lock ? swOff : sw(isOn), b = BODY[id] || {};
+      const links = lock ? [] : (b.links || []), actions = lock ? [] : (b.actions || []);
+      return {
+        id, name: NAMES[id], num: String(i + 1).padStart(2, "0"),
+        summary: lock ? "Not on the site" : (st.on[id] ? SUM[id] : "Off · hidden on the site"), sumStyle: lock ? "color: #6F6B78;" : (st.on[id] ? "" : "color: #6F6B78;"),
+        nameStyle: isOn ? "" : "color: #8E8994;", locked: !!lock, why: lock ? lock.why : "", fix: lock ? lock.fix : "", hasLockBody: !!lock, lockBody: lock ? lock.body : "",
+        noUp: i === 0, noDown: i === st.order.length - 1, up: () => this.move(id, -1), down: () => this.move(id, 1),
+        upAria: "Move " + NAMES[id] + " up", downAria: "Move " + NAMES[id] + " down", toggleOpen: () => this.openSection(id), isOpen: isOpenRow,
+        toggleOn: () => { if (!lock) this.change({ on: Object.assign({}, this.state.on, { [id]: !this.state.on[id] }) }); },
+        on: isOn, swAria: (st.on[id] ? "Hide " : "Show ") + NAMES[id] + " on the site", track: s2.track, knob: s2.knob,
+        rowStyle: isOpenRow ? "border-color: color-mix(in srgb, " + app + " 55%, transparent);" : (lock ? "background: #0f0e12; border-style: dashed;" : ""),
+        rowCls: st.movedId === id ? (st.movedN % 2 ? "flA" : "flB") : "", chev: isOpenRow ? "transform: rotate(180deg);" : "",
+        stats: id === "numbers" ? statItems : [], fields: lock ? [] : (b.fields || []), infos: lock ? [] : (b.infos || []), toggles: lock ? [] : (b.toggles || []),
+        hasNote: !lock && !!b.note, note: b.note || "", links, actions, hasLinks: links.length + actions.length > 0
+      };
+    });
+
+    // ---------- Details tab ----------
+    const seoT = (W.seoTitle || "").trim(), seoD = (W.seoDesc || "").trim();
+    const gCan = !!CON.googleBusiness, gOn = st.gSync && gCan, gs = gCan ? sw(gOn) : swOff, an = sw(st.analytics);
+    const langs = [["en", "English", "Always on"], ["ko", "한국어", "Korean"], ["zh", "中文", "Chinese"], ["es", "Español", "Spanish"]].map(([id, label, sub]) => {
+      const on = id === "en" || !!st.langs[id];
+      return { label, sub, on, mark: id === "en" ? "✓" : (on ? "✓ On" : "+ Add"), markStyle: on ? "color: " + app + ";" : "color: #8E8994;",
+        toggle: () => { if (id !== "en") this.change({ langs: Object.assign({}, this.state.langs, { [id]: !this.state.langs[id] }) }); },
+        style: on ? "background: color-mix(in srgb, " + app + " 9%, #141218); color: #F4F1EA; border: 1px solid color-mix(in srgb, " + app + " 45%, transparent);" + (id === "en" ? " cursor: default;" : "") : "background: #141218; color: #C9C5CE; border: 1px solid rgba(244,241,234,.12);" };
+    });
+
+    return {
+      accent: app, venueLine: w4 ? V.name + " · " + V.tag : "New venue · not set up",
+      liveHost, domainState: V.domain ? "connected" : "free address", domainDot: "background: " + (V.domain ? app : "#FFB13D") + ";",
+      toggleDomain: () => this.setState({ pop: this.state.pop === "domain" ? "" : "domain" }),
+      popDomain: st.pop === "domain", popPublish: st.pop === "publish", hasPop: !!st.pop, closePop: () => this.setState({ pop: "" }),
+      domainRows: V.domain
+        ? [{ host: V.domain, state: "Connected · HTTPS on", style: "color: " + app + ";", note: "Your own domain. Publishing updates it within seconds." },
+          { host: freeHost, state: "Also works", style: "color: #8E8994;", note: "The free address every venue gets. It forwards to your domain." }]
+        : [{ host: freeHost, state: "Free address · works now", style: "color: #FFB13D;", note: "Every venue gets one. Connect your own domain whenever you like." }],
+      isPhone: !desk, isDesk: desk, setPhone: () => this.setDevice("phone"), setDesk: () => this.setDevice("desk"), phoneSeg: segOn(!desk), deskSeg: segOn(desk),
+      hasLive: w4, noLive: !w4, noLiveLabel: everPub ? "Live at " + freeHost : "No live site yet",
+      statusLine: st.dirty ? "Unpublished changes" : (everPub ? "Published · " + st.published : "Not published yet"),
+      statusStyle: st.dirty ? "color: #FFB13D;" : (everPub ? "color: #C9C5CE;" : "color: #8E8994;"),
+      statusDot: "background: " + (st.dirty ? "#FFB13D" : (everPub ? app : "#6F6B78")) + ";",
+      pubStyle: canPub ? "background: " + app + "; color: #0b0a0d; box-shadow: 0 8px 24px -10px " + app + ";" : "background: #1c1a21; color: #8E8994;",
+      publish: () => {
+        const s = this.state;
+        if (!(s.dirty || !s.published)) { this.notify("Nothing new to publish. The live site already matches."); return; }
+        if (missing.length && s.pop !== "publish") { this.setState({ pop: "publish" }); return; }
+        this.doPublish(liveHost);
+      },
+      publishAnyway: () => this.doPublish(liveHost), missing,
+      missingTitle: missing.length === 1 ? "One part is still empty" : missing.length + " parts are still empty",
+      tabs: [["style", "Style"], ["sections", "Sections"], ["details", "Details"]].map(([id, label]) => ({ label, on: st.tab === id, pick: () => this.pickTab(id), style: segOn(st.tab === id) })),
+      isStyle: st.tab === "style", isSections: st.tab === "sections", isDetails: st.tab === "details", panelRef: this.panelRef,
+      styles, swatches, accentHint: S.name + " colors, or any hex",
+      colorRef: this.colorRef, onColor: (e) => this.setAccent(norm(e.target.value)),
+      hexText: draft !== null ? draft : acc, hexBad, hexBox: hexBad ? "border-color: #FF3DA6;" : "",
+      onHex: (e) => { const v = e.target.value; const s = this.state; if (hexOk(v)) this.setState({ hexDraft: v, accents: Object.assign({}, s.accents, { [s.style]: norm(v) }), dirty: true }); else this.setState({ hexDraft: v }); },
+      lowContrast: cr < 2.2, contrastLine: "Hard to read on " + S.name + "’s " + (st.style === "flyer" ? "paper" : "background") + " (" + cr.toFixed(1) + " to 1). Colored words may fade; buttons still work.",
+      fontOpts, fontHint: "Limited to " + S.name + "’s pair",
+      photos, noPhotos: st.photos.length === 0, photoCount: st.photos.length === 1 ? "1 photo" : st.photos.length + " photos", onUpload: (e) => this.upload(e),
+      secRows,
+      seoTitle: W.seoTitle || "", setSeoTitle: (e) => this.setWord("seoTitle", e.target.value), titleCount: seoT.length + " / 60", titleCountStyle: seoT.length > 60 ? "color: #FFB13D;" : "",
+      seoDesc: W.seoDesc || "", descRows: Math.min(6, Math.max(2, Math.ceil((seoD.length + 2) / 38))), setSeoDesc: (e) => this.setWord("seoDesc", e.target.value), descCount: seoD.length + " / 155", descCountStyle: seoD.length > 160 ? "color: #FFB13D;" : "",
+      serpFav: V.short || "·", serpName: V.name ? V.name + " " + V.tag : "Your venue",
+      serpTitle: seoT ? (seoT.length > 62 ? seoT.slice(0, 60) + "…" : seoT) : "Add a page title", serpTitleStyle: seoT ? "" : "opacity: .45;",
+      serpDesc: seoD ? (seoD.length > 158 ? seoD.slice(0, 156) + "…" : seoD) : "Add a description. Google shows it under the title.", serpDescStyle: seoD ? "" : "opacity: .5;",
+      socials: SOC.map(([key, label]) => ({ fid: "s-" + key, label, value: W[key] || "", set: (e) => this.setWord(key, e.target.value) })),
+      gOn, gCannot: !gCan, gTrack: gs.track, gKnob: gs.knob, gToggle: () => { if (gCan) this.change({ gSync: !this.state.gSync }); },
+      gLine: gCan ? (gOn ? "On. Hours and special dates from Admin go to Google Maps by themselves." : "Off. Google keeps whatever it shows now.") : "Google Business is not connected yet.",
+      langs,
+      anOn: st.analytics, anTrack: an.track, anKnob: an.knob, anToggle: () => this.change({ analytics: !this.state.analytics }),
+      anLine: st.analytics ? "Counts visits and bookings started, with no cookies, so no cookie banner. Numbers show in Reports." : "Off. The site counts nothing.",
+      // preview
+      frame: desk
+        ? { outer: "width: " + Math.round(1280 * Component.DESK_SCALE) + "px; height: " + Math.round(1015 * Component.DESK_SCALE) + "px;", inner: "width: 1280px; height: 1015px; transform: scale(" + Component.DESK_SCALE + "); --scr: " + S.status[0] + ";", cls: "fr-desk" }
+        : { outer: "width: " + Math.round(414 * Component.PHONE_SCALE) + "px; height: " + Math.round(844 * Component.PHONE_SCALE) + "px;", inner: "width: 414px; height: 844px; transform: scale(" + Component.PHONE_SCALE + "); --scr: " + S.status[0] + ";", cls: "fr-phone" },
+      chrome: { status: "background: " + S.status[0] + "; color: " + S.status[1] + ";", url: "background: " + S.urlBg + ";" + (st.style === "flyer" ? " border-top: 2px solid #14120F;" : ""),
+        urlPill: "background: " + S.urlPill + "; color: " + S.status[1] + ";", title: seoT || V.name || "New venue" },
+      pvRef: this.pvRef, pv: { cls: "st-" + st.style + " hf-" + fi + " dv-" + (desk ? "desk" : "phone"), acc, onAcc },
+      nav, pvSecs, pvEmpty: visible.length === 0, hero, lbl, numbers, noNumbers: numbers.length === 0, rooms, book, songs, songRows,
+      bar, party, find, hourRows, specialRows, foot, stick,
+      frameCaption: desk ? "Desktop · 1280 px wide · shown at 67%" : "Phone · 390 px wide · shown at 80%",
+      // demo
+      isW4: w4, isNew: !w4, w4Seg: segW(w4), newSeg: segW(!w4), setW4: () => this.setVenue("w4"), setNew: () => this.setVenue("new"),
+      modBooking: !!st.modBooking, modBookingOff: !st.modBooking, bookOnSeg: segW(st.modBooking), bookOffSeg: segW(!st.modBooking),
+      bookOn: () => this.setBookingModule(true), bookOff: () => this.setBookingModule(false),
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

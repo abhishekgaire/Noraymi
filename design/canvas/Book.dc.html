@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Book in three taps</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#07060a;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.bk-disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.bk-mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.bk-btn{transition:transform .15s ease,background .2s ease;cursor:pointer;font-family:inherit}
+.bk-btn:hover{transform:translateY(-1px)}.bk-btn:active{transform:translateY(1px)}
+.bk-btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.bk-receipt{position:relative}
+.bk-receipt::after{content:"";position:absolute;left:0;right:0;bottom:-12px;height:12px;background:radial-gradient(circle at 8px 12px,transparent 6px,#F4F1EA 6.5px) 0 0/16px 12px repeat-x}
+@keyframes bkprint{from{clip-path:inset(0 0 100% 0);transform:translateY(-16px)}to{clip-path:inset(0 0 -20px 0);transform:none}}
+.bk-print{animation:bkprint 1s cubic-bezier(.2,.7,.2,1) both}
+@supports (animation-timeline: view()){.bk-print{animation:bkprint linear both;animation-timeline:view();animation-range:entry 10% entry 70%}}
+@media (prefers-reduced-motion:reduce){.bk-print{animation:none!important;clip-path:none}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; position: relative; width: 100%; box-sizing: border-box; padding: 40px 20px 28px; display: flex; flex-direction: column; gap: 22px; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+  <div style="position: absolute; left: -170px; top: 120px; width: 400px; height: 400px; border-radius: 50%; background: radial-gradient(closest-side, #FF3DA6, transparent 70%); opacity: .14; pointer-events: none"></div>
+  <div class="bk-mono" style="position: relative; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #8E8994">↓ The register</div>
+  <h2 class="bk-disp" style="position: relative; margin: 0; font-size: clamp(50px, 14vw, 130px); color: #F4F1EA">Three taps.<br>You're in.</h2>
+  <p style="position: relative; margin: 0; font-size: 15px; line-height: 1.45; color: #A39FA8; max-width: 340px">Pick a night, count heads, say how long. We match you to the right-sized room. {{introDeposit}}</p>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <span class="bk-mono" style="font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F)">01 · When</span>
+      <span class="bk-mono" style="font-size: 11px; letter-spacing: .08em; color: #8E8994">{{dateLine}}</span>
+    </div>
+    <div style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+      <button type="button" class="bk-btn" onClick="{{pickTonight}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 13px 6px; font-weight: 700; font-size: 14px; {{segTonight}}">Tonight</button>
+      <button type="button" class="bk-btn" onClick="{{pickTomorrow}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 13px 6px; font-weight: 700; font-size: 14px; {{segTomorrow}}">Tomorrow</button>
+      <button type="button" class="bk-btn" onClick="{{pickDate}}" style="flex: 1; appearance: none; border: 0; border-radius: 999px; padding: 13px 6px; font-weight: 700; font-size: 14px; {{segDate}}">Pick a date</button>
+    </div>
+    <sc-if value="{{showDate}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="bk-date" style="font-size: 12px; color: #8E8994">Which night?</label>
+        <input id="bk-date" type="date" value="{{date}}" onChange="{{onDate}}" style="appearance: none; background: #141218; border: 1px solid rgba(244,241,234,.14); color: #F4F1EA; border-radius: 14px; padding: 12px 14px; font-family: inherit; font-size: 16px; color-scheme: dark">
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 10px">
+    <span class="bk-mono" style="font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F)">02 · How many</span>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px; border-radius: 20px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+      <button type="button" class="bk-btn" onClick="{{decG}}" aria-label="Fewer guests" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">−</button>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <div class="bk-disp" style="font-size: 46px; line-height: 1; color: #F4F1EA">{{guests}}</div>
+        <div style="font-size: 12px; color: #8E8994">guests · {{minNote}}</div>
+      </div>
+      <button type="button" class="bk-btn" onClick="{{incG}}" aria-label="More guests" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">+</button>
+    </div>
+  </div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 10px">
+    <span class="bk-mono" style="font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--acc, #D4FF3F)">03 · How long</span>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px; border-radius: 20px; background: #141218; border: 1px solid rgba(244,241,234,.1)">
+      <button type="button" class="bk-btn" onClick="{{decH}}" aria-label="Fewer hours" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">−</button>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <div class="bk-disp" style="font-size: 46px; line-height: 1; color: #F4F1EA">{{hours}}</div>
+        <div style="font-size: 12px; color: #8E8994">{{hoursLabel}}</div>
+      </div>
+      <button type="button" class="bk-btn" onClick="{{incH}}" aria-label="More hours" style="width: 54px; height: 54px; border-radius: 14px; border: 1px solid rgba(244,241,234,.14); background: #1c1a21; color: #F4F1EA; font-size: 26px; line-height: 1; appearance: none">+</button>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px">
+      <sc-for list="{{times}}" as="t" hint-placeholder-count="5"><button type="button" class="bk-btn" onClick="{{t.pick}}" style="appearance: none; border-radius: 999px; padding: 10px 14px; font-weight: 600; font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 2px; {{t.style}}"><span>{{t.label}}</span><span class="bk-mono" style="font-size: 9px; letter-spacing: .06em; opacity: .75">{{t.note}}</span></button></sc-for>
+    </div>
+    <div class="bk-mono" style="font-size: 11px; letter-spacing: .06em; color: #8E8994">{{availLine}}</div>
+  </div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 0; margin-top: 6px">
+    <div style="height: 14px; border-radius: 8px 8px 0 0; background: #1c1a21; border: 1px solid rgba(244,241,234,.12); border-bottom: 0; box-shadow: inset 0 -6px 10px -6px #000"></div>
+    <div class="bk-receipt bk-print" style="margin: 0 10px; background: #F4F1EA; color: #141218; padding: 22px 20px 26px; font-family: 'Space Mono', ui-monospace, monospace; font-size: 12.5px; line-height: 1.65; box-shadow: 0 30px 60px -30px rgba(0,0,0,.9)">
+      <div style="text-align: center; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; font-size: 13px">West 4 · Boho Karaoke</div>
+      <div style="text-align: center; font-size: 11px; color: #5b5764">186 W 4th St · New York</div>
+      <div style="border-top: 1px dashed #b8b4bd; margin: 12px 0"></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px"><span>{{dateLine}}</span><span>{{time}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px"><span>Room</span><span style="font-weight: 700">{{roomName}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; color: #5b5764"><span>{{roomCap}}</span><span>door closed</span></div>
+      <div style="border-top: 1px dashed #b8b4bd; margin: 12px 0"></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px"><span>{{lineLabel}}</span><span>{{subtotal}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px"><span>NYC tax 8.875%</span><span>{{tax}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px"><span>Gratuity 20%</span><span>{{tip}}</span></div>
+      <div style="border-top: 1px dashed #b8b4bd; margin: 12px 0"></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 17px; font-weight: 700"><span>Total at the bar</span><span>{{total}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px"><span>{{depLabel}}</span><span style="font-weight: 700">{{deposit}}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; color: #5b5764"><span>Comes off your tab</span><span>−{{deposit}}</span></div>
+      <div style="font-size: 11px; color: #5b5764; margin-top: 10px; line-height: 1.5">{{policy}} Drinks go on one tab you settle when you leave. NYC tax and a 20% gratuity are added to the tab. Same price, cash or card.</div>
+    </div>
+  </div>
+
+  <button type="button" class="bk-btn" style="appearance: none; border: 0; width: 100%; margin-top: 10px; padding: 18px; border-radius: 999px; background: #F4F1EA; color: #0b0a0d; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 12px 40px -12px rgba(244,241,234,.6)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1.9-4 2.4-1.7 2.9-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-3.8zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.8-1.4z"/></svg>Pay {{deposit}} deposit</button>
+  <button type="button" class="bk-btn" style="appearance: none; width: 100%; padding: 14px; border-radius: 999px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18); font-weight: 600; font-size: 14px">Google Pay · or type a card</button>
+  <div style="font-size: 12px; line-height: 1.5; color: #8E8994; text-align: center">Instant confirmation by text, with a link to change or cancel. {{refundLine}} Fri and Sat need 4 guests, weeknights 3. Everyone 21+ with ID.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":390,"height":1300}}'>
+class Component extends DCLogic {
+  // The deposit rule comes from Admin → Deposits & cancelling. Same object on every screen.
+  // mode: "hour" (first hour of room time) | "person" ($ per guest) | "flat" ($ per booking) | "percent" (of the room total)
+  static DEPOSIT = { on: true, mode: "hour", value: 0, vip: 250, refundHours: 24, late: "keep", noShow: "keep", graceMin: 15 };
+  constructor() { super(...arguments); this.state = { when: "tonight", date: "", guests: 6, hours: 2, time: "9:30 PM" }; }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const s = this.state;
+    const now = new Date();
+    let d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (s.when === "tomorrow") d.setDate(d.getDate() + 1);
+    if (s.when === "date" && s.date) { const p = s.date.split("-"); d = new Date(+p[0], +p[1] - 1, +p[2]); }
+    const weekend = d.getDay() === 5 || d.getDay() === 6;
+    const min = weekend ? 4 : 3;
+    const guests = Math.min(40, Math.max(min, s.guests));
+    // Comes from Admin → Hours & prices: every night closes at 4:00 AM, and a booking has to end by the close.
+    const CLOSE_MIN = 28 * 60, MAX_HOURS = 6;
+    const startMin = (t) => { const m = /(\d+):(\d+) (AM|PM)/.exec(t); let h = (Number(m[1]) % 12) + (m[3] === "PM" ? 12 : 0); if (h < 6) h += 24; return h * 60 + Number(m[2]); };
+    const maxFor = (t) => Math.max(1, Math.min(MAX_HOURS, Math.floor((CLOSE_MIN - startMin(t)) / 60)));
+    const maxH = maxFor(s.time);
+    const hours = Math.min(maxH, Math.max(1, s.hours));
+    const endAt = (() => { const e = startMin(s.time) + hours * 60, h = Math.floor(e / 60) % 24, mm = e % 60; return ((h % 12) || 12) + ":" + String(mm).padStart(2, "0") + " " + (h >= 12 ? "PM" : "AM"); })();
+    const vip = guests >= 20;
+    const sub = vip ? 250 * hours : 10 * guests * hours;
+    const tax = sub * 0.08875;
+    const tip = sub * 0.2;
+    const money = (n) => "$" + n.toFixed(2);
+    const seg = (k) => s.when === k ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;";
+    // Rooms that fit this party: 5 small (3–6), 5 medium (6–12), 3 large (12–20), 1 VIP (20–40). Left-tonight numbers are the demo's; the real page reads the board.
+    const fits = vip ? 1 : guests <= 6 ? 13 : guests <= 12 ? 8 : 3;
+    const busy = weekend ? { "7:00 PM": 0.3, "8:30 PM": 0.6, "9:30 PM": 0.85, "11:00 PM": 0.9, "12:30 AM": 0.5 } : { "7:00 PM": 0.1, "8:30 PM": 0.3, "9:30 PM": 0.5, "11:00 PM": 0.4, "12:30 AM": 0.2 };
+    const leftAt = (t) => Math.max(0, Math.round(fits * (1 - busy[t])));
+    const times = ["7:00 PM", "8:30 PM", "9:30 PM", "11:00 PM", "12:30 AM"].map((t) => {
+      const n = leftAt(t), full = n === 0, on = s.time === t;
+      return {
+        label: t, note: (full ? "full" : n === 1 ? "1 room left" : n <= 3 ? n + " left" : "open") + (!full && maxFor(t) < MAX_HOURS ? " · up to " + maxFor(t) + " hr" : ""),
+        pick: () => { if (!full) this.setState({ time: t }); },
+        style: on ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : full ? "background: transparent; color: #5b5764; border: 1px solid rgba(244,241,234,.08); text-decoration: line-through;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18);"
+      };
+    });
+    const availLine = (vip ? "The VIP room" : fits + " rooms fit " + guests) + " · " + (leftAt(s.time) === 0 ? "nothing left at " + s.time : leftAt(s.time) + " left at " + s.time + " " + d.toLocaleDateString("en-US", { weekday: "long" }));
+    const R = Component.DEPOSIT;
+    const deposit = !R.on ? 0 : vip ? R.vip : R.mode === "hour" ? 10 * guests : R.mode === "person" ? R.value * guests : R.mode === "flat" ? R.value : sub * R.value / 100;
+    const amtWords = vip ? "$" + R.vip : R.mode === "hour" ? "the first hour" : R.mode === "person" ? "$" + R.value + " a person" : R.mode === "flat" ? "$" + R.value : R.value + "% of the room";
+    const lateWords = { keep: "the deposit is kept", half: "half comes back", refund: "it still comes back" }[R.late];
+    const noShowWords = { keep: "the deposit is kept", hour: "the first hour is charged", none: "nothing is charged" }[R.noShow];
+    const policy = R.on
+      ? "A deposit of " + amtWords + " holds your room. Cancel at least " + R.refundHours + " hours ahead and it all comes back; later than that, " + lateWords + ". We hold the room " + R.graceMin + " minutes past your start; if you don’t show, " + noShowWords + ". The deposit comes off your tab."
+      : "No deposit. We hold your room " + R.graceMin + " minutes past your start time.";
+    return {
+      accent: acc,
+      dateLine: d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase(),
+      time: s.time,
+      times,
+      segTonight: seg("tonight"),
+      segTomorrow: seg("tomorrow"),
+      segDate: seg("date"),
+      showDate: s.when === "date",
+      date: s.date,
+      pickTonight: () => this.setState({ when: "tonight" }),
+      pickTomorrow: () => this.setState({ when: "tomorrow" }),
+      pickDate: () => this.setState({ when: "date" }),
+      onDate: (e) => this.setState({ when: "date", date: e.target.value }),
+      guests,
+      hours,
+      minNote: weekend ? "Fri & Sat: 4 minimum" : "weeknights: 3 minimum",
+      hoursLabel: (hours === 1 ? "hour · 1 hour minimum" : "hours") + " · ends " + endAt + (hours === maxH && maxH < MAX_HOURS ? ", the 4 AM close" : ""),
+      incG: () => this.setState({ guests: Math.min(40, guests + 1) }),
+      decG: () => this.setState({ guests: Math.max(min, guests - 1) }),
+      incH: () => this.setState({ hours: Math.min(maxH, hours + 1) }),
+      decH: () => this.setState({ hours: Math.max(1, hours - 1) }),
+      roomName: vip ? "VIP room" : "Private room",
+      roomCap: vip ? "for parties of 20 to 40" : "sized for " + guests,
+      lineLabel: vip ? "VIP room × " + hours + " hr × $250" : guests + " guests × " + hours + " hr × $10",
+      availLine, deposit: money(deposit), policy,
+      introDeposit: R.on ? "A small deposit holds it, and you get it back if you cancel " + R.refundHours + " hours ahead." : "Nothing to pay until you leave.",
+      depLabel: R.on ? "Deposit now · " + (vip ? "VIP room" : R.mode === "hour" ? "first hour" : "to hold the room") : "Deposit",
+      refundLine: R.on ? "Full refund up to " + R.refundHours + " hours before." : "",
+      subtotal: money(sub),
+      tax: money(tax),
+      tip: money(tip),
+      total: money(sub + tax + tip)
+    };
+  }
+}
+</script>
+</body>
+</html>

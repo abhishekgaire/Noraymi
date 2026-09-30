@@ -1,0 +1,1437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Admin</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rail a{transition:background .15s ease}.rail a:hover{background:rgba(244,241,234,.06)}
+.in{width:100%;box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.14);border-radius:8px;padding:9px 11px;color:#F4F1EA;font:inherit;font-size:13px;outline:0}
+.in:focus{border-color:#D4FF3F}
+.in[type=time],.in[type=date]{color-scheme:dark}
+.in[type=time]::-webkit-calendar-picker-indicator{margin-left:2px;opacity:.55}
+.sec{transition:background .15s ease}.sec:hover{background:rgba(244,241,234,.06)}
+.row{display:grid;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;background:#121016;border:1px solid rgba(244,241,234,.08)}
+@keyframes toast{0%{opacity:0;transform:translateY(8px)}12%,85%{opacity:1;transform:none}100%{opacity:0}}
+.toast{animation:toast 3s ease both}
+@keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.pop{animation:pop .2s cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion:reduce){.toast,.pop{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav class="rail" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Boho Karaoke · desktop</span></div>
+    <a href="Board.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Tonight</a>
+    <sc-if value="{{railCalendar}}" hint-placeholder-val="{{true}}"><a href="DeskCalendar.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Calendar</a></sc-if>
+    <sc-if value="{{railMessages}}" hint-placeholder-val="{{true}}"><a href="DeskMessages.dc.html" style="display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Messages <span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d">2</span></a></sc-if>
+    <a href="Rail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar POS</a>
+    <sc-if value="{{railBar}}" hint-placeholder-val="{{true}}"><a href="Bar.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar orders</a></sc-if>
+    <a href="Night.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Close the night</a>
+    <sc-if value="{{railReports}}" hint-placeholder-val="{{true}}"><a href="DeskReports.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Reports</a></sc-if>
+    <a href="AdminDesk.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 700; color: #0b0a0d; text-decoration: none; background: var(--acc, #D4FF3F)">Admin</a>
+    <sc-if value="{{railHidden}}" hint-placeholder-val="{{false}}"><span style="padding: 8px 12px 0; font-size: 11px; line-height: 1.4; color: #6F6B78">{{railHiddenLine}}</span></sc-if>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Signed in · passkey</span><br><b>Abhishek G.</b> · Owner<br><span style="font-size: 11px; color: #8E8994">Admin, team changes and exports need a passkey. A PIN never opens them.</span></div>
+      <a href="Pin.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-size: 12px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.1)">Lock · PIN</a>
+      <span class="mono" style="font-size: 9px; letter-spacing: .1em; color: #6F6B78; text-align: center">Online · synced 10s ago</span>
+    </div>
+  </nav>
+
+  <aside style="width: 232px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 18px 10px; border-right: 1px solid rgba(244,241,234,.08); background: #0c0b0f">
+    <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; padding: 4px 12px 10px">Settings</div>
+    <sc-for list="{{sections}}" as="s" hint-placeholder-count="8">
+      <button type="button" class="btn sec" onClick="{{s.pick}}" style="appearance: none; border: 0; text-align: left; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border-radius: 10px; font-family: inherit; {{s.style}}"><span style="font-size: 14px; font-weight: 600">{{s.label}}</span><span style="font-size: 11px; opacity: .7">{{s.hint}}</span></button>
+    </sc-for>
+    <div style="margin-top: auto; padding: 12px; border-radius: 10px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 11px; color: #8E8994; line-height: 1.5">Every change is logged with who and when. Nothing reaches the website or the room screens until you press Save.</div>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 14px; padding: 16px 24px; border-bottom: 1px solid rgba(244,241,234,.08)">
+      <div style="display: flex; flex-direction: column"><span class="disp" style="font-size: 26px">{{title}}</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">{{subtitle}}</span></div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+        <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">{{savedLine}}</span>
+        <button type="button" class="btn" onClick="{{discard}}" style="appearance: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Discard</button>
+        <button type="button" class="btn" onClick="{{save}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 13px; {{saveStyle}}">{{saveLabel}}</button>
+      </div>
+    </header>
+
+    <section style="flex: 1; min-height: 0; overflow: auto; padding: 20px 24px 28px; display: flex; flex-direction: column; gap: 18px">
+
+      <sc-if value="{{showHours}}" hint-placeholder-val="{{true}}">
+        <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Opening hours · drives “Open now” on the site and the board</div>
+            <div style="display: grid; grid-template-columns: 34px 70px minmax(0, 1fr) 12px minmax(0, 1fr); gap: 6px; align-items: center; font-size: 11px; color: #8E8994"><span>Day</span><span></span><span>Opens</span><span></span><span>Closes</span></div>
+            <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+              <div style="display: grid; grid-template-columns: 34px 70px minmax(0, 1fr) 12px minmax(0, 1fr); gap: 6px; align-items: center; min-height: 36px">
+                <span style="font-size: 13px; font-weight: 700">{{d.day}}</span>
+                <button type="button" class="btn" onClick="{{d.toggle}}" aria-label="{{d.aria}}" style="appearance: none; border-radius: 999px; padding: 6px 0; font-weight: 700; font-size: 12px; {{d.toggleStyle}}">{{d.toggleLabel}}</button>
+                <sc-if value="{{d.open}}" hint-placeholder-val="{{true}}">
+                  <input class="in" type="time" step="900" value="{{d.open24}}" onChange="{{d.setOpen}}" aria-label="{{d.openAria}}" style="padding: 7px 9px">
+                  <span style="font-size: 12px; color: #8E8994; text-align: center">–</span>
+                  <input class="in" type="time" step="900" value="{{d.close24}}" onChange="{{d.setClose}}" aria-label="{{d.closeAria}}" style="padding: 7px 9px">
+                </sc-if>
+                <sc-if value="{{d.closed}}" hint-placeholder-val="{{false}}">
+                  <span style="grid-column: 3 / 6; font-size: 12px; color: #FF3DA6">Closed all day · online booking is off for {{d.day}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div style="font-size: 11px; color: #6F6B78">A close time earlier than the open time means after midnight (4:00 AM is the next morning).</div>
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 6px 12px; align-items: center; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+              <label for="dk-lc" style="font-size: 13px; font-weight: 700">Last call for alcohol</label>
+              <input id="dk-lc" class="in" type="time" step="900" value="{{lastCall24}}" onChange="{{setLastCall}}" style="padding: 7px 9px">
+              <span style="grid-column: 1 / 3; font-size: 11px; line-height: 1.45; color: #8E8994">{{lastCallHint}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+              <span style="font-size: 11px; color: #8E8994">Tonight’s status</span>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px"><sc-for list="{{autoModes}}" as="m" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 6px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div>
+              <span style="font-size: 12px; {{tonightStyle}}">{{tonightLine}}</span>
+            </div>
+            <div><label for="dk-hh" style="font-size: 11px; color: #8E8994">Happy hour line (leave empty to hide it everywhere)</label><input id="dk-hh" class="in" type="text" value="{{hh}}" onChange="{{setHh}}" placeholder="e.g. Mon to Thu, 5 to 7 PM · $2 off drinks" style="margin-top: 4px"></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 18px">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">How the website reads</div>
+              <div style="font-size: 15px; font-weight: 600; line-height: 1.45">{{hoursLine}}</div>
+              <sc-if value="{{hasSpecial}}" hint-placeholder-val="{{true}}"><div style="font-size: 12px; color: #C9C5CE; line-height: 1.5">{{specialLine}}</div></sc-if>
+              <div style="font-size: 11px; color: #6F6B78">Same words on the homepage, the menu, Google Business and the booking page.</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Special dates · holidays, closures, private events</div>
+              <sc-for list="{{specials}}" as="x" hint-placeholder-count="2">
+                <div style="display: grid; grid-template-columns: 84px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                  <span class="mono" style="font-size: 12px; font-weight: 700">{{x.label}}</span>
+                  <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600; white-space: nowrap; {{x.whatStyle}}">{{x.what}}</div><div style="font-size: 11px; color: #8E8994">{{x.note}}</div></div>
+                  <button type="button" class="btn" onClick="{{x.remove}}" aria-label="Remove this date" style="appearance: none; width: 28px; height: 28px; border-radius: 8px; padding: 0; font-size: 13px; font-weight: 700; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">✕</button>
+                </div>
+              </sc-for>
+              <sc-if value="{{noSpecial}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #6F6B78">No special dates. Every day follows the weekly hours.</div></sc-if>
+              <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+                <span style="font-size: 11px; color: #8E8994">Add a date</span>
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px">
+                  <input class="in" type="date" value="{{nsDate}}" onChange="{{setNsDate}}" aria-label="Date" min="2026-09-25">
+                  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px"><sc-for list="{{nsModes}}" as="m" hint-placeholder-count="2"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 8px 4px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div>
+                </div>
+                <sc-if value="{{nsHours}}" hint-placeholder-val="{{false}}">
+                  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); gap: 8px; align-items: center">
+                    <input class="in" type="time" step="900" value="{{nsOpen}}" onChange="{{setNsOpen}}" aria-label="Special date opens">
+                    <span style="font-size: 12px; color: #8E8994; text-align: center">to</span>
+                    <input class="in" type="time" step="900" value="{{nsClose}}" onChange="{{setNsClose}}" aria-label="Special date closes">
+                  </div>
+                </sc-if>
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px">
+                  <input class="in" type="text" value="{{nsNote}}" onChange="{{setNsNote}}" placeholder="Note, e.g. Private event" aria-label="Note">
+                  <button type="button" class="btn" onClick="{{addSpecial}}" style="appearance: none; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">+ Add date</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Prices · used by the site, the board and every receipt</div>
+          <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px">
+            <div><label for="dk-pp" style="font-size: 11px; color: #8E8994">Per person, per hour $</label><input id="dk-pp" class="in" type="number" value="{{pp}}" onChange="{{setPp}}" style="margin-top: 4px"></div>
+            <div><label for="dk-vip" style="font-size: 11px; color: #8E8994">VIP room, per hour $</label><input id="dk-vip" class="in" type="number" value="{{vip}}" onChange="{{setVip}}" style="margin-top: 4px"></div>
+            <div><label for="dk-mwk" style="font-size: 11px; color: #8E8994">Min. people, weeknights</label><input id="dk-mwk" class="in" type="number" value="{{minWk}}" onChange="{{setMinWk}}" style="margin-top: 4px"></div>
+            <div><label for="dk-mwe" style="font-size: 11px; color: #8E8994">Min. people, Fri and Sat</label><input id="dk-mwe" class="in" type="number" value="{{minWe}}" onChange="{{setMinWe}}" style="margin-top: 4px"></div>
+            <div><label for="dk-dmg" style="font-size: 11px; color: #8E8994">Damage fee $</label><input id="dk-dmg" class="in" type="number" value="{{dmg}}" onChange="{{setDmg}}" style="margin-top: 4px"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span style="font-size: 11px; color: #8E8994">Card fee and gratuity</span>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 12px; border-radius: 8px; background: #141218; border: 1px solid rgba(244,241,234,.12)"><span style="flex: 1; min-width: 0; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{payShort}}</span><button type="button" class="btn" onClick="{{goPay}}" style="appearance: none; flex: none; border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2)">Change</button></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 11px; color: #8E8994">Comps, voids and refunds</span><div style="font-size: 12px; line-height: 1.45; color: #C9C5CE; padding: 8px 10px; border-radius: 8px; background: #141218; border: 1px solid rgba(244,241,234,.12)">Up to $25 each and $75 a shift, a reason is enough, and it’s on the exceptions report. Above that, and every refund, a manager approves on their own phone. Nobody approves their own.</div></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08); font-size: 13px; color: #8E8994"><span>Preview: 6 guests, 2 hours, room tab</span><span class="mono" style="color: #F4F1EA; text-align: right">{{preview}}</span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showPay}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start">
+
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); min-width: 0">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Card fee</div>
+            <div style="font-size: 12px; color: #C9C5CE; line-height: 1.5">{{stripeFeeLine}}</div>
+            <div role="radiogroup" aria-label="Card fee" style="display: flex; flex-direction: column; gap: 6px">
+              <sc-for list="{{feeModes}}" as="m" hint-placeholder-count="3">
+                <button type="button" class="btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="appearance: none; text-align: left; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; padding: 9px 12px; border-radius: 10px; font-family: inherit; {{m.style}}">
+                  <span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; margin-top: 1px; {{m.dotStyle}}"></span>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 13px; font-weight: 700">{{m.label}}</span><span style="font-size: 11px; opacity: .8; line-height: 1.4">{{m.hint}}</span></span>
+                </button>
+              </sc-for>
+            </div>
+            <sc-if value="{{feeHasPct}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+                <input class="in" type="number" step="0.1" min="0" value="{{fee}}" onChange="{{setFee}}" aria-label="{{feeAria}}" style="width: 84px; {{feeInStyle}}">
+                <span style="font-size: 12px; color: #8E8994">{{feeUnit}}</span>
+                <sc-if value="{{feeOver}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{useCap}}" style="appearance: none; border: 0; margin-left: auto; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 12px; background: #FF3DA6; color: #0b0a0d">Use {{capPct}}%</button></sc-if>
+              </div>
+              <div style="font-size: 12px; line-height: 1.45; {{feeCapStyle}}">{{feeCapLine}}</div>
+            </sc-if>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+              <sc-for list="{{feeRules}}" as="r" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 12px; line-height: 1.45; color: #C9C5CE"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8E8994" stroke-width="1.4" aria-hidden="true" style="margin-top: 3px"><rect x="2" y="5.5" width="8" height="5.5" rx="1.2"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5"/></svg><span>{{r}}</span></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{feeNeedsNotice}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; {{noticeBox}}">
+                <div style="font-size: 12px; font-weight: 700">Tell Visa, Mastercard and Stripe 30 days before</div>
+                <div style="display: grid; grid-template-columns: 146px minmax(0, 1fr); gap: 10px; align-items: center">
+                  <input class="in" type="date" value="{{notice}}" onChange="{{setNotice}}" aria-label="Date the notices were sent" style="padding: 7px 9px">
+                  <div style="font-size: 11px; line-height: 1.4; {{noticeStyle}}">{{noticeLine}}</div>
+                </div>
+              </div>
+            </sc-if>
+            <div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: #141218">
+              <span style="font-size: 11px; color: #8E8994; padding-bottom: 2px">On a $100.00 check</span>
+              <sc-for list="{{feeEx}}" as="x" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px"><span style="color: #C9C5CE">{{x.k}}</span><span class="mono">{{x.v}}</span></div></sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); min-width: 0">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Tips &amp; gratuity</div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 11px; color: #8E8994">Add a gratuity automatically</span>
+              <div role="radiogroup" aria-label="Add a gratuity automatically" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px"><sc-for list="{{gratModes}}" as="m" hint-placeholder-count="4"><button type="button" class="btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 4px; font-weight: 700; font-size: 12px; white-space: nowrap; {{m.style}}">{{m.label}}</button></sc-for></div>
+              <span style="font-size: 12px; color: #C9C5CE">{{gratHint}}</span>
+            </div>
+            <sc-if value="{{gratOn}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+                <input class="in" type="number" min="0" max="30" value="{{tip}}" onChange="{{setTip}}" aria-label="Gratuity percent" style="width: 70px">
+                <span style="font-size: 12px; color: #8E8994">% of room time and drinks, before tax</span>
+                <sc-if value="{{gratParty}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 8px; margin-left: auto"><span style="font-size: 12px; color: #8E8994">From</span><input class="in" type="number" min="2" value="{{partyMin}}" onChange="{{setPartyMin}}" aria-label="Party size for the gratuity" style="width: 60px"><span style="font-size: 12px; color: #8E8994">guests</span></span></sc-if>
+              </div>
+            </sc-if>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+              <sc-for list="{{gratRules}}" as="r" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: start; font-size: 12px; line-height: 1.45; color: #C9C5CE"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8E8994" stroke-width="1.4" aria-hidden="true" style="margin-top: 3px"><rect x="2" y="5.5" width="8" height="5.5" rx="1.2"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5"/></svg><span>{{r}}</span></div>
+              </sc-for>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+              <div style="min-width: 0"><div style="font-size: 13px; font-weight: 700">Tip screen on the card reader</div><div style="font-size: 11px; color: #8E8994; line-height: 1.4">{{tipScreenLine}}</div></div>
+              <button type="button" class="btn" role="switch" onClick="{{toggleTipScreen}}" aria-checked="{{tipScreen}}" aria-label="Tip screen on the card reader" style="appearance: none; border: 0; padding: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{tipTrack}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{tipKnob}}"></span></button>
+            </div>
+            <sc-if value="{{tipScreen}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+                <sc-for list="{{tipPcts}}" as="t" hint-placeholder-count="3"><span style="display: inline-flex; align-items: center; gap: 4px"><input class="in" type="number" min="0" max="50" value="{{t.v}}" onChange="{{t.set}}" aria-label="{{t.aria}}" style="width: 54px; padding: 7px 8px"><span style="font-size: 12px; color: #8E8994">%</span></span></sc-for>
+                <span style="font-size: 12px; color: #8E8994; margin-left: 4px; white-space: nowrap">+ custom, no tip</span>
+              </div>
+            </sc-if>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)"><span style="font-size: 11px; color: #8E8994">Who gets tips and gratuity</span><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><sc-for list="{{tipModes}}" as="m" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 4px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div></div>
+            <div style="font-size: 11px; line-height: 1.45; color: #FFB13D; padding: 8px 10px; border-radius: 8px; background: #FFB13D12">{{watchLine}}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+          <div style="display: flex; align-items: baseline; gap: 12px"><span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Try it · Room 9 tonight, 12 guests</span><span style="margin-left: auto; font-size: 11px; color: #6F6B78">Before the $120 deposit comes off</span></div>
+          <div style="display: flex; align-items: stretch; gap: 8px">
+            <sc-for list="{{tryLines}}" as="x" hint-placeholder-count="5"><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #141218; {{x.style}}"><span style="font-size: 11px; color: #8E8994; white-space: nowrap">{{x.k}}</span><span class="mono" style="font-size: 14px; font-weight: 700">{{x.v}}</span></div></sc-for>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; font-size: 13px; color: #C9C5CE"><span style="font-size: 11px; color: #8E8994">They pay</span><sc-for list="{{tryPays}}" as="x" hint-placeholder-count="3"><span>{{x.k}} <b class="mono" style="color: #F4F1EA">{{x.v}}</b></span></sc-for></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showFeatures}}" hint-placeholder-val="{{false}}">
+        <div style="position: relative">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div style="display: flex; align-items: center; gap: 16px">
+              <div style="min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Your plan</span>
+                <span style="font-size: 17px; font-weight: 700; line-height: 1.25; white-space: nowrap">{{planLine}}</span>
+              </div>
+              <span style="margin-left: auto; font-size: 12px; color: #C9C5CE; text-align: right">{{planSub}}</span>
+              <button type="button" class="btn" onClick="{{togglePlan}}" aria-expanded="{{planOpen}}" style="appearance: none; flex: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; white-space: nowrap; {{planBtnStyle}}">Change plan</button>
+            </div>
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; padding-top: 10px; border-top: 1px solid rgba(244,241,234,.08)">
+              <span class="mono" title="Legal and money basics. Every plan has them." style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Always on</span>
+              <sc-for list="{{core}}" as="k" hint-placeholder-count="4">
+                <span title="{{k.what}}" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #C9C5CE; white-space: nowrap"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8E8994" stroke-width="1.4" aria-hidden="true" style="flex: none"><rect x="2" y="5.5" width="8" height="5.5" rx="1.2"/><path d="M4 5.5V4a2 2 0 0 1 4 0v1.5"/></svg>{{k.name}}</span>
+              </sc-for>
+            </div>
+          </div>
+          <sc-if value="{{planOpen}}" hint-placeholder-val="{{false}}">
+            <div class="pop" role="dialog" aria-label="Change plan" style="position: absolute; right: 0; top: 64px; z-index: 30; width: 580px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 16px; background: #17151c; border: 1px solid rgba(244,241,234,.16); box-shadow: 0 30px 60px -18px rgba(0,0,0,.95)">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px"><span class="disp" style="font-size: 22px">Change plan</span><button type="button" class="btn" onClick="{{togglePlan}}" aria-label="Close" style="appearance: none; width: 28px; height: 28px; border-radius: 8px; padding: 0; font-size: 13px; font-weight: 700; background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14)">✕</button></div>
+              <sc-for list="{{planRows}}" as="p" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 12px; border-radius: 12px; {{p.rowStyle}}">
+                  <div style="min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                    <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap"><span style="font-size: 15px; font-weight: 700">{{p.name}}</span><span class="mono" style="font-size: 12px; {{p.priceStyle}}">{{p.price}}</span></div>
+                    <span style="font-size: 11px; color: #8E8994; line-height: 1.4">{{p.what}}</span>
+                  </div>
+                  <sc-if value="{{p.isCurrent}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; color: var(--acc, #D4FF3F)">Your plan</span></sc-if>
+                  <sc-if value="{{p.canAsk}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{p.ask}}" style="appearance: none; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2)">Ask to switch</button></sc-if>
+                  <sc-if value="{{p.asked}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; color: #C9C5CE">✓ Request sent</span></sc-if>
+                </div>
+              </sc-for>
+              <div style="font-size: 11px; color: #8E8994; line-height: 1.5; padding-top: 2px">Add-ons on any plan: {{addOnNames}}.<br>Plan changes go through support, so nothing turns off by surprise.</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: baseline; gap: 12px">
+            <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; white-space: nowrap">{{modsLabel}}</span>
+            <span style="margin-left: auto; font-size: 11px; color: #6F6B78; text-align: right">Turning one off hides its screens everywhere: the left menu, the staff phone and the website.</span>
+          </div>
+          <sc-for list="{{modRows}}" as="row" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+              <sc-for list="{{row.cards}}" as="c" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 9px 12px 10px; border-radius: 12px; {{c.cardStyle}}">
+                  <div style="display: flex; align-items: flex-start; gap: 10px">
+                    <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: 700; line-height: 1.3; padding-top: 2px">{{c.name}}</span>
+                    <button type="button" class="btn" onClick="{{c.toggle}}" role="switch" aria-checked="{{c.on}}" aria-label="{{c.aria}}" style="appearance: none; border: 0; padding: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{c.trackStyle}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{c.knobStyle}}"></span></button>
+                  </div>
+                  <div title="{{c.what}}" style="font-size: 11px; color: #8E8994; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.line}}</div>
+                  <sc-if value="{{c.hasTags}}" hint-placeholder-val="{{false}}"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding-top: 2px"><sc-for list="{{c.tags}}" as="t" hint-placeholder-count="1"><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; white-space: nowrap; {{t.style}}">{{t.label}}</span></sc-for><sc-if value="{{c.hasTagNote}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; color: #C9C5CE">{{c.tagNote}}</span></sc-if></div></sc-if>
+                  <sc-if value="{{c.hasNote}}" hint-placeholder-val="{{false}}"><div style="margin-top: 2px; padding: 5px 8px; border-radius: 8px; font-size: 11px; line-height: 1.4; {{c.noteStyle}}">{{c.note}}<sc-if value="{{c.hasNoteBtn}}" hint-placeholder-val="{{false}}"> · <button type="button" class="btn" onClick="{{c.noteAct}}" style="appearance: none; border: 0; background: transparent; padding: 0; font-family: inherit; font-size: 11px; font-weight: 700; color: #F4F1EA; text-decoration: underline; text-underline-offset: 3px">{{c.noteBtn}}</button></sc-if></div></sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{row.hasConfirm}}" hint-placeholder-val="{{false}}">
+              <div class="pop" role="alertdialog" aria-label="{{cf.title}}" style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px; {{cf.boxStyle}}">
+                <div style="font-size: 15px; font-weight: 700">{{cf.title}}</div>
+                <sc-if value="{{cf.hasList}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px"><span style="font-size: 12px; color: #C9C5CE; margin-right: 2px">{{cf.listLabel}}</span><sc-for list="{{cf.list}}" as="x" hint-placeholder-count="3"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; {{cf.chipStyle}}">{{x}}</span></sc-for></div></sc-if>
+                <sc-if value="{{cf.hasAlready}}" hint-placeholder-val="{{false}}"><div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px"><span style="font-size: 12px; color: #8E8994; margin-right: 2px">Already off:</span><sc-for list="{{cf.already}}" as="x" hint-placeholder-count="2"><span style="font-size: 12px; padding: 4px 10px; border-radius: 999px; color: #C9C5CE; border: 1px solid rgba(244,241,234,.16)">{{x}}</span></sc-for></div></sc-if>
+                <div style="font-size: 12px; color: #8E8994; line-height: 1.5">{{cf.body}}</div>
+                <div style="display: flex; gap: 8px">
+                  <button type="button" class="btn" onClick="{{cf.yes}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; {{cf.yesStyle}}">{{cf.yesLabel}}</button>
+                  <button type="button" class="btn" onClick="{{cf.no}}" style="appearance: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">{{cf.noLabel}}</button>
+                </div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{hasLocked}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: baseline; gap: 12px"><span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Not in your plan</span><span style="margin-left: auto; font-size: 11px; color: #6F6B78">Ask to add sends a request to support.</span></div>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+              <sc-for list="{{locked}}" as="x" hint-placeholder-count="4">
+                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; padding: 9px 12px 10px; border-radius: 12px; background: #0e0d11; {{x.cardStyle}}">
+                  <span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #8E8994">Not in your plan</span>
+                  <div style="font-size: 13px; font-weight: 700; line-height: 1.3; color: #C9C5CE">{{x.name}}</div>
+                  <div title="{{x.what}}" style="font-size: 11px; color: #6F6B78; line-height: 1.4">{{x.line}}</div>
+                  <div style="font-size: 10px; color: #8E8994; line-height: 1.35">{{x.sub}}</div>
+                  <div style="margin-top: auto; padding-top: 4px">
+                    <sc-if value="{{x.canAsk}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{x.ask}}" style="appearance: none; border-radius: 8px; padding: 6px 11px; font-weight: 700; font-size: 12px; white-space: nowrap; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.22)">Ask to add</button></sc-if>
+                    <sc-if value="{{x.asked}}" hint-placeholder-val="{{false}}"><span class="mono" style="display: inline-block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; padding: 7px 0; color: var(--acc, #D4FF3F)">✓ Request sent</span></sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{showDepositOff}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 22px; border-radius: 14px; background: #121016; border: 1px dashed rgba(244,241,234,.18)">
+          <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #FF3DA6">Off in Features</span>
+          <div style="font-size: 20px; font-weight: 700">{{depOffTitle}}</div>
+          <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5; max-width: 560px">Guests can’t book online, so there is no deposit to take. Your deposit rule is kept for when you turn booking back on.</div>
+          <button type="button" class="btn" onClick="{{goFeatures}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Open Features</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showDepositOn}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px">
+          <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <div><div style="font-size: 14px; font-weight: 700">Take a deposit when people book online</div><div style="font-size: 11px; color: #8E8994">Charged to their card at booking and taken off the tab when they pay.</div></div>
+              <button type="button" class="btn" onClick="{{toggleDep}}" aria-label="Deposit on or off" style="appearance: none; border: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{depTrack}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{depKnob}}"></span></button>
+            </div>
+            <sc-if value="{{depOn}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 11px; color: #8E8994">How much</span>
+                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+                  <sc-for list="{{depModes}}" as="m" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 6px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for>
+                </div>
+                <sc-if value="{{depHasValue}}" hint-placeholder-val="{{false}}">
+                  <div style="display: flex; align-items: center; gap: 8px"><input class="in" type="number" value="{{depValue}}" onChange="{{setDepValue}}" aria-label="Deposit amount" style="width: 110px"><span style="font-size: 12px; color: #8E8994">{{depUnit}}</span></div>
+                </sc-if>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                <div><label for="dk-cancel" style="font-size: 11px; color: #8E8994">Full refund if they cancel at least … hours before</label><input id="dk-cancel" class="in" type="number" value="{{cancel}}" onChange="{{setCancel}}" style="margin-top: 4px"></div>
+                <div><label for="dk-grace2" style="font-size: 11px; color: #8E8994">Hold the room after start time, minutes</label><input id="dk-grace2" class="in" type="number" value="{{grace}}" onChange="{{setGrace}}" style="margin-top: 4px"></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 11px; color: #8E8994">If they cancel later than that</span>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><sc-for list="{{lateModes}}" as="m" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 6px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 11px; color: #8E8994">If they don’t show up</span>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><sc-for list="{{noShowModes}}" as="m" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 6px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+                <div><div style="font-size: 13px; font-weight: 600">Big parties (20+) pay a different deposit</div><div style="font-size: 11px; color: #8E8994">{{vipDepLine}}</div></div>
+                <input class="in" type="number" value="{{vipDep}}" onChange="{{setVipDep}}" aria-label="Big party deposit" style="width: 90px">
+              </div>
+            </sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <div style="padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 10px">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">What guests read · the same words everywhere</div>
+              <div style="font-size: 15px; line-height: 1.5">{{depPolicy}}</div>
+              <div style="font-size: 11px; color: #6F6B78">Shows on the booking page, the booking receipt, the confirmation text, the change-or-cancel page and the homepage price line.</div>
+            </div>
+            <div style="padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); display: flex; flex-direction: column; gap: 6px">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Try it · 6 people, 2 hours, Friday 9:30 PM</div>
+              <sc-for list="{{depExamples}}" as="x" hint-placeholder-count="4"><div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid rgba(244,241,234,.06)"><span style="color: #C9C5CE">{{x.k}}</span><span class="mono">{{x.v}}</span></div></sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showCash}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 14px">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">How cash is kept · every time the drawer opens, it’s logged with who</div>
+          <div role="radiogroup" aria-label="Drawer model" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+            <sc-for list="{{cashModes}}" as="c" hint-placeholder-count="2">
+              <button type="button" class="btn" role="radio" aria-checked="{{c.on}}" onClick="{{c.pick}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 14px; font-family: inherit; {{c.style}}">
+                <span style="display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 16px; font-weight: 700">{{c.name}}</span><sc-if value="{{c.hasTag}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; white-space: nowrap; {{c.tagStyle}}">{{c.tag}}</span></sc-if></span>
+                <span style="font-size: 12px; line-height: 1.5; color: #C9C5CE">{{c.what}}</span>
+                <span style="font-size: 11px; line-height: 1.45; color: #8E8994">{{c.fits}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{cashPending}}" hint-placeholder-val="{{false}}"><div role="status" style="padding: 10px 12px; border-radius: 10px; background: #FFB13D14; border: 1px solid #FFB13D66; font-size: 12px; line-height: 1.5; color: #FFD597">{{cashPendingLine}}</div></sc-if>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start">
+            <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Counts · the same for both</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px">
+                <div><label for="dk-bank" style="font-size: 11px; color: #8E8994">Starting bank, $</label><input id="dk-bank" class="in" type="number" value="{{bank}}" onChange="{{setBank}}" style="margin-top: 4px"></div>
+                <div><label for="dk-off" style="font-size: 11px; color: #8E8994">Needs a note if off by over $</label><input id="dk-off" class="in" type="number" value="{{noteOver}}" onChange="{{setNoteOver}}" style="margin-top: 4px"></div>
+                <div><label for="dk-po" style="font-size: 11px; color: #8E8994">Paid-outs need approval over $</label><input id="dk-po" class="in" type="number" value="{{paidOutOk}}" onChange="{{setPaidOutOk}}" style="margin-top: 4px"></div>
+              </div>
+              <span style="font-size: 11px; color: #8E8994">A second person counts too</span>
+              <div role="radiogroup" aria-label="Second counter" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><sc-for list="{{witnessModes}}" as="m" hint-placeholder-count="3"><button type="button" class="btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 6px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div>
+              <div style="font-size: 12px; color: #8E8994; line-height: 1.5">Every count is blind: what the drawer should hold shows only after someone enters what they counted. The drawer opens only for a cash payment or an approved no-sale.</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">{{cashRulesHead}}</div>
+              <sc-if value="{{cashHouse}}" hint-placeholder-val="{{true}}">
+                <div style="font-size: 13px; line-height: 1.55; color: #C9C5CE">Bartenders and servers all take cash into the same drawer, and each payment is stamped with who took it. The manager on duty answers for the drawer. When the manager changes, they count it blind and the next manager accepts on their own phone, with both names on the record. The close counts it once more. Over or short goes on the night, with every opening and no-sale listed by person.</div>
+              </sc-if>
+              <sc-if value="{{cashPer}}" hint-placeholder-val="{{false}}">
+                <span style="font-size: 11px; color: #8E8994">Who gets their own drawer</span>
+                <div role="radiogroup" aria-label="Who gets a drawer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px"><sc-for list="{{drawerWho}}" as="m" hint-placeholder-count="2"><button type="button" class="btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="appearance: none; border-radius: 8px; padding: 9px 6px; font-weight: 700; font-size: 12px; {{m.style}}">{{m.label}}</button></sc-for></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                  <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">Pull a tray, count it at close</div><div style="font-size: 11px; color: #8E8994; line-height: 1.4">For a shift change in a rush: the tray goes to the office and the next person starts a fresh bank</div></div>
+                  <button type="button" class="btn" role="switch" aria-checked="{{countLaterOn}}" aria-label="Pull a tray and count it at close" onClick="{{toggleCountLater}}" style="appearance: none; border: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{countLaterTrack}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{countLaterKnob}}"></span></button>
+                </div>
+                <div style="font-size: 13px; line-height: 1.55; color: #C9C5CE">Each person counts their bank in when they start and their cash out when they finish, and over or short is theirs. Only they can take cash into their drawer; anyone without one hands cash to someone who has one.</div>
+                <div style="font-size: 12px; line-height: 1.5; color: #FFB13D">{{drawersLine}}</div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="font-size: 11px; line-height: 1.5; color: #8E8994">A change here starts with the next business date, so tonight’s drawers stay as they are. Servers who carry their own cash drop it into a drawer at the end of their shift either way.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showAlerts}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">When the board warns you</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <div><label for="dk-warn" style="font-size: 11px; color: #8E8994">Room ending in, minutes</label><input id="dk-warn" class="in" type="number" value="{{warn}}" onChange="{{setWarn}}" style="margin-top: 4px"></div>
+              <div><label for="dk-grace" style="font-size: 11px; color: #8E8994">No-show after, minutes</label><input id="dk-grace" class="in" type="number" value="{{grace}}" onChange="{{setGrace}}" style="margin-top: 4px"></div>
+              <div><label for="dk-clean" style="font-size: 11px; color: #8E8994">Flag cleaning after, minutes</label><input id="dk-clean" class="in" type="number" value="{{clean}}" onChange="{{setClean}}" style="margin-top: 4px"></div>
+              <div><label for="dk-tab" style="font-size: 11px; color: #8E8994">Flag a tab above $</label><input id="dk-tab" class="in" type="number" value="{{tabCap}}" onChange="{{setTabCap}}" style="margin-top: 4px"></div>
+            </div>
+            <div style="font-size: 12px; color: #8E8994; line-height: 1.5">The board turns a tile amber at {{warn}} minutes left and red when a room runs over. A booking with nobody checked in {{grace}} minutes after its start becomes a no-show alert. A closed-out room stays “cleaning” until staff mark it clean, so the site never books a room nobody has checked; the board flags it after {{clean}} minutes.</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Room orders and calls</div>
+            <sc-for list="{{rules}}" as="r" hint-placeholder-count="5">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{r.label}}</div><div style="font-size: 11px; color: #8E8994">{{r.hint}}</div></div>
+                <button type="button" class="btn" onClick="{{r.toggle}}" aria-label="Toggle" style="appearance: none; border: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{r.trackStyle}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{r.knobStyle}}"></span></button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showDevices}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Devices at West 4 · printers, readers, tablets, internet</div>
+          <sc-for list="{{devices}}" as="d" hint-placeholder-count="6">
+            <div class="row" style="grid-template-columns: 12px 1.4fr 1fr 1.2fr auto auto">
+              <span style="width: 10px; height: 10px; border-radius: 50%; {{d.dotStyle}}"></span>
+              <div><div style="font-size: 14px; font-weight: 600">{{d.name}}</div><div style="font-size: 11px; color: #8E8994">{{d.kind}}</div></div>
+              <span class="mono" style="font-size: 11px; color: #8E8994">{{d.where}}</span>
+              <span style="font-size: 12px; color: #8E8994">{{d.job}}</span>
+              <span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; {{d.statusStyle}}">{{d.status}}</span>
+              <button type="button" class="btn" onClick="{{d.test}}" style="appearance: none; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">{{d.testLabel}}</button>
+            </div>
+          </sc-for>
+          <div style="display: flex; gap: 10px; align-items: center; padding-top: 6px">
+            <button type="button" class="btn" onClick="{{scan}}" style="appearance: none; flex: none; white-space: nowrap; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Look for new devices</button>
+            <span style="font-size: 12px; color: #8E8994">Works with Stripe S710, S700 and WisePOS E readers; Star CloudPRNT and Epson Server Direct Print printers, or USB printers on a computer running the app; a cash drawer on the receipt printer’s kick port; and tablets in kiosk mode. If the line drops, the backup router moves everything to LTE. If both are down, this computer shows the board and tabs read-only and keeps ringing orders it already has.</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showMenu}}" hint-placeholder-val="{{false}}">
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; flex: 1">Menu · the website page, the PDF and the room ordering screen all read from here</div>
+            <span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994">{{menuCounts}}</span>
+            <button type="button" class="btn" onClick="{{addItem}}" style="appearance: none; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">+ Item</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <input class="in" type="text" value="{{mq}}" onChange="{{setMq}}" placeholder="Search all 15 categories, e.g. soju, Hennessy, pitcher" aria-label="Search the menu" style="flex: 1">
+            <sc-if value="{{mqOn}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{clearMq}}" style="appearance: none; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Clear</button></sc-if>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 5px">
+            <sc-for list="{{menuCats}}" as="c" hint-placeholder-count="16"><button type="button" class="btn" onClick="{{c.pick}}" style="appearance: none; border-radius: 999px; padding: 5px 10px; font-weight: 700; font-size: 11px; white-space: nowrap; {{c.style}}">{{c.label}} <span style="opacity: .6">{{c.n}}</span></button></sc-for>
+          </div>
+          <div style="display: grid; grid-template-columns: {{menuCols}}; gap: 10px; align-items: center; padding: 0 12px"><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em">ITEM</span><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em">CATEGORY</span><sc-if value="{{kitchenOn}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em">STATION</span></sc-if><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em">{{menuPriceHead}}</span><sc-if value="{{menuCardOn}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em; white-space: nowrap">{{menuCardHead}}</span></sc-if><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em">TONIGHT</span><span class="mono" style="font-size: 10px; color: #8E8994; letter-spacing: .1em">SHOWN</span></div>
+          <div style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 4px">
+            <sc-for list="{{menu}}" as="m" hint-placeholder-count="10">
+              <div class="row" style="grid-template-columns: {{menuCols}}; padding: 6px 12px; {{m.rowStyle}}">
+                <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                  <input class="in" type="text" value="{{m.name}}" onChange="{{m.setName}}" aria-label="Item name" style="padding: 6px 9px; font-weight: 600">
+                  <sc-if value="{{m.hasSub}}" hint-placeholder-val="{{false}}"><span style="font-size: 10px; color: #8E8994; padding-left: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{m.sub}}</span></sc-if>
+                </div>
+                <span style="font-size: 12px; color: #C9C5CE">{{m.cat}}</span>
+                <sc-if value="{{kitchenOn}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{m.toggleStation}}" aria-label="{{m.stationAria}}" style="appearance: none; border-radius: 999px; padding: 6px 0; font-weight: 700; font-size: 11px; white-space: nowrap; {{m.stationStyle}}">{{m.station}}</button></sc-if>
+                <input class="in" type="number" min="0" value="{{m.price}}" onChange="{{m.setPrice}}" aria-label="{{m.priceAria}}" style="padding: 6px 9px">
+                <sc-if value="{{menuCardOn}}" hint-placeholder-val="{{false}}"><span class="mono" style="font-size: 12px; color: #8E8994">{{m.card}}</span></sc-if>
+                <button type="button" class="btn" onClick="{{m.toggleOut}}" aria-label="Out tonight" style="appearance: none; border-radius: 999px; padding: 6px 0; font-weight: 700; font-size: 11px; white-space: nowrap; {{m.outStyle}}">{{m.outLabel}}</button>
+                <button type="button" class="btn" onClick="{{m.toggle}}" aria-label="{{m.showAria}}" style="appearance: none; border: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; {{m.trackStyle}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{m.knobStyle}}"></span></button>
+              </div>
+            </sc-for>
+            <sc-if value="{{menuEmpty}}" hint-placeholder-val="{{false}}"><div style="padding: 24px; text-align: center; font-size: 13px; color: #8E8994">Nothing matches “{{mq}}”.</div></sc-if>
+          </div>
+          <div style="font-size: 11px; color: #6F6B78; line-height: 1.5">“Out tonight” greys the item out on room screens and the bar screen until close; it comes back on its own tomorrow. “Shown” off hides it from the site, the PDF and the rooms.<br>{{stationNote}}</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showRoomsOff}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 22px; border-radius: 14px; background: #121016; border: 1px dashed rgba(244,241,234,.18)">
+          <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #FF3DA6">{{roomsOffTag}}</span>
+          <div style="font-size: 20px; font-weight: 700">{{roomsOffTitle}}</div>
+          <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5; max-width: 560px">The room board, room tablets and the website’s Rooms and Book sections are hidden. Your 14 rooms and their settings are kept for when Rooms is back on.</div>
+          <button type="button" class="btn" onClick="{{goFeatures}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Open Features</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showRoomsOn}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Rooms · turn one off for the night and bookings route around it</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+            <sc-for list="{{rooms}}" as="r" hint-placeholder-count="14">
+              <div class="row" style="grid-template-columns: minmax(0, 1fr) minmax(0, .75fr) minmax(0, 1.1fr) auto; {{r.rowStyle}}">
+                <input class="in" type="text" value="{{r.name}}" onChange="{{r.setName}}" aria-label="Room name">
+                <input class="in" type="text" value="{{r.cap}}" onChange="{{r.setCap}}" aria-label="Fits">
+                <input class="in" type="text" value="{{r.tablet}}" onChange="{{r.setTablet}}" aria-label="Tablet" placeholder="Tablet name">
+                <button type="button" class="btn" onClick="{{r.toggle}}" style="appearance: none; border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; {{r.onStyle}}">{{r.onLabel}}</button>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div><div style="font-size: 13px; font-weight: 600">Most people allowed inside</div><div style="font-size: 11px; color: #8E8994; line-height: 1.45">From your certificate of occupancy or place of assembly permit. The board counts everyone inside and warns at 90%.</div></div>
+            <input class="in" type="number" value="{{maxOcc}}" onChange="{{setMaxOcc}}" placeholder="Not set" aria-label="Most people allowed inside" style="width: 110px">
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showSiteOff}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 22px; border-radius: 14px; background: #121016; border: 1px dashed rgba(244,241,234,.18)">
+          <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #FF3DA6">Off in Features</span>
+          <div style="font-size: 20px; font-weight: 700">The website is turned off in Features</div>
+          <div style="font-size: 13px; color: #C9C5CE; line-height: 1.5; max-width: 560px">{{siteAddress}} is offline while Website is off. Everything you made in the builder is kept.</div>
+          <button type="button" class="btn" onClick="{{goFeatures}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">Open Features</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showSiteOn}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--acc, #D4FF3F)"></span>
+              <span class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--acc, #D4FF3F)">Live now</span>
+              <span class="mono" style="margin-left: auto; font-size: 10px; letter-spacing: .1em; color: #8E8994">The site guests see</span>
+            </div>
+            <div class="mono" style="font-size: 24px; font-weight: 700; letter-spacing: -.01em; overflow-wrap: anywhere">{{siteAddress}}</div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Style</div><div style="font-size: 15px; font-weight: 700; margin-top: 4px">{{siteStyle}}</div><div style="font-size: 11px; color: #6F6B78; margin-top: 2px">Flyer and Lounge are in the builder too</div></div>
+              <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Accent</div><div style="display: flex; align-items: center; gap: 8px; margin-top: 4px"><span style="width: 15px; height: 15px; border-radius: 50%; flex: none; background: var(--acc, #D4FF3F)"></span><span class="mono" style="font-size: 14px; font-weight: 700">{{accent}}</span></div><div style="font-size: 11px; color: #6F6B78; margin-top: 2px">Buttons, prices, highlights</div></div>
+              <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Sections</div><div style="font-size: 15px; font-weight: 700; margin-top: 4px">{{siteSecs}}</div><div style="font-size: 11px; margin-top: 2px; {{siteSecsStyle}}">{{siteSecsSub}}</div></div>
+              <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)"><div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Last published</div><div style="font-size: 15px; font-weight: 700; margin-top: 4px">{{sitePublished}}</div><div style="font-size: 11px; color: #6F6B78; margin-top: 2px">{{sitePublishedBy}}</div></div>
+            </div>
+            <a href="SiteBuilder.dc.html" class="btn" style="display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px 20px; border-radius: 12px; font-size: 16px; font-weight: 700; color: #0b0a0d; background: var(--acc, #D4FF3F); text-decoration: none">Open the website builder <span aria-hidden="true">→</span></a>
+            <div style="font-size: 12px; color: #8E8994; line-height: 1.5">Words, photos, sections, style and color are changed in the builder, and nothing goes live until you publish there. Hours, prices, the menu and your phone number come from these settings.</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Live now · phone</div>
+            <div style="align-self: center; width: 230px; box-sizing: border-box; border-radius: 26px; padding: 10px; background: #0b0a0d; border: 1px solid rgba(244,241,234,.14); box-shadow: 0 30px 60px -30px rgba(0,0,0,.9)">
+              <div style="border-radius: 18px; overflow: hidden; padding: 10px 10px 14px; background: linear-gradient(180deg, rgba(11,10,13,.2) 0%, rgba(11,10,13,.94) 80%), url(/_blob/8a55cb8f9d89a7828f1270d6a558ec1e) center/cover, #1c1622">
+                <div style="display: flex; justify-content: space-between; font-size: 8px; color: #C9C5CE; padding: 2px 2px 64px"><span style="font-weight: 700">W4</span><span>{{previewNav}}</span></div>
+                <div class="disp" style="font-size: 32px; color: {{accent}}; padding: 0 2px">{{siteH1}}</div>
+                <div style="font-size: 9px; line-height: 1.45; color: #C9C5CE; padding: 6px 2px 10px">{{siteLine}}</div>
+                <div style="display: flex; gap: 4px; padding: 0 2px"><sc-if value="{{previewBook}}" hint-placeholder-val="{{true}}"><span style="flex: 1; font-size: 8px; padding: 6px 0; text-align: center; border-radius: 6px; background: {{accent}}; color: #0b0a0d; font-weight: 700">Book a room</span></sc-if><span style="flex: 1; font-size: 8px; padding: 6px 0; text-align: center; border-radius: 6px; border: 1px solid rgba(244,241,234,.25)">Menu</span></div>
+              </div>
+              <div style="font-size: 8px; color: #8E8994; padding: 8px 6px 2px; text-align: center">{{previewFacts}}</div>
+            </div>
+            <a href="Main.dc.html" style="align-self: center; font-size: 12px">View the live site →</a>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showContact}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 18px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Phone &amp; texts</div>
+            <div><label for="dk-call" style="font-size: 11px; color: #8E8994">Number guests call</label><input id="dk-call" class="in" type="tel" value="{{call}}" onChange="{{setCall}}" style="margin-top: 4px"></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <div><div style="font-size: 13px; font-weight: 600">Same as call number</div><div style="font-size: 11px; color: #8E8994">Confirmation, reminder and “your room is ready” texts come from it</div></div>
+              <button type="button" class="btn" onClick="{{toggleSame}}" aria-label="Same as call number" style="appearance: none; border: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; flex: none; {{sameTrack}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{sameKnob}}"></span></button>
+            </div>
+            <sc-if value="{{textDiff}}" hint-placeholder-val="{{false}}">
+              <div><label for="dk-text" style="font-size: 11px; color: #8E8994">Number texts come from</label><input id="dk-text" class="in" type="tel" value="{{text}}" onChange="{{setText}}" style="margin-top: 4px"><div style="font-size: 11px; color: #6F6B78; margin-top: 4px">Needs to be a texting number on Twilio (Connections). Replies land in Messages.</div></div>
+            </sc-if>
+            <sc-if value="{{textSame}}" hint-placeholder-val="{{true}}">
+              <div style="font-size: 12px; color: #C9C5CE">Texts come from <span class="mono">{{call}}</span>. Replies land in Messages.</div>
+            </sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Where each number shows</div>
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 10px; align-items: center; font-size: 11px; color: #8E8994"><span></span><span style="text-align: center">Call</span><span style="text-align: center">Text</span></div>
+            <sc-for list="{{phonePlaces}}" as="w" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.08)">
+                <div style="min-width: 0"><div style="font-size: 13px; font-weight: 600">{{w.label}}</div><div style="font-size: 11px; color: #8E8994">{{w.hint}}</div></div>
+                <button type="button" class="btn" onClick="{{w.toggleCall}}" aria-label="{{w.callAria}}" style="appearance: none; border-radius: 999px; padding: 6px 0; font-weight: 700; font-size: 11px; {{w.callStyle}}">{{w.callLabel}}</button>
+                <button type="button" class="btn" onClick="{{w.toggleText}}" aria-label="{{w.textAria}}" style="appearance: none; border-radius: 999px; padding: 6px 0; font-weight: 700; font-size: 11px; {{w.textStyle}}">{{w.textLabel}}</button>
+              </div>
+            </sc-for>
+            <div style="padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08); font-size: 12px; color: #C9C5CE; line-height: 1.5"><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">WEBSITE FOOTER READS</span><br>{{phoneLine}}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showTexts}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Every text West 4 sends · edit the words here</div>
+          <sc-for list="{{texts}}" as="x" hint-placeholder-count="6">
+            <div class="row" style="grid-template-columns: minmax(0, 1fr) 96px 42px; align-items: start; {{x.rowStyle}}">
+              <div style="min-width: 0; display: flex; flex-direction: column; gap: 3px"><div style="display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap"><b style="font-size: 14px">{{x.name}}</b><span class="mono" style="font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #8E8994">{{x.when}}</span></div><div style="font-size: 12px; line-height: 1.45; color: #A39FA8">“{{x.text}}”</div><sc-if value="{{x.hasNote}}" hint-placeholder-val="{{false}}"><div style="font-size: 11px; color: #FFB13D">{{x.note}}</div></sc-if></div>
+              <span class="mono" style="justify-self: start; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; {{x.catStyle}}">{{x.cat}}</span>
+              <button type="button" class="btn" role="switch" onClick="{{x.toggle}}" aria-checked="{{x.on}}" aria-label="{{x.aria}}" style="appearance: none; border: 0; padding: 0; width: 42px; height: 24px; border-radius: 999px; position: relative; {{x.track}}"><span style="position: absolute; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #0b0a0d; {{x.knob}}"></span></button>
+            </div>
+          </sc-for>
+          <div style="font-size: 11px; line-height: 1.5; color: #8E8994">Service texts go only to the number a guest gave for that booking, waitlist spot or room. Staff can type their own words only as a reply in an open conversation. Marketing texts need their own opt-in, go out only 8 AM to 9 PM, and never ride along with a receipt.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showTeam}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994; flex: 1">Team · who can do what, their PIN and the tip pool</div>
+            <button type="button" class="btn" onClick="{{addPerson}}" style="appearance: none; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">+ Person</button>
+          </div>
+          <sc-for list="{{team}}" as="p" hint-placeholder-count="5">
+            <div class="row" style="grid-template-columns: 36px minmax(0, .9fr) minmax(0, 2.4fr) 100px auto">
+              <span class="mono" style="width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; background: #1c1a21; border: 1px solid rgba(244,241,234,.12)">{{p.initials}}</span>
+              <input class="in" type="text" value="{{p.name}}" onChange="{{p.setName}}" aria-label="Name">
+              <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px"><sc-for list="{{p.roles}}" as="r" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{r.pick}}" style="appearance: none; border-radius: 8px; padding: 7px 2px; font-weight: 700; font-size: 11px; {{r.style}}">{{r.label}}</button></sc-for></div><span style="font-size: 10px; color: #8E8994">Can do: {{p.can}}</span></div>
+              <button type="button" class="btn" role="switch" onClick="{{p.toggleTips}}" aria-checked="{{p.tipsOn}}" aria-label="{{p.tipsAria}}" style="appearance: none; border-radius: 8px; padding: 7px 6px; font-weight: 700; font-size: 11px; white-space: nowrap; {{p.tipsStyle}}">{{p.tipsLabel}}</button>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 3px"><button type="button" class="btn" onClick="{{p.reset}}" style="appearance: none; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16); white-space: nowrap">Reset PIN</button><span class="mono" style="font-size: 10px; color: #8E8994; white-space: nowrap">{{p.pinLine}}</span></div>
+            </div>
+          </sc-for>
+          <div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; padding-top: 4px">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Time clock · tonight</div>
+              <sc-for list="{{punches}}" as="t" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 13px; padding: 4px 0; border-top: 1px solid rgba(244,241,234,.06)">
+                  <span><b style="font-weight: 600">{{t.name}}</b><span style="color: #8E8994"> · {{t.role}}</span></span>
+                  <span class="mono" style="font-size: 11px; color: #C9C5CE">{{t.line}}</span>
+                  <button type="button" class="btn" onClick="{{t.edit}}" style="appearance: none; border-radius: 8px; padding: 5px 10px; font-weight: 700; font-size: 11px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Edit</button>
+                </div>
+              </sc-for>
+              <div style="font-size: 11px; line-height: 1.45; color: #8E8994">Staff clock in and out on the bar computer or their phone after their PIN. Hours come from these punches, never from sign-ins, and an edit needs a reason.</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+              <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Support access · none waiting</div>
+              <div style="font-size: 12px; line-height: 1.5; color: #C9C5CE">When our support team asks to look inside your Admin, the request shows here and on the owner’s and managers’ phones, with the reason, what they could do and for how long. Nothing opens until one of you approves, and you can end it any time.</div>
+            </div>
+          </div>
+          <div style="font-size: 11px; line-height: 1.5; color: #8E8994">Owners and managers never share in the tip pool (New York law). Pool changes start with the next business date, so tonight’s pool stays as it is. Everyone sets their own PIN from the invite link on their own phone: 4 digits for staff, 6 for owners and managers. A reset sends a new link there, and nobody else ever sees a PIN.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{showConn}}" hint-placeholder-val="{{false}}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <sc-for list="{{conns}}" as="c" hint-placeholder-count="8">
+            <div class="row" style="grid-template-columns: 1fr auto">
+              <div><div style="font-size: 14px; font-weight: 600">{{c.name}}</div><div style="font-size: 11px; color: #8E8994">{{c.hint}}</div></div>
+              <button type="button" class="btn" onClick="{{c.toggle}}" style="appearance: none; border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 12px; white-space: nowrap; {{c.style}}">{{c.label}}</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+    </section>
+  </main>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"plan":{"editor":"enum","default":"Rooms","options":["Bar","Rooms","Rooms + Kitchen"],"section":"Demo · plan set in Console"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Comes from Admin → Hours & prices. In the app every screen reads the same saved setting.
+  // Times read the way guests see them; a close earlier than the open is after midnight (next morning).
+  // special: one entry per date (ISO), either closed or its own open/close, plus a note for staff and the site.
+  // tonight: "auto" follows the hours above · "closed" forces “Closed tonight” everywhere.
+  static HOURS = {
+    week: [
+      { day: "Mon", open: "4:00 PM", close: "4:00 AM", closed: false },
+      { day: "Tue", open: "4:00 PM", close: "4:00 AM", closed: false },
+      { day: "Wed", open: "4:00 PM", close: "4:00 AM", closed: false },
+      { day: "Thu", open: "4:00 PM", close: "4:00 AM", closed: false },
+      { day: "Fri", open: "4:00 PM", close: "4:00 AM", closed: false },
+      { day: "Sat", open: "2:00 PM", close: "4:00 AM", closed: false },
+      { day: "Sun", open: "2:00 PM", close: "4:00 AM", closed: false }
+    ],
+    special: [
+      { date: "2026-09-30", closed: true, open: "", close: "", note: "Private event" },
+      { date: "2026-10-31", closed: false, open: "2:00 PM", close: "4:00 AM", note: "Halloween" }
+    ],
+    tonight: "auto",
+    // House last call for alcohol. Never later than the rule pack's last sale (4:00 AM in New York County).
+    lastCall: "4:00 AM",
+    happyHour: ""
+  };
+  // Comes from Admin → Phone & texts. In the app every screen reads the same saved setting.
+  // show.<place>.call / .text: whether that number is printed there (site, menu page + PDF, confirmation texts, room screens).
+  static PHONE = {
+    call: "(212) 255-0011", text: "(212) 255-0011", textSameAsCall: true,
+    show: { site: { call: true, text: true }, menu: { call: true, text: false }, texts: { call: true, text: false }, rooms: { call: false, text: false } }
+  };
+  // Comes from Admin → Card fee & gratuity. In the app every screen reads the same saved setting.
+  // card.mode: "off" · "surcharge" (credit cards only, capped by the rule pack) · "discount" (menu prices are card prices, cash pays less).
+  // card.noticeSent: ISO date the Visa, Mastercard and Stripe notices went out; a surcharge can start 30 days later.
+  // gratuity.auto: "off" · "rooms" · "parties" (partyMin guests or more) · "all"; pct of room time and drinks, before tax.
+  // The word on every screen and receipt is always "Gratuity" and all of it goes to staff; neither can be changed here.
+  // West 4 today adds 3.5% to every card. That is over New York's cap, so it came over as "off" (see Setup, step 7).
+  static PAY = {
+    card: { mode: "off", pct: 2.7, noticeSent: "" },
+    gratuity: { auto: "rooms", pct: 20, partyMin: 8 },
+    tipScreen: { on: true, pcts: [18, 20, 22] },
+    pool: "hours"
+  };
+  // From the New York rule pack and the venue's own Stripe price (Stripe's list price until Stripe reports another).
+  // A surcharge can't be more than a card costs the venue, and Visa caps it at 3%. Never on debit or prepaid.
+  static CARD_RULES = { tap: "2.7% + 5¢", online: "2.9% + 30¢", tapPct: 2.7, networkCap: 3, noticeDays: 30 };
+  // Comes from Admin → Features. In the app every screen reads the same saved setting.
+  // What West 4 uses, by module id. A module that is off hides its screens everywhere (rail items, staff phone,
+  // website sections). Only modules the plan allows can be on. Core modules are always on and are not listed.
+  static FEATURES = {
+    website: true, booking: true, waitlist: true, rooms: true, roomOrdering: true, barScreen: true, barTabs: true, barMode: true,
+    kitchen: false, packages: true, songControl: false, messages: true, marketing: false, team: true, safety: true, reports: true,
+    events: false, crm: false, multiLocation: false
+  };
+  // Comes from our Console → Venues → West 4: the plan and the add-ons we allow. The venue can only ask to change these.
+  static VENUE = { plan: "rooms", addOns: ["marketing"] };
+  // Plans and add-ons, the same list the Console uses. Venue screens show the plan name and price only.
+  static PLANS = [
+    { id: "bar", name: "Bar", base: 149, perRoom: 0, line: "Bar screen and tabs, bar mode, waitlist, guest texts, team, safety, reports, website",
+      modules: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports"] },
+    { id: "rooms", name: "Rooms", base: 249, perRoom: 12, line: "Everything in Bar, plus rooms, online booking, room ordering, packages, song control",
+      modules: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports", "booking", "rooms", "roomOrdering", "packages", "songControl"] },
+    { id: "roomsKitchen", name: "Rooms + Kitchen", base: 349, perRoom: 12, line: "Everything in Rooms, plus kitchen",
+      modules: ["website", "waitlist", "barScreen", "barTabs", "barMode", "messages", "team", "safety", "reports", "booking", "rooms", "roomOrdering", "packages", "songControl", "kitchen"] }
+  ];
+  static ADDONS = ["kitchen", "marketing", "events", "crm", "multiLocation"];
+  // Every switchable module: id and name (same everywhere), a one-line description, the full "what it is" (tooltip),
+  // what it needs, and what hides when it is off.
+  static MODULES = [
+    { id: "website", name: "Website", short: "Website", line: "Your public site, made in the builder", what: "The venue’s public site made in the website builder", hides: "the website" },
+    { id: "booking", name: "Online booking & deposits", short: "Booking", needs: "rooms", line: "Book online with a deposit rule", what: "Book a room online, deposit rule, manage-booking page", hides: "the site’s Book section" },
+    { id: "waitlist", name: "Walk-in waitlist", short: "Waitlist", line: "Door QR, place in line, ready texts", what: "QR at the door, place in line, “room ready” texts", hides: "the door QR and waitlist" },
+    { id: "rooms", name: "Rooms & room clock", short: "Rooms", line: "Room board and room-time billing", what: "Room board, per-person/per-room time billing, soft end time", hides: "the room board, room tablets, the site’s Rooms section" },
+    { id: "roomOrdering", name: "Ordering from the room", short: "Room ordering", needs: "rooms", line: "Guests order from phones to the tab", what: "Guests order from their phones to the room tab", hides: "ordering from the room" },
+    { id: "barScreen", name: "Bar screen & tickets", short: "Bar screen", line: "Orders ring the bar, tickets print", what: "Orders ring the bar until accepted, ticket prints", hides: "the bar screen and Bar orders" },
+    { id: "barTabs", name: "Bar tabs & quick sale", short: "Bar tabs", line: "Card-hold tabs and quick sale", what: "Card hold that grows with the tab, quick sale, move tab to a room", hides: "bar tabs and quick sale" },
+    { id: "barMode", name: "Bar mode", short: "Bar mode", needs: "barTabs", line: "Phone song queue, per-song charges", what: "Phone song queue, per-song charges, Up next TV, send the singer a drink", hides: "the song queue and Up next TV" },
+    { id: "kitchen", name: "Kitchen & food", short: "Kitchen", line: "Kitchen screens, stations, coursing", what: "Kitchen screens, stations, coursing, allergy notice", hides: "kitchen screens and the Station column" },
+    { id: "packages", name: "Packages & specials", short: "Packages", needs: "rooms", line: "Room, bottle and food packages", what: "Room + bottle + food packages with liquor-law checks", hides: "packages" },
+    { id: "songControl", name: "Song system control", short: "Song control", needs: "rooms", line: "Room locks, TV countdown, volume cap", what: "Lock rooms between sessions, on-TV countdown, volume cap, play log", hides: "room locks, TV countdown, volume cap" },
+    { id: "messages", name: "Guest texts", short: "Guest texts", line: "Confirmations, reminders, receipts", what: "Confirmations, reminders, room ready, receipts", hides: "guest texts and Messages" },
+    { id: "marketing", name: "Marketing texts", short: "Marketing", needs: "messages", line: "Birthday and review texts", what: "Birthday and review texts with separate opt-in", hides: "birthday and review texts" },
+    { id: "team", name: "Team, time clock & tips", short: "Team", line: "Roles, PINs, time clock, tip pool", what: "Roles, PINs, time clock, tip pool", hides: "the time clock and tip pool" },
+    { id: "safety", name: "Safety & ID records", short: "Safety", line: "Help alert, incident log, ID limits", what: "Discreet help alert, incident log, ID scan limits, headcount", hides: "the help alert and incident log" },
+    { id: "reports", name: "Reports & accounting", short: "Reports", line: "Trends, tax quarters, exports", what: "Trends, tax quarters, accounting export", hides: "Reports" },
+    { id: "events", name: "Event sales", short: "Events", needs: "rooms", line: "Proposals, contracts, deposit plans", what: "Proposals, contracts, deposit schedules for big parties", hides: "event proposals" },
+    { id: "crm", name: "Guests, loyalty & gift cards", short: "Loyalty", line: "Guest profiles, gift and punch cards", what: "Guest profiles, gift cards, punch cards", hides: "guest profiles and gift cards" },
+    { id: "multiLocation", name: "Multiple locations", short: "Locations", line: "One login for all your venues", what: "One owner login across venues, shared menus and reports", hides: "the location switcher" }
+  ];
+  // Core — always on for every venue, no switch (legal and money basics).
+  static CORE = [
+    { name: "Payments & checks", what: "Cards, cash, split checks, receipts" },
+    { name: "Alcohol controls & rule pack", what: "New York pack · last call 4 AM · tax 8.875%" },
+    { name: "Admin & settings", what: "This screen and the change log" },
+    { name: "Devices & printers", what: "Printers, drawer, tablets, card reader" }
+  ];
+  // Comes from the website builder (SiteBuilder.dc.html): what is live now.
+  static SITE = {
+    address: "west4karaoke.com", style: "Neon", sections: 9, published: "Sep 24, 6:10 PM", publishedBy: "Thursday · by Abhishek G.",
+    h1: "Lose your voice.", line: "14 private karaoke rooms in the West Village. Strong drinks. Louder friends. Zero judgment.", songs: "113,000"
+  };
+  // The full menu — same RAW data as Order.dc.html (room ordering). Two-price items become two lines.
+  static MENU_RAW = [
+    ["Cocktails", ["", ""], [["Tequila Sunrise", "", 12], ["Blue Hawaii", "", 12], ["Jolly Rancher", "", 12], ["Melon Ball", "", 12], ["Black Russian", "", 12], ["Sex on the Beach", "", 12], ["Paloma", "", 12], ["Midori Sour", "", 12], ["Amaretto Sour", "", 12], ["Kamikaze-tini", "", 12], ["Lemon Drop-tini", "", 13], ["Moscow Mule", "", 13], ["Dark 'n' Stormy", "", 13], ["Mai Tai", "", 13], ["Yogurt Soju Cocktail", "", 13], ["Malibu Bay Breeze", "", 13], ["Margarita", "Raspberry, peach or strawberry", 13], ["Iced Tea", "Long Island, Long Beach, Ruby Strawberry, Blue Lemonade or Tokyo Melon", 13]]],
+    ["Mocktails", ["", ""], [["Mule", "Peach, strawberry or raspberry", 11], ["Shirley Temple", "", 11]]],
+    ["Beer", ["glass", "pitcher"], [["Bud Light", "", 8], ["Budweiser", "", 8], ["Michelob Ultra", "", 8], ["Modelo", "", 9], ["Angry Orchard", "", 9], ["Heineken", "", 9], ["Corona", "", 9], ["Goose Island IPA", "", 9], ["Guinness", "", 9], ["Hoegaarden", "", 9], ["Blue Moon", "", 9], ["Stella Artois", "", 9], ["Kirin, draft", "", [9, 31]], ["Nütrl hard seltzer", "Lemonade, pineapple, watermelon, orange, black cherry or cranberry", 10]]],
+    ["Buckets", ["", ""], [["Small bucket", "6 beers", 40], ["Large bucket", "10 beers", 70]]],
+    ["Soju", ["", ""], [["Chamisul Fresh", "Bottle", 20], ["Jinro Is Back", "Bottle", 20], ["Strawberry", "Bottle", 20], ["Grapefruit", "Bottle", 20], ["Green Grape", "Bottle", 20], ["Peach", "Bottle", 20], ["Plum", "Bottle", 20]]],
+    ["Shots", ["", ""], [["Lemon Drop", "", 9], ["Buttery Nipple", "", 9], ["Kamikaze", "", 9], ["Woo Woo", "", 9], ["Orgasm", "", 9], ["Green Tea", "", 10], ["Red Headed Slut", "", 10], ["Jäger Bomb", "", 12]]],
+    ["Wine", ["glass", "bottle"], [["Malbec", "", [10, 40]], ["Merlot", "", [10, 40]], ["Cabernet", "", [10, 40]], ["Sauvignon Blanc", "", [10, 40]], ["Pinot Grigio", "", [10, 40]], ["Prosecco", "Sparkling", [10, 40]]]],
+    ["Champagne", ["", ""], [["André Brut", "Bottle", 40], ["Moët & Chandon", "Bottle", 180]]],
+    ["Whiskey", ["drink", "bottle"], [["Jameson", "", [12, 250]], ["Jack Daniel's", "", [12, 250]], ["Johnnie Walker Black", "", [12, 300]], ["Fireball", "", [13, 250]], ["Jack Daniel's Honey", "", [13, 300]], ["Maker's Mark", "", [13, 300]], ["Hennessy", "", [13, 300]], ["Bulleit Bourbon", "", [13, 330]], ["Basil Hayden", "", [13, 330]], ["The Glenlivet 12", "", [14, 350]]]],
+    ["Vodka", ["drink", "bottle"], [["Tito's", "", [12, 250]], ["Stoli", "Citrus, raspberry or blueberry", [12, 250]], ["Ketel One", "", [12, 330]], ["Grey Goose", "", [13, 350]]]],
+    ["Tequila", ["drink", "bottle"], [["Patrón", "", [13, 300]], ["Casamigos Blanco", "", [13, 330]], ["Mezcal", "", [14, 350]]]],
+    ["Rum", ["drink", "bottle"], [["Bacardi", "", [12, 275]], ["Captain Morgan", "", [12, 275]], ["Malibu", "", [12, 250]]]],
+    ["Gin", ["drink", "bottle"], [["Tanqueray", "", [12, 250]], ["Bombay", "", [12, 250]], ["Hendrick's", "", [13, 300]]]],
+    ["Packages", ["", ""], [["2 soju bottles + 1 small bucket", "", 70], ["4 soju bottles + 1 large bucket", "", 120], ["12 house shots + 2 small buckets", "", 150], ["1 bottle + 1 large bucket", "Free pitcher of soda", 300], ["2 bottles + 3 large buckets", "Free pitcher of soda", 680]]],
+    ["Soft drinks", ["cup", "pitcher"], [["Soda", "Coke, Diet Coke, Sprite or ginger ale", [5, 18]], ["Lemonade", "", [5, 18]], ["Cranberry juice", "", [5, 18]], ["Seltzer", "", [2, 16]], ["Ginger beer", "", 9], ["Red Bull", "", 6]]]
+  ];
+  // 86'd tonight — the bar screen can flip these too; everyone sees it at once.
+  static OUT_TONIGHT = ["Casamigos Blanco, drink", "Casamigos Blanco, bottle", "Hoegaarden"];
+  static buildMenu() {
+    const out = [];
+    Component.MENU_RAW.forEach(([cat, [a, b], rows]) => rows.forEach(([name, sub, price]) => {
+      const lines = Array.isArray(price) ? [[name + ", " + a, price[0]], [name + ", " + b, price[1]]] : [[name, price]];
+      // station: which screen and printer gets the ticket. Only shown when Kitchen & food is on; West 4 is drinks only.
+      lines.forEach(([n, pr]) => out.push({ id: "m" + out.length, cat, name: n, sub, price: String(pr), on: true, out: Component.OUT_TONIGHT.indexOf(n) >= 0, station: "Bar" }));
+    }));
+    return out;
+  }
+  constructor() {
+    super(...arguments);
+    const H = Component.HOURS, P = Component.PHONE, PY = Component.PAY;
+    this.state = {
+      tab: "hours", dirty: false, savedAt: "2 min ago by Andy", toast: "", toastN: 0, auto: H.tonight === "auto", acc: "",
+      // Features: on = working copy, savedOn = last saved (Discard goes back to it). confirm = the inline confirm under a card.
+      on: Object.assign({}, Component.FEATURES), savedOn: Object.assign({}, Component.FEATURES),
+      confirm: null, restore: null, nudge: "", asked: {}, planOpen: false,
+      week: H.week.map((d) => Object.assign({}, d)), special: H.special.map((d) => Object.assign({}, d)),
+      lastCall: H.lastCall, nsDate: "", nsClosed: true, nsOpen: "14:00", nsClose: "04:00", nsNote: "",
+      call: P.call, text: P.text, same: P.textSameAsCall, phoneShow: JSON.parse(JSON.stringify(P.show)),
+      mq: "", menuCat: "All",
+      pp: "10", vip: "250", minWk: "3", minWe: "4", dmg: "150", cancel: "24",
+      feeMode: Math.max(0, ["off", "surcharge", "discount"].indexOf(PY.card.mode)), fee: String(PY.card.pct), notice: PY.card.noticeSent,
+      gratMode: Math.max(0, ["off", "rooms", "parties", "all"].indexOf(PY.gratuity.auto)), tip: String(PY.gratuity.pct), partyMin: String(PY.gratuity.partyMin),
+      tipScreen: PY.tipScreen.on, tipPcts: PY.tipScreen.pcts.map(String),
+      warn: "10", grace: "15", clean: "8", tabCap: "600", depOn: true, depMode: 0, depValue: "20", lateMode: 0, vipDep: "250", maxOcc: "", cashMode: "house", cashLive: "house", cashSaved: "house", bank: "300", noteOver: "20", paidOutOk: "25", witness: 1, drawerWho: 0, countLater: true, depositMode: 0, noShowMode: 0,
+      tipsMode: Math.max(0, ["hours", "even", "server"].indexOf(PY.pool)),
+      rules: [
+        { label: "Ring the bar until someone accepts", hint: "Room orders sound the alarm on the bar screen", on: true },
+        { label: "Print a ticket on accept", hint: "Bar printer · one ticket per order", on: true },
+        { label: "Text the guest when it is on its way", hint: "Uses the phone from the booking", on: false },
+        { label: "Show “call staff” on room screens", hint: "Another mic, TV issue, check, other", on: true },
+        { label: "Let rooms stay on when nobody is waiting", hint: "Room screen switches to “please wrap up” once a party is waiting or booked next", on: true }
+      ],
+      hh: H.happyHour,
+      menu: Component.buildMenu(),
+      rooms: Array.from({ length: 14 }, (_, i) => ({ name: i === 13 ? "VIP room" : "Room " + (i + 1), cap: i === 13 ? "20–40" : (i < 5 ? "3–6" : (i < 10 ? "6–12" : "12–20")), tablet: "Tablet " + (i + 1), on: i !== 3 })),
+      team: [
+        { name: "Abhishek G.", role: 0, initials: "AG", tips: false }, { name: "Andy C.", role: 1, initials: "AC", tips: false },
+        { name: "Maya S.", role: 2, initials: "MS", tips: true }, { name: "Diego R.", role: 3, initials: "DR", tips: true }
+      ],
+      devices: [
+        { name: "Bar ticket printer", kind: "Epson TM-T88, USB", where: "Bar computer", job: "Room orders", ok: true, t: "print" },
+        { name: "Receipt printer", kind: "Star TSP143, USB", where: "Front desk PC", job: "Receipts, close-outs", ok: true, t: "print" },
+        { name: "Cash drawer", kind: "On the receipt printer", where: "Front desk", job: "Opens on cash close-out", ok: true, t: "drawer" },
+        { name: "Front desk PC", kind: "Small PC with the desktop app", where: "Front desk", job: "USB host for the receipt printer and drawer", ok: true, t: "ping" },
+        { name: "Front desk iPad", kind: "Tablet on Wi-Fi", where: "Entrance", job: "Walk-in kiosk, waitlist", ok: true, t: "ping" },
+        { name: "Room tablets", kind: "13 of 14 online · kiosk mode", where: "Rooms", job: "Ordering, call staff, clock", ok: false, t: "ping" },
+        { name: "Card reader · front desk", kind: "Stripe Reader S710, cellular on", where: "Front desk", job: "Tap to pay, room close-outs", ok: true, t: "ping" },
+        { name: "Card reader · bar", kind: "Stripe Reader S710, on order", where: "Bar", job: "Bar tabs and quick sale", ok: false, todo: "On order", t: "setup" },
+        { name: "Backup internet", kind: "Dual-WAN router with LTE", where: "Office", job: "Keeps the venue online if the line drops", ok: false, todo: "To set up", t: "setup" }
+      ],
+      conns: [
+        { name: "Stripe", hint: "Your own account · deposits, tap to pay, payouts", on: true }, { name: "Twilio", hint: "Confirmation and reminder texts", on: true },
+        { name: "Playbox song list", hint: "Song search on the site · waits for Playbox’s catalog file, under an agreement", on: false }, { id: "playboxLink", name: "Playbox link", hint: "Room players · Song system control needs it", on: false },
+        { name: "Google Business", hint: "Hours and “Open now” on Maps · connect to push your hours", on: false },
+        { name: "Homebase", hint: "Shifts and who is on tonight", on: false }, { name: "QuickBooks", hint: "Nightly totals to the books", on: false },
+        { name: "Yelp reservations", hint: "Pull Yelp bookings onto the board", on: false }
+      ]
+    };
+  }
+  change(patch) { this.setState(Object.assign({ dirty: true }, patch)); }
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+  renderVals() {
+    const acc = this.state.acc || (this.props.accent ?? "#D4FF3F");
+    const st = this.state;
+    const field = (k) => (e) => this.change({ [k]: e.target.value });
+    // Deposit rule — one object the site, receipt, texts and manage-booking page all read.
+    const DM = [["First hour", ""], ["$ per person", "per guest"], ["Flat $", "per booking"], ["% of booking", "% of the room total"]];
+    const LM = ["Keep deposit", "Keep half", "Refund anyway"], NM = ["Keep deposit", "Charge 1st hour", "Charge nothing"];
+    const seg2 = (on) => on ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);";
+    const dv = Number(st.depValue) || 0, cut = Number(st.cancel) || 0, ppN = Number(st.pp) || 0;
+    const depFor = (g, h) => !st.depOn ? 0 : st.depMode === 0 ? ppN * g : st.depMode === 1 ? dv * g : st.depMode === 2 ? dv : ppN * g * h * dv / 100;
+    const depAmtWords = st.depMode === 0 ? "the first hour of room time" : st.depMode === 1 ? "$" + dv + " a person" : st.depMode === 2 ? "$" + dv : dv + "% of the room";
+    const lateWords = ["the deposit is kept", "half the deposit comes back", "the deposit still comes back"][st.lateMode];
+    const noShowWords = ["the deposit is kept", "the first hour is charged", "nothing is charged"][st.noShowMode];
+    const depPolicy = st.depOn
+      ? "A deposit of " + depAmtWords + " holds your room. Cancel at least " + cut + " hours ahead and it all comes back. Later than that, " + lateWords + ". We hold the room " + st.grace + " minutes past your start; if you don’t show, " + noShowWords + ". The deposit comes off your tab."
+      : "No deposit. We hold your room on your card for " + st.grace + " minutes past your start time.";
+    const m$ = (n) => "$" + n.toFixed(2);
+    const d6 = depFor(6, 2);
+    const depExamples = st.depOn ? [
+      { k: "Charged when they book", v: m$(d6) },
+      { k: "Cancel Wed night (" + cut + "+ hrs ahead)", v: "refund " + m$(d6) },
+      { k: "Cancel Fri 6 PM (late)", v: st.lateMode === 0 ? "keep " + m$(d6) : st.lateMode === 1 ? "refund " + m$(d6 / 2) : "refund " + m$(d6) },
+      { k: "Don’t show up", v: st.noShowMode === 0 ? "keep " + m$(d6) : st.noShowMode === 1 ? "charge " + m$(ppN * 6) : "charge $0.00" }
+    ] : [{ k: "Charged when they book", v: "$0.00" }, { k: "Don’t show up", v: "room released" }];
+    // ---- Hours ----
+    const to24 = (t) => { const m = /(\d+):(\d+)\s*(AM|PM)/i.exec(t || ""); if (!m) return ""; const h = (Number(m[1]) % 12) + (m[3].toUpperCase() === "PM" ? 12 : 0); return String(h).padStart(2, "0") + ":" + m[2]; };
+    const from24 = (v) => { const m = /(\d+):(\d+)/.exec(v || ""); if (!m) return ""; const h = Number(m[1]); return ((h % 12) || 12) + ":" + m[2] + " " + (h >= 12 ? "PM" : "AM"); };
+    const short = (t) => (t || "").replace(":00", "");
+    const span = (o, c) => short(o) + " to " + short(c);
+    const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const dateLabel = (iso) => { const d = new Date(iso + "T12:00:00"); return isNaN(d) ? iso : DOW[d.getDay()] + " " + MON[d.getMonth()] + " " + d.getDate(); };
+    const setDay = (i, patch) => { const w = st.week.slice(); w[i] = Object.assign({}, w[i], patch); this.change({ week: w }); };
+    const days = st.week.map((d, i) => ({
+      day: d.day, open: !d.closed, closed: d.closed, open24: to24(d.open), close24: to24(d.close),
+      toggle: () => setDay(i, { closed: !d.closed }), aria: d.day + " open or closed",
+      toggleLabel: d.closed ? "Closed" : "Open",
+      toggleStyle: d.closed ? "background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666;" : "background: " + acc + "22; color: " + acc + "; border: 1px solid " + acc + "66;",
+      setOpen: (e) => setDay(i, { open: from24(e.target.value) || d.open }), setClose: (e) => setDay(i, { close: from24(e.target.value) || d.close }),
+      openAria: d.day + " opens", closeAria: d.day + " closes"
+    }));
+    // Website line: group days in a row that share the same hours.
+    const groups = [];
+    st.week.forEach((d) => { const key = d.closed ? "closed" : d.open + "|" + d.close; const g = groups[groups.length - 1]; if (g && g.key === key) g.days.push(d.day); else groups.push({ key, d, days: [d.day] }); });
+    const hoursLine = groups.map((g) => {
+      const who = g.days.length === 1 ? g.days[0] : g.days.length === 2 ? g.days[0] + " and " + g.days[1] : g.days[0] + " to " + g.days[g.days.length - 1];
+      return who + " " + (g.d.closed ? "closed" : span(g.d.open, g.d.close));
+    }).join(" · ");
+    const special = st.special.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    const specials = special.map((x) => ({
+      label: dateLabel(x.date), what: x.closed ? "Closed" : span(x.open, x.close), whatStyle: x.closed ? "color: #FF3DA6;" : "color: " + acc + ";",
+      note: x.note || "No note",
+      remove: () => this.change({ special: st.special.filter((y) => y.date !== x.date) })
+    }));
+    const specialLine = "Special dates: " + special.map((x) => dateLabel(x.date) + " " + (x.closed ? "closed" : span(x.open, x.close)) + (x.note ? " (" + x.note + ")" : "")).join(" · ");
+    const today = st.special.find((x) => x.date === "2026-09-25"), fri = st.week[4];
+    const nowMin = 22 * 60 + 41, mins = (t) => { const v = to24(t).split(":"); return Number(v[0]) * 60 + Number(v[1]); };
+    const rule = today || fri, ruleName = today ? "special date" : "Fri hours";
+    const openNow = !rule.closed && (() => { const o = mins(rule.open), c = mins(rule.close); return c <= o ? (nowMin >= o || nowMin < c) : (nowMin >= o && nowMin < c); })();
+    const tonightLine = !st.auto ? "Forced: the site, Google and the board show “Closed tonight” and online booking for tonight is off."
+      : rule.closed ? "Automatic: tonight is closed (" + ruleName + ")."
+      : "Automatic: tonight " + span(rule.open, rule.close) + " (" + ruleName + ") · shows “Open now” at 10:41 PM" + (openNow ? "" : " → no, closed now") + ".";
+    const autoModes = [["Automatic from hours", true], ["Force closed tonight", false]].map(([label, v]) => ({
+      label, pick: () => this.change({ auto: v }),
+      style: st.auto === v ? (v ? seg2(true) : "background: #FF3DA6; color: #0b0a0d; border: 0;") : seg2(false)
+    }));
+    // Last call: drink orders stop at the earlier of this and the rule pack's last sale, on every screen.
+    const LAST_SALE = "4:00 AM";
+    const bizMin = (t) => { const v = to24(t).split(":"); const m = Number(v[0]) * 60 + Number(v[1]); return m < 6 * 60 ? m + 24 * 60 : m; };
+    const setLastCall = (e) => {
+      const t = from24(e.target.value); if (!t) return;
+      if (bizMin(t) > bizMin(LAST_SALE)) { this.notify("Last call can’t be after 4:00 AM, the latest New York County allows"); return; }
+      this.change({ lastCall: t });
+    };
+    const lastCallHint = bizMin(st.lastCall) < bizMin(LAST_SALE)
+      ? "Drink orders stop at " + st.lastCall + ", before the 4:00 AM legal limit. The bar screen, room tablets and staff phones stop taking them; rooms can stay open."
+      : "4:00 AM is the latest New York County allows. Pick an earlier time to stop drink orders sooner; rooms can stay open.";
+    const addSpecial = () => {
+      if (!st.nsDate) { this.notify("Pick a date first"); return; }
+      const entry = { date: st.nsDate, closed: st.nsClosed, open: st.nsClosed ? "" : from24(st.nsOpen), close: st.nsClosed ? "" : from24(st.nsClose), note: st.nsNote.trim() };
+      this.change({ special: st.special.filter((y) => y.date !== st.nsDate).concat([entry]), nsDate: "", nsNote: "" });
+      this.notify(dateLabel(entry.date) + " added");
+    };
+    // ---- Features ----
+    // Allowed = the plan's modules + add-ons the Console switched on. On = allowed and switched on here.
+    const MODS = Component.MODULES, byId = {};
+    MODS.forEach((m) => { byId[m.id] = m; });
+    const planId = { "Bar": "bar", "Rooms": "rooms", "Rooms + Kitchen": "roomsKitchen" }[this.props.plan] || Component.VENUE.plan;
+    const plan = Component.PLANS.find((p) => p.id === planId) || Component.PLANS[1];
+    const allowed = (id) => plan.modules.indexOf(id) >= 0 || Component.VENUE.addOns.indexOf(id) >= 0;
+    const isOn = (id) => allowed(id) && !!st.on[id];
+    const nRooms = st.rooms.length;
+    const monthly = (p) => p.base + p.perRoom * nRooms;
+    const nOn = MODS.filter((m) => isOn(m.id)).length;
+    const playboxOn = st.conns.some((c) => c.id === "playboxLink" && c.on);
+    const chip = (tone) => ({
+      acc: "background: " + acc + "1f; color: " + acc + "; border: 1px solid " + acc + "55;",
+      pink: "background: #FF3DA61f; color: #FF3DA6; border: 1px solid #FF3DA655;",
+      cyan: "background: #3DF2FF12; color: #3DF2FF; border: 1px solid #3DF2FF44;"
+    })[tone];
+    const setOn = (patch, extra) => this.change(Object.assign({ on: Object.assign({}, st.on, patch), confirm: null, nudge: "" }, extra || {}));
+    // Turning off a module that still has live records stops it first: no new ones, existing ones keep working.
+    const LIVE = { booking: "30 paid bookings ahead", barTabs: "4 open tabs", waitlist: "3 parties waiting", rooms: "9 rooms in use", roomOrdering: "orders from 9 rooms tonight" };
+    // What still works for the live ones while a module is stopping.
+    const LIVE_KEEP = {
+      booking: "guests can still view, change or cancel them and get refunds, and staff can still check them in",
+      barTabs: "staff can still add to them and close them out",
+      waitlist: "they keep their place and still get their ready text, and staff can still seat them",
+      rooms: "their clocks keep running and staff can still close them out",
+      roomOrdering: "those orders still reach the bar and land on the tabs"
+    };
+    const stopping = st.stopping || {};
+    const toggleMod = (id) => {
+      const m = byId[id];
+      if (!allowed(id)) return;
+      if (isOn(id)) {
+        // Others need this one → confirm first, listing what else turns off.
+        if (MODS.some((d) => d.needs === id && isOn(d.id))) { this.setState({ confirm: { kind: "off", id }, nudge: "" }); return; }
+        if (LIVE[id]) { this.setState({ confirm: { kind: "stop", id }, nudge: "" }); return; }
+        setOn({ [id]: false });
+        this.notify(m.name + " is off · hides " + m.hides);
+        return;
+      }
+      if (id === "songControl" && !playboxOn) { this.setState({ confirm: null, nudge: id }); this.notify("Connect the Playbox link first, in Connections"); return; }
+      // Needs another module that is off → confirm, then turn both on.
+      if (m.needs && !isOn(m.needs)) { this.setState({ confirm: { kind: allowed(m.needs) ? "on" : "blocked", id }, nudge: "" }); return; }
+      const back = st.restore && st.restore.id === id ? st.restore.ids.filter((d) => allowed(d) && !st.on[d]) : [];
+      this.change({ on: Object.assign({}, st.on, { [id]: true }), confirm: back.length ? { kind: "restore", id, ids: back } : null, restore: null, nudge: "" });
+      this.notify(m.name + " is on");
+    };
+    const cfm = st.confirm && byId[st.confirm.id] ? st.confirm : null;
+    let cf = { title: "", hasList: false, listLabel: "", list: [], hasAlready: false, already: [], body: "", yesLabel: "", noLabel: "", yes: () => {}, no: () => {}, boxStyle: "", chipStyle: "", yesStyle: "" };
+    if (cfm) {
+      const m = byId[cfm.id], cancel = () => this.setState({ confirm: null });
+      const accBox = "background: " + acc + "0d; border: 1px solid " + acc + "66;", accYes = "background: " + acc + "; color: #0b0a0d;";
+      if (cfm.kind === "off") {
+        const deps = MODS.filter((d) => d.needs === cfm.id), going = deps.filter((d) => isOn(d.id));
+        const already = deps.filter((d) => !isOn(d.id)).map((d) => d.name + (allowed(d.id) ? " · off" : " · not in plan"));
+        cf = Object.assign(cf, {
+          title: "Turn off " + m.name + "?", hasList: going.length > 0, listLabel: "These turn off with it:", list: going.map((d) => d.name),
+          hasAlready: already.length > 0, already,
+          body: "Their screens hide everywhere: " + [m].concat(going).map((d) => d.hides).join(", ") + ". Nothing is deleted; you can turn them back on." + ([m].concat(going).some((d) => LIVE[d.id]) ? " Ones with live records stop first: " + [m].concat(going).filter((d) => LIVE[d.id]).map((d) => d.short + ", " + LIVE[d.id]).join("; ") + ". Those keep working until the last one is done." : ""),
+          yesLabel: "Turn off " + (going.length + 1) + " modules", noLabel: "Keep them on", no: cancel,
+          yes: () => { const patch = { [cfm.id]: false }, stop = Object.assign({}, stopping); going.concat([m]).forEach((d) => { patch[d.id] = false; if (LIVE[d.id]) stop[d.id] = true; }); setOn(patch, { restore: { id: cfm.id, ids: going.map((d) => d.id) }, stopping: stop }); this.notify(m.name + " and " + going.length + " more turned off" + (Object.keys(stop).length ? " · live ones stop first" : "")); },
+          boxStyle: "background: #FF3DA60d; border: 1px solid #FF3DA666;", chipStyle: chip("pink"), yesStyle: "background: #FF3DA6; color: #0b0a0d;"
+        });
+      } else if (cfm.kind === "stop") {
+        cf = Object.assign(cf, {
+          title: "Stop " + m.name + "?", body: "It takes nothing new from now on, but the " + LIVE[cfm.id] + " keep working: " + LIVE_KEEP[cfm.id] + ". It turns fully off by itself after the last one. Nothing is deleted.",
+          yesLabel: "Stop taking new ones", noLabel: "Keep it on", no: cancel,
+          yes: () => { setOn({ [cfm.id]: false }, { stopping: Object.assign({}, stopping, { [cfm.id]: true }) }); this.notify(m.name + " is stopping · " + LIVE[cfm.id] + " still work"); },
+          boxStyle: "background: #FFB13D0d; border: 1px solid #FFB13D66;", yesStyle: "background: #FFB13D; color: #0b0a0d;"
+        });
+      } else if (cfm.kind === "on") {
+        const need = byId[m.needs];
+        cf = Object.assign(cf, {
+          title: m.name + " needs " + need.name, hasList: true, listLabel: "Turns on too:", list: [need.name],
+          body: "Turning on " + m.name + " also turns on " + need.name + ".", yesLabel: "Turn both on", noLabel: "Cancel", no: cancel,
+          yes: () => { setOn({ [cfm.id]: true, [need.id]: true }); this.notify(m.name + " and " + need.name + " are on"); },
+          boxStyle: accBox, chipStyle: chip("acc"), yesStyle: accYes
+        });
+      } else if (cfm.kind === "blocked") {
+        const need = byId[m.needs];
+        cf = Object.assign(cf, {
+          title: m.name + " needs " + need.name, body: need.name + " is not in your plan, so this can’t be turned on yet. Ask support to change your plan.",
+          yesLabel: "See plans", noLabel: "Cancel", no: cancel, yes: () => this.setState({ confirm: null, planOpen: true }),
+          boxStyle: accBox, yesStyle: accYes
+        });
+      } else if (cfm.kind === "restore") {
+        const ids = (cfm.ids || []).filter((d) => allowed(d) && !isOn(d));
+        cf = Object.assign(cf, {
+          title: m.name + " is back on", hasList: ids.length > 0, listLabel: "Turn these back on too?", list: ids.map((d) => byId[d].name),
+          body: "They were turned off with it.", yesLabel: "Turn them back on", noLabel: "No thanks", no: cancel,
+          yes: () => { const patch = {}; ids.forEach((d) => { patch[d] = true; }); setOn(patch); this.notify(ids.length + " modules back on"); },
+          boxStyle: accBox, chipStyle: chip("acc"), yesStyle: accYes
+        });
+      }
+    }
+    const cards = MODS.filter((m) => allowed(m.id)).map((m) => {
+      const on = isOn(m.id), confirming = !!cfm && cfm.id === m.id;
+      const tags = [];
+      if (plan.modules.indexOf(m.id) < 0) tags.push({ label: "Add-on", style: chip("cyan") });
+      if (m.needs && !isOn(m.needs)) tags.push({ label: "Needs " + byId[m.needs].short, style: chip("pink") });
+      let note = "", noteStyle = "", noteBtn = "", noteAct = () => {};
+      if (m.id === "songControl") {
+        if (playboxOn) { note = on ? "Playbox linked" : "Playbox linked · ready to turn on"; noteStyle = "background: " + acc + "14; color: " + acc + ";"; }
+        else {
+          note = "Needs Playbox link — Playbox has no connection yet"; noteBtn = "Connections"; noteAct = () => this.setState({ tab: "conn", nudge: "" });
+          noteStyle = st.nudge === m.id ? "background: #FFB13D2e; color: #FFB13D; box-shadow: inset 0 0 0 1px #FFB13D;" : "background: #FFB13D14; color: #FFB13D;";
+        }
+      }
+      if (!on && stopping[m.id] && LIVE[m.id]) { note = "Stopping · " + LIVE[m.id] + " still work · turns off after the last one"; noteStyle = "background: #FFB13D14; color: #FFB13D;"; }
+      const tagNote = m.id === "marketing" && !on ? "Waiting on opt-in setup" : "";
+      return {
+        id: m.id, name: m.name, line: m.line, what: m.what, on, toggle: () => toggleMod(m.id), aria: (on ? "Turn off " : "Turn on ") + m.name,
+        hasTagNote: !!tagNote, tagNote,
+        trackStyle: on ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", knobStyle: on ? "right: 3px;" : "left: 3px;",
+        cardStyle: (on ? "background: #15131a; border: 1px solid " + acc + "40;" : "background: #110f14; border: 1px solid rgba(244,241,234,.1);") + (confirming ? " box-shadow: 0 0 0 2px " + (cfm.kind === "off" ? "#FF3DA6" : acc) + ";" : ""),
+        tags, hasTags: tags.length > 0 || !!tagNote, note, hasNote: !!note, noteStyle, noteBtn, hasNoteBtn: !!noteBtn, noteAct
+      };
+    });
+    const modRows = [];
+    for (let i = 0; i < cards.length; i += 3) { const row = cards.slice(i, i + 3); modRows.push({ cards: row, hasConfirm: !!cfm && row.some((c) => c.id === cfm.id) }); }
+    const locked = MODS.filter((m) => !allowed(m.id)).map((m) => {
+      const inPlans = Component.PLANS.filter((p) => p.modules.indexOf(m.id) >= 0).map((p) => p.name);
+      const needPlan = m.needs && !allowed(m.needs) ? Component.PLANS.find((p) => p.modules.indexOf(m.needs) >= 0) : null;
+      const sub = Component.ADDONS.indexOf(m.id) >= 0
+        ? (needPlan ? "Add-on · needs the " + needPlan.name + " plan" : inPlans.length ? "Add-on · or the " + inPlans[0] + " plan" : "Add-on")
+        : "In the " + inPlans[0] + " plan";
+      const asked = !!st.asked[m.id];
+      return {
+        id: m.id, name: m.name, line: m.line, what: m.what, sub, asked, canAsk: !asked,
+        ask: () => { this.setState({ asked: Object.assign({}, st.asked, { [m.id]: true }) }); this.notify("Request sent to support · " + m.name); },
+        cardStyle: asked ? "border: 1px dashed " + acc + "99;" : "border: 1px dashed rgba(244,241,234,.18);"
+      };
+    });
+    const planRows = Component.PLANS.map((p) => {
+      const cur = p.id === plan.id, asked = !!st.asked["plan:" + p.id];
+      return {
+        name: p.name, what: p.line, isCurrent: cur, canAsk: !cur && !asked, asked: !cur && asked,
+        price: p.perRoom ? "$" + p.base + " + $" + p.perRoom + " a room · $" + monthly(p) + "/month for " + nRooms + " rooms" : "$" + p.base + "/month",
+        priceStyle: cur ? "color: " + acc + ";" : "color: #C9C5CE;",
+        rowStyle: cur ? "background: " + acc + "12; border: 1px solid " + acc + "66;" : "background: #121016; border: 1px solid rgba(244,241,234,.1);",
+        ask: () => { this.setState({ asked: Object.assign({}, st.asked, { ["plan:" + p.id]: true }) }); this.notify("Request sent to support · switch to " + p.name); }
+      };
+    });
+    const planLine = plan.name + " plan · " + (plan.perRoom ? nRooms + " rooms · " : "") + "$" + monthly(plan) + "/month";
+    const railOff = [["rooms", "Calendar"], ["messages", "Messages"], ["barScreen", "Bar orders"], ["reports", "Reports"]].filter(([id]) => !isOn(id)).map((x) => x[1]);
+    // What the live site hides when a module is off (the builder skips those sections).
+    const S = Component.SITE;
+    const siteHidden = [isOn("rooms") ? "" : "Rooms", isOn("booking") ? "" : "Book"].filter(Boolean);
+    const kitchenOn = isOn("kitchen");
+    // ---- Phone ----
+    const PLACES = [["site", "Website", "Header, footer and the Book page"], ["menu", "Menu page and PDF", "Bottom of every menu page"], ["texts", "Confirmation texts", "“Questions? Call us at …” line"], ["rooms", "Room screens", "Help screen on each room tablet"]];
+    const pill = (on) => on ? "background: " + acc + "22; color: " + acc + "; border: 1px solid " + acc + "66;" : "background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14);";
+    const textNum = st.same ? st.call : st.text;
+    const setShow = (k, which) => { const ps = JSON.parse(JSON.stringify(st.phoneShow)); ps[k][which] = !ps[k][which]; this.change({ phoneShow: ps }); };
+    const phonePlaces = PLACES.map(([k, label, hint]) => ({
+      label, hint,
+      toggleCall: () => setShow(k, "call"), callLabel: st.phoneShow[k].call ? "Shown" : "Hidden", callStyle: pill(st.phoneShow[k].call), callAria: "Call number on " + label,
+      toggleText: () => { if (!st.same) setShow(k, "text"); }, textLabel: st.same ? "Same no." : (st.phoneShow[k].text ? "Shown" : "Hidden"),
+      textStyle: st.same ? "background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.14); cursor: default;" : pill(st.phoneShow[k].text), textAria: "Text number on " + label
+    }));
+    const sc = st.phoneShow.site;
+    const phoneLine = "186 W 4th St · " + (st.same ? (sc.call ? "Call or text " + st.call : "No phone shown")
+      : [sc.call ? "Call " + st.call : "", sc.text ? "Text " + textNum : ""].filter(Boolean).join(" · ") || "No phone shown");
+    // ---- Card fee & gratuity ----
+    // One saved setting (Component.PAY) that the menu page, PDF, booking page, room screens and receipts all read.
+    const CR = Component.CARD_RULES;
+    const capPct = Math.min(CR.tapPct, CR.networkCap);
+    const FM = [
+      ["off", "Off", "Every card pays the menu price."],
+      ["surcharge", "Credit card surcharge", "Credit cards pay more. Debit, prepaid and cash don’t."],
+      ["discount", "Cash discount", "Menu prices are card prices. Cash pays less."]
+    ];
+    const fMode = FM[st.feeMode] ? FM[st.feeMode][0] : "off";
+    const feePct = Number(st.fee) || 0;
+    const feeOver = fMode === "surcharge" && feePct > capPct;
+    // What the reader adds to a credit card (never over the cap) and what cash takes off.
+    const surK = fMode === "surcharge" ? Math.min(feePct, capPct) / 100 : 0;
+    const discK = fMode === "discount" ? feePct / 100 : 0;
+    const pctTxt = (k) => String(Math.round(k * 1000) / 10);
+    const radio = (on) => on ? "background: " + acc + "12; color: #F4F1EA; border: 1px solid " + acc + "88;" : "background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.1);";
+    const radioDot = (on) => on ? "border: 5px solid " + acc + "; background: #0b0a0d;" : "border: 1.5px solid rgba(244,241,234,.35); background: transparent;";
+    const feeModes = FM.map(([, label, hint], i) => ({ label, hint, on: st.feeMode === i, pick: () => this.change({ feeMode: i }), style: radio(st.feeMode === i), dotStyle: radioDot(st.feeMode === i) }));
+    const dayOf = (iso, plus) => { const d = new Date(iso + "T12:00:00"); if (isNaN(d)) return null; d.setDate(d.getDate() + (plus || 0)); return d; };
+    const dLabel = (d) => DOW[d.getDay()] + " " + MON[d.getMonth()] + " " + d.getDate();
+    const startD = st.notice ? dayOf(st.notice, CR.noticeDays) : null, todayD = dayOf("2026-09-25");
+    const surLive = fMode === "surcharge" && !!startD && startD <= todayD;
+    const noticeLine = !startD ? "Enter the date you sent them. It starts 30 days later."
+      : surLive ? "Sent " + dLabel(dayOf(st.notice)) + " · live since " + dLabel(startD) + "."
+      : "Starts " + dLabel(startD) + ". Menu price until then.";
+    const feeRules = fMode === "surcharge" ? [
+      "Credit cards only. The reader tells debit and prepaid cards apart, and they pay the menu price.",
+      "The credit card price shows on the menu, the PDF, the website, booking and the room screens.",
+      "Its own receipt line, “Credit card surcharge”. Refunds give it back too."
+    ] : fMode === "discount" ? [
+      "The menu, the PDF, the website and booking show one price: the card price.",
+      "Cash gets the discount at the till, as its own receipt line, “Cash discount”.",
+      "Cash is always taken for on-site payments (New York law)."
+    ] : [
+      "Cash and every card pay the same price.",
+      "Cash is always taken for on-site payments (New York law)."
+    ];
+    const feeEx = fMode === "surcharge" ? [{ k: "Credit card", v: m$(100 * (1 + surK)) }, { k: "Debit or prepaid card", v: "$100.00" }, { k: "Cash", v: "$100.00" }]
+      : fMode === "discount" ? [{ k: "Any card", v: "$100.00" }, { k: "Cash", v: m$(100 * (1 - discK)) }]
+      : [{ k: "Any card", v: "$100.00" }, { k: "Cash", v: "$100.00" }];
+    const feeCapLine = fMode === "discount" ? "Cash gets " + pctTxt(discK) + "% off the menu price. Debit and credit cards pay the menu price."
+      : feeOver ? "Over the cap. New York allows no more than a card costs you, " + capPct + "% here, so this can’t be saved."
+      : "Most you can add: " + capPct + "%. New York caps it at what a card costs you, and Visa at " + CR.networkCap + "%.";
+    const feeShort = fMode === "surcharge" ? "Credit +" + pctTxt(surK) + "%" : fMode === "discount" ? "Cash −" + pctTxt(discK) + "%" : "No card fee";
+    const GM = [["off", "Off"], ["rooms", "Room tabs"], ["parties", "Big parties"], ["all", "Every tab"]];
+    const gMode = GM[st.gratMode] ? GM[st.gratMode][0] : "off";
+    const gPct = Number(st.tip) || 0, pMin = Number(st.partyMin) || 0;
+    const gApplies = (heads, isRoom) => gMode === "all" || (gMode === "rooms" && isRoom) || (gMode === "parties" && pMin > 0 && heads >= pMin);
+    const gratModes = GM.map(([, label], i) => ({ label, on: st.gratMode === i, pick: () => this.change({ gratMode: i }), style: seg2(st.gratMode === i) }));
+    const gratHint = gMode === "off" ? "No gratuity line. The reader can still ask for a tip."
+      : gMode === "rooms" ? "On every room tab. Bar tabs get the tip screen."
+      : gMode === "parties" ? "On tabs for " + (pMin || "…") + " guests or more."
+      : "On every tab, rooms and bar.";
+    const gratShort = gMode === "off" ? "no gratuity" : gPct + "% gratuity" + (gMode === "rooms" ? " on room tabs" : gMode === "parties" ? ", " + (pMin || "…") + "+ guests" : " on every tab");
+    const gratRules = [
+      "Always called “Gratuity”, on every screen and receipt.",
+      "All of it goes to the staff who served, never owners or managers (NY law).",
+      "Paid through payroll. Records kept 6 years."
+    ];
+    const tipPcts = st.tipPcts.map((v, i) => ({ v, aria: "Tip choice " + (i + 1) + ", percent", set: (e) => { const t = st.tipPcts.slice(); t[i] = e.target.value; this.change({ tipPcts: t }); } }));
+    // Try it: Room 9 tonight (Marcus T., 12 guests), the same numbers as the room screen.
+    const r9room = 322, r9drinks = 158, r9sub = r9room + r9drinks, r9tax = Math.round(r9sub * 8.875) / 100;
+    const r9g = gApplies(12, true) ? Math.round(r9sub * gPct) / 100 : 0, r9tot = r9sub + r9tax + r9g;
+    const tryLines = [
+      { k: "Room time", v: m$(r9room) }, { k: "Drinks", v: m$(r9drinks) }, { k: "Tax 8.875%", v: m$(r9tax) },
+      { k: r9g ? "Gratuity " + gPct + "%" : "Gratuity", v: r9g ? m$(r9g) : "none" },
+      { k: "Total", v: m$(r9tot), style: "border: 1px solid " + acc + "55;" }
+    ].map((x) => Object.assign({ style: "" }, x));
+    const tryPays = fMode === "surcharge" ? [{ k: surLive ? "Credit card" : "Credit card, once live", v: m$(r9tot * (1 + surK)) }, { k: "Debit or prepaid", v: m$(r9tot) }, { k: "Cash", v: m$(r9tot) }]
+      : fMode === "discount" ? [{ k: "Any card", v: m$(r9tot) }, { k: "Cash", v: m$(r9tot * (1 - discK)) }]
+      : [{ k: "Card or cash", v: m$(r9tot) }];
+    // ---- Menu ----
+    const mq = (st.mq || "").trim().toLowerCase();
+    const CATS = Component.MENU_RAW.map((r) => r[0]);
+    const menuCats = ["All"].concat(CATS).map((c) => ({
+      label: c, n: c === "All" ? st.menu.length : st.menu.filter((m) => m.cat === c).length,
+      pick: () => this.setState({ menuCat: c, mq: "" }),
+      style: (mq ? c === "All" : st.menuCat === c) ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : "background: #141218; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);"
+    }));
+    const setItem = (id, patch) => this.change({ menu: st.menu.map((m) => (m.id === id ? Object.assign({}, m, patch) : m)) });
+    const menuCardOn = fMode !== "off";
+    const menuList = st.menu.filter((m) => (mq ? true : (st.menuCat === "All" || m.cat === st.menuCat)) && (!mq || (m.name + " " + m.sub + " " + m.cat).toLowerCase().includes(mq)));
+    const menu = menuList.map((m) => ({
+      name: m.name, sub: m.sub, hasSub: !!m.sub, cat: m.cat, price: m.price, priceAria: "Price of " + m.name,
+      card: "$" + ((Number(m.price) || 0) * (fMode === "discount" ? 1 - discK : 1 + surK)).toFixed(2),
+      rowStyle: m.on ? "" : "opacity: .45;",
+      setName: (e) => setItem(m.id, { name: e.target.value }), setPrice: (e) => setItem(m.id, { price: e.target.value }),
+      toggle: () => setItem(m.id, { on: !m.on }), showAria: (m.on ? "Hide " : "Show ") + m.name,
+      trackStyle: m.on ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", knobStyle: m.on ? "right: 3px;" : "left: 3px;",
+      station: m.station === "Kitchen" ? "Kitchen" : "Bar", stationAria: "Station for " + m.name + ": " + (m.station === "Kitchen" ? "Kitchen" : "Bar"),
+      toggleStation: () => setItem(m.id, { station: m.station === "Kitchen" ? "Bar" : "Kitchen" }),
+      stationStyle: m.station === "Kitchen" ? "background: #FFB13D22; color: #FFB13D; border: 1px solid #FFB13D66;" : "background: transparent; color: #C9C5CE; border: 1px solid rgba(244,241,234,.16);",
+      toggleOut: () => setItem(m.id, { out: !m.out }), outLabel: m.out ? "Out tonight" : "In stock",
+      outStyle: m.out ? "background: #FF3DA6; color: #0b0a0d; border: 0;" : "background: transparent; color: #8E8994; border: 1px solid rgba(244,241,234,.14);"
+    }));
+    const nOut = st.menu.filter((m) => m.out).length, nHidden = st.menu.filter((m) => !m.on).length;
+    const menuCounts = (menuList.length === st.menu.length ? st.menu.length + " items" : menuList.length + " of " + st.menu.length) + " · " + nOut + " out tonight · " + nHidden + " hidden";
+    const SECTIONS = [
+      ["hours", "Hours & prices", "Each day, special dates, $"],
+      ["pay", "Card fee & gratuity", feeShort + " · " + (gMode === "off" ? "no gratuity" : gPct + "% " + (gMode === "rooms" ? "on rooms" : gMode === "parties" ? (pMin || "…") + "+ guests" : "every tab"))],
+      ["features", "Features", plan.name + " plan · " + nOn + " of " + MODS.length + " on"],
+      ["cash", "Cash drawers", (st.cashMode === "person" ? "A drawer per person" : "One house drawer") + " · $" + (st.bank || "0") + " bank" + (st.cashMode !== st.cashLive ? " · from Sat" : "")],
+      ["deposit", "Deposits & cancelling", !isOn("booking") ? "Online booking is off" : st.depOn ? (st.depMode === 0 ? "First hour" : DM[st.depMode][0].replace("$", "$" + (st.depValue || ""))) + " · refund " + st.cancel + "h ahead" : "Off"],
+      ["alerts", "Alerts & rules", "Warnings, orders, calls"],
+      ["devices", "Printers & devices", "Printers, readers, tablets, internet"],
+      ["menu", "Menu", "Site, PDF and room screens"],
+      ["rooms", "Rooms", isOn("rooms") ? "Names, sizes, on or off" : (allowed("rooms") ? "Off in Features" : "Not in your plan")],
+      ["site", "Website", isOn("website") ? S.style + " · " + S.address : "Off in Features"],
+      ["contact", "Phone & texts", st.call + (st.same ? " · calls and texts" : " · texts differ")],
+      ["texts", "Texts", "Every text we send"],
+      ["team", "Team", "Roles, PINs, tip pool"],
+      ["conn", "Connections", "Stripe, texts, Playbox"]
+    ];
+    const cur = SECTIONS.find((s) => s[0] === st.tab) || SECTIONS[0];
+    // Admin → Cash drawers. The model in use tonight (cashLive) only changes at the next business date.
+    const CASH_MODES = [
+      ["house", "One house drawer", "Bartenders and servers all use the same drawer. The manager on duty answers for it and hands it over with a blind count.", "Fits one till that everyone shares, as at West 4 today."],
+      ["person", "A drawer per person", "Each bartender has their own drawer or tray, counts their bank in and their cash out, and over or short is theirs.", "Needs a drawer for each person taking cash at the same time, or a tray swap at shift change."]
+    ];
+    const cashModes = CASH_MODES.map(([id, name, what, fits]) => {
+      const on = st.cashMode === id, live = st.cashLive === id;
+      return {
+        name, what, fits, on: on ? "true" : "false",
+        hasTag: live || on, tag: live ? "In use tonight" : "Starts Sat Sep 26",
+        tagStyle: live ? "background: " + acc + "22; color: " + acc + "; border: 1px solid " + acc + "66;" : "background: #FFB13D14; color: #FFB13D; border: 1px solid #FFB13D66;",
+        pick: () => { if (!on) this.change({ cashMode: id }); },
+        style: on ? "background: " + acc + "0f; color: #F4F1EA; border: 1px solid " + acc + ";" : "background: #121016; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12);"
+      };
+    });
+    const sections = SECTIONS.map(([id, label, hint]) => ({ label, hint, pick: () => this.setState({ tab: id }), style: st.tab === id ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;" }));
+    // Preview on Hours & prices: 6 guests for 2 hours in a room, with tonight's card fee and gratuity settings.
+    const pp = Number(st.pp) || 0;
+    const sub6 = pp * 6 * 2, tot6 = sub6 + Math.round(sub6 * 8.875) / 100 + (gApplies(6, true) ? Math.round(sub6 * gPct) / 100 : 0);
+    const preview = fMode === "surcharge" ? "credit " + m$(tot6 * (1 + surK)) + " · debit or cash " + m$(tot6)
+      : fMode === "discount" ? "card " + m$(tot6) + " · cash " + m$(tot6 * (1 - discK))
+      : m$(tot6) + " by card or cash";
+    const rules = st.rules.map((r, i) => ({
+      label: r.label, hint: r.hint,
+      toggle: () => { const rr = st.rules.slice(); rr[i] = Object.assign({}, r, { on: !r.on }); this.change({ rules: rr }); },
+      trackStyle: r.on ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);",
+      knobStyle: r.on ? "right: 3px;" : "left: 3px;"
+    }));
+    const devices = st.devices.map((d, i) => ({
+      name: d.name, kind: d.kind, where: d.where, job: d.job,
+      status: d.ok ? "Ready" : (d.todo || "Check"), statusStyle: d.ok ? "color: " + acc + ";" : "color: #FFB13D;",
+      dotStyle: d.ok ? "background: " + acc + ";" : (d.todo ? "border: 1.5px dashed #FFB13D; box-sizing: border-box;" : "background: #FFB13D;"),
+      testLabel: d.t === "print" ? "Print test" : d.t === "drawer" ? "Open drawer" : d.t === "setup" ? "How to" : "Ping",
+      test: () => this.notify(d.t === "print" ? "Test page sent to " + d.name : d.t === "drawer" ? "Drawer opened" : d.t === "setup" ? (d.todo === "On order" ? "Arrives registered to West 4. Pair it from Devices when it comes." : "Plug the line and the LTE router in, then pair it here with a one-time code.") : d.name + " answered in 40 ms")
+    }));
+    const rooms = st.rooms.map((r, i) => ({
+      name: r.name, cap: r.cap, tablet: r.tablet, rowStyle: r.on ? "" : "opacity: .5;",
+      setName: (e) => { const rr = st.rooms.slice(); rr[i] = Object.assign({}, r, { name: e.target.value }); this.change({ rooms: rr }); },
+      setCap: (e) => { const rr = st.rooms.slice(); rr[i] = Object.assign({}, r, { cap: e.target.value }); this.change({ rooms: rr }); },
+      setTablet: (e) => { const rr = st.rooms.slice(); rr[i] = Object.assign({}, r, { tablet: e.target.value }); this.change({ rooms: rr }); },
+      toggle: () => { const rr = st.rooms.slice(); rr[i] = Object.assign({}, r, { on: !r.on }); this.change({ rooms: rr }); },
+      onStyle: r.on ? "background: " + acc + "22; color: " + acc + "; border: 1px solid " + acc + "66;" : "background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666;", onLabel: r.on ? "Open" : "Off tonight"
+    }));
+    // One role list everywhere (Setup, Admin, the API). Owners and managers use 6-digit PINs and never share tips.
+    const ROLES = ["Owner", "Manager", "Bartender", "Staff"];
+    const CANS = ["everything, including payouts and the plan", "refunds, comps, hours, rooms, menu", "bar screen, tabs, quick sale", "check-ins, walk-ins, texts"];
+    const boss = (r) => r === 0 || r === 1;
+    const team = st.team.map((p, i) => {
+      const put = (patch) => { const tt = st.team.slice(); tt[i] = Object.assign({}, p, patch); this.change({ team: tt }); };
+      const first = String(p.name || "").split(" ")[0] || "They";
+      return {
+        name: p.name, initials: p.initials, role: ROLES[p.role], can: CANS[p.role],
+        roles: ROLES.map((label, r) => ({ label, pick: () => {
+          if (r === p.role) return;
+          put(boss(r) ? { role: r, tips: false } : { role: r });
+          if (boss(r) && !boss(p.role)) this.notify(first + " leaves the tip pool and gets a link to set a 6-digit PIN");
+        }, style: seg2(p.role === r) })),
+        tipsOn: !!p.tips && !boss(p.role), tipsAria: "Tip pool: " + (p.name || "this person"),
+        tipsLabel: boss(p.role) ? "Can’t share" : (p.tips ? "In tip pool" : "Not in pool"),
+        tipsStyle: boss(p.role) ? "background: transparent; color: #6F6B78; border: 1px dashed rgba(244,241,234,.16);" : seg2(!!p.tips),
+        toggleTips: () => {
+          if (boss(p.role)) { this.notify("Owners and managers can’t share in the tip pool (New York law)"); return; }
+          put({ tips: !p.tips });
+          this.notify(first + (p.tips ? " leaves" : " joins") + " the tip pool from Sat Sep 26. Tonight’s pool doesn’t change.");
+        },
+        pinLine: boss(p.role) ? "6-digit PIN" : "4-digit PIN",
+        setName: (e) => put({ name: e.target.value }),
+        reset: () => this.notify("PIN reset · " + first + " gets a link on their own phone to set a new one")
+      };
+    });
+    // Comes from the time clock: in and out punches, not PIN sign-ins.
+    // Comes from message_templates. Marketing ones stay off until their opt-in exists and the lawyer answers.
+    const TEXTS = [
+      ["conf", "Booking confirmed", "Right away", "Booked. Room for 6 at 9:30 PM, Sat Sep 26. Deposit $60 paid, comes off your tab. Free to cancel until Fri 9:30 PM: west4karaoke.com/b/k7Qm9xT2vR4pLw8nZc3eYh"],
+      ["rem", "Reminder", "Afternoon of", "Tonight at West 4: room for 6 at 9:30 PM. 186 W 4th St. Reply if anything changes."],
+      ["code", "Room code", "At check-in", "Welcome to Room 9. To order drinks from your phone, scan the code on the wall and enter room code KX4M7."],
+      ["ready", "Room ready", "Staff taps", "Your room is ready. You have 10 minutes to claim it at the door."],
+      ["offer", "Offer expiring", "Waitlist · 5 min left", "5 minutes left to claim your room at West 4. After that it goes to the next party in line."],
+      ["wrap", "Please wrap up", "Someone waiting · 10 min before end", "10 minutes left in Room 9. The next party is here, so please start wrapping up. Thank you!"],
+      ["ten", "Booked time ending", "10 min before end", "Your booked time in Room 9 ends at 11:00 PM. Nobody’s waiting, so stay as long as you like, by the minute."],
+      ["rcpt", "Receipt", "After paying", "Thanks for singing with us. Your receipt for $154.65: west4karaoke.com/rc/7Hq2kT9mWx4LpZ3nVb8cRd"],
+      ["refund", "Deposit refund", "When a refund goes out", "Your $60.00 deposit for Sat Sep 26 is on its way back to your card. It takes 5–10 days to show."],
+      ["paylink", "Payment link", "Staff or big-party booking", "West 4 is holding the VIP room for 22 on Fri Sep 25 at 9:30 PM. Agree to the terms and pay the $250.00 deposit here: west4karaoke.com/b/r5Vt8mKq2XwN7pLc3Zh9Jd"],
+      ["late", "Running late reply", "Guest says they’re late", "No problem. We’ll hold your room until 10:45 PM."],
+      ["rev", "Review ask", "Next morning 11 AM", "Hope last night was a good one. Two taps to tell Google: g.page/west4/review", true],
+      ["bday", "Birthday", "A week before", "Your birthday’s coming up. Book a room this month and the first song’s on us.", true]
+    ];
+    const textsOff = st.textsOff || {};
+    const texts = TEXTS.map(([id, name, when, text, mkt]) => {
+      const on = !mkt && !textsOff[id];
+      return {
+        name, when, text, on, cat: mkt ? "Marketing" : "Service", hasNote: !!mkt, note: mkt ? "Off until it has its own opt-in and the lawyer answers" : "",
+        catStyle: mkt ? "background: #FF3DA614; color: #FF3DA6; border: 1px solid #FF3DA655;" : "background: " + acc + "14; color: " + acc + "; border: 1px solid " + acc + "55;",
+        rowStyle: on ? "" : "opacity: .6;", aria: name + (on ? " is on" : " is off"),
+        track: on ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", knob: on ? "right: 3px;" : "left: 3px;",
+        toggle: () => { if (mkt) { this.notify("Marketing texts stay off until they have their own opt-in and the lawyer answers"); return; } this.change({ textsOff: Object.assign({}, textsOff, { [id]: !textsOff[id] }) }); }
+      };
+    });
+    const punches = [["Andy C.", "Manager", "On since 6:00 PM"], ["Maya S.", "Bartender", "On since 4:00 PM"], ["Diego R.", "Staff", "On since 7:00 PM"]].map(([name, role, line]) => ({
+      name, role, line, edit: () => this.notify("Editing " + name + "’s punch needs a reason, and it’s logged")
+    }));
+    const conns = st.conns.map((c, i) => ({
+      name: c.name, hint: c.hint, label: c.on ? "Connected" : "Connect",
+      style: c.on ? "background: " + acc + "22; color: " + acc + "; border: 1px solid " + acc + "66;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);",
+      toggle: () => { const cc = st.conns.slice(); cc[i] = Object.assign({}, c, { on: !c.on }); this.change({ conns: cc }); }
+    }));
+    const show = (id) => st.tab === id;
+    return {
+      accent: acc, sections, title: cur[1], subtitle: cur[2],
+      // Features
+      showFeatures: show("features"), planLine, planSub: nOn + " of " + MODS.length + " on" + (locked.length ? " · " + locked.length + " not in your plan" : ""),
+      planOpen: !!st.planOpen, togglePlan: () => this.setState({ planOpen: !st.planOpen }),
+      planBtnStyle: st.planOpen ? "background: #F4F1EA; color: #0b0a0d; border: 1px solid #F4F1EA;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2);",
+      planRows, addOnNames: Component.ADDONS.map((id) => byId[id].name).join(" · "),
+      core: Component.CORE, modsLabel: "Your modules · " + nOn + " on", modRows, cf, locked, hasLocked: locked.length > 0,
+      goFeatures: () => this.setState({ tab: "features" }),
+      railCalendar: isOn("rooms"), railMessages: isOn("messages"), railBar: isOn("barScreen"), railReports: isOn("reports"),
+      railHidden: railOff.length > 0, railHiddenLine: "Hidden, off in Features: " + railOff.join(", "),
+      // Sections that change when a module is off
+      showDepositOn: show("deposit") && isOn("booking"), showDepositOff: show("deposit") && !isOn("booking"),
+      depOffTitle: allowed("booking") ? "Online booking is turned off in Features" : "Online booking is not in your plan",
+      showRoomsOn: show("rooms") && isOn("rooms"), showRoomsOff: show("rooms") && !isOn("rooms"),
+      roomsOffTitle: allowed("rooms") ? "Rooms are turned off in Features" : "Rooms are not in your plan", roomsOffTag: allowed("rooms") ? "Off in Features" : "Not in your plan",
+      showSiteOn: show("site") && isOn("website"), showSiteOff: show("site") && !isOn("website"),
+      kitchenOn, menuCols: (kitchenOn ? "minmax(0, 1fr) 96px 76px 80px " : "minmax(0, 1fr) 100px 84px ") + (menuCardOn ? "92px " : "") + (kitchenOn ? "100px 54px" : "104px 54px"),
+      menuCardOn, menuPriceHead: "PRICE $", menuCardHead: fMode === "discount" ? "CASH −" + pctTxt(discK) + "%" : "CREDIT +" + pctTxt(surK) + "%",
+      // Card fee & gratuity
+      showPay: show("pay"), goPay: () => this.setState({ tab: "pay" }), payShort: feeShort + " · " + gratShort,
+      stripeFeeLine: "You pay Stripe’s fees, taken out of each payout: " + CR.tap + " a tap, " + CR.online + " online (Stripe’s list price). A card fee passes some of that on to guests.",
+      feeModes, feeHasPct: fMode !== "off", feeAria: fMode === "discount" ? "Cash discount, percent" : "Credit card surcharge, percent",
+      feeUnit: fMode === "discount" ? "% off for cash" : "% added to credit cards", feeOver, capPct,
+      feeInStyle: feeOver ? "border-color: #FF3DA6;" : "", useCap: () => this.change({ fee: String(capPct) }),
+      feeCapLine, feeCapStyle: feeOver ? "color: #FF3DA6; font-weight: 600;" : "color: #8E8994;", feeRules, feeEx,
+      feeNeedsNotice: fMode === "surcharge", notice: st.notice, setNotice: (e) => this.change({ notice: e.target.value }), noticeLine,
+      noticeStyle: !startD ? "color: #FFB13D;" : surLive ? "color: " + acc + ";" : "color: #C9C5CE;",
+      noticeBox: !startD ? "background: #FFB13D12; border: 1px solid #FFB13D55;" : "background: #141218; border: 1px solid rgba(244,241,234,.1);",
+      gratModes, gratHint, gratOn: gMode !== "off", gratParty: gMode === "parties", partyMin: st.partyMin, setPartyMin: field("partyMin"), gratRules,
+      tipScreen: st.tipScreen, toggleTipScreen: () => this.change({ tipScreen: !st.tipScreen }),
+      tipTrack: st.tipScreen ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", tipKnob: st.tipScreen ? "right: 3px;" : "left: 3px;",
+      tipScreenLine: st.tipScreen ? "Percent of the drinks before tax; $1, $2, $3 under $10. Bar tabs ask on the reader at close. Skipped when a gratuity is already on the tab." : "Off. The reader goes straight to paying.",
+      tipPcts,
+      watchLine: "Watch: NYC’s proposed junk-fee rules may require menu prices to include an automatic gratuity. The rule pack updates if they pass.",
+      tryLines, tryPays,
+      stationNote: kitchenOn ? "Station sends each ticket to the bar or the kitchen screen and printer." : "Kitchen & food is off in Features, so there is no Station column: every order rings the bar.",
+      // Website summary (the builder owns the site; this is what is live)
+      siteAddress: S.address, siteStyle: S.style, sitePublished: S.published, sitePublishedBy: S.publishedBy,
+      siteSecs: siteHidden.length ? (S.sections - siteHidden.length) + " of " + S.sections + " live" : S.sections + " live",
+      siteSecsSub: siteHidden.length ? siteHidden.join(" and ") + " hidden · off in Features" : "All shown", siteSecsStyle: siteHidden.length ? "color: #FF3DA6;" : "color: #6F6B78;",
+      siteH1: S.h1, siteLine: S.line,
+      previewNav: [isOn("rooms") ? "Rooms" : "", "Menu", isOn("booking") ? "Book" : ""].filter(Boolean).join(" · "), previewBook: isOn("booking"),
+      previewFacts: [isOn("rooms") ? nRooms + " rooms" : "", S.songs + " songs", "till 4 AM"].filter(Boolean).join(" · "),
+      depOn: st.depOn, toggleDep: () => this.change({ depOn: !st.depOn }), depTrack: st.depOn ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", depKnob: st.depOn ? "right: 3px;" : "left: 3px;",
+      depModes: DM.map(([label], i) => ({ label, pick: () => this.change({ depMode: i }), style: seg2(st.depMode === i) })),
+      depHasValue: st.depMode > 0, depValue: st.depValue, setDepValue: field("depValue"), depUnit: DM[st.depMode][1],
+      lateModes: LM.map((label, i) => ({ label, pick: () => this.change({ lateMode: i }), style: seg2(st.lateMode === i) })),
+      noShowModes: NM.map((label, i) => ({ label, pick: () => this.change({ noShowMode: i }), style: seg2(st.noShowMode === i) })),
+      vipDep: st.vipDep, setVipDep: field("vipDep"), maxOcc: st.maxOcc, setMaxOcc: field("maxOcc"), vipDepLine: "VIP room bookings pay $" + st.vipDep + " instead",
+      depPolicy, depExamples,
+      showCash: show("cash"), cashModes, cashPending: st.cashMode !== st.cashLive,
+      cashPendingLine: st.cashMode === "person" ? "A drawer per person starts Sat Sep 26, the next business date. Tonight keeps one house drawer, and Andy still answers for it." : "One house drawer starts Sat Sep 26, the next business date. Tonight’s drawers stay one per person.",
+      cashHouse: st.cashMode !== "person", cashPer: st.cashMode === "person", cashRulesHead: st.cashMode === "person" ? "A drawer per person" : "One house drawer",
+      bank: st.bank, setBank: field("bank"), noteOver: st.noteOver, setNoteOver: field("noteOver"), paidOutOk: st.paidOutOk, setPaidOutOk: field("paidOutOk"),
+      witnessModes: ["Never", "When it’s off", "Every count"].map((label, i) => ({ label, on: st.witness === i ? "true" : "false", pick: () => this.change({ witness: i }), style: st.witness === i ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);" })),
+      drawerWho: ["Bartenders", "Bartenders and servers"].map((label, i) => ({ label, on: st.drawerWho === i ? "true" : "false", pick: () => this.change({ drawerWho: i }), style: st.drawerWho === i ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);" })),
+      countLaterOn: st.countLater ? "true" : "false", toggleCountLater: () => this.change({ countLater: !st.countLater }),
+      countLaterTrack: st.countLater ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", countLaterKnob: st.countLater ? "right: 3px;" : "left: 3px;",
+      drawersLine: "West 4 has one drawer, on the front desk printer. Two people take cash at the same time on busy nights, so add a drawer in Printers & devices" + (st.countLater ? ", or swap trays at shift change." : "."),
+      showHours: show("hours"), showAlerts: show("alerts"), showDevices: show("devices"), showMenu: show("menu"), showContact: show("contact"), showTeam: show("team"), showConn: show("conn"),
+      days, hoursLine, lastCall24: to24(st.lastCall), setLastCall, lastCallHint, specials, specialLine, hasSpecial: specials.length > 0, noSpecial: specials.length === 0, autoModes, tonightLine,
+      tonightStyle: !st.auto || rule.closed ? "color: #FF3DA6;" : "color: #C9C5CE;",
+      nsDate: st.nsDate, setNsDate: (e) => this.setState({ nsDate: e.target.value }), nsOpen: st.nsOpen, setNsOpen: (e) => this.setState({ nsOpen: e.target.value }), nsClose: st.nsClose, setNsClose: (e) => this.setState({ nsClose: e.target.value }), nsNote: st.nsNote, setNsNote: (e) => this.setState({ nsNote: e.target.value }),
+      nsHours: !st.nsClosed, nsModes: [["Closed", true], ["Special hours", false]].map(([label, v]) => ({ label, pick: () => this.setState({ nsClosed: v }), style: seg2(st.nsClosed === v) })), addSpecial,
+      call: st.call, text: st.text, setCall: field("call"), setText: field("text"), textSame: st.same, textDiff: !st.same,
+      toggleSame: () => this.change({ same: !st.same, text: st.same ? st.text : st.call }), sameTrack: st.same ? "background: " + acc + ";" : "background: rgba(244,241,234,.18);", sameKnob: st.same ? "right: 3px;" : "left: 3px;",
+      phonePlaces, phoneLine,
+      mq: st.mq, mqOn: !!st.mq, setMq: (e) => this.setState({ mq: e.target.value }), clearMq: () => this.setState({ mq: "" }), menuCats, menuCounts, menuEmpty: menu.length === 0,
+      pp: st.pp, vip: st.vip, minWk: st.minWk, minWe: st.minWe, fee: st.fee, tip: st.tip, dmg: st.dmg, cancel: st.cancel, hh: st.hh,
+      setPp: field("pp"), setVip: field("vip"), setMinWk: field("minWk"), setMinWe: field("minWe"), setFee: field("fee"), setTip: field("tip"), setDmg: field("dmg"), setCancel: field("cancel"), setHh: field("hh"),
+      preview,
+      tipModes: ["Pool by hours", "Pool evenly", "Room’s server"].map((label, i) => ({ label, pick: () => this.change({ tipsMode: i }), style: seg2(st.tipsMode === i) })),
+      warn: st.warn, grace: st.grace, clean: st.clean, tabCap: st.tabCap, setWarn: field("warn"), setGrace: field("grace"), setClean: field("clean"), setTabCap: field("tabCap"), rules,
+      devices, scan: () => this.notify("Looking on USB and the Wi-Fi… nothing new"),
+      menu, addItem: () => { const cat = st.menuCat === "All" ? "Cocktails" : st.menuCat; this.change({ mq: "", menu: [{ id: "n" + st.menu.length + "_" + st.toastN, cat, name: "New item", sub: "", price: "12", on: true, out: false, station: "Bar" }].concat(st.menu) }); this.notify("New item added at the top of " + cat); },
+      rooms,
+      team, punches, texts, showTexts: show("texts"), addPerson: () => this.change({ team: st.team.concat([{ name: "New person", role: 3, initials: "NP", tips: false }]) }),
+      conns,
+      savedLine: st.dirty ? "Unsaved changes" : "Saved " + st.savedAt,
+      saveLabel: st.dirty ? "Save and publish" : "Saved", saveStyle: st.dirty ? "background: " + acc + "; color: #0b0a0d;" : "background: #1c1a21; color: #8E8994;",
+      save: () => { if (st.dirty && feeOver) { this.setState({ tab: "pay" }); this.notify("Card fee is over New York’s cap. Set it to " + capPct + "% or less."); return; } if (st.dirty) { this.setState({ dirty: false, savedAt: "just now by Abhishek", savedOn: st.on, cashSaved: st.cashMode, confirm: null }); this.notify(st.cashMode !== st.cashLive ? "Saved. The drawer change starts Sat Sep 26; everything else is live now." : "Saved. Site, board and room screens updated."); } },
+      discard: () => { if (st.dirty) { this.setState({ dirty: false, on: st.savedOn, cashMode: st.cashSaved, confirm: null, restore: null, nudge: "", stopping: {} }); this.notify("Changes dropped"); } },
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

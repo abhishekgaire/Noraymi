@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Tonight board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease,box-shadow .2s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.tile{transition:transform .12s ease,box-shadow .2s ease}.tile:hover{transform:translateY(-2px);box-shadow:0 12px 30px -16px rgba(0,0,0,.9)}
+.rail a{transition:background .15s ease}.rail a:hover{background:rgba(244,241,234,.06)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,166,.6)}50%{box-shadow:0 0 0 8px rgba(255,61,166,0)}}
+.pulse{animation:pulse 1.2s ease-out infinite}
+@keyframes slide{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.panel{animation:slide .25s cubic-bezier(.2,.7,.2,1) both}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}12%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+.toast{animation:toast 3s ease both}
+@media (prefers-reduced-motion:reduce){.pulse,.panel,.toast{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden">
+
+  <nav class="rail" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Boho Karaoke · desktop</span></div>
+    <a href="Board.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 700; color: #0b0a0d; text-decoration: none; background: var(--acc, #D4FF3F)">Tonight</a>
+    <a href="DeskCalendar.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Calendar</a>
+    <a href="DeskMessages.dc.html" style="display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Messages <span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d">2</span></a>
+    <a href="Rail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar POS</a>
+    <a href="Bar.dc.html" style="display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar orders <span class="mono pulse" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #FF3DA6; color: #0b0a0d">1</span></a>
+    <a href="Night.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Close the night</a>
+    <a href="DeskReports.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Reports</a>
+    <a href="AdminDesk.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Admin</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <a href="AdminDesk.dc.html" style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(255,177,61,.45); font-size: 12px; line-height: 1.5; color: #F4F1EA; text-decoration: none"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Inside now</span><br><b style="font-size: 16px">{{inside}}</b> people<br><span style="color: #FFB13D">Set the venue’s limit in Admin to get the 90% warning</span></a>
+      <sc-if value="{{houseDrawer}}" hint-placeholder-val="{{true}}"><div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">House drawer</span><br><b>Andy</b> since 6:00 PM<br><span style="color: #8E8994">Opened at $300.00 · everyone rings cash here</span></div></sc-if>
+      <sc-if value="{{perDrawer}}" hint-placeholder-val="{{false}}"><div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Drawers · one each</span><br><b>Bar</b> · {{barLine}}<br><b>Front desk</b> · {{deskLine}}<sc-if value="{{hasPulled}}" hint-placeholder-val="{{false}}"><br><span style="color: #FFB13D">{{pulledLine}}</span></sc-if></div></sc-if>
+      <button type="button" class="btn" onClick="{{handover}}" style="appearance: none; border-radius: 10px; padding: 11px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">{{handLabel}}</button>
+      <button type="button" class="btn" onClick="{{toggleDrawerMode}}" style="appearance: none; border: 0; background: transparent; color: #6F6B78; font-size: 10px; padding: 0; text-decoration: underline; text-underline-offset: 3px">{{drawerDemo}}</button>
+      <a href="Pin.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-size: 12px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.1)">Lock · PIN</a>
+      <span class="mono" style="font-size: 9px; letter-spacing: .1em; color: #6F6B78; text-align: center">{{netLine}}</span>
+    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid rgba(244,241,234,.08); white-space: nowrap">
+      <div style="display: flex; flex-direction: column"><span class="disp" style="font-size: 26px">Tonight</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">{{dateLine}}</span></div>
+      <div style="display: flex; gap: 6px; margin-left: 10px">
+        <span style="padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><b style="color: var(--acc, #D4FF3F)">{{inUse}}</b> in room</span>
+        <span style="padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><b>{{open}}</b> open</span>
+        <span style="padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><b>{{cleaning}}</b> cleaning</span>
+        <span style="padding: 8px 10px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px"><b style="color: #FF3DA6">3</b> waiting</span>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center">
+        <div style="display: flex; align-items: center; gap: 8px; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 10px; padding: 2px 4px 2px 12px; width: 170px"><svg width="14" height="14" fill="none" stroke="#8E8994" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg><input type="text" placeholder="Find a name or phone" aria-label="Find a reservation" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 13px; font-family: inherit; padding: 8px 0"></div>
+        <button type="button" class="btn" style="appearance: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Waitlist · 3</button>
+        <button type="button" class="btn" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">+ Walk-in</button>
+      </div>
+    </header>
+
+    <div style="display: flex; flex: 1; min-height: 0">
+      <section style="flex: 1; min-width: 0; padding: 14px 20px; display: flex; flex-direction: column; gap: 12px; overflow: auto">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Needs you</div>
+          <sc-for list="{{alerts}}" as="a" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 7px 12px; border-radius: 10px; background: #121016; border: 1px solid rgba(244,241,234,.1); border-left: 3px solid {{a.color}}">
+              <span style="flex: 1; font-size: 13px; line-height: 1.35; white-space: normal">{{a.text}}</span>
+              <button type="button" class="btn" onClick="{{a.act}}" style="appearance: none; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; border: 0">{{a.label}}</button>
+              <button type="button" class="btn" onClick="{{a.dismiss}}" aria-label="Dismiss" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 16px; line-height: 1">×</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{hasMore}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{toggleAll}}" style="align-self: flex-start; appearance: none; border: 0; background: transparent; color: #C9C5CE; font-size: 12px; font-weight: 700; padding: 2px 2px; text-decoration: underline; text-underline-offset: 3px">{{moreLabel}}</button></sc-if>
+          <sc-if value="{{noAlerts}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #6F6B78; padding: 6px 2px">All quiet. The board will tell you when something needs a decision.</div></sc-if>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{tiles}}" as="t" hint-placeholder-count="14">
+            <button type="button" class="tile btn" onClick="{{t.open}}" style="appearance: none; text-align: left; display: flex; flex-direction: column; gap: 6px; min-height: 112px; padding: 11px 12px; border-radius: 14px; font-family: inherit; {{t.style}}">
+              <span class="disp" style="font-size: 20px; white-space: nowrap">{{t.name}}</span>
+              <span style="font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%">{{t.line1}}</span>
+              <sc-if value="{{t.hasBadge}}" hint-placeholder-val="{{false}}"><span class="mono pulse" style="align-self: flex-start; max-width: 100%; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 999px; background: #FF3DA6; color: #0b0a0d">{{t.badge}}</span></sc-if>
+              <sc-if value="{{t.noBadge}}" hint-placeholder-val="{{true}}"><span style="font-size: 11px; opacity: .8; line-height: 1.3">{{t.line2}}</span></sc-if>
+              <span style="margin-top: auto; display: flex; justify-content: space-between; gap: 6px; width: 100%; align-items: baseline"><span class="mono" style="font-size: 10px; white-space: nowrap">{{t.time}}</span><span class="mono" style="font-size: 10px; opacity: .85; white-space: nowrap">{{t.tab}}</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 14px; font-size: 11px; color: #8E8994; flex-wrap: wrap">
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: var(--acc, #D4FF3F)"></span>In room</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FFB13D"></span>10 min left</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FF3DA6"></span>Over time / late</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(244,241,234,.4); box-sizing: border-box"></span>Open</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #3a3841"></span>Needs a wipe</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, #FF3DA6 0 2px, transparent 2px 5px)"></span>Closed</span>
+        </div>
+      </section>
+
+      <aside class="panel" style="width: 340px; flex: none; border-left: 1px solid rgba(244,241,234,.08); background: #0e0d11; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="disp" style="font-size: 30px">{{p.name}}</span><span class="mono" style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; {{p.stateStyle}}">{{p.state}}</span></div>
+        <div style="font-size: 13px; color: #C9C5CE">{{p.who}}</div>
+        <sc-if value="{{p.isCleaning}}" hint-placeholder-val="{{false}}">
+          <div style="padding: 14px; border-radius: 12px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 13px; line-height: 1.5">Party left at {{p.time}}. Wipe it down, reset the mics, and mark it clean so the site can book it again.</div>
+          <button type="button" class="btn" onClick="{{markClean}}" style="appearance: none; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d">Clean · open it up</button>
+        </sc-if>
+        <sc-if value="{{p.isBusy}}" hint-placeholder-val="{{true}}">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+            <div style="padding: 10px 12px; border-radius: 10px; background: #141218"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Clock</span><br><b style="font-size: 18px">{{p.time}}</b></div>
+            <div style="padding: 10px 12px; border-radius: 10px; background: #141218"><span class="mono" style="font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994">Tab</span><br><b style="font-size: 18px">{{p.tab}}</b></div>
+          </div>
+          <sc-if value="{{p.hasCall}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: #FF3DA61a; border: 1px solid #FF3DA6"><span style="flex: 1; font-size: 13px; font-weight: 700; color: #FF3DA6">{{p.call}}</span><button type="button" class="btn" onClick="{{clearCall}}" style="appearance: none; border: 0; border-radius: 8px; padding: 8px 11px; font-weight: 700; font-size: 12px; background: #FF3DA6; color: #0b0a0d">On it</button></div>
+          </sc-if>
+          <div style="padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.5; {{p.stayStyle}}">{{p.stayLine}}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+            <button type="button" class="btn" onClick="{{stayText}}" style="appearance: none; border: 0; border-radius: 10px; padding: 11px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d">{{p.stayBtn}}</button>
+            <a href="DeskRoom.dc.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 11px; border-radius: 10px; font-weight: 700; font-size: 13px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Tab &amp; clock</a>
+            <a href="DeskMessages.dc.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 11px; border-radius: 10px; font-weight: 600; font-size: 13px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Text guest</a>
+            <a href="DeskRoom.dc.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 11px; border-radius: 10px; font-weight: 600; font-size: 13px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Close out</a>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Tab so far</div>
+            <sc-for list="{{p.items}}" as="i" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: #C9C5CE; {{i.style}}"><span>{{i.n}}</span><span class="mono" style="white-space: nowrap">{{i.p}}</span></div></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{p.isOpen}}" hint-placeholder-val="{{false}}">
+          <div style="padding: 14px; border-radius: 12px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 13px; line-height: 1.5">Open and clean. Next booking: {{p.next}}.</div>
+          <button type="button" class="btn" style="appearance: none; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d">Seat a walk-in here</button>
+        </sc-if>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(244,241,234,.08)">
+          <div class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Room notes · stay with the room</div>
+          <div style="font-size: 12px; line-height: 1.5; color: #C9C5CE">{{p.note}}</div>
+          <input type="text" placeholder="Add a note for whoever's next" aria-label="Room note" style="appearance: none; background: #141218; border: 1px solid rgba(244,241,234,.12); color: #F4F1EA; border-radius: 8px; padding: 9px 10px; font-family: inherit; font-size: 12px">
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <sc-if value="{{handing}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; top: 0; width: 1280px; height: 800px; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center">
+      <div class="panel" style="width: 460px; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+        <div class="disp" style="font-size: 30px">Hand over the drawer</div>
+        <div style="font-size: 13px; color: #8E8994; line-height: 1.5">Andy counts first; what the drawer should hold shows only after the count. The next manager accepts on their own phone. Two names on one record. Staff keep working; nothing else changes.</div>
+        <label style="font-size: 12px; color: #8E8994">Cash in the drawer now</label>
+        <input type="number" value="{{handCount}}" onChange="{{setHandCount}}" placeholder="Count the drawer" aria-label="Cash count" style="appearance: none; background: #0b0a0d; border: 1px solid rgba(244,241,234,.16); color: #F4F1EA; border-radius: 10px; padding: 11px 12px; font-family: inherit; font-size: 16px">
+        <div style="font-size: 12px; {{handStyle}}">{{handLine}}</div>
+        <label style="font-size: 12px; color: #8E8994">Notes for the next stretch</label>
+        <input type="text" value="Room 4 mic still dead. Bianca's party wants the cake out at 10:30." aria-label="Handover notes" style="appearance: none; background: #0b0a0d; border: 1px solid rgba(244,241,234,.16); color: #F4F1EA; border-radius: 10px; padding: 11px 12px; font-family: inherit; font-size: 13px">
+        <div style="display: flex; gap: 8px; padding-top: 4px">
+          <button type="button" class="btn" onClick="{{handDone}}" style="flex: 1; appearance: none; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 14px; background: var(--acc, #D4FF3F); color: #0b0a0d">Send to the next manager’s phone</button>
+          <button type="button" class="btn" onClick="{{handCancel}}" style="appearance: none; border-radius: 10px; padding: 12px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{swapping}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; top: 0; width: 1280px; height: 800px; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center">
+      <div class="panel" role="dialog" aria-label="Change a drawer" style="width: 500px; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 10px">
+        <div class="disp" style="font-size: 30px">Change a drawer</div>
+        <div style="font-size: 13px; color: #8E8994; line-height: 1.5">Count it now, or pull the tray and count it at close. Whoever takes the drawer next counts in a fresh {{bankTxt}} bank. Over or short stays with the person whose drawer it was.</div>
+        <span style="font-size: 12px; color: #8E8994">Whose drawer</span>
+        <div role="radiogroup" aria-label="Whose drawer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <sc-for list="{{swapDrawers}}" as="d" hint-placeholder-count="2"><button type="button" class="btn" role="radio" aria-checked="{{d.on}}" onClick="{{d.pick}}" style="appearance: none; text-align: left; border-radius: 10px; padding: 10px 12px; font-family: inherit; display: flex; flex-direction: column; gap: 2px; {{d.style}}"><b style="font-size: 14px">{{d.name}}</b><span style="font-size: 12px; opacity: .8">{{d.who}}</span></button></sc-for>
+        </div>
+        <span style="font-size: 12px; color: #8E8994">How</span>
+        <div role="radiogroup" aria-label="Count now or later" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <sc-for list="{{swapHows}}" as="h" hint-placeholder-count="2"><button type="button" class="btn" role="radio" aria-checked="{{h.on}}" onClick="{{h.pick}}" style="appearance: none; border-radius: 10px; padding: 11px 10px; font-weight: 700; font-size: 13px; {{h.style}}">{{h.label}}</button></sc-for>
+        </div>
+        <sc-if value="{{swapNow}}" hint-placeholder-val="{{true}}">
+          <label for="bd-swap-count" style="font-size: 12px; color: #8E8994">{{swapCountLabel}}</label>
+          <input id="bd-swap-count" type="number" value="{{swapCount}}" onChange="{{setSwapCount}}" placeholder="Count the drawer" style="appearance: none; background: #0b0a0d; border: 1px solid rgba(244,241,234,.16); color: #F4F1EA; border-radius: 10px; padding: 11px 12px; font-family: inherit; font-size: 16px">
+          <div role="status" style="font-size: 12px; {{swapStyle}}">{{swapLine}}</div>
+        </sc-if>
+        <sc-if value="{{swapLater}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; line-height: 1.5; color: #C9C5CE; padding: 10px 12px; border-radius: 10px; background: #0b0a0d; border: 1px dashed rgba(244,241,234,.16)">{{swapLaterLine}}</div></sc-if>
+        <span style="font-size: 12px; color: #8E8994">Who takes this drawer next</span>
+        <div role="radiogroup" aria-label="Who takes it next" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{swapNexts}}" as="n" hint-placeholder-count="3"><button type="button" class="btn" role="radio" aria-checked="{{n.on}}" onClick="{{n.pick}}" style="appearance: none; border-radius: 10px; padding: 10px 6px; font-weight: 700; font-size: 12px; {{n.style}}">{{n.label}}</button></sc-for>
+        </div>
+        <div style="display: flex; gap: 8px; padding-top: 6px">
+          <button type="button" class="btn" onClick="{{swapDone}}" style="flex: 1; appearance: none; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 14px; {{swapDoneStyle}}">{{swapDoneLabel}}</button>
+          <button type="button" class="btn" onClick="{{swapCancel}}" style="appearance: none; border-radius: 10px; padding: 12px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    this.state = { sel: 9, handing: false, handCount: "", dismissed: {}, allAlerts: false, toast: "", toastN: 0,
+      // Admin → Cash drawers. West 4 runs one house drawer; the demo link on the rail shows the other model.
+      drawerMode: "house", swapping: false, swap: { d: "desk", how: "later", count: "", next: "andy" },
+      pdrawers: { bar: { who: "Maya S.", since: "4:00 PM", expected: 1068 }, desk: { who: "Diego R.", since: "7:00 PM", expected: 568 } }, pulled: [],
+      rooms: [
+        { n: 1, cap: "3–6", state: "busy", who: "Dana K. · 4", left: 28, tab: 86, note: "" },
+        { n: 2, cap: "3–6", state: "open", next: "10:30 · Sam O.", note: "" },
+        { n: 3, cap: "3–6", state: "warn", who: "Priya R. · 5", left: 4, tab: 154, next: "10:45 · Jae & co.", waiting: "Jae & co. booked at 10:45", note: "" },
+        { n: 4, cap: "3–6", state: "closed", note: "Mic dead since Tue. Replacement ordered." },
+        { n: 5, cap: "3–6", state: "busy", who: "Leo M. · 4", left: 51, tab: 40, note: "" },
+        { n: 6, cap: "6–12", state: "cleaning", time: "9:12 PM", note: "TV remote goes missing. Check under the couch." },
+        { n: 7, cap: "6–12", state: "over", who: "Rob & Kim · 7", left: -9, tab: 212, waiting: "walk-in party of 7 on the waitlist", note: "" },
+        { n: 8, cap: "6–12", state: "open", next: "11:00 · The Nguyens", note: "" },
+        { n: 9, cap: "6–12", state: "busy", who: "Marcus T. · 12", left: 19, tab: 480, call: "Another mic", callText: "Called staff 2 min ago: “Another mic, please”", note: "Room code KX4M7 · host lock off. $120 deposit paid online.",
+          items: [["Room time · 161 min × $2.00", "$322.00"], ["1 × Large bucket, 10 beers", "$70.00"], ["2 × Soju, Chamisul Fresh", "$40.00"], ["4 × Jäger Bomb", "$48.00"], ["At the bar now · 2 × Margarita · Peach", "$26 · not yet", "color: #3DF2FF;"], ["Tax and gratuity added at close", ""]] },
+        { n: 10, cap: "6–12", state: "stay", who: "Tanya W. · 9", left: -12, tab: 96, note: "" },
+        { n: 11, cap: "12–20", state: "open", next: "nothing tonight", note: "" },
+        { n: 12, cap: "12–20", state: "busy", who: "Omar F. · 14", left: 102, tab: 330, note: "" },
+        { n: 13, cap: "12–20", state: "cleaning", time: "9:20 PM", note: "" },
+        { n: 14, cap: "20–40", vip: true, state: "busy", who: "Bianca L. · 22", left: 140, tab: 745, note: "Cake at 10:30, in the fridge behind the bar." }
+      ] };
+  }
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const now = new Date();
+    const upd = (n, patch) => this.setState({ rooms: st.rooms.map((r) => r.n === n ? Object.assign({}, r, patch) : r) });
+    const name = (r) => r.vip ? "VIP" : "Room " + r.n;
+    const style = (r) => ({
+      busy: "background: " + acc + "; color: #0b0a0d; border: 0;",
+      warn: "background: #FFB13D; color: #0b0a0d; border: 0;",
+      over: "background: #FF3DA6; color: #0b0a0d; border: 0;",
+      stay: "background: " + acc + "33; color: #F4F1EA; border: 1px solid " + acc + ";",
+      open: "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.28);",
+      cleaning: "background: #3a3841; color: #F4F1EA; border: 0;",
+      closed: "background: repeating-linear-gradient(135deg, rgba(255,61,166,.18) 0 6px, transparent 6px 12px); color: #FF3DA6; border: 1px solid #FF3DA666;"
+    })[r.state] + (r.n === st.sel ? " box-shadow: 0 0 0 3px #F4F1EA;" : "");
+    const tiles = st.rooms.map((r) => ({
+      name: name(r), style: style(r), open: () => this.setState({ sel: r.n }),
+      hasBadge: !!r.call, noBadge: !r.call, badge: r.call || "",
+      line1: r.state === "busy" || r.state === "warn" || r.state === "over" || r.state === "stay" ? r.who : (r.state === "open" ? "Open · " + r.cap : (r.state === "cleaning" ? "Needs a wipe" : "Closed")),
+      line2: r.state === "warn" ? "Needed at " + r.next.split(" · ")[0] + " · wrap up" : (r.state === "over" ? "Needed · someone’s waiting" : (r.state === "stay" ? "Staying · nobody waiting" : (r.state === "open" ? "Next: " + r.next : (r.state === "cleaning" ? "Left " + r.time : (r.state === "closed" ? r.note.split(".")[0] : "fits " + r.cap))))),
+      time: r.left != null ? (r.left < 0 ? "+" + (-r.left) + " min" : r.left + " min left") : "",
+      tab: r.tab ? "$" + r.tab : ""
+    }));
+    const r = st.rooms.find((x) => x.n === st.sel) || st.rooms[0];
+    const busy = r.state === "busy" || r.state === "warn" || r.state === "over" || r.state === "stay";
+    const p = {
+      name: name(r), who: busy ? r.who + " · fits " + r.cap : "fits " + r.cap,
+      state: { busy: "In room", warn: "Wrap up", over: "Needed now", stay: "Staying", open: "Open", cleaning: "Needs a wipe", closed: "Closed" }[r.state],
+      stateStyle: { busy: "color: " + acc + ";", warn: "color: #FFB13D;", over: "color: #FF3DA6;", stay: "color: " + acc + ";", open: "color: #8E8994;", cleaning: "color: #8E8994;", closed: "color: #FF3DA6;" }[r.state],
+      isBusy: busy, isCleaning: r.state === "cleaning", isOpen: r.state === "open",
+      stayLine: r.waiting ? "Someone’s waiting: " + r.waiting + ". " + (r.left < 0 ? "They’re " + (-r.left) + " min past their time." : "They have " + r.left + " min.") : (r.left < 0 ? "Past their booked time by " + (-r.left) + " min. Nobody’s waiting, so they stay, charged by the minute." : "Booked time ends in " + r.left + " min. Nobody’s waiting, so they can stay after that, by the minute."),
+      stayStyle: r.waiting ? "background: #FFB13D1a; border: 1px solid #FFB13D66;" : "background: " + acc + "1a; border: 1px solid " + acc + "66;",
+      stayBtn: r.waiting ? "Text: please wrap up" : "Text: stay as long as you like",
+      time: r.left != null ? (r.left < 0 ? "+" + (-r.left) + " min past" : r.left + " min left") : (r.time || ""),
+      tab: r.tab ? "$" + r.tab.toFixed(2) : "$0.00", next: r.next || "—",
+      hasCall: !!r.call, call: r.callText || ("Called staff: " + (r.call || "")),
+      items: r.items ? r.items.map(([n, pr, style]) => ({ n, p: pr, style: style || "" })) : (r.tab ? [{ n: "Room time so far", p: "$" + Math.round(r.tab * 0.6), style: "" }, { n: "Drinks to the room", p: "$" + Math.round(r.tab * 0.4), style: "" }, { n: "Tax and gratuity added at close", p: "", style: "" }] : []),
+      note: r.note || "No notes on this room."
+    };
+    // Most urgent first: someone waiting on an over-time room, a guest call, a wrap-up, then the rest.
+    const alertsAll = [
+      { id: "a2", color: "#FF3DA6", text: "Room 7 is 9 min past and a party of 7 is on the waitlist — text Rob & Kim to wrap up? No other 6–12 room is free for an hour.", label: "Text", n: 7 },
+      { id: "a3", color: "#FF3DA6", text: "Room 9 called for another mic, 2 min ago.", label: "On it", n: 9 },
+      { id: "a1", color: "#FFB13D", text: "Room 3: 4 min left and Jae & co. are booked at 10:45 — text Priya “please wrap up”?", label: "Text", n: 3 },
+      { id: "a4", color: "#8E8994", text: "Rooms 6 and 13 have needed a wipe for 8 min, with 3 parties waiting.", label: "Show", n: 6 },
+      { id: "a6", color: acc, text: "Room 11 (12–20) is the smallest room free for an hour, with nothing booked in it tonight — Priya K. (6) is next on the waitlist, quoted 20 min. Text “your room is ready, 10 min to claim it”?", label: "Text", n: 11 },
+      { id: "a7", color: "#C9C5CE", text: "Sam O. texted “running 15 late” for the 10:30 in Room 2 — hold it until 10:45 and reply “no problem”?", label: "Hold", n: 2 }
+    ];
+    const alertsLive = alertsAll.filter((a) => !st.dismissed[a.id] && !(a.id === "a3" && !st.rooms[8].call) && !(a.id === "a4" && st.rooms[5].state !== "cleaning" && st.rooms[12].state !== "cleaning")).map((a) => ({
+      color: a.color, text: a.text, label: a.label,
+      act: () => { if (a.id === "a3") upd(9, { call: "" }); this.setState({ sel: a.n }); },
+      dismiss: () => { const d = Object.assign({}, st.dismissed); d[a.id] = true; this.setState({ dismissed: d }); }
+    }));
+    const alerts = st.allAlerts ? alertsLive : alertsLive.slice(0, 3);
+    // Cash drawers (Admin → Cash drawers): one house drawer the manager on duty answers for, or one drawer per person.
+    const perPerson = st.drawerMode === "person";
+    const m$ = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const BANK = 300;
+    const first = (n) => n.split(" ")[0];
+    const sw = st.swap, dr = st.pdrawers[sw.d];
+    const DNAME = { bar: "Bar", desk: "Front desk" };
+    const pickStyle = (on) => on ? "background: " + acc + "; color: #0b0a0d; border: 1px solid " + acc + ";" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);";
+    const setSwap = (patch) => this.setState({ swap: Object.assign({}, sw, patch) });
+    const swapDrawers = ["bar", "desk"].map((k) => ({ name: DNAME[k], who: st.pdrawers[k].who ? st.pdrawers[k].who + " · since " + st.pdrawers[k].since : "Nobody on it", on: sw.d === k ? "true" : "false", style: pickStyle(sw.d === k), pick: () => setSwap({ d: k, count: "" }) }));
+    const swapHows = [["now", "Count it now"], ["later", "Pull the tray, count at close"]].map(([k, label]) => ({ label, on: sw.how === k ? "true" : "false", style: pickStyle(sw.how === k), pick: () => setSwap({ how: k }) }));
+    const NEXT = [["andy", "Andy C."], ["abhishek", "Abhishek G."], ["none", "Nobody for now"]];
+    const swapNexts = NEXT.map(([k, label]) => ({ label, on: sw.next === k ? "true" : "false", style: pickStyle(sw.next === k), pick: () => setSwap({ next: k }) }));
+    const cnt = sw.count === "" ? null : Number(sw.count);
+    const exp = dr.expected;
+    const same = cnt !== null && Math.round(cnt * 100) === Math.round(exp * 100);
+    const swapLine = cnt === null ? "Count first. What the drawer should hold shows after you enter the count." : "Should be " + m$(exp) + " · " + (same ? "matches" : (cnt > exp ? "over" : "short") + " by " + m$(Math.abs(cnt - exp)) + (Math.abs(cnt - exp) > 20 ? " · needs a note" : ""));
+    const nextName = (NEXT.find((x) => x[0] === sw.next) || NEXT[2])[1];
+    const canSwap = !!dr.who && (sw.how === "later" || cnt !== null);
+    const swapDone = () => {
+      if (!dr.who) { this.notify("Nobody is on that drawer"); return; }
+      if (sw.how === "now" && cnt === null) { this.notify("Count the drawer first"); return; }
+      const who = first(dr.who);
+      const pd = Object.assign({}, st.pdrawers);
+      pd[sw.d] = sw.next === "none" ? { who: "", since: "", expected: 0 } : { who: nextName, since: "10:41 PM", expected: BANK };
+      const pulled = sw.how === "later" ? st.pulled.concat([{ d: sw.d, who: dr.who }]) : st.pulled;
+      this.setState({ swapping: false, pdrawers: pd, pulled });
+      this.notify((sw.how === "later" ? who + "’s tray pulled · counts at close" : who + "’s drawer counted · " + (same ? "matches" : (cnt > exp ? "over " : "short ") + m$(Math.abs(cnt - exp)))) + (sw.next === "none" ? " · " + DNAME[sw.d].toLowerCase() + " drawer closed for now" : " · " + first(nextName) + " starts with " + m$(BANK)));
+    };
+    const pline = (k) => st.pdrawers[k].who ? first(st.pdrawers[k].who) + " since " + st.pdrawers[k].since : "no drawer open";
+    return {
+      accent: acc,
+      dateLine: "Fri Sep 25 · 10:41 PM",
+      netLine: "Online · synced 4 s ago · works offline",
+      inUse: st.rooms.filter((x) => x.state === "busy" || x.state === "warn" || x.state === "over" || x.state === "stay").length,
+      // Headcount from check-ins, walk-ins and the door counter: 77 in rooms plus 23 at the bar. It's measured against
+      // venues.max_occupancy (Admin → Rooms) and warns at 90%; West 4 hasn't entered its limit yet.
+      inside: st.rooms.filter((x) => x.who).reduce((a, x) => a + (Number(String(x.who).split("·")[1]) || 0), 0) + 23,
+      open: st.rooms.filter((x) => x.state === "open").length,
+      cleaning: st.rooms.filter((x) => x.state === "cleaning").length,
+      tiles, p, alerts, noAlerts: alertsLive.length === 0,
+      hasMore: alertsLive.length > 3, moreLabel: st.allAlerts ? "Show only the 3 most urgent" : "Show all " + alertsLive.length, toggleAll: () => this.setState({ allAlerts: !st.allAlerts }),
+      markClean: () => upd(r.n, { state: "open", next: "nothing tonight" }),
+      clearCall: () => upd(r.n, { call: "" }),
+      stayText: () => upd(r.n, { note: (r.note ? r.note + " " : "") + (r.waiting ? "Texted “please wrap up”." : "Texted “stay as long as you like”.") }),
+      closeOut: () => upd(r.n, { state: "cleaning", time: now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), who: "", left: null, tab: 0, call: "" }),
+      handover: () => perPerson ? this.setState({ swapping: true, swap: { d: "desk", how: "later", count: "", next: "andy" } }) : this.setState({ handing: true, handCount: "" }),
+      handCancel: () => this.setState({ handing: false }), handing: st.handing,
+      handDone: () => { if (st.handCount === "") { this.notify("Count the drawer first"); return; } this.setState({ handing: false }); this.notify("Sent to the next manager’s phone · the drawer changes hands when they accept"); },
+      houseDrawer: !perPerson, perDrawer: perPerson, barLine: pline("bar"), deskLine: pline("desk"),
+      hasPulled: st.pulled.length > 0, pulledLine: st.pulled.length + (st.pulled.length === 1 ? " tray" : " trays") + " to count at close",
+      handLabel: perPerson ? "Change a drawer" : "Hand over the drawer",
+      drawerDemo: perPerson ? "Demo: one house drawer" : "Demo: a drawer per person",
+      toggleDrawerMode: () => this.setState({ drawerMode: perPerson ? "house" : "person", swapping: false, handing: false }),
+      swapping: st.swapping, bankTxt: m$(BANK), swapDrawers, swapHows, swapNexts,
+      swapNow: sw.how === "now", swapLater: sw.how === "later",
+      swapCountLabel: "Cash in " + (dr.who ? first(dr.who) + "’s" : "the") + " drawer now",
+      swapCount: sw.count, setSwapCount: (e) => setSwap({ count: e.target.value }),
+      swapLine, swapStyle: cnt === null ? "color: #8E8994;" : (same ? "color: " + acc + ";" : "color: #FFB13D;"),
+      swapLaterLine: (dr.who ? first(dr.who) + "’s" : "The") + " tray goes to the office with its slip, and a manager counts it at close. Over or short is still " + (dr.who ? first(dr.who) + "’s" : "theirs") + ".",
+      swapDoneLabel: (sw.how === "later" ? "Pull the tray" : "Close the drawer") + (sw.next === "none" ? "" : " · " + first(nextName) + " starts"),
+      swapDoneStyle: canSwap ? "background: " + acc + "; color: #0b0a0d;" : "background: #1c1a21; color: #8E8994;",
+      swapDone, swapCancel: () => this.setState({ swapping: false }),
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast,
+      // Blind count: what the drawer should hold ($1,336.00) shows only after Andy enters his count.
+      handCount: st.handCount, setHandCount: (e) => this.setState({ handCount: e.target.value }),
+      handLine: st.handCount === "" ? "Count first. What the drawer should hold shows after you enter the count." : (Math.round(Number(st.handCount) * 100) === 133600 ? "Should be $1,336.00 · matches" : "Should be $1,336.00 · " + (Number(st.handCount) > 1336 ? "over" : "short") + " by $" + Math.abs(Number(st.handCount) - 1336).toFixed(2)),
+      handStyle: st.handCount === "" ? "color: #8E8994;" : (Math.round(Number(st.handCount) * 100) === 133600 ? "color: " + acc + ";" : "color: #FFB13D;")
+    };
+  }
+}
+</script>
+</body>
+</html>

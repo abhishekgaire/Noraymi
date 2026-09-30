@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Bar POS</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.9}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.eye{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+.btn{cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform .08s ease,filter .08s ease}
+.btn:active{transform:scale(.97);filter:brightness(1.3)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.btn[disabled]{cursor:not-allowed}
+.scroll{overflow:auto;scrollbar-width:thin}
+.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.in{box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.16);border-radius:10px;padding:10px 12px;color:#F4F1EA;font:inherit;font-size:14px;outline:0}
+.in:focus{border-color:#D4FF3F}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(255,61,166,0)}50%{box-shadow:0 0 0 4px rgba(255,61,166,.55)}}
+.flash{animation:flash 1s ease-in-out infinite}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,8px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,0)}}
+.toast{animation:toast 3.4s ease both}
+@media (prefers-reduced-motion:reduce){.flash,.toast{animation:none!important}.btn:active{transform:none}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; flex-direction: column; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden; position: relative">
+
+  <header style="height: 78px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <a href="Board.dc.html" aria-label="Back to the Tonight board" style="display: flex; flex-direction: column; gap: 3px; text-decoration: none; color: #F4F1EA; flex: none"><span class="disp" style="font-size: 24px">W4</span><span class="mono" style="font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Bar POS</span></a>
+    <button type="button" class="btn" onClick="{{switchPerson}}" aria-label="{{whoAria}}" style="appearance: none; flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px; border-radius: 14px; background: #16141b; border: 2px solid {{whoColor}}; color: #F4F1EA; text-align: left">
+      <span aria-hidden="true" style="width: 42px; height: 42px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #0b0a0d; background: {{whoColor}}">{{whoIni}}</span>
+      <span style="display: flex; flex-direction: column; gap: 2px"><b style="font-size: 15px">{{whoName}}</b><span style="font-size: 11px; color: #8E8994">{{whoSub}}</span></span>
+    </button>
+    <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden">
+      <span class="eye" style="flex: none; line-height: 1.35">Room<br>orders</span>
+      <sc-for list="{{orders}}" as="o" hint-placeholder-count="2">
+        <div class="{{o.cls}}" style="flex: none; width: 268px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 7px 7px 7px 12px; border-radius: 12px; background: #16141b; border: 2px solid {{o.color}}">
+          <span style="min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px">
+            <span style="display: flex; justify-content: space-between; gap: 6px; align-items: baseline"><b style="font-size: 14px">{{o.room}}</b><span class="mono" style="font-size: 11px; font-weight: 700; color: {{o.color}}">{{o.age}}</span></span>
+            <span class="one" style="font-size: 12px">{{o.what}}</span>
+            <span class="one" style="font-size: 10px; {{o.noteStyle}}">{{o.note}}</span>
+          </span>
+          <button type="button" class="btn" onClick="{{o.accept}}" aria-label="{{o.aria}}" style="appearance: none; flex: none; border: 0; border-radius: 10px; padding: 14px 12px; font-weight: 800; font-size: 13px; {{o.btnStyle}}">{{o.btn}}</button>
+        </div>
+      </sc-for>
+      <sc-if value="{{noOrders}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #6F6B78">No room orders waiting. New ones land here and on the bar orders screen, oldest first.</span></sc-if>
+    </div>
+    <span class="mono" style="flex: none; font-size: 10px; color: #8E8994; text-align: right; line-height: 1.5">{{clock}}<br><span style="color: #D4FF3F">● online</span></span>
+    <button type="button" class="btn" onClick="{{startWipe}}" style="appearance: none; flex: none; border-radius: 12px; padding: 14px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18)">Wipe screen</button>
+    <a href="Pin.dc.html" style="flex: none; display: inline-flex; align-items: center; border-radius: 12px; padding: 14px 14px; font-weight: 700; font-size: 13px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.12)">Lock</a>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex">
+
+    <aside style="width: 256px; flex: none; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+      <button type="button" class="btn" onClick="{{openNewTab}}" style="appearance: none; border: 0; border-radius: 12px; padding: 0 12px; height: 54px; font-weight: 800; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d; text-align: left; display: flex; justify-content: space-between; align-items: center">New tab<span style="font-size: 12px; font-weight: 700; opacity: .75">guest taps a card</span></button>
+      <input class="in" type="text" value="{{find}}" onInput="{{setFind}}" placeholder="Find: name, room, last 4" aria-label="Find a tab by name, room or the card’s last 4 digits">
+      <div role="radiogroup" aria-label="Which tabs" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px">
+        <sc-for list="{{filters}}" as="f" hint-placeholder-count="3"><button type="button" class="btn" role="radio" aria-checked="{{f.on}}" onClick="{{f.pick}}" style="appearance: none; border-radius: 9px; height: 38px; font-weight: 700; font-size: 12px; {{f.style}}">{{f.label}}</button></sc-for>
+      </div>
+      <div class="scroll" style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; padding-right: 2px">
+        <button type="button" class="btn" onClick="{{pickQuick}}" aria-pressed="{{quickOn}}" style="appearance: none; flex: none; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; font-family: inherit; color: #F4F1EA; {{quickStyle}}"><span style="display: flex; flex-direction: column; gap: 2px"><b style="font-size: 14px">Quick sale</b><span style="font-size: 11px; color: #A39FA8">Walk-up · pay now, no tab</span></span><span class="mono" style="font-size: 12px">{{quickTotal}}</span></button>
+        <sc-for list="{{tabRows}}" as="t" hint-placeholder-count="8">
+          <sc-if value="{{t.head}}" hint-placeholder-val="{{false}}"><span class="eye" style="padding: 6px 2px 0">{{t.headLabel}}</span></sc-if>
+          <button type="button" class="btn" onClick="{{t.pick}}" aria-pressed="{{t.on}}" aria-label="{{t.aria}}" style="appearance: none; flex: none; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 8px 10px 8px 11px; border-radius: 12px; font-family: inherit; color: #F4F1EA; {{t.style}}">
+            <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%"><b class="one" style="font-size: 15px">{{t.name}}</b><span class="mono" style="font-size: 13px; flex: none">{{t.total}}</span></span>
+            <span class="one" style="font-size: 11px; color: #A39FA8; width: 100%">{{t.sub}}</span>
+            <sc-if value="{{t.hasBadges}}" hint-placeholder-val="{{false}}"><span style="display: flex; gap: 4px; flex-wrap: wrap; padding-top: 2px"><sc-for list="{{t.badges}}" as="b" hint-placeholder-count="1"><span class="mono" style="font-size: 9px; letter-spacing: .03em; padding: 3px 6px; border-radius: 6px; white-space: nowrap; {{b.style}}">{{b.label}}</span></sc-for></span></sc-if>
+          </button>
+        </sc-for>
+        <sc-if value="{{noTabs}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; line-height: 1.5; color: #6F6B78; padding: 8px 4px">{{noTabsLine}}</div></sc-if>
+        <sc-if value="{{hasClosed}}" hint-placeholder-val="{{false}}">
+          <button type="button" class="btn" onClick="{{toggleClosed}}" aria-expanded="{{closedOpen}}" style="appearance: none; flex: none; border: 0; background: transparent; color: #8E8994; text-align: left; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; min-height: 36px; padding: 6px 2px 0">{{closedHead}}</button>
+          <sc-for list="{{closedRows}}" as="c" hint-placeholder-count="1">
+            <div style="flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 11px; border-radius: 12px; background: #121016; border: 1px dashed rgba(244,241,234,.12)">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><b class="one" style="font-size: 14px; color: #C9C5CE">{{c.name}}</b><span class="one" style="font-size: 11px; color: #6F6B78">{{c.sub}}</span></span>
+              <button type="button" class="btn" onClick="{{c.reopen}}" style="appearance: none; flex: none; border-radius: 9px; height: 40px; padding: 0 12px; font-weight: 700; font-size: 12px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2)">Reopen</button>
+            </div>
+          </sc-for>
+        </sc-if>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(244,241,234,.08)">
+        <button type="button" class="btn" onClick="{{switchPerson}}" style="appearance: none; border: 0; background: transparent; color: #6F6B78; font-size: 11px; padding: 2px 0; text-align: left; text-decoration: underline; text-underline-offset: 3px">{{demoSwitch}}</button>
+        <button type="button" class="btn" onClick="{{toggleLate}}" style="appearance: none; border: 0; background: transparent; color: #6F6B78; font-size: 11px; padding: 2px 0; text-align: left; text-decoration: underline; text-underline-offset: 3px">{{demoLate}}</button>
+      </div>
+    </aside>
+
+    <main style="flex: 1; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 12px">
+      <div style="height: 34px; flex: none; display: flex; align-items: center; gap: 10px">
+        <sc-if value="{{noBlock}}" hint-placeholder-val="{{true}}"><span class="eye one" style="flex: 1; min-width: 0">{{gridHead}}</span></sc-if>
+        <sc-if value="{{hasBlock}}" hint-placeholder-val="{{false}}"><div role="status" class="one" style="flex: 1; min-width: 0; height: 34px; line-height: 32px; box-sizing: border-box; padding: 0 12px; border-radius: 9px; font-size: 12px; font-weight: 700; background: rgba(255,61,166,.1); border: 1px solid rgba(255,61,166,.45); color: #FFB6DA">{{blockLine}}</div></sc-if>
+        <input class="in" type="search" value="{{q}}" onInput="{{setQ}}" placeholder="Find a drink" aria-label="Find a drink anywhere on the menu" style="width: 160px; height: 34px; padding: 0 10px; font-size: 13px">
+      </div>
+      <div role="tablist" aria-label="Menu sections" style="flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{cats}}" as="k" hint-placeholder-count="10"><button type="button" class="btn" role="tab" aria-selected="{{k.on}}" onClick="{{k.pick}}" style="appearance: none; display: flex; align-items: center; gap: 7px; padding: 0 8px; height: 44px; border-radius: 10px; font-weight: 700; font-size: 13px; text-align: left; {{k.style}}"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; flex: none; background: {{k.color}}"></span><span class="one">{{k.label}}</span></button></sc-for>
+      </div>
+      <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{cells}}" as="c" hint-placeholder-count="25">
+          <button type="button" class="btn" onClick="{{c.tap}}" disabled="{{c.disabled}}" aria-label="{{c.aria}}" style="appearance: none; min-height: 0; min-width: 0; position: relative; text-align: left; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; padding: 10px 8px 9px 10px; border-radius: 12px; font-family: inherit; box-sizing: border-box; {{c.style}}">
+            <span class="clamp" style="font-size: 15px; font-weight: 700; line-height: 1.15">{{c.name}}</span>
+            <span style="display: flex; justify-content: space-between; align-items: flex-end; gap: 4px; width: 100%"><span class="mono" style="min-width: 0; font-size: 9px; line-height: 1.25; letter-spacing: .04em; text-transform: uppercase; {{c.tagStyle}}">{{c.tag}}</span><span class="mono" style="flex: none; font-size: 13px">{{c.price}}</span></span>
+          </button>
+        </sc-for>
+      </div>
+    </main>
+
+    <section style="width: 392px; flex: none; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-left: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+
+      <sc-if value="{{isCheck}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; gap: 5px">
+          <span class="eye one" style="{{chkEyeStyle}}">{{chkEye}}</span>
+          <span class="disp one" style="font-size: 36px; padding: 2px 0">{{chkName}}</span>
+          <span class="one" style="font-size: 12px; color: #A39FA8">{{chkSub}}</span>
+          <span style="display: flex; gap: 5px; flex-wrap: wrap; padding-top: 2px"><sc-for list="{{chkChips}}" as="c" hint-placeholder-count="2"><span class="mono" style="font-size: 10px; padding: 4px 8px; border-radius: 7px; {{c.style}}">{{c.label}}</span></sc-for></span>
+        </div>
+        <div class="scroll" style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid rgba(244,241,234,.08); padding-top: 10px">
+          <sc-if value="{{hasOthers}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; line-height: 1.45; color: #FFB13D; padding: 0 2px 4px">{{othersLine}}</div></sc-if>
+          <sc-if value="{{hasNew}}" hint-placeholder-val="{{true}}">
+            <span class="eye" style="color: var(--acc, #D4FF3F)">{{newHead}}</span>
+            <sc-for list="{{news}}" as="l" hint-placeholder-count="2">
+              <div style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 6px 6px 6px 10px; border-radius: 12px; {{l.style}}">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <button type="button" class="btn" onClick="{{l.select}}" aria-label="{{l.selAria}}" aria-expanded="{{l.expanded}}" style="appearance: none; border: 0; background: transparent; color: #F4F1EA; text-align: left; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 4px 0; font-family: inherit"><span class="one" style="font-size: 14px; font-weight: 700">{{l.label}}</span><span class="one" style="font-size: 11px; {{l.subStyle}}">{{l.sub}}</span></button>
+                  <span class="mono" style="font-size: 13px; white-space: nowrap">{{l.amt}}</span>
+                  <button type="button" class="btn" onClick="{{l.dec}}" aria-label="{{l.decAria}}" style="appearance: none; flex: none; width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: #16141b; color: #F4F1EA; font-size: 18px">−</button>
+                  <button type="button" class="btn" onClick="{{l.inc}}" aria-label="{{l.incAria}}" style="appearance: none; flex: none; width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: #16141b; color: #F4F1EA; font-size: 18px">+</button>
+                </div>
+                <sc-if value="{{l.open}}" hint-placeholder-val="{{false}}">
+                  <sc-for list="{{l.groups}}" as="g" hint-placeholder-count="2">
+                    <div style="display: flex; flex-direction: column; gap: 5px">
+                      <span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; {{g.labelStyle}}">{{g.label}}</span>
+                      <div style="display: flex; flex-wrap: wrap; gap: 5px"><sc-for list="{{g.chips}}" as="p" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{p.tap}}" aria-pressed="{{p.on}}" disabled="{{p.disabled}}" style="appearance: none; border-radius: 9px; padding: 0 10px; height: 40px; font-weight: 700; font-size: 13px; white-space: nowrap; {{p.style}}">{{p.label}}</button></sc-for></div>
+                    </div>
+                  </sc-for>
+                  <span style="font-size: 11px; line-height: 1.4; {{l.hintStyle}}">{{l.hint}}</span>
+                </sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{hasOnTab}}" hint-placeholder-val="{{true}}">
+            <span class="eye" style="padding: 6px 2px 0">On the tab · tap one to void, comp or move it</span>
+            <sc-if value="{{hasRoomTime}}" hint-placeholder-val="{{false}}"><div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 7px 2px; color: #C9C5CE; border-bottom: 1px solid rgba(244,241,234,.06)"><span>{{roomTimeLine}}</span><span class="mono">{{roomTimeAmt}}</span></div></sc-if>
+            <sc-for list="{{sent}}" as="l" hint-placeholder-count="3">
+              <button type="button" class="btn" onClick="{{l.open}}" aria-label="{{l.aria}}" style="appearance: none; flex: none; border: 0; background: transparent; color: #C9C5CE; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 5px 2px; border-bottom: 1px solid rgba(244,241,234,.06); font-family: inherit"><span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px">{{l.label}}</span><span style="font-size: 11px; {{l.subStyle}}">{{l.sub}}</span></span><span class="mono" style="font-size: 13px; white-space: nowrap; {{l.amtStyle}}">{{l.amt}}</span></button>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{noLines}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; line-height: 1.55; color: #6F6B78; padding: 6px 2px">{{noLinesLine}}</div></sc-if>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 8px">
+          <button type="button" class="btn" onClick="{{repeat}}" disabled="{{noRepeat}}" style="appearance: none; border-radius: 12px; height: 52px; padding: 0 12px; text-align: left; font-family: inherit; display: flex; flex-direction: column; justify-content: center; gap: 2px; {{repeatStyle}}"><b style="font-size: 14px">Repeat round</b><span class="one" style="font-size: 11px; opacity: .8">{{repeatLine}}</span></button>
+          <button type="button" class="btn" onClick="{{undo}}" disabled="{{noUndo}}" style="appearance: none; border-radius: 12px; height: 52px; padding: 0 12px; text-align: left; font-family: inherit; display: flex; flex-direction: column; justify-content: center; gap: 2px; {{undoStyle}}"><b style="font-size: 14px">Undo</b><span class="one" style="font-size: 11px; opacity: .8">{{undoLine}}</span></button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; color: #A39FA8"><span class="one">{{totLabel}}</span><span class="mono" style="font-size: 15px; color: #F4F1EA; flex: none">{{totAmt}}</span></div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 8px">
+          <button type="button" class="btn" onClick="{{send}}" disabled="{{noSend}}" style="appearance: none; border: 0; border-radius: 14px; padding: 0 14px; height: 64px; font-weight: 800; font-size: 16px; text-align: left; display: flex; flex-direction: column; justify-content: center; gap: 2px; {{sendStyle}}"><span class="one">{{sendLabel}}</span><span class="mono one" style="font-size: 12px; font-weight: 700">{{sendSub}}</span></button>
+          <sc-if value="{{isRoomTab}}" hint-placeholder-val="{{false}}"><a href="DeskRoom.dc.html" style="border-radius: 14px; height: 64px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-weight: 800; font-size: 15px; text-decoration: none; color: #F4F1EA; border: 2px solid rgba(244,241,234,.3)">Close out room<span style="font-size: 11px; font-weight: 600; color: #8E8994">on the room tab</span></a></sc-if>
+          <sc-if value="{{notRoomTab}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{openPay}}" disabled="{{noPay}}" style="appearance: none; border-radius: 14px; padding: 0 10px; height: 64px; font-weight: 800; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; {{payStyle}}"><span>{{payLabel}}</span><span style="font-size: 11px; font-weight: 600; opacity: .7">{{paySubLine}}</span></button></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isNew}}" hint-placeholder-val="{{false}}">
+        <span class="eye">Open a tab</span>
+        <sc-if value="{{ntWait}}" hint-placeholder-val="{{true}}">
+          <span class="disp" style="font-size: 38px">Tap, dip or swipe</span>
+          <div style="display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 14px; background: #121016; border: 1px dashed rgba(244,241,234,.2)">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#D4FF3F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><rect x="3" y="6" width="14" height="10" rx="2"/><path d="M3 10h14"/><path d="M19.5 8.5a5 5 0 0 1 0 7"/><path d="M21.5 6.5a8 8 0 0 1 0 11"/></svg>
+            <div style="font-size: 13px; line-height: 1.5; color: #C9C5CE">The bar reader is waiting for the guest’s card. A dip or swipe brings their name; a tap or a phone doesn’t, so you pick a label.</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+            <button type="button" class="btn" onClick="{{simDip}}" style="appearance: none; border-radius: 12px; min-height: 48px; padding: 8px; font-weight: 700; font-size: 13px; background: transparent; color: #8E8994; border: 1px dashed rgba(244,241,234,.22)">Demo: guest dips a Visa</button>
+            <button type="button" class="btn" onClick="{{simTap}}" style="appearance: none; border-radius: 12px; min-height: 48px; padding: 8px; font-weight: 700; font-size: 13px; background: transparent; color: #8E8994; border: 1px dashed rgba(244,241,234,.22)">Demo: guest taps a phone</button>
+          </div>
+          <button type="button" class="btn" onClick="{{simSame}}" style="appearance: none; border-radius: 12px; min-height: 48px; padding: 8px; font-weight: 700; font-size: 13px; background: transparent; color: #8E8994; border: 1px dashed rgba(244,241,234,.22)">Demo: Jess taps the card her tab is already on</button>
+          <div style="font-size: 12px; line-height: 1.5; color: #8E8994">{{ntBusyLine}}</div>
+        </sc-if>
+        <sc-if value="{{ntName}}" hint-placeholder-val="{{false}}">
+          <span class="disp" style="font-size: 34px">Name the tab</span>
+          <span style="font-size: 13px; color: #A39FA8">{{ntCardLine}}</span>
+          <input class="in" type="text" value="{{ntNameVal}}" onInput="{{setNtName}}" placeholder="First name, or skip and pick a label" aria-label="Guest’s name" style="font-size: 16px; height: 48px">
+          <span class="eye">Or a label, one tap</span>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px"><sc-for list="{{ntLabels}}" as="n" hint-placeholder-count="8"><button type="button" class="btn" onClick="{{n.pick}}" aria-pressed="{{n.on}}" style="appearance: none; border-radius: 9px; padding: 0 4px; height: 44px; font-weight: 700; font-size: 12px; {{n.style}}">{{n.label}}</button></sc-for></div>
+          <div style="font-size: 12px; line-height: 1.5; color: #8E8994">The card’s last four always go on the tab, so anyone can find it by them. The hold starts at $50 and grows with the tab.</div>
+          <button type="button" class="btn" onClick="{{ntOpen}}" style="appearance: none; border: 0; border-radius: 14px; height: 60px; font-weight: 800; font-size: 16px; {{ntOpenStyle}}">{{ntOpenLabel}}</button>
+        </sc-if>
+        <sc-if value="{{ntDup}}" hint-placeholder-val="{{false}}">
+          <span class="disp" style="font-size: 34px">Already open</span>
+          <div style="font-size: 14px; line-height: 1.5; color: #C9C5CE">Visa ··4417 already has a tab: <b>Jess P.</b>, Seat 3, $30.00 so far. One card, one open tab, so nothing new was held on it.</div>
+          <button type="button" class="btn" onClick="{{ntGoDup}}" style="appearance: none; border: 0; border-radius: 14px; height: 60px; font-weight: 800; font-size: 16px; background: var(--acc, #D4FF3F); color: #0b0a0d">Go to Jess P.’s tab</button>
+        </sc-if>
+        <button type="button" class="btn" onClick="{{ntCancel}}" style="appearance: none; border-radius: 12px; height: 48px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button>
+      </sc-if>
+
+      <sc-if value="{{isPay}}" hint-placeholder-val="{{false}}">
+        <span class="eye one">{{payEye}}</span>
+        <span class="disp one" style="font-size: 34px; padding: 2px 0">{{payName}}</span>
+        <sc-if value="{{payShowTotals}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: #C9C5CE">
+            <div style="display: flex; justify-content: space-between"><span>{{paySubLabel}}</span><span class="mono">{{paySub}}</span></div>
+            <div style="display: flex; justify-content: space-between"><span>NYC tax 8.875%</span><span class="mono">{{payTax}}</span></div>
+            <sc-if value="{{hasPaidBefore}}" hint-placeholder-val="{{false}}"><div style="display: flex; justify-content: space-between; color: #FFB13D"><span>Already paid before it was reopened</span><span class="mono">{{paidBeforeAmt}}</span></div></sc-if>
+            <div style="display: flex; justify-content: space-between; font-size: 17px; font-weight: 800; color: #F4F1EA; padding-top: 4px; border-top: 1px solid rgba(244,241,234,.1)"><span>{{payTotalLabel}}</span><span class="mono">{{payTotal}}</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{payChoose}}" hint-placeholder-val="{{true}}">
+          <sc-if value="{{hasHeld}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{payHeld}}" style="appearance: none; border: 0; border-radius: 14px; padding: 12px 14px; min-height: 72px; text-align: left; display: flex; flex-direction: column; gap: 3px; background: var(--acc, #D4FF3F); color: #0b0a0d"><b style="font-size: 17px">{{heldLabel}}</b><span style="font-size: 12px; font-weight: 600">The guest picks a tip on the bar reader. Nothing to type in later.</span></button></sc-if>
+          <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 8px">
+            <button type="button" class="btn" onClick="{{payTap}}" style="appearance: none; border-radius: 12px; height: 56px; font-weight: 800; font-size: 15px; {{tapStyle}}">{{tapLabel}}</button>
+            <button type="button" class="btn" onClick="{{paySplit}}" style="appearance: none; border-radius: 12px; height: 56px; font-weight: 700; font-size: 14px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18)">Split</button>
+          </div>
+          <span class="eye" style="padding-top: 4px">Cash · tap what they hand you and the drawer opens</span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{cashChoices}}" as="c" hint-placeholder-count="6"><button type="button" class="btn" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="appearance: none; border-radius: 12px; height: 54px; font-weight: 800; font-size: 16px; {{c.style}}">{{c.label}}</button></sc-for></div>
+          <sc-if value="{{cashOther}}" hint-placeholder-val="{{false}}">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px">
+              <input class="in" type="number" inputmode="decimal" min="0" step="0.01" value="{{otherVal}}" onInput="{{setOther}}" placeholder="Amount handed over" aria-label="Cash amount handed over" style="height: 52px; font-size: 18px">
+              <button type="button" class="btn" onClick="{{takeOther}}" style="appearance: none; border: 0; border-radius: 12px; padding: 0 16px; font-weight: 800; font-size: 14px; {{takeOtherStyle}}">{{takeOtherLabel}}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{cashShort}}" hint-placeholder-val="{{false}}"><div role="status" style="padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #FFB13D; background: rgba(255,177,61,.1); border: 1px solid rgba(255,177,61,.4)">{{shortLine}}</div></sc-if>
+          <div style="font-size: 12px; line-height: 1.5; color: #8E8994">{{payNote}}</div>
+        </sc-if>
+        <sc-if value="{{payReader}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: #F4F1EA; color: #0b0a0d">
+            <span class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #57535E">{{readerHead}}</span>
+            <b style="font-size: 18px">{{readerTitle}}</b>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px"><sc-for list="{{tipChoices}}" as="c" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{c.pick}}" style="appearance: none; border: 0; border-radius: 10px; height: 60px; background: #0b0a0d; color: #F4F1EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px"><b style="font-size: 16px">{{c.label}}</b><span class="mono" style="font-size: 11px; opacity: .8">{{c.amt}}</span></button></sc-for></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px"><button type="button" class="btn" onClick="{{tipCustom}}" style="appearance: none; border: 1px solid #0b0a0d; border-radius: 10px; height: 46px; background: transparent; color: #0b0a0d; font-weight: 700; font-size: 13px">Custom</button><button type="button" class="btn" onClick="{{tipNone}}" style="appearance: none; border: 1px solid #0b0a0d; border-radius: 10px; height: 46px; background: transparent; color: #0b0a0d; font-weight: 700; font-size: 13px">No tip</button></div>
+          </div>
+          <div style="font-size: 12px; line-height: 1.5; color: #8E8994">Demo: tap for the guest. On the night this shows on the reader facing them, and this screen just waits. Tip suggestions are on the drinks before tax.</div>
+          <button type="button" class="btn" onClick="{{payBack}}" style="appearance: none; border-radius: 12px; height: 48px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel on the reader</button>
+        </sc-if>
+        <sc-if value="{{payCashOn}}" hint-placeholder-val="{{false}}">
+          <span class="eye">What did they hand you? The sale is done; this only fixes the change</span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{fixCash}}" as="c" hint-placeholder-count="6"><button type="button" class="btn" onClick="{{c.pick}}" style="appearance: none; border-radius: 12px; height: 54px; font-weight: 800; font-size: 16px; {{c.style}}">{{c.label}}</button></sc-for></div>
+          <button type="button" class="btn" onClick="{{fixCashBack}}" style="appearance: none; border-radius: 12px; height: 48px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Back</button>
+        </sc-if>
+        <sc-if value="{{paySplitOn}}" hint-placeholder-val="{{false}}">
+          <span class="eye">Split evenly · by item is on the room screen</span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{splitWays}}" as="w" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{w.pick}}" aria-pressed="{{w.on}}" disabled="{{w.disabled}}" style="appearance: none; border-radius: 12px; height: 52px; font-weight: 800; font-size: 15px; {{w.style}}">{{w.label}}</button></sc-for></div>
+          <div style="display: flex; flex-direction: column; gap: 4px"><sc-for list="{{shares}}" as="s" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; padding: 10px 12px; border-radius: 10px; {{s.style}}"><span class="one">{{s.label}}</span><span class="mono" style="flex: none">{{s.amt}}</span></div></sc-for></div>
+          <button type="button" class="btn" onClick="{{splitGo}}" style="appearance: none; border: 0; border-radius: 14px; height: 58px; font-weight: 800; font-size: 15px; background: var(--acc, #D4FF3F); color: #0b0a0d">{{splitGoLabel}}</button>
+          <button type="button" class="btn" onClick="{{splitBack}}" disabled="{{splitLocked}}" style="appearance: none; border-radius: 12px; height: 48px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">{{splitBackLabel}}</button>
+        </sc-if>
+        <sc-if value="{{payDone}}" hint-placeholder-val="{{false}}">
+          <div role="status" style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: rgba(212,255,63,.08); border: 1px solid rgba(212,255,63,.4)"><b style="font-size: 18px; color: var(--acc, #D4FF3F)">{{doneTitle}}</b><span style="font-size: 13px; color: #C9C5CE; line-height: 1.5">{{doneLine}}</span></div>
+          <sc-if value="{{doneCash}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 12px 16px; border-radius: 14px; background: #16141b; border: 1px solid rgba(244,241,234,.14)"><span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 700">Change</span><span class="mono" style="font-size: 11px; color: #8E8994">{{handedLine}}</span></span><span class="disp" style="font-size: 52px; color: var(--acc, #D4FF3F)">{{changeDue}}</span></div>
+            <button type="button" class="btn" onClick="{{fixCashOpen}}" style="appearance: none; align-self: flex-start; border: 0; background: transparent; color: #8E8994; font-size: 12px; font-weight: 600; min-height: 36px; padding: 0; text-decoration: underline; text-underline-offset: 3px">Wrong amount? Fix the change</button>
+          </sc-if>
+          <span class="eye">Receipt</span>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{receipts}}" as="r" hint-placeholder-count="3"><button type="button" class="btn" onClick="{{r.pick}}" style="appearance: none; border-radius: 12px; height: 56px; font-weight: 700; font-size: 14px; {{r.style}}">{{r.label}}</button></sc-for></div>
+          <div style="font-size: 12px; line-height: 1.5; color: #8E8994">{{doneNote}}</div>
+        </sc-if>
+        <sc-if value="{{payCanBack}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{payClose}}" style="appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 13px; font-weight: 600; min-height: 44px; text-decoration: underline; text-underline-offset: 3px">Back to the tab</button></sc-if>
+      </sc-if>
+
+      <sc-if value="{{isFix}}" hint-placeholder-val="{{false}}">
+        <span class="eye">Change a drink that’s on the tab</span>
+        <span class="disp" style="font-size: 30px">{{fixTitle}}</span>
+        <span style="font-size: 12px; line-height: 1.45; color: #A39FA8">{{fixSub}}</span>
+        <div role="radiogroup" aria-label="What to do" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px"><sc-for list="{{fixActs}}" as="a" hint-placeholder-count="3"><button type="button" class="btn" role="radio" aria-checked="{{a.on}}" onClick="{{a.pick}}" style="appearance: none; border-radius: 12px; height: 50px; font-weight: 800; font-size: 14px; {{a.style}}">{{a.label}}</button></sc-for></div>
+        <sc-if value="{{fixNeedsMade}}" hint-placeholder-val="{{true}}">
+          <span class="eye">{{fixMadeHead}}</span>
+          <div role="radiogroup" aria-label="{{fixMadeHead}}" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><sc-for list="{{fixMade}}" as="m" hint-placeholder-count="2"><button type="button" class="btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="appearance: none; border-radius: 12px; min-height: 52px; padding: 8px 10px; font-weight: 700; font-size: 13px; text-align: left; display: flex; flex-direction: column; justify-content: center; gap: 2px; {{m.style}}"><span>{{m.label}}</span><span style="font-size: 11px; font-weight: 500; opacity: .8">{{m.sub}}</span></button></sc-for></div>
+          <span class="eye">Why</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap"><sc-for list="{{fixReasons}}" as="r" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="appearance: none; border-radius: 9px; padding: 0 12px; height: 42px; font-weight: 700; font-size: 12px; {{r.style}}">{{r.label}}</button></sc-for></div>
+          <div style="font-size: 12px; line-height: 1.5; {{fixRuleStyle}}">{{fixRule}}</div>
+          <button type="button" class="btn" onClick="{{fixGo}}" style="appearance: none; border: 0; border-radius: 14px; height: 60px; font-weight: 800; font-size: 16px; {{fixGoStyle}}">{{fixGoLabel}}</button>
+        </sc-if>
+        <sc-if value="{{fixMoveOn}}" hint-placeholder-val="{{false}}">
+          <span class="eye">Move it to</span>
+          <div class="scroll" style="display: flex; flex-direction: column; gap: 6px; max-height: 330px"><sc-for list="{{moveTargets}}" as="m" hint-placeholder-count="4"><button type="button" class="btn" onClick="{{m.pick}}" style="appearance: none; flex: none; text-align: left; border-radius: 12px; min-height: 48px; padding: 0 12px; font-weight: 700; font-size: 14px; background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.12); display: flex; justify-content: space-between; align-items: center; gap: 8px"><span class="one">{{m.label}}</span><span class="mono" style="flex: none; font-size: 12px; color: #8E8994">{{m.sub}}</span></button></sc-for></div>
+          <div style="font-size: 12px; color: #8E8994; line-height: 1.5">Moving a drink to another tab needs no approval; both tabs log who moved it.</div>
+        </sc-if>
+        <button type="button" class="btn" onClick="{{fixCancel}}" style="appearance: none; border-radius: 12px; height: 48px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Back to the tab</button>
+      </sc-if>
+    </section>
+  </div>
+
+  <sc-if value="{{wiping}}" hint-placeholder-val="{{false}}">
+    <div role="alertdialog" aria-label="Screen is locked for wiping" style="position: absolute; inset: 0; z-index: 80; background: rgba(11,10,13,.93); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px">
+      <span class="disp" style="font-size: 64px">Wipe away</span>
+      <span style="font-size: 16px; color: #C9C5CE">Taps are off for <b class="mono" style="color: var(--acc, #D4FF3F)">{{wipeLeft}}</b> so a wet cloth can’t ring anything.</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60; max-width: 760px; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; text-align: center">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" role="status" style="position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60; max-width: 760px; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; text-align: center">{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Menu data is the same list as Order.dc.html and the menu page. [id, name, price, section, alcohol, options]
+  static ITEMS = [
+    ["bud", "Bud Light", 8, "beer", 1], ["budw", "Budweiser", 8, "beer", 1], ["ultra", "Michelob Ultra", 8, "beer", 1], ["modelo", "Modelo", 9, "beer", 1], ["orchard", "Angry Orchard", 9, "beer", 1],
+    ["heineken", "Heineken", 9, "beer", 1], ["corona", "Corona", 9, "beer", 1], ["goose", "Goose Island IPA", 9, "beer", 1], ["guinness", "Guinness", 9, "beer", 1], ["hoe", "Hoegaarden", 9, "beer", 1],
+    ["bluemoon", "Blue Moon", 9, "beer", 1], ["stella", "Stella Artois", 9, "beer", 1], ["kirin_g", "Kirin draft · glass", 9, "beer", 1], ["kirin_p", "Kirin draft · pitcher", 31, "beer", 1], ["nutrl", "Nütrl hard seltzer", 10, "beer", 1, "nutrl"],
+    ["chamisul", "Chamisul Fresh", 20, "soju", 1], ["jinro", "Jinro Is Back", 20, "soju", 1], ["sj_straw", "Strawberry soju", 20, "soju", 1], ["sj_grape", "Grapefruit soju", 20, "soju", 1], ["sj_green", "Green Grape soju", 20, "soju", 1], ["sj_peach", "Peach soju", 20, "soju", 1], ["sj_plum", "Plum soju", 20, "soju", 1],
+    ["sunrise", "Tequila Sunrise", 12, "cocktails", 1], ["hawaii", "Blue Hawaii", 12, "cocktails", 1], ["jolly", "Jolly Rancher", 12, "cocktails", 1], ["melon", "Melon Ball", 12, "cocktails", 1], ["russian", "Black Russian", 12, "cocktails", 1],
+    ["sotb", "Sex on the Beach", 12, "cocktails", 1], ["paloma", "Paloma", 12, "cocktails", 1], ["midori", "Midori Sour", 12, "cocktails", 1], ["amaretto", "Amaretto Sour", 12, "cocktails", 1], ["kamitini", "Kamikaze-tini", 12, "cocktails", 1],
+    ["droptini", "Lemon Drop-tini", 13, "cocktails", 1], ["mule_c", "Moscow Mule", 13, "cocktails", 1], ["stormy", "Dark ’n’ Stormy", 13, "cocktails", 1], ["maitai", "Mai Tai", 13, "cocktails", 1], ["yogurt", "Yogurt Soju Cocktail", 13, "cocktails", 1],
+    ["malibubay", "Malibu Bay Breeze", 13, "cocktails", 1], ["marg", "Margarita", 13, "cocktails", 1, "marg"], ["tea", "Iced Tea", 13, "cocktails", 1, "tea"],
+    ["s_drop", "Lemon Drop shot", 9, "shots", 1], ["s_butter", "Buttery Nipple", 9, "shots", 1], ["s_kami", "Kamikaze shot", 9, "shots", 1], ["s_woo", "Woo Woo", 9, "shots", 1], ["s_org", "Orgasm", 9, "shots", 1],
+    ["s_green", "Green Tea shot", 10, "shots", 1], ["s_rhs", "Red Headed Slut", 10, "shots", 1], ["jager", "Jäger Bomb", 12, "shots", 1],
+    ["jameson", "Jameson", 12, "spirits", 1, "spirit"], ["jack", "Jack Daniel’s", 12, "spirits", 1, "spirit"], ["jwb", "Johnnie Walker Black", 12, "spirits", 1, "spirit"], ["fireball", "Fireball", 13, "spirits", 1, "spirit"], ["jackh", "Jack Daniel’s Honey", 13, "spirits", 1, "spirit"],
+    ["makers", "Maker’s Mark", 13, "spirits", 1, "spirit"], ["hennessy", "Hennessy", 13, "spirits", 1, "spirit"], ["bulleit", "Bulleit Bourbon", 13, "spirits", 1, "spirit"], ["basil", "Basil Hayden", 13, "spirits", 1, "spirit"], ["glen", "The Glenlivet 12", 14, "spirits", 1, "spirit"],
+    ["titos", "Tito’s", 12, "spirits", 1, "spirit"], ["stoli", "Stoli", 12, "spirits", 1, "stoli"], ["ketel", "Ketel One", 12, "spirits", 1, "spirit"], ["goosev", "Grey Goose", 13, "spirits", 1, "spirit"], ["patron", "Patrón", 13, "spirits", 1, "spirit"],
+    ["casa", "Casamigos Blanco", 13, "spirits", 1, "spirit"], ["mezcal", "Mezcal", 14, "spirits", 1, "spirit"], ["bacardi", "Bacardi", 12, "spirits", 1, "spirit"], ["captain", "Captain Morgan", 12, "spirits", 1, "spirit"], ["malibu", "Malibu", 12, "spirits", 1, "spirit"],
+    ["tanq", "Tanqueray", 12, "spirits", 1, "spirit"], ["bombay", "Bombay", 12, "spirits", 1, "spirit"], ["hendricks", "Hendrick’s", 13, "spirits", 1, "spirit"],
+    ["malbec_g", "Malbec · glass", 10, "wine", 1], ["malbec_b", "Malbec · bottle", 40, "wine", 1], ["merlot_g", "Merlot · glass", 10, "wine", 1], ["merlot_b", "Merlot · bottle", 40, "wine", 1], ["cab_g", "Cabernet · glass", 10, "wine", 1],
+    ["cab_b", "Cabernet · bottle", 40, "wine", 1], ["sauv_g", "Sauvignon Blanc · glass", 10, "wine", 1], ["sauv_b", "Sauvignon Blanc · bottle", 40, "wine", 1], ["pinot_g", "Pinot Grigio · glass", 10, "wine", 1], ["pinot_b", "Pinot Grigio · bottle", 40, "wine", 1],
+    ["pros_g", "Prosecco · glass", 10, "wine", 1], ["pros_b", "Prosecco · bottle", 40, "wine", 1], ["andre", "André Brut · bottle", 40, "wine", 1], ["moet", "Moët & Chandon · bottle", 180, "wine", 1],
+    ["soda_c", "Soda · cup", 5, "soft", 0, "soda"], ["soda_p", "Soda · pitcher", 18, "soft", 0, "soda"], ["lem_c", "Lemonade · cup", 5, "soft", 0], ["lem_p", "Lemonade · pitcher", 18, "soft", 0], ["cran_c", "Cranberry juice · cup", 5, "soft", 0],
+    ["cran_p", "Cranberry juice · pitcher", 18, "soft", 0], ["selt_c", "Seltzer · cup", 2, "soft", 0], ["selt_p", "Seltzer · pitcher", 16, "soft", 0], ["gbeer", "Ginger beer", 9, "soft", 0], ["redbull", "Red Bull", 6, "soft", 0],
+    ["mule_m", "Mule mocktail", 11, "soft", 0, "mule"], ["shirley", "Shirley Temple", 11, "soft", 0],
+    ["b_jameson", "Jameson · bottle", 250, "bottles", 1], ["b_jack", "Jack Daniel’s · bottle", 250, "bottles", 1], ["b_jwb", "Johnnie Walker Black · bottle", 300, "bottles", 1], ["b_fireball", "Fireball · bottle", 250, "bottles", 1], ["b_hennessy", "Hennessy · bottle", 300, "bottles", 1],
+    ["b_makers", "Maker’s Mark · bottle", 300, "bottles", 1], ["b_bulleit", "Bulleit · bottle", 330, "bottles", 1], ["b_glen", "Glenlivet 12 · bottle", 350, "bottles", 1], ["b_titos", "Tito’s · bottle", 250, "bottles", 1], ["b_goose", "Grey Goose · bottle", 350, "bottles", 1],
+    ["b_patron", "Patrón · bottle", 300, "bottles", 1], ["b_casa", "Casamigos · bottle", 330, "bottles", 1], ["b_bacardi", "Bacardi · bottle", 275, "bottles", 1], ["b_hendricks", "Hendrick’s · bottle", 300, "bottles", 1], ["b_tanq", "Tanqueray · bottle", 250, "bottles", 1],
+    ["bucket_s", "Small bucket · 6 beers", 40, "packs", 1], ["bucket_l", "Large bucket · 10 beers", 70, "packs", 1], ["p_soju2", "2 soju + small bucket", 70, "packs", 1], ["p_soju4", "4 soju + large bucket", 120, "packs", 1], ["p_shots", "12 house shots + 2 small buckets", 150, "packs", 1],
+    ["p_bottle1", "1 bottle + large bucket", 300, "packs", 1, "bottle"], ["p_bottle2", "2 bottles + 3 large buckets", 680, "packs", 1, "bottle"]
+  ];
+  // Button names for the grid, set per item in Admin (the full name still prints on tickets and receipts).
+  // Anything after " · " in a name is the size, and shows small under the button name.
+  static BTN = {
+    ultra: ["Mich Ultra"], goose: ["Goose IPA"], nutrl: ["Nütrl seltzer"], chamisul: ["Chamisul"], jinro: ["Jinro"],
+    sj_straw: ["Strawberry", "soju"], sj_grape: ["Grapefruit", "soju"], sj_green: ["Green grape", "soju"], sj_peach: ["Peach", "soju"], sj_plum: ["Plum", "soju"], yogurt: ["Yogurt soju"], malibubay: ["Bay Breeze"],
+    s_drop: ["Lemon Drop", "shot"], s_green: ["Green Tea", "shot"], s_kami: ["Kamikaze", "shot"], jwb: ["JW Black"], jackh: ["Jack Honey"], glen: ["Glenlivet 12"], bulleit: ["Bulleit"], casa: ["Casamigos"],
+    sauv_g: ["Sauv Blanc", "glass"], sauv_b: ["Sauv Blanc", "bottle"], moet: ["Moët", "bottle"], cran_c: ["Cranberry", "cup"], cran_p: ["Cranberry", "pitcher"], b_jwb: ["JW Black", "bottle"],
+    p_soju2: ["2 soju + bucket", "small"], p_soju4: ["4 soju + bucket", "large"], p_shots: ["12 shots", "+ 2 buckets"], p_bottle1: ["Bottle + bucket"], p_bottle2: ["2 bottles + 3 buckets"]
+  };
+  // Fixed positions. "" is an open slot kept for a new drink, so nothing ever shifts.
+  static PAGES = {
+    fav: ["bud", "modelo", "corona", "stella", "kirin_g", "bucket_s", "bucket_l", "chamisul", "sj_peach", "yogurt", "jager", "s_drop", "s_green", "titos", "jameson", "patron", "casa", "hennessy", "marg", "tea", "soda_c", "redbull", "", "", ""],
+    beer: ["bud", "budw", "ultra", "modelo", "corona", "heineken", "stella", "orchard", "goose", "guinness", "hoe", "bluemoon", "kirin_g", "kirin_p", "nutrl", "", "", "", "", "", "", "", "", "", ""],
+    soju: ["chamisul", "jinro", "sj_straw", "sj_grape", "sj_green", "sj_peach", "sj_plum", "", "", "", "yogurt", "p_soju2", "p_soju4", "", "", "", "", "", "", "", "", "", "", "", ""],
+    cocktails: ["marg", "tea", "mule_c", "paloma", "sunrise", "hawaii", "jolly", "melon", "russian", "sotb", "midori", "amaretto", "kamitini", "droptini", "stormy", "maitai", "yogurt", "malibubay", "", "", "", "", "", "", ""],
+    shots: ["jager", "s_drop", "s_green", "s_kami", "s_woo", "s_butter", "s_org", "s_rhs", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+    spirits: ["titos", "stoli", "ketel", "goosev", "", "jameson", "jack", "jackh", "jwb", "fireball", "makers", "bulleit", "basil", "glen", "hennessy", "patron", "casa", "mezcal", "bacardi", "captain", "malibu", "tanq", "bombay", "hendricks", ""],
+    wine: ["malbec_g", "merlot_g", "cab_g", "sauv_g", "pinot_g", "malbec_b", "merlot_b", "cab_b", "sauv_b", "pinot_b", "pros_g", "pros_b", "andre", "moet", "", "", "", "", "", "", "", "", "", "", ""],
+    soft: ["soda_c", "soda_p", "lem_c", "lem_p", "redbull", "cran_c", "cran_p", "selt_c", "selt_p", "gbeer", "mule_m", "shirley", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+    bottles: ["b_titos", "b_goose", "b_jameson", "b_jack", "b_jwb", "b_fireball", "b_makers", "b_bulleit", "b_glen", "b_hennessy", "b_patron", "b_casa", "b_bacardi", "b_tanq", "b_hendricks", "", "", "", "", "", "", "", "", "", ""],
+    packs: ["bucket_s", "bucket_l", "p_soju2", "p_soju4", "p_shots", "p_bottle1", "p_bottle2", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+  };
+  static CATS = [["fav", "Favorites", "#D4FF3F"], ["beer", "Beer", "#E8C872"], ["soju", "Soju", "#7FD6C2"], ["cocktails", "Cocktails", "#F28FB5"], ["shots", "Shots", "#B79CFF"],
+    ["spirits", "Spirits", "#9EC5FF"], ["wine", "Wine", "#E07A7A"], ["soft", "Soft drinks", "#9BE08F"], ["bottles", "Bottles", "#C9C5CE"], ["packs", "Buckets", "#D9A15C"]];
+  // Choices that must be made before the drink can go on a tab.
+  static PICKS = {
+    marg: ["Flavor", ["Raspberry", "Peach", "Strawberry"]], tea: ["Kind", ["Long Island", "Long Beach", "Ruby Strawberry", "Blue Lemonade", "Tokyo Melon"]],
+    nutrl: ["Flavor", ["Lemonade", "Pineapple", "Watermelon", "Orange", "Black cherry", "Cranberry"]], stoli: ["Flavor", ["Plain", "Citrus", "Raspberry", "Blueberry"]],
+    soda: ["Which", ["Coke", "Diet Coke", "Sprite", "Ginger ale"]], mule: ["Flavor", ["Peach", "Strawberry", "Raspberry"]],
+    bottle: ["Bottle", ["Tito’s", "Jameson", "Jack Daniel’s", "Fireball", "Stoli", "Bombay", "Tanqueray", "Patrón", "Casamigos", "Bacardi", "Captain Morgan"]]
+  };
+  static HOW = ["Rocks", "Neat", "Up", "Shot"];
+  static MIX = [["Soda", 0], ["Tonic", 0], ["Coke", 0], ["Sprite", 0], ["Ginger ale", 0], ["Cranberry", 0], ["Pineapple", 0], ["OJ", 0], ["Red Bull", 6]];
+  static OUT = { hoe: true, casa: true, b_casa: true, "pick:Casamigos": true };
+  static PEOPLE = { maya: { name: "Maya S.", ini: "MS", sub: "Bar · signed in", color: "#6EE7B7" }, diego: { name: "Diego R.", ini: "DR", sub: "Front desk · covering the bar", color: "#C4B5FD" } };
+  static TAX = 0.08875;
+  static VOID_FREE = 25; // voids and comps up to this each need only a reason; above it, a manager approves on their own phone
+  static VOID_SHIFT = 75; // and up to this much a shift per person, after which every one needs approval
+
+  constructor() {
+    super(...arguments);
+    const L = (id, qty, o) => Object.assign({ id, qty, how: null, mix: null, pick: null }, o || {});
+    this.state = {
+      who: "maya", cur: { maya: "t1", diego: "" }, cat: "fav", q: "", find: "", filter: "all",
+      mode: "check", nt: { step: "wait", card: "", name: "", label: "" },
+      pay: { step: "choose", given: 0, ways: 2, paid: 0, tips: 0, tip: 0, method: "", other: false }, fix: null,
+      drafts: { "diego:t5": [L("redbull", 1)] }, sel: {}, undo: {}, closedTabs: [], showClosed: false, freeUsed: { maya: 12, diego: 0 }, late: false, wipeUntil: 0, tick: 0, t0: Date.now(), toast: "", toastN: 0,
+      // Bar tabs stay in the order they were opened (new ones go to the end), so a tab never jumps around the list.
+      tabs: [
+        { id: "t4", kind: "bar", name: "Hana K.", label: "Seat 1", card: "Visa ··5120", hold: 50, owner: "maya", opened: "9:10 PM", cut: "Cut off by Andy at 10:30 PM", rounds: [[L("chamisul", 1)], [L("sj_peach", 1)]] },
+        { id: "t1", kind: "bar", name: "Jess P.", label: "Seat 3", card: "Visa ··4417", hold: 50, owner: "maya", opened: "9:40 PM", rounds: [[L("modelo", 2)], [L("jager", 1)]] },
+        { id: "t2", kind: "bar", name: "Luis M.", label: "Seat 5", card: "Mastercard ··2281", hold: 80, grew: true, owner: "maya", opened: "9:55 PM", rounds: [[L("bucket_s", 1)], [L("s_drop", 2)]] },
+        { id: "t5", kind: "bar", name: "Tariq A.", label: "Standing · by the stage", card: "Visa ··8830", hold: 100, owner: "diego", opened: "10:02 PM", rounds: [[L("bucket_l", 1, { pending: "Void waiting for Andy’s OK · rang it wrong" })], [L("modelo", 1)]] },
+        { id: "t3", kind: "bar", name: "Seat 6 · blue jacket", label: "Tapped a phone, no name", card: "Amex ··7712", hold: 50, owner: "diego", opened: "10:20 PM", rounds: [[L("titos", 1, { how: "Rocks", mix: "Soda" })]] },
+        { id: "r9", kind: "room", name: "Room 9", label: "Marcus T. · 12 guests", card: "Amex ··1005", deposit: 120, roomMin: 161, roomAmt: 322, opened: "8:00 PM", ids: "ID ✓ 12 of 12", rounds: [[L("bucket_l", 1)], [L("chamisul", 2)], [L("jager", 4)]] },
+        { id: "r12", kind: "room", name: "Room 12", label: "Omar F. · 14 guests", card: "Visa ··6630", deposit: 140, roomMin: 138, roomAmt: 322, opened: "8:23 PM", ids: "ID ✓ 14 of 14", rounds: [[L("p_soju2", 1)]] },
+        { id: "r14", kind: "room", name: "VIP room", label: "Bianca L. · 22 guests", card: "Visa ··2290", deposit: 250, roomMin: 71, roomAmt: 296, opened: "9:30 PM", ids: "ID ✓ 22 of 22", rounds: [[L("b_hennessy", 1)], [L("moet", 1)]] }
+      ],
+      orders: [
+        { id: "o1", room: "Room 9", what: "2 × Margarita · Peach", amt: 26, age: 43, alc: true, note: "ID ✓ 12 of 12 · goes on Room 9’s tab" },
+        { id: "o2", room: "Room 5", what: "4 × Bud Light", amt: 32, age: 131, alc: true, note: "ID ✓ 4 of 4 · goes on Room 5’s tab" }
+      ]
+    };
+  }
+  componentDidMount() { this.timer = setInterval(() => this.setState({ tick: this.state.tick + 1 }), 1000); }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state, C = Component;
+    const item = (id) => { const r = C.ITEMS.find((x) => x[0] === id); return r ? { id: r[0], name: r[1], price: r[2], cat: r[3], alc: !!r[4], opt: r[5] || "" } : null; };
+    const money = (n) => (n < 0 ? "−$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const whole = (n) => money(n).replace(".00", "");
+    const round2 = (n) => Math.round(n * 100 + 1e-9) / 100;
+    const P = C.PEOPLE[st.who], first = (p) => p.name.split(" ")[0];
+    const other = st.who === "maya" ? "diego" : "maya";
+    const elapsed = Math.floor((Date.now() - st.t0) / 1000);
+    const clockMin = 22 * 60 + 41 + Math.floor(elapsed / 60);
+    const hm = (m) => { const h = Math.floor(m / 60) % 24, mm = String(m % 60).padStart(2, "0"); return ((h + 11) % 12 + 1) + ":" + mm + (h < 12 ? " AM" : " PM"); };
+    const now = st.late ? "4:02 AM" : hm(clockMin);
+
+    // Lines: a unit price, what it's made with, and the label staff read back.
+    const unit = (l) => { const it = item(l.id); return it ? it.price + (l.mix === "Red Bull" ? 6 : 0) : 0; };
+    const mods = (l) => [l.pick, l.how ? l.how.toLowerCase() : null, l.mix ? l.mix.toLowerCase() : null].filter(Boolean).join(", ");
+    const lineLabel = (l) => l.qty + " × " + item(l.id).name + (mods(l) ? " · " + mods(l) : "");
+    const needsPick = (l) => { const it = item(l.id); return !!(it && C.PICKS[it.opt] && !l.pick); };
+    const sumLines = (ls) => ls.reduce((a, l) => a + (l.comp || l.voided ? 0 : unit(l) * l.qty), 0);
+    const isSpirit = (it) => it.opt === "spirit" || it.opt === "stoli";
+
+    const tabs = st.tabs;
+    const curId = st.cur[st.who] || "";
+    const tab = tabs.find((t) => t.id === curId) || null;
+    // Unsent drinks belong to the person who rang them and the tab they're for, so a badge swap never mixes them up.
+    const key = st.who + ":" + (tab ? tab.id : "quick");
+    const draft = st.drafts[key] || [];
+    const selIdx = st.sel[key] == null ? draft.length - 1 : st.sel[key];
+    const selLine = draft[selIdx] || null;
+    const sentLines = (t) => t.rounds.reduce((a, r) => a.concat(r), []);
+    const tabSub = (t) => sumLines(sentLines(t)) + (t.roomAmt || 0);
+    const blockedAlc = st.late || !!(tab && tab.cut);
+
+    const setDraft = (lines, sel, label, extra) => {
+      const d = Object.assign({}, st.drafts); d[key] = lines;
+      const s = Object.assign({}, st.sel); s[key] = sel;
+      const u = Object.assign({}, st.undo); u[key] = (st.undo[key] || []).concat([{ lines: draft, sel: st.sel[key], label }]).slice(-20);
+      this.setState(Object.assign({ drafts: d, sel: s, undo: u }, extra || {}));
+    };
+    const addItem = (id) => {
+      const it = item(id);
+      if (!it) return;
+      if (C.OUT[id]) { this.notify(it.name + " is 86’d tonight"); return; }
+      if (it.alc && st.late) { this.notify("No alcohol sales from 4 to 8 AM (New York law)"); return; }
+      if (it.alc && tab && tab.cut) { this.notify(tab.name + " is cut off from alcohol · soft drinks only"); return; }
+      const fresh = { id, qty: 1, how: isSpirit(it) ? "Rocks" : null, mix: null, pick: null };
+      const last = draft[draft.length - 1];
+      const same = last && last.id === id && last.how === fresh.how && !last.mix && !last.pick && !C.PICKS[it.opt];
+      const lines = same ? draft.map((l, i) => i === draft.length - 1 ? Object.assign({}, l, { qty: l.qty + 1 }) : l) : draft.concat([fresh]);
+      const hasOpts = !!C.PICKS[it.opt] || isSpirit(it);
+      const waiting = lines.findIndex(needsPick);
+      const sel = hasOpts || waiting < 0 ? lines.length - 1 : waiting;
+      // Ringing a drink from any other panel goes back to the check: after a sale it starts the next one.
+      const back = st.mode !== "check" ? { mode: "check", fix: null, pay: { step: "choose", given: 0, ways: 2, paid: 0, tips: 0, tip: 0, method: "", other: false } } : null;
+      setDraft(lines, sel, (same ? "added another " : "added ") + it.name, back);
+    };
+
+    // The grid: fixed slots, or search results across the whole menu.
+    const q = st.q.trim().toLowerCase();
+    const ids = q ? C.ITEMS.filter((r) => r[1].toLowerCase().includes(q) || r[3].includes(q) || (C.BTN[r[0]] && C.BTN[r[0]][0].toLowerCase().includes(q))).map((r) => r[0]).slice(0, 25) : C.PAGES[st.cat];
+    const catColor = (c) => (C.CATS.find((x) => x[0] === c) || C.CATS[0])[2];
+    const btn = (it) => { const b = C.BTN[it.id]; if (b) return { name: b[0], size: b[1] || "" }; const p = it.name.split(" · "); return { name: p[0], size: p[1] || "" }; };
+    const cells = ids.concat(Array(Math.max(0, 25 - ids.length)).fill("")).map((id) => {
+      if (!id) return { name: q ? "" : "Open slot", price: "", tag: "", tap: () => {}, disabled: true, aria: "Open slot, kept for a new drink",
+        style: "background: transparent; color: #45414C; border: 1px dashed rgba(244,241,234,.09);", tagStyle: "" };
+      const it = item(id), out = !!C.OUT[id], noAlc = it.alc && blockedAlc, b = btn(it);
+      const pk = C.PICKS[it.opt];
+      const tag = out ? "86’d tonight" : noAlc ? (st.late ? "no alcohol" : "cut off")
+        : [b.size, pk ? (b.size ? "pick" : "pick " + pk[0].toLowerCase()) : ""].filter(Boolean).join(" · ");
+      return {
+        name: b.name, price: whole(it.price), tag, disabled: out || noAlc,
+        aria: it.name + ", " + money(it.price) + (out ? ", out tonight" : noAlc ? ", alcohol is off" : ""),
+        tap: () => addItem(id),
+        style: out || noAlc ? "background: #121016; color: #5E5A66; border: 1px solid rgba(244,241,234,.05); border-left: 4px solid rgba(244,241,234,.1);"
+          : "background: #1a1820; color: #F4F1EA; border: 1px solid rgba(244,241,234,.1); border-left: 4px solid " + catColor(it.cat) + ";",
+        tagStyle: out || noAlc ? "color: #FF3DA6;" : pk ? "color: #FFB13D;" : "color: #8E8994;"
+      };
+    });
+    const cats = C.CATS.map(([id, label, color]) => ({ label, color, on: !q && st.cat === id ? "true" : "false", pick: () => this.setState({ cat: id, q: "" }),
+      style: !q && st.cat === id ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.1);" }));
+
+    // How it's made: shown under the selected new line in the check, already set to the usual.
+    let optGroups = [], optHint = "", optHintStyle = "color: #8E8994;";
+    if (selLine) {
+      const it = item(selLine.id);
+      const setSel = (patch, label) => setDraft(draft.map((l, i) => i === selIdx ? Object.assign({}, l, patch) : l), selIdx, label);
+      const chip = (on) => on ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: #1a1820; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);";
+      if (C.PICKS[it.opt]) {
+        const [label, choices] = C.PICKS[it.opt];
+        optGroups.push({ label: "Pick one · " + label.toLowerCase(), labelStyle: selLine.pick ? "color: #8E8994;" : "color: #FFB13D;", chips: choices.map((c) => {
+          const out = !!C.OUT["pick:" + c];
+          return { label: out ? c + " · 86’d" : c, on: selLine.pick === c ? "true" : "false", disabled: out, style: out ? "background: transparent; color: #57535E; border: 1px dashed rgba(244,241,234,.12);" : chip(selLine.pick === c), tap: () => setSel({ pick: c }, "picked " + c) };
+        }) });
+        optHint = selLine.pick ? "" : "Needs a " + label.toLowerCase() + " before it can go on";
+        optHintStyle = selLine.pick ? "color: #8E8994;" : "color: #FFB13D;";
+      }
+      if (isSpirit(it)) {
+        optGroups.push({ label: "Served", labelStyle: "color: #8E8994;", chips: C.HOW.map((h) => ({ label: h, on: selLine.how === h ? "true" : "false", disabled: false, style: chip(selLine.how === h), tap: () => setSel({ how: h }, "made it " + h.toLowerCase()) })) });
+        optGroups.push({ label: "With · tap again to take it off", labelStyle: "color: #8E8994;", chips: C.MIX.map(([m, up]) => ({ label: m + (up ? " +$" + up : ""), on: selLine.mix === m ? "true" : "false", disabled: false, style: chip(selLine.mix === m), tap: () => setSel({ mix: selLine.mix === m ? null : m }, selLine.mix === m ? "took off " + m : "added " + m) })) });
+        if (!optHint) optHint = "Set to rocks, the usual. A plain order needs nothing here.";
+      }
+    }
+
+    // Tabs down the left: in the order opened, never re-sorted. Badges only for what needs attention.
+    const fq = st.find.trim().toLowerCase();
+    const headroom = (t, extra) => t.hold - round2((tabSub(t) + (extra || 0)) * (1 + C.TAX));
+    const shown = tabs.filter((t) => (st.filter === "all" || (st.filter === "mine" ? t.owner === st.who : t.kind === "room"))
+      && (!fq || (t.name + " " + t.label + " " + t.card).toLowerCase().includes(fq)));
+    const badge = (label, kind) => ({ label, style: kind === "ok" ? "background: rgba(212,255,63,.1); color: " + acc + ";" : kind === "warn" ? "background: rgba(255,177,61,.14); color: #FFB13D;" : kind === "bad" ? "background: rgba(255,61,166,.14); color: #FF3DA6;" : "background: rgba(244,241,234,.07); color: #C9C5CE;" });
+    const unsentOn = (t) => Object.keys(st.drafts).filter((k) => k.endsWith(":" + t.id)).reduce((a, k) => a + st.drafts[k].reduce((b, l) => b + l.qty, 0), 0);
+    const tabBadges = (t) => {
+      const b = [];
+      if (t.cut) b.push(badge("Cut off", "bad"));
+      if (t.kind === "bar") { const h = headroom(t); if (h < t.hold * 0.2) b.push(badge(h >= 0 ? "Hold · $" + Math.floor(h) + " left" : "Over the hold", "warn")); }
+      if (t.rounds.some((r) => r.some((l) => l.pending))) b.push(badge("Waiting for Andy", "warn"));
+      const n = unsentOn(t);
+      if (n) b.push(badge(n + " not sent", "warn"));
+      if (t.paidBefore) b.push(badge("Reopened · " + whole(t.paidBefore) + " paid", "warn"));
+      return b;
+    };
+    const short4 = (card) => "··" + card.split("··")[1];
+    const closedRows = st.showClosed ? st.closedTabs.slice().reverse().map((t) => ({
+      name: t.name, sub: "Paid " + money(t.paidBefore) + " · " + short4(t.card) + " · " + t.closedAt + " · " + t.closedBy,
+      reopen: () => {
+        const back = Object.assign({}, t); delete back.closedAt; delete back.closedBy;
+        const firstRoom = tabs.findIndex((x) => x.kind === "room");
+        const nextTabs = firstRoom < 0 ? tabs.concat([back]) : tabs.slice(0, firstRoom).concat([back], tabs.slice(firstRoom));
+        const c = Object.assign({}, st.cur); c[st.who] = t.id;
+        this.setState({ tabs: nextTabs, closedTabs: st.closedTabs.filter((x) => x.id !== t.id), cur: c, mode: "check", fix: null, showClosed: false });
+        this.notify("Reopened " + t.name + " · the " + money(t.paidBefore) + " already paid stays paid; anything new is a second payment");
+      }
+    })) : [];
+    const tabRows = shown.map((t, i) => {
+      const on = t.id === curId, owner = C.PEOPLE[t.owner], badges = tabBadges(t);
+      return {
+        head: i === 0 || shown[i - 1].kind !== t.kind, headLabel: t.kind === "room" ? "Rooms" : "Bar tabs",
+        name: t.name, total: money(tabSub(t)), badges, hasBadges: badges.length > 0,
+        sub: t.kind === "room" ? t.label : (owner ? first(owner) + " · " : "") + t.label + " · " + short4(t.card),
+        on: on ? "true" : "false", aria: t.name + ", " + money(tabSub(t)) + (badges.length ? ", " + badges.map((x) => x.label).join(", ") : ""),
+        style: (on ? "background: #221f2a; border: 2px solid #F4F1EA;" : "background: #16141b; border: 1px solid rgba(244,241,234,.08);") + " border-left: 5px solid " + (t.kind === "room" ? "#3DF2FF" : (owner ? owner.color : "#8E8994")) + ";",
+        pick: () => { const c = Object.assign({}, st.cur); c[st.who] = t.id; this.setState({ cur: c, mode: "check", fix: null }); }
+      };
+    });
+    const filters = [["all", "All " + tabs.length], ["mine", "Mine " + tabs.filter((t) => t.owner === st.who).length], ["rooms", "Rooms " + tabs.filter((t) => t.kind === "room").length]].map(([id, label]) => ({
+      label, on: st.filter === id ? "true" : "false", pick: () => this.setState({ filter: id }),
+      style: st.filter === id ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" }));
+
+    // Room orders across the top: a queue that gets louder with age, not an alarm nobody can hear over the rooms.
+    const orders = st.orders.map((o) => {
+      const age = o.age + elapsed, m = Math.floor(age / 60), s = String(age % 60).padStart(2, "0");
+      const stage = age >= 240 ? 2 : age >= 120 ? 1 : 0, lateNo = st.late && o.alc;
+      const color = lateNo ? "#FF3DA6" : stage === 2 ? "#FF3DA6" : stage === 1 ? "#FFB13D" : "#3DF2FF";
+      return {
+        room: o.room, what: o.what, age: m + ":" + s, color, cls: !lateNo && stage === 2 ? "flash" : "",
+        note: lateNo ? "After 4 AM · alcohol can’t be served" : stage === 2 ? "Waiting 4+ min · front desk and Andy told" : o.note,
+        noteStyle: lateNo || stage === 2 ? "color: #FFB6DA;" : "color: #A39FA8;",
+        btn: lateNo ? "Decline" : "Accept", btnStyle: lateNo ? "background: #FF3DA6; color: #0b0a0d;" : "background: var(--acc, #D4FF3F); color: #0b0a0d;",
+        aria: (lateNo ? "Decline " : "Accept ") + o.room + ": " + o.what,
+        accept: () => { this.setState({ orders: st.orders.filter((x) => x.id !== o.id) }); this.notify(lateNo ? o.room + "’s order declined · their tablet explains alcohol stops at 4 AM" : o.room + " · " + o.what + " accepted by " + first(P) + " · ticket printed · on the room’s tab"); }
+      };
+    });
+
+    // The check on the right: the round being rung first, then what's already on the tab.
+    const sent = [];
+    if (tab) tab.rounds.forEach((r, ri) => r.forEach((l, li) => {
+      const amt = unit(l) * l.qty;
+      sent.push({ label: lineLabel(l), amt: l.comp ? "comp" : money(amt), sub: l.pending ? l.pending : l.comp ? "Comped · " + l.comp : "Round " + (ri + 1),
+        subStyle: l.pending ? "color: #FFB13D;" : "color: #6F6B78;", amtStyle: l.comp ? "color: #6F6B78;" : "",
+        aria: "Change " + lineLabel(l), open: () => { if (l.pending) { this.notify("Already waiting for Andy’s OK on his phone"); return; } this.setState({ mode: "fix", fix: { tab: tab.id, ri, li, act: "void", made: "", reason: "" } }); } });
+    }));
+    const news = draft.map((l, i) => {
+      const it = item(l.id), missing = needsPick(l), on = i === selIdx;
+      return {
+        label: l.qty + " × " + it.name, sub: missing ? "Pick a " + C.PICKS[it.opt][0].toLowerCase() : (mods(l) || "as it comes"), subStyle: missing ? "color: #FFB13D;" : "color: #A39FA8;",
+        amt: money(unit(l) * l.qty), selAria: (on ? "" : "Show how it’s made: ") + lineLabel(l), expanded: on ? "true" : "false",
+        decAria: "One fewer " + it.name, incAria: "One more " + it.name,
+        open: on && optGroups.length > 0, groups: on ? optGroups : [], hint: on ? optHint : "", hintStyle: optHintStyle,
+        style: on ? "background: #1f1c26; border: 1px solid " + (missing ? "#FFB13D99" : acc + "88") + ";" : missing ? "background: #1d1812; border: 1px solid #FFB13D66;" : "background: #16141b; border: 1px solid rgba(244,241,234,.08);",
+        select: () => { const s = Object.assign({}, st.sel); s[key] = i; this.setState({ sel: s }); },
+        dec: () => setDraft(l.qty > 1 ? draft.map((x, j) => j === i ? Object.assign({}, x, { qty: x.qty - 1 }) : x) : draft.filter((x, j) => j !== i), l.qty > 1 ? i : Math.max(0, Math.min(selIdx, draft.length - 2)), l.qty > 1 ? "one fewer " + it.name : "took off " + it.name),
+        inc: () => setDraft(draft.map((x, j) => j === i ? Object.assign({}, x, { qty: x.qty + 1 }) : x), i, "one more " + it.name)
+      };
+    });
+    const newTotal = sumLines(draft), missingAny = draft.some(needsPick), draftQty = draft.reduce((a, l) => a + l.qty, 0);
+    const lastRound = tab && tab.rounds.length ? tab.rounds[tab.rounds.length - 1].filter((l) => !l.comp && !l.voided && !l.pending) : [];
+    const repeatable = lastRound.filter((l) => !C.OUT[l.id] && !(item(l.id).alc && blockedAlc));
+    const undos = st.undo[key] || [];
+    const alcInDraft = draft.some((l) => item(l.id).alc);
+    const othersDraft = tab ? (st.drafts[other + ":" + tab.id] || []) : [];
+    const othersQty = othersDraft.reduce((a, l) => a + l.qty, 0);
+
+    const doSend = () => {
+      const t2 = tabs.map((t) => {
+        if (t.id !== tab.id) return t;
+        const n = Object.assign({}, t, { rounds: t.rounds.concat([draft.map((l) => Object.assign({}, l))]) });
+        if (t.kind === "bar") {
+          const need = round2((tabSub(t) + newTotal) * (1 + C.TAX));
+          if (need > t.hold * 0.8) { n.hold = Math.ceil(need * 1.25 / 10) * 10; n.grew = true; }
+        }
+        return n;
+      });
+      const d = Object.assign({}, st.drafts); d[key] = [];
+      const u = Object.assign({}, st.undo); u[key] = [];
+      const s = Object.assign({}, st.sel); delete s[key];
+      const grown = t2.find((t) => t.id === tab.id);
+      this.setState({ tabs: t2, drafts: d, undo: u, sel: s });
+      return tab.kind === "bar" && grown.hold !== tab.hold ? " · hold grew to " + whole(grown.hold) + " on " + tab.card : tab.kind === "room" ? " · on the room’s screen too" : "";
+    };
+    const send = () => {
+      if (!draft.length) return;
+      if (missingAny) { const s = Object.assign({}, st.sel); s[key] = draft.findIndex(needsPick); this.setState({ sel: s }); this.notify("Pick the " + C.PICKS[item(draft.find(needsPick).id).opt][0].toLowerCase() + " first · it’s open in the check"); return; }
+      if (!tab) { this.setState({ mode: "pay", pay: { step: "choose", given: 0, ways: 2, paid: 0, tips: 0, tip: 0, method: "", other: false } }); return; }
+      const extra = doSend();
+      this.notify("On " + tab.name + "’s tab · " + money(newTotal) + " · ticket printed" + extra);
+    };
+    const repeat = () => {
+      if (!lastRound.length) return;
+      const blocked = lastRound.filter((l) => C.OUT[l.id] || (item(l.id).alc && blockedAlc));
+      const ok = lastRound.filter((l) => !blocked.includes(l)).map((l) => ({ id: l.id, qty: l.qty, how: l.how, mix: l.mix, pick: l.pick }));
+      if (!ok.length) { this.notify("Nothing in the last round can go out: " + blocked.map((l) => item(l.id).name).join(", ")); return; }
+      setDraft(draft.concat(ok), draft.length + ok.length - 1, "repeated the last round");
+      if (blocked.length) this.notify("Left out: " + blocked.map((l) => item(l.id).name + (C.OUT[l.id] ? " (86’d)" : " (no alcohol)")).join(", "));
+    };
+    const undo = () => {
+      if (!undos.length) return;
+      const last = undos[undos.length - 1];
+      const d = Object.assign({}, st.drafts); d[key] = last.lines;
+      const s = Object.assign({}, st.sel); s[key] = last.sel;
+      const u = Object.assign({}, st.undo); u[key] = undos.slice(0, -1);
+      this.setState({ drafts: d, sel: s, undo: u });
+      this.notify("Undid: " + last.label);
+    };
+
+    // Paying: the amount, tax, and three ways to take the money.
+    const pay = st.pay;
+    const freshPay = { step: "choose", given: 0, ways: 2, paid: 0, tips: 0, tip: 0, method: "", other: false };
+    const paySubN = tab ? tabSub(tab) + newTotal : newTotal;
+    const paidBefore = tab && tab.paidBefore ? tab.paidBefore : 0;
+    const payTaxN = round2(paySubN * C.TAX), payTotN = round2(paySubN + payTaxN - paidBefore);
+    const drinksSub = tab ? sumLines(sentLines(tab)) + newTotal : newTotal;
+    const ways = pay.ways || 2, paidN = pay.paid || 0;
+    const shareN = Math.floor(payTotN * 100 / ways) / 100;
+    const shareAmt = (i) => i === ways - 1 ? round2(payTotN - shareN * (ways - 1)) : shareN;
+    const finish = (how, tip, handed) => {
+      const d = Object.assign({}, st.drafts); d[key] = [];
+      const left = tab ? tabs.filter((t) => t.id !== tab.id) : tabs;
+      const c = Object.assign({}, st.cur); if (tab) c[st.who] = "";
+      const closedTabs = tab ? st.closedTabs.concat([Object.assign({}, tab, { paidBefore: round2(paidBefore + payTotN), closedAt: now, closedBy: first(P) })]) : st.closedTabs;
+      this.setState({ tabs: left, drafts: d, cur: c, closedTabs,
+        pay: Object.assign({}, pay, { step: "done", tip: tip || 0, method: how, snap: { total: payTotN, name: tab ? tab.name : "Quick sale", card: tab ? tab.card : "", given: handed || 0, ways } }) });
+    };
+    const drinksDue = Math.max(0, drinksSub - paidBefore / (1 + C.TAX));
+    const tipBase = pay.method === "split" ? drinksDue / ways : drinksDue;
+    const takeTip = (v) => {
+      if (pay.method !== "split") { finish(pay.method || "held", v); return; }
+      const n = paidN + 1, tips = round2((pay.tips || 0) + v);
+      if (n >= ways) { finish("split", tips); return; }
+      this.setState({ pay: Object.assign({}, pay, { step: "split", paid: n, tips }) });
+      this.notify("Share " + n + " of " + ways + " paid" + (v ? " · " + money(v) + " tip" : ""));
+    };
+    const tipChoices = (tipBase < 10 ? [1, 2, 3].map((n) => ({ label: "$" + n, amt: "", v: n })) : [18, 20, 22].map((p) => ({ label: p + "%", amt: money(round2(tipBase * p / 100)), v: round2(tipBase * p / 100) })))
+      .map((c) => ({ label: c.label, amt: c.amt, pick: () => takeTip(c.v) }));
+    const exact = payTotN;
+    const cashSet = [exact, Math.ceil(exact / 5) * 5, Math.ceil(exact / 10) * 10, Math.ceil(exact / 20) * 20, Math.ceil(exact / 50) * 50, Math.ceil(exact / 100) * 100, 50, 100]
+      .filter((v) => v >= exact).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).slice(0, 5);
+    const cashBtn = "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);";
+    // One tap on what the guest handed over takes the cash, opens the drawer and shows the change.
+    const cashChoices = cashSet.map((v, i) => ({ label: i === 0 ? "Exact" : "$" + v, on: "false", pick: () => finish("cash", 0, v), style: cashBtn }))
+      .concat([{ label: "Other", on: pay.other ? "true" : "false", pick: () => this.setState({ pay: Object.assign({}, pay, { given: 0, other: !pay.other }) }),
+        style: pay.other ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : cashBtn }]);
+    const given = pay.given || 0, enough = given > 0 && given + 0.004 >= payTotN;
+    const snap = pay.snap || { total: 0, name: "", card: "", given: 0, ways: 2 };
+    const fixSet = [snap.total, Math.ceil(snap.total / 5) * 5, Math.ceil(snap.total / 10) * 10, Math.ceil(snap.total / 20) * 20, Math.ceil(snap.total / 50) * 50, Math.ceil(snap.total / 100) * 100, 50, 100]
+      .filter((v) => v >= snap.total).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b).slice(0, 6);
+
+    // Changing a drink that's already on the tab.
+    let fixT = null, fixLine = null;
+    if (st.fix) { fixT = tabs.find((t) => t.id === st.fix.tab); fixLine = fixT && fixT.rounds[st.fix.ri] ? fixT.rounds[st.fix.ri][st.fix.li] : null; }
+    const fx = st.fix || {};
+    const fixAmt = fixLine ? unit(fixLine) * fixLine.qty : 0;
+    const usedFree = st.freeUsed[st.who] || 0;
+    const overShift = fixAmt <= C.VOID_FREE && usedFree + fixAmt > C.VOID_SHIFT;
+    const overFree = fixAmt > C.VOID_FREE || overShift;
+    const setFix = (patch) => this.setState({ fix: Object.assign({}, st.fix, patch) });
+    const applyFix = () => {
+      if (!fixLine) return;
+      if (!fx.made) { this.notify(fx.act === "void" ? "Say whether it was made, so stock stays right" : "Say what happened to the drink"); return; }
+      if (!fx.reason) { this.notify("Pick a reason"); return; }
+      const t2 = tabs.map((t) => {
+        if (t.id !== fixT.id) return t;
+        const rounds = t.rounds.map((r, ri) => ri !== fx.ri ? r : r.map((l, li) => {
+          if (li !== fx.li) return l;
+          if (overFree) return Object.assign({}, l, { pending: (fx.act === "void" ? "Void" : "Comp") + " waiting for Andy’s OK · " + fx.reason.toLowerCase() });
+          return fx.act === "void" ? Object.assign({}, l, { voided: true }) : Object.assign({}, l, { comp: fx.reason.toLowerCase() });
+        }).filter((l) => !l.voided));
+        return Object.assign({}, t, { rounds: rounds.filter((r) => r.length) });
+      });
+      const fu = Object.assign({}, st.freeUsed); if (!overFree) fu[st.who] = usedFree + fixAmt;
+      this.setState({ tabs: t2, mode: "check", fix: null, freeUsed: fu });
+      this.notify(overFree ? "Sent to Andy’s phone · keep working, the tab shows it’s waiting" : (fx.act === "void" ? "Voided " : "Comped ") + lineLabel(fixLine) + (fx.made === "made" ? " · counted as waste" : fx.act === "void" ? " · back in stock" : "") + " · logged");
+    };
+    const moveTo = (target) => {
+      const t2 = tabs.map((t) => {
+        if (t.id === fixT.id) return Object.assign({}, t, { rounds: t.rounds.map((r, ri) => ri !== fx.ri ? r : r.filter((l, li) => li !== fx.li)).filter((r) => r.length) });
+        if (t.id === target.id) return Object.assign({}, t, { rounds: t.rounds.concat([[Object.assign({}, fixLine)]]) });
+        return t;
+      });
+      this.setState({ tabs: t2, mode: "check", fix: null });
+      this.notify("Moved " + lineLabel(fixLine) + " to " + target.name);
+    };
+
+    const wipeLeft = Math.max(0, Math.ceil((st.wipeUntil - Date.now()) / 1000));
+    const qDraft = st.drafts[st.who + ":quick"] || [];
+    const eyebrowFor = tab ? (tab.kind === "room" ? "Room tab · since " + tab.opened + " · room time runs by the minute" : "Bar tab · " + (C.PEOPLE[tab.owner] ? first(C.PEOPLE[tab.owner]) + "’s" : "") + " · opened " + tab.opened) : "Quick sale · " + first(P) + "’s · nobody else sees it";
+    const chkChips = [];
+    if (tab && tab.kind === "bar") {
+      chkChips.push(badge("ID ✓ at the door", "ok"));
+      const h = headroom(tab, newTotal);
+      chkChips.push(badge("Hold " + whole(tab.hold) + (tab.grew ? " (grew)" : "") + " · " + (h >= 0 ? "$" + Math.floor(h) + " left" : "grows when sent"), h < tab.hold * 0.2 ? "warn" : ""));
+    }
+    if (tab && tab.kind === "room") { chkChips.push(badge(tab.ids, "ok")); chkChips.push(badge("Deposit " + whole(tab.deposit) + " · " + tab.card, "")); }
+    if (tab && tab.cut) chkChips.push(badge(tab.cut, "bad"));
+    const blockLine = st.late ? "4:02 AM · no alcohol until 8 AM (NY law) · soft drinks OK" : (tab && tab.cut ? tab.name + " is cut off · no alcohol on this tab, any screen" : "");
+
+    return {
+      accent: acc, clock: (st.late ? "Sat " : "Fri ") + now,
+      whoName: P.name, whoSub: P.sub, whoIni: P.ini, whoColor: P.color,
+      whoAria: P.name + " is signed in. Anyone else taps their badge on the reader to take over; each person’s unsent drinks stay theirs.",
+      switchPerson: () => { this.setState({ who: other, mode: "check", fix: null }); this.notify(C.PEOPLE[other].name + " tapped a badge · " + first(P) + "’s unsent drinks are kept for " + (st.who === "maya" ? "her" : "him")); },
+      demoSwitch: "Demo: " + first(C.PEOPLE[other]) + " taps a badge to take over",
+      toggleLate: () => this.setState({ late: !st.late }), demoLate: st.late ? "Demo: back to 10:41 PM" : "Demo: it’s 4:02 AM",
+      orders, noOrders: orders.length === 0,
+      startWipe: () => this.setState({ wipeUntil: Date.now() + 10000 }), wiping: wipeLeft > 0, wipeLeft: wipeLeft + " s",
+
+      openNewTab: () => this.setState({ mode: "new", nt: { step: "wait", card: "", name: "", label: "" } }),
+      find: st.find, setFind: (e) => this.setState({ find: e.target.value }), filters, tabRows, noTabs: tabRows.length === 0,
+      hasClosed: st.closedTabs.length > 0, closedOpen: st.showClosed ? "true" : "false", closedRows,
+      closedHead: (st.showClosed ? "▾ " : "▸ ") + "Closed tonight · " + st.closedTabs.length + (st.showClosed ? "" : " · tap to see"),
+      toggleClosed: () => this.setState({ showClosed: !st.showClosed }),
+      noTabsLine: fq ? "No open tab matches “" + st.find + "”. Try the card’s last four digits." : "No tabs here yet.",
+      pickQuick: () => { const c = Object.assign({}, st.cur); c[st.who] = ""; this.setState({ cur: c, mode: "check", fix: null }); },
+      quickOn: tab ? "false" : "true", quickTotal: qDraft.length ? money(sumLines(qDraft)) : "",
+      quickStyle: (!tab ? "background: #221f2a; border: 2px solid #F4F1EA;" : "background: #16141b; border: 1px solid rgba(244,241,234,.08);") + " border-left: 5px solid " + P.color + ";",
+
+      gridHead: q ? "Drinks matching “" + st.q + "” · whole menu" : (C.CATS.find((c) => c[0] === st.cat) || C.CATS[0])[1] + " · same places every night",
+      q: st.q, setQ: (e) => this.setState({ q: e.target.value }), cats, cells,
+      hasBlock: blockedAlc, noBlock: !blockedAlc, blockLine,
+
+      isCheck: st.mode === "check", isNew: st.mode === "new", isPay: st.mode === "pay", isFix: st.mode === "fix" && !!fixLine,
+      chkEye: eyebrowFor, chkEyeStyle: tab && tab.cut ? "color: #FF3DA6;" : "", chkName: tab ? tab.name : "Quick sale",
+      chkSub: tab ? (tab.kind === "room" ? tab.label + " · shows on the room’s screen too" : tab.label + " · " + tab.card) : "Ring it, then pay. Or open a tab with it.", chkChips,
+      hasOthers: othersQty > 0, othersLine: othersQty ? first(C.PEOPLE[other]) + " has " + othersQty + " drink" + (othersQty === 1 ? "" : "s") + " not sent on this tab. They stay " + (other === "maya" ? "hers" : "his") + " until " + (other === "maya" ? "she" : "he") + " sends them." : "",
+      hasRoomTime: !!(tab && tab.roomAmt), roomTimeLine: tab && tab.roomAmt ? "Room time · " + tab.roomMin + " min so far · running" : "", roomTimeAmt: tab && tab.roomAmt ? money(tab.roomAmt) : "",
+      hasOnTab: sent.length > 0 || !!(tab && tab.roomAmt), sent, hasNew: news.length > 0, news, newHead: tab ? "New round · not sent yet" : "Ringing now",
+      noLines: !sent.length && !news.length && !(tab && tab.roomAmt),
+      noLinesLine: tab ? "Nothing on this tab yet. Tap drinks on the grid; tap one again for two." : "Tap drinks on the grid; tap one again for two. How each is made shows up here, already set to the usual.",
+      repeat, noRepeat: !repeatable.length, repeatLine: !lastRound.length ? "Nothing sent yet" : !repeatable.length ? "Can’t go out: alcohol is off" : lastRound.map((l) => l.qty + " × " + btn(item(l.id)).name).join(", "),
+      repeatStyle: repeatable.length ? "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2);" : "background: transparent; color: #57535E; border: 1px solid rgba(244,241,234,.08);",
+      undo, noUndo: !undos.length, undoLine: undos.length ? undos[undos.length - 1].label : "Nothing to undo",
+      undoStyle: undos.length ? "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.2);" : "background: transparent; color: #57535E; border: 1px solid rgba(244,241,234,.08);",
+      totLabel: tab ? (tab.kind === "room" ? "Room tab so far, before tax and gratuity" : "Tab so far, before tax") + (draft.length ? ", with the new round" : "") : "Before tax", totAmt: money((tab ? tabSub(tab) : 0) + newTotal),
+      send, noSend: !draft.length,
+      sendLabel: !draft.length ? (tab ? "Send to tab" : "Ring drinks first") : missingAny ? "Pick the " + C.PICKS[item(draft.find(needsPick).id).opt][0].toLowerCase() + " first" : tab ? "Send to " + tab.name.split(" · ")[0] : "Pay " + money(round2(newTotal * (1 + C.TAX))),
+      sendSub: draft.length ? money(newTotal) + " · " + draftQty + " drink" + (draftQty === 1 ? "" : "s") + (alcInDraft && tab && tab.kind === "room" ? " · to the room" : "") : "",
+      sendStyle: draft.length && !missingAny ? "background: " + acc + "; color: #0b0a0d;" : draft.length ? "background: #FFB13D; color: #0b0a0d;" : "background: #16141b; color: #6F6B78;",
+      isRoomTab: !!(tab && tab.kind === "room"), notRoomTab: !(tab && tab.kind === "room"),
+      openPay: () => {
+        if (missingAny) { this.notify("Pick the " + C.PICKS[item(draft.find(needsPick).id).opt][0].toLowerCase() + " first"); return; }
+        if (!tab) { if (draft.length) this.setState({ mode: "new", nt: { step: "wait", card: "", name: "", label: "" } }); return; }
+        if (draft.length) { const extra = doSend(); this.notify("New round sent · " + money(newTotal) + extra); }
+        this.setState({ mode: "pay", pay: freshPay });
+      },
+      noPay: !tab && !draft.length, payLabel: tab ? (draft.length ? "Send & close" : "Close tab") : "Open a tab",
+      paySubLine: tab ? "" : "with these drinks",
+      payStyle: !tab && !draft.length ? "background: transparent; color: #57535E; border: 2px solid rgba(244,241,234,.08);" : "background: transparent; color: #F4F1EA; border: 2px solid rgba(244,241,234,.3);",
+
+      ntWait: st.nt.step === "wait", ntName: st.nt.step === "name", ntDup: st.nt.step === "dup",
+      ntBusyLine: qDraft.length ? "Your quick-sale drinks (" + money(sumLines(qDraft)) + ") move onto the new tab." : "Busy? Ring the first round on Quick sale and take the card after; the drinks move onto the tab.",
+      simDip: () => this.setState({ nt: { step: "name", card: "Visa ··9051", name: "Priya", label: "", dipped: true } }),
+      simTap: () => this.setState({ nt: { step: "name", card: "Apple Pay · Mastercard ··3342", name: "", label: "" } }),
+      simSame: () => this.setState({ nt: { step: "dup", card: "Visa ··4417", name: "", label: "" } }),
+      ntCardLine: st.nt.dipped ? st.nt.card + " · dipped, so the name came with it" : st.nt.card + " · tapped, so there’s no name on it",
+      ntNameVal: st.nt.name, setNtName: (e) => this.setState({ nt: Object.assign({}, st.nt, { name: e.target.value }) }),
+      ntLabels: ["Seat 1", "Seat 2", "Seat 4", "Seat 7", "Seat 8", "Standing", "By the stage", "Window"].map((l) => ({ label: l, on: st.nt.label === l ? "true" : "false", pick: () => this.setState({ nt: Object.assign({}, st.nt, { label: st.nt.label === l ? "" : l }) }),
+        style: st.nt.label === l ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" })),
+      ntOpenLabel: st.nt.name || st.nt.label ? "Open " + (st.nt.name || st.nt.label) + "’s tab · hold $50" : "Add a name or a label",
+      ntOpenStyle: st.nt.name || st.nt.label ? "background: " + acc + "; color: #0b0a0d;" : "background: #16141b; color: #6F6B78;",
+      ntOpen: () => {
+        const nm = st.nt.name.trim(), lb = st.nt.label;
+        if (!nm && !lb) { this.notify("Give it a name or tap a label"); return; }
+        const id = "t" + (tabs.length + 10) + "_" + st.tick;
+        const t = { id, kind: "bar", name: nm ? nm : lb, label: nm ? (lb || "At the bar") : "No name on a tap", card: st.nt.card.replace("Apple Pay · ", ""), hold: 50, owner: st.who, opened: now, rounds: [] };
+        const d = Object.assign({}, st.drafts); if (qDraft.length) { d[st.who + ":" + id] = qDraft; d[st.who + ":quick"] = []; }
+        const c = Object.assign({}, st.cur); c[st.who] = id;
+        const firstRoom = tabs.findIndex((x) => x.kind === "room");
+        const nextTabs = firstRoom < 0 ? tabs.concat([t]) : tabs.slice(0, firstRoom).concat([t], tabs.slice(firstRoom));
+        this.setState({ tabs: nextTabs, cur: c, drafts: d, mode: "check", filter: st.filter === "rooms" ? "all" : st.filter });
+        this.notify("Tab open · " + t.name + " · " + t.card + " · $50 hold" + (qDraft.length ? " · your quick-sale drinks moved onto it" : ""));
+      },
+      ntGoDup: () => { const c = Object.assign({}, st.cur); c[st.who] = "t1"; this.setState({ cur: c, mode: "check" }); },
+      ntCancel: () => this.setState({ mode: "check" }),
+
+      payEye: pay.step === "done" || pay.step === "cash" ? "Closed · " + (snap.card || "walk-up") : tab ? "Close the tab · " + tab.card : "Quick sale · " + first(P),
+      payName: pay.step === "done" || pay.step === "cash" ? snap.name : tab ? tab.name : money(payTotN),
+      payShowTotals: pay.step !== "done" && pay.step !== "cash",
+      paySubLabel: tab ? "Drinks" + (tab.roomAmt ? " and room time" : "") : "Drinks", paySub: money(paySubN), payTax: money(payTaxN), payTotal: money(payTotN),
+      hasPaidBefore: paidBefore > 0, paidBeforeAmt: "−" + money(paidBefore), payTotalLabel: paidBefore > 0 ? "Still to pay" : "Total",
+      payChoose: pay.step === "choose", payReader: pay.step === "reader", payCashOn: pay.step === "cash", paySplitOn: pay.step === "split", payDone: pay.step === "done",
+      payCanBack: pay.step === "choose",
+      hasHeld: !!tab, heldLabel: tab ? "Close to " + tab.card : "",
+      payHeld: () => this.setState({ pay: Object.assign({}, freshPay, { step: "reader", method: "held" }) }),
+      tapLabel: tab ? "Other card" : "Card · on the reader", tapStyle: tab ? "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.18);" : "background: " + acc + "; color: #0b0a0d; border: 0;",
+      payTap: () => this.setState({ pay: Object.assign({}, freshPay, { step: "reader", method: "tap" }) }),
+      paySplit: () => this.setState({ pay: Object.assign({}, freshPay, { step: "split", method: "split" }) }),
+      payNote: tab ? "Another card or cash releases the hold on " + tab.card + " once it’s paid. Nothing here waits for a manager." : "Card: the guest tips and taps on the bar reader. Ringing the next drink starts the next sale.",
+      readerHead: pay.method === "held" ? "On the bar reader · " + (tab ? tab.card : "") : pay.method === "split" ? "On the bar reader · share " + (paidN + 1) + " of " + ways : "On the bar reader · tip, then tap",
+      readerTitle: pay.method === "split" ? "Add a tip? Share " + money(shareAmt(paidN)) : "Add a tip? Total " + money(payTotN), tipChoices,
+      tipCustom: () => { takeTip(5); this.notify("Demo: the guest typed a $5.00 tip on the reader"); }, tipNone: () => takeTip(0),
+      payBack: () => this.setState({ pay: pay.method === "split" ? Object.assign({}, pay, { step: "split" }) : Object.assign({}, freshPay) }),
+      payClose: () => this.setState({ mode: "check", pay: freshPay }),
+      cashChoices, cashOther: !!pay.other, otherVal: pay.other && given ? String(given) : "",
+      setOther: (e) => this.setState({ pay: Object.assign({}, pay, { given: Math.max(0, parseFloat(e.target.value) || 0), other: true }) }),
+      takeOther: () => { if (enough) finish("cash", 0, given); },
+      takeOtherLabel: enough ? "Take " + money(given) : "Take cash", takeOtherStyle: enough ? "background: " + acc + "; color: #0b0a0d;" : "background: #16141b; color: #6F6B78;",
+      cashShort: pay.other && given > 0 && !enough, shortLine: given > 0 && !enough ? "That’s " + money(round2(payTotN - given)) + " short of " + money(payTotN) + "." : "",
+      doneCash: pay.step === "done" && pay.method === "cash", changeDue: money(round2(Math.max(0, snap.given - snap.total))),
+      handedLine: "Handed " + money(snap.given) + " · drawer opened",
+      fixCashOpen: () => this.setState({ pay: Object.assign({}, pay, { step: "cash" }) }),
+      fixCash: fixSet.map((v, i) => ({ label: i === 0 ? "Exact" : "$" + v, style: snap.given === v ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : cashBtn,
+        pick: () => { this.setState({ pay: Object.assign({}, pay, { step: "done", snap: Object.assign({}, snap, { given: v }) }) }); this.notify("Change corrected to " + money(round2(v - snap.total)) + " · logged"); } })),
+      fixCashBack: () => this.setState({ pay: Object.assign({}, pay, { step: "done" }) }),
+      splitWays: [2, 3, 4].map((n) => ({ label: n + " ways", on: ways === n ? "true" : "false", disabled: paidN > 0, pick: () => this.setState({ pay: Object.assign({}, pay, { ways: n }) }),
+        style: ways === n ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" })),
+      shares: Array.from({ length: ways }, (_, i) => ({ label: (i < paidN ? "✓ Paid · " : i === paidN ? "Next · " : "") + "Share " + (i + 1) + (i === 0 && tab ? " · " + tab.card + " (held)" : " · another card"), amt: money(shareAmt(i)),
+        style: i < paidN ? "background: rgba(212,255,63,.08); color: #C9C5CE;" : i === paidN ? "background: #1f1c26; border: 1px solid " + acc + "88;" : "background: #16141b;" })),
+      splitGo: () => this.setState({ pay: Object.assign({}, pay, { step: "reader", method: "split" }) }),
+      splitGoLabel: "Share " + (paidN + 1) + " of " + ways + " on the bar reader · " + money(shareAmt(paidN)),
+      splitBack: () => { if (paidN === 0) this.setState({ pay: Object.assign({}, freshPay) }); }, splitLocked: paidN > 0,
+      splitBackLabel: paidN > 0 ? paidN + " paid · finish the other shares to close" : "Back",
+      doneTitle: pay.method === "cash" ? "Paid in cash · " + money(snap.total) : "Paid · " + money(round2(snap.total + (pay.tip || 0))),
+      doneNote: snap.card ? "Closed the wrong one? It’s under Closed tonight at the bottom of the tabs list, and reopens with one tap until the night is closed." : "Ring the next drink to start the next sale; the receipt choice can wait.",
+      doneLine: pay.method === "cash" ? "Logged to " + first(P) + " in the house drawer."
+        : pay.method === "split" ? "Split " + snap.ways + " ways" + (pay.tip ? ", with " + money(pay.tip) + " in tips the guests picked on the reader." : ", no tips.")
+        : (pay.tip ? "Includes a " + money(pay.tip) + " tip the guest picked on the reader, so there’s no slip to type in later." : "No tip. Nothing left to do on this one."),
+      receipts: ["Text it", "Print", "No receipt"].map((r, i) => ({ label: r, style: i === 2 ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);",
+        pick: () => { this.setState({ mode: "check", pay: freshPay }); this.notify(i === 0 ? "The guest types their number on the reader · receipt texted" : i === 1 ? "Receipt printing at the bar" : "Done"); } })),
+
+      fixTitle: fixLine ? lineLabel(fixLine) : "", fixSub: fixLine ? money(fixAmt) + " on " + fixT.name + (overShift ? " · past your $" + C.VOID_SHIFT + " for the shift, so Andy OKs it on his phone" : overFree ? " · over $" + C.VOID_FREE + ", so Andy OKs it on his phone" : " · $" + C.VOID_FREE + " or less needs only a reason · " + money(Math.max(0, C.VOID_SHIFT - usedFree)).replace(".00", "") + " left this shift") : "",
+      fixActs: [["void", "Void"], ["comp", "Comp"], ["move", "Move"]].map(([id, label]) => ({ label, on: fx.act === id ? "true" : "false", pick: () => setFix({ act: id, reason: "", made: "" }),
+        style: fx.act === id ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" })),
+      fixNeedsMade: fx.act !== "move", fixMoveOn: fx.act === "move", fixMadeHead: fx.act === "comp" ? "What happened to it?" : "Was it made?",
+      fixMade: (fx.act === "comp" ? [["kept", "Guest keeps it", "On the house"], ["made", "Poured out", "Counted as waste"]] : [["not", "Not made", "Goes back in stock"], ["made", "Made", "Counted as waste"]]).map(([id, label, sub]) => ({ label, sub, on: fx.made === id ? "true" : "false", pick: () => setFix({ made: id }),
+        style: fx.made === id ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" })),
+      fixReasons: (fx.act === "comp" ? ["Didn’t like it", "Made wrong", "Took too long", "Regular"] : ["Rang it wrong", "Changed their mind", "Spilled", "Double rang"]).map((r) => ({ label: r, on: fx.reason === r ? "true" : "false", pick: () => setFix({ reason: r }),
+        style: fx.reason === r ? "background: #F4F1EA; color: #0b0a0d; border: 0;" : "background: #16141b; color: #F4F1EA; border: 1px solid rgba(244,241,234,.14);" })),
+      fixRule: overFree ? (overShift ? "Past $" + C.VOID_SHIFT + " a shift" : "Over $" + C.VOID_FREE) + ": it goes to Andy’s phone and you keep working. The drink shows “waiting for Andy” until he answers. Nobody types a manager code here." : "Up to $" + C.VOID_FREE + " each and $" + C.VOID_SHIFT + " a shift: done as soon as you pick a reason, and it’s on the night’s exceptions report.",
+      fixRuleStyle: overFree ? "color: #FFB13D;" : "color: #8E8994;",
+      fixGoLabel: (fx.act === "comp" ? "Comp " : "Void ") + money(fixAmt) + (overFree ? " · ask Andy" : ""), fixGo: applyFix,
+      fixGoStyle: fx.reason && fx.made ? "background: #FF3DA6; color: #0b0a0d;" : "background: #16141b; color: #6F6B78;",
+      moveTargets: tabs.filter((t) => fixT && t.id !== fixT.id).map((t) => ({ label: t.name, sub: t.kind === "room" ? "room tab" : short4(t.card), pick: () => moveTo(t) })),
+      fixCancel: () => this.setState({ mode: "check", fix: null }),
+
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

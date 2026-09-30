@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Close the night</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rail a{transition:background .15s ease}.rail a:hover{background:rgba(244,241,234,.06)}
+.in{width:100%;box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.14);border-radius:8px;padding:9px 11px;color:#F4F1EA;font:inherit;font-size:13px;outline:0}
+.in:focus{border-color:#D4FF3F}
+.line{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid rgba(244,241,234,.07);font-size:13px}.line>.mono{white-space:nowrap;flex:none;padding-left:10px}
+@keyframes toast{0%{opacity:0;transform:translateY(8px)}12%,85%{opacity:1;transform:none}100%{opacity:0}}
+.toast{animation:toast 3s ease both}
+@media (prefers-reduced-motion:reduce){.toast{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden; position: relative">
+
+  <nav class="rail" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Boho Karaoke · desktop</span></div>
+    <a href="Board.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Tonight</a>
+    <a href="DeskCalendar.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Calendar</a>
+    <a href="DeskMessages.dc.html" style="display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Messages <span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d">2</span></a>
+    <a href="Rail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar POS</a>
+    <a href="Bar.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar orders</a>
+    <a href="Night.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 700; color: #0b0a0d; text-decoration: none; background: var(--acc, #D4FF3F)">Close the night</a>
+    <a href="DeskReports.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Reports</a>
+    <a href="AdminDesk.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Admin</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <sc-if value="{{houseDrawer}}" hint-placeholder-val="{{true}}"><div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">House drawer</span><br><b>Andy</b> since 6:00 PM<br><span style="color: #8E8994">Opened at $300.00</span></div></sc-if>
+      <sc-if value="{{perDrawer}}" hint-placeholder-val="{{false}}"><div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Drawers · one each</span><br><b>Bar</b> · Maya since 4:00 PM<br><b>Front desk</b> · tray pulled 12:30 AM</div></sc-if>
+      <a href="Pin.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-size: 12px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.1)">Lock · PIN</a>
+    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 14px; padding: 16px 24px; border-bottom: 1px solid rgba(244,241,234,.08); white-space: nowrap">
+      <div style="display: flex; flex-direction: column"><span class="disp" style="font-size: 26px">Friday night</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">{{headLine}}</span></div>
+      <div style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); margin-left: 16px">
+        <button type="button" class="btn" onClick="{{tabNumbers}}" style="appearance: none; border: 0; border-radius: 7px; padding: 8px 14px; font-weight: 700; font-size: 13px; {{numbersStyle}}">The numbers</button>
+        <button type="button" class="btn" onClick="{{tabLog}}" style="appearance: none; border: 0; border-radius: 7px; padding: 8px 14px; font-weight: 700; font-size: 13px; {{logStyle}}">Every action</button>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px">
+        <button type="button" class="btn" onClick="{{printZ}}" style="appearance: none; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Print Z report</button>
+        <button type="button" class="btn" onClick="{{closeNight}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 13px; {{closeStyle}}">{{closeLabel}}</button>
+      </div>
+    </header>
+
+    <sc-if value="{{hasOpen}}" hint-placeholder-val="{{true}}">
+      <div style="margin: 14px 24px 0; padding: 12px 14px; border-radius: 14px; background: #FF3DA612; border: 1px solid #FF3DA6; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: baseline; gap: 10px"><span style="font-weight: 700; font-size: 14px; color: #FF3DA6; white-space: nowrap">{{openLine}}</span><span style="font-size: 12px; color: #C9C5CE">Close out every room and bar tab before the night can close. Guests still here close on the reader and tip there; last call closes the rest to the cards they’re held on.</span></div>
+        <sc-if value="{{hasOpenRooms}}" hint-placeholder-val="{{true}}"><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{openRooms}}" as="o" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #121016; border: 1px solid rgba(244,241,234,.1)">
+              <div style="min-width: 0; flex: 1"><div class="disp" style="font-size: 18px">{{o.name}}</div><div style="font-size: 12px; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{o.who}} · since {{o.since}}</div></div>
+              <a href="DeskRoom.dc.html" style="flex: none; display: inline-flex; padding: 8px 12px; border-radius: 9px; font-weight: 700; font-size: 12px; color: #0b0a0d; background: var(--acc, #D4FF3F); text-decoration: none">Close out →</a>
+            </div>
+          </sc-for>
+        </div>
+        <button type="button" class="btn" onClick="{{demoCloseRooms}}" style="align-self: flex-start; appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 11px; padding: 0; text-decoration: underline; text-underline-offset: 3px">Demo: pretend all rooms are closed out</button></sc-if>
+        <sc-if value="{{hasOpenTabs}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(255,61,166,.25)">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+              <span style="font-weight: 700; font-size: 13px">{{tabsLine}}</span>
+              <sc-for list="{{openTabs}}" as="t" hint-placeholder-count="4"><span class="mono" style="font-size: 11px; padding: 5px 9px; border-radius: 8px; {{t.style}}">{{t.label}}</span></sc-for>
+            </div>
+            <sc-if value="{{hasWaiting}}" hint-placeholder-val="{{false}}"><button type="button" class="btn" onClick="{{demoOk}}" style="align-self: flex-start; appearance: none; border: 0; background: transparent; color: #8E8994; font-size: 11px; padding: 0; text-decoration: underline; text-underline-offset: 3px">Demo: Andy OKs Tariq’s void on his phone</button></sc-if>
+            <sc-if value="{{lcAsk}}" hint-placeholder-val="{{true}}"><button type="button" class="btn" onClick="{{lastCall}}" style="align-self: flex-start; appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 800; font-size: 13px; background: #F4F1EA; color: #0b0a0d">{{lcLabel}}</button></sc-if>
+            <sc-if value="{{lcSure}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: #121016; border: 1px solid rgba(244,241,234,.14)">
+                <span style="flex: 1; min-width: 280px; font-size: 12px; line-height: 1.5; color: #C9C5CE">{{lcSureLine}}</span>
+                <button type="button" class="btn" onClick="{{lastCallGo}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 800; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d; white-space: nowrap">{{lcGoLabel}}</button>
+                <button type="button" class="btn" onClick="{{lastCallNo}}" style="appearance: none; border-radius: 10px; padding: 10px 14px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16); white-space: nowrap">Not yet</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showNumbers}}" hint-placeholder-val="{{true}}">
+      <section style="flex: 1; min-height: 0; overflow: auto; padding: 20px 24px 28px; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 16px; align-content: start">
+
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">{{salesHead}}</div>
+          <div class="line"><span>Room time</span><span class="mono">$4,318.33</span></div>
+          <div class="line"><span>Drinks</span><span class="mono">$5,266.00</span></div>
+          <div class="line"><span>Packages and bottles</span><span class="mono">$1,240.00</span></div>
+          <div class="line"><span>Damage fees · 1</span><span class="mono">$150.00</span></div>
+          <div class="line"><span>Kept deposits · 2 no-shows</span><span class="mono">$100.00</span></div>
+          <div class="line" style="color: #FFB13D"><span>Comps and voids · 6</span><span class="mono">−$118.00</span></div>
+          <div class="line" style="color: #FF3DA6"><span>Refund · Room 11 room time</span><span class="mono">−$93.12</span></div>
+          <div class="line" style="font-weight: 700; font-size: 15px"><span>Net sales</span><span class="mono">$10,863.21</span></div>
+          <div class="line"><span>NYC tax collected 8.875%</span><span class="mono">$955.24</span></div>
+          <div class="line"><span>Gratuity 20% · tonight’s pool</span><span class="mono">$2,122.65</span></div>
+          <div class="line" style="font-weight: 700; font-size: 15px; border-bottom: 0"><span>Total taken</span><span class="mono">$13,941.10</span></div>
+          <div style="font-size: 11px; line-height: 1.45; color: #8E8994">Room 11’s $120.00 refund takes its tax ($8.26) and gratuity ($18.62) back out too. Kept deposits are fee checks, untaxed until the accountant confirms.</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Cards · tonight’s checks only</div>
+            <div class="line"><span>Deposits used at check-in · 22</span><span class="mono">$1,690.00</span></div>
+            <div class="line"><span>Deposits kept · 2 no-shows</span><span class="mono">$100.00</span></div>
+            <div class="line"><span>Charged at close-out · 26</span><span class="mono">$9,262.70</span></div>
+            <div class="line"><span>Tap to pay at the desk · 9</span><span class="mono">$1,428.40</span></div>
+            <div class="line"><span>Card tips · 11 bar tabs</span><span class="mono">$186.40</span></div>
+            <div class="line" style="color: #FF3DA6"><span>Refund · Room 11</span><span class="mono">−$120.00</span></div>
+            <div class="line" style="font-weight: 700; border-bottom: 0"><span>Card total</span><span class="mono">$12,547.50</span></div>
+            <div style="font-size: 11px; line-height: 1.45; color: #8E8994">Deposits were paid online before tonight and count on the night of the booking. Card total plus cash sales equals total taken plus card tips.</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Tips · pooled tonight</div>
+            <div class="line"><span>Gratuity on tabs</span><span class="mono">$2,122.65</span></div>
+            <div class="line"><span>Card tips on bar tabs</span><span class="mono">$186.40</span></div>
+            <div class="line"><span>Cash tips in the jar</span><span class="mono">{{jar}}</span></div>
+            <div class="line" style="font-weight: 700"><span>Pool to share</span><span class="mono">{{pool}}</span></div>
+            <div class="mono" style="display: grid; grid-template-columns: 1fr 64px 84px; gap: 8px; padding-top: 4px; font-size: 9px; letter-spacing: .1em; color: #8E8994"><span>BY HOURS · FROM THE TIME CLOCK</span><span style="text-align: right">HOURS</span><span style="text-align: right">SHARE</span></div>
+            <sc-for list="{{tipRows}}" as="t" hint-placeholder-count="2">
+              <div style="display: grid; grid-template-columns: 1fr 64px 84px; gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid rgba(244,241,234,.07); font-size: 13px"><span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><b style="font-weight: 600">{{t.name}}</b><span style="font-size: 11px; color: #8E8994; white-space: nowrap">{{t.span}}</span></span><span class="mono" style="text-align: right">{{t.hours}}</span><span class="mono" style="text-align: right">{{t.share}}</span></div>
+            </sc-for>
+            <div style="display: grid; grid-template-columns: 1fr 64px 84px; gap: 8px; padding-top: 5px; border-top: 1px solid rgba(244,241,234,.14); font-size: 13px; font-weight: 700"><span>Total</span><span class="mono" style="text-align: right">{{tipHours}}</span><span class="mono" style="text-align: right">{{tipSum}}</span></div>
+            <div style="font-size: 11px; line-height: 1.4; color: #8E8994">Not in the pool: Andy C., manager. New York doesn’t let managers share tips. Bar tips were picked on the reader, so none are waiting to be typed in; tabs closed at last call close with no tip.</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid {{drawerBorder}}">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">{{drawerHead}}</div>
+            <button type="button" class="btn" onClick="{{toggleDrawerMode}}" style="appearance: none; border: 0; background: transparent; color: #6F6B78; font-size: 10px; padding: 0; white-space: nowrap; text-decoration: underline; text-underline-offset: 3px">{{drawerDemo}}</button>
+          </div>
+          <sc-if value="{{houseDrawer}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <label for="nt-count" style="font-size: 11px; color: #8E8994">Counted</label>
+              <input id="nt-count" class="in" type="number" value="{{counted}}" onChange="{{setCounted}}" placeholder="Count the drawer" style="font-size: 20px; font-family: 'Space Mono', monospace">
+            </div>
+            <sc-if value="{{notCounted}}" hint-placeholder-val="{{true}}"><div style="font-size: 12px; line-height: 1.5; color: #C9C5CE; padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px dashed rgba(244,241,234,.16)">Count first. What the drawer should hold shows once you enter the count, so nobody counts to a number.</div></sc-if>
+            <sc-if value="{{isCounted}}" hint-placeholder-val="{{false}}">
+              <div class="line"><span>Opened with</span><span class="mono">$300.00</span></div>
+              <div class="line"><span>Cash sales · 8 tabs</span><span class="mono">$1,580.00</span></div>
+              <div class="line"><span>Paid out · ice run · approved by Abhishek</span><span class="mono">−$42.00</span></div>
+              <div class="line" style="font-weight: 700"><span>Should be in the drawer</span><span class="mono">$1,838.00</span></div>
+            </sc-if>
+            <div class="line" style="border-bottom: 0; font-weight: 700; {{diffStyle}}"><span>{{diffLabel}}</span><span class="mono">{{diff}}</span></div>
+            <sc-if value="{{needNote}}" hint-placeholder-val="{{false}}"><input class="in" type="text" value="{{note}}" onInput="{{setNote}}" placeholder="Why is it off?" aria-label="Note"></sc-if>
+          </sc-if>
+          <sc-if value="{{perDrawer}}" hint-placeholder-val="{{false}}">
+            <sc-for list="{{pdrawers}}" as="d" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 0 4px; border-top: 1px solid rgba(244,241,234,.08)">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px"><b style="font-size: 13px">{{d.name}}</b><span style="font-size: 11px; color: #8E8994; text-align: right">{{d.span}}</span></div>
+                <input class="in" type="number" value="{{d.val}}" onChange="{{d.set}}" placeholder="Count this drawer" aria-label="{{d.aria}}" style="font-size: 16px; font-family: 'Space Mono', monospace">
+                <sc-if value="{{d.isCounted}}" hint-placeholder-val="{{false}}">
+                  <sc-for list="{{d.lines}}" as="l" hint-placeholder-count="3"><div class="line" style="{{l.style}}"><span>{{l.k}}</span><span class="mono">{{l.v}}</span></div></sc-for>
+                </sc-if>
+                <div class="line" style="border-bottom: 0; font-weight: 700; {{d.diffStyle}}"><span>{{d.diffLabel}}</span><span class="mono">{{d.diff}}</span></div>
+                <sc-if value="{{d.needNote}}" hint-placeholder-val="{{false}}"><input class="in" type="text" value="{{d.note}}" onInput="{{d.setNote}}" placeholder="Why is it off?" aria-label="{{d.noteAria}}"></sc-if>
+              </div>
+            </sc-for>
+          </sc-if>
+          <div style="font-size: 11px; color: #8E8994; line-height: 1.5">{{drawerRule}}</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 4px">
+            <label for="nt-jar" style="font-size: 11px; color: #8E8994">Cash tips in the jar</label>
+            <input id="nt-jar" class="in" type="number" value="{{jarRaw}}" onInput="{{setJar}}" placeholder="0">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(244,241,234,.1)">
+            <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Held for future nights · not tonight’s sales</div>
+            <div class="line"><span>Deposits taken today · 14 bookings</span><span class="mono">$1,050.00</span></div>
+            <div class="line"><span>Refunded · Sat booking, cancelled 30 hr ahead</span><span class="mono">−$60.00</span></div>
+            <div class="line" style="font-weight: 700; border-bottom: 0"><span>Held for guests</span><span class="mono">$990.00</span></div>
+            <div style="font-size: 11px; line-height: 1.45; color: #8E8994">Each deposit counts on the night of its booking, or when it’s kept.</div>
+          </div>
+        </div>
+
+        <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+          <div class="mono" style="font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Comps, voids and refunds · each one has a who and a why; over $25, and every refund, an approver</div>
+          <div style="display: grid; grid-template-columns: 70px 90px 1fr 1fr 170px 100px; gap: 10px; padding: 4px 0; font-size: 10px; letter-spacing: .1em; color: #8E8994" class="mono"><span>TIME</span><span>ROOM</span><span>WHAT</span><span>WHY</span><span>ASKED · OK’D</span><span style="text-align: right">AMOUNT</span></div>
+          <sc-for list="{{comps}}" as="c" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: 70px 90px 1fr 1fr 170px 100px; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(244,241,234,.07); font-size: 13px"><span class="mono" style="color: #8E8994">{{c.time}}</span><span>{{c.room}}</span><span>{{c.what}}</span><span style="color: #8E8994">{{c.why}}</span><span>{{c.by}}</span><span class="mono" style="text-align: right; color: {{c.color}}">{{c.amt}}</span></div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{showLog}}" hint-placeholder-val="{{false}}">
+      <section style="flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 28px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; gap: 8px; align-items: center">
+          <div style="display: flex; align-items: center; gap: 8px; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 10px; padding: 2px 4px 2px 12px; width: 320px"><svg width="14" height="14" fill="none" stroke="#8E8994" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg><input type="text" value="{{q}}" onInput="{{setQ}}" placeholder="Who refunded $120 at 1:14?" aria-label="Search the log" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #F4F1EA; font-size: 13px; font-family: inherit; padding: 8px 0"></div>
+          <sc-for list="{{filters}}" as="f" hint-placeholder-count="5"><button type="button" class="btn" onClick="{{f.pick}}" style="appearance: none; border-radius: 999px; padding: 8px 12px; font-weight: 700; font-size: 12px; {{f.style}}">{{f.label}}</button></sc-for>
+          <span class="mono" style="margin-left: auto; font-size: 10px; letter-spacing: .1em; color: #8E8994">{{logCount}}</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 76px 110px 1fr 120px; gap: 10px; padding: 4px 0; font-size: 10px; letter-spacing: .1em; color: #8E8994" class="mono"><span>TIME</span><span>WHO</span><span>WHAT</span><span>WHERE</span></div>
+        <sc-for list="{{log}}" as="l" hint-placeholder-count="14">
+          <div style="display: grid; grid-template-columns: 76px 110px 1fr 120px; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(244,241,234,.07); font-size: 13px; align-items: center"><span class="mono" style="color: #8E8994">{{l.time}}</span><span style="font-weight: 600">{{l.who}}</span><span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: {{l.color}}"></span>{{l.what}}</span><span class="mono" style="font-size: 11px; color: #8E8994">{{l.where}}</span></div>
+        </sc-for>
+      </section>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{toastA}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+  <sc-if value="{{toastB}}" hint-placeholder-val="{{false}}"><div class="toast" style="position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; padding: 12px 18px; border-radius: 12px; background: var(--acc, #D4FF3F); color: #0b0a0d; font-weight: 700; font-size: 13px; white-space: nowrap">{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  constructor() {
+    super(...arguments);
+    this.state = { tab: "numbers", counted: "", jar: "", note: "", q: "", filter: "All", toast: "", toastN: 0, closed: false,
+      // Admin → Cash drawers. West 4 runs one house drawer; the demo link on the drawer card shows a drawer per person.
+      drawerMode: "house", pcount: { bar: "", desk: "" }, pnote: { bar: "", desk: "" },
+      // Rooms still running. Each one is closed out on its own room tab.
+      openRooms: [{ name: "Room 9", who: "Marcus T. · 12", since: "8:00 PM" }, { name: "Room 12", who: "Omar F. · 14", since: "9:00 PM" }, { name: "VIP room", who: "Bianca L. · 22", since: "9:30 PM" }],
+      // Bar tabs still open, each held on the card that opened it (same tabs as the bar POS). One is waiting on a manager's OK.
+      openTabs: [{ name: "Jess P.", card: "··4417", amt: 32.66 }, { name: "Luis M.", card: "··2281", amt: 63.15 }, { name: "Seat 6 · blue jacket", card: "··7712", amt: 13.07 }, { name: "Hana K.", card: "··5120", amt: 43.55 }, { name: "Tariq A.", card: "··8830", amt: 86.01, pending: true }], lc: "" };
+  }
+  notify(msg) { this.setState({ toast: msg, toastN: this.state.toastN + 1 }); }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const money = (n) => (n < 0 ? "−$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const expected = 1838;
+    const counted = st.counted === "" ? null : Number(st.counted) || 0;
+    const diff = counted === null ? null : counted - expected;
+    const needNote = diff !== null && Math.abs(diff) > 20;
+    const jar = Number(st.jar) || 0;
+    // Comps and voids up to $25 each ($75 a shift) need only a reason; bigger ones and every refund are approved by someone else, on the approver’s own phone.
+    const comps = [
+      ["1:14 AM", "Room 11", "Refund · room time, with its tax and gratuity", "Mic broke, moved rooms late", "Andy C.", "Abhishek G.", -120],
+      ["12:48 AM", "Room 3", "1 × Margarita", "Made wrong", "Maya S.", "reason only", -13],
+      ["11:52 PM", "Room 7", "2 × Jäger Bomb", "Rang in by mistake · void", "Maya S.", "reason only", -24],
+      ["11:20 PM", "Room 12", "4 × Jäger Bomb", "Spilled", "Andy C.", "Abhishek G.", -48],
+      ["10:48 PM", "Room 6", "1 × Jäger Bomb", "Dropped it", "Diego R.", "reason only", -12],
+      ["10:22 PM", "Room 10", "1 × Jäger Bomb", "Rang in twice · void", "Maya S.", "reason only", -12],
+      ["9:14 PM", "Room 5", "1 × Corona", "Guest didn’t like it", "Andy C.", "reason only", -9]
+    ].map(([time, room, what, why, by, ok, amt]) => ({ time, room, what, why, by: by + " · " + ok, amt: money(amt), color: amt < -50 ? "#FF3DA6" : "#FFB13D" }));
+    const LOG = [
+      ["1:14 AM", "Andy C.", "Refunded $120.00 to Visa · 4411 · Room 11 · room time with its tax and gratuity · “Mic broke, moved rooms late” · approved by Abhishek G. on his phone", "Board", "refund"],
+      ["1:02 AM", "Maya S.", "Accepted order · Room 10 · 2 × Paloma, Small bucket · ticket printed", "Bar screen", "order"],
+      ["12:58 AM", "Room 10", "Ordered from the room · a guest phone joined with tonight’s code", "Guest phone", "order"],
+      ["12:48 AM", "Maya S.", "Comped 1 × Margarita · Room 3 · “Made wrong” · reason only, $25 or less", "Room tab", "comp"],
+      ["12:40 AM", "Andy C.", "Closed out Room 6 · $412.10 · card on file · split 3 ways", "Room tab", "money"],
+      ["12:31 AM", "Andy C.", "Moved Priya K. from Room 11 to Room 13 · mic issue", "Board", "room"],
+      ["12:20 AM", "system", "Texted Room 7 · “10 minutes left, the next party is here, please start wrapping up”", "Texts", "text"],
+      ["12:04 AM", "Diego R.", "Checked in walk-in · party of 5 · Room 2", "Front desk", "room"],
+      ["11:52 PM", "Maya S.", "Voided 2 × Jäger Bomb · Room 7 · “Rang in by mistake” · reason only, $25 or less", "Room tab", "comp"],
+      ["11:45 PM", "system", "Waitlist text · Priya K. · “Room 11 is ready, you have 10 minutes”", "Texts", "text"],
+      ["11:30 PM", "Abhishek G.", "Turned Room 4 off for tonight · TV out · saved and published", "Admin", "admin"],
+      ["11:20 PM", "Andy C.", "Comped 4 × Jäger Bomb · Room 12 · “Spilled” · approved by Abhishek G. on his phone", "Room tab", "comp"],
+      ["10:48 PM", "Diego R.", "Comped 1 × Jäger Bomb · Room 6 · “Dropped it” · reason only, $25 or less", "Room tab", "comp"],
+      ["10:22 PM", "Maya S.", "Voided 1 × Jäger Bomb · Room 10 · “Rang in twice” · reason only, $25 or less", "Room tab", "comp"],
+      ["10:15 PM", "system", "No-show · Jordan L. · Room 8 · deposit $50.00 kept after 15 min, per the policy he accepted · fee check", "Board", "money"],
+      ["10:05 PM", "system", "Refunded deposit $60.00 · Sat booking cancelled 30 hr ahead · not tonight’s sales", "Website", "refund"],
+      ["9:14 PM", "Andy C.", "Comped 1 × Corona · Room 5 · “Guest didn’t like it” · reason only, $25 or less", "Room tab", "comp"],
+      ["10:39 PM", "Room 9", "Called staff · “Another mic, please”", "Room screen", "room"],
+      ["8:00 PM", "Diego R.", "Checked in Marcus T. · party of 12 · Room 9 · ID checked · $120 deposit applied to the check", "Front desk", "room"],
+    ];
+    if (st.drawerMode === "person") {
+      LOG.splice(LOG.findIndex((l) => l[0] === "12:20 AM"), 0, ["12:30 AM", "Diego R.", "Pulled the front desk tray at the end of his shift · counts at close · over or short stays his", "Board", "money"]);
+      LOG.push(["7:00 PM", "Diego R.", "Started the front desk drawer · counted in the $300.00 bank", "Board", "money"], ["4:00 PM", "Maya S.", "Started the bar drawer · counted in the $300.00 bank", "Board", "money"]);
+    } else LOG.push(["6:00 PM", "Andy C.", "Took the house drawer from Abhishek · counted $300.00", "Board", "money"]);
+    const COLORS = { refund: "#FF3DA6", comp: "#FFB13D", money: acc, order: "#3DF2FF", room: "#C9C5CE", text: "#C9C5CE", admin: "#F4F1EA" };
+    const q = st.q.trim().toLowerCase();
+    const FILTERS = [["All", null], ["Money", "money"], ["Refunds", "refund"], ["Comps", "comp"], ["Orders", "order"], ["Admin", "admin"]];
+    const kind = (FILTERS.find((f) => f[0] === st.filter) || FILTERS[0])[1];
+    const log = LOG.filter(([, who, what, where, k]) => (!kind || k === kind) && (!q || (who + " " + what + " " + where).toLowerCase().includes(q)))
+      .map(([time, who, what, where, k]) => ({ time, who, what, where, color: COLORS[k] }));
+    const filters = FILTERS.map(([label]) => ({ label, pick: () => this.setState({ filter: label }), style: st.filter === label ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16);" }));
+    const nRooms = st.openRooms.length;
+    const ready = st.openTabs.filter((t) => !t.pending), waiting = st.openTabs.filter((t) => t.pending);
+    const readySum = ready.reduce((a, t) => a + t.amt, 0);
+    const nOpen = nRooms + st.openTabs.length;
+    // A drawer per person: each drawer is counted blind on its own, and over or short stays with its owner.
+    const perPerson = st.drawerMode === "person";
+    const PDR = [
+      { k: "bar", name: "Bar · Maya S.", span: "4:00 PM–1:20 AM", lines: [["Opened with", 300], ["Cash sales · 6 tabs", 1190], ["Paid out · ice run · approved by Abhishek", -42]], expected: 1448 },
+      { k: "desk", name: "Front desk · Diego R.", span: "7:00 PM–12:30 AM · tray pulled", lines: [["Opened with", 300], ["Cash sales · 2 tabs", 390]], expected: 690 }
+    ];
+    const pdrawers = PDR.map((d) => {
+      const raw = st.pcount[d.k], c = raw === "" ? null : Number(raw) || 0, df = c === null ? null : Math.round((c - d.expected) * 100) / 100;
+      const nn = df !== null && Math.abs(df) > 20;
+      return {
+        name: d.name, span: d.span, val: raw, aria: "Counted, " + d.name, isCounted: c !== null,
+        set: (e) => this.setState({ pcount: Object.assign({}, st.pcount, { [d.k]: e.target.value }) }),
+        lines: d.lines.map(([k, v]) => ({ k, v: money(v), style: "" })).concat([{ k: "Should be in the drawer", v: money(d.expected), style: "font-weight: 700;" }]),
+        diff: df === null ? "—" : money(df), diffLabel: df === null ? "Over / short" : df === 0 ? "Exactly right" : df > 0 ? "Over" : "Short",
+        diffStyle: df === null ? "color: #8E8994;" : Math.abs(df) <= 20 ? "color: " + acc + ";" : "color: #FF3DA6;",
+        needNote: nn, note: st.pnote[d.k], noteAria: "Note, " + d.name, setNote: (e) => this.setState({ pnote: Object.assign({}, st.pnote, { [d.k]: e.target.value }) }),
+        ok: c !== null && (!nn || st.pnote[d.k].trim().length > 0), counted: c !== null, nn
+      };
+    });
+    const drawerOk = perPerson ? pdrawers.every((d) => d.ok) : counted !== null && (!needNote || st.note.trim().length > 0);
+    const allCounted = perPerson ? pdrawers.every((d) => d.counted) : counted !== null;
+    const canClose = nOpen === 0 && drawerOk;
+    // Comes from the time clock tonight (clock-in to clock-out punches, not PIN sign-ins). Night closes 1:20 AM.
+    // Admin → Card fee & gratuity: pooled by hours. Owners and managers never share it (New York law), so Andy C.,
+    // the manager on tonight (6:00 PM–1:20 AM), is left out of the pool.
+    const SHIFTS = [["Maya S.", "bar", "4:00 PM", "1:20 AM", 560], ["Diego R.", "front desk", "7:00 PM", "12:30 AM", 330]];
+    const poolC = Math.round((2122.65 + 186.40 + jar) * 100);
+    const totalMin = SHIFTS.reduce((a, x) => a + x[4], 0);
+    // Shares by hours, in cents; leftover cents go to the largest remainders so the shares add up to the pool exactly.
+    const rawC = SHIFTS.map((x) => poolC * x[4] / totalMin);
+    const shareC = rawC.map((x) => Math.floor(x));
+    let left = poolC - shareC.reduce((a, x) => a + x, 0);
+    rawC.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { shareC[i] += 1; left -= 1; } });
+    const hrs = (m) => Math.floor(m / 60) + "h " + (m % 60 < 10 ? "0" : "") + (m % 60) + "m";
+    const tipRows = SHIFTS.map((x, i) => ({ name: x[0], span: x[1] + " · " + x[2] + "–" + x[3], hours: hrs(x[4]), share: money(shareC[i] / 100) }));
+    const seg = (on) => on ? "background: " + acc + "; color: #0b0a0d;" : "background: transparent; color: #F4F1EA;";
+    return {
+      accent: acc,
+      showNumbers: st.tab === "numbers", showLog: st.tab === "log", tabNumbers: () => this.setState({ tab: "numbers" }), tabLog: () => this.setState({ tab: "log" }),
+      numbersStyle: seg(st.tab === "numbers"), logStyle: seg(st.tab === "log"),
+      counted: st.counted, setCounted: (e) => this.setState({ counted: e.target.value }), isCounted: counted !== null, notCounted: counted === null,
+      jarRaw: st.jar, setJar: (e) => this.setState({ jar: e.target.value }), jar: money(jar), pool: money(poolC / 100), tipRows, tipHours: hrs(totalMin), tipSum: money(shareC.reduce((a, x) => a + x, 0) / 100),
+      hasOpen: nOpen > 0, openRooms: st.openRooms, hasOpenRooms: nRooms > 0,
+      openLine: [nRooms ? nRooms + (nRooms === 1 ? " room" : " rooms") : "", st.openTabs.length ? st.openTabs.length + (st.openTabs.length === 1 ? " bar tab" : " bar tabs") : ""].filter(Boolean).join(" and ") + " still open",
+      hasOpenTabs: st.openTabs.length > 0, tabsLine: "Bar tabs · " + st.openTabs.length,
+      openTabs: st.openTabs.map((t) => ({ label: t.name + " · " + money(t.amt) + " · " + t.card + (t.pending ? " · waiting for Andy’s OK" : ""), style: t.pending ? "background: rgba(255,177,61,.12); color: #FFB13D; border: 1px solid rgba(255,177,61,.4);" : "background: #121016; color: #C9C5CE; border: 1px solid rgba(244,241,234,.12);" })),
+      lcAsk: st.lc !== "sure" && ready.length > 0, lcSure: st.lc === "sure" && ready.length > 0,
+      lcLabel: "Last call · close " + ready.length + (ready.length === 1 ? " tab" : " tabs") + " to their held cards",
+      lcSureLine: "Charges " + ready.length + " held cards " + money(readySum) + " in all, each for its own tab, with no tip. Receipts go by text where there’s a number." + (waiting.length ? " " + waiting.map((t) => t.name).join(", ") + " waits for Andy’s OK on a void, then closes the same way." : ""),
+      lcGoLabel: "Close " + ready.length + " tabs · " + money(readySum),
+      hasWaiting: waiting.length > 0,
+      demoOk: () => this.setState({ openTabs: st.openTabs.map((t) => t.pending ? Object.assign({}, t, { pending: false, amt: 9.8 }) : t) }),
+      lastCall: () => this.setState({ lc: "sure" }), lastCallNo: () => this.setState({ lc: "" }),
+      lastCallGo: () => { this.setState({ openTabs: waiting, lc: "" }); this.notify(ready.length + " tabs closed to their held cards · " + money(readySum) + " · logged to " + "Andy C."); },
+      demoCloseRooms: () => this.setState({ openRooms: [] }),
+      headLine: "Sep 25 · opened 4:00 PM · " + (nOpen ? [nRooms ? nRooms + (nRooms === 1 ? " room" : " rooms") : "", st.openTabs.length ? st.openTabs.length + (st.openTabs.length === 1 ? " tab" : " tabs") : ""].filter(Boolean).join(" and ") + " still going" : "all rooms and tabs closed out"),
+      salesHead: "Sales · " + (34 - nOpen) + " rooms closed" + (nOpen ? ", " + nOpen + " still open" : ""),
+      diff: diff === null ? "—" : money(diff), diffLabel: diff === null ? "Over / short" : diff === 0 ? "Exactly right" : diff > 0 ? "Over" : "Short",
+      diffStyle: diff === null ? "color: #8E8994;" : Math.abs(diff) <= 20 ? "color: " + acc + ";" : "color: #FF3DA6;",
+      drawerBorder: (perPerson ? pdrawers.some((d) => d.nn) : needNote) ? "#FF3DA6" : "rgba(244,241,234,.08)",
+      houseDrawer: !perPerson, perDrawer: perPerson, pdrawers,
+      drawerHead: perPerson ? "Cash drawers · one each · blind counts" : "House drawer · Andy · blind count",
+      drawerDemo: perPerson ? "Demo: one house drawer" : "Demo: a drawer per person",
+      toggleDrawerMode: () => this.setState({ drawerMode: perPerson ? "house" : "person" }),
+      drawerRule: perPerson ? "Count each drawer on its own; more than $20 off needs a note, and over or short stays with the person whose drawer it was." : "More than $20 off in either direction needs a note before the night can close. Over or short goes on the night, with every drawer opening listed by person in Every action.",
+      needNote, note: st.note, setNote: (e) => this.setState({ note: e.target.value }),
+      comps,
+      q: st.q, setQ: (e) => this.setState({ q: e.target.value }), filters, log, logCount: log.length + " of " + LOG.length + " tonight",
+      printZ: () => this.notify("Z report sent to the receipt printer"),
+      closeLabel: st.closed ? "Night closed · 1:20 AM" : canClose ? "Close the night" : nOpen ? (nRooms ? nRooms + (nRooms === 1 ? " room" : " rooms") : st.openTabs.length + (st.openTabs.length === 1 ? " tab" : " tabs")) + " still open" : (!allCounted ? (perPerson ? "Count every drawer first" : "Count the drawer first") : "Add a note on the drawer"),
+      closeStyle: st.closed ? "background: #1c1a21; color: #8E8994;" : canClose ? "background: " + acc + "; color: #0b0a0d;" : "background: #1c1a21; color: #8E8994;",
+      closeNight: () => { if (canClose && !st.closed) { this.setState({ closed: true }); this.notify("Night closed. Z report printed and the tip pool posted."); } },
+      toastA: !!st.toast && st.toastN % 2 === 1, toastB: !!st.toast && st.toastN % 2 === 0, toast: st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

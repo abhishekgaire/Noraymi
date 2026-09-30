@@ -1,0 +1,1755 @@
+{
+  "meta": {
+    "name": "west4-money-cases",
+    "what": "Test vectors for the one pricing module (docs/spec/05-money-rules.md). Each case names the function under test, its inputs and its expected outputs, all in integer cents. Every expected value was computed by a script with exact fractions and re-checked by a second, separately written script that uses integer arithmetic only.",
+    "companion": "seed/west4-friday.json holds the Friday these cases come from; docs/demo-seed.md tells its story.",
+    "units": "Integer cents. Times are ISO 8601. The venue is America/New_York with a 06:00 day cutover.",
+    "rounding": {
+      "rule": "Half up to the cent, on exact values (no floats). Where the spec says it: docs/spec/05-money-rules.md rule 1 (Cents and rounding), rule 3 (room time is rounded once), rule 8 (tax once per rate per revision).",
+      "integer_formulas": {
+        "percent": "floor((2 * amount_cents * num + den) / (2 * den))",
+        "tax_8_875": "floor((2 * base_cents * 8875 + 100000) / 200000)",
+        "gratuity_20": "floor((amount_cents * 20 + 50) / 100)",
+        "room_time": "floor((sum(hourly_cents * minutes) + 30) / 60)"
+      },
+      "divided_amounts": "Largest remainder: floors first, then leftover cents go to the largest fractional remainders, ties to the first parts. For an even split of n shares the first (amount mod n) shares get one extra cent.",
+      "negative_amounts": "Never rounded. A comp, void or reversal is the exact negative of a stored line, and tax is worked on the net (post-comp) positive base.",
+      "tax_by_category": "The check's tax is rounded once, then shared across categories by largest remainder of each category's exact tax (rate x base). The spec says 'shared across categories by largest remainder' without naming the basis; this is the reading used."
+    },
+    "rates_at_west_4": {
+      "tax_pct": "8.875",
+      "gratuity_pct": "20",
+      "gratuity_applies_to": "room checks only",
+      "card_fee": "off",
+      "per_person_hourly_cents": 1000,
+      "vip_hourly_cents": 25000,
+      "vip_from_guests": 20,
+      "min_guests": {"weeknight": 3, "fri_sat": 4},
+      "reason_only": {"each_cents": 2500, "per_shift_cents": 7500},
+      "tip_choices_pct": [18, 20, 22],
+      "tip_fixed_cents_under_10_dollars": [100, 200, 300]
+    },
+    "functions": {
+      "check_totals": "lines[{kind, tax_category, cents}], deposit_cents, gratuity_applies -> subtotal, tax (once, shared by category), gratuity, total, left_to_pay",
+      "check_revision": "rev1_lines, added_lines, deposit_cents -> the reversal and new computed lines of revision 2",
+      "room_time": "segments[{minutes, hourly_cents}], first_hour_minimum -> room_time_cents (rounded once)",
+      "room_time_between": "start, end (ISO with offset), hourly_cents -> elapsed_minutes (real elapsed time) and room_time_cents",
+      "room_tab_at": "party_size, is_vip_room, business_date, minutes, drink_lines, deposit_cents -> room time, drinks, tab so far, and what presenting the check now would total",
+      "hourly_rate_at": "local_time, party_size, is_vip_room -> business_date, minimum guests, billable guests, hourly_cents",
+      "business_date": "local_time -> business_date (local time minus the 06:00 cutover) and minutes_from_midnight at the start of that date",
+      "deposit": "party_size, business_date -> first-hour deposit (billable x $10.00), or the flat $250.00 from 20 guests",
+      "deposit_vs_check": "deposit_cents, check_total_cents -> deposit applied, left to pay, forfeit line",
+      "split_even": "amount_cents, shares -> share amounts, first shares get the extra cents",
+      "pay_my_share_even": "amount_left_cents, tax, gratuity, guests, guest_name, share_no -> the guest's share, their share of tax and gratuity, and the log line",
+      "card_fee": "amount_cents, rate_pct, funding -> surcharge, tax on it if taxable, what the card pays",
+      "z_report_gratuity": "room_checks[{room_time, drinks, comps}], bar_tabs[{drinks}] -> the Z gratuity (sum of room-check gratuity lines) and the drink split",
+      "reason_only": "used_this_shift_cents, amount_cents, limits -> needs_approval",
+      "approval_route": "requester, manager_on_duty, owner -> who the request goes to",
+      "refund_cap": "captured_cents, earlier_refunds_cents, requested_cents -> the most that payment can still refund",
+      "tip_review": "tab_total_cents, tip_cents, entered_after_minutes, limits -> needs_approval and why",
+      "tip_pool": "pool_cents, minutes by person -> shares by largest remainder",
+      "tip_choices": "drinks_before_tax_cents -> the three choices the reader shows (in expected only)",
+      "can_present_check": "orders -> whether Present the check is allowed"
+    },
+    "properties": [
+      "Split shares and tip shares always add up to the amount, and no two differ by more than 1 cent.",
+      "In an even split, the first (amount mod n) shares are the larger ones.",
+      "Room time is rounded once over all segments, never per segment.",
+      "Tax is rounded once per rate per revision; the by-category shares add up to it.",
+      "total = subtotal + tax + gratuity; left to pay = total - deposit allocated, never below zero.",
+      "Gratuity is never applied to a bar tab or a damage fee, and is computed before tax.",
+      "The Z report's gratuity is the sum of room-check gratuity lines, never a percent of all sales."
+    ],
+    "ambiguities": [
+      {
+        "id": "A1",
+        "topic": "Z report gratuity: sum of lines or 20% of the total",
+        "spec_says": "docs/spec/05-money-rules.md rules 9 and 16: the sum of the gratuity lines on the checks that carry one, never a percent of all sales.",
+        "gap": "Fix brief 4.18 words it as '20% of (room time + room drinks + packages sold to rooms - room comps and refunds)', which reads as an aggregate. The two can differ by a cent or more (Rooms 3 and 12: 9626 vs 9627).",
+        "used_here": "The spec: sum of lines. Cases z_gratuity_sum_of_lines_vs_aggregate and z_gratuity_room_checks_only."
+      },
+      {
+        "id": "A2",
+        "topic": "Returned orders and the reason-only limit",
+        "spec_says": "A returned order is resolved as void - not made, void - made (waste) or remake (rule 6). Comps and voids over $25 each or $75 a shift need approval (rule 7).",
+        "gap": "Not said whether a void that resolves a return counts as a comp or void under the limit. o4's $36.00 would be over $25.00.",
+        "used_here": "No vector. The scenario in seed/west4-friday.json flags it."
+      },
+      {
+        "id": "A3",
+        "topic": "Tip choices at exactly $10.00",
+        "spec_says": "docs/spec/06-stripe-setup.md and 07-payment-flows.md: fixed $1, $2, $3 on anything under $10, otherwise 18, 20 and 22% of the drinks before tax.",
+        "gap": "Whether a tab of exactly $10.00 gets fixed amounts or percentages depends on Stripe's smart_tip_threshold.",
+        "used_here": "No vector at $10.00; the vectors use $9.00 and $12.00 and up."
+      },
+      {
+        "id": "A4",
+        "topic": "Tip over 25%: of what",
+        "spec_says": "A tip over 25% or $50, or entered more than 2 hours late, needs approval (docs/spec/07-payment-flows.md).",
+        "gap": "The base for 25% is not named: the tab total or the drinks before tax (the base the choices use).",
+        "used_here": "Tab total, and no vector sits near the boundary."
+      },
+      {
+        "id": "A5",
+        "topic": "Tax on the card surcharge, kept deposits and no-show charges",
+        "spec_says": "Rule 8: the accountant confirms. docs/spec/14-open-questions.md lists it as open.",
+        "gap": "Whether a surcharge or a forfeit line is taxable.",
+        "used_here": "The surcharge case shows tax_on_surcharge_if_taxable_cents and card_pays_with_tax_on_fee_cents as if-taxable; the forfeit case computes no tax on the forfeit line."
+      },
+      {
+        "id": "A6",
+        "topic": "Deposit against the check: total or subtotal",
+        "spec_says": "Rule 11: if the check closes for less than the deposit, the rest becomes a forfeit line.",
+        "gap": "Whether 'less than the deposit' compares the deposit with the check total (with tax and gratuity) or with the subtotal.",
+        "used_here": "The total, which matches how amount due is worked (lines minus allocations)."
+      },
+      {
+        "id": "A7",
+        "topic": "Minutes from midnight on the two daylight-saving nights",
+        "spec_says": "Rule 2: durations come from elapsed time; times in settings are wall-clock times resolved per date by Temporal.",
+        "gap": "Whether 'minutes from midnight at the start of that date' on Nov 1, 2026 and Mar 14, 2027 counts wall-clock minutes or elapsed minutes. Bands read it.",
+        "used_here": "Wall-clock reading in the business_date cases; elapsed time everywhere a duration is billed."
+      },
+      {
+        "id": "A8",
+        "topic": "Rounding of partial refunds",
+        "spec_says": "Rule 14: a refund writes reversing lines for its share of tax, gratuity and card fee.",
+        "gap": "How a partial refund's share is rounded when it isn't a whole check.",
+        "used_here": "No vector."
+      },
+      {
+        "id": "A9",
+        "topic": "Tax shared across categories",
+        "spec_says": "Rule 8: shared across categories by largest remainder.",
+        "gap": "The basis is not spelled out.",
+        "used_here": "Each category's exact tax (rate x base), leftover cents to the largest remainders. Room 9: 2858 room time + 1402 drinks."
+      },
+      {
+        "id": "A10",
+        "topic": "Tip pool method",
+        "spec_says": "Rule 1 says tip shares use largest remainder. The default pool by hours is an open lawyer question (docs/spec/14-open-questions.md).",
+        "gap": "Which staff and which shares.",
+        "used_here": "One vector shows the rounding only."
+      },
+      {
+        "id": "A11",
+        "topic": "Canvas disagrees with the spec on split leftovers",
+        "spec_says": "Rules 1 and 13: leftover cents go to the first shares.",
+        "gap": "Rail.dc.html floors each share and gives the remainder to the last share (the canvas is frozen at v39).",
+        "used_here": "The spec."
+      }
+    ],
+    "counts": {
+      "cases": 104,
+      "by_group": {
+        "room9_close_out": 6,
+        "tab_so_far": 8,
+        "bar_tabs": 6,
+        "tips": 14,
+        "splits": 6,
+        "pay_my_share": 2,
+        "card_fee": 2,
+        "z_report": 4,
+        "room_time": 9,
+        "billable_guests": 14,
+        "business_date": 7,
+        "deposits": 9,
+        "refunds": 3,
+        "reason_only_limits": 8,
+        "approvals": 3,
+        "tax_and_gratuity": 3
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "room9_closeout_rev1",
+      "group": "room9_close_out",
+      "title": "Room 9 close-out at 10:41 PM, check #1042, revision 1 (2 x Margarita · Peach still ringing, not on the check)",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md · Room 9, worked through", "docs/spec/05-money-rules.md rules 8, 9, 11", "docs/archive/fix-brief-sep28.md 4.5"],
+      "source": "spec worked example + fix brief 4.5",
+      "inputs": {
+        "lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 32200, "note": "12 guests x $10 = $120.00 an hour = $2.00 a minute, 161 minutes"},
+          {"kind": "item", "tax_category": "drink", "cents": 15800, "note": "Large bucket 7000 + 2 x Chamisul Fresh 4000 + 4 x Jäger Bomb 4800"}
+        ],
+        "deposit_cents": 12000,
+        "gratuity_applies": true
+      },
+      "expected": {
+        "subtotal_cents": 48000,
+        "tax_base_cents": 48000,
+        "tax_cents": 4260,
+        "tax_by_category_cents": {"room_time": 2858, "drink": 1402},
+        "gratuity_base_cents": 48000,
+        "gratuity_cents": 9600,
+        "total_cents": 61860,
+        "deposit_cents": 12000,
+        "left_to_pay_cents": 49860
+      },
+      "notes": "Tax 8.875% x $480.00 = $42.60 exactly, shared 2858 room time + 1402 drinks by largest remainder. Gratuity 20% of $480.00 = $96.00, before tax. Deposit $120.00 is a payment allocated at check-in, not a line."
+    },
+    {
+      "id": "room9_closeout_margaritas_accepted_first",
+      "group": "room9_close_out",
+      "title": "Room 9 close-out when the bar accepts 2 x Margarita · Peach (2 x 1300) before the check is presented",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md · Room 9, worked through", "docs/archive/fix-brief-sep28.md 4.5"],
+      "source": "spec worked example + fix brief 4.5",
+      "inputs": {
+        "lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 32200, "note": "12 guests x $10 = $120.00 an hour = $2.00 a minute, 161 minutes"},
+          {"kind": "item", "tax_category": "drink", "cents": 18400, "note": "the above 15800 + 2 x Margarita · Peach 2600, accepted before the check is presented"}
+        ],
+        "deposit_cents": 12000,
+        "gratuity_applies": true
+      },
+      "expected": {
+        "subtotal_cents": 50600,
+        "tax_base_cents": 50600,
+        "tax_cents": 4491,
+        "tax_by_category_cents": {"room_time": 2858, "drink": 1633},
+        "gratuity_base_cents": 50600,
+        "gratuity_cents": 10120,
+        "total_cents": 65211,
+        "deposit_cents": 12000,
+        "left_to_pay_cents": 53211
+      },
+      "notes": "$26.00 more drinks, $44.91 tax and $101.20 gratuity on a $506.00 subtotal. $652.11 in all and $532.11 left to pay."
+    },
+    {
+      "id": "room9_reopen_check_revision2",
+      "group": "room9_close_out",
+      "title": "Room 9: a manager reopens the presented check and the 2 x Margarita · Peach line is added, so finalize writes revision 2",
+      "function": "check_revision",
+      "spec": ["docs/spec/05-money-rules.md · Room 9, worked through", "docs/spec/04-data-model.md · The money core (each finalize writes a revision)"],
+      "source": "spec worked example",
+      "inputs": {
+        "rev1_lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 32200, "note": "12 guests x $10 = $120.00 an hour = $2.00 a minute, 161 minutes"},
+          {"kind": "item", "tax_category": "drink", "cents": 15800, "note": "Large bucket 7000 + 2 x Chamisul Fresh 4000 + 4 x Jäger Bomb 4800"}
+        ],
+        "added_lines": [{"kind": "item", "tax_category": "drink", "cents": 2600, "note": "2 x Margarita · Peach"}],
+        "deposit_cents": 12000
+      },
+      "expected": {
+        "rev1_total_cents": 61860,
+        "rev2_reversal_lines": [{"kind": "tax", "amount_cents": -4260}, {"kind": "gratuity", "amount_cents": -9600}],
+        "rev2_new_lines": [{"kind": "tax", "amount_cents": 4491}, {"kind": "gratuity", "amount_cents": 10120}],
+        "rev2_subtotal_cents": 50600,
+        "rev2_total_cents": 65211,
+        "rev2_left_to_pay_cents": 53211,
+        "amount_due_change_cents": 3351
+      },
+      "notes": "Revision 2 reverses revision 1's computed tax and gratuity lines and writes new ones. Amount due goes up by 2600 + 231 + 520 = 3351."
+    },
+    {
+      "id": "room9_present_blocked_while_o1_rings",
+      "group": "room9_close_out",
+      "title": "Present the check is refused while o1 rings",
+      "function": "can_present_check",
+      "spec": ["docs/spec/05-money-rules.md rule 6 (Presenting the check)", "docs/archive/fix-brief-sep28.md 4.5 step 1"],
+      "source": "spec rule 6",
+      "inputs": {
+        "orders": [
+          {"id": "o1", "status": "ringing", "text": "2 × Margarita · Peach is ringing at the bar · accept or cancel it first"}
+        ]
+      },
+      "expected": {"allowed": false, "blocked_by": ["o1"]},
+      "notes": "The screen lists the order first: \"2 x Margarita · Peach is ringing at the bar · accept or cancel it first\". An asked-to-wait (held) order blocks it the same way."
+    },
+    {
+      "id": "room9_present_blocked_while_order_held",
+      "group": "room9_close_out",
+      "title": "Present the check is refused while an order is asked to wait (held)",
+      "function": "can_present_check",
+      "spec": ["docs/spec/05-money-rules.md rule 6"],
+      "source": "spec rule 6",
+      "inputs": {"orders": [{"id": "o1", "status": "held"}]},
+      "expected": {"allowed": false, "blocked_by": ["o1"]}
+    },
+    {
+      "id": "room9_present_allowed_once_cancelled",
+      "group": "room9_close_out",
+      "title": "Present the check is allowed once o1 is cancelled or accepted",
+      "function": "can_present_check",
+      "spec": ["docs/spec/05-money-rules.md rule 6"],
+      "source": "spec rule 6",
+      "inputs": {"orders": [{"id": "o1", "status": "cancelled"}, {"id": "e2", "status": "delivered"}]},
+      "expected": {"allowed": true, "blocked_by": []}
+    },
+    {
+      "id": "tab_so_far_room_1",
+      "group": "tab_so_far",
+      "title": "Room 1: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_1",
+        "party_size": 4,
+        "is_vip_room": false,
+        "minutes": 71,
+        "drink_lines": [
+          {"item_id": "bucket_s", "name": "Small bucket · 6 beers", "qty": 1, "unit_cents": 4000},
+          {"item_id": "corona", "name": "Corona", "qty": 4, "unit_cents": 900}
+        ],
+        "deposit_cents": 4000
+      },
+      "expected": {
+        "billable_guests": 4,
+        "rate_kind": "per_person",
+        "hourly_cents": 4000,
+        "room_time_cents": 4733,
+        "drinks_cents": 7600,
+        "tab_so_far_cents": 12333,
+        "if_presented_now": {"tax_cents": 1095, "gratuity_cents": 2467, "total_cents": 15895, "deposit_cents": 4000, "left_to_pay_cents": 11895}
+      },
+      "notes": "71 min x 4 guests x $10 / 60 = $47.33. Small bucket 4000 + 4 x Corona 3600 (o4 accepted 10:38, ready for a runner: on the tab because Accept is the sale). Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_3",
+      "group": "tab_so_far",
+      "title": "Room 3: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_3",
+        "party_size": 5,
+        "is_vip_room": false,
+        "minutes": 116,
+        "drink_lines": [
+          {"item_id": "sj_peach", "name": "Peach soju", "qty": 2, "unit_cents": 2000},
+          {"item_id": "marg", "name": "Margarita", "qty": 2, "unit_cents": 1300},
+          {"item_id": "marg", "name": "Margarita", "qty": 1, "unit_cents": 1300}
+        ],
+        "deposit_cents": 5000
+      },
+      "expected": {
+        "billable_guests": 5,
+        "rate_kind": "per_person",
+        "hourly_cents": 5000,
+        "room_time_cents": 9667,
+        "drinks_cents": 7900,
+        "tab_so_far_cents": 17567,
+        "if_presented_now": {"tax_cents": 1559, "gratuity_cents": 3513, "total_cents": 22639, "deposit_cents": 5000, "left_to_pay_cents": 17639}
+      },
+      "notes": "116 min x 5 guests. 2 x Peach soju 4000 + 3 x Margarita 3900 (o3 accepted 10:33). Booked end 10:45. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_5",
+      "group": "tab_so_far",
+      "title": "Room 5: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_5",
+        "party_size": 4,
+        "is_vip_room": false,
+        "minutes": 41,
+        "drink_lines": [],
+        "deposit_cents": 0
+      },
+      "expected": {
+        "billable_guests": 4,
+        "rate_kind": "per_person",
+        "hourly_cents": 4000,
+        "room_time_cents": 4000,
+        "drinks_cents": 0,
+        "tab_so_far_cents": 4000,
+        "if_presented_now": {"tax_cents": 355, "gratuity_cents": 800, "total_cents": 5155, "deposit_cents": 0, "left_to_pay_cents": 5155}
+      },
+      "notes": "Walk-in, no deposit. 41 min is under an hour, so the first-hour minimum bills 60 min = $40.00. The 4 x Bud Light (o2, $32.00) is ringing and NOT on the tab. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_7",
+      "group": "tab_so_far",
+      "title": "Room 7: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_7",
+        "party_size": 7,
+        "is_vip_room": false,
+        "minutes": 131,
+        "drink_lines": [
+          {"item_id": "bucket_s", "name": "Small bucket · 6 beers", "qty": 1, "unit_cents": 4000},
+          {"item_id": "s_drop", "name": "Lemon Drop shot", "qty": 2, "unit_cents": 900}
+        ],
+        "deposit_cents": 7000
+      },
+      "expected": {
+        "billable_guests": 7,
+        "rate_kind": "per_person",
+        "hourly_cents": 7000,
+        "room_time_cents": 15283,
+        "drinks_cents": 5800,
+        "tab_so_far_cents": 21083,
+        "if_presented_now": {"tax_cents": 1871, "gratuity_cents": 4217, "total_cents": 27171, "deposit_cents": 7000, "left_to_pay_cents": 20171}
+      },
+      "notes": "131 min x 7 guests, 11 min past the booked 10:30 end: the booked end never stops the clock. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_9",
+      "group": "tab_so_far",
+      "title": "Room 9: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_9",
+        "party_size": 12,
+        "is_vip_room": false,
+        "minutes": 161,
+        "drink_lines": [
+          {"item_id": "bucket_l", "name": "Large bucket · 10 beers", "qty": 1, "unit_cents": 7000},
+          {"item_id": "chamisul", "name": "Chamisul Fresh", "qty": 2, "unit_cents": 2000},
+          {"item_id": "jager", "name": "Jäger Bomb", "qty": 4, "unit_cents": 1200}
+        ],
+        "deposit_cents": 12000
+      },
+      "expected": {
+        "billable_guests": 12,
+        "rate_kind": "per_person",
+        "hourly_cents": 12000,
+        "room_time_cents": 32200,
+        "drinks_cents": 15800,
+        "tab_so_far_cents": 48000,
+        "if_presented_now": {"tax_cents": 4260, "gratuity_cents": 9600, "total_cents": 61860, "deposit_cents": 12000, "left_to_pay_cents": 49860}
+      },
+      "notes": "161 min x 12 guests = $2.00 a minute. The 2 x Margarita · Peach (o1) is ringing and NOT on the tab. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_10",
+      "group": "tab_so_far",
+      "title": "Room 10: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_10",
+        "party_size": 9,
+        "is_vip_room": false,
+        "minutes": 221,
+        "drink_lines": [
+          {"item_id": "bucket_l", "name": "Large bucket · 10 beers", "qty": 1, "unit_cents": 7000},
+          {"item_id": "chamisul", "name": "Chamisul Fresh", "qty": 2, "unit_cents": 2000}
+        ],
+        "deposit_cents": 9000
+      },
+      "expected": {
+        "billable_guests": 9,
+        "rate_kind": "per_person",
+        "hourly_cents": 9000,
+        "room_time_cents": 33150,
+        "drinks_cents": 11000,
+        "tab_so_far_cents": 44150,
+        "if_presented_now": {"tax_cents": 3918, "gratuity_cents": 8830, "total_cents": 56898, "deposit_cents": 9000, "left_to_pay_cents": 47898}
+      },
+      "notes": "221 min x 9 guests, 41 min past the booked 10:00 end; billing by the minute. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_12",
+      "group": "tab_so_far",
+      "title": "Room 12: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_12",
+        "party_size": 14,
+        "is_vip_room": false,
+        "minutes": 101,
+        "drink_lines": [{"item_id": "p_soju2", "name": "2 soju + small bucket", "qty": 1, "unit_cents": 7000}],
+        "deposit_cents": 14000
+      },
+      "expected": {
+        "billable_guests": 14,
+        "rate_kind": "per_person",
+        "hourly_cents": 14000,
+        "room_time_cents": 23567,
+        "drinks_cents": 7000,
+        "tab_so_far_cents": 30567,
+        "if_presented_now": {"tax_cents": 2713, "gratuity_cents": 6113, "total_cents": 39393, "deposit_cents": 14000, "left_to_pay_cents": 25393}
+      },
+      "notes": "101 min x 14 guests = 23566.67, rounded once to 23567. The 2 soju + small bucket package is one $70.00 line. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "tab_so_far_room_vip",
+      "group": "tab_so_far",
+      "title": "VIP room: tab so far at 10:41 PM (fix brief 3a)",
+      "function": "room_tab_at",
+      "spec": ["docs/archive/fix-brief-sep28.md 3a", "docs/spec/05-money-rules.md rules 3, 8, 9"],
+      "source": "fix brief 3a (tab so far); the if_presented_now block is derived by script",
+      "inputs": {
+        "now": "2026-09-25T22:41:00-04:00",
+        "business_date": "2026-09-25",
+        "room": "room_vip",
+        "party_size": 22,
+        "is_vip_room": true,
+        "minutes": 71,
+        "drink_lines": [
+          {"item_id": "b_hennessy", "name": "Hennessy · bottle", "qty": 1, "unit_cents": 30000},
+          {"item_id": "moet", "name": "Moët & Chandon · bottle", "qty": 1, "unit_cents": 18000}
+        ],
+        "deposit_cents": 25000
+      },
+      "expected": {
+        "billable_guests": 22,
+        "rate_kind": "vip",
+        "hourly_cents": 25000,
+        "room_time_cents": 29583,
+        "drinks_cents": 48000,
+        "tab_so_far_cents": 77583,
+        "if_presented_now": {"tax_cents": 6885, "gratuity_cents": 15517, "total_cents": 99985, "deposit_cents": 25000, "left_to_pay_cents": 74985}
+      },
+      "notes": "22 guests is at or above the VIP threshold (20), so the flat $250.00 an hour applies: 250.00 x 71 / 60 = 29583.33, rounded once to 29583. Tab so far = room time + drinks accepted so far, before tax and gratuity. if_presented_now shows what the check would total if presented at 10:41."
+    },
+    {
+      "id": "bar_tab_t1",
+      "group": "bar_tabs",
+      "title": "Bar tab t1, Jess P.: total at 10:41 PM",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 8, 9", "docs/archive/fix-brief-sep28.md 3f"],
+      "source": "fix brief 3f; totals match the Night and Rail canvases ($32.66, $63.15, $13.07, $43.55, $86.01)",
+      "inputs": {
+        "lines": [
+          {"kind": "item", "tax_category": "drink", "cents": 1800, "note": "2 x Modelo"},
+          {"kind": "item", "tax_category": "drink", "cents": 1200, "note": "1 x Jäger Bomb"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 3000,
+        "tax_base_cents": 3000,
+        "tax_cents": 266,
+        "tax_by_category_cents": {"drink": 266},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 3266,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 3266
+      },
+      "notes": "Bar tabs never carry a gratuity at West 4; guests tip on the reader. Tax 8.875% rounded half up once on the drinks."
+    },
+    {
+      "id": "tip_choices_t1",
+      "group": "tips",
+      "title": "Reader tip choices for Jess P. ($30.00 of drinks before tax)",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md (Card readers)", "docs/spec/07-payment-flows.md (Close)"],
+      "source": "spec 06 and 07; derived by script",
+      "inputs": {"drinks_before_tax_cents": 3000},
+      "expected": {"kind": "percent", "choices_cents": [540, 600, 660]},
+      "notes": "18, 20 and 22% of the drinks before tax, each rounded half up. Tips are worked on drinks before tax, not on the total."
+    },
+    {
+      "id": "bar_tab_t2",
+      "group": "bar_tabs",
+      "title": "Bar tab t2, Luis M.: total at 10:41 PM",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 8, 9", "docs/archive/fix-brief-sep28.md 3f"],
+      "source": "fix brief 3f; totals match the Night and Rail canvases ($32.66, $63.15, $13.07, $43.55, $86.01)",
+      "inputs": {
+        "lines": [
+          {"kind": "item", "tax_category": "drink", "cents": 4000, "note": "1 x Small bucket · 6 beers"},
+          {"kind": "item", "tax_category": "drink", "cents": 1800, "note": "2 x Lemon Drop shot"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 5800,
+        "tax_base_cents": 5800,
+        "tax_cents": 515,
+        "tax_by_category_cents": {"drink": 515},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 6315,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 6315
+      },
+      "notes": "Bar tabs never carry a gratuity at West 4; guests tip on the reader. Tax 8.875% rounded half up once on the drinks."
+    },
+    {
+      "id": "tip_choices_t2",
+      "group": "tips",
+      "title": "Reader tip choices for Luis M. ($58.00 of drinks before tax)",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md (Card readers)", "docs/spec/07-payment-flows.md (Close)"],
+      "source": "spec 06 and 07; derived by script",
+      "inputs": {"drinks_before_tax_cents": 5800},
+      "expected": {"kind": "percent", "choices_cents": [1044, 1160, 1276]},
+      "notes": "18, 20 and 22% of the drinks before tax, each rounded half up. Tips are worked on drinks before tax, not on the total."
+    },
+    {
+      "id": "bar_tab_t3",
+      "group": "bar_tabs",
+      "title": "Bar tab t3, Seat 6 · blue jacket: total at 10:41 PM",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 8, 9", "docs/archive/fix-brief-sep28.md 3f"],
+      "source": "fix brief 3f; totals match the Night and Rail canvases ($32.66, $63.15, $13.07, $43.55, $86.01)",
+      "inputs": {
+        "lines": [{"kind": "item", "tax_category": "drink", "cents": 1200, "note": "1 x Tito’s"}],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 1200,
+        "tax_base_cents": 1200,
+        "tax_cents": 107,
+        "tax_by_category_cents": {"drink": 107},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 1307,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 1307
+      },
+      "notes": "Bar tabs never carry a gratuity at West 4; guests tip on the reader. Tax 8.875% rounded half up once on the drinks. 12.00 x 8.875% = 106.50, which rounds half up to 107: the smallest tie case tonight."
+    },
+    {
+      "id": "tip_choices_t3",
+      "group": "tips",
+      "title": "Reader tip choices for Seat 6 · blue jacket ($12.00 of drinks before tax)",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md (Card readers)", "docs/spec/07-payment-flows.md (Close)"],
+      "source": "spec 06 and 07; derived by script",
+      "inputs": {"drinks_before_tax_cents": 1200},
+      "expected": {"kind": "percent", "choices_cents": [216, 240, 264]},
+      "notes": "18, 20 and 22% of the drinks before tax, each rounded half up. Tips are worked on drinks before tax, not on the total."
+    },
+    {
+      "id": "bar_tab_t4",
+      "group": "bar_tabs",
+      "title": "Bar tab t4, Hana K.: total at 10:41 PM",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 8, 9", "docs/archive/fix-brief-sep28.md 3f"],
+      "source": "fix brief 3f; totals match the Night and Rail canvases ($32.66, $63.15, $13.07, $43.55, $86.01)",
+      "inputs": {
+        "lines": [
+          {"kind": "item", "tax_category": "drink", "cents": 2000, "note": "1 x Chamisul Fresh"},
+          {"kind": "item", "tax_category": "drink", "cents": 2000, "note": "1 x Peach soju"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 4000,
+        "tax_base_cents": 4000,
+        "tax_cents": 355,
+        "tax_by_category_cents": {"drink": 355},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 4355,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 4355
+      },
+      "notes": "Bar tabs never carry a gratuity at West 4; guests tip on the reader. Tax 8.875% rounded half up once on the drinks."
+    },
+    {
+      "id": "tip_choices_t4",
+      "group": "tips",
+      "title": "Reader tip choices for Hana K. ($40.00 of drinks before tax)",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md (Card readers)", "docs/spec/07-payment-flows.md (Close)"],
+      "source": "spec 06 and 07; derived by script",
+      "inputs": {"drinks_before_tax_cents": 4000},
+      "expected": {"kind": "percent", "choices_cents": [720, 800, 880]},
+      "notes": "18, 20 and 22% of the drinks before tax, each rounded half up. Tips are worked on drinks before tax, not on the total."
+    },
+    {
+      "id": "bar_tab_t5",
+      "group": "bar_tabs",
+      "title": "Bar tab t5, Tariq A.: total at 10:41 PM",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 8, 9", "docs/archive/fix-brief-sep28.md 3f"],
+      "source": "fix brief 3f; totals match the Night and Rail canvases ($32.66, $63.15, $13.07, $43.55, $86.01)",
+      "inputs": {
+        "lines": [
+          {"kind": "item", "tax_category": "drink", "cents": 7000, "note": "1 x Large bucket · 10 beers"},
+          {"kind": "item", "tax_category": "drink", "cents": 900, "note": "1 x Modelo"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 7900,
+        "tax_base_cents": 7900,
+        "tax_cents": 701,
+        "tax_by_category_cents": {"drink": 701},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 8601,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 8601
+      },
+      "notes": "Bar tabs never carry a gratuity at West 4; guests tip on the reader. Tax 8.875% rounded half up once on the drinks. Diego's void of the Large bucket is waiting for Andy; the tab still shows the $70.00 line until it's approved."
+    },
+    {
+      "id": "tip_choices_t5",
+      "group": "tips",
+      "title": "Reader tip choices for Tariq A. ($79.00 of drinks before tax)",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md (Card readers)", "docs/spec/07-payment-flows.md (Close)"],
+      "source": "spec 06 and 07; derived by script",
+      "inputs": {"drinks_before_tax_cents": 7900},
+      "expected": {"kind": "percent", "choices_cents": [1422, 1580, 1738]},
+      "notes": "18, 20 and 22% of the drinks before tax, each rounded half up. Tips are worked on drinks before tax, not on the total."
+    },
+    {
+      "id": "bar_tab_t5_after_void_approved",
+      "group": "bar_tabs",
+      "title": "Tariq A.'s tab after Andy approves Diego's void of the Large bucket ($70.00)",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/archive/fix-brief-sep28.md 2 (Pending at 10:41 PM)"],
+      "source": "fix brief 2 and 3f",
+      "inputs": {
+        "lines": [{"kind": "item", "tax_category": "drink", "cents": 900, "note": "1 x Modelo"}],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 900,
+        "tax_base_cents": 900,
+        "tax_cents": 80,
+        "tax_by_category_cents": {"drink": 80},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 980,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 980
+      },
+      "notes": "Drinks $9.00, tax $0.80 (79.875 rounds up), total $9.80. Tax is worked on the net line after the void."
+    },
+    {
+      "id": "tip_choices_t5_after_void",
+      "group": "tips",
+      "title": "With Tariq A.'s drinks at $9.00 the reader offers fixed tips of $1, $2 and $3",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md (Card readers)", "docs/spec/07-payment-flows.md (Close)"],
+      "source": "spec 06 and 07",
+      "inputs": {"drinks_before_tax_cents": 900},
+      "expected": {"kind": "fixed", "choices_cents": [100, 200, 300]},
+      "notes": "Under $10 the choices are fixed amounts. See meta.ambiguities A3 for exactly $10.00."
+    },
+    {
+      "id": "tip_choices_999_fixed",
+      "group": "tips",
+      "title": "$9.99 of drinks: fixed tips",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md"],
+      "source": "spec 06",
+      "inputs": {"drinks_before_tax_cents": 999},
+      "expected": {"kind": "fixed", "choices_cents": [100, 200, 300]}
+    },
+    {
+      "id": "tip_choices_1001_percent",
+      "group": "tips",
+      "title": "$10.01 of drinks: 18, 20 and 22%",
+      "function": "tip_choices",
+      "spec": ["docs/spec/06-stripe-setup.md"],
+      "source": "spec 06; derived by script",
+      "inputs": {"drinks_before_tax_cents": 1001},
+      "expected": {"kind": "percent", "choices_cents": [180, 200, 220]},
+      "notes": "180.18 -> 180, 200.2 -> 200, 220.22 -> 220."
+    },
+    {
+      "id": "split_even_3266_in_2",
+      "group": "splits",
+      "title": "Even split of $32.66 in two (Jess P.'s tab)",
+      "function": "split_even",
+      "spec": ["docs/spec/05-money-rules.md rules 1, 13", "docs/spec/10-staff-screens-bar-pos.md · Paying at the bar"],
+      "source": "spec rule 1 and rule 13 example",
+      "inputs": {"amount_cents": 3266, "shares": 2},
+      "expected": {"shares_cents": [1633, 1633]},
+      "notes": "$16.33 + $16.33. The tab list then shows \"Partly paid · $16.33 of $32.66\". The Rail canvas floors the share and gives the leftover cents to the LAST share; the spec (and this vector) gives them to the FIRST shares. Build to the spec."
+    },
+    {
+      "id": "split_even_3267_in_2_odd",
+      "group": "splits",
+      "title": "Even split of an odd amount, $32.67 in two",
+      "function": "split_even",
+      "spec": ["docs/spec/05-money-rules.md rules 1, 13"],
+      "source": "spec rule 1 example",
+      "inputs": {"amount_cents": 3267, "shares": 2},
+      "expected": {"shares_cents": [1634, 1633]},
+      "notes": "The first share gets the extra cent: $16.34 + $16.33."
+    },
+    {
+      "id": "split_even_6315_in_2",
+      "group": "splits",
+      "title": "Even split of Luis M.'s tab, $63.15 in two",
+      "function": "split_even",
+      "spec": ["docs/spec/05-money-rules.md rules 1, 13"],
+      "source": "derived by script",
+      "inputs": {"amount_cents": 6315, "shares": 2},
+      "expected": {"shares_cents": [3158, 3157]},
+      "notes": "$31.58 + $31.57."
+    },
+    {
+      "id": "split_even_6315_in_4",
+      "group": "splits",
+      "title": "Even split of $63.15 in four",
+      "function": "split_even",
+      "spec": ["docs/spec/05-money-rules.md rules 1, 13"],
+      "source": "derived by script",
+      "inputs": {"amount_cents": 6315, "shares": 4},
+      "expected": {"shares_cents": [1579, 1579, 1579, 1578]},
+      "notes": "6315 = 4 x 1578 + 3, so the first three shares get the extra cent."
+    },
+    {
+      "id": "split_even_1000_in_3_tie",
+      "group": "splits",
+      "title": "Even split of $10.00 in three: a tie goes to the first parts",
+      "function": "split_even",
+      "spec": ["docs/spec/05-money-rules.md rule 1 (on a tie to the first parts)"],
+      "source": "spec rule 1",
+      "inputs": {"amount_cents": 1000, "shares": 3},
+      "expected": {"shares_cents": [334, 333, 333]},
+      "notes": "All remainders are equal, so the first share gets the extra cent."
+    },
+    {
+      "id": "split_even_room9_in_3",
+      "group": "splits",
+      "title": "Room 9's $498.60 split three ways evenly",
+      "function": "split_even",
+      "spec": ["docs/spec/05-money-rules.md · Room 9, worked through"],
+      "source": "spec worked example",
+      "inputs": {"amount_cents": 49860, "shares": 3},
+      "expected": {"shares_cents": [16620, 16620, 16620]},
+      "notes": "$166.20 each."
+    },
+    {
+      "id": "pay_my_share_1_of_12_of_49860",
+      "group": "pay_my_share",
+      "title": "Pay my share: Kevin pays share 1 of 12 of Room 9's $498.60",
+      "function": "pay_my_share_even",
+      "spec": ["docs/spec/05-money-rules.md rule 13 (Pay my share)", "docs/archive/fix-brief-sep28.md 4.5 step 2"],
+      "source": "spec worked example + fix brief 4.5",
+      "inputs": {"amount_left_cents": 49860, "tax_cents": 4260, "gratuity_cents": 9600, "guests": 12, "guest_name": "Kevin", "share_no": 1},
+      "expected": {
+        "shares_cents": [4155, 4155, 4155, 4155, 4155, 4155, 4155, 4155, 4155, 4155, 4155, 4155],
+        "this_guest_pays_cents": 4155,
+        "this_guest_share_of_tax_cents": 355,
+        "this_guest_share_of_gratuity_cents": 800,
+        "log_line": "Paid by a guest · Kevin (share 1 of 12) $41.55"
+      },
+      "notes": "Even share (1 of N) divides the amount left to pay: 49860 / 12 = 4155 exactly. The guest also sees their share of tax (355) and gratuity (800). The booker's Amex still guarantees the rest."
+    },
+    {
+      "id": "pay_my_share_1_of_12_of_53211",
+      "group": "pay_my_share",
+      "title": "Pay my share when o1 was accepted first: share 1 of 12 of $532.11",
+      "function": "pay_my_share_even",
+      "spec": ["docs/spec/05-money-rules.md rules 1, 13"],
+      "source": "derived by script",
+      "inputs": {"amount_left_cents": 53211, "tax_cents": 4491, "gratuity_cents": 10120, "guests": 12, "guest_name": "Kevin", "share_no": 1},
+      "expected": {
+        "shares_cents": [4435, 4435, 4435, 4434, 4434, 4434, 4434, 4434, 4434, 4434, 4434, 4434],
+        "this_guest_pays_cents": 4435,
+        "this_guest_share_of_tax_cents": 375,
+        "this_guest_share_of_gratuity_cents": 844,
+        "log_line": "Paid by a guest · Kevin (share 1 of 12) $44.35"
+      },
+      "notes": "53211 = 12 x 4434 + 3, so the first three shares are 4435 and the other nine 4434."
+    },
+    {
+      "id": "card_fee_room9_amex_credit",
+      "group": "card_fee",
+      "title": "If a 2.7% credit surcharge were on: Room 9's Amex pays $498.60 + $13.46",
+      "function": "card_fee",
+      "spec": ["docs/spec/05-money-rules.md rule 10", "docs/spec/05-money-rules.md · Room 9, worked through"],
+      "source": "spec worked example",
+      "inputs": {"amount_cents": 49860, "rate_pct": "2.7", "tax_rate_pct": "8.875", "funding": "credit"},
+      "expected": {"surcharge_cents": 1346, "tax_on_surcharge_if_taxable_cents": 119, "card_pays_cents": 51206, "card_pays_with_tax_on_fee_cents": 51325},
+      "notes": "The card fee is OFF at West 4 today. Tax on the surcharge ($1.19) applies only if the accountant confirms it is taxable (docs/spec/14-open-questions.md). The fee is worked on the amount going onto the card, before any tip."
+    },
+    {
+      "id": "card_fee_debit_or_cash_unchanged",
+      "group": "card_fee",
+      "title": "Debit or cash pays $498.60 either way",
+      "function": "card_fee",
+      "spec": ["docs/spec/05-money-rules.md rule 10"],
+      "source": "spec worked example",
+      "inputs": {"amount_cents": 49860, "rate_pct": "2.7", "tax_rate_pct": "8.875", "funding": "debit"},
+      "expected": {"surcharge_cents": 0, "tax_on_surcharge_if_taxable_cents": 0, "card_pays_cents": 49860, "card_pays_with_tax_on_fee_cents": 49860}
+    },
+    {
+      "id": "z_gratuity_room_checks_only",
+      "group": "z_report",
+      "title": "Z report gratuity comes from room checks only: the 8 occupied rooms plus the 5 bar tabs, as if all were closed at 10:41 PM",
+      "function": "z_report_gratuity",
+      "spec": ["docs/spec/05-money-rules.md rules 9 and 16", "docs/archive/fix-brief-sep28.md 4.18"],
+      "source": "spec rules 9 and 16; numbers derived by script from fix brief 3a and 3f",
+      "inputs": {
+        "room_checks": [
+          {"id": "chk_room1", "room_time_cents": 4733, "drinks_cents": 7600},
+          {"id": "chk_room3", "room_time_cents": 9667, "drinks_cents": 7900},
+          {"id": "chk_room5", "room_time_cents": 4000, "drinks_cents": 0},
+          {"id": "chk_room7", "room_time_cents": 15283, "drinks_cents": 5800},
+          {"id": "chk_room9", "room_time_cents": 32200, "drinks_cents": 15800},
+          {"id": "chk_room10", "room_time_cents": 33150, "drinks_cents": 11000},
+          {"id": "chk_room12", "room_time_cents": 23567, "drinks_cents": 7000},
+          {"id": "chk_vip", "room_time_cents": 29583, "drinks_cents": 48000}
+        ],
+        "bar_tabs": [
+          {"id": "chk_t1", "drinks_cents": 3000},
+          {"id": "chk_t2", "drinks_cents": 5800},
+          {"id": "chk_t3", "drinks_cents": 1200},
+          {"id": "chk_t4", "drinks_cents": 4000},
+          {"id": "chk_t5", "drinks_cents": 7900}
+        ],
+        "training_checks": []
+      },
+      "expected": {
+        "room_check_gratuity_lines_cents": {"chk_room1": 2467, "chk_room3": 3513, "chk_room5": 800, "chk_room7": 4217, "chk_room9": 9600, "chk_room10": 8830, "chk_room12": 6113, "chk_vip": 15517},
+        "z_gratuity_cents": 51057,
+        "bar_tab_gratuity_cents": 0,
+        "drinks_room_checks_cents": 103100,
+        "drinks_bar_tabs_cents": 21900,
+        "aggregate_20pct_of_room_check_base_cents": 51057,
+        "wrong_20pct_of_all_sales_cents": 55437,
+        "excluded_training_checks": []
+      },
+      "notes": "Bar tabs never carry a gratuity, so they add nothing. The Z figure is the SUM of the gratuity lines on the checks that carry one, never a percent of all sales. The wrong figure (20% of every sale) is listed so a test can prove it isn't used.",
+      "must_not_equal": {"z_gratuity_cents": 55437}
+    },
+    {
+      "id": "z_gratuity_sum_of_lines_vs_aggregate",
+      "group": "z_report",
+      "title": "Z gratuity is the sum of each check's rounded gratuity line, which can differ by a cent from 20% of the total (Rooms 3 and 12)",
+      "function": "z_report_gratuity",
+      "spec": ["docs/spec/05-money-rules.md rule 9 (the Z report's gratuity is the sum of the gratuity lines)", "docs/archive/fix-brief-sep28.md 4.18"],
+      "source": "derived by script",
+      "inputs": {
+        "room_checks": [
+          {"id": "chk_room3", "room_time_cents": 9667, "drinks_cents": 7900},
+          {"id": "chk_room12", "room_time_cents": 23567, "drinks_cents": 7000}
+        ],
+        "bar_tabs": [],
+        "training_checks": []
+      },
+      "expected": {
+        "room_check_gratuity_lines_cents": {"chk_room3": 3513, "chk_room12": 6113},
+        "z_gratuity_cents": 9626,
+        "bar_tab_gratuity_cents": 0,
+        "drinks_room_checks_cents": 14900,
+        "drinks_bar_tabs_cents": 0,
+        "aggregate_20pct_of_room_check_base_cents": 9627,
+        "wrong_20pct_of_all_sales_cents": 9627,
+        "excluded_training_checks": []
+      },
+      "notes": "Room 3: 20% of 17567 = 3513.4 -> 3513. Room 12: 20% of 30567 = 6113.4 -> 6113. Sum 9626. 20% of the two subtotals together is 9626.8 -> 9627. Fix brief 4.18 words it as 20% of (room time + room drinks + packages - comps and refunds), which reads as the aggregate. The spec is more specific (sum of lines), so this vector uses the spec. Flagged in meta.ambiguities."
+    },
+    {
+      "id": "z_report_training_checks_left_out",
+      "group": "z_report",
+      "title": "A training check (T-0012) never reaches the Z report",
+      "function": "z_report_gratuity",
+      "spec": ["docs/spec/05-money-rules.md rule 16 (leaves out training checks)", "docs/spec/13-testing-operations.md (Training mode)"],
+      "source": "spec rule 16",
+      "inputs": {
+        "room_checks": [{"id": "chk_room9", "room_time_cents": 32200, "drinks_cents": 15800}],
+        "bar_tabs": [],
+        "training_checks": [{"id": "chk_T-0012", "room_time_cents": 4000, "drinks_cents": 1200}]
+      },
+      "expected": {
+        "room_check_gratuity_lines_cents": {"chk_room9": 9600},
+        "z_gratuity_cents": 9600,
+        "bar_tab_gratuity_cents": 0,
+        "drinks_room_checks_cents": 15800,
+        "drinks_bar_tabs_cents": 0,
+        "aggregate_20pct_of_room_check_base_cents": 9600,
+        "wrong_20pct_of_all_sales_cents": 9600,
+        "excluded_training_checks": ["chk_T-0012"]
+      },
+      "notes": "Practice checks use their own counter (T-0012), never reach live Stripe and stay out of Z reports, tax, tips and exports."
+    },
+    {
+      "id": "z_gratuity_comp_lowers_base",
+      "group": "z_report",
+      "title": "A comp on a room check lowers that check's gratuity: Room 9 with one Jäger Bomb comped",
+      "function": "z_report_gratuity",
+      "spec": ["docs/spec/05-money-rules.md rules 7, 9, 16"],
+      "source": "derived by script",
+      "inputs": {
+        "room_checks": [{"id": "chk_room9", "room_time_cents": 32200, "drinks_cents": 15800, "comps_cents": 1200}],
+        "bar_tabs": [],
+        "training_checks": []
+      },
+      "expected": {
+        "room_check_gratuity_lines_cents": {"chk_room9": 9360},
+        "z_gratuity_cents": 9360,
+        "bar_tab_gratuity_cents": 0,
+        "drinks_room_checks_cents": 15800,
+        "drinks_bar_tabs_cents": 0,
+        "aggregate_20pct_of_room_check_base_cents": 9360,
+        "wrong_20pct_of_all_sales_cents": 9360,
+        "excluded_training_checks": []
+      },
+      "notes": "Gratuity base is room time + items after comps: 46800 x 20% = 9360."
+    },
+    {
+      "id": "room_time_rounded_once_two_segments",
+      "group": "room_time",
+      "title": "Room time is rounded once over segments: party of 4 for 40 min, then 5 for 44 min",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3 (rounded once)"],
+      "source": "spec rule 3; numbers derived by script",
+      "inputs": {
+        "segments": [{"minutes": 40, "hourly_cents": 4000}, {"minutes": 44, "hourly_cents": 5000}],
+        "first_hour_minimum": true
+      },
+      "expected": {"room_time_cents": 6333},
+      "notes": "2666.67 + 3666.67 = 6333.33 -> 6333. Rounding each segment first would give 2667 + 3667 = 6334, which is wrong. (The session is over an hour, so the first-hour minimum doesn't apply.)",
+      "must_not_equal": {"room_time_cents": 6334}
+    },
+    {
+      "id": "first_hour_minimum_1_min",
+      "group": "room_time",
+      "title": "First-hour minimum: 4 guests, 1 min",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3"],
+      "source": "spec rule 3 (Room 5 is fix brief 3a)",
+      "inputs": {"segments": [{"minutes": 1, "hourly_cents": 4000}], "first_hour_minimum": true},
+      "expected": {"room_time_cents": 4000},
+      "notes": "One minute still bills the first hour."
+    },
+    {
+      "id": "first_hour_minimum_41_min",
+      "group": "room_time",
+      "title": "First-hour minimum: 4 guests, 41 min",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3"],
+      "source": "spec rule 3 (Room 5 is fix brief 3a)",
+      "inputs": {"segments": [{"minutes": 41, "hourly_cents": 4000}], "first_hour_minimum": true},
+      "expected": {"room_time_cents": 4000},
+      "notes": "Room 5 at 10:41 PM."
+    },
+    {
+      "id": "first_hour_minimum_59_min",
+      "group": "room_time",
+      "title": "First-hour minimum: 4 guests, 59 min",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3"],
+      "source": "spec rule 3 (Room 5 is fix brief 3a)",
+      "inputs": {"segments": [{"minutes": 59, "hourly_cents": 4000}], "first_hour_minimum": true},
+      "expected": {"room_time_cents": 4000}
+    },
+    {
+      "id": "first_hour_minimum_60_min",
+      "group": "room_time",
+      "title": "First-hour minimum: 4 guests, 60 min",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3"],
+      "source": "spec rule 3 (Room 5 is fix brief 3a)",
+      "inputs": {"segments": [{"minutes": 60, "hourly_cents": 4000}], "first_hour_minimum": true},
+      "expected": {"room_time_cents": 4000},
+      "notes": "Exactly one hour."
+    },
+    {
+      "id": "first_hour_minimum_61_min",
+      "group": "room_time",
+      "title": "First-hour minimum: 4 guests, 61 min",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3"],
+      "source": "spec rule 3 (Room 5 is fix brief 3a)",
+      "inputs": {"segments": [{"minutes": 61, "hourly_cents": 4000}], "first_hour_minimum": true},
+      "expected": {"room_time_cents": 4067},
+      "notes": "4000 x 61 / 60 = 4066.67 -> 4067."
+    },
+    {
+      "id": "first_hour_minimum_two_segments_under_an_hour",
+      "group": "room_time",
+      "title": "Under an hour across two segments: topped up at the FIRST segment's rate",
+      "function": "room_time",
+      "spec": ["docs/spec/05-money-rules.md rule 3 (topped up to one hour at its first segment's rate)"],
+      "source": "spec rule 3; derived by script",
+      "inputs": {
+        "segments": [{"minutes": 20, "hourly_cents": 4000}, {"minutes": 20, "hourly_cents": 5000}],
+        "first_hour_minimum": true
+      },
+      "expected": {"room_time_cents": 4333},
+      "notes": "40 minutes billed, then 20 more minutes at 4000 an hour: (4000 x 20 + 5000 x 20 + 4000 x 20) / 60 = 4333.33 -> 4333."
+    },
+    {
+      "id": "room_time_dst_fall_back",
+      "group": "room_time",
+      "title": "Fall-back night, Nov 1 2026: 11:00 PM EDT to 3:00 AM EST is 5 hours, not 4",
+      "function": "room_time_between",
+      "spec": ["docs/spec/05-money-rules.md rule 2 (durations come from elapsed time)", "docs/spec/13-testing-operations.md (both daylight-saving nights)"],
+      "source": "spec rule 2; derived by script",
+      "inputs": {"start": "2026-10-31T23:00:00-04:00", "end": "2026-11-01T03:00:00-05:00", "hourly_cents": 6000},
+      "expected": {"elapsed_minutes": 300, "room_time_cents": 30000},
+      "notes": "Party of 6 in Room 8 at $60.00 an hour. Subtracting clock times would give 4 hours and 24000."
+    },
+    {
+      "id": "room_time_dst_spring_forward",
+      "group": "room_time",
+      "title": "Spring-forward night, Mar 14 2027: 11:00 PM EST to 3:30 AM EDT is 3.5 hours, not 4.5",
+      "function": "room_time_between",
+      "spec": ["docs/spec/05-money-rules.md rule 2", "docs/spec/13-testing-operations.md"],
+      "source": "spec rule 2; derived by script",
+      "inputs": {"start": "2027-03-13T23:00:00-05:00", "end": "2027-03-14T03:30:00-04:00", "hourly_cents": 6000},
+      "expected": {"elapsed_minutes": 210, "room_time_cents": 21000},
+      "notes": "Subtracting clock times would give 4.5 hours and 27000."
+    },
+    {
+      "id": "hourly_rate_fri_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 22:44 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T22:44:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 4, "hourly_cents": 4000},
+      "notes": "Sam O.'s party of 3 bills as 4 on a Friday (fix brief 3b)."
+    },
+    {
+      "id": "hourly_rate_fri_party4",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 4 at 22:44 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T22:44:00-04:00", "party_size": 4, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 4, "hourly_cents": 4000}
+    },
+    {
+      "id": "hourly_rate_fri_party5",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 5 at 22:44 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T22:44:00-04:00", "party_size": 5, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 5, "hourly_cents": 5000}
+    },
+    {
+      "id": "hourly_rate_wed_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 20:00 on 2026-09-23",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-23T20:00:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-23", "min_guests": 3, "rate_kind": "per_person", "billable_guests": 3, "hourly_cents": 3000},
+      "notes": "A Wednesday party of 3 bills as 3."
+    },
+    {
+      "id": "hourly_rate_wed_party2",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 2 at 20:00 on 2026-09-23",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-23T20:00:00-04:00", "party_size": 2, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-23", "min_guests": 3, "rate_kind": "per_person", "billable_guests": 3, "hourly_cents": 3000},
+      "notes": "A party of 2 bills as 3 on a weeknight."
+    },
+    {
+      "id": "hourly_rate_sat_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 21:00 on 2026-09-26",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-26T21:00:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-26", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 4, "hourly_cents": 4000},
+      "notes": "Saturday minimum is 4."
+    },
+    {
+      "id": "hourly_rate_sun_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 21:00 on 2026-09-27",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-27T21:00:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-27", "min_guests": 3, "rate_kind": "per_person", "billable_guests": 3, "hourly_cents": 3000},
+      "notes": "Sunday night is a weeknight: minimum 3."
+    },
+    {
+      "id": "hourly_rate_sat_0030_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 00:30 on 2026-09-26",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-26T00:30:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 4, "hourly_cents": 4000},
+      "notes": "12:30 AM Saturday belongs to business date Friday, so the Friday minimum of 4 applies."
+    },
+    {
+      "id": "hourly_rate_fri_0030_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 00:30 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T00:30:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-24", "min_guests": 3, "rate_kind": "per_person", "billable_guests": 3, "hourly_cents": 3000},
+      "notes": "12:30 AM on the Friday calendar date belongs to Thursday's business date: minimum 3, not 4."
+    },
+    {
+      "id": "hourly_rate_sun_0030_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 00:30 on 2026-09-27",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-27T00:30:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-26", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 4, "hourly_cents": 4000},
+      "notes": "12:30 AM Sunday counts as Saturday."
+    },
+    {
+      "id": "hourly_rate_mon_0030_party3",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 3 at 00:30 on 2026-09-28",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-28T00:30:00-04:00", "party_size": 3, "is_vip_room": false},
+      "expected": {"business_date": "2026-09-27", "min_guests": 3, "rate_kind": "per_person", "billable_guests": 3, "hourly_cents": 3000},
+      "notes": "12:30 AM Monday counts as Sunday: minimum 3."
+    },
+    {
+      "id": "hourly_rate_vip_party19",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 19 in the VIP room at 21:30 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T21:30:00-04:00", "party_size": 19, "is_vip_room": true},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "per_person", "billable_guests": 19, "hourly_cents": 19000},
+      "notes": "19 guests in the VIP room are below the VIP threshold, so the normal rate applies."
+    },
+    {
+      "id": "hourly_rate_vip_party20",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 20 in the VIP room at 21:30 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T21:30:00-04:00", "party_size": 20, "is_vip_room": true},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "vip", "billable_guests": 20, "hourly_cents": 25000},
+      "notes": "20 guests reach the VIP threshold: flat $250.00 an hour (more than 20 x $10.00)."
+    },
+    {
+      "id": "hourly_rate_vip_party22",
+      "group": "billable_guests",
+      "title": "Hourly rate: party of 22 in the VIP room at 21:30 on 2026-09-25",
+      "function": "hourly_rate_at",
+      "spec": ["docs/spec/05-money-rules.md rules 2, 3", "docs/spec/03-settings-rule-packs-modules.md (minGuests, vip)"],
+      "source": "spec rule 3 and fix brief 3",
+      "inputs": {"local_time": "2026-09-25T21:30:00-04:00", "party_size": 22, "is_vip_room": true},
+      "expected": {"business_date": "2026-09-25", "min_guests": 4, "rate_kind": "vip", "billable_guests": 22, "hourly_cents": 25000},
+      "notes": "Bianca L.'s party of 22."
+    },
+    {
+      "id": "business_date_sat_0030",
+      "group": "business_date",
+      "title": "Business date of 2026-09-26T00:30:00-04:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-09-26T00:30:00-04:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-09-25", "minutes_from_midnight": 1470},
+      "notes": "12:30 AM early on a Saturday is Friday's business date at 24:30, minute 1,470."
+    },
+    {
+      "id": "business_date_sun_0030",
+      "group": "business_date",
+      "title": "Business date of 2026-09-27T00:30:00-04:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-09-27T00:30:00-04:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-09-26", "minutes_from_midnight": 1470},
+      "notes": "The spec's own example: 12:30 AM early on a Sunday counts as Saturday at minute 1,470."
+    },
+    {
+      "id": "business_date_sat_0559",
+      "group": "business_date",
+      "title": "Business date of 2026-09-26T05:59:00-04:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-09-26T05:59:00-04:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-09-25", "minutes_from_midnight": 1799},
+      "notes": "One minute before the 06:00 cutover is still Friday's business date."
+    },
+    {
+      "id": "business_date_sat_0600",
+      "group": "business_date",
+      "title": "Business date of 2026-09-26T06:00:00-04:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-09-26T06:00:00-04:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-09-26", "minutes_from_midnight": 360},
+      "notes": "At 06:00 the new business date starts."
+    },
+    {
+      "id": "business_date_fall_back_first_0130",
+      "group": "business_date",
+      "title": "Business date of 2026-11-01T01:30:00-04:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-11-01T01:30:00-04:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-10-31", "minutes_from_midnight": 1530},
+      "notes": "Fall-back night, first 1:30 AM (EDT): Saturday's business date."
+    },
+    {
+      "id": "business_date_fall_back_second_0130",
+      "group": "business_date",
+      "title": "Business date of 2026-11-01T01:30:00-05:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-11-01T01:30:00-05:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-10-31", "minutes_from_midnight": 1530},
+      "notes": "Fall-back night, second 1:30 AM (EST): same business date. Minute-of-day here is the wall-clock reading; see meta.ambiguities A7."
+    },
+    {
+      "id": "business_date_fall_back_0559",
+      "group": "business_date",
+      "title": "Business date of 2026-11-01T05:59:00-05:00",
+      "function": "business_date",
+      "spec": ["docs/spec/05-money-rules.md rule 2"],
+      "source": "spec rule 2 example; derived by script",
+      "inputs": {"local_time": "2026-11-01T05:59:00-05:00", "cutover": "06:00", "time_zone": "America/New_York"},
+      "expected": {"business_date": "2026-10-31", "minutes_from_midnight": 1799},
+      "notes": "Before the 06:00 cutover on the fall-back morning still belongs to Saturday."
+    },
+    {
+      "id": "deposit_party4_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 4 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 4, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 4, "deposit_cents": 4000, "rule": "first hour: billable guests x $10"},
+      "notes": "Dana K., Room 1."
+    },
+    {
+      "id": "deposit_party3_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 3 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 3, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 4, "deposit_cents": 4000, "rule": "first hour: billable guests x $10"},
+      "notes": "Sam O.: party 3 bills as 4 on a Friday, deposit $40.00 (fix brief 3b)."
+    },
+    {
+      "id": "deposit_party12_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 12 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 12, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 12, "deposit_cents": 12000, "rule": "first hour: billable guests x $10"},
+      "notes": "Marcus T., Room 9."
+    },
+    {
+      "id": "deposit_party14_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 14 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 14, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 14, "deposit_cents": 14000, "rule": "first hour: billable guests x $10"},
+      "notes": "Omar F., Room 12."
+    },
+    {
+      "id": "deposit_party3_2026-09-23",
+      "group": "deposits",
+      "title": "Deposit for a party of 3 on 2026-09-23",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 3, "business_date": "2026-09-23"},
+      "expected": {"billable_guests": 3, "deposit_cents": 3000, "rule": "first hour: billable guests x $10"},
+      "notes": "A weeknight party of 3."
+    },
+    {
+      "id": "deposit_party19_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 19 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 19, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 19, "deposit_cents": 19000, "rule": "first hour: billable guests x $10"},
+      "notes": "One under the big-party threshold."
+    },
+    {
+      "id": "deposit_party20_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 20 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 20, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 20, "deposit_cents": 25000, "rule": "big party: flat $250 from 20 guests"},
+      "notes": "Big-party rule: flat $250.00 from 20 guests, more than 20 x $10.00."
+    },
+    {
+      "id": "deposit_party22_2026-09-25",
+      "group": "deposits",
+      "title": "Deposit for a party of 22 on 2026-09-25",
+      "function": "deposit",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (DepositRule, bigParty)", "docs/spec/05-money-rules.md rule 11", "docs/archive/fix-brief-sep28.md 3, 3b"],
+      "source": "fix brief 3b and spec 03",
+      "inputs": {"party_size": 22, "business_date": "2026-09-25"},
+      "expected": {"billable_guests": 22, "deposit_cents": 25000, "rule": "big party: flat $250 from 20 guests"},
+      "notes": "Bianca L., VIP room."
+    },
+    {
+      "id": "deposit_marcus_refund_cap",
+      "group": "refunds",
+      "title": "Marcus T.'s refund is capped at what his payment captured: only the $120.00 deposit tonight",
+      "function": "refund_cap",
+      "spec": ["docs/spec/05-money-rules.md rule 14", "docs/archive/fix-brief-sep28.md 4.6"],
+      "source": "spec rule 14 and fix brief 4.6",
+      "inputs": {"captured_cents": 12000, "earlier_refunds_cents": 0, "requested_cents": 12000},
+      "expected": {"max_refundable_cents": 12000, "allowed": true},
+      "notes": "Refund from check: pick the check, the lines, then which payment each amount comes off, then a reason. Every refund needs approval from someone other than the requester (Andy asked, so it goes to Abhishek)."
+    },
+    {
+      "id": "refund_over_cap_refused",
+      "group": "refunds",
+      "title": "A refund of $120.01 on a $120.00 payment is refused",
+      "function": "refund_cap",
+      "spec": ["docs/spec/05-money-rules.md rule 14"],
+      "source": "spec rule 14",
+      "inputs": {"captured_cents": 12000, "earlier_refunds_cents": 0, "requested_cents": 12001},
+      "expected": {"max_refundable_cents": 12000, "allowed": false}
+    },
+    {
+      "id": "refund_second_partial_capped",
+      "group": "refunds",
+      "title": "After $50.00 was refunded, at most $70.00 more can come off the same payment",
+      "function": "refund_cap",
+      "spec": ["docs/spec/05-money-rules.md rule 14"],
+      "source": "spec rule 14; derived by script",
+      "inputs": {"captured_cents": 12000, "earlier_refunds_cents": 5000, "requested_cents": 7001},
+      "expected": {"max_refundable_cents": 7000, "allowed": false}
+    },
+    {
+      "id": "deposit_larger_than_check_forfeit",
+      "group": "deposits",
+      "title": "A party that shrank after the refund cut-off: 8 guests on a $120.00 deposit for 12",
+      "function": "deposit_vs_check",
+      "spec": ["docs/spec/05-money-rules.md rule 11 (If the check closes for less than the deposit, the rest becomes a forfeit line on a fee check)"],
+      "source": "spec rule 11; derived by script",
+      "inputs": {
+        "deposit_cents": 12000,
+        "check_total_cents": 10310,
+        "check_lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 8000, "note": "8 guests x $10.00, first-hour minimum"},
+          {"kind": "tax", "tax_category": null, "cents": 710, "note": "8.875% of 8000"},
+          {"kind": "gratuity", "tax_category": null, "cents": 1600, "note": "20% of 8000"}
+        ]
+      },
+      "expected": {"deposit_applied_cents": 10310, "left_to_pay_cents": 0, "forfeit_line_cents": 1690},
+      "notes": "8 x $10.00 = $80.00, tax $7.10, gratuity $16.00, total $103.10. The deposit already paid stays and is allocated up to the check, so nothing is owed and the other $16.90 becomes a forfeit line on a fee check. Whether the forfeit line is taxed is with the accountant (docs/spec/14-open-questions.md), so no tax is computed on it here."
+    },
+    {
+      "id": "reason_only_maya_comp_1300",
+      "group": "reason_only_limits",
+      "title": "Maya comps a $13.00 drink (she has used $12.00 of $75.00)",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 1200, "amount_cents": 1300, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": false, "over_each_limit": false, "over_shift_limit": false, "shift_total_after_cents": 2500, "left_this_shift_before_cents": 6300},
+      "notes": "Her shift total goes to $25.00; \"$50 left this shift\" afterwards."
+    },
+    {
+      "id": "reason_only_comp_exactly_2500",
+      "group": "reason_only_limits",
+      "title": "A comp of exactly $25.00 needs only a reason (the limit is inclusive)",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 1200, "amount_cents": 2500, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": false, "over_each_limit": false, "over_shift_limit": false, "shift_total_after_cents": 3700, "left_this_shift_before_cents": 6300},
+      "notes": "\"Up to the reason-only limit ($25 each ...)\" is inclusive."
+    },
+    {
+      "id": "reason_only_comp_2501_over_each",
+      "group": "reason_only_limits",
+      "title": "A comp of $25.01 is over the $25.00 each limit and waits for approval",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 0, "amount_cents": 2501, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": true, "over_each_limit": true, "over_shift_limit": false, "shift_total_after_cents": 2501, "left_this_shift_before_cents": 7500}
+    },
+    {
+      "id": "reason_only_shift_total_exactly_7500",
+      "group": "reason_only_limits",
+      "title": "A comp that brings the shift total to exactly $75.00 needs only a reason",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 5000, "amount_cents": 2500, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": false, "over_each_limit": false, "over_shift_limit": false, "shift_total_after_cents": 7500, "left_this_shift_before_cents": 2500},
+      "notes": "The shift limit is inclusive too."
+    },
+    {
+      "id": "reason_only_shift_total_7501_over",
+      "group": "reason_only_limits",
+      "title": "A comp that brings the shift total to $75.01 waits for approval",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 5001, "amount_cents": 2500, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": true, "over_each_limit": false, "over_shift_limit": true, "shift_total_after_cents": 7501, "left_this_shift_before_cents": 2499},
+      "notes": "Each comp is within $25.00, but the shift total is over $75.00."
+    },
+    {
+      "id": "reason_only_diego_void_large_bucket_7000",
+      "group": "reason_only_limits",
+      "title": "Diego's void of the $70.00 Large bucket on Tariq A.'s tab",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 0, "amount_cents": 7000, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": true, "over_each_limit": true, "over_shift_limit": false, "shift_total_after_cents": 7000, "left_this_shift_before_cents": 7500},
+      "notes": "Pending at 10:41 PM; goes to Andy."
+    },
+    {
+      "id": "reason_only_comp_15_min_room5",
+      "group": "reason_only_limits",
+      "title": "Comp 15 min of room time in Room 5 (4 guests): $10.00",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 0, "amount_cents": 1000, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": false, "over_each_limit": false, "over_shift_limit": false, "shift_total_after_cents": 1000, "left_this_shift_before_cents": 7500},
+      "notes": "4 x $10.00 x 15 / 60. A reason is enough (spec rule 7)."
+    },
+    {
+      "id": "reason_only_comp_15_min_room9",
+      "group": "reason_only_limits",
+      "title": "Comp 15 min of room time in Room 9 (12 guests): $30.00",
+      "function": "reason_only",
+      "spec": ["docs/spec/05-money-rules.md rule 7", "docs/spec/10-staff-screens-bar-pos.md (Changing a sent drink)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec rule 7 and fix brief 2",
+      "inputs": {"used_this_shift_cents": 0, "amount_cents": 3000, "each_limit_cents": 2500, "shift_limit_cents": 7500},
+      "expected": {"needs_approval": true, "over_each_limit": true, "over_shift_limit": false, "shift_total_after_cents": 3000, "left_this_shift_before_cents": 7500},
+      "notes": "12 x $10.00 x 15 / 60. Over $25.00, so it waits for approval (spec rule 7)."
+    },
+    {
+      "id": "approval_route_diego",
+      "group": "approvals",
+      "title": "Diego (front desk) asks: goes to Andy, the manager on duty",
+      "function": "approval_route",
+      "spec": ["docs/spec/02-tenancy-access.md", "docs/spec/04-data-model.md (approvals.routed_to)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "fix brief 2",
+      "inputs": {"requester": "diego", "manager_on_duty": "andy", "owner": "abhishek"},
+      "expected": {"routed_to": "andy"}
+    },
+    {
+      "id": "approval_route_maya",
+      "group": "approvals",
+      "title": "Maya (bartender) asks: goes to Andy",
+      "function": "approval_route",
+      "spec": ["docs/spec/02-tenancy-access.md", "docs/spec/04-data-model.md (approvals.routed_to)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "fix brief 2",
+      "inputs": {"requester": "maya", "manager_on_duty": "andy", "owner": "abhishek"},
+      "expected": {"routed_to": "andy"}
+    },
+    {
+      "id": "approval_route_andy",
+      "group": "approvals",
+      "title": "Andy (the manager on duty) asks: goes to Abhishek. Nobody approves their own request",
+      "function": "approval_route",
+      "spec": ["docs/spec/02-tenancy-access.md", "docs/spec/04-data-model.md (approvals.routed_to)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "fix brief 2",
+      "inputs": {"requester": "andy", "manager_on_duty": "andy", "owner": "abhishek"},
+      "expected": {"routed_to": "abhishek"}
+    },
+    {
+      "id": "tip_review_normal",
+      "group": "tips",
+      "title": "Ana R.'s slip: a $12.00 tip on a $62.50 tab",
+      "function": "tip_review",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (tipReview)", "docs/spec/07-payment-flows.md (Close)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec 03 and fix brief 2",
+      "inputs": {"tab_total_cents": 6250, "tip_cents": 1200, "entered_after_minutes": 5, "over_pct": 25, "over_cents": 5000, "late_hours": 2},
+      "expected": {"needs_approval": false, "reasons": []},
+      "notes": "19.2%."
+    },
+    {
+      "id": "tip_review_over_25pct",
+      "group": "tips",
+      "title": "A $20.00 tip on a $62.50 tab is over 25%",
+      "function": "tip_review",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (tipReview)", "docs/spec/07-payment-flows.md (Close)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec 03 and fix brief 2",
+      "inputs": {"tab_total_cents": 6250, "tip_cents": 2000, "entered_after_minutes": 5, "over_pct": 25, "over_cents": 5000, "late_hours": 2},
+      "expected": {"needs_approval": true, "reasons": ["over_pct"]},
+      "notes": "Goes to Andy; to Abhishek if Andy entered the slip (fix brief 2)."
+    },
+    {
+      "id": "tip_review_over_50_dollars",
+      "group": "tips",
+      "title": "A $50.01 tip on a $300.00 tab is over $50",
+      "function": "tip_review",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (tipReview)", "docs/spec/07-payment-flows.md (Close)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec 03 and fix brief 2",
+      "inputs": {"tab_total_cents": 30000, "tip_cents": 5001, "entered_after_minutes": 5, "over_pct": 25, "over_cents": 5000, "late_hours": 2},
+      "expected": {"needs_approval": true, "reasons": ["over_cents"]},
+      "notes": "16.7%, but over the $50 limit."
+    },
+    {
+      "id": "tip_review_entered_late",
+      "group": "tips",
+      "title": "A normal tip entered 2 h 1 min after signing",
+      "function": "tip_review",
+      "spec": ["docs/spec/03-settings-rule-packs-modules.md (tipReview)", "docs/spec/07-payment-flows.md (Close)", "docs/archive/fix-brief-sep28.md 2"],
+      "source": "spec 03 and fix brief 2",
+      "inputs": {"tab_total_cents": 6250, "tip_cents": 1200, "entered_after_minutes": 121, "over_pct": 25, "over_cents": 5000, "late_hours": 2},
+      "expected": {"needs_approval": true, "reasons": ["late"]},
+      "notes": "Spec 03: tipReview lateHours 2."
+    },
+    {
+      "id": "tip_pool_by_hours_largest_remainder",
+      "group": "tips",
+      "title": "A tip pool shared by hours adds up to the cent: Maya 560 min, Diego 330 min",
+      "function": "tip_pool",
+      "spec": ["docs/spec/05-money-rules.md rule 1 (tip shares)", "docs/spec/13-testing-operations.md (tip splits always add up to the cent)"],
+      "source": "spec rule 1; derived by script (minutes from the Night canvas demo, pool amount made up)",
+      "inputs": {"pool_cents": 100001, "minutes": {"maya": 560, "diego": 330}},
+      "expected": {"shares_cents": {"maya": 62922, "diego": 37079}},
+      "notes": "62921.98 and 37079.02: the floors add to 100000, so the last cent goes to the larger remainder (Maya). The default pool method at West 4 is still with the lawyer (docs/spec/14-open-questions.md)."
+    },
+    {
+      "id": "tip_pool_three_equal_shares",
+      "group": "tips",
+      "title": "Three equal shares of $100.00: the leftover cent goes to the first",
+      "function": "tip_pool",
+      "spec": ["docs/spec/05-money-rules.md rule 1 (on a tie to the first parts)"],
+      "source": "spec rule 1; derived by script",
+      "inputs": {"pool_cents": 10000, "minutes": {"a": 300, "b": 300, "c": 300}},
+      "expected": {"shares_cents": {"a": 3334, "b": 3333, "c": 3333}},
+      "notes": "Rounding each share would give 3333 x 3 = 9999 and lose a cent."
+    },
+    {
+      "id": "comp_reduces_tax_and_gratuity_base",
+      "group": "tax_and_gratuity",
+      "title": "Room 9 with one Jäger Bomb ($12.00) comped: tax and gratuity are worked on the net lines",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 7, 8, 9"],
+      "source": "spec rules 7 to 9; derived by script",
+      "inputs": {
+        "lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 32200, "note": "12 guests x $10 = $120.00 an hour = $2.00 a minute, 161 minutes"},
+          {"kind": "item", "tax_category": "drink", "cents": 15800, "note": "Large bucket 7000 + 2 x Chamisul Fresh 4000 + 4 x Jäger Bomb 4800"},
+          {"kind": "comp", "tax_category": "drink", "cents": -1200, "note": "COMP 1 x Jäger Bomb, made"}
+        ],
+        "deposit_cents": 12000,
+        "gratuity_applies": true
+      },
+      "expected": {
+        "subtotal_cents": 46800,
+        "tax_base_cents": 46800,
+        "tax_cents": 4154,
+        "tax_by_category_cents": {"room_time": 2858, "drink": 1296},
+        "gratuity_base_cents": 46800,
+        "gratuity_cents": 9360,
+        "total_cents": 60314,
+        "deposit_cents": 12000,
+        "left_to_pay_cents": 48314
+      },
+      "notes": "Net subtotal 46800. Tax 8.875% x 46800 = 4153.50, a half-cent tie that rounds up to 4154. Gratuity 20% x 46800 = 9360."
+    },
+    {
+      "id": "damage_fee_taxed_not_in_gratuity_base",
+      "group": "tax_and_gratuity",
+      "title": "Room 9 plus the $150.00 damage fee: taxed, but not in the gratuity base",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rules 8, 9"],
+      "source": "spec rules 8 and 9; derived by script",
+      "inputs": {
+        "lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 32200, "note": "12 guests x $10 = $120.00 an hour = $2.00 a minute, 161 minutes"},
+          {"kind": "item", "tax_category": "drink", "cents": 15800, "note": "Large bucket 7000 + 2 x Chamisul Fresh 4000 + 4 x Jäger Bomb 4800"},
+          {"kind": "damage", "tax_category": "damage", "cents": 15000, "note": "Damage fee, with photo and reason"}
+        ],
+        "deposit_cents": 12000,
+        "gratuity_applies": true
+      },
+      "expected": {
+        "subtotal_cents": 63000,
+        "tax_base_cents": 63000,
+        "tax_cents": 5591,
+        "tax_by_category_cents": {"room_time": 2858, "drink": 1402, "damage": 1331},
+        "gratuity_base_cents": 48000,
+        "gratuity_cents": 9600,
+        "total_cents": 78191,
+        "deposit_cents": 12000,
+        "left_to_pay_cents": 66191
+      },
+      "notes": "Tax base 63000 x 8.875% = 5591.25 -> 5591. Gratuity base stays 48000 -> 9600."
+    },
+    {
+      "id": "tax_once_per_rate_not_per_line",
+      "group": "tax_and_gratuity",
+      "title": "Tax is worked once per rate on the check, not on each line: three Jäger Bomb lines",
+      "function": "check_totals",
+      "spec": ["docs/spec/05-money-rules.md rule 8 (once per rate for each check revision)"],
+      "source": "spec rule 8; derived by script",
+      "inputs": {
+        "lines": [
+          {"kind": "item", "tax_category": "drink", "cents": 1200, "note": "Jäger Bomb"},
+          {"kind": "item", "tax_category": "drink", "cents": 1200, "note": "Jäger Bomb"},
+          {"kind": "item", "tax_category": "drink", "cents": 1200, "note": "Jäger Bomb"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 3600,
+        "tax_base_cents": 3600,
+        "tax_cents": 320,
+        "tax_by_category_cents": {"drink": 320},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 3920,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 3920
+      },
+      "notes": "3600 x 8.875% = 319.50 -> 320. Rounding each line first (106.5 -> 107, three times) would give 321, which is wrong.",
+      "must_not_equal": {"tax_cents": 321}
+    }
+  ]
+}

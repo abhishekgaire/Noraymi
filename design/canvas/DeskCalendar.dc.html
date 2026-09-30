@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Calendar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.88}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.btn{cursor:pointer;font-family:inherit;transition:transform .12s ease}.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.rail a{transition:background .15s ease}.rail a:hover{background:rgba(244,241,234,.06)}
+.in{width:100%;box-sizing:border-box;background:#0b0a0d;border:1px solid rgba(244,241,234,.16);border-radius:10px;padding:10px 12px;color:#F4F1EA;font:inherit;font-size:14px;outline:0}
+.in:focus{border-color:#D4FF3F}
+.lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,61,166,.6)}50%{box-shadow:0 0 0 8px rgba(255,61,166,0)}}
+.pulse{animation:pulse 1.2s ease-out infinite}
+@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.panel{animation:pop .22s cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion:reduce){.pulse,.panel{animation:none!important}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1280px; height: 800px; box-sizing: border-box; display: flex; background: #0b0a0d; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif; overflow: hidden; position: relative">
+
+  <nav class="rail" style="width: 200px; flex: none; display: flex; flex-direction: column; gap: 4px; padding: 18px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px"><span class="disp" style="font-size: 26px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: #8E8994">Boho Karaoke · desktop</span></div>
+    <a href="Board.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Tonight</a>
+    <a href="DeskCalendar.dc.html" aria-current="page" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 700; color: #0b0a0d; background: var(--acc, #D4FF3F)">Calendar</a>
+    <a href="DeskMessages.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Messages <span class="mono" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--acc, #D4FF3F); color: #0b0a0d">2</span></a>
+    <a href="Rail.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #F4F1EA; text-decoration: none">Bar POS</a>
+    <a href="Bar.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Bar orders <span class="mono pulse" style="font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #FF3DA6; color: #0b0a0d">1</span></a>
+    <a href="Night.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Close the night</a>
+    <a href="DeskReports.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Reports</a>
+    <a href="AdminDesk.dc.html" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 10px; font-size: 14px; text-decoration: none; font-weight: 600; color: #F4F1EA">Admin</a>
+    <div style="margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 0">
+      <div style="padding: 10px 12px; border-radius: 10px; background: #141218; border: 1px solid rgba(244,241,234,.1); font-size: 12px; line-height: 1.5"><span class="mono" style="font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: #8E8994">Drawer</span><br><b>Andy</b> since 6:00 PM<br><span style="color: #8E8994">Opened at $300.00</span></div>
+      <a href="Pin.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-size: 12px; color: #8E8994; text-decoration: none; border: 1px solid rgba(244,241,234,.1)">Lock · PIN</a>
+    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid rgba(244,241,234,.08); white-space: nowrap">
+      <div style="display: flex; flex-direction: column; gap: 3px"><span class="disp" style="font-size: 26px">{{monthLabel}}</span><span class="mono" style="font-size: 10px; letter-spacing: .12em; color: #8E8994">Bookings ahead · 14 rooms</span></div>
+      <div style="display: flex; gap: 6px; margin-left: 12px">
+        <button type="button" class="btn" onClick="{{prev}}" aria-label="Previous month" style="appearance: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; font-size: 16px">‹</button>
+        <button type="button" class="btn" onClick="{{goToday}}" style="appearance: none; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; font-size: 13px; font-weight: 700">Tonight</button>
+        <button type="button" class="btn" onClick="{{next}}" aria-label="Next month" style="appearance: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(244,241,234,.16); background: transparent; color: #F4F1EA; font-size: 16px">›</button>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #8E8994; align-items: center">
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 9px; height: 9px; border-radius: 3px; background: var(--acc, #D4FF3F)"></span>Busy night</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 9px; height: 9px; border-radius: 3px; background: #FFB13D"></span>Big party</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 9px; height: 9px; border-radius: 3px; background: #FF3DA6"></span>Closed or blocked</span>
+        <button type="button" class="btn" onClick="{{openParty}}" style="appearance: none; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 13px; background: var(--acc, #D4FF3F); color: #0b0a0d; margin-left: 6px">+ Big party</button>
+      </div>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <section style="flex: 1; min-width: 0; padding: 14px 20px; display: flex; flex-direction: column; gap: 6px">
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+          <sc-for list="{{dows}}" as="d" hint-placeholder-count="7"><div class="mono" style="font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #8E8994; padding: 2px 4px">{{d.l}}</div></sc-for>
+        </div>
+        <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 6px">
+          <sc-for list="{{cells}}" as="c" hint-placeholder-count="35">
+            <button type="button" class="btn" onClick="{{c.pick}}" aria-label="{{c.aria}}" style="appearance: none; text-align: left; border-radius: 12px; padding: 8px 9px; display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow: hidden; {{c.style}}">
+              <span style="display: flex; justify-content: space-between; align-items: center; width: 100%"><span style="font-size: 15px; font-weight: 700">{{c.n}}</span><span class="mono" style="font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--acc, #D4FF3F)">{{c.today}}</span></span>
+              <span style="height: 4px; width: 100%; border-radius: 2px; background: rgba(244,241,234,.08); overflow: hidden"><span style="display: block; height: 100%; border-radius: 2px; {{c.barStyle}}"></span></span>
+              <span class="mono" style="font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; {{c.subStyle}}">{{c.sub}}</span>
+              <span style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; color: #FFB13D">{{c.party}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="font-size: 11px; color: #6F6B78; padding-top: 4px">A room is held the second a deposit clears, and the site only offers rooms that are free for the whole slot, so nothing gets double-booked. Blocked dates vanish from the site when you block them.</div>
+      </section>
+
+      <aside style="width: 400px; flex: none; border-left: 1px solid rgba(244,241,234,.08); background: #0e0d11; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px"><span class="disp" style="font-size: 30px">{{dayTitle}}</span><span class="mono" style="font-size: 10px; letter-spacing: .1em; color: #8E8994; white-space: nowrap">{{dayMeta}}</span></div>
+        <div style="font-size: 13px; color: #C9C5CE">{{hoursLine}}</div>
+        <sc-if value="{{dayClosed}}" hint-placeholder-val="{{false}}"><div style="padding: 12px 14px; border-radius: 12px; background: #FF3DA61a; border: 1px solid #FF3DA666; color: #FF3DA6; font-size: 13px; font-weight: 600; line-height: 1.5">{{closedLine}}</div></sc-if>
+        <sc-if value="{{blockWarn}}" hint-placeholder-val="{{false}}"><div style="padding: 10px 12px; border-radius: 10px; background: #FFB13D1a; border: 1px solid #FFB13D66; font-size: 12px; line-height: 1.5; color: #FFB13D">{{blockWarnLine}} <a href="DeskMessages.dc.html" style="color: #FFB13D; font-weight: 700">Text them →</a></div></sc-if>
+        <div style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column">
+          <sc-for list="{{dayList}}" as="b" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(244,241,234,.08); {{b.rowStyle}}">
+              <span class="disp" style="font-size: 20px; width: 56px; flex: none">{{b.time}}</span>
+              <div style="min-width: 0; flex: 1"><div style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.name}}</div><div style="font-size: 12px; color: #8E8994; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{b.meta}}</div></div>
+              <span class="mono" style="font-size: 9px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; white-space: nowrap; {{b.pill}}">{{b.tag}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{dayEmpty}}" hint-placeholder-val="{{false}}"><div style="font-size: 13px; color: #8E8994">Nothing booked yet. The site is taking reservations for this date.</div></sc-if>
+        <div style="margin-top: auto; flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 6px">
+          <sc-if value="{{isToday}}" hint-placeholder-val="{{false}}"><a href="Board.dc.html" style="display: flex; justify-content: center; padding: 11px; border-radius: 10px; font-weight: 700; font-size: 13px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Open tonight’s board →</a></sc-if>
+          <sc-if value="{{adminClosed}}" hint-placeholder-val="{{false}}"><a href="AdminDesk.dc.html" style="display: flex; justify-content: center; padding: 11px; border-radius: 10px; font-weight: 700; font-size: 13px; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Change it in Admin → Hours</a></sc-if>
+          <sc-if value="{{canBlock}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; gap: 8px">
+              <button type="button" class="btn" onClick="{{toggleBlock}}" style="flex: 1; appearance: none; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 13px; {{blockBtnStyle}}">{{blockBtnLabel}}</button>
+              <button type="button" class="btn" onClick="{{openParty}}" style="flex: 1; appearance: none; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">+ Big party this date</button>
+            </div>
+          </sc-if>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <sc-if value="{{partyOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; top: 0; width: 1280px; height: 800px; z-index: 50; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center">
+      <div class="panel" style="width: 520px; background: #141218; border: 1px solid rgba(244,241,234,.12); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span class="disp" style="font-size: 32px">Big party</span><span class="mono" style="font-size: 11px; color: #8E8994">{{dayTitle}}</span></div>
+        <div style="font-size: 13px; color: #8E8994">20 or more, or a buyout. The host gets a text with the deposit link and taps to agree.</div>
+        <label for="cal-host" style="font-size: 12px; color: #8E8994">Host name and phone</label>
+        <input id="cal-host" class="in" type="text" value="{{host}}" onInput="{{setHost}}" placeholder="Name · (xxx) xxx-xxxx">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+          <div><label for="cal-n" style="font-size: 12px; color: #8E8994">Guests</label><input id="cal-n" class="in" type="number" value="{{pn}}" onInput="{{setPn}}" style="margin-top: 4px"></div>
+          <div><label for="cal-t" style="font-size: 12px; color: #8E8994">Start</label><input id="cal-t" class="in" type="text" value="{{pt}}" onInput="{{setPt}}" style="margin-top: 4px"></div>
+          <div><label for="cal-h" style="font-size: 12px; color: #8E8994">Hours</label><input id="cal-h" class="in" type="number" value="{{ph}}" onInput="{{setPh}}" style="margin-top: 4px"></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: #1c1a21; font-size: 13px">
+          <div style="display: flex; justify-content: space-between"><span>Room</span><span class="mono">{{pRoom}}</span></div>
+          <div style="display: flex; justify-content: space-between"><span>Room time</span><span class="mono">{{pRoomCost}}</span></div>
+          <div style="display: flex; justify-content: space-between; font-weight: 700"><span>Deposit to hold it</span><span class="mono">{{pDeposit}}</span></div>
+        </div>
+        <div style="font-size: 12px; line-height: 1.5; color: #C9C5CE">{{pTerms}}</div>
+        <sc-if value="{{pBad}}" hint-placeholder-val="{{false}}"><div style="font-size: 12px; color: #FF3DA6">{{pBadLine}}</div></sc-if>
+        <div style="display: flex; gap: 8px">
+          <button type="button" class="btn" onClick="{{sendParty}}" style="flex: 1; appearance: none; border: 0; border-radius: 10px; padding: 13px; font-weight: 700; font-size: 14px; {{sendStyle}}">Text the host the deposit link</button>
+          <button type="button" class="btn" onClick="{{closeParty}}" style="appearance: none; border-radius: 10px; padding: 13px 16px; font-weight: 600; font-size: 13px; background: transparent; color: #F4F1EA; border: 1px solid rgba(244,241,234,.16)">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // Comes from Admin → Hours & prices. In the app every screen reads the same saved setting.
+  // Index 0 = Sunday. Any weekday can be marked closed: true.
+  static HOURS = [
+    { open: "2:00 PM", close: "4:00 AM", closed: false }, { open: "4:00 PM", close: "4:00 AM", closed: false }, { open: "4:00 PM", close: "4:00 AM", closed: false },
+    { open: "4:00 PM", close: "4:00 AM", closed: false }, { open: "4:00 PM", close: "4:00 AM", closed: false }, { open: "4:00 PM", close: "4:00 AM", closed: false },
+    { open: "2:00 PM", close: "4:00 AM", closed: false }
+  ];
+  // Comes from Admin → Hours & prices (special dates). In the app every screen reads the same saved setting.
+  static SPECIAL = { "2026-09-30": { closed: true, note: "Closed · private event" } };
+  // Comes from Admin → Hours & prices. In the app every screen reads the same saved setting.
+  static PRICES = { perPerson: 10, vip: 250, vipFrom: 20, minWeeknight: 3, minWeekend: 4 };
+  // Comes from Admin → Deposits & cancelling. In the app every screen reads the same saved setting.
+  static DEPOSIT = { mode: "hour", vip: 250, refundHours: 24 };
+  constructor() {
+    super(...arguments);
+    // Demo "tonight" is Fri Sep 25, 2026.
+    this.state = { y: 2026, m: 8, sel: 25, blocked: {}, party: false, host: "", pn: "24", pt: "9:00 PM", ph: "3", sent: {} };
+  }
+  renderVals() {
+    const acc = this.props.accent ?? "#D4FF3F";
+    const st = this.state;
+    const H = Component.HOURS, SP = Component.SPECIAL, PR = Component.PRICES, DEP = Component.DEPOSIT;
+    const first = new Date(st.y, st.m, 1);
+    const daysIn = new Date(st.y, st.m + 1, 0).getDate();
+    const two = (n) => (n < 10 ? "0" : "") + n;
+    const key = (d) => st.y + "-" + two(st.m + 1) + "-" + two(d);
+    const isToday = (d) => st.y === 2026 && st.m === 8 && d === 25;
+    const parties = st.y === 2026 && st.m === 8 ? { 10: "Office night · 30", 18: "Birthday · 24", 25: "Bianca L. birthday · 22" } : {};
+    // Tonight follows the board. Other dates are demo load: weekends busy. The live calendar reads real bookings.
+    const TONIGHT = [
+      ["7:00", "Priya R.", "Party of 5 · Room 3 · 2 hr", "Seated"], ["8:00", "Marcus T.", "Party of 12 · Room 9 · 3 hr · $120 deposit paid", "Seated"],
+      ["8:30", "Dana K.", "Party of 4 · Room 1 · 2 hr", "Seated"], ["9:00", "Leo M.", "Party of 4 · Room 5 · 2 hr", "Seated"],
+      ["9:00", "Omar F.", "Party of 14 · Room 12 · 3 hr", "Seated"], ["9:30", "Bianca L. — birthday", "Party of 22 · VIP room · 3 hr · $250 deposit paid", "Big party"],
+      ["10:30", "Sam O.", "Party of 3 · Room 2 · running 15 late", "Late"], ["11:00", "The Nguyens", "Party of 6 · Room 8 · 2 hr", "Booked"]
+    ];
+    const load = (d) => { if (isToday(d)) return TONIGHT.length; const dow = new Date(st.y, st.m, d).getDay(); const base = dow === 5 || dow === 6 ? 10 + (d % 4) : (dow === 4 ? 7 : 2 + (d % 4)); return Math.min(14, base); };
+    const dayState = (d) => {
+      const dow = new Date(st.y, st.m, d).getDay();
+      const sp = SP[key(d)];
+      if (sp && sp.closed) return { closed: true, admin: true, why: sp.note };
+      if (H[dow].closed) return { closed: true, admin: true, why: "Closed on " + ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"][dow] };
+      if (st.blocked[key(d)]) return { closed: true, admin: false, why: "Blocked by you" };
+      return { closed: false };
+    };
+    const cells = [];
+    for (let i = 0; i < first.getDay(); i++) cells.push({ n: "", today: "", sub: "", party: "", aria: "blank", style: "background: transparent; border: 0; visibility: hidden;", subStyle: "", barStyle: "", pick: () => {} });
+    for (let d = 1; d <= daysIn; d++) {
+      const ds = dayState(d), n = load(d), party = parties[d], selected = d === st.sel;
+      const extra = (st.sent[key(d)] || []).length;
+      let style = "background: #121016; border: 1px solid rgba(244,241,234,.08); color: #F4F1EA;";
+      if (ds.closed) style = "background: repeating-linear-gradient(135deg, rgba(255,61,166,.12) 0 6px, transparent 6px 12px); border: 1px solid #FF3DA666; color: #FF3DA6;";
+      else if (party || extra) style = "background: #FFB13D12; border: 1px solid #FFB13D55; color: #F4F1EA;";
+      else if (n >= 10) style = "background: " + acc + "12; border: 1px solid " + acc + "55; color: #F4F1EA;";
+      if (selected) style += " box-shadow: 0 0 0 2px " + acc + ";";
+      const pct = ds.closed ? 0 : Math.min(100, n / 14 * 100);
+      cells.push({ n: String(d), today: isToday(d) ? "Now" : "", aria: key(d),
+        sub: ds.closed ? (ds.admin ? "Closed" : "Blocked") : n + " booked",
+        party: ds.closed ? "" : (party ? "Party · " + party.split(" · ")[1] : (extra ? "Party · link sent" : "")),
+        subStyle: ds.closed ? "color: #FF3DA6;" : "color: #8E8994;",
+        barStyle: "width: " + pct + "%; background: " + (n >= 10 ? acc : acc + "88") + ";",
+        style, pick: () => this.setState({ sel: d }) });
+    }
+    const d = st.sel;
+    const dateObj = new Date(st.y, st.m, d);
+    const dow = dateObj.getDay();
+    const ds = dayState(d);
+    const n = load(d);
+    const names = ["Priya R.", "Dana K.", "Jae & co.", "Sam O.", "The Nguyens", "Leo M.", "Amara B.", "Chris P.", "Tanya W.", "Omar F.", "Ella S.", "Rob & Kim", "Yuki H."];
+    const bookedPill = "background: rgba(244,241,234,.06); color: #C9C5CE; border: 1px solid rgba(244,241,234,.14);";
+    const partyPill = "background: #FFB13D22; color: #FFB13D; border: 1px solid #FFB13D66;";
+    let list = [];
+    if (isToday(d)) list = TONIGHT.map(([time, name, meta, tag]) => ({ time, name, meta, tag, pill: tag === "Big party" ? partyPill : (tag === "Late" ? "background: #FF3DA622; color: #FF3DA6; border: 1px solid #FF3DA666;" : bookedPill) }));
+    else if (!(ds.closed && ds.admin)) {
+      for (let i = 0; i < n; i++) {
+        const hr = 19 + Math.floor(i / 2), half = i % 2 ? ":30" : ":00";
+        const big = parties[d] && i === 1;
+        list.push({ time: (hr > 12 ? hr - 12 : hr) + half, name: big ? parties[d].split(" · ")[0] : names[(i + d) % names.length],
+          meta: big ? "Party of " + parties[d].split(" · ")[1] + " · VIP room · deposit paid · 3 hr" : "Party of " + (3 + ((i * 7 + d) % 9)) + " · " + (1 + (i % 3)) + " hr · deposit paid",
+          tag: big ? "Big party" : "Booked", pill: big ? partyPill : bookedPill });
+      }
+    }
+    list = list.concat((st.sent[key(d)] || []).map((p) => ({ time: p.time.replace(/ ?[AP]M/i, ""), name: p.host || "Big party", meta: "Party of " + p.n + " · " + p.room + " · " + p.hours + " hr", tag: "Link sent", pill: partyPill })));
+    const dayList = list.map((b) => Object.assign({ rowStyle: ds.closed ? "opacity: .6;" : "" }, b));
+    const hrs = H[dow];
+    const weekend = dow === 5 || dow === 6;
+    // Big party
+    const pn = Number(st.pn) || 0, ph = Number(st.ph) || 0;
+    const vip = pn >= PR.vipFrom;
+    const roomCost = vip ? PR.vip * ph : pn * PR.perPerson * ph;
+    const deposit = vip ? DEP.vip : pn * PR.perPerson;
+    const pBad = pn < (weekend ? PR.minWeekend : PR.minWeeknight) || ph < 1 || ds.closed;
+    return {
+      accent: acc,
+      monthLabel: first.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      prev: () => this.setState(st.m === 0 ? { y: st.y - 1, m: 11, sel: 1 } : { m: st.m - 1, sel: 1 }),
+      next: () => this.setState(st.m === 11 ? { y: st.y + 1, m: 0, sel: 1 } : { m: st.m + 1, sel: 1 }),
+      goToday: () => this.setState({ y: 2026, m: 8, sel: 25 }),
+      dows: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((l) => ({ l })),
+      cells,
+      dayTitle: dateObj.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+      dayMeta: ds.closed ? (ds.admin ? "Closed" : "Blocked") : dayList.length + " booking" + (dayList.length === 1 ? "" : "s"),
+      hoursLine: ds.closed && ds.admin ? ds.why : "Open " + hrs.open + " – " + hrs.close + " · min " + (weekend ? PR.minWeekend : PR.minWeeknight) + " guests" + (weekend ? " Fri–Sat" : " weeknights"),
+      dayClosed: ds.closed, adminClosed: ds.closed && ds.admin, canBlock: !(ds.closed && ds.admin), isToday: isToday(d),
+      closedLine: ds.admin ? ds.why + ". Set in Admin, so the site already shows this date as closed." : "Blocked by you. The site shows this date as closed and takes no new bookings.",
+      blockWarn: ds.closed && !ds.admin && dayList.length > 0,
+      blockWarnLine: dayList.length + " booking" + (dayList.length === 1 ? " is" : "s are") + " already on this date. Blocking stops new ones; these stay until you move or cancel them.",
+      dayList, dayEmpty: dayList.length === 0 && !(ds.closed && ds.admin),
+      toggleBlock: () => { const b = Object.assign({}, st.blocked); if (b[key(d)]) delete b[key(d)]; else b[key(d)] = true; this.setState({ blocked: b }); },
+      blockBtnLabel: st.blocked[key(d)] ? "Unblock this date" : "Block this date",
+      blockBtnStyle: st.blocked[key(d)] ? "background: " + acc + "; color: #0b0a0d; border: 0;" : "background: transparent; color: #FF3DA6; border: 1px solid #FF3DA6;",
+      openParty: () => this.setState({ party: true }), closeParty: () => this.setState({ party: false }), partyOpen: st.party,
+      host: st.host, setHost: (e) => this.setState({ host: e.target.value }),
+      pn: st.pn, ph: st.ph, pt: st.pt, setPn: (e) => this.setState({ pn: e.target.value }), setPh: (e) => this.setState({ ph: e.target.value }), setPt: (e) => this.setState({ pt: e.target.value }),
+      pRoom: vip ? "VIP room · $" + PR.vip + "/hr" : "Private room · $" + PR.perPerson + " a head /hr",
+      pRoomCost: "$" + roomCost.toFixed(2), pDeposit: "$" + deposit.toFixed(2),
+      pTerms: "The text links a one-page agreement: deposit comes off the tab, full refund if they cancel at least " + DEP.refundHours + " hours ahead, host covers any damage ($150 fee), 21+ with ID. The room is held once they tap “I agree” and pay.",
+      pBad, pBadLine: ds.closed ? "This date is closed or blocked. Pick another date first." : "Needs at least " + (weekend ? PR.minWeekend : PR.minWeeknight) + " guests and 1 hour.",
+      sendStyle: pBad ? "background: #1c1a21; color: #8E8994;" : "background: " + acc + "; color: #0b0a0d;",
+      sendParty: () => { if (pBad) return; const s = Object.assign({}, st.sent); s[key(d)] = (s[key(d)] || []).concat([{ host: st.host.trim(), n: pn, hours: ph, time: st.pt, room: vip ? "VIP room" : "Private room" }]); this.setState({ party: false, sent: s, host: "" }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

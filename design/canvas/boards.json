@@ -1,0 +1,168 @@
+{
+ "boards": {
+  "Admin.dc.html": {
+   "title": "M \u00b7 Admin \u00b7 moved to the desktop app",
+   "w": 390,
+   "h": 760
+  },
+  "AdminDesk.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Admin",
+   "w": 1280,
+   "h": 800
+  },
+  "Bar.dc.html": {
+   "title": "D \u00b7 Bar orders screen \u00b7 room orders by age",
+   "w": 900,
+   "h": 640
+  },
+  "Board.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Tonight board",
+   "w": 1280,
+   "h": 800
+  },
+  "Book.dc.html": {
+   "title": "A \u00b7 Section \u00b7 Three taps",
+   "w": 390,
+   "h": 1300
+  },
+  "Calendar.dc.html": {
+   "title": "M \u00b7 Calendar \u00b7 bookings ahead",
+   "w": 390,
+   "h": 1180
+  },
+  "Main.dc.html": {
+   "title": "A \u00b7 Downstairs \u00b7 phone",
+   "w": 390,
+   "h": 6400
+  },
+  "Menu.dc.html": {
+   "title": "A \u00b7 Menu \u00b7 phone",
+   "w": 390,
+   "h": 4800
+  },
+  "Messages.dc.html": {
+   "title": "M \u00b7 Messages \u00b7 texts",
+   "w": 390,
+   "h": 1180
+  },
+  "Night.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Close the night",
+   "w": 1280,
+   "h": 800
+  },
+  "Order.dc.html": {
+   "title": "M \u00b7 Guest \u00b7 order from the room",
+   "w": 390,
+   "h": 1180
+  },
+  "Pin.dc.html": {
+   "title": "M \u00b7 Staff sign-in",
+   "w": 390,
+   "h": 760
+  },
+  "Reports.dc.html": {
+   "title": "M \u00b7 Reports",
+   "w": 390,
+   "h": 1180
+  },
+  "Room.dc.html": {
+   "title": "M \u00b7 Room tab and clock",
+   "w": 390,
+   "h": 1180
+  },
+  "Rooms.dc.html": {
+   "title": "A \u00b7 Section \u00b7 The rooms",
+   "w": 390,
+   "h": 1040
+  },
+  "Staff.dc.html": {
+   "title": "M \u00b7 Staff portal \u00b7 tonight",
+   "w": 390,
+   "h": 1320
+  },
+  "Manage.dc.html": {
+   "title": "A \u00b7 Change or cancel a booking",
+   "w": 390,
+   "h": 1100
+  },
+  "Waitlist.dc.html": {
+   "title": "A \u00b7 Walk-in waitlist \u00b7 door QR",
+   "w": 390,
+   "h": 1000
+  },
+  "Parties.dc.html": {
+   "title": "A \u00b7 Private parties",
+   "w": 390,
+   "h": 4400
+  },
+  "DeskRoom.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Room tab and clock",
+   "w": 1280,
+   "h": 800
+  },
+  "DeskCalendar.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Calendar",
+   "w": 1280,
+   "h": 800
+  },
+  "DeskMessages.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Messages",
+   "w": 1280,
+   "h": 800
+  },
+  "DeskReports.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Reports",
+   "w": 1280,
+   "h": 800
+  },
+  "Setup.dc.html": {
+   "title": "P \u00b7 New venue setup wizard",
+   "w": 1280,
+   "h": 800
+  },
+  "SiteBuilder.dc.html": {
+   "title": "P \u00b7 Website builder",
+   "w": 1280,
+   "h": 800
+  },
+  "Console.dc.html": {
+   "title": "P \u00b7 Our control panel \u00b7 venues, plans, modules",
+   "w": 1280,
+   "h": 800
+  },
+  "Rail.dc.html": {
+   "title": "D \u00b7 Desktop app \u00b7 Bar POS",
+   "w": 1280,
+   "h": 800
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Rooms.dc.html",
+  "Book.dc.html",
+  "Menu.dc.html",
+  "Pin.dc.html",
+  "Staff.dc.html",
+  "Room.dc.html",
+  "Order.dc.html",
+  "Calendar.dc.html",
+  "Messages.dc.html",
+  "Reports.dc.html",
+  "Admin.dc.html",
+  "Board.dc.html",
+  "AdminDesk.dc.html",
+  "Night.dc.html",
+  "Bar.dc.html",
+  "Rail.dc.html",
+  "Manage.dc.html",
+  "Waitlist.dc.html",
+  "Parties.dc.html",
+  "DeskRoom.dc.html",
+  "DeskCalendar.dc.html",
+  "DeskMessages.dc.html",
+  "DeskReports.dc.html",
+  "Setup.dc.html",
+  "SiteBuilder.dc.html",
+  "Console.dc.html"
+ ]
+}
