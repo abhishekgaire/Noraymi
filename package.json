@@ -12,6 +12,7 @@
     "build:packages": "tsc -b",
     "dev": "tsc -b && pnpm -r --parallel --stream run dev",
     "lint": "eslint . && prettier --check .",
+    "check": "bash scripts/check.sh",
     "format": "prettier --write .",
     "typecheck": "tsc -b && pnpm -r --parallel run typecheck",
     "test": "pnpm test:unit && pnpm test:integration",

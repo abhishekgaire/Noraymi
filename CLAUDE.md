@@ -51,6 +51,14 @@ If the spec is silent or contradicts itself, don't invent an answer. Ask the fou
 - **Legal points in the spec were verified by the owner's advisers.** Don't change them. An open question gets the cautious default as a setting until it's answered.
 - **Never invent venue facts** such as an occupancy limit, license numbers or a song price. Leave them empty with a hint in the UI.
 
+## Working without wasting tokens
+
+- `/ticket <ID>` (`.claude/skills/ticket`) is the working loop below, written to read only what a ticket names and to run the checks once.
+- `pnpm check` runs lint, typecheck, unit, integration and the migration linter and prints one line per suite; `pnpm check --e2e` adds the smoke tests; `pnpm check unit` runs one suite.
+- `scripts/spec-section.sh <file> '<heading>'` prints one section of a doc. Never `cat` a spec, the seed JSON or the canvas; the hooks in `.claude/settings.json` block that and warn on oversized output.
+- Format before you edit (`pnpm exec prettier --write <file>`), then match the exact on-disk text.
+- Record each ticket's approximate token cost in its Notes (the `Tokens:` line), and start a fresh session (`/clear`) every ticket or two.
+
 ## How to work a ticket
 
 1. Set the ticket's Status to `doing`.
@@ -104,6 +112,7 @@ pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
 pnpm seed               # load the demo seed (built in M1-17; the simulated clock is Fri Sep 25, 2026, 10:41 PM)
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
+pnpm check              # lint, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
 pnpm lint && pnpm typecheck && pnpm test
 pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
