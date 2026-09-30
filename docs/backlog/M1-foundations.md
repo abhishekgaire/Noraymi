@@ -205,7 +205,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-07 · Build the audit triggers, the per-venue hash chain and the daily write-once export
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-05, M1-06
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · The database walls (Audit rows); [Data model](../spec/04-data-model.md) · `audit_log`; [Security and data retention](../spec/12-security-retention.md) 4 and How long we keep things
@@ -216,13 +216,19 @@ Definition of done: see CLAUDE.md.
   - A daily job exports each venue's last hash of the business date to write-once storage (object lock in compliance mode). `verify_audit_chain(venue, from, to)` names the first broken row.
   - An event trigger raises an alert on any DDL or `TRUNCATE`. Heartbeats never reach the audit log.
 - **Acceptance:**
-  - [ ] Changing Diego's role writes one audit row with the old and new role, the actor and the request id.
-  - [ ] A column on the redaction list shows as changed, with no old or new value.
-  - [ ] Editing an audit row's `new_values` as the database owner makes `verify_audit_chain` report that row.
-  - [ ] After the 6:00 AM cutover, the business date's last hash is in the write-once bucket, and overwriting or deleting it fails.
-  - [ ] `truncate` on any table raises the alert, and `app_rw` can't update or delete `audit_log`.
+  - [x] Changing Diego's role writes one audit row with the old and new role, the actor and the request id.
+  - [x] A column on the redaction list shows as changed, with no old or new value.
+  - [x] Editing an audit row's `new_values` as the database owner makes `verify_audit_chain` report that row.
+  - [x] After the 6:00 AM cutover, the business date's last hash is in the write-once bucket, and overwriting or deleting it fails.
+  - [x] `truncate` on any table raises the alert, and `app_rw` can't update or delete `audit_log`.
 - **Tests:** trigger integration tests; a chain-break test; an export test against the local object-lock bucket.
-- **Notes:** The `approver` and `support_grant_id` columns fill in from M2 (approvals) and M8 (support grants). Audit rows are kept 6 years; the retention job is M8.
+- **Notes:** The `approver` and `support_grant_id` columns fill in from M2 (approvals) and M8 (support grants). Audit rows are kept 6 years; the retention job is M8. Built Sep 30, 2026:
+  - **Migration `0004_audit.sql`:** `audit_log` (spec 04's columns; `app_rw` may only select its venue's rows, and only `app_definer` may insert), `audit_redactions`, `security_alerts`, the trigger `audit_row()` (SECURITY DEFINER, owned by `app_definer`; one advisory transaction lock per venue keeps the chain in order), `verify_audit_chain(venue, from, to)` (returns the first broken row id or null), `audit_head_before(venue, instant)` for the export, `truncate_alert()` on every table, and the event trigger `ddl_alert` on `ddl_command_end`, which also attaches the truncate alert to every new table. The migration runner sets `app.migrating` inside each migration's transaction so its own DDL raises no alert.
+  - **The chain.** `hash = sha256(prev_hash || payload)`, where the payload is the venue, actor, action, target, changed fields, old and new values (jsonb, so canonical), request id and the row's `at` in UTC microseconds. `at` is the database's `clock_timestamp()`, never the simulated clock.
+  - **Which venue's chain.** The row's `venue_id`, or the venue's own id on `venues`, or the request's `app.venue_id`, else the platform chain `00000000-0000-0000-0000-000000000000` (seeds, Console actions on `users` and `organizations`). Audited from the start: `organizations`, `venues`, `users`, `memberships`. `jobs` and `clock_control` are not (churn; heartbeats and the like never reach the log). New tables opt in with `select audit_table('name')` in their migration.
+  - **Redactions, cautious default.** `users.email`, `users.phone_e164` and `memberships.pin_verifier` are on the list from day one, so staff contact details and the PIN hash never enter the log; the `guests` columns join it in M2. The spec only requires guest contact details to be withheld; widening it to staff contact details is reversible in one row.
+  - **The export** is the job `audit.export_heads`, scheduled at 06:05 (just after the cutover) in the bulk pool, one per venue: it puts `audit-heads/<venue>/<business date>.json` (id, hash, at, exported_at) into the audit bucket with Object Lock in compliance mode for 6 years, and `If-None-Match: *`, so an existing key is never replaced; a second export of the same date fails loudly and goes to the dead letters. A plain S3 delete on a locked key only adds a delete marker; the locked version stays and can't be deleted, which the test checks against the local RustFS bucket. CI's integration job now runs RustFS too.
+  - **Alerts** land in `security_alerts` and as a Postgres warning; wiring them to paging is M8. Creating event triggers needs a superuser locally and `rds_superuser` on RDS, which the migration owner has in both.
 
 ### M1-08 · Build the API conventions: the route registry, errors, idempotency and paging
 

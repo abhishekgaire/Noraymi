@@ -102,6 +102,8 @@ export async function migrate(options: MigrateOptions): Promise<MigrateResult> {
       log(`applying ${migration.name}`);
       await client.query("begin");
       try {
+        // Tells the DDL event trigger (0004) this DDL is a migration, not an alert.
+        await client.query("select set_config('app.migrating', 'on', true)");
         await client.query(migration.sql);
         await client.query("insert into schema_migrations (name, checksum) values ($1, $2)", [
           migration.name,

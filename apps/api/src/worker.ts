@@ -2,7 +2,8 @@ import pg from "pg";
 import { Scheduler, Worker } from "@west4/db";
 import { loadConfig } from "./config.js";
 import { makeClock } from "./clock.js";
-import { handlers, schedules } from "./jobs/registry.js";
+import { makeHandlers, schedules } from "./jobs/registry.js";
+import { makeS3 } from "./s3.js";
 
 // The job workers and the scheduler (M1-06). Three pools so a slow export
 // never delays a capture; one scheduler leads at a time.
@@ -10,6 +11,7 @@ const config = loadConfig();
 const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 8 });
 const clock = makeClock(config, pool);
 const log = (line: string) => process.stdout.write(`${line}\n`);
+const handlers = makeHandlers(makeS3());
 
 const workers = (["critical", "normal", "bulk"] as const).map(
   (name) => new Worker(pool, { pool: name, handlers: handlers[name], clock, log }),

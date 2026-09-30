@@ -106,7 +106,7 @@ pnpm seed               # load the demo seed (built in M1-17; the simulated cloc
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 pnpm lint && pnpm typecheck && pnpm test
 pnpm test:unit          # Vitest, no database needed
-pnpm test:integration   # Vitest against Postgres (docker compose up -d first)
+pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
 pnpm e2e                # Playwright smoke tests; starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm format             # Prettier --write
 ```

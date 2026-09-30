@@ -59,11 +59,33 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U west4 -d west4"
           --health-interval 2s --health-timeout 3s --health-retries 30
+      s3:
+        image: rustfs/rustfs:1.0.1-preview.11
+        env:
+          RUSTFS_ACCESS_KEY: west4
+          RUSTFS_SECRET_KEY: west4secret
+        ports: ["9000:9000"]
     env:
       DATABASE_URL: postgres://west4:west4@localhost:5432/west4
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: west4
+      S3_SECRET_ACCESS_KEY: west4secret
+      S3_BUCKET_FILES: west4-files
+      S3_BUCKET_AUDIT: west4-audit
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+      - name: Create the local buckets (the audit bucket with Object Lock)
+        env:
+          AWS_ACCESS_KEY_ID: west4
+          AWS_SECRET_ACCESS_KEY: west4secret
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ENDPOINT_URL: http://localhost:9000
+        run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/health && break; sleep 2; done
+          aws s3api create-bucket --bucket west4-files
+          aws s3api create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
       - run: pnpm db:migrate
       - name: A second run applies nothing
         run: pnpm db:migrate | tee /dev/stderr | grep -q "nothing to apply"
