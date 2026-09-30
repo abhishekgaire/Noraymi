@@ -316,7 +316,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-11 · Build versioned venue settings with the rule-pack checks on every save
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M1-09, M1-10
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Settings, When a change starts, One place for each fact, the key table and every type; [API](../spec/08-api.md) · Settings and modules
@@ -327,13 +327,19 @@ Definition of done: see CLAUDE.md.
   - Rule-pack checks, refused with the reason: the house last call (`hours.lastCall`) is never later than the pack's `alcohol.lastSale`; a card surcharge is credit only, at most the in-person card cost (2.7%) and the networks' 3%, and starts only 30 days after `noticeSentOn`; a cash discount only where the pack allows one; the gratuity label stays "Gratuity"; `languages.staff` holds only English and Spanish; `safety.occupancyLimit` is empty or a whole number and is never defaulted.
   - Start dates: a change to `drawer`, to the tip-pool method (`pay.pool`) or to `pos.layouts` starts at the next business date ("Starts Sat Sep 26"); every other key is live at once. A read for a business date returns the version in force then.
 - **Acceptance:**
-  - [ ] `PUT /settings/hours` with `lastCall: "04:30"` is refused with a reason that names the house last call and the pack's 4:00 AM, and nothing is saved.
-  - [ ] `lastCall: "03:00"` saves the next version and sends `settings.changed`; the old version stays readable.
-  - [ ] A 3.5% card surcharge is refused (over 2.7%), and a 2.7% one with `noticeSentOn` today is refused until 30 days later.
-  - [ ] A `drawer` change saved at 10:41 PM on Fri Sep 25 reads "Starts Sat Sep 26", and business date Sep 25 still gets the old version.
-  - [ ] Saving two keys together writes both or neither.
+  - [x] `PUT /settings/hours` with `lastCall: "04:30"` is refused with a reason that names the house last call and the pack's 4:00 AM, and nothing is saved.
+  - [x] `lastCall: "03:00"` saves the next version and sends `settings.changed`; the old version stays readable.
+  - [x] A 3.5% card surcharge is refused (over 2.7%), and a 2.7% one with `noticeSentOn` today is refused until 30 days later.
+  - [x] A `drawer` change saved at 10:41 PM on Fri Sep 25 reads "Starts Sat Sep 26", and business date Sep 25 still gets the old version.
+  - [x] Saving two keys together writes both or neither.
 - **Tests:** a unit test for each check; integration tests for versions, start dates and the one-transaction save.
-- **Notes:** Special and closed dates are `closures` rows (M1-12), texts live in `message_templates` (M2) and modules in `venue_modules` (M1-13), never in settings. The API table lists only `PUT /settings/{key}`; Save and publish needs one transaction, so this adds `PUT /settings` taking several keys (not in the table, flagged).
+- **Notes:** Special and closed dates are `closures` rows (M1-12), texts live in `message_templates` (M2) and modules in `venue_modules` (M1-13), never in settings. The API table lists only `PUT /settings/{key}`; Save and publish needs one transaction, so this adds `PUT /settings` taking several keys (not in the table, flagged). Built Sep 30, 2026:
+  - **Schemas and types** in `packages/shared/src/settings.ts`: the sixteen keys as zod schemas with spec 03's shapes, `strict()` so an unknown field is refused (which is also how a stray gratuity `label` is kept out), and the TypeScript types derived from them. `parseSetting(key, value)` returns the value or the reasons, each naming the key and path. `startsNextBusinessDate(key, previous, next)` is true for a drawer change, a tip-pool method change and a bar POS layout change.
+  - **Rule-pack checks** in `packages/rules/src/settings-checks.ts`, one per rule, each returning the reasons in the words Admin shows: the house last call against the pack's last sale (compared as minutes on the business date, so 11 PM is earlier than 4 AM); a surcharge at most the in-person card cost (`IN_PERSON_CARD_COST_PCT = 2.7`, Stripe's in-person rate) and the networks' 3%, and only from `noticeSentOn` + 30 days; a cash discount only where the pack allows one; staff languages English and Spanish only, each once; the occupancy limit empty or a positive whole number, never defaulted.
+  - **Migration `0008_venue_settings.sql`:** spec 04's columns plus `starts_on` (the business date a version takes effect), primary key `(venue_id, key, version)`, `app_rw` select and insert only, audited. `audit_table()` is redefined to add only the triggers a table is missing, since 0004's DDL event trigger already attaches the truncate alert to every new table.
+  - **`saveSettings()`** (`packages/db/src/settings.ts`) validates every key, runs the checks, then writes each new version and one `settings.changed` event (entity id: the keys saved, joined) inside the request's transaction, so a refusal anywhere saves nothing. `starts_on` is decided against the version in force today, so a `pay` save that changes the pool method waits as a whole until tomorrow, including any other field in it; `readSetting(venue, key, businessDate)` returns the newest version that has started by that date, and `settingHistory()` the change log.
+  - **Routes** (`apps/api/src/routes/settings.ts`, `owner_manager`, actions `settings.read` and `settings.write`): `GET /settings/{key}` with `?business_date=` and `?history=1`, `PUT /settings/{key}` with `{ value }`, and `PUT /settings` with `{ values }`. A refusal is `400 invalid_request` with the reasons joined in `message` and listed in `details.reasons`. A key that was never set answers `404 not_found` rather than a default, since venue facts are never invented.
+  - **Not here:** the venue's `rule_pack_id` falls back to `us-ny-new-york-county` until setup writes it (M1-17 seeds it).
 
 ### M1-12 · Build closures and each business date's opening hours
 

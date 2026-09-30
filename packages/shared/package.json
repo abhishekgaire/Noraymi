@@ -14,7 +14,8 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "temporal-polyfill": "1.0.5"
+    "temporal-polyfill": "1.0.5",
+    "zod": "4.6.5"
   },
   "files": [
     "dist"

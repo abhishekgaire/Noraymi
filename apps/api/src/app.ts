@@ -6,6 +6,7 @@ import { dbPlugin } from "./db.js";
 import type { Config } from "./config.js";
 import { conventionsPlugin, route, type Authenticator } from "./http/conventions.js";
 import { eventsPlugin } from "./http/events.js";
+import { settingsRoutes } from "./routes/settings.js";
 
 export interface AppOptions {
   readonly logger?: boolean;
@@ -92,6 +93,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       );
     }
 
+    if (config) settingsRoutes(scope, { clock });
     await options.extraRoutes?.(scope);
   });
 

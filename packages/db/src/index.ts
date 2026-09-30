@@ -37,3 +37,5 @@ export {
   publishRulePack,
 } from "./rule-packs.js";
 export type { RulePackRow, ResolvedRulePack } from "./rule-packs.js";
+export { readSetting, settingHistory, saveSettings, SettingsRefused } from "./settings.js";
+export type { SettingVersion, SaveSettingsArgs } from "./settings.js";

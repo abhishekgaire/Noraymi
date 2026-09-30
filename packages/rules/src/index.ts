@@ -2,3 +2,12 @@
 export { Temporal } from "@west4/shared";
 export { businessDate, wallClock, parseCutover } from "./time.js";
 export type { BusinessDateResult } from "./time.js";
+export {
+  checkSetting,
+  checkHours,
+  checkPay,
+  checkLanguages,
+  checkSafety,
+  IN_PERSON_CARD_COST_PCT,
+} from "./settings-checks.js";
+export type { CheckContext } from "./settings-checks.js";
