@@ -488,7 +488,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-18 · Send email through a transactional provider
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-06
 - **Spec:** [Scope and architecture](../spec/01-scope-architecture.md) · Email; [M1 · Ships](../milestones.md#m1--foundations) (the email provider sends invites and account recovery)
@@ -497,11 +497,17 @@ Definition of done: see CLAUDE.md.
   - A local mail catcher in `docker compose`; a failure retries like any job and ends in the dead letters.
   - Staging sends only to our own addresses (an allow-list). No email ever carries a PIN.
 - **Acceptance:**
-  - [ ] An invite email job lands in the local catcher.
-  - [ ] A provider error retries with backoff, then dead-letters with the reason.
-  - [ ] Staging refuses to send to an address outside the allow-list.
+  - [x] An invite email job lands in the local catcher.
+  - [x] A provider error retries with backoff, then dead-letters with the reason.
+  - [x] Staging refuses to send to an address outside the allow-list.
 - **Tests:** adapter unit tests with a fake provider; a job integration test.
-- **Notes:** The spec names no provider; the founder picks one.
+- **Notes:** The spec names no provider; the founder picks one. Built provider-neutral so the pick costs one setting:
+  - `apps/api/src/email/`: `Mailer` (the adapter), `SmtpMailer` (nodemailer over `SMTP_URL`; every transactional provider offers an SMTP relay, so the founder's pick is that URL in the `smtp-url` secret) and `FakeMailer` for tests; `settings.ts` (`SMTP_URL`, `EMAIL_FROM`, `EMAIL_ALLOW_LIST`); `policy.ts` (the allow-list: addresses and `@domains`, case-insensitive); `templates.ts` (typed templates, words from the i18n catalogs in English and Spanish; only `invite` so far, M1-20 adds the recovery notice).
+  - `apps/api/src/jobs/send-email.ts`: job kind `email.send` in the normal pool, `enqueueEmail()` for callers, and the handler. The payload is a strict schema of template name, address, locale and typed data, so a PIN or any other stray field is rejected rather than sent; the body is rendered at send time and never stored in the queue. The Message-ID is `<job-{id}@west4.email>` on every retry, the nearest thing SMTP has to an idempotency key.
+  - **Allow-list, cautious default:** staging refuses an outside address twice, at enqueue (the caller sees the error) and at send (the job dead-letters with the domain, never the address). An unset `EMAIL_ALLOW_LIST` on staging is an empty list, so staging sends nothing until the founder puts our own addresses in `infra/staging` (`email_allow_list`); the worker logs one line about it at start. Local and production have no list.
+  - Local mail catcher: `axllent/mailpit` in `docker-compose.yml` (inbox at http://localhost:8025) and in CI's integration job.
+  - Staging: `SMTP_URL` secret (`smtp-url`, placeholder from `seed-secrets.sh`), `EMAIL_FROM` and `EMAIL_ALLOW_LIST` variables. Until the founder picks a provider and sets the secret, staging sends fail and dead-letter.
+  - A malformed payload retries with backoff like any other failure before dead-lettering; nothing dead-letters at once. Harmless, noted for M1-06's follow-ups.
 
 ### M1-19 · Sign in owners and managers with a passkey or an authenticator app
 

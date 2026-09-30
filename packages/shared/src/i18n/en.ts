@@ -65,4 +65,14 @@ export const en = {
   "permission.admin.console": "Admin · Console",
   "permission.tips.share": "Shares tips and gratuity",
   "permission.whenCoveringTheBar": "When covering the bar",
+  // Email (M1-18). {venue}, {name}, {inviter} and {url} are filled in at send time.
+  "email.footer":
+    "Sent by the {venue} staff app. Nobody at the venue will ever ask you for your PIN by email.",
+  "email.invite.subject": "Join {venue} on the staff app",
+  "email.invite.greeting": "Hi {name},",
+  "email.invite.body":
+    "{inviter} has invited you to {venue}'s staff app. Open the link on your phone to confirm your number and set your own PIN.",
+  "email.invite.button": "Open my invite",
+  "email.invite.expires": "The link works once and expires after {hours} hours.",
+  "email.invite.ignore": "If you weren't expecting this, you can ignore it.",
 } as const;

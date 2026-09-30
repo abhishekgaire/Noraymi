@@ -44,3 +44,15 @@ variable "task_memory" {
   type    = number
   default = 512
 }
+
+variable "email_from" {
+  type        = string
+  description = "The From header on every email (M1-18)"
+  default     = "West 4 staging <no-reply@example.com>"
+}
+
+variable "email_allow_list" {
+  type        = string
+  description = "Staging sends only to these comma-separated addresses and @domains (M1-18); empty sends nothing"
+  default     = ""
+}

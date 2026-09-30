@@ -22,6 +22,9 @@ locals {
     { name = "DB_USER", value = aws_db_instance.main.username },
     { name = "S3_BUCKET_FILES", value = aws_s3_bucket.files.bucket },
     { name = "S3_BUCKET_AUDIT", value = aws_s3_bucket.audit.bucket },
+    # Email (M1-18). Staging sends only to the allow-list; empty sends nothing.
+    { name = "EMAIL_FROM", value = var.email_from },
+    { name = "EMAIL_ALLOW_LIST", value = var.email_allow_list },
   ]
   # The API and the worker connect as app_rw, behind the venue wall (M1-05).
   app_secrets = [
@@ -29,6 +32,7 @@ locals {
     { name = "PIN_PEPPER", valueFrom = aws_secretsmanager_secret.app["pin-pepper"].arn },
     { name = "BADGE_MASTER_KEY", valueFrom = aws_secretsmanager_secret.app["badge-master-key"].arn },
     { name = "RULE_PACK_SIGNING_KEY", valueFrom = aws_secretsmanager_secret.app["rule-pack-signing-key"].arn },
+    { name = "SMTP_URL", valueFrom = aws_secretsmanager_secret.app["smtp-url"].arn },
   ]
   # CI replaces the image on every deploy; Terraform's copy is the template.
   bootstrap_image = { api = "${aws_ecr_repository.images["api"].repository_url}:bootstrap", guest = "${aws_ecr_repository.images["guest"].repository_url}:bootstrap" }

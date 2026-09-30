@@ -107,7 +107,7 @@ Node.js 22 (`.nvmrc`, `nvm use`) and pnpm through corepack (`corepack enable`; t
 
 ```
 pnpm install            # install everything
-docker compose up -d    # Postgres 16 (localhost:5432) and the local S3 store (RustFS, localhost:9000)
+docker compose up -d    # Postgres 16 (localhost:5432), the local S3 store (RustFS, localhost:9000) and the mail catcher (Mailpit, inbox at localhost:8025)
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
 pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)

@@ -1,6 +1,9 @@
 import type pg from "pg";
 import type { JobHandler, Schedule, Sweep } from "@west4/db";
 import type { S3Settings } from "../s3.js";
+import type { Mailer } from "../email/mailer.js";
+import type { EmailSettings } from "../email/settings.js";
+import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
 import {
@@ -19,12 +22,22 @@ import {
  * Captures and readers are critical, texts are normal, exports and
  * retention are bulk. Later tickets add to these.
  */
-export function makeHandlers(
-  s3: S3Settings,
-): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
+export interface HandlerDeps {
+  readonly s3: S3Settings;
+  readonly mailer: Mailer;
+  readonly email: EmailSettings;
+}
+
+export function makeHandlers({
+  s3,
+  mailer,
+  email,
+}: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   return {
     critical: {},
-    normal: {},
+    normal: {
+      [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
+    },
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),
       [IDEMPOTENCY_CLEANUP_KIND]: idempotencyCleanupHandler,

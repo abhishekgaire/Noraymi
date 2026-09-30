@@ -66,4 +66,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "permission.admin.console": "Administración · Consola",
   "permission.tips.share": "Comparte propinas y gratificación",
   "permission.whenCoveringTheBar": "Cuando cubre el bar",
+  // Email (M1-18). {venue}, {name}, {inviter} y {url} se rellenan al enviar.
+  "email.footer":
+    "Enviado por la app del personal de {venue}. Nadie del local te pedirá tu PIN por correo.",
+  "email.invite.subject": "Únete a {venue} en la app del personal",
+  "email.invite.greeting": "Hola, {name}:",
+  "email.invite.body":
+    "{inviter} te ha invitado a la app del personal de {venue}. Abre el enlace en tu teléfono para confirmar tu número y elegir tu propio PIN.",
+  "email.invite.button": "Abrir mi invitación",
+  "email.invite.expires": "El enlace funciona una sola vez y caduca a las {hours} horas.",
+  "email.invite.ignore": "Si no esperabas este correo, puedes ignorarlo.",
 };

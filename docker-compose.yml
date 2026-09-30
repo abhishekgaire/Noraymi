@@ -1,4 +1,4 @@
-# Local development: Postgres 16 and an S3-compatible store.
+# Local development: Postgres 16, an S3-compatible store and a mail catcher.
 # `docker compose up -d`, then `pnpm db:migrate`.
 services:
   postgres:
@@ -59,6 +59,19 @@ services:
         $$s3 head-bucket --bucket west4-audit 2>/dev/null || $$s3 create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
         $$s3 get-object-lock-configuration --bucket west4-audit
         echo "buckets ready"
+
+  # The local mail catcher (M1-18): every email the worker sends locally lands
+  # here instead of a real inbox. SMTP on 1025, the inbox and API on 8025.
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
 volumes:
   postgres:

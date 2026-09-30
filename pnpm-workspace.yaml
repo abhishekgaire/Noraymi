@@ -6,3 +6,6 @@ packages:
 allowBuilds:
   electron: true
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - nodemailer@10.0.13

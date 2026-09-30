@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Puts values into the secrets Terraform created. Random keys are generated
 # here and never written anywhere else; Stripe and Twilio get placeholders to
-# replace by hand. Safe to re-run: a secret that already has a value is kept.
+# replace by hand, and so does the email provider's SMTP URL (M1-18). Safe to re-run: a secret that already has a value is kept.
 set -euo pipefail
 env="${1:-staging}"
 put_if_empty() {
@@ -19,4 +19,5 @@ put_if_empty origin-verify "$(openssl rand -hex 24)"
 put_if_empty app-db-password "$(openssl rand -hex 24)"
 put_if_empty rule-pack-signing-key "$(openssl genpkey -algorithm ed25519 2>/dev/null)"
 put_if_empty stripe '{"secret_key":"sk_test_replace_me","publishable_key":"pk_test_replace_me","webhook_secret":"whsec_replace_me"}'
+put_if_empty smtp-url 'smtp://replace_me:replace_me@smtp.example.com:587'
 put_if_empty twilio '{"account_sid":"ACreplace_me","auth_token":"replace_me","from_number":"+15005550006"}'

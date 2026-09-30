@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
-// Needs Postgres and the local S3 store: `docker compose up -d`. The S3
-// settings default to docker-compose.yml's; CI sets the same ones explicitly.
+// Needs Postgres, the local S3 store and the mail catcher: `docker compose up -d`.
+// The settings default to docker-compose.yml's; CI sets the same ones explicitly.
 export default defineConfig({
   test: {
     name: "api:integration",
@@ -16,6 +16,8 @@ export default defineConfig({
       S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
       S3_BUCKET_FILES: process.env["S3_BUCKET_FILES"] ?? "west4-files",
       S3_BUCKET_AUDIT: process.env["S3_BUCKET_AUDIT"] ?? "west4-audit",
+      SMTP_URL: process.env["SMTP_URL"] ?? "smtp://localhost:1025",
+      MAILPIT_URL: process.env["MAILPIT_URL"] ?? "http://localhost:8025",
     },
   },
 });
