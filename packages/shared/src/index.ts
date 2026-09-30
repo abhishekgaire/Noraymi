@@ -66,3 +66,14 @@ export {
   permissionFor,
 } from "./roles.js";
 export type { Role, Action, PermissionOverride } from "./roles.js";
+export {
+  DEVICE_HEADERS,
+  DEVICE_SIGNATURE_WINDOW_MS,
+  DEVICE_KEY_ALGORITHM,
+  DEVICE_SIGN_ALGORITHM,
+  deviceSigningString,
+  sha256Hex,
+  makeDeviceKey,
+  signDeviceRequest,
+  verifyDeviceSignature,
+} from "./device-signing.js";

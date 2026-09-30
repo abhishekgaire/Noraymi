@@ -413,7 +413,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-15 · Pair devices with one-time codes and signed device keys, and revoke them
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M1-09
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Shared device, Room tablet); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Pairing; [Data model](../spec/04-data-model.md) · `devices`; [API](../spec/08-api.md) · Sign-in, team and devices
@@ -424,12 +424,17 @@ Definition of done: see CLAUDE.md.
   - A shared device with nobody signed in may call only badge and PIN unlock and heartbeats, and gets a channel that carries only room numbers and ring state, so room orders still show and chime while it's locked.
   - `PATCH /devices/{d}` (the name, and a tablet's room); `POST /devices/{d}/revoke` ends the device's sessions and closes its sockets at once.
 - **Acceptance:**
-  - [ ] A code made in Admin pairs the bar computer once; the same code fails a second time, and an expired code fails.
-  - [ ] A request with a bad or missing signature, or a replayed one, answers `403`.
-  - [ ] Revoking the bar computer closes its WebSocket within a second, and its next request answers `403`.
-  - [ ] A locked shared device's channel carries room numbers and ring state and nothing else.
+  - [x] A code made in Admin pairs the bar computer once; the same code fails a second time, and an expired code fails.
+  - [x] A request with a bad or missing signature, or a replayed one, answers `403`.
+  - [x] Revoking the bar computer closes its WebSocket within a second, and its next request answers `403`.
+  - [x] A locked shared device's channel carries room numbers and ring state and nothing else.
 - **Tests:** integration tests for pairing, signing, replay and revoking; a filter test for the locked channel.
-- **Notes:** The spec doesn't fix the code's length or life; this uses 8 characters and 10 minutes (flagged for the founder). The drawer and training fields of `PATCH /devices/{d}` come in M4 and M7.
+- **Notes:** The spec doesn't fix the code's length or life; this uses 8 characters and 10 minutes (flagged for the founder). The drawer and training fields of `PATCH /devices/{d}` come in M4 and M7. Built Sep 30, 2026:
+  - **Migration `0012_devices.sql`:** `devices` with spec 04's columns and the ten kinds (`room_id` gets its key when `rooms` lands in M2), `device_pairing_codes` (the code stored as a SHA-256, shown once) and `device_nonces`. Two definers with a pinned `search_path`: `claim_device(code_hash, public_key)` trades an unclaimed, unexpired code for a new device row and returns the device and venue ids; `resolve_device(id, nonce, window)` returns the device's venue, kind, key and standing, records the nonce and says whether it was fresh, so a replay inside the window is refused. Codes use an alphabet without look-alike characters.
+  - **The signature** (`packages/shared/src/device-signing.ts`, shared with the desktop and staff apps): ECDSA P-256 with SHA-256 from a non-extractable WebCrypto key, over `method\npath\nsha256(body)\ntimestamp\nnonce`, sent as `X-Device-Id`, `X-Device-Timestamp`, `X-Device-Nonce` and `X-Device-Signature`. The window is ±5 minutes, on the real clock (security, never the simulated clock). ECDSA rather than Ed25519 because every browser's WebCrypto has it.
+  - **The authenticator** (`apps/api/src/http/device-auth.ts`) runs on every request with a device id: an incomplete, stale, unknown, revoked, replayed or wrong signature is `403 forbidden`, never silently anonymous. Bar computers, front desks, room tablets, printers and Up next displays become device principals; a staff phone's request is signed too but the person's own session is the principal (M1-24).
+  - **Routes** (`apps/api/src/routes/devices.ts`): `POST /devices/pair` (Admin), `POST /v1/devices/claim` (public, rate-limited), `GET /devices`, `PATCH /devices/{d}` (name and a tablet's room) and `POST /devices/{d}/revoke`, which stamps `revoked_at`, sends `device.offline` for Admin → Printers & devices, and closes the device's sockets with code 4401 at once; its next request is refused.
+  - **A locked shared device** connects to the events socket with `?locked=1` and gets only ring state (M1-09's filter); which routes it may call with nobody signed in is the registry's `shared_device` principal, so the unlock routes (M1-24, M1-25) and heartbeats (M1-16) list it and nothing else does.
 
 ### M1-16 · Record heartbeats and clock offsets, and alert when a device goes quiet
 

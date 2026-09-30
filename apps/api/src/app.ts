@@ -12,6 +12,8 @@ import { modulesRoutes } from "./routes/modules.js";
 import { ModuleGate } from "./http/module-gate.js";
 import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
+import { devicesRoutes } from "./routes/devices.js";
+import { deviceAuthenticator } from "./http/device-auth.js";
 
 export interface AppOptions {
   readonly logger?: boolean;
@@ -41,6 +43,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   let clock: Clock = options.clock ?? systemClock;
   let gate: ModuleGate | undefined;
   let permissions: PermissionGate | undefined;
+  let gatePoolRef: pg.Pool | undefined;
 
   if (config) {
     void app.register(dbPlugin, { databaseUrl: config.databaseUrl });
@@ -49,6 +52,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       max: 2,
       application_name: "west4-module-gate",
     });
+    gatePoolRef = gatePool;
     gate = new ModuleGate(gatePool, options.moduleCacheMs);
     permissions = new PermissionGate(gatePool, options.moduleCacheMs);
     app.addHook("onClose", async () => {
@@ -75,7 +79,10 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     clock,
     timeZone: PLATFORM_TIME_ZONE,
     minClientVersion: process.env["MIN_CLIENT_VERSION"] ?? "0.0.0",
-    ...(options.authenticators ? { authenticators: options.authenticators } : {}),
+    authenticators: [
+      ...(options.authenticators ?? []),
+      ...(gate && config ? [deviceAuthenticator(gatePoolRef!)] : []),
+    ],
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
     db: config !== undefined,
     ...(gate ? { moduleGate: gate } : {}),
@@ -127,6 +134,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
+      devicesRoutes(scope);
     }
     await options.extraRoutes?.(scope);
   });

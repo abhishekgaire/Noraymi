@@ -63,7 +63,17 @@ export const eventsPlugin = fp(async (app: FastifyInstance, options: EventsOptio
     pollMs: options.pollMs ?? 1000,
     log: (l) => app.log.warn(l),
   });
-  app.decorate("events", { relay, tail, sockets });
+  /** Revoking a device: its sockets close at once (4401), and its next request is refused by the authenticator. */
+  const closeSocketsFor = (deviceId: string): void => {
+    for (const socket of sockets) {
+      if (socket.sub.principal.kind === "device" && socket.sub.principal.deviceId === deviceId) {
+        send(socket.ws, { type: "revoked" });
+        socket.ws.close(4401, "revoked");
+        sockets.delete(socket);
+      }
+    }
+  };
+  app.decorate("events", { relay, tail, sockets, closeSocketsFor });
 
   app.addHook("onReady", async () => {
     relay.start();
@@ -183,7 +193,12 @@ export const eventsPlugin = fp(async (app: FastifyInstance, options: EventsOptio
 
 declare module "fastify" {
   interface FastifyInstance {
-    events: { relay: Relay; tail: Tail; sockets: Set<unknown> };
+    events: {
+      relay: Relay;
+      tail: Tail;
+      sockets: Set<unknown>;
+      closeSocketsFor: (deviceId: string) => void;
+    };
   }
 }
 

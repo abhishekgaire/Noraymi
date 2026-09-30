@@ -51,3 +51,17 @@ export {
 } from "./modules.js";
 export type { VenueModuleRow } from "./modules.js";
 export { permissionOverrides, setPermission } from "./permissions.js";
+export {
+  deviceKinds,
+  PAIRING_CODE_LENGTH,
+  PAIRING_CODE_MINUTES,
+  makePairingCode,
+  hashPairingCode,
+  createPairingCode,
+  claimDevice,
+  resolveDevice,
+  listDevices,
+  updateDevice,
+  revokeDevice,
+} from "./devices.js";
+export type { DeviceKind, DeviceRow, ResolvedDevice } from "./devices.js";

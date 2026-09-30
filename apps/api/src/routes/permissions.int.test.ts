@@ -13,7 +13,6 @@ import {
   actions,
   defaultPermissions,
   roles,
-  type Action,
   type Role,
 } from "@west4/shared";
 import { buildApp } from "../app.js";
