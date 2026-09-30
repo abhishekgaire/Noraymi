@@ -82,6 +82,24 @@ export const en = {
   "email.signInCode.expires": "It works once and expires in {minutes} minutes.",
   "email.signInCode.ignore":
     "If you didn't just try to sign in, ignore this email and tell the owner.",
+  // Owner recovery notice (M1-20). {owner}, {requester}, {venue} and {readyAt} are filled in at send time.
+  "email.ownerRecovery.subject": "Account recovery started for {owner} at {venue}",
+  "email.ownerRecovery.greeting": "Hi {name},",
+  "email.ownerRecovery.byCode":
+    "Someone started account recovery for {owner}, an owner of {venue}, using one of their recovery codes.",
+  "email.ownerRecovery.bySecondOwner":
+    "{requester}, an owner of {venue}, started account recovery for {owner}.",
+  "email.ownerRecovery.delay":
+    "Nothing changes for 48 hours. From {readyAt}, {owner} can set up a new passkey or authenticator app, and every earlier sign-in method and session of theirs stops working at that moment.",
+  "email.ownerRecovery.ifWrong":
+    "If nobody expected this, tell an owner right away. Any owner of {venue} can cancel it from their passkey session before then.",
+  // The recovery screen (M1-20).
+  "recovery.codeFailed": "That recovery code didn't work",
+  "recovery.started": "Recovery started · nothing changes for 48 hours",
+  "recovery.readyFrom": "You can set up a new passkey from {readyAt}",
+  "recovery.saveCodes":
+    "Save these recovery codes somewhere safe. Each works once, and they won't be shown again.",
+  "recovery.codesLeft": "{count} recovery codes left",
   // The sign-in screen (M1-19).
   "signIn.adminNeedsPasskey": "Admin needs a passkey",
   "signIn.approvingNeedsPasskey": "Approving needs a passkey",

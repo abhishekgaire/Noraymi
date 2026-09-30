@@ -17,7 +17,7 @@
    "derived": "Numbers under expected_at_now, if_presented_now and expected_* are computed with docs/spec/05-money-rules.md and match fix brief 3a and 4.5. seed/money-cases.json holds the same numbers as test vectors."
   },
   "demo_pin_warning": "DEMO ONLY. The PINs in `team` are the fix brief's demo PINs for the staging seed and the design canvas. Never load them into production, where each person chooses their own.",
-  "demo_sign_in_warning": "DEMO ONLY (M1-19). `demo_email` and `demo_totp_secret` on the owner and the manager let local dev and staging sign in by email plus an authenticator app; the addresses are placeholders on a .local domain, not real ones. Real addresses and passkeys are set by each person. Never load these into production.",
+  "demo_sign_in_warning": "DEMO ONLY (M1-19, M1-20). `demo_email` and `demo_totp_secret` on the owner and the manager let local dev and staging sign in by email plus an authenticator app, and `demo_recovery_codes` on the owner are his ten single-use recovery codes; the addresses are placeholders on a .local domain, not real ones. Real addresses, passkeys and codes are set by each person. Never load these into production.",
   "flags": [
    "Room 3 is a 3–6 room (small tier). Fix brief 3b calls Manage's demo booking 'Room 3 (medium tier)'. This seed uses small.",
    "Room-ready text has two wordings (fix brief 3i #4: 'You have 10 minutes to claim it at the front desk.'; 4.3: 'Come to the front desk within 10 minutes.'). Pick one before build.",
@@ -367,6 +367,18 @@
    "demo_pin": "915204",
    "demo_email": "abhishek@demo.west4.local",
    "demo_totp_secret": "WEST4DEMOABHISHEKTOTPSECRET2026A",
+   "demo_recovery_codes": [
+    "DEMO2-ABHI1",
+    "DEMO2-ABHI2",
+    "DEMO2-ABHI3",
+    "DEMO2-ABHI4",
+    "DEMO2-ABHI5",
+    "DEMO2-ABHI6",
+    "DEMO2-ABHI7",
+    "DEMO2-ABHI8",
+    "DEMO2-ABHI9",
+    "DEMO2-ABHIX"
+   ],
    "pin_digits": 6,
    "locale": "en",
    "badge": true,

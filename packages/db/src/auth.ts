@@ -461,3 +461,214 @@ export async function expireChallenges(
     [input.userId, input.purpose, input.at],
   );
 }
+
+// ---- Recovery codes and owner recovery (M1-20) ------------------------------
+
+export const RECOVERY_CODE_COUNT = 10;
+/** No 0/O or 1/I, so a code read off paper can't be misread. 10 characters give 50 bits. */
+const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/** A recovery code as shown once: XXXXX-XXXXX. */
+export function newRecoveryCode(): string {
+  const bytes = randomBytes(10);
+  let code = "";
+  for (let i = 0; i < 10; i += 1) {
+    code += RECOVERY_ALPHABET[bytes[i]! % RECOVERY_ALPHABET.length];
+    if (i === 4) code += "-";
+  }
+  return code;
+}
+
+/** A code as typed: case and punctuation don't matter. */
+export function normalizeRecoveryCode(typed: string): string {
+  return typed.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export function recoveryCodeHash(code: string): string {
+  return sha256Hex(`recovery:${normalizeRecoveryCode(code)}`);
+}
+
+/** Retires every live code and issues a fresh set. The codes are returned once, never stored. */
+export async function replaceRecoveryCodes(
+  client: Queryable,
+  input: { userId: string; at: string; count?: number },
+): Promise<string[]> {
+  await client.query(
+    "update recovery_codes set revoked_at = $2 where user_id = $1 and used_at is null and revoked_at is null",
+    [input.userId, input.at],
+  );
+  const codes = Array.from({ length: input.count ?? RECOVERY_CODE_COUNT }, () => newRecoveryCode());
+  await client.query(
+    `insert into recovery_codes (user_id, code_hash, created_at)
+     select $1, unnest($2::text[]), $3`,
+    [input.userId, codes.map(recoveryCodeHash), input.at],
+  );
+  return codes;
+}
+
+/** Spends a live code. False when it's unknown, already used or retired. */
+export async function useRecoveryCode(
+  client: Queryable,
+  input: { userId: string; code: string; at: string },
+): Promise<boolean> {
+  const r = await client.query(
+    `update recovery_codes set used_at = $3
+     where user_id = $1 and code_hash = $2 and used_at is null and revoked_at is null`,
+    [input.userId, recoveryCodeHash(input.code), input.at],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+export async function countRecoveryCodes(client: Queryable, userId: string): Promise<number> {
+  const r = await client.query<{ n: string }>(
+    "select count(*)::text as n from recovery_codes where user_id = $1 and used_at is null and revoked_at is null",
+    [userId],
+  );
+  return Number(r.rows[0]!.n);
+}
+
+export type RecoveryMethod = "recovery_code" | "second_owner";
+
+export interface OwnerRecoveryRow {
+  readonly id: string;
+  readonly userId: string;
+  readonly method: RecoveryMethod;
+  readonly requestedBy: string | null;
+  readonly requestedAt: string;
+  readonly readyAt: string;
+  readonly completedAt: string | null;
+  readonly cancelledAt: string | null;
+}
+
+const recoveryColumns = `id, user_id, method, requested_by, requested_at::text as requested_at,
+  ready_at::text as ready_at, completed_at::text as completed_at, cancelled_at::text as cancelled_at`;
+
+function toRecovery(row: Record<string, unknown>): OwnerRecoveryRow {
+  return {
+    id: row["id"] as string,
+    userId: row["user_id"] as string,
+    method: row["method"] as RecoveryMethod,
+    requestedBy: row["requested_by"] as string | null,
+    requestedAt: row["requested_at"] as string,
+    readyAt: row["ready_at"] as string,
+    completedAt: row["completed_at"] as string | null,
+    cancelledAt: row["cancelled_at"] as string | null,
+  };
+}
+
+/** The one recovery neither completed nor cancelled, locked for this transaction. */
+export async function openOwnerRecovery(
+  client: Queryable,
+  userId: string,
+): Promise<OwnerRecoveryRow | null> {
+  const r = await client.query(
+    `select ${recoveryColumns} from owner_recoveries
+     where user_id = $1 and completed_at is null and cancelled_at is null
+     order by requested_at desc limit 1 for update`,
+    [userId],
+  );
+  const row = r.rows[0];
+  return row ? toRecovery(row as Record<string, unknown>) : null;
+}
+
+export async function ownerRecoveryById(
+  client: Queryable,
+  id: string,
+): Promise<OwnerRecoveryRow | null> {
+  const r = await client.query(
+    `select ${recoveryColumns} from owner_recoveries where id = $1 for update`,
+    [id],
+  );
+  const row = r.rows[0];
+  return row ? toRecovery(row as Record<string, unknown>) : null;
+}
+
+export async function startOwnerRecovery(
+  client: Queryable,
+  input: {
+    userId: string;
+    method: RecoveryMethod;
+    requestedBy?: string | null;
+    at: string;
+    readyAt: string;
+  },
+): Promise<OwnerRecoveryRow> {
+  const r = await client.query(
+    `insert into owner_recoveries (user_id, method, requested_by, requested_at, ready_at)
+     values ($1, $2, $3, $4, $5) returning ${recoveryColumns}`,
+    [input.userId, input.method, input.requestedBy ?? null, input.at, input.readyAt],
+  );
+  return toRecovery(r.rows[0] as Record<string, unknown>);
+}
+
+export async function completeOwnerRecovery(
+  client: Queryable,
+  input: { id: string; at: string },
+): Promise<void> {
+  await client.query(
+    "update owner_recoveries set completed_at = $2 where id = $1 and completed_at is null and cancelled_at is null",
+    [input.id, input.at],
+  );
+}
+
+export async function cancelOwnerRecovery(
+  client: Queryable,
+  input: { id: string; by: string; at: string },
+): Promise<boolean> {
+  const r = await client.query(
+    `update owner_recoveries set cancelled_at = $2, cancelled_by = $3
+     where id = $1 and completed_at is null and cancelled_at is null`,
+    [input.id, input.at, input.by],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/** Does the caller (app.user_id) co-own a venue with this person? */
+export async function isCoOwner(client: Queryable, userId: string): Promise<boolean> {
+  const r = await client.query<{ ok: boolean }>("select auth_co_owner($1) as ok", [userId]);
+  return r.rows[0]!.ok;
+}
+
+/** Is the caller (app.user_id) an active owner anywhere? */
+export async function isOwnerAnywhere(client: Queryable): Promise<boolean> {
+  const r = await client.query<{ n: number }>("select cardinality(owner_venues()) as n");
+  return r.rows[0]!.n > 0;
+}
+
+export interface RecoveryContact {
+  readonly venueId: string;
+  readonly venueName: string;
+  readonly timeZone: string;
+  readonly userId: string;
+  readonly name: string;
+  readonly email: string | null;
+  readonly role: "owner" | "manager";
+  readonly locale: "en" | "es";
+}
+
+/** Every owner and manager at every venue this person owns. Empty when they own none. */
+export async function ownerRecoveryContacts(
+  client: Queryable,
+  userId: string,
+): Promise<RecoveryContact[]> {
+  const r = await client.query<{
+    venue_id: string;
+    venue_name: string;
+    time_zone: string;
+    user_id: string;
+    name: string;
+    email: string | null;
+    role: "owner" | "manager";
+    locale: "en" | "es";
+  }>("select * from auth_owner_recovery_contacts($1)", [userId]);
+  return r.rows.map((row) => ({
+    venueId: row.venue_id,
+    venueName: row.venue_name,
+    timeZone: row.time_zone,
+    userId: row.user_id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    locale: row.locale,
+  }));
+}

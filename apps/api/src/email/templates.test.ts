@@ -24,6 +24,37 @@ describe("email templates", () => {
     expect(mail.text).toContain("Andy");
   });
 
+  it.each(locales)(
+    "the owner recovery notice renders in %s, by code and by a second owner",
+    (locale) => {
+      const base = {
+        venueName: "West 4 Boho Karaoke",
+        name: "Andy",
+        ownerName: "Abhishek G.",
+        readyAt: "Sunday, September 27, 2026 at 10:41 PM",
+      };
+      const byCode = render("owner_recovery_notice", locale, { ...base, method: "recovery_code" });
+      const bySecond = render("owner_recovery_notice", locale, {
+        ...base,
+        method: "second_owner",
+        requesterName: "Priya S.",
+      });
+      for (const mail of [byCode, bySecond]) {
+        for (const part of [mail.subject, mail.text, mail.html]) {
+          expect(part).not.toMatch(/\{\w+\}/);
+          expect(part).toContain("West 4 Boho Karaoke");
+        }
+        expect(mail.text).toContain("Abhishek G.");
+        expect(mail.text).toContain(base.readyAt);
+        expect(mail.text).toContain("48");
+      }
+      expect(byCode.text).not.toContain("Priya");
+      expect(bySecond.text).toContain("Priya S.");
+      // The notice never carries a code, a token or a link to act on.
+      expect(byCode.text).not.toMatch(/https?:\/\//);
+    },
+  );
+
   it("no template takes a PIN, a password or a secret, and a payload that carries one is rejected", () => {
     for (const name of templateNames) {
       const keys = Object.keys(templateSchemas[name].shape);

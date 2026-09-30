@@ -540,7 +540,7 @@ Definition of done: see CLAUDE.md.
   - **For later tickets.** M1-24 and M1-25 open their `pin` and `badge` sessions through `openSession()` with `principal = 'staff'`; M1-27 ends a person's sessions with `endAllSessions()`; M1-31 (team changes), exports, large refunds and card-fee changes declare `stepUp: true`; the staff app's sign-in screen (M1-26) uses `signIn.*` strings added to the catalogs.
 ### M1-20 · Add recovery codes and owner recovery
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-18, M1-19
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Offboarding (owner recovery); [Security and data retention](../spec/12-security-retention.md) 3
@@ -548,10 +548,14 @@ Definition of done: see CLAUDE.md.
   - Ten single-use recovery codes, shown once at enrollment and stored hashed, in `recovery_codes` (user_id, code_hash, used_at), a table the data model implies but doesn't name.
   - An owner who loses access recovers with a recovery code or through a second owner, after a 48-hour delay, with notice to every manager at once by email.
 - **Acceptance:**
-  - [ ] Abhishek's recovery code works once, and the same code fails a second time.
-  - [ ] A recovery started at 10:41 PM on Fri Sep 25 completes no earlier than 10:41 PM on Sun Sep 27, and Andy gets the notice at once.
+  - [x] Abhishek's recovery code works once, and the same code fails a second time.
+  - [x] A recovery started at 10:41 PM on Fri Sep 25 completes no earlier than 10:41 PM on Sun Sep 27, and Andy gets the notice at once.
 - **Tests:** integration tests on the simulated clock; the notice email in the local catcher.
 - **Notes:** "Recovers with a single-use recovery code or through a second owner, after a 48-hour delay" reads either way. Cautious reading built here: the delay covers both paths. Flagged for the founder.
+  - **Built.** `packages/db/migrations/0016_recovery.sql`: `recovery_codes` (user_id, code_hash, used_at, plus revoked_at for a retired set) and `owner_recoveries` (who, by which path, requested_at, ready_at = +48 h, completed_at, cancelled_at), both walled by the person like the other auth tables, with two definer functions: `auth_co_owner` (is the caller an active owner at a venue the person also owns) and `auth_owner_recovery_contacts` (every owner and manager at every venue the person owns). Helpers in `packages/db/src/auth.ts`; routes in `apps/api/src/auth/routes.ts`: `POST /v1/auth/recover` (email + code, no session), `POST /v1/auth/recover/second-owner` (passkey session + step-up, co-owner only), `POST /v1/auth/recover/cancel` (the owner or a co-owner, passkey session), `POST /v1/auth/recovery-codes` (a fresh set, passkey + step-up, owners only); `GET /v1/auth/me` adds `recovery_codes_left`. The notice is the `owner_recovery_notice` email template, in English and Spanish, queued in one job per recipient the moment the recovery starts. Tests: `apps/api/src/auth/recovery.int.test.ts` on the simulated clock (the notice is checked in the queued job; the local mail catcher shows it once the email worker runs), plus the template in `templates.test.ts`. Spec 08 names the routes.
+  - **How it completes.** Once the 48 hours are up, the owner enrols a new passkey or authenticator through the normal `POST /v1/auth/enroll` path (emailed code first), exactly as a new account would; that enrollment revokes every earlier sign-in method and session and marks the recovery completed. Before then, the enroll route sends nothing and refuses, so nothing can open early.
+  - **Cautious defaults, flagged for the founder.** (1) The delay covers both paths, as the ticket says. (2) The notice goes to every owner *and* manager at each venue the owner owns, the owner's own address included: the spec names managers, and the second owner and the owner's own inbox are the two people most likely to spot a fraudulent start. (3) Any owner of a shared venue can cancel a pending recovery from a passkey session; the spec names nobody, and without a canceller the 48 hours would guard nothing. Managers can't cancel: they tell an owner. (4) Codes are for owners only (spec 12 · 3), issued at the first enrollment and again after a recovery, ten at a time, shown once; a fresh set on demand retires the old one. (5) A code is spent the moment it's accepted, before the notice goes out, so it works once whatever happens next; codes are ten characters from a 32-letter alphabet without 0/O/1/I (50 bits), stored as a SHA-256 hash.
+  - **Later.** The sign-in screens (M1-21 onward) show the ten codes once and the "recovery started · ready from …" state; their strings are already in the catalogs (`recovery.*`). Recovery notices to a manager's phone (SMS) are not built; email only, as the ticket says.
 
 ### M1-21 · Build the staff app shell with every string in English and Spanish
 

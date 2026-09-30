@@ -5,29 +5,44 @@ import {
   activeCredentials,
   addPasskey,
   addTotp,
+  cancelOwnerRecovery,
+  completeOwnerRecovery,
   countAttempt,
+  countRecoveryCodes,
   createChallenge,
   decryptSecret,
   encryptSecret,
+  endAllSessions,
   endSession,
   expireChallenges,
+  isCoOwner,
+  isOwnerAnywhere,
   markPasskeyUsed,
   markTotpUsed,
   newEmailCode,
   newToken,
   openChallenge,
+  openOwnerRecovery,
   openSession,
+  ownerRecoveryById,
+  ownerRecoveryContacts,
+  replaceRecoveryCodes,
+  revokeCredential,
   sha256Hex,
+  startOwnerRecovery,
   useChallenge,
+  useRecoveryCode,
   withUser,
   withVenue,
   type AccountByEmail,
   type ChallengePurpose,
   type CredentialRow,
+  type OwnerRecoveryRow,
   type Queryable,
+  type RecoveryContact,
   type SessionAssurance,
 } from "@west4/db";
-import type { Clock } from "@west4/shared";
+import { Temporal, type Clock } from "@west4/shared";
 import { z } from "zod";
 import type { AuthConfig } from "../config.js";
 import type { EmailSettings } from "../email/settings.js";
@@ -50,6 +65,19 @@ import { Passkeys } from "./webauthn.js";
  *   POST /v1/auth/step-up  a fresh passkey check that unlocks one guarded write (X-Step-Up)
  *   POST /v1/auth/logout   ends the session
  *   GET  /v1/auth/me       who am I, and how did I sign in
+ *
+ * Owner recovery (M1-20; spec 02 · Offboarding, spec 12 · 3). An owner who
+ * loses every sign-in method gets back in with one of their ten single-use
+ * recovery codes, or through a second owner. Either way the recovery is ready
+ * 48 hours later, every owner and manager is told at once by email, and any
+ * owner can cancel it before then. Once ready, the owner enrols a new passkey
+ * or authenticator through POST /v1/auth/enroll as if the account were new;
+ * that enrollment revokes every earlier sign-in method and session.
+ *
+ *   POST /v1/auth/recover               start with a recovery code (no session)
+ *   POST /v1/auth/recover/second-owner  start for a co-owner, in a passkey session with a step-up
+ *   POST /v1/auth/recover/cancel        an owner cancels a pending recovery
+ *   POST /v1/auth/recovery-codes        a fresh set of ten codes, in a passkey session with a step-up
  */
 
 export interface AuthRoutesOptions {
@@ -63,6 +91,7 @@ const EMAIL_CODE_MINUTES = 10;
 const CHALLENGE_MINUTES = 5;
 const STEP_UP_MINUTES = 5;
 const MAX_ATTEMPTS = 5;
+const RECOVERY_DELAY_HOURS = 48;
 const AUTH_RATE_LIMIT = { max: 30, windowMs: 60_000 };
 
 const email = z.string().trim().email().max(254);
@@ -127,6 +156,10 @@ const enrollBody = z.discriminatedUnion("step", [
     })
     .strict(),
 ]);
+
+const recoverBody = z.object({ email, code: z.string().trim().min(10).max(16) }).strict();
+const secondOwnerBody = z.object({ email }).strict();
+const cancelRecoveryBody = z.object({ recovery_id: z.string().uuid() }).strict();
 
 const stepUpBody = z.discriminatedUnion("step", [
   z.object({ step: z.literal("start") }).strict(),
@@ -352,7 +385,8 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
    * Who is enrolling, and may they? Three doors:
    *   - a passkey session with a fresh step-up: add anything;
    *   - an authenticator session on an account with no passkey yet: add the first passkey (bootstrap);
-   *   - no session, an emailed code, and an account with no credential at all: the very first one.
+   *   - no session, an emailed code, and an account with no credential at all: the very first one;
+   *   - no session, an emailed code, and an owner recovery that's ready (M1-20): the fresh start.
    */
   async function enrollee(
     request: FastifyRequest,
@@ -364,6 +398,9 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
     email: string;
     codeChallengeId: string | null;
     signedIn: boolean;
+    /** True when this is the account's first credential or a recovery's fresh start: the old methods go, and an owner gets recovery codes. */
+    freshStart: boolean;
+    recovery: OwnerRecoveryRow | null;
   }> {
     const p = request.principal;
     if (p.kind === "user" && request.session) {
@@ -390,24 +427,62 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         email: me.email ?? "",
         codeChallengeId: null,
         signedIn: true,
+        freshStart: false,
+        recovery: null,
       };
     }
     if (!body.email || !body.code)
       throw new ApiError("unauthorized", "sign in, or start with your email");
     const account = await accountByEmail(pool, body.email);
     if (!account) throw signInFailed();
-    const challengeId = await asUser(account.userId, request, async (c) => {
+    const door = await asUser(account.userId, request, async (c) => {
+      const recovery = await readyRecovery(c, account.userId);
       const existing = await activeCredentials(c, account.userId);
-      if (existing.length > 0) throw signInFailed(); // an enrolled account adds methods only from a session
-      return checkEmailCode(c, account.userId, "enroll_email", body.code!);
+      if (existing.length > 0 && !recovery) throw signInFailed(); // an enrolled account adds methods only from a session
+      return {
+        challengeId: await checkEmailCode(c, account.userId, "enroll_email", body.code!),
+        recovery,
+      };
     });
     return {
       userId: account.userId,
       name: account.name,
       email: body.email,
-      codeChallengeId: challengeId,
+      codeChallengeId: door.challengeId,
       signedIn: false,
+      freshStart: true,
+      recovery: door.recovery,
     };
+  }
+
+  /** The account's open recovery once its 48 hours are up; null before then or when there is none. */
+  async function readyRecovery(c: Queryable, userId: string): Promise<OwnerRecoveryRow | null> {
+    const open = await openOwnerRecovery(c, userId);
+    if (!open) return null;
+    const ready =
+      Temporal.Instant.compare(Temporal.Instant.from(pgInstant(open.readyAt)), now()) <= 0;
+    return ready ? open : null;
+  }
+
+  /**
+   * After a fresh start's first credential: a recovery completes, every other
+   * sign-in method and session of the account is revoked, and an owner gets a
+   * new set of recovery codes to keep (returned once, never stored).
+   */
+  async function finishFreshStart(
+    c: Queryable,
+    who: { userId: string; freshStart: boolean; recovery: OwnerRecoveryRow | null },
+    keepCredentialId: string,
+  ): Promise<string[] | null> {
+    if (!who.freshStart) return null;
+    if (who.recovery) {
+      for (const k of await activeCredentials(c, who.userId))
+        if (k.id !== keepCredentialId) await revokeCredential(c, k.id, at());
+      await endAllSessions(c, { userId: who.userId, at: at(), reason: "revoked" });
+      await completeOwnerRecovery(c, { id: who.recovery.id, at: at() });
+    }
+    if (!(await isOwnerAnywhere(c))) return null;
+    return replaceRecoveryCodes(c, { userId: who.userId, at: at() });
   }
 
   app.post<{ Body: unknown }>(
@@ -419,11 +494,14 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
       if (body.step === "start") {
         const account = await accountByEmail(pool, body.email);
         if (account) {
-          const existing = await asUser(account.userId, request, (c) =>
-            activeCredentials(c, account.userId),
+          const mayEnrol = await asUser(
+            account.userId,
+            request,
+            async (c) =>
+              (await activeCredentials(c, account.userId)).length === 0 ||
+              (await readyRecovery(c, account.userId)) !== null,
           );
-          if (existing.length === 0)
-            await sendEmailCode(request, account, body.email, "enroll_email");
+          if (mayEnrol) await sendEmailCode(request, account, body.email, "enroll_email");
         }
         return reply.code(200).send({ code_sent: true, expires_minutes: EMAIL_CODE_MINUTES });
       }
@@ -473,11 +551,12 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
             at: at(),
           });
           if (who.codeChallengeId) await useChallenge(c, who.codeChallengeId, at());
-          return created;
+          return { id: created, recoveryCodes: await finishFreshStart(c, who, created) };
         });
         const result: Record<string, unknown> = {
-          credential: { id, kind: "passkey", name: body.name ?? null },
+          credential: { id: id.id, kind: "passkey", name: body.name ?? null },
         };
+        if (id.recoveryCodes) result["recovery_codes"] = id.recoveryCodes;
         if (!who.signedIn)
           Object.assign(
             result,
@@ -531,11 +610,12 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         });
         await markTotpUsed(c, { id: created, step: result.step, at: at() });
         if (who.codeChallengeId) await useChallenge(c, who.codeChallengeId, at());
-        return created;
+        return { id: created, recoveryCodes: await finishFreshStart(c, who, created) };
       });
       const result: Record<string, unknown> = {
-        credential: { id, kind: "totp", name: body.name ?? null },
+        credential: { id: id.id, kind: "totp", name: body.name ?? null },
       };
+      if (id.recoveryCodes) result["recovery_codes"] = id.recoveryCodes;
       if (!who.signedIn)
         Object.assign(
           result,
@@ -658,8 +738,10 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         [p.userId],
       );
       const creds = await activeCredentials(c, p.userId);
+      const owner = await isOwnerAnywhere(c);
       return {
         ...r.rows[0]!,
+        recoveryCodesLeft: owner ? await countRecoveryCodes(c, p.userId) : null,
         credentials: creds.map((k) => ({
           id: k.id,
           kind: k.kind,
@@ -678,8 +760,198 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         role: m.role,
       })),
       credentials: me.credentials,
+      recovery_codes_left: me.recoveryCodesLeft,
     });
   });
+
+  // ---- Owner recovery (M1-20) ------------------------------------------------
+
+  const ownerPasskeyStepUp = route({
+    principals: ["owner_manager"],
+    module: "core",
+    assurance: "passkey",
+    stepUp: true,
+    idempotency: "none",
+    tokenRoute: true,
+    rateLimit: AUTH_RATE_LIMIT,
+  });
+  const ownerPasskey = route({
+    principals: ["owner_manager"],
+    module: "core",
+    assurance: "passkey",
+    idempotency: "none",
+    tokenRoute: true,
+    rateLimit: AUTH_RATE_LIMIT,
+  });
+
+  const recoveryBody = (r: OwnerRecoveryRow) => ({
+    id: r.id,
+    method: r.method,
+    requested_at: pgInstant(r.requestedAt),
+    ready_at: pgInstant(r.readyAt),
+    delay_hours: RECOVERY_DELAY_HOURS,
+  });
+
+  /**
+   * Tells every owner and manager at every venue the person owns, at once. One
+   * transaction per recipient, so one refused address (the staging allow-list)
+   * doesn't silence the others; the owner's own address is told too.
+   */
+  async function noticeRecovery(
+    request: FastifyRequest,
+    ownerId: string,
+    ownerName: string,
+    recovery: OwnerRecoveryRow,
+    contacts: readonly RecoveryContact[],
+    requesterName: string | null,
+  ): Promise<number> {
+    const readyAt = Temporal.Instant.from(pgInstant(recovery.readyAt));
+    let sent = 0;
+    for (const to of contacts) {
+      if (!to.email) continue;
+      try {
+        await withVenue(
+          pool,
+          { venueId: to.venueId, userId: ownerId, requestId: request.requestId },
+          (c) =>
+            enqueueEmail(c, options.email, {
+              venueId: to.venueId,
+              to: to.email!,
+              locale: to.locale,
+              template: "owner_recovery_notice",
+              data: {
+                venueName: to.venueName,
+                name: to.name,
+                ownerName,
+                method: recovery.method,
+                ...(requesterName ? { requesterName } : {}),
+                readyAt: new Intl.DateTimeFormat(to.locale, {
+                  timeZone: to.timeZone,
+                  dateStyle: "full",
+                  timeStyle: "short",
+                }).format(new Date(readyAt.epochMilliseconds)),
+              },
+              runAt: now(),
+              dedupeKey: `owner-recovery:${recovery.id}:${to.userId}:${to.venueId}`,
+            }),
+        );
+        sent += 1;
+      } catch (error) {
+        request.log.warn({ err: error, venueId: to.venueId }, "owner recovery notice not queued");
+      }
+    }
+    return sent;
+  }
+
+  /** Starts (or returns the already open) recovery for an owner, then sends the notices. */
+  async function beginRecovery(
+    request: FastifyRequest,
+    owner: { userId: string; name: string },
+    method: "recovery_code" | "second_owner",
+    requester: { userId: string; name: string } | null,
+  ): Promise<{ recovery: OwnerRecoveryRow; notices: number }> {
+    const { recovery, contacts } = await asUser(owner.userId, request, async (c) => {
+      const contacts = await ownerRecoveryContacts(c, owner.userId);
+      if (contacts.length === 0) throw new ApiError("forbidden", "recovery is for owners");
+      const open = await openOwnerRecovery(c, owner.userId);
+      if (open) return { recovery: open, contacts: [] as RecoveryContact[] };
+      const started = await startOwnerRecovery(c, {
+        userId: owner.userId,
+        method,
+        requestedBy: requester?.userId ?? null,
+        at: at(),
+        readyAt: now().add({ hours: RECOVERY_DELAY_HOURS }).toString(),
+      });
+      return { recovery: started, contacts };
+    });
+    const notices = await noticeRecovery(
+      request,
+      owner.userId,
+      owner.name,
+      recovery,
+      contacts,
+      requester?.name ?? null,
+    );
+    return { recovery, notices };
+  }
+
+  app.post<{ Body: unknown }>(
+    "/v1/auth/recover",
+    { config: publicRoute },
+    async (request, reply) => {
+      const body = parse(recoverBody, request.body);
+      const codeFailed = () => new ApiError("unauthorized", "that recovery code didn't work");
+      const account = await accountByEmail(pool, body.email);
+      if (!account) throw codeFailed();
+      // The code is spent before anything else: it works once, whatever happens next.
+      const spent = await asUser(account.userId, request, (c) =>
+        useRecoveryCode(c, { userId: account.userId, code: body.code, at: at() }),
+      );
+      if (!spent) throw codeFailed();
+      const { recovery } = await beginRecovery(request, account, "recovery_code", null);
+      return reply.code(202).send({ recovery: recoveryBody(recovery) });
+    },
+  );
+
+  app.post<{ Body: unknown }>(
+    "/v1/auth/recover/second-owner",
+    { config: ownerPasskeyStepUp },
+    async (request, reply) => {
+      const body = parse(secondOwnerBody, request.body);
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
+      const target = await accountByEmail(pool, body.email);
+      const me = await asUser(p.userId, request, async (c) => {
+        if (!target || target.userId === p.userId || !(await isCoOwner(c, target.userId)))
+          return null;
+        const r = await c.query<{ name: string }>("select name from users where id = $1", [
+          p.userId,
+        ]);
+        return { userId: p.userId, name: r.rows[0]!.name };
+      });
+      if (!target || !me)
+        throw new ApiError("forbidden", "only a second owner of the same venue can start this");
+      const { recovery } = await beginRecovery(request, target, "second_owner", me);
+      return reply.code(202).send({ recovery: recoveryBody(recovery) });
+    },
+  );
+
+  app.post<{ Body: unknown }>(
+    "/v1/auth/recover/cancel",
+    { config: ownerPasskey },
+    async (request, reply) => {
+      const body = parse(cancelRecoveryBody, request.body);
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
+      // The owner it concerns and their co-owners may cancel; anyone else sees nothing (the policy hides it too).
+      const cancelled = await asUser(p.userId, request, async (c) => {
+        const found = await ownerRecoveryById(c, body.recovery_id);
+        if (!found || (found.userId !== p.userId && !(await isCoOwner(c, found.userId))))
+          throw new ApiError("not_found", "no such recovery");
+        if (found.completedAt || found.cancelledAt)
+          throw new ApiError("version_conflict", "that recovery is already over");
+        await cancelOwnerRecovery(c, { id: found.id, by: p.userId, at: at() });
+        return found;
+      });
+      return reply.code(200).send({ recovery: { ...recoveryBody(cancelled), cancelled: true } });
+    },
+  );
+
+  app.post("/v1/auth/recovery-codes", { config: ownerPasskeyStepUp }, async (request, reply) => {
+    const p = request.principal;
+    if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
+    const codes = await asUser(p.userId, request, async (c) => {
+      if (!(await isOwnerAnywhere(c)))
+        throw new ApiError("forbidden", "recovery codes are for owners");
+      return replaceRecoveryCodes(c, { userId: p.userId, at: at() });
+    });
+    return reply.code(201).send({ recovery_codes: codes });
+  });
+}
+
+/** Postgres writes "2026-09-26 02:41:00+00"; the API answers "2026-09-26T02:41:00Z". */
+function pgInstant(text: string): string {
+  return Temporal.Instant.from(text).toString();
 }
 
 declare module "fastify" {

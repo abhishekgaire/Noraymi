@@ -83,6 +83,24 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "email.signInCode.expires": "Funciona una sola vez y caduca en {minutes} minutos.",
   "email.signInCode.ignore":
     "Si no acabas de intentar entrar, ignora este correo y avisa al dueño.",
+  // Aviso de recuperación del propietario (M1-20). {owner}, {requester}, {venue} y {readyAt} se rellenan al enviar.
+  "email.ownerRecovery.subject": "Recuperación de cuenta iniciada para {owner} en {venue}",
+  "email.ownerRecovery.greeting": "Hola, {name}:",
+  "email.ownerRecovery.byCode":
+    "Alguien inició la recuperación de la cuenta de {owner}, propietario de {venue}, con uno de sus códigos de recuperación.",
+  "email.ownerRecovery.bySecondOwner":
+    "{requester}, propietario de {venue}, inició la recuperación de la cuenta de {owner}.",
+  "email.ownerRecovery.delay":
+    "Nada cambia durante 48 horas. A partir de {readyAt}, {owner} podrá configurar una nueva llave de acceso o app de autenticación, y en ese momento dejarán de funcionar todos sus métodos de acceso y sesiones anteriores.",
+  "email.ownerRecovery.ifWrong":
+    "Si nadie esperaba esto, avisa a un propietario de inmediato. Cualquier propietario de {venue} puede cancelarla desde su sesión con llave de acceso antes de esa hora.",
+  // La pantalla de recuperación (M1-20).
+  "recovery.codeFailed": "Ese código de recuperación no funcionó",
+  "recovery.started": "Recuperación iniciada · nada cambia durante 48 horas",
+  "recovery.readyFrom": "Podrás configurar una nueva llave de acceso a partir de {readyAt}",
+  "recovery.saveCodes":
+    "Guarda estos códigos de recuperación en un lugar seguro. Cada uno funciona una sola vez y no se volverán a mostrar.",
+  "recovery.codesLeft": "Te quedan {count} códigos de recuperación",
   // La pantalla de inicio de sesión (M1-19).
   "signIn.adminNeedsPasskey": "Admin necesita una llave de acceso",
   "signIn.approvingNeedsPasskey": "Aprobar necesita una llave de acceso",

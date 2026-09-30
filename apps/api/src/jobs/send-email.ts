@@ -37,6 +37,14 @@ export const emailJobPayload = z.discriminatedUnion("template", [
       data: templateSchemas.sign_in_code,
     })
     .strict(),
+  z
+    .object({
+      template: z.literal("owner_recovery_notice"),
+      to: z.string().email(),
+      locale: localeSchema,
+      data: templateSchemas.owner_recovery_notice,
+    })
+    .strict(),
 ]);
 export type EmailJobPayload = z.infer<typeof emailJobPayload>;
 

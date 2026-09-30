@@ -27,9 +27,24 @@ export const signInCodeData = z
   })
   .strict();
 
+/** The notice every owner and manager gets, at once, when an owner's recovery starts (M1-20). */
+export const ownerRecoveryNoticeData = z
+  .object({
+    venueName: z.string().min(1),
+    name: z.string().min(1),
+    ownerName: z.string().min(1),
+    /** "recovery_code": one of the owner's codes was used; "second_owner": requesterName started it. */
+    method: z.enum(["recovery_code", "second_owner"]),
+    requesterName: z.string().min(1).optional(),
+    /** When the recovery is ready, already written out in the venue's time zone and the reader's language. */
+    readyAt: z.string().min(1),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
   sign_in_code: signInCodeData,
+  owner_recovery_notice: ownerRecoveryNoticeData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -114,6 +129,36 @@ export function render<N extends TemplateName>(
         `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
       ].join("\n");
       return { subject: line("email.signInCode.subject"), text: paragraphs.join("\n\n"), html };
+    }
+    case "owner_recovery_notice": {
+      const d = data as TemplateData<"owner_recovery_notice">;
+      const values = {
+        venue: d.venueName,
+        name: d.name,
+        owner: d.ownerName,
+        requester: d.requesterName ?? "",
+        readyAt: d.readyAt,
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line("email.ownerRecovery.greeting"),
+        line(
+          d.method === "second_owner"
+            ? "email.ownerRecovery.bySecondOwner"
+            : "email.ownerRecovery.byCode",
+        ),
+        line("email.ownerRecovery.delay"),
+        line("email.ownerRecovery.ifWrong"),
+        line("email.footer"),
+      ];
+      const html = paragraphs
+        .map((p, i) =>
+          i === paragraphs.length - 1
+            ? `<p style="color:#666">${escapeHtml(p)}</p>`
+            : `<p>${escapeHtml(p)}</p>`,
+        )
+        .join("\n");
+      return { subject: line("email.ownerRecovery.subject"), text: paragraphs.join("\n\n"), html };
     }
   }
 }
