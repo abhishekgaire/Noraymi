@@ -2,7 +2,7 @@
 
 A POS and operations platform for karaoke venues, built for many venues from day one. The first venue is West 4 Boho Karaoke (186 W 4th St, New York): 14 private rooms, a bar with bar-style karaoke, open until 4 AM.
 
-**Current state:** the repo holds the plan and the spec only, with no code yet. Phase 1 is broken into tickets in `docs/backlog/`, and the code gets built from them in order, starting with M1-01.
+**Current state:** the monorepo is scaffolded (M1-01 is done). Phase 1 is broken into tickets in `docs/backlog/`, and the code gets built from them in order; the next ticket is the first `todo` in M1.
 
 ## Where things are
 
@@ -77,7 +77,7 @@ If the spec is silent or contradicts itself, don't invent an answer. Ask the fou
 - **Security:** every new table has row-level security and a venue-wall test. Secrets come only from the environment. Nothing sensitive is logged.
 - **Docs:** if the behavior differs from the spec, the spec changes in the same commit (with a `docs/decisions.md` row if a decision changed). The ticket's Status and Notes are up to date.
 
-## Planned layout (M1-01 creates it)
+## Layout
 
 ```
 apps/api        Fastify API and job workers (TypeScript, Node.js 22 LTS)
@@ -94,17 +94,23 @@ Tooling: pnpm workspaces, TypeScript strict, ESLint and Prettier, Vitest, Playwr
 
 ## Commands
 
-M1-01 creates these. Update this list whenever a command is added or renamed.
+Node.js 22 (`.nvmrc`, `nvm use`) and pnpm through corepack (`corepack enable`; the version is pinned in `package.json`). Update this list whenever a command is added or renamed.
 
 ```
-pnpm install          # install everything
-docker compose up -d  # Postgres 16 and the local S3 store
-pnpm db:migrate       # apply migrations (pnpm db:reset rebuilds the local database)
-pnpm seed             # load the demo seed; the simulated clock is Fri Sep 25, 2026, 10:41 PM
-pnpm dev              # run the apps
+pnpm install            # install everything
+docker compose up -d    # Postgres 16 (localhost:5432) and the local S3 store (RustFS, localhost:9000)
+pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
+pnpm db:reset           # local only: drop, recreate and migrate the database
+pnpm seed               # load the demo seed (built in M1-17; the simulated clock is Fri Sep 25, 2026, 10:41 PM)
+pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 pnpm lint && pnpm typecheck && pnpm test
-pnpm e2e              # Playwright end-to-end tests
+pnpm test:unit          # Vitest, no database needed
+pnpm test:integration   # Vitest against Postgres (docker compose up -d first)
+pnpm e2e                # Playwright smoke tests; starts the dev servers itself (`pnpm exec playwright install chromium` once)
+pnpm format             # Prettier --write
 ```
+
+Copy `.env.example` to `.env` for local values. The API image builds with `docker build -f apps/api/Dockerfile .` from the repo root.
 
 ## The demo seed
 

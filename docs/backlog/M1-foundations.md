@@ -45,7 +45,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-01 · Scaffold the monorepo with lint, typecheck, tests, CI and the migration runner
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** none
 - **Spec:** [Scope and architecture](../spec/01-scope-architecture.md) · the parts table; [Testing and operations](../spec/13-testing-operations.md) · Environments, Tests, Releases; [Security and data retention](../spec/12-security-retention.md) 12; [Money rules](../spec/05-money-rules.md) 2 (one pinned Temporal polyfill)
@@ -57,12 +57,21 @@ Definition of done: see CLAUDE.md.
   - GitHub Actions on every pull request: install, lint, typecheck, unit tests, integration tests against a Postgres 16 service, a Playwright smoke test per app, dependency scanning and container scanning. Each is a required check.
   - `.env.example` with Stripe test-mode keys and the Stripe CLI listener for local webhooks (Stripe calls start in M4), and Twilio test credentials.
 - **Acceptance:**
-  - [ ] On a fresh clone, `pnpm install`, `pnpm lint`, `pnpm typecheck` and `pnpm test` pass.
-  - [ ] `docker compose up` starts Postgres 16 and the S3 store; `pnpm db:migrate` applies the first migration, and a second run applies nothing.
+  - [x] On a fresh clone, `pnpm install`, `pnpm lint`, `pnpm typecheck` and `pnpm test` pass.
+  - [x] `docker compose up` starts Postgres 16 and the S3 store; `pnpm db:migrate` applies the first migration, and a second run applies nothing.
   - [ ] A pull request with a type error, a lint error or a failing test can't merge.
-  - [ ] Each of the five apps starts with `pnpm dev`, and its Playwright smoke test opens it.
+  - [x] Each of the five apps starts with `pnpm dev`, and its Playwright smoke test opens it.
 - **Tests:** a migration-runner integration test (runs in order, runs once, a failing migration rolls back and stops the run); one smoke test per app.
-- **Notes:** None of the canvas applies. Staging comes in M1-02.
+- **Notes:** None of the canvas applies. Staging comes in M1-02. Built Sep 30, 2026:
+  - **Versions.** Node 22.23.3, pnpm 12.8.1 (corepack), TypeScript 5.9.3 (not 7.x: typescript-eslint supports TypeScript below 6.1 only), Fastify 5.12, React 19.3, Vite 8.3, Next.js 16.3, Electron 44.4, Vitest 5.0, Playwright 1.63, ESLint 10, `temporal-polyfill` 1.0.5 pinned exactly and exported from `packages/shared` as the one Temporal.
+  - **The S3 store is RustFS, not MinIO.** MinIO no longer publishes public images on Docker Hub or quay.io, so a fresh clone can't pull it. RustFS (Apache 2.0, S3 API with object lock, still labelled preview) runs locally and in CI only; staging uses a managed store (M1-02). Compose creates `west4-files` and `west4-audit` (object lock on) through an init container.
+  - **Migration runner.** `schema_migrations` records each file's name and SHA-256; a file edited after it was applied stops the run. Each file runs in its own transaction under an advisory lock, as the role `DATABASE_URL` names (the table owner). `db:reset` refuses any `NODE_ENV` other than development or test, and any non-local host. The first migration, `0001_baseline.sql`, creates `pgcrypto` for the later hash chain (M1-07) and PIN hash (M1-23).
+  - **The third Acceptance line is a GitHub setting, not code.** The workflow makes each job a separate named check (Lint, Typecheck, Unit tests, Integration tests, Smoke × 5, Dependency scan, Container scan). Marking them required, so a failing one blocks a merge, is branch protection on `main`, set once the repo has a GitHub remote. It stays unchecked until then.
+  - **Dependency scanning** is `pnpm audit --audit-level=high` plus Dependabot (npm, actions, Docker). **Container scanning** is Trivy on the API image at CRITICAL and HIGH, ignoring unfixed. npm and corepack are removed from the runtime image so the scan covers only what runs.
+  - **`GET /v1/health`** exists now as the API's smoke target and returns `ok` and `server_time`, as M1-02 describes.
+  - **Strings.** Even the placeholder screens read from the shared English and Spanish catalog (`packages/shared/src/i18n`); the Spanish catalog's type makes a missing key a typecheck error, and a unit test checks both ways.
+  - `pnpm seed` exists and exits with a message until M1-17 builds the loader.
+  - Install scripts are allowed only for `esbuild` and `electron` (`allowBuilds` in `pnpm-workspace.yaml`).
 
 ### M1-02 · Stand up staging and deploy to it from CI
 

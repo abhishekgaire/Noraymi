@@ -1,0 +1,36 @@
+{
+  "name": "west4-karaoke",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": "22.x",
+    "pnpm": "12.x"
+  },
+  "scripts": {
+    "build:packages": "tsc -b",
+    "dev": "tsc -b && pnpm -r --parallel --stream run dev",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "tsc -b && pnpm -r --parallel run typecheck",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "tsc -b && vitest run",
+    "test:integration": "tsc -b && vitest run --config vitest.integration.config.ts",
+    "e2e": "tsc -b && playwright test",
+    "db:migrate": "tsc -b packages/db && node packages/db/dist/cli.js migrate",
+    "db:reset": "tsc -b packages/db && node packages/db/dist/cli.js reset",
+    "seed": "node scripts/seed.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.20.4",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.2"
+  }
+}

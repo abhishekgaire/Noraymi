@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm test:unit
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.15
+        env:
+          POSTGRES_USER: west4
+          POSTGRES_PASSWORD: west4
+          POSTGRES_DB: west4
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U west4 -d west4"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://west4:west4@localhost:5432/west4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm db:migrate
+      - name: A second run applies nothing
+        run: pnpm db:migrate | tee /dev/stderr | grep -q "nothing to apply"
+      - run: pnpm test:integration
+
+  e2e:
+    name: Smoke (${{ matrix.app }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, staff, console, guest, desktop]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: xvfb-run -a pnpm e2e --project ${{ matrix.app }}
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-${{ matrix.app }}
+          path: playwright-report
+          retention-days: 7
+
+  dependencies:
+    name: Dependency scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm audit --audit-level=high
+
+  container:
+    name: Container scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -f apps/api/Dockerfile -t west4-api:ci .
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: west4-api:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH

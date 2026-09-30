@@ -1,0 +1,64 @@
+# Local development: Postgres 16 and an S3-compatible store.
+# `docker compose up -d`, then `pnpm db:migrate`.
+services:
+  postgres:
+    image: postgres:16.15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: west4
+      POSTGRES_PASSWORD: west4
+      POSTGRES_DB: west4
+    command: ["postgres", "-c", "timezone=UTC"]
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U west4 -d west4"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # RustFS speaks the S3 API, including object lock. MinIO no longer publishes
+  # public images, so it isn't an option on a fresh clone.
+  s3:
+    image: rustfs/rustfs:1.0.1-preview.11
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: west4
+      RUSTFS_SECRET_KEY: west4secret
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - s3:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/health || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Creates the two buckets once the store is up. west4-audit has object lock
+  # on for the daily write-once audit export (M1-07).
+  s3-init:
+    image: amazon/aws-cli:2.32.28
+    depends_on:
+      s3:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: west4
+      AWS_SECRET_ACCESS_KEY: west4secret
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        s3="aws --endpoint-url http://s3:9000 s3api"
+        $$s3 head-bucket --bucket west4-files 2>/dev/null || $$s3 create-bucket --bucket west4-files
+        $$s3 head-bucket --bucket west4-audit 2>/dev/null || $$s3 create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
+        $$s3 get-object-lock-configuration --bucket west4-audit
+        echo "buckets ready"
+
+volumes:
+  postgres:
+  s3:

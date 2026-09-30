@@ -1,0 +1,19 @@
+{
+  "name": "@west4/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsc -b --watch --preserveWatchOutput",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "temporal-polyfill": "1.0.5"
+  }
+}
