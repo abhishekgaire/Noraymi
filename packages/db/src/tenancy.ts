@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { runInTransactionScope } from "./outside-calls.js";
 
 /**
  * The request wrapper (spec 02 · The database walls): one short transaction
@@ -23,7 +24,7 @@ export async function withVenue<T>(
   try {
     await client.query("begin");
     await setContext(client, context);
-    const result = await work(client);
+    const result = await runInTransactionScope("venue transaction", () => work(client));
     await client.query("commit");
     return result;
   } catch (error) {
@@ -50,7 +51,7 @@ export async function withOrgScope<T>(
     await client.query("select set_config('app.scope', 'org', true)");
     await client.query("select set_config('app.user_id', $1, true)", [context.userId]);
     await client.query("select set_config('app.request_id', $1, true)", [context.requestId ?? ""]);
-    const result = await work(client);
+    const result = await runInTransactionScope("org-scope transaction", () => work(client));
     await client.query("commit");
     return result;
   } catch (error) {

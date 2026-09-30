@@ -18,3 +18,9 @@ export {
 export type { Finding, RuleId, Catalog } from "./lint/index.js";
 export { withVenue, withOrgScope, setContext } from "./tenancy.js";
 export type { RequestContext, Queryable } from "./tenancy.js";
+export * from "./jobs/index.js";
+export {
+  assertOutsideTransaction,
+  inTransaction,
+  OutsideCallInTransactionError,
+} from "./outside-calls.js";

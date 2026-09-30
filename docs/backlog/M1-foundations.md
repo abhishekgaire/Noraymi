@@ -177,7 +177,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-06 · Build the jobs table, the workers, the scheduler and the simulated clock
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-04, M1-05
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · The database walls (Jobs); [Scope and architecture](../spec/01-scope-architecture.md) · Jobs and scheduler; [Money rules](../spec/05-money-rules.md) 2 (the scheduler runs in UTC); [Demo seed · Now](../demo-seed.md#now)
@@ -188,14 +188,20 @@ Definition of done: see CLAUDE.md.
   - One scheduler, the leader under an advisory lock, running in UTC. It works out each run time per date from wall-clock times in the venue's zone (M1-04), so a 1:30 AM job neither runs twice nor gets skipped, and it fans scheduled work out as one job per venue.
   - One clock for the API, the workers and the scheduler, sent as `server_time`. In staging and tests it's a simulated clock that starts at Fri Sep 25, 2026, 10:41:00 PM and can be moved to 4:00, 4:12 and 4:30 AM; production can't move it (M1-02). Business times come from this clock, never from the database's `now()`.
 - **Acceptance:**
-  - [ ] A failing job retries about 5 seconds later, backs off to at most 10 minutes with jitter, and goes to the dead letters with `last_error` after `max_attempts`.
-  - [ ] Two workers claiming 100 jobs never run one twice.
-  - [ ] A daily 1:30 AM job runs once on Nov 1, 2026, at the first 1:30; a daily 2:30 AM job runs once on Mar 14, 2027, at 3:30 AM EDT.
-  - [ ] Only one scheduler leads at a time, and killing it lets another take over within a minute.
-  - [ ] A job step that calls Stripe or Twilio inside an open transaction throws.
-  - [ ] In staging, `server_time` reads 2026-09-25T22:41:00-04:00 after a fresh seed load.
+  - [x] A failing job retries about 5 seconds later, backs off to at most 10 minutes with jitter, and goes to the dead letters with `last_error` after `max_attempts`.
+  - [x] Two workers claiming 100 jobs never run one twice.
+  - [x] A daily 1:30 AM job runs once on Nov 1, 2026, at the first 1:30; a daily 2:30 AM job runs once on Mar 14, 2027, at 3:30 AM EDT.
+  - [x] Only one scheduler leads at a time, and killing it lets another take over within a minute.
+  - [x] A job step that calls Stripe or Twilio inside an open transaction throws.
+  - [ ] In staging, `server_time` reads 2026-09-25T22:41:00-04:00 after a fresh seed load. *(The clock and the route exist and are unit-tested to read exactly that; the seed load that sets it is M1-17, and staging's first deploy waits on the Terraform apply in M1-02.)*
 - **Tests:** integration tests for claiming, leases, retries and dead letters; scheduler tests on the simulated clock across both daylight-saving nights.
-- **Notes:** Audit rows keep the database's real `now()` (M1-07); only business times follow the simulated clock. The staging control that moves the clock is an operations route, not in the API table.
+- **Notes:** Audit rows keep the database's real `now()` (M1-07); only business times follow the simulated clock. The staging control that moves the clock is an operations route, not in the API table. Built Sep 30, 2026:
+  - **Migration `0003_jobs.sql`:** the `jobs` table (spec 04's columns plus `pool`, `payload`, `created_at`, `finished_at`), a partial claim index, `venue_isolation` for `app_rw`, and `claim_jobs(pool, now, lease, limit)`: a `SECURITY DEFINER` function that takes due `queued` jobs and `running` jobs whose lease ran out, `for update skip locked`, and stamps the lease and the attempt. `venues_for_scheduler()` is the definer the scheduler uses to fan out. `clock_control` is the one-row table behind the shared simulated clock.
+  - **Code** in `packages/db/src/jobs`: `enqueue` (inside a venue transaction; `on conflict (dedupe_key) do nothing`), `claim`, `complete`, `fail` (backoff or dead), `retryDelaySeconds` (5 s × 2^(attempt−1), capped at 600 s, ±25% jitter), `Worker` (one per pool; each handler step is its own `withVenue` transaction), `Scheduler` (session advisory lock for leadership; plans today's and tomorrow's business dates per venue with `wallClock`, keyed `kind:venue:date`) and `StoredClock`. `apps/api/src/worker.ts` runs the three pools and the scheduler; `apps/api/src/jobs/registry.ts` is where later tickets register handlers and schedules.
+  - **The outside-call guard.** `withVenue` and `withOrgScope` mark their transaction in an `AsyncLocalStorage`; `assertOutsideTransaction("stripe")` throws inside one. The Stripe (M4) and Twilio (M2) clients must call it before every request.
+  - **The clock.** `packages/shared/src/clock.ts`: `Clock`, `systemClock`, `SimulatedClock` (moves, then keeps ticking), `FrozenClock` (tests) and `SEED_NOW`. Processes in staging use `StoredClock`, which re-reads `clock_control` every 2 seconds, so a move through `POST /v1/ops/clock` reaches the API, the workers and the scheduler. The route only exists when `ALLOW_STAGING_FEATURES` is on; elsewhere it is a 404.
+  - **`server_time` is shown in New York time** (`2026-09-25T22:41:00-04:00`), the platform's home zone, so the demo seed's reading matches what the ticket says; the instant underneath is zone-free.
+  - **Kill-and-takeover.** The leader holds its lock on its own connection, so when its process dies the lock drops with the connection; the other scheduler retries every 15 seconds, well inside the minute.
 
 ### M1-07 · Build the audit triggers, the per-venue hash chain and the daily write-once export
 

@@ -18,6 +18,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@west4/rules": "workspace:*",
     "@west4/shared": "workspace:*",
     "pg": "8.23.0"
   },

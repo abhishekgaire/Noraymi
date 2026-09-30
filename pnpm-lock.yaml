@@ -309,6 +309,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@west4/rules':
+        specifier: workspace:*
+        version: link:../rules
       '@west4/shared':
         specifier: workspace:*
         version: link:../shared
