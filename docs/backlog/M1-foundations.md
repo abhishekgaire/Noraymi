@@ -390,7 +390,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-14 · Load the five default roles into `role_permissions` and check them before every write
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-08
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Roles (the permission table); [Data model](../spec/04-data-model.md) · `role_permissions`; [API](../spec/08-api.md) · Conventions (Principals); [Glossary · Roles](../glossary.md#roles)
@@ -399,12 +399,17 @@ Definition of done: see CLAUDE.md.
   - The front desk's bar POS and its accepting room orders "when covering the bar" are rows that Admin → Team can switch off (M1-31).
   - A guard that checks the caller's role against `role_permissions` before every write, from the action each route declares (M1-08). Screens hide what a role can't do, but the API is the check.
 - **Acceptance:**
-  - [ ] Each action in the spec's table, tried as each of the five roles, is allowed or refused exactly as the table says.
-  - [ ] A runner (`staff`) cutting off a room gets `403 forbidden`.
-  - [ ] With the front desk's bar POS switched off, Diego's bar POS and accept-order calls answer `403`.
-  - [ ] Bartenders, the front desk and runners get `403` on every Admin action.
+  - [x] Each action in the spec's table, tried as each of the five roles, is allowed or refused exactly as the table says.
+  - [x] A runner (`staff`) cutting off a room gets `403 forbidden`.
+  - [x] With the front desk's bar POS switched off, Diego's bar POS and accept-order calls answer `403`.
+  - [x] Bartenders, the front desk and runners get `403` on every Admin action.
 - **Tests:** the role half of spec 13's role and approval tests, table-driven over fixture routes.
-- **Notes:** The duty (Bar, Front desk, Runner, Manager) is picked at clock-in in M7 and never changes permissions. "When covering the bar" needs the duty; until M7, the Admin switch alone decides.
+- **Notes:** The duty (Bar, Front desk, Runner, Manager) is picked at clock-in in M7 and never changes permissions. "When covering the bar" needs the duty; until M7, the Admin switch alone decides. Built Sep 30, 2026:
+  - **The table** is `packages/shared/src/roles.ts`: the five roles, twenty actions (one per row of the spec's table, with check-in, the waitlist, bookings and guest texts as separate actions, and Admin split into `admin.access`, `admin.payments`, `admin.team` and `admin.console` so managers get Admin without Payments, Team and Console), `defaultPermissions[action][role]` exactly as the table, and `switchableByAdmin` (the front desk's `pos.use` and `orders.accept`). Names are catalog strings in English and Spanish (`role.<id>`, `permission.<action>`).
+  - **Migration `0011_role_permissions.sql`:** the venue's changes only, keyed `(venue_id, role, action)`, audited; no row means the default. `permissionFor(overrides, role, action)` is the one answer everything reads.
+  - **The guard** lives in the conventions plugin (`PermissionGate`, `apps/api/src/http/permission-gate.ts`, cached like the module gate): before every write (anything but GET, HEAD and OPTIONS) by a signed-in person, the action the route declares is checked for the caller's role at the venue; a miss is `403 forbidden`. Reads pass on the principal check alone. Devices, guests, singers and webhooks have no role and aren't role-checked; their principal rules decide. A route that declares an action outside the table throws at request time, so a typo can't silently allow.
+  - **Routes** (`apps/api/src/routes/permissions.ts`): `GET /permissions` (the effective table with defaults and what Admin may switch) and `PATCH /permissions/{role}/{action}` for the two switchable rows, owner only (`admin.team`). Admin → Team's screen (M1-31) uses them. The settings, closures and modules routes now declare `admin.access`.
+  - **Tests:** the table tried as every role over one fixture write per action (100 calls), the runner cut-off, the front desk switch, and the Admin actions as the three non-Admin roles even with a passkey session.
 
 ### M1-15 · Pair devices with one-time codes and signed device keys, and revoke them
 

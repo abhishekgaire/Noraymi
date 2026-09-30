@@ -16,6 +16,8 @@ import {
 import { ANONYMOUS, principalId, principalIs, type Principal } from "./principal.js";
 import { installRegistry, type RegisteredRoute, type RouteSpec } from "./registry.js";
 import type { ModuleGate } from "./module-gate.js";
+import type { PermissionGate } from "./permission-gate.js";
+import { isAction } from "@west4/shared";
 
 export type Authenticator = (request: FastifyRequest) => Promise<Principal | undefined>;
 
@@ -31,6 +33,8 @@ export interface ConventionsOptions {
   readonly db: boolean;
   /** The module gate; absent without a database. */
   readonly moduleGate?: ModuleGate;
+  /** The role guard; absent without a database. */
+  readonly permissionGate?: PermissionGate;
 }
 
 declare module "fastify" {
@@ -134,6 +138,29 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
       if (!options.db) throw new Error("no database in this app");
       return app.db.withVenue(context, work);
     };
+
+    // Before every write, the caller's role is checked against role_permissions for the route's action (M1-14).
+    const isWrite =
+      request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS";
+    if (
+      isWrite &&
+      venueId !== undefined &&
+      spec.action !== undefined &&
+      request.principal.kind === "user" &&
+      options.permissionGate
+    ) {
+      if (!isAction(spec.action))
+        throw new Error(
+          `route ${request.method} ${request.routeOptions.url} declares an unknown action ${spec.action}`,
+        );
+      const membership = request.principal.memberships.find((m) => m.venueId === venueId);
+      if (
+        !membership ||
+        !(await options.permissionGate.allows(venueId, membership.role, spec.action))
+      ) {
+        throw new ApiError("forbidden", "your role can't do this");
+      }
+    }
 
     // Every route of a module that's off answers 404 module_off (M1-13).
     if (venueId !== undefined && options.moduleGate && !spec.exemptWhenOff) {

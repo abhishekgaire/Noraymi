@@ -50,3 +50,4 @@ export {
   setVenueFlag,
 } from "./modules.js";
 export type { VenueModuleRow } from "./modules.js";
+export { permissionOverrides, setPermission } from "./permissions.js";

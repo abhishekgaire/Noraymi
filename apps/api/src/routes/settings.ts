@@ -16,11 +16,11 @@ interface VenueParams {
  *   PUT  /v1/venues/{v}/settings         Save and publish: several keys, all or nothing
  */
 export function settingsRoutes(app: FastifyInstance, options: { clock: Clock }): void {
-  const staff = route({ principals: ["owner_manager"], module: "core", action: "settings.read" });
+  const staff = route({ principals: ["owner_manager"], module: "core", action: "admin.access" });
   const admin = route({
     principals: ["owner_manager"],
     module: "core",
-    action: "settings.write",
+    action: "admin.access",
     idempotency: "optional",
   });
 

@@ -56,3 +56,13 @@ export {
   ROOM_ORDERS_NOWHERE_TO_RING,
 } from "./modules.js";
 export type { ModuleId, ModuleState, ModuleDef, ModuleEffects, ModuleStates } from "./modules.js";
+export {
+  roles,
+  actions,
+  defaultPermissions,
+  switchableByAdmin,
+  isAction,
+  isRole,
+  permissionFor,
+} from "./roles.js";
+export type { Role, Action, PermissionOverride } from "./roles.js";

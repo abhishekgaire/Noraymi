@@ -39,7 +39,7 @@ function makeApp(): FastifyInstance {
           config: route({
             principals: ["owner_manager"],
             module: "core",
-            action: "things.create",
+            action: "admin.access",
             idempotency: "required",
           }),
         },

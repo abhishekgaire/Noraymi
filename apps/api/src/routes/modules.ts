@@ -35,12 +35,12 @@ export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate 
   const read = route({
     principals: ["owner_manager", "staff", "shared_device"],
     module: "core",
-    action: "modules.read",
+    action: "admin.access",
   });
   const write = route({
     principals: ["owner_manager"],
     module: "core",
-    action: "modules.write",
+    action: "admin.access",
     idempotency: "optional",
   });
 

@@ -40,12 +40,12 @@ export function closuresRoutes(app: FastifyInstance, options: { clock: Clock }):
   const read = route({
     principals: ["owner_manager", "staff", "shared_device"],
     module: "core",
-    action: "hours.read",
+    action: "admin.access",
   });
   const write = route({
     principals: ["owner_manager"],
     module: "core",
-    action: "hours.write",
+    action: "admin.access",
     idempotency: "optional",
   });
 

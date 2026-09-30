@@ -12,7 +12,7 @@ export interface RouteSpec {
   readonly principals: readonly PrincipalName[];
   /** "core" or a module id; a module that's off answers 404 module_off (M1-13). */
   readonly module: string;
-  /** The role action checked in role_permissions for staff callers (M1-14). */
+  /** The role action (packages/shared roles.ts) checked in role_permissions before a write by a staff caller (M1-14). */
   readonly action?: string;
   /** POST and PATCH take Idempotency-Key; money routes require it. */
   readonly idempotency?: "optional" | "required" | "none";

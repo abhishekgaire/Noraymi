@@ -10,6 +10,8 @@ import { settingsRoutes } from "./routes/settings.js";
 import { closuresRoutes } from "./routes/closures.js";
 import { modulesRoutes } from "./routes/modules.js";
 import { ModuleGate } from "./http/module-gate.js";
+import { PermissionGate } from "./http/permission-gate.js";
+import { permissionsRoutes } from "./routes/permissions.js";
 
 export interface AppOptions {
   readonly logger?: boolean;
@@ -38,6 +40,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const config = options.config;
   let clock: Clock = options.clock ?? systemClock;
   let gate: ModuleGate | undefined;
+  let permissions: PermissionGate | undefined;
 
   if (config) {
     void app.register(dbPlugin, { databaseUrl: config.databaseUrl });
@@ -47,6 +50,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       application_name: "west4-module-gate",
     });
     gate = new ModuleGate(gatePool, options.moduleCacheMs);
+    permissions = new PermissionGate(gatePool, options.moduleCacheMs);
     app.addHook("onClose", async () => {
       await gatePool.end();
     });
@@ -75,6 +79,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
     db: config !== undefined,
     ...(gate ? { moduleGate: gate } : {}),
+    ...(permissions ? { permissionGate: permissions } : {}),
   });
 
   // Live events need the database (M1-09).
@@ -121,6 +126,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       settingsRoutes(scope, { clock });
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });
+      permissionsRoutes(scope, { gate: permissions! });
     }
     await options.extraRoutes?.(scope);
   });
