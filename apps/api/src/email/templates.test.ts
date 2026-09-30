@@ -24,10 +24,12 @@ describe("email templates", () => {
     expect(mail.text).toContain("Andy");
   });
 
-  it("no template takes a PIN, a code or a secret, and a payload that carries one is rejected", () => {
+  it("no template takes a PIN, a password or a secret, and a payload that carries one is rejected", () => {
     for (const name of templateNames) {
       const keys = Object.keys(templateSchemas[name].shape);
-      expect(keys.filter((k) => /pin|code|secret|password|hash/i.test(k))).toEqual([]);
+      expect(keys.filter((k) => /pin|secret|password|hash/i.test(k))).toEqual([]);
+      // The one-time sign-in code (M1-19) is the only code an email carries, on its own template.
+      expect(keys.filter((k) => /code/i.test(k))).toEqual(name === "sign_in_code" ? ["code"] : []);
     }
     const good = { template: "invite", to: "diego@example.com", locale: "es", data: invite };
     expect(emailJobPayload.safeParse(good).success).toBe(true);

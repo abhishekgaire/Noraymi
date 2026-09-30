@@ -21,7 +21,8 @@ export type PrincipalName =
   | "public";
 
 export type StaffRole = "owner" | "manager" | "bartender" | "front_desk" | "staff";
-export type SessionKind = "passkey" | "pin" | "badge";
+/** How the session was opened. Owners and managers sign in with a passkey or an authenticator app; staff with a PIN or a badge. */
+export type SessionKind = "passkey" | "authenticator" | "pin" | "badge";
 
 export type Principal =
   | { readonly kind: "anonymous" }
@@ -79,7 +80,7 @@ export function principalIs(p: Principal, name: PrincipalName, venueId?: string)
     case "owner_manager":
       return (
         p.kind === "user" &&
-        p.session === "passkey" &&
+        (p.session === "passkey" || p.session === "authenticator") &&
         p.memberships.some(
           (m) => atVenue(m.venueId) && (m.role === "owner" || m.role === "manager"),
         )

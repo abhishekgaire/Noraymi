@@ -511,7 +511,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-19 · Sign in owners and managers with a passkey or an authenticator app
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M1-14, M1-18
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Owner or manager); [API](../spec/08-api.md) · Conventions (Sign-in); [Security and data retention](../spec/12-security-retention.md) 3; [Admin](../screens.md#admin) note 1
@@ -523,14 +523,21 @@ Definition of done: see CLAUDE.md.
   - A session cookie on the web and a bearer token in the desktop app (kept in the keychain by M1-28).
   - Tables the data model implies but doesn't name: `auth_credentials` (user_id, kind passkey or totp, credential_id, public_key, sign_count, secret_enc, created_at, last_used_at, revoked_at) and `auth_sessions` (principal, user_id, membership_id, device_id, assurance, started_at, last_seen_at, expires_at, ended_at, end_reason).
 - **Acceptance:**
-  - [ ] Andy signs in with a passkey and opens Admin.
-  - [ ] Signed in with the authenticator app instead, Admin answers `403 forbidden` ("Admin needs a passkey"), and he can't decide an approval.
-  - [ ] A session idle for 30 minutes locks, and every session ends at 12 hours.
-  - [ ] A team change inside a passkey session asks for the passkey again.
-  - [ ] Every Admin route called with a PIN session or a badge session answers `403` (the full sweep is in M1-37).
+  - [x] Andy signs in with a passkey and opens Admin.
+  - [x] Signed in with the authenticator app instead, Admin answers `403 forbidden` ("Admin needs a passkey"), and he can't decide an approval.
+  - [x] A session idle for 30 minutes locks, and every session ends at 12 hours.
+  - [x] A team change inside a passkey session asks for the passkey again.
+  - [x] Every Admin route called with a PIN session or a badge session answers `403` (the full sweep is in M1-37).
 - **Tests:** WebAuthn ceremonies with Playwright's virtual authenticator; TOTP with fixed secrets; session expiry on the simulated clock.
-- **Notes:** The spec says "email plus a passkey or an authenticator app" and names no password. Cautious reading built here: no passwords, and the authenticator path first sends a one-time code to the email, so it stays two steps. Flagged for the founder.
-
+- **Notes:** The spec says "email plus a passkey or an authenticator app" and names no password. Cautious reading built here, recorded as D86: no passwords, and the authenticator path first sends a one-time code to the email, so it stays two steps. Flagged for the founder.
+  - **Built.** `packages/db/migrations/0015_auth.sql`: `auth_credentials`, `auth_sessions` and `auth_challenges` (walled by the person, `user_id = app_user_id()`, since a passkey works at every venue its owner belongs to), the `require_mfa` trigger that sets `users.mfa_required` for every owner and manager (plus a one-time backfill as `app_migrator`), and two resolver functions for the moments nobody is signed in yet: `auth_user_by_email` and `auth_resolve_session` (which also moves `last_seen_at`, locks at 30 idle minutes and ends at 12 hours, on the clock the caller passes). `packages/db/src/auth.ts`: the queries, `withUser()` (a transaction as one person and no venue), AES-256-GCM sealing of authenticator secrets under `AUTH_SECRET_KEY`. `apps/api/src/auth/`: `totp.ts` (RFC 6238, tested against the RFC's vectors), `webauthn.ts` (`@simplewebauthn/server`, user verification required), `session-auth.ts` (the cookie `west4_session` on the web, `Authorization: Bearer` in the desktop app) and `routes.ts` (`POST /v1/auth/login`, `/enroll`, `/step-up`, `/logout`, `GET /v1/auth/me`). The registry gained `assurance: "passkey"` and `stepUp: true`; the conventions plugin refuses every `admin.*` action and `approvals.decide` outside a passkey session with `403 forbidden` ("Admin needs a passkey" / "Approving needs a passkey"), and a `stepUp` write without a fresh `X-Step-Up` token with `403 step_up_required`. New error codes `session_locked` and `session_expired` (401) tell the screen which happened; both are in spec 08 now.
+  - **Enrollment (not in the ticket, but nothing signs in without it).** The first passkey or authenticator is enrolled after a code emailed to the account, only while the account has no credential at all; later ones need a passkey session with a step-up; an authenticator session may add its first passkey (so a seeded demo account can graduate to a passkey). Adding credentials from Admin → Team and revoking them is left to M1-31.
+  - **Cautious defaults.** A locked session is ended (`end_reason = idle`) and the person signs in again; there is no unlock-in-place. An unknown email gets the same answers as a known one (passkey options with no allowed credentials; "code sent") so addresses can't be probed, and the auth routes are limited to 30 requests a minute per IP. Five wrong tries use up an emailed code or a pending authenticator secret. An authenticator code is accepted once (the step is remembered) with one 30-second step of drift. A passkey whose counter goes backwards is refused. The emailed code lives in the email job's payload until the job is cleaned up; the challenge stores only its hash.
+  - **Sessions are not audited** (a `last_seen_at` update per request would flood the log); credentials are.
+  - **Config.** `AUTH_SECRET_KEY` (64 hex), `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGINS`, `SESSION_COOKIE_SAME_SITE`. Local falls back to a fixed development key, `localhost` and the three local origins; the development key is refused outside local, and production refuses to start without the passkey domain. Staging: the `auth-secret-key` secret (random from `seed-secrets.sh`), the staff CloudFront domain as the passkey domain, and `SameSite=None` because the API is on another site than the staff app.
+  - **Seed.** `demo_email` and `demo_totp_secret` on Abhishek and Andy (placeholders on `demo.west4.local`, flagged in the seed), so local dev signs in with the email code from Mailpit plus any authenticator app. On staging the email code can't be delivered to a `.local` address: sign-in there waits on real addresses (Admin → Team, M1-31) on the allow-list. Founder's call whether the demo accounts should carry their real emails instead.
+  - **Tests.** `apps/api/src/auth/auth.int.test.ts` (a software passkey in `test-passkey.ts` runs the ceremonies inside Vitest; the simulated clock drives the 30-minute and 12-hour limits) and `e2e/api.spec.ts` (Chromium's virtual authenticator enrols and signs in through the real browser API). `pg` became a root dev dependency so the smoke test can read the emailed code from the job queue, since the smoke run starts no worker.
+  - **For later tickets.** M1-24 and M1-25 open their `pin` and `badge` sessions through `openSession()` with `principal = 'staff'`; M1-27 ends a person's sessions with `endAllSessions()`; M1-31 (team changes), exports, large refunds and card-fee changes declare `stepUp: true`; the staff app's sign-in screen (M1-26) uses `signIn.*` strings added to the catalogs.
 ### M1-20 · Add recovery codes and owner recovery
 
 - **Status:** todo

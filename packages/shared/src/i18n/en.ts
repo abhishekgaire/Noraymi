@@ -75,4 +75,18 @@ export const en = {
   "email.invite.button": "Open my invite",
   "email.invite.expires": "The link works once and expires after {hours} hours.",
   "email.invite.ignore": "If you weren't expecting this, you can ignore it.",
+  // Sign-in code (M1-19). {code} and {minutes} are filled in at send time.
+  "email.signInCode.subject": "Your {venue} sign-in code",
+  "email.signInCode.greeting": "Hi {name},",
+  "email.signInCode.body": "Here is your one-time code for the {venue} staff app:",
+  "email.signInCode.expires": "It works once and expires in {minutes} minutes.",
+  "email.signInCode.ignore":
+    "If you didn't just try to sign in, ignore this email and tell the owner.",
+  // The sign-in screen (M1-19).
+  "signIn.adminNeedsPasskey": "Admin needs a passkey",
+  "signIn.approvingNeedsPasskey": "Approving needs a passkey",
+  "signIn.confirmWithPasskey": "Confirm with your passkey",
+  "signIn.sessionLocked": "Locked after 30 minutes away · sign in again",
+  "signIn.sessionExpired": "Your sign-in ended · sign in again",
+  "signIn.failed": "We couldn't sign you in",
 } as const;

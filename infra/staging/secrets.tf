@@ -11,6 +11,7 @@ locals {
     "app-db-password"       = "Login password of the app_rw database role (M1-05); db:migrate sets it"
     "rule-pack-signing-key" = "Ed25519 private key (PEM) that signs rule-pack versions (M1-10)"
     "smtp-url"              = "The email provider's SMTP relay URL, smtp://user:pass@host:port (M1-18)"
+    "auth-secret-key"       = "32 bytes as hex that seal authenticator-app secrets (M1-19)"
   }
 }
 

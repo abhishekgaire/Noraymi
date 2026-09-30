@@ -14,6 +14,13 @@ export interface RouteSpec {
   readonly module: string;
   /** The role action (packages/shared roles.ts) checked in role_permissions before a write by a staff caller (M1-14). */
   readonly action?: string;
+  /**
+   * "passkey": only a passkey session reaches it, never an authenticator, PIN or badge one (spec 02).
+   * Every admin.* action and approvals.decide are passkey-only without saying so (M1-19).
+   */
+  readonly assurance?: "passkey";
+  /** A write that asks for the passkey again: large refunds, exports, team changes, card-fee changes. It needs X-Step-Up. */
+  readonly stepUp?: boolean;
   /** POST and PATCH take Idempotency-Key; money routes require it. */
   readonly idempotency?: "optional" | "required" | "none";
   /** Token routes send Referrer-Policy: no-referrer and Cache-Control: no-store (spec 12 · 9). */

@@ -76,4 +76,18 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "email.invite.button": "Abrir mi invitación",
   "email.invite.expires": "El enlace funciona una sola vez y caduca a las {hours} horas.",
   "email.invite.ignore": "Si no esperabas este correo, puedes ignorarlo.",
+  // Código de inicio de sesión (M1-19). {code} y {minutes} se rellenan al enviar.
+  "email.signInCode.subject": "Tu código para entrar en {venue}",
+  "email.signInCode.greeting": "Hola, {name}:",
+  "email.signInCode.body": "Este es tu código de un solo uso para la app del personal de {venue}:",
+  "email.signInCode.expires": "Funciona una sola vez y caduca en {minutes} minutos.",
+  "email.signInCode.ignore":
+    "Si no acabas de intentar entrar, ignora este correo y avisa al dueño.",
+  // La pantalla de inicio de sesión (M1-19).
+  "signIn.adminNeedsPasskey": "Admin necesita una llave de acceso",
+  "signIn.approvingNeedsPasskey": "Aprobar necesita una llave de acceso",
+  "signIn.confirmWithPasskey": "Confirma con tu llave de acceso",
+  "signIn.sessionLocked": "Bloqueado tras 30 minutos sin actividad · vuelve a entrar",
+  "signIn.sessionExpired": "Tu sesión terminó · vuelve a entrar",
+  "signIn.failed": "No pudimos iniciar tu sesión",
 };

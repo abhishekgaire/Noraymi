@@ -25,6 +25,10 @@ locals {
     # Email (M1-18). Staging sends only to the allow-list; empty sends nothing.
     { name = "EMAIL_FROM", value = var.email_from },
     { name = "EMAIL_ALLOW_LIST", value = var.email_allow_list },
+    # Sign-in (M1-19). Passkeys are bound to the staff app's domain; the API is on another site, so the cookie is SameSite=None.
+    { name = "WEBAUTHN_RP_ID", value = aws_cloudfront_distribution.static["staff"].domain_name },
+    { name = "WEBAUTHN_ORIGINS", value = "https://${aws_cloudfront_distribution.static["staff"].domain_name}" },
+    { name = "SESSION_COOKIE_SAME_SITE", value = "None" },
   ]
   # The API and the worker connect as app_rw, behind the venue wall (M1-05).
   app_secrets = [
@@ -33,6 +37,7 @@ locals {
     { name = "BADGE_MASTER_KEY", valueFrom = aws_secretsmanager_secret.app["badge-master-key"].arn },
     { name = "RULE_PACK_SIGNING_KEY", valueFrom = aws_secretsmanager_secret.app["rule-pack-signing-key"].arn },
     { name = "SMTP_URL", valueFrom = aws_secretsmanager_secret.app["smtp-url"].arn },
+    { name = "AUTH_SECRET_KEY", valueFrom = aws_secretsmanager_secret.app["auth-secret-key"].arn },
   ]
   # CI replaces the image on every deploy; Terraform's copy is the template.
   bootstrap_image = { api = "${aws_ecr_repository.images["api"].repository_url}:bootstrap", guest = "${aws_ecr_repository.images["guest"].repository_url}:bootstrap" }
@@ -108,6 +113,7 @@ resource "aws_ecs_task_definition" "migrate" {
       { name = "DB_PASSWORD", valueFrom = "${local.db_secret_arn}:password::" },
       { name = "APP_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.app["app-db-password"].arn },
       { name = "RULE_PACK_SIGNING_KEY", valueFrom = aws_secretsmanager_secret.app["rule-pack-signing-key"].arn },
+      { name = "AUTH_SECRET_KEY", valueFrom = aws_secretsmanager_secret.app["auth-secret-key"].arn },
     ]
     logConfiguration = {
       logDriver = "awslogs"

@@ -1,4 +1,4 @@
-import { appDatabaseUrl } from "@west4/db";
+import { LOCAL_DEV_AUTH_KEY, appDatabaseUrl, parseAuthSecretKey } from "@west4/db";
 
 export type West4Env = "local" | "staging" | "production";
 
@@ -14,6 +14,21 @@ export interface Config {
   readonly host: string;
   /** The app_rw connection: behind the venue wall, never the table owner. */
   readonly databaseUrl: string;
+  /** Sign-in (M1-19): the key that seals authenticator secrets, and the passkey relying party. */
+  readonly auth: AuthConfig;
+}
+
+export interface AuthConfig {
+  /** AUTH_SECRET_KEY, 32 bytes. Local falls back to a fixed development key; anywhere else it must be set. */
+  readonly secretKey: Buffer;
+  /** WEBAUTHN_RP_ID: the domain passkeys are bound to (the staff app's host). Null until it's set outside local. */
+  readonly rpId: string | null;
+  readonly rpName: string;
+  /** WEBAUTHN_ORIGINS: the origins a passkey ceremony may come from, comma-separated. */
+  readonly origins: readonly string[];
+  /** Session cookies: Secure everywhere but local; SameSite=None when the staff app is on another site. */
+  readonly cookieSecure: boolean;
+  readonly cookieSameSite: "Lax" | "None" | "Strict";
 }
 
 const ENVS: readonly West4Env[] = ["local", "staging", "production"];
@@ -37,5 +52,39 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     port: Number(source["PORT"] ?? 3000),
     host: source["HOST"] ?? "127.0.0.1",
     databaseUrl: appDatabaseUrl(source),
+    auth: loadAuthConfig(env, source),
+  };
+}
+
+export function loadAuthConfig(
+  env: West4Env,
+  source: Record<string, string | undefined>,
+): AuthConfig {
+  const rawKey = source["AUTH_SECRET_KEY"] ?? (env === "local" ? LOCAL_DEV_AUTH_KEY : undefined);
+  if (env !== "local" && rawKey === LOCAL_DEV_AUTH_KEY)
+    throw new Error(
+      "AUTH_SECRET_KEY is the local development key: refusing to start outside local",
+    );
+  const secretKey = parseAuthSecretKey(rawKey);
+  const rpId = source["WEBAUTHN_RP_ID"] ?? (env === "local" ? "localhost" : null);
+  if (env === "production" && !rpId) throw new Error("WEBAUTHN_RP_ID is not set");
+  const rawOrigins =
+    source["WEBAUTHN_ORIGINS"] ??
+    (env === "local" ? "http://localhost:5173,http://localhost:5174,http://localhost:3000" : "");
+  const origins = rawOrigins
+    .split(",")
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
+  if (rpId && origins.length === 0) throw new Error("WEBAUTHN_ORIGINS is not set");
+  const sameSite = source["SESSION_COOKIE_SAME_SITE"] ?? (env === "local" ? "Lax" : "None");
+  if (sameSite !== "Lax" && sameSite !== "None" && sameSite !== "Strict")
+    throw new Error("SESSION_COOKIE_SAME_SITE must be Lax, None or Strict");
+  return {
+    secretKey,
+    rpId,
+    rpName: source["WEBAUTHN_RP_NAME"] ?? "West 4 staff app",
+    origins,
+    cookieSecure: env !== "local",
+    cookieSameSite: sameSite,
   };
 }

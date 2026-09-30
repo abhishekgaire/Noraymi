@@ -14,6 +14,9 @@ import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
 import { devicesRoutes } from "./routes/devices.js";
 import { deviceAuthenticator } from "./http/device-auth.js";
+import { sessionAuthenticator } from "./auth/session-auth.js";
+import { authRoutes } from "./auth/routes.js";
+import type { EmailSettings } from "./email/settings.js";
 
 export interface AppOptions {
   readonly logger?: boolean;
@@ -29,6 +32,8 @@ export interface AppOptions {
   readonly drainMs?: number;
   /** Tests add fixture routes here, inside the routes plugin's scope. */
   readonly extraRoutes?: (app: FastifyInstance) => Promise<void> | void;
+  /** Who the API may email (M1-18); index.ts loads it from the environment, tests pass one. */
+  readonly email?: Pick<EmailSettings, "allowList">;
 }
 
 /** server_time is shown in New York time, the platform's home zone (spec conventions · Time zone). */
@@ -81,7 +86,9 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     minClientVersion: process.env["MIN_CLIENT_VERSION"] ?? "0.0.0",
     authenticators: [
       ...(options.authenticators ?? []),
-      ...(gate && config ? [deviceAuthenticator(gatePoolRef!)] : []),
+      ...(gate && config
+        ? [sessionAuthenticator(gatePoolRef!, clock), deviceAuthenticator(gatePoolRef!)]
+        : []),
     ],
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
     db: config !== undefined,
@@ -130,6 +137,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     }
 
     if (config) {
+      authRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        config: config.auth,
+        email: options.email ?? { allowList: null },
+      });
       settingsRoutes(scope, { clock });
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });

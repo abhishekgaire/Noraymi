@@ -14,6 +14,7 @@ put_if_empty() {
   fi
 }
 put_if_empty pin-pepper "$(openssl rand -hex 32)"
+put_if_empty auth-secret-key "$(openssl rand -hex 32)"
 put_if_empty badge-master-key "$(openssl rand -hex 16)"
 put_if_empty origin-verify "$(openssl rand -hex 24)"
 put_if_empty app-db-password "$(openssl rand -hex 24)"

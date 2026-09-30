@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { LOCAL_DEV_AUTH_KEY, encryptSecret, parseAuthSecretKey } from "./auth.js";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +70,10 @@ export interface SeedPerson {
   readonly role: Role;
   readonly pin_digits: 4 | 6;
   readonly locale: "en" | "es";
+  /** DEMO ONLY (M1-19): a placeholder address the owner or manager signs in with. */
+  readonly demo_email?: string;
+  /** DEMO ONLY (M1-19): a fixed authenticator-app secret (base32), loaded only when AUTH_SECRET_KEY is set. */
+  readonly demo_totp_secret?: string;
 }
 
 export interface SeedDevice {
@@ -530,12 +535,28 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
 
     // The team: a user and an active membership each. PINs arrive in M1-23, badges in M1-25.
+    // Sign-in rows (M1-19) belong to the person, not the venue, so they're wiped by user id.
+    const authKey =
+      process.env["AUTH_SECRET_KEY"] ??
+      ((process.env["WEST4_ENV"] ?? "local") === "local" ? LOCAL_DEV_AUTH_KEY : undefined);
+    let totpLoaded = 0;
     for (const person of seed.team) {
       const userId = remember(person.id, "users");
       await client.query(
-        `insert into users (id, name) values ($1, $2) on conflict (id) do update set name = excluded.name`,
-        [userId, person.name],
+        `insert into users (id, name, email) values ($1, $2, $3)
+         on conflict (id) do update set name = excluded.name, email = excluded.email`,
+        [userId, person.name, person.demo_email ?? null],
       );
+      await client.query("delete from auth_challenges where user_id = $1", [userId]);
+      await client.query("delete from auth_sessions where user_id = $1", [userId]);
+      await client.query("delete from auth_credentials where user_id = $1", [userId]);
+      if (person.demo_totp_secret && authKey) {
+        await client.query(
+          `insert into auth_credentials (user_id, kind, name, secret_enc) values ($1, 'totp', 'Demo authenticator', $2)`,
+          [userId, encryptSecret(parseAuthSecretKey(authKey), person.demo_totp_secret)],
+        );
+        totpLoaded += 1;
+      }
       const membershipId = remember(`${person.id}.membership`, "memberships");
       await client.query(
         `insert into memberships (id, venue_id, user_id, role, status, pin_digits, locale)
@@ -543,7 +564,14 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         [membershipId, venueId, userId, person.role, person.pin_digits, person.locale],
       );
     }
-    log(`team: ${seed.team.length} people`);
+    log(
+      `team: ${seed.team.length} people` +
+        (totpLoaded > 0
+          ? `, ${totpLoaded} demo authenticator secrets`
+          : authKey
+            ? ""
+            : " (demo authenticator secrets skipped: AUTH_SECRET_KEY not set)"),
+    );
 
     // Settings: version 1 of every key, in force from the seed's business date.
     const maxGuests = largestRoom(seed);

@@ -17,8 +17,19 @@ export const inviteData = z
   })
   .strict();
 
+/** The one-time code for the authenticator-app sign-in and the first enrollment (M1-19). */
+export const signInCodeData = z
+  .object({
+    venueName: z.string().min(1),
+    name: z.string().min(1),
+    code: z.string().regex(/^\d{6}$/),
+    expiresMinutes: z.number().int().positive(),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
+  sign_in_code: signInCodeData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -81,6 +92,28 @@ export function render<N extends TemplateName>(
         `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
       ].join("\n");
       return { subject: line("email.invite.subject"), text: paragraphs.join("\n\n"), html };
+    }
+    case "sign_in_code": {
+      const d = data as TemplateData<"sign_in_code">;
+      const values = { venue: d.venueName, name: d.name, code: d.code, minutes: d.expiresMinutes };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line("email.signInCode.greeting"),
+        line("email.signInCode.body"),
+        d.code,
+        line("email.signInCode.expires"),
+        line("email.signInCode.ignore"),
+        line("email.footer"),
+      ];
+      const html = [
+        `<p>${escapeHtml(paragraphs[0]!)}</p>`,
+        `<p>${escapeHtml(paragraphs[1]!)}</p>`,
+        `<p style="font-size:28px;letter-spacing:6px"><strong>${escapeHtml(d.code)}</strong></p>`,
+        `<p>${escapeHtml(paragraphs[3]!)}</p>`,
+        `<p>${escapeHtml(paragraphs[4]!)}</p>`,
+        `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
+      ].join("\n");
+      return { subject: line("email.signInCode.subject"), text: paragraphs.join("\n\n"), html };
     }
   }
 }

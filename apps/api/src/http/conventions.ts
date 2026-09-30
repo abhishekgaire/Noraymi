@@ -71,6 +71,8 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   app.decorateRequest("forbidden", false);
   app.decorateRequest("venueId", undefined);
   app.decorateRequest("signedDevice", undefined);
+  app.decorateRequest("session", undefined);
+  app.decorateRequest("sessionProblem", undefined);
   (app.decorateRequest as (name: string, value: unknown) => void)("inVenue", null);
 
   // Staff routes get the per-venue rate limit unless the route turns it off.
@@ -115,6 +117,8 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   app.addHook("preValidation", async (request, reply) => {
     request.requestId = randomUUID();
     request.principal = ANONYMOUS;
+    request.session = undefined;
+    request.sessionProblem = undefined;
     for (const authenticate of options.authenticators ?? []) {
       const principal = await authenticate(request);
       if (principal) {
@@ -129,8 +133,23 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     if (!spec.principals.some((name) => principalIs(request.principal, name, venueId))) {
       if (spec.websocket) {
         request.forbidden = true; // the socket handler closes with 4403
+      } else if (request.sessionProblem === "locked") {
+        throw new ApiError("session_locked", "locked after 30 minutes away: sign in again");
+      } else if (request.sessionProblem === "expired") {
+        throw new ApiError("session_expired", "your sign-in ended: sign in again");
       } else {
         throw new ApiError("forbidden", "you can't call this");
+      }
+    }
+    // Admin, team changes, exports and deciding approvals open only in a passkey
+    // session; an authenticator, PIN or badge session never reaches them (spec 02).
+    if (request.principal.kind === "user" && request.principal.session !== "passkey") {
+      const action = spec.action ?? "";
+      if (spec.assurance === "passkey" || action.startsWith("admin.")) {
+        throw new ApiError("forbidden", "Admin needs a passkey");
+      }
+      if (action === "approvals.decide") {
+        throw new ApiError("forbidden", "Approving needs a passkey");
       }
     }
     request.venueId = venueId;
@@ -172,6 +191,13 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     }
 
     // Every route of a module that's off answers 404 module_off (M1-13).
+    // A guarded write asks for the passkey again: it must carry a fresh X-Step-Up token.
+    if (isWrite && spec.stepUp && request.principal.kind === "user") {
+      const consume = request.server.consumeStepUp;
+      if (!consume) throw new Error("a stepUp route needs the auth routes");
+      await consume(request);
+    }
+
     if (venueId !== undefined && options.moduleGate && !spec.exemptWhenOff) {
       if (await options.moduleGate.blocks(venueId, spec.module, spec.createsNewWork === true)) {
         if (spec.websocket) {
