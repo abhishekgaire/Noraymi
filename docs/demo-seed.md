@@ -409,7 +409,7 @@ Staging is seeded from [`seed/west4-friday.json`](../seed/west4-friday.json) ([T
 
 - **Money** is integer cents. No floats anywhere.
 - **Times** are ISO 8601 with the -04:00 offset (EDT). Sat Sep 26 times after midnight belong to business date 2026-09-25.
-- **Ids** are stable slugs, such as `room_9`, `o1` and `tab_t5`. The loader maps each to a UUID and keeps the slug as an external id, so a test can find `room_9` by name.
+- **Ids** are stable slugs, such as `room_9`, `o1` and `tab_t5`. The loader maps each to the same UUID on every load and keeps the slug in the `seed_ids` table, so a test can find `room_9` by name.
 - **`null`** means the brief does not say. Nothing is invented to fill it.
 - **Phone numbers** are fictional 555-01xx numbers. Seven come from the Staff board; the ones marked `phone_made_up` were made up for this seed. Staging sends texts only to our own test phones ([milestones](milestones.md), M2).
 - **Check numbers.** Only Room 9's check is fixed (#1042); the loader numbers the others from the venue's counter, so no test may depend on them. Only Room 9's room code is fixed (KX4M7).

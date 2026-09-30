@@ -11,6 +11,7 @@ RUN pnpm install --frozen-lockfile --filter @west4/api...
 COPY packages/shared packages/shared
 COPY packages/rules packages/rules
 COPY packages/db packages/db
+COPY seed packages/db/seed
 COPY apps/api apps/api
 RUN pnpm exec tsc -b apps/api \
   && pnpm --filter @west4/api deploy --prod /out

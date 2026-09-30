@@ -1,0 +1,659 @@
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import pg from "pg";
+import {
+  SEED_NOW,
+  actions,
+  defaultPermissions,
+  isModuleId,
+  moduleDef,
+  parseSetting,
+  roles,
+  settingsKeys,
+  type Action,
+  type ModuleId,
+  type Role,
+  type SettingsKey,
+} from "@west4/shared";
+import type { DeviceKind } from "./devices.js";
+
+/**
+ * The demo seed loader (docs/demo-seed.md · Loading the seed; M1-17). It
+ * reads seed/west4-friday.json and writes the M1 part: the venue, its
+ * settings, the permission table, the team and the 28 devices, then sets
+ * the shared simulated clock to Fri Sep 25, 2026, 10:41 PM. Each later
+ * milestone adds its own part of the file here.
+ *
+ * Every slug in the file (west4, maya, dev_router) becomes the same UUID on
+ * every load, and the slug is kept in seed_ids, so a test can find a row by
+ * name and two loads give the same ids. A load wipes what it owns first, so
+ * every end-to-end test starts from the same Friday night.
+ */
+
+// ---------------------------------------------------------------- the file
+
+/** The parts of seed/west4-friday.json this ticket reads. */
+export interface SeedFile {
+  readonly meta: { readonly now: string; readonly business_date: string };
+  readonly venue: {
+    readonly id: string;
+    readonly name: string;
+    readonly address: string;
+    readonly phone_e164: string;
+    readonly time_zone: string;
+    readonly slug: string;
+    readonly rule_pack_id: string;
+    readonly modules_on: readonly string[];
+    readonly modules_off: readonly string[];
+  };
+  readonly settings: SeedSettings;
+  readonly role_permissions: readonly SeedPermissionRow[];
+  readonly team: readonly SeedPerson[];
+  readonly devices: readonly SeedDevice[];
+}
+
+export interface SeedPermissionRow {
+  readonly action: string;
+  readonly owner: boolean | "limited";
+  readonly manager: boolean | "limited";
+  readonly bartender: boolean | "limited";
+  readonly front_desk: boolean | "limited";
+  readonly staff: boolean | "limited";
+}
+
+export interface SeedPerson {
+  readonly id: string;
+  readonly name: string;
+  readonly role: Role;
+  readonly pin_digits: 4 | 6;
+  readonly locale: "en" | "es";
+}
+
+export interface SeedDevice {
+  readonly id: string;
+  readonly kind: DeviceKind;
+  readonly name: string;
+  readonly room?: string;
+  readonly owner?: string;
+  readonly online?: boolean;
+}
+
+/** The seed's settings block, typed loosely: the mapping below reshapes it to spec 03. */
+export type SeedSettings = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+
+/** Where the file is: WEST4_SEED_FILE, the repo's seed/ folder, or packages/db/seed in the API image. */
+export function seedFilePath(env: Record<string, string | undefined> = process.env): string {
+  const fromEnv = env["WEST4_SEED_FILE"];
+  if (fromEnv !== undefined && fromEnv !== "") return fromEnv;
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(here, "..", "..", "..", "seed", "west4-friday.json"),
+    path.resolve(here, "..", "seed", "west4-friday.json"),
+  ];
+  const found = candidates.find((c) => existsSync(c));
+  if (!found) throw new Error(`seed file not found; looked in ${candidates.join(", ")}`);
+  return found;
+}
+
+export function readSeedFile(file: string = seedFilePath()): SeedFile {
+  return JSON.parse(readFileSync(file, "utf8")) as SeedFile;
+}
+
+// ---------------------------------------------------------------- stable ids
+
+/** The namespace every seed UUID is derived from (a fixed, arbitrary UUID). */
+const SEED_NAMESPACE = "6f1a1c0e-5b3d-4b7e-9c2a-4d8e7f6a5b3c";
+
+/**
+ * The same UUID for the same slug on every load: a version 5 (SHA-1) UUID
+ * of the slug under the seed namespace, so "maya" is one id everywhere.
+ */
+export function seedUuid(slug: string): string {
+  const ns = Buffer.from(SEED_NAMESPACE.replace(/-/g, ""), "hex");
+  const hash = createHash("sha1").update(ns).update(slug).digest();
+  hash[6] = (hash[6]! & 0x0f) | 0x50;
+  hash[8] = (hash[8]! & 0x3f) | 0x80;
+  const hex = hash.subarray(0, 16).toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// ---------------------------------------------------------------- production guard
+
+export class SeedRefused extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SeedRefused";
+  }
+}
+
+/** The seed never runs against production: demo PINs, a simulated clock and a wiped venue have no place there. */
+export function assertSeedAllowed(
+  databaseUrl: string,
+  env: Record<string, string | undefined> = process.env,
+): void {
+  if (env["WEST4_ENV"] === "production") {
+    throw new SeedRefused("the demo seed never loads into production (WEST4_ENV=production)");
+  }
+  let host = "";
+  try {
+    host = new URL(databaseUrl).hostname;
+  } catch {
+    // an unparsable URL fails at connect time, not here
+  }
+  if (/prod/i.test(host)) {
+    throw new SeedRefused(`the demo seed never loads into production (database host ${host})`);
+  }
+}
+
+// ---------------------------------------------------------------- settings
+
+const DAY_NUMBERS: Readonly<Record<string, number>> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+function dayNumber(day: unknown): number {
+  const n = typeof day === "string" ? DAY_NUMBERS[day] : undefined;
+  if (n === undefined) throw new Error(`seed: unknown day ${JSON.stringify(day)}`);
+  return n;
+}
+
+/**
+ * Cautious defaults for the fields spec 03 requires but neither the seed
+ * nor the spec states for West 4 (ticket M1-17 Notes). Each is the value
+ * that changes the least, and Admin can set the real one.
+ */
+export const SEED_SETTING_DEFAULTS = {
+  billingRounding: "up",
+  booking: { minHours: 1, maxHours: 12, startSlots: [] as string[] },
+  depositLate: "keep",
+  depositNoShow: "keep",
+  drawerSecondCounter: "never",
+  drawerPaidOutApprovalCents: 2500,
+  roomsCleaningMin: 0,
+  messagesReminderAt: "14:00",
+} as const;
+
+/**
+ * The seed's settings block reshaped to spec 03's keys (the spec wins where
+ * the seed's names differ): prices.billingStepMin → prices.billing.incrementMin,
+ * tabs.flagCents → tabs.flagOverCents, rooms.cleaningEndsBy → rooms.cleaningEnds,
+ * rooms.flagCleaningAfterMin → rooms.cleaningFlagMin,
+ * barMode.songsPerSingerPerRound → barMode.songsPerRound,
+ * occupancy.maxOccupancy → safety.occupancyLimit, minimumSpend → an empty
+ * prices.minSpend. ordering.on is a module and ordering.cancelUntil a rule,
+ * so both are dropped. A null stays null.
+ */
+export function mapSeedSettings(
+  seed: Pick<SeedFile, "settings" | "venue">,
+  maxGuests: number,
+): Record<SettingsKey, unknown> {
+  const s = seed.settings;
+  const hours = s["hours"] ?? {};
+  const prices = s["prices"] ?? {};
+  const deposit = s["deposit"] ?? {};
+  const pay = s["pay"] ?? {};
+  const tabs = s["tabs"] ?? {};
+  const pos = s["pos"] ?? {};
+  const drawer = s["drawer"] ?? {};
+  const ordering = s["ordering"] ?? {};
+  const rooms = s["rooms"] ?? {};
+  const barMode = s["barMode"] ?? {};
+  const occupancy = s["occupancy"] ?? {};
+  const tipScreen = (pay["tipScreen"] ?? {}) as Record<string, unknown>;
+  const weekly = (hours["weekly"] ?? []) as { day: string; opens: string; closes: string }[];
+  return {
+    hours: {
+      weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
+      lastCall: hours["lastCall"] ?? null,
+    },
+    prices: {
+      rate: prices["rate"],
+      billing: {
+        incrementMin: prices["billingStepMin"],
+        rounding: SEED_SETTING_DEFAULTS.billingRounding,
+      },
+      minGuests: prices["minGuests"],
+      firstHourMinimum: prices["firstHourMinimum"],
+      bands: [],
+      vip: prices["vip"] ?? null,
+      minSpend: [],
+      booking: { ...SEED_SETTING_DEFAULTS.booking, maxGuests },
+      damageFeeCents: prices["damageFeeCents"],
+    },
+    deposit: {
+      on: deposit["on"],
+      mode: deposit["mode"],
+      value: 0,
+      refundHours: deposit["refundHours"],
+      late: SEED_SETTING_DEFAULTS.depositLate,
+      noShow: SEED_SETTING_DEFAULTS.depositNoShow,
+      graceMin: deposit["graceMin"],
+      bigParty: bigParty(deposit["bigParty"]),
+    },
+    pay: {
+      cardFee: pay["cardFee"],
+      gratuity: pay["gratuity"],
+      tipScreen: {
+        on: tipScreen["on"],
+        pcts: tipScreen["pcts"],
+        fixedCents: [100, 200, 300],
+        smartThresholdCents: 1000,
+      },
+      tipReview: pay["tipReview"],
+      pool: pay["pool"],
+      roomHold: pay["roomHold"],
+      payShare: { on: true },
+    },
+    drawer: {
+      drawer: drawer["drawer"],
+      startingBankCents: drawer["startingBankCents"],
+      noteOverCents: drawer["noteOverCents"],
+      secondCounter: SEED_SETTING_DEFAULTS.drawerSecondCounter,
+      paidOutApprovalCents: SEED_SETTING_DEFAULTS.drawerPaidOutApprovalCents,
+      perPerson: { who: "bartenders", countLater: false },
+    },
+    tabs: {
+      openingHoldCents: tabs["openingHoldCents"],
+      flagOverCents: tabs["flagCents"],
+      cutOffAt: tabs["cutOffAt"],
+    },
+    pos: {
+      layouts: {},
+      reasonOnly: pos["reasonOnly"],
+      idleLockMin: pos["idleLockMin"],
+      wipeLockSec: pos["wipeLockSec"],
+      barTabTip: pos["barTabTip"],
+      orderAging: pos["orderAging"],
+      chime: pos["chime"],
+      muteSec: pos["muteSec"],
+    },
+    ordering: { hostLockDefault: ordering["hostLockDefault"] },
+    rooms: {
+      cleaningMin: SEED_SETTING_DEFAULTS.roomsCleaningMin,
+      cleaningEnds: rooms["cleaningEndsBy"],
+      cleaningFlagMin: rooms["flagCleaningAfterMin"],
+      stayOnWhenFree: true,
+    },
+    barMode: {
+      songPriceCents: barMode["songPriceCents"] ?? null,
+      drinkCredit: true,
+      freeNights: ((barMode["freeNights"] ?? []) as unknown[]).map(dayNumber),
+      songsPerRound: barMode["songsPerSingerPerRound"],
+      alerts: { beforeYou: 2, upNextText: true },
+      upNextCount: 5,
+    },
+    alerts: { roomEndingMin: 10 },
+    phone: { callNumber: seed.venue.phone_e164, textNumber: seed.venue.phone_e164 },
+    website: { priceWording: "plusTaxAndGratuity" },
+    messages: { reminderAt: SEED_SETTING_DEFAULTS.messagesReminderAt, offerExpiringMin: 5 },
+    safety: { occupancyLimit: occupancy["maxOccupancy"] ?? null, warnAtPct: 90 },
+    languages: { staff: ["en", "es"] },
+  };
+}
+
+/** The seed's bigParty carries a minSpendCents (0 at West 4) that spec 03 keeps in prices.minSpend instead; it is dropped. */
+function bigParty(raw: unknown): unknown {
+  if (raw === null || raw === undefined) return null;
+  const { fromGuests, deposit, refundHours } = raw as Record<string, unknown>;
+  return { fromGuests, deposit, refundHours };
+}
+
+/** Every key parsed against its schema; a shape the spec refuses stops the load. */
+export function parsedSeedSettings(
+  values: Record<SettingsKey, unknown>,
+): { key: SettingsKey; value: unknown }[] {
+  const reasons: string[] = [];
+  const out: { key: SettingsKey; value: unknown }[] = [];
+  for (const key of settingsKeys) {
+    const r = parseSetting(key, values[key]);
+    if (r.ok) out.push({ key, value: r.value });
+    else reasons.push(...r.reasons);
+  }
+  if (reasons.length > 0) throw new Error(`seed settings refused: ${reasons.join("; ")}`);
+  return out;
+}
+
+// ---------------------------------------------------------------- modules
+
+/** The seed's module names (Admin → Features' words) to the module ids of spec 03. */
+export const SEED_MODULE_IDS: Readonly<Record<string, ModuleId>> = {
+  website: "website",
+  booking: "online_booking",
+  waitlist: "waitlist",
+  rooms: "rooms",
+  roomOrdering: "room_ordering",
+  barScreen: "bar_screen",
+  barTabs: "bar_tabs",
+  barMode: "bar_mode",
+  packages: "packages",
+  messages: "guest_texts",
+  team: "team",
+  safety: "safety",
+  reports: "reports",
+  kitchen: "kitchen",
+  songControl: "song_system",
+  marketing: "marketing_texts",
+  events: "event_sales",
+  crm: "guests_loyalty",
+  multiLocation: "multi_location",
+};
+
+export interface SeedModuleRow {
+  readonly moduleId: ModuleId;
+  readonly allowed: boolean;
+  readonly state: "on" | "off";
+}
+
+/** One row per named module: on or off as the seed says, allowed for the phase 1 modules and not for the phase 2 ones. */
+export function mapSeedModules(
+  venue: Pick<SeedFile["venue"], "modules_on" | "modules_off">,
+): SeedModuleRow[] {
+  const rows: SeedModuleRow[] = [];
+  const add = (name: string, state: "on" | "off") => {
+    const id = SEED_MODULE_IDS[name];
+    if (id === undefined || !isModuleId(id)) throw new Error(`seed: unknown module ${name}`);
+    const def = moduleDef(id);
+    if (state === "on" && !def.phase1)
+      throw new Error(`seed: ${name} is a phase 2 module and can't be on`);
+    rows.push({ moduleId: id, allowed: def.phase1, state });
+  };
+  for (const name of venue.modules_on) add(name, "on");
+  for (const name of venue.modules_off) add(name, "off");
+  return rows;
+}
+
+// ---------------------------------------------------------------- permissions
+
+/** The seed's prose rows (spec 02's table) to the action ids of packages/shared, matched by how each row starts. */
+const PERMISSION_ROWS: readonly { starts: string; actions: readonly Action[] }[] = [
+  { starts: "Take payments", actions: ["payments.take"] },
+  { starts: "Bar POS", actions: ["pos.use"] },
+  { starts: "Accept room orders", actions: ["orders.accept"] },
+  {
+    starts: "Check in",
+    actions: ["guests.checkin", "waitlist.manage", "bookings.manage", "texts.send"],
+  },
+  { starts: "Carry runs", actions: ["runs.carry"] },
+  { starts: "Comp or void", actions: ["comps.reasonOnly"] },
+  { starts: "Cut off", actions: ["cutoff.apply"] },
+  { starts: "Approve", actions: ["approvals.decide"] },
+  { starts: "Ask for a refund", actions: ["refunds.request"] },
+  { starts: "Count a drawer", actions: ["drawer.count"] },
+  { starts: "Admin", actions: ["admin.access"] },
+  { starts: "Shares tips", actions: ["tips.share"] },
+];
+
+/** "limited" on the check-in row means check-in and waitlist only (the seed's note). */
+const LIMITED: Readonly<Partial<Record<Action, boolean>>> = {
+  "guests.checkin": true,
+  "waitlist.manage": true,
+  "bookings.manage": false,
+  "texts.send": false,
+};
+
+export interface SeedPermissionOverride {
+  readonly role: Role;
+  readonly action: Action;
+  readonly allowed: boolean;
+}
+
+/**
+ * The seed's table against the default one. A row is written only where they
+ * differ (spec 03: no row means the default), so a seed that matches the
+ * spec, as West 4's does, writes nothing.
+ */
+export function mapSeedPermissions(rows: readonly SeedPermissionRow[]): SeedPermissionOverride[] {
+  const overrides: SeedPermissionOverride[] = [];
+  const seen = new Set<Action>();
+  for (const row of rows) {
+    const match = PERMISSION_ROWS.find((p) => row.action.startsWith(p.starts));
+    if (!match) throw new Error(`seed: no action for permission row "${row.action}"`);
+    for (const action of match.actions) {
+      seen.add(action);
+      for (const role of roles) {
+        const raw = row[role];
+        const allowed = raw === "limited" ? (LIMITED[action] ?? false) : raw;
+        if (allowed !== defaultPermissions[action][role]) overrides.push({ role, action, allowed });
+      }
+    }
+  }
+  const unmapped = actions.filter(
+    (a) => !seen.has(a) && !a.startsWith("admin.") && a !== "night.close" && a !== "reports.view",
+  );
+  if (unmapped.length > 0)
+    throw new Error(`seed: permission rows missing for ${unmapped.join(", ")}`);
+  return overrides;
+}
+
+// ---------------------------------------------------------------- the load
+
+export interface SeedLoadOptions {
+  readonly databaseUrl: string;
+  readonly log?: (line: string) => void;
+  readonly env?: Record<string, string | undefined>;
+  readonly file?: string;
+}
+
+export interface SeedLoadResult {
+  readonly venueId: string;
+  /** Every slug the load wrote, with its UUID. */
+  readonly ids: Readonly<Record<string, string>>;
+  readonly counts: {
+    readonly memberships: number;
+    readonly devices: number;
+    readonly settings: number;
+    readonly modules: number;
+    readonly permissionOverrides: number;
+  };
+}
+
+/** Load the M1 part of the demo seed. Wipes the venue's M1 rows first, so a second load gives the same rows and ids. */
+export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadResult> {
+  const env = options.env ?? process.env;
+  const log = options.log ?? (() => {});
+  assertSeedAllowed(options.databaseUrl, env);
+  const seed = readSeedFile(options.file ?? seedFilePath(env));
+  const businessDate = seed.meta.business_date;
+
+  const ids: Record<string, string> = {};
+  const id = (slug: string): string => {
+    ids[slug] ??= seedUuid(slug);
+    return ids[slug];
+  };
+  const seedRows: { slug: string; entity: string; id: string }[] = [];
+  const remember = (slug: string, entity: string): string => {
+    const uuid = id(slug);
+    seedRows.push({ slug, entity, id: uuid });
+    return uuid;
+  };
+
+  const client = new pg.Client({
+    connectionString: options.databaseUrl,
+    application_name: "west4-seed",
+  });
+  await client.connect();
+  try {
+    await client.query("begin");
+
+    // The organization and the venue. The seed has no legal name; the venue's name stands in (Notes).
+    const orgId = remember("org_west4", "organizations");
+    await client.query(
+      `insert into organizations (id, legal_name) values ($1, $2)
+       on conflict (id) do update set legal_name = excluded.legal_name`,
+      [orgId, seed.venue.name],
+    );
+    const venueId = remember(seed.venue.id, "venues");
+    const [line1, city, state] = seed.venue.address.split(",").map((s) => s.trim());
+    const dayCutover = (seed.settings["hours"]?.["dayCutover"] as string | undefined) ?? "06:00";
+    await client.query(
+      `insert into venues (id, org_id, name, slug, address, time_zone, day_cutover, rule_pack_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (id) do update set org_id = excluded.org_id, name = excluded.name, slug = excluded.slug,
+         address = excluded.address, time_zone = excluded.time_zone, day_cutover = excluded.day_cutover,
+         rule_pack_id = excluded.rule_pack_id`,
+      [
+        venueId,
+        orgId,
+        seed.venue.name,
+        seed.venue.slug,
+        JSON.stringify({ line1, city, state }),
+        seed.venue.time_zone,
+        dayCutover,
+        seed.venue.rule_pack_id,
+      ],
+    );
+
+    // A fresh Friday: everything this load owns goes first, children before parents.
+    await client.query(
+      "delete from device_nonces where device_id in (select id from devices where venue_id = $1)",
+      [venueId],
+    );
+    for (const table of [
+      "device_pairing_codes",
+      "device_heartbeats",
+      "devices",
+      "venue_settings",
+      "venue_modules",
+      "role_permissions",
+      "seed_ids",
+      "memberships",
+    ]) {
+      await client.query(`delete from ${table} where venue_id = $1`, [venueId]);
+    }
+
+    // The team: a user and an active membership each. PINs arrive in M1-23, badges in M1-25.
+    for (const person of seed.team) {
+      const userId = remember(person.id, "users");
+      await client.query(
+        `insert into users (id, name) values ($1, $2) on conflict (id) do update set name = excluded.name`,
+        [userId, person.name],
+      );
+      const membershipId = remember(`${person.id}.membership`, "memberships");
+      await client.query(
+        `insert into memberships (id, venue_id, user_id, role, status, pin_digits, locale)
+         values ($1, $2, $3, $4, 'active', $5, $6)`,
+        [membershipId, venueId, userId, person.role, person.pin_digits, person.locale],
+      );
+    }
+    log(`team: ${seed.team.length} people`);
+
+    // Settings: version 1 of every key, in force from the seed's business date.
+    const maxGuests = largestRoom(seed);
+    const settings = parsedSeedSettings(mapSeedSettings(seed, maxGuests));
+    for (const { key, value } of settings) {
+      await client.query(
+        `insert into venue_settings (venue_id, key, version, value, starts_on) values ($1, $2, 1, $3, $4)`,
+        [venueId, key, JSON.stringify(value), businessDate],
+      );
+    }
+    log(`settings: ${settings.length} keys`);
+
+    // Modules: on and off as Admin → Features shows, allowed by phase.
+    const modules = mapSeedModules(seed.venue);
+    for (const m of modules) {
+      await client.query(
+        `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, $2, $3, $4)`,
+        [venueId, m.moduleId, m.allowed, m.state],
+      );
+    }
+    log(
+      `modules: ${modules.filter((m) => m.state === "on").length} on, ${modules.filter((m) => m.state === "off").length} off`,
+    );
+
+    // Permissions: only rows that differ from the default table.
+    const overrides = mapSeedPermissions(seed.role_permissions);
+    for (const o of overrides) {
+      await client.query(
+        `insert into role_permissions (venue_id, role, action, allowed) values ($1, $2, $3, $4)`,
+        [venueId, o.role, o.action, o.allowed],
+      );
+    }
+    log(`permissions: ${overrides.length} rows differ from the default table`);
+
+    // Devices, with a heartbeat at "now" for each one the seed says is online. Rooms come in M2.
+    const seedNow = new Date(SEED_NOW.epochMilliseconds);
+    const offlineSince = new Date(SEED_NOW.epochMilliseconds - 3 * 60 * 60 * 1000);
+    for (const device of seed.devices) {
+      const deviceId = remember(device.id, "devices");
+      const userId = device.owner === undefined ? null : id(device.owner);
+      await client.query(
+        `insert into devices (id, venue_id, kind, name, user_id) values ($1, $2, $3, $4, $5)`,
+        [deviceId, venueId, device.kind, device.name, userId],
+      );
+      if (device.online === true) {
+        await client.query(
+          `insert into device_heartbeats (device_id, venue_id, last_seen_at) values ($1, $2, $3)`,
+          [deviceId, venueId, seedNow],
+        );
+      } else if (device.online === false) {
+        await client.query(
+          `insert into device_heartbeats (device_id, venue_id, last_seen_at, offline_since) values ($1, $2, $3, $3)`,
+          [deviceId, venueId, offlineSince],
+        );
+      }
+    }
+    log(`devices: ${seed.devices.length}`);
+
+    for (const row of seedRows) {
+      await client.query(
+        `insert into seed_ids (venue_id, slug, entity, row_id) values ($1, $2, $3, $4)
+         on conflict (venue_id, slug) do update set entity = excluded.entity, row_id = excluded.row_id, loaded_at = now()`,
+        [venueId, row.slug, row.entity, row.id],
+      );
+    }
+
+    // The simulated clock every process shares: Fri Sep 25, 2026, 10:41 PM, ticking from now.
+    await client.query(
+      "update clock_control set simulated_at = $1, real_at = now(), set_by = 'seed' where id",
+      [seedNow],
+    );
+    log(`clock: set to ${seed.meta.now}`);
+
+    await client.query("commit");
+    return {
+      venueId,
+      ids,
+      counts: {
+        memberships: seed.team.length,
+        devices: seed.devices.length,
+        settings: settings.length,
+        modules: modules.length,
+        permissionOverrides: overrides.length,
+      },
+    };
+  } catch (error) {
+    await client.query("rollback").catch(() => {});
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+/** The biggest room's capacity, from the seed's rooms (M2 loads the rooms themselves). */
+function largestRoom(seed: SeedFile): number {
+  const rooms = (seed as unknown as { rooms?: { capacity_max?: number }[] }).rooms ?? [];
+  return rooms.reduce((max, r) => Math.max(max, r.capacity_max ?? 0), 1);
+}
+
+/** Find a seeded row's UUID by the slug the seed uses (room_9, maya, dev_router). Inside a venue transaction or as the owner. */
+export async function seedId(
+  client: { query: pg.Client["query"] },
+  venueId: string,
+  slug: string,
+): Promise<string> {
+  const r = await client.query<{ id: string }>(
+    "select row_id as id from seed_ids where venue_id = $1 and slug = $2",
+    [venueId, slug],
+  );
+  const row = r.rows[0];
+  if (!row) throw new Error(`seed_ids: no row for ${slug}`);
+  return row.id;
+}

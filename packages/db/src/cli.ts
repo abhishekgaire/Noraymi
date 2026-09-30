@@ -3,6 +3,7 @@ import { databaseUrl, migrationsDir } from "./config.js";
 import { migrate } from "./migrate.js";
 import { ensureAppRoleLogin } from "./roles.js";
 import { loadBuiltInRulePacks } from "./bootstrap.js";
+import { loadDemoSeed } from "./seed.js";
 
 const command = process.argv[2];
 const log = (line: string) => process.stdout.write(`${line}\n`);
@@ -39,8 +40,16 @@ async function main(): Promise<void> {
       await loadBuiltInRulePacks(url, log);
       return;
     }
+    case "seed": {
+      // The demo seed (M1-17): local dev and staging only; the loader refuses production.
+      const result = await loadDemoSeed({ databaseUrl: url, log });
+      log(
+        `seeded West 4 (${result.venueId}): ${result.counts.memberships} people, ${result.counts.devices} devices`,
+      );
+      return;
+    }
     default:
-      throw new Error(`usage: cli.js <migrate|reset> (got ${command ?? "nothing"})`);
+      throw new Error(`usage: cli.js <migrate|reset|seed> (got ${command ?? "nothing"})`);
   }
 }
 

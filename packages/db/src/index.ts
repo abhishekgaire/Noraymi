@@ -74,3 +74,17 @@ export {
   flagQuietDevices,
 } from "./heartbeats.js";
 export type { HeartbeatInput, HeartbeatResult, QuietSweepResult } from "./heartbeats.js";
+export {
+  loadDemoSeed,
+  readSeedFile,
+  seedFilePath,
+  seedUuid,
+  seedId,
+  assertSeedAllowed,
+  SeedRefused,
+  mapSeedSettings,
+  mapSeedModules,
+  mapSeedPermissions,
+  SEED_SETTING_DEFAULTS,
+} from "./seed.js";
+export type { SeedFile, SeedLoadOptions, SeedLoadResult } from "./seed.js";

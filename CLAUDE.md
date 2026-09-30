@@ -111,13 +111,13 @@ docker compose up -d    # Postgres 16 (localhost:5432) and the local S3 store (R
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
 pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
-pnpm seed               # load the demo seed (built in M1-17; the simulated clock is Fri Sep 25, 2026, 10:41 PM)
+pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 part so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 pnpm check              # lint, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
 pnpm lint && pnpm typecheck && pnpm test
 pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
-pnpm e2e                # Playwright smoke tests; starts the dev servers itself (`pnpm exec playwright install chromium` once)
+pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm format             # Prettier --write
 ```
 

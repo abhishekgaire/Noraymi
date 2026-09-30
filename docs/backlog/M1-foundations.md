@@ -460,7 +460,7 @@ Definition of done: see CLAUDE.md.
   - **Later.** M1-17 seeds the 28 devices with heartbeats; the Board and Admin → Printers & devices screens show these events; M2-15 narrows the managers' alerts to the manager on duty; M8 pages us when a money path is at risk. Fifteen-second sweeps mean an alert lands within 2:15 of the last heartbeat.
 ### M1-17 · Load the M1 part of the demo seed into staging and local dev
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-02, M1-11, M1-13, M1-14, M1-15
 - **Spec:** [Demo seed · Loading the seed](../demo-seed.md#loading-the-seed); [Testing and operations](../spec/13-testing-operations.md) · The demo seed; [west4-friday.json](../../seed/west4-friday.json)
@@ -471,11 +471,20 @@ Definition of done: see CLAUDE.md.
   - Modules from `venue.modules_on` and `modules_off`, with `allowed` true for the phase 1 modules and false for the four phase 2 ones.
   - `pnpm seed` for local dev and staging. Every load sets the simulated clock to Fri Sep 25, 2026, 10:41 PM, and each end-to-end test starts from a fresh load.
 - **Acceptance:**
-  - [ ] After a load, West 4 has four memberships (Abhishek G. owner, Andy C. manager, Maya S. bartender, Diego R. front desk), 28 devices and the settings above, and `server_time` is 10:41 PM.
-  - [ ] Two loads give the same external ids.
-  - [ ] The loader refuses to run against production.
+  - [x] After a load, West 4 has four memberships (Abhishek G. owner, Andy C. manager, Maya S. bartender, Diego R. front desk), 28 devices and the settings above, and `server_time` is 10:41 PM.
+  - [x] Two loads give the same external ids.
+  - [x] The loader refuses to run against production.
 - **Tests:** a loader integration test that checks counts and a sample of values against the JSON.
 - **Notes:** The seed's settings keys differ from spec 03 in the places above. The spec wins, so the loader maps them; the doc owners should align the seed. `null` in the seed stays empty and is never filled in.
+  - **Built.** `packages/db/src/seed.ts`: `loadDemoSeed()` reads `seed/west4-friday.json` (`WEST4_SEED_FILE` overrides the path; the API image copies `seed/` to `packages/db/seed`), wipes the venue's M1 rows (devices and their heartbeats, codes and nonces, settings, modules, permission rows, memberships, seed ids) and reloads them in one transaction, then sets `clock_control` to Fri Sep 25, 2026, 10:41 PM. `pnpm seed` and `cli.js seed` run it; `scripts/seed.js` is gone. Every slug becomes the same UUID on every load (a version 5 UUID of the slug under a fixed namespace) and is kept in the new `seed_ids` table (migration 0014; `seedId(client, venueId, "maya")` looks one up). A person's slug (`maya`) is the `users` row; `maya.membership` is the membership. Tests: `seed.test.ts` (the mappings, no database) and `seed.int.test.ts` (counts, values, two loads, the refusal).
+  - **Staging and end-to-end.** `deploy-staging.yml` runs the migrate task a second time with the `seed` command after every deploy. Playwright's global setup runs `pnpm seed` before every run, so the e2e CI job now has Postgres, migrates first, and starts the API with the staging switch; `e2e/api.spec.ts` checks that `server_time` reads 2026-09-25T22:4x-04:00 after the load (M1-06's last acceptance line).
+  - **Production refusal.** `WEST4_ENV=production`, or a database host containing "prod", stops the load before it connects (`SeedRefused`).
+  - **Permissions.** The seed's twelve prose rows map to the action ids in `packages/shared`; a row is written only where the seed differs from the default table (spec 03: no row means the default). West 4's table equals the defaults, so zero rows are written and the loader logs that.
+  - **Modules.** Seed names map to module ids (`booking` → `online_booking`, `messages` → `guest_texts`, `songControl` → `song_system`, `marketing` → `marketing_texts`, `events` → `event_sales`, `crm` → `guests_loyalty`, `multiLocation` → `multi_location`). The four phase 2 modules are `allowed: false`; `song_system` and `marketing_texts` are phase 1, off but allowed.
+  - **Devices.** Each online device gets a heartbeat at 10:41 PM; the Room 4 tablet gets one three hours old with `offline_since` set, so `listDevices` shows 13 of 14 tablets online. Staff phones are paired to their person (`user_id`) and have no heartbeat and no public key: a real pairing (M1-15) replaces that when a phone joins. `room_id` waits for M2; `cash_drawer_id` for M4.
+  - **Cautious defaults, for the founder to confirm** (spec 03 requires these fields and neither the seed nor the spec states them for West 4; each is exported as `SEED_SETTING_DEFAULTS` so one change fixes them all): `prices.billing.rounding` "up" (changes nothing at a 1-minute step); `prices.booking` {minHours 1 (the first-hour minimum), maxHours 12 (open 4 PM to 4 AM), maxGuests = the largest seeded room's capacity, startSlots []}; `deposit.late` "keep" and `deposit.noShow` "keep" (the Admin canvas's first choice); `deposit.value` 0 (unused in firstHour mode); `drawer.secondCounter` "never", `drawer.paidOutApprovalCents` 2500 (the canvas's $25), `drawer.perPerson` {bartenders, countLater false} (unused with house drawers); `rooms.cleaningMin` 0 (no cleaning time reserved until Admin sets one); `messages.reminderAt` "14:00" (the spec says "afternoon of"); `pos.layouts` {} (no published layouts yet). `phone.callNumber` and `textNumber` are the seed's venue phone. Values the spec does state are filled from it (tip screen fixed amounts and threshold, Pay my share on, stay-on-when-free, drink credit, up-next alerts, room-ending 10 min, offer-expiring 5 min, warn at 90%, staff languages en and es).
+  - **Dropped from the seed's settings:** `settings.rulePack` (the rule pack is its own row), `tabs.consentVersion` and `consentText` (a `policy_versions` row, built in M4), `deposit.bigParty.minSpendCents` (spec 03 keeps minimum spend in `prices.minSpend`; it is 0 at West 4), `occupancy.text` (a screen string), `minimumSpend.note` and the `*_source` notes. `dayCutover` and `timeZone` go on the `venues` row.
+  - **Also not in the seed:** the organization's legal name (the venue's name stands in) and the address's parts (the seed's one line is split at its commas into line1, city and state; no ZIP).
 
 ### M1-18 · Send email through a transactional provider
 

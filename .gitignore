@@ -23,3 +23,6 @@ next-env.d.ts
 *.tfstate.*
 infra/staging/backend.hcl
 .terraform.lock.hcl.tmp
+
+# The API image copies seed/ here so the migrate task can load it (M1-17); locally the loader reads the repo root.
+packages/db/seed/
