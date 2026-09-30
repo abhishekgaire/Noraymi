@@ -122,7 +122,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-04 · Write the business-date and money helpers test-first
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-01
 - **Spec:** [Money rules](../spec/05-money-rules.md) 1 and 2; [the spec's conventions](../spec/README.md#conventions) · Money, Business date, Time zone
@@ -130,12 +130,16 @@ Definition of done: see CLAUDE.md.
   - Money helpers in `packages/shared`: integer cents with `currency: "usd"`, never floats; a percentage of a total rounded half up on exact values (`floor((2 × amount × num + den) / (2 × den))`); and a divider that hands leftover cents to the largest remainders, ties to the first parts.
   - Time helpers in `packages/rules` on the pinned Temporal: `businessDate(instant, timeZone, cutover)` returns the business date and the minutes from midnight at its start (12:30 AM is minute 1,470); `wallClock(businessDate, "HH:MM", timeZone, cutover)` returns the instant (a time before the cutover, such as "04:00", falls on the calendar day after the business date), using Temporal's "compatible" rule (a time in the repeated hour is its first occurrence, one in the skipped hour is the hour after). Durations come from elapsed time, never from subtracting clock times.
 - **Acceptance:**
-  - [ ] Every case in the `business_date` group of [money-cases.json](../../seed/money-cases.json) passes: 12:30 AM Sat Sep 26 is business date Fri Sep 25 at minute 1,470; 5:59 AM Sat is still Fri; 6:00 AM Sat is Sat; both 1:30 AMs on Nov 1, 2026 belong to Sat Oct 31.
-  - [ ] `wallClock(2026-10-31, "04:00")` is Nov 1, 2026, 4:00 AM EST (−05:00), and `wallClock(2027-03-13, "04:00")` is Mar 14, 2027, 4:00 AM EDT (−04:00).
-  - [ ] Dividing 3266 cents in two gives 1633 + 1633, and 3267 gives 1634 + 1633.
-  - [ ] No money helper takes or returns a float.
+  - [x] Every case in the `business_date` group of [money-cases.json](../../seed/money-cases.json) passes: 12:30 AM Sat Sep 26 is business date Fri Sep 25 at minute 1,470; 5:59 AM Sat is still Fri; 6:00 AM Sat is Sat; both 1:30 AMs on Nov 1, 2026 belong to Sat Oct 31.
+  - [x] `wallClock(2026-10-31, "04:00")` is Nov 1, 2026, 4:00 AM EST (−05:00), and `wallClock(2027-03-13, "04:00")` is Mar 14, 2027, 4:00 AM EDT (−04:00).
+  - [x] Dividing 3266 cents in two gives 1633 + 1633, and 3267 gives 1634 + 1633.
+  - [x] No money helper takes or returns a float.
 - **Tests:** the `business_date` group (7 cases), written first; property tests for the divider (the parts add up, no two differ by more than a cent, and the first `amount mod n` parts are the larger ones).
-- **Notes:** The `splits` group runs on this divider in M4, with the split screens. Money-cases ambiguity A7 (wall-clock minutes on the daylight-saving nights) is the reading used here.
+- **Notes:** The `splits` group runs on this divider in M4, with the split screens. Money-cases ambiguity A7 (wall-clock minutes on the daylight-saving nights) is the reading used here. Built Sep 30, 2026:
+  - **`packages/shared/src/money.ts`:** `cents(n)` (the only way to make a `Cents`; refuses anything but a safe integer), `usd(amount)`, `percentOf(amount, num, den)` (the ticket's integer formula, in BigInt; refuses a negative base, since comps and voids are exact negatives and never rounded), `divideEvenly(amount, parts)` and `divideByWeights(amount, weights)` (largest remainder, ties to the first parts; the even split is the weighted one with equal weights, and a property test says so).
+  - **`packages/rules/src/time.ts`:** `businessDate(instant, timeZone, cutover)` and `wallClock(businessDate, "HH:MM", timeZone, cutover)` on the pinned Temporal, with `parseCutover`. A round-trip test walks every 7th minute of a normal night and both daylight-saving nights through `wallClock` then `businessDate`.
+  - **Tests beyond the ticket's list.** The `splits` group's six `split_even` cases already pass on `divideEvenly`. The eleven `check_totals` cases pin `percentOf` (their `tax_cents` is 8.875% of `tax_base_cents`) and `divideByWeights` (their `tax_by_category_cents` is the rounded tax shared by each category's net base, the reading in money-cases meta `tax_by_category`). Property tests run on `fast-check`.
+  - Nothing here reads a clock: both helpers take the instant or the date as an argument.
 
 ### M1-05 · Build the tenancy tables and row-level security
 
