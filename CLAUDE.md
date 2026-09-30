@@ -58,6 +58,7 @@ If the spec is silent or contradicts itself, don't invent an answer. Ask the fou
 - `scripts/spec-section.sh <file> '<heading>'` prints one section of a doc. Never `cat` a spec, the seed JSON or the canvas; the hooks in `.claude/settings.json` block that and warn on oversized output.
 - Format before you edit (`pnpm exec prettier --write <file>`), then match the exact on-disk text.
 - Record each ticket's approximate token cost in its Notes (the `Tokens:` line), and start a fresh session (`/clear`) every ticket or two.
+- A test that fails twice the same way gets a ten-line probe script, not another suite run. A spec section over about 200 lines is read by an Explore subagent, not printed. Explanations for the founder come once, at the end of a ticket.
 
 ## How to work a ticket
 

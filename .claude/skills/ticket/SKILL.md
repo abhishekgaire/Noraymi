@@ -26,6 +26,9 @@ The ID is `$ARGUMENTS` (for example `M1-16`). Follow these steps in order. Every
 - While iterating, run only the test file you're on: `pnpm exec vitest run --project <name> <path>` or `--config vitest.integration.config.ts --project <name> <path>`, with `--reporter=dot`.
 - Filter every command's output (`grep -E`, `tail`, `head`). The output hook reminds you when you don't.
 - Make independent tool calls in one message.
+- When the same test fails twice for the same reason, stop rerunning the suite: write a ten-line probe script (a `zz-probe.ts` under the package, deleted afterwards) that reproduces the one call and prints the error, fix from that, then run the suite once.
+- When a spec section the ticket names runs past about 200 lines, have an Explore subagent read it and return the facts the ticket needs, instead of printing it into this context.
+- Between the first step and the report, write nothing for the founder except a one-line progress note every few tool calls, or a question when a decision is theirs. Explanations go in step 6.
 
 ## 4. Check everything, once
 
