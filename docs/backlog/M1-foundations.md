@@ -362,7 +362,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-13 · Build modules, their dependencies, `404 module_off` and venue flags
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M1-09
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Modules, What each module hides; [API](../spec/08-api.md) · Settings and modules; [Testing and operations](../spec/13-testing-operations.md) · Tests (module tests)
@@ -375,13 +375,18 @@ Definition of done: see CLAUDE.md.
   - What each module hides, as one table of data in `packages/shared` that every screen, the website and the text sender read.
   - `venue_flags` (venue_id, flag, on, set_by), read by the API and the screens, with our own test venue first in line.
 - **Acceptance:**
-  - [ ] Turning off Bar screen & tickets at West 4 asks "Room orders would have nowhere to ring. Turn off Ordering from the room too?"; yes turns both off, and no changes nothing.
-  - [ ] Turning off Rooms & room clock lists "These turn off with it: Online booking & deposits, Ordering from the room, Packages & specials" (the ones on at West 4).
-  - [ ] Ordering from the room can't be turned on while Bar screen & tickets is off, and a core module can't be turned off.
-  - [ ] With any module off, every route registered to it answers `404 module_off`.
-  - [ ] A module whose `allowed` is false can't be turned on from Admin.
+  - [x] Turning off Bar screen & tickets at West 4 asks "Room orders would have nowhere to ring. Turn off Ordering from the room too?"; yes turns both off, and no changes nothing.
+  - [x] Turning off Rooms & room clock lists "These turn off with it: Online booking & deposits, Ordering from the room, Packages & specials" (the ones on at West 4).
+  - [x] Ordering from the room can't be turned on while Bar screen & tickets is off, and a core module can't be turned off.
+  - [x] With any module off, every route registered to it answers `404 module_off`.
+  - [x] A module whose `allowed` is false can't be turned on from Admin.
 - **Tests:** spec 13's module tests: dependencies and their confirms; `404 module_off` on every route of each module (one fixture route per module now, and the real routes as later milestones add them); the effects table matched against what each screen hides.
-- **Notes:** Build the dependency of Ordering from the room on Bar screen & tickets that the canvas lacks ([AdminDesk](../screens.md#admindesk) note 11, [Console](../screens.md#console) note 4). The spec doesn't say which answer a creation route gives while its module is stopping; this uses `404 module_off` for new bookings, tabs and waitlist entries only.
+- **Notes:** Build the dependency of Ordering from the room on Bar screen & tickets that the canvas lacks ([AdminDesk](../screens.md#admindesk) note 11, [Console](../screens.md#console) note 4). The spec doesn't say which answer a creation route gives while its module is stopping; this uses `404 module_off` for new bookings, tabs and waitlist entries only. Built Sep 30, 2026:
+  - **The table** is `packages/shared/src/modules.ts`: the 23 modules (15 phase 1 switchable, 4 core, 4 phase 2 rows), each with `needs` from spec 03's table and `hides` as four lists of ids (staff app screens, staff phone tabs, website and room-page sections, texts) that screens, the website and the text sender check. Names, states and the confirm and refusal sentences are catalog strings in English and Spanish (`module.<id>.name`, `modules.confirm.*`, `modules.refused.*`). `turnsOffWith(states, id)` walks dependents transitively; `missingNeeds`, `needsRoomOrdersConfirm`.
+  - **Migration `0010_venue_modules.sql`:** `venue_modules (venue_id, module_id, allowed, state, updated_by, updated_at)` and `venue_flags (venue_id, flag, on, set_by, set_at)`, both audited. A module with no row is not allowed and off; core modules are always on whatever the rows say. The Console writes `allowed` (M1-35); Admin moves `state`.
+  - **Routes** (`apps/api/src/routes/modules.ts`): `GET /modules` (every module with allowed, state, needs, hides and what would turn off with it), `PATCH /modules/{id}` with `{ state, confirm? }`, `GET /flags`. Turning a module off or to stopping when others need it answers `{ applied: false, needs_confirm: true, turns_off, question }` and changes nothing; the same call with `confirm: true` applies to all of them. The question is the spec's sentence for Bar screen & tickets while Ordering from the room is on, else "These turn off with it: …". Turning on needs `allowed` (`403`) and every dependency on (`400` naming what's missing). A core module answers `400`. `openWorkChecks` is where each module registers its "open sessions or tabs" refusal (`409 orders_open`) as its tables land; empty now. A change sends `settings.changed` with entity `modules`.
+  - **`404 module_off`** is enforced in the conventions plugin from each route's `module`, through `ModuleGate` (`apps/api/src/http/module-gate.ts`), a per-container cache of each venue's states (3 seconds, cleared on this container's own changes). `off` blocks every route of the module; `stopping` blocks only routes marked `createsNewWork`; routes marked `exemptWhenOff` (guest routes for existing bookings, waitlist spots, receipts, payments) always work. A WebSocket route closes with 4403 instead.
+  - The tests use one fixture route per switchable module; real routes are covered the day they declare their module.
 
 ### M1-14 · Load the five default roles into `role_permissions` and check them before every write
 

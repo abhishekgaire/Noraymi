@@ -15,6 +15,7 @@ import {
 } from "./idempotency.js";
 import { ANONYMOUS, principalId, principalIs, type Principal } from "./principal.js";
 import { installRegistry, type RegisteredRoute, type RouteSpec } from "./registry.js";
+import type { ModuleGate } from "./module-gate.js";
 
 export type Authenticator = (request: FastifyRequest) => Promise<Principal | undefined>;
 
@@ -28,6 +29,8 @@ export interface ConventionsOptions {
   readonly staffRateLimit?: { max: number; windowMs: number };
   /** Whether the database is wired (tests of pure conventions may leave it out). */
   readonly db: boolean;
+  /** The module gate; absent without a database. */
+  readonly moduleGate?: ModuleGate;
 }
 
 declare module "fastify" {
@@ -131,6 +134,17 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
       if (!options.db) throw new Error("no database in this app");
       return app.db.withVenue(context, work);
     };
+
+    // Every route of a module that's off answers 404 module_off (M1-13).
+    if (venueId !== undefined && options.moduleGate && !spec.exemptWhenOff) {
+      if (await options.moduleGate.blocks(venueId, spec.module, spec.createsNewWork === true)) {
+        if (spec.websocket) {
+          request.forbidden = true;
+        } else {
+          throw new ApiError("module_off", "this part of the system is off at this venue");
+        }
+      }
+    }
   });
 
   // Idempotency-Key on POST and PATCH: claim before the work, store the answer after.

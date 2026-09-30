@@ -22,6 +22,10 @@ export interface RouteSpec {
   readonly rateLimit?: false | { max: number; windowMs: number };
   /** A WebSocket route: a refused caller is closed with code 4403 after the upgrade, never an HTTP 403. */
   readonly websocket?: boolean;
+  /** Creates a new booking, tab or waitlist entry: also refused while the module is stopping. */
+  readonly createsNewWork?: boolean;
+  /** Keeps working whatever is off: guest routes for existing bookings, waitlist spots, receipts and payments. */
+  readonly exemptWhenOff?: boolean;
 }
 
 export interface RegisteredRoute extends RouteSpec {

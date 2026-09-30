@@ -22,7 +22,11 @@ declare module "fastify" {
  * never touch the pool directly.
  */
 export const dbPlugin = fp(async (app: FastifyInstance, options: { databaseUrl: string }) => {
-  const pool = new pg.Pool({ connectionString: options.databaseUrl, max: 10 });
+  const pool = new pg.Pool({
+    connectionString: options.databaseUrl,
+    max: 10,
+    application_name: "west4-api",
+  });
   app.decorate("db", {
     pool,
     withVenue: (context, work) => withVenue(pool, context, work),

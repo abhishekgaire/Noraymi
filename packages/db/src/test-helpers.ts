@@ -32,7 +32,7 @@ export async function createTestDatabase(
  * "set role"s, which needs no app_rw password in tests.
  */
 export function appPool(url: string): pg.Pool {
-  const pool = new pg.Pool({ connectionString: url, max: 4 });
+  const pool = new pg.Pool({ connectionString: url, max: 4, application_name: "west4-test" });
   pool.on("connect", (client) => {
     client.query("set role app_rw").catch(() => {});
   });

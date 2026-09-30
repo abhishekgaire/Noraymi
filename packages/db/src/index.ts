@@ -41,3 +41,12 @@ export { readSetting, settingHistory, saveSettings, SettingsRefused } from "./se
 export type { SettingVersion, SaveSettingsArgs } from "./settings.js";
 export { listClosures, closureOn, createClosure, ClosureExists } from "./closures.js";
 export type { ClosureRow } from "./closures.js";
+export {
+  venueModules,
+  statesOf,
+  setModuleState,
+  setModuleAllowed,
+  venueFlags,
+  setVenueFlag,
+} from "./modules.js";
+export type { VenueModuleRow } from "./modules.js";

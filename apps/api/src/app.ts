@@ -8,6 +8,8 @@ import { conventionsPlugin, route, type Authenticator } from "./http/conventions
 import { eventsPlugin } from "./http/events.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { closuresRoutes } from "./routes/closures.js";
+import { modulesRoutes } from "./routes/modules.js";
+import { ModuleGate } from "./http/module-gate.js";
 
 export interface AppOptions {
   readonly logger?: boolean;
@@ -18,6 +20,8 @@ export interface AppOptions {
   readonly staffRateLimit?: { max: number; windowMs: number };
   /** The relay's and the tail's poll interval; tests use a short one. */
   readonly eventsPollMs?: number;
+  /** How long a container trusts its copy of a venue's module states. */
+  readonly moduleCacheMs?: number;
   readonly drainMs?: number;
   /** Tests add fixture routes here, inside the routes plugin's scope. */
   readonly extraRoutes?: (app: FastifyInstance) => Promise<void> | void;
@@ -33,12 +37,30 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false, forceCloseConnections: true });
   const config = options.config;
   let clock: Clock = options.clock ?? systemClock;
+  let gate: ModuleGate | undefined;
 
   if (config) {
     void app.register(dbPlugin, { databaseUrl: config.databaseUrl });
+    const gatePool = new pg.Pool({
+      connectionString: config.databaseUrl,
+      max: 2,
+      application_name: "west4-module-gate",
+    });
+    gate = new ModuleGate(gatePool, options.moduleCacheMs);
+    app.addHook("onClose", async () => {
+      await gatePool.end();
+    });
     if (!options.clock && config.allowStagingFeatures) {
-      const stored = new StoredClock(new pg.Pool({ connectionString: config.databaseUrl, max: 2 }));
+      const clockPool = new pg.Pool({
+        connectionString: config.databaseUrl,
+        max: 2,
+        application_name: "west4-clock",
+      });
+      const stored = new StoredClock(clockPool);
       clock = stored;
+      app.addHook("onClose", async () => {
+        await clockPool.end();
+      });
       app.addHook("onRequest", async () => {
         await stored.refresh();
       });
@@ -52,6 +74,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     ...(options.authenticators ? { authenticators: options.authenticators } : {}),
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
     db: config !== undefined,
+    ...(gate ? { moduleGate: gate } : {}),
   });
 
   // Live events need the database (M1-09).
@@ -97,6 +120,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     if (config) {
       settingsRoutes(scope, { clock });
       closuresRoutes(scope, { clock });
+      modulesRoutes(scope, { gate: gate! });
     }
     await options.extraRoutes?.(scope);
   });

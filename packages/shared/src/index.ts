@@ -44,3 +44,15 @@ export type {
   SafetySettings,
   LanguageSettings,
 } from "./settings.js";
+export {
+  modules,
+  moduleIds,
+  moduleDef,
+  isModuleId,
+  stateOf,
+  turnsOffWith,
+  missingNeeds,
+  needsRoomOrdersConfirm,
+  ROOM_ORDERS_NOWHERE_TO_RING,
+} from "./modules.js";
+export type { ModuleId, ModuleState, ModuleDef, ModuleEffects, ModuleStates } from "./modules.js";
