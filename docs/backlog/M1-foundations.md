@@ -232,7 +232,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-08 · Build the API conventions: the route registry, errors, idempotency and paging
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-05
 - **Spec:** [API](../spec/08-api.md) · Conventions; [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what; [Security and data retention](../spec/12-security-retention.md) 9; [Testing and operations](../spec/13-testing-operations.md) · Capacity
@@ -243,13 +243,22 @@ Definition of done: see CLAUDE.md.
   - `Idempotency-Key` on every POST and PATCH, required on money routes. `idempotency_keys` (venue_id, principal_id, key, route, request_hash, state, response, created_at) is written before the work starts. A copy that arrives while the first runs gets `409 in_progress`, the same key with another body gets `422 key_reused`, and a finished request replays its answer for 7 days (a job clears older keys).
   - `server_time` and `min_client_version` on every response; `If-Match` against a `version` with `409 version_conflict`; lists with a cursor (`?after=`, at most 100 items) and `?status=` or `?state=` filters; rate limits per venue on staff routes; `Referrer-Policy: no-referrer` and `Cache-Control: no-store` on token routes.
 - **Acceptance:**
-  - [ ] The same POST sent twice with one key does its work once and returns the same answer both times.
-  - [ ] The same key with a different body answers `422 key_reused`; a second copy while the first is running answers `409 in_progress`.
-  - [ ] Every response carries `server_time` and `min_client_version`.
-  - [ ] A list of 250 items returns 100 and a cursor to the next page.
-  - [ ] A route with no principals declared fails CI.
+  - [x] The same POST sent twice with one key does its work once and returns the same answer both times.
+  - [x] The same key with a different body answers `422 key_reused`; a second copy while the first is running answers `409 in_progress`.
+  - [x] Every response carries `server_time` and `min_client_version`.
+  - [x] A list of 250 items returns 100 and a cursor to the next page.
+  - [x] A route with no principals declared fails CI.
 - **Tests:** idempotency integration tests (in order, at once, a different body, a replay after a restart); a registry test that fails on an undeclared route.
-- **Notes:** The registry is what the M1-37 suites read, so every later route is covered the day it lands.
+- **Notes:** The registry is what the M1-37 suites read, so every later route is covered the day it lands. Built Sep 30, 2026:
+  - **Where it lives:** `apps/api/src/http/`. `conventions.ts` is one Fastify plugin that wires everything; `app.ts` registers it first and every route after it, inside one routes plugin, so the registry's `onRoute` hook sees them all. A route declares itself with `{ config: route({ principals, module, action, idempotency, tokenRoute, rateLimit }) }`; `app.routes` lists them after start-up, and `app.ready()` throws `UndeclaredRouteError` naming any route without an entry, which fails every test and CI.
+  - **Principals** (`principal.ts`) follow the table in Tenancy and access: `owner_manager` (a passkey session with an owner or manager membership at the venue; a PIN session never qualifies, so Admin routes stay closed to it), `staff`, `shared_device`, `room_tablet`, `guest_room`, `guest_booking`, `guest_link`, `singer`, `printer`, `up_next_display`, `support`, `webhook` and `public`. `request.principal` starts anonymous; each authenticator ticket (M1-15, M1-19, M1-24, M1-25, M2 to M5) adds one to `authenticators`. A venue route's membership check is `principalIs(principal, name, venueId)`; anything else is `403 forbidden`.
+  - **`request.inVenue(work)`** is the request's one short transaction with `app.venue_id`, `app.user_id` and `app.request_id` set (M1-05's wrapper). Routes outside a venue use the platform id.
+  - **Idempotency** (`idempotency.ts`, migration `0005_idempotency.sql`): the key row is inserted and committed in its own transaction before the handler runs, keyed by venue, caller and key with the route and a SHA-256 of the method, path and body; `409 in_progress` while `running`, `422 key_reused` on a different hash, a stored `{status, body}` replayed for 7 days with `Idempotent-Replayed: true`, and a 5xx marks the row `failed` so a retry runs again. `idempotency: "required"` on money routes makes a missing key a 400. The bulk job `idempotency.clear_old` (06:20 daily) calls `clear_idempotency_keys()`, a definer, since `app_rw` can't delete.
+  - **Every response** carries `server_time` and `min_client_version` as JSON fields (on object bodies) and as `X-Server-Time` and `X-Min-Client-Version` headers, plus `X-Request-Id`. `MIN_CLIENT_VERSION` comes from the environment, `0.0.0` until the first client release.
+  - **Errors** (`errors.ts`): `ApiError(code, message)` with the spec's code-to-status table; `retryable` is true for `in_progress`, `reader_busy`, `reader_offline`, `rate_limited` and `internal`. Unknown routes answer `404 not_found`, bad input `400 invalid_request`, in the same shape.
+  - **Lists** (`paging.ts`): `parseListQuery` (limit capped at 100, `after`, `status`, `state`) and `page(rows, limit, cursorOf)`, which expects `limit + 1` rows and returns `next_cursor`. **Versions** (`version.ts`): `ifMatch(request)` and `assertVersion(current, expected)` for `409 version_conflict` with the current version in `details`.
+  - **Rate limits**: `@fastify/rate-limit`, keyed by venue, on every route whose principals include staff, owner_manager or shared_device, 600 a minute by default (`rateLimit: false` opts out; the health route does). **Token routes** (`tokenRoute: true`) send `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+  - **Not here yet:** `404 module_off` (M1-13) and the `role_permissions` check on `action` (M1-14) plug into the same registry entry.
 
 ### M1-09 · Build the event relay and the live WebSockets
 
