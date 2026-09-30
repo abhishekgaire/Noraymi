@@ -5,3 +5,9 @@ export { locales, t, catalogs } from "./i18n/index.js";
 export type { Locale, MessageKey } from "./i18n/index.js";
 export { systemClock, SimulatedClock, FrozenClock, SEED_NOW, formatInZone } from "./clock.js";
 export type { Clock } from "./clock.js";
+export { EventClient } from "./events-client.js";
+export type {
+  EventClientOptions,
+  SocketLike,
+  WireEvent as ClientWireEvent,
+} from "./events-client.js";

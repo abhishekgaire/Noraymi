@@ -262,7 +262,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-09 · Build the event relay and the live WebSockets
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-06, M1-08
 - **Spec:** [API](../spec/08-api.md) · Live events; [Scope and architecture](../spec/01-scope-architecture.md) · Live updates
@@ -274,13 +274,20 @@ Definition of done: see CLAUDE.md.
   - A screen that reconnects sends the last `seq` it saw and gets everything after it. Events are kept 72 hours (a job deletes older ones); a gap means a full refetch, and `entity_version` lets a screen ignore a stale read. The client library in `packages/shared` groups refetches for 250 ms and backs off reconnects with jitter. Deploys drain sockets slowly.
   - An event carries only `seq`, `type`, `id`, `entity_version` and `at`, never money math.
 - **Acceptance:**
-  - [ ] An event written in a transaction reaches a socket on either of two API containers within a second on a local machine.
-  - [ ] A screen that reconnects with its last `seq` gets exactly what it missed; one that asks for a `seq` older than 72 hours is told to refetch.
-  - [ ] Killing the relay leader loses no event, and `seq` keeps going up.
-  - [ ] A socket on Room 9's channel never receives an event for another room.
-  - [ ] An event with any field beyond the five fails a test.
+  - [x] An event written in a transaction reaches a socket on either of two API containers within a second on a local machine.
+  - [x] A screen that reconnects with its last `seq` gets exactly what it missed; one that asks for a `seq` older than 72 hours is told to refetch.
+  - [x] Killing the relay leader loses no event, and `seq` keeps going up.
+  - [x] A socket on Room 9's channel never receives an event for another room.
+  - [x] An event with any field beyond the five fails a test.
 - **Tests:** integration tests with two API processes; a relay failover test; a filter test for each kind of principal.
-- **Notes:** The 3-second order-to-alarm target is checked under load in M8.
+- **Notes:** The 3-second order-to-alarm target is checked under load in M8. Built Sep 30, 2026:
+  - **Migration `0006_events.sql`:** `venue_events` with the five wire fields plus routing columns (`room_id`, `audience` of venue, room, staff, managers, user or display, `user_id`) and stamping columns (`xid`, `seq`, `stamp`). `stamp_venue_events()` stamps, in `(xid, id)` order, only rows whose transaction id is below the current snapshot's `xmin`, that is rows whose transaction committed before every transaction still running: `seq` counts per venue in `venue_event_counters`, `stamp` is one global tail position. A trigger `NOTIFY`s `west4_events` on insert; stamping `NOTIFY`s `west4_stamped`. `tail_venue_events`, `venue_events_after`, `venue_events_bounds` and `clear_venue_events` are definers, since the tail crosses venues.
+  - **Code:** `packages/db/src/events.ts` has `emitEvent(client, …)` (call it inside the change's transaction), `toWire`, `Relay` (leader under a session advisory lock; wakes on NOTIFY, polls each second) and `Tail` (each API container's follower, from the current end of the stamp sequence). `apps/api/src/http/events.ts` serves `GET /v1/venues/{v}/events` over `@fastify/websocket` and holds each container's sockets; `event-filter.ts` is `visibleTo(subscription, event)`, one rule per principal kind.
+  - **Frames.** `hello { server_time, seq }` on open; events as exactly `{ seq, type, id, entity_version, at }` (a test checks the key set); `caught_up { seq }` after a replay; `refetch` when the asked-for seq is older than what's kept; `reconnect` when the container drains. A seq is per venue, so a filtered socket (a room tablet) naturally skips numbers; the client remembers the highest seq it was told (events and `caught_up`) and the server replays from there, so the gap rule is the server's `refetch`, not a count on the client.
+  - **Refused callers** on the socket route get the upgrade and then close code 4403 (`websocket: true` in the registry entry); an HTTP 403 on an upgrade request leaves a raw socket Node's server waits on at shutdown, which is why. `forceCloseConnections` is on, and the plugin's `preClose` terminates whatever the slow drain (reconnect frames spread over 5 seconds) didn't close.
+  - **The client library** is `EventClient` in `packages/shared/src/events-client.ts`: runtime-agnostic (the browser's WebSocket or `ws` is passed in), refetches grouped for 250 ms, reconnects backed off from 500 ms to 30 s with ±25% jitter, `?after=` on reconnect.
+  - **Retention:** the bulk job `events.clear_old` at 06:40 daily calls `clear_venue_events(now − 72 h)`.
+  - **Tests:** two API instances on one database (each with its own relay and tail), delivery under a second on both, replay of exactly the missed seqs, relay crash and takeover with no lost event, Room 9's channel, the too-old `refetch`, the 4403 close; unit tests for the filter per principal, the five-field wire shape, and the client's grouping and backoff.
 
 ### M1-10 · Load the New York County rule pack and resolve its versions
 

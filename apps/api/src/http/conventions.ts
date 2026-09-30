@@ -55,6 +55,7 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   // Fastify refuses object defaults on request decorators; the onRequest hook sets these on every request.
   (app.decorateRequest as (name: string, value: unknown) => void)("principal", null);
   app.decorateRequest("requestId", "");
+  app.decorateRequest("forbidden", false);
   app.decorateRequest("venueId", undefined);
   (app.decorateRequest as (name: string, value: unknown) => void)("inVenue", null);
 
@@ -110,7 +111,11 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     const params = request.params as { venueId?: string };
     const venueId = params.venueId;
     if (!spec.principals.some((name) => principalIs(request.principal, name, venueId))) {
-      throw new ApiError("forbidden", "you can't call this");
+      if (spec.websocket) {
+        request.forbidden = true; // the socket handler closes with 4403
+      } else {
+        throw new ApiError("forbidden", "you can't call this");
+      }
     }
     request.venueId = venueId;
     if (spec.tokenRoute) {
@@ -193,6 +198,7 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
 declare module "fastify" {
   interface FastifyRequest {
     idempotencyId: string | undefined;
+    forbidden: boolean;
   }
 }
 

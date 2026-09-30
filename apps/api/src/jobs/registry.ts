@@ -2,6 +2,11 @@ import type { JobHandler, Schedule } from "@west4/db";
 import type { S3Settings } from "../s3.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
 import {
+  EVENTS_CLEANUP_KIND,
+  eventsCleanupHandler,
+  eventsCleanupSchedule,
+} from "./events-cleanup.js";
+import {
   IDEMPOTENCY_CLEANUP_KIND,
   idempotencyCleanupHandler,
   idempotencyCleanupSchedule,
@@ -21,8 +26,13 @@ export function makeHandlers(
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),
       [IDEMPOTENCY_CLEANUP_KIND]: idempotencyCleanupHandler,
+      [EVENTS_CLEANUP_KIND]: eventsCleanupHandler,
     },
   };
 }
 
-export const schedules: Schedule[] = [auditExportSchedule, idempotencyCleanupSchedule];
+export const schedules: Schedule[] = [
+  auditExportSchedule,
+  idempotencyCleanupSchedule,
+  eventsCleanupSchedule,
+];

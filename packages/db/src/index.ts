@@ -24,3 +24,5 @@ export {
   inTransaction,
   OutsideCallInTransactionError,
 } from "./outside-calls.js";
+export { emitEvent, toWire, Relay, Tail } from "./events.js";
+export type { EmitEvent, EventAudience, StampedEvent, WireEvent } from "./events.js";

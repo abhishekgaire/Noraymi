@@ -5,6 +5,7 @@ import { Temporal, formatInZone, systemClock, type Clock } from "@west4/shared";
 import { dbPlugin } from "./db.js";
 import type { Config } from "./config.js";
 import { conventionsPlugin, route, type Authenticator } from "./http/conventions.js";
+import { eventsPlugin } from "./http/events.js";
 
 export interface AppOptions {
   readonly logger?: boolean;
@@ -13,6 +14,9 @@ export interface AppOptions {
   readonly clock?: Clock;
   readonly authenticators?: readonly Authenticator[];
   readonly staffRateLimit?: { max: number; windowMs: number };
+  /** The relay's and the tail's poll interval; tests use a short one. */
+  readonly eventsPollMs?: number;
+  readonly drainMs?: number;
   /** Tests add fixture routes here, inside the routes plugin's scope. */
   readonly extraRoutes?: (app: FastifyInstance) => Promise<void> | void;
 }
@@ -22,7 +26,9 @@ export const PLATFORM_TIME_ZONE = "America/New_York";
 
 /** Build the API without listening, so tests can inject requests. */
 export function buildApp(options: AppOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? false });
+  // forceCloseConnections: the events plugin drains WebSockets slowly first;
+  // whatever is left (for example a refused upgrade) is cut so close() returns.
+  const app = Fastify({ logger: options.logger ?? false, forceCloseConnections: true });
   const config = options.config;
   let clock: Clock = options.clock ?? systemClock;
 
@@ -45,6 +51,16 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
     db: config !== undefined,
   });
+
+  // Live events need the database (M1-09).
+  if (config) {
+    void app.register(eventsPlugin, {
+      clock,
+      timeZone: PLATFORM_TIME_ZONE,
+      ...(options.eventsPollMs !== undefined ? { pollMs: options.eventsPollMs } : {}),
+      ...(options.drainMs !== undefined ? { drainMs: options.drainMs } : {}),
+    });
+  }
 
   // Every route is added after the conventions plugin, so its registry sees them all.
   void app.register(async (scope) => {

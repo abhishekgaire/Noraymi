@@ -20,6 +20,8 @@ export interface RouteSpec {
   readonly tokenRoute?: boolean;
   /** Staff routes are rate-limited per venue (spec 13 · Capacity). */
   readonly rateLimit?: false | { max: number; windowMs: number };
+  /** A WebSocket route: a refused caller is closed with code 4403 after the upgrade, never an HTTP 403. */
+  readonly websocket?: boolean;
 }
 
 export interface RegisteredRoute extends RouteSpec {
