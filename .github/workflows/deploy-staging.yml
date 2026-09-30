@@ -1,0 +1,109 @@
+name: Deploy staging
+
+# Runs after CI passes on main. Infrastructure lives in infra/staging and is
+# applied by hand; this workflow only ships application code.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  deploy:
+    name: Deploy to staging
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_STAFF_URL }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: ./.github/actions/setup
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push images
+        env:
+          TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          docker build -f apps/api/Dockerfile -t "${{ vars.ECR_API }}:$TAG" -t "${{ vars.ECR_API }}:latest" .
+          docker build -f apps/guest/Dockerfile -t "${{ vars.ECR_GUEST }}:$TAG" -t "${{ vars.ECR_GUEST }}:latest" .
+          docker push --all-tags "${{ vars.ECR_API }}"
+          docker push --all-tags "${{ vars.ECR_GUEST }}"
+
+      - name: Register task definitions with the new images
+        id: taskdefs
+        env:
+          TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          register() { # family image
+            aws ecs describe-task-definition --task-definition "$1" --query taskDefinition \
+              | jq --arg image "$2" '.containerDefinitions[0].image = $image
+                  | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+              > "/tmp/$1.json"
+            aws ecs register-task-definition --cli-input-json "file:///tmp/$1.json" --query taskDefinition.taskDefinitionArn --output text
+          }
+          echo "api=$(register ${{ vars.ECS_CLUSTER }}-api ${{ vars.ECR_API }}:$TAG)" >> "$GITHUB_OUTPUT"
+          echo "worker=$(register ${{ vars.ECS_CLUSTER }}-worker ${{ vars.ECR_API }}:$TAG)" >> "$GITHUB_OUTPUT"
+          echo "migrate=$(register ${{ vars.ECS_CLUSTER }}-migrate ${{ vars.ECR_API }}:$TAG)" >> "$GITHUB_OUTPUT"
+          echo "guest=$(register ${{ vars.ECS_CLUSTER }}-guest ${{ vars.ECR_GUEST }}:$TAG)" >> "$GITHUB_OUTPUT"
+
+      - name: Run the migrations
+        run: |
+          set -euo pipefail
+          task=$(aws ecs run-task --cluster "${{ vars.ECS_CLUSTER }}" --launch-type FARGATE \
+            --task-definition "${{ steps.taskdefs.outputs.migrate }}" \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.ECS_SUBNETS }}],securityGroups=[${{ vars.ECS_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "migration task $task"
+          aws ecs wait tasks-stopped --cluster "${{ vars.ECS_CLUSTER }}" --tasks "$task"
+          code=$(aws ecs describe-tasks --cluster "${{ vars.ECS_CLUSTER }}" --tasks "$task" --query 'tasks[0].containers[0].exitCode' --output text)
+          id=${task##*/}
+          aws logs get-log-events --log-group-name "/west4/staging/migrate" --log-stream-name "migrate/migrate/$id" --query 'events[].message' --output text || true
+          test "$code" = "0"
+
+      - name: Roll the services
+        run: |
+          set -euo pipefail
+          aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service api --task-definition "${{ steps.taskdefs.outputs.api }}" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service worker --task-definition "${{ steps.taskdefs.outputs.worker }}" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service guest --task-definition "${{ steps.taskdefs.outputs.guest }}" --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster "${{ vars.ECS_CLUSTER }}" --services api worker guest
+
+      - name: Build and publish the static apps
+        env:
+          VITE_API_URL: ${{ vars.STAGING_API_URL }}
+        run: |
+          set -euo pipefail
+          pnpm exec tsc -b
+          pnpm --filter @west4/staff build
+          pnpm --filter @west4/console build
+          for app in staff console; do
+            bucket=$([ "$app" = staff ] && echo "${{ vars.STATIC_BUCKET_STAFF }}" || echo "${{ vars.STATIC_BUCKET_CONSOLE }}")
+            dist=$([ "$app" = staff ] && echo "${{ vars.CLOUDFRONT_STAFF }}" || echo "${{ vars.CLOUDFRONT_CONSOLE }}")
+            aws s3 sync "apps/$app/dist" "s3://$bucket" --delete --exclude index.html --cache-control "public, max-age=31536000, immutable"
+            aws s3 cp "apps/$app/dist/index.html" "s3://$bucket/index.html" --cache-control "no-cache"
+            aws cloudfront create-invalidation --distribution-id "$dist" --paths "/index.html" >/dev/null
+          done
+
+      - name: Post-deploy smoke test
+        run: node scripts/smoke-staging.mjs "${{ vars.STAGING_API_URL }}" "${{ vars.STAGING_STAFF_URL }}" "${{ vars.STAGING_CONSOLE_URL }}" "${{ vars.STAGING_GUEST_URL }}"

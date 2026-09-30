@@ -1,6 +1,12 @@
 export { migrate, listMigrations, MigrationError } from "./migrate.js";
 export type { Migration, MigrateOptions, MigrateResult } from "./migrate.js";
-export { defaultDatabaseUrl, migrationsDir } from "./config.js";
+export {
+  databaseUrl,
+  defaultDatabaseUrl,
+  migrationsDir,
+  withDatabase,
+  databaseName,
+} from "./config.js";
 export {
   lintDirectory,
   lintFiles,

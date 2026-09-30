@@ -15,5 +15,8 @@
   },
   "dependencies": {
     "@west4/shared": "workspace:*"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

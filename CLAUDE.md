@@ -15,7 +15,7 @@ A POS and operations platform for karaoke venues, built for many venues from day
 | The exact words staff and guests see | `docs/glossary.md`. The spec's vocabulary table is in `docs/spec/10-staff-screens-bar-pos.md`. |
 | The one Friday night that staging and every test use | `docs/demo-seed.md` and `seed/west4-friday.json` |
 | Expected money results the rules must reproduce | `seed/money-cases.json` |
-| Why something is the way it is | `docs/decisions.md` (D1–D84, newest first) |
+| Why something is the way it is | `docs/decisions.md` (D1–D85, newest first) |
 | Product scope and phases | `docs/blueprint.md` |
 | Questions still open, and who answers them | `docs/spec/14-open-questions.md` |
 | How the screens look | `design/canvas/`. See `design/README.md` to open it. |
@@ -111,7 +111,9 @@ pnpm e2e                # Playwright smoke tests; starts the dev servers itself 
 pnpm format             # Prettier --write
 ```
 
-Copy `.env.example` to `.env` for local values. The API image builds with `docker build -f apps/api/Dockerfile .` from the repo root.
+Copy `.env.example` to `.env` for local values. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.
+
+Staging runs on AWS (`infra/README.md`). Infrastructure changes are `terraform plan` then `terraform apply` in `infra/staging`, from a laptop with the admin profile. Merging to `main` deploys the application code through `.github/workflows/deploy-staging.yml`.
 
 ## The demo seed
 

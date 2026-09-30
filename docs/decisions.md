@@ -7,6 +7,12 @@ Sep 29, 2026 · the decisions development builds on, newest first. Each row give
 - The design canvas is frozen (D78): where it and the spec differ, build what the spec says.
 - Questions still open stay in the blueprint's [Open decisions](blueprint.md#open-decisions) until they're settled here.
 
+## Sep 30, 2026
+
+| ID | Date | Decision | Why | Where it's specified |
+| --- | --- | --- | --- | --- |
+| D85 | Sep 30, 2026 | Staging and production run on AWS in `us-east-1`: ECS Fargate for the API, worker and guest web, RDS Postgres 16, S3 with Object Lock for the audit export, KMS as the key service and Secrets Manager. Infrastructure is Terraform in `infra/`, applied from a laptop; CI deploys only application code through a GitHub OIDC role | The spec names no provider and leaves the pick to the founder (M1-02). AWS was chosen over GCP and Azure on Sep 30: the account already existed, the production shape the spec describes (a standby in a second zone, cross-region backups) costs about the same on all three, and GCP's always-on worker and Azure's zone-redundant database tier were the expensive parts elsewhere | [Testing and operations](spec/13-testing-operations.md) · Environments; [infra/README.md](../infra/README.md) |
+
 ## Sep 29, 2026
 
 | ID | Date | Decision | Why | Where it's specified |

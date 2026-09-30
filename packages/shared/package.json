@@ -15,5 +15,8 @@
   },
   "dependencies": {
     "temporal-polyfill": "1.0.5"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

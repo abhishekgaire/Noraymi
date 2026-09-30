@@ -2,7 +2,7 @@
 
 Money code gets the heaviest testing, and the service is watched against its published targets.
 
-**Environments.** Local (Docker Postgres and Stripe's sandbox), staging and production. Staging copies production's setup on a connected Stripe sandbox account, so reader events arrive exactly as they will live, with [simulated readers](https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven) and one real S710 on test cards.
+**Environments.** Local (Docker Postgres and Stripe's sandbox), staging and production. Staging and production run on AWS in `us-east-1` (D85; the layout is in `infra/README.md`). Staging copies production's setup on a connected Stripe sandbox account, so reader events arrive exactly as they will live, with [simulated readers](https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven) and one real S710 on test cards.
 
 **The demo seed.** Staging is seeded from the [demo seed](../demo-seed.md): West 4 at Fri Sep 25, 2026, 10:41 PM, with its 14 rooms, 127-line menu, team, bookings, waitlist, room orders, bar tabs, drawers, singer queue and the Room 9 story: the one set of facts every screen is built to show, so a screen and the build can be checked against each other. The end-to-end tests load the same seed as their fixture, so a failing test names a fact from the seed, and the checks in [milestones](../milestones.md) use its names and numbers.
 

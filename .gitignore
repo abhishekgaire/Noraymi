@@ -16,3 +16,10 @@ test-results/
 !.vscode/extensions.json
 *.tsbuildinfo
 next-env.d.ts
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+infra/staging/backend.hcl
+.terraform.lock.hcl.tmp

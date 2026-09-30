@@ -97,14 +97,18 @@ jobs:
       - run: pnpm audit --audit-level=high
 
   container:
-    name: Container scan
+    name: Container scan (${{ matrix.app }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, guest]
     steps:
       - uses: actions/checkout@v7
-      - run: docker build -f apps/api/Dockerfile -t west4-api:ci .
+      - run: docker build -f apps/${{ matrix.app }}/Dockerfile -t west4-${{ matrix.app }}:ci .
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: west4-api:ci
+          image-ref: west4-${{ matrix.app }}:ci
           format: table
           exit-code: "1"
           ignore-unfixed: true

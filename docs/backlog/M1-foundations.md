@@ -75,7 +75,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-02 · Stand up staging and deploy to it from CI
 
-- **Status:** todo
+- **Status:** doing
 - **Size:** S
 - **Depends on:** M1-01
 - **Spec:** [Scope and architecture](../spec/01-scope-architecture.md) · the Runs on column; [Testing and operations](../spec/13-testing-operations.md) · Environments; [Security and data retention](../spec/12-security-retention.md) 5 and 6
@@ -90,7 +90,13 @@ Definition of done: see CLAUDE.md.
   - [ ] Every secret comes from the secrets manager; none is in the repo or an image.
   - [ ] A production build started with the staging switch refuses to start.
 - **Tests:** a post-deploy smoke test that calls the health route on staging.
-- **Notes:** The spec names no cloud provider. The founder picks one that has managed Postgres 16, object lock, a key service and a secrets manager in one US East region. `GET /v1/health` isn't in the [API](../spec/08-api.md) table; it's an operations route that returns no venue data.
+- **Notes:** The spec names no cloud provider. The founder picks one that has managed Postgres 16, object lock, a key service and a secrets manager in one US East region. `GET /v1/health` isn't in the [API](../spec/08-api.md) table; it's an operations route that returns no venue data. Sep 30, 2026:
+  - **AWS, `us-east-1` (D85).** Terraform in `infra/staging` (see `infra/README.md`): a VPC in two zones; ECS Fargate services `api`, `worker` and `guest` (0.25 vCPU, 512 MB each) behind one load balancer; RDS Postgres 16.15 on `db.t4g.micro`, single-AZ on staging (`db_multi_az` turns the standby on for production); S3 buckets for files, the audit export (Object Lock on from creation) and the two static apps; a KMS data key and an ECC signing key for rule packs; Secrets Manager for the PIN pepper, badge master key, Stripe, Twilio and the CloudFront origin secret; CloudWatch logs with 30-day retention.
+  - **Hostnames.** No domain exists yet, so each app has its own `*.cloudfront.net` hostname with HTTPS: API and guest web in front of the load balancer, staff app and Console as static sites in S3 behind their own distributions. The staff app is therefore outside the guest CDN. CloudFront reaches the load balancer over HTTP inside AWS with a shared secret header and a header naming the app; a domain later adds ACM certificates and HTTPS to the origin.
+  - **Secrets.** Terraform creates only the secret containers; `infra/scripts/seed-secrets.sh` fills them with random values (and Stripe and Twilio placeholders), so no secret is in the repo, an image or the Terraform state. RDS manages its own master password and ECS injects it as `DB_PASSWORD`; the API and the migration runner build the URL from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD`.
+  - **Deploys.** `.github/workflows/deploy-staging.yml` runs after CI passes on `main` through a GitHub OIDC role (no AWS keys in GitHub): builds and pushes both images, registers task definitions, runs `db:migrate` as a one-off ECS task and checks its exit code, rolls the three services, publishes the static apps and runs `scripts/smoke-staging.mjs` (health with `server_time`, then the three hostnames). Infrastructure is applied by hand from a laptop, never from CI.
+  - **The staging switch** is `WEST4_ENV` plus `ALLOW_STAGING_FEATURES=true`. `apps/api/src/config.ts` throws at start-up when the switch is on with `WEST4_ENV=production` (unit-tested); the task definitions derive the switch from the environment name, so a production environment can never set it.
+  - **Cautious defaults:** the database backup window is 4–5 AM New York and maintenance is Wednesday 5–6 AM, both after the 4 AM alcohol stop and before the 6 AM cutover; RDS forces TLS; the tasks run in public subnets with public IPs instead of paying for a NAT gateway.
 
 ### M1-03 · Add the migration linter
 
