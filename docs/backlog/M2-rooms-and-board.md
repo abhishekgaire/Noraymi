@@ -78,7 +78,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** the 14 `billable_guests` cases, the 8 `tab_so_far` cases (room time, drinks and tab so far; their `if_presented_now` totals wait for M4), the 8 booking `deposits` cases (the forfeit case is M4's), plus base-plus-extra, flat-by-size, the VIP party in an ordinary room, the other deposit modes and a tab with closed and open segments. Time bands join `hourlyRateAt` in M2-03.
 ### M2-03 · Add time bands with a billing step and rounding, and the pricing property tests
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-02
 - **Spec:** [Money rules](../spec/05-money-rules.md) 2 and 3 (Billing step); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `Billing`, `PriceSettings.bands`; [Data model](../spec/04-data-model.md) · `session_segments`; [Testing and operations](../spec/13-testing-operations.md) · Tests
@@ -88,12 +88,16 @@ Definition of done: see CLAUDE.md.
   - With a step above 1 minute, the session's minutes after the first hour are rounded to the step by the rule of the band the session ends in, and the minutes added or taken off bill at the last segment's rate.
   - Bands resolve per business date through Temporal, reading minutes from midnight on the wall clock on the daylight-saving nights. West 4 has no bands and bills by the minute.
 - **Acceptance:**
-  - [ ] Pricing property tests pass for bands in each rate mode, billing steps of 1, 15, 30 and 60 minutes with each rounding rule, party-size changes mid-session, and both daylight-saving nights (Nov 1, 2026 and Mar 14, 2027).
-  - [ ] In every generated session, room time equals a second, separately written reference, is rounded once, never drops as minutes grow, applies the first-hour minimum once, and with a step of 1 equals the per-minute sum.
-  - [ ] Segments tile each session with no gap and no overlap, and on the daylight-saving nights their minutes equal the real elapsed time.
+  - [x] Pricing property tests pass for bands in each rate mode, billing steps of 1, 15, 30 and 60 minutes with each rounding rule, party-size changes mid-session, and both daylight-saving nights (Nov 1, 2026 and Mar 14, 2027).
+  - [x] In every generated session, room time equals a second, separately written reference, is rounded once, never drops as minutes grow, applies the first-hour minimum once, and with a step of 1 equals the per-minute sum.
+  - [x] Segments tile each session with no gap and no overlap, and on the daylight-saving nights their minutes equal the real elapsed time.
 - **Tests:** property tests (fast-check) against the reference implementation; unit tests for a band that starts mid-session (a 12:30 AM band change on a Saturday is minute 1,470 of Friday's business date).
 - **Notes:** Money-cases ambiguity A7 (wall-clock minutes for bands on the daylight-saving nights) is the reading used. Holiday price rules are phase 2.
-
+  - **Built:** `packages/rules/src/bands.ts`: `bandAt(prices, businessDate, minutesFromMidnight)` (the first band covering the minute on that business-date weekday, JS numbering; outside every band, the base rate and billing), `rateAt(...)` (the band's rate, or the VIP flat rate), `bandBoundaries(start, end, prices, venue)` and `segmentsFor({ start, end, partySize, room, events }, prices, venue)`, which tiles a session with a new segment at every band change, every business-date cutover, every party-size change and every pause or resume, each on the minute and copying `band_id`, `rate_kind`, `hourly_cents`, `increment_min`, `rounding` and `paused` the way `session_segments` stores them. `roomTime` (M2-01) takes the billing step: minutes after the first hour rounded to the step by the rule of the band the session ends in (`roundToStep`; nearest rounds half up), the difference billed at the last segment's rate. `hourlyRateAt` (M2-02) now reads the band at the instant. `fast-check` joins the rules package.
+  - **How band edges land on the daylight-saving nights:** boundaries come from walking the session's real minutes and reading each on the wall clock, so an edge at a wall-clock minute that doesn't exist on the spring-forward night (2:01 AM) falls at 3:00 AM, and a band over the repeated hour on the fall-back night runs for both of them. This is what makes the segments and the separately written minute-by-minute reference agree to the cent.
+  - **Cautious default:** a session still open at the 6:00 AM cutover closes a segment there, because the business date, its minimum and its bands change; the spec lists only party size, band, move and pause as reasons (flagged).
+  - **Two corners where the spec's own rule lets a longer session bill less (flagged for the spec):** (1) the step is "the rule of the band the session ends in", so a session that runs one minute past a band with a 15-minute step into a by-the-minute band drops the rounding; (2) inside the first hour, the top-up is priced at the first segment's rate, so a cheaper later minute replaces a dearer top-up minute. The "never drops as minutes grow" property is therefore asserted past the first hour with the same ending step, and the two cases are documented in the test.
+  - **Tests:** `bands.test.ts` (the 12:30 AM Saturday band at minute 1,470 of Friday's business date, a session across it, a party-size change, a pause, the three rounding rules, West 4 by the minute) and `pricing.property.test.ts` (300 generated sessions per property across the three rate modes, steps 1/15/30/60 with each rounding rule, party-size changes and pauses, both daylight-saving nights and the cutover: equal to the reference, rounded once, tiled with no gap or overlap and real minutes, the first-hour minimum once, and step 1 equal to the per-minute sum).
 ### M2-04 · Build rooms and room states, and Admin → Rooms
 
 - **Status:** todo

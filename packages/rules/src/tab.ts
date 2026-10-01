@@ -1,4 +1,5 @@
-import { Temporal, cents, type Cents } from "@west4/shared";
+import type { Temporal } from "@west4/shared";
+import { cents, type Cents } from "@west4/shared";
 import { roomTime, roomTimeBetween, type Segment } from "./room-time.js";
 
 /**

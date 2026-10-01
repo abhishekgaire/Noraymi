@@ -30,9 +30,31 @@ const wholeMinutes = (minutes: number): number => {
   return minutes;
 };
 
+/** The billing step (spec 05 · rule 3): minutes after the first hour rounded to the step by the rule. */
+export interface BillingStep {
+  readonly incrementMin: 1 | 15 | 30 | 60;
+  readonly rounding: "up" | "nearest" | "down";
+}
+
+export function roundToStep(minutes: number, step: BillingStep): number {
+  if (step.incrementMin === 1) return minutes;
+  const steps = minutes / step.incrementMin;
+  const whole =
+    step.rounding === "up"
+      ? Math.ceil(steps)
+      : step.rounding === "down"
+        ? Math.floor(steps)
+        : Math.floor(steps + 0.5); // nearest, half up
+  return whole * step.incrementMin;
+}
+
 export function roomTime(
   segments: readonly Segment[],
-  options: { readonly firstHourMinimum: boolean },
+  options: {
+    readonly firstHourMinimum: boolean;
+    /** The step and rule of the band the session ends in; the minutes added or taken off bill at the last segment's rate. */
+    readonly step?: BillingStep | undefined;
+  },
 ): RoomTime {
   const billed = segments.filter((s) => !s.paused);
   for (const s of segments) wholeMinutes(s.minutes);
@@ -47,6 +69,13 @@ export function roomTime(
   if (options.firstHourMinimum && first && minutes < 60) {
     weighted += first.hourlyCents * (60 - minutes);
     minutes = 60;
+  }
+  const last = billed.at(-1);
+  if (options.step && options.step.incrementMin > 1 && last && minutes > 60) {
+    const after = minutes - 60;
+    const delta = roundToStep(after, options.step) - after;
+    weighted += last.hourlyCents * delta;
+    minutes += delta;
   }
   return {
     cents: cents(Math.floor((weighted + 30) / 60)),

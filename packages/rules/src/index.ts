@@ -21,3 +21,7 @@ export { tabSoFar } from "./tab.js";
 export type { TabLine, SessionSoFar, TabSoFar } from "./tab.js";
 export { deposit } from "./deposit.js";
 export type { Deposit } from "./deposit.js";
+export { roundToStep } from "./room-time.js";
+export type { BillingStep } from "./room-time.js";
+export { bandAt, rateAt, bandBoundaries, segmentsFor } from "./bands.js";
+export type { Band, Billing, BandChoice, SessionSegment, SessionEvent } from "./bands.js";

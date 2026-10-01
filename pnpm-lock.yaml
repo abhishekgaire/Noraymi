@@ -395,6 +395,10 @@ importers:
       '@west4/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
 
   packages/shared:
     dependencies:

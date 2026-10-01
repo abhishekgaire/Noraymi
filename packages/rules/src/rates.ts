@@ -1,4 +1,5 @@
-import { Temporal, cents, type Cents, type PriceSettings } from "@west4/shared";
+import type { Temporal } from "@west4/shared";
+import { cents, type Cents, type PriceSettings } from "@west4/shared";
 import { businessDate } from "./time.js";
 
 /**
@@ -88,10 +89,19 @@ export function hourlyRateAt(
       hourlyCents: cents(vip.hourlyCents),
     };
   }
+  // The band the instant falls in (M2-03) decides the rate; outside every band, the base rate.
+  const bd = businessDate(at, venue.timeZone, venue.dayCutover);
+  const jsDay = date.dayOfWeek % 7;
+  const band = prices.bands.find(
+    (b) =>
+      b.days.includes(jsDay) &&
+      b.fromMin <= bd.minutesFromMidnight &&
+      bd.minutesFromMidnight < b.toMin,
+  );
   return {
     businessDate: date,
     minGuests,
     billableGuests,
-    ...hourlyCentsFor(prices.rate, billableGuests, room),
+    ...hourlyCentsFor(band?.rate ?? prices.rate, billableGuests, room),
   };
 }

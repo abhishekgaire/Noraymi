@@ -1,11 +1,5 @@
-import {
-  Temporal,
-  cents,
-  percentOf,
-  type Cents,
-  type DepositRule,
-  type PriceSettings,
-} from "@west4/shared";
+import type { Temporal } from "@west4/shared";
+import { cents, percentOf, type Cents, type DepositRule, type PriceSettings } from "@west4/shared";
 import { billableGuestsOn, hourlyCentsFor } from "./rates.js";
 
 /**
