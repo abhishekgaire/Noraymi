@@ -116,18 +116,25 @@ Definition of done: see CLAUDE.md.
 
 ### M3-04 · Build Admin → Menu
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-31, M3-03
 - **Spec:** [AdminDesk](../screens.md#admindesk) notes 3 and 15; [Admin by milestone](../milestones.md#admin-by-milestone) (Menu); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Admin → Bar POS (button names are edited in Admin → Menu); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Promotion checks
 - **Build:** the menu editor: categories and their tax categories; items with variants and options; modifier groups (required choices and shared add-ons); the short button name (`button_name`, the bar POS grid's label, while tickets and receipts print the full name); the alcohol flag; shown or hidden; out tonight; packages; and dated price rules for happy hours and specials, in place of the canvas's free-text "Happy hour line". Every save runs the promotion checks and shows the reason for a refusal. Nothing reaches the website, the room screens or the PDF until Save.
 - **Acceptance:**
-  - [ ] Every item has a Button name and an Alcohol column; renaming Margarita's button to "Marg" leaves tickets and receipts printing "Margarita".
-  - [ ] A Friday happy hour for Margaritas at $6.00 from 8 PM is refused with its reason, and $6.50 saves.
-  - [ ] Hiding an item takes it off the guest menu and every staff menu after Save.
-  - [ ] With Packages & specials off, packages and price rules are hidden in Admin and on every menu.
+  - [x] Every item has a Button name and an Alcohol column; renaming Margarita's button to "Marg" leaves tickets and receipts printing "Margarita".
+  - [x] A Friday happy hour for Margaritas at $6.00 from 8 PM is refused with its reason, and $6.50 saves.
+  - [x] Hiding an item takes it off the guest menu and every staff menu after Save.
+  - [x] With Packages & specials off, packages and price rules are hidden in Admin and on every menu.
 - **Tests:** Playwright for each part of the editor, including the refused saves.
 - **Notes:** The public menu page (HTML with the PDF) is M5 and reads the same list.
+  - Built: `apps/staff/src/screens/admin/Menu.tsx` (Admin → Menu, after Rooms in the section list), its English and Spanish strings (`menuAdmin.*`), and the Playwright test "Admin → Menu" in `e2e/staff.spec.ts`; `/admin/menu` joins the Spanish and clipped-text checks.
+  - Each category is a table of its items: name (with its choice groups), Button name (the full name greyed when there's none), price per size, Alcohol, shown or hidden, and Tonight (86'd tonight, 86 or Back on, and Edit). Edit opens the item's editor below its row: full name, button name, category, description, alcohol, shown, sizes and prices, choice groups and their choices (extra price, the one that rings unless changed). Nothing is sent until Save; then the edits go one call at a time and a refusal shows the server's reason.
+  - Packages and happy hours (Packages & specials on): a list with Shown/Hidden, an Add a package form (items with a quantity, or "As many as they like", priced by the hour, only for private functions) and an Add a happy hour or special form (kind, item, how many for the price, days, from and until, a set price or a percentage off, start and end dates). Editing an existing package or rule beyond Shown is left for when a venue needs it; a new one replaces it.
+  - `GET /menu` now leaves hidden items out unless `?include_hidden=true` (Admin asks for them), so hiding an item takes it off every staff menu and the guest menu.
+  - "Tickets and receipts print Margarita": tickets (M3-13) and receipts (M4) don't exist yet; the test checks the item keeps its full name with the button renamed, and those tickets print `name`.
+  - 86 from Admin takes effect at once (it's the bar's 86, not a menu edit).
+  - Venue words (item, category and choice-group names) are marked `data-guest-text` so the Spanish check treats them as data.
 
 ### M3-05 · Render the menu PDF on every menu change
 

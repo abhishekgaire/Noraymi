@@ -10,6 +10,7 @@ import { Devices } from "./screens/admin/Devices.js";
 import { Features } from "./screens/admin/Features.js";
 import { Hours } from "./screens/admin/Hours.js";
 import { Rooms } from "./screens/admin/Rooms.js";
+import { Menu } from "./screens/admin/Menu.js";
 import { Phone } from "./screens/admin/Phone.js";
 import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
@@ -112,6 +113,7 @@ export function StaffRoutes() {
           <Route path="hours" element={<Hours />} />
           <Route path="devices" element={<Devices />} />
           <Route path="rooms" element={<Rooms />} />
+          <Route path="menu" element={<Menu />} />
           <Route path="phone" element={<Phone />} />
           <Route path="texts" element={<Texts />} />
           <Route path="safety" element={<Safety />} />

@@ -285,6 +285,23 @@ describe("saving runs the promotion checks", () => {
     expect(named(await staffMenu(), "Popcorn").variants[0]!.price_cents).toBe(600);
   });
 
+  it("hiding an item takes it off the staff and guest menus, and Admin still lists it", async () => {
+    const popcorn = named(await staffMenu(), "Popcorn");
+    expect((await req("PATCH", `/menu/items/${popcorn.id}`, { shown: false })).statusCode).toBe(
+      200,
+    );
+    expect(items(await staffMenu()).some((i) => i.name === "Popcorn")).toBe(false);
+    expect(items(await guestMenu()).some((i) => i.name === "Popcorn")).toBe(false);
+    const admin = (await req("GET", "/menu?include_hidden=true")).json<Tree>();
+    expect(named(admin, "Popcorn")).toBeTruthy();
+  });
+
+  it("renaming Margarita's button to Marg keeps its full name", async () => {
+    const marg = named(await staffMenu(), "Margarita");
+    const r = await req("PATCH", `/menu/items/${marg.id}`, { button_name: "Marg" });
+    expect(r.json()).toMatchObject({ name: "Margarita", button_name: "Marg" });
+  });
+
   it("a PIN session can't edit the menu", async () => {
     who = as("andy", "manager");
     expect((await req("POST", "/menu/categories", { name: "Nope" })).statusCode).toBe(403);

@@ -81,6 +81,7 @@ const screens = [
   "/admin/hours",
   "/admin/devices",
   "/admin/rooms",
+  "/admin/menu",
   "/admin/phone",
   "/admin/texts",
   "/nowhere",

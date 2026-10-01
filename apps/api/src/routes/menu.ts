@@ -26,7 +26,7 @@ import { ApiError } from "../http/errors.js";
  * The menu (M3-03; spec 08 · Menu):
  *   GET, POST    /v1/venues/{v}/menu/categories | items | variants | options | modifier-groups
  *   PATCH        /v1/venues/{v}/menu/<kind>/{id}
- *   GET          /v1/venues/{v}/menu                      the whole menu as one tree, with 86 worked out
+ *   GET          /v1/venues/{v}/menu?include_hidden=      the whole menu as one tree, with 86 worked out
  *   GET, POST    /v1/venues/{v}/packages | price-rules    (Packages & specials module)
  *   PATCH        /v1/venues/{v}/packages/{id} | price-rules/{id}
  *   POST         /v1/venues/{v}/menu/items/{i}/out-tonight   { out?, variant_id?, option_id? }: 86, or back
@@ -352,11 +352,16 @@ export function menuRoutes(app: FastifyInstance, options: { clock: Clock; pool: 
     );
   }
 
-  app.get<{ Params: { venueId: string } }>(
+  // Staff menus leave hidden items out; Admin → Menu asks for them with ?include_hidden=true.
+  app.get<{ Params: { venueId: string }; Querystring: { include_hidden?: string } }>(
     "/v1/venues/:venueId/menu",
     { config: read("core") },
     async (request) => ({
-      categories: await request.inVenue((c) => menuTree(c, request.venueId!, nowIso())),
+      categories: await request.inVenue((c) =>
+        menuTree(c, request.venueId!, nowIso(), {
+          shownOnly: request.query.include_hidden !== "true",
+        }),
+      ),
     }),
   );
 

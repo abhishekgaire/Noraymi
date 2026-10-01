@@ -24,6 +24,7 @@ const ADMIN_SECTIONS = [
   "/admin/hours",
   "/admin/devices",
   "/admin/rooms",
+  "/admin/menu",
   "/admin/safety",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
@@ -2809,6 +2810,102 @@ test("a manager's phone: the PIN pad waits for all 6 digits", async ({ page, req
     await typePin(page, "30");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     void request;
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Menu (M3-04): the seed's menu with a Button name and an Alcohol
+ * column, Margarita's button renamed to "Marg" while its full name stays, a
+ * Friday happy hour refused at $6.00 with its reason and saved at $6.50,
+ * Bud Light hidden off the guest menu, and with Packages & specials off,
+ * no packages or happy hours in Admin.
+ */
+test("Admin → Menu: button names, a refused $6.00 happy hour, $6.50 saved, a hidden item, and Packages off", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/menu");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Menu");
+    const rows = page.locator(".menu-category tbody tr");
+    await expect(rows).toHaveCount(127);
+    await expect(page.getByRole("columnheader", { name: "Button name" }).first()).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Alcohol" }).first()).toBeVisible();
+    const row = (name: string) => page.getByRole("row", { name: new RegExp(`^${name} `) });
+    await expect(row("Margarita")).toContainText("$13.00");
+    await expect(row("Margarita")).toContainText("Alcohol");
+    await expect(row("Hoegaarden")).toContainText("86'd tonight");
+    expect(await clippedText(page)).toEqual([]);
+
+    // Margarita's button becomes "Marg"; its full name stays for tickets and receipts.
+    await page.getByRole("button", { name: "Edit · Margarita" }).click();
+    const editor = page.locator(".menu-editor");
+    await editor.getByLabel("Button name").fill("Marg");
+    await editor.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Margarita saved")).toBeVisible();
+    await expect(row("Margarita")).toContainText("Marg");
+    const marg = await db.query<{ name: string; button_name: string }>(
+      "select name, button_name from menu_items where name = 'Margarita'",
+    );
+    expect(marg.rows[0]).toEqual({ name: "Margarita", button_name: "Marg" });
+
+    // A Friday happy hour from 8 PM: $6.00 is refused with its reason, $6.50 saves.
+    const ruleForm = page.locator("form", {
+      has: page.getByRole("heading", { name: "Add a happy hour or special" }),
+    });
+    await ruleForm.getByLabel("Name", { exact: true }).fill("Friday happy hour");
+    await ruleForm.getByLabel("Item", { exact: true }).selectOption({ label: "Margarita" });
+    for (const day of ["Mon", "Tue", "Wed", "Thu", "Sat", "Sun"])
+      await ruleForm.getByLabel(day, { exact: true }).uncheck();
+    await ruleForm.getByLabel("From", { exact: true }).fill("20:00");
+    await ruleForm.getByLabel("Price ($)").fill("6.00");
+    await ruleForm.getByRole("button", { name: "Save the happy hour or special" }).click();
+    await expect(page.getByRole("alert")).toContainText("the lowest allowed is $6.50");
+    expect((await db.query("select count(*)::int as n from price_rules")).rows[0].n).toBe(0);
+    await ruleForm.getByLabel("Price ($)").fill("6.50");
+    await ruleForm.getByRole("button", { name: "Save the happy hour or special" }).click();
+    await expect(page.getByText("Friday happy hour saved")).toBeVisible();
+    await expect(page.locator(".rules-table")).toContainText("Fri · 20:00");
+    await expect(page.locator(".rules-table")).toContainText("$6.50");
+
+    // Hiding Bud Light takes it off the guest menu after Save.
+    await page.getByRole("button", { name: "Edit · Bud Light" }).click();
+    await page.locator(".menu-editor").getByLabel("Shown on the menus").uncheck();
+    await page.locator(".menu-editor").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Bud Light saved")).toBeVisible();
+    await expect(row("Bud Light")).toContainText("Hidden");
+    const guest = await request.get("http://127.0.0.1:3000/v1/public/venues/west4karaoke/menu");
+    const names = (
+      (await guest.json()) as { categories: { items: { name: string }[] }[] }
+    ).categories.flatMap((c) => c.items.map((i) => i.name));
+    expect(names).toContain("Margarita");
+    expect(names).not.toContain("Bud Light");
+
+    // With Packages & specials off, Admin shows no packages or happy hours.
+    await expect(page.getByRole("heading", { name: "Packages", exact: true })).toBeVisible();
+    await db.query("update venue_modules set state = 'off' where module_id = 'packages'");
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Menu");
+    await expect(rows).toHaveCount(127);
+    await expect(page.getByRole("heading", { name: "Packages", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Happy hours and specials" })).toHaveCount(0);
   } finally {
     await db.end();
   }
