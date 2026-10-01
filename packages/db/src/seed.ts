@@ -59,6 +59,7 @@ export interface SeedFile {
   readonly badges: readonly SeedBadge[];
   readonly devices: readonly SeedDevice[];
   readonly rooms: readonly SeedRoom[];
+  readonly guests: readonly SeedGuest[];
   readonly bookings: readonly SeedBooking[];
   readonly sessions: readonly SeedSession[];
 }
@@ -117,7 +118,18 @@ export interface SeedBooking {
   readonly room: string;
   readonly starts_at: string;
   readonly ends_at: string;
-  readonly status: string;
+  readonly business_date: string;
+  readonly deposit_cents: number;
+  readonly running_late_until?: string | null;
+  readonly status: "pending" | "confirmed" | "checked_in" | "no_show" | "cancelled" | "completed";
+}
+
+export interface SeedGuest {
+  readonly id: string;
+  readonly name: string;
+  readonly phone_e164?: string | null;
+  readonly email?: string | null;
+  readonly locale?: "en" | "es";
 }
 
 export interface SeedSession {
@@ -585,6 +597,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_blocks",
+      "bookings",
+      "guests",
       "room_states",
       "rooms",
       "venue_settings",
@@ -734,6 +748,47 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     log(`rooms: ${seed.rooms.length}`);
 
+    // Guests and bookings (M2-06): 17 guests, per venue; 11 bookings with their rooms, deposits and
+    // statuses. They were booked online (the deposits were paid by card), with a 24-hour refund window.
+    for (const g of seed.guests) {
+      await client.query(
+        `insert into guests (id, venue_id, name, phone_e164, email, locale) values ($1, $2, $3, $4, $5, $6)`,
+        [
+          remember(g.id, "guests"),
+          venueId,
+          g.name,
+          g.phone_e164 ?? null,
+          g.email ?? null,
+          g.locale ?? "en",
+        ],
+      );
+    }
+    for (const b of seed.bookings) {
+      const room = seed.rooms.find((r) => r.id === b.room)!;
+      const starts = Temporal.Instant.from(b.starts_at);
+      await client.query(
+        `insert into bookings (id, venue_id, guest_id, room_id, size_tier, party_size, starts_at, ends_at, business_date,
+           status, source, deposit_cents, refund_cutoff_at, running_late_until)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'web', $11, $12, $13)`,
+        [
+          remember(b.id, "bookings"),
+          venueId,
+          id(b.guest),
+          id(b.room),
+          room.size_tier,
+          b.party_size,
+          b.starts_at,
+          b.ends_at,
+          b.business_date,
+          b.status,
+          b.deposit_cents,
+          starts.subtract({ hours: 24 }).toString(),
+          b.running_late_until ?? null,
+        ],
+      );
+    }
+    log(`guests: ${seed.guests.length}, bookings: ${seed.bookings.length}`);
+
     // Room blocks (M2-05): every confirmed booking's time (cleaning is 0 at West 4); every session from
     // its start to its booked end, or an hour for a walk-in, extended 15 minutes at a time to cover
     // 10:41 PM where it stayed on; the two rooms cleaning since their party left; Room 4's fault.
@@ -757,7 +812,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         "booking",
         Temporal.Instant.from(b.starts_at),
         Temporal.Instant.from(b.ends_at).add({ minutes: cleaningMin }),
-        remember(b.id, "bookings"),
+        id(b.id),
       );
       blocks++;
     }

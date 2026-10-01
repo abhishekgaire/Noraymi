@@ -62,6 +62,16 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into rooms (venue_id, name, size_tier, capacity_min, capacity_max) values ($1, 'B room', 'small', 3, 6) returning id",
     [v.venueB],
   );
+  const guestB = await owner.query<{ id: string }>(
+    "insert into guests (venue_id, name) values ($1, 'Guest at B') returning id",
+    [v.venueB],
+  );
+  const bookingB = await owner.query<{ id: string }>(
+    `insert into bookings (venue_id, guest_id, room_id, size_tier, party_size, starts_at, ends_at, business_date, status, source)
+       values ($1, $2, $3, 'small', 4, '2026-09-26T21:00:00-04:00', '2026-09-26T23:00:00-04:00', '2026-09-26', 'confirmed', 'staff')
+       returning id`,
+    [v.venueB, guestB.rows[0]!.id, roomB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -78,6 +88,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       d: deviceB.rows[0]!.id,
       b: badgeB.rows[0]!.id,
       r: roomB.rows[0]!.id,
+      bookingId: bookingB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -89,6 +100,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/permissions/:role/:action": { allowed: true },
       "PATCH /v1/venues/:venueId/rooms/:r": { name: "renamed" },
       "PATCH /v1/venues/:venueId/rooms/:r/state": { state: "available" },
+      "PATCH /v1/venues/:venueId/bookings/:bookingId": { party_size: 4 },
     },
   };
   const config = loadConfig({

@@ -34,3 +34,5 @@ export {
   freeUntil,
 } from "./assignment.js";
 export type { AssignmentRefusal, BlockSpan, RoomForAssignment } from "./assignment.js";
+export { bookingGrid, resolveStart, zoneName, GRID_STEP_MIN } from "./booking-grid.js";
+export type { GridSlot, StartRefusal } from "./booking-grid.js";

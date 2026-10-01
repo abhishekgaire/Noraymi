@@ -112,7 +112,7 @@ Definition of done: see CLAUDE.md.
 - **Acceptance:**
   - [x] West 4 lists 14 rooms with the tiers and capacities above, and Room 4 is out of service.
   - [x] Archiving a room hides it from the board and from assignment and keeps its history.
-  - [ ] *(The hook runs on switch-off, out of service and archive, and returns `{ moved, unplaced }`; bookings arrive in M2-06, which fills it in and tests it.)* Switching a room off moves each of its future bookings to the smallest free room that fits, and lists any that can't move for a manager.
+  - [x] *(Filled in and tested in M2-06.)* Switching a room off moves each of its future bookings to the smallest free room that fits, and lists any that can't move for a manager.
   - [x] With Rooms & room clock off, every route here answers `404 module_off`.
 - **Tests:** API integration tests; a Playwright test of Admin → Rooms.
 - **Notes:** The data model has no column for a room switched off in Admin (it isn't archived, and the plan still bills it). Cautious reading built here: "off" is an `out_of_service` state with the reason "Switched off" (flagged); the matching `out_of_service` block arrives with `room_blocks` in M2-05.
@@ -144,7 +144,7 @@ Definition of done: see CLAUDE.md.
   - **Cautious defaults:** a cleaning block ends when staff mark the room clean and at the latest at the night's 6:00 AM cutover, so a wipe left undone doesn't take the room off later nights (flagged; the spec's `cleaningEnds: "staff"` says only who ends it). A bigger tier is taken only when no smaller fitting room is free; when several bookings are placed at once, the largest parties go first. Room assignment for switched-off rooms (the M2-04 hook) moves bookings, which arrive in M2-06; the hook is filled in there.
 ### M2-06 · Build guests and staff bookings, each with a real room
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-07, M1-17, M2-02, M2-05
 - **Spec:** [Data model](../spec/04-data-model.md) · `guests`, `bookings`, Room assignment; [API](../spec/08-api.md) · Bookings; [Money rules](../spec/05-money-rules.md) 2 (the booking grid on the daylight-saving nights); [Payment flows](../spec/07-payment-flows.md) · Deposit when booking online, step 7
@@ -156,13 +156,15 @@ Definition of done: see CLAUDE.md.
   - `deposit_cents` from the deposit rule (M2-02). A booking that owes a deposit saves as `pending` with a `hold` block until M5's payment link collects it; with the deposit rule off it confirms at once.
   - `booking.updated` events.
 - **Acceptance:**
-  - [ ] A staff booking for 6 on Sat Sep 26 at 9:30 PM for 2 hours gets a real room from Rooms 1–5 (never Room 4, which is out of service), owes a $60.00 deposit and saves as pending.
-  - [ ] A booking for tonight at 9:00 PM is refused (it's already 10:41 PM), and so is one in the VIP room from 11:00 PM, where Bianca L.'s party holds it until 12:30 AM.
-  - [ ] For Sat Oct 31, 2026 the grid offers 1:00 AM EDT and 1:00 AM EST; for Sat Mar 13, 2027 a 2:30 AM start is refused.
-  - [ ] The seed's 11 bookings load with their rooms, deposits and statuses.
+  - [x] A staff booking for 6 on Sat Sep 26 at 9:30 PM for 2 hours gets a real room from Rooms 1–5 (never Room 4, which is out of service), owes a $60.00 deposit and saves as pending.
+  - [x] A booking for tonight at 9:00 PM is refused (it's already 10:41 PM), and so is one in the VIP room from 11:00 PM, where Bianca L.'s party holds it until 12:30 AM.
+  - [x] For Sat Oct 31, 2026 the grid offers 1:00 AM EDT and 1:00 AM EST; for Sat Mar 13, 2027 a 2:30 AM start is refused.
+  - [x] The seed's 11 bookings load with their rooms, deposits and statuses.
 - **Tests:** API integration tests; unit tests for the grid on both daylight-saving nights.
 - **Notes:** The spec doesn't say how a staff booking confirms before M5's payment link exists. Cautious default built here: it stays `pending` with its hold, and `pending_until` is set when M5 sends the link; with the deposit rule off it confirms at once (flagged). West 4's booking limits aren't in the seed; they stay empty until Admin sets them (M2-34), and online booking in M5 needs them.
-
+  - **Built:** migration `0029_guests_bookings.sql` (`guests`, per venue, with `phone_e164` and `email` added to the audit redaction list as the migrator role; `bookings` with every column in the data model, walled and audited); `packages/db/src/bookings.ts`; the grid rules in `packages/rules/src/booking-grid.ts` (`bookingGrid` walks real time 30 minutes apart from the opening to the last start that ends by the close, so the fall-back night offers 1:00 AM EDT and EST and the spring-forward night skips 2:00 to 2:59 AM; `resolveStart` turns a business date and "HH:MM" into an instant, refuses a skipped time, and needs the offset for a repeated one); the staff routes in `apps/api/src/routes/bookings.ts` (`GET /bookings`, `GET /bookings/grid`, `POST /bookings`, `PATCH /bookings/{b}` for room, party size or cancel); the M2-04 switch-off hook now moves each future booking to the smallest free room that fits, largest parties first, and lists any it can't; the seed's 17 guests and 11 bookings.
+  - **What a staff booking checks:** the start isn't past and is on the night's grid; the length is within `prices.booking` (1 to 12 hours, at most 40 guests from the seed defaults); it ends by the close; the room staff picked fits, isn't out of service and is free, or assignment picks one. The deposit comes from M2-02's rule; a booking that owes one writes a `hold` block with no expiry and the refund cut-off 24 hours before its start.
+  - **Cautious defaults:** with no start slots set, the grid offers every half hour (flagged). The seed's bookings load with source `web`, since their deposits were paid by card, and a refund cut-off 24 hours before their start.
 ### M2-07 · Build room sessions, clock segments and the live room clock
 
 - **Status:** todo

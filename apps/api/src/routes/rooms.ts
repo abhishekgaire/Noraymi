@@ -11,7 +11,7 @@ import {
   type RoomState,
 } from "@west4/db";
 import { Temporal, type Clock } from "@west4/shared";
-import { availability, freeFor } from "../rooms/assignment.js";
+import { availability, freeFor, reassignFutureBookings } from "../rooms/assignment.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 
@@ -51,15 +51,6 @@ const stateBody = z
     until: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .strict();
-
-/** What a room switched off or out of service does to its future bookings (M2-05 fills this in). */
-export interface Reassigned {
-  readonly moved: { booking_id: string; to_room_id: string }[];
-  readonly unplaced: { booking_id: string }[];
-}
-export async function reassignFutureBookings(): Promise<Reassigned> {
-  return { moved: [], unplaced: [] };
-}
 
 function instantOr(raw: string | undefined, fallback: Temporal.Instant): Temporal.Instant {
   if (raw === undefined) return fallback;
@@ -212,7 +203,10 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
         });
         const room = await roomById(c, venueId, request.params.r);
         // An archived room leaves the board and assignment; its future bookings move like a room switched off.
-        const reassigned = b.archived === true ? await reassignFutureBookings() : null;
+        const reassigned =
+          b.archived === true
+            ? await reassignFutureBookings(c, venueId, request.params.r, options.clock.now())
+            : null;
         return { room, ...(reassigned ? { reassigned } : {}) };
       });
     },
@@ -246,7 +240,10 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
           entityVersion: 0,
         });
         const room = await roomById(c, venueId, request.params.r);
-        const reassigned = b.state === "out_of_service" ? await reassignFutureBookings() : null;
+        const reassigned =
+          b.state === "out_of_service"
+            ? await reassignFutureBookings(c, venueId, request.params.r, options.clock.now())
+            : null;
         return { room, ...(reassigned ? { reassigned } : {}) };
       });
     },

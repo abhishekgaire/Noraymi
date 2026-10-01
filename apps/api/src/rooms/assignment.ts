@@ -5,6 +5,7 @@ import {
   closureOn,
   emitEvent,
   listRooms,
+  moveBlock,
   readSetting,
   RoomNotFree,
   setBlockEnd,
@@ -321,4 +322,93 @@ export async function extendSession(c: Queryable, venueId: string, blockId: stri
   const updated = await setBlockEnd(c, venueId, blockId, verdict.to);
   await emitEvent(c, { venueId, type: "room.updated", entityId: block.room_id, entityVersion: 0 });
   return updated!;
+}
+
+/** The night's opening and close, for the booking grid. */
+export async function nightHours(
+  c: Queryable,
+  venueId: string,
+  venue: VenueClock,
+  date: Temporal.PlainDate,
+) {
+  const [hours, closure] = await Promise.all([
+    readSetting(c, venueId, "hours", date),
+    closureOn(c, venueId, date.toString()),
+  ]);
+  if (!hours) return null;
+  const h = hoursFor(
+    { timeZone: venue.timeZone, dayCutover: venue.dayCutover },
+    date,
+    hours.value,
+    closure,
+  );
+  return h.closed || !h.opens || !h.closes ? null : { opens: h.opens, closes: h.closes };
+}
+
+/**
+ * A room switched off, out of service or archived (M2-04 hook): each of its
+ * future bookings moves to the smallest free room that fits, largest parties
+ * first; any that can't move stay and are listed for a manager.
+ */
+export async function reassignFutureBookings(
+  c: Queryable,
+  venueId: string,
+  roomId: string,
+  now: Temporal.Instant,
+) {
+  const venue = await venueClock(c, venueId);
+  const night = await nightOf(c, venueId, venue, now);
+  const settings = await settingsOn(c, venueId, night.businessDate);
+  const rooms = (await roomsForAssignment(c, venueId, settings.cleaningMin)).filter(
+    (r) => r.id !== roomId,
+  );
+  const future = await c.query<{
+    block_id: string;
+    booking_id: string;
+    party: number;
+    starts_at: string;
+    ends_at: string;
+  }>(
+    `select rb.id as block_id, b.id as booking_id, b.party_size as party,
+            to_json(b.starts_at) #>> '{}' as starts_at, to_json(b.ends_at) #>> '{}' as ends_at
+       from room_blocks rb join bookings b on b.venue_id = rb.venue_id and b.id = rb.ref_id
+      where rb.venue_id = $1 and rb.room_id = $2 and rb.kind in ('booking', 'hold')
+        and lower(rb.period) >= $3::timestamptz and b.status in ('pending', 'confirmed')
+      order by b.party_size desc, lower(rb.period)`,
+    [venueId, roomId, now.toString()],
+  );
+  const moved: { booking_id: string; to_room_id: string }[] = [];
+  const unplaced: { booking_id: string }[] = [];
+  for (const f of future.rows) {
+    const from = Temporal.Instant.from(f.starts_at);
+    const to = Temporal.Instant.from(f.ends_at);
+    const blocks = (
+      await blocksBetween(c, venueId, from.subtract({ hours: 24 }), to.add({ hours: 24 }))
+    ).map(spanWithin(night, venue));
+    let placed = false;
+    for (const room of freeRoomsFor(rooms, blocks, f.party, from, to)) {
+      await c.query("savepoint move_booking");
+      try {
+        await moveBlock(c, venueId, f.block_id, room.id);
+        await c.query(
+          "update bookings set room_id = $3, size_tier = (select size_tier from rooms where venue_id = $1 and id = $3) where venue_id = $1 and id = $2",
+          [venueId, f.booking_id, room.id],
+        );
+        await emitEvent(c, {
+          venueId,
+          type: "booking.updated",
+          entityId: f.booking_id,
+          entityVersion: 0,
+        });
+        moved.push({ booking_id: f.booking_id, to_room_id: room.id });
+        placed = true;
+        break;
+      } catch (e) {
+        if (!(e instanceof RoomNotFree)) throw e;
+        await c.query("rollback to savepoint move_booking");
+      }
+    }
+    if (!placed) unplaced.push({ booking_id: f.booking_id });
+  }
+  return { moved, unplaced };
 }
