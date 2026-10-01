@@ -358,6 +358,7 @@ export {
   setOutTonight,
   queueMenuPdf,
   currentMenuPdf,
+  orderableVariant,
   MenuRowMissing,
 } from "./menu.js";
 export type {
@@ -367,6 +368,9 @@ export type {
   MenuVariant,
   MenuGroup,
   MenuOption,
+  OrderableVariant,
 } from "./menu.js";
 export { orderById, listOrders, insertOrder, moveOrder, insertPrintJob } from "./orders.js";
 export type { OrderRow, OrderItemRow, NewOrder } from "./orders.js";
+export { draftFor, saveDraft, clearDraft } from "./drafts.js";
+export type { DraftRow } from "./drafts.js";

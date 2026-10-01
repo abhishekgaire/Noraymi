@@ -191,7 +191,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-07 · Add drinks to a room from the staff screens, with unsent drinks saved
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-31, M3-06
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Adding drinks to a room from a staff screen, rules 3 and 8; [API](../spec/08-api.md) · Orders (`POST /checks/{c}/orders`), Bar POS (`GET` and `PUT /drafts/{key}`); [Data model](../spec/04-data-model.md) · `order_drafts`; [Room](../screens.md#room) note 3; [DeskRoom](../screens.md#deskroom) note 4
@@ -200,12 +200,18 @@ Definition of done: see CLAUDE.md.
   - `POST /checks/{c}/orders` creates a staff order (`source` `staff`, `placed_by`) that's accepted as it's placed, so its lines go on the room's check and a ticket prints at the bar; then it runs Being made, Ready and a runner like any room order.
   - Unsent drinks are saved as they're rung: `order_drafts` (venue_id, membership_id, check_id, device_id, lines, version, updated_at) through `GET` and `PUT /drafts/{key}` with its version, and `draft.updated` so a person's unsent drinks follow them to their other screens. A draft is never part of a check and clears when it's sent.
 - **Acceptance:**
-  - [ ] From DeskRoom, Maya adds 2 × Margarita to Room 9: the line stays amber until she picks Peach, and Send names the missing flavor.
-  - [ ] Send puts the drinks on Room 9's check at once and prints a ticket, and the order then shows Being made and runs like any room order.
-  - [ ] Hoegaarden shows "86'd tonight" and can't be added.
-  - [ ] Maya's unsent drinks survive a reload and follow her to the Room phone, and never show on the check.
+  - [x] From DeskRoom, Maya adds 2 × Margarita to Room 9: the line stays amber until she picks Peach, and Send names the missing flavor.
+  - [x] Send puts the drinks on Room 9's check at once and prints a ticket, and the order then shows Being made and runs like any room order.
+  - [x] Hoegaarden shows "86'd tonight" and can't be added.
+  - [x] Maya's unsent drinks survive a reload and follow her to the Room phone, and never show on the check.
 - **Tests:** Playwright on desktop and phone sizes; an API test for the draft's version check.
 - **Notes:** The bar POS, its quick sale and "Open in the bar POS" come in M6, which reuses `order_drafts` for tabs and quick sale (the seed's draft, Diego's Red Bull, sits on Tariq A.'s check and loads in M3-25). Clearing drafts at the night close is M7.
+  - Built: migration `0045_order_drafts.sql` (one draft per person per tab, or the quick sale, unique even with no check); `packages/db/src/drafts.ts` and `orderableVariant` in `packages/db/src/menu.ts`; `apps/api/src/orders/place.ts` (a staff order, checked against the menu as it is now, accepted as placed); `apps/api/src/routes/drafts.ts` (`POST /checks/{c}/orders`, `GET` and `PUT /drafts/{key}`); `apps/staff/src/screens/AddDrinks.tsx` on DeskRoom and the Room phone, below the running tab; strings in both languages; `apps/api/src/routes/drafts.int.test.ts` and the Playwright test "Adding drinks to Room 9".
+  - A staff order line is `{ variant_id, qty, option_ids, notes }`. The server refuses a drink that isn't shown, one that's 86'd (item, size or choice), a missing required choice ("Pick flavor for Margarita", `details.reason: "choice_missing"`) and too many choices, all as `400` with a reason; a check that isn't open answers `409 ordering_closed`. A retried send with the same `client_order_id` answers the first order. The order is accepted by whoever sent it, so its lines go on the check and a ticket job is made, and the sender's draft for that tab empties.
+  - A draft's key is a check id or `quick`, per person (their membership). A PUT carries the version it read; a stale one answers `409 version_conflict` with the lines and version there now, and the screen takes those. Each save sends `draft.updated` to that person alone. The seed's draft (Diego's Red Bull on Tariq A.'s tab) still loads in M3-25.
+  - On screen: search the menu, tap a drink to ring it with each choice's default already set (a spirit on the rocks), tap again for two; a line whose required choice has no default is amber and Send reads "Pick flavor for Margarita" until it's chosen; 86'd drinks show "86'd tonight", greyed and disabled. The room's open orders show under it in the glossary's words. The panel sits outside the "Running tab" region, so the tab shows only what's on the check.
+  - The Playwright test checks the phone layout by reloading the same signed-in screen at 390 px wide; a second device signing in as Maya isn't part of the test (a bar computer session lives in its own tab), and the API test shows the draft is keyed by the person, not the device.
+  - The alcohol window and cut-offs on this route come with M3-20; the panel doesn't grey alcohol after 4 AM yet (M3-22).
 
 ### M3-08 · Join a room with its code, on a session token that rotates
 

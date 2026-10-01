@@ -290,3 +290,80 @@ export async function currentMenuPdf(
   );
   return r.rows[0] ?? null;
 }
+
+/** A variant as an order needs it: its item, the item's category tax, and every choice group with its options. */
+export interface OrderableVariant {
+  readonly variant_id: string;
+  readonly variant_name: string;
+  readonly variant_count: number;
+  readonly price_cents: number;
+  readonly item_id: string;
+  readonly item_name: string;
+  readonly alcohol: boolean;
+  readonly station: string;
+  readonly shown: boolean;
+  readonly tax_category: string;
+  readonly out_tonight: boolean;
+  readonly groups: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly required: boolean;
+    readonly min_choices: number;
+    readonly max_choices: number;
+    readonly options: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly price_delta_cents: number;
+      readonly out_tonight: boolean;
+    }[];
+  }[];
+}
+
+export async function orderableVariant(
+  client: Queryable,
+  venueId: string,
+  variantId: string,
+  now: string,
+): Promise<OrderableVariant | null> {
+  const r = await client.query<Omit<OrderableVariant, "groups">>(
+    `select v.id as variant_id, v.name as variant_name, v.price_cents,
+            (select count(*)::int from menu_variants x where x.venue_id = v.venue_id and x.item_id = v.item_id) as variant_count,
+            i.id as item_id, i.name as item_name, i.alcohol, i.station, i.shown, c.tax_category,
+            (coalesce(i.out_until > $3::timestamptz, false) or coalesce(v.out_until > $3::timestamptz, false)) as out_tonight
+       from menu_variants v
+       join menu_items i on i.venue_id = v.venue_id and i.id = v.item_id
+       join menu_categories c on c.venue_id = i.venue_id and c.id = i.category_id
+      where v.venue_id = $1 and v.id = $2`,
+    [venueId, variantId, now],
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  const groups = await client.query<{
+    id: string;
+    name: string;
+    required: boolean;
+    min_choices: number;
+    max_choices: number;
+  }>(
+    "select id, name, required, min_choices, max_choices from modifier_groups where venue_id = $1 and item_id = $2 order by sort, name, id",
+    [venueId, row.item_id],
+  );
+  const options = await client.query<{
+    id: string;
+    group_id: string;
+    name: string;
+    price_delta_cents: number;
+    out_tonight: boolean;
+  }>(
+    `select id, group_id, name, price_delta_cents, coalesce(out_until > $3::timestamptz, false) as out_tonight
+       from menu_options where venue_id = $1 and item_id = $2 order by sort, name, id`,
+    [venueId, row.item_id, now],
+  );
+  return {
+    ...row,
+    groups: groups.rows.map((g) => ({
+      ...g,
+      options: options.rows.filter((o) => o.group_id === g.id).map(({ group_id: _, ...o }) => o),
+    })),
+  };
+}

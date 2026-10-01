@@ -2910,3 +2910,100 @@ test("Admin → Menu: button names, a refused $6.00 happy hour, $6.50 saved, a h
     await db.end();
   }
 });
+
+/**
+ * Adding drinks to a room (M3-07). Maya, signed in on the bar computer,
+ * opens Room 9's tab: 2 × Margarita stays amber until she picks Peach and
+ * Send names the missing flavor; Hoegaarden is 86'd tonight and can't be
+ * added. Her unsent drinks survive a reload, show on the Room phone layout,
+ * and never touch the check. Send puts them on Room 9's check at once with
+ * a ticket, and the order shows Being made.
+ */
+test("Adding drinks to Room 9: an amber Margarita until Peach, Hoegaarden 86'd, unsent drinks kept, then Send", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
+    const drinks = page.getByRole("region", { name: "Add drinks" });
+    const tab = page.getByRole("region", { name: "Running tab" });
+    await expect(tab).toContainText("Drinks$158.00");
+
+    // Two taps make two; the flavor has no default, so the line is amber and Send names it.
+    await drinks.getByLabel("Search the menu").fill("Marg");
+    await drinks.getByRole("button", { name: "Margarita · $13.00" }).click();
+    await expect(drinks.locator(".unsent-line")).toContainText("1 × Margarita");
+    await drinks.getByRole("button", { name: "Margarita · $13.00" }).click();
+    await expect(drinks.locator(".unsent-line")).toContainText("2 × Margarita");
+    await expect(drinks.locator(".unsent-line.amber")).toHaveCount(1);
+    const send = drinks.locator("button.send");
+    await expect(send).toHaveText("Pick flavor for Margarita");
+    await expect(send).toBeDisabled();
+
+    // Hoegaarden is 86'd tonight and can't be added.
+    await drinks.getByLabel("Search the menu").fill("Hoe");
+    const hoe = drinks.getByRole("button", { name: "Hoegaarden · 86'd tonight" });
+    await expect(hoe).toBeDisabled();
+    await expect(hoe).toContainText("86'd tonight");
+
+    // Unsent drinks survive a reload and never touch the check.
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
+    await expect(drinks.locator(".unsent-line")).toContainText("2 × Margarita");
+    await expect(tab).toContainText("Drinks$158.00");
+
+    // They show on the Room phone layout too.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
+    await expect(drinks.locator(".unsent-line")).toContainText("2 × Margarita");
+    expect(await clippedText(page)).toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // Peach, then Send: on the check at once, a ticket, and Being made.
+    await drinks.getByLabel("Margarita · Flavor").selectOption({ label: "Peach" });
+    await expect(drinks.locator(".unsent-line.amber")).toHaveCount(0);
+    await expect(send).toHaveText("Send 2 to the bar");
+    await send.click();
+    await expect(drinks.getByRole("status")).toHaveText(
+      "Sent · on the tab, ticket printing at the bar",
+    );
+    await expect(tab).toContainText("2 × Margarita · Peach$26.00");
+    await expect(tab).toContainText("Drinks$184.00");
+    await expect(drinks.locator(".room-orders")).toContainText(
+      "2 × Margarita · Peach · Being made",
+    );
+    const ticket = await db.query<{ n: number }>(
+      `select count(*)::int as n from print_jobs p join orders o on o.id = p.order_id
+        where o.source = 'staff' and p.kind = 'ticket'`,
+    );
+    expect(ticket.rows[0]!.n).toBe(1);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

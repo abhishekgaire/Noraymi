@@ -6,6 +6,7 @@ import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
+import { AddDrinks } from "./AddDrinks.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { MoveSheet } from "./MoveSheet.js";
@@ -287,6 +288,14 @@ export function RoomScreen() {
               </p>
             )}
           </section>
+          {s.check_id && signedIn?.membership.permissions.includes("orders.accept") && (
+            <AddDrinks
+              venueId={venueId}
+              checkId={s.check_id}
+              sessionId={s.id}
+              onSent={() => void load()}
+            />
+          )}
           <div className="party-size">
             <button
               type="button"

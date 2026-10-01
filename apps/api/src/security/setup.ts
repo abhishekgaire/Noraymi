@@ -168,6 +168,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       menuRowId: menuItemB.rows[0]!.id,
       menuItemId: menuItemB.rows[0]!.id,
       orderId: orderB.rows[0]!.id,
+      draftKey: checkB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -201,6 +202,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/price-rules/:menuRowId": { name: "x" },
       "POST /v1/venues/:venueId/menu/items/:menuItemId/out-tonight": {},
       "POST /v1/venues/:venueId/orders/:orderId/decline": { reason: "x" },
+      "PUT /v1/venues/:venueId/drafts/:draftKey": { lines: [], version: 0 },
+      "POST /v1/venues/:venueId/checks/:checkId/orders": {
+        lines: [{ variant_id: "00000000-0000-4000-8000-000000000001", qty: 1 }],
+      },
       "POST /v1/venues/:venueId/orders/:orderId/return": { reason: "no_id" },
       "POST /v1/venues/:venueId/orders/:orderId/resolve": { resolution: "remake" },
       "POST /v1/venues/:venueId/waitlist/:w/seat": { ids_checked: 0, minutes: 60 },

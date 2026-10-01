@@ -785,6 +785,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       [venueId],
     );
     for (const table of [
+      "order_drafts",
       "pin_lockouts",
       "staff_badges",
       "invites",
