@@ -13,13 +13,19 @@ import { catalogs } from "@west4/shared";
  * language tests).
  */
 const ANDY = "andy@demo.west4.local";
+const ABHISHEK = "abhishek@demo.west4.local";
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
-async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Client) {
+async function enrolPasskey(
+  page: Page,
+  request: APIRequestContext,
+  db: pg.Client,
+  email: string = ANDY,
+) {
   // Andy's seed row has a demo authenticator; the first passkey by email needs an account with no credential yet.
   await db.query(
     "delete from auth_credentials where user_id = (select id from users where lower(email) = $1)",
-    [ANDY],
+    [email],
   );
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("WebAuthn.enable");
@@ -33,16 +39,16 @@ async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Clien
       automaticPresenceSimulation: true,
     },
   });
-  expect(
-    (await request.post("/v1/auth/enroll", { data: { step: "start", email: ANDY } })).ok(),
-  ).toBe(true);
+  expect((await request.post("/v1/auth/enroll", { data: { step: "start", email } })).ok()).toBe(
+    true,
+  );
   const job = await db.query<{ payload: { data: { code: string } } }>(
     "select payload from jobs where kind = 'email.send' and payload->>'to' = $1 order by created_at desc limit 1",
-    [ANDY],
+    [email],
   );
   const code = job.rows[0]!.payload.data.code;
   const options = (await (
-    await request.post("/v1/auth/enroll", { data: { step: "passkey_options", email: ANDY, code } })
+    await request.post("/v1/auth/enroll", { data: { step: "passkey_options", email, code } })
   ).json()) as { options: unknown };
   const registration = await page.evaluate(async (opts) => {
     const { PublicKeyCredential } = window as unknown as {
@@ -58,7 +64,7 @@ async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Clien
   const enrolled = await request.post("/v1/auth/enroll", {
     data: {
       step: "passkey_finish",
-      email: ANDY,
+      email,
       code,
       credential: registration,
       name: "Smoke test",
@@ -490,6 +496,140 @@ test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's 
     expect(text).not.toMatch(/Lock the iPad/);
     expect(text.replace(/badge or name and PIN/g, "")).not.toMatch(/name and PIN/);
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Team (M1-31). Abhishek, the owner, opens Admin in a passkey session
+ * and lands on Team. He sets Diego's language to Español and changes his role
+ * (both behind the passkey, which the virtual authenticator answers); the
+ * audit log names him. In Español, Team is all Spanish. Andy, the manager,
+ * has no Team, Payments or Console. On the bar computer, Diego's next PIN
+ * sign-in opens in Spanish.
+ */
+test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has no Team, and Diego's next sign-in is Spanish", async ({
+  page,
+  context,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const reset = () =>
+    request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } });
+  const diegoRole = async () =>
+    (
+      await db.query<{ role: string; locale: string }>(
+        "select role, locale from memberships where user_id = (select id from users where name = 'Diego R.')",
+      )
+    ).rows[0]!;
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect((await reset()).ok()).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    // Admin opens on Team for the owner, with the section list and its hint.
+    await page.getByRole("link", { name: "Admin" }).click();
+    await expect(page).toHaveURL(/\/admin\/team$/);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Team");
+    await expect(
+      page.getByRole("link", { name: /Team\s+People, roles, invites, badges and languages/ }),
+    ).toBeVisible();
+    const diegoRow = page.getByRole("row", { name: /Diego R\./ });
+    await expect(diegoRow).toContainText("Active");
+    expect(await clippedText(page)).toEqual([]);
+
+    // Language: Diego to Español (the passkey is asked again; the virtual authenticator answers).
+    await diegoRow.getByLabel("Language", { exact: true }).selectOption("es");
+    await expect.poll(async () => (await diegoRole()).locale).toBe("es");
+    await expect(diegoRow.getByText("Saved")).toBeVisible();
+
+    // Role: Diego to Staff (runner) and back, both 4-digit roles; the audit log names Abhishek.
+    await diegoRow.getByLabel("Role", { exact: true }).selectOption("staff");
+    await expect.poll(async () => (await diegoRole()).role).toBe("staff");
+    const audit = await db.query<{ actor_name: string; changed_fields: string[] }>(
+      `select u.name as actor_name, a.changed_fields from audit_log a join users u on u.id = a.actor
+        where a.action = 'memberships.update' and 'role' = any(a.changed_fields)
+        order by a.id desc limit 1`,
+    );
+    expect(audit.rows[0]).toMatchObject({ actor_name: "Abhishek G." });
+    await diegoRow.getByLabel("Role", { exact: true }).selectOption("front_desk");
+    await expect.poll(async () => (await diegoRole()).role).toBe("front_desk");
+
+    // With Abhishek in Español, Team is Spanish through and through.
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Equipo");
+    const es = matchers("es");
+    const enOnly = matchers("en").filter((m) => !es.some((e) => e.source === m.source));
+    const names = new Set(
+      (await db.query<{ name: string }>("select name from users")).rows.map((r) => r.name),
+    );
+    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...names]);
+    // innerText joins a table row's cells with tabs: check each cell on its own.
+    const cells = (await visibleTexts(page)).flatMap((line) =>
+      line.split("\t").map((c) => c.trim()),
+    );
+    for (const text of cells) {
+      if (
+        text === "" ||
+        data.has(text) ||
+        text.includes("@") ||
+        /^\d{1,2}:\d{2}\s?([ap]\.\s?m\.|[AP]M)$/.test(text)
+      )
+        continue;
+      expect(
+        es.some((m) => m.test(text)),
+        `not Spanish: "${text}"`,
+      ).toBe(true);
+      expect(
+        enOnly.some((m) => m.test(text)),
+        `English on a Spanish screen: "${text}"`,
+      ).toBe(false);
+    }
+    expect(await clippedText(page)).toEqual([]);
+    await page.getByRole("button", { name: "Cambiar a English" }).click();
+
+    // Andy's Admin: no Team, Payments or Console, and /admin/team says it's the owner's.
+    const andyPage = await context.newPage();
+    await andyPage.setViewportSize({ width: 1280, height: 800 });
+    await andyPage.goto("/sign-in");
+    await enrolPasskey(andyPage, request, db, ANDY);
+    await andyPage.getByLabel("Email").fill(ANDY);
+    await andyPage.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await andyPage.getByRole("link", { name: "Admin" }).click();
+    await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Admin");
+    const sections = andyPage.getByRole("navigation", { name: "Sections" });
+    for (const name of ["Team", "Payments", "Console"]) {
+      await expect(sections.getByRole("link", { name: new RegExp(`^${name}`) })).toHaveCount(0);
+    }
+    await andyPage.goto("/admin/team");
+    await expect(andyPage.getByText("This section is the owner's")).toBeVisible();
+    await andyPage.close();
+
+    // Diego's next sign-in, on the bar computer, is Spanish.
+    await page.getByRole("button", { name: "Lock" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect((await reset()).ok()).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    await page.getByRole("button", { name: /Diego R\./ }).click();
+    await typePin(page, "6358");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+  } finally {
+    await db.query("update memberships set locale = 'en'");
     await db.end();
   }
 });

@@ -5,7 +5,8 @@ import { EventsProvider } from "./events.js";
 import { LocaleProvider, useT } from "./i18n.js";
 import { Shell } from "./layout/Shell.js";
 import { homeFor, runs } from "./navigation.js";
-import { Admin } from "./screens/Admin.js";
+import { Admin, AdminIndex } from "./screens/Admin.js";
+import { Team } from "./screens/admin/Team.js";
 import { Home } from "./screens/Home.js";
 import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
@@ -81,7 +82,10 @@ export function StaffRoutes() {
         <Route path="/bar" element={<Home titleKey="menu.barPos" />} />
         <Route path={runs.path} element={<Home titleKey={runs.labelKey} />} />
         <Route path="/setup" element={<Setup />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin" element={<Admin />}>
+          <Route index element={<AdminIndex />} />
+          <Route path="team" element={<Team />} />
+        </Route>
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

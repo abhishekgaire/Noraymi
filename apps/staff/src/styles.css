@@ -418,3 +418,116 @@ form {
     display: none;
   }
 }
+
+/* Admin (M1-31): the section list on the left, the open section on the right. */
+.admin {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1023px) {
+  .admin {
+    grid-template-columns: 1fr;
+  }
+}
+.admin-screen {
+  max-width: none;
+}
+.admin-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.admin-link {
+  display: block;
+  padding: 10px 12px;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--panel);
+}
+.admin-link.active {
+  border-color: var(--accent);
+}
+.admin-link-name {
+  display: block;
+  font-weight: 600;
+}
+.admin-link-hint {
+  display: block;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.admin-body {
+  min-width: 0;
+}
+.admin-save {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.team-table select,
+.invite-fields select,
+.invite-fields input {
+  min-height: 44px;
+  font-size: 1rem;
+  padding: 0 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.team-table tr.gone td {
+  color: var(--muted);
+}
+.team-actions {
+  display: grid;
+  gap: 6px;
+}
+.team-actions .notice {
+  margin: 0;
+}
+button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.switch-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin-top: 16px;
+}
+.switch-line input {
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+}
+.invite-form {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.invite-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.invite-fields label {
+  display: grid;
+  gap: 4px;
+}

@@ -2,7 +2,14 @@ import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
-import { createInvite, emitEvent, offboardMembership, setPinVerifier, sha256Hex } from "@west4/db";
+import {
+  createInvite,
+  emitEvent,
+  offboardMembership,
+  setPinVerifier,
+  sha256Hex,
+  type Queryable,
+} from "@west4/db";
 import type { Clock } from "@west4/shared";
 import type { EmailSettings } from "../email/settings.js";
 import { route } from "../http/conventions.js";
@@ -29,6 +36,25 @@ const inviteBody = z
     locale: z.enum(["en", "es"]).optional(),
   })
   .strict();
+
+const patchBody = z
+  .object({
+    role: z.enum(["owner", "manager", "bartender", "front_desk", "staff"]).optional(),
+    locale: z.enum(["en", "es"]).optional(),
+  })
+  .strict();
+
+interface TeamRow {
+  readonly membership_id: string;
+  readonly name: string;
+  readonly email: string | null;
+  readonly role: string;
+  readonly status: "invited" | "active" | "deactivated";
+  readonly locale: "en" | "es";
+  readonly has_pin: boolean;
+  readonly deactivated_at: string | null;
+  readonly invite_expires_at: string | null;
+}
 
 export const pinDigitsFor = (role: string): 4 | 6 =>
   role === "owner" || role === "manager" ? 6 : 4;
@@ -61,6 +87,82 @@ export function teamRoutes(
   const venueName = async (c: pg.PoolClient | { query: pg.PoolClient["query"] }, venueId: string) =>
     (await c.query<{ name: string }>("select name from venues where id = $1", [venueId])).rows[0]!
       .name;
+
+  /**
+   * Clears the person's PIN at once and sends a fresh link to their own phone
+   * (or their email until a phone is confirmed). Shared by a PIN reset and a
+   * role change that moves them between 4- and 6-digit PINs.
+   */
+  const sendPinLink = async (
+    c: Queryable,
+    venueId: string,
+    membershipId: string,
+    actorUserId: string,
+    expiresAt: string,
+    /** A role change clears the PIN even when there's no phone or email to send the link to; a reset refuses. */
+    quiet = false,
+  ): Promise<"text" | "email" | null> => {
+    const { token, hash } = newInviteToken();
+    const m = await c.query<{
+      user_id: string;
+      locale: "en" | "es";
+      name: string;
+      email: string | null;
+      phone_e164: string | null;
+      phone_verified_at: string | null;
+    }>(
+      `select m.user_id, m.locale, u.name, u.email, u.phone_e164, u.phone_verified_at::text
+       from memberships m join users u on u.id = m.user_id
+       where m.venue_id = $1 and m.id = $2 and m.status <> 'deactivated'`,
+      [venueId, membershipId],
+    );
+    const row = m.rows[0];
+    if (!row) throw new ApiError("not_found", "no such person at this venue");
+    // The old PIN stops at once, before the new link is even opened.
+    await setPinVerifier(c, venueId, membershipId, null);
+    await createInvite(c, {
+      venueId,
+      membershipId,
+      tokenHash: hash,
+      createdBy: actorUserId,
+      expiresAt,
+    });
+    const url = `${appUrl()}/invite/${token}`;
+    const name = await venueName(c, venueId);
+    if (row.phone_e164 && row.phone_verified_at) {
+      await enqueueText(c, {
+        venueId,
+        runAt: options.clock.now(),
+        template: "pin_reset_link",
+        to: row.phone_e164,
+        locale: row.locale,
+        data: { venueName: name, url, hours: INVITE_HOURS },
+      });
+      return "text";
+    }
+    if (!row.email) {
+      if (quiet) return null;
+      throw new ApiError("invalid_request", "this person has no confirmed phone or email");
+    }
+    const inviter = await c.query<{ name: string }>("select name from users where id = $1", [
+      actorUserId,
+    ]);
+    await enqueueEmail(c, options.email, {
+      venueId,
+      runAt: options.clock.now(),
+      to: row.email,
+      locale: row.locale,
+      template: "invite",
+      data: {
+        venueName: name,
+        inviteeName: row.name,
+        inviterName: inviter.rows[0]?.name ?? "",
+        inviteUrl: url,
+        expiresHours: INVITE_HOURS,
+      },
+    });
+    return "email";
+  };
 
   app.post<{ Params: VenueParams; Body: unknown }>(
     "/v1/venues/:venueId/team/invite",
@@ -128,67 +230,139 @@ export function teamRoutes(
       if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
       const venueId = request.venueId!;
       const expiresAt = options.clock.now().add({ hours: INVITE_HOURS });
-      const { token, hash } = newInviteToken();
-      const sentBy = await request.inVenue(async (c) => {
-        const m = await c.query<{
-          user_id: string;
-          locale: "en" | "es";
-          name: string;
-          email: string | null;
-          phone_e164: string | null;
-          phone_verified_at: string | null;
+      const sentBy = await request.inVenue((c) =>
+        sendPinLink(c, venueId, request.params.m, p.userId, expiresAt.toString()),
+      );
+      return reply.code(202).send({ sent_by: sentBy, expires_at: expiresAt.toString() });
+    },
+  );
+
+  /**
+   * Admin → Team (M1-31), owner only: every person at the venue with their
+   * role, invite state, language and badges. Deactivated people stay listed
+   * (their records are kept) so the owner can see who was let go.
+   */
+  app.get<{ Params: VenueParams }>(
+    "/v1/venues/:venueId/team",
+    {
+      config: route({
+        principals: ["owner_manager"],
+        module: "core",
+        action: "admin.team",
+        assurance: "passkey",
+      }),
+    },
+    async (request) => {
+      const venueId = request.venueId!;
+      // The permission gate guards writes; this read is the owner's too (spec 02: Team is owner only).
+      const p = request.principal;
+      const here = p.kind === "user" ? p.memberships.find((m) => m.venueId === venueId) : undefined;
+      if (here?.role !== "owner") throw new ApiError("forbidden", "Team is the owner's section");
+      return request.inVenue(async (c) => {
+        const people = await c.query<TeamRow>(
+          `select m.id as membership_id, u.name, u.email, m.role, m.status, m.locale,
+                  m.pin_verifier is not null as has_pin, m.deactivated_at::text,
+                  (select max(i.expires_at)::text from invites i
+                    where i.venue_id = m.venue_id and i.membership_id = m.id and i.used_at is null
+                      and i.expires_at > $2) as invite_expires_at
+             from memberships m join users u on u.id = m.user_id
+            where m.venue_id = $1
+            order by case m.status when 'active' then 0 when 'invited' then 1 else 2 end,
+                     array_position(array['owner','manager','bartender','front_desk','staff'], m.role),
+                     u.name`,
+          [venueId, options.clock.now().toString()],
+        );
+        const badges = await c.query<{
+          id: string;
+          membership_id: string;
+          label: string;
+          disabled_at: string | null;
         }>(
-          `select m.user_id, m.locale, u.name, u.email, u.phone_e164, u.phone_verified_at::text
-           from memberships m join users u on u.id = m.user_id
-           where m.venue_id = $1 and m.id = $2 and m.status <> 'deactivated'`,
+          `select id, membership_id, label, disabled_at::text
+             from staff_badges where venue_id = $1 order by paired_at`,
+          [venueId],
+        );
+        return {
+          people: people.rows.map((row) => ({
+            ...row,
+            badges: badges.rows
+              .filter((b) => b.membership_id === row.membership_id)
+              .map(({ id, label, disabled_at }) => ({ id, label, disabled_at })),
+          })),
+        };
+      });
+    },
+  );
+
+  /**
+   * `PATCH /team/{m}` (spec 08): the owner, asked for the passkey again, sets a
+   * person's role or language. Training mode joins in M7. A role change that
+   * moves someone between 4- and 6-digit PINs clears the old PIN and sends a
+   * new link, the same way a reset does, because the old length no longer
+   * fits (cautious default). Nobody changes their own role, so a venue can't
+   * lose its last owner by mistake. The audit trigger on memberships records
+   * the change.
+   */
+  app.patch<{ Params: VenueParams & { m: string }; Body: unknown }>(
+    "/v1/venues/:venueId/team/:m",
+    { config: teamChange },
+    async (request, reply) => {
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
+      const parsed = patchBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { role } and/or { locale }", {
+          details: { issues: parsed.error.issues.map((i) => i.message) },
+        });
+      const body = parsed.data;
+      if (body.role === undefined && body.locale === undefined)
+        throw new ApiError("invalid_request", "nothing to change");
+      const venueId = request.venueId!;
+      const here = p.memberships.find((m) => m.venueId === venueId);
+      if (body.role !== undefined && here?.membershipId === request.params.m)
+        throw new ApiError("invalid_request", "you can't change your own role");
+      const result = await request.inVenue(async (c) => {
+        const current = await c.query<{ role: string; locale: string; status: string }>(
+          `select role, locale, status from memberships
+            where venue_id = $1 and id = $2 and status <> 'deactivated' for update`,
           [venueId, request.params.m],
         );
-        const row = m.rows[0];
-        if (!row) throw new ApiError("not_found", "no such person at this venue");
-        // The old PIN stops at once, before the new link is even opened.
-        await setPinVerifier(c, venueId, request.params.m, null);
-        await createInvite(c, {
-          venueId,
-          membershipId: request.params.m,
-          tokenHash: hash,
-          createdBy: p.userId,
-          expiresAt: expiresAt.toString(),
-        });
-        const url = `${appUrl()}/invite/${token}`;
-        const name = await venueName(c, venueId);
-        if (row.phone_e164 && row.phone_verified_at) {
-          await enqueueText(c, {
+        const row = current.rows[0];
+        if (!row) throw new ApiError("not_found", "no such active person at this venue");
+        const role = body.role ?? row.role;
+        const locale = body.locale ?? row.locale;
+        const digitsChange =
+          body.role !== undefined && pinDigitsFor(body.role) !== pinDigitsFor(row.role);
+        await c.query(
+          `update memberships set role = $3, locale = $4, pin_digits = $5
+            where venue_id = $1 and id = $2`,
+          [venueId, request.params.m, role, locale, pinDigitsFor(role)],
+        );
+        let pinResetSentBy: "text" | "email" | null = null;
+        if (digitsChange && row.status === "active") {
+          pinResetSentBy = await sendPinLink(
+            c,
             venueId,
-            runAt: options.clock.now(),
-            template: "pin_reset_link",
-            to: row.phone_e164,
-            locale: row.locale,
-            data: { venueName: name, url, hours: INVITE_HOURS },
-          });
-          return "text" as const;
+            request.params.m,
+            p.userId,
+            options.clock.now().add({ hours: INVITE_HOURS }).toString(),
+            true,
+          );
         }
-        if (!row.email)
-          throw new ApiError("invalid_request", "this person has no confirmed phone or email");
-        const inviter = await c.query<{ name: string }>("select name from users where id = $1", [
-          p.userId,
-        ]);
-        await enqueueEmail(c, options.email, {
+        await emitEvent(c, {
           venueId,
-          runAt: options.clock.now(),
-          to: row.email,
-          locale: row.locale,
-          template: "invite",
-          data: {
-            venueName: name,
-            inviteeName: row.name,
-            inviterName: inviter.rows[0]?.name ?? "",
-            inviteUrl: url,
-            expiresHours: INVITE_HOURS,
-          },
+          type: "membership.changed",
+          entityId: request.params.m,
+          entityVersion: 0,
         });
-        return "email" as const;
+        return { role, locale, pinResetSentBy };
       });
-      return reply.code(202).send({ sent_by: sentBy, expires_at: expiresAt.toString() });
+      return reply.code(200).send({
+        membership_id: request.params.m,
+        role: result.role,
+        locale: result.locale,
+        pin_reset_sent_by: result.pinResetSentBy,
+      });
     },
   );
 

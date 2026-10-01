@@ -95,7 +95,7 @@ export async function stepUpToken(): Promise<string> {
 }
 
 export async function api<T>(
-  method: "GET" | "POST" | "PATCH",
+  method: "GET" | "POST" | "PATCH" | "PUT",
   path: string,
   body?: unknown,
   options: { stepUp?: string } = {},

@@ -1,40 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
-import { api, stepUpToken, type ApiCallError } from "../api.js";
-import { readDevice } from "../device.js";
-import { roleKey, useT } from "../i18n.js";
-import { useSession } from "../session.js";
-import type { Role } from "@west4/shared";
+import { Navigate, NavLink, Outlet } from "react-router";
+import { visibleSections } from "../admin/sections.js";
+import { AdminDraftProvider, useAdminDraft } from "../admin/draft.js";
+import { useT } from "../i18n.js";
+import { useSession, type SessionState } from "../session.js";
 
 /**
- * Admin (M1-26, M1-30): in a passkey session, Team's badges column, "Pair
- * (tap the reader)" and "Switch off" for each person (AdminDesk note 4). On a
- * phone, or in a PIN or badge session, the screen says Admin needs a passkey
- * and never shows a PIN pad. The other Admin sections land with their tickets.
+ * The AdminDesk shell (M1-31; screens.md · AdminDesk). Admin opens only in a
+ * passkey session, in the desktop app or any browser: a list of sections on
+ * the left with a one-line hint each, the open section on the right, and the
+ * "Save and publish" bar whenever a section has unsaved settings. Managers
+ * see every section except Payments, Team and Console. On a phone, or in a
+ * PIN or badge session, the screen says Admin needs a passkey and never shows
+ * a PIN pad.
  */
-interface Tile {
-  readonly membership_id: string;
-  readonly name: string;
-  readonly role: Role;
-}
-
-interface Badge {
-  readonly id: string;
-  readonly label: string;
-  readonly disabled_at: string | null;
-}
-
-type Pairing = { membershipId: string; step: "waiting" | "programming" } | null;
-
 export function Admin() {
   const { t } = useT();
   const { state } = useSession();
   const assurance = state.status === "signedIn" ? state.me.session.assurance : null;
   const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
   return (
-    <section className="screen">
+    <section className="screen admin-screen">
       <h1>{t("menu.admin")}</h1>
-      {assurance === "passkey" ? (
-        <TeamBadges />
+      {assurance === "passkey" && state.status === "signedIn" ? (
+        <AdminDraftProvider venueId={state.membership.venue_id}>
+          <AdminDesk state={state} />
+        </AdminDraftProvider>
       ) : (
         <p className="notice" role="status">
           {phone ? t("admin.needsPasskeyPhone") : t("admin.needsPasskey")}
@@ -44,179 +34,71 @@ export function Admin() {
   );
 }
 
-function TeamBadges() {
+function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn" }> }) {
   const { t } = useT();
-  const { state } = useSession();
-  const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
-  const [tiles, setTiles] = useState<Tile[]>([]);
-  const [badges, setBadges] = useState<Record<string, Badge[]>>({});
-  const [readers, setReaders] = useState<string[]>([]);
-  const [pairing, setPairing] = useState<Pairing>(null);
-  const [error, setError] = useState<string | null>(null);
-  const shell = typeof window === "undefined" ? undefined : window.west4;
-
-  const load = useCallback(async () => {
-    const answer = await api<{ tiles: Tile[] }>("GET", `/v1/venues/${venueId}/team/tiles`);
-    setTiles(answer.tiles);
-    const all: Record<string, Badge[]> = {};
-    for (const tile of answer.tiles) {
-      const list = await api<{ badges: Badge[] }>(
-        "GET",
-        `/v1/venues/${venueId}/team/${tile.membership_id}/badges`,
-      );
-      all[tile.membership_id] = list.badges;
-    }
-    setBadges(all);
-  }, [venueId]);
-
-  useEffect(() => {
-    if (!venueId) return;
-    load().catch(() => setError(t("shell.error.cantReach")));
-  }, [venueId, load, t]);
-
-  useEffect(() => {
-    if (!shell) return;
-    void shell.readers().then((list) => setReaders(list.map((r) => r.name)));
-    return shell.badge.onReaders((list) => setReaders(list.map((r) => r.name)));
-  }, [shell]);
-
-  const pair = async (tile: Tile) => {
-    if (!shell) return;
-    setError(null);
-    setPairing({ membershipId: tile.membership_id, step: "waiting" });
-    try {
-      const { uid } = await shell.badge.pairStart();
-      setPairing({ membershipId: tile.membership_id, step: "programming" });
-      const keys = await api<{ key_version: number; meta_read_key: string; file_read_key: string }>(
-        "POST",
-        `/v1/venues/${venueId}/team/${tile.membership_id}/badges/keys`,
-        { uid },
-      );
-      const programmed = await shell.badge.pairFinish({ host: window.location.origin, ...keys });
-      const count = (badges[tile.membership_id] ?? []).length + 1;
-      await api(
-        "POST",
-        `/v1/venues/${venueId}/team/${tile.membership_id}/badges`,
-        { sun: programmed.url, label: t("team.badge.label", { n: count }) },
-        { stepUp: await stepUpToken() },
-      );
-      await load();
-    } catch (e) {
-      await shell.badge.cancelPair().catch(() => {});
-      setError(
-        (e as ApiCallError)?.code === "step_up_required"
-          ? t("stepUp.needed")
-          : t("team.badge.failed"),
-      );
-    } finally {
-      setPairing(null);
-    }
-  };
-
-  const switchOff = async (badge: Badge) => {
-    setError(null);
-    try {
-      await api(
-        "POST",
-        `/v1/venues/${venueId}/badges/${badge.id}/disable`,
-        {},
-        { stepUp: await stepUpToken() },
-      );
-      await load();
-    } catch {
-      setError(t("shell.error.title"));
-    }
-  };
-
-  const device = useDeviceKind();
-
+  const sections = visibleSections(state.membership.permissions);
   return (
-    <section className="team">
-      <h2>{t("team.title")}</h2>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {!shell || device !== "shared" ? (
-        <p className="muted">{t("team.badge.noReader")}</p>
-      ) : (
-        <p className="muted small">{t("team.readers", { list: readers.join(", ") || "—" })}</p>
-      )}
-      <table className="team-table">
-        <thead>
-          <tr>
-            <th>{t("role.staff")}</th>
-            <th>{t("team.badges")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tiles.map((tile) => (
-            <tr key={tile.membership_id}>
-              <td>
-                <div className="tile-name">{tile.name}</div>
-                <div className="tile-role">{t(roleKey[tile.role])}</div>
-              </td>
-              <td>
-                <ul className="badge-list">
-                  {(badges[tile.membership_id] ?? []).map((badge) => (
-                    <li key={badge.id}>
-                      <span>
-                        {badge.disabled_at
-                          ? t("team.badge.off")
-                          : t("team.badge.paired", { label: badge.label })}
-                      </span>
-                      {!badge.disabled_at && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void switchOff(badge)}
-                        >
-                          {t("team.badge.switchOff")}
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                  {(badges[tile.membership_id] ?? []).length === 0 && (
-                    <li className="muted">{t("team.badges.none")}</li>
-                  )}
-                </ul>
-                {pairing?.membershipId === tile.membership_id ? (
-                  <p className="notice" role="status">
-                    {t("team.badge.waiting")}
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => void shell?.badge.cancelPair()}
-                    >
-                      {t("team.badge.cancel")}
-                    </button>
-                  </p>
-                ) : (
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={!shell || device !== "shared" || pairing !== null}
-                    onClick={() => void pair(tile)}
-                  >
-                    {t("team.badge.pair")}
-                  </button>
-                )}
-              </td>
-            </tr>
+    <div className="admin">
+      <nav className="admin-nav" aria-label={t("admin.sections")}>
+        <ul>
+          {sections.map((s) => (
+            <li key={s.id}>
+              <NavLink to={s.path} className="admin-link">
+                <span className="admin-link-name">{t(s.labelKey)}</span>
+                <span className="admin-link-hint">{t(s.hintKey)}</span>
+              </NavLink>
+            </li>
           ))}
-        </tbody>
-      </table>
-    </section>
+        </ul>
+      </nav>
+      <div className="admin-body">
+        <Outlet />
+        <SaveBar />
+      </div>
+    </div>
   );
 }
 
-function useDeviceKind(): "shared" | "phone" | "none" | "loading" {
-  const [kind, setKind] = useState<"shared" | "phone" | "none" | "loading">("loading");
-  useEffect(() => {
-    void readDevice().then((d) =>
-      setKind(!d ? "none" : d.kind === "staff_phone" ? "phone" : "shared"),
-    );
-  }, []);
-  return kind;
+/** `/admin` opens the first section the person may see; a manager with none yet reads why. */
+export function AdminIndex() {
+  const { t } = useT();
+  const { state } = useSession();
+  if (state.status !== "signedIn") return null;
+  const first = visibleSections(state.membership.permissions)[0];
+  return first ? (
+    <Navigate to={first.path} replace />
+  ) : (
+    <p className="empty">{t("admin.nothingYet")}</p>
+  );
+}
+
+function SaveBar() {
+  const { t, tn } = useT();
+  const draft = useAdminDraft();
+  const count = Object.keys(draft.values).length;
+  if (!draft.dirty && draft.status === "idle") return null;
+  return (
+    <div className="admin-save" role="status">
+      {draft.dirty ? (
+        <>
+          <span>{tn("admin.unsaved", count)}</span>
+          <button
+            type="button"
+            className="primary"
+            disabled={draft.saving}
+            onClick={() => void draft.save()}
+          >
+            {t("admin.saveAndPublish")}
+          </button>
+          <button type="button" className="secondary" onClick={draft.discard}>
+            {t("admin.discard")}
+          </button>
+        </>
+      ) : (
+        <span className={draft.status === "failed" ? "error" : ""}>
+          {draft.status === "failed" ? t("admin.publishFailed") : t("admin.published")}
+        </span>
+      )}
+    </div>
+  );
 }

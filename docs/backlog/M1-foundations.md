@@ -805,7 +805,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-31 · Build the Admin shell and Admin → Team
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-19, M1-21, M1-23, M1-27, M1-30
 - **Spec:** [AdminDesk](../screens.md#admindesk) notes 4, 5, 6 and 8; [Admin by milestone](../milestones.md#admin-by-milestone) (Team); [Tenancy and access](../spec/02-tenancy-access.md) · Roles, Languages, Offboarding; [API](../spec/08-api.md) · Sign-in, team and devices (`PATCH /team/{m}`)
@@ -814,13 +814,16 @@ Definition of done: see CLAUDE.md.
   - The M1 sections: Team (this ticket), Features (M1-32), Hours & prices (M1-33) and Printers & devices (M1-34). Later milestones add theirs.
   - Admin → Team (owner only): each person with their role, invite state and a Language column (English or Español); a Badges column with "Pair (tap the reader)" and "Switch off"; invite, PIN reset and deactivate; role and language changes through `PATCH /team/{m}`, which ask for the passkey again; and the switch for the front desk using the bar POS when covering the bar. `GET /team` lists the people.
 - **Acceptance:**
-  - [ ] Abhishek sees Team; Andy's Admin has no Team, Payments or Console.
-  - [ ] Setting Diego's language to Español in Team makes his next sign-in Spanish.
-  - [ ] A role change asks for the passkey again and writes an audit row.
-  - [ ] With Abhishek set to Español, every M1 Admin section is in Spanish.
+  - [x] Abhishek sees Team; Andy's Admin has no Team, Payments or Console.
+  - [x] Setting Diego's language to Español in Team makes his next sign-in Spanish.
+  - [x] A role change asks for the passkey again and writes an audit row.
+  - [x] With Abhishek set to Español, every M1 Admin section is in Spanish.
 - **Tests:** Playwright for each Team action; a permission test for the owner-only section.
-- **Notes:** Tip eligibility and training mode come to Team in M7. `GET /team` isn't in the API table (flagged). [AdminDesk](../screens.md#admindesk) note 7 (training mode) waits for M7.
-
+- **Notes:** Tip eligibility and training mode come to Team in M7 (`PATCH /team/{m}` refuses `training` until then). `GET /team` was missing from the API table and is now listed there. AdminDesk note 7 (training mode) waits for M7.
+  - **Built:** the AdminDesk shell in `apps/staff/src/screens/Admin.tsx` (passkey gate, the section list with a one-line hint each, nested routes under `/admin`, and a "Save and publish" bar fed by `apps/staff/src/admin/draft.tsx`, which writes every changed key in one `PUT /settings` call; Team doesn't use the draft because people change at once behind the passkey); the section registry and owner-only rule in `apps/staff/src/admin/sections.ts` (Features, Hours & prices and Printers & devices are registered unshipped for M1-32 to M1-34; Payments and Console are owner-only and unshipped); Admin → Team in `apps/staff/src/screens/admin/Team.tsx` (person, role, invite state, language, badges, actions, the front-desk bar POS switch and the invite form); `GET /team` and `PATCH /team/{m}` in `apps/api/src/routes/team.ts`; 48 new strings in English and Spanish.
+  - **Cautious defaults:** a role change that moves someone between 4- and 6-digit PINs clears the old PIN and sends a new link the way a reset does (the old length no longer fits); with no confirmed phone or email the PIN is still cleared and Team says so. Nobody can change their own role, so a venue can't lose its last owner by mistake. `GET /team` lists deactivated people too (records are kept). The front-desk switch writes both switchable rows (`pos.use` and `orders.accept`) together, since the spec's "covering the bar" covers both; it shows `pos.use`.
+  - **Differs from the ticket:** the permission gate guards writes only, so the owner-only read is checked in the `GET /team` handler. A manager's Admin shows "Nothing to set up here yet" until M1-32 ships Features.
+  - **Later tickets:** M1-32 to M1-34 flip their sections to shipped in `sections.ts` and add themselves to the Spanish check in `e2e/staff.spec.ts`; M7 adds tip eligibility and training mode to `PATCH /team/{m}` and the Team table.
 ### M1-32 · Build Admin → Features
 
 - **Status:** todo
