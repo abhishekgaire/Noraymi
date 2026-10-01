@@ -1038,6 +1038,77 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     log(`room calls: ${calls}`);
 
+    // The inbox (M2-22; docs/demo-seed.md · Inbox threads): Sam O.'s unread "running 15 late", and Marcus T.'s
+    // and Bianca L.'s threads. Texts without a time in the seed keep their order but show no time.
+    type SeedThread = {
+      id: string;
+      guest: string;
+      context: string;
+      unread: boolean;
+      messages: { dir: "in" | "out" | "auto"; at: string | null; body: string }[];
+    };
+    const threads = (seed as { inbox?: SeedThread[] }).inbox ?? [];
+    const confirmed = (
+      await client.query<{ id: string }>(
+        "select id from message_templates where venue_id = $1 and key = 'booking_confirmed'",
+        [venueId],
+      )
+    ).rows[0]?.id;
+    let threadMessagesCount = 0;
+    for (const [n, th] of threads.entries()) {
+      const guest = seed.guests.find((g) => g.id === th.guest);
+      if (!guest?.phone_e164) continue;
+      const [kind, ref] = th.context.split(" ").slice(-2) as [string, string];
+      const contextKind = th.context.startsWith("room session") ? "session" : kind;
+      const unread = th.messages.filter((m) => m.dir === "in").length;
+      const conversationId = remember(th.id, "conversations");
+      // Unknown times: a minute apart, before the first known one, so the order holds.
+      const base = SEED_NOW.subtract({ minutes: 60 + (threads.length - n) * 10 });
+      const times = th.messages.map((m, i) =>
+        m.at ? Temporal.Instant.from(m.at) : base.add({ minutes: i }),
+      );
+      const lastIn = th.messages
+        .map((m, i) => (m.dir === "in" ? times[i]! : null))
+        .filter(Boolean)
+        .at(-1);
+      await client.query(
+        `insert into conversations (id, venue_id, guest_id, phone_e164, context_kind, context_id, unread, last_inbound_at, created_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          conversationId,
+          venueId,
+          id(th.guest),
+          guest.phone_e164,
+          contextKind,
+          id(ref),
+          th.unread ? unread : 0,
+          lastIn ? new Date(lastIn.epochMilliseconds) : null,
+          new Date(times[0]!.epochMilliseconds),
+        ],
+      );
+      for (const [i, m] of th.messages.entries()) {
+        const at = new Date(times[i]!.epochMilliseconds);
+        await client.query(
+          `insert into messages (venue_id, conversation_id, direction, template_id, category, body, status, sent_at, read_at, created_at)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [
+            venueId,
+            conversationId,
+            m.dir === "in" ? "inbound" : "outbound",
+            m.dir === "auto" ? (confirmed ?? null) : null,
+            m.dir === "in" ? "reply" : m.dir === "auto" ? "service" : "reply",
+            m.body,
+            m.dir === "in" ? "received" : "delivered",
+            m.at ? at : null,
+            m.dir === "in" && !th.unread ? at : null,
+            at,
+          ],
+        );
+        threadMessagesCount++;
+      }
+    }
+    log(`inbox: ${threads.length} threads, ${threadMessagesCount} texts`);
+
     // Checks (M2-08): all 13, numbered in the order they opened, with Room 9's #1042 fixed; their lines in
     // order, a comp pointing at the line it reverses. Room checks were opened by the front desk, bar checks by
     // the bartender. The counter then carries on from the last number.

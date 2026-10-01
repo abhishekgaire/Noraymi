@@ -773,3 +773,68 @@ button.danger {
   border-color: #e0287d;
   background: color-mix(in srgb, #e0287d 8%, var(--surface, transparent));
 }
+
+/* Messages (M2-22): the threads beside the open thread on desktop; one or the other on a phone. */
+.badge {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #e0287d;
+  color: #fff;
+  font-size: 0.8rem;
+  text-align: center;
+}
+.messages-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 2fr;
+  gap: 16px;
+}
+.conversation-list,
+.texts,
+.texts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.conversation {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  text-align: start;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+}
+.conversation.current {
+  border-color: currentColor;
+}
+.text {
+  max-width: 85%;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.text.out {
+  margin-left: auto;
+}
+.texts-list li {
+  min-height: 28px;
+}
+.grow {
+  flex: 1 1 200px;
+}
+@media (max-width: 760px) {
+  .messages-layout {
+    grid-template-columns: 1fr;
+  }
+  .messages.with-thread .threads,
+  .desktop-only {
+    display: none;
+  }
+}

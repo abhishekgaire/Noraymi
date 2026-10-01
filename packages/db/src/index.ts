@@ -297,6 +297,13 @@ export {
   type MessageRow,
   type TemplateRow,
   type TwilioIntegration,
+  conversationById,
+  conversations,
+  insertInbound,
+  markConversationRead,
+  threadMessages,
+  type ConversationRow,
+  type ThreadMessageRow,
 } from "./texts.js";
 export { addScanCheck, addVisualChecks, idCounts, nightKey } from "./id-checks.js";
 export {

@@ -239,3 +239,111 @@ export async function saveTwilioIntegration(
     ],
   );
 }
+
+/** An incoming text (M2-22): into its conversation, unread, the last inbound time moved on. */
+export async function insertInbound(
+  c: Queryable,
+  venueId: string,
+  input: { conversationId: string; body: string; sid: string | null; at: string },
+): Promise<string> {
+  const r = await c.query<{ id: string }>(
+    `insert into messages (venue_id, conversation_id, direction, category, body, provider_sid, status, sent_at, created_at)
+       values ($1, $2, 'inbound', 'reply', $3, $4, 'received', $5, $5) returning id`,
+    [venueId, input.conversationId, input.body, input.sid, input.at],
+  );
+  await c.query(
+    "update conversations set unread = unread + 1, last_inbound_at = $3 where venue_id = $1 and id = $2",
+    [venueId, input.conversationId, input.at],
+  );
+  return r.rows[0]!.id;
+}
+
+export interface ConversationRow {
+  readonly id: string;
+  readonly guest_id: string | null;
+  readonly guest_name: string | null;
+  readonly phone_e164: string;
+  readonly context_kind: "booking" | "waitlist" | "session" | null;
+  readonly context_id: string | null;
+  readonly unread: number;
+  readonly assigned_to: string | null;
+  readonly assigned_to_name: string | null;
+  readonly last_inbound_at: string | null;
+  readonly last_body: string | null;
+  readonly last_at: string | null;
+}
+
+const CONVERSATION = `select cv.id, cv.guest_id, g.name as guest_name, cv.phone_e164, cv.context_kind, cv.context_id,
+    cv.unread, cv.assigned_to, u.name as assigned_to_name, to_json(cv.last_inbound_at) #>> '{}' as last_inbound_at,
+    last.body as last_body, to_json(last.created_at) #>> '{}' as last_at
+  from conversations cv
+  left join guests g on g.venue_id = cv.venue_id and g.id = cv.guest_id
+  left join users u on u.id = cv.assigned_to
+  left join lateral (
+    select body, created_at from messages m where m.venue_id = cv.venue_id and m.conversation_id = cv.id
+     order by created_at desc limit 1
+  ) last on true`;
+
+export async function conversations(c: Queryable, venueId: string): Promise<ConversationRow[]> {
+  const r = await c.query<ConversationRow>(
+    `${CONVERSATION} where cv.venue_id = $1 and last.created_at is not null
+      order by cv.unread > 0 desc, last.created_at desc limit 200`,
+    [venueId],
+  );
+  return r.rows;
+}
+
+export async function conversationById(
+  c: Queryable,
+  venueId: string,
+  id: string,
+): Promise<ConversationRow | null> {
+  const r = await c.query<ConversationRow>(
+    `${CONVERSATION} where cv.venue_id = $1 and cv.id = $2`,
+    [venueId, id],
+  );
+  return r.rows[0] ?? null;
+}
+
+export interface ThreadMessageRow {
+  readonly id: string;
+  readonly direction: "outbound" | "inbound";
+  readonly category: "service" | "marketing" | "reply";
+  readonly automatic: boolean;
+  readonly body: string;
+  readonly status: string;
+  readonly sent_by_name: string | null;
+  readonly at: string | null;
+}
+
+/** A thread, oldest first; `at` is when it was sent or received, empty when that isn't known. */
+export async function threadMessages(
+  c: Queryable,
+  venueId: string,
+  conversationId: string,
+): Promise<ThreadMessageRow[]> {
+  const r = await c.query<ThreadMessageRow>(
+    `select m.id, m.direction, m.category, (m.template_id is not null and m.sent_by is null) as automatic, m.body,
+            m.status, u.name as sent_by_name, to_json(m.sent_at) #>> '{}' as at
+       from messages m left join users u on u.id = m.sent_by
+      where m.venue_id = $1 and m.conversation_id = $2 order by m.created_at, m.id`,
+    [venueId, conversationId],
+  );
+  return r.rows;
+}
+
+export async function markConversationRead(
+  c: Queryable,
+  venueId: string,
+  id: string,
+  at: string,
+): Promise<void> {
+  await c.query("update conversations set unread = 0 where venue_id = $1 and id = $2", [
+    venueId,
+    id,
+  ]);
+  await c.query(
+    "update messages set read_at = $3 where venue_id = $1 and conversation_id = $2 and direction = 'inbound' and read_at is null",
+    [venueId, id, at],
+  );
+}

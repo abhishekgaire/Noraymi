@@ -345,6 +345,10 @@ export const webhookWallCases: Readonly<Record<string, string>> = {
   // Resolved by the subaccount, signed with that venue's token, and applied only to that venue's messages:
   // apps/api/src/routes/twilio-hooks.int.test.ts sends venue B's message SID from venue A's account and sees nothing move.
   "POST /v1/hooks/twilio/status": "twilio-hooks.int.test.ts · another venue's message never moves",
+  // Resolved by the number texted, signed with that venue's token: inbox.int.test.ts sends to West 4's number with
+  // another venue's token (refused) and to the other venue's number (lands only there).
+  "POST /v1/hooks/twilio":
+    "inbox.int.test.ts · another venue's number and token never reach West 4's inbox",
 };
 
 export function checkWebhooks(routes: readonly RegisteredRoute[]): WallFinding[] {

@@ -8,6 +8,7 @@ import { menu, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
 import { WaitingStrip } from "../approvals/WaitingStrip.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
+import { useUnreadTexts } from "./unread.js";
 
 /**
  * The frame around every staff screen: the venue, the venue's time and
@@ -55,6 +56,13 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
     { modules: membership.modules, permissions: membership.permissions },
     menu,
   );
+  const unread = useUnreadTexts(membership.venue_id, membership.permissions.includes("texts.send"));
+  const badge = (id: string) =>
+    id === "messages" && unread > 0 ? (
+      <span className="badge" aria-label={t("messages.unread", { count: unread })}>
+        {unread}
+      </span>
+    ) : null;
   const tabs = phoneTabs({
     modules: membership.modules,
     permissions: membership.permissions,
@@ -119,7 +127,7 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
             ) : (
               <li key={entry.id}>
                 <NavLink to={entry.path} className="menu-link">
-                  {t(entry.labelKey)}
+                  {t(entry.labelKey)} {badge(entry.id)}
                 </NavLink>
               </li>
             ),
@@ -137,7 +145,7 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
       <nav className="tabs" aria-label={t("menu.title")}>
         {tabs.map((tab) => (
           <NavLink key={tab.id} to={tab.path} className="tab">
-            {t(tab.labelKey)}
+            {t(tab.labelKey)} {badge(tab.id)}
           </NavLink>
         ))}
       </nav>

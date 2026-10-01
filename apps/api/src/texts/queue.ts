@@ -45,14 +45,6 @@ export async function queueText(
   },
   settings: Pick<VenueTextSettings, "allowList">,
 ): Promise<{ messageId: string }> {
-  if (!US.test(input.to))
-    throw new ApiError("invalid_request", "texts go only to +1 numbers", {
-      details: { reason: "not_us" },
-    });
-  if (settings.allowList && !settings.allowList.includes(input.to))
-    throw new ApiError("invalid_request", "this server texts only our own test phones", {
-      details: { reason: "not_allowed" },
-    });
   const template = await templateByKey(c, venueId, input.templateKey);
   if (!template) throw new ApiError("not_found", `no text "${input.templateKey}"`);
   if (template.category === "marketing")
@@ -62,6 +54,46 @@ export async function queueText(
   if (!template.on)
     throw new ApiError("invalid_request", "that text is off", {
       details: { reason: "template_off" },
+    });
+  await guardSend(c, venueId, input.to, input.now, settings);
+  const body = render(template.body, input.params);
+  const conversationId = await conversationFor(c, venueId, {
+    phoneE164: input.to,
+    guestId: input.guestId,
+    contextKind: input.context?.kind ?? null,
+    contextId: input.context?.id ?? null,
+  });
+  const messageId = await queueOutbound(c, venueId, {
+    conversationId,
+    templateId: template.id,
+    category: "service",
+    body,
+    sentBy: input.sentBy,
+    now: input.now,
+  });
+  return { messageId };
+}
+
+/**
+ * What every text to a guest passes first (M2-09, shared with replies in
+ * M2-22): a US number, the staging allow-list, Guest texts on, and at most
+ * PER_PREFIX_PER_HOUR texts an hour to one area code.
+ */
+export async function guardSend(
+  c: Queryable,
+  venueId: string,
+  to: string,
+  now: Temporal.Instant,
+  settings: Pick<VenueTextSettings, "allowList">,
+): Promise<void> {
+  const input = { to, now };
+  if (!US.test(input.to))
+    throw new ApiError("invalid_request", "texts go only to +1 numbers", {
+      details: { reason: "not_us" },
+    });
+  if (settings.allowList && !settings.allowList.includes(input.to))
+    throw new ApiError("invalid_request", "this server texts only our own test phones", {
+      details: { reason: "not_allowed" },
     });
   const modules = await venueModules(c, venueId);
   if (modules.find((m) => m.module_id === "guest_texts")?.state === "off")
@@ -76,20 +108,22 @@ export async function queueText(
     throw new ApiError("rate_limited", "too many texts to that area code this hour", {
       details: { reason: "prefix_limit" },
     });
-  const body = render(template.body, input.params);
-  const conversationId = await conversationFor(c, venueId, {
-    phoneE164: input.to,
-    guestId: input.guestId,
-    contextKind: input.context?.kind ?? null,
-    contextId: input.context?.id ?? null,
-  });
-  const messageId = await insertOutbound(c, venueId, {
-    conversationId,
-    templateId: template.id,
-    category: "service",
-    body,
-    sentBy: input.sentBy,
-  });
+}
+
+/** Writes the outbound message and queues its one send attempt. */
+export async function queueOutbound(
+  c: Queryable,
+  venueId: string,
+  input: {
+    conversationId: string;
+    templateId: string | null;
+    category: "service" | "reply";
+    body: string;
+    sentBy: string | null;
+    now: Temporal.Instant;
+  },
+): Promise<string> {
+  const messageId = await insertOutbound(c, venueId, input);
   await enqueue(c, {
     venueId,
     kind: MESSAGE_SEND_KIND,
@@ -97,5 +131,5 @@ export async function queueText(
     runAt: input.now,
     payload: { message_id: messageId },
   });
-  return { messageId };
+  return messageId;
 }

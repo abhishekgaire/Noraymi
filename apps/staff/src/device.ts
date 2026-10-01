@@ -158,12 +158,13 @@ export async function signedApi<T>(
   }
   if (!response.ok) {
     const parsed = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string };
+      error?: { code?: string; message?: string; details?: Record<string, unknown> };
     } | null;
     throw new ApiCallError(
       response.status,
       parsed?.error?.code ?? "unknown",
       parsed?.error?.message ?? response.statusText,
+      parsed?.error?.details ?? {},
     );
   }
   return (await response.json()) as T;

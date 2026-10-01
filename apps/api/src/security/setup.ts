@@ -142,6 +142,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       noteId: noteB.rows[0]!.id,
       itemId: itemB.rows[0]!.id,
       callId: callB.rows[0]!.id,
+      conversationId: conversationB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -164,6 +165,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/rooms/:r/notes": { text: "x" },
       "PATCH /v1/venues/:venueId/room-notes/:noteId": { cleared: true },
       "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
+      "POST /v1/venues/:venueId/conversations/:conversationId/messages": { body: "On our way" },
+      "POST /v1/venues/:venueId/conversations/:conversationId/running-late": {},
       "POST /v1/venues/:venueId/checks/:checkId/lines": {
         kind: "damage",
         file_id: fileB.rows[0]!.id,

@@ -6,6 +6,8 @@ export class ApiCallError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** The error's details, such as a refusal's reason ("link", "not_open"). */
+    readonly details: Readonly<Record<string, unknown>> = {},
   ) {
     super(message);
   }
@@ -117,12 +119,13 @@ export async function api<T>(
   }
   if (!response.ok) {
     const parsed = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string };
+      error?: { code?: string; message?: string; details?: Record<string, unknown> };
     } | null;
     throw new ApiCallError(
       response.status,
       parsed?.error?.code ?? "unknown",
       parsed?.error?.message ?? response.statusText,
+      parsed?.error?.details ?? {},
     );
   }
   return (await response.json()) as T;

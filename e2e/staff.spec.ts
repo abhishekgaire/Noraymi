@@ -1788,3 +1788,81 @@ test("the damage fee on a phone: a camera photo and a reason add $150.00 with it
     await db.end();
   }
 });
+
+/**
+ * Messages on the desktop and the phone (M2-22). From a fresh seed: Sam O.'s
+ * "running 15 late" is unread; Reply "no problem" sends the Running late reply
+ * and the board's arrival reads held until 10:45 PM; a reply with a link is
+ * refused; Marcus T.'s thread reads as in the seed on a phone; both screens
+ * list the 14 automatic texts in Admin's order.
+ */
+test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a link refused, the 14 texts", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    // Earlier tests check Sam O. in; this one starts from a fresh load of the demo seed at 10:41 PM.
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    const names = (
+      await db.query<{ key: string }>("select key from message_templates order by position")
+    ).rows.map((r) => catalogs.en[`texts.name.${r.key}` as keyof typeof catalogs.en]);
+    expect(names).toHaveLength(14);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("link", { name: /Messages 1/ }).first()).toBeVisible();
+    await page
+      .getByRole("link", { name: /Messages/ })
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Messages");
+    const samButton = page.getByRole("button", { name: "Sam O." });
+    await expect(samButton).toContainText("1 unread");
+    await expect(page.locator(".texts-list li")).toHaveText(names.map((n) => new RegExp(`^${n}`)));
+    expect(await clippedText(page)).toEqual([]);
+    await samButton.click();
+    const thread = page.getByRole("region", { name: "Sam O." });
+    await expect(thread).toContainText(/Sam O\. · 10:24\s?PM/);
+    await expect(thread).toContainText("running 15 late");
+    await thread.getByRole("button", { name: 'Reply "no problem"' }).click();
+    await expect(thread).toContainText("No problem. We'll hold your room until 10:45 PM.");
+    await thread.getByLabel("Reply").fill("Book again at west4karaoke.com/book");
+    await thread.getByRole("button", { name: "Send" }).click();
+    await expect(thread.getByRole("alert")).toHaveText("A reply can't carry a link");
+    await page.goto("/tonight");
+    await expect(page.getByRole("listitem", { name: "Sam O.", exact: true })).toContainText(
+      /Room 2 · Open · held for Sam O\. until 10:45\s?PM/,
+    );
+
+    const phone = await browser.newPage({ storageState: await page.context().storageState() });
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.goto("/messages");
+    await expect(phone.locator(".texts-list li")).toHaveText(names.map((n) => new RegExp(`^${n}`)));
+    await phone.getByRole("button", { name: "Marcus T." }).click();
+    const marcus = phone.getByRole("region", { name: "Marcus T." });
+    await expect(marcus.locator(".text")).toHaveText([
+      /Booked\. Room for 12 at 8:00 PM, Fri Sep 25\. Deposit \$120 paid, comes off your bill\.$/,
+      /if we're having fun can we stay past 11\?$/,
+      /Nobody has Room 9 after you tonight, so you can stay on by the minute until we close at 4 AM\.$/,
+    ]);
+    await expect(phone.getByRole("button", { name: "Sam O." })).toBeHidden();
+    expect(await clippedText(phone)).toEqual([]);
+    await phone.close();
+  } finally {
+    await db.end();
+  }
+});

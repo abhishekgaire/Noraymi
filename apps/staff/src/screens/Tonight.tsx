@@ -71,6 +71,7 @@ interface Arrival {
   readonly starts_at: string;
   readonly status: string;
   readonly no_show_from: string;
+  readonly running_late_until: string | null;
 }
 
 export function Tonight() {
@@ -130,7 +131,11 @@ export function Tonight() {
   useEffect(
     () =>
       subscribe((events) => {
-        if (events.length === 0 || events.some((e) => e.type === "room.updated")) void load();
+        if (
+          events.length === 0 ||
+          events.some((e) => e.type === "room.updated" || e.type === "booking.updated")
+        )
+          void load();
       }),
     [subscribe, load],
   );
@@ -331,6 +336,15 @@ export function Tonight() {
                     <div className="small">
                       {t("checkIn.at", { time: time(b.starts_at, timeZone), room: b.room_name })}
                     </div>
+                    {b.running_late_until && (
+                      <div className="small">
+                        {b.room_name} ·{" "}
+                        {t("messages.heldFor", {
+                          name: b.guest_name,
+                          time: time(b.running_late_until, timeZone),
+                        })}
+                      </div>
+                    )}
                     <div className="row">
                       <button
                         type="button"

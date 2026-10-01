@@ -508,7 +508,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-22 · Take replies into the two-way inbox, on Messages desktop and phone
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-09
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Two-way inbox; [API](../spec/08-api.md) · Messages, Webhooks in (`/v1/hooks/twilio`), Live events (`message.received`); [Messages](../screens.md#messages); [DeskMessages](../screens.md#deskmessages); [Demo seed · Texts and the inbox](../demo-seed.md#texts-and-the-inbox)
@@ -519,12 +519,19 @@ Definition of done: see CLAUDE.md.
   - The Running late reply: on Sam O.'s "running 15 late", [Reply "no problem"] sends "No problem. We'll hold your room until 10:45 PM." and sets `bookings.running_late_until` (by default the start plus `deposit.graceMin`; staff can change the time before sending), so Room 2 reads "Open · held for Sam O. until 10:45".
   - Messages on the desktop and the phone: the threads, and the list of the 14 automatic texts in order with whether each is on.
 - **Acceptance:**
-  - [ ] Sam O.'s "running 15 late" (10:24 PM) lands unread in Messages on his 10:30 PM Room 2 booking, and the board, the badges and Andy's phone update.
-  - [ ] [Reply "no problem"] sends the Running late reply, and Room 2 reads held until 10:45.
-  - [ ] A free-text reply with a link ("west4karaoke.com/book") is refused.
-  - [ ] Marcus T.'s and Bianca L.'s threads read as in the seed, and both Messages screens list the same 14 texts in Admin's order.
+  - [x] Sam O.'s "running 15 late" (10:24 PM) lands unread in Messages on his 10:30 PM Room 2 booking, and the board, the badges and Andy's phone update.
+  - [x] [Reply "no problem"] sends the Running late reply, and Room 2 reads held until 10:45.
+  - [x] A free-text reply with a link ("west4karaoke.com/book") is refused.
+  - [x] Marcus T.'s and Bianca L.'s threads read as in the seed, and both Messages screens list the same 14 texts in Admin's order.
 - **Tests:** webhook integration tests with signed fixtures; Playwright for both Messages screens.
 - **Notes:** [Messages](../screens.md#messages) and [DeskMessages](../screens.md#deskmessages) notes 1–5. The spec ties each reply to its booking, waitlist spot or room session but doesn't say how to choose between them; the order above is the cautious reading (flagged). "The manager on shift" is the manager on duty (M2-15). The Payment link goes out through its own template in M5.
+  - Built: `POST /v1/hooks/twilio` in `routes/twilio-hooks.ts` (the number texted names the venue, the signature first, once per MessageSid; empty TwiML back); `apps/api/src/texts/inbox.ts` (`matchConversation`, `receiveText`, `sendReply`, `sendTemplateIn`, `runningLateReply`); `routes/conversations.ts` (`GET /conversations`, `GET /conversations/{c}` which marks it read, `POST /conversations/{c}/messages`, `POST /conversations/{c}/running-late`, and `GET /texts`, the 14 texts for staff who can text, since Admin's list needs Admin). `queueText` now shares its checks (`guardSend`) and its send (`queueOutbound`) with replies. The seed loads the three threads. The staff app has Messages (`screens/Messages.tsx`; the threads beside the open thread on desktop, one or the other on a phone), a Messages phone tab, an unread badge on the menu and tab, and the board's arrival tile reads "Room 2 · Open · held for Sam O. until 10:45 PM".
+  - Cautious readings (flagged): an "open conversation" is the number's thread with a text either way tonight; staff may reply in their own words for 24 hours after the guest last wrote; "promotions" are caught by a short word list (percent off, discount, promo, coupon, special offer, deal, sale, happy hour, BOGO); a link is anything with a scheme, www., or a dotted domain. The waitlist step of matching waits for the waitlist table (its ticket); until then matching goes open session, tonight's booking, next booking.
+  - New texts get the manager on duty as assignee and a push ("Sam O. texted") to that manager's phone; `message.received` updates the board and badges.
+  - Seeded texts without a time in the seed keep their order and show no time.
+  - The seed already holds Sam O.'s room until 10:45 (the board alert says so), which is also what the 15-minute grace gives; the reply sends the text and records the hold, and staff can change the time before sending.
+  - The venue-wall suite now has a case for the new webhook (another venue's number and token never reach West 4's inbox).
+
 
 ### M2-23 · Honor STOP and HELP at once
 

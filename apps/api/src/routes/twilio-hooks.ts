@@ -6,11 +6,14 @@ import {
   markMessage,
   recordWebhookEvent,
   twilioIntegration,
+  venueForSmsNumber,
   venueForTwilioAccount,
   withVenue,
 } from "@west4/db";
+import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { receiveText } from "../texts/inbox.js";
 import { validTwilioSignature } from "../texts/venue.js";
 
 /**
@@ -28,7 +31,7 @@ const STATUS = {
 
 export function twilioHookRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; secretKey: Buffer; publicApiUrl: string | null },
+  options: { pool: pg.Pool; secretKey: Buffer; publicApiUrl: string | null; clock: Clock },
 ): void {
   app.addContentTypeParser(
     "application/x-www-form-urlencoded",
@@ -85,6 +88,60 @@ export function twilioHookRoutes(
           });
       });
       return reply.code(204).send();
+    },
+  );
+
+  /**
+   * `POST /v1/hooks/twilio` (M2-22): a guest's text. The number it was sent to
+   * names the venue (resolve_sms_number); the signature comes first, and the
+   * message runs once through webhook_events. The answer is empty TwiML: no
+   * automatic reply.
+   */
+  app.post<{ Body: Record<string, string> }>(
+    "/v1/hooks/twilio",
+    { config: route({ principals: ["public"], module: "core", idempotency: "none" }) },
+    async (request, reply) => {
+      const params = request.body ?? {};
+      const to = params["To"];
+      const from = params["From"];
+      const sid = params["MessageSid"];
+      if (!to || !from || !sid) throw new ApiError("forbidden", "not a Twilio message");
+      const venueId = await venueForSmsNumber(options.pool, to);
+      if (!venueId) throw new ApiError("forbidden", "not a Twilio message");
+      const url = `${options.publicApiUrl ?? `${request.protocol}://${request.headers.host}`}${request.url}`;
+      const ok = await withVenue(
+        options.pool,
+        { venueId, requestId: request.requestId },
+        async (c) => {
+          const twilio = await twilioIntegration(c, venueId);
+          if (!twilio || (params["AccountSid"] && params["AccountSid"] !== twilio.accountSid))
+            return false;
+          const sig = request.headers["x-twilio-signature"];
+          return validTwilioSignature(
+            decryptSecret(options.secretKey, twilio.secretEnc),
+            url,
+            params,
+            typeof sig === "string" ? sig : undefined,
+          );
+        },
+      );
+      if (!ok) throw new ApiError("forbidden", "the signature doesn't match");
+      await withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
+        const first = await recordWebhookEvent(c, venueId, {
+          provider: "twilio",
+          eventId: `${sid}:received`,
+          type: "message.received",
+          payload: { sid },
+        });
+        if (!first) return;
+        await receiveText(c, venueId, {
+          from,
+          body: params["Body"] ?? "",
+          sid,
+          now: options.clock.now(),
+        });
+      });
+      return reply.code(200).header("content-type", "text/xml").send("<Response></Response>");
     },
   );
 }
