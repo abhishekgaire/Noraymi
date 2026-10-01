@@ -180,7 +180,15 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
       },
     });
     const api = "http://localhost:5173";
-    const post = (p: string, data: unknown) => page.request.post(`${api}${p}`, { data });
+    // The sign-in routes allow 30 calls a minute from one address; the staff tests before this one
+    // sign in many times, so a 429 here waits out the window instead of failing (the limit stays).
+    const post = async (p: string, data: unknown) => {
+      for (let i = 0; ; i++) {
+        const r = await page.request.post(`${api}${p}`, { data });
+        if (r.status() !== 429 || i >= 3) return r;
+        await new Promise((done) => setTimeout(done, 20_000));
+      }
+    };
     expect((await post("/v1/auth/enroll", { step: "start", email })).ok()).toBe(true);
     const job = await db.query<{ payload: { data: { code: string } } }>(
       "select payload from jobs where kind = 'email.send' and payload->>'to' = $1 order by created_at desc limit 1",

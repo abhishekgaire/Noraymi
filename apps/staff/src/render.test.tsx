@@ -80,6 +80,7 @@ const screens = [
   "/admin/features",
   "/admin/hours",
   "/admin/devices",
+  "/admin/rooms",
   "/nowhere",
 ];
 

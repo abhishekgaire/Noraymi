@@ -100,7 +100,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** `bands.test.ts` (the 12:30 AM Saturday band at minute 1,470 of Friday's business date, a session across it, a party-size change, a pause, the three rounding rules, West 4 by the minute) and `pricing.property.test.ts` (300 generated sessions per property across the three rate modes, steps 1/15/30/60 with each rounding rule, party-size changes and pauses, both daylight-saving nights and the cutover: equal to the reference, rounded once, tiled with no gap or overlap and real minutes, the first-hour minimum once, and step 1 equal to the per-minute sum).
 ### M2-04 · Build rooms and room states, and Admin → Rooms
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-11, M1-13, M1-31
 - **Spec:** [Data model](../spec/04-data-model.md) · `rooms`, `room_states`, Room assignment; [API](../spec/08-api.md) · Rooms; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `RoomSettings`; [Admin by milestone](../milestones.md#admin-by-milestone) (Rooms); [AdminDesk](../screens.md#admindesk)
@@ -110,13 +110,15 @@ Definition of done: see CLAUDE.md.
   - Admin → Rooms: names, sizes, capacities, cleaning minutes, VIP, bookable online, on or off, and the `rooms` settings (`cleaningMin`, `cleaningEnds`, `cleaningFlagMin`, `stayOnWhenFree`).
   - The seed's 14 rooms in four tiers: small (Rooms 1–5, 3–6 guests), medium (Rooms 6–10, 6–12), large (Rooms 11–13, 12–20) and the VIP room (20–40). `room.updated` events. Every route belongs to the Rooms & room clock module.
 - **Acceptance:**
-  - [ ] West 4 lists 14 rooms with the tiers and capacities above, and Room 4 is out of service.
-  - [ ] Archiving a room hides it from the board and from assignment and keeps its history.
-  - [ ] Switching a room off moves each of its future bookings to the smallest free room that fits, and lists any that can't move for a manager.
-  - [ ] With Rooms & room clock off, every route here answers `404 module_off`.
+  - [x] West 4 lists 14 rooms with the tiers and capacities above, and Room 4 is out of service.
+  - [x] Archiving a room hides it from the board and from assignment and keeps its history.
+  - [ ] *(The hook runs on switch-off, out of service and archive, and returns `{ moved, unplaced }`; bookings and assignment arrive in M2-05, which fills it in and tests it.)* Switching a room off moves each of its future bookings to the smallest free room that fits, and lists any that can't move for a manager.
+  - [x] With Rooms & room clock off, every route here answers `404 module_off`.
 - **Tests:** API integration tests; a Playwright test of Admin → Rooms.
-- **Notes:** The data model has no column for a room switched off in Admin (it isn't archived, and the plan still bills it). Cautious reading built here: "off" is an `out_of_service` state with the reason "Switched off" and an `out_of_service` block (flagged).
-
+- **Notes:** The data model has no column for a room switched off in Admin (it isn't archived, and the plan still bills it). Cautious reading built here: "off" is an `out_of_service` state with the reason "Switched off" (flagged); the matching `out_of_service` block arrives with `room_blocks` in M2-05.
+  - **Built:** migration `0027_rooms.sql` (`rooms` and `room_states`, walled and audited; `room_states` is the current state per room, and the audit log is its history; the tablet's `devices.room_id` foreign key the M1 table left open), `packages/db/src/rooms.ts`, the routes in `apps/api/src/routes/rooms.ts` (`GET /rooms` with `?all=1` for archived ones, `POST /rooms`, `PATCH /rooms/{r}` including `{ archived }`, `PATCH /rooms/{r}/state`; every route in the `rooms` module; `room.updated` events; names are unique per venue), the seed's 14 rooms with tonight's states (Room 4 out of service with its fault note, tablets linked to their rooms), and Admin → Rooms in `apps/staff/src/screens/admin/Rooms.tsx` (each room's tier, guests, cleaning minutes, bookable online, on or off and archive; the `rooms` settings through Save and publish; add a room). Size tiers show as Small, Medium, Large and VIP from the catalog.
+  - **Seed choice:** the VIP room is staff-only (`bookable_online` off) because the seed's online booking stops at 25 guests and the VIP room starts at 20; the others are bookable online (flagged; Admin can change it).
+  - **Also:** the security suites learned the new `:r` parameter (venue B's room in the wall cases); the desktop smoke test now waits out a 429 from the sign-in rate limit, which the growing staff suite reaches in a full run (the limit itself is unchanged).
 ### M2-05 · Build room blocks and room assignment
 
 - **Status:** todo

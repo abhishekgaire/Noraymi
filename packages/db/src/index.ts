@@ -235,3 +235,14 @@ export {
   type DraftApproval,
   type RulePackDraft,
 } from "./rule-pack-drafts.js";
+export {
+  createRoom,
+  listRooms,
+  roomById,
+  roomStates,
+  setRoomState,
+  updateRoom,
+  type RoomInput,
+  type RoomRow,
+  type RoomState,
+} from "./rooms.js";

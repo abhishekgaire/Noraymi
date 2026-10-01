@@ -9,6 +9,7 @@ import { Admin, AdminIndex } from "./screens/Admin.js";
 import { Devices } from "./screens/admin/Devices.js";
 import { Features } from "./screens/admin/Features.js";
 import { Hours } from "./screens/admin/Hours.js";
+import { Rooms } from "./screens/admin/Rooms.js";
 import { Team } from "./screens/admin/Team.js";
 import { Home } from "./screens/Home.js";
 import { Invite } from "./screens/Invite.js";
@@ -91,6 +92,7 @@ export function StaffRoutes() {
           <Route path="features" element={<Features />} />
           <Route path="hours" element={<Hours />} />
           <Route path="devices" element={<Devices />} />
+          <Route path="rooms" element={<Rooms />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

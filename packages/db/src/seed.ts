@@ -57,6 +57,7 @@ export interface SeedFile {
   readonly team: readonly SeedPerson[];
   readonly badges: readonly SeedBadge[];
   readonly devices: readonly SeedDevice[];
+  readonly rooms: readonly SeedRoom[];
 }
 
 /** An NTAG 424 DNA badge in the seed: the person it's paired to. Its demo UID is derived from its id (DEMO ONLY). */
@@ -89,6 +90,21 @@ export interface SeedPerson {
   readonly demo_totp_secret?: string;
   /** DEMO ONLY (M1-20): fixed recovery codes for the demo owner, stored hashed like real ones. */
   readonly demo_recovery_codes?: readonly string[];
+}
+
+export interface SeedRoom {
+  readonly id: string;
+  readonly name: string;
+  readonly size_tier: string;
+  readonly capacity_min: number;
+  readonly capacity_max: number;
+  readonly is_vip: boolean;
+  readonly state: "available" | "in_use" | "wrap_up" | "cleaning" | "out_of_service";
+  readonly fault?: {
+    readonly text: string;
+    readonly reported_on?: string;
+    readonly out_of_service?: boolean;
+  };
 }
 
 export interface SeedDevice {
@@ -547,6 +563,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
+      "room_states",
+      "rooms",
       "venue_settings",
       "venue_modules",
       "role_permissions",
@@ -663,8 +681,38 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     log(`permissions: ${overrides.length} rows differ from the default table`);
 
-    // Devices, with a heartbeat at "now" for each one the seed says is online. Rooms come in M2.
+    // Rooms (M2-04): the 14 in four tiers, each with its state tonight. Room 4 is out of service for its fault.
     const seedNow = new Date(SEED_NOW.epochMilliseconds);
+    for (const room of seed.rooms) {
+      const roomId = remember(room.id, "rooms");
+      await client.query(
+        `insert into rooms (id, venue_id, name, size_tier, capacity_min, capacity_max, is_vip, bookable_online)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          roomId,
+          venueId,
+          room.name,
+          room.size_tier,
+          room.capacity_min,
+          room.capacity_max,
+          room.is_vip,
+          !room.is_vip,
+        ],
+      );
+      const reason =
+        room.state === "out_of_service" ? (room.fault?.text ?? "Out of service") : null;
+      const since =
+        room.state === "out_of_service" && room.fault?.reported_on
+          ? new Date(`${room.fault.reported_on}T12:00:00-04:00`)
+          : seedNow;
+      await client.query(
+        `insert into room_states (venue_id, room_id, state, reason, since) values ($1, $2, $3, $4, $5)`,
+        [venueId, roomId, room.state, reason, since],
+      );
+    }
+    log(`rooms: ${seed.rooms.length}`);
+
+    // Devices, with a heartbeat at "now" for each one the seed says is online.
     const offlineSince = new Date(SEED_NOW.epochMilliseconds - 3 * 60 * 60 * 1000);
     for (const device of seed.devices) {
       const deviceId = remember(device.id, "devices");
@@ -676,9 +724,10 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
               on_backup_now: device.on_backup_now ?? false,
             }
           : null;
+      const roomId = device.room === undefined ? null : id(device.room);
       await client.query(
-        `insert into devices (id, venue_id, kind, name, user_id) values ($1, $2, $3, $4, $5)`,
-        [deviceId, venueId, device.kind, device.name, userId],
+        `insert into devices (id, venue_id, kind, name, user_id, room_id) values ($1, $2, $3, $4, $5, $6)`,
+        [deviceId, venueId, device.kind, device.name, userId, roomId],
       );
       if (device.online === true) {
         await client.query(

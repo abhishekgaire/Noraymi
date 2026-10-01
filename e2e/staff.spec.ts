@@ -16,7 +16,13 @@ import { catalogs } from "@west4/shared";
 const ANDY = "andy@demo.west4.local";
 const ABHISHEK = "abhishek@demo.west4.local";
 /** The Admin sections shipped so far; each M1 Admin ticket adds its path to the Spanish check. */
-const ADMIN_SECTIONS = ["/admin/team", "/admin/features", "/admin/hours", "/admin/devices"];
+const ADMIN_SECTIONS = [
+  "/admin/team",
+  "/admin/features",
+  "/admin/hours",
+  "/admin/devices",
+  "/admin/rooms",
+];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
 async function enrolPasskey(
@@ -576,7 +582,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     const names = new Set(
       (
         await db.query<{ name: string }>(
-          "select name from users union all select name from devices",
+          "select name from users union all select name from devices union all select name from rooms union all select reason from room_states where reason is not null",
         )
       ).rows.map((r) => r.name),
     );
@@ -1054,6 +1060,88 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
     expect(await clippedText(page)).toEqual([]);
   } finally {
     await clean();
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Rooms (M2-04). West 4's 14 rooms in four tiers with Room 4 out of
+ * service; switching Room 8 off and on; archiving a new room takes it off the
+ * list and keeps its row; the cleaning flag saves through Save and publish.
+ */
+test("Admin → Rooms: West 4's 14 rooms, switch a room off and on, archive one, and save the cleaning flag", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const baseVersion = (
+    await db.query<{ v: number }>(
+      "select coalesce(max(version), 0)::int as v from venue_settings where key = 'rooms'",
+    )
+  ).rows[0]!.v;
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/rooms");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Rooms");
+    const rows = page.locator(".rooms tbody tr");
+    await expect(rows).toHaveCount(14);
+    const row = (name: string) => page.getByRole("row", { name: new RegExp(`^${name} `) });
+    await expect(row("Room 1")).toContainText("Small");
+    await expect(row("Room 1")).toContainText("3–6");
+    await expect(row("Room 7")).toContainText("Medium");
+    await expect(row("Room 7")).toContainText("6–12");
+    await expect(row("Room 12")).toContainText("12–20");
+    await expect(row("VIP room")).toContainText("20–40");
+    await expect(row("Room 4")).toContainText("Mic dead since Tue. Replacement ordered.");
+    expect(await clippedText(page)).toEqual([]);
+
+    // Switch Room 8 off, then on.
+    await row("Room 8").getByRole("button", { name: "Switch off" }).click();
+    await expect(row("Room 8")).toContainText("Switched off");
+    await row("Room 8").getByRole("button", { name: "Switch on" }).click();
+    await expect(row("Room 8")).toContainText("On");
+
+    // A new room, archived: off the list, its row kept.
+    await page.getByLabel("Name", { exact: true }).fill("Room 14");
+    await page.getByRole("button", { name: "Add a room" }).last().click();
+    await expect(rows).toHaveCount(15);
+    await row("Room 14").getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByText("Room 14 archived")).toBeVisible();
+    await expect(rows).toHaveCount(14);
+    const kept = await db.query<{ archived_at: string | null }>(
+      "select archived_at::text from rooms where name = 'Room 14'",
+    );
+    expect(kept.rows[0]?.archived_at).toBeTruthy();
+
+    // The cleaning flag goes through Save and publish.
+    await page.getByLabel("Flag a room still cleaning after (minutes)").fill("10");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const flag = await db.query<{ v: number }>(
+      "select (value->>'cleaningFlagMin')::int as v from venue_settings where key = 'rooms' order by version desc limit 1",
+    );
+    expect(flag.rows[0]?.v).toBe(10);
+  } finally {
+    await db.query(
+      "update room_states set state = 'available', reason = null where room_id = (select id from rooms where name = 'Room 8')",
+    );
+    await db.query("delete from venue_settings where key = 'rooms' and version > $1", [
+      baseVersion,
+    ]);
     await db.end();
   }
 });

@@ -51,6 +51,14 @@ export const adminSections: readonly AdminSection[] = [
     shipped: true,
   },
   {
+    id: "rooms",
+    path: "/admin/rooms",
+    labelKey: "admin.section.rooms",
+    hintKey: "admin.hint.rooms",
+    action: "admin.access",
+    shipped: true,
+  },
+  {
     id: "payments",
     path: "/admin/payments",
     labelKey: "admin.section.payments",

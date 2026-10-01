@@ -58,6 +58,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into staff_badges (venue_id, membership_id, uid_hash, label) values ($1, $2, $3, 'B fob') returning id",
     [v.venueB, staffB.membershipId, badgeUidHash(v.venueB, Buffer.from("04B0B0B0B0B0B0", "hex"))],
   );
+  const roomB = await owner.query<{ id: string }>(
+    "insert into rooms (venue_id, name, size_tier, capacity_min, capacity_max) values ($1, 'B room', 'small', 3, 6) returning id",
+    [v.venueB],
+  );
   const cast: Cast & { ownerB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -69,7 +73,12 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     ownerB: v.ownerB,
   };
   const fixtures: WallFixtures = {
-    venueOwned: { m: staffB.membershipId, d: deviceB.rows[0]!.id, b: badgeB.rows[0]!.id },
+    venueOwned: {
+      m: staffB.membershipId,
+      d: deviceB.rows[0]!.id,
+      b: badgeB.rows[0]!.id,
+      r: roomB.rows[0]!.id,
+    },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
       "POST /v1/venues/:venueId/team/:m/badges/keys": { uid: "04AABBCCDDEEFF" },
@@ -78,6 +87,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/modules/:id": { state: "off" },
       "PUT /v1/venues/:venueId/settings/:key": { value: { weekly: [], lastCall: null } },
       "PATCH /v1/venues/:venueId/permissions/:role/:action": { allowed: true },
+      "PATCH /v1/venues/:venueId/rooms/:r": { name: "renamed" },
+      "PATCH /v1/venues/:venueId/rooms/:r/state": { state: "available" },
     },
   };
   const config = loadConfig({

@@ -1,0 +1,213 @@
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import {
+  createRoom,
+  emitEvent,
+  listRooms,
+  roomById,
+  roomStates,
+  setRoomState,
+  updateRoom,
+  type RoomState,
+} from "@west4/db";
+import type { Clock } from "@west4/shared";
+import { route } from "../http/conventions.js";
+import { ApiError } from "../http/errors.js";
+
+/**
+ * Rooms (M2-04; spec 04 · rooms, room_states, Room assignment; spec 08 · Rooms):
+ *   GET   /v1/venues/{v}/rooms                 the live rooms with their state (?all=1 adds archived ones)
+ *   POST  /v1/venues/{v}/rooms                 Admin → Rooms creates one
+ *   PATCH /v1/venues/{v}/rooms/{r}             edits it, or archives it ({ archived: true }); nothing deletes a room
+ *   PATCH /v1/venues/{v}/rooms/{r}/state       available, out_of_service ("Switched off" is the Admin switch), …
+ * Every route belongs to the Rooms & room clock module. Switching a room off
+ * or out of service re-runs assignment for its future bookings and lists any
+ * that no longer fit for a manager; bookings arrive in M2-05, so the hook is
+ * here and the lists are empty until then.
+ */
+interface VenueParams {
+  venueId: string;
+}
+
+const roomBody = z
+  .object({
+    name: z.string().trim().min(1).max(40),
+    size_tier: z.string().trim().min(1).max(40),
+    capacity_min: z.number().int().min(1),
+    capacity_max: z.number().int().min(1),
+    cleaning_min: z.number().int().min(0).nullable().optional(),
+    is_vip: z.boolean().optional(),
+    bookable_online: z.boolean().optional(),
+  })
+  .strict();
+
+const patchBody = roomBody.partial().extend({ archived: z.boolean().optional() }).strict();
+
+const stateBody = z
+  .object({
+    state: z.enum(roomStates as [RoomState, ...RoomState[]]),
+    reason: z.string().trim().max(200).nullable().optional(),
+    until: z.string().datetime({ offset: true }).nullable().optional(),
+  })
+  .strict();
+
+/** What a room switched off or out of service does to its future bookings (M2-05 fills this in). */
+export interface Reassigned {
+  readonly moved: { booking_id: string; to_room_id: string }[];
+  readonly unplaced: { booking_id: string }[];
+}
+export async function reassignFutureBookings(): Promise<Reassigned> {
+  return { moved: [], unplaced: [] };
+}
+
+export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+  const read = route({
+    principals: ["owner_manager", "staff", "shared_device", "room_tablet"],
+    module: "rooms",
+  });
+  const admin = route({
+    principals: ["owner_manager"],
+    module: "rooms",
+    action: "admin.access",
+    idempotency: "optional",
+  });
+  const bad = (issues: z.ZodIssue[]) =>
+    new ApiError(
+      "invalid_request",
+      issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+    );
+
+  app.get<{ Params: VenueParams; Querystring: { all?: string } }>(
+    "/v1/venues/:venueId/rooms",
+    { config: read },
+    async (request) => ({
+      rooms: await request.inVenue((c) =>
+        listRooms(c, request.venueId!, { includeArchived: request.query.all === "1" }),
+      ),
+    }),
+  );
+
+  app.post<{ Params: VenueParams; Body: unknown }>(
+    "/v1/venues/:venueId/rooms",
+    { config: admin },
+    async (request, reply) => {
+      const parsed = roomBody.safeParse(request.body);
+      if (!parsed.success) throw bad(parsed.error.issues);
+      const b = parsed.data;
+      if (b.capacity_max < b.capacity_min)
+        throw new ApiError("invalid_request", "capacity_max is below capacity_min");
+      const venueId = request.venueId!;
+      const room = await request.inVenue(async (c) => {
+        let id: string;
+        try {
+          id = await createRoom(
+            c,
+            venueId,
+            {
+              name: b.name,
+              sizeTier: b.size_tier,
+              capacityMin: b.capacity_min,
+              capacityMax: b.capacity_max,
+              cleaningMin: b.cleaning_min ?? null,
+              isVip: b.is_vip ?? false,
+              bookableOnline: b.bookable_online ?? true,
+            },
+            options.clock.now().toString(),
+          );
+        } catch (e) {
+          if ((e as { code?: string }).code === "23505")
+            throw new ApiError("invalid_request", `there is already a room called "${b.name}"`);
+          throw e;
+        }
+        await emitEvent(c, { venueId, type: "room.updated", entityId: id, entityVersion: 0 });
+        return roomById(c, venueId, id);
+      });
+      return reply.code(201).send({ room });
+    },
+  );
+
+  app.patch<{ Params: VenueParams & { r: string }; Body: unknown }>(
+    "/v1/venues/:venueId/rooms/:r",
+    { config: admin },
+    async (request) => {
+      const parsed = patchBody.safeParse(request.body);
+      if (!parsed.success) throw bad(parsed.error.issues);
+      const b = parsed.data;
+      if (Object.keys(b).length === 0) throw new ApiError("invalid_request", "nothing to change");
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        const before = await roomById(c, venueId, request.params.r);
+        if (!before) throw new ApiError("not_found", "no such room");
+        const min = b.capacity_min ?? before.capacity_min;
+        const max = b.capacity_max ?? before.capacity_max;
+        if (max < min) throw new ApiError("invalid_request", "capacity_max is below capacity_min");
+        try {
+          await updateRoom(
+            c,
+            venueId,
+            request.params.r,
+            {
+              ...(b.name !== undefined ? { name: b.name } : {}),
+              ...(b.size_tier !== undefined ? { sizeTier: b.size_tier } : {}),
+              ...(b.capacity_min !== undefined ? { capacityMin: b.capacity_min } : {}),
+              ...(b.capacity_max !== undefined ? { capacityMax: b.capacity_max } : {}),
+              ...(b.cleaning_min !== undefined ? { cleaningMin: b.cleaning_min } : {}),
+              ...(b.is_vip !== undefined ? { isVip: b.is_vip } : {}),
+              ...(b.bookable_online !== undefined ? { bookableOnline: b.bookable_online } : {}),
+              ...(b.archived !== undefined ? { archived: b.archived } : {}),
+            },
+            options.clock.now().toString(),
+          );
+        } catch (e) {
+          if ((e as { code?: string }).code === "23505")
+            throw new ApiError("invalid_request", `there is already a room called "${b.name}"`);
+          throw e;
+        }
+        await emitEvent(c, {
+          venueId,
+          type: "room.updated",
+          entityId: request.params.r,
+          entityVersion: 0,
+        });
+        const room = await roomById(c, venueId, request.params.r);
+        // An archived room leaves the board and assignment; its future bookings move like a room switched off.
+        const reassigned = b.archived === true ? await reassignFutureBookings() : null;
+        return { room, ...(reassigned ? { reassigned } : {}) };
+      });
+    },
+  );
+
+  app.patch<{ Params: VenueParams & { r: string }; Body: unknown }>(
+    "/v1/venues/:venueId/rooms/:r/state",
+    { config: admin },
+    async (request) => {
+      const parsed = stateBody.safeParse(request.body);
+      if (!parsed.success) throw bad(parsed.error.issues);
+      const b = parsed.data;
+      const venueId = request.venueId!;
+      const p = request.principal;
+      return request.inVenue(async (c) => {
+        const before = await roomById(c, venueId, request.params.r);
+        if (!before) throw new ApiError("not_found", "no such room");
+        if (before.archived_at)
+          throw new ApiError("invalid_request", "an archived room has no state");
+        await setRoomState(c, venueId, request.params.r, {
+          state: b.state,
+          reason: b.reason ?? null,
+          until: b.until ?? null,
+          setBy: p.kind === "user" ? p.userId : undefined,
+          at: options.clock.now().toString(),
+        });
+        await emitEvent(c, {
+          venueId,
+          type: "room.updated",
+          entityId: request.params.r,
+          entityVersion: 0,
+        });
+        const room = await roomById(c, venueId, request.params.r);
+        const reassigned = b.state === "out_of_service" ? await reassignFutureBookings() : null;
+        return { room, ...(reassigned ? { reassigned } : {}) };
+      });
+    },
+  );
+}

@@ -24,6 +24,7 @@ import { sessionAuthenticator } from "./auth/session-auth.js";
 import { consoleAuthenticator, consoleAuthRoutes } from "./console/auth.js";
 import { consoleRoutes } from "./console/routes.js";
 import { rulePackRoutes } from "./routes/rule-pack.js";
+import { roomsRoutes } from "./routes/rooms.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
 
@@ -160,6 +161,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       });
       settingsRoutes(scope, { clock });
       rulePackRoutes(scope, { clock });
+      roomsRoutes(scope, { clock });
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
