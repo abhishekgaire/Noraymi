@@ -13,6 +13,8 @@ import { ModuleGate } from "./http/module-gate.js";
 import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
 import { devicesRoutes } from "./routes/devices.js";
+import { pushRoutes } from "./routes/push.js";
+import { loadPushSettings, type PushSettings } from "./push/settings.js";
 import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
 import { authRoutes } from "./auth/routes.js";
@@ -31,6 +33,8 @@ export interface AppOptions {
   readonly moduleCacheMs?: number;
   readonly drainMs?: number;
   /** Tests add fixture routes here, inside the routes plugin's scope. */
+  /** Web push (M1-22). Defaults to the local-only VAPID pair when the app is local. */
+  readonly push?: PushSettings;
   readonly extraRoutes?: (app: FastifyInstance) => Promise<void> | void;
   /** Who the API may email (M1-18); index.ts loads it from the environment, tests pass one. */
   readonly email?: Pick<EmailSettings, "allowList">;
@@ -148,6 +152,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock });
+      pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
     }
     await options.extraRoutes?.(scope);
   });

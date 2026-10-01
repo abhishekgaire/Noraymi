@@ -227,9 +227,10 @@ describe("Abhishek's recovery code works once", () => {
     expect(recovery["method"]).toBe("recovery_code");
     // Fri Sep 25, 10:41 PM New York → ready Sun Sep 27, 10:41 PM New York, 48 real hours later.
     expect(within(recovery["requested_at"] as string, SEED_NOW)).toBe(true);
-    expect(hoursBetween(recovery["requested_at"] as string, recovery["ready_at"] as string)).toBe(
-      48,
-    );
+    // Two reads of the clock a millisecond apart: close to 48, not bit-exact.
+    expect(
+      hoursBetween(recovery["requested_at"] as string, recovery["ready_at"] as string),
+    ).toBeCloseTo(48, 3);
     expect(
       within(recovery["ready_at"] as string, Temporal.Instant.from("2026-09-28T02:41:00Z")),
     ).toBe(true);

@@ -9,6 +9,8 @@ export default defineConfig({
   // Every run starts from a fresh load of the demo seed (M1-17); needs Postgres.
   globalSetup: "./e2e/global-setup.ts",
   fullyParallel: false,
+  // One worker: the API and staff tests both re-enrol Andy's passkey against the one seed, so they can't overlap.
+  workers: 1,
   forbidOnly: ci,
   retries: ci ? 1 : 0,
   reporter: ci ? [["github"], ["html", { open: "never" }]] : "list",

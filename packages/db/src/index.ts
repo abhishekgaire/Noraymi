@@ -63,6 +63,7 @@ export {
   listDevices,
   updateDevice,
   revokeDevice,
+  createStaffPhone,
 } from "./devices.js";
 export type { DeviceKind, DeviceRow, DeviceListRow, ResolvedDevice } from "./devices.js";
 export {
@@ -148,3 +149,5 @@ export type {
   RecoveryContact,
   MembershipHome,
 } from "./auth.js";
+export { savePushSubscription, activePushSubscriptions, revokePushSubscription } from "./push.js";
+export type { PushSubscriptionRow, PushTargetRow, PushAudience } from "./push.js";

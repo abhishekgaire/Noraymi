@@ -151,4 +151,22 @@ export const en = {
   "signIn.locked": "Locked · sign in to continue",
   "count.roomsOpen.one": "{count} room open",
   "count.roomsOpen.other": "{count} rooms open",
+  // Push and the phone setup screen (M1-22).
+  "push.test.body": "Test alert · this phone gets alerts from the staff app",
+  "setup.title": "Alerts on this phone",
+  "setup.intro":
+    "Calls, runs ready for a runner, wrap-up alerts and orders for your rooms reach your phone as alerts, once the staff app is on your home screen.",
+  "setup.iphone.step1": "Tap Share at the bottom of Safari",
+  "setup.iphone.step2": "Choose Add to Home Screen, then Add",
+  "setup.iphone.step3": "Open the staff app from your home screen and come back here",
+  "setup.android.hint": "Install the app from the browser menu, or turn on alerts here.",
+  "setup.installed": "The app is on your home screen",
+  "setup.turnOn": "Turn on alerts",
+  "setup.working": "Turning on alerts…",
+  "setup.on": "Alerts are on",
+  "setup.denied": "Alerts are blocked for this app in your phone's settings",
+  "setup.unsupported": "This browser can't show alerts · add the app to your home screen first",
+  "setup.failed": "We couldn't turn on alerts · try again",
+  "setup.sendTest": "Send a test alert",
+  "setup.testSent": "Test alert sent · it reaches this phone in a moment",
 } as const;

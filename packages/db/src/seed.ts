@@ -519,6 +519,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     );
 
     // A fresh Friday: everything this load owns goes first, children before parents.
+    await client.query("delete from push_subscriptions where venue_id = $1", [venueId]);
     await client.query(
       "delete from device_nonces where device_id in (select id from devices where venue_id = $1)",
       [venueId],

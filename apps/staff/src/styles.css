@@ -213,6 +213,15 @@ form {
   color: var(--accent-text);
   font-weight: 600;
 }
+.steps {
+  padding-left: 20px;
+}
+.steps li {
+  margin: 8px 0;
+}
+.phone-only {
+  margin-bottom: 16px;
+}
 .language {
   display: flex;
   flex-wrap: wrap;
@@ -267,5 +276,8 @@ form {
   }
   .content {
     padding: 24px;
+  }
+  .phone-only {
+    display: none;
   }
 }

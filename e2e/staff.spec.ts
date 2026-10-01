@@ -12,7 +12,7 @@ import { catalogs } from "@west4/shared";
  * language tests).
  */
 const ANDY = "andy@demo.west4.local";
-const SCREENS = ["/tonight", "/bar", "/runs", "/sign-in"];
+const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/sign-in"];
 
 async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Client) {
   // Andy's seed row has a demo authenticator; the first passkey by email needs an account with no credential yet.
@@ -175,6 +175,103 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Iniciar sesión");
     await expect(page.getByRole("status")).toHaveText("Bloqueado · inicia sesión para continuar");
     await expect(page.getByRole("button", { name: "Cambiar a English" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Install and subscribe (M1-22). Chromium has no push service in a test run,
+ * so the browser's PushManager and Notification are stood in for; everything
+ * else is real: the service worker registers and controls the page, the phone
+ * makes its device key, registers itself as Andy's staff_phone, signs its
+ * subscription, and a test alert is queued for it. The worker never caches an
+ * API response.
+ */
+test("Andy's phone installs the staff app, turns on alerts and gets a test alert queued", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await page.addInitScript(() => {
+      const fake = {
+        endpoint: "https://push.example.test/send/andy-phone",
+        toJSON: () => ({
+          endpoint: "https://push.example.test/send/andy-phone",
+          keys: { p256dh: "fake-p256dh", auth: "fake-auth" },
+        }),
+        unsubscribe: async () => true,
+      };
+      let subscribed = false;
+      PushManager.prototype.subscribe = async () => {
+        subscribed = true;
+        return fake as unknown as PushSubscription;
+      };
+      PushManager.prototype.getSubscription = async () =>
+        (subscribed ? fake : null) as unknown as PushSubscription;
+      Object.defineProperty(Notification, "permission", { get: () => "default" });
+      Notification.requestPermission = async () => "granted";
+    });
+    // The earlier test left Andy in Español; this one reads the screen in English.
+    await db.query(
+      "update memberships set locale = 'en' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await page.goto("/");
+    await enrolPasskey(page, request, db);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    // The app is installable: a manifest, and a service worker that controls the page.
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+      "href",
+      "/manifest.webmanifest",
+    );
+    expect((await request.get("/manifest.webmanifest")).ok()).toBe(true);
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+
+    await page.goto("/setup");
+    await page.getByRole("button", { name: "Turn on alerts" }).click();
+    await expect(page.getByRole("status")).toHaveText("Alerts are on");
+    const phone = await db.query<{ id: string; kind: string }>(
+      "select d.id, d.kind from devices d join users u on u.id = d.user_id where lower(u.email) = $1 and d.revoked_at is null and d.public_key is not null",
+      [ANDY],
+    );
+    expect(phone.rows.map((r) => r.kind)).toEqual(["staff_phone"]);
+    const subscription = await db.query<{ endpoint: string }>(
+      "select endpoint from push_subscriptions where device_id = $1 and revoked_at is null",
+      [phone.rows[0]!.id],
+    );
+    expect(subscription.rows).toEqual([{ endpoint: "https://push.example.test/send/andy-phone" }]);
+
+    await page.getByRole("button", { name: "Send a test alert" }).click();
+    await expect(
+      page.getByText("Test alert sent · it reaches this phone in a moment"),
+    ).toBeVisible();
+    const job = await db.query<{ payload: { audience: { kind: string } } }>(
+      "select payload from jobs where kind = 'push.send' order by created_at desc limit 1",
+    );
+    expect(job.rows[0]!.payload.audience.kind).toBe("person");
+
+    // The shell cache holds pages and assets, never an API response.
+    const cached = await page.evaluate(async () => {
+      const keys = await caches.keys();
+      const urls: string[] = [];
+      for (const key of keys)
+        for (const r of await (await caches.open(key)).keys()) urls.push(r.url);
+      return urls;
+    });
+    expect(cached.length).toBeGreaterThan(0);
+    expect(cached.filter((u) => u.includes("/v1/"))).toEqual([]);
   } finally {
     await db.end();
   }

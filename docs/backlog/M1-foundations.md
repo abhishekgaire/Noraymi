@@ -588,7 +588,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-22 · Install the staff app to the home screen and send push
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-15, M1-21
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Staff phones; [Scope and architecture](../spec/01-scope-architecture.md) · Staff app; [Tenancy and access](../spec/02-tenancy-access.md) · Offboarding; [Staff](../screens.md#staff) note 14
@@ -598,11 +598,17 @@ Definition of done: see CLAUDE.md.
   - An iPhone setup screen that walks staff through Add to Home Screen first, since web push works only after that.
   - A push service in `apps/api` that sends to one person's phones, to a role's phones, and later to the manager on duty (M2-15). Revoking a device revokes its subscriptions.
 - **Acceptance:**
-  - [ ] On an Android phone, and on an iPhone added to the home screen, a test push reaches Andy's phone.
-  - [ ] A revoked device's subscription receives nothing.
-  - [ ] The service worker never caches an API response.
+  - [ ] On an Android phone, and on an iPhone added to the home screen, a test push reaches Andy's phone. _Needs a real phone against staging; the staff app has no public hostname until its hosting lands (M1-28 / go-live gate). The whole path short of the vendor push service is covered by tests._
+  - [x] A revoked device's subscription receives nothing.
+  - [x] The service worker never caches an API response.
 - **Tests:** a push-service unit test with a fake push endpoint; a Playwright test of the install and subscribe flow.
 - **Notes:** Which pushes each role gets is set by the milestones that raise them (calls and wrap-up alerts in M2; runs, the 30-second and 4-minute order alerts in M3; approvals in M2).
+  - **Built.** `apps/staff/public/sw.js` caches the app shell only (navigations, scripts, styles, images, fonts and the manifest on this origin); anything under `/v1/` is never intercepted. It shows a push as a notification and a tap opens the push's path. `manifest.webmanifest` plus icons (a plain amber mark, no words) make the app installable; `index.html` carries the iOS meta tags. `apps/staff/src/push.ts` makes the phone's device key (non-extractable WebCrypto, kept in IndexedDB), registers the phone as the person's `staff_phone`, subscribes with the VAPID public key and saves the subscription in a request signed by the phone. `screens/Setup.tsx` ("Alerts on this phone", reached from the phone drawer) walks an iPhone through Add to Home Screen first, then one tap turns alerts on and a test alert checks it; states: loading, needs home screen, ready, working, on, denied, unsupported, failed.
+  - **API.** Migration 0018 adds `push_subscriptions` (venue_id, device_id, endpoint, keys, created_at, revoked_at) with row-level security. Routes: `GET /v1/push/vapid-key`; `POST /v1/venues/:v/devices/staff-phone` (a signed-in person registers their own phone); `POST /v1/venues/:v/push/subscriptions` (must be signed by a `staff_phone` whose owner is the session's person; a revoked phone is refused); `POST /v1/venues/:v/push/test`. `apps/api/src/push/`: settings (VAPID from the environment; a fixed local-only pair in local dev), `WebPushSender` on the `web-push` library and `FakePushSender` for tests, and the `push.send` job: audience is a person or a role (M2-15 adds the manager on duty), the words are a catalog key rendered in each phone owner's language, sends happen outside any transaction, and a 404/410 revokes that subscription. `revokeDevice` now also revokes the device's subscriptions, so M1-27's offboarding gets it for free.
+  - **Authenticators.** Every authenticator now runs on each request and the first principal wins (`http/conventions.ts`): a staff phone's signature is checked and recorded as `request.signedDevice` under its owner's session, which the subscription route needs. Before, the session authenticator's answer stopped the chain.
+  - **Cautious defaults.** Pushes carry only a catalog key and a path, never guest data. Local VAPID keys are a fixed pair in `push/settings.ts`; staging and production must set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (`.env.example`), and `infra/` needs those secrets before staging can push (not added here: a secret to create, which is the founder's).
+  - **Tests.** `routes/push.int.test.ts`: registering the phone, signed subscription (unsigned or another person's session is 403), a test push through the fake endpoint in the owner's language, a role-wide push, a gone endpoint revoked, a revoked device receiving nothing. `apps/staff/src/sw.test.ts` loads the worker into a fake scope and checks what it answers. `e2e/staff.spec.ts` stands in for the browser's push service and checks the manifest, a controlling service worker, the registered phone, the saved subscription, the queued test alert and a cache with no API response. Playwright now runs one worker because the API and staff tests both re-enrol Andy's passkey.
+  - **Left for later.** The desktop app and shared screens don't subscribe (phones only, per spec 09). The install prompt on Android is the browser's own; the setup screen only explains it. The seed's staff phones have no device key, so they can't push until each person opens the app on their phone.
 
 ### M1-23 · Invite staff, confirm their phone with a code, and let them set their own PIN
 

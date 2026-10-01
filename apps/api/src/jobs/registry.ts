@@ -5,6 +5,8 @@ import type { Mailer } from "../email/mailer.js";
 import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
+import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
+import type { PushSender } from "../push/sender.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
 import {
   EVENTS_CLEANUP_KIND,
@@ -26,17 +28,20 @@ export interface HandlerDeps {
   readonly s3: S3Settings;
   readonly mailer: Mailer;
   readonly email: EmailSettings;
+  readonly push: PushSender;
 }
 
 export function makeHandlers({
   s3,
   mailer,
   email,
+  push,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   return {
     critical: {},
     normal: {
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
+      [PUSH_SEND_KIND]: makePushSendHandler(push),
     },
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),

@@ -7,6 +7,7 @@ import { Shell } from "./layout/Shell.js";
 import { homeFor, runs } from "./navigation.js";
 import { Home } from "./screens/Home.js";
 import { NotFound } from "./screens/NotFound.js";
+import { Setup } from "./screens/Setup.js";
 import { SignIn } from "./screens/SignIn.js";
 import { SessionProvider, useSession, type SessionState } from "./session.js";
 
@@ -57,6 +58,7 @@ export function StaffRoutes() {
         <Route path="/tonight" element={<Home titleKey="menu.tonight" />} />
         <Route path="/bar" element={<Home titleKey="menu.barPos" />} />
         <Route path={runs.path} element={<Home titleKey={runs.labelKey} />} />
+        <Route path="/setup" element={<Setup />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

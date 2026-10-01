@@ -185,5 +185,32 @@ export async function revokeDevice(
     `update devices set revoked_at = coalesce(revoked_at, now()) where venue_id = $1 and id = $2 returning ${COLS}`,
     [venueId, deviceId],
   );
+  // A revoked device's push subscriptions receive nothing (M1-22, spec 02 · Offboarding).
+  await client.query(
+    "update push_subscriptions set revoked_at = coalesce(revoked_at, now()) where venue_id = $1 and device_id = $2",
+    [venueId, deviceId],
+  );
   return r.rows[0] ?? null;
+}
+
+/**
+ * A person's own phone becomes their staff_phone device (spec 02: personal
+ * phones are devices, so offboarding revokes them). The phone makes its key
+ * and sends the public half; the session proves whose phone it is.
+ */
+export async function createStaffPhone(
+  client: Queryable,
+  args: {
+    readonly venueId: string;
+    readonly userId: string;
+    readonly name: string;
+    readonly publicJwk: unknown;
+  },
+): Promise<DeviceRow> {
+  const r = await client.query<DeviceRow>(
+    `insert into devices (venue_id, kind, name, user_id, public_key)
+     values ($1, 'staff_phone', $2, $3, $4) returning ${COLS}`,
+    [args.venueId, args.name, args.userId, JSON.stringify(args.publicJwk)],
+  );
+  return r.rows[0]!;
 }

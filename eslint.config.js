@@ -30,6 +30,13 @@ export default tseslint.config(
     },
   },
   {
+    // The staff service worker (M1-22) runs in a worker scope, not a window.
+    files: ["apps/staff/public/sw.js"],
+    languageOptions: {
+      globals: { self: "readonly", caches: "readonly", fetch: "readonly", URL: "readonly" },
+    },
+  },
+  {
     // Staff screens (M1-21): every word comes from the catalog, never from code.
     files: ["apps/staff/src/**/*.tsx"],
     plugins: { west4 },

@@ -6,6 +6,8 @@ import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
 import { makeS3 } from "./s3.js";
 import { SmtpMailer } from "./email/mailer.js";
 import { loadEmailSettings } from "./email/settings.js";
+import { loadPushSettings } from "./push/settings.js";
+import { WebPushSender } from "./push/sender.js";
 
 // The job workers and the scheduler (M1-06). Three pools so a slow export
 // never delays a capture; one scheduler leads at a time.
@@ -19,7 +21,12 @@ const clock = makeClock(config, pool);
 const log = (line: string) => process.stdout.write(`${line}\n`);
 const email = loadEmailSettings(config.env);
 const mailer = new SmtpMailer(email.smtpUrl);
-const handlers = makeHandlers({ s3: makeS3(), mailer, email });
+const handlers = makeHandlers({
+  s3: makeS3(),
+  mailer,
+  email,
+  push: new WebPushSender(loadPushSettings(config.env)),
+});
 if (
   email.env === "staging" &&
   email.allowList?.addresses.size === 0 &&

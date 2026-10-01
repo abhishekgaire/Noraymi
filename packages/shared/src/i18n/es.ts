@@ -152,4 +152,22 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "signIn.locked": "Bloqueado · inicia sesión para continuar",
   "count.roomsOpen.one": "{count} sala abierta",
   "count.roomsOpen.other": "{count} salas abiertas",
+  "push.test.body": "Alerta de prueba · este teléfono recibe alertas de la app del personal",
+  "setup.title": "Alertas en este teléfono",
+  "setup.intro":
+    "Las llamadas, las entregas listas, los avisos de cierre y los pedidos de tus salas llegan a tu teléfono como alertas, una vez que la app del personal esté en tu pantalla de inicio.",
+  "setup.iphone.step1": "Toca Compartir en la parte inferior de Safari",
+  "setup.iphone.step2": "Elige Añadir a pantalla de inicio y luego Añadir",
+  "setup.iphone.step3": "Abre la app del personal desde tu pantalla de inicio y vuelve aquí",
+  "setup.android.hint": "Instala la app desde el menú del navegador o activa las alertas aquí.",
+  "setup.installed": "La app está en tu pantalla de inicio",
+  "setup.turnOn": "Activar alertas",
+  "setup.working": "Activando alertas…",
+  "setup.on": "Las alertas están activadas",
+  "setup.denied": "Las alertas están bloqueadas para esta app en los ajustes de tu teléfono",
+  "setup.unsupported":
+    "Este navegador no puede mostrar alertas · añade primero la app a tu pantalla de inicio",
+  "setup.failed": "No pudimos activar las alertas · inténtalo de nuevo",
+  "setup.sendTest": "Enviar una alerta de prueba",
+  "setup.testSent": "Alerta de prueba enviada · llega a este teléfono en un momento",
 };

@@ -119,12 +119,13 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     request.principal = ANONYMOUS;
     request.session = undefined;
     request.sessionProblem = undefined;
+    // Every authenticator runs: a session names the person, and a device
+    // signature on the same request is still checked and recorded (a staff
+    // phone signs its push subscription under its owner's session, M1-22).
+    // The first principal wins.
     for (const authenticate of options.authenticators ?? []) {
       const principal = await authenticate(request);
-      if (principal) {
-        request.principal = principal;
-        break;
-      }
+      if (principal && request.principal === ANONYMOUS) request.principal = principal;
     }
     const spec = specOf(request);
     if (!spec) return; // the 404 handler

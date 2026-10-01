@@ -68,7 +68,7 @@ function matchers(locale: Locale): RegExp[] {
   );
 }
 
-const screens = ["/sign-in", "/tonight", "/bar", "/runs", "/nowhere"];
+const screens = ["/sign-in", "/tonight", "/bar", "/runs", "/setup", "/nowhere"];
 
 describe("every shell screen renders from the catalog", () => {
   for (const locale of ["es", "en"] as const) {

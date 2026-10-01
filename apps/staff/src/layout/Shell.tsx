@@ -119,6 +119,9 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
             ),
           )}
         </ul>
+        <NavLink to="/setup" className="menu-link phone-only">
+          {t("setup.title")}
+        </NavLink>
         <LanguageSwitch />
       </nav>
       <main id="main" className="content">
