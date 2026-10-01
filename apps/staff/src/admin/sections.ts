@@ -48,7 +48,7 @@ export const adminSections: readonly AdminSection[] = [
     labelKey: "admin.section.devices",
     hintKey: "admin.hint.devices",
     action: "admin.access",
-    shipped: false,
+    shipped: true,
   },
   {
     id: "payments",

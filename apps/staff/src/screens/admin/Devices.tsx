@@ -1,0 +1,337 @@
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import type { MessageKey } from "@west4/shared";
+import { api, type ApiCallError } from "../../api.js";
+import { useT } from "../../i18n.js";
+import { useSession } from "../../session.js";
+
+/**
+ * Admin → Printers & devices, the M1 part (M1-34; spec 09 · Devices at
+ * West 4, Pairing; AdminDesk notes 4 and 9): every device row with its kind,
+ * where it is, whether it's online and when it was last seen, from the same
+ * rows the Console reads. "Pair a device" makes a one-time code; Revoke ends
+ * the device's sessions at once; Rename. Printers are set up in M3, drawers
+ * and readers in M4, the router in M8, and a room tablet's room arrives with
+ * Admin → Rooms in M2.
+ */
+type Kind =
+  | "bar_computer"
+  | "front_desk"
+  | "room_tablet"
+  | "reader"
+  | "printer"
+  | "nfc_reader"
+  | "router"
+  | "staff_phone"
+  | "up_next_display"
+  | "mic_outlet";
+
+interface Device {
+  readonly id: string;
+  readonly kind: Kind;
+  readonly name: string;
+  readonly room_id: string | null;
+  readonly last_seen_at: string | null;
+  readonly online: boolean;
+  readonly revoked_at: string | null;
+}
+
+/** The spec's order of places: bar, front desk, rooms, around the venue, people. */
+const KIND_ORDER: readonly Kind[] = [
+  "bar_computer",
+  "front_desk",
+  "nfc_reader",
+  "printer",
+  "reader",
+  "room_tablet",
+  "up_next_display",
+  "router",
+  "mic_outlet",
+  "staff_phone",
+];
+
+const PAIRABLE: readonly Kind[] = KIND_ORDER.filter((k) => k !== "staff_phone");
+
+const whereKey: Record<Kind, MessageKey> = {
+  bar_computer: "devices.where.bar",
+  front_desk: "devices.where.frontDesk",
+  nfc_reader: "devices.where.barOrFrontDesk",
+  printer: "devices.where.barOrFrontDesk",
+  reader: "devices.where.barOrFrontDesk",
+  room_tablet: "devices.where.rooms",
+  up_next_display: "devices.where.bar",
+  router: "devices.where.around",
+  mic_outlet: "devices.where.rooms",
+  staff_phone: "devices.where.people",
+};
+
+export function Devices() {
+  const { t, locale } = useT();
+  const { state } = useSession();
+  const signedIn = state.status === "signedIn" ? state : null;
+  const venueId = signedIn?.membership.venue_id ?? "";
+  const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
+  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [note, setNote] = useState<{ id: string; key: MessageKey; name?: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const answer = await api<{ devices: Device[] }>("GET", `/v1/venues/${venueId}/devices`);
+    const live = answer.devices.filter((d) => d.revoked_at === null);
+    live.sort(
+      (a, b) =>
+        KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) ||
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
+    setDevices(live);
+  }, [venueId]);
+
+  useEffect(() => {
+    if (!venueId) return;
+    load().catch(() => setError(t("shell.error.cantReach")));
+  }, [venueId, load, t]);
+
+  const seen = (at: string): string =>
+    new Intl.DateTimeFormat(locale === "es" ? "es-US" : "en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone,
+    }).format(new Date(at));
+
+  const rename = async (d: Device, name: string) => {
+    setError(null);
+    try {
+      await api("PATCH", `/v1/venues/${venueId}/devices/${d.id}`, { name: name.trim() });
+      setRenaming(null);
+      await load();
+      setNote({ id: d.id, key: "devices.renamed" });
+    } catch (e) {
+      setError((e as ApiCallError)?.message ?? t("shell.error.title"));
+    }
+  };
+
+  const revoke = async (d: Device) => {
+    setConfirming(null);
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/devices/${d.id}/revoke`, {});
+      await load();
+      setNote({ id: "", key: "devices.revoked", name: d.name });
+    } catch (e) {
+      setError((e as ApiCallError)?.message ?? t("shell.error.title"));
+    }
+  };
+
+  const tablets = devices?.filter((d) => d.kind === "room_tablet") ?? [];
+
+  return (
+    <section className="devices">
+      <h2>{t("admin.section.devices")}</h2>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {note?.id === "" && (
+        <p className="small" role="status">
+          {t(note.key, { name: note.name ?? "" })}
+        </p>
+      )}
+      {devices === null ? (
+        <p role="status">{t("shell.loading")}</p>
+      ) : devices.length === 0 ? (
+        <p className="empty">{t("devices.empty")}</p>
+      ) : (
+        <>
+          {tablets.length > 0 && (
+            <p className="small muted">
+              {t("devices.tabletsOnline", {
+                online: tablets.filter((d) => d.online).length,
+                total: tablets.length,
+              })}
+            </p>
+          )}
+          <table className="team-table devices-table">
+            <thead>
+              <tr>
+                <th>{t("devices.col.device")}</th>
+                <th>{t("devices.col.kind")}</th>
+                <th>{t("devices.col.where")}</th>
+                <th>{t("devices.col.state")}</th>
+                <th>{t("devices.col.lastSeen")}</th>
+                <th>{t("devices.col.actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {devices.map((d) => (
+                <tr key={d.id} className={d.online ? "" : "gone"}>
+                  <td>
+                    {renaming?.id === d.id ? (
+                      <form
+                        className="field-line"
+                        onSubmit={(e: FormEvent) => {
+                          e.preventDefault();
+                          void rename(d, renaming.name);
+                        }}
+                      >
+                        <input
+                          aria-label={t("devices.pair.name")}
+                          value={renaming.name}
+                          maxLength={80}
+                          required
+                          onChange={(e) => setRenaming({ id: d.id, name: e.target.value })}
+                        />
+                        <button type="submit" className="primary">
+                          {t("devices.rename")}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setRenaming(null)}
+                        >
+                          {t("team.badge.cancel")}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="tile-name">{d.name}</div>
+                    )}
+                    {note?.id === d.id && (
+                      <div className="small" role="status">
+                        {t(note.key)}
+                      </div>
+                    )}
+                  </td>
+                  <td>{t(`devices.kind.${d.kind}` as MessageKey)}</td>
+                  <td>{t(whereKey[d.kind])}</td>
+                  <td>
+                    <span className={d.online ? "state-online" : "muted"}>
+                      {d.online
+                        ? t("devices.online")
+                        : d.last_seen_at
+                          ? t("devices.offline")
+                          : t("devices.neverSeen")}
+                    </span>
+                  </td>
+                  <td className="muted">{d.last_seen_at ? seen(d.last_seen_at) : "—"}</td>
+                  <td>
+                    <div className="team-actions">
+                      {renaming?.id !== d.id && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setRenaming({ id: d.id, name: d.name })}
+                        >
+                          {t("devices.rename")}
+                        </button>
+                      )}
+                      {confirming === d.id ? (
+                        <p className="notice" role="alertdialog">
+                          {t("devices.revoke.confirm", { name: d.name })}
+                          <button type="button" className="primary" onClick={() => void revoke(d)}>
+                            {t("team.confirm")}
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setConfirming(null)}
+                          >
+                            {t("team.badge.cancel")}
+                          </button>
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          className="secondary danger"
+                          onClick={() => setConfirming(d.id)}
+                        >
+                          {t("devices.revoke")}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      <PairForm venueId={venueId} timeZone={timeZone} onMade={load} />
+    </section>
+  );
+}
+
+function PairForm({
+  venueId,
+  timeZone,
+  onMade,
+}: {
+  venueId: string;
+  timeZone: string;
+  onMade: () => Promise<void>;
+}) {
+  const { t, time } = useT();
+  const [kind, setKind] = useState<Kind>("room_tablet");
+  const [name, setName] = useState("");
+  const [sending, setSending] = useState(false);
+  const [made, setMade] = useState<{ code: string; expires_at: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setFailed(false);
+    setMade(null);
+    try {
+      const answer = await api<{ code: string; expires_at: string }>(
+        "POST",
+        `/v1/venues/${venueId}/devices/pair`,
+        { kind, name: name.trim() },
+      );
+      setMade(answer);
+      setName("");
+      await onMade();
+    } catch {
+      setFailed(true);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <form className="invite-form" onSubmit={(e) => void submit(e)}>
+      <h3>{t("devices.pair.title")}</h3>
+      <div className="invite-fields">
+        <label>
+          <span>{t("devices.col.kind")}</span>
+          <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+            {PAIRABLE.map((k) => (
+              <option key={k} value={k}>
+                {t(`devices.kind.${k}` as MessageKey)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("devices.pair.name")}</span>
+          <input value={name} required maxLength={80} onChange={(e) => setName(e.target.value)} />
+        </label>
+      </div>
+      <button type="submit" className="primary" disabled={sending}>
+        {t("devices.pair.make")}
+      </button>
+      {made && (
+        <p className="notice" role="status">
+          {t("devices.pair.code", { code: made.code, until: time(made.expires_at, timeZone) })}
+        </p>
+      )}
+      {failed && (
+        <p className="error" role="alert">
+          {t("devices.pair.failed")}
+        </p>
+      )}
+    </form>
+  );
+}

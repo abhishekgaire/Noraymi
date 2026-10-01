@@ -5,12 +5,14 @@ import { api, ApiCallError } from "../api.js";
 import { useClock } from "../clock.js";
 import {
   claimDevice,
+  deviceRevoked,
   isShared,
   readDevice,
   signedApi,
   syncClock,
   type StoredDevice,
 } from "../device.js";
+import { startHeartbeats } from "../heartbeat.js";
 import { roleKey, useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { LanguageSwitch } from "../layout/LanguageSwitch.js";
@@ -95,8 +97,11 @@ export function SignIn() {
           if (!live) return;
           setTiles(answer);
           clock.sync(answer.server_time);
-        } catch {
-          if (live) setError(t("shell.error.cantReach"));
+        } catch (error) {
+          if (!live) return;
+          // 403 on the signed request: this screen was revoked in Admin (M1-34).
+          if (error instanceof ApiCallError && error.status === 403) void deviceRevoked();
+          else setError(t("shell.error.cantReach"));
         }
       } else {
         // No venue yet: the server's own wall clock, never the device's.
@@ -272,6 +277,7 @@ export function SignIn() {
     try {
       const paired = await claimDevice(pairCode.trim());
       setDevice(paired);
+      startHeartbeats(paired);
       setStep({ kind: "email" });
       await syncClock();
       const answer = await signedApi<TilesAnswer>(

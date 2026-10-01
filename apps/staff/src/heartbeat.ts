@@ -1,4 +1,5 @@
-import { signedApi, type StoredDevice } from "./device.js";
+import { ApiCallError } from "./api.js";
+import { deviceRevoked, signedApi, type StoredDevice } from "./device.js";
 
 /**
  * A paired shared screen checks in every 30 seconds (M1-16, spec 09): its app
@@ -52,7 +53,11 @@ export async function heartbeat(device: StoredDevice): Promise<void> {
 
 /** Start the loop; returns the stop. */
 export function startHeartbeats(device: StoredDevice): () => void {
-  const tick = () => heartbeat(device).catch(() => {});
+  const tick = () =>
+    heartbeat(device).catch((error: unknown) => {
+      // 403 on a signed request: the device was revoked in Admin → Printers & devices (M1-34).
+      if (error instanceof ApiCallError && error.status === 403) void deviceRevoked();
+    });
   void tick();
   const timer = setInterval(tick, HEARTBEAT_MS);
   return () => clearInterval(timer);

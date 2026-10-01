@@ -863,17 +863,20 @@ Definition of done: see CLAUDE.md.
   - **Later tickets:** rates, bands, minimums, the VIP rate, booking limits and the damage fee (M2), minimum spend (M4), the Google connection (M5).
 ### M1-34 · Build Admin → Printers & devices: pairing and revoking
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-15, M1-16, M1-31
 - **Spec:** [Admin by milestone](../milestones.md#admin-by-milestone) (Printers & devices, M1 part); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Devices at West 4, Pairing; [AdminDesk](../screens.md#admindesk) notes 4 and 9
 - **Build:** a list of every device row with its kind, where it is, online state and when it was last seen, from the same rows the Console reads; "Pair a device" makes a one-time code; Revoke; rename; and setting a room tablet's room (`PATCH /devices/{d}`). The NFC readers are listed as devices. Printers are set up in M3, drawers and readers in M4, and the router in M8.
 - **Acceptance:**
-  - [ ] West 4's list shows the bar and front-desk computers, two NFC readers, two receipt printers, the Bar S710 and the Front desk S710, 14 room tablets with 13 online (Room 4's off), the Up next TV and the router.
-  - [ ] A code made here pairs a new browser as a device, and Revoke signs it out at once.
+  - [x] West 4's list shows the bar and front-desk computers, two NFC readers, two receipt printers, the Bar S710 and the Front desk S710, 14 room tablets with 13 online (Room 4's off), the Up next TV and the router.
+  - [x] A code made here pairs a new browser as a device, and Revoke signs it out at once.
 - **Tests:** Playwright for pairing and revoking.
-- **Notes:** None.
-
+- **Notes:**
+  - **Built:** Admin → Printers & devices in `apps/staff/src/screens/admin/Devices.tsx`: every live device row from `GET /devices` in the spec's order of places (bar, front desk, rooms, around the venue, people) with its kind, where it is, Online / Offline / Never seen, when it was last seen, Rename (`PATCH /devices/{d}`), Revoke with a confirm, "13 of 14 room tablets online", and "Pair a device", which makes a one-time code and shows it once with its expiry. The NFC readers are listed as devices.
+  - **Revoke signs it out at once:** a revoked screen in a browser has no WebSocket, so the staff app now treats a 403 on its signed heartbeat (every 30 s) or on sign-in's tiles request as "revoked": it forgets the device key, drops the session and starts over at sign-in, which reads "Pair this screen" (`deviceRevoked` in `apps/staff/src/device.ts`). A freshly paired screen starts its heartbeats without a reload. In the desktop app the socket close reaches it within a second (M1-16).
+  - **Cautious defaults:** revoked rows are left out of the list (they're history, still in the table). "Where" follows spec 09's table of places; a reader, printer or badge reader reads "Bar or front desk" until M4 attaches it to a host. A room tablet's room can't be set yet because rooms arrive in M2 with Admin → Rooms; `PATCH /devices/{d}` already takes `room_id`.
+  - **Later tickets:** printers (M3), drawers and readers (M4), the router (M8), the room picker on tablets (M2).
 ### M1-35 · Build the Console: sign-in with FIDO2 keys, the venue list, the module allow-list and venue flags
 
 - **Status:** todo

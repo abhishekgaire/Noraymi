@@ -6,6 +6,7 @@ import { LocaleProvider, useT } from "./i18n.js";
 import { Shell } from "./layout/Shell.js";
 import { homeFor, runs } from "./navigation.js";
 import { Admin, AdminIndex } from "./screens/Admin.js";
+import { Devices } from "./screens/admin/Devices.js";
 import { Features } from "./screens/admin/Features.js";
 import { Hours } from "./screens/admin/Hours.js";
 import { Team } from "./screens/admin/Team.js";
@@ -89,6 +90,7 @@ export function StaffRoutes() {
           <Route path="team" element={<Team />} />
           <Route path="features" element={<Features />} />
           <Route path="hours" element={<Hours />} />
+          <Route path="devices" element={<Devices />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

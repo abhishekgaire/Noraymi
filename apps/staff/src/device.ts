@@ -1,5 +1,5 @@
 import { makeDeviceKey, signDeviceRequest } from "@west4/shared";
-import { api, ApiCallError, NetworkError, sessionHeaders } from "./api.js";
+import { ApiCallError, NetworkError, api, sessionHeaders, setSessionToken } from "./api.js";
 import { syncServerTime } from "./clock.js";
 
 /**
@@ -51,6 +51,28 @@ export async function readDevice(): Promise<StoredDevice | null> {
     });
   } catch {
     return null;
+  }
+}
+
+/** The device was revoked in Admin: drop its key and start the app over at sign-in, where it reads "Pair this screen". */
+export async function deviceRevoked(): Promise<void> {
+  await forgetDevice();
+  setSessionToken(null);
+  window.location.replace("/sign-in");
+}
+
+export async function forgetDevice(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Nothing stored, or storage is unavailable: the next read finds no device either way.
   }
 }
 

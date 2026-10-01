@@ -15,7 +15,7 @@ import { catalogs } from "@west4/shared";
 const ANDY = "andy@demo.west4.local";
 const ABHISHEK = "abhishek@demo.west4.local";
 /** The Admin sections shipped so far; each M1 Admin ticket adds its path to the Spanish check. */
-const ADMIN_SECTIONS = ["/admin/team", "/admin/features", "/admin/hours"];
+const ADMIN_SECTIONS = ["/admin/team", "/admin/features", "/admin/hours", "/admin/devices"];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
 async function enrolPasskey(
@@ -571,8 +571,13 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Equipo");
     const es = matchers("es");
     const enOnly = matchers("en").filter((m) => !es.some((e) => e.source === m.source));
+    // Data, not words: people's names and the devices' names (the seed's own, in English).
     const names = new Set(
-      (await db.query<{ name: string }>("select name from users")).rows.map((r) => r.name),
+      (
+        await db.query<{ name: string }>(
+          "select name from users union all select name from devices",
+        )
+      ).rows.map((r) => r.name),
     );
     const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...names]);
     for (const path of ADMIN_SECTIONS) {
@@ -588,7 +593,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
           text === "" ||
           data.has(text) ||
           text.includes("@") ||
-          /^\d{1,2}:\d{2}\s?([ap]\.\s?m\.|[AP]M)$/.test(text)
+          /\d{1,2}:\d{2}\s?([ap]\.\s?m\.|[AP]M)/.test(text)
         )
           continue;
         expect(
@@ -845,3 +850,105 @@ async function sessionCookie(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
   return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
 }
+
+/**
+ * Admin → Printers & devices, the M1 part (M1-34). West 4's list shows the
+ * two computers, two badge readers, two receipt printers, both S710s, 14 room
+ * tablets with Room 4's offline, the Up next TV and the router. A code made
+ * here pairs a second browser as a device, and Revoke signs it out: the
+ * revoked screen is back at "Pair this screen" by its next heartbeat.
+ */
+test("Admin → Printers & devices: West 4's devices, a code pairs a new browser, and Revoke signs it out", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const other = await browser.newContext();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/devices");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Printers & devices");
+    await expect(page.getByText("13 of 14 room tablets online")).toBeVisible();
+    for (const name of [
+      "Bar computer",
+      "Front-desk computer",
+      "Bar badge reader (USB)",
+      "Front-desk badge reader (USB)",
+      "Bar receipt printer",
+      "Front-desk receipt printer",
+      "Bar S710",
+      "Front desk S710",
+      "Up next TV",
+      "Dual-WAN router",
+    ]) {
+      // Earlier tests pair extra "Bar computer" screens, so the seed's row is the first of its name.
+      await expect(
+        page.getByRole("row", { name: new RegExp(`^${escape(name)} `) }).first(),
+      ).toContainText("Online");
+    }
+    await expect(page.getByRole("row", { name: /^Tablet · / })).toHaveCount(14);
+    await expect(page.getByRole("row", { name: /^Tablet · Room 4 / })).toContainText("Offline");
+    await expect(page.getByRole("row", { name: /^Tablet · Room 9 / })).toContainText("Online");
+    expect(await clippedText(page)).toEqual([]);
+
+    // Pair a device: a one-time code, shown once.
+    await page.getByLabel("Kind").selectOption("front_desk");
+    await page.getByLabel("Name", { exact: true }).fill("Smoke screen");
+    await page.getByRole("button", { name: "Make a code" }).click();
+    const shown = await page.getByText(/^Code [A-Z0-9]+ · enter it on the device/).textContent();
+    const code = /^Code ([A-Z0-9]+) /.exec(shown ?? "")![1]!;
+
+    // A new browser enters it at Sign in → Pair this screen and becomes "Smoke screen".
+    const screen = await other.newPage();
+    await screen.setViewportSize({ width: 1280, height: 800 });
+    await screen.goto("/sign-in");
+    await screen.getByRole("button", { name: "Pair this screen" }).click();
+    await screen.getByLabel("Pairing code from Admin → Devices").fill(code);
+    await screen.getByRole("button", { name: "Pair", exact: true }).click();
+    await expect(screen.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    await page.reload();
+    const smoke = page.getByRole("row", { name: /^Smoke screen / });
+    await expect(smoke).toBeVisible();
+    await expect(smoke).toContainText("Front-desk computer");
+    await expect(smoke).toContainText("Online");
+
+    // Rename it, then revoke it: the paired browser is back at "Pair this screen" by its next heartbeat.
+    await smoke.getByRole("button", { name: "Rename" }).click();
+    await smoke.getByLabel("Name").fill("Smoke screen 2");
+    await smoke.getByRole("button", { name: "Rename" }).click();
+    const renamed = page.getByRole("row", { name: /^Smoke screen 2 / });
+    await expect(renamed).toBeVisible();
+    await renamed.getByRole("button", { name: "Revoke" }).click();
+    await expect(
+      page.getByText("Revoke Smoke screen 2? It signs out at once and has to be paired again."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByText("Smoke screen 2 revoked")).toBeVisible();
+    await expect(page.getByRole("row", { name: /^Smoke screen/ })).toHaveCount(0);
+    const row = await db.query<{ revoked_at: string | null }>(
+      "select revoked_at::text from devices where name = 'Smoke screen 2'",
+    );
+    expect(row.rows[0]?.revoked_at).toBeTruthy();
+    await expect(screen.getByRole("button", { name: "Pair this screen" })).toBeVisible({
+      timeout: 45_000,
+    });
+  } finally {
+    // The revoked row stays: revoked devices are history, like everything else.
+    await other.close();
+    await db.end();
+  }
+});

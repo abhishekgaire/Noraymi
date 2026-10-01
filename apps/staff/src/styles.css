@@ -627,3 +627,12 @@ button.danger {
   align-items: center;
   margin-bottom: 16px;
 }
+
+/* Admin → Printers & devices (M1-34). */
+.state-online {
+  color: var(--accent);
+  font-weight: 600;
+}
+.devices-table .field-line {
+  margin: 0;
+}
