@@ -190,9 +190,9 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     await page.getByRole("button", { name: "Switch to Español" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
     await expect(page.locator(".clock time")).toHaveText(/^10:41\s?p\.\s?m\.$/);
-    const rooms = (await db.query<{ name: string }>("select name from rooms")).rows.map(
-      (r) => r.name,
-    );
+    const rooms = (
+      await db.query<{ name: string }>("select name from rooms union all select name from guests")
+    ).rows.map((r) => r.name);
     const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...rooms]);
     const es = matchers("es");
     const enOnly = matchers("en").filter((m) => !es.some((e) => e.source === m.source));
@@ -597,7 +597,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     const names = new Set(
       (
         await db.query<{ name: string }>(
-          "select name from users union all select name from devices union all select name from rooms union all select reason from room_states where reason is not null",
+          "select name from users union all select name from devices union all select name from rooms union all select name from guests union all select reason from room_states where reason is not null",
         )
       ).rows.map((r) => r.name),
     );
@@ -1301,6 +1301,67 @@ test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder
     expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.query(`update message_templates set "on" = true where key = 'reminder'`);
+    await db.end();
+  }
+});
+
+/**
+ * The check-in sheet (M2-11), on the board at 1280 and on a phone at 390. At
+ * 10:44 PM Sam O. is arriving; his sheet shows "3 guests · Fridays bill at
+ * least 4" and his −$40.00 deposit, and checking him in gives Room 2 a new
+ * code and check. On a phone, + Walk-in on Room 11 seats Leo M.'s party.
+ */
+test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:44:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    const sam = page.getByRole("listitem", { name: "Sam O.", exact: true });
+    await expect(sam).toContainText("10:30 PM · Room 2");
+    await expect(sam).toContainText("No-show from 10:45 PM");
+    await expect(sam.getByRole("button", { name: "Mark no-show" })).toHaveCount(0);
+    await sam.getByRole("button", { name: "Check in" }).click();
+    const sheet = page.getByRole("dialog", { name: "Check in Sam O." });
+    await expect(sheet).toContainText("3 guests · Fridays bill at least 4");
+    await expect(sheet).toContainText("Deposit applied −$40.00");
+    await expect(sheet).toContainText("3 of 3");
+    expect(await clippedText(page)).toEqual([]);
+    await sheet.getByRole("button", { name: "Check in" }).click();
+    await expect(page.getByText(/^Room 2 · room code [A-Z3-9]{5} · check #\d{4}$/)).toBeVisible();
+    const line = (await page.getByText(/^Room 2 · room code/).textContent()) ?? "";
+    expect(/code ([A-Z3-9]{5})/.exec(line)![1]).not.toContain("2");
+    await expect(page.getByRole("listitem", { name: "Sam O.", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("listitem", { name: "Room 2", exact: true })).toContainText(
+      "In room",
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const room11 = page.getByRole("listitem", { name: "Room 11", exact: true });
+    await room11.getByRole("button", { name: "+ Walk-in" }).click();
+    const walkIn = page.getByRole("dialog", { name: "Walk-in · Room 11" });
+    await walkIn.getByLabel("1 · Guests").fill("7");
+    await expect(walkIn).toContainText("7 guests · Fridays bill at least 4");
+    await walkIn.getByLabel("Guest's name").fill("Leo M.");
+    expect(await clippedText(page)).toEqual([]);
+    await walkIn.getByRole("button", { name: "Seat them" }).click();
+    await expect(page.getByText(/^Room 11 · room code [A-Z2-9]{5} · check #\d{4}$/)).toBeVisible();
+  } finally {
     await db.end();
   }
 });

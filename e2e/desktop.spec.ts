@@ -226,7 +226,7 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
 
     // Admin → Team: pair a new badge to Diego in one tap on the (fake) reader.
     await page.getByRole("link", { name: "Admin" }).click();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Team");
+    await expect(page.getByRole("heading", { level: 2, name: "Team" })).toBeVisible();
     await expect(page.getByText("Readers on this computer: Emulated NFC reader")).toBeVisible();
     const diegoRow = page.getByRole("row").filter({ hasText: "Diego R." });
     await diegoRow.getByRole("button", { name: "Pair (tap the reader)" }).click();

@@ -5,6 +5,7 @@ import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
+import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 
 /**
  * Tonight (M2-07): the rooms in use with their live clock. Each tile ticks on
@@ -32,8 +33,18 @@ interface Session {
 
 const REFETCH_MS = 60_000;
 
+interface Arrival {
+  readonly id: string;
+  readonly guest_name: string;
+  readonly party_size: number;
+  readonly room_name: string;
+  readonly starts_at: string;
+  readonly status: string;
+  readonly no_show_from: string;
+}
+
 export function Tonight() {
-  const { t, money } = useT();
+  const { t, money, time } = useT();
   const { state } = useSession();
   const { now } = useClock();
   const { subscribe } = useEvents();
@@ -41,12 +52,31 @@ export function Tonight() {
   const venueId = signedIn?.membership.venue_id ?? "";
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [arriving, setArriving] = useState<Arrival[]>([]);
+  const [free, setFree] = useState<{ room_id: string; name: string }[]>([]);
+  const [sheet, setSheet] = useState<SheetTarget | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const answer = await api<{ sessions: Session[] }>("GET", `/v1/venues/${venueId}/sessions`);
+      const [answer, bookings, rooms] = await Promise.all([
+        api<{ sessions: Session[] }>("GET", `/v1/venues/${venueId}/sessions`),
+        api<{ bookings: Arrival[] }>("GET", `/v1/venues/${venueId}/bookings`).catch(() => ({
+          bookings: [],
+        })),
+        api<{ rooms: { room_id: string; name: string; free_now: boolean }[] }>(
+          "GET",
+          `/v1/venues/${venueId}/rooms/availability`,
+        ).catch(() => ({ rooms: [] })),
+      ]);
       setSessions(answer.sessions);
+      setArriving(
+        bookings.bookings.filter((b) => b.status === "confirmed" || b.status === "pending"),
+      );
+      setFree(
+        rooms.rooms.filter((r) => r.free_now).map((r) => ({ room_id: r.room_id, name: r.name })),
+      );
       setFailed(false);
     } catch {
       setFailed(true);
@@ -109,10 +139,93 @@ export function Tonight() {
       )}
       {sessions === null ? (
         !failed && <p role="status">{t("shell.loading")}</p>
-      ) : sessions.length === 0 ? (
-        <p className="empty">{t("shell.empty")}</p>
       ) : (
         <>
+          {done && (
+            <p className="notice" role="status">
+              {done}
+            </p>
+          )}
+          {sheet && (
+            <CheckInSheet
+              venueId={venueId}
+              timeZone={timeZone}
+              target={sheet}
+              freeRooms={free}
+              onClose={() => setSheet(null)}
+              onDone={(line) => {
+                setSheet(null);
+                setDone(line);
+                void load();
+              }}
+            />
+          )}
+          <h2>{t("checkIn.arriving")}</h2>
+          {arriving.length === 0 ? (
+            <p className="empty">{t("checkIn.noneArriving")}</p>
+          ) : (
+            <ul className="room-clocks">
+              {arriving.map((b) => {
+                const noShowOk =
+                  now !== null &&
+                  now.epochMilliseconds >= Temporal.Instant.from(b.no_show_from).epochMilliseconds;
+                return (
+                  <li key={b.id} className="room-clock" aria-label={b.guest_name}>
+                    <div className="room-clock-head">
+                      <span className="tile-name">{b.guest_name}</span>
+                      <span>{t("checkIn.guests", { party: b.party_size })}</span>
+                    </div>
+                    <div className="small">
+                      {t("checkIn.at", { time: time(b.starts_at, timeZone), room: b.room_name })}
+                    </div>
+                    <div className="row">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() =>
+                          setSheet({ kind: "booking", bookingId: b.id, name: b.guest_name })
+                        }
+                      >
+                        {t("checkIn.button")}
+                      </button>
+                      {noShowOk ? (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            void api("POST", `/v1/venues/${venueId}/bookings/${b.id}/no-show`, {})
+                              .then(() => load())
+                              .catch(() => setFailed(true))
+                          }
+                        >
+                          {t("checkIn.noShow")}
+                        </button>
+                      ) : (
+                        <span className="small muted">
+                          {t("checkIn.noShowFrom", { time: time(b.no_show_from, timeZone) })}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <h2>{t("checkIn.freeRooms")}</h2>
+          <ul className="room-clocks">
+            {free.map((r) => (
+              <li key={r.room_id} className="room-clock" aria-label={r.name}>
+                <span className="tile-name">{r.name}</span>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })}
+                >
+                  {t("checkIn.walkIn")}
+                </button>
+              </li>
+            ))}
+          </ul>
           <h2>{t("session.roomsInUse")}</h2>
           <ul className="room-clocks">
             {sessions.map((s) => {

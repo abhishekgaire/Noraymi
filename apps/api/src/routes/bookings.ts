@@ -20,6 +20,7 @@ import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
+import { noShowFrom } from "../rooms/checkin.js";
 
 /**
  * Staff bookings (M2-06; spec 04 · bookings, Room assignment; spec 08 · Bookings):
@@ -121,7 +122,16 @@ export function bookingsRoutes(app: FastifyInstance, options: { clock: Clock }):
         const on = request.query.business_date ?? (await today(c, request.venueId!)).toString();
         if (!date.safeParse(on).success)
           throw new ApiError("invalid_request", "business_date is YYYY-MM-DD");
-        return { business_date: on, bookings: await bookingsOn(c, request.venueId!, on) };
+        const rule = await readSetting(c, request.venueId!, "deposit", Temporal.PlainDate.from(on));
+        const grace = rule?.value.graceMin ?? 15;
+        return {
+          business_date: on,
+          bookings: (await bookingsOn(c, request.venueId!, on)).map((b) => ({
+            ...b,
+            // When Mark no-show becomes allowed (M2-11): the grace past the start, or a running-late hold if later.
+            no_show_from: noShowFrom(b.starts_at, grace, b.running_late_until).toString(),
+          })),
+        };
       }),
   );
 

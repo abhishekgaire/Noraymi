@@ -21,6 +21,8 @@ export interface Config {
   readonly databaseUrl: string;
   /** Where invite links open: the staff app's public URL (M1-23). Unset outside local until the app has a hostname. */
   readonly staffAppUrl: string | null;
+  /** GUEST_APP_URL: the guest site, where a room's join link opens (M2-11). Local defaults to the Next server. */
+  readonly guestAppUrl: string | null;
   /** Sign-in (M1-19): the key that seals authenticator secrets, and the passkey relying party. */
   readonly auth: AuthConfig;
   /** The Console's settings, or null where CONSOLE_URL isn't set yet (then the Console's routes don't exist). */
@@ -83,6 +85,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     host: source["HOST"] ?? "127.0.0.1",
     databaseUrl: appDatabaseUrl(source),
     staffAppUrl: staffAppUrl(env, source),
+    guestAppUrl: guestAppUrl(env, source),
     auth: loadAuthConfig(env, source),
     console: loadConsoleConfig(env, source),
     rulePackSigningKey:
@@ -153,4 +156,11 @@ export function loadConsoleConfig(
       "CONSOLE_OIDC_ISSUER, CONSOLE_OIDC_CLIENT_ID and CONSOLE_OIDC_CLIENT_SECRET are not set: the Console needs single sign-on in production",
     );
   return { url, rpId: source["CONSOLE_RP_ID"] ?? new URL(url).hostname, origins: [url], oidc };
+}
+
+function guestAppUrl(env: West4Env, source: Record<string, string | undefined>): string | null {
+  const raw = source["GUEST_APP_URL"] ?? (env === "local" ? "http://localhost:3001" : undefined);
+  if (!raw) return null;
+  if (!/^https?:\/\//.test(raw)) throw new Error("GUEST_APP_URL must be an http(s) URL");
+  return raw.replace(/\/+$/, "");
 }

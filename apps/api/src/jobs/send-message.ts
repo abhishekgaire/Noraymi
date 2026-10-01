@@ -31,7 +31,17 @@ export function makeSendMessageHandler(
       const message = await messageById(c, venueId, message_id);
       if (!message) return null;
       const twilio = await twilioIntegration(c, venueId);
-      if (!twilio) throw new Error("this venue has no Twilio number yet");
+      if (!twilio) {
+        // No number yet (the subaccount is set up once, by us): the text can't go, and staff see it failed.
+        await markMessage(c, venueId, { id: message_id }, "failed");
+        await emitEvent(c, {
+          venueId,
+          type: "message.updated",
+          entityId: message_id,
+          entityVersion: 0,
+        });
+        return null;
+      }
       if (!(await claimSendAttempt(c, venueId, message_id, clock.now().toString()))) return null;
       return { message, twilio };
     });

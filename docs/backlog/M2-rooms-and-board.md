@@ -256,7 +256,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** the API test checks the 14 keys in order, West 4's wording for texts 1 and 7, Reminder off refused by the sender, the marketing lock, slot checking and the empty reminder time; Playwright checks each section and the Spanish pass covers both.
 ### M2-11 · Build the check-in sheet, walk-ins and Mark no-show
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-07, M2-08, M2-09
 - **Spec:** [N10 Check-in sheet](../screens.md#n10-check-in-sheet); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · The board and staff phones (Check in); [API](../spec/08-api.md) · Bookings (`POST /bookings/{b}/check-in`, `/no-show`), Board and sessions (`POST /rooms/{r}/sessions`); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Joining a room
@@ -267,14 +267,17 @@ Definition of done: see CLAUDE.md.
   - [Mark no-show] beside Check in: `POST /bookings/{b}/no-show`, allowed only after `deposit.graceMin` (15 minutes) past the start. It sets `no_show` and frees the room's block.
   - A booking whose party isn't there shows Late on its tile, with its room held until `running_late_until` (set by the Running late reply in M2-22).
 - **Acceptance:**
-  - [ ] At 10:44 PM, checking in Sam O. with 3 guests shows "3 guests · Fridays bill at least 4" and his −$40.00 deposit, and texts his number a new 5-character code (never containing "2") with the join link.
-  - [ ] His room time bills 4 × $10.00 an hour with the one-hour minimum: $40.00.
-  - [ ] [Mark no-show] isn't shown, and the API refuses it, at 10:44 PM; from 10:45 PM it's shown, and marking it frees Room 2.
-  - [ ] [+ Walk-in] on Room 11 opens the same sheet with Room 11 filled in and seats the party with a new code.
-  - [ ] Checking a party into a room that doesn't fit, or isn't free, answers `409 room_not_free`.
+  - [x] At 10:44 PM, checking in Sam O. with 3 guests shows "3 guests · Fridays bill at least 4" and his −$40.00 deposit, and texts his number a new 5-character code (never containing "2") with the join link.
+  - [x] His room time bills 4 × $10.00 an hour with the one-hour minimum: $40.00.
+  - [x] [Mark no-show] isn't shown, and the API refuses it, at 10:44 PM; from 10:45 PM it's shown, and marking it frees Room 2.
+  - [x] [+ Walk-in] on Room 11 opens the same sheet with Room 11 filled in and seats the party with a new code.
+  - [x] Checking a party into a room that doesn't fit, or isn't free, answers `409 room_not_free`.
 - **Tests:** API integration tests on the simulated clock; Playwright for the sheet on the board and on a phone.
 - **Notes:** [Board](../screens.md#board) note 1 and [Staff](../screens.md#staff) notes 2 and 13. The join page the link opens is built in M3 (M3-08). The check-in body has no planned end, which a walk-in needs (Leo M. has 2 hours); this adds one to the walk-in route (flagged). What a no-show does to the deposit (a `fee` check with a `forfeit` line, or a first-hour charge) comes in M4 and M5. The spec doesn't say whether Mark no-show waits for a running-late hold that ends after the grace; cautious default: it waits for the later of the two (flagged).
-
+  - **Built:** `apps/api/src/rooms/checkin.ts` and `apps/api/src/routes/checkin.ts`: `GET /check-in/preview?booking=&room=&party=` (party, billable minimum and which day's, hourly rate, whether the room fits, deposit, when no-show is allowed), `POST /bookings/{b}/check-in` (`start_at` is `now` or `booked`, never the future), `POST /bookings/{b}/no-show`, and `POST /rooms/{r}/sessions` for a walk-in with `minutes` and an optional guest. Seating opens the session and its first segment at the rate in force, turns the booking's block into the session's (or takes the new room; a clash or a room too small answers `409 room_not_free`), sets the room in use, takes the check number first in its own transaction and opens the check, and queues the Room code text. `GET /bookings` now carries each booking's `no_show_from`. On Tonight: Arriving bookings with Check in and Mark no-show (shown from its time), Free rooms with + Walk-in, and the six-step sheet (`apps/staff/src/screens/CheckInSheet.tsx`), the same at desktop and phone widths.
+  - **Room codes:** five characters from an alphabet without 0, O, 1, I, L, 5, S, 8 and B, and never a digit of the room's own number; stored as `room_code_hash`, `token_version` 1, and a separate host token (hashed in `host_token_hash`) that the join link carries: `GUEST_APP_URL/r/{host token}`. Staff see the code once, on the confirmation line.
+  - **Cautious defaults, flagged:** the seed's Room code wording had no slot for the join link spec 11 requires, so the template adds "Or open {link}"; `GUEST_APP_URL` is a new setting (local default the guest dev server); a text that can't go (no number, Guest texts off, no Twilio number yet) never blocks seating, and the line says to tell the host; a pending booking (deposit not yet collected) can still be checked in until M4/M5 decide otherwise; the IDs-checked count is taken here and recorded once `id_checks` lands in M2-12. A check number taken for a check-in that then fails is skipped (M4 adds the gapless guarantees).
+  - **Also:** a text job for a venue with no Twilio number marks the message failed instead of retrying; check numbers on screen read "#1054", not "#1,054".
 ### M2-12 · Record ID checks at check-in
 
 - **Status:** todo

@@ -204,7 +204,8 @@ export const SEED_TEXT_TEMPLATES: Readonly<Record<string, { key: string; body: s
   },
   code: {
     key: "room_code",
-    body: "Welcome to {room}. To order drinks from your phone, scan the code on the wall and enter room code {code}.",
+    // The seed's wording plus the join link spec 11 says this text carries (flagged in M2-11).
+    body: "Welcome to {room}. To order drinks from your phone, scan the code on the wall and enter room code {code}. Or open {link}",
   },
   ready: {
     key: "room_ready",

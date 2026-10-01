@@ -26,7 +26,7 @@ export const TEMPLATE_EXAMPLES: Readonly<
     link: "west4karaoke.com/b/…",
   },
   reminder: { venue: "West 4", party: 6, time: "9:30 PM", address: "186 W 4th St" },
-  room_code: { room: "Room 9", code: "KX4M7" },
+  room_code: { room: "Room 9", code: "KX4M7", link: "west4karaoke.com/r/…" },
   room_ready: { room: "Room 11" },
   offer_expiring: { venue: "West 4" },
   please_wrap_up: { room: "Room 9" },
