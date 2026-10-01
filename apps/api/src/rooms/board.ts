@@ -154,8 +154,25 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
     open: 0,
   };
   counts.open = rooms.length - counts.in_use - counts.cleaning - counts.out_of_service;
+  // Room tablets online: paired, not revoked, and not flagged offline by the device watch (M1-17).
+  const tablets = (
+    await c.query<{ total: number; online: number }>(
+      `select count(*)::int as total,
+              count(*) filter (where h.device_id is not null and h.offline_since is null)::int as online
+         from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
+        where d.venue_id = $1 and d.kind = 'room_tablet' and d.revoked_at is null`,
+      [venueId],
+    )
+  ).rows[0]!;
   const alerts = await boardAlerts(c, venueId, now, { rooms, sessions, calls, noticeMin });
-  return { at: now.toString(), close: avail.close, rooms, counts, headcount: count, alerts };
+  return {
+    at: now.toString(),
+    close: avail.close,
+    rooms,
+    counts: { ...counts, tablets_online: tablets.online, tablets: tablets.total },
+    headcount: count,
+    alerts,
+  };
 }
 
 /**

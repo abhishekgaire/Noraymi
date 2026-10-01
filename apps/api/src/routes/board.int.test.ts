@@ -8,6 +8,7 @@ import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
 import pg from "pg";
+import { hashRoomCode } from "../rooms/checkin.js";
 
 /** M2-29 acceptance: `GET /board` at 10:41 PM read against seed/west4-friday.json. */
 type SeedRoom = { id: string; name: string; board_label: string };
@@ -144,7 +145,7 @@ describe("the Tonight board at 10:41 PM", () => {
 
   it("counts 8 in use, 3 open, 2 cleaning and 1 out of service, and colors Room 3 amber and Rooms 7 and 10 red", async () => {
     const b = await read();
-    expect(b.counts).toEqual({
+    expect(b.counts).toMatchObject({
       in_use: seed.counts.rooms.in_use_or_wrap_up,
       open: seed.counts.rooms.open,
       cleaning: seed.counts.rooms.cleaning,
@@ -225,5 +226,24 @@ describe("the Tonight board at 10:41 PM", () => {
       ["grey", "wipe", ["Room 6 8", "Room 13 5"], ["Nadia K.", "Chris P."]],
       ["grey", "late", "Sam O.", "running 15 late", "Room 2"],
     ]);
+  });
+
+  it("a fresh load matches Counts at 10:41 PM: 3 waiting parties (16 people), 13 of 14 room tablets online, and Room 9's code KX4M7", async () => {
+    clock.set(SEED_NOW);
+    const b = (await app.inject({ method: "GET", url: `/v1/venues/${venueId}/board` })).json<{
+      counts: { tablets_online: number; tablets: number };
+      headcount: { waiting: number };
+    }>();
+    expect(b.counts).toMatchObject({ tablets_online: 13, tablets: 14 });
+    expect(b.headcount.waiting).toBe(16);
+    const w = await app.inject({ method: "GET", url: `/v1/venues/${venueId}/waitlist` });
+    expect(w.json<{ entries: unknown[] }>().entries).toHaveLength(3);
+    const raw = new pg.Client({ connectionString: db.url });
+    await raw.connect();
+    const code = await raw.query<{ room_code_hash: string }>(
+      "select s.room_code_hash from room_sessions s join rooms r on r.id = s.room_id where r.name = 'Room 9' and s.ended_at is null",
+    );
+    await raw.end();
+    expect(code.rows[0]!.room_code_hash).toBe(hashRoomCode(venueId, "KX4M7"));
   });
 });

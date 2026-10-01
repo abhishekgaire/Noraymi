@@ -2,6 +2,19 @@ import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
 
+/**
+ * Every test starts from a fresh load of the demo seed at 10:41 PM, whatever
+ * the test before it did (M2-35): the seed's tables, and the API's simulated
+ * clock.
+ */
+test.beforeEach(async ({ request }) => {
+  execSync("pnpm seed", { stdio: "ignore" });
+  const clock = await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+    data: { server_time: "2026-09-26T02:41:00Z" },
+  });
+  expect(clock.ok()).toBe(true);
+});
+
 test("the guest web opens", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Guest web");
@@ -17,7 +30,6 @@ test("the door QR on a phone: a party of 4 joins fourth, 3 parties ahead, then l
   request,
 }) => {
   test.setTimeout(90_000);
-  execSync("pnpm seed", { stdio: "ignore" });
   expect(
     (
       await request.post("http://127.0.0.1:3000/v1/ops/clock", {

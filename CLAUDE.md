@@ -111,7 +111,7 @@ docker compose up -d    # Postgres 16 (localhost:5432), the local S3 store (Rust
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
 pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
-pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 part so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
+pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 and M2 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 pnpm check              # lint, i18n, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
 pnpm lint && pnpm typecheck && pnpm test

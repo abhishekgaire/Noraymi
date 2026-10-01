@@ -29,6 +29,19 @@ const ADMIN_SECTIONS = [
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
 /**
+ * Every test starts from a fresh load of the demo seed at 10:41 PM, whatever
+ * the test before it did (M2-35): the seed's tables, and the API's simulated
+ * clock.
+ */
+test.beforeEach(async ({ request }) => {
+  execSync("pnpm seed", { stdio: "ignore" });
+  const clock = await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+    data: { server_time: "2026-09-26T02:41:00Z" },
+  });
+  expect(clock.ok()).toBe(true);
+});
+
+/**
  * The sign-in routes allow 30 calls a minute from one address, and a full smoke run signs in many
  * times: a 429 waits out the window instead of failing (the limit itself stays).
  */
@@ -1615,7 +1628,6 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
   await db.connect();
   try {
     // Earlier tests seat a walk-in in Room 11; this one starts from a fresh load of the demo seed at 10:41 PM.
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -1814,7 +1826,6 @@ test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a 
   await db.connect();
   try {
     // Earlier tests check Sam O. in; this one starts from a fresh load of the demo seed at 10:41 PM.
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -1888,7 +1899,6 @@ test("the waitlist drawer: Waitlist · 3, the three parties, and Remove", async 
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -1935,7 +1945,6 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2013,7 +2022,6 @@ test("the headcount: 93 inside, limit not set, the door counter, and Admin → S
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2071,7 +2079,6 @@ test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile"
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2130,7 +2137,6 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2201,7 +2207,6 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2278,7 +2283,6 @@ test("the staff phone: Andy's Tonight, booking actions by status, and a runner's
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2418,7 +2422,6 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2494,7 +2497,6 @@ test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minut
   });
   await db.connect();
   try {
-    execSync("pnpm seed", { stdio: "ignore" });
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
     ).toBe(true);
@@ -2556,3 +2558,191 @@ test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minut
     await db.end();
   }
 });
+
+/**
+ * The seed's M2 scenarios (M2-35; seed `scenarios`), each from a fresh load at
+ * 10:41 PM, on desktop and phone sizes.
+ */
+const SIZES = [
+  { name: "desktop", width: 1280, height: 800 },
+  { name: "phone", width: 390, height: 844 },
+] as const;
+
+async function signInAndy(page: Page, request: APIRequestContext, db: pg.Client) {
+  await db.query("update memberships set locale = 'en'");
+  await page.goto("/");
+  await enrolPasskey(page, request, db, ANDY);
+  await page.getByLabel("Email").fill(ANDY);
+  await page.getByRole("button", { name: "Continue with a passkey" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+}
+const setClock = async (request: APIRequestContext, iso: string) =>
+  expect((await request.post("/v1/ops/clock", { data: { server_time: iso } })).ok()).toBe(true);
+const dbClient = async () => {
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  return db;
+};
+
+for (const size of SIZES) {
+  test.describe(`M2 scenarios on ${size.name}`, () => {
+    test.beforeEach(async ({ page }) => {
+      await page.setViewportSize({ width: size.width, height: size.height });
+    });
+
+    test(`sam_check_in (${size.name}): at 10:44 Sam O. checks in with 3, billed as 4 with the first-hour minimum`, async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(120_000);
+      const db = await dbClient();
+      try {
+        await signInAndy(page, request, db);
+        await setClock(request, "2026-09-26T02:44:00Z");
+        await page.reload();
+        await page
+          .getByRole("listitem", { name: "Sam O.", exact: true })
+          .getByRole("button", { name: "Check in" })
+          .click();
+        const sheet = page.getByRole("dialog", { name: "Check in Sam O." });
+        await expect(sheet).toContainText("3 guests · Fridays bill at least 4");
+        await expect(sheet).toContainText("Deposit applied −$40.00");
+        await sheet.getByRole("button", { name: "Check in" }).click();
+        await expect(
+          page.getByText(/^Room 2 · room code [A-Z2-9]{5} · check #\d{4}$/),
+        ).toBeVisible();
+        const texted = await db.query<{ body: string }>(
+          "select m.body from messages m join message_templates t on t.id = m.template_id where t.key = 'room_code' order by m.created_at desc limit 1",
+        );
+        expect(texted.rows[0]!.body).toMatch(
+          /^Welcome to Room 2\..*room code [A-Z2-9]{5}\. Or open http/,
+        );
+        const room2 = page.getByRole("listitem", { name: "Room 2", exact: true });
+        await expect(room2).toContainText("Room time so far $40.00");
+        expect(await clippedText(page)).toEqual([]);
+      } finally {
+        await db.end();
+      }
+    });
+
+    test(`sam_no_show (${size.name}): Mark no-show only from 10:45, Room 2 frees, the fourth guest's page offers it`, async ({
+      page,
+      browser,
+      request,
+    }) => {
+      test.setTimeout(120_000);
+      const db = await dbClient();
+      try {
+        const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
+          .slug;
+        const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
+        await guest.goto(`http://localhost:3001/v/${slug}/waitlist`);
+        await guest.getByLabel("Your name").fill("Jordan L.");
+        await guest.getByLabel("Mobile number").fill("2125550145");
+        await guest.getByLabel("How many of you").fill("4");
+        await guest.getByRole("button", { name: "Join the waitlist" }).click();
+        await expect(guest.getByRole("status")).toHaveText("3 parties ahead");
+
+        await signInAndy(page, request, db);
+        const sam = page.getByRole("listitem", { name: "Sam O.", exact: true });
+        await expect(sam).toContainText(/No-show from 10:45\s?PM/);
+        await expect(sam.getByRole("button", { name: "Mark no-show" })).toHaveCount(0);
+        await setClock(request, "2026-09-26T02:45:00Z");
+        await page.reload();
+        await sam.getByRole("button", { name: "Mark no-show" }).click();
+        await expect(page.getByRole("listitem", { name: "Sam O.", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("listitem", { name: "Room 2", exact: true })).toContainText(
+          "Open",
+        );
+
+        await page.getByRole("button", { name: /^Waitlist · \d$/ }).click();
+        await page
+          .getByRole("complementary", { name: "Waitlist" })
+          .getByRole("listitem", { name: "Jordan L." })
+          .getByRole("button", { name: "Offer a room" })
+          .click();
+        await guest.reload();
+        await expect(guest.getByRole("status")).toHaveText(
+          /^Room 2 is ready · (10:00|9:5\d) to claim it$/,
+        );
+        await guest.close();
+      } finally {
+        await db.end();
+      }
+    });
+
+    test(`offer_room11 (${size.name}): Room 11 held 10 minutes for Amara B., Not delivered · Call, then Seat`, async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(120_000);
+      const db = await dbClient();
+      try {
+        await signInAndy(page, request, db);
+        const band = page.getByRole("list", { name: "Alerts" });
+        await band.getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
+        const drawer = page.getByRole("complementary", { name: "Waitlist" });
+        const amara = drawer.getByRole("listitem", { name: "Amara B." });
+        await expect(amara.getByRole("timer")).toHaveText(/^Room 11 · (10:00|9:\d\d) to claim$/);
+        const text = await db.query<{ id: string; body: string }>(
+          "select m.id, m.body from messages m join message_templates t on t.id = m.template_id where t.key = 'room_ready' order by m.created_at desc limit 1",
+        );
+        expect(text.rows[0]!.body).toBe(
+          "Your room is ready: Room 11. You have 10 minutes to claim it at the front desk.",
+        );
+        // The text fails (as Twilio would report it): the row says so, with her number.
+        await db.query("update messages set status = 'failed' where id = $1", [text.rows[0]!.id]);
+        await page.reload();
+        await page.getByRole("button", { name: /^Waitlist · \d$/ }).click();
+        await expect(amara).toContainText("Not delivered · Call (347) 555-0177");
+        await amara.getByRole("button", { name: "Seat" }).click();
+        await amara.getByLabel("IDs checked").fill("7");
+        await amara.getByRole("button", { name: "Check in" }).click();
+        await expect(drawer.getByRole("listitem", { name: "Amara B." })).toHaveCount(0);
+        await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).toContainText(
+          "Amara B. · 7",
+        );
+        expect(await clippedText(page)).toEqual([]);
+      } finally {
+        await db.end();
+      }
+    });
+
+    test(`room7_move (${size.name}): Move a room… from Room 7's alert to Room 11 with a new code; Room 7 goes to cleaning`, async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(120_000);
+      const db = await dbClient();
+      try {
+        await signInAndy(page, request, db);
+        await page
+          .getByRole("list", { name: "Alerts" })
+          .getByRole("listitem")
+          .first()
+          .getByRole("button", { name: "Move a room…" })
+          .click();
+        const sheet = page.getByRole("dialog", { name: "Move Room 7" });
+        await expect(sheet.getByRole("button")).toHaveText(["Room 11 · free all night", "Cancel"]);
+        await expect(sheet).toContainText("Room 8 · booked next");
+        await sheet.getByRole("button", { name: "Room 11 · free all night" }).click();
+        await expect(page.getByText(/^Moved to Room 11 · new code [A-Z2-9]{5}$/)).toBeVisible();
+        await expect(page.getByRole("listitem", { name: "Room 7", exact: true })).toContainText(
+          "Needs a wipe",
+        );
+        const moved = await db.query(
+          "select 1 from venue_events where type = 'session.moved' order by seq desc limit 1",
+        );
+        expect(moved.rowCount).toBe(1);
+        const parks = await db.query<{ name: string }>(
+          "select r.name from bookings b join guests g on g.id = b.guest_id join rooms r on r.id = b.room_id where g.name = 'The Parks'",
+        );
+        expect(parks.rows).toEqual([{ name: "Room 7" }]);
+      } finally {
+        await db.end();
+      }
+    });
+  });
+}

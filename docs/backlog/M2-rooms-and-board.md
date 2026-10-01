@@ -815,7 +815,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-35 · Finish the M2 part of the demo seed and run its scenarios end to end
 
-- **Status:** doing
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-29, M2-30, M2-31, M2-32, M2-33
 - **Spec:** [Demo seed · Loading the seed](../demo-seed.md#loading-the-seed), [Things to try](../demo-seed.md#things-to-try); [Testing and operations](../spec/13-testing-operations.md) · The demo seed, Tests (end-to-end browser tests); [west4-friday.json](../../seed/west4-friday.json)
@@ -823,9 +823,9 @@ Definition of done: see CLAUDE.md.
   - The M2 part of the loader, finished: `guests`, `rooms`, `bookings`, `sessions` with their segments (Room 9's code KX4M7 fixed, the rest made by the loader), `earlier_sessions`, `waitlist`, `waitlist_earlier`, `texts`, `inbox`, the checks and their lines (M2-08), Room 4's fault, Room 6's note, Room 9's call and the `duty_managers` stand-in (Andy).
   - End-to-end tests for the M2 scenarios in the seed's `scenarios`: `sam_check_in`, `sam_no_show`, `offer_room11` and `room7_move`, each from a fresh load, on phone and desktop sizes.
 - **Acceptance:**
-  - [ ] A fresh load matches [Counts at 10:41 PM](../demo-seed.md#counts-at-1041-pm) for rooms, the waitlist and room tablets.
-  - [ ] The four scenarios pass as their `expect` text in the seed says.
-  - [ ] Every test starts at 10:41 PM whatever the test before it did.
+  - [x] A fresh load matches [Counts at 10:41 PM](../demo-seed.md#counts-at-1041-pm) for rooms, the waitlist and room tablets.
+  - [x] The four scenarios pass as their `expect` text in the seed says.
+  - [x] Every test starts at 10:41 PM whatever the test before it did.
 - **Tests:** the four scenario tests, plus the board test from M2-29, run in CI on every pull request.
 - **Notes:** The waitlist page's demo ("3 parties ahead", "Room 2 is ready · 10:00 to claim it") runs in `sam_no_show` and `offer_room11`.
 
@@ -867,3 +867,9 @@ Every item milestones.md lists for M2, and the tickets that build it.
 | Done when · 6 | Diego's pause request reaches Andy's inbox only; "Waiting for Andy"; Andy's goes to Abhishek | M2-15, M2-16 |
 | Done when · 7 | "Limit not set · Admin → Safety" and no number | M2-28 |
 | Done when · 8 | "running 15 late" lands on the right booking; STOP stops every text at once | M2-22, M2-23 |
+  - Finished the M2 loader: every session now carries a room code (Room 9's fixed KX4M7; the rest made the same on every load, never with a digit of the room's number) and its guest; `earlier_sessions` (Ella S. in Room 6 and Yuki H. in Room 13, paid and left) and `waitlist_earlier` (Leo M., seated into Room 5 at 10:00 PM) load too. With the earlier tickets' parts (guests, rooms, bookings, sessions and segments, checks and lines, texts, the inbox, the waitlist, Room 4's fault, Room 6's note, Room 9's call, Andy as manager on duty), the M2 part is complete.
+  - As flagged: the seed gives the earlier sessions only when they left and Leo M.'s entry only when he was seated, so those times stand for the missing ones.
+  - `GET /board` counts room tablets online (13 of 14: Room 4's is off), and the board test checks the counts against Counts at 10:41 PM (rooms, the waitlist's 3 parties and 16 people, and the tablets).
+  - The four scenarios (`sam_check_in`, `sam_no_show`, `offer_room11`, `room7_move`) run at desktop and phone sizes; with the board test they run in CI's e2e job on every pull request. The Room ready failure in `offer_room11` is the status a failed send records; the offer's expiry to Nadia K. is in the API test (the sweep runs in the worker, not the dev server).
+  - Every staff and guest smoke test now starts from a fresh load at 10:41 PM (`beforeEach`: `pnpm seed` and the simulated clock), whatever the test before it did.
+

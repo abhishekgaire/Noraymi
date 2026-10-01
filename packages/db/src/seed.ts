@@ -151,6 +151,8 @@ export interface SeedSession {
   readonly booking: string | null;
   /** The party's guest: the booking's, or a walk-in's (Leo M. in Room 5). */
   readonly guest?: string | null;
+  /** The room code guests join with; Room 9's is fixed (KX4M7), the rest the loader makes. */
+  readonly room_code?: string | null;
   readonly started_at: string;
   readonly booked_end_at: string | null;
   readonly business_date: string;
@@ -295,6 +297,21 @@ const SEED_NAMESPACE = "6f1a1c0e-5b3d-4b7e-9c2a-4d8e7f6a5b3c";
  */
 /** Rooms whose seed `note` is a staff note on the room (docs/demo-seed.md · Rooms), not an explanation. */
 const STAFF_ROOM_NOTES = new Set(["room_6", "room_vip"]);
+
+/** The staff app's room-code alphabet (apps/api/src/rooms/checkin.ts): no 0/O, 1/I, 5/S or 8/B. */
+const ROOM_CODE_ALPHABET = "ACDEFGHJKMNPQRTUVWXY234679";
+
+/** A seed session's room code, the same on every load, never with a digit of the room's number. */
+export function seedRoomCode(slug: string, roomName: string): string {
+  const banned = new Set(roomName.replace(/\D/g, "").split(""));
+  const alphabet = [...ROOM_CODE_ALPHABET].filter((ch) => !banned.has(ch));
+  const bytes = createHash("sha256").update(`room-code:${slug}`).digest();
+  return Array.from({ length: 5 }, (_, i) => alphabet[bytes[i]! % alphabet.length]).join("");
+}
+
+/** As the API hashes a room code (apps/api/src/rooms/checkin.ts · hashRoomCode). */
+export const roomCodeHash = (venueId: string, code: string) =>
+  createHash("sha256").update(`${venueId}:${code.toUpperCase()}`).digest("hex");
 
 export function seedUuid(slug: string): string {
   const ns = Buffer.from(SEED_NAMESPACE.replace(/-/g, ""), "hex");
@@ -979,8 +996,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     // check_id is the check's stable id; the checks themselves load in M3.
     for (const sess of seed.sessions) {
       await client.query(
-        `insert into room_sessions (id, venue_id, room_id, booking_id, check_id, party_size, started_at, booked_end_at, business_date, guest_id)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        `insert into room_sessions (id, venue_id, room_id, booking_id, check_id, party_size, started_at, booked_end_at, business_date, guest_id,
+                                    room_code_hash, token_version)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1)`,
         [
           id(sess.id),
           venueId,
@@ -992,6 +1010,11 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
           sess.booked_end_at,
           sess.business_date,
           sess.guest ? id(sess.guest) : null,
+          roomCodeHash(
+            venueId,
+            sess.room_code ??
+              seedRoomCode(sess.id, seed.rooms.find((r) => r.id === sess.room)?.name ?? ""),
+          ),
         ],
       );
       for (const seg of sess.segments) {
@@ -1075,6 +1098,44 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         ],
       );
     log(`waitlist: ${waiting.length}`);
+
+    // Who was here earlier (M2-35): Ella S. in Room 6 and Yuki H. in Room 13 paid and left, which is why those rooms
+    // need a wipe. The seed gives when they left, not when they came, so their sessions start and end then (flagged).
+    type SeedEarlier = { room: string; guest: string; party_size: number; left_at: string };
+    const earlier = (seed as { earlier_sessions?: SeedEarlier[] }).earlier_sessions ?? [];
+    for (const e of earlier)
+      await client.query(
+        `insert into room_sessions (venue_id, room_id, guest_id, party_size, started_at, ended_at, business_date, token_version)
+           values ($1, $2, $3, $4, $5, $5, '2026-09-25', 1)`,
+        [venueId, id(e.room), id(e.guest), e.party_size, new Date(e.left_at)],
+      );
+    // And the earlier waitlist: Leo M. (4), seated into Room 5 at 10:00 PM. The seed has no join time; the entry
+    // records the seating time for both (flagged).
+    type SeedWaitEarlier = {
+      id: string;
+      guest: string;
+      party_size: number;
+      joined_at: string | null;
+      status: string;
+      seated_at: string;
+    };
+    const waitedEarlier = (seed as { waitlist_earlier?: SeedWaitEarlier[] }).waitlist_earlier ?? [];
+    for (const w of waitedEarlier)
+      await client.query(
+        `insert into waitlist_entries (id, venue_id, guest_id, party_size, size_tier_needed, joined_at, status, source, ended_at)
+           values ($1, $2, $3, $4, $5, $6, $7, 'staff', $8)`,
+        [
+          remember(w.id, "waitlist_entries"),
+          venueId,
+          id(w.guest),
+          w.party_size,
+          tierOf(w.party_size),
+          new Date(w.joined_at ?? w.seated_at),
+          w.status,
+          new Date(w.seated_at),
+        ],
+      );
+    log(`earlier: ${earlier.length} sessions, ${waitedEarlier.length} seated from the waitlist`);
 
     // The inbox (M2-22; docs/demo-seed.md · Inbox threads): Sam O.'s unread "running 15 late", and Marcus T.'s
     // and Bianca L.'s threads. Texts without a time in the seed keep their order but show no time.
