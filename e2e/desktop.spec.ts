@@ -38,16 +38,20 @@ function filesUnder(dir: string): { file: string; text: string }[] {
 test("the desktop app opens the staff app, with no Node.js in the page", async () => {
   const app = await launch(mkdtempSync(path.join(tmpdir(), "west4-desktop-")));
   try {
-    const window = await app.firstWindow();
-    await expect(window.getByRole("heading", { level: 1 })).toHaveText("Sign in");
-    const reach = await window.evaluate(() => ({
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    const reach = await page.evaluate(() => ({
       require: typeof (globalThis as { require?: unknown }).require,
       process: typeof (globalThis as { process?: unknown }).process,
       bridge: typeof (globalThis as { west4?: { desktop?: boolean } }).west4?.desktop,
     }));
     expect(reach).toEqual({ require: "undefined", process: "undefined", bridge: "boolean" });
     const isolated = await app.evaluate(({ BrowserWindow }) => {
-      const prefs = BrowserWindow.getAllWindows()[0]!.webContents.getLastWebPreferences();
+      const contents = BrowserWindow.getAllWindows()[0]!.webContents as unknown as {
+        getLastWebPreferences():
+          { contextIsolation?: boolean; sandbox?: boolean; nodeIntegration?: boolean } | undefined;
+      };
+      const prefs = contents.getLastWebPreferences();
       return {
         contextIsolation: prefs?.contextIsolation,
         sandbox: prefs?.sandbox,
@@ -63,14 +67,14 @@ test("the desktop app opens the staff app, with no Node.js in the page", async (
 test("navigating to a host that isn't ours is blocked, and new windows are denied", async () => {
   const app = await launch(mkdtempSync(path.join(tmpdir(), "west4-desktop-")));
   try {
-    const window = await app.firstWindow();
-    await expect(window.getByRole("heading", { level: 1 })).toHaveText("Sign in");
-    await window.evaluate(() => {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    await page.evaluate(() => {
       window.location.assign("https://example.com/");
     });
-    await window.waitForTimeout(1000);
-    expect(new URL(window.url()).origin).toBe("http://localhost:5173");
-    const opened = await window.evaluate(() => window.open("https://example.com/") === null);
+    await page.waitForTimeout(1000);
+    expect(new URL(page.url()).origin).toBe("http://localhost:5173");
+    const opened = await page.evaluate(() => window.open("https://example.com/") === null);
     expect(opened).toBe(true);
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
   } finally {
@@ -82,11 +86,11 @@ test("an IPC message from an unexpected frame is refused; the token is kept in n
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
   const app = await launch(userData);
   try {
-    const window = await app.firstWindow();
-    await expect(window.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
     const token = "bearer-test-token-" + Math.random().toString(36).slice(2);
-    await window.evaluate((t) => window.west4!.token.set(t), token);
-    expect(await window.evaluate(() => window.west4!.token.get())).toBe(token);
+    await page.evaluate((t) => window.west4!.token.set(t), token);
+    expect(await page.evaluate(() => window.west4!.token.get())).toBe(token);
     const stored = await app.evaluate(({ app: a }) => a.getPath("userData"));
     const plain = filesUnder(stored).filter((f) => f.text.includes(token));
     expect(plain.map((f) => f.file)).toEqual([]);
