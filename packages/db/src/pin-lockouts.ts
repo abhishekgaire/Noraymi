@@ -184,9 +184,17 @@ export async function pinMembership(
 export async function nameTiles(
   client: Queryable,
   venueId: string,
-): Promise<{ membershipId: string; name: string; role: string; hasPin: boolean }[]> {
-  const r = await client.query<{ id: string; name: string; role: string; has_pin: boolean }>(
-    `select m.id, u.name, m.role, m.pin_verifier is not null as has_pin
+): Promise<
+  { membershipId: string; name: string; role: string; locale: string; hasPin: boolean }[]
+> {
+  const r = await client.query<{
+    id: string;
+    name: string;
+    role: string;
+    locale: string;
+    has_pin: boolean;
+  }>(
+    `select m.id, u.name, m.role, m.locale, m.pin_verifier is not null as has_pin
      from memberships m join users u on u.id = m.user_id
      where m.venue_id = $1 and m.status = 'active'
      order by u.name`,
@@ -196,6 +204,7 @@ export async function nameTiles(
     membershipId: row.id,
     name: row.name,
     role: row.role,
+    locale: row.locale,
     hasPin: row.has_pin,
   }));
 }

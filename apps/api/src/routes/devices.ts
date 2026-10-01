@@ -122,7 +122,25 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
           "forbidden",
           "that code isn't valid: it was used, it expired, or it never existed",
         );
-      return reply.code(201).send({ device_id: claimed.deviceId, venue_id: claimed.venueId });
+      // The screen needs to know what it became and whose clock it runs on (M1-26).
+      const about = await withVenue(app.db.pool, { venueId: claimed.venueId }, async (c) => {
+        const d = await c.query<{ kind: string; name: string }>(
+          "select kind, name from devices where venue_id = $1 and id = $2",
+          [claimed.venueId, claimed.deviceId],
+        );
+        const v = await c.query<{ name: string; time_zone: string; day_cutover: string }>(
+          "select name, time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
+          [claimed.venueId],
+        );
+        return { device: d.rows[0]!, venue: v.rows[0]! };
+      });
+      return reply.code(201).send({
+        device_id: claimed.deviceId,
+        venue_id: claimed.venueId,
+        kind: about.device.kind,
+        name: about.device.name,
+        venue: { id: claimed.venueId, ...about.venue },
+      });
     },
   );
 

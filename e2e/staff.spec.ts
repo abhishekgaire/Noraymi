@@ -13,7 +13,7 @@ import { catalogs } from "@west4/shared";
  * language tests).
  */
 const ANDY = "andy@demo.west4.local";
-const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/sign-in"];
+const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
 async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Client) {
   // Andy's seed row has a demo authenticator; the first passkey by email needs an account with no credential yet.
@@ -66,6 +66,32 @@ async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Clien
     },
   });
   expect(enrolled.status(), await enrolled.text()).toBe(201);
+}
+
+/** A pairing code for a shared screen, written the way Admin → Devices makes one (M1-15). */
+async function pairingCode(
+  db: pg.Client,
+  kind: "bar_computer" | "front_desk",
+  name: string,
+): Promise<string> {
+  const code = randomBytes(4).toString("hex").toUpperCase();
+  const venue = await db.query<{ id: string }>("select id from venues limit 1");
+  await db.query(
+    "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, $3, $4, now() + interval '1 hour')",
+    [
+      venue.rows[0]!.id,
+      createHash("sha256").update(code.trim().toUpperCase()).digest("hex"),
+      kind,
+      name,
+    ],
+  );
+  return code;
+}
+
+/** Tap a PIN on the keypad. */
+async function typePin(page: Page, pin: string): Promise<void> {
+  for (const digit of pin)
+    await page.locator(".keypad").getByRole("button", { name: digit, exact: true }).click();
 }
 
 /** Every line of text on the page, as a person reads it. */
@@ -297,7 +323,10 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
   try {
     const venue = await db.query<{ id: string }>("select id from venues limit 1");
     const venueId = venue.rows[0]!.id;
-    // The seed wipes the venue's rows, not a person this test made last time.
+    // The seed wipes the venue's rows, not a person this test made last time, nor his sessions.
+    await db.query(
+      "delete from auth_sessions where user_id in (select id from users where email = 'diego-test@demo.west4.local')",
+    );
     await db.query("delete from users where email = 'diego-test@demo.west4.local'");
     const user = await db.query<{ id: string }>(
       "insert into users (name, email) values ('Diego Test', 'diego-test@demo.west4.local') returning id",
@@ -335,11 +364,14 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
     await page.getByLabel("Type it again").fill("1234");
     await page.getByRole("button", { name: "Set my PIN" }).click();
     await expect(page.getByRole("alert")).toHaveText("Not a run like 1234");
-    await page.getByLabel("Choose your PIN", { exact: true }).fill("6358");
-    await page.getByLabel("Type it again").fill("6358");
-    await page.getByRole("button", { name: "Set my PIN" }).click();
+    // He picks Español here, on his own phone: it's saved on his membership.
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Elige tu PIN");
+    await page.getByLabel("Elige tu PIN", { exact: true }).fill("6358");
+    await page.getByLabel("Escríbelo otra vez").fill("6358");
+    await page.getByRole("button", { name: "Guardar mi PIN" }).click();
     await expect(page.getByRole("status")).toHaveText(
-      "You're set · sign in with your badge or name and PIN",
+      "Listo · inicia sesión con tu tarjeta o con tu nombre y PIN",
     );
     expect(await clippedText(page)).toEqual([]);
 
@@ -352,7 +384,111 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
     expect(after.rows[0]!.pin_verifier).toMatch(/^\$argon2id\$/);
     expect(after.rows[0]!.devices).toBe("1");
     await page.goto(`/invite/${token}`);
-    await expect(page.getByRole("status")).toHaveText("This link was already used");
+    await expect(page.getByRole("status")).toHaveText("Este enlace ya se usó");
+
+    // His phone now signs him in with his PIN alone, and every screen he reaches is in Spanish.
+    await page.goto("/sign-in");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Iniciar sesión");
+    await typePin(page, "6358");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+    await expect(page.locator(".tabs")).toContainText("Esta noche");
+    await expect(page.locator(".tabs")).toContainText("Alertas");
+    for (const path of ["/setup", "/admin"]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      expect(await clippedText(page), `${path} on his phone`).toEqual([]);
+    }
+    await expect(page.getByRole("status")).toHaveText(
+      "Admin necesita tu llave de acceso. Ábrelo en la app de escritorio o en un navegador.",
+    );
+    expect(await page.locator("body").innerText()).not.toMatch(/\d{4}/);
+
+    // His next sign-in on the front-desk computer: tapping his tile puts the pad in his language.
+    const desk = await page
+      .context()
+      .browser()!
+      .newContext({ viewport: { width: 1280, height: 800 } });
+    const deskPage = await desk.newPage();
+    try {
+      await deskPage.goto("/sign-in");
+      await deskPage.getByRole("button", { name: "Pair this screen" }).click();
+      await deskPage
+        .getByLabel("Pairing code from Admin → Devices")
+        .fill(await pairingCode(db, "front_desk", "Front desk"));
+      await deskPage.getByRole("button", { name: "Pair", exact: true }).click();
+      await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+      await deskPage.getByRole("button", { name: /Diego Test/ }).click();
+      await expect(deskPage.getByText("Diego Test · escribe tu PIN")).toBeVisible();
+      await typePin(deskPage, "6358");
+      await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+      await expect(deskPage.locator(".topbar .who")).toHaveText("Diego Test · Recepción");
+    } finally {
+      await desk.close();
+    }
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The bar computer (M1-26): paired by a code, it shows name tiles. Maya's name
+ * and PIN open her home, the bar POS; Andy's and Diego's open Tonight. The
+ * sign-in screen reads the venue's 10:41 PM whatever the browser's clock says,
+ * and says "badge or name and PIN".
+ */
+test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's open Tonight", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    // The browser's clock stays real here: a paired screen signs its requests with it (±5 minutes at the API).
+    // The time on screen is the venue's simulated 10:41 PM, which the real clock never is for long.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    await expect(page.locator(".clock-line time")).toHaveText("10:41 PM");
+    await expect(page.getByText("No badge? Tap your name, then your PIN")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Refunds, cash counts and no-sale ask for the PIN again; Admin needs a passkey",
+      ),
+    ).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    const signIn = async (name: RegExp, pin: string, home: string) => {
+      await page.getByRole("button", { name }).click();
+      await typePin(page, pin);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(home);
+      await page.getByRole("button", { name: "Lock" }).click();
+      await expect(page.getByRole("status")).toHaveText("Locked · sign in to continue");
+    };
+    // A wrong PIN says so and nothing more.
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "0000");
+    await expect(page.getByRole("alert")).toHaveText("We couldn't sign you in");
+    await page.getByRole("button", { name: "Back" }).click();
+    await signIn(/Maya S\./, "4071", "Bar POS");
+    await signIn(/Andy C\./, "730915", "Tonight");
+    await signIn(/Diego R\./, "6358", "Tonight");
+
+    // Every word about PINs says "badge or name and PIN"; nothing says "Lock the iPad".
+    const text = await page.locator("body").innerText();
+    expect(text).not.toMatch(/Lock the iPad/);
+    expect(text.replace(/badge or name and PIN/g, "")).not.toMatch(/name and PIN/);
   } finally {
     await db.end();
   }

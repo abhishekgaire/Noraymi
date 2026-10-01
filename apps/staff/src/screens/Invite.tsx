@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router";
 import { makeDeviceKey, pinProblem, type MessageKey, type Role } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { roleKey, useT } from "../i18n.js";
-import { storeDevice } from "../push.js";
+import { storeDevice } from "../device.js";
 import { useSession } from "../session.js";
 import { LanguageSwitch } from "../layout/LanguageSwitch.js";
 
@@ -127,6 +127,7 @@ export function Invite() {
     void run(async () => {
       const key = await makeDeviceKey();
       const done = await api<{
+        venue_id: string;
         device_id: string | null;
         email: string | null;
         enrol_code: string | null;
@@ -139,7 +140,14 @@ export function Invite() {
       setPin("");
       setPinAgain("");
       if (done.device_id)
-        await storeDevice({ venueId: "", deviceId: done.device_id, privateKey: key.privateKey });
+        await storeDevice({
+          deviceId: done.device_id,
+          venueId: done.venue_id,
+          kind: "staff_phone",
+          name: phoneName(),
+          privateKey: key.privateKey,
+          venue: null,
+        });
       if (done.enrol_code && done.email)
         setStep({ kind: "passkey", email: done.email, code: done.enrol_code });
       else setStep({ kind: "done", manager: false });

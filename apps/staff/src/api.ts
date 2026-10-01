@@ -14,7 +14,40 @@ export class ApiCallError extends Error {
 /** The request never reached the API: offline, or the server is down. */
 export class NetworkError extends Error {}
 
-/** One call to the API on this origin. The session cookie goes along by itself. */
+/**
+ * A shared screen's session is a bearer token (the desktop app keeps it in the
+ * keychain, M1-28; a browser keeps it for the tab). A phone's or a browser's
+ * own session is the cookie, which travels by itself.
+ */
+const TOKEN_KEY = "west4.staff.token";
+let token: string | null = null;
+
+export function setSessionToken(value: string | null): void {
+  token = value;
+  try {
+    if (value) sessionStorage.setItem(TOKEN_KEY, value);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // No storage: the token lasts for this load.
+  }
+}
+
+export function sessionToken(): string | null {
+  if (token) return token;
+  try {
+    token = sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    token = null;
+  }
+  return token;
+}
+
+export function sessionHeaders(): Record<string, string> {
+  const t = sessionToken();
+  return t ? { authorization: `Bearer ${t}` } : {};
+}
+
+/** One call to the API on this origin. The session cookie or token goes along by itself. */
 export async function api<T>(
   method: "GET" | "POST" | "PATCH",
   path: string,
@@ -22,9 +55,13 @@ export async function api<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    const init: RequestInit = { method, credentials: "same-origin" };
+    const init: RequestInit = {
+      method,
+      credentials: "same-origin",
+      headers: { ...sessionHeaders() },
+    };
     if (body !== undefined) {
-      init.headers = { "content-type": "application/json" };
+      init.headers = { ...init.headers, "content-type": "application/json" };
       init.body = JSON.stringify(body);
     }
     response = await fetch(path, init);

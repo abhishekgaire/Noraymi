@@ -208,4 +208,28 @@ export const en = {
   // PIN sign-in (M1-24).
   "push.pinPaused.body":
     "PIN sign-in is paused on {device} after 10 wrong tries · pair it again to turn it back on",
+  // The Pin screen (M1-26): badge or name and PIN on shared screens and phones.
+  "signIn.staff.title": "Staff sign-in",
+  "signIn.tapBadge": "Tap your badge on the reader",
+  "signIn.noBadge": "No badge? Tap your name, then your PIN",
+  "signIn.pinFor": "{name} · enter your PIN",
+  "signIn.yourPin": "Your PIN",
+  "signIn.lockedFor": "Locked · try again in {seconds} s",
+  "signIn.paused": "PIN sign-in is paused on this screen · a manager pairs it again",
+  "signIn.pinAgainRule":
+    "Refunds, cash counts and no-sale ask for the PIN again; Admin needs a passkey",
+  "signIn.ownerWeb": "Owner or manager? Sign in with your passkey",
+  "signIn.staffHere":
+    "Staff sign in with their badge or name and PIN on the bar and front-desk computers, or with their PIN on their own phone",
+  "signIn.pairScreen": "Pair this screen",
+  "signIn.pairCode": "Pairing code from Admin → Devices",
+  "signIn.pair": "Pair",
+  "signIn.pairFailed": "That code isn't valid: it was used, it expired, or it never existed",
+  "signIn.paired": "This screen is {name}",
+  "keypad.delete": "Delete",
+  "admin.needsPasskeyPhone":
+    "Admin needs your passkey. Open it in the desktop app or in a browser.",
+  "admin.needsPasskey": "Admin needs a passkey",
+  "tabs.home": "Home",
+  "tabs.alerts": "Alerts",
 } as const;

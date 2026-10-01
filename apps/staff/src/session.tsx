@@ -8,7 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { isLocale, type Locale } from "@west4/shared";
-import { api, ApiCallError, NetworkError, type Me, type Membership } from "./api.js";
+import {
+  api,
+  ApiCallError,
+  NetworkError,
+  setSessionToken,
+  type Me,
+  type Membership,
+} from "./api.js";
+import { signedApi, type StoredDevice } from "./device.js";
 import { useClock } from "./clock.js";
 
 /**
@@ -32,6 +40,11 @@ export interface SessionApi {
   readonly refresh: () => Promise<void>;
   /** Lock: end the session on this screen and show sign-in. */
   readonly lock: () => Promise<void>;
+  /** Name and PIN on a shared screen (the tile's membership), or the PIN on the person's own phone (M1-24). */
+  readonly signInWithPin: (
+    device: StoredDevice,
+    args: { membershipId?: string; pin: string },
+  ) => Promise<void>;
 }
 
 const DEVICE_LOCALE_KEY = "west4.staff.locale";
@@ -121,12 +134,27 @@ export function SessionProvider({
     } catch {
       // Already gone or offline: the screen locks either way.
     }
+    setSessionToken(null);
     setState({ status: "signedOut", reason: "locked" });
   }, []);
 
+  const signInWithPin = useCallback(
+    async (device: StoredDevice, args: { membershipId?: string; pin: string }) => {
+      const shared = device.kind !== "staff_phone";
+      const opened = await signedApi<{ token?: string }>(device, "POST", "/v1/auth/pin", {
+        ...(shared ? { membership_id: args.membershipId } : {}),
+        pin: args.pin,
+        client: shared ? "shared" : "phone",
+      });
+      if (opened.token) setSessionToken(opened.token);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const value = useMemo(
-    () => ({ state, locale, setLocale, refresh, lock }),
-    [state, locale, setLocale, refresh, lock],
+    () => ({ state, locale, setLocale, refresh, lock, signInWithPin }),
+    [state, locale, setLocale, refresh, lock, signInWithPin],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

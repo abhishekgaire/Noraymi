@@ -57,14 +57,25 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
     "/v1/venues/:venueId/team/tiles",
     { config: route({ principals: ["shared_device", "owner_manager"], module: "core" }) },
     async (request) => {
-      const tiles = await request.inVenue((c) => nameTiles(c, request.venueId!));
+      const { tiles, venue } = await request.inVenue(async (c) => ({
+        tiles: await nameTiles(c, request.venueId!),
+        venue: (
+          await c.query<{ name: string; time_zone: string; day_cutover: string }>(
+            "select name, time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
+            [request.venueId],
+          )
+        ).rows[0]!,
+      }));
       return {
         tiles: tiles.map((t) => ({
           membership_id: t.membershipId,
           name: t.name,
           role: t.role,
+          locale: t.locale,
           has_pin: t.hasPin,
         })),
+        venue: { id: request.venueId, ...venue },
+        server_time: now().toString(),
       };
     },
   );

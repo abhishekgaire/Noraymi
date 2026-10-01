@@ -142,3 +142,24 @@ export function homeFor(role: Role): string {
       return "/tonight";
   }
 }
+
+/**
+ * A phone opens the portal of the person who signed in, with that role's
+ * tabs only (Pin note 4): the role's home, Alerts on this phone, and Admin's
+ * stub for owners and managers. Later milestones add the phone tabs modules
+ * hide (runs, messages, my tips, clock in and out).
+ */
+export interface PhoneTab {
+  readonly id: string;
+  readonly labelKey: MessageKey;
+  readonly path: string;
+}
+
+export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
+  const home = context.role === "staff" ? runs : context.role === "bartender" ? menu[1]! : menu[0]!;
+  const tabs: PhoneTab[] = [{ id: "home", labelKey: home.labelKey, path: home.path }];
+  tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
+  if (context.permissions.includes("admin.access"))
+    tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
+  return tabs;
+}

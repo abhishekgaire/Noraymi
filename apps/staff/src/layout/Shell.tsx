@@ -4,7 +4,7 @@ import type { Membership } from "../api.js";
 import { useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
 import { roleKey, useT } from "../i18n.js";
-import { menu, visibleMenu } from "../navigation.js";
+import { menu, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
 
@@ -54,6 +54,11 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
     { modules: membership.modules, permissions: membership.permissions },
     menu,
   );
+  const tabs = phoneTabs({
+    modules: membership.modules,
+    permissions: membership.permissions,
+    role: membership.role,
+  });
 
   useEffect(() => {
     document.title = `${membership.venue.name} · ${t("app.staff.name")}`;
@@ -127,6 +132,13 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
       <main id="main" className="content">
         <Outlet />
       </main>
+      <nav className="tabs" aria-label={t("menu.title")}>
+        {tabs.map((tab) => (
+          <NavLink key={tab.id} to={tab.path} className="tab">
+            {t(tab.labelKey)}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

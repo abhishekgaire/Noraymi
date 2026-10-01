@@ -207,4 +207,28 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "invite.failed": "Algo salió mal · inténtalo de nuevo",
   "push.pinPaused.body":
     "El inicio de sesión con PIN está en pausa en {device} tras 10 intentos fallidos · vuelve a emparejarlo para reactivarlo",
+  "signIn.staff.title": "Inicio de sesión del personal",
+  "signIn.tapBadge": "Acerca tu tarjeta al lector",
+  "signIn.noBadge": "¿Sin tarjeta? Toca tu nombre y luego tu PIN",
+  "signIn.pinFor": "{name} · escribe tu PIN",
+  "signIn.yourPin": "Tu PIN",
+  "signIn.lockedFor": "Bloqueado · inténtalo de nuevo en {seconds} s",
+  "signIn.paused":
+    "El inicio de sesión con PIN está en pausa en esta pantalla · un gerente la empareja de nuevo",
+  "signIn.pinAgainRule":
+    "Los reembolsos, los arqueos de caja y la apertura sin venta piden el PIN otra vez; Admin necesita una llave de acceso",
+  "signIn.ownerWeb": "¿Dueño o gerente? Inicia sesión con tu llave de acceso",
+  "signIn.staffHere":
+    "El personal inicia sesión con su tarjeta o con su nombre y PIN en las computadoras del bar y de recepción, o con su PIN en su propio teléfono",
+  "signIn.pairScreen": "Emparejar esta pantalla",
+  "signIn.pairCode": "Código de emparejamiento de Admin → Dispositivos",
+  "signIn.pair": "Emparejar",
+  "signIn.pairFailed": "Ese código no es válido: ya se usó, caducó o nunca existió",
+  "signIn.paired": "Esta pantalla es {name}",
+  "keypad.delete": "Borrar",
+  "admin.needsPasskeyPhone":
+    "Admin necesita tu llave de acceso. Ábrelo en la app de escritorio o en un navegador.",
+  "admin.needsPasskey": "Admin necesita una llave de acceso",
+  "tabs.home": "Inicio",
+  "tabs.alerts": "Alertas",
 };

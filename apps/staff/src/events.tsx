@@ -10,6 +10,7 @@ import {
 import { EventClient, type ClientWireEvent, type SocketLike } from "@west4/shared";
 import { useClock } from "./clock.js";
 import { useSession } from "./session.js";
+import { sessionToken } from "./api.js";
 
 /**
  * The venue's event stream (M1-09): one WebSocket per signed-in session, with
@@ -50,6 +51,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!venueId) return;
+    // A browser can't put a bearer token on a WebSocket; the desktop app (M1-28) can. Until then a shared screen in a browser polls nothing.
+    if (sessionToken()) return;
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const client = new EventClient({
       url: `${scheme}://${location.host}/v1/venues/${venueId}/events`,

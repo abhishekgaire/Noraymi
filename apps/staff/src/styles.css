@@ -226,6 +226,113 @@ form {
 .phone-only {
   margin-bottom: 16px;
 }
+.small {
+  font-size: 0.875rem;
+}
+.sign-in.shared {
+  max-width: 960px;
+}
+.sign-in-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.clock-line {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.clock-line time {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.badge-line {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.tiles {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.tile {
+  width: 100%;
+  min-height: 72px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+}
+.tile-name {
+  font-weight: 600;
+}
+.tile-role {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.pin-entry {
+  max-width: 320px;
+}
+.pin-for {
+  font-weight: 600;
+}
+.keypad .dots {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+}
+.dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.key {
+  min-height: 60px;
+  font-size: 1.5rem;
+}
+.sign-in-foot {
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+.tabs {
+  display: flex;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  position: sticky;
+  bottom: 0;
+}
+.tab {
+  flex: 1;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0 8px;
+  text-align: center;
+}
+.tab.active {
+  color: var(--accent);
+  font-weight: 600;
+}
 .language {
   display: flex;
   flex-wrap: wrap;
@@ -281,7 +388,8 @@ form {
   .content {
     padding: 24px;
   }
-  .phone-only {
+  .phone-only,
+  .tabs {
     display: none;
   }
 }

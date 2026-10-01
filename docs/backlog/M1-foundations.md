@@ -688,7 +688,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-26 · Build the sign-in screen and each role's home
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-21, M1-24, M1-25
 - **Spec:** [Pin](../screens.md#pin); [Admin](../screens.md#admin); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 1 (One home per role); [Tenancy and access](../spec/02-tenancy-access.md) · Languages; [Glossary · Say this, not that](../glossary.md#say-this-not-that)
@@ -699,12 +699,18 @@ Definition of done: see CLAUDE.md.
   - The line "Refunds, cash counts and no-sale ask for the PIN again; Admin needs a passkey", and Lock.
   - The Admin stub on phones: "Admin needs your passkey. Open it in the desktop app or in a browser." It never shows a PIN pad.
 - **Acceptance:**
-  - [ ] Maya's name and PIN on the bar computer open her home; Andy's and Diego's open the Tonight home.
-  - [ ] On his phone, Diego picks Español at sign-in, and every M1 screen he can reach (sign-in, his home, Set your PIN, the Admin stub) is in Spanish, including his next sign-in on the front-desk computer.
-  - [ ] No screen says "name and PIN" without "badge or".
-  - [ ] The sign-in screen reads 10:41 PM on the seed, whatever the device clock says.
+  - [x] Maya's name and PIN on the bar computer open her home; Andy's and Diego's open the Tonight home.
+  - [x] On his phone, Diego picks Español at sign-in, and every M1 screen he can reach (sign-in, his home, Set your PIN, the Admin stub) is in Spanish, including his next sign-in on the front-desk computer.
+  - [x] No screen says "name and PIN" without "badge or".
+  - [x] The sign-in screen reads 10:41 PM on the seed, whatever the device clock says.
 - **Tests:** Playwright on phone and desktop sizes in both languages; a copy test for the fixed sentences.
 - **Notes:** [Pin](../screens.md#pin) notes 1 and 4–8 apply. Notes 2 and 3 (the duty at clock-in, the clock-out checklist and "Maya on 6h 41m") need the time clock, which comes in M7 ([N24](../screens.md#n24-clock-in-duty-and-clock-out-checklist)). Diego's Bar POS link "while he covers the bar" also needs the duty; until M7 the Admin switch decides.
+  - **Built.** `screens/SignIn.tsx` is three screens in one, by what the browser is (`device.ts`, a device key in IndexedDB): a paired bar or front-desk computer shows "Staff sign-in", the venue's clock, "Tap your badge on the reader" (the reader is M1-30), "No badge? Tap your name, then your PIN", the name tiles (`GET /v1/venues/:v/team/tiles`, which now carries each person's language, the venue and `server_time`) and the PIN pad (`Keypad.tsx`: dots, big keys, submits itself at 4 or 6 digits by the tile's role; a tapped tile puts the pad in that person's language); a person's own phone (from the invite link) shows the pad alone; a plain browser keeps the owner and manager passkey or authenticator sign-in, plus "Pair this screen" with a pairing code from Admin → Devices (M1-15's claim, which now answers the device's kind and the venue's clock). The fixed line "Refunds, cash counts and no-sale ask for the PIN again; Admin needs a passkey" sits under the pad. A wrong PIN says "We couldn't sign you in"; a lock says "Locked · try again in N s"; a paused screen says so.
+  - **Sessions.** A shared screen's session is a bearer token (`api.ts` keeps it for the tab; the desktop app will keep it in the keychain, M1-28); a phone's is the cookie. Lock ends the session and clears the token. A browser can't put a bearer token on a WebSocket, so a shared screen in a browser has no live event channel until the desktop shell; the API's events route is unchanged.
+  - **Homes and the phone portal.** `/` opens the role's home (bartenders Bar POS, front desk and managers Tonight, runners Runs), each a stub. On phones a tab bar shows that role's tabs only (`phoneTabs`): the home, Alerts on this phone, and Admin for owners and managers. The Admin stub (`screens/Admin.tsx`, now in the side menu) says "Admin needs your passkey. Open it in the desktop app or in a browser." on a phone and "Admin needs a passkey" on a shared screen, and shows nothing but the empty state in a passkey session. It never shows a PIN pad.
+  - **Words.** `packages/shared/src/i18n/copy.test.ts` fails any catalog string that says "name and PIN" (or "nombre y PIN") without "badge or" ("tarjeta o"), any "Lock the iPad", and checks the fixed sentences word for word.
+  - **Clock.** Device signatures carry the device's real clock, as the API checks them against its own real clock (±5 minutes), while every time on screen is the venue's; the sign-in screen syncs from `/v1/health` before its first signed call.
+  - **Tests.** `e2e/staff.spec.ts`: the bar computer paired by a code, tiles, Maya → Bar POS, Andy and Diego → Tonight, a wrong PIN, Lock between each, 10:41 PM on the sign-in screen, and the words check; Diego's phone in Español from the invite through his PIN sign-in, his tabs, Set your PIN, the Admin stub and Alerts, then his next sign-in on the front-desk computer with the pad in Spanish. Both languages at 390 and 1280 px.
 
 ### M1-27 · Offboard a person in one step
 

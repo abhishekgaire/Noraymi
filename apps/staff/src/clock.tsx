@@ -26,6 +26,19 @@ interface ClockApi {
 
 const ClockContext = createContext<ClockApi>({ now: null, sync: () => {} });
 
+// The last offset, kept outside React too: device signatures stamp requests with the server's time, never the device's.
+let offsetMs: number | null = null;
+
+/** The server's clock as epoch milliseconds, or null before the first sync. */
+export function serverNowMs(): number | null {
+  return offsetMs === null ? null : Date.now() + offsetMs;
+}
+
+/** Record the server's time from any answer that carries it. */
+export function syncServerTime(serverTime: string): void {
+  offsetMs = Temporal.Instant.from(serverTime).epochMilliseconds - Date.now();
+}
+
 const TICK_MS = 15_000;
 
 export function ClockProvider({ children }: { children: ReactNode }) {
@@ -40,7 +53,8 @@ export function ClockProvider({ children }: { children: ReactNode }) {
 
   const sync = useCallback(
     (serverTime: string) => {
-      offset.current = Temporal.Instant.from(serverTime).epochMilliseconds - Date.now();
+      syncServerTime(serverTime);
+      offset.current = offsetMs;
       setNow(read());
     },
     [read],

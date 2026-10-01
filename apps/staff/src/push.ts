@@ -1,5 +1,6 @@
-import { makeDeviceKey, signDeviceRequest } from "@west4/shared";
-import { api, ApiCallError, NetworkError } from "./api.js";
+import { makeDeviceKey } from "@west4/shared";
+import { api } from "./api.js";
+import { readDevice, signedApi, storeDevice, type StoredDevice } from "./device.js";
 
 /**
  * This phone as the person's staff_phone, and its push subscription (M1-22,
@@ -7,63 +8,10 @@ import { api, ApiCallError, NetworkError } from "./api.js";
  * phone (a non-extractable WebCrypto key in IndexedDB), and signs the
  * subscription request so the server knows which paired phone it is.
  */
-const DB_NAME = "west4-staff";
-const STORE = "device";
-
-interface StoredDevice {
-  readonly venueId: string;
-  readonly deviceId: string;
-  readonly privateKey: CryptoKey;
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function readDevice(venueId: string): Promise<StoredDevice | null> {
-  const db = await openDb();
-  const found = await new Promise<StoredDevice | null>((resolve, reject) => {
-    const request = db.transaction(STORE).objectStore(STORE).get(venueId);
-    request.onsuccess = () => resolve((request.result as StoredDevice | undefined) ?? null);
-    request.onerror = () => reject(request.error);
-  });
-  if (found) return found;
-  // A phone registered from an invite link, before it had signed in anywhere: adopt it for this venue.
-  const pending = await new Promise<StoredDevice | null>((resolve, reject) => {
-    const request = db.transaction(STORE).objectStore(STORE).get("");
-    request.onsuccess = () => resolve((request.result as StoredDevice | undefined) ?? null);
-    request.onerror = () => reject(request.error);
-  });
-  if (!pending) return null;
-  const adopted = { ...pending, venueId };
-  await writeDevice(adopted);
-  return adopted;
-}
-
-/** Keep a device this phone was given elsewhere (the invite link registers it, M1-23). */
-export async function storeDevice(device: StoredDevice): Promise<void> {
-  return writeDevice(device);
-}
-
-async function writeDevice(device: StoredDevice): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, "readwrite");
-    tx.objectStore(STORE).put(device, device.venueId);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
 /** The phone's device at this venue, registering it the first time. */
 export async function ensureStaffPhone(venueId: string): Promise<StoredDevice> {
-  const existing = await readDevice(venueId);
-  if (existing) return existing;
+  const existing = await readDevice();
+  if (existing?.kind === "staff_phone" && existing.venueId === venueId) return existing;
   const key = await makeDeviceKey();
   const made = await api<{ device_id: string }>(
     "POST",
@@ -73,8 +21,15 @@ export async function ensureStaffPhone(venueId: string): Promise<StoredDevice> {
       public_key: key.publicJwk,
     },
   );
-  const device = { venueId, deviceId: made.device_id, privateKey: key.privateKey };
-  await writeDevice(device);
+  const device: StoredDevice = {
+    deviceId: made.device_id,
+    venueId,
+    kind: "staff_phone",
+    name: phoneName(),
+    privateKey: key.privateKey,
+    venue: null,
+  };
+  await storeDevice(device);
   return device;
 }
 
@@ -149,31 +104,10 @@ export async function subscribeToPush(venueId: string): Promise<PushState> {
   const json = subscription.toJSON();
   const keys = json.keys ?? {};
   const device = await ensureStaffPhone(venueId);
-  const path = `/v1/venues/${venueId}/push/subscriptions`;
-  const body = JSON.stringify({
+  await signedApi(device, "POST", `/v1/venues/${venueId}/push/subscriptions`, {
     endpoint: subscription.endpoint,
     keys: { p256dh: keys["p256dh"], auth: keys["auth"] },
   });
-  const headers = await signDeviceRequest({
-    deviceId: device.deviceId,
-    privateKey: device.privateKey,
-    method: "POST",
-    path,
-    body,
-  });
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { ...headers, "content-type": "application/json" },
-      body,
-    });
-  } catch (error) {
-    throw new NetworkError(error instanceof Error ? error.message : String(error));
-  }
-  if (!response.ok)
-    throw new ApiCallError(response.status, "subscribe_failed", response.statusText);
   return "subscribed";
 }
 

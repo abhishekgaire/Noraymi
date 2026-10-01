@@ -68,7 +68,16 @@ function matchers(locale: Locale): RegExp[] {
   );
 }
 
-const screens = ["/sign-in", "/invite/abc", "/tonight", "/bar", "/runs", "/setup", "/nowhere"];
+const screens = [
+  "/sign-in",
+  "/invite/abc",
+  "/tonight",
+  "/bar",
+  "/runs",
+  "/setup",
+  "/admin",
+  "/nowhere",
+];
 
 describe("every shell screen renders from the catalog", () => {
   for (const locale of ["es", "en"] as const) {
@@ -101,8 +110,7 @@ describe("every shell screen renders from the catalog", () => {
 
   it("shows a manager Tonight, Bar POS and Lock, and sends a bartender to the bar", () => {
     const html = render("/tonight", { status: "signedIn", me: me("en"), membership: andy("en") });
-    expect(textsOf(html)).toEqual(expect.arrayContaining(["Tonight", "Bar POS", "Lock"]));
-    expect(textsOf(html)).not.toContain("Admin");
+    expect(textsOf(html)).toEqual(expect.arrayContaining(["Tonight", "Bar POS", "Admin", "Lock"]));
     const bartender = {
       ...andy("es"),
       role: "bartender" as const,
@@ -124,8 +132,9 @@ describe("every shell screen renders from the catalog", () => {
       "We can't reach the server",
       "Try again",
     ]);
-    expect(textsOf(render("/sign-in", { status: "signedOut", reason: "locked" }))).toContain(
-      "Locked · sign in to continue",
-    );
+    // Sign-in finds out what the screen is first (a paired computer, a phone, a browser), so it starts loading.
+    expect(textsOf(render("/sign-in", { status: "signedOut", reason: "locked" }))).toEqual([
+      "Loading…",
+    ]);
   });
 });

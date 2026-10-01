@@ -1,19 +1,47 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
+import { Temporal, type Role } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
-import { useT } from "../i18n.js";
+import { useClock } from "../clock.js";
+import {
+  claimDevice,
+  isShared,
+  readDevice,
+  signedApi,
+  syncClock,
+  type StoredDevice,
+} from "../device.js";
+import { roleKey, useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { LanguageSwitch } from "../layout/LanguageSwitch.js";
+import { Keypad } from "./Keypad.js";
 
 /**
- * The shell's sign-in (M1-19 on the web): an owner or manager by email with a
- * passkey or their authenticator app. The name tiles with badge or PIN for
- * shared screens arrive with M1-24 and M1-26, which also give this screen its
- * final shape.
+ * The Pin screen (M1-26): on a paired bar or front-desk computer, a badge
+ * tap (the reader is M1-30) or a name tile then the PIN pad; on a person's
+ * own phone, their PIN; in a plain browser, an owner or manager's passkey or
+ * authenticator app, or the code that pairs the screen. "Badge or name and
+ * PIN" everywhere; refunds, cash counts and no-sale ask for the PIN again;
+ * Admin needs a passkey.
  */
+interface Tile {
+  readonly membership_id: string;
+  readonly name: string;
+  readonly role: Role;
+  readonly locale: "en" | "es";
+  readonly has_pin: boolean;
+}
+
+interface TilesAnswer {
+  readonly tiles: Tile[];
+  readonly venue: { id: string; name: string; time_zone: string; day_cutover: string };
+  readonly server_time: string;
+}
+
 type Step =
   | { readonly kind: "email" }
   | { readonly kind: "code"; readonly expiresMinutes: number }
+  | { readonly kind: "pair" }
   | { readonly kind: "working" };
 
 type PasskeyJson = {
@@ -27,30 +55,120 @@ function passkeySupport(): PasskeyJson | null {
     : null;
 }
 
+const pinDigits = (role: Role): 4 | 6 => (role === "owner" || role === "manager" ? 6 : 4);
+
 export function SignIn() {
-  const { t } = useT();
-  const { state, refresh } = useSession();
+  const { t, time, locale } = useT();
+  const { state, refresh, setLocale, signInWithPin } = useSession();
+  const clock = useClock();
   const navigate = useNavigate();
+  const [device, setDevice] = useState<StoredDevice | null | undefined>(undefined);
+  const [tiles, setTiles] = useState<TilesAnswer | null>(null);
+  const [chosen, setChosen] = useState<Tile | null>(null);
+  const [pin, setPin] = useState("");
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [totpCode, setTotpCode] = useState("");
+  const [pairCode, setPairCode] = useState("");
   const [step, setStep] = useState<Step>({ kind: "email" });
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [wallTime, setWallTime] = useState<string | null>(null);
+
+  // What this screen is, and the venue's clock for it.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const found = await readDevice();
+      if (!live) return;
+      setDevice(found);
+      if (isShared(found)) {
+        try {
+          await syncClock();
+          const answer = await signedApi<TilesAnswer>(
+            found,
+            "GET",
+            `/v1/venues/${found.venueId}/team/tiles`,
+          );
+          if (!live) return;
+          setTiles(answer);
+          clock.sync(answer.server_time);
+        } catch {
+          if (live) setError(t("shell.error.cantReach"));
+        }
+      } else {
+        // No venue yet: the server's own wall clock, never the device's.
+        try {
+          const health = await api<{ server_time: string }>("GET", "/v1/health");
+          if (live) setWallTime(health.server_time);
+        } catch {
+          // The time line simply stays empty.
+        }
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // Once per load: the device and the tiles don't change under the screen.
+  }, []);
 
   const finish = async () => {
     await refresh();
     navigate("/", { replace: true });
   };
 
-  const fail = (error: unknown) => {
-    setStep({ kind: "email" });
-    if (error instanceof DOMException && error.name === "NotAllowedError") {
-      setError(t("signIn.passkeyCancelled"));
-    } else if (error instanceof ApiCallError && error.code === "session_locked") {
-      setError(t("signIn.sessionLocked"));
+  const failPin = (e: unknown) => {
+    if (e instanceof ApiCallError && e.status === 429) {
+      const seconds = /(\d+)/.exec(e.message)?.[1] ?? "60";
+      setError(t("signIn.lockedFor", { seconds: Number(seconds) }));
+    } else if (e instanceof ApiCallError && e.status === 403 && /paused/.test(e.message)) {
+      setError(t("signIn.paused"));
     } else {
       setError(t("signIn.failed"));
     }
+  };
+
+  // The PIN pad submits by itself when the PIN is complete.
+  const digits = chosen ? pinDigits(chosen.role) : device?.kind === "staff_phone" ? 6 : 4;
+  useEffect(() => {
+    if (!device || busy) return;
+    const shared = isShared(device);
+    const needed = shared
+      ? chosen
+        ? pinDigits(chosen.role)
+        : 0
+      : pin.length >= 4
+        ? pin.length
+        : 0;
+    if (shared && (!chosen || pin.length !== needed)) return;
+    if (!shared && pin.length < 4) return;
+    if (!shared && pin.length < 6 && pin.length !== 4) return;
+    const submit = async () => {
+      setBusy(true);
+      setError(null);
+      try {
+        await signInWithPin(device, {
+          ...(chosen ? { membershipId: chosen.membership_id } : {}),
+          pin,
+        });
+        await finish();
+      } catch (e) {
+        setPin("");
+        failPin(e);
+      } finally {
+        setBusy(false);
+      }
+    };
+    void submit();
+    // Runs when the PIN reaches its length.
+  }, [pin]);
+
+  const choose = (tile: Tile) => {
+    setChosen(tile);
+    setPin("");
+    setError(null);
+    // The pad speaks the person's own language (spec 02 · Languages).
+    if (tile.locale !== locale) void setLocale(tile.locale);
   };
 
   const withPasskey = async (event: FormEvent) => {
@@ -80,8 +198,13 @@ export function SignIn() {
         client: "web",
       });
       await finish();
-    } catch (error) {
-      fail(error);
+    } catch (e) {
+      setStep({ kind: "email" });
+      setError(
+        e instanceof DOMException && e.name === "NotAllowedError"
+          ? t("signIn.passkeyCancelled")
+          : t("signIn.failed"),
+      );
     }
   };
 
@@ -95,8 +218,9 @@ export function SignIn() {
         email,
       });
       setStep({ kind: "code", expiresMinutes: start.expires_minutes });
-    } catch (error) {
-      fail(error);
+    } catch {
+      setStep({ kind: "email" });
+      setError(t("signIn.failed"));
     }
   };
 
@@ -114,8 +238,32 @@ export function SignIn() {
         client: "web",
       });
       await finish();
-    } catch (error) {
-      fail(error);
+    } catch {
+      setStep({ kind: "email" });
+      setError(t("signIn.failed"));
+    }
+  };
+
+  const pair = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const paired = await claimDevice(pairCode.trim());
+      setDevice(paired);
+      setStep({ kind: "email" });
+      await syncClock();
+      const answer = await signedApi<TilesAnswer>(
+        paired,
+        "GET",
+        `/v1/venues/${paired.venueId}/team/tiles`,
+      );
+      setTiles(answer);
+      clock.sync(answer.server_time);
+    } catch {
+      setError(t("signIn.pairFailed"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -126,9 +274,107 @@ export function SignIn() {
         ? t("signIn.sessionExpired")
         : null;
 
+  const clockLine = tiles
+    ? time(clock.now ?? tiles.server_time, tiles.venue.time_zone)
+    : wallTime
+      ? time(Temporal.PlainDateTime.from(wallTime).toZonedDateTime("UTC").toInstant(), "UTC")
+      : null;
+
+  if (device === undefined) {
+    return (
+      <main className="sign-in" id="main">
+        <p role="status">{t("shell.loading")}</p>
+      </main>
+    );
+  }
+
+  // --- A paired bar or front-desk computer: badge, or a name tile then the PIN pad.
+  if (isShared(device)) {
+    return (
+      <main className="sign-in shared" id="main">
+        <header className="sign-in-top">
+          <h1>{t("signIn.staff.title")}</h1>
+          <div className="clock-line">
+            {clockLine && <time>{clockLine}</time>}
+            <span className="muted">{tiles?.venue.name ?? device.venue?.name ?? ""}</span>
+          </div>
+        </header>
+        {notice && (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {!chosen && (
+          <>
+            <p className="badge-line">{t("signIn.tapBadge")}</p>
+            <p className="muted">{t("signIn.noBadge")}</p>
+            <ul className="tiles" aria-label={t("signIn.noBadge")}>
+              {(tiles?.tiles ?? [])
+                .filter((tile) => tile.has_pin)
+                .map((tile) => (
+                  <li key={tile.membership_id}>
+                    <button type="button" className="tile" onClick={() => choose(tile)}>
+                      <span className="tile-name">{tile.name}</span>
+                      <span className="tile-role">{t(roleKey[tile.role])}</span>
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </>
+        )}
+        {chosen && (
+          <section className="pin-entry" aria-label={t("signIn.pinFor", { name: chosen.name })}>
+            <p className="pin-for">{t("signIn.pinFor", { name: chosen.name })}</p>
+            <Keypad digits={pinDigits(chosen.role)} value={pin} onChange={setPin} disabled={busy} />
+            <button type="button" className="secondary" onClick={() => setChosen(null)}>
+              {t("signIn.back")}
+            </button>
+          </section>
+        )}
+        <footer className="sign-in-foot">
+          <p className="muted small">{t("signIn.pinAgainRule")}</p>
+          <LanguageSwitch />
+        </footer>
+      </main>
+    );
+  }
+
+  // --- A person's own phone: their PIN.
+  if (device?.kind === "staff_phone") {
+    return (
+      <main className="sign-in phone" id="main">
+        <h1>{t("signIn.title")}</h1>
+        {clockLine && <p className="muted">{clockLine}</p>}
+        {notice && (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <section className="pin-entry" aria-label={t("signIn.yourPin")}>
+          <p className="pin-for">{t("signIn.yourPin")}</p>
+          <Keypad digits={digits} value={pin} onChange={setPin} disabled={busy} />
+        </section>
+        <p className="muted small">{t("signIn.pinAgainRule")}</p>
+        <LanguageSwitch />
+      </main>
+    );
+  }
+
+  // --- A plain browser: an owner or manager's passkey or authenticator app, or pairing this screen.
   return (
     <main className="sign-in" id="main">
       <h1>{t("signIn.title")}</h1>
+      {clockLine && <p className="muted">{clockLine}</p>}
       {notice && (
         <p className="notice" role="status">
           {notice}
@@ -146,6 +392,7 @@ export function SignIn() {
       )}
       {step.kind === "email" && (
         <form onSubmit={withPasskey}>
+          <p className="muted">{t("signIn.ownerWeb")}</p>
           <label>
             <span>{t("signIn.email")}</span>
             <input
@@ -167,6 +414,10 @@ export function SignIn() {
             onClick={withAuthenticator}
           >
             {t("signIn.withAuthenticator")}
+          </button>
+          <p className="muted small">{t("signIn.staffHere")}</p>
+          <button type="button" className="secondary" onClick={() => setStep({ kind: "pair" })}>
+            {t("signIn.pairScreen")}
           </button>
         </form>
       )}
@@ -196,6 +447,26 @@ export function SignIn() {
           </label>
           <button type="submit" className="primary">
             {t("signIn.continue")}
+          </button>
+          <button type="button" className="secondary" onClick={() => setStep({ kind: "email" })}>
+            {t("signIn.back")}
+          </button>
+        </form>
+      )}
+      {step.kind === "pair" && (
+        <form onSubmit={pair}>
+          <label>
+            <span>{t("signIn.pairCode")}</span>
+            <input
+              name="code"
+              autoComplete="off"
+              required
+              value={pairCode}
+              onChange={(e) => setPairCode(e.target.value)}
+            />
+          </label>
+          <button type="submit" className="primary" disabled={busy}>
+            {t("signIn.pair")}
           </button>
           <button type="button" className="secondary" onClick={() => setStep({ kind: "email" })}>
             {t("signIn.back")}

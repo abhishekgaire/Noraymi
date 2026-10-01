@@ -221,6 +221,7 @@ export function invitesRoutes(
       );
       return reply.code(200).send({
         done: true,
+        venue_id: invite.venueId,
         device_id: deviceId,
         email: invite.email,
         enrol_code: enrolCode,
