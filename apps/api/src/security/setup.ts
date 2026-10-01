@@ -77,6 +77,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, 4, '2026-09-25T21:00:00-04:00', '2026-09-25') returning id`,
     [v.venueB, roomB.rows[0]!.id],
   );
+  const checkB = await owner.query<{ id: string }>(
+    `insert into checks (venue_id, number, kind, business_date, room_session_id, opened_by)
+       values ($1, 1, 'room', '2026-09-25', $2, $3) returning id`,
+    [v.venueB, sessionB.rows[0]!.id, v.ownerB],
+  );
   const cast: Cast & { ownerB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -95,6 +100,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       r: roomB.rows[0]!.id,
       bookingId: bookingB.rows[0]!.id,
       sessionId: sessionB.rows[0]!.id,
+      checkId: checkB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

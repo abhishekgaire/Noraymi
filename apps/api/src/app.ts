@@ -27,6 +27,7 @@ import { rulePackRoutes } from "./routes/rule-pack.js";
 import { roomsRoutes } from "./routes/rooms.js";
 import { bookingsRoutes } from "./routes/bookings.js";
 import { sessionsRoutes } from "./routes/sessions.js";
+import { checksRoutes } from "./routes/checks.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
 
@@ -166,6 +167,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       roomsRoutes(scope, { clock });
       bookingsRoutes(scope, { clock });
       sessionsRoutes(scope, { clock });
+      checksRoutes(scope, { clock });
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });

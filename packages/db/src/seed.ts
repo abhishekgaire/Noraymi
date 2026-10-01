@@ -62,6 +62,7 @@ export interface SeedFile {
   readonly guests: readonly SeedGuest[];
   readonly bookings: readonly SeedBooking[];
   readonly sessions: readonly SeedSession[];
+  readonly checks: readonly SeedCheck[];
 }
 
 /** An NTAG 424 DNA badge in the seed: the person it's paired to. Its demo UID is derived from its id (DEMO ONLY). */
@@ -151,6 +152,33 @@ export interface SeedSession {
   readonly check: string | null;
   readonly party_size: number;
   readonly segments: readonly SeedSegment[];
+}
+
+export interface SeedCheckLine {
+  readonly id: string;
+  readonly kind: string;
+  readonly description: string;
+  readonly qty: number;
+  readonly unit_cents: number;
+  readonly amount_cents: number;
+  readonly tax_category: string | null;
+  readonly comp_of?: string | null;
+  readonly by?: string | null;
+  readonly reason?: string | null;
+  readonly made?: boolean | null;
+  readonly added_at?: string | null;
+  readonly delivered_at?: string | null;
+}
+
+export interface SeedCheck {
+  readonly id: string;
+  readonly number: number | null;
+  readonly kind: "room" | "bar" | "quick" | "fee";
+  readonly business_date: string;
+  readonly room_session?: string | null;
+  readonly status: string;
+  readonly opened_at: string;
+  readonly lines?: readonly SeedCheckLine[];
 }
 
 export interface SeedDevice {
@@ -610,6 +638,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_blocks",
+      "check_lines",
+      "checks",
+      "venue_counters",
       "session_segments",
       "room_sessions",
       "bookings",
@@ -841,6 +872,71 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       }
     }
     log(`room sessions: ${seed.sessions.length}`);
+
+    // Checks (M2-08): all 13, numbered in the order they opened, with Room 9's #1042 fixed; their lines in
+    // order, a comp pointing at the line it reverses. Room checks were opened by the front desk, bar checks by
+    // the bartender. The counter then carries on from the last number.
+    const opened = [...seed.checks].sort(
+      (a, b) => a.opened_at.localeCompare(b.opened_at) || a.id.localeCompare(b.id),
+    );
+    const fixed = opened.findIndex((ch) => ch.number !== null);
+    const base = fixed >= 0 ? opened[fixed]!.number! - fixed : 1;
+    const session = (slug: string) => seed.sessions.find((x) => x.id === slug);
+    const lineIds = new Map<string, number>();
+    for (const [i, ch] of opened.entries()) {
+      const sess = ch.room_session ? session(ch.room_session) : undefined;
+      const checkId = ch.kind === "room" ? id(ch.id) : remember(ch.id, "checks");
+      await client.query(
+        `insert into checks (id, venue_id, number, kind, business_date, room_session_id, booking_id, status, opened_by, opened_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          checkId,
+          venueId,
+          base + i,
+          ch.kind,
+          ch.business_date,
+          sess ? id(sess.id) : null,
+          sess?.booking ? id(sess.booking) : null,
+          ch.status,
+          id(ch.kind === "room" ? "diego" : "maya"),
+          ch.opened_at,
+        ],
+      );
+      for (const line of ch.lines ?? []) {
+        const r = await client.query<{ id: string }>(
+          `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
+             business_date, reverses_id, made, reason, added_by, added_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) returning id`,
+          [
+            venueId,
+            checkId,
+            line.kind,
+            line.description,
+            line.qty,
+            line.unit_cents,
+            line.amount_cents,
+            line.tax_category,
+            ch.business_date,
+            line.comp_of ? (lineIds.get(line.comp_of) ?? null) : null,
+            line.made ?? null,
+            line.reason ?? null,
+            line.by ? id(line.by) : null,
+            line.added_at ?? line.delivered_at ?? ch.opened_at,
+          ],
+        );
+        lineIds.set(line.id, Number(r.rows[0]!.id));
+      }
+      await client.query("update checks set version = $3 where venue_id = $1 and id = $2", [
+        venueId,
+        checkId,
+        (ch.lines ?? []).length,
+      ]);
+    }
+    await client.query(
+      `insert into venue_counters (venue_id, name, next) values ($1, 'check', $2)`,
+      [venueId, base + opened.length],
+    );
+    log(`checks: ${opened.length}, from #${base} to #${base + opened.length - 1}`);
 
     // Room blocks (M2-05): every confirmed booking's time (cleaning is 0 at West 4); every session from
     // its start to its booked end, or an hour for a walk-in, extended 15 minutes at a time to cover

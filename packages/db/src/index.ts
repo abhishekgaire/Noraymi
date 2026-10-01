@@ -269,3 +269,13 @@ export {
   type BookingStatus,
   type GuestInput,
 } from "./bookings.js";
+export {
+  addCheckLine,
+  checkById,
+  insertCheck,
+  nextCheckNumber,
+  type CheckKind,
+  type CheckLineRow,
+  type CheckRow,
+  type LineInput,
+} from "./checks.js";

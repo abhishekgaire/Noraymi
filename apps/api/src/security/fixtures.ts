@@ -104,6 +104,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   r: uuid(24),
   bookingId: uuid(25),
   sessionId: uuid(26),
+  checkId: uuid(27),
   id: "rooms",
   key: "hours",
   role: "front_desk",

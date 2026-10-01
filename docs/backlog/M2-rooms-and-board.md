@@ -190,7 +190,7 @@ Definition of done: see CLAUDE.md.
   - **Later tickets:** the board itself (states, alerts, the waitlist) is M2-29; the walk-in check-in that opens a session is M2-11; moves, party-size changes and pauses that open new segments are M2-17 to M2-20.
 ### M2-08 · Open a room check for each session, numbered in order
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-03, M2-07
 - **Spec:** [Data model](../spec/04-data-model.md) · The money core (`checks`, `check_lines`, `venue_counters` and their grants); [API](../spec/08-api.md) · Checks (`GET /checks/{c}`); [Security and data retention](../spec/12-security-retention.md) 4
@@ -200,12 +200,14 @@ Definition of done: see CLAUDE.md.
   - `GET /checks/{c}` returns the lines, the tab so far and the number (#1042). Tax, gratuity, totals and revisions come with finalize in M4. `version` goes up with every line, and `check.updated` goes out.
   - The seed loader adds all 13 seeded checks and their lines, numbered in the order they opened with Room 9's #1042 fixed; the five bar checks' tabs join in M6.
 - **Acceptance:**
-  - [ ] Room 9's check is #1042, with its three drink lines adding up to $158.00.
-  - [ ] Each new check takes the next number; two check-ins at the same moment get two different numbers, and no number is used twice.
-  - [ ] `app_rw` can't change a line's `amount_cents` or delete a line.
+  - [x] Room 9's check is #1042, with its three drink lines adding up to $158.00.
+  - [x] Each new check takes the next number; two check-ins at the same moment get two different numbers, and no number is used twice.
+  - [x] `app_rw` can't change a line's `amount_cents` or delete a line.
 - **Tests:** a concurrent numbering test; grant tests.
 - **Notes:** The data model makes `checks.number` required, so the number is taken at open. M4 adds the gapless-sequence guarantees (a failed tap voids the check and keeps its number). No test may depend on a seeded check number other than #1042.
-
+  - **Built:** migration `0031_checks.sql` (`checks`, `check_lines` and `venue_counters` as the money-core SQL, walled, with checks and lines audited); `packages/db/src/checks.ts` (`nextCheckNumber` in its own short transaction, `insertCheck`, `addCheckLine`, which raises the check's `version` with every line, and `checkById`); `apps/api/src/rooms/checks.ts` (`openRoomCheck`, which takes the number first and then writes the check and links the session, for check-in in M2-11; and `checkView`); `GET /v1/venues/{v}/checks/{c}` with the number as `#1042`, the lines, room time so far from the session's live clock, and the tab so far; the seed's 13 checks numbered #1041 to #1053 in the order they opened (Room 10 opened first at 7:00 PM, so Room 9 at 8:00 PM is #1042), their 22 lines with the comp pointing at the line it reverses, and the counter carrying on at #1054.
+  - **Grants, and one deviation from the spec's list (flagged):** `app_rw` gets select and insert on `checks` and `check_lines`, never update or delete on a line. The spec's grant line has no update on `checks`, but `version` goes up with every line, so `update (version)` alone is granted here; status, revision and `paid_at` join with finalize and payments in M4, or move behind definer functions there.
+  - **Tests:** Room 9's #1042, $158.00 of drinks and the $480.00 tab so far; 20 numbers taken at once are all different and run on from #1054; two check-ins at once get two numbers; a reused number is refused by the database; `app_rw` can't update a line's amount, delete a line or change a check's number.
 ### M2-09 · Set up West 4's Twilio subaccount and send texts from `message_templates`
 
 - **Status:** todo
