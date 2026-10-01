@@ -33,6 +33,7 @@ import { messageTemplateRoutes } from "./routes/message-templates.js";
 import { checkInRoutes } from "./routes/checkin.js";
 import { idCheckRoutes } from "./routes/id-checks.js";
 import { filesRoutes } from "./routes/files.js";
+import { reasonOnlyRoutes } from "./routes/reason-only.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
@@ -177,6 +178,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       checksRoutes(scope, { clock });
       messageTemplateRoutes(scope);
       idCheckRoutes(scope, { clock, wrappingKey: config.auth.secretKey });
+      reasonOnlyRoutes(scope, { clock });
       let s3: S3Settings | null = null;
       filesRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       checkInRoutes(scope, {

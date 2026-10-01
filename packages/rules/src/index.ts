@@ -38,3 +38,5 @@ export { bookingGrid, resolveStart, zoneName, GRID_STEP_MIN } from "./booking-gr
 export type { GridSlot, StartRefusal } from "./booking-grid.js";
 export { sessionClock, STAY_ON_STOPS_BEFORE_CLOSE_MIN } from "./session-clock.js";
 export type { ClockSegment, SessionClock, Tile } from "./session-clock.js";
+export { compMinutesCents, reasonOnly } from "./reason-only.js";
+export type { ReasonOnlyAnswer, ReasonOnlyLimits } from "./reason-only.js";

@@ -322,7 +322,7 @@ Definition of done: see CLAUDE.md.
   - **Also:** the pricing property test turned up a third corner of the spec's billing-step rule (recorded in M2-03's notes).
 ### M2-14 · Write the reason-only limit test-first and total it per person
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-04, M2-08
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · The reason-only limit; [Money rules](../spec/05-money-rules.md) 7; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `PosSettings.reasonOnly`
@@ -331,12 +331,13 @@ Definition of done: see CLAUDE.md.
   - Limits from `pos.reasonOnly`: 2500 and 7500 cents at West 4; 0 sends every comp and void for approval.
   - `reasonOnlyUsed(membership)`: the sum of that person's reason-only comp and void lines from every screen (the bar POS, Room, DeskRoom and the board), leaving out practice checks (M7), and the "$X left this shift" figure the fix panel shows (M3-19).
 - **Acceptance:**
-  - [ ] Every case in the `reason_only_limits` group passes: Maya, with $12.00 used, comps $13.00 with a reason and no approval, leaving "$50 left this shift"; $25.00 exactly needs only a reason and $25.01 needs approval; a shift total of exactly $75.00 needs only a reason and $75.01 needs approval; Diego's $70.00 void needs approval.
-  - [ ] Comp 15 min of room time is $10.00 in Room 5 (4 guests), a reason is enough, and $30.00 in Room 9 (12 guests), which needs approval.
-  - [ ] After the seed loads, Maya's total is $12.00 (her COMP of a Jäger Bomb on Luis M.'s check), so she has $63 left.
+  - [x] Every case in the `reason_only_limits` group passes: Maya, with $12.00 used, comps $13.00 with a reason and no approval, leaving "$50 left this shift"; $25.00 exactly needs only a reason and $25.01 needs approval; a shift total of exactly $75.00 needs only a reason and $75.01 needs approval; Diego's $70.00 void needs approval.
+  - [x] Comp 15 min of room time is $10.00 in Room 5 (4 guests), a reason is enough, and $30.00 in Room 9 (12 guests), which needs approval.
+  - [x] After the seed loads, Maya's total is $12.00 (her COMP of a Jäger Bomb on Luis M.'s check), so she has $63 left.
 - **Tests:** the `reason_only_limits` group (8 cases), written first; an integration test of the per-person total across two screens.
 - **Notes:** The spec totals the limit over the person's open shift, which needs the time clock (M7). Until then the window is the business date, which can only make the limit stricter (flagged); M7 moves it to the shift. Money-cases ambiguity A2 (voids that resolve a returned order) is decided in M3-06.
-
+  - **Built:** `reasonOnly(used, amount, { eachCents, perShiftCents })` and `compMinutesCents(minutes, hourlyCents)` in `packages/rules/src/reason-only.ts` (amounts count by size, since comp and void lines are negative; limits of 0 send everything for approval); `reasonOnlyUsed(c, venueId, userId, businessDate)` in `packages/db/src/checks.ts` (the person's comp and void lines with a reason and no approver, on every check, leaving out training checks); `GET /reason-only?membership_id=` with what's used and what's left (staff read their own, owners and managers anyone's).
+  - **Tests:** the 8 `reason_only_limits` cases written first, limits of 0, credits by size, and Comp 15 min ($10.00 in Room 5, $30.00 in Room 9); integration: Maya at $12.00 used and $63 left after the seed, then a comp on Room 9's check and a void on a bar tab both counting, an approved comp not counting, and staff refused someone else's total.
 ### M2-15 · Build approvals, their routing and the Approvals inbox
 
 - **Status:** todo

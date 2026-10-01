@@ -179,3 +179,26 @@ export async function checkById(c: Queryable, venueId: string, id: string) {
     })),
   };
 }
+
+/**
+ * A person's reason-only comps and voids so far (M2-14; spec 02): their comp
+ * and void lines with a reason and no approver, from every screen, on live
+ * checks only (practice checks are training checks, M7). The window is the
+ * business date until the time clock (M7) gives a shift; that can only make
+ * the limit stricter.
+ */
+export async function reasonOnlyUsed(
+  c: Queryable,
+  venueId: string,
+  userId: string,
+  businessDate: string,
+): Promise<number> {
+  const r = await c.query<{ used: string }>(
+    `select coalesce(sum(abs(l.amount_cents)), 0)::text as used
+       from check_lines l join checks k on k.venue_id = l.venue_id and k.id = l.check_id
+      where l.venue_id = $1 and l.added_by = $2 and l.business_date = $3
+        and l.kind in ('comp', 'void') and l.approved_by is null and not k.training`,
+    [venueId, userId, businessDate],
+  );
+  return Number(r.rows[0]!.used);
+}

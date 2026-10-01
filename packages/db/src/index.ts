@@ -274,6 +274,7 @@ export {
   checkById,
   insertCheck,
   nextCheckNumber,
+  reasonOnlyUsed,
   type CheckKind,
   type CheckLineRow,
   type CheckRow,
