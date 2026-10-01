@@ -1,4 +1,5 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { execSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
@@ -1591,6 +1592,51 @@ test("the party-size control: Room 9 one guest more shows the new rate and ID 12
     await expect(room9).toContainText(`$${(before + 1) * 10}.00 an hour · bills at least 4`);
     await expect(room9).toContainText(`12 of ${before + 1}`);
     expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The move sheet from the board's alert (M2-18, N12): Room 7 reads "Needed
+ * now" with the Parks booked at 11:00; Move lists Room 11, free all night,
+ * greys out Room 8 (booked next), and the move gives a new room code.
+ */
+test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    // Earlier tests seat a walk-in in Room 11; this one starts from a fresh load of the demo seed at 10:41 PM.
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const room7 = page.getByRole("listitem", { name: "Room 7", exact: true });
+    await expect(room7).toContainText("Needed now");
+    await room7.getByRole("button", { name: "Move" }).click();
+    const sheet = page.getByRole("dialog", { name: "Move Room 7" });
+    await expect(sheet.getByRole("button", { name: "Room 11 · free all night" })).toBeVisible();
+    await expect(sheet).toContainText("Room 8 · booked next");
+    await expect(sheet).toContainText("Room 1 · too small");
+    expect(await clippedText(page)).toEqual([]);
+    await sheet.getByRole("button", { name: "Room 11 · free all night" }).click();
+    await expect(page.getByText(/^Moved to Room 11 · new code [A-Z2-9]{5}$/)).toBeVisible();
+    await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).toContainText(
+      "7 guests",
+    );
   } finally {
     await db.end();
   }

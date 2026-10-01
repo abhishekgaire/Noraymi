@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
+import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
 
 /**
@@ -75,6 +76,7 @@ export function Tonight() {
   const [free, setFree] = useState<{ room_id: string; name: string }[]>([]);
   const [rooms, setRooms] = useState<readonly RoomInfo[]>([]);
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
+  const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
   const [rates, setRates] = useState<Record<string, { hourly_cents: number; min_guests: number }>>(
     {},
   );
@@ -242,6 +244,20 @@ export function Tonight() {
               }}
             />
           )}
+          {moving && (
+            <MoveSheet
+              venueId={venueId}
+              timeZone={timeZone}
+              sessionId={moving.sessionId}
+              roomName={moving.roomName}
+              onClose={() => setMoving(null)}
+              onMoved={(line) => {
+                setMoving(null);
+                setDone(line);
+                void load();
+              }}
+            />
+          )}
           {faultSheet && (
             <FaultSheet
               venueId={venueId}
@@ -391,7 +407,16 @@ export function Tonight() {
                     </div>
                   )}
                   {faultList(s.room_id)}
-                  {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
+                  <div className="actions">
+                    <button
+                      type="button"
+                      className={s.tile.kind === "needed_now" ? "primary" : "secondary"}
+                      onClick={() => setMoving({ sessionId: s.id, roomName: s.room_name })}
+                    >
+                      {t("move.button")}
+                    </button>
+                    {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
+                  </div>
                 </li>
               );
             })}

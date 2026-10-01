@@ -415,7 +415,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-18 · Move a room with the move sheet
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-05, M2-07, M2-11
 - **Spec:** [N12 Move sheet](../screens.md#n12-move-sheet); [Data model](../spec/04-data-model.md) · Room assignment; [API](../spec/08-api.md) · Board and sessions (`/move-options`, `/move`); [Money rules](../spec/05-money-rules.md) 3
@@ -424,12 +424,19 @@ Definition of done: see CLAUDE.md.
   - `POST /sessions/{s}/move` anywhere else answers `409 room_not_free`. Otherwise, in one transaction: the segment closes and the next opens in the new room on the minute, the session's block moves, a new room code is issued, `token_version` goes up so the old code stops working, the old room goes to cleaning, and the check stays one check.
   - `room.updated` for both rooms, and an event on the session's room channel so joined phones can show "You've moved to Room 11 · new code …" (the guest page is M3).
 - **Acceptance:**
-  - [ ] The move sheet for Rob & Kim (7, in Room 7) lists Room 11, free all night, and greys out the other rooms with the reason each can't be used.
-  - [ ] Moving them opens a segment in Room 11 at the same $70.00 an hour, issues a new 5-character code, stops the old code working and sends Room 7 to cleaning for the Parks at 11:00 PM.
-  - [ ] A move into Room 8 answers `409 room_not_free`.
-  - [ ] Room 7's check keeps every line and stays one check.
+  - [x] The move sheet for Rob & Kim (7, in Room 7) lists Room 11, free all night, and greys out the other rooms with the reason each can't be used.
+  - [x] Moving them opens a segment in Room 11 at the same $70.00 an hour, issues a new 5-character code, stops the old code working and sends Room 7 to cleaning for the Parks at 11:00 PM.
+  - [x] A move into Room 8 answers `409 room_not_free`.
+  - [x] Room 7's check keeps every line and stays one check.
 - **Tests:** API integration tests; Playwright for the sheet from the board's alert and from DeskRoom.
 - **Notes:** [Board](../screens.md#board) note 6, [Staff](../screens.md#staff) note 7. "Free for the time needed" isn't defined for a party already past its booked end; cautious default: the rest of the booked time, or past the end one 15-minute extension step (the step a session extends by), plus cleaning (flagged).
+  - Built: `moveOptions` in `apps/api/src/rooms/assignment.ts` (each room with its free-until or the reason it can't be used: too small, out of service, in use, needs a wipe, held for a booking, booked next, past the close); `apps/api/src/rooms/move.ts` (`moveSession`); `GET /sessions/{s}/move-options` and `POST /sessions/{s}/move` in `routes/move.ts`. The board's room tiles have Move (primary on a "Needed now" tile, the board's alert), opening `MoveSheet.tsx`.
+  - Cautious default as flagged: the time needed is the rest of the booked time, or one 15-minute step for a party past its end; and the next booking in the target room must still get the wrap-up notice plus cleaning before it, the same rule an extension uses. That is what keeps Room 8 (booked at 11:00) out for Rob & Kim at 10:41.
+  - The session's block "moves" as two rows: the old room's block ends at the move, and a new session block opens in the new room up to the time needed. `sessionBlock` now reads the latest one. The old room goes to cleaning until its next booking (the Parks at 11:00), as ending a session does.
+  - The new room's rate is worked out for the new room (the same $70.00 for Rob & Kim; a party moving into the VIP room would get its rate). A paused clock stays paused.
+  - `session.moved` goes on the old room's channel for the guest page (M3). The old code stops working because the room code hash is replaced and `token_version` goes up; the join route that checks them arrives in M3.
+  - The board's sheet only; DeskRoom, the Room phone and the staff phone get it with M2-31.
+
 
 ### M2-19 · Run cleaning, room notes and lost and found
 

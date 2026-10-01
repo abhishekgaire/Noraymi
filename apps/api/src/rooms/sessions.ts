@@ -166,9 +166,11 @@ async function sessionOrThrow(c: Queryable, venueId: string, id: string) {
   return s;
 }
 
-async function sessionBlock(c: Queryable, venueId: string, sessionId: string) {
+/** The session's current block: the latest, since a move ends the old room's and opens one in the new room. */
+export async function sessionBlock(c: Queryable, venueId: string, sessionId: string) {
   const r = await c.query<{ id: string; ends_at: string | null }>(
-    `select id, ${iso("upper(period)")} as ends_at from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'session'`,
+    `select id, ${iso("upper(period)")} as ends_at from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'session'
+      order by lower(period) desc limit 1`,
     [venueId, sessionId],
   );
   return r.rows[0] ?? null;

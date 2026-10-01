@@ -737,3 +737,15 @@ button.danger {
   margin: 4px 0;
   padding: 0;
 }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.move-options {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}

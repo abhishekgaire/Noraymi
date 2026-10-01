@@ -429,3 +429,90 @@ export async function reassignFutureBookings(
   }
   return { moved, unplaced };
 }
+
+export type MoveBlocked =
+  "too_small" | "out_of_service" | "in_use" | "cleaning" | "held" | "booked_next" | "past_close";
+
+export interface MoveOption {
+  readonly room_id: string;
+  readonly name: string;
+  readonly ok: boolean;
+  /** Free until (the next block's start), or null when free all night. */
+  readonly until: string | null;
+  readonly all_night: boolean;
+  readonly why: MoveBlocked | null;
+}
+
+/**
+ * Where a session can move (M2-18; spec 04 · Room assignment): rooms that fit
+ * the party and are free for the time needed. The time needed is the rest of
+ * the booked time, or one 15-minute extension step for a party past its end
+ * (cautious default, flagged), and the next booking in the room must still
+ * get the wrap-up notice plus cleaning, as for an extension.
+ */
+export async function moveOptions(
+  c: Queryable,
+  venueId: string,
+  session: { roomId: string; partySize: number; bookedEnd: Temporal.Instant | null },
+  now: Temporal.Instant,
+): Promise<{ needed_until: string; rooms: MoveOption[] }> {
+  const venue = await venueClock(c, venueId);
+  const night = await nightOf(c, venueId, venue, now);
+  const settings = await settingsOn(c, venueId, night.businessDate);
+  const rooms = (await roomsForAssignment(c, venueId, settings.cleaningMin)).filter(
+    (r) => r.id !== session.roomId,
+  );
+  const neededUntil =
+    session.bookedEnd && Temporal.Instant.compare(session.bookedEnd, now) > 0
+      ? session.bookedEnd
+      : now.add({ minutes: 15 });
+  const blocks = await blocksBetween(c, venueId, now.subtract({ hours: 24 }), null);
+  const out = rooms.map((room): MoveOption => {
+    const mine = blocks.filter((b) => b.room_id === room.id);
+    const current = mine.find(
+      (b) =>
+        Temporal.Instant.compare(Temporal.Instant.from(b.starts_at), now) <= 0 &&
+        (b.ends_at === null || Temporal.Instant.compare(now, Temporal.Instant.from(b.ends_at)) < 0),
+    );
+    const next = mine
+      .map((b) => Temporal.Instant.from(b.starts_at))
+      .filter((at) => Temporal.Instant.compare(at, now) > 0)
+      .sort(Temporal.Instant.compare)[0];
+    const until = next ?? null;
+    const base = { room_id: room.id, name: room.name, until: until?.toString() ?? null };
+    const no = (why: MoveBlocked): MoveOption => ({ ...base, ok: false, all_night: false, why });
+    if (!room.available) return no("out_of_service");
+    if (room.capacityMax < session.partySize) return no("too_small");
+    if (current)
+      return no(
+        current.kind === "session"
+          ? "in_use"
+          : current.kind === "cleaning"
+            ? "cleaning"
+            : current.kind === "out_of_service"
+              ? "out_of_service"
+              : "held",
+      );
+    if (room.state === "cleaning") return no("cleaning");
+    if (night.close && Temporal.Instant.compare(neededUntil, night.close) > 0)
+      return no("past_close");
+    if (
+      until &&
+      Temporal.Instant.compare(
+        neededUntil,
+        until.subtract({ minutes: settings.noticeMin + room.cleaningMin }),
+      ) > 0
+    )
+      return no("booked_next");
+    const allNight =
+      until === null || (night.close !== null && Temporal.Instant.compare(until, night.close) >= 0);
+    return {
+      ...base,
+      until: allNight ? (night.close?.toString() ?? null) : base.until,
+      ok: true,
+      all_night: allNight,
+      why: null,
+    };
+  });
+  return { needed_until: neededUntil.toString(), rooms: out };
+}
