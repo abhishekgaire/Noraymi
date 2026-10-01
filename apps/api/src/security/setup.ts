@@ -116,6 +116,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into room_calls (venue_id, session_id, kind, created_at) values ($1, $2, 'tv', now()) returning id",
     [v.venueB, sessionB.rows[0]!.id],
   );
+  const waitB = await owner.query<{ id: string }>(
+    `insert into waitlist_entries (venue_id, guest_id, party_size, size_tier_needed, joined_at, source)
+       values ($1, $2, 4, 'small', now(), 'staff') returning id`,
+    [v.venueB, guestB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -146,6 +151,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       callId: callB.rows[0]!.id,
       conversationId: conversationB.rows[0]!.id,
       messageId: messageB.rows[0]!.id,
+      w: waitB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -168,6 +174,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/rooms/:r/notes": { text: "x" },
       "PATCH /v1/venues/:venueId/room-notes/:noteId": { cleared: true },
       "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
+      "PATCH /v1/venues/:venueId/waitlist/:w": { quoted_min: 10 },
       "POST /v1/venues/:venueId/conversations/:conversationId/messages": { body: "On our way" },
       "POST /v1/venues/:venueId/conversations/:conversationId/running-late": {},
       "POST /v1/venues/:venueId/checks/:checkId/lines": {

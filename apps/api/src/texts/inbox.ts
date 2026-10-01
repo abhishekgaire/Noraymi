@@ -39,8 +39,8 @@ async function tonight(c: Queryable, venueId: string, now: Temporal.Instant) {
 /**
  * Where a guest's text goes. The number's open conversation (one with a text
  * either way tonight); otherwise its context tonight, in this order (the
- * cautious reading, flagged): an open room session, a waiting waitlist entry
- * (from the waitlist ticket on), tonight's booking, then the next booking.
+ * cautious reading, flagged): an open room session, a waiting waitlist entry,
+ * tonight's booking, then the next booking.
  */
 export async function matchConversation(
   c: Queryable,
@@ -72,6 +72,14 @@ export async function matchConversation(
       [venueId, guest.id],
     );
     if (session.rows[0]) context = { kind: "session", id: session.rows[0].id };
+    if (!context) {
+      const waiting = await c.query<{ id: string }>(
+        `select id from waitlist_entries where venue_id = $1 and guest_id = $2 and status in ('waiting', 'offered')
+          order by joined_at desc limit 1`,
+        [venueId, guest.id],
+      );
+      if (waiting.rows[0]) context = { kind: "waitlist", id: waiting.rows[0].id };
+    }
     if (!context) {
       const booking = await c.query<{ id: string }>(
         `select id from bookings where venue_id = $1 and guest_id = $2 and status in ('pending', 'confirmed')

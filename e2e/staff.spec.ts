@@ -1868,3 +1868,48 @@ test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a 
     await db.end();
   }
 });
+
+/**
+ * The waitlist drawer on the board (M2-25, N11), from a fresh seed: "Waitlist
+ * · 3" opens Amara B. (7), Nadia K. (6) and Chris P. (3, bills as 4); Remove
+ * takes Amara off the drawer and the count.
+ */
+test("the waitlist drawer: Waitlist · 3, the three parties, and Remove", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.getByRole("button", { name: "Waitlist · 3" }).click();
+    const drawer = page.getByRole("complementary", { name: "Waitlist" });
+    const amara = drawer.getByRole("listitem", { name: "Amara B." });
+    await expect(amara).toContainText("7 guests");
+    await expect(amara).toContainText(/Joined 10:15\s?PM · waited 26 min/);
+    await expect(amara).toContainText("Quoted 25 min");
+    await expect(drawer.getByRole("listitem", { name: "Nadia K." })).toContainText("6 guests");
+    await expect(drawer.getByRole("listitem", { name: "Chris P." })).toContainText(
+      "3 guests · bills as 4",
+    );
+    expect(await clippedText(page)).toEqual([]);
+    await amara.getByRole("button", { name: "Remove" }).click();
+    await expect(drawer.getByRole("listitem", { name: "Amara B." })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Waitlist · 2" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { t } from "@west4/shared";
+import "./globals.css";
 
 export const metadata = {
   title: t("en", "app.guest.name"),

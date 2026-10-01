@@ -337,3 +337,14 @@ export {
   type LostItemRow,
   type RoomNoteRow,
 } from "./room-care.js";
+export {
+  endWaitlistEntry,
+  insertWaitlistEntry,
+  liveWaitlist,
+  resolveVenueSlug,
+  resolveWaitlistToken,
+  setWaitlistQuote,
+  waitlistEntry,
+  type WaitlistRow,
+  type WaitlistStatus,
+} from "./waitlist.js";

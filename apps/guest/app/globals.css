@@ -1,0 +1,64 @@
+/* The guest pages (M2-25): phone first, 44 px targets, light and dark. */
+:root {
+  --ink: #1d1a22;
+  --paper: #ffffff;
+  --line: #d9d4e0;
+  --accent: #e0287d;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f3eff7;
+    --paper: #16131a;
+    --line: #3a3442;
+  }
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font:
+    16px/1.45 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+.guest {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+.guest form {
+  display: grid;
+  gap: 12px;
+}
+.guest label {
+  display: grid;
+  gap: 4px;
+}
+.guest input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.guest button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+}
+.guest button:disabled {
+  opacity: 0.5;
+}
+.guest .big {
+  font-size: 1.6rem;
+  font-weight: 700;
+}

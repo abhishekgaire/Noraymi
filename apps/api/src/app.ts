@@ -40,6 +40,7 @@ import { moveRoutes } from "./routes/move.js";
 import { roomCareRoutes } from "./routes/room-care.js";
 import { callRoutes } from "./routes/calls.js";
 import { conversationRoutes } from "./routes/conversations.js";
+import { waitlistRoutes } from "./routes/waitlist.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
@@ -200,6 +201,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         clock,
         settings: { texts: loadVenueTextSettings(config.env), guestAppUrl: config.guestAppUrl },
       });
+      waitlistRoutes(scope, { pool: gatePoolRef!, clock });
       twilioHookRoutes(scope, {
         pool: gatePoolRef!,
         secretKey: config.auth.secretKey,

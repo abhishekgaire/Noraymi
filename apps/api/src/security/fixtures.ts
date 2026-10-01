@@ -114,6 +114,8 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   callId: uuid(33),
   conversationId: uuid(34),
   messageId: uuid(35),
+  w: uuid(36),
+  slug: "venue-b-sample",
   id: "rooms",
   key: "hours",
   role: "front_desk",

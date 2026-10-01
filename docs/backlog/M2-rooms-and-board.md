@@ -586,7 +586,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-25 · Build the waitlist: entries, the guest page behind the door QR, and the drawer
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M2-06, M2-09
 - **Spec:** [N11 Waitlist drawer](../screens.md#n11-waitlist-drawer); [Waitlist](../screens.md#waitlist); [Data model](../spec/04-data-model.md) · `waitlist_entries`; [API](../spec/08-api.md) · Waitlist; [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Guest with a link); [Demo seed · Waitlist](../demo-seed.md#waitlist)
@@ -597,11 +597,18 @@ Definition of done: see CLAUDE.md.
   - The drawer on the board, opened from "Waitlist · 3", and the staff phone's Waitlist tab: each row with the party size, joined time, quote and wait, and Offer a room, Text and Remove. "+ Add a walk-in" opens check-in with a free room.
   - `waitlist.updated` events.
 - **Acceptance:**
-  - [ ] The drawer lists Amara B. (7, joined 10:15 PM, quoted 25 min, waited 26), Nadia K. (6) and Chris P. (3, bills as 4), and the board reads "Waitlist · 3".
-  - [ ] A guest who joins from the door QR as a party of 4 is fourth, and their page reads "3 parties ahead".
-  - [ ] Remove takes a party off every screen at once.
+  - [x] The drawer lists Amara B. (7, joined 10:15 PM, quoted 25 min, waited 26), Nadia K. (6) and Chris P. (3, bills as 4), and the board reads "Waitlist · 3".
+  - [x] A guest who joins from the door QR as a party of 4 is fourth, and their page reads "3 parties ahead".
+  - [x] Remove takes a party off every screen at once.
 - **Tests:** API integration tests; Playwright for the guest page on a phone and for the drawer.
 - **Notes:** [Waitlist](../screens.md#waitlist) notes 1, 3 and 4 now; note 5's "Sing at the bar" link opens the singer's queue page, which comes in M6, so it's left off until then. The API table has no staff route to add a party, though staff add entries; this adds `POST /waitlist` (flagged). The spec doesn't say how a guest who joins from the page gets a quote; cautious default: staff set quotes, and the page shows a quote only once one is set (flagged). The spec sets languages only for staff screens, so guest pages ship in English with their strings in the catalog.
+  - Built: migration 0040 (`waitlist_entries`, walled and audited, with `source`, the hashed link token and its expiry; `resolve_venue_slug` and `resolve_waitlist_token` as the two narrow doors for requests without a venue); `packages/db/src/waitlist.ts`; `apps/api/src/rooms/waitlist.ts`; `routes/waitlist.ts` (`GET`/`POST /waitlist`, `PATCH /waitlist/{w}` for the quote, `/remove`, `/text`, and the public `POST /v1/public/venues/{slug}/waitlist`, `GET`/`PATCH /v1/public/waitlist/{token}`). The seed loads Amara B., Nadia K. and Chris P. Text matching now finds a waiting party's entry (M2-22's flagged step). The staff app has the board's "Waitlist · 3" drawer and a Waitlist tab on phones (`screens/Waitlist.tsx`); the guest web has its first pages, `/v/{slug}/waitlist` (the door QR) and `/w/{token}` (the guest's place, refreshed every 15 seconds), reaching the API through a `/v1` rewrite on its own origin.
+  - As flagged: `POST /waitlist` for staff; quotes are staff's (`PATCH /waitlist/{w}`), and a guest who joins at the door sees "We'll text you when your room is ready" until one is set.
+  - The link token is 128 random bits, kept only as its SHA-256, and expires at the night's cutover, checked on the app's clock (the simulated one in demos). Its page sends no Referer and isn't cached.
+  - A number can be on the live list once; the size needed is the smallest room size that fits (the VIP room only when nothing else does).
+  - Remove marks the entry `left` (the spec's statuses have no separate "removed").
+  - Guest pages are English, their words in the catalog with Spanish beside them for the check. Offer a room comes with M2-26, and the CAPTCHA and limits on the door page with M2-27.
+
 
 ### M2-26 · Offer a waiting party a room: hold it 10 minutes, text, count down and expire
 

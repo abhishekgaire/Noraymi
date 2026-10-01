@@ -159,6 +159,8 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   const home = context.role === "staff" ? runs : context.role === "bartender" ? menu[1]! : menu[0]!;
   const tabs: PhoneTab[] = [{ id: "home", labelKey: home.labelKey, path: home.path }];
   tabs.push({ id: "calls", labelKey: "tabs.calls", path: "/calls" });
+  if (context.permissions.includes("waitlist.manage") && context.modules.waitlist !== "off")
+    tabs.push({ id: "waitlist", labelKey: "waitlist.title", path: "/waitlist" });
   if (context.permissions.includes("texts.send"))
     tabs.push({ id: "messages", labelKey: "menu.messages", path: "/messages" });
   tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });

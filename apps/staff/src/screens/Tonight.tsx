@@ -11,6 +11,7 @@ import { CallsList } from "./Calls.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
+import { WaitlistList, useWaitlistCount } from "./Waitlist.js";
 import { ScanId } from "./ScanId.js";
 
 /**
@@ -90,6 +91,9 @@ export function Tonight() {
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
   const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
   const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
+  const [drawer, setDrawer] = useState(false);
+  const waitlistOn = signedIn?.membership.modules.waitlist !== "off";
+  const waiting = useWaitlistCount(venueId, waitlistOn);
   const [rates, setRates] = useState<Record<string, { hourly_cents: number; min_guests: number }>>(
     {},
   );
@@ -252,7 +256,45 @@ export function Tonight() {
 
   return (
     <section className="screen">
-      <h1>{t("menu.tonight")}</h1>
+      <div className="screen-head">
+        <h1>{t("menu.tonight")}</h1>
+        {waitlistOn && (
+          <button
+            type="button"
+            className="secondary"
+            aria-expanded={drawer}
+            onClick={() => setDrawer((open) => !open)}
+          >
+            {t("waitlist.button", { count: waiting })}
+          </button>
+        )}
+      </div>
+      {drawer && (
+        <aside className="drawer" aria-label={t("waitlist.title")}>
+          <div className="room-clock-head">
+            <h2>{t("waitlist.title")}</h2>
+            <button type="button" className="link" onClick={() => setDrawer(false)}>
+              {t("waitlist.close")}
+            </button>
+          </div>
+          <WaitlistList
+            venueId={venueId}
+            timeZone={timeZone}
+            onWalkIn={
+              free[0]
+                ? () => {
+                    setDrawer(false);
+                    setSheet({
+                      kind: "walk_in",
+                      roomId: free[0]!.room_id,
+                      roomName: free[0]!.name,
+                    });
+                  }
+                : undefined
+            }
+          />
+        </aside>
+      )}
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}

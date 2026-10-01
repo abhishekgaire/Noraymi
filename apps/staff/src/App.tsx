@@ -22,6 +22,7 @@ import { SignIn } from "./screens/SignIn.js";
 import { Approvals } from "./screens/Approvals.js";
 import { Calls } from "./screens/Calls.js";
 import { Messages } from "./screens/Messages.js";
+import { Waitlist } from "./screens/Waitlist.js";
 import { SessionProvider, useSession, type SessionState } from "./session.js";
 import { isShared, readDevice } from "./device.js";
 import { startHeartbeats } from "./heartbeat.js";
@@ -95,6 +96,7 @@ export function StaffRoutes() {
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/calls" element={<Calls />} />
         <Route path="/messages" element={<Messages />} />
+        <Route path="/waitlist" element={<Waitlist />} />
         <Route path="/admin" element={<Admin />}>
           <Route index element={<AdminIndex />} />
           <Route path="team" element={<Team />} />

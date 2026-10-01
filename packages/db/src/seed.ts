@@ -717,6 +717,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
+      "waitlist_entries",
       "room_calls",
       "room_faults",
       "room_notes",
@@ -1037,6 +1038,38 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       calls++;
     }
     log(`room calls: ${calls}`);
+
+    // The waitlist (M2-25; docs/demo-seed.md · Waitlist): Amara B. (7), Nadia K. (6) and Chris P. (3), added by staff.
+    type SeedWait = {
+      id: string;
+      guest: string;
+      party_size: number;
+      joined_at: string;
+      quoted_min: number | null;
+      status: string;
+    };
+    const waiting = (seed as { waitlist?: SeedWait[] }).waitlist ?? [];
+    const tierOf = (party: number) =>
+      [...seed.rooms]
+        .filter((r) => r.capacity_max >= party)
+        .sort((a, b) => Number(a.is_vip) - Number(b.is_vip) || a.capacity_max - b.capacity_max)[0]!
+        .size_tier;
+    for (const w of waiting)
+      await client.query(
+        `insert into waitlist_entries (id, venue_id, guest_id, party_size, size_tier_needed, joined_at, quoted_min, status, source)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, 'staff')`,
+        [
+          remember(w.id, "waitlist_entries"),
+          venueId,
+          id(w.guest),
+          w.party_size,
+          tierOf(w.party_size),
+          new Date(w.joined_at),
+          w.quoted_min,
+          w.status,
+        ],
+      );
+    log(`waitlist: ${waiting.length}`);
 
     // The inbox (M2-22; docs/demo-seed.md · Inbox threads): Sam O.'s unread "running 15 late", and Marcus T.'s
     // and Bianca L.'s threads. Texts without a time in the seed keep their order but show no time.
