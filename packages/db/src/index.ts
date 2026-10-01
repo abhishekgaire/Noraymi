@@ -80,6 +80,8 @@ export {
   readSeedFile,
   seedFilePath,
   seedUuid,
+  seedHostToken,
+  seedRoomCode,
   seedId,
   assertSeedAllowed,
   SeedRefused,
@@ -374,3 +376,12 @@ export { orderById, listOrders, insertOrder, moveOrder, insertPrintJob } from ".
 export type { OrderRow, OrderItemRow, NewOrder } from "./orders.js";
 export { draftFor, saveDraft, clearDraft } from "./drafts.js";
 export type { DraftRow } from "./drafts.js";
+export {
+  resolveRoomSession,
+  resolveRoomHost,
+  roomGuestById,
+  insertRoomGuest,
+  refreshRoomGuest,
+  openSessionInRoom,
+} from "./room-guests.js";
+export type { RoomGuestRow } from "./room-guests.js";

@@ -46,6 +46,12 @@ export type Alert =
       readonly waiting: readonly string[];
     }
   | {
+      readonly kind: "code";
+      readonly color: string;
+      readonly session_id: string;
+      readonly room_name: string;
+    }
+  | {
       readonly kind: "late";
       readonly color: string;
       readonly booking_id: string;
@@ -127,6 +133,8 @@ export function Alerts({
           minutes: list(a.rooms.map((r) => String(r.minutes))),
           names: list(a.waiting),
         });
+      case "code":
+        return t("alert.code", { room: a.room_name });
       case "late":
         return t("alert.late", {
           name: a.name,

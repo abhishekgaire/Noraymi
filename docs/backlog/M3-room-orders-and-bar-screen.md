@@ -215,7 +215,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-08 · Join a room with its code, on a session token that rotates
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M2-07, M2-11, M2-18
 - **Spec:** [N3 Join a room](../screens.md#n3-join-a-room); [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Guest in a room); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Joining a room; [API](../spec/08-api.md) · Guest room; [Security and data retention](../spec/12-security-retention.md) 9; [Order](../screens.md#order) notes 7 and 8
@@ -226,13 +226,20 @@ Definition of done: see CLAUDE.md.
   - `token_version` rotates on a room move, a host lock or a new code: joined phones get the new code over the room channel and join again, and the old code stops working. After a move they show "You've moved to Room 11 · new code …".
   - `GET /v1/public/room-session`. Token routes answer with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, and stay out of CDN logs.
 - **Acceptance:**
-  - [ ] Marcus T.'s Room code link joins him as Room 9's host, and a friend who scans the wall QR and types KX4M7 joins as a friend.
-  - [ ] A wrong code says so, and the tenth wrong code for Room 9 rotates its code and alerts the board and Andy's phone.
-  - [ ] The page for Room 11, which has no session, says the room is closed.
-  - [ ] After Rob & Kim move to Room 11, their old code stops working and their joined phones show "You've moved to Room 11 · new code …".
-  - [ ] The cookie is httpOnly with 128 bits, and the join route answers with no-referrer and no-store.
+  - [x] Marcus T.'s Room code link joins him as Room 9's host, and a friend who scans the wall QR and types KX4M7 joins as a friend.
+  - [x] A wrong code says so, and the tenth wrong code for Room 9 rotates its code and alerts the board and Andy's phone.
+  - [x] The page for Room 11, which has no session, says the room is closed.
+  - [x] After Rob & Kim move to Room 11, their old code stops working and their joined phones show "You've moved to Room 11 · new code …".
+  - [x] The cookie is httpOnly with 128 bits, and the join route answers with no-referrer and no-store.
 - **Tests:** API integration tests; Playwright on a phone for each state.
 - **Notes:** The glossary fixes no words for a wrong code or a closed room; they go in the catalog for the founder to confirm (flagged). The API says the token rotates on a host lock and that "joined phones get the new code and join again"; this reads that as a new code pushed to joined phones (flagged).
+  - Built: migration `0046_room_guests.sql` (`room_guests`; `room_sessions.room_code_enc`, `wrong_codes`, `code_alert_at`; the definer functions `resolve_room_session` and `resolve_room_host`; `orders.room_guest_id` now a key); `packages/db/src/room-guests.ts`; `apps/api/src/rooms/room-code.ts` (codes sealed with the API's secret key, ten wrong codes rotate); `apps/api/src/routes/room-join.ts` (the routes and the room cookie authenticator); the guest pages `/v/{slug}/room/{room}` (the wall QR), `/r/{token}` (the host link) and `/room`; the board's new amber alert "Room 9 · ten wrong room codes, so it has a new code"; `apps/api/src/routes/room-join.int.test.ts`, the guest Playwright test "joining a room on a phone", and the move sheet's Playwright test now follows Rob's phone to Room 11.
+  - The cookie `west4_room` holds 128 random bits (16 bytes, base64url), HttpOnly, SameSite=Lax, 12 hours, Secure off local; only its SHA-256 is stored. The guest principal's id is the room its token was issued in, so the old room's channel still reaches a phone after a move.
+  - Rotation: a move, ten wrong codes (and the host lock in M3-10) raise the session's `token_version` with a new code. A joined phone's next `GET /room-session` finds its token's version behind, gets a fresh token at the new version and the new code (decrypted from `room_code_enc`), and after a move `moved: { from, to }`, which the page shows as "You've moved to Room 11 · new code …". Nobody outside the room learns the code; the old code stops working at once. This is the reading of "joined phones get the new code and join again" flagged in the ticket.
+  - Ten wrong codes for one room (counted per session, reset by a new code) rotate it, push "Room 9: ten wrong room codes · the room has a new code" to the manager on duty, and show the board's amber alert for 30 minutes.
+  - The Room code text's link carries the host token in its path (`/r/{token}`), so the page sends it in a POST body to `POST /v1/public/room-session/host` (added to spec 08 with the room's open-or-closed read). The seed's sessions get host tokens derived from their slugs (`seedHostToken`, demo only) and sealed codes, so Marcus T.'s link works on the demo night.
+  - The join routes sit under the Room ordering module. Words for a wrong code, a closed room and a new code aren't in the glossary; they're in the catalog (`guestRoom.*`) for the founder to confirm.
+  - The room page asks every 10 seconds for now; M3-09 puts it on the room's live channel with the menu and ordering.
 
 ### M3-09 · Build the room page: the menu, ordering and live status in the guest's words
 

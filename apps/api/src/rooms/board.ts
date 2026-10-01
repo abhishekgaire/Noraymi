@@ -184,7 +184,7 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
  * reading of the seed's order, flagged). Room-order alerts join in M3.
  */
 const COLOR_ORDER = ["pink", "amber", "lime", "grey"] as const;
-const KIND_ORDER = ["needed_now", "call", "near_end", "offer", "wipe", "late"] as const;
+const KIND_ORDER = ["needed_now", "call", "near_end", "code", "offer", "wipe", "late"] as const;
 
 async function boardAlerts(
   c: Queryable,
@@ -259,6 +259,21 @@ async function boardAlerts(
       room_name: k.room_name,
       call: k.kind,
       minutes_ago: minutes(k.created_at),
+    });
+  // Ten wrong room codes rotated a room's code (M3-08): amber for half an hour.
+  const rotated = await c.query<{ session_id: string; room_name: string; at: string }>(
+    `select s.id as session_id, r.name as room_name, to_json(s.code_alert_at) #>> '{}' as at
+       from room_sessions s join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+      where s.venue_id = $1 and s.ended_at is null and s.code_alert_at > $2::timestamptz - interval '30 minutes'`,
+    [venueId, now.toString()],
+  );
+  for (const k of rotated.rows)
+    out.push({
+      kind: "code",
+      color: "amber",
+      since: k.at,
+      session_id: k.session_id,
+      room_name: k.room_name,
     });
   const waiting = (await staffWaitlist(c, venueId, now)).filter((w) => w.status === "waiting");
   const suggestion = await offerSuggestion(c, venueId, now);

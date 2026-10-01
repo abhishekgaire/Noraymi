@@ -13,10 +13,25 @@ const nextConfig: NextConfig = {
     return [{ source: "/v1/:path*", destination: `${api}/v1/:path*` }];
   },
   headers() {
-    // A waitlist link carries its token in the path: never leak it in a Referer, never cache it.
+    // Token pages never leak their token in a Referer and are never cached.
     return Promise.resolve([
       {
         source: "/w/:token",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      // The host's Room code link carries its token in the path (M3-08); the room page is behind a cookie.
+      {
+        source: "/r/:token",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      {
+        source: "/room",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Cache-Control", value: "no-store" },

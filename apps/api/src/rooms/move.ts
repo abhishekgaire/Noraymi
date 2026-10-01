@@ -13,6 +13,7 @@ import { ApiError } from "../http/errors.js";
 import { moveOptions } from "./assignment.js";
 import { sendToCleaning } from "./cleaning.js";
 import { hashRoomCode, newRoomCode, priceContext } from "./checkin.js";
+import { sealRoomCode } from "./room-code.js";
 import { sessionBlock } from "./sessions.js";
 
 /**
@@ -150,9 +151,10 @@ export async function moveSession(
   // A new room code; the token version goes up, so the old code and joined phones' tokens stop working.
   const code = newRoomCode(to.name);
   await c.query(
-    `update room_sessions set room_id = $3, room_code_hash = $4, token_version = token_version + 1
+    `update room_sessions set room_id = $3, room_code_hash = $4, room_code_enc = $5, token_version = token_version + 1,
+            wrong_codes = 0
       where venue_id = $1 and id = $2`,
-    [venueId, s.id, to.id, hashRoomCode(venueId, code)],
+    [venueId, s.id, to.id, hashRoomCode(venueId, code), sealRoomCode(code)],
   );
   await sendToCleaning(c, venueId, from.id, { now: input.now, userId: input.userId });
   await setRoomState(c, venueId, to.id, {

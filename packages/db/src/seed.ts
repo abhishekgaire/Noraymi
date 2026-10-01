@@ -364,6 +364,14 @@ export function seedRoomCode(slug: string, roomName: string): string {
   return Array.from({ length: 5 }, (_, i) => alphabet[bytes[i]! % alphabet.length]).join("");
 }
 
+/**
+ * A seeded session's host link token (DEMO ONLY): what the Room code text's link carries, derived
+ * from the session's slug so tests and demo scripts can open Marcus T.'s link.
+ */
+export function seedHostToken(slug: string): string {
+  return createHash("sha256").update(`host-token:${slug}`).digest("base64url").slice(0, 32);
+}
+
 /** As the API hashes a room code (apps/api/src/rooms/checkin.ts · hashRoomCode). */
 export const roomCodeHash = (venueId: string, code: string) =>
   createHash("sha256").update(`${venueId}:${code.toUpperCase()}`).digest("hex");
@@ -803,6 +811,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "print_jobs",
       "order_items",
       "orders",
+      "room_guests",
       "menu_options",
       "modifier_groups",
       "menu_variants",
@@ -1061,11 +1070,15 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
 
     // Room sessions and their clock segments (M2-07): the eight rooms in use at 10:41 PM.
     // check_id is the check's stable id; the checks themselves load in M3.
+    // Each code is hashed for joining and sealed (M3-08) so joined phones can be shown a new one.
+    const codeOf = (sess: SeedSession) =>
+      sess.room_code ??
+      seedRoomCode(sess.id, seed.rooms.find((r) => r.id === sess.room)?.name ?? "");
     for (const sess of seed.sessions) {
       await client.query(
         `insert into room_sessions (id, venue_id, room_id, booking_id, check_id, party_size, started_at, booked_end_at, business_date, guest_id,
-                                    room_code_hash, token_version)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1)`,
+                                    room_code_hash, token_version, room_code_enc, host_token_hash)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, $12, $13)`,
         [
           id(sess.id),
           venueId,
@@ -1077,11 +1090,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
           sess.booked_end_at,
           sess.business_date,
           sess.guest ? id(sess.guest) : null,
-          roomCodeHash(
-            venueId,
-            sess.room_code ??
-              seedRoomCode(sess.id, seed.rooms.find((r) => r.id === sess.room)?.name ?? ""),
-          ),
+          roomCodeHash(venueId, codeOf(sess)),
+          authKey ? encryptSecret(parseAuthSecretKey(authKey), codeOf(sess)) : null,
+          createHash("sha256").update(seedHostToken(sess.id)).digest("hex"),
         ],
       );
       for (const seg of sess.segments) {

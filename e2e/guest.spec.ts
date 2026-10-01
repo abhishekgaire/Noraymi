@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
@@ -59,6 +60,62 @@ test("the door QR on a phone: a party of 4 joins fourth, 3 parties ahead, then l
     expect(scroll).toBeLessThanOrEqual(390);
     await page.getByRole("button", { name: "Leave the waitlist" }).click();
     await expect(page.getByRole("status")).toHaveText("You've left the waitlist.");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Joining a room on a phone (M3-08; screens N3), from a fresh load of the
+ * demo seed: Marcus T.'s Room code link joins him as Room 9's host; a friend
+ * types a wrong code, is told so, then joins with KX4M7; Room 11 has nobody
+ * in it and says it's closed.
+ */
+test("joining a room on a phone: the host link, a wrong code, KX4M7, and a closed room", async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const roomId = async (name: string) =>
+      (await db.query<{ id: string }>("select id from rooms where name = $1", [name])).rows[0]!.id;
+    const phone = async () =>
+      (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+
+    const marcus = await phone();
+    const hostToken = createHash("sha256")
+      .update("host-token:sess_room9")
+      .digest("base64url")
+      .slice(0, 32);
+    await marcus.goto(`/r/${hostToken}`);
+    await expect(marcus.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+    await expect(marcus.getByText("You're the host")).toBeVisible();
+    await marcus.context().close();
+
+    const friend = await phone();
+    await friend.goto(`/v/west4karaoke/room/${await roomId("Room 9")}`);
+    await expect(friend.getByRole("heading", { level: 1 })).toHaveText("Join Room 9");
+    await friend.getByLabel("Room code").fill("QQQQQ");
+    await friend.getByRole("button", { name: "Join" }).click();
+    // Next's route announcer is an alert too, so the refusal is found by its words.
+    await expect(friend.getByRole("alert").filter({ hasText: "That code isn't right" })).toHaveText(
+      "That code isn't right. Check the code on the wall.",
+    );
+    await friend.getByLabel("Room code").fill("kx4m7");
+    await friend.getByRole("button", { name: "Join" }).click();
+    await expect(friend.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+    await expect(friend.getByText("You're in")).toBeVisible();
+    const cookie = (await friend.context().cookies()).find((c) => c.name === "west4_room");
+    expect(cookie?.httpOnly).toBe(true);
+    await friend.context().close();
+
+    const closed = await phone();
+    await closed.goto(`/v/west4karaoke/room/${await roomId("Room 11")}`);
+    await expect(closed.getByRole("status")).toHaveText("Room 11 is closed right now.");
+    await closed.context().close();
   } finally {
     await db.end();
   }

@@ -62,3 +62,23 @@ body {
   font-size: 1.6rem;
   font-weight: 700;
 }
+/* Joining a room (M3-08). */
+.guest input.code {
+  font-size: 1.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.guest .hint {
+  margin: -8px 0 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+.guest .notice {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-left: 6px solid #d97706;
+}
+.room-page .venue {
+  margin: 0;
+  opacity: 0.8;
+}

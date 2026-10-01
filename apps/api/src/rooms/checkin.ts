@@ -22,6 +22,7 @@ import { Temporal, type Clock } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { queueText } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
+import { sealRoomCode } from "./room-code.js";
 import { venueClock } from "./assignment.js";
 
 /**
@@ -175,8 +176,8 @@ async function seat(ctx: Context, input: SeatInput) {
     const sessionId = (
       await c.query<{ id: string }>(
         `insert into room_sessions (venue_id, room_id, booking_id, party_size, started_at, booked_end_at, business_date,
-           server_user_id, room_code_hash, token_version, host_token_hash, guest_id)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11) returning id`,
+           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12) returning id`,
         [
           input.venueId,
           room.id,
@@ -189,6 +190,7 @@ async function seat(ctx: Context, input: SeatInput) {
           hashRoomCode(input.venueId, code),
           createHash("sha256").update(hostToken).digest("hex"),
           input.guest.id,
+          sealRoomCode(code),
         ],
       )
     ).rows[0]!.id;

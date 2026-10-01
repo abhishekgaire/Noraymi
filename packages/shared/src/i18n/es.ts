@@ -1089,4 +1089,25 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "drinks.sent": "Enviado · en la cuenta, el ticket se imprime en la barra",
   "drinks.failed": "No se envió. Inténtalo de nuevo.",
   "drinks.orders": "Pedidos de esta sala",
+  // Joining a room with its code (M3-08). The wrong-code and closed-room words are for the founder to confirm.
+  "joinCode.rotated.push":
+    "{room}: diez códigos de sala incorrectos · la sala tiene un código nuevo",
+  "alert.code":
+    "{room} · diez códigos de sala incorrectos, así que tiene un código nuevo. Los teléfonos conectados siguen funcionando.",
+  "guestRoom.join.title": "Entrar a {room}",
+  "guestRoom.join.code": "Código de la sala",
+  "guestRoom.join.hint": "Las 5 letras y números de la pared",
+  "guestRoom.join.submit": "Entrar",
+  "guestRoom.join.wrong": "Ese código no es correcto. Revisa el código de la pared.",
+  "guestRoom.join.closed": "{room} está cerrada ahora.",
+  "guestRoom.join.failed": "No pudimos conectarte. Inténtalo de nuevo.",
+  "guestRoom.join.joining": "Conectando…",
+  "guestRoom.hostLink.failed":
+    "Este enlace ya no sirve. Escanea el código de la pared para entrar.",
+  "guestRoom.header": "{room} · Código {code}",
+  "guestRoom.host": "Eres el anfitrión",
+  "guestRoom.friend": "Ya estás dentro",
+  "guestRoom.moved": "Se cambiaron a {room} · código nuevo {code}",
+  "guestRoom.newCode": "{room} tiene un código nuevo: {code}",
+  "guestRoom.ended": "La sesión de esta sala terminó.",
 };

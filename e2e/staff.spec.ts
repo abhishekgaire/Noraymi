@@ -1621,6 +1621,7 @@ test("the party-size control: Room 9 one guest more shows the new rate and ID 12
 test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async ({
   page,
   request,
+  browser,
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
@@ -1649,8 +1650,30 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
     await expect(sheet).toContainText("Room 8 · booked next");
     await expect(sheet).toContainText("Room 1 · too small");
     expect(await clippedText(page)).toEqual([]);
+    // Rob's phone, joined from his Room code text before the move (M3-08).
+    const guest = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const robsPhone = await guest.newPage();
+    const hostToken = createHash("sha256")
+      .update("host-token:sess_room7")
+      .digest("base64url")
+      .slice(0, 32);
+    await robsPhone.goto(`http://localhost:3001/r/${hostToken}`);
+    await expect(robsPhone.getByRole("heading", { level: 1 })).toHaveText(
+      /^Room 7 · Code [A-Z2-9]{5}$/,
+    );
     await sheet.getByRole("button", { name: "Room 11 · free all night" }).click();
-    await expect(page.getByText(/^Moved to Room 11 · new code [A-Z2-9]{5}$/)).toBeVisible();
+    const moved = page.getByText(/^Moved to Room 11 · new code [A-Z2-9]{5}$/);
+    await expect(moved).toBeVisible();
+    const newCode = (await moved.innerText()).slice(-5);
+    // His phone shows the move and the new code; the old code stops working.
+    await robsPhone.reload();
+    await expect(robsPhone.getByRole("status")).toHaveText(
+      `You've moved to Room 11 · new code ${newCode}`,
+    );
+    await expect(robsPhone.getByRole("heading", { level: 1 })).toHaveText(
+      `Room 11 · Code ${newCode}`,
+    );
+    await guest.close();
     await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).toContainText(
       "7 guests",
     );
