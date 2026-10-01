@@ -1913,3 +1913,82 @@ test("the waitlist drawer: Waitlist · 3, the three parties, and Remove", async 
     await db.end();
   }
 });
+
+/**
+ * Offering a room (M2-26), from a fresh seed. The board's lime alert offers
+ * Room 11 to Amara B. and the drawer counts down. After Sam O.'s no-show at
+ * 10:45 PM, a guest who joined fourth at the door is offered Room 2, and their
+ * page reads "Room 2 is ready · 10:00 to claim it".
+ */
+test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest's page", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(
+      page.getByText("Room 11 is free, and Amara B. (7) is first in line."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
+    const amara = page
+      .getByRole("complementary", { name: "Waitlist" })
+      .getByRole("listitem", { name: "Amara B." });
+    await expect(amara.getByRole("timer")).toHaveText(/^Room 11 · (10:00|9:\d\d) to claim$/);
+    expect(await clippedText(page)).toEqual([]);
+
+    // The fourth guest joins at the door; Sam O. no-shows at 10:45; the guest is offered Room 2.
+    const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
+      .slug;
+    const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await guest.goto(`http://localhost:3001/v/${slug}/waitlist`);
+    await guest.getByLabel("Your name").fill("Jordan L.");
+    await guest.getByLabel("Mobile number").fill("2125550145");
+    await guest.getByLabel("How many of you").fill("4");
+    await guest.getByRole("button", { name: "Join the waitlist" }).click();
+    await expect(guest.getByRole("status")).toHaveText("3 parties ahead");
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:45:00Z" } })).ok(),
+    ).toBe(true);
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const sam = (
+      await db.query<{ id: string }>(
+        "select row_id as id from seed_ids where venue_id = $1 and slug = 'bk_sam'",
+        [v],
+      )
+    ).rows[0]!.id;
+    expect(
+      (await page.request.post(`/v1/venues/${v}/bookings/${sam}/no-show`, { data: {} })).ok(),
+    ).toBe(true);
+    const jordan = (
+      await db.query<{ id: string }>(
+        "select w.id from waitlist_entries w join guests g on g.id = w.guest_id where g.name = 'Jordan L.'",
+      )
+    ).rows[0]!.id;
+    const offered = await page.request.post(`/v1/venues/${v}/waitlist/${jordan}/offer`);
+    expect(offered.status(), await offered.text()).toBe(201);
+    await guest.reload();
+    await expect(guest.getByRole("status")).toHaveText(
+      /^Room 2 is ready · (10:00|9:5\d) to claim it$/,
+    );
+    await expect(guest.getByRole("button", { name: "Give it away" })).toBeVisible();
+    await guest.close();
+  } finally {
+    await db.end();
+  }
+});

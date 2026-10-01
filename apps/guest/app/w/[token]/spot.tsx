@@ -12,7 +12,11 @@ interface SpotView {
   readonly status: "waiting" | "offered" | "seated" | "declined" | "expired" | "left";
   readonly ahead: number | null;
   readonly quoted_min: number | null;
-  readonly offer: { readonly room_name: string; readonly expires_at: string | null } | null;
+  readonly offer: {
+    readonly room_name: string;
+    readonly expires_at: string | null;
+    readonly seconds_left: number | null;
+  } | null;
 }
 
 const REFRESH_MS = 15_000;
@@ -22,7 +26,9 @@ export function Spot({ token }: { token: string }) {
   const [spot, setSpot] = useState<SpotView | null>(null);
   const [gone, setGone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
+  // The countdown runs from the server's seconds left on the page's steady timer, never the phone's clock.
+  const [fetchedAt, setFetchedAt] = useState(() => performance.now());
+  const [now, setNow] = useState(() => performance.now());
 
   const load = useCallback(async () => {
     const r = await fetch(`/v1/public/waitlist/${token}`, { cache: "no-store" }).catch(() => null);
@@ -31,13 +37,16 @@ export function Spot({ token }: { token: string }) {
       setGone(true);
       return;
     }
-    if (r.ok) setSpot(((await r.json()) as { spot: SpotView }).spot);
+    if (r.ok) {
+      setSpot(((await r.json()) as { spot: SpotView }).spot);
+      setFetchedAt(performance.now());
+    }
   }, [token]);
 
   useEffect(() => {
     void load();
     const timer = setInterval(() => void load(), REFRESH_MS);
-    const tick = setInterval(() => setNow(Date.now()), 1000);
+    const tick = setInterval(() => setNow(performance.now()), 1000);
     return () => {
       clearInterval(timer);
       clearInterval(tick);
@@ -51,7 +60,10 @@ export function Spot({ token }: { token: string }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),
     }).catch(() => null);
-    if (r?.ok) setSpot(((await r.json()) as { spot: SpotView }).spot);
+    if (r?.ok) {
+      setSpot(((await r.json()) as { spot: SpotView }).spot);
+      setFetchedAt(performance.now());
+    }
     setBusy(false);
   };
 
@@ -80,9 +92,10 @@ export function Spot({ token }: { token: string }) {
     spot.day_of_week === 5 || spot.day_of_week === 6
       ? t("en", `dayName.${spot.day_of_week}` as "dayName.5")
       : t("en", "dayName.other");
-  const left = spot.offer?.expires_at
-    ? Math.max(0, Math.floor((Date.parse(spot.offer.expires_at) - now) / 1000))
-    : null;
+  const left =
+    spot.offer?.seconds_left === null || spot.offer?.seconds_left === undefined
+      ? null
+      : Math.max(0, spot.offer.seconds_left - Math.floor((now - fetchedAt) / 1000));
   const clock =
     left === null ? "" : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
 

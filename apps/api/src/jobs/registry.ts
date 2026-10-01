@@ -8,6 +8,7 @@ import { deviceWatchSweep } from "./device-watch.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";
 import { TEXT_TRIGGER_KIND, makeTextTriggerHandler, textTriggerSweep } from "../texts/triggers.js";
+import { waitlistOfferSweep } from "../rooms/waitlist.js";
 import { sweepUnattachedFiles } from "../files/storage.js";
 import { makeS3 } from "../s3.js";
 import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
@@ -88,7 +89,11 @@ export const schedules: Schedule[] = [
 ];
 
 /** What the scheduler's leader checks between ticks (M1-16: quiet devices). */
-export function makeSweeps(pool: pg.Pool, log?: (line: string) => void): Sweep[] {
+export function makeSweeps(
+  pool: pg.Pool,
+  log?: (line: string) => void,
+  texts: Pick<VenueTextSettings, "allowList"> = { allowList: null },
+): Sweep[] {
   const s3 = makeS3();
   return [
     deviceWatchSweep(pool, log),
@@ -96,6 +101,8 @@ export function makeSweeps(pool: pg.Pool, log?: (line: string) => void): Sweep[]
     wrapUpSweep(pool),
     // The automatic texts on their triggers (M2-24).
     textTriggerSweep(pool),
+    // Waitlist offers not taken in 10 minutes (M2-26).
+    waitlistOfferSweep(pool, texts),
     // Uploads nothing attached within 24 hours (M2-13).
     {
       name: "unattached-files",

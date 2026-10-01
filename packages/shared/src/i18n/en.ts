@@ -781,4 +781,13 @@ export const en = {
   "dayName.5": "Friday",
   "dayName.6": "Saturday",
   "dayName.other": "weeknights",
+  "waitlist.offer": "Offer a room",
+  "waitlist.offerButton": "Offer {room} · 10 min to claim",
+  "waitlist.suggest": "{room} is free, and {name} ({party}) is first in line.",
+  "waitlist.offered": "{room} · {time} to claim",
+  "waitlist.notDelivered": "Not delivered · Call",
+  "waitlist.seat": "Seat",
+  "waitlist.idsChecked": "IDs checked",
+  "waitlist.minutes": "Minutes",
+  "waitlist.noRoom": "No room fits this party for an hour",
 } as const;

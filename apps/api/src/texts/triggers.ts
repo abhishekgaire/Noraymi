@@ -182,6 +182,34 @@ export async function planTextTriggers(
         });
     }
   }
+  // Offer expiring: `messages.offerExpiringMin` before a waitlist offer runs out (M2-26).
+  const expiringMin = messages?.value.offerExpiringMin ?? 0;
+  if (expiringMin > 0) {
+    const offers = await c.query<{ id: string; guest_id: string; phone: string; expires: string }>(
+      `select w.id, g.id as guest_id, g.phone_e164 as phone, to_json(w.offer_expires_at) #>> '{}' as expires
+         from waitlist_entries w join guests g on g.venue_id = w.venue_id and g.id = w.guest_id
+        where w.venue_id = $1 and w.status = 'offered' and g.phone_e164 is not null
+          and w.offer_expires_at > $2::timestamptz
+          and w.offer_expires_at <= $2::timestamptz + make_interval(mins => $3)`,
+      [venueId, now.toString(), expiringMin],
+    );
+    if (offers.rows.length > 0) {
+      const name =
+        (await c.query<{ name: string }>("select name from venues where id = $1", [venueId]))
+          .rows[0]?.name ?? "";
+      for (const o of offers.rows)
+        await queue(
+          `text:offer_expiring:${o.id}:${Temporal.Instant.from(o.expires).epochMilliseconds}`,
+          {
+            template_key: "offer_expiring",
+            to: o.phone,
+            guest_id: o.guest_id,
+            context: { kind: "waitlist", id: o.id },
+            params: { venue: name },
+          },
+        );
+    }
+  }
   return queued;
 }
 
@@ -204,8 +232,7 @@ export function makeTextTriggerHandler(settings: Pick<VenueTextSettings, "allowL
             ? "room_sessions"
             : p.context.kind === "booking"
               ? "bookings"
-              : null;
-        if (!table) return;
+              : "waitlist_entries";
         const found = await c.query(`select 1 from ${table} where venue_id = $1 and id = $2`, [
           job.venue_id,
           p.context.id,

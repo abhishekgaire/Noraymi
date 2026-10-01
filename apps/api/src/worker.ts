@@ -54,7 +54,12 @@ if (
 const workers = (["critical", "normal", "bulk"] as const).map(
   (name) => new Worker(pool, { pool: name, handlers: handlers[name], clock, log }),
 );
-const scheduler = new Scheduler(pool, { schedules, sweeps: makeSweeps(pool, log), clock, log });
+const scheduler = new Scheduler(pool, {
+  schedules,
+  sweeps: makeSweeps(pool, log, venueTextSettings),
+  clock,
+  log,
+});
 
 for (const worker of workers) worker.start();
 scheduler.start();

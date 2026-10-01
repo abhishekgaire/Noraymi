@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { api } from "../api.js";
+import { Temporal } from "@west4/shared";
+import { api, ApiCallError } from "../api.js";
+import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
@@ -20,17 +22,45 @@ interface Entry {
   readonly quoted_min: number | null;
   readonly waited_min: number;
   readonly status: string;
+  readonly phone_e164: string | null;
+  readonly offered_room_name: string | null;
+  readonly offer_expires_at: string | null;
+  readonly offer_message_id: string | null;
+  readonly offer_text_status: string | null;
 }
 
-export function useWaitlistCount(venueId: string, on: boolean): number {
+export interface Suggestion {
+  readonly entry_id: string;
+  readonly name: string;
+  readonly party_size: number;
+  readonly room_name: string;
+}
+
+/** An offer holds the room 10 minutes (M2-26). */
+const OFFER_HOLD_SEC = 600;
+
+/** "(347) 555-0177" for a US number. */
+export function usPhone(e164: string | null): string {
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164 ?? "");
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : (e164 ?? "");
+}
+
+export function useWaitlistCount(
+  venueId: string,
+  on: boolean,
+): { count: number; suggestion: Suggestion | null; reload: () => void } {
   const { subscribe } = useEvents();
   const [count, setCount] = useState(0);
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const load = useCallback(async () => {
     if (!on || !venueId) return;
     try {
-      setCount(
-        (await api<{ entries: Entry[] }>("GET", `/v1/venues/${venueId}/waitlist`)).entries.length,
+      const r = await api<{ entries: Entry[]; suggestion: Suggestion | null }>(
+        "GET",
+        `/v1/venues/${venueId}/waitlist`,
       );
+      setCount(r.entries.length);
+      setSuggestion(r.suggestion);
     } catch {
       // The count is a convenience; the board keeps working without it.
     }
@@ -39,11 +69,15 @@ export function useWaitlistCount(venueId: string, on: boolean): number {
   useEffect(
     () =>
       subscribe((events) => {
-        if (events.length === 0 || events.some((e) => e.type === "waitlist.updated")) void load();
+        if (
+          events.length === 0 ||
+          events.some((e) => e.type === "waitlist.updated" || e.type === "room.updated")
+        )
+          void load();
       }),
     [subscribe, load],
   );
-  return count;
+  return { count, suggestion, reload: () => void load() };
 }
 
 export function WaitlistList({
@@ -56,7 +90,11 @@ export function WaitlistList({
   onWalkIn?: (() => void) | undefined;
 }) {
   const { t, time } = useT();
+  const { now } = useClock();
   const navigate = useNavigate();
+  const [seating, setSeating] = useState<string | null>(null);
+  const [ids, setIds] = useState("0");
+  const [minutes, setMinutes] = useState("60");
   const { subscribe } = useEvents();
   const [entries, setEntries] = useState<readonly Entry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +122,46 @@ export function WaitlistList({
       }),
     [subscribe, load],
   );
+
+  const offer = async (id: string) => {
+    try {
+      await api("POST", `/v1/venues/${venueId}/waitlist/${id}/offer`);
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof ApiCallError && e.code === "room_not_free"
+          ? t("waitlist.noRoom")
+          : t("waitlist.failed"),
+      );
+    }
+  };
+  const seat = async (e: FormEvent, id: string) => {
+    e.preventDefault();
+    try {
+      await api("POST", `/v1/venues/${venueId}/waitlist/${id}/seat`, {
+        ids_checked: Number(ids),
+        minutes: Number(minutes),
+      });
+      setSeating(null);
+      await load();
+    } catch {
+      setError(t("waitlist.failed"));
+    }
+  };
+  const left = (expires: string | null) => {
+    if (!expires || !now) return "";
+    // Never above the hold itself: the screen's clock can sit a second off the server's.
+    const s = Math.min(
+      OFFER_HOLD_SEC,
+      Math.max(
+        0,
+        Math.ceil(
+          (Temporal.Instant.from(expires).epochMilliseconds - now.epochMilliseconds) / 1000,
+        ),
+      ),
+    );
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
 
   const remove = async (id: string) => {
     try {
@@ -154,7 +232,59 @@ export function WaitlistList({
                 ? t("waitlist.noQuote")
                 : t("waitlist.quoted", { min: w.quoted_min })}
             </div>
+            {w.status === "offered" && (
+              <div className="small" role="timer">
+                {t("waitlist.offered", {
+                  room: w.offered_room_name ?? "",
+                  time: left(w.offer_expires_at),
+                })}
+              </div>
+            )}
+            {w.status === "offered" &&
+              (w.offer_message_id === null || w.offer_text_status === "failed") && (
+                <div className="small error">
+                  {t("waitlist.notDelivered")}{" "}
+                  <a href={`tel:${w.phone_e164 ?? ""}`}>{usPhone(w.phone_e164)}</a>
+                </div>
+              )}
+            {seating === w.id && (
+              <form className="actions" onSubmit={(e) => void seat(e, w.id)}>
+                <label>
+                  {t("waitlist.idsChecked")}
+                  <input
+                    type="number"
+                    min={0}
+                    max={w.party_size}
+                    value={ids}
+                    onChange={(e) => setIds(e.target.value)}
+                  />
+                </label>
+                <label>
+                  {t("waitlist.minutes")}
+                  <input
+                    type="number"
+                    min={15}
+                    step={15}
+                    value={minutes}
+                    onChange={(e) => setMinutes(e.target.value)}
+                  />
+                </label>
+                <button type="submit" className="primary">
+                  {t("checkIn.button")}
+                </button>
+              </form>
+            )}
             <div className="actions">
+              {w.status === "waiting" && (
+                <button type="button" className="primary" onClick={() => void offer(w.id)}>
+                  {t("waitlist.offer")}
+                </button>
+              )}
+              {w.status === "offered" && seating !== w.id && (
+                <button type="button" className="primary" onClick={() => setSeating(w.id)}>
+                  {t("waitlist.seat")}
+                </button>
+              )}
               <button type="button" className="secondary" onClick={() => void text(w.id)}>
                 {t("waitlist.text")}
               </button>

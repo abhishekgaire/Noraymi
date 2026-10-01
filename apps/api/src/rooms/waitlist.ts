@@ -1,5 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
+import type pg from "pg";
 import {
+  addBlock,
+  blocksBetween,
   emitEvent,
   endWaitlistEntry,
   findOrCreateGuest,
@@ -7,14 +10,20 @@ import {
   listRooms,
   liveWaitlist,
   readSetting,
+  releaseBlock,
+  RoomNotFree,
   waitlistEntry,
+  withVenue,
   type Queryable,
+  type Sweep,
   type WaitlistRow,
 } from "@west4/db";
 import { businessDate, minGuestsOn } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
-import { venueClock } from "./assignment.js";
+import { freeFor, nightOf, venueClock } from "./assignment.js";
+import { queueText } from "../texts/queue.js";
+import type { VenueTextSettings } from "../texts/venue.js";
 
 /**
  * The walk-in waitlist (M2-25; screens N11 and Waitlist; spec 04 ·
@@ -131,6 +140,7 @@ export async function endEntry(
   id: string,
   status: "left" | "declined",
   now: Temporal.Instant,
+  texts?: Pick<VenueTextSettings, "allowList">,
 ): Promise<void> {
   const entry = await waitlistEntry(c, venueId, id);
   if (!entry) throw new ApiError("not_found", "no such party on the waitlist");
@@ -139,6 +149,11 @@ export async function endEntry(
   if (!(await endWaitlistEntry(c, venueId, id, status, now.toString())))
     throw new ApiError("invalid_request", "that party isn't waiting any more");
   await emitEvent(c, { venueId, type: "waitlist.updated", entityId: id, entityVersion: 0 });
+  // An offer given away or taken off: the room goes to the next party that fits (M2-26).
+  if (entry.status === "offered" && entry.offered_room_id) {
+    await releaseHold(c, venueId, id);
+    if (texts) await offerToNext(c, venueId, entry.offered_room_id, now, texts);
+  }
 }
 
 /** The guest's page: their place from the live list, the quote once staff set one, and any offer. */
@@ -162,7 +177,234 @@ export async function guestView(c: Queryable, venueId: string, id: string, now: 
     joined_at: entry.joined_at,
     offer:
       entry.status === "offered" && entry.offered_room_name
-        ? { room_name: entry.offered_room_name, expires_at: entry.offer_expires_at }
+        ? {
+            room_name: entry.offered_room_name,
+            expires_at: entry.offer_expires_at,
+            // Counted on the server's clock, so the page's countdown never trusts the phone's.
+            seconds_left: entry.offer_expires_at
+              ? Math.max(
+                  0,
+                  Math.ceil(
+                    (Temporal.Instant.from(entry.offer_expires_at).epochMilliseconds -
+                      now.epochMilliseconds) /
+                      1000,
+                  ),
+                )
+              : null,
+          }
         : null,
+  };
+}
+
+export const OFFER_HOLD_MIN = 10;
+const FREE_FOR_MIN = 60;
+
+/**
+ * The room an offer takes (M2-26; spec 04 · Room assignment): the smallest
+ * that fits and is free for an hour, or a bigger one that no booking tonight
+ * needs. A room being cleaned isn't offered.
+ */
+export async function pickOfferRoom(
+  c: Queryable,
+  venueId: string,
+  party: number,
+  now: Temporal.Instant,
+  only?: string,
+): Promise<{ id: string; name: string } | null> {
+  const free = await freeFor(c, venueId, {
+    party,
+    from: now,
+    to: now.add({ minutes: FREE_FOR_MIN }),
+    now,
+  });
+  const rooms = await listRooms(c, venueId);
+  const needed = await tierFor(c, venueId, party);
+  const order = ["small", "medium", "large", "vip"];
+  const venue = await venueClock(c, venueId);
+  const night = await nightOf(c, venueId, venue, now);
+  const tonight = await blocksBetween(c, venueId, now, night.close ?? now.add({ hours: 12 }));
+  for (const r of free.rooms) {
+    if (only && r.room_id !== only) continue;
+    const room = rooms.find((x) => x.id === r.room_id);
+    if (!room) continue;
+    if (order.indexOf(room.size_tier) > order.indexOf(needed)) {
+      const needs = tonight.some(
+        (b) => b.room_id === room.id && (b.kind === "booking" || b.kind === "hold"),
+      );
+      if (needs) continue;
+    }
+    return { id: room.id, name: room.name };
+  }
+  return null;
+}
+
+async function releaseHold(c: Queryable, venueId: string, entryId: string) {
+  const holds = await c.query<{ id: string; room_id: string }>(
+    "select id, room_id from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'hold'",
+    [venueId, entryId],
+  );
+  for (const h of holds.rows) {
+    await releaseBlock(c, h.id);
+    await emitEvent(c, { venueId, type: "room.updated", entityId: h.room_id, entityVersion: 0 });
+  }
+}
+
+/**
+ * Offers a waiting party a room: a hold that expires in 10 minutes, the Room
+ * ready text (its message kept, so a failure shows "Not delivered · Call"),
+ * and the countdown everywhere. `roomId` offers that room only.
+ */
+export async function offerRoom(
+  c: Queryable,
+  venueId: string,
+  entryId: string,
+  input: { now: Temporal.Instant; roomId?: string },
+  texts: Pick<VenueTextSettings, "allowList">,
+) {
+  const entry = await waitlistEntry(c, venueId, entryId);
+  if (!entry) throw new ApiError("not_found", "no such party on the waitlist");
+  if (entry.status !== "waiting")
+    throw new ApiError("invalid_request", "that party isn't waiting for a room");
+  const room = await pickOfferRoom(c, venueId, entry.party_size, input.now, input.roomId);
+  if (!room)
+    throw new ApiError("room_not_free", "no room fits this party for an hour", {
+      details: { reason: "no_room" },
+    });
+  const expires = input.now.add({ minutes: OFFER_HOLD_MIN });
+  try {
+    await addBlock(c, {
+      venueId,
+      roomId: room.id,
+      kind: "hold",
+      from: input.now,
+      to: expires,
+      expiresAt: expires,
+      refId: entryId,
+    });
+  } catch (e) {
+    if (e instanceof RoomNotFree)
+      throw new ApiError("room_not_free", `${room.name} was just taken`, {
+        details: { reason: "taken" },
+      });
+    throw e;
+  }
+  let messageId: string | null = null;
+  if (entry.phone_e164)
+    try {
+      messageId = (
+        await queueText(
+          c,
+          venueId,
+          {
+            templateKey: "room_ready",
+            to: entry.phone_e164,
+            params: { room: room.name },
+            guestId: entry.guest_id,
+            context: { kind: "waitlist", id: entryId },
+            sentBy: null,
+            now: input.now,
+          },
+          texts,
+        )
+      ).messageId;
+    } catch (e) {
+      // A text that can't go never blocks the offer: the row shows "Not delivered · Call".
+      if (!(e instanceof ApiError)) throw e;
+    }
+  await c.query(
+    `update waitlist_entries set status = 'offered', offered_room_id = $3, offer_expires_at = $4, offer_message_id = $5
+      where venue_id = $1 and id = $2`,
+    [venueId, entryId, room.id, expires.toString(), messageId],
+  );
+  await emitEvent(c, { venueId, type: "waitlist.updated", entityId: entryId, entityVersion: 0 });
+  await emitEvent(c, { venueId, type: "room.updated", entityId: room.id, entityVersion: 0 });
+  return {
+    room_id: room.id,
+    room_name: room.name,
+    offer_expires_at: expires.toString(),
+    message_id: messageId,
+  };
+}
+
+/** The room goes to the next waiting party that fits it, if the room is still free for an hour. */
+async function offerToNext(
+  c: Queryable,
+  venueId: string,
+  roomId: string,
+  now: Temporal.Instant,
+  texts: Pick<VenueTextSettings, "allowList">,
+) {
+  const room = (await listRooms(c, venueId)).find((r) => r.id === roomId);
+  if (!room) return null;
+  for (const next of await liveWaitlist(c, venueId)) {
+    if (next.status !== "waiting" || next.party_size > room.capacity_max) continue;
+    if (!(await pickOfferRoom(c, venueId, next.party_size, now, roomId))) continue;
+    return offerRoom(c, venueId, next.id, { now, roomId }, texts);
+  }
+  return null;
+}
+
+/** Offers not taken in 10 minutes expire: the hold goes and the room is offered to the next party that fits. */
+export async function expireOffers(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+  texts: Pick<VenueTextSettings, "allowList">,
+): Promise<string[]> {
+  const due = await c.query<{ id: string; room_id: string }>(
+    `select id, offered_room_id as room_id from waitlist_entries
+      where venue_id = $1 and status = 'offered' and offer_expires_at <= $2::timestamptz order by offer_expires_at`,
+    [venueId, now.toString()],
+  );
+  for (const e of due.rows) {
+    await endWaitlistEntry(c, venueId, e.id, "expired", now.toString());
+    await releaseHold(c, venueId, e.id);
+    await emitEvent(c, { venueId, type: "waitlist.updated", entityId: e.id, entityVersion: 0 });
+    if (e.room_id) await offerToNext(c, venueId, e.room_id, now, texts);
+  }
+  return due.rows.map((r) => r.id);
+}
+
+/** The board's lime alert: the first waiting party and the room an offer would take now. */
+export async function offerSuggestion(c: Queryable, venueId: string, now: Temporal.Instant) {
+  for (const w of await liveWaitlist(c, venueId)) {
+    if (w.status !== "waiting") continue;
+    const room = await pickOfferRoom(c, venueId, w.party_size, now);
+    if (room)
+      return {
+        entry_id: w.id,
+        name: w.name,
+        party_size: w.party_size,
+        room_id: room.id,
+        room_name: room.name,
+      };
+  }
+  return null;
+}
+
+export async function sweepWaitlistOffers(
+  pool: pg.Pool,
+  now: Temporal.Instant,
+  texts: Pick<VenueTextSettings, "allowList">,
+) {
+  const venues = await pool.query<{ id: string }>("select id from venues_for_scheduler()");
+  const out: { venueId: string; expired: string[] }[] = [];
+  for (const v of venues.rows) {
+    const expired = await withVenue(pool, { venueId: v.id, requestId: "sweep:waitlist" }, (c) =>
+      expireOffers(c, v.id, now, texts),
+    );
+    if (expired.length > 0) out.push({ venueId: v.id, expired });
+  }
+  return out;
+}
+
+export function waitlistOfferSweep(
+  pool: pg.Pool,
+  texts: Pick<VenueTextSettings, "allowList">,
+): Sweep {
+  return {
+    name: "waitlist-offers",
+    everyMs: 30_000,
+    run: async (now) => void (await sweepWaitlistOffers(pool, now, texts)),
   };
 }

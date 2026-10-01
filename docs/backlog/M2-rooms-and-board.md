@@ -612,7 +612,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-26 · Offer a waiting party a room: hold it 10 minutes, text, count down and expire
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-05, M2-09, M2-25
 - **Spec:** [N11 Waitlist drawer](../screens.md#n11-waitlist-drawer); [Data model](../spec/04-data-model.md) · Room assignment; [API](../spec/08-api.md) · Waitlist (`/offer`, `/seat`); [Song systems and texts](../spec/11-song-systems-texts.md) · The automatic texts (Room ready, Offer expiring)
@@ -624,13 +624,18 @@ Definition of done: see CLAUDE.md.
   - An offer not taken in 10 minutes expires: a job releases the hold and offers the room to the next party that fits. A guest who declines ("give it away") releases it the same way.
   - The board's lime alert, [Offer Room 11 · 10 min to claim], runs this.
 - **Acceptance:**
-  - [ ] Offering a room to Amara B. picks Room 11, holds it for 10 minutes with a countdown and texts her the Room ready text.
-  - [ ] If the text fails, her row shows "Not delivered · Call" with her number.
-  - [ ] With 5 minutes left she gets Offer expiring; at 10 minutes the hold is released and Room 11 is offered to Nadia K. (6), the next party that fits.
-  - [ ] Seat opens check-in in Room 11 for Amara's party of 7.
-  - [ ] After Sam O.'s no-show at 10:45 PM, an offer to the guest who joined fourth reads "Room 2 is ready · 10:00 to claim it" on their page.
+  - [x] Offering a room to Amara B. picks Room 11, holds it for 10 minutes with a countdown and texts her the Room ready text.
+  - [x] If the text fails, her row shows "Not delivered · Call" with her number.
+  - [x] With 5 minutes left she gets Offer expiring; at 10 minutes the hold is released and Room 11 is offered to Nadia K. (6), the next party that fits.
+  - [x] Seat opens check-in in Room 11 for Amara's party of 7.
+  - [x] After Sam O.'s no-show at 10:45 PM, an offer to the guest who joined fourth reads "Room 2 is ready · 10:00 to claim it" on their page.
 - **Tests:** API integration tests on the simulated clock with a fake failing text; Playwright for the countdown on the board and the guest page.
 - **Notes:** Room 8 isn't free for an hour (the Nguyens at 11:00 PM), so it's never offered. [Board](../screens.md#board) note 2, [Waitlist](../screens.md#waitlist) note 2.
+  - Built in `apps/api/src/rooms/waitlist.ts`: `pickOfferRoom` (the smallest room that fits and is free for an hour, or a bigger one with no booking or hold tonight; never one being cleaned), `offerRoom` (a `hold` block expiring in 10 minutes, the Room ready text with its message kept), `expireOffers` with the `waitlist-offers` sweep every 30 seconds, `offerToNext` (the room to the next waiting party that fits, on expiry, decline or removal), and `offerSuggestion` for the board. Routes: `POST /waitlist/{w}/offer` and `POST /waitlist/{w}/seat` (check-in in the held room; the hold becomes the session in the same transaction). `GET /waitlist` carries the suggestion. Offer expiring joins the M2-24 trigger sweep at `messages.offerExpiringMin`.
+  - Screens: the board's lime alert ("Room 11 is free, and Amara B. (7) is first in line." with [Offer Room 11 · 10 min to claim]); in the drawer, Offer a room, the countdown ("Room 11 · 9:42 to claim"), "Not delivered · Call (347) 555-0177" when the Room ready text failed or couldn't be sent, and Seat with IDs checked and minutes. The guest's page counts down from the server's seconds left on the page's own timer, never the phone's clock, and offers Give it away.
+  - The lime alert's words are new (the seed's "Room 11 is free all night, and Amara B. (7) has waited 26 min." needs the room's free-until, which the suggestion doesn't carry yet); the action button uses the seed's wording.
+  - Countdowns round up and never show more than 10:00.
+
 
 ### M2-27 · Add the server-checked CAPTCHA and daily limits to the waitlist page and phone codes
 

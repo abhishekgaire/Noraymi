@@ -17,13 +17,17 @@ export interface WaitlistRow {
   readonly offered_room_name: string | null;
   readonly offer_expires_at: string | null;
   readonly source: "staff" | "door";
+  readonly offer_message_id: string | null;
+  /** The Room ready text's status: sending, sent, delivered or failed; empty when none went. */
+  readonly offer_text_status: string | null;
   /** Parties ahead in the live list (waiting or offered, joined earlier). */
   readonly ahead: number;
 }
 
 const ROW = `select w.id, w.guest_id, g.name, g.phone_e164, w.party_size, w.size_tier_needed,
     to_json(w.joined_at) #>> '{}' as joined_at, w.quoted_min, w.status, w.offered_room_id, r.name as offered_room_name,
-    to_json(w.offer_expires_at) #>> '{}' as offer_expires_at, w.source,
+    to_json(w.offer_expires_at) #>> '{}' as offer_expires_at, w.source, w.offer_message_id,
+    (select m.status from messages m where m.venue_id = w.venue_id and m.id = w.offer_message_id) as offer_text_status,
     (select count(*)::int from waitlist_entries x
       where x.venue_id = w.venue_id and x.status in ('waiting', 'offered')
         and (x.joined_at, x.id) < (w.joined_at, w.id)) as ahead

@@ -13,7 +13,17 @@ import {
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { endEntry, guestView, hashToken, joinWaitlist, staffWaitlist } from "../rooms/waitlist.js";
+import { seatWalkIn, type CheckInSettings } from "../rooms/checkin.js";
+import {
+  endEntry,
+  expireOffers,
+  guestView,
+  hashToken,
+  joinWaitlist,
+  offerRoom,
+  offerSuggestion,
+  staffWaitlist,
+} from "../rooms/waitlist.js";
 
 /**
  * The waitlist (M2-25; spec 08 · Waitlist).
@@ -21,6 +31,8 @@ import { endEntry, guestView, hashToken, joinWaitlist, staffWaitlist } from "../
  *   GET   /v1/venues/{v}/waitlist                  the live list
  *   POST  /v1/venues/{v}/waitlist                  { name, phone, party_size, quoted_min? } from the drawer
  *   PATCH /v1/venues/{v}/waitlist/{w}              { quoted_min } (staff set quotes)
+ *   POST  /v1/venues/{v}/waitlist/{w}/offer         hold a room 10 minutes and text Room ready (M2-26)
+ *   POST  /v1/venues/{v}/waitlist/{w}/seat          check in to the held room: { party_size?, ids_checked, minutes }
  *   POST  /v1/venues/{v}/waitlist/{w}/remove
  *   POST  /v1/venues/{v}/waitlist/{w}/text         the entry's conversation, to open in Messages
  * Public, the door QR and the guest's link:
@@ -47,8 +59,9 @@ const doorBody = z
 
 export function waitlistRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock },
+  options: { pool: pg.Pool; clock: Clock; settings: CheckInSettings },
 ): void {
+  const texts = options.settings.texts;
   const read = route({
     principals: ["owner_manager", "staff", "shared_device"],
     module: "waitlist",
@@ -64,11 +77,92 @@ export function waitlistRoutes(
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/waitlist",
     { config: read },
-    async (request) => ({
-      entries: await request.inVenue((c) =>
-        staffWaitlist(c, request.venueId!, options.clock.now()),
-      ),
-    }),
+    async (request) => {
+      const now = options.clock.now();
+      return request.inVenue(async (c) => ({
+        entries: await staffWaitlist(c, request.venueId!, now),
+        suggestion: await offerSuggestion(c, request.venueId!, now),
+      }));
+    },
+  );
+
+  app.post<{ Params: { venueId: string; w: string } }>(
+    "/v1/venues/:venueId/waitlist/:w/offer",
+    { config: write },
+    async (request, reply) => {
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      const offer = await request.inVenue(async (c) => {
+        // A lapsed offer releases its room first, so the next party can have it.
+        await expireOffers(c, venueId, now, texts);
+        return offerRoom(c, venueId, request.params.w, { now }, texts);
+      });
+      return reply.code(201).send({ offer });
+    },
+  );
+
+  app.post<{ Params: { venueId: string; w: string }; Body: unknown }>(
+    "/v1/venues/:venueId/waitlist/:w/seat",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "waitlist",
+        action: "guests.checkin",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          party_size: z.number().int().min(1).max(500).optional(),
+          ids_checked: z.number().int().min(0).max(500),
+          minutes: z.number().int().min(15).max(720),
+        })
+        .strict()
+        .safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { ids_checked, minutes, party_size? }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "check-in is a person's work");
+      const venueId = request.venueId!;
+      const held = await request.inVenue(async (c) => {
+        const entry = await waitlistEntry(c, venueId, request.params.w);
+        if (!entry) throw new ApiError("not_found", "no such party on the waitlist");
+        if (entry.status !== "offered" || !entry.offered_room_id)
+          throw new ApiError("invalid_request", "offer the party a room first");
+        const hold = await c.query<{ id: string }>(
+          "select id from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'hold'",
+          [venueId, entry.id],
+        );
+        return { entry, holdId: hold.rows[0]?.id ?? null };
+      });
+      const seated = await seatWalkIn(
+        { pool: options.pool, clock: options.clock, settings: options.settings },
+        venueId,
+        held.entry.offered_room_id!,
+        {
+          party_size: parsed.data.party_size ?? held.entry.party_size,
+          ids_checked: parsed.data.ids_checked,
+          minutes: parsed.data.minutes,
+          guest: { name: held.entry.name, phone_e164: held.entry.phone_e164 },
+          holdBlockId: held.holdId,
+        },
+        p.userId,
+      );
+      await request.inVenue(async (c) => {
+        await c.query(
+          "update waitlist_entries set status = 'seated', check_id = $3, ended_at = $4 where venue_id = $1 and id = $2",
+          [venueId, held.entry.id, seated.check_id, options.clock.now().toString()],
+        );
+        await emitEvent(c, {
+          venueId,
+          type: "waitlist.updated",
+          entityId: held.entry.id,
+          entityVersion: 0,
+        });
+      });
+      return reply.code(201).send(seated);
+    },
   );
 
   app.post<{ Params: { venueId: string }; Body: unknown }>(
@@ -122,7 +216,7 @@ export function waitlistRoutes(
     { config: write },
     async (request) => {
       await request.inVenue((c) =>
-        endEntry(c, request.venueId!, request.params.w, "left", options.clock.now()),
+        endEntry(c, request.venueId!, request.params.w, "left", options.clock.now(), texts),
       );
       return { removed: true };
     },
@@ -241,6 +335,7 @@ export function waitlistRoutes(
               entryId,
               parsed.data.action === "leave" ? "left" : "declined",
               now,
+              texts,
             );
             return guestView(c, venueId, entryId, now);
           },

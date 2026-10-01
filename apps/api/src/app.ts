@@ -201,7 +201,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         clock,
         settings: { texts: loadVenueTextSettings(config.env), guestAppUrl: config.guestAppUrl },
       });
-      waitlistRoutes(scope, { pool: gatePoolRef!, clock });
+      waitlistRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        settings: { texts: loadVenueTextSettings(config.env), guestAppUrl: config.guestAppUrl },
+      });
       twilioHookRoutes(scope, {
         pool: gatePoolRef!,
         secretKey: config.auth.secretKey,

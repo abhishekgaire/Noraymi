@@ -391,6 +391,8 @@ export async function seatWalkIn(
     ids_checked: number;
     minutes: number;
     guest?: { name: string; phone_e164?: string | null | undefined } | undefined;
+    /** A waitlist offer's hold in the room (M2-26): released as the session takes the room. */
+    holdBlockId?: string | null;
   },
   userId: string,
 ) {
@@ -414,7 +416,7 @@ export async function seatWalkIn(
     start: now,
     plannedEnd: now.add({ minutes: body.minutes }),
     bookingId: null,
-    bookingBlockId: null,
+    bookingBlockId: body.holdBlockId ?? null,
     guest,
     userId,
   });

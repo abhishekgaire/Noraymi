@@ -791,4 +791,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "dayName.5": "viernes",
   "dayName.6": "sábado",
   "dayName.other": "entre semana",
+  "waitlist.offer": "Ofrecer una sala",
+  "waitlist.offerButton": "Ofrecer {room} · 10 min para reclamarla",
+  "waitlist.suggest": "{room} está libre, y {name} ({party}) es el primero en la fila.",
+  "waitlist.offered": "{room} · {time} para reclamarla",
+  "waitlist.notDelivered": "No entregado · Llamar",
+  "waitlist.seat": "Sentar",
+  "waitlist.idsChecked": "Identificaciones revisadas",
+  "waitlist.minutes": "Minutos",
+  "waitlist.noRoom": "Ninguna sala sirve a este grupo por una hora",
 };

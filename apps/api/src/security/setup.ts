@@ -175,6 +175,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/room-notes/:noteId": { cleared: true },
       "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
       "PATCH /v1/venues/:venueId/waitlist/:w": { quoted_min: 10 },
+      "POST /v1/venues/:venueId/waitlist/:w/seat": { ids_checked: 0, minutes: 60 },
       "POST /v1/venues/:venueId/conversations/:conversationId/messages": { body: "On our way" },
       "POST /v1/venues/:venueId/conversations/:conversationId/running-late": {},
       "POST /v1/venues/:venueId/checks/:checkId/lines": {

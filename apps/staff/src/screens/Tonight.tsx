@@ -93,7 +93,8 @@ export function Tonight() {
   const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
   const [drawer, setDrawer] = useState(false);
   const waitlistOn = signedIn?.membership.modules.waitlist !== "off";
-  const waiting = useWaitlistCount(venueId, waitlistOn);
+  const waitlist = useWaitlistCount(venueId, waitlistOn);
+  const waiting = waitlist.count;
   const [rates, setRates] = useState<Record<string, { hourly_cents: number; min_guests: number }>>(
     {},
   );
@@ -269,6 +270,34 @@ export function Tonight() {
           </button>
         )}
       </div>
+      {waitlist.suggestion && (
+        <div className="room-clock alert-lime" role="status">
+          <span>
+            {t("waitlist.suggest", {
+              room: waitlist.suggestion.room_name,
+              name: waitlist.suggestion.name,
+              party: waitlist.suggestion.party_size,
+            })}
+          </span>{" "}
+          <button
+            type="button"
+            className="primary"
+            onClick={() =>
+              void api(
+                "POST",
+                `/v1/venues/${venueId}/waitlist/${waitlist.suggestion!.entry_id}/offer`,
+              )
+                .then(() => {
+                  waitlist.reload();
+                  setDrawer(true);
+                })
+                .catch(() => setFailed(true))
+            }
+          >
+            {t("waitlist.offerButton", { room: waitlist.suggestion.room_name })}
+          </button>
+        </div>
+      )}
       {drawer && (
         <aside className="drawer" aria-label={t("waitlist.title")}>
           <div className="room-clock-head">

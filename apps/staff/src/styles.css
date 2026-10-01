@@ -851,3 +851,15 @@ button.danger {
   padding: 12px;
   margin: 8px 0 16px;
 }
+/* A lime board alert: a room to offer the waitlist (M2-26). */
+.room-clock.alert-lime {
+  border-color: #7cb518;
+  background: color-mix(in srgb, #7cb518 10%, var(--surface, transparent));
+  margin-bottom: 12px;
+}
+/* A lime board alert: a room to offer the waitlist (M2-26). */
+.room-clock.alert-lime {
+  border-color: #7cb518;
+  background: color-mix(in srgb, #7cb518 10%, var(--surface, transparent));
+  margin-bottom: 12px;
+}
