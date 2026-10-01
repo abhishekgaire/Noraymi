@@ -13,3 +13,5 @@ export {
 export type { CheckContext } from "./settings-checks.js";
 export { hoursFor, openNow } from "./hours.js";
 export type { Closure, VenueTime, BusinessDateHours } from "./hours.js";
+export { roomTime, roomTimeBetween } from "./room-time.js";
+export type { Segment, RoomTime } from "./room-time.js";

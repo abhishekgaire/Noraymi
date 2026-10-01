@@ -43,7 +43,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-01 · Write the room-time rules test-first
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-04
 - **Spec:** [Money rules](../spec/05-money-rules.md) 2 and 3; [Data model](../spec/04-data-model.md) · `session_segments`; [Testing and operations](../spec/13-testing-operations.md) · Tests (pricing unit and property tests)
@@ -52,12 +52,11 @@ Definition of done: see CLAUDE.md.
   - `roomTimeBetween(start, end, hourlyCents)`: real elapsed minutes, never clock times subtracted.
   - Segments start and end on the minute.
 - **Acceptance:**
-  - [ ] Every case in the `room_time` group of [money-cases.json](../../seed/money-cases.json) passes: 40 minutes at $40.00 an hour then 44 at $50.00 bill $63.33, never $63.34; 1, 41, 59 and 60 minutes at $40.00 an hour bill $40.00 and 61 minutes $40.67; two 20-minute segments at $40.00 and $50.00 bill $43.33.
-  - [ ] Room 9, one 161-minute segment at $120.00 an hour, bills $322.00; Room 5, 41 minutes at $40.00, bills $40.00.
-  - [ ] From 11:00 PM EDT on Oct 31 to 3:00 AM EST on Nov 1, 2026 is 300 minutes, $300.00 at $60.00 an hour; from 11:00 PM EST on Mar 13 to 3:30 AM EDT on Mar 14, 2027 is 210 minutes, $210.00.
+  - [x] Every case in the `room_time` group of [money-cases.json](../../seed/money-cases.json) passes: 40 minutes at $40.00 an hour then 44 at $50.00 bill $63.33, never $63.34; 1, 41, 59 and 60 minutes at $40.00 an hour bill $40.00 and 61 minutes $40.67; two 20-minute segments at $40.00 and $50.00 bill $43.33.
+  - [x] Room 9, one 161-minute segment at $120.00 an hour, bills $322.00; Room 5, 41 minutes at $40.00, bills $40.00.
+  - [x] From 11:00 PM EDT on Oct 31 to 3:00 AM EST on Nov 1, 2026 is 300 minutes, $300.00 at $60.00 an hour; from 11:00 PM EST on Mar 13 to 3:30 AM EDT on Mar 14, 2027 is 210 minutes, $210.00.
 - **Tests:** the `room_time` group (9 cases, with their `must_not_equal` checks), written before the code.
-- **Notes:** "On the minute" is read as segment starts and ends taken to the whole minute on the server's clock, so every segment is whole minutes; the spec doesn't say how a part minute counts (flagged).
-
+- **Notes:** "On the minute" is read as segment starts and ends taken to the whole minute on the server's clock, so every segment is whole minutes; the spec doesn't say how a part minute counts (flagged). Built in `packages/rules/src/room-time.ts`: `roomTime(segments, { firstHourMinimum })` keeps Σ hourly_cents × minutes exact and rounds once with `floor((Σ + 30) / 60)`; a paused segment bills nothing and doesn't count toward the hour; the top-up uses the first billed segment's rate; it also returns `billedMinutes` and `elapsedMinutes` for the screens. `roomTimeBetween(start, end, hourlyCents)` subtracts instants, so both daylight-saving nights come out in real minutes, and takes a part minute down to the whole minute (cautious default for the flag). Tests: the 9 `room_time` cases with their `must_not_equal` checks, Room 9 and Room 5, pauses, and the guards against non-whole or negative minutes.
 ### M2-02 · Write the rate, tab-so-far and deposit rules test-first
 
 - **Status:** todo
