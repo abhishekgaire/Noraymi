@@ -177,3 +177,27 @@ export {
   nameTiles,
 } from "./pin-lockouts.js";
 export type { PinLockout, DevicePinState, PinMembership } from "./pin-lockouts.js";
+export {
+  aesCmac,
+  venueBadgeKeys,
+  tagFileReadKey,
+  parseSun,
+  decodePiccData,
+  sunMac,
+  verifySunMac,
+  encodeSun,
+  demoBadgeUid,
+} from "./sun.js";
+export type { SunMessage, PiccData } from "./sun.js";
+export {
+  BADGE_KEY_VERSION,
+  badgeUidHash,
+  badgeKeyVersions,
+  badgeByUid,
+  pairBadge,
+  recordBadgeTap,
+  disableBadge,
+  badgesOf,
+  disableBadgesOf,
+} from "./badges.js";
+export type { BadgeRow } from "./badges.js";

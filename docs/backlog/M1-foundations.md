@@ -663,7 +663,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-25 · Check NTAG 424 DNA badges by their SUN message
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-15, M1-24
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Badges; [Data model](../spec/04-data-model.md) · `staff_badges`; [API](../spec/08-api.md) · Sign-in, team and devices (`POST /v1/auth/badge`, `/team/{m}/badges`, `/badges/{b}/disable`)
@@ -674,12 +674,17 @@ Definition of done: see CLAUDE.md.
   - A badge session rings drinks, opens and closes tabs, takes payments and accepts orders; refunds, cash counts and no-sale ask for the PIN again; Admin needs a passkey.
   - `POST /team/{m}/badges` pairs a badge (the reader side is M1-30) and `POST /badges/{b}/disable` switches it off. The seed loader adds four test badges for the fake reader.
 - **Acceptance:**
-  - [ ] A tap from Maya's badge signs her in on the bar computer, answered by the server in under 300 ms.
-  - [ ] The same SUN message sent twice: the second is refused (a replayed read).
-  - [ ] A tag that answers with Maya's UID but a CMAC from another key is refused (a copied badge), and so is a message whose counter is lower than the last.
-  - [ ] Diego's tap while Maya is signed in takes over at once; a disabled badge is refused.
+  - [x] A tap from Maya's badge signs her in on the bar computer, answered by the server in under 300 ms.
+  - [x] The same SUN message sent twice: the second is refused (a replayed read).
+  - [x] A tag that answers with Maya's UID but a CMAC from another key is refused (a copied badge), and so is a message whose counter is lower than the last.
+  - [x] Diego's tap while Maya is signed in takes over at once; a disabled badge is refused.
 - **Tests:** unit tests on the SUN examples in NXP's application note AN12196, written first; integration tests with a fake reader.
 - **Notes:** Unsent drinks staying with the person who rang them is M6's bar POS.
+  - **Built.** `packages/db/src/sun.ts`: AES-CMAC (RFC 4493, tested on its vectors), the SUN message (AN12196: PICCData decrypted under the meta-read key, the session MAC key from SV2 and the file-read key, the truncated CMAC) tested on AN12196's own example (`e=EF963FF7…`, `c=94EED9EE65337086` → UID 04DE5F1EACC040, counter 61), key diversification per tag (AN10922 style, `tagFileReadKey`) and `parseSun` for the URL or its two parameters. Migration 0021 adds `staff_badges` (uid_hash unique per venue, key_version, last_counter, label, paired_by, paired_at, last_tap_at, disabled_at). `packages/db/src/badges.ts` has pairing, lookup by UID hash, the counter update (only ever upwards), disabling one badge or a person's badges (for M1-27).
+  - **Keys.** The spec names "the venue's master key in the key service": here the key service is `AUTH_SECRET_KEY`, as for PIN peppers and authenticator secrets, and `venueBadgeKeys(secret, venue, version)` derives the venue's master and meta-read keys; the tag's file-read key is diversified from the master by its UID. Nothing about a key is stored. A rotation bumps `BADGE_KEY_VERSION` for new pairings; old badges keep theirs, and a tap is tried under every version the venue has badges for. Tag personalisation with these keys is the reader side (M1-30 / M9).
+  - **API.** `POST /v1/auth/badge` (signed by a bar or front-desk computer): decrypt, find the badge, check it's live and the person active, check the MAC, require a higher counter, store it, end the screen's other session (`replaced`) and open a 12-hour `badge` session (token for the desktop app). Each refusal has its own words (unknown badge, switched off, isn't genuine, read already used, person no longer works here). `POST /v1/venues/:v/team/:m/badges` pairs by a tap (passkey session with step-up, `admin.team`; a badge live on someone else answers 409), `GET …/team/:m/badges` lists, `POST /v1/venues/:v/badges/:b/disable` switches off. A badge session has the same rights as a PIN session: it never opens Admin, and the PIN-again check (M1-24) covers refunds, cash counts and no-sale.
+  - **Seed.** The seed's four badges get fixed demo UIDs from their ids (`demoBadgeUid`, DEMO ONLY) so `FakeBadge` (`apps/api/src/auth/test-badge.ts`) can tap them with the local secret; the desktop's fake reader (M1-30) uses the same class.
+  - **Tests.** `packages/db/src/sun.test.ts` (written first: RFC 4493 and AN12196 vectors, a round trip through the derived keys, a copied key, another version). `apps/api/src/auth/badge.int.test.ts`: the acceptance list, with the sign-in timed under 300 ms, pairing and disabling through the owner's passkey step-up, and a deactivated person, a phone and an unsigned request refused.
 
 ### M1-26 · Build the sign-in screen and each role's home
 

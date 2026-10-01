@@ -17,6 +17,7 @@ import { pushRoutes } from "./routes/push.js";
 import { teamRoutes } from "./routes/team.js";
 import { invitesRoutes } from "./routes/invites.js";
 import { pinRoutes } from "./routes/pin.js";
+import { badgeRoutes } from "./routes/badges.js";
 import { loadPushSettings, type PushSettings } from "./push/settings.js";
 import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
@@ -163,6 +164,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       });
       invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
+      badgeRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
     }
     await options.extraRoutes?.(scope);
   });

@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { LOCAL_DEV_AUTH_KEY, encryptSecret, parseAuthSecretKey, recoveryCodeHash } from "./auth.js";
 import { pinVerifier } from "./pins.js";
+import { badgeUidHash } from "./badges.js";
+import { demoBadgeUid } from "./sun.js";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,7 +55,15 @@ export interface SeedFile {
   readonly settings: SeedSettings;
   readonly role_permissions: readonly SeedPermissionRow[];
   readonly team: readonly SeedPerson[];
+  readonly badges: readonly SeedBadge[];
   readonly devices: readonly SeedDevice[];
+}
+
+/** An NTAG 424 DNA badge in the seed: the person it's paired to. Its demo UID is derived from its id (DEMO ONLY). */
+export interface SeedBadge {
+  readonly id: string;
+  readonly person: string;
+  readonly type: string;
 }
 
 export interface SeedPermissionRow {
@@ -528,6 +538,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       [venueId],
     );
     for (const table of [
+      "staff_badges",
       "invites",
       "phone_codes",
       "device_pairing_codes",
@@ -590,6 +601,20 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         [membershipId, venueId, userId, person.role, person.pin_digits, person.locale, verifier],
       );
     }
+    // Badges (M1-25): the seed's four NTAG 424 DNA badges get fixed demo UIDs so the fake reader can tap them.
+    // DEMO ONLY: real badges are paired in Admin → Team by tapping them on the reader.
+    for (const badge of seed.badges) {
+      await client.query(
+        `insert into staff_badges (venue_id, membership_id, uid_hash, key_version, last_counter, label)
+         values ($1, $2, $3, 1, 0, $4)`,
+        [
+          venueId,
+          id(`${badge.person}.membership`),
+          badgeUidHash(venueId, demoBadgeUid(badge.id)),
+          badge.id,
+        ],
+      );
+    }
     log(
       `team: ${seed.team.length} people` +
         (totpLoaded > 0
@@ -598,7 +623,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
             ? ""
             : " (demo authenticator secrets skipped: AUTH_SECRET_KEY not set)") +
         (codeSetsLoaded > 0 ? `, ${codeSetsLoaded} demo recovery code set` : "") +
-        (pinsLoaded > 0 ? `, ${pinsLoaded} demo PIN verifiers` : ""),
+        (pinsLoaded > 0 ? `, ${pinsLoaded} demo PIN verifiers` : "") +
+        `, ${seed.badges.length} demo badges`,
     );
 
     // Settings: version 1 of every key, in force from the seed's business date.
