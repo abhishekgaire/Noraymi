@@ -304,6 +304,9 @@ export {
   threadMessages,
   type ConversationRow,
   type ThreadMessageRow,
+  optedOut,
+  recordOptOut,
+  stopMessage,
 } from "./texts.js";
 export { addScanCheck, addVisualChecks, idCounts, nightKey } from "./id-checks.js";
 export {

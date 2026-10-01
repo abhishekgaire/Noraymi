@@ -5,7 +5,9 @@ import {
   emitEvent,
   markMessage,
   messageById,
+  optedOut,
   recordProviderSid,
+  stopMessage,
   twilioIntegration,
   type JobHandler,
 } from "@west4/db";
@@ -40,6 +42,17 @@ export function makeSendMessageHandler(
           entityId: message_id,
           entityVersion: 0,
         });
+        return null;
+      }
+      // An opt-out stops every text to the number at once, even one queued before it (M2-23).
+      if (!message.stop_confirmation && (await optedOut(c, venueId, message.phone_e164))) {
+        if (await stopMessage(c, venueId, message_id))
+          await emitEvent(c, {
+            venueId,
+            type: "message.updated",
+            entityId: message_id,
+            entityVersion: 0,
+          });
         return null;
       }
       if (!(await claimSendAttempt(c, venueId, message_id, clock.now().toString()))) return null;

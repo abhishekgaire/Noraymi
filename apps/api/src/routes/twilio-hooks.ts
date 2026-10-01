@@ -14,7 +14,7 @@ import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { receiveText } from "../texts/inbox.js";
-import { validTwilioSignature } from "../texts/venue.js";
+import { validTwilioSignature, type VenueTextSettings } from "../texts/venue.js";
 
 /**
  * `POST /v1/hooks/twilio/status` (M2-09): Twilio's status callback for a guest
@@ -31,7 +31,13 @@ const STATUS = {
 
 export function twilioHookRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; secretKey: Buffer; publicApiUrl: string | null; clock: Clock },
+  options: {
+    pool: pg.Pool;
+    secretKey: Buffer;
+    publicApiUrl: string | null;
+    clock: Clock;
+    texts?: Pick<VenueTextSettings, "allowList">;
+  },
 ): void {
   app.addContentTypeParser(
     "application/x-www-form-urlencoded",
@@ -134,12 +140,12 @@ export function twilioHookRoutes(
           payload: { sid },
         });
         if (!first) return;
-        await receiveText(c, venueId, {
-          from,
-          body: params["Body"] ?? "",
-          sid,
-          now: options.clock.now(),
-        });
+        await receiveText(
+          c,
+          venueId,
+          { from, body: params["Body"] ?? "", sid, now: options.clock.now() },
+          options.texts ?? { allowList: null },
+        );
       });
       return reply.code(200).header("content-type", "text/xml").send("<Response></Response>");
     },

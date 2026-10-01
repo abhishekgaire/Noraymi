@@ -143,6 +143,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       itemId: itemB.rows[0]!.id,
       callId: callB.rows[0]!.id,
       conversationId: conversationB.rows[0]!.id,
+      messageId: messageB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

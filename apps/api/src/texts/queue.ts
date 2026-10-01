@@ -6,7 +6,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import type { Temporal } from "@west4/shared";
-import { enqueue } from "@west4/db";
+import { enqueue, optedOut } from "@west4/db";
 import { ApiError } from "../http/errors.js";
 import type { VenueTextSettings } from "./venue.js";
 
@@ -87,6 +87,10 @@ export async function guardSend(
   settings: Pick<VenueTextSettings, "allowList">,
 ): Promise<void> {
   const input = { to, now };
+  if (await optedOut(c, venueId, to))
+    throw new ApiError("invalid_request", "this number opted out of texts", {
+      details: { reason: "opted_out" },
+    });
   if (!US.test(input.to))
     throw new ApiError("invalid_request", "texts go only to +1 numbers", {
       details: { reason: "not_us" },
@@ -121,6 +125,7 @@ export async function queueOutbound(
     body: string;
     sentBy: string | null;
     now: Temporal.Instant;
+    stopConfirmation?: boolean;
   },
 ): Promise<string> {
   const messageId = await insertOutbound(c, venueId, input);

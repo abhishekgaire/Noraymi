@@ -535,7 +535,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-23 · Honor STOP and HELP at once
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-22
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Consent and timing; [Data model](../spec/04-data-model.md) · `consents`; [API](../spec/08-api.md) · Messages (`POST /messages/{m}/opt-out`); [Must-fix items](../milestones.md#must-fix-items-and-where-they-close) (GA-M3); [Messages](../screens.md#messages); [DeskMessages](../screens.md#deskmessages)
@@ -545,12 +545,18 @@ Definition of done: see CLAUDE.md.
   - Every send checks for an opt-out before it writes `sending`, so every text to that number stops at once.
   - HELP gets the venue's name and phone number.
 - **Acceptance:**
-  - [ ] After Sam O. texts STOP, every text to his number stops at once: the Room code text at his check-in is never sent.
-  - [ ] He gets one confirmation and nothing after it.
-  - [ ] "please stop texting me" is caught too, and staff can mark an opt-out with one tap.
-  - [ ] HELP gets "West 4 Boho Karaoke" and +1 212 255 0011.
+  - [x] After Sam O. texts STOP, every text to his number stops at once: the Room code text at his check-in is never sent.
+  - [x] He gets one confirmation and nothing after it.
+  - [x] "please stop texting me" is caught too, and staff can mark an opt-out with one tap.
+  - [x] HELP gets "West 4 Boho Karaoke" and +1 212 255 0011.
 - **Tests:** unit tests for the opt-out wording; integration tests for the send path after an opt-out.
 - **Notes:** Keeping an opt-out as a hash after a guest is erased is M8. GA-M3 closes in M8: STOP here, the marketing opt-in in M5 and the campaign in M8.
+  - Built: migration 0039 (`consents`, walled, audited, its number and IP redacted in the audit log; `messages.stop_confirmation`; the `stopped` status); `smsKeyword` in `packages/rules/src/sms-keywords.ts` with 30 wording cases; `optedOut`, `recordOptOut`, `stopMessage` in `packages/db/src/texts.ts`; `optOut` and the HELP reply in `apps/api/src/texts/inbox.ts`; `POST /messages/{m}/opt-out`. The Messages thread has "Mark as an opt-out" on each guest text and reads "Opted out of texts" after, with replies off.
+  - Where the check runs: `guardSend` refuses any new text to an opted-out number (so the Room code text at check-in is never written, and check-in reports it not sent), and the send job stops a text queued before the opt-out (`stopped`) before it claims the attempt. The one confirmation is marked `stop_confirmation` and is the only text that still goes.
+  - Wording: the carriers' one-word keywords (STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, REVOKE, OPT OUT) count only as the whole text, so "cancel my booking" stays a question; sentences count when they ask to stop texting ("please stop texting me", "don't text me", "remove me from your list"). HELP and INFO ask for help.
+  - The confirmation reads "You're unsubscribed from West 4 Boho Karaoke texts. You won't get any more." and HELP "West 4 Boho Karaoke: for help, call +1 212 255 0011. Reply STOP to stop texts." Both are catalog strings sent in English (the guest's language isn't known). HELP's number is the venue's call number from Admin → Phone & texts. A number that has opted out gets nothing more, HELP included.
+  - `consents` gains `phone_e164` beside `guest_id` (spec 04 updated): a number can text STOP before it's anyone's guest record. Texting START to opt back in isn't in the spec and isn't built (flagged).
+
 
 ### M2-24 · Send the Reminder and the wrap-up texts on their triggers
 

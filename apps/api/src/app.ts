@@ -205,6 +205,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         secretKey: config.auth.secretKey,
         publicApiUrl: process.env["PUBLIC_API_URL"]?.replace(/\/+$/, "") ?? null,
         clock,
+        texts: loadVenueTextSettings(config.env),
       });
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });

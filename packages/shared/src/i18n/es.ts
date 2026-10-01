@@ -730,6 +730,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "messages.refused.link": "Una respuesta no puede llevar un enlace",
   "messages.refused.promotion": "Una respuesta no puede llevar una promoción",
   "messages.refused.not_open": "Responde con tus palabras solo después de que el cliente escriba",
+  "messages.refused.opted_out": "Este número se dio de baja de los textos",
   "messages.failed": "No se pudo enviar el texto",
   "messages.texts": "Textos automáticos",
   "messages.back": "Todas las conversaciones",
@@ -737,4 +738,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "messages.context.session": "En una sala",
   "messages.context.waitlist": "Lista de espera",
   "messages.heldFor": "Libre · guardada para {name} hasta las {time}",
+  "sms.stopConfirm": "Ya no recibirás textos de {venue}. No te enviaremos más.",
+  "sms.help": "{venue}: para ayuda, llama al {phone}. Responde STOP para dejar de recibir textos.",
+  "sms.helpNoPhone":
+    "{venue}: para ayuda, pregunta a nuestro personal. Responde STOP para dejar de recibir textos.",
+  "messages.optOut": "Marcar como baja",
+  "messages.optedOut": "Se dio de baja de los textos",
 };

@@ -721,6 +721,7 @@ export const en = {
   "messages.refused.link": "A reply can't carry a link",
   "messages.refused.promotion": "A reply can't carry a promotion",
   "messages.refused.not_open": "Reply in your own words only after the guest writes",
+  "messages.refused.opted_out": "This number opted out of texts",
   "messages.failed": "Couldn't send the text",
   "messages.texts": "Automatic texts",
   "messages.back": "All conversations",
@@ -728,4 +729,9 @@ export const en = {
   "messages.context.session": "In a room",
   "messages.context.waitlist": "Waitlist",
   "messages.heldFor": "Open · held for {name} until {time}",
+  "sms.stopConfirm": "You're unsubscribed from {venue} texts. You won't get any more.",
+  "sms.help": "{venue}: for help, call {phone}. Reply STOP to stop texts.",
+  "sms.helpNoPhone": "{venue}: for help, ask our staff. Reply STOP to stop texts.",
+  "messages.optOut": "Mark as an opt-out",
+  "messages.optedOut": "Opted out of texts",
 } as const;

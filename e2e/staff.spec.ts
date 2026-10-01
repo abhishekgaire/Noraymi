@@ -1856,7 +1856,7 @@ test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a 
     const marcus = phone.getByRole("region", { name: "Marcus T." });
     await expect(marcus.locator(".text")).toHaveText([
       /Booked\. Room for 12 at 8:00 PM, Fri Sep 25\. Deposit \$120 paid, comes off your bill\.$/,
-      /if we're having fun can we stay past 11\?$/,
+      /if we're having fun can we stay past 11\?(Mark as an opt-out)?$/,
       /Nobody has Room 9 after you tonight, so you can stay on by the minute until we close at 4 AM\.$/,
     ]);
     await expect(phone.getByRole("button", { name: "Sam O." })).toBeHidden();

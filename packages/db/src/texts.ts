@@ -69,6 +69,8 @@ export interface MessageRow {
   readonly status: "sending" | "sent" | "delivered" | "failed" | "received";
   readonly attempted_at: string | null;
   readonly phone_e164: string;
+  /** The one confirmation a STOP gets, which goes despite the opt-out (M2-23). */
+  readonly stop_confirmation: boolean;
 }
 
 export async function insertOutbound(
@@ -80,12 +82,21 @@ export async function insertOutbound(
     category: "service" | "marketing" | "reply";
     body: string;
     sentBy: string | null;
+    stopConfirmation?: boolean;
   },
 ): Promise<string> {
   const r = await c.query<{ id: string }>(
-    `insert into messages (venue_id, conversation_id, direction, template_id, category, body, sent_by, status)
-       values ($1, $2, 'outbound', $3, $4, $5, $6, 'sending') returning id`,
-    [venueId, input.conversationId, input.templateId, input.category, input.body, input.sentBy],
+    `insert into messages (venue_id, conversation_id, direction, template_id, category, body, sent_by, status, stop_confirmation)
+       values ($1, $2, 'outbound', $3, $4, $5, $6, 'sending', $7) returning id`,
+    [
+      venueId,
+      input.conversationId,
+      input.templateId,
+      input.category,
+      input.body,
+      input.sentBy,
+      input.stopConfirmation ?? false,
+    ],
   );
   return r.rows[0]!.id;
 }
@@ -97,7 +108,7 @@ export async function messageById(
 ): Promise<MessageRow | null> {
   const r = await c.query<MessageRow>(
     `select m.id, m.conversation_id, m.direction, m.category, m.body, m.provider_sid, m.status,
-            to_json(m.attempted_at) #>> '{}' as attempted_at, cv.phone_e164
+            to_json(m.attempted_at) #>> '{}' as attempted_at, cv.phone_e164, m.stop_confirmation
        from messages m join conversations cv on cv.venue_id = m.venue_id and cv.id = m.conversation_id
       where m.venue_id = $1 and m.id = $2`,
     [venueId, id],
@@ -271,11 +282,15 @@ export interface ConversationRow {
   readonly last_inbound_at: string | null;
   readonly last_body: string | null;
   readonly last_at: string | null;
+  /** The number opted out of texts (M2-23). */
+  readonly opted_out: boolean;
 }
 
 const CONVERSATION = `select cv.id, cv.guest_id, g.name as guest_name, cv.phone_e164, cv.context_kind, cv.context_id,
     cv.unread, cv.assigned_to, u.name as assigned_to_name, to_json(cv.last_inbound_at) #>> '{}' as last_inbound_at,
-    last.body as last_body, to_json(last.created_at) #>> '{}' as last_at
+    last.body as last_body, to_json(last.created_at) #>> '{}' as last_at,
+    exists (select 1 from consents k where k.venue_id = cv.venue_id and k.phone_e164 = cv.phone_e164
+             and k.channel = 'sms' and k.kind = 'texts' and k.revoked_at is not null) as opted_out
   from conversations cv
   left join guests g on g.venue_id = cv.venue_id and g.id = cv.guest_id
   left join users u on u.id = cv.assigned_to
@@ -346,4 +361,44 @@ export async function markConversationRead(
     "update messages set read_at = $3 where venue_id = $1 and conversation_id = $2 and direction = 'inbound' and read_at is null",
     [venueId, id, at],
   );
+}
+
+/** Has this number opted out of texts at the venue (M2-23)? Every send asks first. */
+export async function optedOut(c: Queryable, venueId: string, phone: string): Promise<boolean> {
+  const r = await c.query(
+    `select 1 from consents k left join guests g on g.venue_id = k.venue_id and g.id = k.guest_id
+      where k.venue_id = $1 and k.channel = 'sms' and k.kind = 'texts' and k.revoked_at is not null
+        and coalesce(k.phone_e164, g.phone_e164) = $2
+      limit 1`,
+    [venueId, phone],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/** Records an opt-out from texts: by keyword (the guest's STOP) or by staff's tap. */
+export async function recordOptOut(
+  c: Queryable,
+  venueId: string,
+  input: {
+    phone: string;
+    guestId: string | null;
+    via: "keyword" | "staff";
+    at: string;
+    source: string;
+  },
+): Promise<void> {
+  await c.query(
+    `insert into consents (venue_id, guest_id, phone_e164, channel, kind, source, revoked_at, revoked_via)
+       values ($1, $2, $3, 'sms', 'texts', $4, $5, $6)`,
+    [venueId, input.guestId, input.phone, input.source, input.at, input.via],
+  );
+}
+
+/** A queued text an opt-out stopped before it went. */
+export async function stopMessage(c: Queryable, venueId: string, id: string): Promise<boolean> {
+  const r = await c.query(
+    "update messages set status = 'stopped' where venue_id = $1 and id = $2 and status = 'sending' and attempted_at is null",
+    [venueId, id],
+  );
+  return r.rowCount === 1;
 }

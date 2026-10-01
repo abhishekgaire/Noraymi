@@ -20,6 +20,7 @@ interface Conversation {
   readonly context_kind: "booking" | "waitlist" | "session" | null;
   readonly unread: number;
   readonly last_body: string | null;
+  readonly opted_out: boolean;
 }
 interface Message {
   readonly id: string;
@@ -79,7 +80,10 @@ function Thread({
 
   const refused = (e: unknown) => {
     const reason = e instanceof ApiCallError ? e.details["reason"] : undefined;
-    return reason === "link" || reason === "promotion" || reason === "not_open"
+    return reason === "link" ||
+      reason === "promotion" ||
+      reason === "not_open" ||
+      reason === "opted_out"
       ? t(`messages.refused.${reason}`)
       : t("messages.failed");
   };
@@ -99,6 +103,16 @@ function Thread({
       setError(refused(err));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const markOptOut = async (messageId: string) => {
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/messages/${messageId}/opt-out`);
+      await load();
+    } catch {
+      setError(t("messages.failed"));
     }
   };
 
@@ -162,10 +176,20 @@ function Thread({
               {m.at ? ` · ${time(m.at, timeZone)}` : ""}
             </div>
             <div>{m.body}</div>
+            {m.direction === "inbound" && !data.conversation.opted_out && (
+              <button type="button" className="link" onClick={() => void markOptOut(m.id)}>
+                {t("messages.optOut")}
+              </button>
+            )}
           </li>
         ))}
       </ol>
-      {data.conversation.context_kind === "booking" && (
+      {data.conversation.opted_out && (
+        <p className="notice" role="status">
+          {t("messages.optedOut")}
+        </p>
+      )}
+      {data.conversation.context_kind === "booking" && !data.conversation.opted_out && (
         <div className="actions">
           <label>
             {t("messages.holdUntil")}
@@ -191,7 +215,11 @@ function Thread({
           {t("messages.reply")}
           <textarea value={reply} maxLength={640} onChange={(e) => setReply(e.target.value)} />
         </label>
-        <button type="submit" className="primary" disabled={busy || !reply.trim()}>
+        <button
+          type="submit"
+          className="primary"
+          disabled={busy || !reply.trim() || data.conversation.opted_out}
+        >
           {t("messages.send")}
         </button>
       </form>

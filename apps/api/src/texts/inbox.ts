@@ -3,12 +3,14 @@ import {
   conversationFor,
   emitEvent,
   insertInbound,
+  optedOut,
   readSetting,
+  recordOptOut,
   templateByKey,
   type Queryable,
 } from "@west4/db";
-import { businessDate, wallClock } from "@west4/rules";
-import { Temporal } from "@west4/shared";
+import { businessDate, smsKeyword, wallClock } from "@west4/rules";
+import { Temporal, t } from "@west4/shared";
 import { managerOnDutyAt } from "../approvals/service.js";
 import { ApiError } from "../http/errors.js";
 import { enqueuePush } from "../push/send-push.js";
@@ -95,11 +97,100 @@ export async function matchConversation(
   });
 }
 
+/** "+12122550011" as "+1 212 255 0011". */
+export function spokenNumber(e164: string): string {
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164);
+  return m ? `+1 ${m[1]} ${m[2]} ${m[3]}` : e164;
+}
+
+async function venueContact(c: Queryable, venueId: string, now: Temporal.Instant) {
+  const name = (await c.query<{ name: string }>("select name from venues where id = $1", [venueId]))
+    .rows[0]!.name;
+  const night = await tonight(c, venueId, now);
+  const phone = await readSetting(c, venueId, "phone", night.date);
+  return { name, phone_e164: phone?.value.callNumber ?? null };
+}
+
+/**
+ * An opt-out (M2-23): recorded once for the number, and one confirmation back.
+ * Every text to the number stops at once: new ones are refused at the queue,
+ * and ones already queued stop before they're sent. The confirmation is the
+ * one text that still goes. A number that has already opted out gets nothing.
+ */
+export async function optOut(
+  c: Queryable,
+  venueId: string,
+  input: {
+    phone: string;
+    guestId: string | null;
+    conversationId: string;
+    via: "keyword" | "staff";
+    source: string;
+    now: Temporal.Instant;
+  },
+  settings: Pick<VenueTextSettings, "allowList">,
+): Promise<boolean> {
+  if (await optedOut(c, venueId, input.phone)) return false;
+  await recordOptOut(c, venueId, {
+    phone: input.phone,
+    guestId: input.guestId,
+    via: input.via,
+    at: input.now.toString(),
+    source: input.source,
+  });
+  const venue = await venueContact(c, venueId, input.now);
+  // Only the staging allow-list can hold a confirmation back; the opt-out itself always counts.
+  if (!settings.allowList || settings.allowList.includes(input.phone))
+    await queueOutbound(c, venueId, {
+      conversationId: input.conversationId,
+      templateId: null,
+      category: "service",
+      body: t("en", "sms.stopConfirm", { venue: venue.name }),
+      sentBy: null,
+      now: input.now,
+      stopConfirmation: true,
+    });
+  await emitEvent(c, {
+    venueId,
+    type: "message.updated",
+    entityId: input.conversationId,
+    entityVersion: 0,
+  });
+  return true;
+}
+
+/** HELP: the venue's name and phone number, unless the number has opted out (then nothing goes). */
+async function helpReply(
+  c: Queryable,
+  venueId: string,
+  input: { phone: string; conversationId: string; now: Temporal.Instant },
+  settings: Pick<VenueTextSettings, "allowList">,
+) {
+  const venue = await venueContact(c, venueId, input.now);
+  try {
+    await guardSend(c, venueId, input.phone, input.now, settings);
+  } catch (e) {
+    if (e instanceof ApiError) return;
+    throw e;
+  }
+  await queueOutbound(c, venueId, {
+    conversationId: input.conversationId,
+    templateId: null,
+    category: "service",
+    body: venue.phone_e164
+      ? t("en", "sms.help", { venue: venue.name, phone: spokenNumber(venue.phone_e164) })
+      : t("en", "sms.helpNoPhone", { venue: venue.name }),
+    sentBy: null,
+    now: input.now,
+  });
+}
+
 /** An incoming text: into its conversation, unread, assigned, and the board, badges and manager's phone told. */
 export async function receiveText(
   c: Queryable,
   venueId: string,
   input: { from: string; body: string; sid: string | null; now: Temporal.Instant },
+  settings: Pick<VenueTextSettings, "allowList"> = { allowList: null },
 ) {
   const conversationId = await matchConversation(c, venueId, input.from, input.now);
   const messageId = await insertInbound(c, venueId, {
@@ -121,6 +212,23 @@ export async function receiveText(
     entityVersion: 0,
   });
   const conversation = (await conversationById(c, venueId, conversationId))!;
+  const keyword = smsKeyword(input.body);
+  if (keyword === "stop")
+    await optOut(
+      c,
+      venueId,
+      {
+        phone: input.from,
+        guestId: conversation.guest_id,
+        conversationId,
+        via: "keyword",
+        source: input.body.slice(0, 100),
+        now: input.now,
+      },
+      settings,
+    );
+  else if (keyword === "help")
+    await helpReply(c, venueId, { phone: input.from, conversationId, now: input.now }, settings);
   if (onDuty)
     await enqueuePush(c, {
       venueId,
@@ -133,7 +241,7 @@ export async function receiveText(
       },
       runAt: input.now,
     });
-  return { conversationId, messageId };
+  return { conversationId, messageId, keyword };
 }
 
 /** A link of any kind: a scheme, www., or a dotted name with a top-level domain ("west4karaoke.com/book"). */

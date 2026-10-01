@@ -11,7 +11,7 @@ import {
 import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { runningLateReply, sendReply, sendTemplateIn } from "../texts/inbox.js";
+import { optOut, runningLateReply, sendReply, sendTemplateIn } from "../texts/inbox.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 
 /**
@@ -21,6 +21,7 @@ import type { VenueTextSettings } from "../texts/venue.js";
  *   POST /v1/venues/{v}/conversations/{conversationId}/messages
  *        { body } a free-text reply, or { template_key, params } a template text
  *   POST /v1/venues/{v}/conversations/{conversationId}/running-late   { until? } Reply "no problem"
+ *   POST /v1/venues/{v}/messages/{messageId}/opt-out           staff mark a guest's text as an opt-out (M2-23)
  *   GET  /v1/venues/{v}/texts                                 the 14 automatic texts in Admin's order, on or off
  */
 const messageBody = z.union([
@@ -161,6 +162,41 @@ export function conversationRoutes(
         ),
       );
       return reply.code(201).send(result);
+    },
+  );
+
+  app.post<{ Params: { venueId: string; messageId: string } }>(
+    "/v1/venues/:venueId/messages/:messageId/opt-out",
+    { config: write },
+    async (request) => {
+      who(request);
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        const message = (
+          await c.query<{ conversation_id: string; direction: string; body: string }>(
+            "select conversation_id, direction, body from messages where venue_id = $1 and id = $2",
+            [venueId, request.params.messageId],
+          )
+        ).rows[0];
+        if (!message) throw new ApiError("not_found", "no such message");
+        if (message.direction !== "inbound")
+          throw new ApiError("invalid_request", "only a guest's text can be an opt-out");
+        const conversation = (await conversationById(c, venueId, message.conversation_id))!;
+        const recorded = await optOut(
+          c,
+          venueId,
+          {
+            phone: conversation.phone_e164,
+            guestId: conversation.guest_id,
+            conversationId: conversation.id,
+            via: "staff",
+            source: message.body.slice(0, 100),
+            now: options.clock.now(),
+          },
+          options.texts,
+        );
+        return { opted_out: true, already: !recorded };
+      });
     },
   );
 }
