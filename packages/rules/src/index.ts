@@ -25,3 +25,12 @@ export { roundToStep } from "./room-time.js";
 export type { BillingStep } from "./room-time.js";
 export { bandAt, rateAt, bandBoundaries, segmentsFor } from "./bands.js";
 export type { Band, Billing, BandChoice, SessionSegment, SessionEvent } from "./bands.js";
+export {
+  assignmentOrder,
+  bookingSpan,
+  canExtend,
+  chooseRoom,
+  freeRoomsFor,
+  freeUntil,
+} from "./assignment.js";
+export type { AssignmentRefusal, BlockSpan, RoomForAssignment } from "./assignment.js";

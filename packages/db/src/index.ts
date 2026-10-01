@@ -246,3 +246,15 @@ export {
   type RoomRow,
   type RoomState,
 } from "./rooms.js";
+export {
+  addBlock,
+  blockById,
+  blocksBetween,
+  expireHolds,
+  moveBlock,
+  releaseBlock,
+  RoomNotFree,
+  setBlockEnd,
+  type BlockKind,
+  type BlockRow,
+} from "./blocks.js";

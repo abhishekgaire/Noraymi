@@ -10,7 +10,8 @@ import {
   updateRoom,
   type RoomState,
 } from "@west4/db";
-import type { Clock } from "@west4/shared";
+import { Temporal, type Clock } from "@west4/shared";
+import { availability, freeFor } from "../rooms/assignment.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 
@@ -60,6 +61,15 @@ export async function reassignFutureBookings(): Promise<Reassigned> {
   return { moved: [], unplaced: [] };
 }
 
+function instantOr(raw: string | undefined, fallback: Temporal.Instant): Temporal.Instant {
+  if (raw === undefined) return fallback;
+  try {
+    return Temporal.Instant.from(raw);
+  } catch {
+    throw new ApiError("invalid_request", `"${raw}" isn't an ISO 8601 instant`);
+  }
+}
+
 export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): void {
   const read = route({
     principals: ["owner_manager", "staff", "shared_device", "room_tablet"],
@@ -86,6 +96,37 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       ),
     }),
   );
+
+  /** The board's "free until": every live room at an instant (M2-05). */
+  app.get<{ Params: VenueParams; Querystring: { at?: string } }>(
+    "/v1/venues/:venueId/rooms/availability",
+    { config: read },
+    async (request) => {
+      const at = instantOr(request.query.at, options.clock.now());
+      return request.inVenue((c) => availability(c, request.venueId!, at));
+    },
+  );
+
+  /** Rooms free for the time needed (moves, waitlist offers): fitting the party, in assignment order. */
+  app.get<{
+    Params: VenueParams;
+    Querystring: { party?: string; from?: string; to?: string; minutes?: string };
+  }>("/v1/venues/:venueId/rooms/free", { config: read }, async (request) => {
+    const party = Number(request.query.party);
+    if (!Number.isInteger(party) || party < 1)
+      throw new ApiError("invalid_request", "party is a whole number of guests");
+    const from = instantOr(request.query.from, options.clock.now());
+    const minutes = request.query.minutes !== undefined ? Number(request.query.minutes) : null;
+    const to =
+      request.query.to !== undefined
+        ? instantOr(request.query.to, from)
+        : minutes !== null && Number.isInteger(minutes) && minutes > 0
+          ? from.add({ minutes })
+          : null;
+    if (!to || Temporal.Instant.compare(to, from) <= 0)
+      throw new ApiError("invalid_request", "send to (an instant after from) or minutes");
+    return request.inVenue((c) => freeFor(c, request.venueId!, { party, from, to }));
+  });
 
   app.post<{ Params: VenueParams; Body: unknown }>(
     "/v1/venues/:venueId/rooms",

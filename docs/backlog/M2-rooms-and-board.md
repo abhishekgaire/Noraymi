@@ -112,7 +112,7 @@ Definition of done: see CLAUDE.md.
 - **Acceptance:**
   - [x] West 4 lists 14 rooms with the tiers and capacities above, and Room 4 is out of service.
   - [x] Archiving a room hides it from the board and from assignment and keeps its history.
-  - [ ] *(The hook runs on switch-off, out of service and archive, and returns `{ moved, unplaced }`; bookings and assignment arrive in M2-05, which fills it in and tests it.)* Switching a room off moves each of its future bookings to the smallest free room that fits, and lists any that can't move for a manager.
+  - [ ] *(The hook runs on switch-off, out of service and archive, and returns `{ moved, unplaced }`; bookings arrive in M2-06, which fills it in and tests it.)* Switching a room off moves each of its future bookings to the smallest free room that fits, and lists any that can't move for a manager.
   - [x] With Rooms & room clock off, every route here answers `404 module_off`.
 - **Tests:** API integration tests; a Playwright test of Admin → Rooms.
 - **Notes:** The data model has no column for a room switched off in Admin (it isn't archived, and the plan still bills it). Cautious reading built here: "off" is an `out_of_service` state with the reason "Switched off" (flagged); the matching `out_of_service` block arrives with `room_blocks` in M2-05.
@@ -121,7 +121,7 @@ Definition of done: see CLAUDE.md.
   - **Also:** the security suites learned the new `:r` parameter (venue B's room in the wall cases); the desktop smoke test now waits out a 429 from the sign-in rate limit, which the growing staff suite reaches in a full run (the limit itself is unchanged).
 ### M2-05 · Build room blocks and room assignment
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-12, M2-04
 - **Spec:** [Data model](../spec/04-data-model.md) · `room_blocks` (the money-core SQL), Room assignment; [Money rules](../spec/05-money-rules.md) 4; [API](../spec/08-api.md) · Errors (`room_not_free`)
@@ -132,14 +132,16 @@ Definition of done: see CLAUDE.md.
   - `free_until` for each room: the start of its next block, or free all night up to the night's close (M1-12). A "free for the time needed" query for moves (M2-18) and waitlist offers (M2-26, at least an hour).
   - Nothing runs past the night's close: a booking must end by it.
 - **Acceptance:**
-  - [ ] Two overlapping blocks in one room can't both be written.
-  - [ ] A 10-minute hold is gone after it expires, and its room is free again.
-  - [ ] At 10:41 PM on the seed, Room 11 is free all night, Room 8 is free until 11:00 PM, and Room 2 is held for Sam O. until 10:45 PM.
-  - [ ] A party of 7 is given a medium room when one is free, and Room 11 (large) only when none is.
-  - [ ] A booking that would end after the 4:00 AM close is refused.
+  - [x] Two overlapping blocks in one room can't both be written.
+  - [x] A 10-minute hold is gone after it expires, and its room is free again.
+  - [x] At 10:41 PM on the seed, Room 11 is free all night, Room 8 is free until 11:00 PM, and Room 2 is held for Sam O. until 10:45 PM.
+  - [x] A party of 7 is given a medium room when one is free, and Room 11 (large) only when none is.
+  - [x] A booking that would end after the 4:00 AM close is refused.
 - **Tests:** integration tests for the exclusion, hold expiry, extensions and assignment, using fixtures beside the seed.
 - **Notes:** Room 11 counts as fitting Rob & Kim's 7 and Amara B.'s 7, as the seed says, even though the large tier starts at 12.
-
+  - **Built:** migration `0028_room_blocks.sql` (the spec's SQL with `btree_gist` and the exclusion, plus an id, the venue wall, the audit trigger, a hold-only `expires_at` and two venue-checked definer doors, `expire_room_holds` and `release_room_block`, because `app_rw` never deletes); `packages/db/src/blocks.ts` (`addBlock` turns an exclusion refusal into `RoomNotFree`, `blocksBetween`, `setBlockEnd`, `moveBlock`, `releaseBlock`, `expireHolds`); the pure rules in `packages/rules/src/assignment.ts` (`assignmentOrder`, `freeRoomsFor`, `chooseRoom` with the `past_close` and `no_room` refusals, `freeUntil`, `canExtend`); the venue side in `apps/api/src/rooms/assignment.ts` (`availability`, `freeFor`, `assignBooking` with a savepoint retry on a lost race, `extendSession`, and the night's close from M1-12); the hold sweep every 15 seconds (`apps/api/src/jobs/hold-sweep.ts`); `GET /rooms/availability?at=` (the board's free-until) and `GET /rooms/free?party=&from=&to=|minutes=`; the seed's 15 blocks (four confirmed bookings, eight sessions extended 15 minutes at a time to cover 10:41 PM, two rooms cleaning, Room 4 out of service).
+  - **How "held for Sam O. until 10:45 PM" reads:** Sam's booking block covers 10:30 to 11:30; a booking whose party hasn't arrived is held until its start plus the deposit rule's grace (15 minutes), so the availability answer gives `held_until` 10:45 PM. No separate hold block is written.
+  - **Cautious defaults:** a cleaning block ends when staff mark the room clean and at the latest at the night's 6:00 AM cutover, so a wipe left undone doesn't take the room off later nights (flagged; the spec's `cleaningEnds: "staff"` says only who ends it). A bigger tier is taken only when no smaller fitting room is free; when several bookings are placed at once, the largest parties go first. Room assignment for switched-off rooms (the M2-04 hook) moves bookings, which arrive in M2-06; the hook is filled in there.
 ### M2-06 · Build guests and staff bookings, each with a real room
 
 - **Status:** todo

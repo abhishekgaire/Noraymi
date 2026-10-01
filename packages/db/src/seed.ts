@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import {
   SEED_NOW,
+  Temporal,
   actions,
   defaultPermissions,
   isModuleId,
@@ -58,6 +59,8 @@ export interface SeedFile {
   readonly badges: readonly SeedBadge[];
   readonly devices: readonly SeedDevice[];
   readonly rooms: readonly SeedRoom[];
+  readonly bookings: readonly SeedBooking[];
+  readonly sessions: readonly SeedSession[];
 }
 
 /** An NTAG 424 DNA badge in the seed: the person it's paired to. Its demo UID is derived from its id (DEMO ONLY). */
@@ -105,6 +108,24 @@ export interface SeedRoom {
     readonly reported_on?: string;
     readonly out_of_service?: boolean;
   };
+}
+
+export interface SeedBooking {
+  readonly id: string;
+  readonly guest: string;
+  readonly party_size: number;
+  readonly room: string;
+  readonly starts_at: string;
+  readonly ends_at: string;
+  readonly status: string;
+}
+
+export interface SeedSession {
+  readonly id: string;
+  readonly room: string;
+  readonly booking: string | null;
+  readonly started_at: string;
+  readonly party_size: number;
 }
 
 export interface SeedDevice {
@@ -563,6 +584,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
+      "room_blocks",
       "room_states",
       "rooms",
       "venue_settings",
@@ -711,6 +733,77 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`rooms: ${seed.rooms.length}`);
+
+    // Room blocks (M2-05): every confirmed booking's time (cleaning is 0 at West 4); every session from
+    // its start to its booked end, or an hour for a walk-in, extended 15 minutes at a time to cover
+    // 10:41 PM where it stayed on; the two rooms cleaning since their party left; Room 4's fault.
+    const cleaningMin = SEED_SETTING_DEFAULTS.roomsCleaningMin;
+    const block = async (
+      room: string,
+      kind: string,
+      from: Temporal.Instant,
+      to: Temporal.Instant | null,
+      ref: string | null,
+    ) =>
+      client.query(
+        `insert into room_blocks (venue_id, room_id, kind, period, ref_id)
+           values ($1, $2, $3, tstzrange($4::timestamptz, $5::timestamptz, '[)'), $6)`,
+        [venueId, id(room), kind, from.toString(), to?.toString() ?? null, ref],
+      );
+    let blocks = 0;
+    for (const b of seed.bookings.filter((x) => x.status === "confirmed")) {
+      await block(
+        b.room,
+        "booking",
+        Temporal.Instant.from(b.starts_at),
+        Temporal.Instant.from(b.ends_at).add({ minutes: cleaningMin }),
+        remember(b.id, "bookings"),
+      );
+      blocks++;
+    }
+    for (const sess of seed.sessions) {
+      const booking = seed.bookings.find((b) => b.id === sess.booking);
+      const start = Temporal.Instant.from(sess.started_at);
+      let end = booking ? Temporal.Instant.from(booking.ends_at) : start.add({ minutes: 60 });
+      while (Temporal.Instant.compare(end, SEED_NOW) <= 0) end = end.add({ minutes: 15 });
+      await block(
+        sess.room,
+        "session",
+        start,
+        end.add({ minutes: cleaningMin }),
+        remember(sess.id, "sessions"),
+      );
+      blocks++;
+    }
+    for (const room of seed.rooms) {
+      if (room.state === "cleaning") {
+        const left = /left (\d{1,2}):(\d{2}) PM/.exec(
+          (room as { board_label?: string }).board_label ?? "",
+        );
+        const since = left
+          ? Temporal.Instant.from(
+              `2026-09-25T${String(Number(left[1]) + 12).padStart(2, "0")}:${left[2]}:00-04:00`,
+            )
+          : SEED_NOW;
+        // Cleaning lasts until staff mark the room clean, and at the latest to the night's 6:00 AM cutover.
+        await block(
+          room.id,
+          "cleaning",
+          since,
+          Temporal.Instant.from("2026-09-26T06:00:00-04:00"),
+          null,
+        );
+        blocks++;
+      }
+      if (room.state === "out_of_service") {
+        const since = room.fault?.reported_on
+          ? Temporal.Instant.from(`${room.fault.reported_on}T12:00:00-04:00`)
+          : SEED_NOW;
+        await block(room.id, "out_of_service", since, null, null);
+        blocks++;
+      }
+    }
+    log(`room blocks: ${blocks}`);
 
     // Devices, with a heartbeat at "now" for each one the seed says is online.
     const offlineSince = new Date(SEED_NOW.epochMilliseconds - 3 * 60 * 60 * 1000);
