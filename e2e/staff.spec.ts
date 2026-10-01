@@ -194,7 +194,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     const rooms = (
       await db.query<{ name: string }>(
         // Room and guest names, and fault notes, are the venue's data, not the app's words.
-        "select name from rooms union all select name from guests union all select text from room_faults",
+        "select name from rooms union all select name from guests union all select text from room_faults union all select text from room_notes",
       )
     ).rows.map((r) => r.name);
     const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", "−", "+", ...rooms]);
@@ -1637,6 +1637,55 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
     await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).toContainText(
       "7 guests",
     );
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Cleaning, room notes and lost and found on the board (M2-19, N15). Room 6
+ * needs a wipe since 10:33 PM and keeps its note; Mark clean makes it Open; a
+ * lost item logged in Room 9 reads "Found in Room 9 · kept at the bar", then
+ * "claimed by Marcus T.".
+ */
+test("cleaning and the lost-and-found log: Room 6 marked clean, a scarf found in Room 9 and claimed", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    const room6 = page.getByRole("listitem", { name: "Room 6", exact: true });
+    await expect(room6).toContainText(/Needs a wipe · left 10:33\s?PM \(\d+ min\)/);
+    await expect(room6).toContainText("TV remote goes missing. Check under the couch.");
+    await room6.getByRole("button", { name: "Mark clean" }).click();
+    await expect(room6.getByRole("button", { name: "+ Walk-in" })).toBeVisible();
+    await expect(room6).toContainText("TV remote goes missing. Check under the couch.");
+
+    await page.getByRole("button", { name: "Log a lost item" }).click();
+    const form = page.getByRole("form", { name: "Log a lost item" });
+    await form.getByLabel("What it is").fill("Green scarf");
+    await form.getByLabel("Where it was found").selectOption({ label: "Room 9" });
+    await form.getByLabel("Kept at").fill("the bar");
+    expect(await clippedText(page)).toEqual([]);
+    await form.getByRole("button", { name: "Log it" }).click();
+    const scarf = page.getByRole("listitem", { name: "Green scarf" });
+    await expect(scarf).toContainText("Found in Room 9 · kept at the bar");
+    await scarf.getByRole("button", { name: "Claimed" }).click();
+    await scarf.getByLabel("Who claimed it").fill("Marcus T.");
+    await scarf.getByRole("button", { name: "Hand over" }).click();
+    await expect(scarf).toContainText("Found in Room 9 · kept at the bar · claimed by Marcus T.");
   } finally {
     await db.end();
   }

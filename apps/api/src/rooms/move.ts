@@ -1,6 +1,5 @@
 import {
   addBlock,
-  blocksBetween,
   emitEvent,
   listRooms,
   RoomNotFree,
@@ -8,10 +7,11 @@ import {
   setRoomState,
   type Queryable,
 } from "@west4/db";
-import { businessDate, rateAt, wallClock, type RoomForRate } from "@west4/rules";
+import { rateAt, type RoomForRate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
-import { moveOptions, venueClock } from "./assignment.js";
+import { moveOptions } from "./assignment.js";
+import { sendToCleaning } from "./cleaning.js";
 import { hashRoomCode, newRoomCode, priceContext } from "./checkin.js";
 import { sessionBlock } from "./sessions.js";
 
@@ -130,30 +130,6 @@ export async function moveSession(
   // The blocks: the old room's ends now and goes to cleaning until its next booking; the session runs on in the new room.
   const block = await sessionBlock(c, venueId, s.id);
   if (block) await setBlockEnd(c, venueId, block.id, input.now);
-  const venue = await venueClock(c, venueId);
-  const cutover = wallClock(
-    businessDate(input.now, venue.timeZone, venue.dayCutover).businessDate.add({ days: 1 }),
-    venue.dayCutover,
-    venue.timeZone,
-    venue.dayCutover,
-  );
-  const next = (await blocksBetween(c, venueId, input.now, cutover))
-    .filter(
-      (b) =>
-        b.room_id === from.id &&
-        Temporal.Instant.compare(Temporal.Instant.from(b.starts_at), input.now) > 0,
-    )
-    .map((b) => Temporal.Instant.from(b.starts_at))
-    .sort(Temporal.Instant.compare)[0];
-  const cleaningTo = next ?? cutover;
-  if (Temporal.Instant.compare(cleaningTo, input.now) > 0)
-    await addBlock(c, {
-      venueId,
-      roomId: from.id,
-      kind: "cleaning",
-      from: input.now,
-      to: cleaningTo,
-    });
   try {
     await addBlock(c, {
       venueId,
@@ -178,11 +154,7 @@ export async function moveSession(
       where venue_id = $1 and id = $2`,
     [venueId, s.id, to.id, hashRoomCode(venueId, code)],
   );
-  await setRoomState(c, venueId, from.id, {
-    state: "cleaning",
-    setBy: input.userId,
-    at: input.now.toString(),
-  });
+  await sendToCleaning(c, venueId, from.id, { now: input.now, userId: input.userId });
   await setRoomState(c, venueId, to.id, {
     state: "in_use",
     setBy: input.userId,

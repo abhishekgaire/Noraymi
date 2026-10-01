@@ -316,3 +316,14 @@ export {
   openFaults,
   type FaultRow,
 } from "./faults.js";
+export {
+  addLostItem,
+  addRoomNote,
+  clearRoomNote,
+  lostItemById,
+  lostItems,
+  roomNotes,
+  updateLostItem,
+  type LostItemRow,
+  type RoomNoteRow,
+} from "./room-care.js";

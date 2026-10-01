@@ -116,7 +116,9 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
           : null;
     if (!to || Temporal.Instant.compare(to, from) <= 0)
       throw new ApiError("invalid_request", "send to (an instant after from) or minutes");
-    return request.inVenue((c) => freeFor(c, request.venueId!, { party, from, to }));
+    return request.inVenue((c) =>
+      freeFor(c, request.venueId!, { party, from, to, now: options.clock.now() }),
+    );
   });
 
   app.post<{ Params: VenueParams; Body: unknown }>(

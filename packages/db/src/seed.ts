@@ -106,6 +106,8 @@ export interface SeedRoom {
   readonly capacity_max: number;
   readonly is_vip: boolean;
   readonly state: "available" | "in_use" | "wrap_up" | "cleaning" | "out_of_service";
+  readonly note?: string;
+  readonly board_label?: string;
   readonly fault?: {
     readonly text: string;
     readonly reported_on?: string;
@@ -289,6 +291,9 @@ const SEED_NAMESPACE = "6f1a1c0e-5b3d-4b7e-9c2a-4d8e7f6a5b3c";
  * The same UUID for the same slug on every load: a version 5 (SHA-1) UUID
  * of the slug under the seed namespace, so "maya" is one id everywhere.
  */
+/** Rooms whose seed `note` is a staff note on the room (docs/demo-seed.md · Rooms), not an explanation. */
+const STAFF_ROOM_NOTES = new Set(["room_6", "room_vip"]);
+
 export function seedUuid(slug: string): string {
   const ns = Buffer.from(SEED_NAMESPACE.replace(/-/g, ""), "hex");
   const hash = createHash("sha1").update(ns).update(slug).digest();
@@ -713,6 +718,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_faults",
+      "room_notes",
+      "lost_items",
       "room_blocks",
       "approvals",
       "duty_managers",
@@ -868,14 +875,25 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
       const reason =
         room.state === "out_of_service" ? (room.fault?.text ?? "Out of service") : null;
+      const left = /left (\d{1,2}):(\d{2}) PM/.exec(room.board_label ?? "");
       const since =
         room.state === "out_of_service" && room.fault?.reported_on
           ? new Date(`${room.fault.reported_on}T12:00:00-04:00`)
-          : seedNow;
+          : room.state === "cleaning" && left
+            ? new Date(`2026-09-25T${Number(left[1]) + 12}:${left[2]}:00-04:00`)
+            : seedNow;
       await client.query(
         `insert into room_states (venue_id, room_id, state, reason, since) values ($1, $2, $3, $4, $5)`,
         [venueId, roomId, room.state, reason, since],
       );
+      // Its note (M2-19): notes stay with the room; nobody on the seed is named as the writer. Only the notes
+      // docs/demo-seed.md calls room notes load (Room 6's remote, the VIP room's cake); the other rooms' "note"
+      // fields explain the scenario to the reader.
+      if (room.note && STAFF_ROOM_NOTES.has(room.id))
+        await client.query(
+          "insert into room_notes (venue_id, room_id, text, added_at) values ($1, $2, $3, $4)",
+          [venueId, roomId, room.note, seedNow],
+        );
       // Its fault (M2-16): logged before tonight, so nobody on the seed is named as the reporter.
       if (room.fault)
         await client.query(
@@ -1118,15 +1136,11 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
               `2026-09-25T${String(Number(left[1]) + 12).padStart(2, "0")}:${left[2]}:00-04:00`,
             )
           : SEED_NOW;
-        // Cleaning lasts until staff mark the room clean, and at the latest to the night's 6:00 AM cutover.
-        await block(
-          room.id,
-          "cleaning",
-          since,
-          Temporal.Instant.from("2026-09-26T06:00:00-04:00"),
-          null,
-        );
-        blocks++;
+        // The block covers the room's cleaning minutes (M2-19); the room's state stays cleaning until staff mark it clean.
+        if (cleaningMin > 0) {
+          await block(room.id, "cleaning", since, since.add({ minutes: cleaningMin }), null);
+          blocks++;
+        }
       }
       if (room.state === "out_of_service") {
         const since = room.fault?.reported_on

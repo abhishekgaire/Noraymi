@@ -1,6 +1,7 @@
 import type pg from "pg";
 import { withVenue, type Sweep } from "@west4/db";
 import type { Temporal } from "@west4/shared";
+import { endTimedCleaning } from "../rooms/cleaning.js";
 import { markWrapUps } from "../rooms/sessions.js";
 
 /** Every minute, rooms that need wrapping up (someone booked next, or the night's close) go to wrap-up (M2-07). */
@@ -10,8 +11,14 @@ export async function sweepWrapUps(pool: pg.Pool, now: Temporal.Instant) {
   const venues = await pool.query<{ id: string }>("select id from venues_for_scheduler()");
   const out: { venueId: string; rooms: string[] }[] = [];
   for (const v of venues.rows) {
-    const rooms = await withVenue(pool, { venueId: v.id, requestId: "sweep:wrap-up" }, (c) =>
-      markWrapUps(c, v.id, now),
+    const rooms = await withVenue(
+      pool,
+      { venueId: v.id, requestId: "sweep:wrap-up" },
+      async (c) => {
+        // The same minute's sweep ends timed cleaning (rooms.cleaningEnds "timer"; M2-19).
+        await endTimedCleaning(c, v.id, now);
+        return markWrapUps(c, v.id, now);
+      },
     );
     if (rooms.length > 0) out.push({ venueId: v.id, rooms });
   }

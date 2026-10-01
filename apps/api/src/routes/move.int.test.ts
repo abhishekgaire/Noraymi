@@ -138,13 +138,12 @@ describe("the move sheet", () => {
     expect(segs.rows[1]!.started_at.toISOString()).toBe(
       new Date(at("22:41").epochMilliseconds).toISOString(),
     );
-    const cleaning = await raw.query<{ upper: Date }>(
-      "select upper(period) from room_blocks where room_id = $1 and kind = 'cleaning' and lower(period) >= $2",
-      [ids["room_7"], SEED_NOW.toString()],
+    // Room 7 goes to cleaning; the Parks' 11:00 PM booking stays where it was.
+    const parks = await raw.query<{ room_id: string }>(
+      "select room_id from bookings where id = $1",
+      [ids["bk_parks"]],
     );
-    expect(cleaning.rows[0]!.upper.toISOString()).toBe(
-      new Date(at("23:00").epochMilliseconds).toISOString(),
-    );
+    expect(parks.rows[0]!.room_id).toBe(ids["room_7"]);
     const avail = (await req("GET", "/rooms/availability")).json<{
       rooms: { name: string; state: string; current: { kind: string } | null }[];
     }>().rooms;

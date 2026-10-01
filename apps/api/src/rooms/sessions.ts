@@ -1,5 +1,4 @@
 import {
-  addBlock,
   blocksBetween,
   emitEvent,
   idCounts,
@@ -10,10 +9,11 @@ import {
   setRoomState,
   type Queryable,
 } from "@west4/db";
-import { businessDate, sessionClock, wallClock, type SessionClock } from "@west4/rules";
+import { sessionClock, type SessionClock } from "@west4/rules";
 import { Temporal, cents } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { nightOf, venueClock } from "./assignment.js";
+import { sendToCleaning } from "./cleaning.js";
 
 /**
  * Room sessions and the live room clock (M2-07; spec 04 · room_sessions,
@@ -197,34 +197,7 @@ export async function endSession(
   );
   const block = await sessionBlock(c, venueId, id);
   if (block) await setBlockEnd(c, venueId, block.id, now);
-  const venue = await venueClock(c, venueId);
-  const cutover = wallClock(
-    businessDate(now, venue.timeZone, venue.dayCutover).businessDate.add({ days: 1 }),
-    venue.dayCutover,
-    venue.timeZone,
-    venue.dayCutover,
-  );
-  const next = (await blocksBetween(c, venueId, now, cutover))
-    .filter(
-      (b) =>
-        b.room_id === s.room_id &&
-        Temporal.Instant.compare(Temporal.Instant.from(b.starts_at), now) > 0,
-    )
-    .sort((a, b) =>
-      Temporal.Instant.compare(
-        Temporal.Instant.from(a.starts_at),
-        Temporal.Instant.from(b.starts_at),
-      ),
-    )[0];
-  const cleaningTo = next ? Temporal.Instant.from(next.starts_at) : cutover;
-  if (Temporal.Instant.compare(cleaningTo, now) > 0)
-    await addBlock(c, { venueId, roomId: s.room_id, kind: "cleaning", from: now, to: cleaningTo });
-  await setRoomState(c, venueId, s.room_id, {
-    state: "cleaning",
-    setBy: userId,
-    at: now.toString(),
-  });
-  await emitEvent(c, { venueId, type: "room.updated", entityId: s.room_id, entityVersion: 0 });
+  await sendToCleaning(c, venueId, s.room_id, { now, userId });
 }
 
 /**

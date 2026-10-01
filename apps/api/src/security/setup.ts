@@ -104,6 +104,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into room_faults (venue_id, room_id, text, reported_at) values ($1, $2, 'B''s fault', now()) returning id",
     [v.venueB, roomB.rows[0]!.id],
   );
+  const noteB = await owner.query<{ id: string }>(
+    "insert into room_notes (venue_id, room_id, text, added_at) values ($1, $2, 'B''s note', now()) returning id",
+    [v.venueB, roomB.rows[0]!.id],
+  );
+  const itemB = await owner.query<{ id: string }>(
+    "insert into lost_items (venue_id, description, found_by, found_at, kept_at) values ($1, 'B''s scarf', $2, now(), 'bar') returning id",
+    [v.venueB, v.ownerB],
+  );
   const cast: Cast & { ownerB: string; messageB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -127,6 +135,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       fileId: fileB.rows[0]!.id,
       approvalId: approvalB.rows[0]!.id,
       f: faultB.rows[0]!.id,
+      noteId: noteB.rows[0]!.id,
+      itemId: itemB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -146,6 +156,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/approvals/:approvalId/decide": { decision: "approve" },
       "POST /v1/venues/:venueId/rooms/:r/faults": { text: "Mic dead" },
       "PATCH /v1/venues/:venueId/faults/:f": { fixed: true },
+      "POST /v1/venues/:venueId/rooms/:r/notes": { text: "x" },
+      "PATCH /v1/venues/:venueId/room-notes/:noteId": { cleared: true },
+      "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
+      "PATCH /v1/venues/:venueId/lost-items/:itemId": { kept_at: "office" },
       "POST /v1/venues/:venueId/sessions/:sessionId/pause": { reason: "Mic dead" },
       "POST /v1/venues/:venueId/sessions/:sessionId/party-size": { party_size: 5 },
       "POST /v1/venues/:venueId/sessions/:sessionId/move": { room_id: roomB.rows[0]!.id },

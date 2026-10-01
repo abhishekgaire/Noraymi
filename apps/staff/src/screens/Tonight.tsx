@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
+import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
 
@@ -33,6 +34,12 @@ interface RoomInfo {
   readonly free_now: boolean;
   readonly state: string;
   readonly faults: readonly Fault[];
+  readonly cleaning: {
+    readonly left_at: string;
+    readonly minutes: number;
+    readonly flagged: boolean;
+  } | null;
+  readonly notes: readonly { readonly id: string; readonly text: string }[];
 }
 
 interface Session {
@@ -163,6 +170,26 @@ export function Tonight() {
     } catch {
       setDone(t("party.failed"));
     }
+  };
+  const markClean = async (roomId: string) => {
+    try {
+      await api("POST", `/v1/venues/${venueId}/rooms/${roomId}/clean`);
+      await load();
+    } catch {
+      setFailed(true);
+    }
+  };
+  const noteList = (roomId: string) => {
+    const notes = rooms.find((r) => r.room_id === roomId)?.notes ?? [];
+    return notes.length === 0 ? null : (
+      <ul className="faults">
+        {notes.map((n) => (
+          <li key={n.id} className="small muted">
+            {n.text}
+          </li>
+        ))}
+      </ul>
+    );
   };
   const faultList = (roomId: string) => (
     <ul className="faults">
@@ -333,6 +360,7 @@ export function Tonight() {
                 >
                   {t("checkIn.walkIn")}
                 </button>
+                {noteList(r.room_id)}
                 {faultList(r.room_id)}
                 {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
               </li>
@@ -406,6 +434,7 @@ export function Tonight() {
                       </button>
                     </div>
                   )}
+                  {noteList(s.room_id)}
                   {faultList(s.room_id)}
                   <div className="actions">
                     <button
@@ -421,6 +450,39 @@ export function Tonight() {
               );
             })}
           </ul>
+          <h2>{t("cleaning.title")}</h2>
+          <ul className="room-clocks">
+            {rooms
+              .filter((r) => r.state === "cleaning")
+              .map((r) => (
+                <li
+                  key={r.room_id}
+                  className={r.cleaning?.flagged ? "room-clock flagged" : "room-clock"}
+                  aria-label={r.name}
+                >
+                  <span className="tile-name">{r.name}</span>
+                  {r.cleaning && (
+                    <div className="small">
+                      {t("cleaning.left", {
+                        time: time(r.cleaning.left_at, timeZone),
+                        min: r.cleaning.minutes,
+                      })}
+                    </div>
+                  )}
+                  {r.cleaning?.flagged && (
+                    <div className="small error">{t("cleaning.flagged")}</div>
+                  )}
+                  {noteList(r.room_id)}
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => void markClean(r.room_id)}
+                  >
+                    {t("cleaning.markClean")}
+                  </button>
+                </li>
+              ))}
+          </ul>
           <h2>{t("fault.outOfServiceRooms")}</h2>
           <ul className="room-clocks">
             {rooms
@@ -433,6 +495,7 @@ export function Tonight() {
                 </li>
               ))}
           </ul>
+          <LostAndFound venueId={venueId} rooms={rooms} />
         </>
       )}
     </section>

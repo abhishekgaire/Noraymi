@@ -244,12 +244,13 @@ describe("a room switched off moves its future bookings", () => {
       expect(reassigned.unplaced).toEqual([]);
       expect(reassigned.moved).toHaveLength(1);
       expect(reassigned.moved[0]!.booking_id).toBe(ids["bk_nguyens"]);
-      // No small room is free from 11:00 PM to 1:00 AM; Room 9's session ends at 11:00, so it's the smallest that fits.
-      expect(reassigned.moved[0]!.to_room_id).toBe(ids["room_9"]);
+      // No small room is free from 11:00 PM to 1:00 AM. Room 6 is being cleaned now, but cleaning holds only its
+      // cleaning minutes (M2-19; none set at West 4), so it's the smallest medium room free then.
+      expect(reassigned.moved[0]!.to_room_id).toBe(ids["room_6"]);
       const b = await raw.query<{ room_id: string }>("select room_id from bookings where id = $1", [
         ids["bk_nguyens"],
       ]);
-      expect(b.rows[0]!.room_id).toBe(ids["room_9"]);
+      expect(b.rows[0]!.room_id).toBe(ids["room_6"]);
     } finally {
       await admin.close();
     }

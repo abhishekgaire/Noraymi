@@ -3,6 +3,7 @@ import {
   blockById,
   blocksBetween,
   openFaults,
+  roomNotes,
   closureOn,
   emitEvent,
   listRooms,
@@ -25,6 +26,7 @@ import {
 } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { cleaningStatus } from "./cleaning.js";
 
 /**
  * Room assignment and availability for one venue (M2-05; spec 04 · Room
@@ -136,6 +138,10 @@ export interface RoomAvailability {
   readonly faults: { id: string; text: string; reported_at: string; out_of_service: boolean }[];
   /** The room's tablet is off while the room is out of service (M2-16). */
   readonly tablet_on: boolean;
+  /** "Needs a wipe · left 10:33 PM (8 min)", flagged after rooms.cleaningFlagMin (M2-19). */
+  readonly cleaning: { left_at: string; minutes: number; flagged: boolean } | null;
+  /** Notes that stay with the room (M2-19). */
+  readonly notes: { id: string; text: string }[];
 }
 
 /** Every live room at an instant: free or not, until when, and what's in it or next (the board's "free until"). */
@@ -154,6 +160,8 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
   );
   const spans = blocks.map(spanWithin(night, venue));
   const faults = await openFaults(c, venueId);
+  const notes = await roomNotes(c, venueId);
+  const cleaning = await cleaningStatus(c, venueId, at);
   const out: RoomAvailability[] = rooms.map((room) => {
     const mine = blocks.filter((b) => b.room_id === room.id);
     const f = freeUntil(room.id, spans, at);
@@ -165,7 +173,8 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
     const next = mine.find(
       (b) => Temporal.Instant.compare(Temporal.Instant.from(b.starts_at), at) > 0,
     );
-    const freeNow = f.freeNow && room.available;
+    // A room still being cleaned isn't free now, though its later bookings stand (M2-19).
+    const freeNow = f.freeNow && room.available && room.state !== "cleaning";
     return {
       room_id: room.id,
       name: room.name,
@@ -189,7 +198,9 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
                   ? iso(current.expires_at)
                   : null,
           }
-        : null,
+        : room.state === "cleaning"
+          ? { kind: "cleaning", ref_id: null, held_until: null }
+          : null,
       next: next ? { kind: next.kind, ref_id: next.ref_id, at: iso(next.starts_at)! } : null,
       faults: faults
         .filter((f) => f.room_id === room.id)
@@ -200,6 +211,8 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
           out_of_service: f.out_of_service,
         })),
       tablet_on: room.state !== "out_of_service",
+      cleaning: cleaning.get(room.id) ?? null,
+      notes: notes.filter((n) => n.room_id === room.id).map((n) => ({ id: n.id, text: n.text })),
     };
   });
   return {
@@ -214,12 +227,21 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
 export async function freeFor(
   c: Queryable,
   venueId: string,
-  input: { party: number; from: Temporal.Instant; to: Temporal.Instant },
+  input: {
+    party: number;
+    from: Temporal.Instant;
+    to: Temporal.Instant;
+    /** From now on, a room still being cleaned isn't offered (M2-19). */
+    now?: Temporal.Instant;
+  },
 ) {
   const venue = await venueClock(c, venueId);
   const night = await nightOf(c, venueId, venue, input.from);
   const settings = await settingsOn(c, venueId, night.businessDate);
-  const rooms = await roomsForAssignment(c, venueId, settings.cleaningMin);
+  const startsNow = input.now !== undefined && Temporal.Instant.compare(input.from, input.now) <= 0;
+  const rooms = (await roomsForAssignment(c, venueId, settings.cleaningMin)).filter(
+    (r) => !(startsNow && r.state === "cleaning"),
+  );
   const blocks = await blocksBetween(
     c,
     venueId,

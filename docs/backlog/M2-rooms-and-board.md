@@ -440,7 +440,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-19 · Run cleaning, room notes and lost and found
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-07, M2-13
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `RoomSettings`; [Data model](../spec/04-data-model.md) · `room_notes`, `lost_items`, `room_blocks`; [N15 Lost and found](../screens.md#n15-lost-and-found); [Board](../screens.md#board) notes 9 and 15
@@ -449,12 +449,18 @@ Definition of done: see CLAUDE.md.
   - `room_notes` (venue_id, room_id, text, added_by, added_at, cleared_at) and `POST /rooms/{r}/notes`; notes stay with the room.
   - `lost_items` with every column in the data model; `GET`, `POST` and `PATCH /lost-items`. The board's lost and found reads "Found in Room 9 · kept at the bar · claimed by …", with a photo when staff take one; `room_id` is empty for something found at the bar.
 - **Acceptance:**
-  - [ ] Room 6 reads "Needs a wipe · left 10:33 PM (8 min)" at 10:41 PM and is flagged by 10:42 PM; Room 13 (left 10:36 PM) isn't flagged at 10:41 PM.
-  - [ ] Marking Room 6 clean makes it Open and leaves every booking as it was.
-  - [ ] Room 6 keeps its note, "TV remote goes missing. Check under the couch."
-  - [ ] A lost item logged in Room 9 with a photo reads "Found in Room 9 · kept at the bar", and "claimed by …" once someone claims it.
+  - [x] Room 6 reads "Needs a wipe · left 10:33 PM (8 min)" at 10:41 PM and is flagged by 10:42 PM; Room 13 (left 10:36 PM) isn't flagged at 10:41 PM.
+  - [x] Marking Room 6 clean makes it Open and leaves every booking as it was.
+  - [x] Room 6 keeps its note, "TV remote goes missing. Check under the couch."
+  - [x] A lost item logged in Room 9 with a photo reads "Found in Room 9 · kept at the bar", and "claimed by …" once someone claims it.
 - **Tests:** integration tests on the simulated clock; Playwright for the lost-and-found log.
 - **Notes:** A paid check sends its room to cleaning from M4. The signed cleaning checklist is phase 2.
+  - Built: migration 0037 (`room_notes`, `lost_items`, walled and audited); `packages/db/src/room-care.ts`; `apps/api/src/rooms/cleaning.ts` (`sendToCleaning`, `markClean`, `endTimedCleaning` in the wrap-up sweep, `cleaningStatus`); `routes/room-care.ts` (`POST /rooms/{r}/clean`, `POST /rooms/{r}/notes`, `PATCH /room-notes/{noteId}`, `GET`/`POST`/`PATCH /lost-items`). Ending and moving a session now both call `sendToCleaning`. The board shows a Needs a wipe list ("Needs a wipe · left 10:33 PM (8 min)", "Still not clean" once flagged, Mark clean), room notes on every tile, and the lost-and-found log with photo upload (`upload.ts`, `LostAndFound.tsx`).
+  - Changed from M2-07: a cleaning block now covers only the room's cleaning minutes, never past its next booking, instead of running to the next booking or the cutover. West 4 sets no cleaning minutes (0), so its rooms get no cleaning block; the `cleaning` state alone keeps a room off "free now" (availability, walk-ins, moves) until someone marks it clean, while later bookings can still use it. One older test changed with this: switching Room 8 off now moves the Nguyens to Room 6, the smallest medium room free at 11:00, instead of Room 9.
+  - "Flagged after 8 minutes" is read as more than 8 whole minutes: Room 6 (left 10:33) isn't flagged at 10:41 and is at 10:42, as the acceptance says.
+  - The seed's room `note` field mixes staff notes with explanations for the reader. Only the two docs/demo-seed.md calls notes load: Room 6's remote and the VIP room's cake. Seed notes and Room 4's fault have no writer, since the seed names none.
+  - A lost item in a room links the room's current or last session. A photo must be a `lost_item_photo` upload and is attached when the item is logged. Notes can be cleared through the API; the board shows notes but adds them only through the API for now (DeskRoom's room panel, M2-31, is where staff write them).
+
 
 ### M2-20 · Send room calls to the board and every staff phone's Calls list
 
