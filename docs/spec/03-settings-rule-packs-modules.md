@@ -166,7 +166,7 @@ type WebsiteSettings = {
 };
 
 type MessageSettings = {
-  reminderAt: string;                // local time on the day of the booking for the Reminder text ("afternoon of")
+  reminderAt: string | null;         // local time on the day of the booking for the Reminder text ("afternoon of"); null: not set, no Reminder goes out (D87)
   offerExpiringMin: number;          // 5: "Offer expiring" goes out with 5 minutes left to claim the room
 };
 

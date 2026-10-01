@@ -52,7 +52,7 @@ export interface WallFixtures {
   readonly bodies?: Readonly<Record<string, unknown>>;
 }
 
-const GLOBAL_PARAMS = new Set(["id", "key", "role", "action", "flag"]);
+const GLOBAL_PARAMS = new Set(["id", "key", "role", "action", "flag", "templateKey"]);
 const EXEMPT_PREFIXES = [
   "/v1/console/",
   "/v1/invites/",

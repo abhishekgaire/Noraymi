@@ -355,7 +355,6 @@ export const SEED_SETTING_DEFAULTS = {
   drawerSecondCounter: "never",
   drawerPaidOutApprovalCents: 2500,
   roomsCleaningMin: 0,
-  messagesReminderAt: "14:00",
 } as const;
 
 /**
@@ -470,7 +469,8 @@ export function mapSeedSettings(
     alerts: { roomEndingMin: 10 },
     phone: { callNumber: seed.venue.phone_e164, textNumber: seed.venue.phone_e164 },
     website: { priceWording: "plusTaxAndGratuity" },
-    messages: { reminderAt: SEED_SETTING_DEFAULTS.messagesReminderAt, offerExpiringMin: 5 },
+    // No reminder time is known for West 4: empty until Admin sets it, so no Reminder goes out (D87).
+    messages: { reminderAt: null, offerExpiringMin: 5 },
     safety: { occupancyLimit: occupancy["maxOccupancy"] ?? null, warnAtPct: 90 },
     languages: { staff: ["en", "es"] },
   };

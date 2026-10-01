@@ -123,6 +123,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/rooms/:r": { name: "renamed" },
       "PATCH /v1/venues/:venueId/rooms/:r/state": { state: "available" },
       "PATCH /v1/venues/:venueId/bookings/:bookingId": { party_size: 4 },
+      "PATCH /v1/venues/:venueId/message-templates/:templateKey": { on: true },
       "PATCH /v1/venues/:venueId/sessions/:sessionId": {
         booked_end_at: "2026-09-25T23:00:00-04:00",
       },

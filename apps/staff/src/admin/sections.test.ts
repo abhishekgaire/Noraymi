@@ -9,11 +9,21 @@ describe("the Admin sections", () => {
     const owner = visibleSections(permissionsOf("owner"), { includeUnshipped: true }).map(
       (s) => s.id,
     );
-    expect(owner).toEqual(["team", "features", "hours", "devices", "rooms", "payments", "console"]);
+    expect(owner).toEqual([
+      "team",
+      "features",
+      "hours",
+      "devices",
+      "rooms",
+      "phone",
+      "texts",
+      "payments",
+      "console",
+    ]);
     const manager = visibleSections(permissionsOf("manager"), { includeUnshipped: true }).map(
       (s) => s.id,
     );
-    expect(manager).toEqual(["features", "hours", "devices", "rooms"]);
+    expect(manager).toEqual(["features", "hours", "devices", "rooms", "phone", "texts"]);
     expect(manager).not.toContain("team");
   });
 

@@ -676,3 +676,15 @@ button.danger {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
+
+/* Admin → Texts (M2-10). */
+.text-list textarea {
+  width: 100%;
+  min-height: 72px;
+  font: inherit;
+  padding: 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}

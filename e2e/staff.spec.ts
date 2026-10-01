@@ -606,6 +606,9 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
       await expect(page.getByRole("status").filter({ hasText: "Cargando" })).toHaveCount(0);
+      // Guest-facing wording is the venue's own (English at West 4), not a staff-screen string.
+      for (const text of await page.locator("[data-guest-text]").allInnerTexts())
+        data.add(text.trim());
       // innerText joins a table row's cells with tabs: check each cell on its own.
       const cells = (await visibleTexts(page)).flatMap((line) =>
         line.split("\t").map((c) => c.trim()),
@@ -1203,6 +1206,101 @@ test("Tonight's room clocks tick on the server's offset while the device clock i
     await expect(room9).toContainText("163 min", { timeout: 20_000 });
     await expect(room9).toContainText("In room · 17 min left");
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Phone & texts and Admin → Texts (M2-10). West 4's number for calls
+ * and texts; the 14 texts in order with West 4's wording; Reminder off and on;
+ * the marketing texts locked off; and the reminder time empty until set.
+ */
+test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder off, marketing locked", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/phone");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Phone & texts");
+    await expect(page.getByLabel("Call number", { exact: true })).toHaveValue("+12122550011");
+    await expect(page.getByLabel("Text number", { exact: true })).toHaveValue("+12122550011");
+    await expect(page.getByText("Shows as +1 212 255 0011")).toHaveCount(2);
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.goto("/admin/texts");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Texts");
+    const items = page.locator(".text-list > li");
+    await expect(items).toHaveCount(14);
+    await expect(items.locator("h3")).toHaveText([
+      "1. Booking confirmed",
+      "2. Reminder",
+      "3. Room code",
+      "4. Room ready",
+      "5. Offer expiring",
+      "6. Please wrap up",
+      "7. Booked time ending",
+      "8. Receipt",
+      "9. Deposit refund",
+      "10. Payment link",
+      "11. Running late reply",
+      "12. You're up next",
+      "13. Review ask",
+      "14. Birthday",
+    ]);
+    await expect(
+      page.getByText(
+        "Booked. Room for 6 at 9:30 PM, Sat Sep 26. A 20% gratuity is added to room tabs. Deposit $60 paid, comes off your bill. Free to cancel until Fri 9:30 PM: west4karaoke.com/b/…",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "…Nobody's booked after you, so you can stay on by the minute until we close at 4 AM.".slice(
+          1,
+        ),
+      ),
+    ).toBeVisible();
+    for (const name of ["Review ask", "Birthday"]) {
+      await expect(page.getByRole("listitem", { name })).toContainText(
+        "Off · needs the Marketing texts module and its own opt-in",
+      );
+      await expect(page.getByRole("listitem", { name }).getByRole("checkbox")).toHaveCount(0);
+    }
+    await expect(page.getByLabel("Reminder goes out at")).toHaveValue("");
+    const reminder = page.getByRole("listitem", { name: "Reminder" });
+    await reminder.getByRole("checkbox").uncheck();
+    await expect(reminder).toContainText("Off");
+    await expect
+      .poll(
+        async () =>
+          (await db.query(`select "on" from message_templates where key = 'reminder'`)).rows[0].on,
+      )
+      .toBe(false);
+    await reminder.getByRole("checkbox").check();
+    await expect
+      .poll(
+        async () =>
+          (await db.query(`select "on" from message_templates where key = 'reminder'`)).rows[0].on,
+      )
+      .toBe(true);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.query(`update message_templates set "on" = true where key = 'reminder'`);
     await db.end();
   }
 });

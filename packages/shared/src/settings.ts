@@ -222,7 +222,7 @@ export const websiteSchema = z
   .object({ priceWording: z.enum(["plusTaxAndGratuity", "allIn"]) })
   .strict();
 export const messagesSchema = z
-  .object({ reminderAt: time, offerExpiringMin: z.number().int().nonnegative() })
+  .object({ reminderAt: time.nullable(), offerExpiringMin: z.number().int().nonnegative() })
   .strict();
 export const safetySchema = z
   .object({

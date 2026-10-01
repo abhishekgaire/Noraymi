@@ -236,7 +236,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** against a local stand-in for Twilio's Messages API and a fake callback sender that signs the way Twilio does (no test credentials are configured): Room ready to Amara B. goes sending, sent, delivered; a retried job sends nothing; repeated and late callbacks change nothing; a bad signature or unknown account is refused; undelivered marks failed; +44, staging and marketing refusals; another venue's message never moves. The wall suites cover the new job kind and the webhook.
 ### M2-10 · Build Admin → Phone & texts and Admin → Texts
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-31, M2-09
 - **Spec:** [Admin by milestone](../milestones.md#admin-by-milestone) (Phone & texts, Texts); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `PhoneSettings`, `MessageSettings`; [Song systems and texts](../spec/11-song-systems-texts.md) · The automatic texts; [AdminDesk](../screens.md#admindesk) notes 13, 14 and 25
@@ -245,13 +245,15 @@ Definition of done: see CLAUDE.md.
   - Texts: all 14 texts in order, each with its wording and whether it's on, plus `messages.reminderAt` and `messages.offerExpiringMin` (5). The two marketing texts show off and can't be turned on while the Marketing texts module is off.
   - West 4's wording, including "Booked. Room for 6 at 9:30 PM, Sat Sep 26. A 20% gratuity is added to room tabs. Deposit $60 paid, comes off your bill. Free to cancel until Fri 9:30 PM: west4karaoke.com/b/…" and "…Nobody's booked after you, so you can stay on by the minute until we close at 4 AM.". No text for an order on its way: "The bar needs a few minutes" and "On its way" are room-screen messages.
 - **Acceptance:**
-  - [ ] Admin → Texts lists exactly the 14 texts, in the spec's order, with West 4's wording.
-  - [ ] Turning Reminder off stops it being sent.
-  - [ ] Review ask and Birthday show off and can't be turned on.
-  - [ ] Phone & texts shows West 4's number, +1 212 255 0011, for calls and texts.
+  - [x] Admin → Texts lists exactly the 14 texts, in the spec's order, with West 4's wording.
+  - [x] Turning Reminder off stops it being sent.
+  - [x] Review ask and Birthday show off and can't be turned on.
+  - [x] Phone & texts shows West 4's number, +1 212 255 0011, for calls and texts.
 - **Tests:** Playwright for each section; a test that the list matches the spec's 14.
 - **Notes:** `messages.reminderAt` has no value for West 4 in the seed or the spec; the field stays empty until West 4 sets it (M2-24 sends nothing until then).
-
+  - **Decision D87:** `messages.reminderAt` may be `null`, and the seed now loads it empty instead of the 2:00 PM default M1-17 had filled in; spec 03's `MessageSettings` says so.
+  - **Built:** `GET /message-templates` (the 14 in the spec's order, each with an example rendered from West 4's own wording and a `locked_off` flag for marketing while the Marketing texts module is off) and `PATCH /message-templates/{key}` (wording and on or off; marketing can't be turned on while its module is off; new wording may only use the slots the text already has). Admin → Phone & texts (`apps/staff/src/screens/admin/Phone.tsx`: the call and text numbers, checked as E.164 and shown as "+1 212 255 0011", through Save and publish) and Admin → Texts (`Texts.tsx`: the reminder time and the offer-expiring minutes through Save and publish; each text's number, name, kind, wording, example and switch, which saves at once; a line that "The bar needs a few minutes" and "On its way" are room-screen messages, never texts). Text names come from the catalog in both languages; the wording itself is the venue's, so the Spanish check treats it as data.
+  - **Tests:** the API test checks the 14 keys in order, West 4's wording for texts 1 and 7, Reminder off refused by the sender, the marketing lock, slot checking and the empty reminder time; Playwright checks each section and the Spanish pass covers both.
 ### M2-11 · Build the check-in sheet, walk-ins and Mark no-show
 
 - **Status:** todo

@@ -29,6 +29,7 @@ import { bookingsRoutes } from "./routes/bookings.js";
 import { sessionsRoutes } from "./routes/sessions.js";
 import { checksRoutes } from "./routes/checks.js";
 import { twilioHookRoutes } from "./routes/twilio-hooks.js";
+import { messageTemplateRoutes } from "./routes/message-templates.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
 
@@ -169,6 +170,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       bookingsRoutes(scope, { clock });
       sessionsRoutes(scope, { clock });
       checksRoutes(scope, { clock });
+      messageTemplateRoutes(scope);
       twilioHookRoutes(scope, {
         pool: gatePoolRef!,
         secretKey: config.auth.secretKey,
