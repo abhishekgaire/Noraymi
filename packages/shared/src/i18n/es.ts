@@ -818,4 +818,15 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "headcount.in": "Entra una persona",
   "headcount.out": "Sale una persona",
   "headcount.failed": "No se pudo contar a las personas dentro",
+  "board.rooms": "Salas",
+  "board.countsLabel": "Conteo de salas",
+  "board.counts":
+    "{inUse} en uso · {open} libres · {cleaning} en limpieza · {oos} fuera de servicio",
+  "board.wrapUp": "Terminando · quedan {min} min",
+  "board.next": "Libre · siguiente {time}",
+  "board.freeAllNight": "Libre · toda la noche",
+  "board.open": "Libre",
+  "board.party": "{name} · {party}",
+  "board.deposit": "Depósito {amount}",
+  "board.tabSoFar": "Cuenta hasta ahora {amount}",
 };

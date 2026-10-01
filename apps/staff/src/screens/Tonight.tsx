@@ -46,6 +46,46 @@ interface RoomInfo {
   readonly notes: readonly { readonly id: string; readonly text: string }[];
 }
 
+type Words =
+  | { readonly kind: "in_room" | "wrap_up"; readonly minutes_left: number }
+  | { readonly kind: "staying" | "needed_now"; readonly minutes_past: number }
+  | { readonly kind: "walk_in" | "free_all_night" | "open" | "out_of_service" }
+  | {
+      readonly kind: "cleaning";
+      readonly left_at: string;
+      readonly minutes: number;
+      readonly flagged: boolean;
+    }
+  | { readonly kind: "held"; readonly name: string; readonly until: string }
+  | { readonly kind: "next"; readonly at: string };
+
+interface BoardRoom {
+  readonly room_id: string;
+  readonly name: string;
+  readonly state: string;
+  readonly words: Words;
+  readonly tone: "amber" | "red" | null;
+  readonly free_now: boolean;
+  readonly faults: readonly Fault[];
+  readonly notes: readonly { readonly id: string; readonly text: string }[];
+  readonly session: {
+    readonly guest_name: string | null;
+    readonly party_size: number;
+    readonly tab_so_far_cents: number;
+    readonly deposit_cents: number;
+  } | null;
+}
+
+interface Board {
+  readonly rooms: readonly BoardRoom[];
+  readonly counts: {
+    readonly in_use: number;
+    readonly open: number;
+    readonly cleaning: number;
+    readonly out_of_service: number;
+  };
+}
+
 interface Session {
   readonly id: string;
   readonly guest_name: string | null;
@@ -89,6 +129,8 @@ export function Tonight() {
   const [arriving, setArriving] = useState<Arrival[]>([]);
   const [free, setFree] = useState<{ room_id: string; name: string }[]>([]);
   const [rooms, setRooms] = useState<readonly RoomInfo[]>([]);
+  const [boardRooms, setBoardRooms] = useState<readonly BoardRoom[]>([]);
+  const [counts, setCounts] = useState<Board["counts"] | null>(null);
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
   const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
   const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
@@ -110,18 +152,30 @@ export function Tonight() {
         api<{ bookings: Arrival[] }>("GET", `/v1/venues/${venueId}/bookings`).catch(() => ({
           bookings: [],
         })),
-        api<{ rooms: RoomInfo[] }>("GET", `/v1/venues/${venueId}/rooms/availability`).catch(() => ({
-          rooms: [],
-        })),
+        api<Board>("GET", `/v1/venues/${venueId}/board`).catch(() => null),
       ]);
       setSessions(answer.sessions);
       setArriving(
         bookings.bookings.filter((b) => b.status === "confirmed" || b.status === "pending"),
       );
-      setFree(
-        rooms.rooms.filter((r) => r.free_now).map((r) => ({ room_id: r.room_id, name: r.name })),
+      const tiles = rooms?.rooms ?? [];
+      setFree(tiles.filter((r) => r.free_now).map((r) => ({ room_id: r.room_id, name: r.name })));
+      setRooms(
+        tiles.map((r) => ({
+          room_id: r.room_id,
+          name: r.name,
+          free_now: r.free_now,
+          state: r.state,
+          faults: r.faults,
+          notes: r.notes,
+          cleaning:
+            r.words.kind === "cleaning"
+              ? { left_at: r.words.left_at, minutes: r.words.minutes, flagged: r.words.flagged }
+              : null,
+        })),
       );
-      setRooms(rooms.rooms);
+      setBoardRooms(tiles);
+      setCounts(rooms?.counts ?? null);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -225,6 +279,50 @@ export function Tonight() {
     </button>
   );
 
+  /** "10:45" without AM or PM, as the board's open tiles read. */
+  const shortTime = (iso: string): string => {
+    const z = Temporal.Instant.from(iso).toZonedDateTimeISO(timeZone);
+    const hour = z.hour % 12 === 0 ? 12 : z.hour % 12;
+    return `${hour}:${String(z.minute).padStart(2, "0")}`;
+  };
+  /** Minutes left or past tick on the server-offset clock between refetches, like the room clocks. */
+  const ticking = (w: Words, bookedEnd: string | null | undefined): Words => {
+    if (!now || !bookedEnd) return w;
+    const end = Temporal.Instant.from(bookedEnd).epochMilliseconds;
+    const at = now.epochMilliseconds;
+    if (w.kind === "in_room" || w.kind === "wrap_up")
+      return at < end ? { ...w, minutes_left: Math.ceil((end - at) / 60_000) } : w;
+    if (w.kind === "staying" || w.kind === "needed_now")
+      return at >= end ? { ...w, minutes_past: Math.floor((at - end) / 60_000) } : w;
+    return w;
+  };
+  const wordsText = (w: Words): string => {
+    switch (w.kind) {
+      case "in_room":
+        return t("session.inRoom", { min: w.minutes_left });
+      case "wrap_up":
+        return t("board.wrapUp", { min: w.minutes_left });
+      case "staying":
+        return t("session.staying", { min: w.minutes_past });
+      case "needed_now":
+        return t("session.neededNow", { min: w.minutes_past });
+      case "walk_in":
+        return t("session.walkIn");
+      case "cleaning":
+        return t("cleaning.left", { time: time(w.left_at, timeZone), min: w.minutes });
+      case "held":
+        return t("messages.heldFor", { name: w.name, time: shortTime(w.until) });
+      case "next":
+        return t("board.next", { time: shortTime(w.at) });
+      case "free_all_night":
+        return t("board.freeAllNight");
+      case "out_of_service":
+        return t("fault.outOfService");
+      default:
+        return t("board.open");
+    }
+  };
+
   const closeWords = (iso: string | null): string => {
     if (!iso) return "";
     const z = Temporal.Instant.from(iso).toZonedDateTimeISO(timeZone);
@@ -244,17 +342,6 @@ export function Tonight() {
           ),
         )
       : null;
-
-  const tileWords = (s: Session): string => {
-    if (!s.booked_end_at || s.tile.kind === "walk_in") return t("session.walkIn");
-    const end = Temporal.Instant.from(s.booked_end_at).epochMilliseconds;
-    const at = now?.epochMilliseconds ?? end;
-    if (at < end) return t("session.inRoom", { min: Math.ceil((end - at) / 60_000) });
-    const past = Math.floor((at - end) / 60_000);
-    return s.tile.kind === "needed_now"
-      ? t("session.neededNow", { min: past })
-      : t("session.staying", { min: past });
-  };
 
   return (
     <section className="screen">
@@ -457,176 +544,190 @@ export function Tonight() {
               })}
             </ul>
           )}
-          <h2>{t("checkIn.freeRooms")}</h2>
-          <ul className="room-clocks">
-            {free.map((r) => (
-              <li key={r.room_id} className="room-clock" aria-label={r.name}>
-                <span className="tile-name">{r.name}</span>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })}
-                >
-                  {t("checkIn.walkIn")}
-                </button>
-                {noteList(r.room_id)}
-                {faultList(r.room_id)}
-                {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
-              </li>
-            ))}
-          </ul>
-          <h2>{t("session.roomsInUse")}</h2>
-          <ul className="room-clocks">
-            {sessions.map((s) => {
-              const minutes = minutesSince(s.started_at);
+          <h2>{t("board.rooms")}</h2>
+          {counts && (
+            <p className="small" aria-label={t("board.countsLabel")}>
+              {t("board.counts", {
+                inUse: counts.in_use,
+                open: counts.open,
+                cleaning: counts.cleaning,
+                oos: counts.out_of_service,
+              })}
+            </p>
+          )}
+          <ul className="room-clocks board">
+            {boardRooms.map((r) => {
+              const s = sessions.find((x) => x.room_id === r.room_id);
+              const minutes = s ? minutesSince(s.started_at) : null;
               return (
                 <li
-                  key={s.id}
-                  className={s.wrap_up ? "room-clock wrap" : "room-clock"}
-                  aria-label={s.room_name}
+                  key={r.room_id}
+                  className={r.tone ? `room-clock ${r.tone}` : "room-clock"}
+                  aria-label={r.name}
                 >
                   <div className="room-clock-head">
-                    <span className="tile-name">{s.room_name}</span>
+                    <span className="tile-name">{r.name}</span>
                     {minutes !== null && (
                       <span className="room-clock-min">
                         {t("session.minutes", { min: minutes })}
                       </span>
                     )}
                   </div>
-                  <div className="small">{tileWords(s)}</div>
-                  <div className="small muted">
-                    {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
+                  <div className={r.tone === "red" ? "small error" : "small"}>
+                    {wordsText(ticking(r.words, s?.booked_end_at))}
                   </div>
-                  <div className="party-size">
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={t("party.fewer")}
-                      disabled={s.party_size <= 1}
-                      onClick={() => void changeParty(s, s.party_size - 1)}
-                    >
-                      −
-                    </button>
-                    <span>{t("party.size", { n: s.party_size })}</span>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={t("party.more")}
-                      onClick={() => void changeParty(s, s.party_size + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                  {rates[s.id] && (
-                    <div className="small">
-                      {t("party.rate", {
-                        amount: money(rates[s.id]!.hourly_cents as never),
-                        min: rates[s.id]!.min_guests,
-                      })}
-                    </div>
-                  )}
-                  <div className="small">{idChip(s)}</div>
-                  {safetyOn && (
-                    <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />
-                  )}
-                  {s.wrap_up && <div className="small error">{t("session.wrapUp")}</div>}
-                  {s.stay_on_offer && (
-                    <div className="small">
-                      {t("session.stayOn", { time: closeWords(s.close) })}
-                    </div>
-                  )}
-                  {s.segments.at(-1)?.paused && (
-                    <div className="small">
-                      {t("session.paused")}{" "}
-                      <button type="button" className="link" onClick={() => void unpause(s.id)}>
-                        {t("session.unpause")}
+                  {s && r.session ? (
+                    <>
+                      {r.session.guest_name && (
+                        <div className="small">
+                          {t("board.party", {
+                            name: r.session.guest_name,
+                            party: r.session.party_size,
+                          })}
+                        </div>
+                      )}
+                      {r.session.deposit_cents > 0 && (
+                        <div className="small muted">
+                          {t("board.deposit", { amount: money(r.session.deposit_cents as never) })}
+                        </div>
+                      )}
+                      <div className="small">
+                        {t("board.tabSoFar", {
+                          amount: money(r.session.tab_so_far_cents as never),
+                        })}
+                      </div>
+                      <div className="small muted">
+                        {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
+                      </div>
+                      <div className="party-size">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={t("party.fewer")}
+                          disabled={s.party_size <= 1}
+                          onClick={() => void changeParty(s, s.party_size - 1)}
+                        >
+                          −
+                        </button>
+                        <span>{t("party.size", { n: s.party_size })}</span>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={t("party.more")}
+                          onClick={() => void changeParty(s, s.party_size + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {rates[s.id] && (
+                        <div className="small">
+                          {t("party.rate", {
+                            amount: money(rates[s.id]!.hourly_cents as never),
+                            min: rates[s.id]!.min_guests,
+                          })}
+                        </div>
+                      )}
+                      <div className="small">{idChip(s)}</div>
+                      {safetyOn && (
+                        <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />
+                      )}
+                      {s.wrap_up && <div className="small error">{t("session.wrapUp")}</div>}
+                      {s.stay_on_offer && (
+                        <div className="small">
+                          {t("session.stayOn", { time: closeWords(s.close) })}
+                        </div>
+                      )}
+                      {s.segments.at(-1)?.paused && (
+                        <div className="small">
+                          {t("session.paused")}{" "}
+                          <button type="button" className="link" onClick={() => void unpause(s.id)}>
+                            {t("session.unpause")}
+                          </button>
+                        </div>
+                      )}
+                      {noteList(s.room_id)}
+                      {faultList(s.room_id)}
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className={s.tile.kind === "needed_now" ? "primary" : "secondary"}
+                          onClick={() => setMoving({ sessionId: s.id, roomName: s.room_name })}
+                        >
+                          {t("move.button")}
+                        </button>
+                        {reportButton({
+                          roomId: s.room_id,
+                          roomName: s.room_name,
+                          hasSession: true,
+                        })}
+                        {s.guest_name &&
+                          (s.tile.kind === "needed_now" || s.wrap_up) &&
+                          signedIn?.membership.permissions.includes("texts.send") && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() =>
+                                void api(
+                                  "POST",
+                                  `/v1/venues/${venueId}/sessions/${s.id}/wrap-up-text`,
+                                )
+                                  .then(() => setDone(t("wrapUp.sent", { name: s.guest_name! })))
+                                  .catch(() => setDone(t("wrapUp.failed")))
+                              }
+                            >
+                              {t("wrapUp.text", { name: s.guest_name })}
+                            </button>
+                          )}
+                        {s.check_id && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              setDamage({ checkId: s.check_id!, roomName: s.room_name })
+                            }
+                          >
+                            {t("damage.button")}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : r.words.kind === "cleaning" ? (
+                    <>
+                      {r.words.flagged && (
+                        <div className="small error">{t("cleaning.flagged")}</div>
+                      )}
+                      {noteList(r.room_id)}
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void markClean(r.room_id)}
+                      >
+                        {t("cleaning.markClean")}
                       </button>
-                    </div>
-                  )}
-                  {noteList(s.room_id)}
-                  {faultList(s.room_id)}
-                  <div className="actions">
-                    <button
-                      type="button"
-                      className={s.tile.kind === "needed_now" ? "primary" : "secondary"}
-                      onClick={() => setMoving({ sessionId: s.id, roomName: s.room_name })}
-                    >
-                      {t("move.button")}
-                    </button>
-                    {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
-                    {s.guest_name &&
-                      (s.tile.kind === "needed_now" || s.wrap_up) &&
-                      signedIn?.membership.permissions.includes("texts.send") && (
+                    </>
+                  ) : r.words.kind === "out_of_service" ? (
+                    faultList(r.room_id)
+                  ) : (
+                    <>
+                      {r.free_now && (
                         <button
                           type="button"
                           className="secondary"
                           onClick={() =>
-                            void api("POST", `/v1/venues/${venueId}/sessions/${s.id}/wrap-up-text`)
-                              .then(() => setDone(t("wrapUp.sent", { name: s.guest_name! })))
-                              .catch(() => setDone(t("wrapUp.failed")))
+                            setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })
                           }
                         >
-                          {t("wrapUp.text", { name: s.guest_name })}
+                          {t("checkIn.walkIn")}
                         </button>
                       )}
-                    {s.check_id && (
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => setDamage({ checkId: s.check_id!, roomName: s.room_name })}
-                      >
-                        {t("damage.button")}
-                      </button>
-                    )}
-                  </div>
+                      {noteList(r.room_id)}
+                      {faultList(r.room_id)}
+                      {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
+                    </>
+                  )}
                 </li>
               );
             })}
-          </ul>
-          <h2>{t("cleaning.title")}</h2>
-          <ul className="room-clocks">
-            {rooms
-              .filter((r) => r.state === "cleaning")
-              .map((r) => (
-                <li
-                  key={r.room_id}
-                  className={r.cleaning?.flagged ? "room-clock flagged" : "room-clock"}
-                  aria-label={r.name}
-                >
-                  <span className="tile-name">{r.name}</span>
-                  {r.cleaning && (
-                    <div className="small">
-                      {t("cleaning.left", {
-                        time: time(r.cleaning.left_at, timeZone),
-                        min: r.cleaning.minutes,
-                      })}
-                    </div>
-                  )}
-                  {r.cleaning?.flagged && (
-                    <div className="small error">{t("cleaning.flagged")}</div>
-                  )}
-                  {noteList(r.room_id)}
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => void markClean(r.room_id)}
-                  >
-                    {t("cleaning.markClean")}
-                  </button>
-                </li>
-              ))}
-          </ul>
-          <h2>{t("fault.outOfServiceRooms")}</h2>
-          <ul className="room-clocks">
-            {rooms
-              .filter((r) => r.state === "out_of_service")
-              .map((r) => (
-                <li key={r.room_id} className="room-clock off" aria-label={r.name}>
-                  <span className="tile-name">{r.name}</span>
-                  <div className="small">{t("fault.outOfService")}</div>
-                  {faultList(r.room_id)}
-                </li>
-              ))}
           </ul>
           <LostAndFound venueId={venueId} rooms={rooms} />
         </>

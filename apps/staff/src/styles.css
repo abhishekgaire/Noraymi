@@ -877,3 +877,10 @@ button.danger {
 .headcount.warn {
   border-color: #b42318;
 }
+/* Board tiles (M2-29): amber in the last minutes before the booked end, red once the room runs over. */
+.room-clock.amber {
+  border-color: #d97706;
+}
+.room-clock.red {
+  border-color: #b42318;
+}

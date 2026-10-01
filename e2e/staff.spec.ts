@@ -1,5 +1,6 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
@@ -2035,6 +2036,74 @@ test("the headcount: 93 inside, limit not set, the door counter, and Admin → S
     await count.getByRole("link", { name: "Limit not set · Admin → Safety" }).click();
     await expect(page.getByLabel("Occupancy limit")).toHaveValue("");
     await expect(page.getByLabel("Warn at (% of the limit)")).toHaveValue("90");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The Tonight board read against the seed file (M2-29): from a fresh load at
+ * 10:41 PM, every tile's words, every "Room time so far" and "Tab so far" to
+ * the cent, and the counts.
+ */
+test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const seed = JSON.parse(readFileSync("seed/west4-friday.json", "utf8")) as {
+    rooms: { id: string; name: string; board_label: string }[];
+    sessions: { id: string; room: string }[];
+    checks: {
+      room_session?: string;
+      expected_at_now?: { room_time_cents?: number; tab_so_far_cents?: number };
+    }[];
+    counts: {
+      rooms: { in_use_or_wrap_up: number; open: number; cleaning: number; out_of_service: number };
+    };
+  };
+  const dollars = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const c = seed.counts.rooms;
+    await expect(page.getByLabel("Room counts")).toHaveText(
+      `${c.in_use_or_wrap_up} in use · ${c.open} open · ${c.cleaning} cleaning · ${c.out_of_service} out of service`,
+    );
+    for (const room of seed.rooms) {
+      const tile = page.getByRole("listitem", { name: room.name, exact: true });
+      // Browsers may put a narrow space before PM; the words are otherwise exact.
+      const words = room.board_label
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/ (AM|PM)/g, "\\s?$1");
+      await expect(tile, room.name).toContainText(new RegExp(words));
+    }
+    for (const check of seed.checks.filter((x) => x.room_session && x.expected_at_now)) {
+      const session = seed.sessions.find((s) => s.id === check.room_session)!;
+      const room = seed.rooms.find((r) => r.id === session.room)!;
+      const tile = page.getByRole("listitem", { name: room.name, exact: true });
+      await expect(tile, room.name).toContainText(
+        `Room time so far ${dollars(check.expected_at_now!.room_time_cents!)}`,
+      );
+      await expect(tile, room.name).toContainText(
+        `Tab so far ${dollars(check.expected_at_now!.tab_so_far_cents!)}`,
+      );
+    }
+    expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.end();
   }

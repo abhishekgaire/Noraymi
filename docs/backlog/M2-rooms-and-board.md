@@ -677,7 +677,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-29 · Build the Tonight board: tiles, states, clocks and counts
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-21, M2-07, M2-08, M2-11, M2-16, M2-19, M2-20, M2-28
 - **Spec:** [Board](../screens.md#board); [API](../spec/08-api.md) · Board and sessions (`GET /board`); [Glossary · Room state](../glossary.md#rooms-time-and-bookings); [Demo seed · Rooms at 10:41 PM](../demo-seed.md#rooms-at-1041-pm); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `AlertSettings`
@@ -688,12 +688,18 @@ Definition of done: see CLAUDE.md.
   - The desktop side menu from the modules and the role: Tonight, Calendar, Messages, Admin and Lock now, the rest as their screens ship.
   - Live through `room.updated`, `booking.updated`, `waitlist.updated` and `headcount.updated`; clocks tick on the server's offset, and totals refetch every minute.
 - **Acceptance:**
-  - [ ] At 10:41 PM on the seed every tile, clock and "Room time so far" matches the seed to the cent: Room 9 161 min, $322.00; the VIP room 71 min, $295.83; Room 1 71 min, $47.33; Room 3 116 min, $96.67; Room 5 41 min, $40.00; Room 7 131 min, $152.83; Room 10 221 min, $331.50; Room 12 101 min, $235.67.
-  - [ ] Tabs so far read Room 1 $123.33, Room 3 $175.67, Room 5 $40.00, Room 7 $210.83, Room 9 $480.00, Room 10 $441.50, Room 12 $305.67 and the VIP room $775.83.
-  - [ ] The board counts 8 rooms in use, 3 open, 2 cleaning and 1 out of service, and every tile's words match [Rooms at 10:41 PM](../demo-seed.md#rooms-at-1041-pm).
-  - [ ] Moving the simulated clock one minute moves every running clock and total by one minute's billing.
+  - [x] At 10:41 PM on the seed every tile, clock and "Room time so far" matches the seed to the cent: Room 9 161 min, $322.00; the VIP room 71 min, $295.83; Room 1 71 min, $47.33; Room 3 116 min, $96.67; Room 5 41 min, $40.00; Room 7 131 min, $152.83; Room 10 221 min, $331.50; Room 12 101 min, $235.67.
+  - [x] Tabs so far read Room 1 $123.33, Room 3 $175.67, Room 5 $40.00, Room 7 $210.83, Room 9 $480.00, Room 10 $441.50, Room 12 $305.67 and the VIP room $775.83.
+  - [x] The board counts 8 rooms in use, 3 open, 2 cleaning and 1 out of service, and every tile's words match [Rooms at 10:41 PM](../demo-seed.md#rooms-at-1041-pm).
+  - [x] Moving the simulated clock one minute moves every running clock and total by one minute's billing.
 - **Tests:** an end-to-end test that reads every tile against `seed/west4-friday.json` (`rooms`, `sessions`, `checks.expected_at_now`, `counts`).
 - **Notes:** [Board](../screens.md#board) notes 3, 4, 15, 16 and 19 now; notes 5, 12, 13 and 17 in M3; 18 and 21 in M4; 20 in M7; 10 and 14 (the footer and banners) in M8.
+  - Built: `GET /board` (`apps/api/src/rooms/board.ts`, `routes/board.ts`): each room's tile words as data (a kind and its numbers, so the screen says them in its language), its tone (amber within `alerts.roomEndingMin` of the booked end, red once it runs over), the party, IDs, deposit, clock, room time and tab so far, faults, notes and calls, with the counts and the headcount. The board is now one grid of the 14 room tiles, with the arrivals, calls, waitlist, headcount and lost and found around it; every tile keeps its own actions (check in a walk-in, party size, move, faults, damage fee, wrap-up text, Scan ID, Mark clean, Fixed).
+  - Tested against `seed/west4-friday.json` itself: the integration test and the Playwright test read every tile's words, every room time and tab so far to the cent, and the counts from the file, and one simulated minute later Room 9 moves by $2.00 and the VIP room by a minute of $250 an hour.
+  - The minutes left or past tick on the screen's server-offset clock between the minute refetches, like the room clocks.
+  - Open tiles read the time without AM or PM ("Open · next 11:00", "held for Sam O. until 10:45"), and Needs a wipe with it ("left 10:33 PM"), as the seed's labels do.
+  - The side menu was already built from the modules and the role (M1-21); Calendar appears when its screen ships.
+
 
 ### M2-30 · Show the board's alerts, most urgent first
 
