@@ -1,5 +1,5 @@
 # The API image. Built from the repo root: docker build -f apps/api/Dockerfile .
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json tsconfig.json ./
@@ -16,7 +16,7 @@ COPY apps/api apps/api
 RUN pnpm exec tsc -b apps/api \
   && pnpm --filter @west4/api deploy --prod /out
 
-FROM node:22-alpine
+FROM node:26-alpine
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
 WORKDIR /app
 # The runtime needs Node only. npm and corepack (and their bundled dependencies)
