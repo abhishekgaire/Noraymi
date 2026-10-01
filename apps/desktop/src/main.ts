@@ -1,3 +1,8 @@
+import { utimesSync, writeFileSync } from "node:fs";
+import { powerSaveBlocker } from "electron";
+// electron-updater is CommonJS and its autoUpdater is a getter: a default import reaches it, a named one can't.
+import updater from "electron-updater";
+import { UpdateGate } from "./updates.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -37,6 +42,19 @@ const sealer: Sealer = {
 let tokens: SealedStore;
 let cacheKey: SealedStore;
 let cache: DesktopCache | null = null;
+const updates = new UpdateGate(null);
+let venueNowOffsetMs: number | null = null;
+
+/** The venue's clock as the server last said it, moved on by the computer's own clock. */
+const venueNow = (): Temporal.Instant | null =>
+  venueNowOffsetMs === null
+    ? null
+    : Temporal.Instant.fromEpochMilliseconds(Date.now() + venueNowOffsetMs);
+
+/** Started by the operating system at login (M1-29): nobody is signed in, the device is still paired. */
+const openedAtLogin = (): boolean =>
+  process.argv.includes("--at-login") ||
+  (process.platform === "darwin" && app.getLoginItemSettings().wasOpenedAtLogin);
 
 /** The cache opens lazily and never stops the app: without it there is no offline view, nothing more. */
 function openCache(): DesktopCache | null {
@@ -97,7 +115,11 @@ function registerIpc(): void {
       const opened = openCache();
       if (!opened) return;
       opened.configure({ timeZone: c.time_zone, dayCutover: c.day_cutover });
-      if (typeof c.server_time === "string") opened.wipeIfPastCutover(c.server_time);
+      updates.setClock({ timeZone: c.time_zone, dayCutover: c.day_cutover });
+      if (typeof c.server_time === "string") {
+        venueNowOffsetMs = Temporal.Instant.from(c.server_time).epochMilliseconds - Date.now();
+        opened.wipeIfPastCutover(c.server_time);
+      }
     }),
   );
 }
@@ -126,10 +148,48 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+/** Updates download in the background and install only at the cutover, or at the first start after it. */
+function startUpdates(): void {
+  if (!app.isPackaged) return;
+  const { autoUpdater } = updater;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.allowDowngrade = false;
+  autoUpdater.on("update-downloaded", () =>
+    updates.downloaded(venueNow() ?? Temporal.Now.instant()),
+  );
+  autoUpdater.on("error", (error) => console.warn(`updater: ${error.message}`));
+  const check = () => autoUpdater.checkForUpdates().catch(() => null);
+  void check();
+  setInterval(check, 6 * 60 * 60_000).unref();
+  setInterval(() => {
+    const now = venueNow();
+    if (now && updates.isDue(now)) autoUpdater.quitAndInstall(true, true);
+  }, 60_000).unref();
+}
+
 void app.whenReady().then(() => {
   const userData = app.getPath("userData");
   tokens = new SealedStore(path.join(userData, "session.token"), sealer);
   cacheKey = new SealedStore(path.join(userData, "cache.key"), sealer);
+  // At login nobody is signed in: the last person's token goes; the device key (in the page's own storage) stays.
+  if (openedAtLogin()) tokens.clear();
+  // Start at login, and keep the computer and its screen awake while the app runs.
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true, args: ["--at-login"] });
+  powerSaveBlocker.start("prevent-display-sleep");
+  // The watchdog watches this file: touched every 5 seconds while the app answers.
+  const alive = path.join(userData, "alive");
+  const touch = () => {
+    try {
+      writeFileSync(alive, "");
+      utimesSync(alive, new Date(), new Date());
+    } catch {
+      // Nothing to do: the watchdog will restart the app if this keeps failing.
+    }
+  };
+  touch();
+  setInterval(touch, 5000).unref();
+  startUpdates();
   // The page asks for nothing the shell should grant: no camera, microphone, location or the rest.
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) =>
     callback(false),

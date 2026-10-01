@@ -13,6 +13,9 @@ files:
   - dist/**
   - package.json
 asar: true
+extraResources:
+  - from: watchdog/watchdog.cjs
+    to: watchdog.cjs
 mac:
   category: public.app-category.business
   hardenedRuntime: true

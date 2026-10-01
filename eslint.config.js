@@ -30,6 +30,23 @@ export default tseslint.config(
     },
   },
   {
+    // The watchdog (M1-29) is a dependency-free CommonJS script the operating system runs.
+    files: ["apps/desktop/watchdog/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "writable",
+        process: "readonly",
+        __dirname: "readonly",
+        setTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+      },
+    },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     // The desktop preload (M1-28) is sandboxed CommonJS: require is the only way in.
     files: ["apps/desktop/src/**/*.cts"],
     rules: { "@typescript-eslint/no-require-imports": "off" },

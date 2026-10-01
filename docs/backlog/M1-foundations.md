@@ -758,7 +758,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-29 · Add the watchdog, start at login, keep awake and updates at the cutover
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-12, M1-28
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Room orders at the bar (the desktop app keeps the computer awake, starts at login, restarts itself through a watchdog and updates only between business days); [Testing and operations](../spec/13-testing-operations.md) · Releases
@@ -768,12 +768,17 @@ Definition of done: see CLAUDE.md.
   - A watchdog, a small separate process run by the operating system (a launchd agent on macOS, a scheduled task or service on Windows), that restarts the app when it exits or stops answering.
   - Updates download in the background and install only at the business-day cutover (6:00 AM venue time) or at the first start after it, never mid-night. Only signed updates install.
 - **Acceptance:**
-  - [ ] Killing the app's process brings it back within 10 seconds with nobody touching the computer.
-  - [ ] Restarting the computer starts the app at login, paired and showing the sign-in screen.
-  - [ ] The screen doesn't sleep while the app runs.
-  - [ ] An update published at 10:41 PM on Fri Sep 25 installs after 6:00 AM on Sat Sep 26, not before.
+  - [x] Killing the app's process brings it back within 10 seconds with nobody touching the computer.
+  - [ ] Restarting the computer starts the app at login, paired and showing the sign-in screen. _Built (login item plus the watchdog's launchd agent or scheduled task); checked by hand on the bar computer at install, since CI has no login session to restart._
+  - [ ] The screen doesn't sleep while the app runs. _Built with powerSaveBlocker (prevent-display-sleep); checked by hand on the bar computer, since CI can't observe a display._
+  - [x] An update published at 10:41 PM on Fri Sep 25 installs after 6:00 AM on Sat Sep 26, not before.
 - **Tests:** a watchdog test on both operating systems in CI (or a scripted manual check on the bar computer if CI can't run it); an updater test on the simulated clock.
 - **Notes:** The spec picks no watchdog tool; any that the operating system restarts itself will do.
+  - **Watchdog.** `apps/desktop/watchdog/watchdog.cjs`: a dependency-free script the operating system runs at login and keeps alive. It starts the app, starts it again when it exits (after 2 s), and ends and restarts an app that stops touching its alive file (`userData/alive`, touched every 5 s by the main process; stale after 30 s, with the same grace after a start). `install-macos.sh` writes a launchd agent (RunAtLoad, KeepAlive) and `install-windows.ps1` a scheduled task at logon; both run the script with the app's own binary under `ELECTRON_RUN_AS_NODE=1`, and the script ships as an extra resource in the package. `src/watchdog.test.ts` runs it against a fake app on any CI: a crash comes back within 10 s, a hang is ended and restarted.
+  - **Start at login, nobody signed in.** `app.setLoginItemSettings({ openAtLogin: true, args: ["--at-login"] })` in packaged builds (the watchdog passes `--at-login` too). At such a start the kept token is cleared, so the screen shows sign-in; the device key lives in the page's own storage and stays, so the screen is still paired. A watchdog restart mid-night keeps the token, so a bartender isn't signed out by a crash.
+  - **Keep awake.** `powerSaveBlocker.start("prevent-display-sleep")` for as long as the app runs.
+  - **Updates.** `src/updates.ts` `UpdateGate`: a download waits for the first 6:00 AM (the venue's cutover, on the venue's clock from the signed-in session) after it, or installs at the first start after that; never while the clock is unknown. `main.ts` wires `electron-updater` (background download, no install on quit, no downgrade, a check every 6 hours, a minute-by-minute look at the gate, `quitAndInstall` when due) only in packaged builds. Only signed updates install: electron-updater refuses an update whose signature doesn't match the running app's publisher on Windows, and Squirrel.Mac refuses unsigned builds; this depends on the certificates M1-28 flagged. `src/updates.test.ts` runs the gate on the seed's night: downloaded at 10:41 PM Fri Sep 25, not due at 5:59 AM, due at 6:00 AM Sat Sep 26 and at any later start, and the cutover across the November clock change.
+  - **By hand at install.** Restart the computer: the app opens at login on the sign-in screen with its tiles (paired). Leave it an hour: the screen stays on. Force-quit it: it's back within 10 s.
 
 ### M1-30 · Read badges from the USB NFC reader in the desktop app, and pair them
 
