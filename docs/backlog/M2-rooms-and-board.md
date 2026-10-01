@@ -722,7 +722,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-31 · Build DeskRoom and the Room phone: the room panel and the running tab
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-11, M2-16, M2-17, M2-18, M2-20, M2-21
 - **Spec:** [DeskRoom](../screens.md#deskroom); [Room](../screens.md#room); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · The board and staff phones; [Demo seed · Room 9, worked through](../demo-seed.md#room-9-worked-through)
@@ -732,11 +732,15 @@ Definition of done: see CLAUDE.md.
   - The staff phone's "Tab & close out →" opens this screen and never marks a room paid.
   - No quick-add chips and no demo "Bar accepted" control. Adding drinks, comps and voids, and the cut-off come in M3; Present the check, paying and the receipt in M4.
 - **Acceptance:**
-  - [ ] Room 9 on DeskRoom and on Andy's phone reads 161 min at $2.00 a minute, $322.00; drinks $158.00; tab so far $480.00; deposit $120.00; and the ringing margaritas aren't on the tab.
-  - [ ] Room 10 says "Stay on by the minute until we close at 4 AM", and Room 3 shows the wrap-up prompt for Jae & co. at 11:00.
-  - [ ] "Tab & close out →" on the phone opens Room 9's tab.
+  - [x] Room 9 on DeskRoom and on Andy's phone reads 161 min at $2.00 a minute, $322.00; drinks $158.00; tab so far $480.00; deposit $120.00; and the ringing margaritas aren't on the tab.
+  - [x] Room 10 says "Stay on by the minute until we close at 4 AM", and Room 3 shows the wrap-up prompt for Jae & co. at 11:00.
+  - [x] "Tab & close out →" on the phone opens Room 9's tab.
 - **Tests:** Playwright on desktop and phone sizes against the seed.
 - **Notes:** [DeskRoom](../screens.md#deskroom) notes 3, 5, 6, 10 and 12 and [Room](../screens.md#room) notes 5, 6, 9 and 10 now; the rest in M3, M4 and M7. The ringing margaritas load with the orders in M3.
+  - Built: `screens/RoomScreen.tsx` at `/room/{roomId}`, one screen laid out for the desktop (DeskRoom) and the phone (Room): the clock with its rate ("161 min · $2.00 a minute", ticking on the server offset), the running tab (room time so far, each of the check's lines, drinks, tab so far, "Before tax and gratuity"), the deposit that comes off at settle-up, party size, the ID chip and Scan ID, Move, Report a fault, the damage fee, the room's calls with On it, and its notes with Add a note. Every in-use tile on the board links to it with "Tab & close out →". `GET /board` now carries each room's next booking tonight and the session's rate, stay-on and wrap-up flags.
+  - "Stay on by the minute until we close at 4 AM" shows when nobody is booked next; "Wrap up · Jae & co. at 11:00" when someone is.
+  - It reads and changes the room but never marks it paid; adding drinks, comps, voids and the cut-off come in M3, and Present the check, paying and the receipt in M4. The ringing margaritas aren't on the tab because ringing orders don't exist until M3 (the check's lines are only accepted drinks).
+
 
 ### M2-32 · Build the staff phone's Tonight, Rooms, Calls and Waitlist tabs
 

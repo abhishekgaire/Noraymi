@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
 import { useClock } from "../clock.js";
@@ -597,6 +598,11 @@ export function Tonight() {
                       </span>
                     )}
                   </div>
+                  {s && (
+                    <Link className="small" to={`/room/${r.room_id}`}>
+                      {t("room.open")}
+                    </Link>
+                  )}
                   <div className={r.tone === "red" ? "small error" : "small"}>
                     {wordsText(ticking(r.words, s?.booked_end_at))}
                   </div>

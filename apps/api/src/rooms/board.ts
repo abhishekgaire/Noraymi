@@ -69,6 +69,19 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
     ).rows.map((b) => [b.id, b]),
   );
 
+  // Each room's next booking tonight: the wrap-up prompt's "Jae & co. at 11:00".
+  const nextBookings = new Map(
+    (
+      await c.query<{ room_id: string; name: string; party_size: number; starts_at: string }>(
+        `select distinct on (b.room_id) b.room_id, g.name, b.party_size, to_json(b.starts_at) #>> '{}' as starts_at
+           from bookings b join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+          where b.venue_id = $1 and b.status in ('pending', 'confirmed') and b.starts_at > $2::timestamptz
+            and b.starts_at < $3::timestamptz
+          order by b.room_id, b.starts_at`,
+        [venueId, now.toString(), avail.close ?? now.add({ hours: 12 }).toString()],
+      )
+    ).rows.map((b) => [b.room_id, { name: b.name, party_size: b.party_size, at: b.starts_at }]),
+  );
   const rooms = avail.rooms.map((r) => {
     const s = sessions.find((x) => x.room_id === r.room_id);
     const booking = s?.booking_id ? bookings.get(s.booking_id) : undefined;
@@ -119,8 +132,13 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
             deposit_cents: booking?.deposit_cents ?? 0,
             booked_end_at: s.booked_end_at,
             paused: s.segments.at(-1)?.paused ?? false,
+            hourly_cents: s.segments.at(-1)?.hourly_cents ?? 0,
+            stay_on_offer: s.clock.stayOnOffer,
+            wrap_up: s.clock.wrapUp,
+            close: s.close,
           }
         : null,
+      next: nextBookings.get(r.room_id) ?? null,
       faults: r.faults,
       notes: notes.filter((n) => n.room_id === r.room_id).map((n) => ({ id: n.id, text: n.text })),
       calls: calls

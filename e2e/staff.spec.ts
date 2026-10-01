@@ -2184,3 +2184,77 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
     await db.end();
   }
 });
+
+/**
+ * DeskRoom and the Room phone (M2-31), from a fresh seed: Room 9's clock,
+ * rate, running tab and deposit; Room 10's stay-on line; Room 3's wrap-up
+ * prompt; "Tab & close out →" on a phone opens Room 9's tab.
+ */
+test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Room 3 wrapping up", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    const readRoom9 = async (p: Page) => {
+      await expect(p.getByRole("heading", { level: 1 })).toHaveText("Room 9");
+      await expect(p.getByLabel("Room clock")).toHaveText("161 min · $2.00 a minute");
+      const tab = p.getByRole("region", { name: "Running tab" });
+      await expect(tab).toContainText("Room time so far$322.00");
+      await expect(tab).toContainText("Drinks$158.00");
+      await expect(tab).toContainText("Tab so far$480.00");
+      await expect(tab).toContainText("Deposit $120.00 · comes off at settle-up");
+      await expect(tab).not.toContainText("Margarita · Peach");
+      expect(await clippedText(p)).toEqual([]);
+    };
+    await page
+      .getByRole("listitem", { name: "Room 9", exact: true })
+      .getByRole("link", { name: "Tab & close out →" })
+      .click();
+    await readRoom9(page);
+
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const roomId = async (name: string) =>
+      (
+        await db.query<{ id: string }>("select id from rooms where venue_id = $1 and name = $2", [
+          v,
+          name,
+        ])
+      ).rows[0]!.id;
+    await page.goto(`/room/${await roomId("Room 10")}`);
+    await expect(page.getByText("Stay on by the minute until we close at 4 AM")).toBeVisible();
+    await page.goto(`/room/${await roomId("Room 3")}`);
+    await expect(page.getByText("Wrap up · Jae & co. at 11:00")).toBeVisible();
+
+    const phone = await browser.newPage({
+      storageState: await page.context().storageState(),
+      viewport: { width: 390, height: 844 },
+    });
+    await phone.goto("/tonight");
+    await phone
+      .getByRole("listitem", { name: "Room 9", exact: true })
+      .getByRole("link", { name: "Tab & close out →" })
+      .click();
+    await readRoom9(phone);
+    await phone.close();
+  } finally {
+    await db.end();
+  }
+});

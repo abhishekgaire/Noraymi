@@ -914,3 +914,21 @@ button.danger {
 .alert.grey {
   border-color: #8a8494;
 }
+/* DeskRoom and Room (M2-31): the running tab as label and amount, two columns. */
+.room-screen .big {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.tab dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  margin: 0;
+}
+.tab .tab-line {
+  display: contents;
+}
+.tab dd {
+  margin: 0;
+  text-align: end;
+}
