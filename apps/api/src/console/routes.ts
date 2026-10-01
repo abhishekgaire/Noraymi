@@ -1,10 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import {
+  approveRulePackDraft,
   consoleVenue,
   consoleVenues,
+  createRulePackDraft,
+  distinctApprovers,
   emitEvent,
   listDevices,
+  publishRulePackDraft,
+  rulePackDraft,
+  rulePackDrafts,
+  rulePackIds,
+  rulePackVersions,
   setModuleAllowed,
   setVenueFlag,
   venueFlags,
@@ -12,7 +20,7 @@ import {
   type ConsoleVenue,
   type DeviceListRow,
 } from "@west4/db";
-import { isModuleId, moduleDef } from "@west4/shared";
+import { isModuleId, moduleDef, rulePackChanges, type Clock, type RulePack } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
@@ -50,7 +58,13 @@ export function deviceHealth(devices: readonly DeviceListRow[]) {
 
 export function consoleRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; gate: ModuleGate },
+  options: {
+    pool: pg.Pool;
+    gate: ModuleGate;
+    clock: Clock;
+    /** The key service's Ed25519 private key (PEM); null means publishing is refused here. */
+    rulePackSigningKey: string | null;
+  },
 ): void {
   const read = route({ principals: ["console"], module: "core" });
   const write = route({ principals: ["console"], module: "core", idempotency: "optional" });
@@ -172,6 +186,141 @@ export function consoleRoutes(
         return venueFlags(c, venue.id);
       });
       return { venue_id: venue.id, flags };
+    },
+  );
+
+  /**
+   * Rule packs (M1-36; spec 12 · 11): published versions per pack, the drafts
+   * waiting, a new draft, approvals by two different people, then the
+   * signature and the publish through the definer door.
+   */
+  app.get("/v1/console/rule-packs", { config: read }, async (request) => {
+    staffOf(request);
+    const ids = await rulePackIds(options.pool);
+    const drafts = await rulePackDrafts(options.pool);
+    const packs = [];
+    for (const id of ids) {
+      const versions = await rulePackVersions(options.pool, id);
+      packs.push({
+        id,
+        versions: versions.map((v) => ({ version: v.version, effective_on: v.effectiveOn })),
+        latest: versions.at(-1)?.pack ?? null,
+      });
+    }
+    return {
+      packs,
+      drafts: drafts.map((d) => ({ ...d, approvers: distinctApprovers(d).map((a) => a.name) })),
+    };
+  });
+
+  app.post<{ Body: { effective_on?: string; data?: unknown } }>(
+    "/v1/console/rule-packs/drafts",
+    { config: write },
+    async (request, reply) => {
+      const staff = staffOf(request);
+      const data = request.body?.data as Partial<RulePack> | undefined;
+      const effectiveOn = request.body?.effective_on;
+      if (
+        !data ||
+        typeof data !== "object" ||
+        typeof data.id !== "string" ||
+        typeof data.version !== "string"
+      )
+        throw new ApiError("invalid_request", "send { effective_on, data: { id, version, … } }");
+      if (!effectiveOn || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveOn))
+        throw new ApiError("invalid_request", "effective_on is a date, YYYY-MM-DD");
+      if (!(await rulePackIds(options.pool)).includes(data.id))
+        throw new ApiError("invalid_request", `no rule pack "${data.id}"`);
+      const existing = await rulePackVersions(options.pool, data.id);
+      if (existing.some((v) => v.version === data.version))
+        throw new ApiError("invalid_request", `${data.id} ${data.version} is already published`);
+      try {
+        const draft = await createRulePackDraft(options.pool, {
+          pack: data as RulePack,
+          effectiveOn,
+          createdBy: staff.id,
+        });
+        return reply.code(201).send({ draft });
+      } catch (e) {
+        if ((e as { code?: string }).code === "23505")
+          throw new ApiError("invalid_request", `${data.id} ${data.version} already has a draft`);
+        throw e;
+      }
+    },
+  );
+
+  app.post<{ Params: { d: string } }>(
+    "/v1/console/rule-packs/drafts/:d/approve",
+    { config: write },
+    async (request) => {
+      const staff = staffOf(request);
+      const p = request.principal as { name?: string };
+      const draft = await approveRulePackDraft(options.pool, {
+        id: request.params.d,
+        staffId: staff.id,
+        name: p.name ?? staff.email,
+        at: options.clock.now().toString(),
+      });
+      if (!draft) throw new ApiError("not_found", "no such draft, or it's already published");
+      return { draft, approvers: distinctApprovers(draft).map((a) => a.name) };
+    },
+  );
+
+  app.post<{ Params: { d: string } }>(
+    "/v1/console/rule-packs/drafts/:d/publish",
+    { config: write },
+    async (request) => {
+      const staff = staffOf(request);
+      const draft = await rulePackDraft(options.pool, request.params.d);
+      if (!draft || draft.published_at)
+        throw new ApiError("not_found", "no such draft, or it's already published");
+      const approvers = distinctApprovers(draft);
+      if (approvers.length < 2)
+        throw new ApiError(
+          "invalid_request",
+          "a version needs two different approvers before it publishes",
+          {
+            details: { approvers: approvers.map((a) => a.name) },
+          },
+        );
+      if (!options.rulePackSigningKey)
+        throw new ApiError(
+          "internal",
+          "the rule-pack signing key isn't configured on this server",
+          {
+            retryable: false,
+          },
+        );
+      const published = await publishRulePackDraft(options.pool, {
+        draft,
+        privateKeyPem: options.rulePackSigningKey,
+        at: options.clock.now().toString(),
+      });
+      // Every venue on this pack reads what changes and when in Admin, before it applies.
+      const venues = (await consoleVenues(options.pool)).filter(
+        (v) => v.rule_pack_id === draft.pack_id,
+      );
+      for (const v of venues) {
+        await app.db.withVenue(
+          { venueId: v.id, userId: staff.id, requestId: request.requestId },
+          (c) =>
+            emitEvent(c, {
+              venueId: v.id,
+              type: "rule_pack.published",
+              entityId: draft.version,
+              entityVersion: 0,
+            }),
+        );
+      }
+      const versions = await rulePackVersions(options.pool, draft.pack_id);
+      const before = versions.filter((v) => v.version !== draft.version).at(-1);
+      return {
+        published: published.inserted,
+        key_id: published.keyId,
+        version: draft.version,
+        effective_on: draft.effective_on,
+        changes: before ? rulePackChanges(before.pack, draft.data) : [],
+      };
     },
   );
 }

@@ -459,4 +459,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "devices.pair.failed": "No se pudo crear un código",
   "devices.backupInternet.on": "Internet de respaldo · activo",
   "devices.backupInternet.off": "Internet de respaldo · apagado",
+  // The rule-pack notice (M1-36): what changes and when, before it applies.
+  "admin.rulePack.next":
+    "La actualización de reglas {version} empieza el {date} (fecha de negocio)",
+  "admin.rulePack.change": "{path}: {from} → {to}",
+  "admin.rulePack.noChanges": "Ningún límite cambia",
 };

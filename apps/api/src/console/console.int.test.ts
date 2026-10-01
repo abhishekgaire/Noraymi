@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { consoleVenues } from "@west4/db";
+import { consoleVenues, generateSigningKey, publishRulePack, rulePackFor } from "@west4/db";
 import {
   appPool,
   createTestDatabase,
@@ -9,7 +9,8 @@ import {
   type TestDatabase,
   type TwoVenues,
 } from "@west4/db/test-helpers";
-import { SEED_NOW, SimulatedClock } from "@west4/shared";
+import { businessDate } from "@west4/rules";
+import { SEED_NOW, SimulatedClock, Temporal, builtInRulePacks } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import { SoftwarePasskey } from "../auth/test-passkey.js";
@@ -26,6 +27,7 @@ import { SoftwarePasskey } from "../auth/test-passkey.js";
 const CONSOLE = "http://localhost:5174";
 const KEY = "f".repeat(64);
 const STAFF_EMAIL = "sam@noraymi.test";
+const SECOND_EMAIL = "kim@noraymi.test";
 
 let db: TestDatabase;
 let v: TwoVenues;
@@ -34,6 +36,7 @@ let pool: pg.Pool;
 let staffId = "";
 const clock = new SimulatedClock(SEED_NOW);
 const securityKey = new SoftwarePasskey("localhost", "usb");
+const secondKey = new SoftwarePasskey("localhost", "usb");
 const phoneKey = new SoftwarePasskey("localhost", "internal");
 
 const json = (r: { body: string }) =>
@@ -59,8 +62,9 @@ const call = (
 /** Single sign-on (local stub), then the security key: enrol on the first sign-in, assert after that. */
 async function signIn(
   key: SoftwarePasskey,
+  email = STAFF_EMAIL,
 ): Promise<{ cookie: string; status: number; body: string }> {
-  const sso = await call("POST", "/v1/console/auth/local", { email: STAFF_EMAIL });
+  const sso = await call("POST", "/v1/console/auth/local", { email });
   expect(sso.statusCode, sso.body).toBe(200);
   const ssoCookie = cookiesOf(sso);
   const start = await call(
@@ -104,6 +108,14 @@ beforeAll(async () => {
     [STAFF_EMAIL],
   );
   staffId = s.rows[0]!.id;
+  await pool.query("insert into console_staff (name, email) values ('Kim', $1)", [SECOND_EMAIL]);
+  // The built-in pack, published the way `pnpm db:migrate` does it (M1-10).
+  await publishRulePack(pool, {
+    pack: builtInRulePacks[0]!,
+    effectiveOn: "2026-09-01",
+    approvedBy: ["Abhishek Gaire", "Claude Code"],
+    privateKeyPem: generateSigningKey().privateKeyPem,
+  });
   // Venue A's devices: 3 tablets (1 off), 2 readers online, a router with cellular backup.
   const rows: [string, string, boolean | null, Record<string, unknown> | null][] = [
     ["room_tablet", "Tablet · Room 1", true, null],
@@ -263,6 +275,68 @@ describe("the Console", () => {
       (await call("PUT", `/v1/console/venues/${v.venueB}/flags/Bad Flag`, { on: true }, { cookie }))
         .statusCode,
     ).toBe(400);
+  });
+
+  it("a rule-pack version needs two different approvers; the same person twice counts once; then it signs and publishes", async () => {
+    const base = builtInRulePacks[0]!;
+    const next = { ...base, version: "2026.10", alcohol: { ...base.alcohol, lastSale: "03:00" } };
+    const made = await call(
+      "POST",
+      "/v1/console/rule-packs/drafts",
+      { effective_on: "2026-09-26", data: next },
+      { cookie },
+    );
+    expect(made.statusCode, made.body).toBe(201);
+    const draftId = (json(made)["draft"] as { id: string }).id;
+    const publish = () =>
+      call("POST", `/v1/console/rule-packs/drafts/${draftId}/publish`, {}, { cookie });
+    expect((await publish()).statusCode).toBe(400);
+    const approve = (c: string) =>
+      call("POST", `/v1/console/rule-packs/drafts/${draftId}/approve`, {}, { cookie: c });
+    expect((json(await approve(cookie))["approvers"] as string[]).length).toBe(1);
+    expect((json(await approve(cookie))["approvers"] as string[]).length).toBe(1);
+    const oneApproval = await publish();
+    expect(oneApproval.statusCode).toBe(400);
+    expect(json(oneApproval).error?.message).toMatch(/two different approvers/);
+
+    const kim = await signIn(secondKey, SECOND_EMAIL);
+    expect(kim.status, kim.body).toBe(201);
+    expect((json(await approve(kim.cookie))["approvers"] as string[]).sort()).toEqual([
+      "Kim",
+      "Sam",
+    ]);
+    const done = await publish();
+    expect(done.statusCode, done.body).toBe(200);
+    expect(json(done)).toMatchObject({
+      published: true,
+      version: "2026.10",
+      effective_on: "2026-09-26",
+      changes: [{ path: "alcohol.lastSale", from: "04:00", to: "03:00" }],
+    });
+    expect((await publish()).statusCode).toBe(404);
+    const list = json(await call("GET", "/v1/console/rule-packs", undefined, { cookie }));
+    const pack = (list["packs"] as Array<{ id: string; versions: { version: string }[] }>).find(
+      (p) => p.id === base.id,
+    )!;
+    expect(pack.versions.map((v) => v.version)).toEqual(["2026.09", "2026.10"]);
+
+    // Business date Fri Sep 25 stays on 2026.09; the new version takes over at 6:00 AM on Sat Sep 26.
+    const zone = "America/New_York";
+    const fourAm = businessDate(
+      Temporal.Instant.from("2026-09-26T08:00:00Z"),
+      zone,
+      "06:00",
+    ).businessDate;
+    const sixAm = businessDate(
+      Temporal.Instant.from("2026-09-26T10:00:00Z"),
+      zone,
+      "06:00",
+    ).businessDate;
+    expect(fourAm.toString()).toBe("2026-09-25");
+    expect(sixAm.toString()).toBe("2026-09-26");
+    expect((await rulePackFor(pool, base.id, fourAm))?.version).toBe("2026.09");
+    expect((await rulePackFor(pool, base.id, sixAm))?.version).toBe("2026.10");
+    expect((await rulePackFor(pool, base.id, sixAm))?.pack.alcohol.lastSale).toBe("03:00");
   });
 
   it("logout ends the session", async () => {

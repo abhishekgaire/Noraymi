@@ -904,7 +904,7 @@ Definition of done: see CLAUDE.md.
   - **Flag for staging:** the staff and Console static sites call `/v1` relatively, and the staging CloudFront static distributions have no `/v1` behaviour to the API (the build's `VITE_API_URL` isn't read by either app). That predates this ticket; M1-37's staging pass should settle it.
 ### M1-36 · Publish rule-pack versions in the Console with two approvers and a signature
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-10, M1-31, M1-35
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Rule packs; [Security and data retention](../spec/12-security-retention.md) 11; [Console](../screens.md#console) note 2
@@ -913,12 +913,15 @@ Definition of done: see CLAUDE.md.
   - Admin shows every venue that uses the pack what changes and when, before it applies.
   - The version applies at the first business-date boundary on or after `effective_on` (M1-10).
 - **Acceptance:**
-  - [ ] A version with one approver can't publish, and the same person approving twice counts once.
-  - [ ] A version published effective Sat Sep 26 leaves business date Fri Sep 25 on `2026.09`, and takes over at 6:00 AM on Sat Sep 26.
-  - [ ] Andy sees what changes and the start date in Admin before it applies.
+  - [x] A version with one approver can't publish, and the same person approving twice counts once.
+  - [x] A version published effective Sat Sep 26 leaves business date Fri Sep 25 on `2026.09`, and takes over at 6:00 AM on Sat Sep 26.
+  - [x] Andy sees what changes and the start date in Admin before it applies.
 - **Tests:** integration tests for the two-person rule and the signature; a Playwright test of the Admin notice.
-- **Notes:** None.
-
+- **Notes:**
+  - **Built:** rule-pack drafts (`rule_pack_drafts`, migration `0026`): a proposed version with its data and `effective_on`, approvals as `[{ staff_id, name, at }]` with one entry per person (the same person approving twice counts once), and the publish through a definer door `publish_rule_pack_version(...)`, because `app_rw` may only read `rule_packs` (M1-10). The API signs with the key service's key (`RULE_PACK_SIGNING_KEY`; local development makes a throwaway key at start-up; elsewhere, unset means publishing is refused with a clear message). Console routes: `GET /v1/console/rule-packs`, `POST …/drafts`, `POST …/drafts/{d}/approve`, `POST …/drafts/{d}/publish`; the Console app's "Rule packs" panel lists published versions and drafts, with Approve and "Sign and publish" (disabled until two approvals) and a "New version" form that starts from the latest data.
+  - **Admin:** `GET /v1/venues/{v}/rule-pack` names tonight's version and the next one with what changes (leaf paths such as `alcohol.lastSale: 04:00 → 03:00`, from M1-10's `rulePackChanges`) and its business date; the Admin shell shows it above the sections for every venue on the pack, and refetches on the `rule_pack.published` event the publish emits to those venues. The version itself applies at the first 6:00 AM cutover on or after `effective_on` (M1-10, unchanged; the test checks Fri Sep 25 stays on 2026.09 and Sat Sep 26 reads 2026.10).
+  - **Cautious defaults:** a draft's data is checked for its `id` and `version` and that the version isn't already published or drafted; the full shape is the shared `RulePack` type, not a schema (none exists yet, flagged). A published version can't be edited or withdrawn from the Console; a correction is a newer version.
+  - **Tests:** integration (one approval refused, the same person twice counts once, two publish, the signature verifies through `rulePackFor`, the boundary), the venue route, and Playwright: two of our staff publish 2026.10 through the Console's API with software security keys and Andy reads the notice in Admin.
 ### M1-37 · Run the principal and venue-wall suites in CI and block merges
 
 - **Status:** todo

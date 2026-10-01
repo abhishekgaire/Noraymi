@@ -228,17 +228,20 @@ export interface ConsoleVenue {
   readonly name: string;
   readonly slug: string;
   readonly time_zone: string;
+  readonly rule_pack_id: string | null;
 }
 
 /** Every venue, through the definer door: app_rw can't list venues on its own. */
 export async function consoleVenues(c: Queryable): Promise<ConsoleVenue[]> {
-  const r = await c.query<ConsoleVenue>("select id, name, slug, time_zone from console_venues()");
+  const r = await c.query<ConsoleVenue>(
+    "select id, name, slug, time_zone, rule_pack_id from console_venues()",
+  );
   return r.rows;
 }
 
 export async function consoleVenue(c: Queryable, id: string): Promise<ConsoleVenue | null> {
   const r = await c.query<ConsoleVenue>(
-    "select id, name, slug, time_zone from console_venues() where id = $1",
+    "select id, name, slug, time_zone, rule_pack_id from console_venues() where id = $1",
     [id],
   );
   return r.rows[0] ?? null;

@@ -23,6 +23,7 @@ import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
 import { consoleAuthenticator, consoleAuthRoutes } from "./console/auth.js";
 import { consoleRoutes } from "./console/routes.js";
+import { rulePackRoutes } from "./routes/rule-pack.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
 
@@ -158,6 +159,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         email: options.email ?? { allowList: null },
       });
       settingsRoutes(scope, { clock });
+      rulePackRoutes(scope, { clock });
       closuresRoutes(scope, { clock });
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
@@ -175,7 +177,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       // The Console (M1-35) exists only where CONSOLE_URL names its hostname.
       if (config.console) {
         consoleAuthRoutes(scope, { pool: gatePoolRef!, clock, config, console: config.console });
-        consoleRoutes(scope, { pool: gatePoolRef!, gate: gate! });
+        consoleRoutes(scope, {
+          pool: gatePoolRef!,
+          gate: gate!,
+          clock,
+          rulePackSigningKey: config.rulePackSigningKey,
+        });
       }
     }
     await options.extraRoutes?.(scope);

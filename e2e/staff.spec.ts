@@ -1,6 +1,7 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
+import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
 import { catalogs } from "@west4/shared";
 
 /**
@@ -949,6 +950,110 @@ test("Admin → Printers & devices: West 4's devices, a code pairs a new browser
   } finally {
     // The revoked row stays: revoked devices are history, like everything else.
     await other.close();
+    await db.end();
+  }
+});
+
+/**
+ * Rule-pack versions (M1-36). Two of our staff approve 2026.10 in the Console
+ * (through its API here, each with a software security key) and publish it
+ * effective Sat Sep 26. Andy opens Admin on business date Fri Sep 25 and reads
+ * what changes and when, before it applies.
+ */
+test("Andy sees the next rule-pack version's changes and start date in Admin before it applies", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const clean = async () => {
+    await db.query("delete from rule_packs where version = '2026.10'");
+    await db.query("delete from rule_pack_drafts where version = '2026.10'");
+    await db.query("delete from console_sessions");
+    await db.query("delete from console_challenges");
+    await db.query("delete from console_credentials");
+    await db.query("delete from console_staff where email = 'second@demo.west4.local'");
+  };
+  try {
+    await clean();
+    await db.query(
+      "insert into console_staff (name, email) values ('Second approver', 'second@demo.west4.local')",
+    );
+    // Our two staff sign in to the Console's API, each with a security key, and publish 2026.10.
+    const consoleSignIn = async (email: string) => {
+      const ctx = request;
+      const sso = await ctx.post("/v1/console/auth/local", { data: { email } });
+      expect(sso.ok(), await sso.text()).toBe(true);
+      const key = new SoftwarePasskey("localhost", "usb");
+      const start = (await (
+        await ctx.post("/v1/console/auth/key", { data: { step: "start" } })
+      ).json()) as {
+        mode: "register" | "login";
+        options: { challenge: string };
+      };
+      const credential =
+        start.mode === "register"
+          ? key.register(start.options, "http://localhost:5174")
+          : key.assert(start.options, "http://localhost:5174");
+      const finish = await ctx.post("/v1/console/auth/key", {
+        data: { step: "finish", credential },
+      });
+      expect(finish.status(), await finish.text()).toBe(201);
+    };
+    const current = (
+      await db.query<{ data: Record<string, unknown> & { alcohol: Record<string, unknown> } }>(
+        "select data from rule_packs where id = 'us-ny-new-york-county' and version = '2026.09'",
+      )
+    ).rows[0]!.data;
+    await consoleSignIn("support@demo.west4.local");
+    const made = await request.post("/v1/console/rule-packs/drafts", {
+      data: {
+        effective_on: "2026-09-26",
+        data: {
+          ...current,
+          version: "2026.10",
+          alcohol: { ...current.alcohol, lastSale: "03:00" },
+        },
+      },
+    });
+    expect(made.status(), await made.text()).toBe(201);
+    const draftId = ((await made.json()) as { draft: { id: string } }).draft.id;
+    expect((await request.post(`/v1/console/rule-packs/drafts/${draftId}/approve`)).ok()).toBe(
+      true,
+    );
+    expect((await request.post(`/v1/console/rule-packs/drafts/${draftId}/publish`)).status()).toBe(
+      400,
+    );
+    await request.post("/v1/console/auth/logout");
+    await consoleSignIn("second@demo.west4.local");
+    expect((await request.post(`/v1/console/rule-packs/drafts/${draftId}/approve`)).ok()).toBe(
+      true,
+    );
+    const published = await request.post(`/v1/console/rule-packs/drafts/${draftId}/publish`);
+    expect(published.status(), await published.text()).toBe(200);
+    await request.post("/v1/console/auth/logout");
+
+    // Andy, on business date Fri Sep 25, reads the notice in Admin.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin");
+    await expect(
+      page.getByText("Rules update 2026.10 starts Sat, Sep 26 (business date)"),
+    ).toBeVisible();
+    await expect(page.getByText("alcohol.lastSale: 04:00 → 03:00")).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await clean();
     await db.end();
   }
 });

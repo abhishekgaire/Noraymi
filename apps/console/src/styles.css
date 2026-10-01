@@ -158,3 +158,35 @@ td {
   align-items: end;
   flex-wrap: wrap;
 }
+
+textarea {
+  font:
+    13px/1.4 ui-monospace,
+    monospace;
+  padding: 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+select {
+  min-height: 44px;
+  font-size: 1rem;
+  padding: 0 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.rule-packs {
+  margin-top: 32px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.draft {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}

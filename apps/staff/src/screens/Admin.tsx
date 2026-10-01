@@ -1,6 +1,9 @@
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { visibleSections } from "../admin/sections.js";
 import { AdminDraftProvider, useAdminDraft } from "../admin/draft.js";
+import { api } from "../api.js";
+import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession, type SessionState } from "../session.js";
 
@@ -39,6 +42,7 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   const sections = visibleSections(state.membership.permissions);
   return (
     <div className="admin">
+      <RulePackNotice venueId={state.membership.venue_id} />
       <nav className="admin-nav" aria-label={t("admin.sections")}>
         <ul>
           {sections.map((s) => (
@@ -105,5 +109,59 @@ function SaveBar() {
         failed || <span>{t("admin.published")}</span>
       )}
     </div>
+  );
+}
+
+interface RulePackAnswer {
+  readonly next: {
+    readonly version: string;
+    readonly effective_on: string;
+    readonly changes: readonly { path: string; from: unknown; to: unknown }[];
+  } | null;
+}
+
+/**
+ * A published rule-pack version that hasn't applied yet (M1-36; spec 12 · 11):
+ * every venue on the pack reads what changes and from which business date,
+ * here, before it takes effect at that date's 6:00 AM cutover.
+ */
+function RulePackNotice({ venueId }: { venueId: string }) {
+  const { t, date } = useT();
+  const { subscribe } = useEvents();
+  const [next, setNext] = useState<RulePackAnswer["next"]>(null);
+  const load = useCallback(async () => {
+    const answer = await api<RulePackAnswer>("GET", `/v1/venues/${venueId}/rule-pack`);
+    setNext(answer.next);
+  }, [venueId]);
+  useEffect(() => {
+    load().catch(() => {});
+  }, [load]);
+  useEffect(
+    () =>
+      subscribe((events) => {
+        if (events.length === 0 || events.some((e) => e.type === "rule_pack.published"))
+          load().catch(() => {});
+      }),
+    [subscribe, load],
+  );
+  if (!next) return null;
+  const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
+  return (
+    <section className="notice rule-pack-notice" role="status">
+      <strong>
+        {t("admin.rulePack.next", { version: next.version, date: date(next.effective_on) })}
+      </strong>
+      {next.changes.length === 0 ? (
+        <p className="small">{t("admin.rulePack.noChanges")}</p>
+      ) : (
+        <ul className="small">
+          {next.changes.map((c) => (
+            <li key={c.path}>
+              {t("admin.rulePack.change", { path: c.path, from: show(c.from), to: show(c.to) })}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

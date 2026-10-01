@@ -636,3 +636,13 @@ button.danger {
 .devices-table .field-line {
   margin: 0;
 }
+
+/* The rule-pack notice (M1-36) sits above the Admin sections. */
+.rule-pack-notice {
+  grid-column: 1 / -1;
+  margin: 0 0 8px;
+}
+.rule-pack-notice ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

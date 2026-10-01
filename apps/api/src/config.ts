@@ -1,4 +1,9 @@
-import { LOCAL_DEV_AUTH_KEY, appDatabaseUrl, parseAuthSecretKey } from "@west4/db";
+import {
+  LOCAL_DEV_AUTH_KEY,
+  appDatabaseUrl,
+  generateSigningKey,
+  parseAuthSecretKey,
+} from "@west4/db";
 
 export type West4Env = "local" | "staging" | "production";
 
@@ -20,6 +25,8 @@ export interface Config {
   readonly auth: AuthConfig;
   /** The Console's settings, or null where CONSOLE_URL isn't set yet (then the Console's routes don't exist). */
   readonly console: ConsoleConfig | null;
+  /** RULE_PACK_SIGNING_KEY: the key service's Ed25519 private key (PEM); local makes a throwaway one. */
+  readonly rulePackSigningKey: string | null;
 }
 
 /**
@@ -78,6 +85,9 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     staffAppUrl: staffAppUrl(env, source),
     auth: loadAuthConfig(env, source),
     console: loadConsoleConfig(env, source),
+    rulePackSigningKey:
+      source["RULE_PACK_SIGNING_KEY"] ||
+      (env === "local" ? generateSigningKey().privateKeyPem : null),
   };
 }
 

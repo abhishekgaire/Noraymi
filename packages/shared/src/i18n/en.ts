@@ -455,4 +455,8 @@ export const en = {
   "devices.pair.failed": "Couldn't make a code",
   "devices.backupInternet.on": "Backup internet · on",
   "devices.backupInternet.off": "Backup internet · off",
+  // The rule-pack notice (M1-36): what changes and when, before it applies.
+  "admin.rulePack.next": "Rules update {version} starts {date} (business date)",
+  "admin.rulePack.change": "{path}: {from} → {to}",
+  "admin.rulePack.noChanges": "No limits change",
 } as const;

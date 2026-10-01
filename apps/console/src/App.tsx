@@ -439,6 +439,241 @@ function Venues({
           </section>
         )}
       </div>
+      <RulePacks />
     </main>
+  );
+}
+
+interface PackSummary {
+  id: string;
+  versions: { version: string; effective_on: string }[];
+  latest: Record<string, unknown> | null;
+}
+interface Draft {
+  id: string;
+  pack_id: string;
+  version: string;
+  effective_on: string;
+  data: Record<string, unknown>;
+  approvers: string[];
+  published_at: string | null;
+}
+
+/**
+ * Rule packs (M1-36; spec 12 · 11): a new version is a draft with its data
+ * and the business date it starts on; two different people approve it; then
+ * the key service signs it and it publishes. One approval never publishes.
+ */
+function RulePacks() {
+  const [packs, setPacks] = useState<PackSummary[] | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [packId, setPackId] = useState("");
+  const [version, setVersion] = useState("");
+  const [effectiveOn, setEffectiveOn] = useState("");
+  const [data, setData] = useState("");
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const answer = await api<{ packs: PackSummary[]; drafts: Draft[] }>(
+      "GET",
+      "/v1/console/rule-packs",
+    );
+    setPacks(answer.packs);
+    setDrafts(answer.drafts);
+    setPackId((p) => p || answer.packs[0]?.id || "");
+  }, []);
+  useEffect(() => {
+    load().catch(() => setMessage({ kind: "error", text: "Couldn't load the rule packs" }));
+  }, [load]);
+
+  const pack = packs?.find((p) => p.id === packId) ?? null;
+  const prefill = () => {
+    if (!pack?.latest) return;
+    setData(JSON.stringify({ ...pack.latest, version }, null, 2));
+  };
+
+  const run = async (work: () => Promise<string>) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const text = await work();
+      await load();
+      setMessage({ kind: "ok", text });
+    } catch (e) {
+      setMessage({ kind: "error", text: e instanceof Error ? e.message : "Refused" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const propose = (e: FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(data) as Record<string, unknown>;
+      } catch {
+        throw new Error("The data isn't valid JSON");
+      }
+      parsed = { ...parsed, id: packId, version };
+      await api("POST", "/v1/console/rule-packs/drafts", {
+        effective_on: effectiveOn,
+        data: parsed,
+      });
+      setVersion("");
+      setEffectiveOn("");
+      setData("");
+      return `Draft ${packId} ${version} saved · it needs two approvals`;
+    });
+  };
+
+  const waiting = drafts.filter((d) => !d.published_at);
+  return (
+    <section className="rule-packs">
+      <h2>Rule packs</h2>
+      <p className="muted small">
+        Versioned limits for a place: the tax table, the alcohol window, wage rules. Two people
+        approve a version, it's signed, and the venues on it see what changes before it applies at
+        the first 6:00 AM on or after its date.
+      </p>
+      {message && (
+        <p className={message.kind === "error" ? "error" : "small"} role="status">
+          {message.text}
+        </p>
+      )}
+      {packs === null ? (
+        <p role="status">Loading…</p>
+      ) : (
+        <div className="columns">
+          <div>
+            <h3>Published</h3>
+            {packs.map((p) => (
+              <p key={p.id}>
+                <strong>{p.id}</strong>
+                <br />
+                <span className="muted small">
+                  {p.versions.map((v) => `${v.version} from ${v.effective_on}`).join(" · ")}
+                </span>
+              </p>
+            ))}
+            <h3>Drafts</h3>
+            {waiting.length === 0 ? (
+              <p className="muted">No drafts waiting</p>
+            ) : (
+              <ul className="flag-list">
+                {waiting.map((d) => (
+                  <li key={d.id} className="draft">
+                    <div>
+                      <strong>
+                        {d.pack_id} {d.version}
+                      </strong>{" "}
+                      <span className="muted small">from {d.effective_on}</span>
+                      <br />
+                      <span className="muted small">
+                        {d.approvers.length === 0
+                          ? "No approvals yet"
+                          : `Approved by ${d.approvers.join(" and ")}`}
+                        {d.approvers.length < 2 ? ` · ${2 - d.approvers.length} more needed` : ""}
+                      </span>
+                    </div>
+                    <div className="row">
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            const r = await api<{ approvers: string[] }>(
+                              "POST",
+                              `/v1/console/rule-packs/drafts/${d.id}/approve`,
+                              {},
+                            );
+                            return `Approved · ${r.approvers.length} of 2`;
+                          })
+                        }
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={busy || d.approvers.length < 2}
+                        onClick={() =>
+                          void run(async () => {
+                            const r = await api<{ version: string; effective_on: string }>(
+                              "POST",
+                              `/v1/console/rule-packs/drafts/${d.id}/publish`,
+                              {},
+                            );
+                            return `Published ${r.version} · applies from ${r.effective_on}`;
+                          })
+                        }
+                      >
+                        Sign and publish
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <form onSubmit={propose}>
+            <h3>New version</h3>
+            <label>
+              <span>Pack</span>
+              <select value={packId} onChange={(e) => setPackId(e.target.value)}>
+                {packs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Version</span>
+              <input
+                value={version}
+                required
+                placeholder="2026.10"
+                onChange={(e) => setVersion(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Starts on (business date)</span>
+              <input
+                type="date"
+                value={effectiveOn}
+                required
+                onChange={(e) => setEffectiveOn(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Data (JSON)</span>
+              <textarea
+                value={data}
+                required
+                rows={12}
+                spellCheck={false}
+                onChange={(e) => setData(e.target.value)}
+              />
+            </label>
+            <div className="row">
+              <button
+                type="button"
+                className="secondary"
+                disabled={!pack?.latest}
+                onClick={prefill}
+              >
+                Start from the latest
+              </button>
+              <button type="submit" className="primary" disabled={busy}>
+                Save the draft
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </section>
   );
 }
