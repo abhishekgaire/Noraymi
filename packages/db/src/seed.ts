@@ -98,6 +98,8 @@ export interface SeedDevice {
   readonly room?: string;
   readonly owner?: string;
   readonly online?: boolean;
+  readonly cellular_backup?: boolean;
+  readonly on_backup_now?: boolean;
 }
 
 /** The seed's settings block, typed loosely: the mapping below reshapes it to spec 03. */
@@ -667,14 +669,21 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     for (const device of seed.devices) {
       const deviceId = remember(device.id, "devices");
       const userId = device.owner === undefined ? null : id(device.owner);
+      const network =
+        device.kind === "router"
+          ? {
+              cellular_backup: device.cellular_backup ?? false,
+              on_backup_now: device.on_backup_now ?? false,
+            }
+          : null;
       await client.query(
         `insert into devices (id, venue_id, kind, name, user_id) values ($1, $2, $3, $4, $5)`,
         [deviceId, venueId, device.kind, device.name, userId],
       );
       if (device.online === true) {
         await client.query(
-          `insert into device_heartbeats (device_id, venue_id, last_seen_at) values ($1, $2, $3)`,
-          [deviceId, venueId, seedNow],
+          `insert into device_heartbeats (device_id, venue_id, last_seen_at, network) values ($1, $2, $3, $4)`,
+          [deviceId, venueId, seedNow, network],
         );
       } else if (device.online === false) {
         await client.query(
@@ -684,6 +693,14 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       }
     }
     log(`devices: ${seed.devices.length}`);
+
+    // Our own staff for the Console (M1-35): one demo account, signed in locally with a security key.
+    await client.query(
+      `insert into console_staff (name, email) values ($1, $2)
+         on conflict ((lower(email))) do update set name = excluded.name, active = true`,
+      ["Noraymi support", "support@demo.west4.local"],
+    );
+    log("console staff: 1 demo account (support@demo.west4.local)");
 
     for (const row of seedRows) {
       await client.query(

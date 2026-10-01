@@ -879,7 +879,7 @@ Definition of done: see CLAUDE.md.
   - **Later tickets:** printers (M3), drawers and readers (M4), the router (M8), the room picker on tablets (M2).
 ### M1-35 · Build the Console: sign-in with FIDO2 keys, the venue list, the module allow-list and venue flags
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-08, M1-13, M1-16
 - **Spec:** [Console](../screens.md#console) notes 1, 2, 4 and 5; [Scope and architecture](../spec/01-scope-architecture.md) · Console; [Security and data retention](../spec/12-security-retention.md) 7; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Modules
@@ -889,13 +889,19 @@ Definition of done: see CLAUDE.md.
   - Each venue's module allow-list (`venue_modules.allowed`, from its plan and add-ons), and its venue flags (`venue_flags`), with our own test venue first.
   - Every Console action is audited with our staff member's identity.
 - **Acceptance:**
-  - [ ] Signing in without a FIDO2 key fails.
-  - [ ] West 4 shows 13 of 14 room tablets online (Room 4's off), both readers online and "Backup internet · on", the same as Admin.
-  - [ ] Allowing a module for West 4 makes it switchable in Admin → Features at once.
-  - [ ] Turning a venue flag on for our test venue leaves West 4's flags unchanged.
+  - [x] Signing in without a FIDO2 key fails.
+  - [x] West 4 shows 13 of 14 room tablets online (Room 4's off), both readers online and "Backup internet · on", the same as Admin.
+  - [x] Allowing a module for West 4 makes it switchable in Admin → Features at once.
+  - [x] Turning a venue flag on for our test venue leaves West 4's flags unchanged.
 - **Tests:** WebAuthn sign-in with a virtual security key; integration tests for the allow-list and flags.
 - **Notes:** Support grants and the emergency actions come in M8; plans, billing and tickets wait for the full panel in phase 2. The spec doesn't say what happens when we stop allowing a module a venue has on; cautious default built here: refused until the venue turns it off (nothing disappears mid-service), flagged.
-
+  - **Built:** `apps/console` (React + Vite on port 5174, `/v1` proxied like the staff app): sign-in, a venue list with device health, and per venue the module allow-list and the venue flags. English only: it's our own tool, not a staff screen; module names come from the shared catalog so they match Admin → Features word for word. API: `apps/api/src/console/auth.ts` (sign-in) and `routes.ts` (`GET /v1/console/venues`, `GET /v1/console/venues/{v}`, `PATCH …/modules/{id}`, `PUT …/flags/{flag}`), a `console` principal, migrations `0024_console.sql` (`console_staff`, `console_credentials`, `console_sessions`, `console_challenges`, `console_sso_states`) and `0025_console_venues.sql` (the definer door `console_venues()`, because `app_rw` can't list venues outside a venue context). The seed adds one demo account, `support@demo.west4.local`.
+  - **Sign-in:** single sign-on, then a FIDO2 security key, every time. Step one is any OpenID Connect provider (`CONSOLE_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET`; authorization code with PKCE, identity from the userinfo endpoint, matched to `console_staff.sso_subject` or, the first time, by email); in local development an email stands in for it. Step one leaves a ten-minute signed cookie that opens nothing but step two. Step two enrols the key on the first sign-in (`authenticatorAttachment: cross-platform`, user verification required) and asserts it after; a platform passkey (phone or laptop) is refused. Only step two opens a session, so signing in without a key fails. Limit, flagged: "hardware key" is enforced by the authenticator attachment and transports the browser reports, not by attestation against the FIDO metadata service.
+  - **Decision needed from the founder:** which identity provider is "our single sign-on" (Google Workspace, Microsoft Entra, Okta…). Any OpenID Connect provider works with the three variables above; nothing else changes.
+  - **Audit:** every Console write runs as the staff member (`app.user_id` = their `console_staff.id`), so the venue tables' triggers record them as `actor`; the second identity in each row comes with support grants in M8.
+  - **Config:** `CONSOLE_URL` names the Console's hostname (security keys bind to it); without it, outside local, the Console's routes don't exist and the API still starts. Production refuses a Console without a provider. Staging's `CONSOLE_URL` is in `infra/staging/ecs.tf`.
+  - **Also in this ticket:** Admin → Features refetches on `settings.changed`, so allowing a module reaches an open screen at once; Admin → Printers & devices and the Console both read "Backup internet · on" from the router's heartbeat `network` (the seed now writes it); `SoftwarePasskey` can act as a USB key in tests.
+  - **Flag for staging:** the staff and Console static sites call `/v1` relatively, and the staging CloudFront static distributions have no `/v1` behaviour to the API (the build's `VITE_API_URL` isn't read by either app). That predates this ticket; M1-37's staging pass should settle it.
 ### M1-36 · Publish rule-pack versions in the Console with two approvers and a signature
 
 - **Status:** todo

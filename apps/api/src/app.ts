@@ -21,6 +21,8 @@ import { badgeRoutes } from "./routes/badges.js";
 import { loadPushSettings, type PushSettings } from "./push/settings.js";
 import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
+import { consoleAuthenticator, consoleAuthRoutes } from "./console/auth.js";
+import { consoleRoutes } from "./console/routes.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
 
@@ -95,7 +97,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     authenticators: [
       ...(options.authenticators ?? []),
       ...(gate && config
-        ? [sessionAuthenticator(gatePoolRef!, clock), deviceAuthenticator(gatePoolRef!)]
+        ? [
+            sessionAuthenticator(gatePoolRef!, clock),
+            deviceAuthenticator(gatePoolRef!),
+            consoleAuthenticator(gatePoolRef!, clock),
+          ]
         : []),
     ],
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
@@ -166,6 +172,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
       badgeRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
+      // The Console (M1-35) exists only where CONSOLE_URL names its hostname.
+      if (config.console) {
+        consoleAuthRoutes(scope, { pool: gatePoolRef!, clock, config, console: config.console });
+        consoleRoutes(scope, { pool: gatePoolRef!, gate: gate! });
+      }
     }
     await options.extraRoutes?.(scope);
   });

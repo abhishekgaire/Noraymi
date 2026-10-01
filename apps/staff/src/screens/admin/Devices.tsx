@@ -33,6 +33,7 @@ interface Device {
   readonly last_seen_at: string | null;
   readonly online: boolean;
   readonly revoked_at: string | null;
+  readonly network: { cellular_backup?: boolean; on_backup_now?: boolean } | null;
 }
 
 /** The spec's order of places: bar, front desk, rooms, around the venue, people. */
@@ -214,6 +215,15 @@ export function Devices() {
                           ? t("devices.offline")
                           : t("devices.neverSeen")}
                     </span>
+                    {d.kind === "router" && typeof d.network?.cellular_backup === "boolean" && (
+                      <div className="small muted">
+                        {t(
+                          d.network.cellular_backup
+                            ? "devices.backupInternet.on"
+                            : "devices.backupInternet.off",
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="muted">{d.last_seen_at ? seen(d.last_seen_at) : "—"}</td>
                   <td>

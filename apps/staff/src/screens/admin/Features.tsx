@@ -6,6 +6,7 @@ import {
   type ModuleState,
 } from "@west4/shared";
 import { api, type ApiCallError } from "../../api.js";
+import { useEvents } from "../../events.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 
@@ -46,6 +47,7 @@ const HIDES = ["staffApp", "staffPhone", "website", "texts"] as const;
 export function Features() {
   const { t } = useT();
   const { state, refresh } = useSession();
+  const { subscribe } = useEvents();
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const [rows, setRows] = useState<ModuleRow[] | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -62,6 +64,16 @@ export function Features() {
     if (!venueId) return;
     load().catch(() => setError(t("shell.error.cantReach")));
   }, [venueId, load, t]);
+
+  // The Console allowing a module (M1-35), or another screen switching one, shows here at once.
+  useEffect(
+    () =>
+      subscribe((events) => {
+        if (events.length === 0 || events.some((e) => e.type === "settings.changed"))
+          load().catch(() => {});
+      }),
+    [subscribe, load],
+  );
 
   const change = async (id: ModuleId, next: ModuleState, confirm = false) => {
     setError(null);

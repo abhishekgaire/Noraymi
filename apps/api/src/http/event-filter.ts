@@ -71,6 +71,7 @@ export function visibleTo(
       return p.venueId === sub.venueId && DISPLAY_TYPES.has(event.type);
     case "support":
       return p.venueId === sub.venueId && event.audience !== "user";
+    case "console": // the Console reads venues over HTTP; it has no live socket in phase 1
     case "anonymous":
     case "webhook":
       return false;

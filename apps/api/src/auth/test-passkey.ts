@@ -54,7 +54,11 @@ export class SoftwarePasskey {
   private readonly x: Buffer;
   private readonly y: Buffer;
 
-  constructor(readonly rpId: string) {
+  /** "internal" is a phone's or laptop's passkey; "usb" a FIDO2 security key (the Console needs one). */
+  constructor(
+    readonly rpId: string,
+    readonly transport: "internal" | "usb" = "internal",
+  ) {
     const pair = generateKeyPairSync("ec", { namedCurve: "P-256" });
     this.privateKey = pair.privateKey;
     const jwk = pair.publicKey.export({ format: "jwk" });
@@ -105,12 +109,12 @@ export class SoftwarePasskey {
       id: this.id,
       rawId: this.id,
       type: "public-key",
-      authenticatorAttachment: "platform",
+      authenticatorAttachment: this.transport === "internal" ? "platform" : "cross-platform",
       clientExtensionResults: {},
       response: {
         clientDataJSON: b64u(clientData),
         attestationObject: b64u(attestationObject),
-        transports: ["internal"],
+        transports: [this.transport],
       },
     };
   }

@@ -17,6 +17,7 @@ export type PrincipalName =
   | "printer"
   | "up_next_display"
   | "support"
+  | "console"
   | "webhook"
   | "public";
 
@@ -55,6 +56,13 @@ export type Principal =
       readonly staffId: string;
       readonly grantId: string;
       readonly venueId: string;
+    }
+  /** One of our own staff, signed into the Console with single sign-on and a FIDO2 key (M1-35). */
+  | {
+      readonly kind: "console";
+      readonly staffId: string;
+      readonly name: string;
+      readonly email: string;
     }
   | { readonly kind: "webhook"; readonly provider: "stripe" | "twilio" };
 
@@ -109,6 +117,8 @@ export function principalIs(p: Principal, name: PrincipalName, venueId?: string)
       return p.kind === "singer" && atVenue(p.venueId);
     case "support":
       return p.kind === "support" && atVenue(p.venueId);
+    case "console":
+      return p.kind === "console";
     case "webhook":
       return p.kind === "webhook";
   }
@@ -129,6 +139,8 @@ export function principalId(p: Principal): string {
       return `singer:${p.singerId}`;
     case "support":
       return `support:${p.staffId}:${p.grantId}`;
+    case "console":
+      return `console:${p.staffId}`;
     case "webhook":
       return `webhook:${p.provider}`;
   }

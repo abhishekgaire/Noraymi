@@ -29,6 +29,10 @@ locals {
     { name = "WEBAUTHN_RP_ID", value = aws_cloudfront_distribution.static["staff"].domain_name },
     { name = "WEBAUTHN_ORIGINS", value = "https://${aws_cloudfront_distribution.static["staff"].domain_name}" },
     { name = "SESSION_COOKIE_SAME_SITE", value = "None" },
+    # The Console (M1-35): our staff's tool on its own hostname; security keys bind to it. Single sign-on
+    # (CONSOLE_OIDC_ISSUER, _CLIENT_ID, _CLIENT_SECRET) is added as secrets once the provider is chosen;
+    # until then staging's Console says sign-on isn't configured.
+    { name = "CONSOLE_URL", value = "https://${aws_cloudfront_distribution.static["console"].domain_name}" },
   ]
   # The API and the worker connect as app_rw, behind the venue wall (M1-05).
   app_secrets = [

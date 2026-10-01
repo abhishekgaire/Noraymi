@@ -203,3 +203,24 @@ export {
 export type { BadgeRow } from "./badges.js";
 export { offboardMembership } from "./team.js";
 export type { Offboarded } from "./team.js";
+export {
+  addConsoleKey,
+  addConsoleStaff,
+  bumpConsoleKeyCounter,
+  consoleKeys,
+  consoleStaffByEmail,
+  consoleStaffById,
+  consoleStaffForSso,
+  consoleVenue,
+  consoleVenues,
+  createConsoleChallenge,
+  createSsoState,
+  endConsoleSession,
+  openConsoleSession,
+  resolveConsoleSession,
+  takeConsoleChallenge,
+  takeSsoState,
+  type ConsoleCredential,
+  type ConsoleStaff,
+  type ConsoleVenue,
+} from "./console.js";

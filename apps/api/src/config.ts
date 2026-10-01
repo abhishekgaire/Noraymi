@@ -18,6 +18,27 @@ export interface Config {
   readonly staffAppUrl: string | null;
   /** Sign-in (M1-19): the key that seals authenticator secrets, and the passkey relying party. */
   readonly auth: AuthConfig;
+  /** The Console's settings, or null where CONSOLE_URL isn't set yet (then the Console's routes don't exist). */
+  readonly console: ConsoleConfig | null;
+}
+
+/**
+ * The Console (M1-35): our staff's tool on its own hostname. Security keys are
+ * bound to that hostname. Single sign-on is any OpenID Connect provider
+ * (CONSOLE_OIDC_ISSUER, _CLIENT_ID, _CLIENT_SECRET); with none set, local
+ * development signs in by email alone before the key step, and staging and
+ * production refuse to start without a provider.
+ */
+export interface ConsoleConfig {
+  /** CONSOLE_URL: where the Console is served; the SSO callback returns here. */
+  readonly url: string;
+  readonly rpId: string;
+  readonly origins: readonly string[];
+  readonly oidc: {
+    readonly issuer: string;
+    readonly clientId: string;
+    readonly clientSecret: string;
+  } | null;
 }
 
 export interface AuthConfig {
@@ -56,6 +77,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     databaseUrl: appDatabaseUrl(source),
     staffAppUrl: staffAppUrl(env, source),
     auth: loadAuthConfig(env, source),
+    console: loadConsoleConfig(env, source),
   };
 }
 
@@ -97,4 +119,28 @@ function staffAppUrl(env: West4Env, source: Record<string, string | undefined>):
   if (!raw) return null;
   if (!/^https?:\/\//.test(raw)) throw new Error("STAFF_APP_URL must be an http(s) URL");
   return raw.replace(/\/+$/, "");
+}
+
+export function loadConsoleConfig(
+  env: West4Env,
+  source: Record<string, string | undefined>,
+): ConsoleConfig | null {
+  const raw = source["CONSOLE_URL"] ?? (env === "local" ? "http://localhost:5174" : undefined);
+  if (!raw) return null;
+  if (!/^https?:\/\//.test(raw)) throw new Error("CONSOLE_URL must be an http(s) URL");
+  const url = raw.replace(/\/+$/, "");
+  const issuer = source["CONSOLE_OIDC_ISSUER"];
+  const clientId = source["CONSOLE_OIDC_CLIENT_ID"];
+  const clientSecret = source["CONSOLE_OIDC_CLIENT_SECRET"];
+  const oidc =
+    issuer && clientId && clientSecret
+      ? { issuer: issuer.replace(/\/+$/, ""), clientId, clientSecret }
+      : null;
+  // Production needs a provider. Staging may run without one until it's chosen: the API starts,
+  // and the Console's sign-in says single sign-on isn't configured (no local stub outside local).
+  if (!oidc && env === "production")
+    throw new Error(
+      "CONSOLE_OIDC_ISSUER, CONSOLE_OIDC_CLIENT_ID and CONSOLE_OIDC_CLIENT_SECRET are not set: the Console needs single sign-on in production",
+    );
+  return { url, rpId: source["CONSOLE_RP_ID"] ?? new URL(url).hostname, origins: [url], oidc };
 }

@@ -1,0 +1,272 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { FastifyInstance } from "fastify";
+import pg from "pg";
+import { consoleVenues } from "@west4/db";
+import {
+  appPool,
+  createTestDatabase,
+  seedTwoVenues,
+  type TestDatabase,
+  type TwoVenues,
+} from "@west4/db/test-helpers";
+import { SEED_NOW, SimulatedClock } from "@west4/shared";
+import { buildApp } from "../app.js";
+import { loadConfig } from "../config.js";
+import { SoftwarePasskey } from "../auth/test-passkey.js";
+
+/**
+ * M1-35 acceptance, API side. Sign-in is single sign-on (the local stub here)
+ * and then a FIDO2 security key: without the key nothing opens, and a
+ * phone's passkey is refused at enrolment. The venue list carries device
+ * health from the device rows. Allowing a module for venue A makes it
+ * switchable in Admin → Features at once; taking one away while it's on is
+ * refused. A flag on venue B leaves venue A's flags unchanged. Every write
+ * lands in the audit log with the staff member as actor.
+ */
+const CONSOLE = "http://localhost:5174";
+const KEY = "f".repeat(64);
+const STAFF_EMAIL = "sam@noraymi.test";
+
+let db: TestDatabase;
+let v: TwoVenues;
+let app: FastifyInstance;
+let pool: pg.Pool;
+let staffId = "";
+const clock = new SimulatedClock(SEED_NOW);
+const securityKey = new SoftwarePasskey("localhost", "usb");
+const phoneKey = new SoftwarePasskey("localhost", "internal");
+
+const json = (r: { body: string }) =>
+  JSON.parse(r.body) as Record<string, unknown> & { error?: { code: string; message: string } };
+const cookiesOf = (r: { headers: Record<string, unknown> }): string => {
+  const raw = r.headers["set-cookie"];
+  const list = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
+  return list.map((l) => String(l).split(";")[0]!).join("; ");
+};
+const call = (
+  method: "GET" | "POST" | "PATCH" | "PUT",
+  url: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+) =>
+  app.inject({
+    method,
+    url,
+    ...(body === undefined ? {} : { payload: body as Record<string, unknown> }),
+    headers,
+  });
+
+/** Single sign-on (local stub), then the security key: enrol on the first sign-in, assert after that. */
+async function signIn(
+  key: SoftwarePasskey,
+): Promise<{ cookie: string; status: number; body: string }> {
+  const sso = await call("POST", "/v1/console/auth/local", { email: STAFF_EMAIL });
+  expect(sso.statusCode, sso.body).toBe(200);
+  const ssoCookie = cookiesOf(sso);
+  const start = await call(
+    "POST",
+    "/v1/console/auth/key",
+    { step: "start" },
+    { cookie: ssoCookie },
+  );
+  expect(start.statusCode, start.body).toBe(200);
+  const started = json(start) as { mode: "register" | "login"; options: { challenge: string } };
+  const credential =
+    started.mode === "register"
+      ? key.register(started.options, CONSOLE)
+      : key.assert(started.options, CONSOLE);
+  const finish = await call(
+    "POST",
+    "/v1/console/auth/key",
+    { step: "finish", credential, name: "Test key" },
+    { cookie: ssoCookie },
+  );
+  return { cookie: cookiesOf(finish), status: finish.statusCode, body: finish.body };
+}
+
+beforeAll(async () => {
+  db = await createTestDatabase({ migrate: true });
+  v = await seedTwoVenues(db.url);
+  pool = new pg.Pool({ connectionString: db.url, max: 2 });
+  const config = loadConfig({
+    WEST4_ENV: "local",
+    DATABASE_URL: db.url,
+    APP_DATABASE_URL: db.url,
+    AUTH_SECRET_KEY: KEY,
+    WEBAUTHN_RP_ID: "localhost",
+    WEBAUTHN_ORIGINS: "http://localhost:5173",
+    CONSOLE_URL: CONSOLE,
+  });
+  app = buildApp({ config, clock, moduleCacheMs: 0 });
+  await app.ready();
+  const s = await pool.query<{ id: string }>(
+    "insert into console_staff (name, email) values ('Sam', $1) returning id",
+    [STAFF_EMAIL],
+  );
+  staffId = s.rows[0]!.id;
+  // Venue A's devices: 3 tablets (1 off), 2 readers online, a router with cellular backup.
+  const rows: [string, string, boolean | null, Record<string, unknown> | null][] = [
+    ["room_tablet", "Tablet · Room 1", true, null],
+    ["room_tablet", "Tablet · Room 2", true, null],
+    ["room_tablet", "Tablet · Room 4", false, null],
+    ["reader", "Bar S710", true, null],
+    ["reader", "Front desk S710", true, null],
+    ["router", "Dual-WAN router", true, { cellular_backup: true, on_backup_now: false }],
+  ];
+  for (const [kind, name, online, network] of rows) {
+    const d = await pool.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name) values ($1, $2, $3) returning id",
+      [v.venueA, kind, name],
+    );
+    if (online !== null)
+      await pool.query(
+        "insert into device_heartbeats (device_id, venue_id, last_seen_at, offline_since, network) values ($1, $2, now(), $3, $4)",
+        [d.rows[0]!.id, v.venueA, online ? null : new Date(), network],
+      );
+  }
+});
+
+afterAll(async () => {
+  await app.close();
+  await pool.end();
+  await db.drop();
+});
+
+describe("the Console", () => {
+  let cookie = "";
+
+  it("single sign-on alone opens nothing, a phone passkey is refused, and a security key signs in", async () => {
+    const sso = await call("POST", "/v1/console/auth/local", { email: STAFF_EMAIL });
+    expect(sso.statusCode).toBe(200);
+    const withoutKey = await call("GET", "/v1/console/venues", undefined, {
+      cookie: cookiesOf(sso),
+    });
+    expect(withoutKey.statusCode).toBe(403);
+    expect(
+      (await call("POST", "/v1/console/auth/local", { email: "stranger@example.com" })).statusCode,
+    ).toBe(403);
+
+    const phone = await signIn(phoneKey);
+    expect(phone.status, phone.body).toBe(403);
+    expect(phone.body).toMatch(/security key/);
+
+    const key = await signIn(securityKey);
+    expect(key.status, key.body).toBe(201);
+    cookie = key.cookie;
+    expect(cookie).toMatch(/west4_console=/);
+    const me = await call("GET", "/v1/console/auth/me", undefined, { cookie });
+    expect(me.statusCode).toBe(200);
+    expect(json(me)["staff"]).toMatchObject({ email: STAFF_EMAIL, name: "Sam" });
+
+    // The next sign-in asserts the enrolled key instead of enrolling again.
+    const again = await signIn(securityKey);
+    expect(again.status, again.body).toBe(201);
+  });
+
+  it("lists every venue with device health from the device rows: 2 of 3 tablets, both readers, backup internet on", async () => {
+    const r = await call("GET", "/v1/console/venues", undefined, { cookie });
+    expect(r.statusCode, r.body).toBe(200);
+    const venues = json(r)["venues"] as Array<{ id: string; health: Record<string, unknown> }>;
+    const a = venues.find((x) => x.id === v.venueA)!;
+    expect(a.health).toMatchObject({
+      tablets: { online: 2, total: 3 },
+      readers: { online: 2, total: 2 },
+      router: { online: true, backup_internet: "on", on_backup_now: false },
+    });
+    expect(venues.some((x) => x.id === v.venueB)).toBe(true);
+    // The API's own role (app_rw) can't list venues; the Console's definer door can.
+    const rw = appPool(db.url);
+    try {
+      const seen = await consoleVenues(rw);
+      expect(seen.map((x) => x.id).sort()).toEqual([v.venueA, v.venueB].sort());
+      await expect(rw.query("select id from venues")).rejects.toThrow(/app\.venue_id/);
+    } finally {
+      await rw.end();
+    }
+  });
+
+  it("allowing a module makes it switchable in Admin at once; taking one away while it's on is refused", async () => {
+    await pool.query(
+      "update venue_modules set allowed = false, state = 'off' where venue_id = $1 and module_id = 'bar_mode'",
+      [v.venueA],
+    );
+    const allow = await call(
+      "PATCH",
+      `/v1/console/venues/${v.venueA}/modules/bar_mode`,
+      { allowed: true },
+      { cookie },
+    );
+    expect(allow.statusCode, allow.body).toBe(200);
+    const after = await pool.query<{ allowed: boolean }>(
+      "select allowed from venue_modules where venue_id = $1 and module_id = 'bar_mode'",
+      [v.venueA],
+    );
+    expect(after.rows[0]?.allowed).toBe(true);
+    const event = await pool.query(
+      "select 1 from venue_events where venue_id = $1 and type = 'settings.changed' and entity_id = 'modules'",
+      [v.venueA],
+    );
+    expect(event.rowCount).toBeGreaterThan(0);
+
+    // The venue turns it on (bar_mode needs bar_tabs, on by default); then the Console can't take it away.
+    await pool.query(
+      "update venue_modules set state = 'on' where venue_id = $1 and module_id = 'bar_mode'",
+      [v.venueA],
+    );
+    const takeAway = await call(
+      "PATCH",
+      `/v1/console/venues/${v.venueA}/modules/bar_mode`,
+      { allowed: false },
+      { cookie },
+    );
+    expect(takeAway.statusCode).toBe(400);
+    expect(json(takeAway).error?.message).toMatch(/turns off in Admin/);
+    expect(
+      (
+        await call(
+          "PATCH",
+          `/v1/console/venues/${v.venueA}/modules/payments`,
+          { allowed: false },
+          { cookie },
+        )
+      ).statusCode,
+    ).toBe(400);
+  });
+
+  it("a flag on venue B leaves venue A's flags unchanged, and the audit log names the staff member", async () => {
+    const r = await call(
+      "PUT",
+      `/v1/console/venues/${v.venueB}/flags/beta.room_screen`,
+      { on: true },
+      { cookie },
+    );
+    expect(r.statusCode, r.body).toBe(200);
+    expect(json(r)["flags"]).toEqual({ "beta.room_screen": true });
+    const a = await call("GET", `/v1/console/venues/${v.venueA}`, undefined, { cookie });
+    expect(json(a)["flags"]).toEqual({});
+    const flagsA = await pool.query("select 1 from venue_flags where venue_id = $1", [v.venueA]);
+    expect(flagsA.rowCount).toBe(0);
+
+    const audit = await pool.query<{ actor: string; action: string; target: string }>(
+      `select actor, action, target from audit_log where venue_id = $1 and action like 'venue_flags.%' order by id desc limit 1`,
+      [v.venueB],
+    );
+    expect(audit.rows[0]?.actor).toBe(staffId);
+    const moduleAudit = await pool.query<{ actor: string }>(
+      `select actor from audit_log where venue_id = $1 and action like 'venue\\_modules.%'
+          and 'allowed' = any(changed_fields) order by id desc limit 1`,
+      [v.venueA],
+    );
+    expect(moduleAudit.rows[0]?.actor).toBe(staffId);
+
+    expect(
+      (await call("PUT", `/v1/console/venues/${v.venueB}/flags/Bad Flag`, { on: true }, { cookie }))
+        .statusCode,
+    ).toBe(400);
+  });
+
+  it("logout ends the session", async () => {
+    expect((await call("POST", "/v1/console/auth/logout", {}, { cookie })).statusCode).toBe(204);
+    expect((await call("GET", "/v1/console/venues", undefined, { cookie })).statusCode).toBe(403);
+  });
+});

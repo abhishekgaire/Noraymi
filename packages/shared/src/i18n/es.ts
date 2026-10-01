@@ -457,4 +457,6 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "devices.pair.code":
     "Código {code} · ingrésalo en el dispositivo en Iniciar sesión → Vincular esta pantalla · válido hasta las {until}",
   "devices.pair.failed": "No se pudo crear un código",
+  "devices.backupInternet.on": "Internet de respaldo · activo",
+  "devices.backupInternet.off": "Internet de respaldo · apagado",
 };

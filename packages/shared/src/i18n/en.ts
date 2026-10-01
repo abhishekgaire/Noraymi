@@ -453,4 +453,6 @@ export const en = {
   "devices.pair.code":
     "Code {code} · enter it on the device at Sign in → Pair this screen · good until {until}",
   "devices.pair.failed": "Couldn't make a code",
+  "devices.backupInternet.on": "Backup internet · on",
+  "devices.backupInternet.off": "Backup internet · off",
 } as const;

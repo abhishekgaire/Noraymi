@@ -97,3 +97,52 @@ describe("loadConfig · the staff app's address (M1-23)", () => {
     );
   });
 });
+
+describe("loadConfig · the Console (M1-35)", () => {
+  const KEY = "a".repeat(64);
+  it("local defaults to the Vite server and signs in by email before the key; elsewhere it's off until CONSOLE_URL is set", () => {
+    const local = loadConfig({ WEST4_ENV: "local" }).console;
+    expect(local).toMatchObject({ url: "http://localhost:5174", rpId: "localhost", oidc: null });
+    expect(local?.origins).toEqual(["http://localhost:5174"]);
+    expect(
+      loadConfig({
+        WEST4_ENV: "staging",
+        AUTH_SECRET_KEY: KEY,
+        WEBAUTHN_RP_ID: "staff.example.com",
+        WEBAUTHN_ORIGINS: "https://staff.example.com",
+      }).console,
+    ).toBeNull();
+  });
+
+  it("takes the provider from CONSOLE_OIDC_*, binds keys to the Console's host, and production refuses a Console without a provider", () => {
+    const base = {
+      WEST4_ENV: "staging",
+      AUTH_SECRET_KEY: KEY,
+      WEBAUTHN_RP_ID: "staff.example.com",
+      WEBAUTHN_ORIGINS: "https://staff.example.com",
+      CONSOLE_URL: "https://console.example.com/",
+    };
+    const staging = loadConfig(base).console;
+    expect(staging).toMatchObject({
+      url: "https://console.example.com",
+      rpId: "console.example.com",
+      origins: ["https://console.example.com"],
+      oidc: null,
+    });
+    const withProvider = loadConfig({
+      ...base,
+      CONSOLE_OIDC_ISSUER: "https://accounts.example.com/",
+      CONSOLE_OIDC_CLIENT_ID: "console",
+      CONSOLE_OIDC_CLIENT_SECRET: "s3cret",
+    }).console;
+    expect(withProvider?.oidc).toEqual({
+      issuer: "https://accounts.example.com",
+      clientId: "console",
+      clientSecret: "s3cret",
+    });
+    expect(() => loadConfig({ ...base, WEST4_ENV: "production" })).toThrow(/CONSOLE_OIDC_ISSUER/);
+    expect(() => loadConfig({ ...base, CONSOLE_URL: "console.example.com" })).toThrow(
+      /CONSOLE_URL/,
+    );
+  });
+});
