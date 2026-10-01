@@ -846,18 +846,21 @@ Definition of done: see CLAUDE.md.
   - **Later tickets:** live counts ("5 open bar tabs · 8 rooms in use") have no source yet; M2 and M6 add them to the heading line. "Stopping" is offered now and the API already refuses new work in it.
 ### M1-33 · Build Admin → Hours & prices: weekly hours, the house last call and special dates
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-11, M1-12, M1-31
 - **Spec:** [Admin by milestone](../milestones.md#admin-by-milestone) (Hours & prices, M1 part); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `hours`; [AdminDesk](../screens.md#admindesk)
 - **Build:** the `hours` key (each day's opening and closing, closing after midnight such as 4:00 AM, and the house last call) and special and closed dates as `closures` rows. The house last call is checked against the rule pack on save (M1-11). Google shows as not connected (M5 connects it). Rates, bands, minimums, the VIP rate, booking limits and the damage fee join in M2, and minimum spend in M4.
 - **Acceptance:**
-  - [ ] West 4's hours read Mon to Fri 4:00 PM to 4:00 AM and Sat and Sun 2:00 PM to 4:00 AM.
-  - [ ] Setting the house last call to 4:30 AM is refused with the reason, and 3:00 AM saves.
-  - [ ] Adding a special date writes a `closures` row and changes that date's hours.
+  - [x] West 4's hours read Mon to Fri 4:00 PM to 4:00 AM and Sat and Sun 2:00 PM to 4:00 AM.
+  - [x] Setting the house last call to 4:30 AM is refused with the reason, and 3:00 AM saves.
+  - [x] Adding a special date writes a `closures` row and changes that date's hours.
 - **Tests:** Playwright for each field; the refused save.
 - **Notes:** West 4's weekday hours come from the AdminDesk board's demo; only the 4 AM close is fixed by the brief ([Demo seed · West 4 and its rules](../demo-seed.md#west-4-and-its-rules)).
-
+  - **Built:** Admin → Hours & prices in `apps/staff/src/screens/admin/Hours.tsx`: the week Monday first with an opening and close per day (a close after midnight is the next morning), the house last call, "Google Business Profile · not connected", and special and closed dates. Hours and the last call go through the shell's Save and publish draft; the rule pack's refusal reason now travels back through the draft (`error`) and shows beside the unsaved change, so "4:30 AM" reads why it was refused and nothing is saved. Special dates post a `closures` row at once and the confirmation line reads that date's hours from `GET /hours`.
+  - **Cautious defaults:** an empty last call means none (the rule pack's last sale applies), matching the schema's `null`. There is no route to remove a closure yet; the API has none and the ticket asks only to add.
+  - **Flag:** the rule-pack refusal reason is English text from `packages/rules` (M1-11), shown as the server sends it; a Spanish owner reads it in English until the checks carry catalog keys.
+  - **Later tickets:** rates, bands, minimums, the VIP rate, booking limits and the damage fee (M2), minimum spend (M4), the Google connection (M5).
 ### M1-34 · Build Admin → Printers & devices: pairing and revoking
 
 - **Status:** todo

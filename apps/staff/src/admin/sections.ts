@@ -40,7 +40,7 @@ export const adminSections: readonly AdminSection[] = [
     labelKey: "admin.section.hours",
     hintKey: "admin.hint.hours",
     action: "admin.access",
-    shipped: false,
+    shipped: true,
   },
   {
     id: "devices",

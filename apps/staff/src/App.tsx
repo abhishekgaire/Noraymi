@@ -7,6 +7,7 @@ import { Shell } from "./layout/Shell.js";
 import { homeFor, runs } from "./navigation.js";
 import { Admin, AdminIndex } from "./screens/Admin.js";
 import { Features } from "./screens/admin/Features.js";
+import { Hours } from "./screens/admin/Hours.js";
 import { Team } from "./screens/admin/Team.js";
 import { Home } from "./screens/Home.js";
 import { Invite } from "./screens/Invite.js";
@@ -87,6 +88,7 @@ export function StaffRoutes() {
           <Route index element={<AdminIndex />} />
           <Route path="team" element={<Team />} />
           <Route path="features" element={<Features />} />
+          <Route path="hours" element={<Hours />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

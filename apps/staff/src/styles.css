@@ -597,3 +597,33 @@ button.danger {
 .module-off h3 {
   color: var(--muted);
 }
+
+/* Admin → Hours & prices (M1-33). */
+.hours-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 16px;
+}
+.hours-table th,
+.hours-table td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.hours-table input,
+.field-line input {
+  min-height: 44px;
+  font-size: 1rem;
+  padding: 0 8px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.field-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { api } from "../api.js";
+import { api, type ApiCallError } from "../api.js";
 
 /**
  * "Save and publish" (screens.md · AdminDesk): a section changes settings
@@ -13,6 +13,8 @@ export interface AdminDraft {
   readonly dirty: boolean;
   readonly saving: boolean;
   readonly status: "idle" | "published" | "failed";
+  /** Why the last publish was refused (the rule-pack check's reason), if it was. */
+  readonly error: string | null;
   /** Grows by one after each publish, so a section refetches what it shows. */
   readonly version: number;
   readonly set: (key: string, value: unknown) => void;
@@ -33,6 +35,7 @@ export function AdminDraftProvider({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<AdminDraft["status"]>("idle");
   const [version, setVersion] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const set = useCallback((key: string, value: unknown) => {
     setStatus("idle");
@@ -47,9 +50,13 @@ export function AdminDraftProvider({
     try {
       await api("PUT", `/v1/venues/${venueId}/settings`, { values });
       setValues({});
+      setError(null);
       setStatus("published");
       setVersion((n) => n + 1);
-    } catch {
+    } catch (e) {
+      setError(
+        (e as ApiCallError)?.code === "invalid_request" ? (e as ApiCallError).message : null,
+      );
       setStatus("failed");
     } finally {
       setSaving(false);
@@ -62,12 +69,13 @@ export function AdminDraftProvider({
       dirty: Object.keys(values).length > 0,
       saving,
       status,
+      error,
       version,
       set,
       discard,
       save,
     }),
-    [values, saving, status, version, set, discard, save],
+    [values, saving, status, error, version, set, discard, save],
   );
   return <DraftContext.Provider value={draft}>{children}</DraftContext.Provider>;
 }

@@ -15,7 +15,7 @@ import { catalogs } from "@west4/shared";
 const ANDY = "andy@demo.west4.local";
 const ABHISHEK = "abhishek@demo.west4.local";
 /** The Admin sections shipped so far; each M1 Admin ticket adds its path to the Spanish check. */
-const ADMIN_SECTIONS = ["/admin/team", "/admin/features"];
+const ADMIN_SECTIONS = ["/admin/team", "/admin/features", "/admin/hours"];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
 async function enrolPasskey(
@@ -732,3 +732,116 @@ test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar scree
     await db.end();
   }
 });
+
+/**
+ * Admin → Hours & prices, the M1 part (M1-33). West 4's hours read Mon to Fri
+ * 4:00 PM to 4:00 AM and Sat and Sun 2:00 PM to 4:00 AM. A house last call of
+ * 4:30 AM is refused on Save and publish with the rule pack's reason, and
+ * 3:00 AM saves. Adding a special date writes a closures row and that date's
+ * hours change.
+ */
+test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00 AM saved, and a special date", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const lastCall = async () =>
+    (
+      await db.query<{ last_call: string | null }>(
+        "select value->>'lastCall' as last_call from venue_settings where key = 'hours' order by version desc limit 1",
+      )
+    ).rows[0]!.last_call;
+  const baseVersion = (
+    await db.query<{ v: number }>(
+      "select coalesce(max(version), 0)::int as v from venue_settings where key = 'hours'",
+    )
+  ).rows[0]!.v;
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/hours");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Hours & prices");
+    for (const day of ["Mon", "Tue", "Wed", "Thu", "Fri"]) {
+      await expect(page.getByLabel(`${day} · Opens`)).toHaveValue("16:00");
+      await expect(page.getByLabel(`${day} · Closes`)).toHaveValue("04:00");
+    }
+    for (const day of ["Sat", "Sun"]) {
+      await expect(page.getByLabel(`${day} · Opens`)).toHaveValue("14:00");
+      await expect(page.getByLabel(`${day} · Closes`)).toHaveValue("04:00");
+    }
+    await expect(page.getByText("4:00 PM to 4:00 AM")).toHaveCount(5);
+    await expect(page.getByText("2:00 PM to 4:00 AM")).toHaveCount(2);
+    await expect(page.getByLabel("House last call", { exact: true })).toHaveValue("04:00");
+    await expect(page.getByText("Google Business Profile · not connected")).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    // 4:30 AM is refused with the reason; nothing is saved.
+    await page.getByLabel("House last call", { exact: true }).fill("04:30");
+    await expect(page.getByText("1 unsaved change")).toBeVisible();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(
+      page.getByText(
+        /Couldn't publish · nothing changed · .*can't be later than the rule pack's last sale/,
+      ),
+    ).toBeVisible();
+    expect(await lastCall()).toBe("04:00");
+
+    // 3:00 AM saves and publishes.
+    await page.getByLabel("House last call", { exact: true }).fill("03:00");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    expect(await lastCall()).toBe("03:00");
+    await page.reload();
+    await expect(page.getByLabel("House last call", { exact: true })).toHaveValue("03:00");
+
+    // A special date: Christmas Eve closes at 11:00 PM.
+    await page.getByLabel("Date").fill("2026-12-24");
+    await page.getByLabel("Kind").selectOption("special");
+    await page.getByLabel("Closes", { exact: true }).fill("23:00");
+    await page.getByLabel("Note").fill("Christmas Eve");
+    await page.getByRole("button", { name: "Add the date" }).click();
+    await expect(
+      page.getByText("2026-12-24 saved · that day now reads 4:00 PM to 11:00 PM"),
+    ).toBeVisible();
+    const row = page.getByRole("row", { name: /2026-12-24/ });
+    await expect(row).toContainText("Special hours");
+    await expect(row).toContainText("Christmas Eve");
+    const closure = await db.query<{ kind: string; closes: string }>(
+      "select kind, closes::text from closures where date = '2026-12-24'",
+    );
+    expect(closure.rows[0]).toEqual({ kind: "special", closes: "23:00:00" });
+    const hours = (await (
+      await request.get(`/v1/venues/${await venueId(db)}/hours?business_date=2026-12-24`, {
+        headers: { cookie: await sessionCookie(page) },
+      })
+    ).json()) as { closes: string; source: string };
+    expect(hours.closes).toMatch(/^2026-12-24T23:00:00/);
+  } finally {
+    await db.query("delete from closures where date = '2026-12-24'");
+    await db.query("delete from venue_settings where key = 'hours' and version > $1", [
+      baseVersion,
+    ]);
+    await db.end();
+  }
+});
+
+async function venueId(db: pg.Client): Promise<string> {
+  return (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+}
+
+async function sessionCookie(page: Page): Promise<string> {
+  const cookies = await page.context().cookies();
+  return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+}

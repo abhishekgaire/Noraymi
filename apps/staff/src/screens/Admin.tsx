@@ -77,6 +77,12 @@ function SaveBar() {
   const draft = useAdminDraft();
   const count = Object.keys(draft.values).length;
   if (!draft.dirty && draft.status === "idle") return null;
+  const failed = draft.status === "failed" && (
+    <span className="error">
+      {t("admin.publishFailed")}
+      {draft.error ? ` · ${draft.error}` : ""}
+    </span>
+  );
   return (
     <div className="admin-save" role="status">
       {draft.dirty ? (
@@ -93,11 +99,10 @@ function SaveBar() {
           <button type="button" className="secondary" onClick={draft.discard}>
             {t("admin.discard")}
           </button>
+          {failed}
         </>
       ) : (
-        <span className={draft.status === "failed" ? "error" : ""}>
-          {draft.status === "failed" ? t("admin.publishFailed") : t("admin.published")}
-        </span>
+        failed || <span>{t("admin.published")}</span>
       )}
     </div>
   );
