@@ -9,6 +9,8 @@ allowBuilds:
   better-sqlite3-multiple-ciphers: true
   # The USB NFC reader's PC/SC binding (M1-30): node-gyp, needs the platform's PC/SC headers.
   "@pokusew/pcsclite": true
+  # electron-builder's Windows installer helper: its script isn't needed to build or test, so it stays blocked.
+  electron-winstaller: false
 
 minimumReleaseAgeExclude:
   - nodemailer@10.0.13

@@ -138,18 +138,24 @@ Definition of done: see CLAUDE.md.
 
 ### M3-05 · Render the menu PDF on every menu change
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-06, M2-13, M3-03
 - **Spec:** [Scope and architecture](../spec/01-scope-architecture.md) · Files and PDFs; [Menu](../screens.md#menu) note 4; [Security and data retention](../spec/12-security-retention.md) 14 and How long we keep things (Files)
 - **Build:** a job in the bulk pool that renders the same menu list the room page reads, from HTML to a tagged, accessible PDF, on every `menu.changed`. A burst of saves renders once (deduped). The PDF is stored as a file and kept until the next one replaces it, and a route returns a link to the current one.
 - **Acceptance:**
-  - [ ] Within a minute of a price change saved in Admin → Menu, the PDF shows the new price.
-  - [ ] The PDF lists the same items and prices as the menu API, and a hidden item isn't in it.
-  - [ ] The PDF passes a tagged-PDF check: real text, headings and reading order.
-  - [ ] Ten saves in a row render one PDF.
+  - [x] Within a minute of a price change saved in Admin → Menu, the PDF shows the new price.
+  - [x] The PDF lists the same items and prices as the menu API, and a hidden item isn't in it.
+  - [x] The PDF passes a tagged-PDF check: real text, headings and reading order.
+  - [x] Ten saves in a row render one PDF.
 - **Tests:** a job test that compares the PDF's text with the menu API; a PDF accessibility check in CI.
 - **Notes:** The spec doesn't say whether the PDF shows tonight's 86'd items. Cautious reading: it's the menu, and 86 lasts one night, so 86 doesn't change it (flagged).
+  - Built: `apps/api/src/menu/pdf.ts` (the menu as HTML, printed by Chromium through `playwright-core` with `tagged` and `outline` on), the `menu.pdf` job in the bulk pool (`apps/api/src/jobs/menu-pdf.ts`), `queueMenuPdf` and `currentMenuPdf` in `packages/db/src/menu.ts`, the links `GET /v1/venues/{v}/menu/pdf` and `GET /v1/public/venues/{slug}/menu/pdf` (a 5-minute signed link, or 404 until the first render), and `apps/api/src/jobs/menu-pdf.int.test.ts`.
+  - One render per burst: a save queues the job 5 seconds out unless one is already waiting, and the job renders the menu as it stands when it runs. Each render is a new `menu_pdf` file; the one before is marked removed and its object deleted.
+  - The PDF has the venue's name as its heading, one section per category in menu order, each item with its price (or each size's), description, and choices with any extra price. Packages and happy hours aren't on it yet; they join with the public menu page (M5), behind the Packages & specials module.
+  - The accessibility check reads the PDF with `pdfjs-dist`: its text has every shown item and price the menu API gives, and its structure tree has the document, H1, H2, lists, list items and paragraphs, in menu order. Chromium's catalog doesn't expose a `Marked` flag that pdf.js reads, so the check is on the structure tree itself.
+  - Infrastructure: the API image installs Alpine's `chromium` and `font-noto` and sets `MENU_PDF_CHROMIUM=/usr/bin/chromium`; CI's integration job installs Playwright's Chromium. `electron-winstaller` (the desktop app's Windows installer helper) is now explicitly blocked from running its install script in `pnpm-workspace.yaml`, since pnpm refused the install while it was unlisted.
+  - The offers test (`apps/api/src/routes/offers.int.test.ts`, "with 5 minutes left…") fails about one run in three with or without this ticket; left as it is and flagged.
 
 ### M3-06 · Build the order pipeline, with Accept as the sale
 

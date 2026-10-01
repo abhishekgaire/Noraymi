@@ -19,6 +19,7 @@ import type { VenueTextClient, VenueTextSettings } from "../texts/venue.js";
 import { MESSAGE_SEND_KIND } from "../texts/queue.js";
 import { makeSendMessageHandler } from "./send-message.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
+import { MENU_PDF_KIND, makeMenuPdfHandler } from "./menu-pdf.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -76,6 +77,7 @@ export function makeHandlers({
     },
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),
+      [MENU_PDF_KIND]: makeMenuPdfHandler(s3.client, s3.bucketFiles),
       [IDEMPOTENCY_CLEANUP_KIND]: idempotencyCleanupHandler,
       [EVENTS_CLEANUP_KIND]: eventsCleanupHandler,
     },

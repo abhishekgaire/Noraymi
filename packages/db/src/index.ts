@@ -356,6 +356,8 @@ export {
   menuTree,
   promoMenu,
   setOutTonight,
+  queueMenuPdf,
+  currentMenuPdf,
   MenuRowMissing,
 } from "./menu.js";
 export type {

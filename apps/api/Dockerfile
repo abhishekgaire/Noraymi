@@ -22,6 +22,9 @@ WORKDIR /app
 # The runtime needs Node only. npm and corepack (and their bundled dependencies)
 # stay out of the image so the container scan checks what actually runs.
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+# The menu PDF job (M3-05) prints HTML with the system Chromium; Noto covers the menu's accents.
+RUN apk add --no-cache chromium font-noto
+ENV MENU_PDF_CHROMIUM=/usr/bin/chromium
 COPY --from=build /out /app
 USER node
 EXPOSE 3000

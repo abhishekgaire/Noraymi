@@ -95,6 +95,8 @@ jobs:
       - run: pnpm db:migrate
       - name: A second run applies nothing
         run: pnpm db:migrate | tee /dev/stderr | grep -q "nothing to apply"
+      # The menu PDF job prints with Chromium (M3-05); its test checks the tagged PDF.
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:integration
 
   principals:

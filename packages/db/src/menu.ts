@@ -258,3 +258,35 @@ export async function setOutTonight(
   );
   return (r.rowCount ?? 0) > 0;
 }
+
+/**
+ * Queue the menu PDF (M3-05) unless one is already waiting to run: a burst of
+ * saves renders once, from the menu as it stands when the job runs.
+ */
+export async function queueMenuPdf(
+  client: Queryable,
+  venueId: string,
+  runAt: string,
+): Promise<boolean> {
+  const r = await client.query(
+    `insert into jobs (venue_id, kind, pool, payload, run_at, max_attempts)
+     select $1, 'menu.pdf', 'bulk', '{}', $2, 5
+      where not exists (select 1 from jobs where venue_id = $1 and kind = 'menu.pdf' and status = 'queued')`,
+    [venueId, runAt],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/** The current menu PDF: the newest `menu_pdf` file not replaced. */
+export async function currentMenuPdf(
+  client: Queryable,
+  venueId: string,
+): Promise<{ id: string; uploaded_at: string } | null> {
+  const r = await client.query<{ id: string; uploaded_at: string }>(
+    `select id, uploaded_at::text from files
+      where venue_id = $1 and kind = 'menu_pdf' and removed_at is null
+      order by uploaded_at desc limit 1`,
+    [venueId],
+  );
+  return r.rows[0] ?? null;
+}

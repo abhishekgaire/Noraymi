@@ -9,6 +9,8 @@ import {
   MenuRowMissing,
   patchMenuRow,
   promoMenu,
+  queueMenuPdf,
+  currentMenuPdf,
   resolveVenueSlug,
   rulePackFor,
   setOutTonight,
@@ -20,6 +22,8 @@ import { businessDate, promotionChecks, wallClock, type Promotable } from "@west
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
+import { downloadLink } from "../files/storage.js";
+import type { S3Settings } from "../s3.js";
 import { ApiError } from "../http/errors.js";
 
 /**
@@ -31,6 +35,7 @@ import { ApiError } from "../http/errors.js";
  *   PATCH        /v1/venues/{v}/packages/{id} | price-rules/{id}
  *   POST         /v1/venues/{v}/menu/items/{i}/out-tonight   { out?, variant_id?, option_id? }: 86, or back
  *   GET          /v1/public/venues/{slug}/menu            the guest menu: shown items, 86'd ones greyed in place
+ *   GET          /v1/venues/{v}/menu/pdf, /v1/public/venues/{slug}/menu/pdf   a link to the current menu PDF (M3-05)
  * Every save runs the rule pack's promotion checks and refuses with the reasons
  * (nothing is saved), then sends menu.changed. GET /menu isn't in the API table;
  * the staff screens read the tree from it rather than stitching seven lists (flagged).
@@ -149,7 +154,10 @@ function present(row: Record<string, unknown>, now: string): Record<string, unkn
     : rest;
 }
 
-export function menuRoutes(app: FastifyInstance, options: { clock: Clock; pool: pg.Pool }): void {
+export function menuRoutes(
+  app: FastifyInstance,
+  options: { clock: Clock; pool: pg.Pool; s3: () => S3Settings },
+): void {
   const read = (module: string) =>
     route({ principals: ["owner_manager", "staff", "shared_device"], module });
   const write = (module: string) =>
@@ -311,6 +319,8 @@ export function menuRoutes(app: FastifyInstance, options: { clock: Clock; pool: 
           checked_pack_version: version,
         });
       await emitEvent(c, { venueId, type: "menu.changed", entityId: String(row["id"]) });
+      // The menu PDF re-renders a few seconds out; saves in between share the one render.
+      await queueMenuPdf(c, venueId, options.clock.now().add({ seconds: 5 }).toString());
       return present(row, nowIso());
     });
 
@@ -425,6 +435,35 @@ export function menuRoutes(app: FastifyInstance, options: { clock: Clock; pool: 
           out_until: out ? until.toString() : null,
         };
       });
+    },
+  );
+
+  // The current menu PDF: a short-lived link, or 404 until the first render.
+  const pdfLink = async (c: Queryable, venueId: string) => {
+    const file = await currentMenuPdf(c, venueId);
+    if (!file) throw new ApiError("not_found", "the menu PDF isn't ready yet");
+    return {
+      file_id: file.id,
+      rendered_at: file.uploaded_at,
+      ...(await downloadLink(c, options.s3(), venueId, file.id)),
+    };
+  };
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/menu/pdf",
+    { config: read("core") },
+    async (request) => request.inVenue((c) => pdfLink(c, request.venueId!)),
+  );
+  app.get<{ Params: { slug: string } }>(
+    "/v1/public/venues/:slug/menu/pdf",
+    { config: route({ principals: ["public"], module: "core", idempotency: "none" }) },
+    async (request, reply) => {
+      const venueId = await resolveVenueSlug(options.pool, request.params.slug);
+      if (!venueId) throw new ApiError("not_found", "no such venue");
+      const link = await withVenue(options.pool, { venueId, requestId: request.requestId }, (c) =>
+        pdfLink(c, venueId),
+      );
+      reply.header("Cache-Control", "no-store");
+      return link;
     },
   );
 

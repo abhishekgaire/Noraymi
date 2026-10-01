@@ -1,3 +1,4 @@
+import { MENU_PDF_KIND } from "../jobs/menu-pdf.js";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { TEXT_TRIGGER_KIND } from "../texts/triggers.js";
@@ -252,6 +253,10 @@ export type JobWallCase =
     };
 
 export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
+  [MENU_PDF_KIND]: {
+    carries: "no venue-owned ids",
+    why: "an empty payload: the venue comes from the job row, and the menu is read in its context",
+  },
   [EMAIL_SEND_KIND]: { carries: "no venue-owned ids", why: "an address, a template and its words" },
   [TEXT_SEND_KIND]: {
     carries: "no venue-owned ids",
