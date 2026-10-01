@@ -205,4 +205,6 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "invite.used": "Este enlace ya se usó",
   "invite.invalid": "Este enlace no es válido",
   "invite.failed": "Algo salió mal · inténtalo de nuevo",
+  "push.pinPaused.body":
+    "El inicio de sesión con PIN está en pausa en {device} tras 10 intentos fallidos · vuelve a emparejarlo para reactivarlo",
 };

@@ -130,6 +130,7 @@ export {
   isCoOwner,
   isOwnerAnywhere,
   ownerRecoveryContacts,
+  endSessionsOnDevice,
   membershipsOf,
   setOwnLocale,
 } from "./auth.js";
@@ -162,3 +163,17 @@ export {
   setPinVerifier,
 } from "./invites.js";
 export type { InviteByToken, PhoneCodeRow } from "./invites.js";
+export {
+  PIN_TRIES_PER_LOCK,
+  DEVICE_PAUSE_AFTER,
+  lockMinutesFor,
+  pinLockout,
+  recordPinFailure,
+  clearPinLockout,
+  recordDevicePinFailure,
+  clearDevicePinFailures,
+  devicePinState,
+  pinMembership,
+  nameTiles,
+} from "./pin-lockouts.js";
+export type { PinLockout, DevicePinState, PinMembership } from "./pin-lockouts.js";

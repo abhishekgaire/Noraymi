@@ -299,6 +299,9 @@ export interface ResolvedSession {
   readonly assurance: SessionAssurance;
   readonly expiresAt: string;
   readonly memberships: readonly { venueId: string; membershipId: string; role: string }[];
+  /** A PIN or badge session's one membership and the device it was opened on (M1-24). */
+  readonly membershipId: string | null;
+  readonly deviceId: string | null;
 }
 
 /** Token → session, moving last_seen_at, locking or ending it as the clock says. */
@@ -316,8 +319,10 @@ export async function resolveSession(
     venue_id: string | null;
     membership_id: string | null;
     role: string | null;
+    session_membership_id: string | null;
+    session_device_id: string | null;
   }>(
-    `select session_id, state, user_id, user_name, assurance, expires_at::text as expires_at, venue_id, membership_id, role
+    `select session_id, state, user_id, user_name, assurance, expires_at::text as expires_at, venue_id, membership_id, role, session_membership_id, session_device_id
      from auth_resolve_session($1, $2::timestamptz, make_interval(mins => $3), make_interval(hours => $4))`,
     [sha256Hex(input.token), input.now, input.idleMinutes, input.maxHours],
   );
@@ -337,6 +342,8 @@ export async function resolveSession(
         membershipId: row.membership_id!,
         role: row.role!,
       })),
+    membershipId: first.session_membership_id,
+    deviceId: first.session_device_id,
   };
 }
 
@@ -723,4 +730,16 @@ export async function setOwnLocale(
     [membershipId, userId, locale],
   );
   return (r.rowCount ?? 0) === 1;
+}
+
+/** A shared screen's sessions end when the device locks or another person takes over (M1-24). */
+export async function endSessionsOnDevice(
+  client: Queryable,
+  input: { deviceId: string; at: string; reason: "signed_out" | "replaced" | "revoked" },
+): Promise<number> {
+  const r = await client.query(
+    "update auth_sessions set ended_at = $2, end_reason = $3 where device_id = $1 and ended_at is null",
+    [input.deviceId, input.at, input.reason],
+  );
+  return r.rowCount ?? 0;
 }

@@ -639,7 +639,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-24 · Sign in on shared screens and phones with name and PIN, with lockouts
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-16, M1-22, M1-23
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · PINs, Who can call what; [Data model](../spec/04-data-model.md) · `pin_lockouts`; [API](../spec/08-api.md) · Sign-in, team and devices (`POST /v1/auth/pin`); [Security and data retention](../spec/12-security-retention.md) 3; [Pin](../screens.md#pin)
@@ -649,12 +649,17 @@ Definition of done: see CLAUDE.md.
   - Ten wrong tries in a row on one device, across any names, pause PIN sign-in there until a manager pairs it again, and push an alert to the manager's phone. The device's alarm and heartbeat channel keeps working while it's paused.
   - A staff session on a shared device ends when the device locks or another badge takes over. A helper that later routes use to ask for the PIN again (refunds, cash counts and no-sale).
 - **Acceptance:**
-  - [ ] Maya signs in on the bar computer with her name and PIN (`4071` in staging).
-  - [ ] Five wrong PINs lock Maya on the bar computer for 1 minute while she can still sign in at the front desk; the next five lock her for 5 minutes, then 15.
-  - [ ] Ten wrong tries across Maya and Diego on the bar computer pause PIN sign-in there, and Andy's phone gets the alert.
-  - [ ] While PIN sign-in is paused, the bar computer's heartbeats and its ring channel keep arriving.
+  - [x] Maya signs in on the bar computer with her name and PIN (`4071` in staging).
+  - [x] Five wrong PINs lock Maya on the bar computer for 1 minute while she can still sign in at the front desk; the next five lock her for 5 minutes, then 15.
+  - [x] Ten wrong tries across Maya and Diego on the bar computer pause PIN sign-in there, and Andy's phone gets the alert.
+  - [x] While PIN sign-in is paused, the bar computer's heartbeats and its ring channel keep arriving.
 - **Tests:** integration tests for the lockout ladder and the pause on the simulated clock; a channel test during the pause.
 - **Notes:** "The manager's phone" means the manager on duty, which M2-15 defines; until then the alert goes to every manager's phone. The spec sets no session length for staff on their own phones; this uses the owner and manager cap of 12 hours (flagged).
+  - **Built.** Migration 0020: `pin_lockouts` (venue_id, membership_id, device_id, failures, locked_until), `devices.pin_failures` and `devices.pin_paused_at`, and `auth_resolve_session` now returns only the session's own membership for a PIN or badge session plus `session_membership_id` and `session_device_id`. `packages/db/src/pin-lockouts.ts`: the ladder (`lockMinutesFor`: 5 wrong → 1 min, 10 → 5 min, 15 and every 5 after → 15 min; a right PIN clears the row), the device's run of wrong tries across any names (the tenth pauses it), name tiles and the membership lookup.
+  - **API.** `POST /v1/auth/pin` (`routes/pin.ts`): signed by the device; a shared screen names the tile's `membership_id` with `client: "shared"` and gets a bearer token (the desktop app), a person's own phone names nobody (`client: "phone"`, the phone's owner) and gets the cookie. A paused device answers 403, a locked person 429 "locked for N seconds", a wrong PIN 401 with no detail. The session has `assurance: "pin"` and principal `owner_manager` or `staff` by role; Admin stays passkey-only (checked in the registry). A new shared-screen sign-in ends the device's earlier session (`end_reason: replaced`). `GET /v1/venues/:v/team/tiles` lists names and roles for shared screens and Admin, never a verifier. `app.checkPinAgain(request, pin)` is the helper later routes call to ask for the PIN again: the session's own membership on its own device, same ladder; a passkey session (no device) is refused.
+  - **Pause alert.** The tenth wrong try in a row queues a `push.send` to every manager's phone ("PIN sign-in is paused on {device}…"). Pairing the device again (M1-15's pair and claim) makes a fresh device row, so the paused one stays paused; there is no unpause switch.
+  - **Cautious defaults.** Tries during a lock don't count and don't extend it. The idle rule (30 minutes) applies to PIN sessions too, so a shared screen left alone asks for the PIN again. A device lock from the desktop app (M1-28) will call logout; until then a session on a shared screen ends when the next person signs in there.
+  - **Tests.** `apps/api/src/auth/pin.int.test.ts` runs the whole acceptance list on the simulated clock, including Andy's phone receiving the alert through the fake push endpoint, a heartbeat and a WebSocket hello from the paused bar computer, and the PIN-again check. No screen changed: M1-26 builds the sign-in screen on this route.
 
 ### M1-25 · Check NTAG 424 DNA badges by their SUN message
 

@@ -205,4 +205,7 @@ export const en = {
   "invite.used": "This link was already used",
   "invite.invalid": "This link isn't valid",
   "invite.failed": "Something went wrong · try again",
+  // PIN sign-in (M1-24).
+  "push.pinPaused.body":
+    "PIN sign-in is paused on {device} after 10 wrong tries · pair it again to turn it back on",
 } as const;

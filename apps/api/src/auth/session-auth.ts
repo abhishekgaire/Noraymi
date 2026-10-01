@@ -17,6 +17,9 @@ export interface RequestSession {
   readonly expiresAt: string;
   /** Where the token came from, so sign-out can clear the right one. */
   readonly transport: "cookie" | "bearer";
+  /** A PIN or badge session's membership and the device it was opened on (M1-24); null for a passkey session. */
+  readonly membershipId: string | null;
+  readonly deviceId: string | null;
 }
 
 declare module "fastify" {
@@ -93,6 +96,8 @@ export function sessionAuthenticator(pool: pg.Pool, clock: Clock): Authenticator
       assurance: resolved.assurance,
       expiresAt: resolved.expiresAt,
       transport: found.transport,
+      membershipId: resolved.membershipId,
+      deviceId: resolved.deviceId,
     };
     return {
       kind: "user",
