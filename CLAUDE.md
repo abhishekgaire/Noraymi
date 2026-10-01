@@ -118,6 +118,8 @@ pnpm lint && pnpm typecheck && pnpm test
 pnpm i18n:check          # every staff string exists in English and Spanish with the same placeholders; names any missing key
 pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
+pnpm test:principals    # the principal suite: every route as every principal, plus the planted-leak test (Postgres only; also inside test:integration)
+pnpm test:walls         # the venue-wall suite: every route, job kind and webhook as venue A with venue B's ids (Postgres only; also inside test:integration)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm format             # Prettier --write
 pnpm --filter @west4/desktop rebuild-native   # build the USB NFC reader's PC/SC binding for Electron's Node (optional; WEST4_FAKE_READER=1 runs an emulated reader instead)

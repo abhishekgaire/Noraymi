@@ -924,7 +924,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** integration (one approval refused, the same person twice counts once, two publish, the signature verifies through `rulePackFor`, the boundary), the venue route, and Playwright: two of our staff publish 2026.10 through the Console's API with software security keys and Andy reads the notice in Admin.
 ### M1-37 · Run the principal and venue-wall suites in CI and block merges
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-06, M1-08, M1-15, M1-19, M1-24, M1-25
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what, The database walls (Tests); [Testing and operations](../spec/13-testing-operations.md) · Tests (principal and venue-wall tests); [Security and data retention](../spec/12-security-retention.md) 2
@@ -933,11 +933,16 @@ Definition of done: see CLAUDE.md.
   - The venue-wall suite: every endpoint as venue A with venue B's ids expects "not found"; every job kind run for venue A with venue B's ids finds nothing; every webhook resolves only its own venue as later milestones add them.
   - A new route, job kind or webhook with no declaration or no wall case fails CI. Both suites are required checks.
 - **Acceptance:**
-  - [ ] Both suites run on every pull request and a failure blocks the merge.
-  - [ ] One generated assertion shows that no PIN session and no badge session reaches any Admin route.
-  - [ ] Adding a route without principals, or a job kind without a wall case, fails CI.
+  - [ ] Both suites run on every pull request and a failure blocks the merge. *(They run on every pull request and push to main as the CI jobs `principals` and `walls`; making them required checks is a branch-protection setting on GitHub that would also block the direct pushes to `main` this project uses, so it waits for the founder's say.)*
+  - [x] One generated assertion shows that no PIN session and no badge session reaches any Admin route.
+  - [x] Adding a route without principals, or a job kind without a wall case, fails CI.
 - **Tests:** the two suites themselves, plus a test that a planted leak (a route that skips the venue check) makes them fail.
 - **Notes:** Later milestones don't add their own suite tickets; their routes, jobs and webhooks join these suites the day they land.
+  - **Built:** `apps/api/src/security/`: `fixtures.ts` (the cast of 19 principals from spec 02, built as `Principal` objects and handed to the app through an `x-test-principal` header, plus a sample value for every route parameter), `principal-suite.ts` (every registry route × every principal: an undeclared principal must get 401 or 403; every Admin route × every PIN or badge session must get 403, listed as generated assertions), `wall-suite.ts` (every venue route called as venue A with venue B's row for each venue-owned parameter must answer not found; called with venue B as the venue, a principal of A is refused; every job kind in the worker's registry needs a wall case, run for venue A with venue B's ids; every `/v1/hooks` route needs a webhook case), `setup.ts` (one database with both venues, the cast and venue B's rows) and the tests `principals.int.test.ts`, `walls.int.test.ts` and `planted-leak.int.test.ts`. Scripts `pnpm test:principals` and `pnpm test:walls` (Postgres only), `pnpm check principals|walls`, CI jobs `principals` and `walls`.
+  - **What fails CI from now on:** a route without a registry entry (the registry refuses to start the app; the planted-leak test proves it); a route with a parameter the suite has no class or sample for; a job kind with no entry in `jobWallCases`; a webhook route with no entry in `webhookWallCases`; and any answer other than 401/403 to an undeclared principal or other than not-found to another venue's row.
+  - **Found and fixed by the suite:** `GET /team/{m}/badges` answered 200 with an empty list for another venue's membership id; it answers 404 now.
+  - **Cautious defaults:** the host isn't a principal of its own yet (the guest in the room carries the host's rights in M1), so the cast lists it as a second room guest; a 403 from a step-up or role check counts as walled (the row was never reached), and 400 counts as inconclusive and fails until the suite gets a body for the route (`fixtures.bodies`). Job kinds that carry no venue-owned ids (email, text, the two sweeps) declare so; the push and audit-export kinds run for real. WebSocket routes are left to the events tests.
+  - **Decision for the founder:** whether to turn on branch protection for `main` with `principals` and `walls` (and the rest of CI) as required checks. It blocks merging a failing pull request, and it also blocks pushing straight to `main`, which is how commits land today; the alternative is working through pull requests.
 
 ## Coverage
 

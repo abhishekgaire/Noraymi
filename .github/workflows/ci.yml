@@ -97,6 +97,50 @@ jobs:
         run: pnpm db:migrate | tee /dev/stderr | grep -q "nothing to apply"
       - run: pnpm test:integration
 
+  principals:
+    name: Principal suite (every route as every principal)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.15
+        env:
+          POSTGRES_USER: west4
+          POSTGRES_PASSWORD: west4
+          POSTGRES_DB: west4
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U west4 -d west4"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://west4:west4@localhost:5432/west4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm db:migrate
+      - run: pnpm test:principals
+
+  walls:
+    name: Venue-wall suite (routes, jobs and webhooks)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.15
+        env:
+          POSTGRES_USER: west4
+          POSTGRES_PASSWORD: west4
+          POSTGRES_DB: west4
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U west4 -d west4"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://west4:west4@localhost:5432/west4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm db:migrate
+      - run: pnpm test:walls
+
   e2e:
     name: Smoke (${{ matrix.app }})
     runs-on: ubuntu-24.04

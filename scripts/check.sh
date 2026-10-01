@@ -3,7 +3,8 @@
 # names and the first error lines are printed, never the whole log.
 # Usage: pnpm check            (lint, i18n, typecheck, unit, integration, db:lint)
 #        pnpm check --e2e      (also the Playwright smoke tests)
-#        pnpm check unit       (one suite: lint | i18n | typecheck | unit | integration | db-lint | e2e)
+#        pnpm check unit       (one suite: lint | i18n | typecheck | unit | integration | db-lint | e2e | principals | walls)
+#        The principal and venue-wall suites (M1-37) are part of integration; name them to run one alone.
 set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
@@ -27,7 +28,7 @@ run() { # name command...
 
 summary() { # name log → a short figure
   case "$1" in
-    unit|integration|e2e) grep -h -E 'Tests |passed \(|failed \(' "$2" | tail -2 | tr -s ' ' | tr '\n' ' ' | sed 's/^ *//' ;;
+    unit|integration|e2e|principals|walls) grep -h -E 'Tests |passed \(|failed \(' "$2" | tail -2 | tr -s ' ' | tr '\n' ' ' | sed 's/^ *//' ;;
     typecheck) printf '%s projects' "$(grep -c 'typecheck: Done' "$2" 2>/dev/null || echo 0)" ;;
     db-lint|i18n) tail -1 "$2" ;;
     lint) printf '%s' "$(grep -c -E 'error|warn' "$2" | sed 's/^0$//')" ;;
@@ -45,6 +46,8 @@ for s in "${suites[@]}"; do
     typecheck) run typecheck pnpm typecheck ;;
     unit) run unit pnpm exec vitest run --reporter=dot ;;
     integration) run integration pnpm exec vitest run --config vitest.integration.config.ts --reporter=dot ;;
+    principals) run principals pnpm exec vitest run --config vitest.integration.config.ts --project api:integration apps/api/src/security/principals apps/api/src/security/planted-leak --reporter=dot ;;
+    walls) run walls pnpm exec vitest run --config vitest.integration.config.ts --project api:integration apps/api/src/security/walls apps/api/src/security/planted-leak --reporter=dot ;;
     db-lint) run db-lint pnpm db:lint ;;
     e2e) run e2e pnpm e2e ;;
     --e2e) ;;

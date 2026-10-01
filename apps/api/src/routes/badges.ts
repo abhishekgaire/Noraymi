@@ -230,11 +230,15 @@ export function badgeRoutes(
   app.get<{ Params: { venueId: string; m: string } }>(
     "/v1/venues/:venueId/team/:m/badges",
     { config: route({ principals: ["owner_manager"], module: "core", action: "admin.access" }) },
-    async (request) => ({
-      badges: (await request.inVenue((c) => badgesOf(c, request.venueId!, request.params.m))).map(
-        shape,
-      ),
-    }),
+    async (request) => {
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        // The wall (M1-37): a membership of another venue is "not found", never an empty list.
+        const member = await pinMembership(c, venueId, { membershipId: request.params.m });
+        if (!member) throw new ApiError("not_found", "no such person at this venue");
+        return { badges: (await badgesOf(c, venueId, request.params.m)).map(shape) };
+      });
+    },
   );
 
   /** A lost badge is switched off here; it can be paired again to anyone later. */
