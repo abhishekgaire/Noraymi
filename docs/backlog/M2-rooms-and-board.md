@@ -96,7 +96,7 @@ Definition of done: see CLAUDE.md.
   - **Built:** `packages/rules/src/bands.ts`: `bandAt(prices, businessDate, minutesFromMidnight)` (the first band covering the minute on that business-date weekday, JS numbering; outside every band, the base rate and billing), `rateAt(...)` (the band's rate, or the VIP flat rate), `bandBoundaries(start, end, prices, venue)` and `segmentsFor({ start, end, partySize, room, events }, prices, venue)`, which tiles a session with a new segment at every band change, every business-date cutover, every party-size change and every pause or resume, each on the minute and copying `band_id`, `rate_kind`, `hourly_cents`, `increment_min`, `rounding` and `paused` the way `session_segments` stores them. `roomTime` (M2-01) takes the billing step: minutes after the first hour rounded to the step by the rule of the band the session ends in (`roundToStep`; nearest rounds half up), the difference billed at the last segment's rate. `hourlyRateAt` (M2-02) now reads the band at the instant. `fast-check` joins the rules package.
   - **How band edges land on the daylight-saving nights:** boundaries come from walking the session's real minutes and reading each on the wall clock, so an edge at a wall-clock minute that doesn't exist on the spring-forward night (2:01 AM) falls at 3:00 AM, and a band over the repeated hour on the fall-back night runs for both of them. This is what makes the segments and the separately written minute-by-minute reference agree to the cent.
   - **Cautious default:** a session still open at the 6:00 AM cutover closes a segment there, because the business date, its minimum and its bands change; the spec lists only party size, band, move and pause as reasons (flagged).
-  - **Two corners where the spec's own rule lets a longer session bill less (flagged for the spec):** (1) the step is "the rule of the band the session ends in", so a session that runs one minute past a band with a 15-minute step into a by-the-minute band drops the rounding; (2) inside the first hour, the top-up is priced at the first segment's rate, so a cheaper later minute replaces a dearer top-up minute. The "never drops as minutes grow" property is therefore asserted past the first hour with the same ending step, and the two cases are documented in the test.
+  - **Two corners where the spec's own rule lets a longer session bill less (flagged for the spec):** (1) the step is "the rule of the band the session ends in", so a session that runs one minute past a band with a 15-minute step into a by-the-minute band drops the rounding; (2) inside the first hour, the top-up is priced at the first segment's rate, so a cheaper later minute replaces a dearer top-up minute. (3) found later by the same property (Oct 1): with a step and rounding "down", the minutes taken off are priced at the last segment's rate, so when the rate rose in the last minutes (a party grew) the bill can drop a few cents as a minute passes, for example an hour at $4.00 then one minute at $5.00 bills $3.98. The "never drops as minutes grow" property is therefore asserted past the first hour, at one rate, with the same ending step, and the two cases are documented in the test.
   - **Tests:** `bands.test.ts` (the 12:30 AM Saturday band at minute 1,470 of Friday's business date, a session across it, a party-size change, a pause, the three rounding rules, West 4 by the minute) and `pricing.property.test.ts` (300 generated sessions per property across the three rate modes, steps 1/15/30/60 with each rounding rule, party-size changes and pauses, both daylight-saving nights and the cutover: equal to the reference, rounded once, tiled with no gap or overlap and real minutes, the first-hour minimum once, and step 1 equal to the per-minute sum).
 ### M2-04 · Build rooms and room states, and Admin → Rooms
 
@@ -303,7 +303,7 @@ Definition of done: see CLAUDE.md.
   - **Bug found and fixed:** the ID-check route sent its reply from inside the database transaction, so a client could see "saved" before the row was committed; it now replies after the commit, and a scan of every route found no other case.
 ### M2-13 · Build presigned uploads with type and size limits
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-02, M1-08
 - **Spec:** [Data model](../spec/04-data-model.md) · `files`; [API](../spec/08-api.md) · Files; [Security and data retention](../spec/12-security-retention.md) · How long we keep things (Files)
@@ -312,12 +312,14 @@ Definition of done: see CLAUDE.md.
   - `POST /files` takes the kind, type and size and returns a presigned POST and a file id; storage refuses any other type or a bigger file. Photos (damage, slip, paid-out, lost item) are JPEG, PNG or HEIC up to 10 MB; license copies PDF, JPEG or PNG up to 20 MB; songbook CSVs up to 5 MB; dispute evidence whatever Stripe's Files API takes.
   - `GET /files/{f}` returns a short-lived download link. A file counts once a row that needs it attaches it (`attached_at`), and a job deletes unattached uploads after 24 hours.
 - **Acceptance:**
-  - [ ] A 4 MB JPEG damage photo uploads; a 12 MB photo, or a PDF sent as a damage photo, is refused by storage.
-  - [ ] An upload nothing attaches is gone 24 hours later on the simulated clock.
-  - [ ] A download link stops working when it expires, and venue B can't get one for venue A's file.
+  - [x] A 4 MB JPEG damage photo uploads; a 12 MB photo, or a PDF sent as a damage photo, is refused by storage.
+  - [x] An upload nothing attaches is gone 24 hours later on the simulated clock.
+  - [x] A download link stops working when it expires, and venue B can't get one for venue A's file.
 - **Tests:** integration tests against the local S3 store.
 - **Notes:** M2 uses damage and lost-item photos first; the menu PDF (M3) and receipt PDFs (M4) are files too.
-
+  - **Built:** migration `0034_files.sql` (`files`, walled and audited, plus `removed_at`, since `app_rw` never deletes); each kind's types and size limit in `packages/shared/src/files.ts` (photos JPEG, PNG or HEIC to 10 MB; license copies PDF, JPEG or PNG to 20 MB; songbook CSV to 5 MB; dispute evidence PDF, JPEG or PNG to 5 MB, Stripe's Files API limit; menu and receipt PDFs for M3 and M4); `apps/api/src/files/storage.ts` with the presigned POST (conditions fix the key, `Content-Type` and the size range, so storage itself refuses anything else), five-minute download links, `attachFile`, and the sweep that deletes the object and marks the row once an upload has gone 24 hours unattached (every 10 minutes, on the simulated clock); `POST /files` and `GET /files/{f}`. AWS's presigning packages join the API at the S3 client's version.
+  - **Tests:** against the local S3 store: a real 4 MB JPEG uploads and downloads; 12 MB or a PDF is refused by the API, and a client that asks for a small JPEG and then sends 12 MB or a PDF is refused by storage; an unattached upload is gone at 24 hours and an attached one stays; a one-second link stops working; venue A can't reach venue B's file.
+  - **Also:** the pricing property test turned up a third corner of the spec's billing-step rule (recorded in M2-03's notes).
 ### M2-14 · Write the reason-only limit test-first and total it per person
 
 - **Status:** todo

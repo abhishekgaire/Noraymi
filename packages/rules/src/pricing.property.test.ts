@@ -229,11 +229,15 @@ describe("pricing properties", () => {
         const endA = shorter.segments.at(-1)!;
         const endB = longer.segments.at(-1)!;
         // Inside the first hour the top-up is priced at the first segment's rate, so a cheaper
-        // later minute can replace a dearer top-up minute (flagged too). Past the hour, never.
+        // later minute can replace a dearer top-up minute (flagged too). And a step's rounding moves
+        // minutes at the last segment's rate, so with the rate changing it can take off more than
+        // those minutes billed (the third corner, flagged in M2-03). At one rate past the hour, never.
+        const rates = new Set(longer.segments.filter((x) => !x.paused).map((x) => x.hourlyCents));
         if (
           endA.incrementMin === endB.incrementMin &&
           endA.rounding === endB.rounding &&
-          shorter.bill.elapsedMinutes >= 60
+          shorter.bill.elapsedMinutes >= 60 &&
+          rates.size === 1
         )
           expect(longer.bill.cents).toBeGreaterThanOrEqual(shorter.bill.cents);
         // The first hour's minimum: never more than one hour billed for less than an hour of time.

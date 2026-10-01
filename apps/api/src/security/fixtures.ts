@@ -106,6 +106,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   sessionId: uuid(26),
   checkId: uuid(27),
   templateKey: "room_ready",
+  fileId: uuid(28),
   id: "rooms",
   key: "hours",
   role: "front_desk",

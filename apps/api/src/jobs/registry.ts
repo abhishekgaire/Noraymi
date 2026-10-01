@@ -7,6 +7,8 @@ import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";
+import { sweepUnattachedFiles } from "../files/storage.js";
+import { makeS3 } from "../s3.js";
 import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
 import type { PushSender } from "../push/sender.js";
 import { TEXT_SEND_KIND, makeSendTextHandler } from "./send-text.js";
@@ -85,5 +87,16 @@ export const schedules: Schedule[] = [
 
 /** What the scheduler's leader checks between ticks (M1-16: quiet devices). */
 export function makeSweeps(pool: pg.Pool, log?: (line: string) => void): Sweep[] {
-  return [deviceWatchSweep(pool, log), holdSweep(pool), wrapUpSweep(pool)];
+  const s3 = makeS3();
+  return [
+    deviceWatchSweep(pool, log),
+    holdSweep(pool),
+    wrapUpSweep(pool),
+    // Uploads nothing attached within 24 hours (M2-13).
+    {
+      name: "unattached-files",
+      everyMs: 10 * 60_000,
+      run: async (now) => void (await sweepUnattachedFiles(pool, s3, now)),
+    },
+  ];
 }

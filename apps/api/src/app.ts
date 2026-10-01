@@ -32,6 +32,8 @@ import { twilioHookRoutes } from "./routes/twilio-hooks.js";
 import { messageTemplateRoutes } from "./routes/message-templates.js";
 import { checkInRoutes } from "./routes/checkin.js";
 import { idCheckRoutes } from "./routes/id-checks.js";
+import { filesRoutes } from "./routes/files.js";
+import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
@@ -175,6 +177,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       checksRoutes(scope, { clock });
       messageTemplateRoutes(scope);
       idCheckRoutes(scope, { clock, wrappingKey: config.auth.secretKey });
+      let s3: S3Settings | null = null;
+      filesRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       checkInRoutes(scope, {
         pool: gatePoolRef!,
         clock,

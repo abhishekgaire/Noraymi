@@ -93,3 +93,5 @@ export { PIN_BLOCKLIST, pinProblem } from "./pins.js";
 export type { PinProblem } from "./pins.js";
 export { ID_SCAN_FIELDS, onlyPackFields, readIdBarcode } from "./id-scan.js";
 export type { IdScanFields } from "./id-scan.js";
+export { FILE_RULES, isFileKind } from "./files.js";
+export type { FileKind } from "./files.js";
