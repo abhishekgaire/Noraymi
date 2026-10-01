@@ -11,6 +11,9 @@ import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
 import type { PushSender } from "../push/sender.js";
 import { TEXT_SEND_KIND, makeSendTextHandler } from "./send-text.js";
 import type { TextSender } from "../texts/sender.js";
+import type { VenueTextClient, VenueTextSettings } from "../texts/venue.js";
+import { MESSAGE_SEND_KIND } from "../texts/queue.js";
+import { makeSendMessageHandler } from "./send-message.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
 import {
   EVENTS_CLEANUP_KIND,
@@ -34,6 +37,12 @@ export interface HandlerDeps {
   readonly email: EmailSettings;
   readonly push: PushSender;
   readonly texts: TextSender;
+  /** Guest texts from each venue's subaccount (M2-09). */
+  readonly venueTexts?: {
+    readonly client: VenueTextClient;
+    readonly settings: Pick<VenueTextSettings, "publicApiUrl">;
+    readonly secretKey: Buffer;
+  };
 }
 
 export function makeHandlers({
@@ -42,6 +51,7 @@ export function makeHandlers({
   email,
   push,
   texts,
+  venueTexts,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   return {
     critical: {},
@@ -49,6 +59,15 @@ export function makeHandlers({
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
       [PUSH_SEND_KIND]: makePushSendHandler(push),
       [TEXT_SEND_KIND]: makeSendTextHandler(texts),
+      ...(venueTexts
+        ? {
+            [MESSAGE_SEND_KIND]: makeSendMessageHandler(
+              venueTexts.client,
+              venueTexts.settings,
+              venueTexts.secretKey,
+            ),
+          }
+        : {}),
     },
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),

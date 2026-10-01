@@ -10,6 +10,7 @@ import { IDEMPOTENCY_CLEANUP_KIND } from "../jobs/idempotency-cleanup.js";
 import { EMAIL_SEND_KIND } from "../jobs/send-email.js";
 import { TEXT_SEND_KIND } from "../jobs/send-text.js";
 import { PUSH_SEND_KIND } from "../push/send-push.js";
+import { MESSAGE_SEND_KIND } from "../texts/queue.js";
 import type { FakePushSender } from "../push/sender.js";
 import { PARAM_SAMPLES, fillUrl, inject, type Cast } from "./fixtures.js";
 
@@ -59,6 +60,7 @@ const EXEMPT_PREFIXES = [
   "/v1/auth/",
   "/v1/devices/",
   "/v1/push/", // the public VAPID key
+  "/v1/hooks/", // webhooks resolve their own venue; each has a case in webhookWallCases below
   "/v1/health",
   "/v1/ops/",
 ];
@@ -279,6 +281,15 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
         ? null
         : `the audit export didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
   },
+  [MESSAGE_SEND_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({ message_id: (c as unknown as { messageB: string }).messageB }),
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the guest text job didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
+  },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
 };
@@ -287,7 +298,7 @@ export async function runJobWalls(
   owner: pg.Pool,
   handlers: Record<"critical" | "normal" | "bulk", Record<string, JobHandler>>,
   clock: Clock,
-  c: Cast & { ownerB: string },
+  c: Cast & { ownerB: string; messageB?: string },
   senders: { push: FakePushSender },
 ): Promise<{ rows: string[]; findings: WallFinding[] }> {
   const rows: string[] = [];
@@ -330,7 +341,11 @@ export async function runJobWalls(
 }
 
 /** Webhook routes resolve only their own venue; each needs a case here once it lands (M2, M4). */
-export const webhookWallCases: Readonly<Record<string, () => Promise<string | null>>> = {};
+export const webhookWallCases: Readonly<Record<string, string>> = {
+  // Resolved by the subaccount, signed with that venue's token, and applied only to that venue's messages:
+  // apps/api/src/routes/twilio-hooks.int.test.ts sends venue B's message SID from venue A's account and sees nothing move.
+  "POST /v1/hooks/twilio/status": "twilio-hooks.int.test.ts · another venue's message never moves",
+};
 
 export function checkWebhooks(routes: readonly RegisteredRoute[]): WallFinding[] {
   return routes

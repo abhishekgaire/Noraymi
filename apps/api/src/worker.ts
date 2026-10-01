@@ -10,6 +10,7 @@ import { loadPushSettings } from "./push/settings.js";
 import { WebPushSender } from "./push/sender.js";
 import { loadTextSettings } from "./texts/settings.js";
 import { LogTextSender, TwilioTextSender } from "./texts/sender.js";
+import { FakeVenueClient, TwilioVenueClient, loadVenueTextSettings } from "./texts/venue.js";
 
 // The job workers and the scheduler (M1-06). Three pools so a slow export
 // never delays a capture; one scheduler leads at a time.
@@ -27,7 +28,16 @@ const textSender = () => {
   const settings = loadTextSettings(config.env);
   return settings.mode === "twilio" ? new TwilioTextSender(settings) : new LogTextSender();
 };
+const venueTextSettings = loadVenueTextSettings(config.env);
 const handlers = makeHandlers({
+  venueTexts: {
+    client:
+      venueTextSettings.mode === "twilio"
+        ? new TwilioVenueClient(venueTextSettings.twilioBaseUrl)
+        : new FakeVenueClient(),
+    settings: venueTextSettings,
+    secretKey: config.auth.secretKey,
+  },
   s3: makeS3(),
   mailer,
   email,

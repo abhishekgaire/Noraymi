@@ -279,3 +279,21 @@ export {
   type CheckRow,
   type LineInput,
 } from "./checks.js";
+export {
+  claimSendAttempt,
+  conversationFor,
+  insertOutbound,
+  markMessage,
+  messageById,
+  recordProviderSid,
+  recordWebhookEvent,
+  saveTwilioIntegration,
+  templateByKey,
+  templates,
+  twilioIntegration,
+  venueForSmsNumber,
+  venueForTwilioAccount,
+  type MessageRow,
+  type TemplateRow,
+  type TwilioIntegration,
+} from "./texts.js";

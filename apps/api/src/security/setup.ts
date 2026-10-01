@@ -15,7 +15,7 @@ import type { WallFixtures } from "./wall-suite.js";
 export interface SuiteWorld {
   readonly db: TestDatabase;
   readonly owner: pg.Pool;
-  readonly cast: Cast & { ownerB: string };
+  readonly cast: Cast & { ownerB: string; messageB: string };
   readonly fixtures: WallFixtures;
   readonly clock: SimulatedClock;
   readonly appOptions: Parameters<typeof buildApp>[0];
@@ -82,7 +82,16 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, 1, 'room', '2026-09-25', $2, $3) returning id`,
     [v.venueB, sessionB.rows[0]!.id, v.ownerB],
   );
-  const cast: Cast & { ownerB: string } = {
+  const conversationB = await owner.query<{ id: string }>(
+    "insert into conversations (venue_id, phone_e164) values ($1, '+12125550100') returning id",
+    [v.venueB],
+  );
+  const messageB = await owner.query<{ id: string }>(
+    `insert into messages (venue_id, conversation_id, direction, category, body, status)
+       values ($1, $2, 'outbound', 'service', 'B''s text', 'sending') returning id`,
+    [v.venueB, conversationB.rows[0]!.id],
+  );
+  const cast: Cast & { ownerB: string; messageB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
     ownerA: v.ownerA,
@@ -91,6 +100,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     bartenderA,
     frontDeskA,
     ownerB: v.ownerB,
+    messageB: messageB.rows[0]!.id,
   };
   const fixtures: WallFixtures = {
     venueOwned: {

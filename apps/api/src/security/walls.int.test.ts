@@ -5,6 +5,7 @@ import { FakeMailer } from "../email/mailer.js";
 import { makeHandlers } from "../jobs/registry.js";
 import { FakePushSender } from "../push/sender.js";
 import { FakeTextSender } from "../texts/sender.js";
+import { FakeVenueClient } from "../texts/venue.js";
 import { suiteWorld, type SuiteWorld } from "./setup.js";
 import { checkWebhooks, runJobWalls, runRouteWalls } from "./wall-suite.js";
 
@@ -39,6 +40,7 @@ describe("the venue wall", () => {
 
   it("every job kind run for venue A with venue B's ids finds nothing", async () => {
     const push = new FakePushSender();
+    const venueClient = new FakeVenueClient();
     const handlers = makeHandlers({
       s3: {
         client: new S3Client({
@@ -58,11 +60,17 @@ describe("the venue wall", () => {
       },
       push,
       texts: new FakeTextSender(),
+      venueTexts: {
+        client: venueClient,
+        settings: { publicApiUrl: null },
+        secretKey: Buffer.alloc(32, 7),
+      },
     });
     const { rows, findings } = await runJobWalls(world.owner, handlers, world.clock, world.cast, {
       push,
     });
     expect(findings, findings.map((f) => `${f.where}: ${f.why}`).join("\n")).toEqual([]);
-    expect(rows.length).toBe(6);
+    expect(rows.length).toBe(7);
+    expect(venueClient.sent).toEqual([]);
   });
 });

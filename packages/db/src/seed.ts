@@ -63,6 +63,7 @@ export interface SeedFile {
   readonly bookings: readonly SeedBooking[];
   readonly sessions: readonly SeedSession[];
   readonly checks: readonly SeedCheck[];
+  readonly texts: readonly SeedText[];
 }
 
 /** An NTAG 424 DNA badge in the seed: the person it's paired to. Its demo UID is derived from its id (DEMO ONLY). */
@@ -180,6 +181,70 @@ export interface SeedCheck {
   readonly opened_at: string;
   readonly lines?: readonly SeedCheckLine[];
 }
+
+export interface SeedText {
+  readonly n: number;
+  readonly id: string;
+  readonly category: "service" | "marketing";
+  readonly on: boolean;
+}
+
+/**
+ * West 4's 14 texts (spec 11), in the seed's wording with named slots where the seed shows one booking's
+ * details. Keys follow the spec's list; the two marketing texts stay off until they have their own opt-in.
+ */
+export const SEED_TEXT_TEMPLATES: Readonly<Record<string, { key: string; body: string }>> = {
+  conf: {
+    key: "booking_confirmed",
+    body: "Booked. Room for {party} at {time}, {date}. A {gratuity} gratuity is added to room tabs. Deposit {deposit} paid, comes off your bill. Free to cancel until {cutoff}: {link}",
+  },
+  rem: {
+    key: "reminder",
+    body: "Tonight at {venue}: room for {party} at {time}. {address}. Reply if anything changes.",
+  },
+  code: {
+    key: "room_code",
+    body: "Welcome to {room}. To order drinks from your phone, scan the code on the wall and enter room code {code}.",
+  },
+  ready: {
+    key: "room_ready",
+    body: "Your room is ready: {room}. You have 10 minutes to claim it at the front desk.",
+  },
+  offer: {
+    key: "offer_expiring",
+    body: "5 minutes left to claim your room at {venue}. After that it goes to the next party in line.",
+  },
+  wrap: {
+    key: "please_wrap_up",
+    body: "10 minutes left in {room}. The next party is here, so please start wrapping up. Thank you!",
+  },
+  ten: {
+    key: "booked_time_ending",
+    body: "Your booked time in {room} ends at {end}. Nobody's booked after you, so you can stay on by the minute until we close at {close}.",
+  },
+  rcpt: { key: "receipt", body: "Thanks for singing with us. Your receipt for {amount}: {link}" },
+  refund: {
+    key: "deposit_refund",
+    body: "Your {amount} deposit for {date} is on its way back to your card. It takes 5–10 days to show.",
+  },
+  paylink: {
+    key: "payment_link",
+    body: "{venue} is holding the {room} for {party} on {date} at {time}. Agree to the terms and pay the {amount} deposit here: {link}",
+  },
+  late: { key: "running_late_reply", body: "No problem. We'll hold your room until {until}." },
+  upnext: {
+    key: "up_next",
+    body: "You're up next at the bar. Come to the stage when this song ends.",
+  },
+  rev: {
+    key: "review_ask",
+    body: "Hope last night was a good one. Two taps to tell Google: {link}",
+  },
+  bday: {
+    key: "birthday",
+    body: "Your birthday's coming up. Book a room this month and the first song's on us.",
+  },
+};
 
 export interface SeedDevice {
   readonly id: string;
@@ -638,6 +703,11 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_blocks",
+      "messages",
+      "conversations",
+      "message_templates",
+      "webhook_events",
+      "integrations",
       "check_lines",
       "checks",
       "venue_counters",
@@ -834,6 +904,24 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`guests: ${seed.guests.length}, bookings: ${seed.bookings.length}`);
+
+    // The 14 texts (M2-09), in the spec's order; marketing ones off.
+    for (const text of seed.texts) {
+      const tpl = SEED_TEXT_TEMPLATES[text.id];
+      if (!tpl) throw new Error(`no template wording for the seed's text ${text.id}`);
+      await client.query(
+        `insert into message_templates (venue_id, key, position, category, body, "on") values ($1, $2, $3, $4, $5, $6)`,
+        [
+          venueId,
+          tpl.key,
+          text.n,
+          text.category,
+          tpl.body,
+          text.category === "marketing" ? false : text.on,
+        ],
+      );
+    }
+    log(`texts: ${seed.texts.length}`);
 
     // Room sessions and their clock segments (M2-07): the eight rooms in use at 10:41 PM.
     // check_id is the check's stable id; the checks themselves load in M3.

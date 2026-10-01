@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "twilio:subaccount": "tsx src/texts/setup-subaccount.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1142.0",

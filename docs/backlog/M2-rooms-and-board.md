@@ -210,7 +210,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** Room 9's #1042, $158.00 of drinks and the $480.00 tab so far; 20 numbers taken at once are all different and run on from #1054; two check-ins at once get two numbers; a reused number is refused by the database; `app_rw` can't update a line's amount, delete a line or change a check's number.
 ### M2-09 · Set up West 4's Twilio subaccount and send texts from `message_templates`
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-06, M1-13, M2-06
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Texts through Twilio, The automatic texts; [Data model](../spec/04-data-model.md) · `integrations`, `conversations`, `messages`, `message_templates`, `webhook_events`; [Security and data retention](../spec/12-security-retention.md) 8; [Demo seed · Texts and the inbox](../demo-seed.md#texts-and-the-inbox)
@@ -222,14 +222,18 @@ Definition of done: see CLAUDE.md.
   - Service texts go to the number the guest gave for that booking or waitlist spot. Only +1 numbers, with Twilio's SMS pumping protection on and rate limits per number prefix. A template that's off never sends, and with Guest texts off no service text sends.
   - Staging sends only to our own test phones.
 - **Acceptance:**
-  - [ ] A Room ready text to Amara B. is written as `sending`, then becomes `sent` and `delivered` from Twilio's callbacks.
-  - [ ] The same send job retried after a crash sends nothing twice, and a repeated callback changes nothing.
-  - [ ] A failed callback marks the message `failed`.
-  - [ ] A text to a number outside +1 is refused, and staging refuses a number outside our test phones.
-  - [ ] Review ask and Birthday never send.
+  - [x] A Room ready text to Amara B. is written as `sending`, then becomes `sent` and `delivered` from Twilio's callbacks.
+  - [x] The same send job retried after a crash sends nothing twice, and a repeated callback changes nothing.
+  - [x] A failed callback marks the message `failed`.
+  - [x] A text to a number outside +1 is refused, and staging refuses a number outside our test phones.
+  - [x] Review ask and Birthday never send.
 - **Tests:** integration tests against Twilio's test credentials and a fake callback sender; a signature test for the webhook.
 - **Notes:** Texts go live on West 4's registered 10DLC campaign in M8. Marketing texts need their own opt-in (M5) and campaign (M8).
-
+  - **Waiting on the founder:** West 4's real subaccount. No Twilio credentials are configured here (`.env.example` holds placeholders), so nothing was created at Twilio. `pnpm --filter @west4/api twilio:subaccount -- --venue west4karaoke --number +1…` makes the subaccount through our platform account, moves a number we already own into it and records it in `integrations`; it never buys a number. Run it once our platform account and a number exist, then turn on SMS pumping protection for the subaccount.
+  - **Built:** migration `0032_texts.sql` (`integrations` with the subaccount's token encrypted in `config.secret_enc`; `resolve_sms_number` and `resolve_twilio_account`, definer doors that return a venue id only; `message_templates`; `conversations`; `messages` with an `attempted_at` claim; `webhook_events`, run once by `(provider, event_id)`); `packages/db/src/texts.ts`; the 14 templates in the seed in the spec's order with West 4's wording and named slots (`SEED_TEXT_TEMPLATES`), marketing off; `apps/api/src/texts/queue.ts` (`queueText` writes the message as `sending` with its words and enqueues `message.send`); `apps/api/src/jobs/send-message.ts`; `apps/api/src/texts/venue.ts` (the Twilio client for a subaccount, the signature check, settings); `POST /v1/hooks/twilio/status`.
+  - **Never twice:** the job claims the one attempt (`attempted_at`) in its own committed transaction before calling Twilio; a retried job finds it taken and stops. A send that errors marks the message `failed` and isn't retried, because Twilio may have sent it; staff see "Not delivered · Call" (M2-26). Callbacks only move a message forward (sending, sent, delivered; failed from either) and each `(sid, status)` runs once.
+  - **What's refused:** numbers outside +1 (NANP, area and exchange can't start with 0 or 1); staging numbers outside `TEXT_ALLOW_LIST`; a template that's off; any marketing text; any service text with Guest texts off; and more than 30 texts an hour to one +1 area code from one venue (cautious default, flagged; the spec names limits per prefix without a number).
+  - **Tests:** against a local stand-in for Twilio's Messages API and a fake callback sender that signs the way Twilio does (no test credentials are configured): Room ready to Amara B. goes sending, sent, delivered; a retried job sends nothing; repeated and late callbacks change nothing; a bad signature or unknown account is refused; undelivered marks failed; +44, staging and marketing refusals; another venue's message never moves. The wall suites cover the new job kind and the webhook.
 ### M2-10 · Build Admin → Phone & texts and Admin → Texts
 
 - **Status:** todo
