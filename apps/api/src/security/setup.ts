@@ -112,6 +112,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into lost_items (venue_id, description, found_by, found_at, kept_at) values ($1, 'B''s scarf', $2, now(), 'bar') returning id",
     [v.venueB, v.ownerB],
   );
+  const callB = await owner.query<{ id: string }>(
+    "insert into room_calls (venue_id, session_id, kind, created_at) values ($1, $2, 'tv', now()) returning id",
+    [v.venueB, sessionB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -137,6 +141,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       f: faultB.rows[0]!.id,
       noteId: noteB.rows[0]!.id,
       itemId: itemB.rows[0]!.id,
+      callId: callB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

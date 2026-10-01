@@ -33,6 +33,7 @@ export const pushJobPayload = z
     audience: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("person"), user_id: z.string().uuid() }).strict(),
       z.object({ kind: z.literal("role"), role: z.string().min(1) }).strict(),
+      z.object({ kind: z.literal("everyone") }).strict(),
     ]),
     message: z
       .object({
@@ -63,7 +64,9 @@ export async function enqueuePush(
     audience:
       args.audience.kind === "person"
         ? { kind: "person", user_id: args.audience.userId }
-        : { kind: "role", role: args.audience.role },
+        : args.audience.kind === "everyone"
+          ? { kind: "everyone" }
+          : { kind: "role", role: args.audience.role },
     message: args.message,
   };
   return enqueue(client, {
@@ -97,7 +100,9 @@ export function makePushSendHandler(sender: PushSender): JobHandler {
     const audience: PushAudience =
       payload.audience.kind === "person"
         ? { kind: "person", userId: payload.audience.user_id }
-        : { kind: "role", role: payload.audience.role };
+        : payload.audience.kind === "everyone"
+          ? { kind: "everyone" }
+          : { kind: "role", role: payload.audience.role };
     const { venueName, targets } = await step(async (c) => {
       const venue = await c.query<{ name: string }>("select name from venues where id = $1", [
         job.venue_id,

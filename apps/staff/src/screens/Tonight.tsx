@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
+import { CallsList } from "./Calls.js";
 import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
@@ -271,6 +272,7 @@ export function Tonight() {
               }}
             />
           )}
+          <CallsList venueId={venueId} compact />
           {moving && (
             <MoveSheet
               venueId={venueId}

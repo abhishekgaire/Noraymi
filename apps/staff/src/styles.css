@@ -768,3 +768,8 @@ button.danger {
   object-fit: cover;
   border-radius: 6px;
 }
+/* A pink board alert (room calls, M2-20). */
+.room-clock.alert-pink {
+  border-color: #e0287d;
+  background: color-mix(in srgb, #e0287d 8%, var(--surface, transparent));
+}

@@ -41,7 +41,9 @@ export async function savePushSubscription(
 /** Who gets a push: one person's phones, or every phone of a role at the venue. */
 export type PushAudience =
   | { readonly kind: "person"; readonly userId: string }
-  | { readonly kind: "role"; readonly role: string };
+  | { readonly kind: "role"; readonly role: string }
+  /** Every staff phone at the venue (room calls, M2-20). */
+  | { readonly kind: "everyone" };
 
 /** Live subscriptions on live, paired staff phones for the audience. A revoked device's subscription is never returned. */
 export async function activePushSubscriptions(
@@ -55,6 +57,8 @@ export async function activePushSubscriptions(
      join memberships m on m.venue_id = d.venue_id and m.user_id = d.user_id and m.status = 'active'
      where s.venue_id = $1 and s.revoked_at is null
        and d.kind = 'staff_phone' and d.revoked_at is null and d.disabled_at is null`;
+  if (audience.kind === "everyone")
+    return (await client.query<PushTargetRow>(`${base} order by s.created_at`, [venueId])).rows;
   const r =
     audience.kind === "person"
       ? await client.query<PushTargetRow>(`${base} and d.user_id = $2 order by s.created_at`, [

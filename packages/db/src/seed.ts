@@ -717,6 +717,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
+      "room_calls",
       "room_faults",
       "room_notes",
       "lost_items",
@@ -1017,6 +1018,25 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       }
     }
     log(`room sessions: ${seed.sessions.length}, ID checks: ${idRows}`);
+
+    // Room calls (M2-20): the board alert "Room 9 called for another mic, 2 min ago".
+    let calls = 0;
+    for (const alert of (seed as { board_alerts?: { text: string }[] }).board_alerts ?? []) {
+      const m = /^Room (\w+) called for another mic, (\d+) min ago/.exec(alert.text);
+      if (!m) continue;
+      const session = seed.sessions.find((x) => x.room === `room_${m[1]!.toLowerCase()}`);
+      if (!session) continue;
+      await client.query(
+        "insert into room_calls (venue_id, session_id, kind, created_at) values ($1, $2, 'mic', $3)",
+        [
+          venueId,
+          id(session.id),
+          new Date(SEED_NOW.subtract({ minutes: Number(m[2]) }).epochMilliseconds),
+        ],
+      );
+      calls++;
+    }
+    log(`room calls: ${calls}`);
 
     // Checks (M2-08): all 13, numbered in the order they opened, with Room 9's #1042 fixed; their lines in
     // order, a comp pointing at the line it reverses. Room checks were opened by the front desk, bar checks by

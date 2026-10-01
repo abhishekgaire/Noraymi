@@ -38,6 +38,7 @@ import { faultRoutes } from "./routes/faults.js";
 import { partySizeRoutes } from "./routes/party-size.js";
 import { moveRoutes } from "./routes/move.js";
 import { roomCareRoutes } from "./routes/room-care.js";
+import { callRoutes } from "./routes/calls.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
@@ -188,6 +189,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       partySizeRoutes(scope, { clock });
       moveRoutes(scope, { clock });
       roomCareRoutes(scope, { clock });
+      callRoutes(scope, { clock });
       approvalRoutes(scope, { clock });
       let s3: S3Settings | null = null;
       filesRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });

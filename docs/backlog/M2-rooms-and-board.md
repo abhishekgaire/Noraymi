@@ -464,7 +464,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-20 · Send room calls to the board and every staff phone's Calls list
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-22, M2-07
 - **Spec:** [N19 Calls list](../screens.md#n19-calls-list); [Data model](../spec/04-data-model.md) · `room_calls`; [API](../spec/08-api.md) · Live events (`room.call`); [Staff](../screens.md#staff) note 9
@@ -474,11 +474,18 @@ Definition of done: see CLAUDE.md.
   - A "TV or song isn't working" call can be logged as a fault in one tap (M2-16).
   - The guest's Call staff button comes with the room page in M3, where the guest reads "Staff get it on their phones".
 - **Acceptance:**
-  - [ ] The seed's Room 9 call, "Another mic, please" at 10:39 PM, shows as a pink board alert with [On it] and in the Calls list on Andy's, Maya's and Diego's phones, with a push.
-  - [ ] Diego's On it clears it on the board and on every phone, and records Diego and the time.
-  - [ ] A "TV or song isn't working" call becomes a fault on its room with one tap.
+  - [x] The seed's Room 9 call, "Another mic, please" at 10:39 PM, shows as a pink board alert with [On it] and in the Calls list on Andy's, Maya's and Diego's phones, with a push.
+  - [x] Diego's On it clears it on the board and on every phone, and records Diego and the time.
+  - [x] A "TV or song isn't working" call becomes a fault on its room with one tap.
 - **Tests:** integration tests; Playwright for the Calls list on a phone.
 - **Notes:** Help alerts are incidents, not calls, and come in M8.
+  - Built: migration 0038 (`room_calls`, walled and audited); `apps/api/src/rooms/calls.ts` (`createCall`, `ackCall`, `callToFault`, `openCalls`); `GET /calls`, `POST /calls/{callId}/ack`, `POST /calls/{callId}/fault` in `routes/calls.ts`. A new push audience, `everyone` (every live staff phone at the venue), carries a call's push. The staff app has a Calls tab on every phone (`screens/Calls.tsx`) and the same list as a pink alert strip at the top of the board.
+  - `room.call` goes on the room's channel and to the board and phones; On it sends it again (entity version 1) so every screen drops it.
+  - The seed's call comes from the board alert "Room 9 called for another mic, 2 min ago": a `mic` call on Room 9's session at 10:39 PM.
+  - The words for the four kinds: "Another mic, please" (the spec's), and "TV or song isn't working" (N14's); "The check, please" and "Someone, please come by" for check and other are new catalog strings (English and Spanish) the spec doesn't name. A call turned into a fault uses "TV or song isn't working" in the language of the person who taps, and marks the call On it.
+  - Nothing creates a call yet except the service: the guest's Call staff button and its route come with the room page in M3.
+  - The acceptance's "on Andy's, Maya's and Diego's phones" is tested with three subscribed phones receiving the push; the Playwright test runs the Calls list on Andy's phone (Maya's and Diego's phone sign-in is the PIN path, already tested in M1).
+
 
 ### M2-21 · Add the damage fee with a photo
 

@@ -1690,3 +1690,50 @@ test("cleaning and the lost-and-found log: Room 6 marked clean, a scarf found in
     await db.end();
   }
 });
+
+/**
+ * The Calls list on a phone (M2-20, N19): Room 9's "Another mic, please" shows
+ * on Andy's phone and on the board; On it clears it everywhere and records him.
+ */
+test("the Calls list on a phone: Room 9's mic call, On it clears it on the board too", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    // The board in a second window, signed in as the same person.
+    const board = await browser.newPage({ storageState: await page.context().storageState() });
+    await board.setViewportSize({ width: 1280, height: 800 });
+    await board.goto("/tonight");
+    const boardCall = board.getByRole("listitem", { name: "Room 9 · Another mic, please" });
+    await expect(boardCall).toBeVisible();
+
+    await page.getByRole("link", { name: "Calls" }).last().click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Calls");
+    const call = page.getByRole("listitem", { name: "Room 9 · Another mic, please" });
+    await expect(call).toContainText("min ago");
+    expect(await clippedText(page)).toEqual([]);
+    await call.getByRole("button", { name: "On it" }).click();
+    await expect(page.getByText("No calls")).toBeVisible();
+    await expect(boardCall).toHaveCount(0);
+    const acked = await db.query<{ name: string }>(
+      "select u.name from room_calls k join users u on u.id = k.acked_by where k.kind = 'mic'",
+    );
+    expect(acked.rows).toEqual([{ name: "Andy C." }]);
+    await board.close();
+  } finally {
+    await db.end();
+  }
+});
