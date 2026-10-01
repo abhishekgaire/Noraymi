@@ -156,17 +156,24 @@ export interface PhoneTab {
 }
 
 export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
-  const home = context.role === "staff" ? runs : context.role === "bartender" ? menu[1]! : menu[0]!;
-  const tabs: PhoneTab[] = [{ id: "home", labelKey: home.labelKey, path: home.path }];
+  const can = (a: Action) => context.permissions.includes(a);
+  const tabs: PhoneTab[] = [];
+  // The role's own home first: Runs for runners, the bar POS for bartenders (M3 and M1).
+  if (context.role === "staff") tabs.push({ id: "home", labelKey: runs.labelKey, path: runs.path });
+  if (context.role === "bartender")
+    tabs.push({ id: "home", labelKey: menu[1]!.labelKey, path: menu[1]!.path });
+  // Tonight's bookings and check-in, for everyone who checks guests in (runners too).
+  if (can("guests.checkin")) tabs.push({ id: "tonight", labelKey: "tabs.tonight", path: "/today" });
+  if (context.role !== "staff")
+    tabs.push({ id: "rooms", labelKey: "tabs.rooms", path: "/tonight" });
   tabs.push({ id: "calls", labelKey: "tabs.calls", path: "/calls" });
-  if (context.permissions.includes("waitlist.manage") && context.modules.waitlist !== "off")
+  if (can("waitlist.manage") && context.modules.waitlist !== "off")
     tabs.push({ id: "waitlist", labelKey: "waitlist.title", path: "/waitlist" });
-  if (context.permissions.includes("texts.send"))
+  if (can("texts.send") && context.modules.guest_texts !== "off")
     tabs.push({ id: "messages", labelKey: "menu.messages", path: "/messages" });
-  tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
-  if (context.permissions.includes("approvals.decide"))
+  if (can("approvals.decide"))
     tabs.push({ id: "approvals", labelKey: "menu.approvals", path: "/approvals" });
-  if (context.permissions.includes("admin.access"))
-    tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
+  tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
+  if (can("admin.access")) tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;
 }

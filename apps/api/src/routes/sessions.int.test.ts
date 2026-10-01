@@ -187,5 +187,16 @@ describe("the room clock", () => {
     );
     expect(states.rows.length).toBe(closing.length);
     expect(states.rows.every((r) => r.state === "wrap_up")).toBe(true);
+    // Every staff phone hears each wrap-up once (M2-32): a second sweep queues no more.
+    const pushes = async () =>
+      (
+        await raw.query(
+          "select 1 from jobs where kind = 'push.send' and payload->'message'->>'key' = 'push.wrapUp' and payload->'audience'->>'kind' = 'everyone'",
+        )
+      ).rowCount;
+    const first = await pushes();
+    expect(first).toBeGreaterThan(0);
+    await sweepWrapUps(pool, at("04:01", "2026-09-26"));
+    expect(await pushes()).toBe(first);
   });
 });

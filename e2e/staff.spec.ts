@@ -2258,3 +2258,145 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
     await db.end();
   }
 });
+
+/**
+ * The staff phone's tabs (M2-32), on a phone, from a fresh seed. Andy's
+ * Tonight lists the 11 bookings as the seed's table has them, with Leo M.'s
+ * walk-in in the room view; Sam O.'s Details offer Check in and Mark no-show
+ * only from 10:45; Marcus T.'s seated booking offers neither; turning off
+ * Walk-in waitlist removes the Waitlist tab at once. A runner's phone shows
+ * check-in, the waitlist and Calls, and no Approvals.
+ */
+test("the staff phone: Andy's Tonight, booking actions by status, and a runner's tabs", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const tabs = page.locator(".tabs");
+    await tabs.getByRole("link", { name: "Tonight", exact: true }).click();
+    await expect(page).toHaveURL(/\/today$/);
+    await expect(page.getByLabel("Room counts")).toHaveText(
+      "8 in room · 3 open · 2 cleaning · 1 out of service",
+    );
+    const rows = page.getByRole("list", { name: "Bookings tonight" }).getByRole("listitem");
+    await expect(rows).toHaveText([
+      /^7:00\sPM · Tanya W\. · 9 · Room 10 · 3 hr · \$90\.00Seated$/,
+      /^8:00\sPM · Marcus T\. · 12 · Room 9 · 3 hr · \$120\.00Seated$/,
+      /^8:30\sPM · Rob & Kim · 7 · Room 7 · 2 hr · \$70\.00Seated$/,
+      /^8:45\sPM · Priya R\. · 5 · Room 3 · 2 hr · \$50\.00Seated$/,
+      /^9:00\sPM · Omar F\. · 14 · Room 12 · 3 hr · \$140\.00Seated$/,
+      /^9:30\sPM · Dana K\. · 4 · Room 1 · 2 hr · \$40\.00Seated$/,
+      /^9:30\sPM · Bianca L\. · 22 · VIP room · 3 hr · \$250\.00Seated$/,
+      /^10:30\sPM · Sam O\. · 3 · Room 2 · 1 hr · \$40\.00Late · held until 10:45\sPM$/,
+      /^11:00\sPM · Jae & co\. · 5 · Room 3 · 2 hr · \$50\.00Booked$/,
+      /^11:00\sPM · The Parks · 8 · Room 7 · 2 hr · \$80\.00Booked$/,
+      /^11:00\sPM · The Nguyens · 6 · Room 8 · 2 hr · \$60\.00Booked$/,
+    ]);
+    await expect(
+      page.getByRole("list", { name: "Room by room" }).getByRole("listitem", { name: "Room 5" }),
+    ).toHaveText("Room 5 Leo M. · 4");
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.getByRole("listitem", { name: "Sam O." }).getByRole("button").click();
+    let sheet = page.getByRole("dialog", { name: "Sam O." });
+    await expect(sheet.getByRole("button", { name: "Check in" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Mark no-show" })).toHaveCount(0);
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("listitem", { name: "Marcus T." }).getByRole("button").click();
+    sheet = page.getByRole("dialog", { name: "Marcus T." });
+    await expect(sheet.getByRole("button", { name: "Check in" })).toHaveCount(0);
+    await expect(sheet.getByRole("button", { name: "Mark no-show" })).toHaveCount(0);
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:45:00Z" } })).ok(),
+    ).toBe(true);
+    await page.reload();
+    await page.getByRole("listitem", { name: "Sam O." }).getByRole("button").click();
+    await expect(
+      page.getByRole("dialog", { name: "Sam O." }).getByRole("button", { name: "Mark no-show" }),
+    ).toBeVisible();
+
+    // Walk-in waitlist off: the Waitlist tab goes at once.
+    await expect(tabs.getByRole("link", { name: "Waitlist" })).toBeVisible();
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    await db.query(
+      "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'waitlist'",
+      [v],
+    );
+    await db.query(
+      "insert into venue_events (venue_id, type, entity_id, entity_version, audience) values ($1::uuid, 'settings.changed', $1::text, 0, 'venue')",
+      [v],
+    );
+    await expect(tabs.getByRole("link", { name: "Waitlist" })).toHaveCount(0);
+    await db.query(
+      "update venue_modules set state = 'on' where venue_id = $1 and module_id = 'waitlist'",
+      [v],
+    );
+
+    // A runner's phone, signed in the way staff are: an invite, a texted code, their own PIN.
+    const RUNNER = "runner-test@demo.west4.local";
+    const RUNNER_PHONE = "+12125550177";
+    await db.query(
+      "delete from auth_sessions where user_id in (select id from users where email = $1)",
+      [RUNNER],
+    );
+    await db.query("delete from users where email = $1", [RUNNER]);
+    const user = await db.query<{ id: string }>(
+      "insert into users (name, email) values ('Rae T.', $1) returning id",
+      [RUNNER],
+    );
+    const membership = await db.query<{ id: string }>(
+      `insert into memberships (venue_id, user_id, role, status, pin_digits, locale)
+         values ($1, $2, 'staff', 'invited', 4, 'en') returning id`,
+      [v, user.rows[0]!.id],
+    );
+    const token = randomBytes(32).toString("base64url");
+    await db.query(
+      `insert into invites (venue_id, membership_id, token_hash, expires_at) values ($1, $2, $3, now() + interval '2 days')`,
+      [v, membership.rows[0]!.id, createHash("sha256").update(token).digest("hex")],
+    );
+    const runner = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await runner.goto(`/invite/${token}`);
+    await runner.getByLabel("Your mobile number").fill(RUNNER_PHONE);
+    await runner.getByRole("button", { name: "Text me a code" }).click();
+    await expect(runner.getByText(`We texted a code to ${RUNNER_PHONE}`)).toBeVisible();
+    const code = await db.query<{ payload: { data: { code: string } } }>(
+      "select payload from jobs where kind = 'text.send' and payload->>'to' = $1 order by created_at desc limit 1",
+      [RUNNER_PHONE],
+    );
+    await runner.getByLabel("The code from the text").fill(code.rows[0]!.payload.data.code);
+    await runner.getByRole("button", { name: "Confirm" }).click();
+    await runner.getByLabel("Choose your PIN", { exact: true }).fill("7193");
+    await runner.getByLabel("Type it again").fill("7193");
+    await runner.getByRole("button", { name: "Set my PIN" }).click();
+    await expect(runner.getByRole("status")).toContainText("You're set");
+    await runner.goto("/sign-in");
+    await typePin(runner, "7193");
+    const runnerTabs = runner.locator(".tabs");
+    await expect(runnerTabs.getByRole("link", { name: "Tonight", exact: true })).toBeVisible();
+    await expect(runnerTabs.getByRole("link", { name: "Calls" })).toBeVisible();
+    await expect(runnerTabs.getByRole("link", { name: "Waitlist" })).toBeVisible();
+    await expect(runnerTabs.getByRole("link", { name: "Approvals" })).toHaveCount(0);
+    await expect(runnerTabs.getByRole("link", { name: "Rooms" })).toHaveCount(0);
+    await runner.close();
+  } finally {
+    await db.end();
+  }
+});

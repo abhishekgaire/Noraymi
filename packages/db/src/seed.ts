@@ -149,6 +149,8 @@ export interface SeedSession {
   readonly id: string;
   readonly room: string;
   readonly booking: string | null;
+  /** The party's guest: the booking's, or a walk-in's (Leo M. in Room 5). */
+  readonly guest?: string | null;
   readonly started_at: string;
   readonly booked_end_at: string | null;
   readonly business_date: string;
@@ -976,8 +978,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     // check_id is the check's stable id; the checks themselves load in M3.
     for (const sess of seed.sessions) {
       await client.query(
-        `insert into room_sessions (id, venue_id, room_id, booking_id, check_id, party_size, started_at, booked_end_at, business_date)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `insert into room_sessions (id, venue_id, room_id, booking_id, check_id, party_size, started_at, booked_end_at, business_date, guest_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           id(sess.id),
           venueId,
@@ -988,6 +990,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
           sess.started_at,
           sess.booked_end_at,
           sess.business_date,
+          sess.guest ? id(sess.guest) : null,
         ],
       );
       for (const seg of sess.segments) {

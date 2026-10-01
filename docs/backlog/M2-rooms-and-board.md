@@ -744,7 +744,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-32 · Build the staff phone's Tonight, Rooms, Calls and Waitlist tabs
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-11, M2-15, M2-20, M2-25, M2-26
 - **Spec:** [Staff](../screens.md#staff); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 1, The board and staff phones; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Staff phones; [Demo seed · Bookings tonight](../demo-seed.md#bookings-tonight)
@@ -754,12 +754,19 @@ Definition of done: see CLAUDE.md.
   - Each booking's Details sheet offers actions by status: Check in only for a booking not yet seated, Mark no-show only after the grace, the Room ready text only before check-in, and "Let them stay" only when nobody is booked next.
   - Tabs follow the modules and the role: every staff phone gets Calls; runners get check-in and the waitlist only (Runs comes in M3); Approvals (M2-15) shows on managers' and owners' phones only. The phone opens the person signed in, with their role's tabs. Pushes for calls and wrap-up alerts.
 - **Acceptance:**
-  - [ ] Andy's phone lists the 11 bookings exactly as [Bookings tonight](../demo-seed.md#bookings-tonight), and the room view shows Leo M.'s walk-in in Room 5.
-  - [ ] Sam O.'s row offers Check in, and Mark no-show only from 10:45 PM; Marcus T.'s seated booking offers neither.
-  - [ ] Turning off Walk-in waitlist removes the Waitlist tab at once.
-  - [ ] A runner's phone shows Calls, check-in and the waitlist, and no Approvals.
+  - [x] Andy's phone lists the 11 bookings exactly as [Bookings tonight](../demo-seed.md#bookings-tonight), and the room view shows Leo M.'s walk-in in Room 5.
+  - [x] Sam O.'s row offers Check in, and Mark no-show only from 10:45 PM; Marcus T.'s seated booking offers neither.
+  - [x] Turning off Walk-in waitlist removes the Waitlist tab at once.
+  - [x] A runner's phone shows Calls, check-in and the waitlist, and no Approvals.
 - **Tests:** Playwright on a phone size for each role.
 - **Notes:** [Staff](../screens.md#staff) notes 2, 3, 6, 7, 8, 9, 12, 13, 15, 16 and 19 now, with note 14's call and wrap-up pushes; note 1 and the rest of 14 in M3; 4's Reopen and 5 in M4; 11 in M6; 10 and 17 in M8.
+  - Built: the phone's Tonight (`screens/PhoneTonight.tsx` at `/today`): the counts ("8 in room · 3 open · 2 cleaning · 1 out of service"), tonight's bookings in time order ("7:00 PM · Tanya W. · 9 · Room 10 · 3 hr · $90.00", Seated, Late · held until 10:45 PM, Booked), each opening a Details sheet with Check in only before check-in, Mark no-show only after the grace, Text: room ready only before check-in (`POST /bookings/{b}/room-ready-text`), and Let them stay only when nobody is booked next in the room; and the room-by-room view. Rooms is the board (M2-29), Calls (M2-20), Waitlist (M2-25 and 26).
+  - Tabs by role (`phoneTabs`): the role's own home first for runners (Runs, M3) and bartenders (the bar POS); Tonight for everyone who checks guests in; Rooms except for runners; Calls for everyone; Waitlist with the module on; Messages for those who text; Approvals for managers and owners only; Alerts; Admin. The shell refreshes the signed-in session on `settings.changed`, so switching Walk-in waitlist off removes its tab at once.
+  - Walk-ins keep their guest: `room_sessions.guest_id` (migration 0042; spec 04 updated), set at check-in and by the seed, so Room 5 reads "Leo M. · 4".
+  - Pushes: calls already went to every staff phone (M2-20); a room entering wrap-up now pushes every staff phone once per booked end.
+  - "Let them stay" moves the booked end an hour on from now or the current end, whichever is later, refused if that reaches a booking (cautious: the spec names no length; flagged).
+  - The runner test signs in the way staff do: an invite, a texted code and their own PIN on their phone.
+
 
 ### M2-33 · Build the Calendar on desktop and phone
 

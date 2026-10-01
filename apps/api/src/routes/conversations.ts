@@ -23,6 +23,7 @@ import type { VenueTextSettings } from "../texts/venue.js";
  *        { body } a free-text reply, or { template_key, params } a template text
  *   POST /v1/venues/{v}/conversations/{conversationId}/running-late   { until? } Reply "no problem"
  *   POST /v1/venues/{v}/messages/{messageId}/opt-out           staff mark a guest's text as an opt-out (M2-23)
+ *   POST /v1/venues/{v}/bookings/{bookingId}/room-ready-text  the Details sheet's Room ready, only before check-in (M2-32)
  *   POST /v1/venues/{v}/sessions/{sessionId}/wrap-up-text      the board's [Text Rob & Kim: please wrap up] (M2-24)
  *   GET  /v1/venues/{v}/texts                                 the 14 automatic texts in Admin's order, on or off
  */
@@ -240,6 +241,51 @@ export function conversationRoutes(
             params: { room: s.room_name },
             guestId: s.guest_id,
             context: { kind: "session", id: request.params.sessionId },
+            sentBy: userId,
+            now: options.clock.now(),
+          },
+          options.texts,
+        );
+      });
+      return reply.code(201).send({ message_id: result.messageId });
+    },
+  );
+
+  app.post<{ Params: { venueId: string; bookingId: string } }>(
+    "/v1/venues/:venueId/bookings/:bookingId/room-ready-text",
+    { config: write },
+    async (request, reply) => {
+      const userId = who(request);
+      const venueId = request.venueId!;
+      const result = await request.inVenue(async (c) => {
+        const b = (
+          await c.query<{
+            status: string;
+            room_name: string | null;
+            guest_id: string;
+            phone: string | null;
+          }>(
+            `select b.status, r.name as room_name, g.id as guest_id, g.phone_e164 as phone
+               from bookings b join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+               left join rooms r on r.venue_id = b.venue_id and r.id = b.room_id
+              where b.venue_id = $1 and b.id = $2`,
+            [venueId, request.params.bookingId],
+          )
+        ).rows[0];
+        if (!b) throw new ApiError("not_found", "no such booking");
+        if (b.status !== "pending" && b.status !== "confirmed")
+          throw new ApiError("invalid_request", "Room ready goes only before check-in");
+        if (!b.phone || !b.room_name)
+          throw new ApiError("invalid_request", "this booking has no number or no room");
+        return queueText(
+          c,
+          venueId,
+          {
+            templateKey: "room_ready",
+            to: b.phone,
+            params: { room: b.room_name },
+            guestId: b.guest_id,
+            context: { kind: "booking", id: request.params.bookingId },
             sentBy: userId,
             now: options.clock.now(),
           },

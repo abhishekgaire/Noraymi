@@ -7,7 +7,7 @@ import {
   type ModuleStates,
   type Role,
 } from "@west4/shared";
-import { hiddenScreens, homeFor, menu, visibleMenu } from "./navigation.js";
+import { hiddenScreens, homeFor, menu, phoneTabs, visibleMenu } from "./navigation.js";
 
 const allowedFor = (role: Role): Action[] => actions.filter((a) => defaultPermissions[a][role]);
 const everythingOn: ModuleStates = Object.fromEntries(
@@ -88,5 +88,38 @@ describe("the side menu", () => {
       ["front_desk", "/tonight"],
       ["staff", "/runs"],
     ]);
+  });
+});
+
+describe("the staff phone's tabs (M2-32)", () => {
+  const tabsFor = (role: Role, modules: ModuleStates = everythingOn) =>
+    phoneTabs({ role, modules, permissions: allowedFor(role) }).map((t) => t.id);
+
+  it("a manager's phone: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Alerts and Admin", () => {
+    expect(tabsFor("manager")).toEqual([
+      "tonight",
+      "rooms",
+      "calls",
+      "waitlist",
+      "messages",
+      "approvals",
+      "alerts",
+      "admin",
+    ]);
+  });
+
+  it("a runner's phone: Runs, check-in and the waitlist, and Calls; no Approvals, no Rooms", () => {
+    expect(tabsFor("staff")).toEqual(["home", "tonight", "calls", "waitlist", "alerts"]);
+  });
+
+  it("every staff phone gets Calls; only managers and owners get Approvals", () => {
+    for (const role of roles) {
+      expect(tabsFor(role)).toContain("calls");
+      expect(tabsFor(role).includes("approvals")).toBe(role === "owner" || role === "manager");
+    }
+  });
+
+  it("turning off Walk-in waitlist removes the Waitlist tab", () => {
+    expect(tabsFor("front_desk", { ...everythingOn, waitlist: "off" })).not.toContain("waitlist");
   });
 });

@@ -175,8 +175,8 @@ async function seat(ctx: Context, input: SeatInput) {
     const sessionId = (
       await c.query<{ id: string }>(
         `insert into room_sessions (venue_id, room_id, booking_id, party_size, started_at, booked_end_at, business_date,
-           server_user_id, room_code_hash, token_version, host_token_hash)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10) returning id`,
+           server_user_id, room_code_hash, token_version, host_token_hash, guest_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11) returning id`,
         [
           input.venueId,
           room.id,
@@ -188,6 +188,7 @@ async function seat(ctx: Context, input: SeatInput) {
           input.userId,
           hashRoomCode(input.venueId, code),
           createHash("sha256").update(hostToken).digest("hex"),
+          input.guest.id,
         ],
       )
     ).rows[0]!.id;

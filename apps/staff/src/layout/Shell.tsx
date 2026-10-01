@@ -46,8 +46,8 @@ export function Shell() {
 
 function Frame({ membership, name }: { membership: Membership; name: string }) {
   const { t, time, date } = useT();
-  const { lock } = useSession();
-  const { connected } = useEvents();
+  const { lock, refresh } = useSession();
+  const { connected, subscribe } = useEvents();
   const navigate = useNavigate();
   const location = useLocation();
   const venueTime = useVenueTime(membership.venue.time_zone, membership.venue.day_cutover);
@@ -74,6 +74,15 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   }, [membership.venue.name, t]);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+
+  // A module switched on or off in Admin changes the menu and the tabs at once (M2-32).
+  useEffect(
+    () =>
+      subscribe((events) => {
+        if (events.some((e) => e.type === "settings.changed")) void refresh();
+      }),
+    [subscribe, refresh],
+  );
 
   const onLock = () => {
     void lock().then(() => navigate("/sign-in", { replace: true }));
