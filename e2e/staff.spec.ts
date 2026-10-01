@@ -2400,3 +2400,80 @@ test("the staff phone: Andy's Tonight, booking actions by status, and a runner's
     await db.end();
   }
 });
+
+/**
+ * The Calendar on desktop and phone (M2-33), from a fresh seed: Tonight's 11
+ * bookings and not Leo M.; a 22-guest booking at 11:00 PM tonight is refused
+ * (Bianca L. holds the VIP room) and one at 9:00 PM too (past); blocking Sat
+ * Sep 26 lists the bookings it affects and marks the day closed.
+ */
+test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 26", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.getByRole("link", { name: "Calendar" }).first().click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Calendar");
+    const readTonight = async (p: Page) => {
+      await expect(p.getByRole("heading", { level: 2 }).first()).toContainText(
+        "Tonight · Fri, Sep 25",
+      );
+      const list = p.getByRole("list", { name: "Bookings" }).getByRole("listitem");
+      await expect(list).toHaveCount(11);
+      await expect(p.getByRole("list", { name: "Bookings" })).not.toContainText("Leo M.");
+      expect(await clippedText(p)).toEqual([]);
+    };
+    await readTonight(page);
+
+    const tryBooking = async (time: string, expected: string) => {
+      await page.getByRole("button", { name: "New booking" }).click();
+      const form = page.getByRole("form", { name: "New booking" });
+      await form.getByLabel("Name").fill("Test Party");
+      await form.getByLabel("Guests").fill("22");
+      await form.getByLabel("Time").fill(time);
+      await form.getByRole("button", { name: "Book it" }).click();
+      await expect(page.getByRole("alert")).toHaveText(expected);
+      await form.getByRole("button", { name: "Cancel" }).click();
+    };
+    await tryBooking("23:00", "That room isn't free then");
+    await tryBooking("21:00", "That time has passed");
+
+    await page.getByRole("button", { name: /^Sat, Sep 26/ }).click();
+    const saturday = await db.query<{ n: number }>(
+      "select count(*)::int as n from bookings where business_date = '2026-09-26' and status in ('pending', 'confirmed')",
+    );
+    await page.getByRole("button", { name: "Block this date" }).click();
+    const dialog = page.getByRole("dialog", { name: "Block this date" });
+    await expect(dialog).toContainText(`This date has ${saturday.rows[0]!.n} bookings:`);
+    await expect(dialog.getByRole("listitem")).toHaveCount(saturday.rows[0]!.n);
+    await dialog.getByRole("button", { name: "Block the date" }).click();
+    await expect(page.getByRole("button", { name: /^Sat, Sep 26/ })).toContainText("Closed");
+
+    const phone = await browser.newPage({
+      storageState: await page.context().storageState(),
+      viewport: { width: 390, height: 844 },
+    });
+    await phone.goto("/calendar");
+    await readTonight(phone);
+    await phone.close();
+  } finally {
+    await db.end();
+  }
+});

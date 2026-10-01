@@ -26,6 +26,7 @@ import { Messages } from "./screens/Messages.js";
 import { Waitlist } from "./screens/Waitlist.js";
 import { RoomScreen } from "./screens/RoomScreen.js";
 import { PhoneTonight } from "./screens/PhoneTonight.js";
+import { Calendar } from "./screens/Calendar.js";
 import { SessionProvider, useSession, type SessionState } from "./session.js";
 import { isShared, readDevice } from "./device.js";
 import { startHeartbeats } from "./heartbeat.js";
@@ -102,6 +103,7 @@ export function StaffRoutes() {
         <Route path="/waitlist" element={<Waitlist />} />
         <Route path="/room/:roomId" element={<RoomScreen />} />
         <Route path="/today" element={<PhoneTonight />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/admin" element={<Admin />}>
           <Route index element={<AdminIndex />} />
           <Route path="team" element={<Team />} />

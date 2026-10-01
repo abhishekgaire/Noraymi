@@ -770,7 +770,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-33 · Build the Calendar on desktop and phone
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-12, M2-06
 - **Spec:** [DeskCalendar](../screens.md#deskcalendar); [Calendar](../screens.md#calendar); [API](../spec/08-api.md) · Bookings; [Payment flows](../spec/07-payment-flows.md) · Deposit when booking online (steps 6 and 7)
@@ -780,11 +780,16 @@ Definition of done: see CLAUDE.md.
   - Blocked and special dates (`closures`), with the list of the bookings a blocked date affects.
   - The hold wording from the spec: an online slot holds a real room for 10 minutes, and a payment link holds it until `pending_until`.
 - **Acceptance:**
-  - [ ] Both calendars list the seed's 11 bookings for Fri Sep 25, and Leo M. isn't among them.
-  - [ ] A new VIP-room booking at 11:00 PM tonight is refused (Bianca L.'s party holds it until 12:30 AM), and so is one at 9:00 PM tonight (already past).
-  - [ ] Blocking Sat Sep 26 lists every booking on that date.
+  - [x] Both calendars list the seed's 11 bookings for Fri Sep 25, and Leo M. isn't among them.
+  - [x] A new VIP-room booking at 11:00 PM tonight is refused (Bianca L.'s party holds it until 12:30 AM), and so is one at 9:00 PM tonight (already past).
+  - [x] Blocking Sat Sep 26 lists every booking on that date.
 - **Tests:** Playwright on desktop and phone sizes.
 - **Notes:** [Calendar](../screens.md#calendar) notes 1 and 4 and [DeskCalendar](../screens.md#deskcalendar) notes 1, 4 and 5 now. The big-party payment link and its hold (notes 2 and 3) and "Cancel and refund all" for a blocked date need payments, so they come in M5; the spec doesn't fix the payment-link hold's length.
+  - Built: `GET /bookings/days` (the days ahead from Tonight on the venue's clock, each with its booking count and any closure) and `screens/Calendar.tsx` at `/calendar`, now in the side menu for those who manage bookings: the days in a grid ("Tonight · Fri, Sep 25 · 11 bookings"), the chosen day's bookings, New booking (name, mobile, guests, time, length, and the rooms free then with how long each is free, or the smallest that fits), and Block this date, which lists the day's bookings before it blocks it. The hold wording sits under the day.
+  - Refusals come from the API's own checks: a past time ("That time has passed") and a room taken then ("That room isn't free then"). The VIP refusal also shows when no room is chosen, since the VIP room is the only one that fits 22.
+  - Fixed on the way: a seed load didn't wipe `closures`, so a date blocked in one run stayed blocked after reseeding. The loader now owns closures.
+  - The big-party payment link and its hold, and "Cancel and refund all" for a blocked date, need payments and come in M5.
+
 
 ### M2-34 · Add rates, bands, minimums and limits to Admin → Hours & prices, and build Admin → Alerts & rules
 

@@ -56,7 +56,7 @@ export const menu: readonly MenuEntry[] = [
     path: "/calendar",
     screen: "calendar",
     action: "bookings.manage",
-    shipped: false,
+    shipped: true,
   },
   {
     id: "messages",

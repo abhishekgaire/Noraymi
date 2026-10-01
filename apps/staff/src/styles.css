@@ -940,3 +940,12 @@ button.danger {
 .bookings-list li {
   margin-bottom: 4px;
 }
+/* The Calendar (M2-33): the days ahead in a grid that wraps, so nothing is cut off. */
+.days {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}

@@ -114,6 +114,39 @@ export function bookingsRoutes(app: FastifyInstance, options: { clock: Clock }):
     return businessDate(options.clock.now(), v.timeZone, v.dayCutover).businessDate;
   };
 
+  /** The days ahead with their bookings (M2-33: the Calendar), from tonight on the venue's clock. */
+  app.get<{ Params: VenueParams; Querystring: { days?: string } }>(
+    "/v1/venues/:venueId/bookings/days",
+    { config: read },
+    async (request) =>
+      request.inVenue(async (c) => {
+        const from = await today(c, request.venueId!);
+        const days = Math.min(90, Math.max(1, Number(request.query.days ?? 14) || 14));
+        const counts = await c.query<{ business_date: string; bookings: number }>(
+          `select business_date::text, count(*)::int as bookings from bookings
+            where venue_id = $1 and business_date >= $2::date and business_date < $2::date + $3::int
+              and status in ('pending', 'confirmed', 'checked_in', 'completed')
+            group by business_date`,
+          [request.venueId, from.toString(), days],
+        );
+        const closed = await c.query<{ date: string; kind: string }>(
+          `select date::text, kind from closures where venue_id = $1 and date >= $2::date and date < $2::date + $3::int`,
+          [request.venueId, from.toString(), days],
+        );
+        return {
+          tonight: from.toString(),
+          days: Array.from({ length: days }, (_, i) => {
+            const d = from.add({ days: i }).toString();
+            return {
+              business_date: d,
+              bookings: counts.rows.find((r) => r.business_date === d)?.bookings ?? 0,
+              closure: closed.rows.find((r) => r.date === d)?.kind ?? null,
+            };
+          }),
+        };
+      }),
+  );
+
   app.get<{ Params: VenueParams; Querystring: { business_date?: string } }>(
     "/v1/venues/:venueId/bookings",
     { config: read },
