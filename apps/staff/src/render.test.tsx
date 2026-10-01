@@ -77,6 +77,7 @@ const screens = [
   "/setup",
   "/admin",
   "/admin/team",
+  "/admin/features",
   "/nowhere",
 ];
 

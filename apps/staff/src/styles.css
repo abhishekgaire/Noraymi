@@ -531,3 +531,69 @@ button.danger {
   display: grid;
   gap: 4px;
 }
+
+/* Admin → Features (M1-32). */
+.module-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.module {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel);
+}
+.module-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.module-head h3 {
+  margin: 0 0 4px;
+}
+.module-head p {
+  margin: 0 0 4px;
+}
+.module-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.module-state button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pill {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+.module-hides {
+  margin: 8px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.module-hides > dt {
+  grid-column: 1 / -1;
+}
+.module-hides dt {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.module-hides dd {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.module-off h3 {
+  color: var(--muted);
+}

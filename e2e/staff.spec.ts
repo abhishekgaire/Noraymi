@@ -14,6 +14,8 @@ import { catalogs } from "@west4/shared";
  */
 const ANDY = "andy@demo.west4.local";
 const ABHISHEK = "abhishek@demo.west4.local";
+/** The Admin sections shipped so far; each M1 Admin ticket adds its path to the Spanish check. */
+const ADMIN_SECTIONS = ["/admin/team", "/admin/features"];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
 async function enrolPasskey(
@@ -564,7 +566,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await diegoRow.getByLabel("Role", { exact: true }).selectOption("front_desk");
     await expect.poll(async () => (await diegoRole()).role).toBe("front_desk");
 
-    // With Abhishek in Español, Team is Spanish through and through.
+    // With Abhishek in Español, every M1 Admin section is Spanish through and through.
     await page.getByRole("button", { name: "Switch to Español" }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Equipo");
     const es = matchers("es");
@@ -573,28 +575,33 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
       (await db.query<{ name: string }>("select name from users")).rows.map((r) => r.name),
     );
     const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...names]);
-    // innerText joins a table row's cells with tabs: check each cell on its own.
-    const cells = (await visibleTexts(page)).flatMap((line) =>
-      line.split("\t").map((c) => c.trim()),
-    );
-    for (const text of cells) {
-      if (
-        text === "" ||
-        data.has(text) ||
-        text.includes("@") ||
-        /^\d{1,2}:\d{2}\s?([ap]\.\s?m\.|[AP]M)$/.test(text)
-      )
-        continue;
-      expect(
-        es.some((m) => m.test(text)),
-        `not Spanish: "${text}"`,
-      ).toBe(true);
-      expect(
-        enOnly.some((m) => m.test(text)),
-        `English on a Spanish screen: "${text}"`,
-      ).toBe(false);
+    for (const path of ADMIN_SECTIONS) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+      await expect(page.getByRole("status").filter({ hasText: "Cargando" })).toHaveCount(0);
+      // innerText joins a table row's cells with tabs: check each cell on its own.
+      const cells = (await visibleTexts(page)).flatMap((line) =>
+        line.split("\t").map((c) => c.trim()),
+      );
+      for (const text of cells) {
+        if (
+          text === "" ||
+          data.has(text) ||
+          text.includes("@") ||
+          /^\d{1,2}:\d{2}\s?([ap]\.\s?m\.|[AP]M)$/.test(text)
+        )
+          continue;
+        expect(
+          es.some((m) => m.test(text)),
+          `${path} not Spanish: "${text}"`,
+        ).toBe(true);
+        expect(
+          enOnly.some((m) => m.test(text)),
+          `${path} English on a Spanish screen: "${text}"`,
+        ).toBe(false);
+      }
+      expect(await clippedText(page), path).toEqual([]);
     }
-    expect(await clippedText(page)).toEqual([]);
     await page.getByRole("button", { name: "Cambiar a English" }).click();
 
     // Andy's Admin: no Team, Payments or Console, and /admin/team says it's the owner's.
@@ -630,6 +637,98 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
   } finally {
     await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Features (M1-32). At West 4, 13 modules are on and Song system
+ * control and Marketing texts are off; the four phase 2 modules don't show.
+ * Bar screen & tickets carries the escalation sentence, and nothing says
+ * "Orders ring the bar until accepted". Turning it off asks "Room orders would
+ * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
+ * and they come back on in order.
+ */
+test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const stateOf = async (id: string) =>
+    (
+      await db.query<{ state: string }>("select state from venue_modules where module_id = $1", [
+        id,
+      ])
+    ).rows[0]!.state;
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/features");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
+    await expect(page.getByText("13 on · 2 off")).toBeVisible();
+    const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
+    for (const off of ["Song system control", "Marketing texts"]) {
+      await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    }
+    await expect(
+      stateGroup("Rooms & room clock").getByRole("button", { name: "On" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    for (const phase2 of [
+      "Kitchen & food",
+      "Event sales",
+      "Guests, loyalty & gift cards",
+      "Multiple locations",
+    ]) {
+      await expect(page.getByText(phase2)).toHaveCount(0);
+    }
+    await expect(page.getByText("Always on")).toHaveCount(4);
+    await expect(
+      page.getByText(
+        "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",
+      ),
+    ).toBeVisible();
+    expect((await visibleTexts(page)).some((t) => /ring the bar until/i.test(t))).toBe(false);
+    expect(await clippedText(page)).toEqual([]);
+
+    // The confirm: Keep it on changes nothing.
+    const question = "Room orders would have nowhere to ring. Turn off Ordering from the room too?";
+    await stateGroup("Bar screen & tickets").getByRole("button", { name: "Off" }).click();
+    await expect(page.getByText(question)).toBeVisible();
+    await page.getByRole("button", { name: "Keep it on" }).click();
+    await expect(page.getByText(question)).toHaveCount(0);
+    expect(await stateOf("bar_screen")).toBe("on");
+    expect(await stateOf("room_ordering")).toBe("on");
+
+    // Turn off turns both off; the side menu loses Bar orders at once; then back on, in order.
+    await stateGroup("Bar screen & tickets").getByRole("button", { name: "Off" }).click();
+    await page.getByRole("button", { name: "Turn off", exact: true }).click();
+    await expect.poll(() => stateOf("room_ordering")).toBe("off");
+    expect(await stateOf("bar_screen")).toBe("off");
+    await expect(page.getByText("11 on · 4 off")).toBeVisible();
+    await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
+    await expect.poll(() => stateOf("bar_screen")).toBe("on");
+    await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
+    await expect.poll(() => stateOf("room_ordering")).toBe("on");
+    await expect(page.getByText("13 on · 2 off")).toBeVisible();
+  } finally {
+    await db.query(
+      "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
+    );
     await db.end();
   }
 });

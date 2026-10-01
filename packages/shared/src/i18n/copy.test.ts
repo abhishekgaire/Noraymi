@@ -30,5 +30,19 @@ describe("the words on screen", () => {
       "Admin needs your passkey. Open it in the desktop app or in a browser.",
     );
     expect(catalogs.en["signIn.noBadge"]).toBe("No badge? Tap your name, then your PIN");
+    // The escalation sentence (glossary): Admin → Features describes Bar screen & tickets with it.
+    expect(catalogs.en["module.bar_screen.description"]).toBe(
+      "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",
+    );
+  });
+
+  it('never describes escalation as "ring the bar until accepted" (the alarm toggle is gone)', () => {
+    for (const locale of ["en", "es"] as const) {
+      for (const [key, value] of Object.entries(catalogs[locale])) {
+        expect(value, `${locale}.${key}`).not.toMatch(
+          /ring(s)? the bar until|hasta que (alguien )?acepte/i,
+        );
+      }
+    }
   });
 });

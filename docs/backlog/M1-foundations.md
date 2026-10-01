@@ -826,7 +826,7 @@ Definition of done: see CLAUDE.md.
   - **Later tickets:** M1-32 to M1-34 flip their sections to shipped in `sections.ts` and add themselves to the Spanish check in `e2e/staff.spec.ts`; M7 adds tip eligibility and training mode to `PATCH /team/{m}` and the Team table.
 ### M1-32 · Build Admin → Features
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-13, M1-31
 - **Spec:** [AdminDesk](../screens.md#admindesk) notes 11, 12 and 22; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Modules, What each module hides; [Glossary · The escalation sentence](../glossary.md#the-escalation-sentence)
@@ -836,12 +836,14 @@ Definition of done: see CLAUDE.md.
   - Bar screen & tickets described with the one escalation sentence: "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup."
   - Live counts ("5 open bar tabs · 8 rooms in use" at 10:41 PM on the seed) fill in as M2 and M6 add rooms and tabs.
 - **Acceptance:**
-  - [ ] At West 4, Features shows 13 modules on and Song system control and Marketing texts off, and doesn't show the four phase 2 modules.
-  - [ ] Turning off Bar screen & tickets shows "Room orders would have nowhere to ring. Turn off Ordering from the room too?".
-  - [ ] No module text says "Orders ring the bar until accepted".
+  - [x] At West 4, Features shows 13 modules on and Song system control and Marketing texts off, and doesn't show the four phase 2 modules.
+  - [x] Turning off Bar screen & tickets shows "Room orders would have nowhere to ring. Turn off Ordering from the room too?".
+  - [x] No module text says "Orders ring the bar until accepted".
 - **Tests:** Playwright for the confirms; a copy test for the escalation sentence.
-- **Notes:** The canvas and the glossary count "13 of 19", but spec 03 says no phase 1 screen shows the four phase 2 modules; build the spec and let the count follow what's shown (flagged).
-
+- **Notes:** The canvas and the glossary count "13 of 19", but spec 03 says no phase 1 screen shows the four phase 2 modules; built the spec, and the count follows what can be switched: "13 on · 2 off" over the 15 switchable phase 1 modules, with the four core ones reading "Always on" and staying out of the count (flagged).
+  - **Built:** Admin → Features in `apps/staff/src/screens/admin/Features.tsx`: every phase 1 module from `GET /modules` with On / Stopping / Off, "Always on" for core modules, "Not in your plan" when the Console hasn't allowed one, its needs, and the four-column "Off hides" table from spec 03 (60 strings per language, `module.<id>.hides.*`). Bar screen & tickets carries the escalation sentence (`module.bar_screen.description`). The confirms come from the API's `needs_confirm` answer and are worded from the catalog in the person's language. After a change the session refreshes, so the side menu drops or regains the module's screens at once.
+  - **Tests:** the copy test pins the escalation sentence word for word and fails any catalog string that says "ring the bar until accepted"; Playwright checks 13 on and 2 off, no phase 2 module, "Always on" ×4, the Keep-it-on and Turn-off paths of the Bar screen & tickets confirm, and the Spanish pass over every shipped Admin section.
+  - **Later tickets:** live counts ("5 open bar tabs · 8 rooms in use") have no source yet; M2 and M6 add them to the heading line. "Stopping" is offered now and the API already refuses new work in it.
 ### M1-33 · Build Admin → Hours & prices: weekly hours, the house last call and special dates
 
 - **Status:** todo
