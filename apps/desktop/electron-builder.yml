@@ -1,0 +1,33 @@
+# Packaging and code signing (M1-28, spec 12 · 10). Builds are signed when the
+# certificates are in the environment: macOS from CSC_LINK and CSC_KEY_PASSWORD
+# (a Developer ID Application certificate) and notarised with APPLE_ID,
+# APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID; Windows from CSC_LINK and
+# CSC_KEY_PASSWORD (a code-signing certificate). Without them the build is
+# unsigned and only for a developer's own machine. Updates (M1-29) are the
+# signed builds published as GitHub releases.
+appId: com.west4.staff
+productName: West 4 Staff
+directories:
+  output: release
+files:
+  - dist/**
+  - package.json
+asar: true
+mac:
+  category: public.app-category.business
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  notarize: true
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: true
+publish:
+  provider: github
+  owner: abhishekgaire
+  repo: Noraymi

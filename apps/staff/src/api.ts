@@ -22,8 +22,16 @@ export class NetworkError extends Error {}
 const TOKEN_KEY = "west4.staff.token";
 let token: string | null = null;
 
+const desktop = () => (typeof window === "undefined" ? undefined : window.west4);
+
 export function setSessionToken(value: string | null): void {
   token = value;
+  const shell = desktop();
+  if (shell) {
+    // The keychain holds it; no plain file ever does.
+    void (value ? shell.token.set(value) : shell.token.clear()).catch(() => {});
+    return;
+  }
   try {
     if (value) sessionStorage.setItem(TOKEN_KEY, value);
     else sessionStorage.removeItem(TOKEN_KEY);
@@ -32,8 +40,20 @@ export function setSessionToken(value: string | null): void {
   }
 }
 
+/** Before the first render: the desktop shell hands back the token it kept. */
+export async function loadSessionToken(): Promise<void> {
+  const shell = desktop();
+  if (!shell) return;
+  try {
+    token = await shell.token.get();
+  } catch {
+    token = null;
+  }
+}
+
 export function sessionToken(): string | null {
   if (token) return token;
+  if (desktop()) return null;
   try {
     token = sessionStorage.getItem(TOKEN_KEY);
   } catch {

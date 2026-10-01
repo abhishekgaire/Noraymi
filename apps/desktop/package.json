@@ -1,17 +1,22 @@
 {
   "name": "@west4/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsc -b && electron .",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "build": "tsc -b && electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
-    "@west4/shared": "workspace:*"
+    "@west4/rules": "workspace:*",
+    "@west4/shared": "workspace:*",
+    "better-sqlite3-multiple-ciphers": "13.0.3"
   },
   "devDependencies": {
-    "electron": "44.4.5"
-  }
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "description": "The staff app on the bar and front-desk computers: Electron with the security checklist, a keychain-held token and an encrypted cache."
 }

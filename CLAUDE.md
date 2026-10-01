@@ -120,6 +120,7 @@ pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm format             # Prettier --write
+pnpm --filter @west4/desktop build   # package the desktop app with electron-builder; signed and notarised only when the certificates are in the environment (apps/desktop/electron-builder.yml)
 ```
 
 Copy `.env.example` to `.env` for local values. `DATABASE_URL` is the table owner (migrations); `APP_DATABASE_URL` is `app_rw`, what the API connects as. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.

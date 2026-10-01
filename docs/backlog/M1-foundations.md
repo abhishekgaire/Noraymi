@@ -732,7 +732,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-28 · Build the Electron desktop shell with its security checklist
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-15, M1-21
 - **Spec:** [Scope and architecture](../spec/01-scope-architecture.md) · Desktop app; [Security and data retention](../spec/12-security-retention.md) 6 and 10, How long we keep things (desktop cache); [Glossary · Desktop app](../glossary.md#people-devices-and-access)
@@ -743,12 +743,18 @@ Definition of done: see CLAUDE.md.
   - An encrypted SQLite cache (SQLCipher) keyed through `safeStorage`, holding only the current business date and wiped at the cutover. The offline view that reads it comes in M8.
   - The app follows `min_client_version`: an older build keeps working and updates between business days (M1-29).
 - **Acceptance:**
-  - [ ] The renderer can't reach Node.js (`require` fails), and an IPC message from an unexpected frame is refused.
-  - [ ] Navigating to a host that isn't ours is blocked.
-  - [ ] The cache file can't be read without the key, and after 6:00 AM it holds nothing from the business date before.
-  - [ ] No token is in any plain file on disk.
+  - [x] The renderer can't reach Node.js (`require` fails), and an IPC message from an unexpected frame is refused.
+  - [x] Navigating to a host that isn't ours is blocked.
+  - [x] The cache file can't be read without the key, and after 6:00 AM it holds nothing from the business date before.
+  - [x] No token is in any plain file on disk.
 - **Tests:** one automated test per checklist item; a cache test on the simulated clock.
 - **Notes:** The alarm sound and the USB print host come in M3, the drawer kick in M4, and the offline view and queue mode in M8.
+  - **Built.** `apps/desktop/src/main.ts`: one window on `STAFF_URL` with `contextIsolation`, `sandbox`, `nodeIntegration: false` and `app.enableSandbox()`; `will-navigate` limited to our origins (`STAFF_URL` and `API_URL`, `security.ts`), every new window denied, webviews refused, every permission request refused. `preload.cts` (sandboxed, so CommonJS) exposes one narrow `window.west4` bridge: the app version, the token (get, set, clear) and the venue's clock for the cache. Every IPC handler is wrapped in `guarded()`: the sender must be the main frame of a page on one of our origins, else "refused: unexpected sender".
+  - **Keychain.** `keychain.ts` `SealedStore`: the bearer token (`session.token`) and the cache key (`cache.key`) are written only as bytes sealed by `safeStorage`; when the keychain isn't available the store throws rather than write a plain file. The staff app (`api.ts`) hands its token to the bridge inside the desktop and never touches `sessionStorage` there; `main.tsx` loads the token back before the first render.
+  - **Cache.** `cache.ts` `DesktopCache`: SQLCipher through `better-sqlite3-multiple-ciphers` (prebuilt for Node and for Electron's Node, no rebuild step), keyed by the sealed key, holding `rows (kind, id, body)` for one business date plus the venue's clock in `meta`. `put` and `wipeIfPastCutover` compute the business date with `packages/rules` `businessDate`; at 6:00 AM on the venue's clock everything from the day before goes, checked at start, each minute and whenever the staff app signs in. The offline view that reads it is M8.
+  - **Version and builds.** `version.ts` `isBelowMinimum` reads `min_client_version` against the build; M1-29 acts on it between business days. `electron-builder.yml` packages signed, notarised builds when the certificates are in the environment (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), publishing to the GitHub repo for updates; without certificates a build is unsigned and for a developer's machine only. **Founder's decision pending:** an Apple Developer account and a Windows code-signing certificate before any staff computer runs a build.
+  - **Device key.** The screen's signing key stays in the renderer's IndexedDB, non-extractable, as in the browser (M1-26); the main process never sees it.
+  - **Tests.** `apps/desktop/src/*.test.ts`: the origin and sender checks, the sealed store (no plaintext on disk, refusal without a keychain, a key made once), the cache on the simulated clock (rows kept at 5:59 AM, gone at 6:00 AM, unreadable without the key or with another, no plaintext in the file, the clock kept across opens), and the version compare. `e2e/desktop.spec.ts`: no `require` or `process` in the page and the three preferences on, navigation to another host blocked and `window.open` denied, the sender check refusing a page on another origin, and the kept token found in no file under the app's data folder.
 
 ### M1-29 · Add the watchdog, start at login, keep awake and updates at the cutover
 

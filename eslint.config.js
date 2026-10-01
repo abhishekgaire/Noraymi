@@ -30,6 +30,11 @@ export default tseslint.config(
     },
   },
   {
+    // The desktop preload (M1-28) is sandboxed CommonJS: require is the only way in.
+    files: ["apps/desktop/src/**/*.cts"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     // The staff service worker (M1-22) runs in a worker scope, not a window.
     files: ["apps/staff/public/sw.js"],
     languageOptions: {

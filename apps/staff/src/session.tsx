@@ -92,6 +92,14 @@ export function SessionProvider({
         setState({ status: "signedOut", reason: "none" });
         return;
       }
+      // The desktop shell keeps the venue's clock for its cache (M1-28).
+      void window.west4?.venue
+        .configure({
+          time_zone: membership.venue.time_zone,
+          day_cutover: membership.venue.day_cutover,
+          server_time: me.server_time,
+        })
+        .catch(() => {});
       setState({ status: "signedIn", me, membership });
     } catch (error) {
       // No session is 403 (nobody), a dead one is 401 (session_expired or session_locked).
