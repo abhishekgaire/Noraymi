@@ -937,4 +937,5 @@ export const en = {
   "alertsRules.roomEnding": "Warn this many minutes before a room's booked end",
   "alertsRules.roomEnding.hint":
     "The tile turns amber, and the wrap-up texts go out, this long before the end.",
+  "signIn.submitPin": "Sign in",
 } as const;

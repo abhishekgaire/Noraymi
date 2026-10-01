@@ -2746,3 +2746,70 @@ for (const size of SIZES) {
     });
   });
 }
+
+/**
+ * A manager's own phone signs in with a 6-digit PIN (a founder's report): the
+ * pad waits for all six digits instead of trying the first four.
+ */
+test("a manager's phone: the PIN pad waits for all 6 digits", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    await db.query(
+      "delete from auth_credentials where user_id = (select id from users where email = $1)",
+      [ANDY],
+    );
+    await db.query("update memberships set locale = 'en'");
+    const token = randomBytes(32).toString("base64url");
+    await db.query(
+      `insert into invites (venue_id, membership_id, token_hash, expires_at)
+         select m.venue_id, m.id, $2, now() + interval '2 days'
+           from memberships m join users u on u.id = m.user_id where m.venue_id = $1 and u.email = $3`,
+      [v, createHash("sha256").update(token).digest("hex"), ANDY],
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2",
+        transport: "internal",
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    await page.goto(`/invite/${token}`);
+    await page.getByLabel("Your mobile number").fill("+12125550166");
+    await page.getByRole("button", { name: "Text me a code" }).click();
+    await expect(page.getByText("We texted a code to +12125550166")).toBeVisible();
+    const code = await db.query<{ payload: { data: { code: string } } }>(
+      "select payload from jobs where kind = 'text.send' and payload->>'to' = $1 order by created_at desc limit 1",
+      ["+12125550166"],
+    );
+    await page.getByLabel("The code from the text").fill(code.rows[0]!.payload.data.code);
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await page.getByLabel("Choose your PIN", { exact: true }).fill("502330");
+    await page.getByLabel("Type it again").fill("502330");
+    await page.getByRole("button", { name: "Set my PIN" }).click();
+    await page.getByRole("button", { name: "Add a passkey" }).click();
+    await expect(page.getByText("You're set · sign in with your passkey")).toBeVisible();
+    // A new session on this phone: its owner's PIN, all six digits.
+    await page.context().clearCookies();
+    await page.goto("/sign-in");
+    await expect(page.getByText("Your PIN")).toBeVisible();
+    await typePin(page, "5023");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await typePin(page, "30");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    void request;
+  } finally {
+    await db.end();
+  }
+});

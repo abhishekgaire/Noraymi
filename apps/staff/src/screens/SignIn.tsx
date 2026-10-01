@@ -68,6 +68,7 @@ export function SignIn() {
   const [tiles, setTiles] = useState<TilesAnswer | null>(null);
   const [chosen, setChosen] = useState<Tile | null>(null);
   const [pin, setPin] = useState("");
+  const [submitNow, setSubmitNow] = useState(false);
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -136,7 +137,14 @@ export function SignIn() {
   };
 
   // The PIN pad submits by itself when the PIN is complete.
-  const digits = chosen ? pinDigits(chosen.role) : device?.kind === "staff_phone" ? 6 : 4;
+  // On a person's own phone the pad waits for their PIN's length; a phone set up before it was
+  // remembered waits for 6, with a Sign in button for a 4-digit PIN (never a guess at 4 that counts as wrong).
+  const phoneDigits = device?.kind === "staff_phone" ? (device.pinDigits ?? null) : null;
+  const digits = chosen
+    ? pinDigits(chosen.role)
+    : device?.kind === "staff_phone"
+      ? (phoneDigits ?? 6)
+      : 4;
   useEffect(() => {
     if (!device || busy) return;
     const shared = isShared(device);
@@ -148,8 +156,7 @@ export function SignIn() {
         ? pin.length
         : 0;
     if (shared && (!chosen || pin.length !== needed)) return;
-    if (!shared && pin.length < 4) return;
-    if (!shared && pin.length < 6 && pin.length !== 4) return;
+    if (!shared && pin.length !== (phoneDigits ?? 6) && !submitNow) return;
     const submit = async () => {
       setBusy(true);
       setError(null);
@@ -164,11 +171,12 @@ export function SignIn() {
         failPin(e);
       } finally {
         setBusy(false);
+        setSubmitNow(false);
       }
     };
     void submit();
-    // Runs when the PIN reaches its length.
-  }, [pin]);
+    // Runs when the PIN reaches its length, or on Sign in for a 4-digit PIN.
+  }, [pin, submitNow]);
 
   // A badge on the reader takes over at once, whoever's tile is open.
   useEffect(() => {
@@ -399,6 +407,16 @@ export function SignIn() {
         <section className="pin-entry" aria-label={t("signIn.yourPin")}>
           <p className="pin-for">{t("signIn.yourPin")}</p>
           <Keypad digits={digits} value={pin} onChange={setPin} disabled={busy} />
+          {phoneDigits === null && pin.length === 4 && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => setSubmitNow(true)}
+            >
+              {t("signIn.submitPin")}
+            </button>
+          )}
         </section>
         <p className="muted small">{t("signIn.pinAgainRule")}</p>
         <LanguageSwitch />

@@ -146,6 +146,7 @@ export function Invite() {
           kind: "staff_phone",
           name: phoneName(),
           privateKey: key.privateKey,
+          pinDigits: page.pin_digits,
           venue: null,
         });
       if (done.enrol_code && done.email)

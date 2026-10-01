@@ -952,4 +952,5 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "alertsRules.roomEnding": "Avisar estos minutos antes del final reservado",
   "alertsRules.roomEnding.hint":
     "La sala se pone ámbar, y salen los textos para terminar, este tiempo antes del final.",
+  "signIn.submitPin": "Iniciar sesión",
 };

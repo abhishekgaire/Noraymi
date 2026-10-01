@@ -18,6 +18,8 @@ export interface StoredDevice {
   readonly kind: DeviceKind;
   readonly name: string;
   readonly privateKey: CryptoKey;
+  /** A staff phone's owner's PIN length, so the pad waits for every digit (4 for staff, 6 for owners and managers). */
+  readonly pinDigits?: 4 | 6;
   readonly venue: {
     readonly name: string;
     readonly time_zone: string;
