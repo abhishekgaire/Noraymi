@@ -6,8 +6,7 @@ import type { MenuCategory } from "@west4/db";
  * PDF (real text, headings and reading order). Hidden items are left out by
  * the caller; 86 lasts one night, so it doesn't change the PDF (flagged).
  */
-const escape = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const money = (cents: number) =>
   `$${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 
