@@ -14,6 +14,8 @@ import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
 import { devicesRoutes } from "./routes/devices.js";
 import { pushRoutes } from "./routes/push.js";
+import { teamRoutes } from "./routes/team.js";
+import { invitesRoutes } from "./routes/invites.js";
 import { loadPushSettings, type PushSettings } from "./push/settings.js";
 import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
@@ -153,6 +155,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock });
       pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
+      teamRoutes(scope, {
+        clock,
+        email: options.email ?? { allowList: null },
+        staffAppUrl: config.staffAppUrl,
+      });
+      invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey });
     }
     await options.extraRoutes?.(scope);
   });

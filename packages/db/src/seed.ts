@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { LOCAL_DEV_AUTH_KEY, encryptSecret, parseAuthSecretKey, recoveryCodeHash } from "./auth.js";
+import { pinVerifier } from "./pins.js";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,6 +73,8 @@ export interface SeedPerson {
   readonly locale: "en" | "es";
   /** DEMO ONLY (M1-19): a placeholder address the owner or manager signs in with. */
   readonly demo_email?: string;
+  /** DEMO ONLY (M1-23): the fix brief's demo PIN, stored as a verifier like a real one; never loaded in production. */
+  readonly demo_pin?: string;
   /** DEMO ONLY (M1-19): a fixed authenticator-app secret (base32), loaded only when AUTH_SECRET_KEY is set. */
   readonly demo_totp_secret?: string;
   /** DEMO ONLY (M1-20): fixed recovery codes for the demo owner, stored hashed like real ones. */
@@ -525,6 +528,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       [venueId],
     );
     for (const table of [
+      "invites",
+      "phone_codes",
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
@@ -544,6 +549,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       ((process.env["WEST4_ENV"] ?? "local") === "local" ? LOCAL_DEV_AUTH_KEY : undefined);
     let totpLoaded = 0;
     let codeSetsLoaded = 0;
+    let pinsLoaded = 0;
     for (const person of seed.team) {
       const userId = remember(person.id, "users");
       await client.query(
@@ -572,10 +578,16 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         totpLoaded += 1;
       }
       const membershipId = remember(`${person.id}.membership`, "memberships");
+      // DEMO ONLY (M1-23): the demo PINs become verifiers like real ones, never stored plain. The seed never runs in production.
+      const verifier =
+        authKey && person.demo_pin
+          ? await pinVerifier(parseAuthSecretKey(authKey), venueId, membershipId, person.demo_pin)
+          : null;
+      if (verifier) pinsLoaded += 1;
       await client.query(
-        `insert into memberships (id, venue_id, user_id, role, status, pin_digits, locale)
-         values ($1, $2, $3, $4, 'active', $5, $6)`,
-        [membershipId, venueId, userId, person.role, person.pin_digits, person.locale],
+        `insert into memberships (id, venue_id, user_id, role, status, pin_digits, locale, pin_verifier)
+         values ($1, $2, $3, $4, 'active', $5, $6, $7)`,
+        [membershipId, venueId, userId, person.role, person.pin_digits, person.locale, verifier],
       );
     }
     log(
@@ -585,7 +597,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
           : authKey
             ? ""
             : " (demo authenticator secrets skipped: AUTH_SECRET_KEY not set)") +
-        (codeSetsLoaded > 0 ? `, ${codeSetsLoaded} demo recovery code set` : ""),
+        (codeSetsLoaded > 0 ? `, ${codeSetsLoaded} demo recovery code set` : "") +
+        (pinsLoaded > 0 ? `, ${pinsLoaded} demo PIN verifiers` : ""),
     );
 
     // Settings: version 1 of every key, in force from the seed's business date.

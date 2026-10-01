@@ -151,3 +151,14 @@ export type {
 } from "./auth.js";
 export { savePushSubscription, activePushSubscriptions, revokePushSubscription } from "./push.js";
 export type { PushSubscriptionRow, PushTargetRow, PushAudience } from "./push.js";
+export { pinVerifier, verifyPin, codesEqual } from "./pins.js";
+export {
+  inviteByToken,
+  createInvite,
+  markInviteUsed,
+  createPhoneCode,
+  tryPhoneCode,
+  markPhoneVerified,
+  setPinVerifier,
+} from "./invites.js";
+export type { InviteByToken, PhoneCodeRow } from "./invites.js";

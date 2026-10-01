@@ -27,11 +27,27 @@ function openDb(): Promise<IDBDatabase> {
 
 async function readDevice(venueId: string): Promise<StoredDevice | null> {
   const db = await openDb();
-  return new Promise((resolve, reject) => {
+  const found = await new Promise<StoredDevice | null>((resolve, reject) => {
     const request = db.transaction(STORE).objectStore(STORE).get(venueId);
     request.onsuccess = () => resolve((request.result as StoredDevice | undefined) ?? null);
     request.onerror = () => reject(request.error);
   });
+  if (found) return found;
+  // A phone registered from an invite link, before it had signed in anywhere: adopt it for this venue.
+  const pending = await new Promise<StoredDevice | null>((resolve, reject) => {
+    const request = db.transaction(STORE).objectStore(STORE).get("");
+    request.onsuccess = () => resolve((request.result as StoredDevice | undefined) ?? null);
+    request.onerror = () => reject(request.error);
+  });
+  if (!pending) return null;
+  const adopted = { ...pending, venueId };
+  await writeDevice(adopted);
+  return adopted;
+}
+
+/** Keep a device this phone was given elsewhere (the invite link registers it, M1-23). */
+export async function storeDevice(device: StoredDevice): Promise<void> {
+  return writeDevice(device);
 }
 
 async function writeDevice(device: StoredDevice): Promise<void> {

@@ -89,3 +89,5 @@ export {
   signDeviceRequest,
   verifyDeviceSignature,
 } from "./device-signing.js";
+export { PIN_BLOCKLIST, pinProblem } from "./pins.js";
+export type { PinProblem } from "./pins.js";

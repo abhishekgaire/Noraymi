@@ -1,4 +1,5 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 import { catalogs } from "@west4/shared";
 
@@ -272,6 +273,86 @@ test("Andy's phone installs the staff app, turns on alerts and gets a test alert
     });
     expect(cached.length).toBeGreaterThan(0);
     expect(cached.filter((u) => u.includes("/v1/"))).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The invite link on a phone (M1-23, N25). Diego's invite is written straight
+ * into the database the way Admin → Team would (the owner's passkey step-up is
+ * covered by the API tests); the texted code is read from the job the API
+ * queued, as a fake text sender would deliver it. On a 390 px viewport: the
+ * number is confirmed, 1234 is refused, a PIN of his own is accepted, and the
+ * phone becomes his staff_phone.
+ */
+test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const venue = await db.query<{ id: string }>("select id from venues limit 1");
+    const venueId = venue.rows[0]!.id;
+    // The seed wipes the venue's rows, not a person this test made last time.
+    await db.query("delete from users where email = 'diego-test@demo.west4.local'");
+    const user = await db.query<{ id: string }>(
+      "insert into users (name, email) values ('Diego Test', 'diego-test@demo.west4.local') returning id",
+    );
+    const membership = await db.query<{ id: string }>(
+      `insert into memberships (venue_id, user_id, role, status, pin_digits, locale)
+       values ($1, $2, 'front_desk', 'invited', 4, 'en') returning id`,
+      [venueId, user.rows[0]!.id],
+    );
+    const token = randomBytes(32).toString("base64url");
+    await db.query(
+      `insert into invites (venue_id, membership_id, token_hash, expires_at) values ($1, $2, $3, now() + interval '2 days')`,
+      [venueId, membership.rows[0]!.id, createHash("sha256").update(token).digest("hex")],
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/invite/${token}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Join West 4 Boho Karaoke");
+    await expect(page.getByText("Hi Diego Test · you're joining as Front desk")).toBeVisible();
+    await page.getByLabel("Your mobile number").fill("+12125550199");
+    await page.getByRole("button", { name: "Text me a code" }).click();
+    await expect(page.getByText("We texted a code to +12125550199")).toBeVisible();
+    const text = await db.query<{ payload: { data: { code: string } } }>(
+      "select payload from jobs where kind = 'text.send' and payload->>'to' = $1 order by created_at desc limit 1",
+      ["+12125550199"],
+    );
+    await page.getByLabel("The code from the text").fill("000000");
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByRole("alert")).toHaveText("That code didn't work");
+    await page.getByLabel("The code from the text").fill(text.rows[0]!.payload.data.code);
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Choose your PIN");
+
+    await page.getByLabel("Choose your PIN", { exact: true }).fill("1234");
+    await page.getByLabel("Type it again").fill("1234");
+    await page.getByRole("button", { name: "Set my PIN" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Not a run like 1234");
+    await page.getByLabel("Choose your PIN", { exact: true }).fill("6358");
+    await page.getByLabel("Type it again").fill("6358");
+    await page.getByRole("button", { name: "Set my PIN" }).click();
+    await expect(page.getByRole("status")).toHaveText(
+      "You're set · sign in with your badge or name and PIN",
+    );
+    expect(await clippedText(page)).toEqual([]);
+
+    const after = await db.query<{ status: string; pin_verifier: string; devices: string }>(
+      `select m.status, m.pin_verifier, (select count(*) from devices d where d.user_id = m.user_id and d.kind = 'staff_phone')::text as devices
+       from memberships m where m.id = $1`,
+      [membership.rows[0]!.id],
+    );
+    expect(after.rows[0]!.status).toBe("active");
+    expect(after.rows[0]!.pin_verifier).toMatch(/^\$argon2id\$/);
+    expect(after.rows[0]!.devices).toBe("1");
+    await page.goto(`/invite/${token}`);
+    await expect(page.getByRole("status")).toHaveText("This link was already used");
   } finally {
     await db.end();
   }

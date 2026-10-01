@@ -612,7 +612,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-23 · Invite staff, confirm their phone with a code, and let them set their own PIN
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-15, M1-18, M1-19, M1-21, M1-22
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Staff member), PINs; [API](../spec/08-api.md) · Sign-in, team and devices (`POST /team/invite`, `/team/{m}/reset-pin`); [N25 Set your PIN](../screens.md#n25-set-your-pin); [Pin](../screens.md#pin) note 8
@@ -624,12 +624,18 @@ Definition of done: see CLAUDE.md.
   - Tables the data model implies but doesn't name: `invites` (membership_id, token_hash, expires_at, used_at) and `phone_codes` (phone_e164, code_hash, expires_at, attempts, verified_at).
   - The seed loader stores the demo PINs (Maya `4071`, Diego `6358`, Andy `730915`, Abhishek `915204`) as verifiers in staging only; production refuses them.
 - **Acceptance:**
-  - [ ] Diego's invite opens on his phone, confirms his number with a code, refuses 1234, 1111, 0000 and 2580, and accepts a 4-digit PIN of his own; Andy's invite needs 6 digits.
-  - [ ] The database holds only Argon2id verifiers, and the same PIN for Maya and Diego gives two different verifiers.
-  - [ ] A reset sends a new link to Maya's phone, and her old PIN stops working at once.
-  - [ ] No screen, email or text contains a PIN, and the seed's demo PINs load only in staging.
+  - [x] Diego's invite opens on his phone, confirms his number with a code, refuses 1234, 1111, 0000 and 2580, and accepts a 4-digit PIN of his own; Andy's invite needs 6 digits.
+  - [x] The database holds only Argon2id verifiers, and the same PIN for Maya and Diego gives two different verifiers.
+  - [x] A reset sends a new link to Maya's phone, and her old PIN stops working at once.
+  - [x] No screen, email or text contains a PIN, and the seed's demo PINs load only in staging.
 - **Tests:** unit tests for the blocklist and the verifier; an end-to-end invite on a phone viewport with a fake text sender.
 - **Notes:** The spec doesn't say which Twilio account sends phone codes. They aren't among the 14 venue texts, so they go from our platform's account (test credentials locally, our own test phones in staging), not West 4's subaccount (flagged). The server-checked CAPTCHA and daily limits on phone codes come in M2-27. Cautious default: a reset stops the old PIN at once rather than when the new one is set. People and roles are imported in M9, never PINs.
+  - **Built.** Migration 0019: `invites`, `phone_codes`, `users.phone_verified_at` and the definer function `auth_invite_by_token`. `packages/shared/src/pins.ts`: the blocklist and `pinProblem` (length, digits only, one digit repeated, a straight run up or down, the common list). `packages/db/src/pins.ts`: Argon2id (`@node-rs/argon2`, 19 MiB, 2 passes) over HMAC-SHA256(pepper, venue ‖ membership ‖ PIN); the pepper is `AUTH_SECRET_KEY`, the key the key service holds. `packages/db/src/invites.ts`: invite and phone-code helpers, `setPinVerifier`.
+  - **API.** `POST /v1/venues/:v/team/invite` and `POST /v1/venues/:v/team/:m/reset-pin` (owner or manager, passkey session, step-up, `admin.team`): the invite creates the user and an `invited` membership with `pin_digits` by role and emails the link (the M1-18 `invite` template, 48 hours). Public, rate-limited, token-scoped routes for the phone: `GET /v1/invites/:token`, `POST …/phone` (texts a 6-digit code, 10 minutes, 5 tries), `POST …/phone/verify`, `POST …/finish` (PIN, language, the phone's public key → its `staff_phone` device; owners and managers get a one-time `enrol_code` that opens the existing `/v1/auth/enroll` passkey steps). A reset clears the verifier at once and texts the new link when the phone is confirmed, else emails it. Texts: `apps/api/src/texts/` (Twilio over HTTPS with the platform credentials; locally texts are logged, never sent) and the `text.send` job, whose templates take no PIN field. `STAFF_APP_URL` names where links open (`.env.example`).
+  - **Staff app.** `/invite/:token` (`screens/Invite.tsx`): phone → code → PIN typed twice with the language switch → done; owners and managers add a passkey with the browser's own WebAuthn JSON APIs. The phone's device key is made here and kept in IndexedDB; the first sign-in at a venue adopts it.
+  - **Seed.** The demo PINs load as verifiers like real ones whenever the seed runs (local and staging); the seed refuses production, so they never reach it.
+  - **Not here.** Signing in with the PIN (`POST /v1/auth/pin`, lockouts) is M1-24, so a staff invite ends at "sign in with your badge or name and PIN" and the phone can't open a session until then. Admin → Team's screen (the invite form itself) is a later Admin ticket; the route is ready for it. Twilio's Messages API has no idempotency header: the job id rides along as a header for our own records and the queue's three attempts are the only guard against a duplicate text.
+  - **Tests.** `packages/shared/src/pins.test.ts`, `packages/db/src/pins.test.ts`, `apps/api/src/routes/team.int.test.ts` (the whole acceptance list, on the simulated clock, scanning every queued email and text for a PIN), and the invite walk on a 390 px phone in `e2e/staff.spec.ts` with the texted code read from the job the API queued.
 
 ### M1-24 · Sign in on shared screens and phones with name and PIN, with lockouts
 

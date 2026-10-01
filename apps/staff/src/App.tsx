@@ -6,6 +6,7 @@ import { LocaleProvider, useT } from "./i18n.js";
 import { Shell } from "./layout/Shell.js";
 import { homeFor, runs } from "./navigation.js";
 import { Home } from "./screens/Home.js";
+import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
 import { SignIn } from "./screens/SignIn.js";
@@ -53,6 +54,7 @@ export function StaffRoutes() {
   return (
     <Routes>
       <Route path="/sign-in" element={<SignIn />} />
+      <Route path="/invite/:token" element={<Invite />} />
       <Route element={<Shell />}>
         <Route index element={<HomeRedirect />} />
         <Route path="/tonight" element={<Home titleKey="menu.tonight" />} />

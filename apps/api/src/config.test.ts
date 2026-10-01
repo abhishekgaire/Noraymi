@@ -85,3 +85,15 @@ describe("loadConfig · sign-in (M1-19)", () => {
     expect(c.auth.cookieSameSite).toBe("None");
   });
 });
+
+describe("loadConfig · the staff app's address (M1-23)", () => {
+  it("defaults to the Vite server locally, takes STAFF_APP_URL anywhere, and is unset elsewhere until given", () => {
+    expect(loadConfig({ WEST4_ENV: "local" }).staffAppUrl).toBe("http://localhost:5173");
+    expect(
+      loadConfig({ WEST4_ENV: "local", STAFF_APP_URL: "https://staff.example.test/" }).staffAppUrl,
+    ).toBe("https://staff.example.test");
+    expect(() => loadConfig({ WEST4_ENV: "local", STAFF_APP_URL: "staff.example.test" })).toThrow(
+      /STAFF_APP_URL/,
+    );
+  });
+});

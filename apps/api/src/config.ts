@@ -14,6 +14,8 @@ export interface Config {
   readonly host: string;
   /** The app_rw connection: behind the venue wall, never the table owner. */
   readonly databaseUrl: string;
+  /** Where invite links open: the staff app's public URL (M1-23). Unset outside local until the app has a hostname. */
+  readonly staffAppUrl: string | null;
   /** Sign-in (M1-19): the key that seals authenticator secrets, and the passkey relying party. */
   readonly auth: AuthConfig;
 }
@@ -52,6 +54,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     port: Number(source["PORT"] ?? 3000),
     host: source["HOST"] ?? "127.0.0.1",
     databaseUrl: appDatabaseUrl(source),
+    staffAppUrl: staffAppUrl(env, source),
     auth: loadAuthConfig(env, source),
   };
 }
@@ -87,4 +90,11 @@ export function loadAuthConfig(
     cookieSecure: env !== "local",
     cookieSameSite: sameSite,
   };
+}
+
+function staffAppUrl(env: West4Env, source: Record<string, string | undefined>): string | null {
+  const raw = source["STAFF_APP_URL"] ?? (env === "local" ? "http://localhost:5173" : undefined);
+  if (!raw) return null;
+  if (!/^https?:\/\//.test(raw)) throw new Error("STAFF_APP_URL must be an http(s) URL");
+  return raw.replace(/\/+$/, "");
 }

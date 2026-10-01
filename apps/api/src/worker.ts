@@ -8,6 +8,8 @@ import { SmtpMailer } from "./email/mailer.js";
 import { loadEmailSettings } from "./email/settings.js";
 import { loadPushSettings } from "./push/settings.js";
 import { WebPushSender } from "./push/sender.js";
+import { loadTextSettings } from "./texts/settings.js";
+import { LogTextSender, TwilioTextSender } from "./texts/sender.js";
 
 // The job workers and the scheduler (M1-06). Three pools so a slow export
 // never delays a capture; one scheduler leads at a time.
@@ -21,11 +23,16 @@ const clock = makeClock(config, pool);
 const log = (line: string) => process.stdout.write(`${line}\n`);
 const email = loadEmailSettings(config.env);
 const mailer = new SmtpMailer(email.smtpUrl);
+const textSender = () => {
+  const settings = loadTextSettings(config.env);
+  return settings.mode === "twilio" ? new TwilioTextSender(settings) : new LogTextSender();
+};
 const handlers = makeHandlers({
   s3: makeS3(),
   mailer,
   email,
   push: new WebPushSender(loadPushSettings(config.env)),
+  texts: textSender(),
 });
 if (
   email.env === "staging" &&
