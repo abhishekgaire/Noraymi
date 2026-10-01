@@ -401,7 +401,15 @@ export function mapSeedSettings(
       minGuests: prices["minGuests"],
       firstHourMinimum: prices["firstHourMinimum"],
       bands: [],
-      vip: prices["vip"] ?? null,
+      // The seed names the VIP room by its slug; the setting holds the room's id.
+      vip: prices["vip"]
+        ? {
+            ...(prices["vip"] as Record<string, unknown>),
+            roomIds: ((prices["vip"] as { roomIds: string[] }).roomIds ?? []).map((slug) =>
+              seedUuid(slug),
+            ),
+          }
+        : null,
       minSpend: [],
       booking: { ...SEED_SETTING_DEFAULTS.booking, maxGuests },
       damageFeeCents: prices["damageFeeCents"],

@@ -725,3 +725,15 @@ button.danger {
   gap: 8px;
   align-items: center;
 }
+
+/* The party-size control on a room tile (M2-17, N13): − n guests +, 44 px targets. */
+.party-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.faults {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}

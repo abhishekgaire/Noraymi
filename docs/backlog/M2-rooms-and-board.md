@@ -396,18 +396,22 @@ Definition of done: see CLAUDE.md.
 
 ### M2-17 · Build the party-size control
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-07
 - **Spec:** [N13 Party size control](../screens.md#n13-party-size-control); [Money rules](../spec/05-money-rules.md) 3 (Party size); [API](../spec/08-api.md) · Board and sessions (`/party-size`)
 - **Build:** + and − on the board panel, DeskRoom and the Room phone. `POST /sessions/{s}/party-size` closes the current segment on the minute, opens the next with the new billable guests and rate, and returns the new hourly rate and billable minimum. The "ID ✓ x of n" chip follows the new size, and the VIP rate starts or stops as a VIP-room party crosses 20.
 - **Acceptance:**
-  - [ ] Raising Room 9 from 12 to 14 at 10:41 PM closes the 161-minute segment and shows $140.00 an hour; at 11:11 PM room time is $392.00.
-  - [ ] Lowering Sam O.'s party from 3 to 2 on a Friday shows the minimum of 4 still billed, at $40.00 an hour.
-  - [ ] Bianca L.'s party going from 22 to 19 in the VIP room changes the rate from $250.00 to $190.00 an hour from that minute.
-  - [ ] Room 9's chip reads "ID ✓ 12 of 14" after the change.
+  - [x] Raising Room 9 from 12 to 14 at 10:41 PM closes the 161-minute segment and shows $140.00 an hour; at 11:11 PM room time is $392.00.
+  - [x] Lowering Sam O.'s party from 3 to 2 on a Friday shows the minimum of 4 still billed, at $40.00 an hour.
+  - [x] Bianca L.'s party going from 22 to 19 in the VIP room changes the rate from $250.00 to $190.00 an hour from that minute.
+  - [x] Room 9's chip reads "ID ✓ 12 of 14" after the change.
 - **Tests:** integration tests on the simulated clock.
 - **Notes:** Lowering the party size after the gratuity applies needs approval (`party_size_down`), which M4 adds with the gratuity; until then it needs none.
+  - Built: `apps/api/src/rooms/party-size.ts` (`changePartySize`: the segment cut on the minute, the next at the new rate, a paused clock stays paused) and `POST /sessions/{s}/party-size` (`routes/party-size.ts`), answering the new hourly rate, billable minimum and IDs checked. The board's room tile has − and + with "{n} guests" and, after a change, "$140.00 an hour · bills at least 4". DeskRoom and the Room phone get the same control with M2-31.
+  - A size above the room's capacity is allowed: the acceptance raises Room 9 (capacity 12) to 14, and capacity is an assignment size, not an occupancy limit (none is set for any room; none is invented).
+  - Fixed on the way: the seed stored the VIP room in `prices.vip.roomIds` by its seed name (`room_vip`) instead of its id, so the VIP rate never matched a real room. The seed loader now maps it to the room's id.
+
 
 ### M2-18 · Move a room with the move sheet
 

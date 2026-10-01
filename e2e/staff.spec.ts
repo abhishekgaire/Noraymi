@@ -196,7 +196,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
         "select name from rooms union all select name from guests union all select text from room_faults",
       )
     ).rows.map((r) => r.name);
-    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...rooms]);
+    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", "−", "+", ...rooms]);
     const es = matchers("es");
     const enOnly = matchers("en").filter((m) => !es.some((e) => e.source === m.source));
     for (const text of await visibleTexts(page)) {
@@ -604,7 +604,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
         )
       ).rows.map((r) => r.name),
     );
-    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...names]);
+    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", "−", "+", ...names]);
     for (const path of ADMIN_SECTIONS) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
@@ -1561,6 +1561,36 @@ test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9
       "select l.amount_cents::text from room_faults f join check_lines l on l.id = f.comp_line_id where f.text = 'Mic 2 cuts out'",
     );
     expect(lines.rows).toEqual([{ amount_cents: "-1000" }]);
+  } finally {
+    await db.end();
+  }
+});
+
+/** The party-size control on the board (M2-17, N13): Room 9 from 12 to 13 shows $130.00 an hour and the chip follows. */
+test("the party-size control: Room 9 one guest more shows the new rate and ID 12 of 13", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    const before = Number(/(\d+) guests/.exec((await room9.textContent()) ?? "")![1]);
+    await room9.getByRole("button", { name: "One guest more" }).click();
+    await expect(room9).toContainText(`${before + 1} guests`);
+    await expect(room9).toContainText(`$${(before + 1) * 10}.00 an hour · bills at least 4`);
+    await expect(room9).toContainText(`12 of ${before + 1}`);
+    expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.end();
   }

@@ -75,6 +75,9 @@ export function Tonight() {
   const [free, setFree] = useState<{ room_id: string; name: string }[]>([]);
   const [rooms, setRooms] = useState<readonly RoomInfo[]>([]);
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
+  const [rates, setRates] = useState<Record<string, { hourly_cents: number; min_guests: number }>>(
+    {},
+  );
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -143,6 +146,20 @@ export function Tonight() {
       await load();
     } catch {
       setFailed(true);
+    }
+  };
+  const changeParty = async (s: Session, partySize: number) => {
+    if (partySize < 1) return;
+    try {
+      const r = await api<{ hourly_cents: number; min_guests: number }>(
+        "POST",
+        `/v1/venues/${venueId}/sessions/${s.id}/party-size`,
+        { party_size: partySize },
+      );
+      setRates((all) => ({ ...all, [s.id]: r }));
+      await load();
+    } catch {
+      setDone(t("party.failed"));
     }
   };
   const faultList = (roomId: string) => (
@@ -327,6 +344,34 @@ export function Tonight() {
                   <div className="small muted">
                     {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
                   </div>
+                  <div className="party-size">
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={t("party.fewer")}
+                      disabled={s.party_size <= 1}
+                      onClick={() => void changeParty(s, s.party_size - 1)}
+                    >
+                      −
+                    </button>
+                    <span>{t("party.size", { n: s.party_size })}</span>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={t("party.more")}
+                      onClick={() => void changeParty(s, s.party_size + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {rates[s.id] && (
+                    <div className="small">
+                      {t("party.rate", {
+                        amount: money(rates[s.id]!.hourly_cents as never),
+                        min: rates[s.id]!.min_guests,
+                      })}
+                    </div>
+                  )}
                   <div className="small">{idChip(s)}</div>
                   {safetyOn && (
                     <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />

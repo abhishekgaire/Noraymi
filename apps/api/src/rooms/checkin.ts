@@ -58,7 +58,7 @@ interface Context {
   readonly settings: CheckInSettings;
 }
 
-async function priceContext(c: Queryable, venueId: string, at: Temporal.Instant) {
+export async function priceContext(c: Queryable, venueId: string, at: Temporal.Instant) {
   const venue = await venueClock(c, venueId);
   const date = businessDate(at, venue.timeZone, venue.dayCutover).businessDate;
   const [prices, deposit] = await Promise.all([

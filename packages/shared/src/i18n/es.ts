@@ -651,4 +651,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "fault.outOfServiceRooms": "Fuera de servicio",
   "session.paused": "Reloj en pausa",
   "session.unpause": "Reanudar el reloj",
+  "party.fewer": "Un invitado menos",
+  "party.more": "Un invitado más",
+  "party.size": "{n} invitados",
+  "party.rate": "{amount} por hora · cobra al menos {min}",
+  "party.failed": "No se pudo cambiar el tamaño del grupo",
 };

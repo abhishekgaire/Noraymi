@@ -147,6 +147,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/rooms/:r/faults": { text: "Mic dead" },
       "PATCH /v1/venues/:venueId/faults/:f": { fixed: true },
       "POST /v1/venues/:venueId/sessions/:sessionId/pause": { reason: "Mic dead" },
+      "POST /v1/venues/:venueId/sessions/:sessionId/party-size": { party_size: 5 },
       "POST /v1/venues/:venueId/sessions/:sessionId/comp-minutes": { reason: "Mic dead" },
       "POST /v1/venues/:venueId/files": {
         kind: "damage_photo",

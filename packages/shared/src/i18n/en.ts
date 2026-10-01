@@ -642,4 +642,9 @@ export const en = {
   "fault.outOfServiceRooms": "Out of service",
   "session.paused": "Clock paused",
   "session.unpause": "Start the clock",
+  "party.fewer": "One guest fewer",
+  "party.more": "One guest more",
+  "party.size": "{n} guests",
+  "party.rate": "{amount} an hour · bills at least {min}",
+  "party.failed": "Couldn't change the party size",
 } as const;
