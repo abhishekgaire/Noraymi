@@ -1,14 +1,74 @@
-import { t, type Locale } from "@west4/shared";
+import { useEffect, type ReactNode } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { ClockProvider } from "./clock.js";
+import { EventsProvider } from "./events.js";
+import { LocaleProvider, useT } from "./i18n.js";
+import { Shell } from "./layout/Shell.js";
+import { homeFor, runs } from "./navigation.js";
+import { Home } from "./screens/Home.js";
+import { NotFound } from "./screens/NotFound.js";
+import { SignIn } from "./screens/SignIn.js";
+import { SessionProvider, useSession, type SessionState } from "./session.js";
 
-// Placeholder until the app shell lands. Every visible string comes from the
-// shared catalog; the locale picker arrives with M1-21.
-const locale: Locale = "en";
+/** Everything a screen needs around it; tests pass a session instead of calling the API. */
+export function Providers({ children, session }: { children: ReactNode; session?: SessionState }) {
+  return (
+    <ClockProvider>
+      <SessionProvider initial={session}>
+        <WithLocale>
+          <EventsProvider>{children}</EventsProvider>
+        </WithLocale>
+      </SessionProvider>
+    </ClockProvider>
+  );
+}
+
+function WithLocale({ children }: { children: ReactNode }) {
+  const { locale } = useSession();
+  return (
+    <LocaleProvider locale={locale}>
+      <Title />
+      {children}
+    </LocaleProvider>
+  );
+}
+
+function Title() {
+  const { t } = useT();
+  useEffect(() => {
+    document.title = t("app.staff.name");
+  }, [t]);
+  return null;
+}
+
+/** "/" opens the signed-in role's home (spec 10 · rule 1). */
+function HomeRedirect() {
+  const { state } = useSession();
+  const to = state.status === "signedIn" ? homeFor(state.membership.role) : "/sign-in";
+  return <Navigate to={to} replace />;
+}
+
+export function StaffRoutes() {
+  return (
+    <Routes>
+      <Route path="/sign-in" element={<SignIn />} />
+      <Route element={<Shell />}>
+        <Route index element={<HomeRedirect />} />
+        <Route path="/tonight" element={<Home titleKey="menu.tonight" />} />
+        <Route path="/bar" element={<Home titleKey="menu.barPos" />} />
+        <Route path={runs.path} element={<Home titleKey={runs.labelKey} />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  );
+}
 
 export function App() {
   return (
-    <main>
-      <h1>{t(locale, "app.staff.name")}</h1>
-      <p>{t(locale, "scaffold.placeholder")}</p>
-    </main>
+    <BrowserRouter>
+      <Providers>
+        <StaffRoutes />
+      </Providers>
+    </BrowserRouter>
   );
 }

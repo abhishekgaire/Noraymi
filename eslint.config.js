@@ -2,6 +2,7 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
+import west4 from "./eslint-rules/no-jsx-literals.js";
 
 export default tseslint.config(
   {
@@ -27,6 +28,12 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "no-console": ["error", { allow: ["warn", "error"] }],
     },
+  },
+  {
+    // Staff screens (M1-21): every word comes from the catalog, never from code.
+    files: ["apps/staff/src/**/*.tsx"],
+    plugins: { west4 },
+    rules: { "west4/no-jsx-literals": "error" },
   },
   prettier,
 );

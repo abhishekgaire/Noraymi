@@ -18,6 +18,12 @@ import {
   isCoOwner,
   isOwnerAnywhere,
   markPasskeyUsed,
+  membershipsOf,
+  permissionOverrides,
+  readSetting,
+  setOwnLocale,
+  statesOf,
+  venueModules,
   markTotpUsed,
   newEmailCode,
   newToken,
@@ -42,7 +48,8 @@ import {
   type RecoveryContact,
   type SessionAssurance,
 } from "@west4/db";
-import { Temporal, type Clock } from "@west4/shared";
+import { Temporal, actions, moduleIds, permissionFor, stateOf, type Clock } from "@west4/shared";
+import { businessDate } from "@west4/rules";
 import { z } from "zod";
 import type { AuthConfig } from "../config.js";
 import type { EmailSettings } from "../email/settings.js";
@@ -118,6 +125,10 @@ const loginBody = z.union([
     })
     .strict(),
 ]);
+
+const localeBody = z
+  .object({ membership_id: z.string().uuid(), locale: z.enum(["en", "es"]) })
+  .strict();
 
 const enrollBody = z.discriminatedUnion("step", [
   z.object({ step: z.literal("start"), email }).strict(),
@@ -728,6 +739,13 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
     return reply.code(200).send({ ok: true });
   });
 
+  /**
+   * Everything the staff app shell needs in one call (M1-21): the person, the
+   * session, and for each venue they work at its name, clock, their language
+   * (memberships.locale), which modules are on and which actions their role
+   * may take there. server_time is the venue's clock, so screens never read
+   * the device's.
+   */
   app.get("/v1/auth/me", { config: signedIn }, async (request, reply) => {
     const p = request.principal;
     const session = request.session;
@@ -741,6 +759,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
       const owner = await isOwnerAnywhere(c);
       return {
         ...r.rows[0]!,
+        homes: await membershipsOf(c, p.userId),
         recoveryCodesLeft: owner ? await countRecoveryCodes(c, p.userId) : null,
         credentials: creds.map((k) => ({
           id: k.id,
@@ -751,17 +770,79 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         })),
       };
     });
-    return reply.code(200).send({
-      user: { id: p.userId, name: me.name, email: me.email },
-      session: { id: session.id, assurance: session.assurance, expires_at: session.expiresAt },
-      memberships: p.memberships.map((m) => ({
+    const memberships = [];
+    for (const m of p.memberships) {
+      const home = me.homes.find((h) => h.membershipId === m.membershipId);
+      if (!home) continue;
+      const venue = await withVenue(
+        pool,
+        { venueId: m.venueId, userId: p.userId, requestId: request.requestId },
+        async (c) => ({
+          overrides: await permissionOverrides(c, m.venueId),
+          states: statesOf(await venueModules(c, m.venueId)),
+        }),
+      );
+      memberships.push({
         venue_id: m.venueId,
         membership_id: m.membershipId,
         role: m.role,
-      })),
+        locale: home.locale,
+        venue: {
+          id: home.venueId,
+          name: home.venueName,
+          time_zone: home.timeZone,
+          day_cutover: home.dayCutover,
+        },
+        modules: Object.fromEntries(moduleIds.map((id) => [id, stateOf(venue.states, id)])),
+        permissions: actions.filter((a) => permissionFor(venue.overrides, m.role, a).allowed),
+      });
+    }
+    return reply.code(200).send({
+      user: { id: p.userId, name: me.name, email: me.email },
+      session: { id: session.id, assurance: session.assurance, expires_at: session.expiresAt },
+      memberships,
       credentials: me.credentials,
       recovery_codes_left: me.recoveryCodesLeft,
+      server_time: now().toString(),
     });
+  });
+
+  /**
+   * The person's own language (spec 02 · Languages, spec 10 · rule 11): saved
+   * on their membership, from the languages the venue offers. Anyone signed in
+   * may change their own; Admin → Team changes other people's (M1-23).
+   */
+  app.patch<{ Body: unknown }>("/v1/auth/me", { config: signedIn }, async (request, reply) => {
+    const p = request.principal;
+    if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
+    const body = parse(localeBody, request.body);
+    const m = p.memberships.find((x) => x.membershipId === body.membership_id);
+    if (!m) throw new ApiError("not_found", "that membership isn't yours");
+    await withVenue(
+      pool,
+      { venueId: m.venueId, userId: p.userId, requestId: request.requestId },
+      async (c) => {
+        const venue = (
+          await c.query<{ time_zone: string; day_cutover: string }>(
+            "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
+            [m.venueId],
+          )
+        ).rows[0]!;
+        const today = businessDate(now(), venue.time_zone, venue.day_cutover).businessDate;
+        const offered = (await readSetting(c, m.venueId, "languages", today))?.value.staff ?? [
+          "en",
+          "es",
+        ];
+        if (!offered.includes(body.locale))
+          throw new ApiError(
+            "invalid_request",
+            `this venue's staff languages are ${offered.join(", ")}`,
+          );
+        if (!(await setOwnLocale(c, m.membershipId, p.userId, body.locale)))
+          throw new ApiError("not_found", "that membership isn't yours");
+      },
+    );
+    return reply.code(200).send({ membership_id: m.membershipId, locale: body.locale });
   });
 
   // ---- Owner recovery (M1-20) ------------------------------------------------

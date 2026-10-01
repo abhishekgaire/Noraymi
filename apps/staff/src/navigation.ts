@@ -1,0 +1,144 @@
+import {
+  moduleDef,
+  moduleIds,
+  stateOf,
+  type Action,
+  type MessageKey,
+  type ModuleStates,
+  type Role,
+} from "@west4/shared";
+
+/**
+ * The side menu (spec 10 · rule 1): the same on every desktop screen, built
+ * from the modules that are on and what the signed-in role may do. An entry
+ * appears when its screen ships; until then it's listed here with
+ * shipped: false so the order and the rules are settled from the start.
+ */
+export interface MenuEntry {
+  readonly id: string;
+  readonly labelKey: MessageKey;
+  readonly path: string;
+  /** The screen id a module hides when it's off (modules.ts hides.staffApp). */
+  readonly screen: string;
+  /** The role action the entry needs, checked against the person's permissions. */
+  readonly action?: Action;
+  readonly shipped: boolean;
+}
+
+export const menu: readonly MenuEntry[] = [
+  { id: "tonight", labelKey: "menu.tonight", path: "/tonight", screen: "board", shipped: true },
+  {
+    id: "barPos",
+    labelKey: "menu.barPos",
+    path: "/bar",
+    screen: "pos",
+    action: "pos.use",
+    shipped: true,
+  },
+  {
+    id: "barOrders",
+    labelKey: "menu.barOrders",
+    path: "/bar-orders",
+    screen: "barOrders",
+    action: "orders.accept",
+    shipped: false,
+  },
+  {
+    id: "songQueue",
+    labelKey: "menu.songQueue",
+    path: "/song-queue",
+    screen: "songQueue",
+    shipped: false,
+  },
+  {
+    id: "calendar",
+    labelKey: "menu.calendar",
+    path: "/calendar",
+    screen: "calendar",
+    action: "bookings.manage",
+    shipped: false,
+  },
+  {
+    id: "messages",
+    labelKey: "menu.messages",
+    path: "/messages",
+    screen: "messages",
+    action: "texts.send",
+    shipped: false,
+  },
+  {
+    id: "reports",
+    labelKey: "menu.reports",
+    path: "/reports",
+    screen: "reports",
+    action: "reports.view",
+    shipped: false,
+  },
+  {
+    id: "closeNight",
+    labelKey: "menu.closeNight",
+    path: "/close-the-night",
+    screen: "closeTheNight",
+    action: "night.close",
+    shipped: false,
+  },
+  {
+    id: "admin",
+    labelKey: "menu.admin",
+    path: "/admin",
+    screen: "admin",
+    action: "admin.access",
+    shipped: false,
+  },
+  { id: "lock", labelKey: "menu.lock", path: "/lock", screen: "lock", shipped: true },
+];
+
+/** The runner's phone home: not a side-menu entry, but a screen the shell routes to. */
+export const runs: MenuEntry = {
+  id: "runs",
+  labelKey: "menu.runs",
+  path: "/runs",
+  screen: "runs",
+  shipped: true,
+};
+
+/** Screen ids hidden because a module that hides them is off (stopping still shows). */
+export function hiddenScreens(modules: ModuleStates): ReadonlySet<string> {
+  const hidden = new Set<string>();
+  for (const id of moduleIds) {
+    if (stateOf(modules, id) === "off") for (const s of moduleDef(id).hides.staffApp) hidden.add(s);
+  }
+  return hidden;
+}
+
+export interface MenuContext {
+  readonly modules: ModuleStates;
+  readonly permissions: readonly Action[];
+  /** Tests look at entries whose screens haven't shipped yet. */
+  readonly includeUnshipped?: boolean;
+}
+
+export function visibleMenu(
+  context: MenuContext,
+  entries: readonly MenuEntry[] = menu,
+): MenuEntry[] {
+  const hidden = hiddenScreens(context.modules);
+  return entries.filter(
+    (e) =>
+      (e.shipped || context.includeUnshipped === true) &&
+      !hidden.has(e.screen) &&
+      (e.action === undefined || context.permissions.includes(e.action)),
+  );
+}
+
+/** One home per role (spec 10 · rule 1). */
+export function homeFor(role: Role): string {
+  switch (role) {
+    case "bartender":
+      return "/bar";
+    case "staff":
+      return "/runs";
+    default:
+      return "/tonight";
+  }
+}

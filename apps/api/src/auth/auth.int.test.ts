@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
+import { randomUUID } from "node:crypto";
 import {
   createTestDatabase,
   seedTwoVenues,
@@ -43,6 +44,12 @@ const cookieOf = (r: { headers: Record<string, unknown> }) => {
 };
 const post = (url: string, body: unknown, headers: Record<string, string> = {}) =>
   app.inject({ method: "POST", url, payload: body, headers });
+const request = (
+  method: "PATCH" | "PUT",
+  url: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+) => app.inject({ method, url, headers, payload: body as Record<string, unknown> });
 const get = (url: string, headers: Record<string, string> = {}) =>
   app.inject({ method: "GET", url, headers });
 
@@ -349,6 +356,73 @@ describe("Andy signs in with a passkey and opens Admin", () => {
     );
     expect(refused.statusCode, refused.body).toBe(403);
     expect(json(refused).error?.code, refused.body).toBe("step_up_required");
+  });
+
+  it("me carries what the staff shell needs: venue, clock, language, modules and permissions (M1-21)", async () => {
+    const me = json(await get("/v1/auth/me", { cookie }));
+    // The venue's clock, not the device's: within a second of the simulated clock.
+    const drift = Temporal.Instant.from(me["server_time"] as string)
+      .until(clock.now())
+      .total("milliseconds");
+    expect(Math.abs(drift)).toBeLessThan(1000);
+    const m = (me["memberships"] as Record<string, unknown>[])[0]!;
+    expect(m).toMatchObject({ venue_id: v.venueA, role: "manager", locale: "en" });
+    expect(m["venue"]).toMatchObject({
+      id: v.venueA,
+      name: expect.any(String),
+      time_zone: expect.any(String),
+      day_cutover: "06:00",
+    });
+    expect((m["modules"] as Record<string, string>)["payments"]).toBe("on");
+    expect(m["permissions"]).toContain("admin.access");
+    expect(m["permissions"]).not.toContain("admin.console");
+  });
+
+  it("switches his own language to Español, and back", async () => {
+    const before = json(await get("/v1/auth/me", { cookie }));
+    const membershipId = (before["memberships"] as { membership_id: string }[])[0]!.membership_id;
+    const es = await request(
+      "PATCH",
+      "/v1/auth/me",
+      { membership_id: membershipId, locale: "es" },
+      { cookie },
+    );
+    expect(es.statusCode, es.body).toBe(200);
+    const after = json(await get("/v1/auth/me", { cookie }));
+    expect((after["memberships"] as { locale: string }[])[0]!.locale).toBe("es");
+    const en = await request(
+      "PATCH",
+      "/v1/auth/me",
+      { membership_id: membershipId, locale: "en" },
+      { cookie },
+    );
+    expect(en.statusCode).toBe(200);
+    const notHis = await request(
+      "PATCH",
+      "/v1/auth/me",
+      { membership_id: randomUUID(), locale: "es" },
+      { cookie },
+    );
+    expect(notHis.statusCode).toBe(404);
+  });
+
+  it("refuses a language the venue doesn't offer", async () => {
+    const membershipId = (
+      json(await get("/v1/auth/me", { cookie }))["memberships"] as { membership_id: string }[]
+    )[0]!.membership_id;
+    // The test venue has no rule pack, so the setting is written directly, as Admin would save it.
+    await owner.query(
+      "insert into venue_settings (venue_id, key, version, value, starts_on) values ($1, 'languages', 1, $2, '2026-09-25')",
+      [v.venueA, JSON.stringify({ staff: ["en"] })],
+    );
+    const es = await request(
+      "PATCH",
+      "/v1/auth/me",
+      { membership_id: membershipId, locale: "es" },
+      { cookie },
+    );
+    expect(es.statusCode).toBe(400);
+    expect(json(es).error?.code).toBe("invalid_request");
   });
 
   it("signs out: the cookie is cleared and the session is over", async () => {

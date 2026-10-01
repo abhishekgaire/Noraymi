@@ -672,3 +672,55 @@ export async function ownerRecoveryContacts(
     locale: row.locale,
   }));
 }
+
+/** One venue the person works at, with the language and clock the shell needs (M1-21). */
+export interface MembershipHome {
+  readonly membershipId: string;
+  readonly venueId: string;
+  readonly venueName: string;
+  readonly timeZone: string;
+  /** "06:00": the business date turns over here (spec 01). */
+  readonly dayCutover: string;
+  readonly role: "owner" | "manager" | "bartender" | "front_desk" | "staff";
+  readonly locale: "en" | "es";
+}
+
+/** Every active membership of a person, oldest first, read across venues by a definer function. */
+export async function membershipsOf(client: Queryable, userId: string): Promise<MembershipHome[]> {
+  const r = await client.query<{
+    membership_id: string;
+    venue_id: string;
+    venue_name: string;
+    time_zone: string;
+    day_cutover: string;
+    role: MembershipHome["role"];
+    locale: MembershipHome["locale"];
+  }>("select * from auth_memberships_of($1)", [userId]);
+  return r.rows.map((row) => ({
+    membershipId: row.membership_id,
+    venueId: row.venue_id,
+    venueName: row.venue_name,
+    timeZone: row.time_zone,
+    dayCutover: row.day_cutover,
+    role: row.role,
+    locale: row.locale,
+  }));
+}
+
+/**
+ * The person's own language at one venue (spec 02 · Languages). Runs in the
+ * venue's context, so the row policy keeps it to that venue, and the check
+ * that the venue offers the language is the caller's (the `languages` setting).
+ */
+export async function setOwnLocale(
+  client: Queryable,
+  membershipId: string,
+  userId: string,
+  locale: "en" | "es",
+): Promise<boolean> {
+  const r = await client.query(
+    "update memberships set locale = $3 where id = $1 and user_id = $2 and status = 'active'",
+    [membershipId, userId, locale],
+  );
+  return (r.rowCount ?? 0) === 1;
+}

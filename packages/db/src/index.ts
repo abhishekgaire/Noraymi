@@ -129,6 +129,8 @@ export {
   isCoOwner,
   isOwnerAnywhere,
   ownerRecoveryContacts,
+  membershipsOf,
+  setOwnLocale,
 } from "./auth.js";
 export type {
   CredentialKind,
@@ -144,4 +146,5 @@ export type {
   RecoveryMethod,
   OwnerRecoveryRow,
   RecoveryContact,
+  MembershipHome,
 } from "./auth.js";

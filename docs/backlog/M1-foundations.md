@@ -559,7 +559,7 @@ Definition of done: see CLAUDE.md.
 
 ### M1-21 · Build the staff app shell with every string in English and Spanish
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-01, M1-09, M1-13, M1-14
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Languages; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rules 1, 11 and 12; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `languages`; [Testing and operations](../spec/13-testing-operations.md) · Tests (language tests); [Screens · Rules for every screen](../screens.md#rules-for-every-screen)
@@ -571,13 +571,20 @@ Definition of done: see CLAUDE.md.
   - The desktop side menu, built from the modules and the signed-in role: Tonight, Bar POS, Bar orders, Song queue (bar mode only), Calendar, Messages, Reports, Close the night, Admin and Lock. Each entry appears when its screen ships.
   - The WebSocket client from M1-09. The words come from the [glossary](../glossary.md#the-words-on-screen), with "Lock", never "Lock the iPad".
 - **Acceptance:**
-  - [ ] Adding a string to `en` only fails CI and names the missing key.
-  - [ ] A string literal in a staff component fails lint.
-  - [ ] Switching the signed-in person to Español re-renders every visible string from the `es` catalog.
-  - [ ] Screens read 10:41 PM on the seed whatever the device clock says.
-  - [ ] Each M1 screen in Spanish, at 390 and at 1280 pixels wide, has no cut-off text.
+  - [x] Adding a string to `en` only fails CI and names the missing key.
+  - [x] A string literal in a staff component fails lint.
+  - [x] Switching the signed-in person to Español re-renders every visible string from the `es` catalog.
+  - [x] Screens read 10:41 PM on the seed whatever the device clock says.
+  - [x] Each M1 screen in Spanish, at 390 and at 1280 pixels wide, has no cut-off text.
 - **Tests:** the catalog check in CI; a Playwright pass that renders each staff screen in its longest language and fails on clipped text (spec 13's language tests).
 - **Notes:** A fluent speaker checks every staff screen's Spanish in M9. The Console is our own staff's tool, not a venue staff screen, so it ships in English; its strings still go through a catalog.
+  - **Built.** `apps/staff` is a React Router app: `App.tsx` (providers and routes), `session.tsx` (who is signed in, their language), `clock.tsx` (the venue's clock from the API's `server_time`, the device clock only measures elapsed time), `events.tsx` (the M1-09 WebSocket client, with the offline band), `navigation.ts` (the side menu from modules and the role's permissions, `homeFor(role)`), `layout/Shell.tsx` (top bar, side menu on desktop, drawer on phones), `layout/LanguageSwitch.tsx` ("English · Español"), and screens `SignIn`, `Home` (each role's home until its screen ships) and `NotFound`. Vite proxies `/v1` (HTTP and WebSocket) to the API so the session cookie stays same-origin.
+  - **Catalog.** `packages/shared/src/i18n`: `t(locale, key, params)` fills `{placeholders}`, `tn` picks plurals by `Intl.PluralRules`, `formatMoney` formats integer cents (no float; the formatter is handed a decimal string), `formatTime`/`formatDate` use the venue's time zone. Spanish is `es-US`: dollars and thousands as in the US, times as "10:41 p.m.". `pnpm i18n:check` (`scripts/i18n-check.mjs`) fails CI naming any key missing in either language or with different placeholders; it runs in the CI lint job and in `pnpm check`. ESLint rule `west4/no-jsx-literals` (`eslint-rules/`) fails any words in staff JSX text, `{"…"}` children or readable attributes (aria-label, title, placeholder, alt); symbols alone (☰, ·) pass.
+  - **API.** `GET /v1/auth/me` now also returns `server_time` and, per membership, `locale`, `venue {name, time_zone, day_cutover}`, `modules` (state per module) and `permissions` (allowed actions for the role at that venue). `PATCH /v1/auth/me {membership_id, locale}` changes the signed-in person's own language, checked against the venue's `languages.staff`. Migration 0017 adds the definer function `auth_memberships_of`.
+  - **Cautious default.** When a venue has no `languages` setting saved, both phase 1 languages are offered (spec 03: "English and Spanish in phase 1"); the seed saves `{ staff: ["en", "es"] }` for West 4.
+  - **Menu entries.** All ten entries are defined with their module screen id and role action; only Tonight, Bar POS and Lock show today (`shipped: true`). Each later screen ticket flips its entry. "Runs" is the runner's phone home (`/runs`), not a side-menu entry.
+  - **Sign-in here is the M1-19 web sign-in** (email, then a passkey or the authenticator app's code plus the emailed code) using the browser's own WebAuthn JSON APIs, no library. M1-24 and M1-26 add name tiles, PIN and badge and give the screen its final shape. Lock ends the session on this screen (logout) and shows sign-in with "Locked · sign in to continue"; shared-screen lock without ending the device pairing comes with M1-24.
+  - **Tests.** `apps/staff/src/render.test.tsx` renders every shell screen to HTML in Spanish and in English and fails on any text that isn't a catalog string of that language (or data). `navigation.test.ts` covers module and permission filtering and each role's home. `e2e/staff.spec.ts` signs Andy in with a virtual passkey, pins the browser clock to 2031 and still reads 10:41 PM, switches to Español and checks every visible string against the `es` catalog, then checks each shell screen at 390 and 1280 px for clipped text (an element whose text overflows a box that hides overflow, or a sideways page scroll), and locks. The desktop smoke test now expects the sign-in heading. The staging deploy still publishes only the API and guest images; the staff app's hosting lands with M1-22/M1-28.
 
 ### M1-22 · Install the staff app to the home screen and send push
 

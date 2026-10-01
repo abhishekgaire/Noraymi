@@ -1,0 +1,271 @@
+/* The staff app shell (M1-21). Phone first; the side menu becomes a column at 1024px.
+   Every target is at least 44px (spec 10 · rule 9 sets bigger ones for the bar POS itself). */
+:root {
+  --bg: #121212;
+  --panel: #1d1d1f;
+  --line: #333;
+  --text: #f4f4f4;
+  --muted: #a9a9a9;
+  --accent: #f2b33d;
+  --accent-text: #121212;
+  --danger: #ff6b6b;
+  --notice: #7cc5ff;
+  --topbar-h: 56px;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.4 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  overflow-wrap: anywhere;
+}
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 12px;
+}
+p {
+  margin: 0 0 12px;
+}
+.muted {
+  color: var(--muted);
+}
+.error {
+  color: var(--danger);
+}
+.notice {
+  color: var(--notice);
+}
+button,
+.button,
+.menu-link,
+input {
+  font: inherit;
+  min-height: 44px;
+  border-radius: 8px;
+}
+button,
+.button {
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+button.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.icon-button {
+  width: 44px;
+  padding: 0;
+  font-size: 1.25rem;
+}
+input {
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+}
+label {
+  display: block;
+  margin-bottom: 12px;
+}
+label > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+}
+form {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 8px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 8px;
+}
+.skip:focus {
+  left: 8px;
+  z-index: 10;
+}
+.band {
+  padding: 10px 16px;
+  text-align: center;
+  font-weight: 600;
+}
+.band.offline {
+  background: var(--danger);
+  color: var(--accent-text);
+}
+.sign-in,
+.centered {
+  padding: 24px 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.sign-in .language {
+  margin-top: 24px;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto 1fr;
+  min-height: 100vh;
+}
+.topbar {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-areas:
+    "menu venue clock"
+    "menu who who";
+  column-gap: 12px;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.menu-button {
+  grid-area: menu;
+}
+.venue {
+  grid-area: venue;
+  font-weight: 600;
+}
+.clock {
+  grid-area: clock;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.875rem;
+}
+.clock time {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.who {
+  grid-area: who;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.side {
+  display: none;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 16px 16px;
+}
+.menu-open .side {
+  display: block;
+}
+.side ul {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.side li {
+  margin: 4px 0;
+}
+.menu-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text);
+  text-decoration: none;
+  text-align: left;
+  border-radius: 8px;
+}
+.menu-link:hover,
+.menu-link:focus-visible {
+  border-color: var(--line);
+}
+.menu-link.active {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.language {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.language button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.content {
+  padding: 16px;
+}
+.screen {
+  max-width: 960px;
+}
+.empty {
+  color: var(--muted);
+  padding: 24px 0;
+}
+@media (min-width: 1024px) {
+  .shell {
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "band band"
+      "top top"
+      "side content";
+  }
+  .shell > .band {
+    grid-column: 1 / -1;
+  }
+  .topbar {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas: "venue who clock";
+    min-height: var(--topbar-h);
+  }
+  .menu-button {
+    display: none;
+  }
+  .who {
+    font-size: 1rem;
+    padding-right: 24px;
+  }
+  .side,
+  .menu-open .side {
+    display: block;
+    border-bottom: none;
+    border-right: 1px solid var(--line);
+    min-height: calc(100vh - var(--topbar-h));
+  }
+  .content {
+    padding: 24px;
+  }
+}

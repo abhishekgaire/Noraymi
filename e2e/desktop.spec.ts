@@ -12,7 +12,7 @@ test("the desktop app opens the staff app", async () => {
   });
   try {
     const window = await app.firstWindow();
-    await expect(window.getByRole("heading", { level: 1 })).toHaveText("Staff app");
+    await expect(window.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   } finally {
     await app.close();
   }

@@ -4,6 +4,10 @@ import { defineConfig } from "vitest/config";
 // (*.int.test.ts) need Postgres and run through vitest.integration.config.ts.
 export default defineConfig({
   test: {
-    projects: ["packages/*/vitest.config.ts", "apps/*/vitest.config.ts"],
+    projects: [
+      "packages/*/vitest.config.ts",
+      "apps/*/vitest.config.ts",
+      "eslint-rules/vitest.config.js",
+    ],
   },
 });

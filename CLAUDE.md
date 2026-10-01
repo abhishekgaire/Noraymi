@@ -113,8 +113,9 @@ pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
 pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 part so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
-pnpm check              # lint, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
+pnpm check              # lint, i18n, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
 pnpm lint && pnpm typecheck && pnpm test
+pnpm i18n:check          # every staff string exists in English and Spanish with the same placeholders; names any missing key
 pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
