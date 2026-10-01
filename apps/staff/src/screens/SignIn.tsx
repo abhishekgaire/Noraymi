@@ -59,7 +59,7 @@ const pinDigits = (role: Role): 4 | 6 => (role === "owner" || role === "manager"
 
 export function SignIn() {
   const { t, time, locale } = useT();
-  const { state, refresh, setLocale, signInWithPin } = useSession();
+  const { state, refresh, setLocale, signInWithPin, signInWithBadge } = useSession();
   const clock = useClock();
   const navigate = useNavigate();
   const [device, setDevice] = useState<StoredDevice | null | undefined>(undefined);
@@ -74,6 +74,8 @@ export function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [wallTime, setWallTime] = useState<string | null>(null);
+  const [statusLine, setStatusLine] = useState<string | null>(null);
+  const [ownerForm, setOwnerForm] = useState(false);
 
   // What this screen is, and the venue's clock for it.
   useEffect(() => {
@@ -162,6 +164,25 @@ export function SignIn() {
     void submit();
     // Runs when the PIN reaches its length.
   }, [pin]);
+
+  // A badge on the reader takes over at once, whoever's tile is open.
+  useEffect(() => {
+    const shared = device ?? null;
+    if (!isShared(shared) || !window.west4) return;
+    return window.west4.badge.onTap(({ url }) => {
+      setBusy(true);
+      setError(null);
+      setStatusLine(t("badge.signingIn"));
+      signInWithBadge(shared, url)
+        .then(() => finish())
+        .catch(() => setError(t("badge.failed")))
+        .finally(() => {
+          setBusy(false);
+          setStatusLine(null);
+        });
+    });
+    // The subscription lives as long as the paired screen is on the sign-in page.
+  }, [device, signInWithBadge, t]);
 
   const choose = (tile: Tile) => {
     setChosen(tile);
@@ -289,7 +310,8 @@ export function SignIn() {
   }
 
   // --- A paired bar or front-desk computer: badge, or a name tile then the PIN pad.
-  if (isShared(device)) {
+  // An owner or manager opens Admin here with the passkey form below instead.
+  if (isShared(device) && !ownerForm) {
     return (
       <main className="sign-in shared" id="main">
         <header className="sign-in-top">
@@ -307,6 +329,11 @@ export function SignIn() {
         {error && (
           <p className="error" role="alert">
             {error}
+          </p>
+        )}
+        {statusLine && (
+          <p className="notice" role="status">
+            {statusLine}
           </p>
         )}
         {!chosen && (
@@ -338,6 +365,9 @@ export function SignIn() {
         )}
         <footer className="sign-in-foot">
           <p className="muted small">{t("signIn.pinAgainRule")}</p>
+          <button type="button" className="secondary" onClick={() => setOwnerForm(true)}>
+            {t("signIn.ownerWeb")}
+          </button>
           <LanguageSwitch />
         </footer>
       </main>
@@ -416,9 +446,15 @@ export function SignIn() {
             {t("signIn.withAuthenticator")}
           </button>
           <p className="muted small">{t("signIn.staffHere")}</p>
-          <button type="button" className="secondary" onClick={() => setStep({ kind: "pair" })}>
-            {t("signIn.pairScreen")}
-          </button>
+          {isShared(device) ? (
+            <button type="button" className="secondary" onClick={() => setOwnerForm(false)}>
+              {t("signIn.back")}
+            </button>
+          ) : (
+            <button type="button" className="secondary" onClick={() => setStep({ kind: "pair" })}>
+              {t("signIn.pairScreen")}
+            </button>
+          )}
         </form>
       )}
       {step.kind === "code" && (

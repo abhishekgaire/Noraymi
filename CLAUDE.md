@@ -120,6 +120,7 @@ pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm format             # Prettier --write
+pnpm --filter @west4/desktop rebuild-native   # build the USB NFC reader's PC/SC binding for Electron's Node (optional; WEST4_FAKE_READER=1 runs an emulated reader instead)
 pnpm --filter @west4/desktop build   # package the desktop app with electron-builder; signed and notarised only when the certificates are in the environment (apps/desktop/electron-builder.yml)
 ```
 

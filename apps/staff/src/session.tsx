@@ -45,6 +45,8 @@ export interface SessionApi {
     device: StoredDevice,
     args: { membershipId?: string; pin: string },
   ) => Promise<void>;
+  /** A badge tap on a shared screen's reader: the tag's URL with its SUN message (M1-25, M1-30). */
+  readonly signInWithBadge: (device: StoredDevice, url: string) => Promise<void>;
 }
 
 const DEVICE_LOCALE_KEY = "west4.staff.locale";
@@ -160,9 +162,20 @@ export function SessionProvider({
     [refresh],
   );
 
+  const signInWithBadge = useCallback(
+    async (device: StoredDevice, url: string) => {
+      const opened = await signedApi<{ token?: string }>(device, "POST", "/v1/auth/badge", {
+        sun: url,
+      });
+      if (opened.token) setSessionToken(opened.token);
+      await refresh();
+    },
+    [refresh],
+  );
+
   const value = useMemo(
-    () => ({ state, locale, setLocale, refresh, lock, signInWithPin }),
-    [state, locale, setLocale, refresh, lock, signInWithPin],
+    () => ({ state, locale, setLocale, refresh, lock, signInWithPin, signInWithBadge }),
+    [state, locale, setLocale, refresh, lock, signInWithPin, signInWithBadge],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

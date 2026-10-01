@@ -12,7 +12,7 @@ import { modulesRoutes } from "./routes/modules.js";
 import { ModuleGate } from "./http/module-gate.js";
 import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
-import { devicesRoutes } from "./routes/devices.js";
+import { attachedRoutes, devicesRoutes } from "./routes/devices.js";
 import { pushRoutes } from "./routes/push.js";
 import { teamRoutes } from "./routes/team.js";
 import { invitesRoutes } from "./routes/invites.js";
@@ -156,6 +156,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock });
+      attachedRoutes(scope);
       pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
       teamRoutes(scope, {
         clock,

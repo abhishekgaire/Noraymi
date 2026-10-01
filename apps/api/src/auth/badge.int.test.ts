@@ -298,4 +298,67 @@ describe("badges by their SUN message", () => {
     });
     expect(unsigned.statusCode).toBe(403);
   });
+
+  it("the bar computer registers its USB reader once, and the owner gets a tag's keys for pairing (M1-30)", async () => {
+    const path = `/v1/venues/${v.venueA}/devices/attached`;
+    const body = {
+      kind: "nfc_reader",
+      name: "ACR1252 USB",
+      serial: "ACS ACR1252 1S CL Reader PICC 0",
+    };
+    const payload = JSON.stringify(body);
+    const sign = () =>
+      signDeviceRequest({
+        deviceId: bar.id,
+        privateKey: bar.key.privateKey,
+        method: "POST",
+        path,
+        body: payload,
+      });
+    const first = await app.inject({
+      method: "POST",
+      url: path,
+      headers: { ...(await sign()), "content-type": "application/json" },
+      payload,
+    });
+    expect(first.statusCode, first.body).toBe(201);
+    const readerId = json(first)["device_id"] as string;
+    const again = await app.inject({
+      method: "POST",
+      url: path,
+      headers: { ...(await sign()), "content-type": "application/json" },
+      payload,
+    });
+    expect(again.statusCode).toBe(200);
+    expect(json(again)["device_id"]).toBe(readerId);
+    const row = await owner.query<{ kind: string; host_device_id: string }>(
+      "select kind, host_device_id from devices where id = $1",
+      [readerId],
+    );
+    expect(row.rows[0]!.kind).toBe("nfc_reader");
+    expect(row.rows[0]!.host_device_id).toBe(bar.id);
+    const unsigned = await app.inject({ method: "POST", url: path, payload: body });
+    expect(unsigned.statusCode).toBe(403);
+
+    const keys = await post(
+      `/v1/venues/${v.venueA}/team/${diego}/badges/keys`,
+      { uid: "04DE5F1EACC040" },
+      { cookie: ownerCookie },
+    );
+    expect(keys.statusCode, keys.body).toBe(200);
+    const expected = venueBadgeKeys(secret, v.venueA, 1);
+    expect(json(keys)).toMatchObject({
+      key_version: 1,
+      meta_read_key: expected.metaRead.toString("hex"),
+      file_read_key: tagFileReadKey(expected.master, Buffer.from("04DE5F1EACC040", "hex")).toString(
+        "hex",
+      ),
+    });
+    const bad = await post(
+      `/v1/venues/${v.venueA}/team/${diego}/badges/keys`,
+      { uid: "nope" },
+      { cookie: ownerCookie },
+    );
+    expect(bad.statusCode).toBe(400);
+  });
 });

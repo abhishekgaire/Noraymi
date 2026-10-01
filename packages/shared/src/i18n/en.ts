@@ -232,4 +232,22 @@ export const en = {
   "admin.needsPasskey": "Admin needs a passkey",
   "tabs.home": "Home",
   "tabs.alerts": "Alerts",
+  // Badges and readers (M1-30): the Team badges column and the tap.
+  "badge.signingIn": "Badge read · signing you in",
+  "badge.failed": "That badge didn't work · try again, or tap your name, then your PIN",
+  "team.title": "Team",
+  "team.badges": "Badges",
+  "team.badges.none": "No badge yet",
+  "team.badge.pair": "Pair (tap the reader)",
+  "team.badge.waiting": "Tap the new badge on the reader…",
+  "team.badge.paired": "Paired · {label}",
+  "team.badge.switchOff": "Switch off",
+  "team.badge.off": "Switched off",
+  "team.badge.label": "Badge {n}",
+  "team.badge.noReader":
+    "No badge reader on this computer · pair badges on the bar or front-desk computer",
+  "team.badge.failed": "Pairing didn't finish · tap the badge again",
+  "team.badge.cancel": "Cancel",
+  "team.readers": "Readers on this computer: {list}",
+  "stepUp.needed": "Confirm with your passkey to change the team",
 } as const;

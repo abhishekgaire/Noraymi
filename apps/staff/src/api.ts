@@ -68,17 +68,44 @@ export function sessionHeaders(): Record<string, string> {
 }
 
 /** One call to the API on this origin. The session cookie or token goes along by itself. */
+/**
+ * Team changes ask for the passkey again (spec 02): one WebAuthn ceremony
+ * gives a single-use token the next call carries as X-Step-Up.
+ */
+export async function stepUpToken(): Promise<string> {
+  const start = await api<{ options: unknown }>("POST", "/v1/auth/step-up", { step: "start" });
+  const ctor = (
+    globalThis as {
+      PublicKeyCredential?: {
+        parseRequestOptionsFromJSON?: (o: unknown) => PublicKeyCredentialRequestOptions;
+      };
+    }
+  ).PublicKeyCredential;
+  if (!ctor?.parseRequestOptionsFromJSON)
+    throw new ApiCallError(0, "passkey_unsupported", "no passkeys here");
+  const credential = (await navigator.credentials.get({
+    publicKey: ctor.parseRequestOptionsFromJSON(start.options),
+  })) as (Credential & { toJSON(): unknown }) | null;
+  if (!credential) throw new ApiCallError(0, "cancelled", "the passkey prompt was closed");
+  const finish = await api<{ step_up_token: string }>("POST", "/v1/auth/step-up", {
+    step: "finish",
+    credential: credential.toJSON(),
+  });
+  return finish.step_up_token;
+}
+
 export async function api<T>(
   method: "GET" | "POST" | "PATCH",
   path: string,
   body?: unknown,
+  options: { stepUp?: string } = {},
 ): Promise<T> {
   let response: Response;
   try {
     const init: RequestInit = {
       method,
       credentials: "same-origin",
-      headers: { ...sessionHeaders() },
+      headers: { ...sessionHeaders(), ...(options.stepUp ? { "x-step-up": options.stepUp } : {}) },
     };
     if (body !== undefined) {
       init.headers = { ...init.headers, "content-type": "application/json" };

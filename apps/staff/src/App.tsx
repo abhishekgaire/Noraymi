@@ -12,6 +12,8 @@ import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
 import { SignIn } from "./screens/SignIn.js";
 import { SessionProvider, useSession, type SessionState } from "./session.js";
+import { isShared, readDevice } from "./device.js";
+import { startHeartbeats } from "./heartbeat.js";
 
 /** Everything a screen needs around it; tests pass a session instead of calling the API. */
 export function Providers({ children, session }: { children: ReactNode; session?: SessionState }) {
@@ -31,9 +33,26 @@ function WithLocale({ children }: { children: ReactNode }) {
   return (
     <LocaleProvider locale={locale}>
       <Title />
+      <Heartbeats />
       {children}
     </LocaleProvider>
   );
+}
+
+/** A paired shared screen checks in every 30 seconds for as long as the app runs. */
+function Heartbeats() {
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    let live = true;
+    void readDevice().then((device) => {
+      if (live && isShared(device)) stop = startHeartbeats(device);
+    });
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, []);
+  return null;
 }
 
 function Title() {

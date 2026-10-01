@@ -333,6 +333,31 @@ form {
   color: var(--accent);
   font-weight: 600;
 }
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+.team-table th,
+.team-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.badge-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.badge-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .language {
   display: flex;
   flex-wrap: wrap;

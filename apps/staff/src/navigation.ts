@@ -88,7 +88,7 @@ export const menu: readonly MenuEntry[] = [
     path: "/admin",
     screen: "admin",
     action: "admin.access",
-    shipped: false,
+    shipped: true,
   },
   { id: "lock", labelKey: "menu.lock", path: "/lock", screen: "lock", shipped: true },
 ];

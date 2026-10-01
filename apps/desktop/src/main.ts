@@ -3,6 +3,7 @@ import { powerSaveBlocker } from "electron";
 // electron-updater is CommonJS and its autoUpdater is a getter: a default import reaches it, a named one can't.
 import updater from "electron-updater";
 import { UpdateGate } from "./updates.js";
+import { EmulatedReader, ReaderHub, startPcsc } from "./reader.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -43,6 +44,14 @@ let tokens: SealedStore;
 let cacheKey: SealedStore;
 let cache: DesktopCache | null = null;
 const updates = new UpdateGate(null);
+const readers = new ReaderHub();
+let emulated: EmulatedReader | null = null;
+let mainWindow: BrowserWindow | null = null;
+
+/** Tell the page about a tap or a change of readers (M1-30). */
+const toPage = (channel: string, payload: unknown): void => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
+};
 let venueNowOffsetMs: number | null = null;
 
 /** The venue's clock as the server last said it, moved on by the computer's own clock. */
@@ -107,6 +116,52 @@ function registerIpc(): void {
     guarded(() => tokens.clear()),
   );
   ipcMain.handle(
+    "west4:readers",
+    guarded(() => readers.list()),
+  );
+  ipcMain.handle(
+    "west4:badge:pair-start",
+    guarded(() => readers.startPairing()),
+  );
+  ipcMain.handle(
+    "west4:badge:pair-finish",
+    guarded(async (plan: unknown) => {
+      const p = plan as {
+        meta_read_key?: unknown;
+        file_read_key?: unknown;
+        key_version?: unknown;
+        host?: unknown;
+      };
+      const hex = /^[0-9a-fA-F]{32}$/;
+      if (typeof p?.meta_read_key !== "string" || !hex.test(p.meta_read_key))
+        throw new Error("refused: not a key");
+      if (typeof p?.file_read_key !== "string" || !hex.test(p.file_read_key))
+        throw new Error("refused: not a key");
+      if (typeof p?.key_version !== "number" || typeof p?.host !== "string")
+        throw new Error("refused: not a plan");
+      return readers.finishPairing({
+        host: p.host,
+        metaReadKey: Buffer.from(p.meta_read_key, "hex"),
+        fileReadKey: Buffer.from(p.file_read_key, "hex"),
+        keyVersion: p.key_version,
+      });
+    }),
+  );
+  ipcMain.handle(
+    "west4:badge:cancel",
+    guarded(() => readers.cancelPairing()),
+  );
+  // The fake reader (WEST4_FAKE_READER=1): a tag by UID is presented on request, for development and tests.
+  ipcMain.handle(
+    "west4:badge:fake-tap",
+    guarded(async (uid: unknown) => {
+      if (!emulated) throw new Error("refused: no fake reader");
+      if (typeof uid !== "string" || !/^[0-9a-fA-F]{14}$/.test(uid))
+        throw new Error("refused: not a UID");
+      await emulated.present(uid.toUpperCase());
+    }),
+  );
+  ipcMain.handle(
     "west4:venue",
     guarded((clock: unknown) => {
       const c = clock as { time_zone?: unknown; day_cutover?: unknown; server_time?: unknown };
@@ -145,6 +200,7 @@ function createWindow(): BrowserWindow {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   void window.loadURL(staffUrl);
+  mainWindow = window;
   return window;
 }
 
@@ -190,6 +246,12 @@ void app.whenReady().then(() => {
   touch();
   setInterval(touch, 5000).unref();
   startUpdates();
+  // The USB NFC readers: PC/SC, or the emulator when asked for.
+  readers.on("tap", (url, reader) => toPage("west4:badge-tap", { url, reader: reader.name }));
+  readers.on("readers", (list) => toPage("west4:readers", list));
+  readers.on("error", (message) => console.warn(`reader: ${message}`));
+  if (process.env["WEST4_FAKE_READER"] === "1") emulated = new EmulatedReader(readers);
+  else startPcsc(readers);
   // The page asks for nothing the shell should grant: no camera, microphone, location or the rest.
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) =>
     callback(false),

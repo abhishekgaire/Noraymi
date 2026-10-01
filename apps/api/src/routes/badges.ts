@@ -115,7 +115,9 @@ export function badgeRoutes(
       if (!sun) throw new ApiError("invalid_request", "that isn't a badge message");
       const venueId = device.venueId;
       const startedAt = now();
-      const opened = await withVenue(pool, { venueId, requestId: request.requestId }, async (c) => {
+      // First the badge and the person, with no one signed in yet; then the tap and the session as that person,
+      // so the sessions table's row policy (user_id = app_user_id()) lets the row in.
+      const found = await withVenue(pool, { venueId, requestId: request.requestId }, async (c) => {
         const versions = await badgeKeyVersions(c, venueId);
         const decoded = decode(venueId, versions, sun.piccData);
         if (!decoded) throw refused("unknown badge");
@@ -127,30 +129,39 @@ export function badgeRoutes(
         if (decoded.picc.counter <= badge.lastCounter) throw refused("that read was already used");
         const member = await pinMembership(c, venueId, { membershipId: badge.membershipId });
         if (!member) throw refused("this person no longer works here");
-        if (
-          !(await recordBadgeTap(c, venueId, badge.id, decoded.picc.counter, startedAt.toString()))
-        )
-          throw refused("that read was already used");
-        // Someone else's tap takes over the screen at once.
-        await endSessionsOnDevice(c, {
-          deviceId: device.deviceId,
-          at: startedAt.toString(),
-          reason: "replaced",
-        });
-        const expiresAt = startedAt.add({ hours: SESSION_MAX_HOURS });
-        const session = await openSession(c, {
-          userId: member.userId,
-          principal:
-            member.role === "owner" || member.role === "manager" ? "owner_manager" : "staff",
-          assurance: "badge",
-          client: "shared",
-          membershipId: member.membershipId,
-          deviceId: device.deviceId,
-          startedAt: startedAt.toString(),
-          expiresAt: expiresAt.toString(),
-        });
-        return { session, member, badge, expiresAt };
+        return { badge, member, counter: decoded.picc.counter };
       });
+      const opened = await withVenue(
+        pool,
+        { venueId, userId: found.member.userId, requestId: request.requestId },
+        async (c) => {
+          if (
+            !(await recordBadgeTap(c, venueId, found.badge.id, found.counter, startedAt.toString()))
+          )
+            throw refused("that read was already used");
+          // Someone else's tap takes over the screen at once.
+          await endSessionsOnDevice(c, {
+            deviceId: device.deviceId,
+            at: startedAt.toString(),
+            reason: "replaced",
+          });
+          const expiresAt = startedAt.add({ hours: SESSION_MAX_HOURS });
+          const session = await openSession(c, {
+            userId: found.member.userId,
+            principal:
+              found.member.role === "owner" || found.member.role === "manager"
+                ? "owner_manager"
+                : "staff",
+            assurance: "badge",
+            client: "shared",
+            membershipId: found.member.membershipId,
+            deviceId: device.deviceId,
+            startedAt: startedAt.toString(),
+            expiresAt: expiresAt.toString(),
+          });
+          return { session, member: found.member, badge: found.badge, expiresAt };
+        },
+      );
       return reply.code(200).send({
         token: opened.session.token,
         session: {
@@ -234,6 +245,46 @@ export function badgeRoutes(
       const ok = await request.inVenue((c) => disableBadge(c, request.venueId!, request.params.b));
       if (!ok) throw new ApiError("not_found", "no such badge");
       return reply.code(200).send({ ok: true });
+    },
+  );
+
+  /**
+   * Pairing a factory tag (M1-30): the host that reads it needs the tag's two
+   * SDM keys once, to write them into the tag. They're worked out from the
+   * venue's master key for the current key version and the tag's UID, handed
+   * to the owner's passkey session with the step-up, and never stored.
+   */
+  app.post<{ Params: { venueId: string; m: string }; Body: unknown }>(
+    "/v1/venues/:venueId/team/:m/badges/keys",
+    {
+      // A passkey session with the team right; the one step-up of a pairing guards the write that follows.
+      config: route({
+        principals: ["owner_manager"],
+        module: "core",
+        action: "admin.team",
+        assurance: "passkey",
+        idempotency: "none",
+        tokenRoute: true,
+      }),
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({ uid: z.string().regex(/^[0-9a-fA-F]{14}$/) })
+        .strict()
+        .safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { uid }");
+      const venueId = request.venueId!;
+      const member = await request.inVenue((c) =>
+        pinMembership(c, venueId, { membershipId: request.params.m }),
+      );
+      if (!member) throw new ApiError("not_found", "no such person at this venue");
+      const keys = venueBadgeKeys(config.secretKey, venueId, BADGE_KEY_VERSION);
+      const uid = Buffer.from(parsed.data.uid, "hex");
+      return reply.code(200).send({
+        key_version: BADGE_KEY_VERSION,
+        meta_read_key: keys.metaRead.toString("hex"),
+        file_read_key: tagFileReadKey(keys.master, uid).toString("hex"),
+      });
     },
   );
 }

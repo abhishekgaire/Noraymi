@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "tsc -b && electron .",
     "typecheck": "tsc -b",
-    "build": "tsc -b && electron-builder --config electron-builder.yml --publish never"
+    "build": "tsc -b && electron-builder --config electron-builder.yml --publish never",
+    "rebuild-native": "electron-rebuild -f -w @pokusew/pcsclite"
   },
   "dependencies": {
     "@west4/rules": "workspace:*",
@@ -16,8 +17,12 @@
     "electron-updater": "6.8.9"
   },
   "devDependencies": {
+    "@electron/rebuild": "4.2.0",
     "electron": "44.4.5",
     "electron-builder": "26.15.3"
   },
-  "description": "The staff app on the bar and front-desk computers: Electron with the security checklist, a keychain-held token and an encrypted cache."
+  "description": "The staff app on the bar and front-desk computers: Electron with the security checklist, a keychain-held token and an encrypted cache.",
+  "optionalDependencies": {
+    "nfc-pcsc": "0.8.1"
+  }
 }

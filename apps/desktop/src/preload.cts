@@ -11,6 +11,32 @@ contextBridge.exposeInMainWorld("west4", {
     set: (token: string): Promise<void> => ipcRenderer.invoke("west4:token:set", token),
     clear: (): Promise<void> => ipcRenderer.invoke("west4:token:clear"),
   },
+  readers: (): Promise<{ name: string; serial: string }[]> => ipcRenderer.invoke("west4:readers"),
+  badge: {
+    /** A tap on the reader: the tag's URL with its SUN message. Returns the unsubscribe. */
+    onTap: (listener: (tap: { url: string; reader: string }) => void): (() => void) => {
+      const handler = (_event: unknown, tap: { url: string; reader: string }) => listener(tap);
+      ipcRenderer.on("west4:badge-tap", handler);
+      return () => ipcRenderer.removeListener("west4:badge-tap", handler);
+    },
+    onReaders: (listener: (list: { name: string; serial: string }[]) => void): (() => void) => {
+      const handler = (_event: unknown, list: { name: string; serial: string }[]) => listener(list);
+      ipcRenderer.on("west4:readers", handler);
+      return () => ipcRenderer.removeListener("west4:readers", handler);
+    },
+    /** Pairing, step one: hold the next tag presented and give its UID. */
+    pairStart: (): Promise<{ uid: string }> => ipcRenderer.invoke("west4:badge:pair-start"),
+    /** Pairing, step two: program the held tag with its keys; resolves with its first SUN message. */
+    pairFinish: (plan: {
+      host: string;
+      meta_read_key: string;
+      file_read_key: string;
+      key_version: number;
+    }): Promise<{ uid: string; url: string }> =>
+      ipcRenderer.invoke("west4:badge:pair-finish", plan),
+    cancelPair: (): Promise<void> => ipcRenderer.invoke("west4:badge:cancel"),
+    fakeTap: (uid: string): Promise<void> => ipcRenderer.invoke("west4:badge:fake-tap", uid),
+  },
   venue: {
     configure: (clock: {
       time_zone: string;

@@ -238,3 +238,49 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
     },
   );
 }
+
+/**
+ * Peripherals a host computer can see (M1-30): a USB NFC reader (and later
+ * a printer) becomes a device of its own kind, known by its serial on that
+ * host, so the host's heartbeats can list it as attached.
+ */
+export function attachedRoutes(app: FastifyInstance): void {
+  const body = z
+    .object({
+      kind: z.enum(["nfc_reader", "printer"]),
+      name: z.string().trim().min(1).max(80),
+      serial: z.string().trim().min(1).max(120),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/devices/attached",
+    {
+      config: route({ principals: ["shared_device"], module: "core", idempotency: "none" }),
+    },
+    async (request, reply) => {
+      const host = request.signedDevice;
+      if (!host || host.venueId !== request.venueId)
+        throw new ApiError("forbidden", "a host reports its own peripherals");
+      const parsed = body.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { kind, name, serial }");
+      const venueId = request.venueId!;
+      const device = await request.inVenue(async (c) => {
+        const found = await c.query<{ id: string }>(
+          `select id from devices where venue_id = $1 and kind = $2 and revoked_at is null
+             and host_device_id = $3 and serial = $4`,
+          [venueId, parsed.data.kind, host.deviceId, parsed.data.serial],
+        );
+        if (found.rows[0]) return { id: found.rows[0].id, created: false };
+        const made = await c.query<{ id: string }>(
+          `insert into devices (venue_id, kind, name, host_device_id, serial)
+           values ($1, $2, $3, $4, $5) returning id`,
+          [venueId, parsed.data.kind, parsed.data.name, host.deviceId, parsed.data.serial],
+        );
+        return { id: made.rows[0]!.id, created: true };
+      });
+      return reply
+        .code(device.created ? 201 : 200)
+        .send({ device_id: device.id, kind: parsed.data.kind });
+    },
+  );
+}
