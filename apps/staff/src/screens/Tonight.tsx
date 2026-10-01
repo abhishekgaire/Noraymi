@@ -1,0 +1,152 @@
+import { useCallback, useEffect, useState } from "react";
+import { Temporal } from "@west4/shared";
+import { api } from "../api.js";
+import { useClock } from "../clock.js";
+import { useEvents } from "../events.js";
+import { useT } from "../i18n.js";
+import { useSession } from "../session.js";
+
+/**
+ * Tonight (M2-07): the rooms in use with their live clock. Each tile ticks on
+ * the offset the screen measured from the server's time, never the device's
+ * own clock, and takes the room time so far from the server every minute and
+ * on every room event. The full board (states, alerts, the waitlist) lands
+ * in M2-29 on top of this.
+ */
+interface Tile {
+  readonly kind: "in_room" | "staying" | "needed_now" | "walk_in";
+}
+
+interface Session {
+  readonly id: string;
+  readonly room_name: string;
+  readonly party_size: number;
+  readonly started_at: string;
+  readonly booked_end_at: string | null;
+  readonly room_time_cents: number;
+  readonly tile: Tile;
+  readonly stay_on_offer: boolean;
+  readonly wrap_up: boolean;
+  readonly close: string | null;
+}
+
+const REFETCH_MS = 60_000;
+
+export function Tonight() {
+  const { t, money } = useT();
+  const { state } = useSession();
+  const { now } = useClock();
+  const { subscribe } = useEvents();
+  const signedIn = state.status === "signedIn" ? state : null;
+  const venueId = signedIn?.membership.venue_id ?? "";
+  const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
+  const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const answer = await api<{ sessions: Session[] }>("GET", `/v1/venues/${venueId}/sessions`);
+      setSessions(answer.sessions);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  }, [venueId]);
+
+  useEffect(() => {
+    if (!venueId) return;
+    void load();
+    const timer = setInterval(() => void load(), REFETCH_MS);
+    return () => clearInterval(timer);
+  }, [venueId, load]);
+
+  useEffect(
+    () =>
+      subscribe((events) => {
+        if (events.length === 0 || events.some((e) => e.type === "room.updated")) void load();
+      }),
+    [subscribe, load],
+  );
+
+  const closeWords = (iso: string | null): string => {
+    if (!iso) return "";
+    const z = Temporal.Instant.from(iso).toZonedDateTimeISO(timeZone);
+    const hour = z.hour % 12 === 0 ? 12 : z.hour % 12;
+    const suffix = z.hour < 12 ? "AM" : "PM";
+    return z.minute === 0
+      ? `${hour} ${suffix}`
+      : `${hour}:${String(z.minute).padStart(2, "0")} ${suffix}`;
+  };
+
+  const minutesSince = (iso: string) =>
+    now
+      ? Math.max(
+          0,
+          Math.floor(
+            (now.epochMilliseconds - Temporal.Instant.from(iso).epochMilliseconds) / 60_000,
+          ),
+        )
+      : null;
+
+  const tileWords = (s: Session): string => {
+    if (!s.booked_end_at || s.tile.kind === "walk_in") return t("session.walkIn");
+    const end = Temporal.Instant.from(s.booked_end_at).epochMilliseconds;
+    const at = now?.epochMilliseconds ?? end;
+    if (at < end) return t("session.inRoom", { min: Math.ceil((end - at) / 60_000) });
+    const past = Math.floor((at - end) / 60_000);
+    return s.tile.kind === "needed_now"
+      ? t("session.neededNow", { min: past })
+      : t("session.staying", { min: past });
+  };
+
+  return (
+    <section className="screen">
+      <h1>{t("menu.tonight")}</h1>
+      {failed && (
+        <p className="error" role="alert">
+          {t("shell.error.cantReach")}
+        </p>
+      )}
+      {sessions === null ? (
+        !failed && <p role="status">{t("shell.loading")}</p>
+      ) : sessions.length === 0 ? (
+        <p className="empty">{t("shell.empty")}</p>
+      ) : (
+        <>
+          <h2>{t("session.roomsInUse")}</h2>
+          <ul className="room-clocks">
+            {sessions.map((s) => {
+              const minutes = minutesSince(s.started_at);
+              return (
+                <li
+                  key={s.id}
+                  className={s.wrap_up ? "room-clock wrap" : "room-clock"}
+                  aria-label={s.room_name}
+                >
+                  <div className="room-clock-head">
+                    <span className="tile-name">{s.room_name}</span>
+                    {minutes !== null && (
+                      <span className="room-clock-min">
+                        {t("session.minutes", { min: minutes })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="small">{tileWords(s)}</div>
+                  <div className="small muted">
+                    {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
+                  </div>
+                  {s.wrap_up && <div className="small error">{t("session.wrapUp")}</div>}
+                  {s.stay_on_offer && (
+                    <div className="small">
+                      {t("session.stayOn", { time: closeWords(s.close) })}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}

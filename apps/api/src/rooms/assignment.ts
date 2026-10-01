@@ -143,7 +143,9 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
     c,
     venueId,
     at.subtract({ hours: 24 }),
-    night.close ?? at.add({ hours: 24 }),
+    night.close && Temporal.Instant.compare(night.close, at) > 0
+      ? night.close
+      : at.add({ hours: 24 }),
   );
   const spans = blocks.map(spanWithin(night, venue));
   const out: RoomAvailability[] = rooms.map((room) => {

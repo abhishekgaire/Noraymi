@@ -25,6 +25,18 @@ const ADMIN_SECTIONS = [
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
+/**
+ * The sign-in routes allow 30 calls a minute from one address, and a full smoke run signs in many
+ * times: a 429 waits out the window instead of failing (the limit itself stays).
+ */
+async function postAuth(request: APIRequestContext, path: string, options: { data: unknown }) {
+  for (let i = 0; ; i++) {
+    const r = await request.post(path, options);
+    if (r.status() !== 429 || i >= 3) return r;
+    await new Promise((done) => setTimeout(done, 20_000));
+  }
+}
+
 async function enrolPasskey(
   page: Page,
   request: APIRequestContext,
@@ -48,16 +60,16 @@ async function enrolPasskey(
       automaticPresenceSimulation: true,
     },
   });
-  expect((await request.post("/v1/auth/enroll", { data: { step: "start", email } })).ok()).toBe(
-    true,
-  );
+  expect(
+    (await postAuth(request, "/v1/auth/enroll", { data: { step: "start", email } })).ok(),
+  ).toBe(true);
   const job = await db.query<{ payload: { data: { code: string } } }>(
     "select payload from jobs where kind = 'email.send' and payload->>'to' = $1 order by created_at desc limit 1",
     [email],
   );
   const code = job.rows[0]!.payload.data.code;
   const options = (await (
-    await request.post("/v1/auth/enroll", { data: { step: "passkey_options", email, code } })
+    await postAuth(request, "/v1/auth/enroll", { data: { step: "passkey_options", email, code } })
   ).json()) as { options: unknown };
   const registration = await page.evaluate(async (opts) => {
     const { PublicKeyCredential } = window as unknown as {
@@ -70,7 +82,7 @@ async function enrolPasskey(
     })) as PublicKeyCredential & { toJSON(): unknown };
     return cred.toJSON();
   }, options.options);
-  const enrolled = await request.post("/v1/auth/enroll", {
+  const enrolled = await postAuth(request, "/v1/auth/enroll", {
     data: {
       step: "passkey_finish",
       email,
@@ -178,7 +190,10 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     await page.getByRole("button", { name: "Switch to Español" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
     await expect(page.locator(".clock time")).toHaveText(/^10:41\s?p\.\s?m\.$/);
-    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰"]);
+    const rooms = (await db.query<{ name: string }>("select name from rooms")).rows.map(
+      (r) => r.name,
+    );
+    const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...rooms]);
     const es = matchers("es");
     const enOnly = matchers("en").filter((m) => !es.some((e) => e.source === m.source));
     for (const text of await visibleTexts(page)) {
@@ -1142,6 +1157,52 @@ test("Admin → Rooms: West 4's 14 rooms, switch a room off and on, archive one,
     await db.query("delete from venue_settings where key = 'rooms' and version > $1", [
       baseVersion,
     ]);
+    await db.end();
+  }
+});
+
+/**
+ * The live room clock (M2-07). The device's clock is years off; Tonight still
+ * reads Room 9 at 161 minutes and $322.00 from the server, and when two real
+ * minutes pass on the device the tile ticks to 163 on the offset it measured,
+ * never the device's own time. Room 10 offers to stay on by the minute.
+ */
+test("Tonight's room clocks tick on the server's offset while the device clock is wrong", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.clock.install({ time: new Date("2031-03-03T15:00:00Z") });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    await expect(room9).toContainText("161 min");
+    await expect(room9).toContainText("Room time so far $322.00");
+    await expect(room9).toContainText("In room · 19 min left");
+    const room10 = page.getByRole("listitem", { name: "Room 10", exact: true });
+    await expect(room10).toContainText("Staying · 41 min past");
+    await expect(room10).toContainText("Stay on by the minute until we close at 4 AM");
+    await expect(page.getByRole("listitem", { name: "Room 7", exact: true })).toContainText(
+      "Wrap-up",
+    );
+    expect(await clippedText(page)).toEqual([]);
+    await page.clock.fastForward("02:00");
+    await expect(room9).toContainText("163 min", { timeout: 20_000 });
+    await expect(room9).toContainText("In room · 17 min left");
+  } finally {
     await db.end();
   }
 });

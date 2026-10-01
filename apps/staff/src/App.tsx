@@ -12,6 +12,7 @@ import { Hours } from "./screens/admin/Hours.js";
 import { Rooms } from "./screens/admin/Rooms.js";
 import { Team } from "./screens/admin/Team.js";
 import { Home } from "./screens/Home.js";
+import { Tonight } from "./screens/Tonight.js";
 import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
@@ -82,7 +83,7 @@ export function StaffRoutes() {
       <Route path="/invite/:token" element={<Invite />} />
       <Route element={<Shell />}>
         <Route index element={<HomeRedirect />} />
-        <Route path="/tonight" element={<Home titleKey="menu.tonight" />} />
+        <Route path="/tonight" element={<Tonight />} />
         <Route path="/bar" element={<Home titleKey="menu.barPos" />} />
         <Route path={runs.path} element={<Home titleKey={runs.labelKey} />} />
         <Route path="/setup" element={<Setup />} />

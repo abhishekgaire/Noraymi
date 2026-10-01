@@ -502,4 +502,14 @@ export const en = {
   "rooms.tier.medium": "Medium",
   "rooms.tier.large": "Large",
   "rooms.tier.vip": "VIP",
+  // The live room clock (M2-07).
+  "session.inRoom": "In room · {min} min left",
+  "session.staying": "Staying · {min} min past",
+  "session.neededNow": "Needed now · {min} min past",
+  "session.walkIn": "In room",
+  "session.stayOn": "Stay on by the minute until we close at {time}",
+  "session.wrapUp": "Wrap-up",
+  "session.minutes": "{min} min",
+  "session.timeSoFar": "Room time so far {amount}",
+  "session.roomsInUse": "Rooms in use",
 } as const;

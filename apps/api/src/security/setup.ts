@@ -72,6 +72,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        returning id`,
     [v.venueB, guestB.rows[0]!.id, roomB.rows[0]!.id],
   );
+  const sessionB = await owner.query<{ id: string }>(
+    `insert into room_sessions (venue_id, room_id, party_size, started_at, business_date)
+       values ($1, $2, 4, '2026-09-25T21:00:00-04:00', '2026-09-25') returning id`,
+    [v.venueB, roomB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -89,6 +94,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       b: badgeB.rows[0]!.id,
       r: roomB.rows[0]!.id,
       bookingId: bookingB.rows[0]!.id,
+      sessionId: sessionB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -101,6 +107,9 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/rooms/:r": { name: "renamed" },
       "PATCH /v1/venues/:venueId/rooms/:r/state": { state: "available" },
       "PATCH /v1/venues/:venueId/bookings/:bookingId": { party_size: 4 },
+      "PATCH /v1/venues/:venueId/sessions/:sessionId": {
+        booked_end_at: "2026-09-25T23:00:00-04:00",
+      },
     },
   };
   const config = loadConfig({

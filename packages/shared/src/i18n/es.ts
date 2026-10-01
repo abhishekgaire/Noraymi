@@ -508,4 +508,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rooms.tier.medium": "Mediana",
   "rooms.tier.large": "Grande",
   "rooms.tier.vip": "VIP",
+  // The live room clock (M2-07).
+  "session.inRoom": "En la sala · quedan {min} min",
+  "session.staying": "Se queda · {min} min de más",
+  "session.neededNow": "Se necesita ya · {min} min de más",
+  "session.walkIn": "En la sala",
+  "session.stayOn": "Quédense por minuto hasta que cerremos a las {time}",
+  "session.wrapUp": "Cierre",
+  "session.minutes": "{min} min",
+  "session.timeSoFar": "Tiempo de sala hasta ahora {amount}",
+  "session.roomsInUse": "Salas en uso",
 };

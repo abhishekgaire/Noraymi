@@ -167,7 +167,7 @@ Definition of done: see CLAUDE.md.
   - **Cautious defaults:** with no start slots set, the grid offers every half hour (flagged). The seed's bookings load with source `web`, since their deposits were paid by card, and a refund cut-off 24 hours before their start.
 ### M2-07 · Build room sessions, clock segments and the live room clock
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-09, M2-03, M2-05, M2-06
 - **Spec:** [Data model](../spec/04-data-model.md) · `room_sessions`, `session_segments`; [Money rules](../spec/05-money-rules.md) 3 (Resume) and 4; [API](../spec/08-api.md) · Board and sessions; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Clocks
@@ -177,13 +177,17 @@ Definition of done: see CLAUDE.md.
   - The soft end: the booked end never stops the clock. With nobody booked next and `rooms.stayOnWhenFree` on, the room stays on by the minute, worded "Stay on by the minute until we close at 4 AM"; when a booking or a waitlist party needs the room, staff and the room screens get wrap-up prompts. Offers to stay on stop 30 minutes before the close, and at the close every room goes to wrap-up.
   - Room time so far from `packages/rules` on the server's times. Screens tick with the offset they measure from `server_time` and fetch the total again every minute. `room.updated` events.
 - **Acceptance:**
-  - [ ] At 10:41 PM on the seed, Room 9 reads 161 minutes and $322.00, the VIP room 71 minutes and $295.83, and Room 5 41 minutes and $40.00 (the first-hour minimum).
-  - [ ] Room 10 (Tanya W., booked to 10:00 PM, nobody next) reads "Staying · 41 min past", keeps billing, and shows "Stay on by the minute until we close at 4 AM".
-  - [ ] Ending Room 5 by mistake at 10:50 PM and resuming it at 10:55 PM keeps its code and check, and room time bills straight through.
-  - [ ] At 3:30 AM no screen offers to stay on, and at the 4:00 AM close every room is in wrap-up.
+  - [x] At 10:41 PM on the seed, Room 9 reads 161 minutes and $322.00, the VIP room 71 minutes and $295.83, and Room 5 41 minutes and $40.00 (the first-hour minimum).
+  - [x] Room 10 (Tanya W., booked to 10:00 PM, nobody next) reads "Staying · 41 min past", keeps billing, and shows "Stay on by the minute until we close at 4 AM".
+  - [x] Ending Room 5 by mistake at 10:50 PM and resuming it at 10:55 PM keeps its code and check, and room time bills straight through.
+  - [x] At 3:30 AM no screen offers to stay on, and at the 4:00 AM close every room is in wrap-up.
 - **Tests:** integration tests on the simulated clock; a Playwright test that a tile's clock ticks on the server's offset while the device clock is wrong.
 - **Notes:** The spec doesn't say whether the minutes between a mistaken end and its resume are billed; since the party never left, this bills straight through (flagged). A walk-in's session opens through M2-11.
-
+  - **Built:** migration `0030_room_sessions.sql` (`room_sessions` with every model column, `check_id` a plain id until checks arrive in M3, and `session_segments`, where a paused segment must carry `approved_by`); the pure clock in `packages/rules/src/session-clock.ts` (room time from the segments on the server's times; the tile, "In room · N min left", "Staying · N min past" with nobody next, "Needed now · N min past" with someone next; the stay-on offer while nobody is next, stopping 30 minutes before the close; wrap-up from the notice before a booked end when someone is next, and at the close); the service in `apps/api/src/rooms/sessions.ts` (live views, end, resume within 10 minutes, the soft end, and marking wrap-ups); `GET /sessions`, `GET /sessions/{s}`, `PATCH /sessions/{s}` (`booked_end_at`), `POST /sessions/{s}/end`, `POST /sessions/{s}/resume`; a wrap-up sweep every minute that moves rooms in use to `wrap_up`; the seed's eight sessions and segments; and the room clocks on Tonight (`apps/staff/src/screens/Tonight.tsx`), which tick on the measured server offset and refetch every minute and on `room.updated`.
+  - **End and resume:** ending stops the open segment, ends the session's block, writes a cleaning block until the next booking or the cutover, and sets the room to cleaning. Resuming releases that cleaning block, reopens the same segment (so the minutes in between bill), runs the session's block on again, and sets the room back in use; the room code, token version and check are untouched. A resume after 10 minutes, or into a room someone else now has, is refused.
+  - **Seed:** each session's block now ends at its planned end (Room 5's walk-in planned to midnight), which moves the M2-06 switch-off test's Nguyens to Room 9; the sessions' check ids are recorded in `seed_ids` for M3.
+  - **Also:** the staff smoke tests' enrolment helper waits out a 429 from the sign-in rate limit, which a full smoke run now reaches.
+  - **Later tickets:** the board itself (states, alerts, the waitlist) is M2-29; the walk-in check-in that opens a session is M2-11; moves, party-size changes and pauses that open new segments are M2-17 to M2-20.
 ### M2-08 · Open a room check for each session, numbered in order
 
 - **Status:** todo

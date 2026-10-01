@@ -132,12 +132,25 @@ export interface SeedGuest {
   readonly locale?: "en" | "es";
 }
 
+export interface SeedSegment {
+  readonly started_at: string;
+  readonly ended_at: string | null;
+  readonly billable_guests: number;
+  readonly rate_kind: "per_person" | "base_plus_extra" | "flat_by_size" | "vip";
+  readonly hourly_cents: number;
+  readonly paused: boolean;
+}
+
 export interface SeedSession {
   readonly id: string;
   readonly room: string;
   readonly booking: string | null;
   readonly started_at: string;
+  readonly booked_end_at: string | null;
+  readonly business_date: string;
+  readonly check: string | null;
   readonly party_size: number;
+  readonly segments: readonly SeedSegment[];
 }
 
 export interface SeedDevice {
@@ -597,6 +610,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_blocks",
+      "session_segments",
+      "room_sessions",
       "bookings",
       "guests",
       "room_states",
@@ -789,6 +804,44 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     log(`guests: ${seed.guests.length}, bookings: ${seed.bookings.length}`);
 
+    // Room sessions and their clock segments (M2-07): the eight rooms in use at 10:41 PM.
+    // check_id is the check's stable id; the checks themselves load in M3.
+    for (const sess of seed.sessions) {
+      await client.query(
+        `insert into room_sessions (id, venue_id, room_id, booking_id, check_id, party_size, started_at, booked_end_at, business_date)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          id(sess.id),
+          venueId,
+          id(sess.room),
+          sess.booking === null ? null : id(sess.booking),
+          sess.check === null ? null : remember(sess.check, "checks"),
+          sess.party_size,
+          sess.started_at,
+          sess.booked_end_at,
+          sess.business_date,
+        ],
+      );
+      for (const seg of sess.segments) {
+        await client.query(
+          `insert into session_segments (venue_id, session_id, room_id, started_at, ended_at, billable_guests, rate_kind, hourly_cents, paused)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            venueId,
+            id(sess.id),
+            id(sess.room),
+            seg.started_at,
+            seg.ended_at,
+            seg.billable_guests,
+            seg.rate_kind,
+            seg.hourly_cents,
+            seg.paused,
+          ],
+        );
+      }
+    }
+    log(`room sessions: ${seed.sessions.length}`);
+
     // Room blocks (M2-05): every confirmed booking's time (cleaning is 0 at West 4); every session from
     // its start to its booked end, or an hour for a walk-in, extended 15 minutes at a time to cover
     // 10:41 PM where it stayed on; the two rooms cleaning since their party left; Room 4's fault.
@@ -817,9 +870,11 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       blocks++;
     }
     for (const sess of seed.sessions) {
-      const booking = seed.bookings.find((b) => b.id === sess.booking);
       const start = Temporal.Instant.from(sess.started_at);
-      let end = booking ? Temporal.Instant.from(booking.ends_at) : start.add({ minutes: 60 });
+      // The planned end (a walk-in has one too), or an hour; then 15 minutes at a time to cover 10:41 PM.
+      let end = sess.booked_end_at
+        ? Temporal.Instant.from(sess.booked_end_at)
+        : start.add({ minutes: 60 });
       while (Temporal.Instant.compare(end, SEED_NOW) <= 0) end = end.add({ minutes: 15 });
       await block(
         sess.room,

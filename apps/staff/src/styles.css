@@ -646,3 +646,33 @@ button.danger {
   margin: 6px 0 0;
   padding-left: 18px;
 }
+
+/* The live room clocks on Tonight (M2-07). */
+.room-clocks {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.room-clock {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+  display: grid;
+  gap: 4px;
+}
+.room-clock.wrap {
+  border-color: var(--danger);
+}
+.room-clock-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.room-clock-min {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
