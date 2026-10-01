@@ -703,17 +703,22 @@ Definition of done: see CLAUDE.md.
 
 ### M2-30 · Show the board's alerts, most urgent first
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-18, M2-22, M2-26, M2-29
 - **Spec:** [Board](../screens.md#board) note 3; [Demo seed · Board alerts](../demo-seed.md#board-alerts); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · The board and staff phones
 - **Build:** the alerts band, in pink, amber, lime and grey: a room past its end with a booking next ([Text …: please wrap up] [Move a room…]); a room call ([On it]); a room near its end with a booking next ([Text …: please wrap up]); a free room with a waiting party that fits ([Offer Room 11 · 10 min to claim]); rooms that need a wipe while parties wait ([Show]); a guest who texted they're late ([Reply "no problem"] [Check in] [Mark no-show]). Room-order alerts join in M3.
 - **Acceptance:**
-  - [ ] At 10:41 PM the board shows the seed's alerts in order, less Room 5's order (M3 adds it): pink Room 7, 11 min past, the Parks (8) at 11:00; pink Room 9's call for another mic; amber Room 3, 4 min left, Jae & co. at 11:00; lime Room 11 free all night, Amara B. (7) waited 26 min; grey Rooms 6 and 13 need a wipe, Nadia K. and Chris P. waiting; grey Sam O. running 15 late, held until 10:45.
-  - [ ] [Move a room…] opens the move sheet on Room 7, and [Offer Room 11 · 10 min to claim] makes the offer.
-  - [ ] The waitlist party is Nadia K. everywhere, never "Priya K.".
+  - [x] At 10:41 PM the board shows the seed's alerts in order, less Room 5's order (M3 adds it): pink Room 7, 11 min past, the Parks (8) at 11:00; pink Room 9's call for another mic; amber Room 3, 4 min left, Jae & co. at 11:00; lime Room 11 free all night, Amara B. (7) waited 26 min; grey Rooms 6 and 13 need a wipe, Nadia K. and Chris P. waiting; grey Sam O. running 15 late, held until 10:45.
+  - [x] [Move a room…] opens the move sheet on Room 7, and [Offer Room 11 · 10 min to claim] makes the offer.
+  - [x] The waitlist party is Nadia K. everywhere, never "Priya K.".
 - **Tests:** an end-to-end test against `board_alerts` in the seed.
 - **Notes:** The spec gives the seed's order but no general rule; cautious reading: by color (pink, amber, lime, grey), then oldest first (flagged).
+  - Built: `alerts` in `GET /board` (`boardAlerts` in `apps/api/src/rooms/board.ts`) and the band on the board (`screens/Alerts.tsx`), replacing M2-20's calls strip and M2-26's lime suggestion. Actions: [Text …: please wrap up], [Move a room…], [On it], [Offer Room 11 · 10 min to claim], [Show] (scrolls to the first room that needs a wipe), [Reply "no problem"], [Check in] and [Mark no-show] once allowed.
+  - Order, as flagged: by color (pink, amber, lime, grey), then by kind in the order this ticket lists them (past the end with a booking next, a call, near the end with a booking next, a free room to offer, rooms to wipe while parties wait, a guest running late), then oldest first. That reproduces the seed's order; plain "oldest first" within grey would put Sam O.'s 10:24 text before the 10:33 wipe.
+  - A late text is a booking still arriving whose thread has the guest's text in the last 6 hours; the wipe alert names the waiting parties other than the one the lime alert offers a room to. Room numbers join as "Rooms 6 and 13" in the language's list style.
+  - Tested against `board_alerts` in the seed (the API's order and facts, and the band's colors and words), less Room 5's ringing order, which M3 adds.
+
 
 ### M2-31 · Build DeskRoom and the Room phone: the room panel and the running tab
 

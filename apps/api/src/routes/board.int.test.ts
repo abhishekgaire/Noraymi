@@ -174,4 +174,56 @@ describe("the Tonight board at 10:41 PM", () => {
     const vip = (b: typeof before) => b.rooms.find((r) => r.name === "VIP room")!.session!;
     expect(vip(after).room_time_cents).toBe(Math.round((25000 * 72) / 60));
   });
+
+  it("the alerts band at 10:41 PM, in the seed's order (less Room 5's order, M3)", async () => {
+    clock.set(SEED_NOW);
+    const b = (await app.inject({ method: "GET", url: `/v1/venues/${venueId}/board` })).json<{
+      alerts: Record<string, unknown>[];
+    }>();
+    const short = b.alerts.map((a) => {
+      switch (a["kind"]) {
+        case "needed_now":
+        case "near_end":
+          return [
+            a["color"],
+            a["kind"],
+            a["room_name"],
+            a["minutes_past"] ?? a["minutes_left"],
+            (a["next"] as { name: string; party_size: number }).name,
+            (a["next"] as { party_size: number }).party_size,
+          ];
+        case "call":
+          return [a["color"], a["kind"], a["room_name"], a["call"], a["minutes_ago"]];
+        case "offer":
+          return [
+            a["color"],
+            a["kind"],
+            a["room_name"],
+            a["name"],
+            a["party_size"],
+            a["waited_min"],
+            a["all_night"],
+          ];
+        case "wipe":
+          return [
+            a["color"],
+            a["kind"],
+            (a["rooms"] as { name: string; minutes: number }[]).map(
+              (r) => `${r.name} ${r.minutes}`,
+            ),
+            a["waiting"],
+          ];
+        default:
+          return [a["color"], a["kind"], a["name"], a["text"], a["room_name"]];
+      }
+    });
+    expect(short).toEqual([
+      ["pink", "needed_now", "Room 7", 11, "The Parks", 8],
+      ["pink", "call", "Room 9", "mic", 2],
+      ["amber", "near_end", "Room 3", 4, "Jae & co.", 5],
+      ["lime", "offer", "Room 11", "Amara B.", 7, 26, true],
+      ["grey", "wipe", ["Room 6 8", "Room 13 5"], ["Nadia K.", "Chris P."]],
+      ["grey", "late", "Sam O.", "running 15 late", "Room 2"],
+    ]);
+  });
 });

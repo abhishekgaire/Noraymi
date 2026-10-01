@@ -829,4 +829,21 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "board.party": "{name} · {party}",
   "board.deposit": "Depósito {amount}",
   "board.tabSoFar": "Cuenta hasta ahora {amount}",
+  "alert.title": "Avisos",
+  "alert.neededNow":
+    "{room} lleva {min} min pasada su hora, y {name} ({party}) tienen reserva en {room} a las {time}.",
+  "alert.nearEnd": "{room}: quedan {min} min, y {name} tienen reserva a las {time}.",
+  "alert.call.mic": "{room} pidió otro micrófono hace {min} min.",
+  "alert.call.tv": "{room} dice que la TV o la canción no funciona, hace {min} min.",
+  "alert.call.check": "{room} pidió la cuenta hace {min} min.",
+  "alert.call.other": "{room} llamó al personal hace {min} min.",
+  "alert.offerAllNight":
+    "{room} está libre toda la noche, y {name} ({party}) lleva {min} min esperando.",
+  "alert.offer": "{room} está libre por una hora, y {name} ({party}) lleva {min} min esperando.",
+  "alert.wipe": "{rooms} necesitan limpieza ({minutes} min), y {names} están esperando.",
+  "alert.rooms": "Salas {list}",
+  "alert.late":
+    '{name} escribió "{text}" para las {time} en {room}, y se guarda hasta las {until}.',
+  "alert.move": "Mover una sala…",
+  "alert.show": "Mostrar",
 };

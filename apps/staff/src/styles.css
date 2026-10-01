@@ -884,3 +884,33 @@ button.danger {
 .room-clock.red {
   border-color: #b42318;
 }
+/* The alerts band (M2-30): most urgent first, in pink, amber, lime and grey. */
+.alerts {
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 6px solid;
+}
+.alert.pink {
+  border-color: #e0287d;
+}
+.alert.amber {
+  border-color: #d97706;
+}
+.alert.lime {
+  border-color: #7cb518;
+}
+.alert.grey {
+  border-color: #8a8494;
+}

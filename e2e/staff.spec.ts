@@ -1721,7 +1721,9 @@ test("the Calls list on a phone: Room 9's mic call, On it clears it on the board
     const board = await browser.newPage({ storageState: await page.context().storageState() });
     await board.setViewportSize({ width: 1280, height: 800 });
     await board.goto("/tonight");
-    const boardCall = board.getByRole("listitem", { name: "Room 9 · Another mic, please" });
+    const boardCall = board
+      .getByRole("list", { name: "Alerts" })
+      .getByRole("listitem", { name: /^Room 9 called for another mic, \d+ min ago\.$/ });
     await expect(boardCall).toBeVisible();
 
     await page.getByRole("link", { name: "Calls" }).last().click();
@@ -1945,7 +1947,7 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     await expect(
-      page.getByText("Room 11 is free, and Amara B. (7) is first in line."),
+      page.getByText("Room 11 is free all night, and Amara B. (7) has waited 26 min."),
     ).toBeVisible();
     await page.getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
     const amara = page
@@ -2104,6 +2106,80 @@ test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile"
       );
     }
     expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The board's alerts (M2-30), from a fresh seed, against `board_alerts` in the
+ * seed file less Room 5's order (M3): pink, amber, lime, grey in that order;
+ * [Move a room…] opens the move sheet on Room 7; [Offer Room 11 · 10 min to
+ * claim] makes the offer; the waitlist party is Nadia K., never Priya K.
+ */
+test("the alerts band: the seed's alerts in order, Move a room… and the offer", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const seed = JSON.parse(readFileSync("seed/west4-friday.json", "utf8")) as {
+    board_alerts: { rank: number; color: string; text: string }[];
+  };
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const band = page.getByRole("list", { name: "Alerts" });
+    const expected = seed.board_alerts.filter((a) => !/order has been ringing/.test(a.text));
+    await expect(band.getByRole("listitem")).toHaveCount(expected.length);
+    const items = band.getByRole("listitem");
+    // The colors in the seed's order, and each alert's key facts.
+    for (const [i, a] of expected.entries())
+      await expect(items.nth(i)).toHaveClass(new RegExp(`\\b${a.color}\\b`));
+    await expect(items.nth(0)).toContainText(
+      "Room 7 is 11 min past its time, and The Parks (8) are booked into Room 7 at 11:00.",
+    );
+    await expect(items.nth(1)).toContainText("Room 9 called for another mic, 2 min ago.");
+    await expect(items.nth(2)).toContainText(
+      "Room 3: 4 min left, and Jae & co. are booked at 11:00.",
+    );
+    await expect(items.nth(3)).toContainText(
+      "Room 11 is free all night, and Amara B. (7) has waited 26 min.",
+    );
+    await expect(items.nth(4)).toContainText(
+      "Rooms 6 and 13 need a wipe (8 and 5 min), and Nadia K. and Chris P. are waiting.",
+    );
+    await expect(items.nth(5)).toContainText(
+      'Sam O. texted "running 15 late" for the 10:30 in Room 2, and it\'s held until 10:45.',
+    );
+    await expect(page.getByText("Priya K.")).toHaveCount(0);
+    expect(await clippedText(page)).toEqual([]);
+
+    await items.nth(0).getByRole("button", { name: "Move a room…" }).click();
+    await expect(page.getByRole("dialog", { name: "Move Room 7" })).toBeVisible();
+    await page
+      .getByRole("dialog", { name: "Move Room 7" })
+      .getByRole("button", { name: "Cancel" })
+      .click();
+    await items.nth(3).getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
+    await expect(
+      page
+        .getByRole("complementary", { name: "Waitlist" })
+        .getByRole("listitem", { name: "Amara B." })
+        .getByRole("timer"),
+    ).toHaveText(/^Room 11 · (10:00|9:\d\d) to claim$/);
   } finally {
     await db.end();
   }

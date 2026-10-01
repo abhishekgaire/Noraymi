@@ -7,7 +7,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
-import { CallsList } from "./Calls.js";
+import { Alerts, type Alert } from "./Alerts.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { Headcount } from "./Headcount.js";
 import { LostAndFound } from "./LostAndFound.js";
@@ -78,6 +78,7 @@ interface BoardRoom {
 
 interface Board {
   readonly rooms: readonly BoardRoom[];
+  readonly alerts: readonly Alert[];
   readonly counts: {
     readonly in_use: number;
     readonly open: number;
@@ -131,6 +132,7 @@ export function Tonight() {
   const [rooms, setRooms] = useState<readonly RoomInfo[]>([]);
   const [boardRooms, setBoardRooms] = useState<readonly BoardRoom[]>([]);
   const [counts, setCounts] = useState<Board["counts"] | null>(null);
+  const [alerts, setAlerts] = useState<readonly Alert[]>([]);
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
   const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
   const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
@@ -176,6 +178,7 @@ export function Tonight() {
       );
       setBoardRooms(tiles);
       setCounts(rooms?.counts ?? null);
+      setAlerts(rooms?.alerts ?? []);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -194,7 +197,15 @@ export function Tonight() {
       subscribe((events) => {
         if (
           events.length === 0 ||
-          events.some((e) => e.type === "room.updated" || e.type === "booking.updated")
+          events.some((e) =>
+            [
+              "room.updated",
+              "booking.updated",
+              "room.call",
+              "waitlist.updated",
+              "message.received",
+            ].includes(e.type),
+          )
         )
           void load();
       }),
@@ -364,34 +375,6 @@ export function Tonight() {
           canCount={signedIn?.membership.permissions.includes("guests.checkin") ?? false}
         />
       )}
-      {waitlist.suggestion && (
-        <div className="room-clock alert-lime" aria-live="polite">
-          <span>
-            {t("waitlist.suggest", {
-              room: waitlist.suggestion.room_name,
-              name: waitlist.suggestion.name,
-              party: waitlist.suggestion.party_size,
-            })}
-          </span>{" "}
-          <button
-            type="button"
-            className="primary"
-            onClick={() =>
-              void api(
-                "POST",
-                `/v1/venues/${venueId}/waitlist/${waitlist.suggestion!.entry_id}/offer`,
-              )
-                .then(() => {
-                  waitlist.reload();
-                  setDrawer(true);
-                })
-                .catch(() => setFailed(true))
-            }
-          >
-            {t("waitlist.offerButton", { room: waitlist.suggestion.room_name })}
-          </button>
-        </div>
-      )}
       {drawer && (
         <aside className="drawer" aria-label={t("waitlist.title")}>
           <div className="room-clock-head">
@@ -446,7 +429,47 @@ export function Tonight() {
               }}
             />
           )}
-          <CallsList venueId={venueId} compact />
+          <Alerts
+            alerts={alerts}
+            timeZone={timeZone}
+            actions={{
+              canText: signedIn?.membership.permissions.includes("texts.send") ?? false,
+              wrapUp: (sessionId, name) =>
+                void api("POST", `/v1/venues/${venueId}/sessions/${sessionId}/wrap-up-text`)
+                  .then(() => setDone(t("wrapUp.sent", { name })))
+                  .catch(() => setDone(t("wrapUp.failed"))),
+              move: (sessionId, roomName) => setMoving({ sessionId, roomName }),
+              onIt: (callId) =>
+                void api("POST", `/v1/venues/${venueId}/calls/${callId}/ack`)
+                  .then(() => load())
+                  .catch(() => setFailed(true)),
+              offer: (entryId) =>
+                void api("POST", `/v1/venues/${venueId}/waitlist/${entryId}/offer`)
+                  .then(() => {
+                    waitlist.reload();
+                    setDrawer(true);
+                    void load();
+                  })
+                  .catch(() => setFailed(true)),
+              show: (roomId) =>
+                document
+                  .querySelector(`[data-room="${roomId}"]`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+              noProblem: (conversationId) =>
+                void api(
+                  "POST",
+                  `/v1/venues/${venueId}/conversations/${conversationId}/running-late`,
+                  {},
+                )
+                  .then(() => load())
+                  .catch(() => setFailed(true)),
+              checkIn: (bookingId, name) => setSheet({ kind: "booking", bookingId, name }),
+              noShow: (bookingId) =>
+                void api("POST", `/v1/venues/${venueId}/bookings/${bookingId}/no-show`, {})
+                  .then(() => load())
+                  .catch(() => setFailed(true)),
+            }}
+          />
           {damage && (
             <DamageSheet
               venueId={venueId}
@@ -564,6 +587,7 @@ export function Tonight() {
                   key={r.room_id}
                   className={r.tone ? `room-clock ${r.tone}` : "room-clock"}
                   aria-label={r.name}
+                  data-room={r.room_id}
                 >
                   <div className="room-clock-head">
                     <span className="tile-name">{r.name}</span>
