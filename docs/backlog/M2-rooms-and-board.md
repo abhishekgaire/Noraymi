@@ -340,7 +340,7 @@ Definition of done: see CLAUDE.md.
   - **Tests:** the 8 `reason_only_limits` cases written first, limits of 0, credits by size, and Comp 15 min ($10.00 in Room 5, $30.00 in Room 9); integration: Maya at $12.00 used and $63 left after the seed, then a comp on Room 9's check and a void on a bar tab both counting, an approved comp not counting, and staff refused someone else's total.
 ### M2-15 · Build approvals, their routing and the Approvals inbox
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-09, M1-19, M1-22
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Approvals; [Data model](../spec/04-data-model.md) · `approvals`; [API](../spec/08-api.md) · Approvals, Conventions (Approvals); [N18 Approvals inbox](../screens.md#n18-approvals-inbox); [Staff](../screens.md#staff) note 6
@@ -352,12 +352,18 @@ Definition of done: see CLAUDE.md.
   - `approval.requested` and `approval.decided`, and a push to the approver's phone.
   - The Approvals inbox on managers' and owners' phones: "Approvals · N", each request with its line, amount, reason, who asked and when, and [Approve] and [Decline]. The requester's screens show "Waiting for Andy", then the decision.
 - **Acceptance:**
-  - [ ] The `approvals` cases pass: Diego's and Maya's requests go to Andy, and Andy's go to Abhishek.
-  - [ ] An approval can't be decided by its requester, from the requester's device, from a shared screen, or in an authenticator or PIN session.
-  - [ ] Andy's phone shows "Approvals · 1" with the line, amount, reason, who asked and when, while the requester's screen shows "Waiting for Andy".
-  - [ ] A declined request changes nothing, and the requester sees the decision.
+  - [x] The `approvals` cases pass: Diego's and Maya's requests go to Andy, and Andy's go to Abhishek.
+  - [x] An approval can't be decided by its requester, from the requester's device, from a shared screen, or in an authenticator or PIN session.
+  - [x] Andy's phone shows "Approvals · 1" with the line, amount, reason, who asked and when, while the requester's screen shows "Waiting for Andy".
+  - [x] A declined request changes nothing, and the requester sees the decision.
 - **Tests:** the `approvals` group (3 cases), written first; the approval half of spec 13's role and approval tests.
 - **Notes:** The spec defines the manager on duty through the time clock, which comes in M7, but approvals start here; the `duty_managers` stand-in is the cautious bridge (flagged). The seed's pending void (Diego's, on Tariq A.'s check) loads in M3, once voids can run.
+  - Built: `routeApproval` in `packages/rules/src/approvals.ts` (the `approvals` cases); migration 0035 (`approvals`, `duty_managers`, walled and audited; `app_rw` may only update the decision columns, and check constraints keep the approver, the requester and their devices apart); `apps/api/src/approvals/service.ts` (`managerOnDutyAt`, `requestApproval`, `decide`, and an executor per kind; M2 registers `comp`); `GET /approvals`, `GET /approvals/{a}`, `POST /approvals/{a}/decide` in `routes/approvals.ts`. The staff app has the Approvals tab and N18 inbox (`screens/Approvals.tsx`, decisions signed with the phone's own device key) and the requester's "Waiting for Andy" strip in the shell (`approvals/WaitingStrip.tsx`).
+  - `decide` refuses: no passkey session, no signature, a shared screen's or someone else's device, the requester, the requester's device, and anyone it isn't routed to. Approving runs the kind's executor in a savepoint; a target that's gone (a check no longer open) marks it `expired`.
+  - The PIN-pause alert (M1-24) now goes to the manager on duty by name, and to every manager's phone only when nobody is on duty. Device-offline flags (M1-17) send no push yet, so nothing changed there.
+  - The `clock_pause` executor arrives with M2-17's pause route; `void` with M3.
+  - The requester's strip shows decisions it saw arrive while open; after a reload only pending requests show.
+  - `packages/db/src/jobs/jobs.int.test.ts` (scheduler leadership) timed out once under a full parallel run and passed alone; it's unrelated to this ticket and is noted in case it recurs.
 
 ### M2-16 · Report faults: out of service, pause the clock and comp 15 minutes
 

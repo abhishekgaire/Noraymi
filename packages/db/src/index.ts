@@ -299,3 +299,12 @@ export {
   type TwilioIntegration,
 } from "./texts.js";
 export { addScanCheck, addVisualChecks, idCounts, nightKey } from "./id-checks.js";
+export {
+  approvalById,
+  approvalPeople,
+  approvalsFor,
+  decideApproval,
+  insertApproval,
+  managerOnDuty,
+  type ApprovalRow,
+} from "./approvals.js";

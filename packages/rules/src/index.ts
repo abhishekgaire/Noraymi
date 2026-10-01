@@ -40,3 +40,5 @@ export { sessionClock, STAY_ON_STOPS_BEFORE_CLOSE_MIN } from "./session-clock.js
 export type { ClockSegment, SessionClock, Tile } from "./session-clock.js";
 export { compMinutesCents, reasonOnly } from "./reason-only.js";
 export type { ReasonOnlyAnswer, ReasonOnlyLimits } from "./reason-only.js";
+export { routeApproval } from "./approvals.js";
+export type { Person as ApprovalPerson } from "./approvals.js";

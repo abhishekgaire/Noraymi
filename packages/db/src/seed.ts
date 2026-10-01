@@ -705,6 +705,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_blocks",
+      "approvals",
+      "duty_managers",
       "id_checks",
       "id_scan_keys",
       "messages",
@@ -908,6 +910,13 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`guests: ${seed.guests.length}, bookings: ${seed.bookings.length}`);
+
+    // The manager on duty tonight (M2-15): Andy, in the stand-in table until the time clock lands (M7).
+    await client.query(
+      `insert into duty_managers (venue_id, business_date, membership_id)
+         select $1, $2, id from memberships where venue_id = $1 and user_id = $3`,
+      [venueId, "2026-09-25", id("andy")],
+    );
 
     // The 14 texts (M2-09), in the spec's order; marketing ones off.
     for (const text of seed.texts) {

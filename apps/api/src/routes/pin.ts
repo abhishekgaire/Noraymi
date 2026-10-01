@@ -21,6 +21,7 @@ import type { AuthConfig } from "../config.js";
 import { SESSION_MAX_HOURS, setSessionCookie } from "../auth/session-auth.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { managerOnDutyAt } from "../approvals/service.js";
 import { enqueuePush } from "../push/send-push.js";
 
 /**
@@ -118,10 +119,13 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
         const device = await recordDevicePinFailure(c, args.venueId, args.deviceId, at);
         if (device.justPaused) {
           const state = await devicePinState(c, args.venueId, args.deviceId);
-          // Until M2-15 names the manager on duty, every manager's phone gets it.
+          // The manager on duty's phone gets it; with nobody on duty, every manager's phone does.
+          const onDuty = await managerOnDutyAt(c, args.venueId, now());
           await enqueuePush(c, {
             venueId: args.venueId,
-            audience: { kind: "role", role: "manager" },
+            audience: onDuty
+              ? { kind: "person", userId: onDuty }
+              : { kind: "role", role: "manager" },
             message: {
               key: "push.pinPaused.body",
               params: { device: state?.name ?? "" },

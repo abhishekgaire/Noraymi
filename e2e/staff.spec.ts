@@ -1403,3 +1403,103 @@ test("the ID chip and Scan ID, with Safety & ID records on and off", async ({ pa
     await db.end();
   }
 });
+
+/**
+ * The Approvals inbox (M2-15, N18). Andy signs in with his passkey and turns on
+ * alerts, which makes this browser his staff_phone. Diego's comp over the
+ * limit waits for him: "Approvals · 1" shows the line, amount, reason, who
+ * asked and when, and Approve (signed with this phone's own key) puts the comp
+ * on Room 9's check. Andy's own request reads "Waiting for Abhishek G.".
+ */
+test("Andy's phone: Approvals · 1, Diego's comp approved onto Room 9, and his own request waits for Abhishek", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      const fake = {
+        endpoint: "https://push.example.test/send/andy-approvals",
+        toJSON: () => ({
+          endpoint: "https://push.example.test/send/andy-approvals",
+          keys: { p256dh: "fake-p256dh", auth: "fake-auth" },
+        }),
+        unsubscribe: async () => true,
+      };
+      let subscribed = false;
+      PushManager.prototype.subscribe = async () => {
+        subscribed = true;
+        return fake as unknown as PushSubscription;
+      };
+      PushManager.prototype.getSubscription = async () =>
+        (subscribed ? fake : null) as unknown as PushSubscription;
+      Object.defineProperty(Notification, "permission", { get: () => "default" });
+      Notification.requestPermission = async () => "granted";
+    });
+    await db.query(
+      "update memberships set locale = 'en' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await db.query("delete from approvals");
+    await page.goto("/");
+    await enrolPasskey(page, request, db);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/setup");
+    await page.getByRole("button", { name: "Turn on alerts" }).click();
+    await expect(page.getByRole("status")).toHaveText("Alerts are on");
+
+    const people = Object.fromEntries(
+      (
+        await db.query<{ name: string; id: string }>(
+          "select name, id from users where name in ('Diego R.', 'Andy C.', 'Abhishek G.')",
+        )
+      ).rows.map((r) => [r.name.split(" ")[0]!.toLowerCase(), r.id]),
+    );
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const room9 = (
+      await db.query<{ id: string }>(
+        "select row_id as id from seed_ids where venue_id = $1 and slug = 'chk_room9'",
+        [v],
+      )
+    ).rows[0]!.id;
+    const payload = {
+      check_id: room9,
+      description: "15 min of room time",
+      amount_cents: 3000,
+      tax_category: "room_time",
+      business_date: "2026-09-25",
+    };
+    await db.query(
+      `insert into approvals (venue_id, kind, target_kind, target_id, amount_cents, reason, payload, requested_by, requested_at, routed_to)
+         values ($1, 'comp', 'check', $2, 3000, 'Mic died for 15 minutes', $3, $4, '2026-09-25T22:39:00-04:00', $5),
+                ($1, 'comp', 'check', $2, 2000, 'Song system down', $3, $5, '2026-09-25T22:40:00-04:00', $6)`,
+      [v, room9, JSON.stringify(payload), people["diego"], people["andy"], people["abhishek"]],
+    );
+
+    await page.goto("/tonight");
+    await expect(page.getByText("Waiting for Abhishek G.")).toBeVisible();
+    await page.getByRole("link", { name: "Approvals" }).last().click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Approvals · 1");
+    await expect(page.getByText("Comp · 15 min of room time")).toBeVisible();
+    await expect(page.getByText("$30.00")).toBeVisible();
+    await expect(page.getByText("Reason: Mic died for 15 minutes")).toBeVisible();
+    await expect(page.getByText(/Diego R\. asked at 10:39\s?PM/)).toBeVisible();
+    await page.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Approvals · 0");
+    await expect(page.getByText("Nothing to approve")).toBeVisible();
+    const line = await db.query<{ amount_cents: string; approved_by: string }>(
+      "select amount_cents::text, approved_by from check_lines where check_id = $1 and kind = 'comp'",
+      [room9],
+    );
+    expect(line.rows).toEqual([{ amount_cents: "-3000", approved_by: people["andy"] }]);
+  } finally {
+    await db.end();
+  }
+});

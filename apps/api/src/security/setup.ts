@@ -95,6 +95,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into files (venue_id, kind, storage_key, content_type, bytes, uploaded_at) values ($1::uuid, 'damage_photo', $1::text || '/b.jpg', 'image/jpeg', 10, now()) returning id",
     [v.venueB],
   );
+  const approvalB = await owner.query<{ id: string }>(
+    `insert into approvals (venue_id, kind, target_kind, target_id, reason, requested_by, requested_at, routed_to)
+       values ($1, 'comp', 'check', $2, 'B''s comp', $3, now(), $4) returning id`,
+    [v.venueB, checkB.rows[0]!.id, staffB.userId, v.ownerB],
+  );
   const cast: Cast & { ownerB: string; messageB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -116,6 +121,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       sessionId: sessionB.rows[0]!.id,
       checkId: checkB.rows[0]!.id,
       fileId: fileB.rows[0]!.id,
+      approvalId: approvalB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -132,6 +138,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/bookings/:bookingId/check-in": { party_size: 4, ids_checked: 0 },
       "POST /v1/venues/:venueId/rooms/:r/sessions": { party_size: 4, ids_checked: 0, minutes: 60 },
       "POST /v1/venues/:venueId/sessions/:sessionId/id-checks": { method: "visual" },
+      "POST /v1/venues/:venueId/approvals/:approvalId/decide": { decision: "approve" },
       "POST /v1/venues/:venueId/files": {
         kind: "damage_photo",
         content_type: "image/jpeg",

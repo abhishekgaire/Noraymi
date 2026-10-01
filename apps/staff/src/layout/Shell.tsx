@@ -6,6 +6,7 @@ import { useEvents } from "../events.js";
 import { roleKey, useT } from "../i18n.js";
 import { menu, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
+import { WaitingStrip } from "../approvals/WaitingStrip.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
 
 /**
@@ -130,6 +131,7 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
         <LanguageSwitch />
       </nav>
       <main id="main" className="content">
+        <WaitingStrip venueId={membership.venue_id} />
         <Outlet />
       </main>
       <nav className="tabs" aria-label={t("menu.title")}>

@@ -19,6 +19,7 @@ import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
 import { SignIn } from "./screens/SignIn.js";
+import { Approvals } from "./screens/Approvals.js";
 import { SessionProvider, useSession, type SessionState } from "./session.js";
 import { isShared, readDevice } from "./device.js";
 import { startHeartbeats } from "./heartbeat.js";
@@ -89,6 +90,7 @@ export function StaffRoutes() {
         <Route path="/bar" element={<Home titleKey="menu.barPos" />} />
         <Route path={runs.path} element={<Home titleKey={runs.labelKey} />} />
         <Route path="/setup" element={<Setup />} />
+        <Route path="/approvals" element={<Approvals />} />
         <Route path="/admin" element={<Admin />}>
           <Route index element={<AdminIndex />} />
           <Route path="team" element={<Team />} />

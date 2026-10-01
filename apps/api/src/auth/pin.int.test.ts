@@ -153,6 +153,10 @@ beforeAll(async () => {
   maya = await person("Maya S.", "bartender", "4071");
   diego = await person("Diego R.", "front_desk", "6358");
   andy = await person("Andy C.", "manager", "730915");
+  await owner.query(
+    "insert into duty_managers (venue_id, business_date, membership_id) values ($1, '2026-09-25', $2)",
+    [v.venueA, andy],
+  );
   bar = await sharedDevice("bar_computer", "Bar computer");
   desk = await sharedDevice("front_desk", "Front desk");
   // Andy's phone, subscribed to push (M1-22).
@@ -246,6 +250,12 @@ describe("name and PIN on a shared screen", () => {
     clock.advance({ minutes: 2 });
     expect((await pin(bar, maya, "4071")).statusCode).toBe(403);
     expect((await pin(desk, diego, "6358")).statusCode).toBe(200);
+    // With Andy the manager on duty tonight (M2-15), the alert goes to him by name.
+    const job = await owner.query<{ audience: { kind: string } }>(
+      "select payload->'audience' as audience from jobs where kind = $1 order by created_at desc limit 1",
+      [PUSH_SEND_KIND],
+    );
+    expect(job.rows[0]!.audience.kind).toBe("person");
     const sender = new FakePushSender();
     const worker = new Worker(owner, {
       pool: "normal",
