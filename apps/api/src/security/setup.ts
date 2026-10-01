@@ -129,6 +129,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into menu_items (venue_id, category_id, name, alcohol) values ($1, $2, 'B beer', true) returning id",
     [v.venueB, categoryB.rows[0]!.id],
   );
+  const orderB = await owner.query<{ id: string }>(
+    `insert into orders (venue_id, check_id, session_id, source, placed_at, business_date)
+       values ($1, $2, $3, 'room', now(), '2026-09-25') returning id`,
+    [v.venueB, checkB.rows[0]!.id, sessionB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -162,6 +167,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       w: waitB.rows[0]!.id,
       menuRowId: menuItemB.rows[0]!.id,
       menuItemId: menuItemB.rows[0]!.id,
+      orderId: orderB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -194,6 +200,9 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/packages/:menuRowId": { name: "x" },
       "PATCH /v1/venues/:venueId/price-rules/:menuRowId": { name: "x" },
       "POST /v1/venues/:venueId/menu/items/:menuItemId/out-tonight": {},
+      "POST /v1/venues/:venueId/orders/:orderId/decline": { reason: "x" },
+      "POST /v1/venues/:venueId/orders/:orderId/return": { reason: "no_id" },
+      "POST /v1/venues/:venueId/orders/:orderId/resolve": { resolution: "remake" },
       "POST /v1/venues/:venueId/waitlist/:w/seat": { ids_checked: 0, minutes: 60 },
       "POST /v1/venues/:venueId/conversations/:conversationId/messages": { body: "On our way" },
       "POST /v1/venues/:venueId/conversations/:conversationId/running-late": {},

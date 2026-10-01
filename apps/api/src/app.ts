@@ -45,6 +45,7 @@ import { headcountRoutes } from "./routes/headcount.js";
 import { boardRoutes } from "./routes/board.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { menuRoutes } from "./routes/menu.js";
+import { orderRoutes } from "./routes/orders.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
@@ -199,6 +200,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       boardRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
       approvalRoutes(scope, { clock });
+      orderRoutes(scope, { clock });
       let s3: S3Settings | null = null;
       filesRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       menuRoutes(scope, { clock, pool: gatePoolRef!, s3: () => (s3 ??= makeS3()) });

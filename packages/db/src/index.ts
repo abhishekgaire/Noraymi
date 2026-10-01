@@ -368,3 +368,5 @@ export type {
   MenuGroup,
   MenuOption,
 } from "./menu.js";
+export { orderById, listOrders, insertOrder, moveOrder, insertPrintJob } from "./orders.js";
+export type { OrderRow, OrderItemRow, NewOrder } from "./orders.js";

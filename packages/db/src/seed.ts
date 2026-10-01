@@ -65,6 +65,32 @@ export interface SeedFile {
   readonly checks: readonly SeedCheck[];
   readonly texts: readonly SeedText[];
   readonly menu: SeedMenu;
+  readonly orders: readonly SeedOrder[];
+}
+
+/** A room order (M3-06): ringing ones wait for Accept; accepted ones are on their check already. */
+export interface SeedOrder {
+  readonly id: string;
+  readonly session: string;
+  readonly check: string;
+  readonly source: "room" | "staff" | "gift" | "offline";
+  readonly status: string;
+  readonly cancel_reason: string | null;
+  readonly items: readonly {
+    readonly item_id: string;
+    readonly name: string;
+    readonly qty: number;
+    readonly unit_cents: number;
+    readonly alcohol: boolean;
+    readonly options?: Readonly<Record<string, string>>;
+  }[];
+  readonly placed_at: string | null;
+  readonly accepted_by?: string | null;
+  readonly accepted_at?: string | null;
+  readonly ready_at?: string | null;
+  readonly delivered_by?: string | null;
+  readonly delivered_at?: string | null;
+  readonly ticket_printed?: boolean;
 }
 
 /** The menu (M3-03): items by section, shared choice groups and what's 86'd tonight. */
@@ -203,6 +229,8 @@ export interface SeedCheckLine {
   readonly made?: boolean | null;
   readonly added_at?: string | null;
   readonly delivered_at?: string | null;
+  /** The order this line was sold from (M3-06): its items' lines, in order. */
+  readonly order?: string | null;
 }
 
 export interface SeedCheck {
@@ -771,6 +799,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "room_faults",
       "room_notes",
       "lost_items",
+      "print_jobs",
+      "order_items",
+      "orders",
       "menu_options",
       "modifier_groups",
       "menu_variants",
@@ -1253,6 +1284,13 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     const base = fixed >= 0 ? opened[fixed]!.number! - fixed : 1;
     const session = (slug: string) => seed.sessions.find((x) => x.id === slug);
     const lineIds = new Map<string, number>();
+    // A line sold from an order points at its order item (source_id): the order's items in line order.
+    const orderLineCount = new Map<string, number>();
+    const orderItemOf = (orderSlug: string) => {
+      const n = orderLineCount.get(orderSlug) ?? 0;
+      orderLineCount.set(orderSlug, n + 1);
+      return id(`order_${orderSlug}_item_${n}`);
+    };
     for (const [i, ch] of opened.entries()) {
       const sess = ch.room_session ? session(ch.room_session) : undefined;
       const checkId = ch.kind === "room" ? id(ch.id) : remember(ch.id, "checks");
@@ -1275,8 +1313,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       for (const line of ch.lines ?? []) {
         const r = await client.query<{ id: string }>(
           `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-             business_date, reverses_id, made, reason, added_by, added_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) returning id`,
+             business_date, reverses_id, made, reason, added_by, added_at, source_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) returning id`,
           [
             venueId,
             checkId,
@@ -1292,6 +1330,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
             line.reason ?? null,
             line.by ? id(line.by) : null,
             line.added_at ?? line.delivered_at ?? ch.opened_at,
+            line.order ? orderItemOf(line.order) : null,
           ],
         );
         lineIds.set(line.id, Number(r.rows[0]!.id));
@@ -1452,6 +1491,88 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         await addGroup(`${item.option_group!}_mixer`, "Mixer", false, group.mixers, undefined, 1);
     }
     log(`menu: ${seed.menu.items.length} items in ${sections.length} sections, ${out.size} 86'd`);
+
+    // Room orders (M3-06): o1 and o2 ringing, o3 and o4 accepted and ready with their tickets
+    // printed, and the earlier delivered ones, whose lines are on their checks already. The seed
+    // gives the earlier ones' delivery time only, so it stands in for when they were placed and accepted.
+    const seedMenuItem = (itemId: string) => seed.menu.items.find((i) => i.id === itemId);
+    for (const o of seed.orders) {
+      const orderId = remember(`order_${o.id}`, "orders");
+      const placedAt = o.placed_at ?? o.accepted_at ?? o.delivered_at!;
+      const acceptedAt =
+        o.accepted_at ?? (o.status === "delivered" ? (o.delivered_at ?? null) : null);
+      await client.query(
+        `insert into orders (id, venue_id, check_id, session_id, source, status, cancel_reason, placed_at, business_date,
+           accepted_by, accepted_at, ready_by, ready_at, delivered_by, delivered_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+          orderId,
+          venueId,
+          id(o.check),
+          id(o.session),
+          o.source,
+          o.status,
+          o.cancel_reason,
+          placedAt,
+          businessDate,
+          o.accepted_by ? id(o.accepted_by) : null,
+          acceptedAt,
+          o.ready_at && o.accepted_by ? id(o.accepted_by) : null,
+          o.ready_at ?? null,
+          o.delivered_by ? id(o.delivered_by) : null,
+          o.delivered_at ?? null,
+        ],
+      );
+      for (const [n, item] of o.items.entries()) {
+        const menuItem = seedMenuItem(item.item_id);
+        const group = menuItem?.option_group
+          ? seed.menu.option_groups[menuItem.option_group]
+          : undefined;
+        const options = Object.values(item.options ?? {}).map((name) => ({
+          group: group?.label ?? "",
+          name,
+          price_delta_cents: 0,
+        }));
+        await client.query(
+          `insert into order_items (id, venue_id, order_id, variant_id, item_id, options, qty, unit_cents, name_snapshot,
+             alcohol, tax_category, station, sort)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'drink', 'bar', $11)`,
+          [
+            remember(`order_${o.id}_item_${n}`, "order_items"),
+            venueId,
+            orderId,
+            menuItem ? id(`menu_${item.item_id}_regular`) : null,
+            menuItem ? id(`menu_${item.item_id}`) : null,
+            JSON.stringify(options),
+            item.qty,
+            item.unit_cents,
+            item.name,
+            item.alcohol,
+            n,
+          ],
+        );
+      }
+      if (o.ticket_printed && acceptedAt) {
+        await client.query(
+          `insert into print_jobs (venue_id, order_id, kind, station, payload, status, created_at, confirmed_at)
+           values ($1, $2, 'ticket', 'bar', $3, 'printed', $4, $4)`,
+          [
+            venueId,
+            orderId,
+            JSON.stringify({
+              order_id: orderId,
+              lines: o.items.map((i) => ({
+                qty: i.qty,
+                name: i.name,
+                options: Object.values(i.options ?? {}),
+              })),
+            }),
+            acceptedAt,
+          ],
+        );
+      }
+    }
+    log(`orders: ${seed.orders.length}`);
 
     // Devices, with a heartbeat at "now" for each one the seed says is online.
     const offlineSince = new Date(SEED_NOW.epochMilliseconds - 3 * 60 * 60 * 1000);

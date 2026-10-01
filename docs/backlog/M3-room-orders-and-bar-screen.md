@@ -159,7 +159,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-06 · Build the order pipeline, with Accept as the sale
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-09, M2-08, M2-15, M3-03
 - **Spec:** [Data model](../spec/04-data-model.md) · `orders`, `order_items`, `print_jobs`, Room orders; [Money rules](../spec/05-money-rules.md) 6; [API](../spec/08-api.md) · Orders, Live events; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Words on every staff screen; [Glossary · Order statuses](../glossary.md#order-statuses)
@@ -172,14 +172,22 @@ Definition of done: see CLAUDE.md.
   - Return takes the runner's reason (`no_id`, `too_drunk`, `nobody_there` or `other`) and tells the manager on duty. Resolve takes `void_not_made` or `void_made` (a VOID line with its `made` flag) or `remake` (back to accepted with a new ticket, nothing charged again).
   - `GET /orders?status=`: `ringing,held` is the bar's Waiting list and `ready,on_the_way` every phone's Runs. The events `order.ringing`, `order.held`, `order.accepted`, `order.cancelled`, `order.ready`, `order.claimed`, `order.delivered` and `order.returned`.
 - **Acceptance:**
-  - [ ] Accepting o1 (2 × Margarita · Peach) puts it on Room 9's check at that moment: drinks go from $158.00 to $184.00 and the tab so far from $480.00 to $506.00, and a ticket job is made.
-  - [ ] Asking the room to wait on o2 (Room 5, 4 × Bud Light) keeps it in Waiting and aging, and Ready, claim and Deliver on it answer `409`.
-  - [ ] The guest can cancel o1 while it's ringing or held, and not once it's accepted; nothing is charged.
-  - [ ] A decline with no reason is refused; with "Out of peach" the guest sees "The bar couldn't take this order · nothing charged" and the reason.
-  - [ ] Resolving a return as `void_made` writes a VOID line with `made` true; `remake` makes a new ticket job and no new line.
-  - [ ] A price change after an order is placed doesn't change that order.
+  - [x] Accepting o1 (2 × Margarita · Peach) puts it on Room 9's check at that moment: drinks go from $158.00 to $184.00 and the tab so far from $480.00 to $506.00, and a ticket job is made.
+  - [x] Asking the room to wait on o2 (Room 5, 4 × Bud Light) keeps it in Waiting and aging, and Ready, claim and Deliver on it answer `409`.
+  - [x] The guest can cancel o1 while it's ringing or held, and not once it's accepted; nothing is charged.
+  - [x] A decline with no reason is refused; with "Out of peach" the guest sees "The bar couldn't take this order · nothing charged" and the reason.
+  - [x] Resolving a return as `void_made` writes a VOID line with `made` true; `remake` makes a new ticket job and no new line.
+  - [x] A price change after an order is placed doesn't change that order.
 - **Tests:** a state-machine test that tries every step from every status; integration tests for each route and event.
 - **Notes:** The spec doesn't say whether a void that resolves a returned order counts against the reason-only limit (money-cases A2, the seed's o4). Cautious default built here: it counts like any void, so o4's $36.00 void waits for approval (flagged). An order accepted after the check is presented or paid is M4's (`409 ordering_closed`, and a new check after payment).
+  - Built: the state machine `orderStep` in `packages/rules/src/orders.ts` (every step from every status tested, 82 cases); migration `0044_orders.sql` (`orders`, `order_items`, `print_jobs`, row-level security forced, audited); `packages/db/src/orders.ts` (reads, `insertOrder`, the guarded `moveOrder`, `insertPrintJob`); `apps/api/src/orders/pipeline.ts` (each step, Accept as the sale, the void executor for approvals); `apps/api/src/routes/orders.ts`; the guest and staff words for every status in both catalogs with `guestOrderWords` and `staffOrderWordsKey` in `packages/shared/src/orders.ts`; the seed's seven orders (o1 and o2 ringing, o3 and o4 ready with printed tickets, three delivered), each accepted one's check lines pointing at its order items (`source_id`); `apps/api/src/routes/orders.int.test.ts`.
+  - A step from the wrong status, or one someone else took first, answers `409 version_conflict` with the order's status in `details` (spec 08 updated). Each write only lands while the order still has the status the step started from, so two bartenders can't both accept.
+  - Accept writes one `item` line per order item ("Margarita · Peach", the price with any choice's extra), `source_id` the order item, `added_by` the person, then one ticket job per station (unassigned to a printer until M3-13 routes it), `order.accepted` on the room's channel and `check.updated`.
+  - Columns beyond the data model's list, added to spec 04: `orders.placed_at`, `business_date`, `version`, `returned_note`; `order_items.item_id`, `tax_category`, `station` (copied at order time like the price); `print_jobs.station`.
+  - Cancel takes `for: "guest"` (the guest, the host, or staff asking for them) or `"staff"`; the guest's own route is M3-09 and calls the same step. Decline and Accept after 4 AM and the cut-offs are M3-20 to M3-22; an order on a presented or paid check is M4's.
+  - Return pushes "Room 9: couldn't serve · No ID" to the manager on duty. Resolve `void_not_made` or `void_made` writes a VOID line for each of the order's item lines (reversing it, with `made`), and counts against the reason-only limit like any void (the cautious default in the ticket): o4's $36.00 waits for approval, and the approver's phone runs the `void` executor. `remake` goes back to accepted with a new ticket marked as a remake and nothing charged again.
+  - The steps need `orders.accept` (the bar's: accept, hold, ready, cancel, decline, resolve) or `runs.carry` (a runner's: claim, deliver, return). Orders sit under the core module, since staff orders run whatever room ordering's state.
+  - The seed gives the earlier delivered orders' delivery time only, so it stands in for when they were placed and accepted.
 
 ### M3-07 · Add drinks to a room from the staff screens, with unsent drinks saved
 
