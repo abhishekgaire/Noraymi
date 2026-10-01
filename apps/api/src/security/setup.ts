@@ -100,6 +100,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, 'comp', 'check', $2, 'B''s comp', $3, now(), $4) returning id`,
     [v.venueB, checkB.rows[0]!.id, staffB.userId, v.ownerB],
   );
+  const faultB = await owner.query<{ id: string }>(
+    "insert into room_faults (venue_id, room_id, text, reported_at) values ($1, $2, 'B''s fault', now()) returning id",
+    [v.venueB, roomB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -122,6 +126,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       checkId: checkB.rows[0]!.id,
       fileId: fileB.rows[0]!.id,
       approvalId: approvalB.rows[0]!.id,
+      f: faultB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -139,6 +144,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/rooms/:r/sessions": { party_size: 4, ids_checked: 0, minutes: 60 },
       "POST /v1/venues/:venueId/sessions/:sessionId/id-checks": { method: "visual" },
       "POST /v1/venues/:venueId/approvals/:approvalId/decide": { decision: "approve" },
+      "POST /v1/venues/:venueId/rooms/:r/faults": { text: "Mic dead" },
+      "PATCH /v1/venues/:venueId/faults/:f": { fixed: true },
+      "POST /v1/venues/:venueId/sessions/:sessionId/pause": { reason: "Mic dead" },
+      "POST /v1/venues/:venueId/sessions/:sessionId/comp-minutes": { reason: "Mic dead" },
       "POST /v1/venues/:venueId/files": {
         kind: "damage_photo",
         content_type: "image/jpeg",

@@ -367,7 +367,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-16 · Report faults: out of service, pause the clock and comp 15 minutes
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-07, M2-14, M2-15
 - **Spec:** [N14 Report a fault](../screens.md#n14-report-a-fault); [Data model](../spec/04-data-model.md) · `room_faults`; [Money rules](../spec/05-money-rules.md) 3 (Pauses and faults) and 7; [API](../spec/08-api.md) · Room care, Board and sessions (`/pause`, `/unpause`, `/comp-minutes`)
@@ -378,13 +378,21 @@ Definition of done: see CLAUDE.md.
   - Comp 15 min of room time: `POST /sessions/{s}/comp-minutes`, a reason-only comp of 15 minutes at the segment's rate under the same limits as any other (M2-14): a `comp` line with `tax_category` `room_time`, linked from `room_faults.comp_line_id`.
   - Open faults show on the room's tile.
 - **Acceptance:**
-  - [ ] A clock-pause request from Diego on the front-desk computer lands in Andy's Approvals inbox on Andy's phone and never on the front-desk computer or Diego's phone, and Diego's screen shows "Waiting for Andy".
-  - [ ] Andy approves on his phone and the clock stops billing from that minute; Andy's own pause request goes to Abhishek.
-  - [ ] Comp 15 min in Room 5 writes a −$10.00 comp line at once with its reason; in Room 9 it's $30.00 and waits for approval.
-  - [ ] Room 4 shows "Out of service" with "Mic dead since Tue. Replacement ordered." (logged Tue Sep 22), and its tablet is off.
-  - [ ] Marking a fault fixed takes it off the tile.
+  - [x] A clock-pause request from Diego on the front-desk computer lands in Andy's Approvals inbox on Andy's phone and never on the front-desk computer or Diego's phone, and Diego's screen shows "Waiting for Andy".
+  - [x] Andy approves on his phone and the clock stops billing from that minute; Andy's own pause request goes to Abhishek.
+  - [x] Comp 15 min in Room 5 writes a −$10.00 comp line at once with its reason; in Room 9 it's $30.00 and waits for approval.
+  - [x] Room 4 shows "Out of service" with "Mic dead since Tue. Replacement ordered." (logged Tue Sep 22), and its tablet is off.
+  - [x] Marking a fault fixed takes it off the tile.
 - **Tests:** API integration tests on the simulated clock; Playwright for the sheet on the board and DeskRoom.
 - **Notes:** [Board](../screens.md#board) note 8 and [DeskRoom](../screens.md#deskroom) note 6. Room-time lines are computed at finalize (M4), so a room-time comp has no stored line to point at; it's stored as a `comp` line with `tax_category` `room_time`, `source_id` the segment and an empty `reverses_id` (flagged).
+  - Built: migration 0036 (`room_faults`, walled and audited; `app_rw` may only update the links and the fix); `packages/db/src/faults.ts`; `apps/api/src/rooms/faults.ts` (out of service, pause and unpause on the minute, comp minutes, and the `comp` and `clock_pause` approval executors, moved here from M2-15's service); `routes/faults.ts` (`GET /faults`, `POST /rooms/{r}/faults`, `PATCH /faults/{f}`, `POST /sessions/{s}/pause`, `/unpause`, `/comp-minutes`). The board (`Tonight.tsx`) shows open faults on each tile with Fixed, "Clock paused" with Start the clock, an Out of service list, and the Report a fault sheet (`FaultSheet.tsx`).
+  - The seed's Room 4 fault is now a `room_faults` row with no reporter (it was logged before tonight; the seed names nobody, so none is invented). `reported_by` is nullable for that reason.
+  - `GET /rooms/availability` (the board's tiles) now carries each room's open faults and `tablet_on` (false while out of service). The room tablet app isn't built yet; when it is, it reads that state and goes off.
+  - Out of service writes an `out_of_service` block from now, or from the end of whatever is in the room now, up to the first booking that couldn't be moved (open-ended when every booking moved), then reassigns. Marking its last out-of-service fault fixed ends the block and frees the room (in use if a session is open).
+  - Pause and unpause cut the segment on the minute (floor). A pause request on an already paused clock is refused, and an approval whose session has ended or is already paused expires.
+  - The board's sheet only; DeskRoom gets the same sheet with M2-31, so its Playwright half is there.
+  - Flagged as the ticket says: a room-time comp stores `source_id` = the segment and no `reverses_id`.
+
 
 ### M2-17 · Build the party-size control
 

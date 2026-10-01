@@ -1,5 +1,4 @@
 import {
-  addCheckLine,
   approvalById,
   approvalPeople,
   decideApproval,
@@ -32,36 +31,8 @@ export type Executor = (
   ctx: { approverId: string; at: Temporal.Instant },
 ) => Promise<void>;
 
+/** Registered by the module that owns each kind (rooms/faults.ts: comp and clock_pause). */
 export const executors = new Map<string, Executor>();
-
-/** A comp over the reason-only limit (room time in M2; drinks in M3): the comp line, with its approver. */
-executors.set("comp", async (c, venueId, approval, ctx) => {
-  const p = approval.payload as {
-    check_id?: string;
-    description?: string;
-    amount_cents?: number;
-    tax_category?: string;
-    business_date?: string;
-  };
-  const check = await c.query<{ status: string }>(
-    "select status from checks where venue_id = $1 and id = $2",
-    [venueId, p.check_id],
-  );
-  if (!check.rows[0] || check.rows[0].status !== "open") throw new TargetGone();
-  await addCheckLine(c, venueId, p.check_id!, {
-    kind: "comp",
-    description: p.description ?? "Comp",
-    qty: 1,
-    unitCents: -Math.abs(p.amount_cents ?? 0),
-    amountCents: -Math.abs(p.amount_cents ?? 0),
-    taxCategory: p.tax_category ?? null,
-    businessDate: p.business_date!,
-    reason: approval.reason,
-    addedBy: approval.requested_by,
-    approvedBy: ctx.approverId,
-    addedAt: ctx.at.toString(),
-  });
-});
 
 /**
  * The manager on duty at an instant (spec 02 · Approvals): the one function

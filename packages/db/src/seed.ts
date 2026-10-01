@@ -704,6 +704,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
+      "room_faults",
       "room_blocks",
       "approvals",
       "duty_managers",
@@ -867,6 +868,12 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         `insert into room_states (venue_id, room_id, state, reason, since) values ($1, $2, $3, $4, $5)`,
         [venueId, roomId, room.state, reason, since],
       );
+      // Its fault (M2-16): logged before tonight, so nobody on the seed is named as the reporter.
+      if (room.fault)
+        await client.query(
+          `insert into room_faults (venue_id, room_id, text, reported_at, out_of_service) values ($1, $2, $3, $4, $5)`,
+          [venueId, roomId, room.fault.text, since, room.fault.out_of_service ?? false],
+        );
     }
     log(`rooms: ${seed.rooms.length}`);
 

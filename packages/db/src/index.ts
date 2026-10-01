@@ -308,3 +308,11 @@ export {
   managerOnDuty,
   type ApprovalRow,
 } from "./approvals.js";
+export {
+  faultById,
+  fixFault,
+  insertFault,
+  linkFault,
+  openFaults,
+  type FaultRow,
+} from "./faults.js";

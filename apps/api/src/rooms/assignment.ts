@@ -2,6 +2,7 @@ import {
   addBlock,
   blockById,
   blocksBetween,
+  openFaults,
   closureOn,
   emitEvent,
   listRooms,
@@ -131,6 +132,10 @@ export interface RoomAvailability {
   readonly all_night: boolean;
   readonly current: { kind: string; ref_id: string | null; held_until: string | null } | null;
   readonly next: { kind: string; ref_id: string | null; at: string } | null;
+  /** Open faults, shown on the tile (M2-16). */
+  readonly faults: { id: string; text: string; reported_at: string; out_of_service: boolean }[];
+  /** The room's tablet is off while the room is out of service (M2-16). */
+  readonly tablet_on: boolean;
 }
 
 /** Every live room at an instant: free or not, until when, and what's in it or next (the board's "free until"). */
@@ -148,6 +153,7 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
       : at.add({ hours: 24 }),
   );
   const spans = blocks.map(spanWithin(night, venue));
+  const faults = await openFaults(c, venueId);
   const out: RoomAvailability[] = rooms.map((room) => {
     const mine = blocks.filter((b) => b.room_id === room.id);
     const f = freeUntil(room.id, spans, at);
@@ -185,6 +191,15 @@ export async function availability(c: Queryable, venueId: string, at: Temporal.I
           }
         : null,
       next: next ? { kind: next.kind, ref_id: next.ref_id, at: iso(next.starts_at)! } : null,
+      faults: faults
+        .filter((f) => f.room_id === room.id)
+        .map((f) => ({
+          id: f.id,
+          text: f.text,
+          reported_at: f.reported_at,
+          out_of_service: f.out_of_service,
+        })),
+      tablet_on: room.state !== "out_of_service",
     };
   });
   return {

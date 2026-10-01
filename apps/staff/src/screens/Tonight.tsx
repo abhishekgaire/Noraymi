@@ -6,6 +6,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
+import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { ScanId } from "./ScanId.js";
 
 /**
@@ -19,8 +20,24 @@ interface Tile {
   readonly kind: "in_room" | "staying" | "needed_now" | "walk_in";
 }
 
+interface Fault {
+  readonly id: string;
+  readonly text: string;
+  readonly out_of_service: boolean;
+}
+
+interface RoomInfo {
+  readonly room_id: string;
+  readonly name: string;
+  readonly free_now: boolean;
+  readonly state: string;
+  readonly faults: readonly Fault[];
+}
+
 interface Session {
   readonly id: string;
+  readonly room_id: string;
+  readonly segments: readonly { readonly paused: boolean }[];
   readonly room_name: string;
   readonly party_size: number;
   readonly ids_checked: number;
@@ -56,6 +73,8 @@ export function Tonight() {
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [arriving, setArriving] = useState<Arrival[]>([]);
   const [free, setFree] = useState<{ room_id: string; name: string }[]>([]);
+  const [rooms, setRooms] = useState<readonly RoomInfo[]>([]);
+  const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -67,10 +86,9 @@ export function Tonight() {
         api<{ bookings: Arrival[] }>("GET", `/v1/venues/${venueId}/bookings`).catch(() => ({
           bookings: [],
         })),
-        api<{ rooms: { room_id: string; name: string; free_now: boolean }[] }>(
-          "GET",
-          `/v1/venues/${venueId}/rooms/availability`,
-        ).catch(() => ({ rooms: [] })),
+        api<{ rooms: RoomInfo[] }>("GET", `/v1/venues/${venueId}/rooms/availability`).catch(() => ({
+          rooms: [],
+        })),
       ]);
       setSessions(answer.sessions);
       setArriving(
@@ -79,6 +97,7 @@ export function Tonight() {
       setFree(
         rooms.rooms.filter((r) => r.free_now).map((r) => ({ room_id: r.room_id, name: r.name })),
       );
+      setRooms(rooms.rooms);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -108,6 +127,41 @@ export function Tonight() {
     if (missing === 0) return t("ids.chip", params);
     return missing === 1 ? t("ids.runnerOne", params) : t("ids.runnerMany", { ...params, missing });
   };
+
+  const faultsOf = (roomId: string) => rooms.find((r) => r.room_id === roomId)?.faults ?? [];
+  const fixFault = async (id: string) => {
+    try {
+      await api("PATCH", `/v1/venues/${venueId}/faults/${id}`, { fixed: true });
+      await load();
+    } catch {
+      setFailed(true);
+    }
+  };
+  const unpause = async (sessionId: string) => {
+    try {
+      await api("POST", `/v1/venues/${venueId}/sessions/${sessionId}/unpause`);
+      await load();
+    } catch {
+      setFailed(true);
+    }
+  };
+  const faultList = (roomId: string) => (
+    <ul className="faults">
+      {faultsOf(roomId).map((f) => (
+        <li key={f.id} className="small">
+          <div>{f.text}</div>
+          <button type="button" className="link" onClick={() => void fixFault(f.id)}>
+            {t("fault.fixed")}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+  const reportButton = (target: FaultTarget) => (
+    <button type="button" className="secondary" onClick={() => setFaultSheet(target)}>
+      {t("fault.report")}
+    </button>
+  );
 
   const closeWords = (iso: string | null): string => {
     if (!iso) return "";
@@ -166,6 +220,18 @@ export function Tonight() {
               onClose={() => setSheet(null)}
               onDone={(line) => {
                 setSheet(null);
+                setDone(line);
+                void load();
+              }}
+            />
+          )}
+          {faultSheet && (
+            <FaultSheet
+              venueId={venueId}
+              target={faultSheet}
+              onClose={() => setFaultSheet(null)}
+              onLogged={(line) => {
+                setFaultSheet(null);
                 setDone(line);
                 void load();
               }}
@@ -234,6 +300,8 @@ export function Tonight() {
                 >
                   {t("checkIn.walkIn")}
                 </button>
+                {faultList(r.room_id)}
+                {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
               </li>
             ))}
           </ul>
@@ -269,9 +337,31 @@ export function Tonight() {
                       {t("session.stayOn", { time: closeWords(s.close) })}
                     </div>
                   )}
+                  {s.segments.at(-1)?.paused && (
+                    <div className="small">
+                      {t("session.paused")}{" "}
+                      <button type="button" className="link" onClick={() => void unpause(s.id)}>
+                        {t("session.unpause")}
+                      </button>
+                    </div>
+                  )}
+                  {faultList(s.room_id)}
+                  {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
                 </li>
               );
             })}
+          </ul>
+          <h2>{t("fault.outOfServiceRooms")}</h2>
+          <ul className="room-clocks">
+            {rooms
+              .filter((r) => r.state === "out_of_service")
+              .map((r) => (
+                <li key={r.room_id} className="room-clock off" aria-label={r.name}>
+                  <span className="tile-name">{r.name}</span>
+                  <div className="small">{t("fault.outOfService")}</div>
+                  {faultList(r.room_id)}
+                </li>
+              ))}
           </ul>
         </>
       )}

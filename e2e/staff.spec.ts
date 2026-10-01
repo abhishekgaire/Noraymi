@@ -191,7 +191,10 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
     await expect(page.locator(".clock time")).toHaveText(/^10:41\s?p\.\s?m\.$/);
     const rooms = (
-      await db.query<{ name: string }>("select name from rooms union all select name from guests")
+      await db.query<{ name: string }>(
+        // Room and guest names, and fault notes, are the venue's data, not the app's words.
+        "select name from rooms union all select name from guests union all select text from room_faults",
+      )
     ).rows.map((r) => r.name);
     const data = new Set(["West 4 Boho Karaoke", "English", "Español", "☰", ...rooms]);
     const es = matchers("es");
@@ -1499,6 +1502,65 @@ test("Andy's phone: Approvals · 1, Diego's comp approved onto Room 9, and his o
       [room9],
     );
     expect(line.rows).toEqual([{ amount_cents: "-3000", approved_by: people["andy"] }]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Report a fault on the board (M2-16, N14). Room 4 reads "Out of service"
+ * with its note; a fault in Room 5 with Comp 15 min writes the −$10.00 comp at
+ * once; a fault in Room 9 with Pause the clock waits for approval (Andy's own
+ * goes to Abhishek); Fixed takes a fault off its tile.
+ */
+test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9 waiting for Abhishek, then Fixed", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await db.query("delete from approvals");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    const room4 = page.getByRole("listitem", { name: "Room 4", exact: true });
+    await expect(room4).toContainText("Out of service");
+    await expect(room4).toContainText("Mic dead since Tue. Replacement ordered.");
+
+    const room5 = page.getByRole("listitem", { name: "Room 5", exact: true });
+    await room5.getByRole("button", { name: "Report a fault" }).click();
+    let sheet = page.getByRole("dialog", { name: "Report a fault · Room 5" });
+    await sheet.getByLabel("What's wrong").fill("Mic 2 cuts out");
+    await sheet.getByLabel("Comp 15 min of room time").check();
+    expect(await clippedText(page)).toEqual([]);
+    await sheet.getByRole("button", { name: "Log the fault" }).click();
+    await expect(page.getByText("Fault logged in Room 5 · Comp of $10.00 added")).toBeVisible();
+    await expect(room5).toContainText("Mic 2 cuts out");
+
+    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    await room9.getByRole("button", { name: "Report a fault" }).click();
+    sheet = page.getByRole("dialog", { name: "Report a fault · Room 9" });
+    await sheet.getByLabel("What's wrong").fill("TV keeps rebooting");
+    await sheet.getByLabel(/Pause the clock/).check();
+    await sheet.getByRole("button", { name: "Log the fault" }).click();
+    await expect(page.getByText("Fault logged in Room 9 · Waiting for Abhishek G.")).toBeVisible();
+    await expect(page.getByRole("list").getByText("Waiting for Abhishek G.")).toBeVisible();
+
+    await room5.getByRole("button", { name: "Fixed" }).click();
+    await expect(room5).not.toContainText("Mic 2 cuts out");
+    const lines = await db.query<{ amount_cents: string }>(
+      "select l.amount_cents::text from room_faults f join check_lines l on l.id = f.comp_line_id where f.text = 'Mic 2 cuts out'",
+    );
+    expect(lines.rows).toEqual([{ amount_cents: "-1000" }]);
   } finally {
     await db.end();
   }
