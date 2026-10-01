@@ -1737,3 +1737,54 @@ test("the Calls list on a phone: Room 9's mic call, On it clears it on the board
     await db.end();
   }
 });
+
+/**
+ * The damage fee on a phone with a fake camera (M2-21): Room 9's Damage fee
+ * takes a photo and a reason, and the $150.00 line shows the photo's thumbnail.
+ */
+test("the damage fee on a phone: a camera photo and a reason add $150.00 with its thumbnail", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    await room9.getByRole("button", { name: "Damage fee" }).click();
+    const sheet = page.getByRole("dialog", { name: "Damage fee · Room 9" });
+    await expect(sheet.getByRole("button", { name: "Add the damage fee" })).toBeDisabled();
+    // The fake camera: a 1×1 PNG handed to the capture input.
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await sheet.getByLabel("Photo of the damage").setInputFiles({
+      name: "camera.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await sheet.getByLabel("What happened").fill("Broken mic stand");
+    expect(await clippedText(page)).toEqual([]);
+    await sheet.getByRole("button", { name: "Add the damage fee" }).click();
+    const line = sheet.getByRole("listitem", { name: "Damage fee $150.00" });
+    await expect(line).toContainText("Broken mic stand");
+    await expect(line.getByRole("img", { name: "Broken mic stand" })).toBeVisible();
+    await expect(line.getByRole("img", { name: "Broken mic stand" })).toHaveJSProperty(
+      "naturalWidth",
+      1,
+    );
+    await expect(sheet.getByRole("status")).toContainText(/^Tab so far \$[\d,]+\.\d{2}$/);
+  } finally {
+    await db.end();
+  }
+});

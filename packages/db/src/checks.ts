@@ -79,6 +79,8 @@ export interface LineInput {
   readonly approvedBy?: string | null;
   readonly addedAt?: string | null;
   readonly sourceId?: string | null;
+  /** The photo a damage line needs (M2-21). */
+  readonly fileId?: string | null;
 }
 
 /** Adds a line; the check's version goes up with it. Returns the line's id. */
@@ -90,8 +92,8 @@ export async function addCheckLine(
 ): Promise<number> {
   const r = await c.query<{ id: string }>(
     `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-       business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16)
+       business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by, file_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16, $17)
      returning id`,
     [
       venueId,
@@ -110,6 +112,7 @@ export async function addCheckLine(
       line.addedAt ?? null,
       line.sourceId ?? null,
       line.approvedBy ?? null,
+      line.fileId ?? null,
     ],
   );
   await c.query("update checks set version = version + 1 where venue_id = $1 and id = $2", [
@@ -144,6 +147,8 @@ export interface CheckLineRow {
   readonly reverses_id: number | null;
   readonly reason: string | null;
   readonly added_at: string;
+  /** A damage line's photo (M2-21). */
+  readonly file_id: string | null;
 }
 
 export async function checkById(c: Queryable, venueId: string, id: string) {
@@ -165,7 +170,7 @@ export async function checkById(c: Queryable, venueId: string, id: string) {
     }
   >(
     `select id, kind, description, qty, unit_cents, amount_cents, tax_category, reverses_id, reason,
-            to_json(added_at) #>> '{}' as added_at
+            to_json(added_at) #>> '{}' as added_at, file_id
        from check_lines where venue_id = $1 and check_id = $2 order by id`,
     [venueId, id],
   );

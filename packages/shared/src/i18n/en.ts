@@ -698,4 +698,13 @@ export const en = {
   "calls.push.check": "{room}: The check, please",
   "calls.push.other": "{room}: Someone, please come by",
   "tabs.calls": "Calls",
+  "damage.button": "Damage fee",
+  "damage.title": "Damage fee · {room}",
+  "damage.photo": "Photo of the damage",
+  "damage.reason": "What happened",
+  "damage.add": "Add the damage fee",
+  "damage.line": "Damage fee {amount}",
+  "damage.tabSoFar": "Tab so far {amount}",
+  "damage.close": "Done",
+  "damage.failed": "Couldn't add the damage fee",
 } as const;

@@ -121,13 +121,14 @@ pnpm test:integration   # Vitest against Postgres and the local S3 store (docker
 pnpm test:principals    # the principal suite: every route as every principal, plus the planted-leak test (Postgres only; also inside test:integration)
 pnpm test:walls         # the venue-wall suite: every route, job kind and webhook as venue A with venue B's ids (Postgres only; also inside test:integration)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
+pnpm --filter @west4/api dev:test   # the API without .env (what the smoke tests start, so real credentials never load)
 pnpm format             # Prettier --write
 pnpm --filter @west4/api twilio:subaccount -- --venue <slug> --number <+1…>   # one-time: a venue's own Twilio subaccount with a number we already own (needs our platform TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
 pnpm --filter @west4/desktop rebuild-native   # build the USB NFC reader's PC/SC binding for Electron's Node (optional; WEST4_FAKE_READER=1 runs an emulated reader instead)
 pnpm --filter @west4/desktop build   # package the desktop app with electron-builder; signed and notarised only when the certificates are in the environment (apps/desktop/electron-builder.yml)
 ```
 
-Copy `.env.example` to `.env` for local values. `DATABASE_URL` is the table owner (migrations); `APP_DATABASE_URL` is `app_rw`, what the API connects as. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.
+Copy `.env.example` to `.env` for local values; the API's dev server reads it when it exists, and variables already set win. `DATABASE_URL` is the table owner (migrations); `APP_DATABASE_URL` is `app_rw`, what the API connects as. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.
 
 Staging runs on AWS (`infra/README.md`). Infrastructure changes are `terraform plan` then `terraform apply` in `infra/staging`, from a laptop with the admin profile. Merging to `main` deploys the application code through `.github/workflows/deploy-staging.yml`.
 

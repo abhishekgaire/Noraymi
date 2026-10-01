@@ -489,17 +489,22 @@ Definition of done: see CLAUDE.md.
 
 ### M2-21 · Add the damage fee with a photo
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-08, M2-13
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · The board and staff phones (Damage fee); [API](../spec/08-api.md) · Checks (`POST /checks/{c}/lines`); [Money rules](../spec/05-money-rules.md) 8 and 9; [Room](../screens.md#room) note 6
 - **Build:** the $150.00 damage fee (`prices.damageFeeCents`) on the room tab on desktop and phone. `POST /checks/{c}/lines` with kind `damage` needs a photo (a `file_id` from `POST /files`, from the camera or an upload) and a reason. The line shows the photo's thumbnail and has `tax_category` `damage`; it's taxed and kept out of the gratuity base when M4 works those out. No screen says "photo attached" without a photo.
 - **Acceptance:**
-  - [ ] Adding a damage fee to Room 9 without a photo is refused.
-  - [ ] With a camera photo and a reason, a $150.00 damage line shows the thumbnail, and Room 9's tab so far goes from $480.00 to $630.00.
-  - [ ] The attached photo survives the 24-hour cleanup of unattached uploads.
+  - [x] Adding a damage fee to Room 9 without a photo is refused.
+  - [x] With a camera photo and a reason, a $150.00 damage line shows the thumbnail, and Room 9's tab so far goes from $480.00 to $630.00.
+  - [x] The attached photo survives the 24-hour cleanup of unattached uploads.
 - **Tests:** API integration tests; Playwright on a phone with a fake camera.
 - **Notes:** None.
+  - Built: `apps/api/src/rooms/damage.ts` (`addDamageFee`: an open room check, a `damage_photo` upload, a reason, the fee from `prices.damageFeeCents`; the photo is attached so the 24-hour cleanup keeps it); `POST /checks/{c}/lines` takes `{ kind: "damage", file_id, reason }` (items join in M3). Check lines now store and return `file_id`. The board's room tile has Damage fee, opening `DamageSheet.tsx`: the camera or an upload, a reason, then the line with its thumbnail and the tab so far. DeskRoom's room tab gets the same sheet with M2-31.
+  - With no fee set in Admin → Hours & prices, the fee is refused with a hint rather than guessed.
+  - Local setup: browsers upload straight to the bucket, so `docker-compose.yml`'s bucket step now sets a cross-origin rule for the local staff (5173) and guest (3001) apps (`docker compose up s3-init` applies it to an existing store). Staging's bucket needs the same rule for the staff app's real address once M1-02 and the domain are settled (flagged).
+  - The API's dev server now reads the root `.env` when it exists (`tsx watch --env-file-if-exists`), so photo uploads work in `pnpm dev`. The smoke tests start `dev:test` instead, which never reads `.env` (so real credentials can't load), and pass the local store's settings themselves.
+
 
 ### M2-22 · Take replies into the two-way inbox, on Messages desktop and phone
 

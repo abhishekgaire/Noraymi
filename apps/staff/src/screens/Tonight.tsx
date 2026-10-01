@@ -8,6 +8,7 @@ import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { CallsList } from "./Calls.js";
+import { DamageSheet } from "./DamageSheet.js";
 import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
@@ -46,6 +47,7 @@ interface RoomInfo {
 interface Session {
   readonly id: string;
   readonly room_id: string;
+  readonly check_id: string | null;
   readonly segments: readonly { readonly paused: boolean }[];
   readonly room_name: string;
   readonly party_size: number;
@@ -85,6 +87,7 @@ export function Tonight() {
   const [rooms, setRooms] = useState<readonly RoomInfo[]>([]);
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
   const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
+  const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
   const [rates, setRates] = useState<Record<string, { hourly_cents: number; min_guests: number }>>(
     {},
   );
@@ -273,6 +276,17 @@ export function Tonight() {
             />
           )}
           <CallsList venueId={venueId} compact />
+          {damage && (
+            <DamageSheet
+              venueId={venueId}
+              checkId={damage.checkId}
+              roomName={damage.roomName}
+              onClose={() => {
+                setDamage(null);
+                void load();
+              }}
+            />
+          )}
           {moving && (
             <MoveSheet
               venueId={venueId}
@@ -447,6 +461,15 @@ export function Tonight() {
                       {t("move.button")}
                     </button>
                     {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
+                    {s.check_id && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setDamage({ checkId: s.check_id!, roomName: s.room_name })}
+                      >
+                        {t("damage.button")}
+                      </button>
+                    )}
                   </div>
                 </li>
               );

@@ -25,7 +25,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "pnpm --filter @west4/api dev",
+      // dev:test never reads .env, so the smoke tests can't pick up real credentials.
+      command: "pnpm --filter @west4/api dev:test",
       // The simulated clock (server_time 10:41 PM after a seed load) needs the staging switch and the database.
       env: {
         WEST4_ENV: process.env["WEST4_ENV"] ?? "local",
@@ -37,6 +38,12 @@ export default defineConfig({
         WEBAUTHN_RP_ID: process.env["WEBAUTHN_RP_ID"] ?? "localhost",
         WEBAUTHN_ORIGINS:
           process.env["WEBAUTHN_ORIGINS"] ?? "http://localhost:3000,http://localhost:5173",
+        // Photos go straight from the browser to the local store (M2-21), as in the integration tests.
+        S3_ENDPOINT: process.env["S3_ENDPOINT"] ?? "http://localhost:9000",
+        S3_REGION: process.env["S3_REGION"] ?? "us-east-1",
+        S3_ACCESS_KEY_ID: process.env["S3_ACCESS_KEY_ID"] ?? "west4",
+        S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
+        S3_BUCKET_FILES: process.env["S3_BUCKET_FILES"] ?? "west4-files",
       },
       url: "http://127.0.0.1:3000/v1/health",
       reuseExistingServer: !ci,

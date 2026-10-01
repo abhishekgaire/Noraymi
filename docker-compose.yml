@@ -56,6 +56,8 @@ services:
         set -e
         s3="aws --endpoint-url http://s3:9000 s3api"
         $$s3 head-bucket --bucket west4-files 2>/dev/null || $$s3 create-bucket --bucket west4-files
+        # Browsers upload photos straight to the bucket with a presigned POST (M2-13, M2-21): the local staff and guest apps may.
+        $$s3 put-bucket-cors --bucket west4-files --cors-configuration '{"CORSRules":[{"AllowedOrigins":["http://localhost:5173","http://localhost:3001"],"AllowedMethods":["GET","POST"],"AllowedHeaders":["*"],"MaxAgeSeconds":3000}]}'
         $$s3 head-bucket --bucket west4-audit 2>/dev/null || $$s3 create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
         $$s3 get-object-lock-configuration --bucket west4-audit
         echo "buckets ready"

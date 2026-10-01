@@ -707,4 +707,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "calls.push.check": "{room}: La cuenta, por favor",
   "calls.push.other": "{room}: Que alguien venga, por favor",
   "tabs.calls": "Llamadas",
+  "damage.button": "Cargo por daños",
+  "damage.title": "Cargo por daños · {room}",
+  "damage.photo": "Foto del daño",
+  "damage.reason": "Qué pasó",
+  "damage.add": "Agregar el cargo por daños",
+  "damage.line": "Cargo por daños {amount}",
+  "damage.tabSoFar": "Cuenta hasta ahora {amount}",
+  "damage.close": "Listo",
+  "damage.failed": "No se pudo agregar el cargo por daños",
 };
