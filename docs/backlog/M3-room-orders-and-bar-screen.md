@@ -43,7 +43,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-01 · Write the alcohol-window and clear-out rules test-first
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-04, M1-10, M1-12
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Rule packs (The alcohol window); [Money rules](../spec/05-money-rules.md) 2 and 5; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Ringing ("from 4 to 8 AM"); [Testing and operations](../spec/13-testing-operations.md) · Tests (clock tests); [Open technical questions](../spec/14-open-questions.md)
@@ -51,12 +51,14 @@ Definition of done: see CLAUDE.md.
   - `alcoholWindow(venue, at)` in `packages/rules`: open until the earlier of the rule pack's `alcohol.lastSale` and the venue's `hours.lastCall`, resolved as wall-clock time in the venue's zone for that business date, never as opening time plus 14 hours. Closed from then until 8:00 AM. It returns the state and the next instant it changes, which every screen reads so all of them grey alcohol at the same moment.
   - `clearOutDue(venue, businessDate)`: the window's close plus `alcohol.drinkingUpMin` (30 minutes), 4:30 AM at West 4.
 - **Acceptance:**
-  - [ ] On business date Fri Sep 25, 2026 the window is open at 3:59:59 AM on Sat Sep 26 and closed at 4:00:00 AM, and the clear-out check is due at 4:30 AM.
-  - [ ] On the fall-back night (business date Sat Oct 31, 2026) it closes at 4:00 AM EST on Nov 1; on the spring-forward night (business date Sat Mar 13, 2027) at 4:00 AM EDT on Mar 14, not at 5:00 AM as opening time plus 14 hours would give.
-  - [ ] With a house last call of 3:00 AM the window closes at 3:00 AM.
-  - [ ] From 4:00 to 8:00 AM the window stays closed.
+  - [x] On business date Fri Sep 25, 2026 the window is open at 3:59:59 AM on Sat Sep 26 and closed at 4:00:00 AM, and the clear-out check is due at 4:30 AM.
+  - [x] On the fall-back night (business date Sat Oct 31, 2026) it closes at 4:00 AM EST on Nov 1; on the spring-forward night (business date Sat Mar 13, 2027) at 4:00 AM EDT on Mar 14, not at 5:00 AM as opening time plus 14 hours would give.
+  - [x] With a house last call of 3:00 AM the window closes at 3:00 AM.
+  - [x] From 4:00 to 8:00 AM the window stays closed.
 - **Tests:** unit tests on a normal night and both daylight-saving nights, written first.
 - **Notes:** Spec 03's rule-pack shape has no time for the first sale after the close, while spec 10 greys alcohol "from 4 to 8 AM"; this adds `alcohol.firstSale: "08:00"` to the pack's data, not to code (flagged for spec 03). How drinking-up time is measured is open with the lawyer and blocks the gate; the cautious default is built as pack data (`alcohol.drinkingUpFrom: "windowClose"`): from the window's close, the earlier of the county close and the house last call, so the clear-out check is never late. At West 4 both readings give 4:30 AM.
+  - Built: `alcoholWindow`, `clearOutDue` and `windowClose` in `packages/rules/src/alcohol-window.ts`, tests in `alcohol-window.test.ts` (normal night, both daylight-saving nights, a 3:00 AM house last call, 4–8 AM closed across the 6:00 AM cutover). `alcohol.firstSale: "08:00"` and `alcohol.drinkingUpFrom: "windowClose"` added to the New York County pack (`packages/shared/src/rule-pack.ts`) and to spec 03's pack and alcohol-window text.
+  - The venue argument takes `hours.lastCall` and the pack's alcohol block, so callers load both; `changesAt` is the next instant the state flips, `closesAt` the close of the current or last window.
 
 ### M3-02 · Write the promotion checks test-first
 

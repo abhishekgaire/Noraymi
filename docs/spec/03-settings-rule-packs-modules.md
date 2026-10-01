@@ -193,7 +193,8 @@ const newYorkCounty: RulePack = {
   version: "2026.09",
   timeZone: "America/New_York",
   alcohol: {
-    lastSale: "04:00", drinkingUpMin: 30,        // wall-clock times, resolved for each business date
+    lastSale: "04:00", firstSale: "08:00",       // wall-clock times, resolved for each business date
+    drinkingUpMin: 30, drinkingUpFrom: "windowClose",   // how drinking-up is measured is open with the lawyer; this is the cautious default
     promotions: { freeDrinks: false, multipleForOne: "eachAtLeastHalfPrice", hourlyAlcohol: false },
   },
   salesTax: { rate: 0.08875, jurisdictionCode: "…", surchargeTaxable: true },   // the code and the surcharge rule come from the accountant
@@ -212,7 +213,7 @@ const newYorkCounty: RulePack = {
 
 A new version needs two people on our side to approve it in the Console, is signed, and takes effect at a business-date boundary on its effective date. Admin shows every venue using the pack what changes and when, before it applies, and each check revision stores the version it was priced with.
 
-- **The alcohol window.** `alcohol_window(venue, at)` is open until the earlier of the pack's last sale and the venue's `lastCall`, resolved as wall-clock time in the venue's time zone for that business date. It is never worked out as opening time plus 14 hours, which is an hour off on daylight-saving nights. Money rules say what it stops.
+- **The alcohol window.** `alcohol_window(venue, at)` is open until the earlier of the pack's last sale and the venue's `lastCall`, resolved as wall-clock time in the venue's time zone for that business date. It is never worked out as opening time plus 14 hours, which is an hour off on daylight-saving nights. It stays closed until the pack's `firstSale` on the calendar day it closed (8:00 AM in New York, "from 4 to 8 AM" in Staff screens). The clear-out check is due at the window's close plus `drinkingUpMin` (4:30 AM at West 4). Money rules say what it stops.
 - **Promotion checks.** Saving a package, special or menu item runs the pack's checks: alcohol in a package comes in a fixed quantity, no hourly price includes alcohol, a promotional price is at least half the regular one, and no alcohol item costs $0. Comps stay allowed with a reason and are never advertised, and the website hides any promotion the checks refuse until the lawyer clears it. A package that relies on the private-function exception needs a lawyer-defined flag on the booking.
 - **Still with the lawyer:** drinking-up timing, keeping and sharing ID scans, debit under a cash discount, whether NYC's junk-fee rules cover the automatic gratuity, and the promotion questions, all in [Open technical questions](14-open-questions.md).
 

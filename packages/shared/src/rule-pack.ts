@@ -11,7 +11,15 @@ export interface RulePack {
   readonly alcohol: {
     /** Wall-clock times, resolved for each business date. */
     readonly lastSale: string;
+    /** The first sale after the close, on the calendar day the close falls on ("from 4 to 8 AM", spec 10). */
+    readonly firstSale: string;
     readonly drinkingUpMin: number;
+    /**
+     * What drinking-up time counts from. Open with the lawyer; the cautious
+     * default counts from the window's close (the earlier of the pack's last
+     * sale and the house last call), so the clear-out check is never late.
+     */
+    readonly drinkingUpFrom: "windowClose";
     readonly promotions: {
       readonly freeDrinks: boolean;
       readonly multipleForOne: "eachAtLeastHalfPrice";
@@ -67,7 +75,9 @@ export const newYorkCounty: RulePack = {
   timeZone: "America/New_York",
   alcohol: {
     lastSale: "04:00",
+    firstSale: "08:00",
     drinkingUpMin: 30,
+    drinkingUpFrom: "windowClose", // until the lawyer answers
     promotions: { freeDrinks: false, multipleForOne: "eachAtLeastHalfPrice", hourlyAlcohol: false },
   },
   // The code and the surcharge rule come from the accountant (Open technical questions).
