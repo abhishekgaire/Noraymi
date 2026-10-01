@@ -87,7 +87,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-03 · Build the menu tables, the menu API and 86
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-09, M1-13, M1-14, M3-02
 - **Spec:** [Data model](../spec/04-data-model.md) · Menu, orders and songs; [API](../spec/08-api.md) · Menu; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · 86 from the bar POS; [Glossary · 86](../glossary.md#orders-and-the-bar); [Demo seed · West 4 and its rules](../demo-seed.md#west-4-and-its-rules); [Rail](../screens.md#rail) note 12; [Menu](../screens.md#menu) note 3
@@ -98,13 +98,21 @@ Definition of done: see CLAUDE.md.
   - Public: `GET /v1/public/venues/{slug}/menu`.
   - The seed's menu: 127 lines in 9 sections (Beer, Soju, Cocktails, Shots, Spirits, Wine, Soft drinks, Bottles, Buckets), with its option groups, and Hoegaarden, Casamigos Blanco and Casamigos · bottle out tonight.
 - **Acceptance:**
-  - [ ] The seed's 127 lines load in 9 sections; a Margarita asks for its flavor (Raspberry, Peach or Strawberry), and Tito's rings on the rocks unless changed.
-  - [ ] Hoegaarden, Casamigos Blanco and Casamigos · bottle show "86'd tonight" in place, on staff screens and the guest menu.
-  - [ ] 86'ing Bud Light greys it everywhere at once, and it comes back when someone taps it again, or at 6:00 AM.
-  - [ ] A runner's 86 answers `403`.
-  - [ ] A package that fails a promotion check isn't saved, and the answer gives the reason.
+  - [x] The seed's 127 lines load in 9 sections; a Margarita asks for its flavor (Raspberry, Peach or Strawberry), and Tito's rings on the rocks unless changed.
+  - [x] Hoegaarden, Casamigos Blanco and Casamigos · bottle show "86'd tonight" in place, on staff screens and the guest menu.
+  - [x] 86'ing Bud Light greys it everywhere at once, and it comes back when someone taps it again, or at 6:00 AM.
+  - [x] A runner's 86 answers `403`.
+  - [x] A package that fails a promotion check isn't saved, and the answer gives the reason.
 - **Tests:** API integration tests; the promotion checks on each save route.
 - **Notes:** `out_until` clears when the night closes, which comes in M7; until then it's set to the end of the business date (6:00 AM), and M7's close clears it sooner (flagged). The seed has no packages or price rules, so tests bring their own. Allergen fields are phase 2.
+  - Built: migration `0043_menu.sql` (seven tables, row-level security forced, audited); `packages/db/src/menu.ts` (one whitelisted insert and patch for every table, `menuTree` with 86 worked out at the venue's clock, `promoMenu`, `setOutTonight`); `apps/api/src/routes/menu.ts`; the seed loader's menu (`packages/db/src/seed.ts`); `apps/api/src/routes/menu.int.test.ts`; the principal and wall suites cover every new route.
+  - Every item has at least one variant, which carries its price; the seed gives each item one "Regular" variant. A choice (`menu_options`) belongs to a modifier group (`group_id`) and can be the default (`is_default`), so Tito's rings on the rocks; a spirit's mixers are a second, optional "Mixer" group (Red Bull +$6.00 as the seed has it). Each item gets its own copy of a shared seed group. Spec 04 updated.
+  - `GET /menu` (the whole tree) is added beside the seven lists, so screens read one call; spec 08 updated. Variants, options and modifier-group lists take `?item_id=`.
+  - Saves run the checks on the saved state inside the transaction, and a refusal rolls it back: `400 invalid_request` with the reasons in the message and `details.refusals` (each with its code). Packages and price rules are stamped with the pack version they passed.
+  - 86 is `POST /menu/items/{i}/out-tonight` with `{ out?, variant_id?, option_id? }`; `out: false` brings it back. It needs `orders.accept` (owners, managers, bartenders, front desk), so a runner gets 403. `out_until` is the next 6:00 AM cutover until M7's close clears it sooner.
+  - Price-rule kinds are `happy_hour`, `special` and `hourly`; an `hourly` rule is the "hourly price" the checks refuse with alcohol in it.
+  - The "86'd tonight" label is a screen string, added with the screens that show it (M3-04, M3-07, M3-09).
+  - The rule pack's data changed in M3-01 to M3-03 without a version bump, since the pack isn't live anywhere yet; a local database loaded before then needs `pnpm db:reset` then `pnpm seed` to pick up `firstSale` and `privateFunctionException`.
 
 ### M3-04 · Build Admin → Menu
 

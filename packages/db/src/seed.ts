@@ -64,6 +64,33 @@ export interface SeedFile {
   readonly sessions: readonly SeedSession[];
   readonly checks: readonly SeedCheck[];
   readonly texts: readonly SeedText[];
+  readonly menu: SeedMenu;
+}
+
+/** The menu (M3-03): items by section, shared choice groups and what's 86'd tonight. */
+export interface SeedMenu {
+  readonly count: number;
+  readonly out_tonight: readonly string[];
+  readonly option_groups: Readonly<
+    Record<
+      string,
+      {
+        readonly label: string;
+        readonly required: boolean;
+        readonly default?: string;
+        readonly choices: readonly string[];
+        readonly mixers?: readonly (readonly [string, number])[];
+      }
+    >
+  >;
+  readonly items: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly section: string;
+    readonly unit_cents: number;
+    readonly alcohol: boolean;
+    readonly option_group: string | null;
+  }[];
 }
 
 /** An NTAG 424 DNA badge in the seed: the person it's paired to. Its demo UID is derived from its id (DEMO ONLY). */
@@ -663,6 +690,7 @@ export interface SeedLoadResult {
     readonly settings: number;
     readonly modules: number;
     readonly permissionOverrides: number;
+    readonly menuItems: number;
   };
 }
 
@@ -743,6 +771,13 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "room_faults",
       "room_notes",
       "lost_items",
+      "menu_options",
+      "modifier_groups",
+      "menu_variants",
+      "menu_items",
+      "menu_categories",
+      "packages",
+      "price_rules",
       "room_blocks",
       "approvals",
       "duty_managers",
@@ -1342,6 +1377,82 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     log(`room blocks: ${blocks}`);
 
+    // The menu: one category per section in the seed's order, one "Regular" variant per item
+    // carrying its price, and each item's own copy of its choice group. A spirit's "How" group
+    // defaults to Rocks, and its mixers are a second, optional group. 86'd items are out until
+    // the end of the business date, the next 6:00 AM.
+    const sections = [...new Set(seed.menu.items.map((i) => i.section))];
+    const categoryIds = new Map<string, string>();
+    for (const [n, section] of sections.entries()) {
+      const categoryId = remember(`menu_section_${section}`, "menu_categories");
+      categoryIds.set(section, categoryId);
+      await client.query(
+        "insert into menu_categories (id, venue_id, name, sort, tax_category) values ($1, $2, $3, $4, 'drink')",
+        [categoryId, venueId, section, n],
+      );
+    }
+    const outUntil = Temporal.PlainDate.from(businessDate)
+      .add({ days: 1 })
+      .toZonedDateTime({ timeZone: seed.venue.time_zone, plainTime: dayCutover })
+      .toString({ timeZoneName: "never" });
+    const out = new Set(seed.menu.out_tonight);
+    for (const [n, item] of seed.menu.items.entries()) {
+      const itemId = remember(`menu_${item.id}`, "menu_items");
+      await client.query(
+        `insert into menu_items (id, venue_id, category_id, name, alcohol, sort, out_until)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          itemId,
+          venueId,
+          categoryIds.get(item.section),
+          item.name,
+          item.alcohol,
+          n,
+          out.has(item.id) ? outUntil : null,
+        ],
+      );
+      await client.query(
+        "insert into menu_variants (id, venue_id, item_id, name, price_cents) values ($1, $2, $3, 'Regular', $4)",
+        [remember(`menu_${item.id}_regular`, "menu_variants"), venueId, itemId, item.unit_cents],
+      );
+      const group =
+        item.option_group === null ? undefined : seed.menu.option_groups[item.option_group];
+      if (!group) continue;
+      const addGroup = async (
+        key: string,
+        name: string,
+        required: boolean,
+        choices: readonly (readonly [string, number])[],
+        byDefault: string | undefined,
+        sort: number,
+      ) => {
+        const groupId = remember(`menu_${item.id}_${key}`, "modifier_groups");
+        await client.query(
+          `insert into modifier_groups (id, venue_id, item_id, name, required, min_choices, max_choices, sort)
+           values ($1, $2, $3, $4, $5, $6, 1, $7)`,
+          [groupId, venueId, itemId, name, required, required ? 1 : 0, sort],
+        );
+        for (const [o, [choice, delta]] of choices.entries()) {
+          await client.query(
+            `insert into menu_options (venue_id, item_id, group_id, name, price_delta_cents, is_default, sort)
+             values ($1, $2, $3, $4, $5, $6, $7)`,
+            [venueId, itemId, groupId, choice, delta, choice === byDefault, o],
+          );
+        }
+      };
+      await addGroup(
+        item.option_group!,
+        group.label,
+        group.required,
+        group.choices.map((c) => [c, 0] as const),
+        group.default,
+        0,
+      );
+      if (group.mixers)
+        await addGroup(`${item.option_group!}_mixer`, "Mixer", false, group.mixers, undefined, 1);
+    }
+    log(`menu: ${seed.menu.items.length} items in ${sections.length} sections, ${out.size} 86'd`);
+
     // Devices, with a heartbeat at "now" for each one the seed says is online.
     const offlineSince = new Date(SEED_NOW.epochMilliseconds - 3 * 60 * 60 * 1000);
     for (const device of seed.devices) {
@@ -1406,6 +1517,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         settings: settings.length,
         modules: modules.length,
         permissionOverrides: overrides.length,
+        menuItems: seed.menu.items.length,
       },
     };
   } catch (error) {

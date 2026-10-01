@@ -348,3 +348,21 @@ export {
   type WaitlistRow,
   type WaitlistStatus,
 } from "./waitlist.js";
+export {
+  insertMenuRow,
+  patchMenuRow,
+  menuRow,
+  listMenuRows,
+  menuTree,
+  promoMenu,
+  setOutTonight,
+  MenuRowMissing,
+} from "./menu.js";
+export type {
+  MenuTable,
+  MenuCategory,
+  MenuItem,
+  MenuVariant,
+  MenuGroup,
+  MenuOption,
+} from "./menu.js";

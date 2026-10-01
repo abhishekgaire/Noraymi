@@ -121,6 +121,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, 4, 'small', now(), 'staff') returning id`,
     [v.venueB, guestB.rows[0]!.id],
   );
+  const categoryB = await owner.query<{ id: string }>(
+    "insert into menu_categories (venue_id, name) values ($1, 'B drinks') returning id",
+    [v.venueB],
+  );
+  const menuItemB = await owner.query<{ id: string }>(
+    "insert into menu_items (venue_id, category_id, name, alcohol) values ($1, $2, 'B beer', true) returning id",
+    [v.venueB, categoryB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -152,6 +160,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       conversationId: conversationB.rows[0]!.id,
       messageId: messageB.rows[0]!.id,
       w: waitB.rows[0]!.id,
+      menuRowId: menuItemB.rows[0]!.id,
+      menuItemId: menuItemB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -176,6 +186,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
       "POST /v1/venues/:venueId/door-counts": { delta: 1 },
       "PATCH /v1/venues/:venueId/waitlist/:w": { quoted_min: 10 },
+      "PATCH /v1/venues/:venueId/menu/categories/:menuRowId": { name: "x" },
+      "PATCH /v1/venues/:venueId/menu/items/:menuRowId": { name: "x" },
+      "PATCH /v1/venues/:venueId/menu/variants/:menuRowId": { name: "x" },
+      "PATCH /v1/venues/:venueId/menu/options/:menuRowId": { name: "x" },
+      "PATCH /v1/venues/:venueId/menu/modifier-groups/:menuRowId": { name: "x" },
+      "PATCH /v1/venues/:venueId/packages/:menuRowId": { name: "x" },
+      "PATCH /v1/venues/:venueId/price-rules/:menuRowId": { name: "x" },
+      "POST /v1/venues/:venueId/menu/items/:menuItemId/out-tonight": {},
       "POST /v1/venues/:venueId/waitlist/:w/seat": { ids_checked: 0, minutes: 60 },
       "POST /v1/venues/:venueId/conversations/:conversationId/messages": { body: "On our way" },
       "POST /v1/venues/:venueId/conversations/:conversationId/running-late": {},

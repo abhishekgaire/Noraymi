@@ -44,6 +44,7 @@ import { waitlistRoutes } from "./routes/waitlist.js";
 import { headcountRoutes } from "./routes/headcount.js";
 import { boardRoutes } from "./routes/board.js";
 import { approvalRoutes } from "./routes/approvals.js";
+import { menuRoutes } from "./routes/menu.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
@@ -218,6 +219,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         texts: loadVenueTextSettings(config.env),
       });
       closuresRoutes(scope, { clock });
+      menuRoutes(scope, { clock, pool: gatePoolRef! });
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock });
