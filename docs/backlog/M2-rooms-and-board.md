@@ -59,7 +59,7 @@ Definition of done: see CLAUDE.md.
 - **Notes:** "On the minute" is read as segment starts and ends taken to the whole minute on the server's clock, so every segment is whole minutes; the spec doesn't say how a part minute counts (flagged). Built in `packages/rules/src/room-time.ts`: `roomTime(segments, { firstHourMinimum })` keeps Σ hourly_cents × minutes exact and rounds once with `floor((Σ + 30) / 60)`; a paused segment bills nothing and doesn't count toward the hour; the top-up uses the first billed segment's rate; it also returns `billedMinutes` and `elapsedMinutes` for the screens. `roomTimeBetween(start, end, hourlyCents)` subtracts instants, so both daylight-saving nights come out in real minutes, and takes a part minute down to the whole minute (cautious default for the flag). Tests: the 9 `room_time` cases with their `must_not_equal` checks, Room 9 and Room 5, pauses, and the guards against non-whole or negative minutes.
 ### M2-02 · Write the rate, tab-so-far and deposit rules test-first
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-11, M2-01
 - **Spec:** [Money rules](../spec/05-money-rules.md) 2, 3 and 11; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `Rate`, `PriceSettings`, `DepositRule`; [Glossary · Billable guests, Tab so far, Deposit](../glossary.md#rooms-time-and-bookings)
@@ -68,12 +68,14 @@ Definition of done: see CLAUDE.md.
   - `tabSoFar(session, lines, at)`: room time so far plus the check's lines so far, before tax and gratuity. A ringing order isn't a line, so it isn't counted.
   - `deposit(partySize, businessDate, depositRule, prices)`: the first hour for billable guests (`firstHour`), or the `bigParty` rule from its guest count (a flat $250 from 20 guests at West 4), plus the `perPerson`, `flat` and `percent` modes; `cardHold` charges nothing.
 - **Acceptance:**
-  - [ ] Every case in the `billable_guests` group passes: a party of 3 on a Friday bills as 4 at $40.00 an hour; on a Wednesday, parties of 2 and 3 bill as 3; 12:30 AM on a Saturday is Friday's business date, so 3 bill as 4; 19 in the VIP room pay $190.00 an hour and 20 or 22 pay $250.00.
-  - [ ] Every case in the `tab_so_far` group passes for room time, drinks and tab so far: Room 9 $322.00 + $158.00 = $480.00, Room 5 $40.00, the VIP room $295.83 + $480.00 = $775.83, and the rest of the eight rooms.
-  - [ ] The `deposits` cases pass: Sam O.'s 3 guests on Fri Sep 25 owe $40.00, a party of 3 on Wed Sep 23 owes $30.00, 19 guests owe $190.00, and 20 or 22 guests owe $250.00.
+  - [x] Every case in the `billable_guests` group passes: a party of 3 on a Friday bills as 4 at $40.00 an hour; on a Wednesday, parties of 2 and 3 bill as 3; 12:30 AM on a Saturday is Friday's business date, so 3 bill as 4; 19 in the VIP room pay $190.00 an hour and 20 or 22 pay $250.00.
+  - [x] Every case in the `tab_so_far` group passes for room time, drinks and tab so far: Room 9 $322.00 + $158.00 = $480.00, Room 5 $40.00, the VIP room $295.83 + $480.00 = $775.83, and the rest of the eight rooms.
+  - [x] The `deposits` cases pass: Sam O.'s 3 guests on Fri Sep 25 owe $40.00, a party of 3 on Wed Sep 23 owes $30.00, 19 guests owe $190.00, and 20 or 22 guests owe $250.00.
 - **Tests:** the `billable_guests` group (14 cases), the `tab_so_far` group (8 cases; their `if_presented_now` totals are asserted in M4 with tax and gratuity) and the `deposits` group (8 cases; `deposit_larger_than_check_forfeit` is M4's), all written first.
 - **Notes:** The glossary words "tab so far" as room time plus drinks. This counts every line on the check (drinks, comps and voids, a damage fee), since the seed has only drinks and a tile that left out a damage fee would understate what's owed (flagged). Online booking reuses the deposit rule in M5.
-
+  - **Built:** `packages/rules/src/rates.ts` (`hourlyRateAt(at, partySize, room, prices, venue)` with `minGuestsOn`, `billableGuestsOn` and `hourlyCentsFor` for the three rate modes and the VIP rule; a flat-by-size room with no price for its tier is an error, never a guess), `tab.ts` (`tabSoFar(session, lines, at)` over closed segments plus the open one to `at`), `deposit.ts` (`deposit(partySize, businessDate, rule, prices)` with the big-party flat and percent rules, the five modes, and the rule's words, for example "first hour: billable guests x $10"), and `west4-fixtures.ts` (West 4's price and deposit settings as the spec gives them, for the tests). Exported from `@west4/rules`.
+  - **Cautious defaults:** a percent deposit (plain or big-party) is taken on the first hour's room cost for billable guests; the spec says "the larger of room cost and the booking's minimum spend", and minimum spend arrives in M4 (empty at West 4), so that half joins then. A big-party rule wins over the deposit mode once the party reaches `fromGuests`.
+  - **Tests:** the 14 `billable_guests` cases, the 8 `tab_so_far` cases (room time, drinks and tab so far; their `if_presented_now` totals wait for M4), the 8 booking `deposits` cases (the forfeit case is M4's), plus base-plus-extra, flat-by-size, the VIP party in an ordinary room, the other deposit modes and a tab with closed and open segments. Time bands join `hourlyRateAt` in M2-03.
 ### M2-03 · Add time bands with a billing step and rounding, and the pricing property tests
 
 - **Status:** todo

@@ -1,4 +1,5 @@
-import { Temporal, cents, type Cents } from "@west4/shared";
+import type { Temporal } from "@west4/shared";
+import { cents, type Cents } from "@west4/shared";
 
 /**
  * Room time (M2-01; spec 05 · rule 3). A session bills from its segments: a
