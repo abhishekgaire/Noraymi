@@ -9,6 +9,7 @@ import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { CallsList } from "./Calls.js";
 import { DamageSheet } from "./DamageSheet.js";
+import { Headcount } from "./Headcount.js";
 import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { WaitlistList, useWaitlistCount } from "./Waitlist.js";
@@ -270,8 +271,14 @@ export function Tonight() {
           </button>
         )}
       </div>
+      {venueId && (
+        <Headcount
+          venueId={venueId}
+          canCount={signedIn?.membership.permissions.includes("guests.checkin") ?? false}
+        />
+      )}
       {waitlist.suggestion && (
-        <div className="room-clock alert-lime" role="status">
+        <div className="room-clock alert-lime" aria-live="polite">
           <span>
             {t("waitlist.suggest", {
               room: waitlist.suggestion.room_name,

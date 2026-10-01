@@ -717,6 +717,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "devices",
+      "door_counts",
       "waitlist_entries",
       "room_calls",
       "room_faults",

@@ -41,6 +41,7 @@ import { roomCareRoutes } from "./routes/room-care.js";
 import { callRoutes } from "./routes/calls.js";
 import { conversationRoutes } from "./routes/conversations.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
+import { headcountRoutes } from "./routes/headcount.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
@@ -192,6 +193,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       moveRoutes(scope, { clock });
       roomCareRoutes(scope, { clock });
       callRoutes(scope, { clock });
+      headcountRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
       approvalRoutes(scope, { clock });
       let s3: S3Settings | null = null;

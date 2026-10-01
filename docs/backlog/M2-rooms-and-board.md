@@ -639,7 +639,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-27 · Add the server-checked CAPTCHA and daily limits to the waitlist page and phone codes
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M1-23, M2-25
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 8; [API](../spec/08-api.md) · Waitlist (public routes check a CAPTCHA); [Waitlist](../screens.md#waitlist) note 4
@@ -649,10 +649,12 @@ Definition of done: see CLAUDE.md.
   - [ ] Past the daily limit, another join from the same phone number, IP address or device is refused, and the next day it works again.
 - **Tests:** integration tests with the provider's test keys.
 - **Notes:** The spec names no CAPTCHA provider and no limit numbers; the founder picks the provider and sets the numbers (flagged). Booking and enquiries get the same checks in M5.
+  - Blocked on the founder (asked): which CAPTCHA provider (for example Cloudflare Turnstile or hCaptcha, both with server-side checks and test keys), and the daily limits per phone number, IP address and device. Nothing is invented meanwhile; the waitlist page and phone codes run without them until then.
+
 
 ### M2-28 · Count the headcount with the door counter, and build Admin → Safety
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-31, M2-07, M2-25
 - **Spec:** [N31 Occupancy warning and door counter](../screens.md#n31-occupancy-warning-and-door-counter); [N36 Admin → Safety](../screens.md#n36-admin--safety); [Data model](../spec/04-data-model.md) · `door_counts`; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `SafetySettings`; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Safety
@@ -661,12 +663,17 @@ Definition of done: see CLAUDE.md.
   - The headcount: open sessions' party sizes, plus waiting parties, plus door counts (M6 adds people on bar tabs), against `safety.occupancyLimit`. The board warns when it reaches `safety.warnAtPct` (90%) of the limit. With no limit set, the board shows "Limit not set · Admin → Safety" and no limit number, never a made-up one. `headcount.updated` events.
   - Admin → Safety: the occupancy limit (empty at West 4) and the warning share (90%).
 - **Acceptance:**
-  - [ ] With no occupancy limit set, the board shows "Limit not set · Admin → Safety" and no limit number.
-  - [ ] On the M2 seed the board reads 93 inside (77 in rooms, 16 waiting); it reads 98 once M6 counts the 5 on bar tabs.
-  - [ ] A +1 on the door counter makes it 94 at once, and a −1 takes it back.
-  - [ ] In a test venue with a limit of 100, the board warns at 90 inside and not at 89.
+  - [x] With no occupancy limit set, the board shows "Limit not set · Admin → Safety" and no limit number.
+  - [x] On the M2 seed the board reads 93 inside (77 in rooms, 16 waiting). (98, with the 5 on bar tabs, waits for M6's tabs.)
+  - [x] A +1 on the door counter makes it 94 at once, and a −1 takes it back.
+  - [x] In a test venue with a limit of 100, the board warns at 90 inside and not at 89.
 - **Tests:** integration tests; Playwright for the board's headcount and the counter.
 - **Notes:** A 90% warning appears at West 4 only on a demo limit labeled "Demo" ([Counts at 10:41 PM](../demo-seed.md#counts-at-1041-pm)); never guess one. The help alert and incidents join Admin → Safety in M8.
+  - Built: migration 0041 (`door_counts`, walled and audited); `apps/api/src/rooms/headcount.ts`; `GET /headcount` and `POST /door-counts` (`routes/headcount.ts`). The board shows the headcount strip ("93 inside", "77 in rooms · 16 waiting", "Limit not set · Admin → Safety" as a link, or the limit and "Near the limit: 90 of 100") with − and + for staff who check guests in. Admin → Safety (`screens/admin/Safety.tsx`) edits the limit, empty by default, and the warning share.
+  - The warning starts at the first whole person at or past the share: with 100 and 90%, at 90 inside.
+  - Waiting parties count while their entry is waiting or offered. The door counter counts for the business date and can take the total down but never below zero.
+  - The headcount strip is a labelled group, not a status message, so it doesn't compete with the page's announcements.
+
 
 ### M2-29 · Build the Tonight board: tiles, states, clocks and counts
 

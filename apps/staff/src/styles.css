@@ -863,3 +863,17 @@ button.danger {
   background: color-mix(in srgb, #7cb518 10%, var(--surface, transparent));
   margin-bottom: 12px;
 }
+/* The headcount (M2-28): everyone inside, the parts, the limit or "Limit not set", and the door counter. */
+.headcount {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  margin: 8px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.headcount.warn {
+  border-color: #b42318;
+}

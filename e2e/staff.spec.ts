@@ -23,6 +23,7 @@ const ADMIN_SECTIONS = [
   "/admin/hours",
   "/admin/devices",
   "/admin/rooms",
+  "/admin/safety",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -565,7 +566,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
 
     // Admin opens on Team for the owner, with the section list and its hint.
-    await page.getByRole("link", { name: "Admin" }).click();
+    await page.getByRole("link", { name: "Admin", exact: true }).click();
     await expect(page).toHaveURL(/\/admin\/team$/);
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Team");
     await expect(
@@ -646,7 +647,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await andyPage.getByLabel("Email").fill(ANDY);
     await andyPage.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Tonight");
-    await andyPage.getByRole("link", { name: "Admin" }).click();
+    await andyPage.getByRole("link", { name: "Admin", exact: true }).click();
     await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Admin");
     const sections = andyPage.getByRole("navigation", { name: "Sections" });
     for (const name of ["Team", "Payments", "Console"]) {
@@ -1988,6 +1989,52 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     );
     await expect(guest.getByRole("button", { name: "Give it away" })).toBeVisible();
     await guest.close();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The headcount and the door counter (M2-28, N31), from a fresh seed: 93
+ * inside (77 in rooms, 16 waiting), "Limit not set · Admin → Safety" and no
+ * limit number; + makes it 94 and − takes it back; Admin → Safety shows the
+ * limit empty and the 90% warning share.
+ */
+test("the headcount: 93 inside, limit not set, the door counter, and Admin → Safety", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const count = page.getByRole("group", { name: "Headcount" });
+    await expect(count).toContainText("93 inside");
+    await expect(count).toContainText("77 in rooms · 16 waiting");
+    await expect(count).toContainText("Limit not set · Admin → Safety");
+    await expect(count).not.toContainText(/Limit \d/);
+    await count.getByRole("button", { name: "One person in" }).click();
+    await expect(count).toContainText("94 inside");
+    await count.getByRole("button", { name: "One person out" }).click();
+    await expect(count).toContainText("93 inside");
+    expect(await clippedText(page)).toEqual([]);
+
+    await count.getByRole("link", { name: "Limit not set · Admin → Safety" }).click();
+    await expect(page.getByLabel("Occupancy limit")).toHaveValue("");
+    await expect(page.getByLabel("Warn at (% of the limit)")).toHaveValue("90");
   } finally {
     await db.end();
   }

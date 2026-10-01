@@ -17,13 +17,14 @@ describe("the Admin sections", () => {
       "rooms",
       "phone",
       "texts",
+      "safety",
       "payments",
       "console",
     ]);
     const manager = visibleSections(permissionsOf("manager"), { includeUnshipped: true }).map(
       (s) => s.id,
     );
-    expect(manager).toEqual(["features", "hours", "devices", "rooms", "phone", "texts"]);
+    expect(manager).toEqual(["features", "hours", "devices", "rooms", "phone", "texts", "safety"]);
     expect(manager).not.toContain("team");
   });
 

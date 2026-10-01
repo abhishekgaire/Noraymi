@@ -800,4 +800,22 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "waitlist.idsChecked": "Identificaciones revisadas",
   "waitlist.minutes": "Minutos",
   "waitlist.noRoom": "Ninguna sala sirve a este grupo por una hora",
+  "admin.section.safety": "Seguridad",
+  "admin.hint.safety": "El aforo y cuándo avisa el tablero",
+  "safety.limit": "Aforo máximo",
+  "safety.limit.empty": "Sin definir",
+  "safety.limit.hint":
+    "Tu aforo autorizado. Déjalo vacío hasta tener el número; el tablero dirá que no está definido.",
+  "safety.warnAt": "Avisar al (% del aforo)",
+  "safety.warnAt.hint":
+    "El tablero avisa cuando las personas dentro llegan a esta parte del aforo.",
+  "headcount.title": "Personas dentro",
+  "headcount.inside": "{count} dentro",
+  "headcount.parts": "{rooms} en salas · {waiting} esperando",
+  "headcount.noLimit": "Aforo sin definir · Admin → Seguridad",
+  "headcount.limit": "Aforo {limit}",
+  "headcount.near": "Cerca del aforo: {inside} de {limit}",
+  "headcount.in": "Entra una persona",
+  "headcount.out": "Sale una persona",
+  "headcount.failed": "No se pudo contar a las personas dentro",
 };
