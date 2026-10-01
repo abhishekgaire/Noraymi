@@ -70,7 +70,7 @@ describe("the venue wall", () => {
       push,
     });
     expect(findings, findings.map((f) => `${f.where}: ${f.why}`).join("\n")).toEqual([]);
-    expect(rows.length).toBe(7);
+    expect(rows.length).toBe(8);
     expect(venueClient.sent).toEqual([]);
   });
 });

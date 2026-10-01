@@ -7,6 +7,7 @@ import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";
+import { TEXT_TRIGGER_KIND, makeTextTriggerHandler, textTriggerSweep } from "../texts/triggers.js";
 import { sweepUnattachedFiles } from "../files/storage.js";
 import { makeS3 } from "../s3.js";
 import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
@@ -42,7 +43,7 @@ export interface HandlerDeps {
   /** Guest texts from each venue's subaccount (M2-09). */
   readonly venueTexts?: {
     readonly client: VenueTextClient;
-    readonly settings: Pick<VenueTextSettings, "publicApiUrl">;
+    readonly settings: Pick<VenueTextSettings, "publicApiUrl" | "allowList">;
     readonly secretKey: Buffer;
   };
 }
@@ -68,6 +69,7 @@ export function makeHandlers({
               venueTexts.settings,
               venueTexts.secretKey,
             ),
+            [TEXT_TRIGGER_KIND]: makeTextTriggerHandler(venueTexts.settings),
           }
         : {}),
     },
@@ -92,6 +94,8 @@ export function makeSweeps(pool: pg.Pool, log?: (line: string) => void): Sweep[]
     deviceWatchSweep(pool, log),
     holdSweep(pool),
     wrapUpSweep(pool),
+    // The automatic texts on their triggers (M2-24).
+    textTriggerSweep(pool),
     // Uploads nothing attached within 24 hours (M2-13).
     {
       name: "unattached-files",

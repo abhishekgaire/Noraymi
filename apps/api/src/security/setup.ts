@@ -116,7 +116,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into room_calls (venue_id, session_id, kind, created_at) values ($1, $2, 'tv', now()) returning id",
     [v.venueB, sessionB.rows[0]!.id],
   );
-  const cast: Cast & { ownerB: string; messageB: string } = {
+  const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
     ownerA: v.ownerA,
@@ -126,6 +126,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     frontDeskA,
     ownerB: v.ownerB,
     messageB: messageB.rows[0]!.id,
+    guestB: guestB.rows[0]!.id,
+    sessionB: sessionB.rows[0]!.id,
   };
   const fixtures: WallFixtures = {
     venueOwned: {

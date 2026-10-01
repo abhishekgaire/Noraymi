@@ -1626,6 +1626,8 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     const room7 = page.getByRole("listitem", { name: "Room 7", exact: true });
     await expect(room7).toContainText("Needed now");
+    // The board's alert also offers the wrap-up text (M2-24).
+    await expect(room7.getByRole("button", { name: /^Text .+: please wrap up$/ })).toBeVisible();
     await room7.getByRole("button", { name: "Move" }).click();
     const sheet = page.getByRole("dialog", { name: "Move Room 7" });
     await expect(sheet.getByRole("button", { name: "Room 11 · free all night" })).toBeVisible();

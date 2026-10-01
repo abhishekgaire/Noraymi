@@ -36,6 +36,8 @@ interface SessionRow {
   business_date: string;
   room_code_hash: string | null;
   token_version: number;
+  /** The booking's guest (M2-24: the board's "Text Rob & Kim: please wrap up"). */
+  guest_name: string | null;
 }
 
 interface SegmentRow {
@@ -54,7 +56,9 @@ interface SegmentRow {
 const iso = (col: string) => `to_json(${col}) #>> '{}'`;
 const SESSION_COLS = `s.id, s.room_id, r.name as room_name, s.booking_id, s.check_id, s.party_size,
   ${iso("s.started_at")} as started_at, ${iso("s.booked_end_at")} as booked_end_at, ${iso("s.ended_at")} as ended_at,
-  s.business_date::text, s.room_code_hash, s.token_version`;
+  s.business_date::text, s.room_code_hash, s.token_version,
+  (select g.name from bookings b join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+    where b.venue_id = s.venue_id and b.id = s.booking_id) as guest_name`;
 const SEGMENT_COLS = `id, session_id, ${iso("started_at")} as started_at, ${iso("ended_at")} as ended_at,
   billable_guests, rate_kind, hourly_cents, increment_min, rounding, paused`;
 

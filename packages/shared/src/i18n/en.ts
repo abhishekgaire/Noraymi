@@ -734,4 +734,7 @@ export const en = {
   "sms.helpNoPhone": "{venue}: for help, ask our staff. Reply STOP to stop texts.",
   "messages.optOut": "Mark as an opt-out",
   "messages.optedOut": "Opted out of texts",
+  "wrapUp.text": "Text {name}: please wrap up",
+  "wrapUp.sent": "Please wrap up sent to {name}",
+  "wrapUp.failed": "Couldn't send the text",
 } as const;

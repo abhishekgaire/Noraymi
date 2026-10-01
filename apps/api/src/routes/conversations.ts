@@ -12,6 +12,7 @@ import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { optOut, runningLateReply, sendReply, sendTemplateIn } from "../texts/inbox.js";
+import { queueText } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 
 /**
@@ -22,6 +23,7 @@ import type { VenueTextSettings } from "../texts/venue.js";
  *        { body } a free-text reply, or { template_key, params } a template text
  *   POST /v1/venues/{v}/conversations/{conversationId}/running-late   { until? } Reply "no problem"
  *   POST /v1/venues/{v}/messages/{messageId}/opt-out           staff mark a guest's text as an opt-out (M2-23)
+ *   POST /v1/venues/{v}/sessions/{sessionId}/wrap-up-text      the board's [Text Rob & Kim: please wrap up] (M2-24)
  *   GET  /v1/venues/{v}/texts                                 the 14 automatic texts in Admin's order, on or off
  */
 const messageBody = z.union([
@@ -197,6 +199,54 @@ export function conversationRoutes(
         );
         return { opted_out: true, already: !recorded };
       });
+    },
+  );
+
+  app.post<{ Params: { venueId: string; sessionId: string } }>(
+    "/v1/venues/:venueId/sessions/:sessionId/wrap-up-text",
+    { config: write },
+    async (request, reply) => {
+      const userId = who(request);
+      const venueId = request.venueId!;
+      const result = await request.inVenue(async (c) => {
+        const s = (
+          await c.query<{
+            room_name: string;
+            guest_id: string | null;
+            phone: string | null;
+            ended_at: string | null;
+          }>(
+            `select r.name as room_name, g.id as guest_id, g.phone_e164 as phone, s.ended_at::text
+               from room_sessions s
+               join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+               left join bookings b on b.venue_id = s.venue_id and b.id = s.booking_id
+               left join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+              where s.venue_id = $1 and s.id = $2`,
+            [venueId, request.params.sessionId],
+          )
+        ).rows[0];
+        if (!s) throw new ApiError("not_found", "no such session");
+        if (s.ended_at) throw new ApiError("invalid_request", "the session has ended");
+        if (!s.phone)
+          throw new ApiError("invalid_request", "this party left no number", {
+            details: { reason: "no_phone" },
+          });
+        return queueText(
+          c,
+          venueId,
+          {
+            templateKey: "please_wrap_up",
+            to: s.phone,
+            params: { room: s.room_name },
+            guestId: s.guest_id,
+            context: { kind: "session", id: request.params.sessionId },
+            sentBy: userId,
+            now: options.clock.now(),
+          },
+          options.texts,
+        );
+      });
+      return reply.code(201).send({ message_id: result.messageId });
     },
   );
 }

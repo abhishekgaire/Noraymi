@@ -744,4 +744,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "{venue}: para ayuda, pregunta a nuestro personal. Responde STOP para dejar de recibir textos.",
   "messages.optOut": "Marcar como baja",
   "messages.optedOut": "Se dio de baja de los textos",
+  "wrapUp.text": "Escribir a {name}: por favor terminen",
+  "wrapUp.sent": "Se envió por favor terminen a {name}",
+  "wrapUp.failed": "No se pudo enviar el texto",
 };

@@ -46,6 +46,7 @@ interface RoomInfo {
 
 interface Session {
   readonly id: string;
+  readonly guest_name: string | null;
   readonly room_id: string;
   readonly check_id: string | null;
   readonly segments: readonly { readonly paused: boolean }[];
@@ -475,6 +476,21 @@ export function Tonight() {
                       {t("move.button")}
                     </button>
                     {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
+                    {s.guest_name &&
+                      (s.tile.kind === "needed_now" || s.wrap_up) &&
+                      signedIn?.membership.permissions.includes("texts.send") && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            void api("POST", `/v1/venues/${venueId}/sessions/${s.id}/wrap-up-text`)
+                              .then(() => setDone(t("wrapUp.sent", { name: s.guest_name! })))
+                              .catch(() => setDone(t("wrapUp.failed")))
+                          }
+                        >
+                          {t("wrapUp.text", { name: s.guest_name })}
+                        </button>
+                      )}
                     {s.check_id && (
                       <button
                         type="button"

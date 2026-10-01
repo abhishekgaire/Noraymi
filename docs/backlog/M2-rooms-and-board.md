@@ -560,7 +560,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-24 · Send the Reminder and the wrap-up texts on their triggers
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-05, M2-07, M2-09
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · The automatic texts; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `AlertSettings`, `MessageSettings`; [Money rules](../spec/05-money-rules.md) 4
@@ -571,12 +571,18 @@ Definition of done: see CLAUDE.md.
   - The board's buttons ([Text Rob & Kim: please wrap up]) send Please wrap up by hand.
   - The other texts send from their own tickets: Room code (M2-11), Room ready and Offer expiring (M2-26) and the Running late reply (M2-22). Booking confirmed, Receipt, Deposit refund, Payment link and You're up next come with the milestones that raise their events (M4, M5 and M6).
 - **Acceptance:**
-  - [ ] At 10:50 PM, Marcus T. gets "Your booked time in Room 9 ends at 11:00 PM. Nobody's booked after you, so you can stay on by the minute until we close at 4 AM." once.
-  - [ ] With a booking added in Room 1 at 11:30 PM, Dana K. gets Please wrap up at 11:20 PM instead of Booked time ending.
-  - [ ] While `messages.reminderAt` is empty, no Reminder goes out.
-  - [ ] A text switched off in Admin → Texts isn't sent.
+  - [x] At 10:50 PM, Marcus T. gets "Your booked time in Room 9 ends at 11:00 PM. Nobody's booked after you, so you can stay on by the minute until we close at 4 AM." once.
+  - [x] With a booking added in Room 1 at 11:30 PM, Dana K. gets Please wrap up at 11:20 PM instead of Booked time ending.
+  - [x] While `messages.reminderAt` is empty, no Reminder goes out.
+  - [x] A text switched off in Admin → Texts isn't sent.
 - **Tests:** job tests on the simulated clock.
 - **Notes:** West 4's reminder time isn't in the seed or the spec; cautious default: no Reminder until West 4 sets one (flagged).
+  - Built: `apps/api/src/texts/triggers.ts`: a sweep each minute (`text-triggers`, in `makeSweeps`) plans what's due and queues one `text.trigger` job per trigger, keyed `text:wrap:{session}:{end}` or `text:reminder:{booking}`, so each goes once; the job queues the text the usual way, so a text switched off, an opt-out or Guest texts off stops it there. `POST /sessions/{s}/wrap-up-text` sends Please wrap up by hand; the board shows [Text Rob & Kim: please wrap up] on a "Needed now" or wrap-up tile for staff who can text. Sessions now carry their booking's guest name.
+  - Please wrap up and Booked time ending share one key per booked end: whichever is due first goes, and a booking added after the stay-on text is the board button's job. "Booked next" means a booking or hold in the room starting from now until the close.
+  - Times read "11:00 PM", and the close "4 AM" on the hour, as the seed's wording has them. The Reminder's address is the venue's address as stored.
+  - As flagged: no Reminder while `messages.reminderAt` is empty, which it is at West 4 until they set one.
+  - A trigger whose guest or session isn't in its venue sends nothing (the venue-wall suite's case for the new job kind).
+
 
 ### M2-25 · Build the waitlist: entries, the guest page behind the door QR, and the drawer
 

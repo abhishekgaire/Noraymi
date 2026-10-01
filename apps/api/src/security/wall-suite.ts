@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
+import { TEXT_TRIGGER_KIND } from "../texts/triggers.js";
 import { Worker, enqueue, type JobHandler } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import type { RegisteredRoute } from "../http/registry.js";
@@ -289,6 +290,22 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the guest text job didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  [TEXT_TRIGGER_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({
+      template_key: "room_ready",
+      to: "+12125550188",
+      params: { room: "Room 1" },
+      guest_id: (c as unknown as { guestB: string }).guestB,
+      context: { kind: "session", id: (c as unknown as { sessionB: string }).sessionB },
+    }),
+    // Venue B's guest and session aren't venue A's: the trigger sends nothing and finishes.
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the text trigger didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
