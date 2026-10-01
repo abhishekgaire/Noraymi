@@ -62,7 +62,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-02 · Write the promotion checks test-first
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-10
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Rule packs (Promotion checks); [Data model](../spec/04-data-model.md) · `packages`, `price_rules`; [Open technical questions](../spec/14-open-questions.md)
@@ -74,13 +74,16 @@ Definition of done: see CLAUDE.md.
   - a package that relies on the private-function exception (`packages.private_function_only`) is refused until the lawyer defines the flag it needs on the booking.
   - Each refusal gives its reason in words. Comps stay allowed with a reason and are never advertised; the website hides any promotion the checks refuse (M5).
 - **Acceptance:**
-  - [ ] A package "Open bar · 2 hours" with no fixed quantity of drinks is refused with the reason.
-  - [ ] An hourly price that includes drinks is refused.
-  - [ ] A happy-hour Margarita (regular $13.00) at $6.00 is refused and at $6.50 allowed; two Jäger Bombs (regular $12.00 each) for $12.00 are allowed, and for $11.00 refused.
-  - [ ] An alcohol item priced $0.00 is refused, while a comp with a reason still goes through.
-  - [ ] A package marked `private_function_only` is refused.
+  - [x] A package "Open bar · 2 hours" with no fixed quantity of drinks is refused with the reason.
+  - [x] An hourly price that includes drinks is refused.
+  - [x] A happy-hour Margarita (regular $13.00) at $6.00 is refused and at $6.50 allowed; two Jäger Bombs (regular $12.00 each) for $12.00 are allowed, and for $11.00 refused.
+  - [x] An alcohol item priced $0.00 is refused, while a comp with a reason still goes through.
+  - [x] A package marked `private_function_only` is refused.
 - **Tests:** a passing and a failing fixture for every check, written first.
 - **Notes:** Whether the private-function exception covers a drink package is open with the lawyer; until then the checks refuse such a package, as spec 14 says for M3, and the rule lives in the pack's data (`promotions.privateFunctionException: false`) so the answer becomes a pack change (flagged). A free drink with a song is M6's question.
+  - Built: `promotionChecks(thing, menu, pack)` in `packages/rules/src/promotions.ts` with `promotions.test.ts`. A thing is a `menuItem` (every variant price), a `package` (contents with a quantity or null, `hourly`, `privateFunctionOnly`), a `priceRule` (target items, how many the price buys together, `priceCents` or a whole-number `pctOff`) or a `comp` (needs a reason). Each refusal has a code (for the i18n catalogs when Admin → Menu shows it, M3-04) and an English message naming the item and, for half price, the lowest allowed price.
+  - `alcohol.promotions.privateFunctionException: false` added to the New York County pack and spec 03.
+  - A non-alcohol item in a package may have no fixed quantity (a soda refill); the quantity rule is for alcohol only.
 
 ### M3-03 · Build the menu tables, the menu API and 86
 

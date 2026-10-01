@@ -24,6 +24,8 @@ export interface RulePack {
       readonly freeDrinks: boolean;
       readonly multipleForOne: "eachAtLeastHalfPrice";
       readonly hourlyAlcohol: boolean;
+      /** Whether a package may rely on the private-function exception. Open with the lawyer; false until answered. */
+      readonly privateFunctionException: boolean;
     };
   };
   readonly salesTax: {
@@ -78,7 +80,12 @@ export const newYorkCounty: RulePack = {
     firstSale: "08:00",
     drinkingUpMin: 30,
     drinkingUpFrom: "windowClose", // until the lawyer answers
-    promotions: { freeDrinks: false, multipleForOne: "eachAtLeastHalfPrice", hourlyAlcohol: false },
+    promotions: {
+      freeDrinks: false,
+      multipleForOne: "eachAtLeastHalfPrice",
+      hourlyAlcohol: false,
+      privateFunctionException: false, // until the lawyer answers
+    },
   },
   // The code and the surcharge rule come from the accountant (Open technical questions).
   salesTax: { rate: 0.08875, jurisdictionCode: null, surchargeTaxable: true },

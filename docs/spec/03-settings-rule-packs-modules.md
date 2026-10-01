@@ -195,7 +195,7 @@ const newYorkCounty: RulePack = {
   alcohol: {
     lastSale: "04:00", firstSale: "08:00",       // wall-clock times, resolved for each business date
     drinkingUpMin: 30, drinkingUpFrom: "windowClose",   // how drinking-up is measured is open with the lawyer; this is the cautious default
-    promotions: { freeDrinks: false, multipleForOne: "eachAtLeastHalfPrice", hourlyAlcohol: false },
+    promotions: { freeDrinks: false, multipleForOne: "eachAtLeastHalfPrice", hourlyAlcohol: false, privateFunctionException: false },   // false until the lawyer answers
   },
   salesTax: { rate: 0.08875, jurisdictionCode: "…", surchargeTaxable: true },   // the code and the surcharge rule come from the accountant
   wages: { region: "nyc", minimumCents: 1700, tippedCashCents: 1135, tipCreditCents: 565 },
