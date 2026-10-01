@@ -793,7 +793,7 @@ Definition of done: see CLAUDE.md.
 
 ### M2-34 · Add rates, bands, minimums and limits to Admin → Hours & prices, and build Admin → Alerts & rules
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-33, M2-03
 - **Spec:** [Admin by milestone](../milestones.md#admin-by-milestone) (Hours & prices, Alerts & rules); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `PriceSettings`, `AlertSettings`; [AdminDesk](../screens.md#admindesk) notes 2, 16, 23 and 24
@@ -801,16 +801,21 @@ Definition of done: see CLAUDE.md.
   - Hours & prices gets the `prices` key: the rate in the venue's mode (per person, base plus extra, or flat by size), the billing step (1, 15, 30 or 60 minutes) and its rounding (up, nearest or down), minimum guests on weeknights and on Friday and Saturday, the first-hour minimum, time bands in the venue's own mode each with its step and rounding, the VIP rate (its rooms, $250 an hour, from 20 guests), booking limits (minimum and maximum hours, maximum guests, start slots) and the damage fee. Minimum spend shows off; M4 edits it.
   - Alerts & rules: `alerts.roomEndingMin` (10 minutes). No "Ring the bar until someone accepts" toggle.
 - **Acceptance:**
-  - [ ] West 4's prices read $10 a person an hour, by the minute, at least 3 guests on weeknights and 4 on Friday and Saturday, a first-hour minimum, no bands, the VIP room $250 an hour from 20 guests, and a $150 damage fee.
-  - [ ] Adding a band with a 15-minute step saves a new `prices` version, and sessions that start afterwards bill with it.
-  - [ ] Setting the room-ending warning to 15 minutes turns tiles amber 15 minutes before the end.
-  - [ ] Alerts & rules has no alarm toggle.
+  - [x] West 4's prices read $10 a person an hour, by the minute, at least 3 guests on weeknights and 4 on Friday and Saturday, a first-hour minimum, no bands, the VIP room $250 an hour from 20 guests, and a $150 damage fee.
+  - [x] Adding a band with a 15-minute step saves a new `prices` version, and sessions that start afterwards bill with it.
+  - [x] Setting the room-ending warning to 15 minutes turns tiles amber 15 minutes before the end.
+  - [x] Alerts & rules has no alarm toggle.
 - **Tests:** Playwright for each field; an integration test that a new version reaches new sessions only.
 - **Notes:** The seed gives West 4 no rounding rule for its 1-minute step; with whole-minute segments it changes nothing, so the loader stores `up` (flagged).
+  - Built: `screens/admin/Prices.tsx` inside Hours & prices (the rate in each of the three modes, the billing step and rounding, minimum guests, the first-hour minimum, time bands each with days, hours, rate, step and rounding, the VIP rate with its rooms, booking limits, start slots and the damage fee; minimum spend reads off), and `screens/admin/AlertsRules.tsx`, a new Admin section with the room-ending warning only. Amounts are typed in dollars and kept as whole cents (`dollarsToCents`, no floats). Both save through Save and publish as a new settings version.
+  - A new `prices` version starts on the current business date: sessions that start afterwards take its rate and step at check-in, and running sessions keep their segments' rates (integration test).
+  - As flagged: the loader stores rounding `up` for West 4's 1-minute step, which changes nothing with whole-minute segments.
+  - A band's "until" before its "from" runs on past midnight (minutes up to the cutover), as bands are stored.
+
 
 ### M2-35 · Finish the M2 part of the demo seed and run its scenarios end to end
 
-- **Status:** todo
+- **Status:** doing
 - **Size:** M
 - **Depends on:** M2-29, M2-30, M2-31, M2-32, M2-33
 - **Spec:** [Demo seed · Loading the seed](../demo-seed.md#loading-the-seed), [Things to try](../demo-seed.md#things-to-try); [Testing and operations](../spec/13-testing-operations.md) · The demo seed, Tests (end-to-end browser tests); [west4-friday.json](../../seed/west4-friday.json)

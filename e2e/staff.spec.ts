@@ -2477,3 +2477,82 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
     await db.end();
   }
 });
+
+/**
+ * Admin → Hours & prices and Alerts & rules (M2-34), from a fresh seed: West
+ * 4's prices in every field; a band with a 15-minute step saves and publishes;
+ * a 15-minute room-ending warning turns Room 9 amber at 15 minutes left and
+ * not at 16; Alerts & rules has no alarm toggle.
+ */
+test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minute warning", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    execSync("pnpm seed", { stdio: "ignore" });
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/hours");
+    await expect(page.getByLabel("How rooms are priced", { exact: true })).toHaveValue("perPerson");
+    await expect(page.getByLabel("Per person an hour ($)", { exact: true })).toHaveValue("10.00");
+    await expect(page.getByLabel("Billed in steps of", { exact: true })).toHaveValue("1");
+    await expect(page.getByLabel("At least this many guests, weeknights")).toHaveValue("3");
+    await expect(page.getByLabel("At least this many guests, Friday and Saturday")).toHaveValue(
+      "4",
+    );
+    await expect(page.getByLabel("Bill at least the first hour")).toBeChecked();
+    await expect(page.getByText("No time bands: one price all night")).toBeVisible();
+    await expect(page.getByLabel("A flat VIP rate for big parties")).toBeChecked();
+    await expect(page.getByLabel("VIP room")).toBeChecked();
+    await expect(page.getByLabel("VIP an hour ($)")).toHaveValue("250.00");
+    await expect(page.getByLabel("From this many guests")).toHaveValue("20");
+    await expect(page.getByLabel("Damage fee ($)")).toHaveValue("150.00");
+    await expect(page.getByText("Minimum spend: off.")).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.getByRole("button", { name: "Add a time band" }).click();
+    await page.getByLabel("Band 1: Billed in steps of").selectOption("15");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const bands = await db.query<{ step: number }>(
+      "select (value->'bands'->0->'billing'->>'incrementMin')::int as step from venue_settings where key = 'prices' order by version desc limit 1",
+    );
+    expect(bands.rows).toEqual([{ step: 15 }]);
+
+    await page.goto("/admin/alerts");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Alerts & rules");
+    await expect(page.getByText(/ring the bar/i)).toHaveCount(0);
+    await page.getByLabel("Warn this many minutes before a room's booked end").fill("15");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+
+    // Room 9 ends at 11:00 PM: not amber at 10:44 (16 min left), amber at 10:45 (15).
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:44:00Z" } })).ok(),
+    ).toBe(true);
+    await page.goto("/tonight");
+    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    await expect(room9).toContainText("In room · 16 min left");
+    await expect(room9).not.toHaveClass(/amber/);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:45:00Z" } })).ok(),
+    ).toBe(true);
+    await page.reload();
+    await expect(room9).toHaveClass(/amber/);
+  } finally {
+    await db.end();
+  }
+});

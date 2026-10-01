@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { type Hours as HoursValue, type MessageKey } from "@west4/shared";
+import { Prices } from "./Prices.js";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
@@ -177,6 +178,7 @@ export function Hours() {
           <SpecialDateForm venueId={venueId} clock={clock} onAdded={load} />
         </>
       )}
+      <Prices />
     </section>
   );
 }
