@@ -25,6 +25,7 @@ const view = (v: Awaited<ReturnType<typeof sessionViews>>[number]) => ({
   booking_id: v.booking_id,
   check_id: v.check_id,
   party_size: v.party_size,
+  ids_checked: v.ids_checked,
   started_at: v.started_at,
   booked_end_at: v.booked_end_at,
   ended_at: v.ended_at,

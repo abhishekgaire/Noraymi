@@ -280,7 +280,7 @@ Definition of done: see CLAUDE.md.
   - **Also:** a text job for a venue with no Twilio number marks the message failed instead of retrying; check numbers on screen read "#1054", not "#1,054".
 ### M2-12 · Record ID checks at check-in
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-02, M2-11
 - **Spec:** [Data model](../spec/04-data-model.md) · `id_checks`; [API](../spec/08-api.md) · Safety (`POST /sessions/{s}/id-checks`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · the rule pack's `idScan`; [Security and data retention](../spec/12-security-retention.md) 6 and How long we keep things; [Open technical questions](../spec/14-open-questions.md); [N10 Check-in sheet](../screens.md#n10-check-in-sheet) (step 2)
@@ -290,14 +290,17 @@ Definition of done: see CLAUDE.md.
   - A scan is read on the device that took it, through a barcode library that runs there and never through an ID vendor's cloud. Only the rule pack's four fields (name, date of birth, ID number, expiration) are kept, encrypted with a key for the venue and the business date from the key service, with `delete_after` set by `idScan.keepDays` (7 days).
   - The "ID ✓ x of n" chip counts the session's rows against its party size. ID checks are never in the org-wide read scope or any export. With Safety & ID records off, scanning is hidden and the count stays.
 - **Acceptance:**
-  - [ ] Room 1 shows "ID ✓ 3 of 4 · the runner checks the last ID", and Room 5 "ID ✓ 4 of 4".
-  - [ ] Checking in Sam O.'s 3 guests with all 3 IDs checked writes three visual rows.
-  - [ ] A scan keeps only the four fields, encrypted with West 4's key for Fri Sep 25, with `delete_after` Fri Oct 2.
-  - [ ] An org-scope read of `id_checks` returns nothing.
-  - [ ] With Safety & ID records off, the scan button is gone and Room 5 still reads "ID ✓ 4 of 4".
+  - [x] Room 1 shows "ID ✓ 3 of 4 · the runner checks the last ID", and Room 5 "ID ✓ 4 of 4".
+  - [x] Checking in Sam O.'s 3 guests with all 3 IDs checked writes three visual rows.
+  - [x] A scan keeps only the four fields, encrypted with West 4's key for Fri Sep 25, with `delete_after` Fri Oct 2.
+  - [x] An org-scope read of `id_checks` returns nothing.
+  - [x] With Safety & ID records off, the scan button is gone and Room 5 still reads "ID ✓ 4 of 4".
 - **Tests:** integration tests for the rows, the encryption and the org scope; a unit test of the four-field filter on sample barcodes.
 - **Notes:** How long scans may be kept is open with the lawyer; this builds the rule pack's 7-day default ([Open technical questions](../spec/14-open-questions.md)). Destroying each night's key after 7 days is M8, the runner's check at the room (`order_id`) is M3, and a bar tab's is M6.
-
+  - **Built:** migration `0033_id_checks.sql` (`id_checks`, and `id_scan_keys` for each venue's key per business date; both walled with a policy that answers nothing in the org-wide read scope; neither carries the audit trigger, so scan data never gets copied into the audit log); `packages/db/src/id-checks.ts` (a random data key per night, wrapped by the server's key; visual rows; sealed scans with `delete_after` = business date + `idScan.keepDays`; counts per session); `POST /sessions/{s}/id-checks` (visual, or a scan whose fields are cut to the rule pack's four before anything is stored; scanning refused with Safety & ID records off, visual always allowed); check-in and walk-ins write one visual row per ID checked; the seed's 69 visual rows; `ids_checked` on every session; the "ID ✓ x of n" chip ("· the runner checks the last ID") and a Scan ID button on each room tile on Tonight, hidden with Safety off.
+  - **On the device:** `readIdBarcode` in `packages/shared/src/id-scan.ts` reads the AAMVA layout on a US or Canadian licence's PDF417 code (US month-first and Canadian year-first dates) and returns only name, date of birth, ID number and expiration; Scan ID uses the browser's own barcode reader and the camera, never an ID vendor's cloud. Where the browser has no barcode reader, staff are told to check by eye (flagged: Safari and Firefox lack it today).
+  - **Until staging (M1-02):** the night's key is wrapped by the server's `AUTH_SECRET_KEY`; the key service (KMS) takes over that wrapping with staging (flagged).
+  - **Bug found and fixed:** the ID-check route sent its reply from inside the database transaction, so a client could see "saved" before the row was committed; it now replies after the commit, and a scan of every route found no other case.
 ### M2-13 · Build presigned uploads with type and size limits
 
 - **Status:** todo

@@ -1365,3 +1365,41 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
     await db.end();
   }
 });
+
+/**
+ * ID checks (M2-12). Room 1 reads "ID ✓ 3 of 4 · the runner checks the last
+ * ID" and Room 5 "ID ✓ 4 of 4", with a Scan ID button. With Safety & ID
+ * records off, the button is gone and the count stays.
+ */
+test("the ID chip and Scan ID, with Safety & ID records on and off", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const room1 = page.getByRole("listitem", { name: "Room 1", exact: true });
+    const room5 = page.getByRole("listitem", { name: "Room 5", exact: true });
+    await expect(room1).toContainText("ID ✓ 3 of 4 · the runner checks the last ID");
+    await expect(room5).toContainText("ID ✓ 4 of 4");
+    await expect(room5.getByRole("button", { name: "Scan ID" })).toBeVisible();
+
+    await db.query("update venue_modules set state = 'off' where module_id = 'safety'");
+    await page.reload();
+    await expect(room5).toContainText("ID ✓ 4 of 4");
+    await expect(page.getByRole("button", { name: "Scan ID" })).toHaveCount(0);
+  } finally {
+    await db.query("update venue_modules set state = 'on' where module_id = 'safety'");
+    await db.end();
+  }
+});

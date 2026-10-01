@@ -31,6 +31,7 @@ import { checksRoutes } from "./routes/checks.js";
 import { twilioHookRoutes } from "./routes/twilio-hooks.js";
 import { messageTemplateRoutes } from "./routes/message-templates.js";
 import { checkInRoutes } from "./routes/checkin.js";
+import { idCheckRoutes } from "./routes/id-checks.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
@@ -173,6 +174,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       sessionsRoutes(scope, { clock });
       checksRoutes(scope, { clock });
       messageTemplateRoutes(scope);
+      idCheckRoutes(scope, { clock, wrappingKey: config.auth.secretKey });
       checkInRoutes(scope, {
         pool: gatePoolRef!,
         clock,

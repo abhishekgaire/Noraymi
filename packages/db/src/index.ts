@@ -297,3 +297,4 @@ export {
   type TemplateRow,
   type TwilioIntegration,
 } from "./texts.js";
+export { addScanCheck, addVisualChecks, idCounts, nightKey } from "./id-checks.js";

@@ -153,6 +153,7 @@ export interface SeedSession {
   readonly check: string | null;
   readonly party_size: number;
   readonly segments: readonly SeedSegment[];
+  readonly ids_checked?: { readonly checked: number; readonly of: number } | null;
 }
 
 export interface SeedCheckLine {
@@ -704,6 +705,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "devices",
       "room_blocks",
+      "id_checks",
+      "id_scan_keys",
       "messages",
       "conversations",
       "message_templates",
@@ -960,7 +963,18 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         );
       }
     }
-    log(`room sessions: ${seed.sessions.length}`);
+    // ID checks (M2-12): one visual row per guest whose ID the front desk checked at check-in.
+    let idRows = 0;
+    for (const sess of seed.sessions) {
+      for (let i = 0; i < (sess.ids_checked?.checked ?? 0); i++) {
+        await client.query(
+          `insert into id_checks (venue_id, session_id, checked_by, checked_at, method) values ($1, $2, $3, $4, 'visual')`,
+          [venueId, id(sess.id), id("diego"), sess.started_at],
+        );
+        idRows++;
+      }
+    }
+    log(`room sessions: ${seed.sessions.length}, ID checks: ${idRows}`);
 
     // Checks (M2-08): all 13, numbered in the order they opened, with Room 9's #1042 fixed; their lines in
     // order, a comp pointing at the line it reverses. Room checks were opened by the front desk, bar checks by

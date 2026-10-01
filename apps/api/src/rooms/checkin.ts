@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomInt } from "node:crypto";
 import type pg from "pg";
 import {
   addBlock,
+  addVisualChecks,
   bookingById,
   emitEvent,
   findOrCreateGuest,
@@ -206,6 +207,14 @@ async function seat(ctx: Context, input: SeatInput) {
         rate.billing.rounding,
       ],
     );
+
+    // Step 2 of the sheet: one visual row per person whose ID was checked (who checked, and when).
+    await addVisualChecks(c, input.venueId, {
+      sessionId,
+      count: input.idsChecked,
+      checkedBy: input.userId,
+      at: input.start.toString(),
+    });
 
     // The room's block: the booking's own block becomes the session's, or the session takes the new room.
     const cleaning =

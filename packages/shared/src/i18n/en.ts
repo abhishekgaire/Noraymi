@@ -591,4 +591,14 @@ export const en = {
   "checkIn.failed": "Couldn't check them in",
   "checkIn.guests": "{party} guests",
   "checkIn.step": "{n} · {label}",
+  // ID checks (M2-12).
+  "ids.chip": "ID ✓ {checked} of {party}",
+  "ids.runnerOne": "ID ✓ {checked} of {party} · the runner checks the last ID",
+  "ids.runnerMany": "ID ✓ {checked} of {party} · the runner checks the last {missing} IDs",
+  "ids.scan": "Scan ID",
+  "ids.scanning": "Hold the back of the ID to the camera",
+  "ids.scanned": "ID scanned",
+  "ids.unsupported": "This device can't read ID barcodes · check it by eye",
+  "ids.notAnId": "That isn't an ID barcode · try again or check it by eye",
+  "ids.failed": "Couldn't save the scan",
 } as const;

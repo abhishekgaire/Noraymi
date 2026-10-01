@@ -91,3 +91,5 @@ export {
 } from "./device-signing.js";
 export { PIN_BLOCKLIST, pinProblem } from "./pins.js";
 export type { PinProblem } from "./pins.js";
+export { ID_SCAN_FIELDS, onlyPackFields, readIdBarcode } from "./id-scan.js";
+export type { IdScanFields } from "./id-scan.js";

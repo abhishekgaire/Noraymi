@@ -6,6 +6,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
+import { ScanId } from "./ScanId.js";
 
 /**
  * Tonight (M2-07): the rooms in use with their live clock. Each tile ticks on
@@ -22,6 +23,7 @@ interface Session {
   readonly id: string;
   readonly room_name: string;
   readonly party_size: number;
+  readonly ids_checked: number;
   readonly started_at: string;
   readonly booked_end_at: string | null;
   readonly room_time_cents: number;
@@ -97,6 +99,15 @@ export function Tonight() {
       }),
     [subscribe, load],
   );
+
+  // Scanning hides with Safety & ID records off; the count stays (M2-12).
+  const safetyOn = signedIn?.membership.modules.safety !== "off";
+  const idChip = (s: Session): string => {
+    const missing = Math.max(0, s.party_size - s.ids_checked);
+    const params = { checked: s.ids_checked, party: s.party_size };
+    if (missing === 0) return t("ids.chip", params);
+    return missing === 1 ? t("ids.runnerOne", params) : t("ids.runnerMany", { ...params, missing });
+  };
 
   const closeWords = (iso: string | null): string => {
     if (!iso) return "";
@@ -248,6 +259,10 @@ export function Tonight() {
                   <div className="small muted">
                     {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
                   </div>
+                  <div className="small">{idChip(s)}</div>
+                  {safetyOn && (
+                    <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />
+                  )}
                   {s.wrap_up && <div className="small error">{t("session.wrapUp")}</div>}
                   {s.stay_on_offer && (
                     <div className="small">

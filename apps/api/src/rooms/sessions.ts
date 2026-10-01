@@ -2,6 +2,7 @@ import {
   addBlock,
   blocksBetween,
   emitEvent,
+  idCounts,
   readSetting,
   releaseBlock,
   RoomNotFree,
@@ -79,6 +80,7 @@ export interface SessionView extends SessionRow {
   readonly clock: SessionClock;
   readonly close: string | null;
   readonly segments: SegmentRow[];
+  readonly ids_checked: number;
 }
 
 /** Sessions with their live clock at `now`: the open ones, or one by id. */
@@ -100,6 +102,11 @@ export async function sessionViews(
     readSetting(c, venueId, "alerts", night.businessDate),
   ]);
   const segments = await segmentsOf(
+    c,
+    venueId,
+    sessions.map((s) => s.id),
+  );
+  const ids = await idCounts(
     c,
     venueId,
     sessions.map((s) => s.id),
@@ -143,7 +150,13 @@ export async function sessionViews(
       firstHourMinimum: prices?.value.firstHourMinimum ?? true,
       ...(last ? { step: { incrementMin: last.increment_min, rounding: last.rounding } } : {}),
     });
-    return { ...s, clock, close: night.close?.toString() ?? null, segments: mine };
+    return {
+      ...s,
+      clock,
+      close: night.close?.toString() ?? null,
+      segments: mine,
+      ids_checked: ids.get(s.id) ?? 0,
+    };
   });
 }
 

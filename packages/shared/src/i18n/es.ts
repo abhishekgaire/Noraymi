@@ -600,4 +600,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "checkIn.failed": "No se pudo registrar la llegada",
   "checkIn.guests": "{party} personas",
   "checkIn.step": "{n} · {label}",
+  // ID checks (M2-12).
+  "ids.chip": "ID ✓ {checked} de {party}",
+  "ids.runnerOne": "ID ✓ {checked} de {party} · el runner revisa la última ID",
+  "ids.runnerMany": "ID ✓ {checked} de {party} · el runner revisa las últimas {missing} IDs",
+  "ids.scan": "Escanear ID",
+  "ids.scanning": "Acerca el reverso de la ID a la cámara",
+  "ids.scanned": "ID escaneada",
+  "ids.unsupported": "Este dispositivo no lee códigos de ID · revísala a simple vista",
+  "ids.notAnId": "Eso no es el código de una ID · inténtalo de nuevo o revísala a simple vista",
+  "ids.failed": "No se pudo guardar el escaneo",
 };
