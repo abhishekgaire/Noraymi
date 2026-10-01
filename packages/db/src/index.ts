@@ -201,3 +201,5 @@ export {
   disableBadgesOf,
 } from "./badges.js";
 export type { BadgeRow } from "./badges.js";
+export { offboardMembership } from "./team.js";
+export type { Offboarded } from "./team.js";

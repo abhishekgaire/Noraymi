@@ -714,17 +714,21 @@ Definition of done: see CLAUDE.md.
 
 ### M1-27 · Offboard a person in one step
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-22, M1-24, M1-25
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Offboarding; [API](../spec/08-api.md) · Sign-in, team and devices (`POST /team/{m}/deactivate`)
 - **Build:** `POST /team/{m}/deactivate` (the owner, passkey session, asked again) sets the membership's `status` and `deactivated_at`, switches off its badges, revokes its `staff_phone` devices and their keys, and ends every session in one transaction; after it commits, the person's sockets close and their push subscriptions are deleted. Every record they made stays.
 - **Acceptance:**
-  - [ ] Deactivating Diego ends his sessions on the front-desk computer and his phone, revokes his phone's key, closes his sockets and deletes his push subscriptions, all within a second.
-  - [ ] Diego's badge and PIN are refused everywhere afterwards.
-  - [ ] Diego's audit rows and every row he made are still there and still name him.
+  - [x] Deactivating Diego ends his sessions on the front-desk computer and his phone, revokes his phone's key, closes his sockets and deletes his push subscriptions, all within a second.
+  - [x] Diego's badge and PIN are refused everywhere afterwards.
+  - [x] Diego's audit rows and every row he made are still there and still name him.
 - **Tests:** an integration test that checks each item above.
 - **Notes:** The spec has no reactivation step, so none is built.
+  - **Built.** `POST /v1/venues/:v/team/:m/deactivate` (`routes/team.ts`): the owner alone (a manager's passkey session is refused), in a passkey session with the step-up, never on themselves. `packages/db/src/team.ts` `offboardMembership` does it in one transaction: the membership's `status` and `deactivated_at`, every badge switched off, every `staff_phone` of the person at the venue revoked (its key dies with it) with its push subscriptions revoked, and the sessions ended with `end_reason: revoked`: the PIN and badge sessions naming the membership, and the person's passkey sessions unless they still work at another venue (those span venues). After the commit the hub closes the sockets their sessions opened (`closeSocketsForUser`, close code 4401) and a `membership.deactivated` event is written. The tiles no longer list them; a PIN answers 401, a badge tap "this badge was switched off", a signed request from the phone 403.
+  - **Cautious default.** The ticket says push subscriptions are "deleted"; `app_rw` never gets delete (the migration linter's rule), so they are revoked (`revoked_at`) and never sent to again. A later sweep can delete old revoked rows.
+  - **Audit.** Migration 0022 adds the audit trigger to the tables M1-22 to M1-25 made without it (`push_subscriptions`, `invites`, `phone_codes`, `pin_lockouts`, `staff_badges`), so the rows a person made keep naming them. The test checks Diego's subscription row and its audit row, actor Diego, after he's gone.
+  - **Tests.** `apps/api/src/routes/offboard.int.test.ts`: Diego signed in at the front desk and on his phone with a socket open and a subscription saved; a manager, the owner without the step-up and Diego himself refused; the deactivation timed under a second with the socket closed, both sessions dead, the phone revoked and refused, the subscription revoked; the badge and PIN refused and the tile gone; the membership, the user and the audit rows still there.
 
 ### M1-28 · Build the Electron desktop shell with its security checklist
 

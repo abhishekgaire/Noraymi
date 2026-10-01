@@ -73,7 +73,17 @@ export const eventsPlugin = fp(async (app: FastifyInstance, options: EventsOptio
       }
     }
   };
-  app.decorate("events", { relay, tail, sockets, closeSocketsFor });
+  /** Offboarding a person (M1-27): the sockets their sessions opened close at once. */
+  const closeSocketsForUser = (userId: string): void => {
+    for (const socket of sockets) {
+      if (socket.sub.principal.kind === "user" && socket.sub.principal.userId === userId) {
+        send(socket.ws, { type: "revoked" });
+        socket.ws.close(4401, "revoked");
+        sockets.delete(socket);
+      }
+    }
+  };
+  app.decorate("events", { relay, tail, sockets, closeSocketsFor, closeSocketsForUser });
 
   app.addHook("onReady", async () => {
     relay.start();
@@ -198,6 +208,7 @@ declare module "fastify" {
       tail: Tail;
       sockets: Set<unknown>;
       closeSocketsFor: (deviceId: string) => void;
+      closeSocketsForUser: (userId: string) => void;
     };
   }
 }

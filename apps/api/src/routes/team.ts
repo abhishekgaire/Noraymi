@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
-import { createInvite, setPinVerifier, sha256Hex } from "@west4/db";
+import { createInvite, emitEvent, offboardMembership, setPinVerifier, sha256Hex } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import type { EmailSettings } from "../email/settings.js";
 import { route } from "../http/conventions.js";
@@ -189,6 +189,46 @@ export function teamRoutes(
         return "email" as const;
       });
       return reply.code(202).send({ sent_by: sentBy, expires_at: expiresAt.toString() });
+    },
+  );
+
+  /**
+   * Offboarding (spec 02 · Offboarding): the owner, in a passkey session asked
+   * again, deactivates a person in one step. Everything they made stays.
+   */
+  app.post<{ Params: VenueParams & { m: string } }>(
+    "/v1/venues/:venueId/team/:m/deactivate",
+    { config: teamChange },
+    async (request, reply) => {
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
+      const venueId = request.venueId!;
+      const here = p.memberships.find((m) => m.venueId === venueId);
+      if (here?.role !== "owner")
+        throw new ApiError("forbidden", "only the owner deactivates a person");
+      if (here.membershipId === request.params.m)
+        throw new ApiError("invalid_request", "you can't deactivate yourself");
+      const at = options.clock.now().toString();
+      const done = await request.inVenue(async (c) => {
+        const result = await offboardMembership(c, { venueId, membershipId: request.params.m, at });
+        if (!result) throw new ApiError("not_found", "no such active person at this venue");
+        await emitEvent(c, {
+          venueId,
+          type: "membership.deactivated",
+          entityId: request.params.m,
+          entityVersion: 0,
+        });
+        return result;
+      });
+      // After the commit: their sockets close now; their next request is refused by the authenticators.
+      app.events.closeSocketsForUser(done.userId);
+      return reply.code(200).send({
+        membership_id: request.params.m,
+        deactivated_at: at,
+        badges_disabled: done.badgesDisabled,
+        phones_revoked: done.phonesRevoked.length,
+        sessions_ended: done.sessionsEnded,
+      });
     },
   );
 }

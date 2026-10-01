@@ -45,10 +45,10 @@ const toRow = (r: {
 
 type Raw = Parameters<typeof toRow>[0];
 
-/** The key versions in use at the venue, newest first: which meta-read keys a tap might be under. */
+/** The key versions in use at the venue, newest first: which meta-read keys a tap might be under. Switched-off badges count, so their taps are told so. */
 export async function badgeKeyVersions(client: Queryable, venueId: string): Promise<number[]> {
   const r = await client.query<{ key_version: number }>(
-    "select distinct key_version from staff_badges where venue_id = $1 and disabled_at is null order by key_version desc",
+    "select distinct key_version from staff_badges where venue_id = $1 order by key_version desc",
     [venueId],
   );
   return r.rows.map((row) => row.key_version);
