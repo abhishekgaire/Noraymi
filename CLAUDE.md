@@ -113,6 +113,9 @@ pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
 pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 and M2 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
+scripts/demo-start.sh   # local only: start everything in demo mode (no .env, no real keys), a fresh night at 10:41 PM and invite links; Ctrl+C stops it (docs/local-testing.md)
+scripts/demo-local.sh   # local only: reset the night to 10:41 PM and print new owner and manager invite links
+scripts/demo-codes.sh   # local only: the newest sign-in codes the app texted or emailed
 pnpm check              # lint, i18n, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
 pnpm lint && pnpm typecheck && pnpm test
 pnpm i18n:check          # every staff string exists in English and Spanish with the same placeholders; names any missing key
