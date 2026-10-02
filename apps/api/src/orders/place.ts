@@ -3,6 +3,7 @@ import {
   emitEvent,
   insertOrder,
   orderById,
+  type NewOrder,
   orderableVariant,
   type OrderRow,
   type Queryable,
@@ -61,9 +62,59 @@ export async function placeStaffOrder(
     throw new ApiError("ordering_closed", "this check is closed to new orders");
   if (input.lines.length === 0) throw new ApiError("invalid_request", "nothing to send");
 
-  const nowIso = new Date(input.now.epochMilliseconds).toISOString();
+  const items = await orderItemsFor(c, venueId, input.lines, input.now);
+
+  const clock = await venueClock(c, venueId);
+  const orderId = await insertOrder(c, venueId, {
+    checkId: input.checkId,
+    sessionId: ch.room_session_id,
+    source: "staff",
+    placedBy: input.userId,
+    placedAt: input.now.toString(),
+    businessDate: businessDate(input.now, clock.timeZone, clock.dayCutover).businessDate.toString(),
+    clientOrderId: input.clientOrderId,
+    items,
+  });
+  await emitEvent(c, { venueId, type: "order.ringing", entityId: orderId, entityVersion: 0 });
+  const accepted = await stepOrder(c, venueId, orderId, "accept", {
+    userId: input.userId,
+    deviceId: input.deviceId,
+    now: input.now,
+  });
+  if (accepted.status !== "done") throw new ApiError("internal", "a staff order wasn't accepted");
+  const version = await clearDraft(
+    c,
+    venueId,
+    input.membershipId,
+    input.checkId,
+    input.now.toString(),
+  );
+  if (version !== null)
+    await emitEvent(c, {
+      venueId,
+      type: "draft.updated",
+      entityId: input.checkId,
+      entityVersion: version,
+      audience: "user",
+      userId: input.userId,
+    });
+  return accepted.order;
+}
+
+/**
+ * Each line checked against the menu as it is now (shown, not 86'd, every required choice made,
+ * no more than a group allows) and priced from it: the order's items, with the price, name,
+ * alcohol flag, tax category and station copied. Shared by staff orders and guests' orders.
+ */
+export async function orderItemsFor(
+  c: Queryable,
+  venueId: string,
+  lines: readonly StaffLine[],
+  now: Temporal.Instant,
+): Promise<NewOrder["items"][number][]> {
+  const nowIso = new Date(now.epochMilliseconds).toISOString();
   const items = [];
-  for (const line of input.lines) {
+  for (const line of lines) {
     const v = await orderableVariant(c, venueId, line.variant_id, nowIso);
     if (!v || !v.shown)
       throw new ApiError("invalid_request", "that drink isn't on the menu", {
@@ -123,39 +174,60 @@ export async function placeStaffOrder(
     });
   }
 
+  return items;
+}
+
+/**
+ * A guest's order from the room page (M3-09): it rings at the bar and waits for Accept, which is
+ * the sale. A retry with the same client_order_id answers the order it made the first time. A check
+ * that's presented (ordering locked) answers 409 ordering_closed; the host lock, the alcohol window
+ * and the cut-offs are checked here in M3-10 and M3-20.
+ */
+export async function placeRoomOrder(
+  c: Queryable,
+  venueId: string,
+  input: {
+    sessionId: string;
+    roomGuestId: string;
+    roomId: string;
+    lines: readonly StaffLine[];
+    clientOrderId: string;
+    now: Temporal.Instant;
+  },
+): Promise<OrderRow> {
+  const seen = await c.query<{ id: string }>(
+    "select id from orders where venue_id = $1 and client_order_id = $2",
+    [venueId, input.clientOrderId],
+  );
+  if (seen.rows[0]) return (await orderById(c, venueId, seen.rows[0].id))!;
+  const s = await c.query<{ check_id: string | null; ordering_locked: boolean; ended: boolean }>(
+    `select check_id, ordering_locked, ended_at is not null as ended from room_sessions
+      where venue_id = $1 and id = $2`,
+    [venueId, input.sessionId],
+  );
+  const session = s.rows[0];
+  if (!session || session.ended || !session.check_id)
+    throw new ApiError("ordering_closed", "this room isn't taking orders");
+  if (session.ordering_locked)
+    throw new ApiError("ordering_closed", "your bill is ready · ordering is closed");
+  const items = await orderItemsFor(c, venueId, input.lines, input.now);
   const clock = await venueClock(c, venueId);
   const orderId = await insertOrder(c, venueId, {
-    checkId: input.checkId,
-    sessionId: ch.room_session_id,
-    source: "staff",
-    placedBy: input.userId,
+    checkId: session.check_id,
+    sessionId: input.sessionId,
+    roomGuestId: input.roomGuestId,
+    source: "room",
     placedAt: input.now.toString(),
     businessDate: businessDate(input.now, clock.timeZone, clock.dayCutover).businessDate.toString(),
     clientOrderId: input.clientOrderId,
     items,
   });
-  await emitEvent(c, { venueId, type: "order.ringing", entityId: orderId, entityVersion: 0 });
-  const accepted = await stepOrder(c, venueId, orderId, "accept", {
-    userId: input.userId,
-    deviceId: input.deviceId,
-    now: input.now,
-  });
-  if (accepted.status !== "done") throw new ApiError("internal", "a staff order wasn't accepted");
-  const version = await clearDraft(
-    c,
+  await emitEvent(c, {
     venueId,
-    input.membershipId,
-    input.checkId,
-    input.now.toString(),
-  );
-  if (version !== null)
-    await emitEvent(c, {
-      venueId,
-      type: "draft.updated",
-      entityId: input.checkId,
-      entityVersion: version,
-      audience: "user",
-      userId: input.userId,
-    });
-  return accepted.order;
+    type: "order.ringing",
+    entityId: orderId,
+    entityVersion: 0,
+    roomId: input.roomId,
+  });
+  return (await orderById(c, venueId, orderId))!;
 }

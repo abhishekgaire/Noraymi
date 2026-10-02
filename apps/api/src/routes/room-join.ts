@@ -79,7 +79,13 @@ const newToken = () => randomBytes(16).toString("base64url");
  */
 export function roomGuestAuthenticator(pool: pg.Pool): Authenticator {
   return async (request) => {
-    if (!request.url.startsWith("/v1/public/room-session")) return undefined;
+    // The guest room routes, and the room's live channel when no staff session is on the request.
+    const path = request.url.split("?")[0]!;
+    const channel =
+      /^\/v1\/venues\/[^/]+\/events$/.test(path) &&
+      !request.headers.authorization &&
+      !/(^|;\s*)west4_session=/.test(request.headers.cookie ?? "");
+    if (!path.startsWith("/v1/public/room-session") && !channel) return undefined;
     const token = roomCookieOf(request);
     if (!token) return undefined;
     const found = await resolveRoomSession(pool, tokenHash(token));
@@ -286,7 +292,7 @@ export function roomJoinRoutes(
       if (g.room_id !== g.session.room_id) moved = { from: g.room_name, to: g.session.room_name };
     }
     return {
-      venue: { name: g.venue_name, slug: g.venue_slug },
+      venue: { id: venueId, name: g.venue_name, slug: g.venue_slug },
       room: { id: g.session.room_id, name: g.session.room_name },
       code: openRoomCode(g.session.room_code_enc),
       is_host: g.is_host,

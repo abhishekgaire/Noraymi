@@ -243,7 +243,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-09 · Build the room page: the menu, ordering and live status in the guest's words
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3-06, M3-08
 - **Spec:** [Order](../screens.md#order) notes 1, 2 and 13; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Words on every staff screen (the guest's phone column); [API](../spec/08-api.md) · Guest room (`orders`, `orders/{o}/cancel`); [Glossary · Order statuses](../glossary.md#order-statuses)
@@ -253,12 +253,19 @@ Definition of done: see CLAUDE.md.
   - Cancel shows only while an order is ringing or asked to wait, for the guest who placed it or the host (`POST /v1/public/room-session/orders/{o}/cancel`).
   - Live through the room channel.
 - **Acceptance:**
-  - [ ] Ordering 2 × Margarita · Peach from a Room 9 phone shows "Sent to the bar · you can still cancel", and the order rings on the bar orders screen and the board.
-  - [ ] As the bar asks the room to wait, accepts, marks it ready, and a runner claims it and delivers it, the phone shows each of the guest's words in turn.
-  - [ ] Cancel shows while the order rings and while it's asked to wait, and is gone once it's accepted.
-  - [ ] Hoegaarden shows "86'd tonight" and can't be added.
+  - [x] Ordering 2 × Margarita · Peach from a Room 9 phone shows "Sent to the bar · you can still cancel", and the order rings on the bar orders screen and the board.
+  - [x] As the bar asks the room to wait, accepts, marks it ready, and a runner claims it and delivers it, the phone shows each of the guest's words in turn.
+  - [x] Cancel shows while the order rings and while it's asked to wait, and is gone once it's accepted.
+  - [x] Hoegaarden shows "86'd tonight" and can't be added.
 - **Tests:** Playwright on a phone size, driving the bar's side through the API.
 - **Notes:** "Your bill", Pay my share and confirming the card on file are M4; the private help link is M8.
+  - Built: `apps/api/src/routes/room-orders.ts` (`GET` and `POST /v1/public/room-session/orders`, `POST …/orders/{o}/cancel`); `placeRoomOrder` and the shared `orderItemsFor` in `apps/api/src/orders/place.ts` (the same menu checks as staff orders: on the menu, not 86'd, choices made); the room page in `apps/guest/app/room/room.tsx` with its strings; `apps/api/src/routes/room-orders.int.test.ts` and the guest Playwright test "the room page on a phone".
+  - A guest's order rings (`source: room`, `room_guest_id`), waits for Accept, and is retried safely by its `client_order_id` (one per cart, kept across retries). A presented check answers `409 ordering_closed`. A phone whose session moved on gets `401 session_expired` on an order and the page reloads the room first, which hands it a fresh token.
+  - The guest's view of an order carries no staff ids: its items, status, cancel reason, decline reason, whether it's theirs, and `can_cancel` (ringing or asked to wait, and theirs or they're the host). The page shows the glossary's guest words from `guestOrderWords`, with a decline's reason after them.
+  - On the page: the menu by section with 86'd drinks greyed and disabled ("86'd tonight"), a sheet asking "Which one? The bar gets it on the ticket." for a choice with no default, the cart "Your order · not sent yet" with − and +, "Send 2 to the bar · $26.00", and "Your orders" newest first.
+  - Live: the page opens the room's channel (`/v1/venues/{v}/events` with the room cookie; the room authenticator answers there only when no staff session is on the request) and refetches on order, session and menu events, with a 10-second refresh behind it. Next's rewrite doesn't carry a WebSocket upgrade, so the page connects to `NEXT_PUBLIC_EVENTS_ORIGIN`, or locally to the API's port 3000.
+  - "Rings on the bar orders screen and the board": the bar orders screen is M3-15 and the board's order alerts M3-16; this ticket checks the order is in the bar's Waiting list (`GET /orders?status=ringing,held`), which both read.
+  - The host lock is M3-10; the alcohol window and cut-offs on this route are M3-20.
 
 ### M3-10 · Add the running bill, Call staff and the host lock to the room page
 

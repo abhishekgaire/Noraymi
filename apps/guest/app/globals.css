@@ -82,3 +82,58 @@ body {
   margin: 0;
   opacity: 0.8;
 }
+/* The room page (M3-09): the menu, 86 greyed in place, the cart, orders and the choice sheet. */
+.room-page section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.guest .menu-item {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+.guest .menu-item.out {
+  opacity: 0.5;
+}
+.guest .order {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+}
+.guest .order p {
+  margin: 0 0 4px;
+}
+.guest .cart li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.guest .cart .qty button {
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: 4px;
+}
+.guest .sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 16px;
+  background: Canvas;
+  color: CanvasText;
+  border-top: 1px solid rgba(127, 127, 127, 0.5);
+  display: grid;
+  gap: 8px;
+}
+.guest .sheet label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
@@ -116,6 +116,101 @@ test("joining a room on a phone: the host link, a wrong code, KX4M7, and a close
     await closed.goto(`/v/west4karaoke/room/${await roomId("Room 11")}`);
     await expect(closed.getByRole("status")).toHaveText("Room 11 is closed right now.");
     await closed.context().close();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The room page on a phone (M3-09; screens Order notes 1, 2 and 13): a friend
+ * in Room 9 orders 2 × Margarita · Peach (the flavor asked first; Hoegaarden
+ * 86'd and greyed), and reads each of the guest's words as the bar, driven
+ * through the API as Maya, asks the room to wait, accepts, marks it ready,
+ * and a runner takes it and delivers it. Cancel shows only while it rings or
+ * waits.
+ */
+test("the room page on a phone: order 2 × Margarita · Peach and follow it in the guest's words", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    // Maya's session at the bar, made directly so the test can drive the bar through the API.
+    const token = randomBytes(24).toString("base64url");
+    const maya = (
+      await db.query<{ user_id: string; id: string; venue_id: string }>(
+        "select m.user_id, m.id, m.venue_id from memberships m join users u on u.id = m.user_id where u.name like 'Maya%'",
+      )
+    ).rows[0]!;
+    await db.query(
+      `insert into auth_sessions (principal, user_id, membership_id, assurance, client, token_hash, started_at, last_seen_at, expires_at)
+       values ('staff', $1, $2, 'pin', 'web', $3, '2026-09-25T22:41:00-04:00', '2026-09-25T22:41:00-04:00', '2026-09-26T06:00:00-04:00')`,
+      [maya.user_id, maya.id, createHash("sha256").update(token).digest("hex")],
+    );
+    const bar = async (orderId: string, step: string) =>
+      expect(
+        (
+          await request.post(
+            `http://127.0.0.1:3000/v1/venues/${maya.venue_id}/orders/${orderId}/${step}`,
+            { headers: { authorization: `Bearer ${token}` }, data: {} },
+          )
+        ).status(),
+        step,
+      ).toBe(200);
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    const page = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await page.goto(`/v/west4karaoke/room/${room9}`);
+    await page.getByLabel("Room code").fill("KX4M7");
+    await page.getByRole("button", { name: "Join" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+
+    // Hoegaarden is 86'd tonight: greyed in its place, and it can't be added.
+    const hoe = page.getByRole("button", { name: "Hoegaarden · 86'd tonight" });
+    await expect(hoe).toBeDisabled();
+
+    // The flavor is asked before adding, twice for two.
+    for (let i = 0; i < 2; i++) {
+      await page.getByRole("button", { name: "Margarita · $13.00" }).click();
+      const sheet = page.getByRole("dialog", { name: "Margarita" });
+      await expect(sheet).toContainText("Which one? The bar gets it on the ticket.");
+      await sheet.getByLabel("Peach").check();
+      await sheet.getByRole("button", { name: "Add" }).click();
+    }
+    const cart = page.getByRole("region", { name: "Your order · not sent yet" });
+    await expect(cart).toContainText("2 × Margarita · Peach");
+    await cart.getByRole("button", { name: "Send 2 to the bar · $26.00" }).click();
+
+    const order = page.locator(".order").first();
+    await expect(order).toContainText("2 × Margarita · Peach");
+    await expect(order.locator(".status")).toHaveText("Sent to the bar · you can still cancel");
+    await expect(order.getByRole("button", { name: "Cancel" })).toBeVisible();
+    const orderId = (
+      await db.query<{ id: string }>(
+        "select id from orders where source = 'room' and room_guest_id is not null order by placed_at desc limit 1",
+      )
+    ).rows[0]!.id;
+
+    const steps: [string, string, boolean][] = [
+      ["hold", "The bar needs a few minutes", true],
+      ["accept", "Being made · on your tab", false],
+      ["ready", "Being made · on your tab", false],
+      ["claim", "On its way to Room 9", false],
+      ["deliver", "Delivered", false],
+    ];
+    for (const [step, words, cancel] of steps) {
+      await bar(orderId, step);
+      await expect(order.locator(".status")).toHaveText(words, { timeout: 15_000 });
+      await expect(order.getByRole("button", { name: "Cancel" })).toHaveCount(cancel ? 1 : 0);
+    }
+    await page.context().close();
   } finally {
     await db.end();
   }
