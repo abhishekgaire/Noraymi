@@ -22,6 +22,7 @@ import { chargeNow, guestConfirms } from "../payments/card-on-file.js";
 import { screenState } from "../payments/machine.js";
 import { businessDate } from "@west4/rules";
 import { startMyShare } from "../payments/pay-my-share.js";
+import { webReceiptLink, type ReceiptDeps } from "../receipts/send.js";
 
 /**
  * Paying the bill from a guest's own phone (M4-16; screens N5; spec 08 · Guest room, Bookings):
@@ -46,6 +47,7 @@ export function billRoutes(
     stripe: () => StripeClient;
     payAppUrl: string | null;
     texts?: { allowList: readonly string[] | null };
+    receipts?: ReceiptDeps;
   },
 ): void {
   const deps = () => ({ pool: options.pool, stripe: options.stripe(), clock: options.clock });
@@ -64,6 +66,7 @@ export function billRoutes(
         ...deps(),
         payAppUrl: options.payAppUrl,
         texts: options.texts ?? { allowList: null },
+        ...(options.receipts ? { receipts: options.receipts } : {}),
       },
       venueId,
       paymentId,
@@ -229,7 +232,19 @@ export function billRoutes(
     "/v1/public/bookings/:token",
     { config: tokenConfig },
     async (request) => {
-      const { booking: b, bill } = await booking(request.params.token);
+      const { venueId, booking: b, bill: found } = await booking(request.params.token);
+      const receipts = options.receipts;
+      const bill =
+        found?.status === "paid" && receipts
+          ? {
+              ...found,
+              receipt_url: await withVenue(
+                options.pool,
+                { venueId, requestId: "receipt-link" },
+                (c) => webReceiptLink(c, venueId, found.check_id, receipts, options.clock.now()),
+              ),
+            }
+          : found;
       return {
         venue_name: b.venue_name,
         guest_name: b.guest_name,

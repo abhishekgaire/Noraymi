@@ -114,6 +114,69 @@ export function ticketEscPos(
   return Uint8Array.from(bytes);
 }
 
+/** A receipt (M4-19): the receipt model's plain lines (apps/api/src/receipts/model.ts · receiptText). */
+export interface ReceiptPayload {
+  readonly lines: readonly string[];
+}
+
+/** The receipt laid out 32 wide: each amount right-aligned, long labels wrapped above it. */
+export function receiptPrintLines(p: ReceiptPayload, opts: { reprintN: number }): string[] {
+  const out: string[] = [];
+  if (opts.reprintN > 0) out.push(`REPRINT ${opts.reprintN}`);
+  for (const line of p.lines) {
+    const m = /^(.*) {2}(−?\$[\d,]+\.\d\d)$/.exec(line);
+    if (!m) {
+      for (let i = 0; i < Math.max(1, line.length); i += WIDTH) out.push(line.slice(i, i + WIDTH));
+      continue;
+    }
+    const [, label, amount] = m as unknown as [string, string, string];
+    const room = WIDTH - amount.length - 1;
+    let rest = label;
+    while (rest.length > room) {
+      out.push(rest.slice(0, WIDTH));
+      rest = rest.slice(WIDTH);
+    }
+    out.push(rest + " ".repeat(WIDTH - rest.length - amount.length) + amount);
+  }
+  return out;
+}
+
+export function receiptPrintText(p: ReceiptPayload, opts: { reprintN: number }): string {
+  return `${receiptPrintLines(p, opts).join("\n")}\n\n\n`;
+}
+
+export function receiptEpos(p: ReceiptPayload, opts: { reprintN: number; jobId: string }): string {
+  const body = receiptPrintLines(p, opts)
+    .map((line) => `<text>${xml(line)}&#10;</text>`)
+    .join("");
+  return (
+    `<PrintRequestInfo Version="2.00"><ePOSPrint><Parameter><devid>local_printer</devid><timeout>10000</timeout>` +
+    `<printjobid>${xml(opts.jobId)}</printjobid></Parameter><PrintData>` +
+    `<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print">${body}<feed line="3"/><cut type="feed"/></epos-print>` +
+    `</PrintData></ePOSPrint></PrintRequestInfo>`
+  );
+}
+
+export function receiptEscPos(p: ReceiptPayload, opts: { reprintN: number }): Uint8Array {
+  const ESC = 0x1b;
+  const GS = 0x1d;
+  const bytes: number[] = [ESC, 0x40];
+  // Receipt printers' code pages are ASCII: "−" and "·" print as "-" and ".".
+  const ascii = (s: string) =>
+    s
+      .replace(/−/g, "-")
+      .replace(/·/g, ".")
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^\x20-\x7e]/g, "?");
+  for (const line of receiptPrintLines(p, opts)) {
+    for (const ch of ascii(line)) bytes.push(ch.charCodeAt(0));
+    bytes.push(0x0a);
+  }
+  bytes.push(ESC, 0x64, 3, GS, 0x56, 0x42, 0);
+  return Uint8Array.from(bytes);
+}
+
 /**
  * Opening a cash drawer through its printer's kick port (M4-13), one job of kind `drawer`:
  *  - ESC/POS for a USB printer: ESC p 0 25 250, a pulse on pin 2;

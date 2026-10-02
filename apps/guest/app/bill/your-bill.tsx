@@ -40,6 +40,8 @@ export interface GuestBill {
   readonly on_file_request?: { readonly payment_id: string; readonly amount_cents: number } | null;
   /** Pay my share (M4-18), when the venue offers it. */
   readonly pay_share?: { readonly shares: number } | null;
+  /** Once paid: the receipt link (M4-19). */
+  readonly receipt_url?: string | null;
 }
 
 /** The guest's share, as POST /room-session/shares answers it. */
@@ -193,9 +195,16 @@ export function YourBill({
       </dl>
 
       {paid ? (
-        <p className="notice" role="status">
-          {t("en", "yourBill.paid")}
-        </p>
+        <>
+          <p className="notice" role="status">
+            {t("en", "yourBill.paid")}
+          </p>
+          {bill.receipt_url && (
+            <a className="button" href={bill.receipt_url}>
+              {t("en", "yourBill.receipt")}
+            </a>
+          )}
+        </>
       ) : (
         (payLink || payCash) && (
           <div className="ways" role="group" aria-labelledby="ways-h">

@@ -11,6 +11,7 @@ import {
   type TemplateData,
   type TemplateName,
 } from "../email/templates.js";
+import { htmlToPdf } from "../menu/pdf.js";
 
 /**
  * One email, sent from the normal pool (M1-18). The payload names a template
@@ -21,6 +22,14 @@ import {
 export const EMAIL_SEND_KIND = "email.send";
 
 export const emailJobPayload = z.discriminatedUnion("template", [
+  z
+    .object({
+      template: z.literal("receipt"),
+      to: z.string().email(),
+      locale: localeSchema,
+      data: templateSchemas.receipt,
+    })
+    .strict(),
   z
     .object({
       template: z.literal("invite"),
@@ -84,12 +93,27 @@ export async function enqueueEmail<N extends TemplateName>(
   });
 }
 
-export function makeSendEmailHandler(mailer: Mailer, settings: EmailSettings): JobHandler {
+export function makeSendEmailHandler(
+  mailer: Mailer,
+  settings: EmailSettings,
+  /** Renders the receipt PDF attached to a receipt email (M4-19). */
+  pdf: (html: string) => Promise<Uint8Array> = htmlToPdf,
+): JobHandler {
   return async ({ job }) => {
     const payload = emailJobPayload.parse(job.payload);
     // Checked again at send time: the list may have changed since the job was queued.
     assertAllowed(settings.allowList, payload.to);
     const rendered = render(payload.template, payload.locale, payload.data);
+    const attachments =
+      payload.template === "receipt"
+        ? [
+            {
+              filename: `receipt-${payload.data.number.replace(/[^A-Za-z0-9]+/g, "")}.pdf`,
+              content: await pdf(rendered.html),
+              contentType: "application/pdf",
+            },
+          ]
+        : undefined;
     await mailer.send({
       to: payload.to,
       from: settings.from,
@@ -97,6 +121,7 @@ export function makeSendEmailHandler(mailer: Mailer, settings: EmailSettings): J
       text: rendered.text,
       html: rendered.html,
       messageId: `<job-${job.id}@west4.email>`,
+      ...(attachments ? { attachments } : {}),
     });
   };
 }

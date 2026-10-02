@@ -21,7 +21,8 @@ import { CALL_KINDS, createCall, type CallKind } from "../rooms/calls.js";
 import { newRoomCode } from "../rooms/checkin.js";
 import { roomCodeColumns } from "../rooms/room-code.js";
 import { stepOrder } from "../orders/pipeline.js";
-import { guestBill } from "../rooms/guest-bill.js";
+import { guestBill, type GuestBill } from "../rooms/guest-bill.js";
+import { webReceiptLink, type ReceiptDeps } from "../receipts/send.js";
 
 /**
  * Ordering from the room page (M3-09; spec 08 · Guest room):
@@ -91,7 +92,7 @@ function guestView(o: OrderRow, me: RoomGuestRow) {
 
 export function roomOrderRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock },
+  options: { pool: pg.Pool; clock: Clock; receipts?: ReceiptDeps },
 ): void {
   const guest = route({
     principals: ["guest_room", "room_tablet"],
@@ -172,6 +173,16 @@ export function roomOrderRoutes(
    * room time with its minutes, drinks on the tab, the tab so far before tax and gratuity, the rate
    * a minute, the deposit, and the stay or wrap-up line. The next party is never named to the room.
    */
+  /** A paid bill carries its receipt link (M4-19). */
+  const withReceiptLink = async (venueId: string, bill: GuestBill) => {
+    if (bill.status !== "paid" || !options.receipts) return bill;
+    const deps = options.receipts;
+    const link = await withVenue(options.pool, { venueId, requestId: "receipt-link" }, (c) =>
+      webReceiptLink(c, venueId, bill.check_id, deps, options.clock.now()),
+    );
+    return { ...bill, receipt_url: link };
+  };
+
   app.get("/v1/public/room-session/bill", { config: guest }, async (request) => {
     // A paid room goes to cleaning and its session ends (M4-12); its phones still read the paid bill
     // and its receipt link (M4-16), and nothing else.
@@ -185,7 +196,8 @@ export function roomOrderRoutes(
             (c) => guestBill(c, joined.venueId, checkId),
           )
         : null;
-      if (paid?.status === "paid") return { ended: true, presented: paid };
+      if (paid?.status === "paid")
+        return { ended: true, presented: await withReceiptLink(joined.venueId, paid) };
     }
     const me = await currentGuest(request, options.pool, options.clock);
     const now = options.clock.now();
@@ -224,7 +236,7 @@ export function roomOrderRoutes(
       wrap_up_at: s.wrap_up && tile.next ? tile.next.at : null,
       time_zone: venue.rows[0]?.time_zone ?? "America/New_York",
       // Once staff Present the check (M4-16): the bill itself. A tablet shows it with no ways to pay.
-      presented,
+      presented: presented ? await withReceiptLink(me.venueId, presented) : null,
     };
   });
 

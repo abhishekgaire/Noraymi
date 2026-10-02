@@ -480,3 +480,5 @@ export {
   setPayLinkPayment,
 } from "./pay-links.js";
 export type { PayLinkRow } from "./pay-links.js";
+export { insertReceipt, webReceiptOf, receiptByHash, venueForReceiptToken } from "./receipts.js";
+export type { ReceiptRow } from "./receipts.js";

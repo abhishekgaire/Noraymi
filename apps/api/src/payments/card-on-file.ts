@@ -19,6 +19,7 @@ import { queueText } from "../texts/queue.js";
 import { clockWords } from "../texts/triggers.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { cancelPayment, claimAndRun, enqueueRun, runNow, type PaymentDeps } from "./run.js";
+import { sendReceipt, type ReceiptDeps } from "../receipts/send.js";
 
 /**
  * Card on file (M4-17; Payment flows · Room close-out; screens N8): the card
@@ -320,7 +321,11 @@ export async function followUpDecline(
  * hear at once (the worker runs the same jobs if this process can't).
  */
 export async function chargeNow(
-  deps: PaymentDeps & { payAppUrl: string | null; texts: Pick<VenueTextSettings, "allowList"> },
+  deps: PaymentDeps & {
+    payAppUrl: string | null;
+    texts: Pick<VenueTextSettings, "allowList">;
+    receipts?: ReceiptDeps;
+  },
   venueId: string,
   paymentId: string,
   attemptNo: number,
@@ -329,4 +334,26 @@ export async function chargeNow(
   await claimAndRun(deps, venueId, `${ON_FILE_DECLINED_KIND}:${paymentId}`, () =>
     followUpDecline(deps, venueId, paymentId),
   );
+  const receipts = deps.receipts;
+  if (!receipts) return;
+  // Charged: an itemized receipt is texted at once (Payment flows · Card on file; M4-19).
+  await withVenue(deps.pool, { venueId, requestId: `payment:${paymentId}:receipt` }, async (c) => {
+    const payment = await paymentById(c, venueId, paymentId);
+    if (payment?.status !== "captured") return;
+    const check = (
+      await c.query<{ check_id: string }>(
+        "select check_id from payment_allocations where venue_id = $1 and payment_id = $2 limit 1",
+        [venueId, paymentId],
+      )
+    ).rows[0];
+    const card = check ? await savedCardFor(c, venueId, check.check_id) : null;
+    if (!check || !card?.guest_phone) return;
+    await sendReceipt(c, venueId, receipts, {
+      checkId: check.check_id,
+      to: { channel: "text", to: card.guest_phone },
+      paymentId,
+      sentBy: null,
+      now: deps.clock.now(),
+    });
+  }).catch(() => undefined); // A text that can't go out never undoes the payment; staff can send it again.
 }

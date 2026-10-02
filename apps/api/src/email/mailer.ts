@@ -13,6 +13,12 @@ export interface OutgoingEmail {
    * it sends one copy.
    */
   readonly messageId: string;
+  /** Files sent with it, such as the receipt PDF (M4-19). */
+  readonly attachments?: readonly {
+    readonly filename: string;
+    readonly content: Uint8Array;
+    readonly contentType: string;
+  }[];
 }
 
 /** The provider-neutral adapter (M1-18). Jobs call it; nothing else does. */
@@ -37,6 +43,15 @@ export class SmtpMailer implements Mailer {
       text: mail.text,
       html: mail.html,
       messageId: mail.messageId,
+      ...(mail.attachments
+        ? {
+            attachments: mail.attachments.map((a) => ({
+              filename: a.filename,
+              content: Buffer.from(a.content),
+              contentType: a.contentType,
+            })),
+          }
+        : {}),
     });
   }
 

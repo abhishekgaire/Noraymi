@@ -8,6 +8,7 @@ import { drawerRoutes } from "./routes/drawers.js";
 import { splitRoutes } from "./routes/splits.js";
 import { payRoutes } from "./routes/pay.js";
 import { billRoutes } from "./routes/bill.js";
+import { receiptRoutes } from "./routes/receipts.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -202,6 +203,13 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     }
 
     if (config) {
+      // Receipts (M4-19): their link tokens come from the server's secret.
+      const receiptDeps = {
+        secret: config.auth.secretKey,
+        guestAppUrl: config.guestAppUrl,
+        texts: loadVenueTextSettings(config.env),
+        email: options.email ?? { allowList: null },
+      };
       authRoutes(scope, {
         pool: gatePoolRef!,
         clock,
@@ -218,7 +226,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       idCheckRoutes(scope, { clock, wrappingKey: config.auth.secretKey });
       setRoomCodeKey(config.auth.secretKey);
       roomJoinRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
-      roomOrderRoutes(scope, { pool: gatePoolRef!, clock });
+      roomOrderRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });
       cutOffRoutes(scope, { clock });
       clearOutRoutes(scope, { clock });
       printRoutes(scope, { pool: gatePoolRef!, clock });
@@ -232,6 +240,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       boardRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
       approvalRoutes(scope, {
+        receipts: receiptDeps,
         clock,
         pool: gatePoolRef!,
         stripe,
@@ -251,7 +260,9 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       drawerRoutes(scope, { clock });
       splitRoutes(scope, { clock });
       payRoutes(scope, { pool: gatePoolRef!, clock, stripe });
+      receiptRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });
       billRoutes(scope, {
+        receipts: receiptDeps,
         pool: gatePoolRef!,
         clock,
         stripe,

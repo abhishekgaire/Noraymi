@@ -28,6 +28,10 @@ import {
   drawerKickEscPos,
   ticketEpos,
   ticketEscPos,
+  receiptEpos,
+  receiptEscPos,
+  receiptPrintText,
+  type ReceiptPayload,
   ticketText,
   type TicketPayload,
 } from "../print/ticket.js";
@@ -185,6 +189,13 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         const job = await printerJob(c, me(request).venueId, me(request).deviceId, token);
         if (!job) throw new ApiError("not_found", "no such job");
         if (job.kind === "drawer") return { kick: true, body: DRAWER_MARKUP };
+        if (job.kind === "receipt")
+          return {
+            kick: false,
+            body: receiptPrintText(job.payload as unknown as ReceiptPayload, {
+              reprintN: job.reprint_n,
+            }),
+          };
         return {
           kick: false,
           body: ticketText(job.payload as TicketPayload, {
@@ -242,11 +253,16 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const xmlBody = await inPrinterVenue(request, async (c) =>
         job.kind === "drawer"
           ? drawerKickEpos(job.id)
-          : ticketEpos(job.payload as TicketPayload, {
-              timeZone: await venueZone(c, me(request).venueId),
-              reprintN: job.reprint_n,
-              jobId: job.id,
-            }),
+          : job.kind === "receipt"
+            ? receiptEpos(job.payload as unknown as ReceiptPayload, {
+                reprintN: job.reprint_n,
+                jobId: job.id,
+              })
+            : ticketEpos(job.payload as TicketPayload, {
+                timeZone: await venueZone(c, me(request).venueId),
+                reprintN: job.reprint_n,
+                jobId: job.id,
+              }),
       );
       return reply.type("text/xml; charset=utf-8").send(xmlBody);
     },
@@ -417,10 +433,12 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         const bytes =
           job.kind === "drawer"
             ? drawerKickEscPos()
-            : ticketEscPos(job.payload as TicketPayload, {
-                timeZone: await venueZone(c, request.venueId!),
-                reprintN: job.reprint_n,
-              });
+            : job.kind === "receipt"
+              ? receiptEscPos(job.payload as unknown as ReceiptPayload, { reprintN: job.reprint_n })
+              : ticketEscPos(job.payload as TicketPayload, {
+                  timeZone: await venueZone(c, request.venueId!),
+                  reprintN: job.reprint_n,
+                });
         return {
           job: {
             id: job.id,

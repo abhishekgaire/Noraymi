@@ -9,6 +9,7 @@ import type pg from "pg";
 import { latestAttempt } from "@west4/db";
 import { chargeNow } from "../payments/card-on-file.js";
 import type { StripeClient } from "../stripe/client.js";
+import type { ReceiptDeps } from "../receipts/send.js";
 
 /**
  * Approvals (M2-15; spec 08 · Approvals):
@@ -26,6 +27,7 @@ export function approvalRoutes(
     stripe?: () => StripeClient;
     payAppUrl?: string | null;
     texts?: { allowList: readonly string[] | null };
+    receipts?: ReceiptDeps;
   },
 ): void {
   const read = route({ principals: ["owner_manager", "staff"], module: "core" });
@@ -111,6 +113,7 @@ export function approvalRoutes(
           clock: options.clock,
           payAppUrl: options.payAppUrl ?? null,
           texts: options.texts ?? { allowList: null },
+          ...(options.receipts ? { receipts: options.receipts } : {}),
         };
         const attempt = await request.inVenue((c) =>
           latestAttempt(c, request.venueId!, a.target_id),

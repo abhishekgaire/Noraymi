@@ -649,6 +649,23 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
       .click();
     await expect(phone).toHaveURL(/^http:\/\/pay\.localhost:3001\/pay\//);
     await expect(phone.getByRole("heading", { level: 1 })).toHaveText("Pay $498.60");
+
+    // Paid on the payment page: the phone's bill says so, with the receipt (M4-19).
+    await phone.waitForLoadState("networkidle");
+    await phone.getByRole("button", { name: "Pay $498.60" }).click();
+    await expect(phone.getByRole("status")).toHaveText("Paid $498.60 · thank you");
+    await phone.goto("/room");
+    await expect(phone.getByText("Paid in full · thank you")).toBeVisible();
+    await phone.getByRole("link", { name: "See your receipt" }).click();
+    await expect(phone).toHaveURL(/\/receipt\//);
+    await expect(phone.getByRole("heading", { level: 1 })).toHaveText("West 4 Boho Karaoke");
+    const totals = phone.getByRole("region", { name: "Totals" });
+    await expect(totals).toContainText("Gratuity included (20%)$96.00");
+    await expect(totals).toContainText("Tax · room time (8.875%)$28.58");
+    await expect(phone.getByRole("region", { name: "How it was paid" })).toContainText(
+      "Deposit−$120.00",
+    );
+    await expect(phone.getByText("Check #1042 · Room 9")).toBeVisible();
   } finally {
     await db.end();
   }

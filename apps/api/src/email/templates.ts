@@ -41,10 +41,21 @@ export const ownerRecoveryNoticeData = z
   })
   .strict();
 
+/** A receipt (M4-19): the receipt's lines as every render reads them, and its link. */
+export const receiptData = z
+  .object({
+    venueName: z.string().min(1),
+    number: z.string().min(1),
+    lines: z.array(z.string().max(200)).min(1).max(300),
+    link: z.string().url(),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
   sign_in_code: signInCodeData,
   owner_recovery_notice: ownerRecoveryNoticeData,
+  receipt: receiptData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -107,6 +118,18 @@ export function render<N extends TemplateName>(
         `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
       ].join("\n");
       return { subject: line("email.invite.subject"), text: paragraphs.join("\n\n"), html };
+    }
+    case "receipt": {
+      const d = data as TemplateData<"receipt">;
+      const values = { venue: d.venueName, number: d.number, link: d.link };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const text = [...d.lines, "", line("email.receipt.link"), d.link, "", line("email.footer")];
+      const html = [
+        `<div style="font-family:monospace;white-space:pre-wrap">${d.lines.map(escapeHtml).join("<br>")}</div>`,
+        `<p>${escapeHtml(line("email.receipt.link"))} <a href="${escapeHtml(d.link)}">${escapeHtml(d.link)}</a></p>`,
+        `<p style="color:#666">${escapeHtml(line("email.footer"))}</p>`,
+      ].join("\n");
+      return { subject: line("email.receipt.subject"), text: text.join("\n"), html };
     }
     case "sign_in_code": {
       const d = data as TemplateData<"sign_in_code">;

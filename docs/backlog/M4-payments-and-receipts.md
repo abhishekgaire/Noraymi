@@ -587,7 +587,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-19 · Print, text and email receipts, and serve the public receipt page
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-07, M4-11, M4-13; M3 (print jobs and the PDF job); M2 (texts); M1 (the email provider)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 8, 9 and 10; [Payment flows](../spec/07-payment-flows.md#room-close-out) steps 3 and 4; [Data model](../spec/04-data-model.md) (`receipts`); [API](../spec/08-api.md) (`POST /checks/{c}/receipts`, `GET /v1/public/receipts/{token}`); [Song systems and texts](../spec/11-song-systems-texts.md) (the Receipt text); [Security and data retention](../spec/12-security-retention.md) 9; [screens: N2](../screens.md#n2-receipts-printed-and-web)
@@ -600,13 +600,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The web page shows the paid state and, later, the refunded one. Its token is 128 bits, stored hashed, sent with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, and expires.
   - Times show in New York time, with EDT or EST.
 - **Acceptance:**
-  - [ ] Room 9's receipt reads the same printed, texted, emailed and on the public page: every line, "Gratuity included (20%)", tax lines of $28.58 and $14.02, "Deposit −$120.00", the payments and #1042 (a test compares the four renders' text).
-  - [ ] The Receipt text goes out in Admin → Texts' wording with the receipt link.
-  - [ ] A tip on a room check prints as "Additional tip (optional)", never "Gratuity".
-  - [ ] After a refund, the same link shows the refunded state.
-  - [ ] A wrong or expired token answers not found.
+  - [x] Room 9's receipt reads the same printed, texted, emailed and on the public page: every line, "Gratuity included (20%)", tax lines of $28.58 and $14.02, "Deposit −$120.00", the payments and #1042 (a test compares the four renders' text).
+  - [x] The Receipt text goes out in Admin → Texts' wording with the receipt link.
+  - [x] A tip on a room check prints as "Additional tip (optional)", never "Gratuity".
+  - [x] After a refund, the same link shows the refunded state.
+  - [x] A wrong or expired token answers not found.
 - **Tests:** snapshot tests of the four renders from one model; end-to-end (the text through Twilio test credentials, the email through the provider's sandbox, print to a CloudPRNT test printer and to a USB printer in the desktop harness); principal suite (receipt tokens).
 - **Notes:** The spec says the receipt link expires but not when. Cautious default: 30 days, the same as Twilio's copy of the text, while the emailed PDF stays with the guest; flagged for the founder. TRAINING on receipts comes with training mode in M7.
+  - **Built (M4-19):** `apps/api/src/receipts/model.ts` builds one receipt from the check's latest revision and its payments: room time first ("Room time · 161 min at $120.00 an hour"), each line (COMP and VOID for comps and voids, "Credit card surcharge" where there is one), subtotal, tax by category ("Tax · room time (8.875%) $28.58", "Tax · drinks (8.875%) $14.02"), "Gratuity included (20%)", total, "Deposit −$120.00", each payment ("Amex ··0005", "Paid in cash", "Paid by a guest · Kevin (share 1 of 12)"), any "Additional tip (optional)", any refund, what's left to pay, and the status (paid, partly paid, refunded, partly refunded). `receiptText` turns it into the lines every render prints, so the four read the same: the printer (a `receipt` print job, laid out 32 wide, for CloudPRNT, Epson and USB), the Receipt text (Admin → Texts' wording, with the link), the email (the same lines, the link, and the receipt PDF attached), and the public page `/receipt/<token>` (`GET /v1/public/receipts/{token}`, no-referrer, no-store).
+  - `POST /checks/{c}/receipts { channel: print | text | email, to? }`, a `receipts` row per send (migration 0064). Printing goes to this screen's station (the bar's printer from the bar computer, the front desk's otherwise). A paid bill (room phones and the booking link) shows "See your receipt" from the check's one web receipt; the phone keeps its room cookie after a paid room ends so it can still read it.
+  - Link tokens are derived from the receipt row's id with the server's secret (`AUTH_SECRET_KEY`), 144 bits, stored as a hash, so the same link can be shown again without keeping the token. **Cautious default, flagged:** links expire after 30 days (as the ticket's note suggests).
+  - The card-on-file charge from M4-17 now texts the guest the itemized receipt at once (a text that can't go out never undoes the payment).
+  - Times read in New York time with EDT or EST ("Fri Sep 25, 2026 · 8:00 PM EDT").
+  - **Not done here:** the PDF is rendered when the email is sent (Chromium, as the menu PDF), not stored; keeping it as dispute evidence comes with M4-24. Staff's Text / Email / Print / No receipt buttons on the close-out come with M4-20. A bar tab's receipt uses the same model in M6. The refunded state was tested with a refund row written directly, since refunds arrive in M4-21.
+  - Spec: `docs/spec/04-data-model.md` lists the receipts table's new columns (`expires_at`, `sent_by`, the web channel).
+  - Tests: `apps/api/src/routes/receipts.int.test.ts` (the print job, text, email job and public page compared line for line; every line of Room 9's receipt; a $5.00 cash tip as "Additional tip (optional)" and nothing else called gratuity; the refunded state on the same link; wrong and expired tokens); `apps/api/src/print/receipt.test.ts` (32-wide layout, ASCII for USB); `e2e/guest.spec.ts` "Your bill" now pays on the payment page and opens the receipt. Real Twilio, the email provider's sandbox and real printers are for staging (M4-29).
+
 
 ### M4-20 · Close out a room on DeskRoom and the Room phone
 

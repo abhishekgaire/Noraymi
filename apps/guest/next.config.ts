@@ -32,6 +32,14 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-store" },
         ],
       },
+      // The receipt link (M4-19): its token is in the path.
+      {
+        source: "/receipt/:token",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
       // The guest's booking link (M4-16): its token is in the path.
       {
         source: "/b/:token",

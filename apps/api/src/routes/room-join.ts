@@ -275,7 +275,21 @@ export function roomJoinRoutes(
       throw e;
     }
     if (g.session.ended) {
-      setRoomCookie(reply, options.auth, null);
+      // A paid room's phones keep reading their paid bill and its receipt (M4-16, M4-19), so the
+      // cookie stays; nothing else answers for an ended session.
+      const checkId = g.session.check_id;
+      const venueOf = (request.principal as { venueId: string }).venueId;
+      const paid = checkId
+        ? (
+            await withVenue(options.pool, { venueId: venueOf, requestId: request.requestId }, (c) =>
+              c.query<{ status: string }>(
+                "select status from checks where venue_id = $1 and id = $2",
+                [venueOf, checkId],
+              ),
+            )
+          ).rows[0]?.status === "paid"
+        : false;
+      if (!paid) setRoomCookie(reply, options.auth, null);
       throw new ApiError("not_found", "this room's session has ended", {
         details: { reason: "ended" },
       });
