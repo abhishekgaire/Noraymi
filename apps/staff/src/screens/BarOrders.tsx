@@ -46,6 +46,7 @@ interface Order {
   readonly items: readonly {
     qty: number;
     name_snapshot: string;
+    alcohol: boolean;
     options: readonly { name: string }[];
   }[];
 }
@@ -73,6 +74,8 @@ export function BarOrders() {
   const [orders, setOrders] = useState<readonly Order[] | null>(null);
   const [failedJobs, setFailedJobs] = useState<ReadonlySet<string>>(new Set());
   const [items, setItems] = useState<readonly MenuItem[]>([]);
+  // After the alcohol window closes there's no Decline: alcohol nobody accepted cancels itself (M3-22).
+  const [windowClosed, setWindowClosed] = useState(false);
   const [declining, setDeclining] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [eightySix, setEightySix] = useState("");
@@ -90,11 +93,15 @@ export function BarOrders() {
           `/v1/venues/${venueId}/orders?status=${ALL}${night ? `&business_date=${night}` : ""}`,
         ),
         api<{ jobs: { id: string }[] }>("GET", `/v1/venues/${venueId}/print-jobs?status=failed`),
-        api<{ categories: { items: MenuItem[] }[] }>("GET", `/v1/venues/${venueId}/menu`),
+        api<{ categories: { items: MenuItem[] }[]; alcohol: { state: string } }>(
+          "GET",
+          `/v1/venues/${venueId}/menu`,
+        ),
       ]);
       setOrders(o.orders);
       setFailedJobs(new Set(f.jobs.map((j) => j.id)));
       setItems(m.categories.flatMap((c) => c.items));
+      setWindowClosed(m.alcohol.state === "closed");
       setFailed(false);
     } catch {
       setFailed(true);
@@ -270,16 +277,18 @@ export function BarOrders() {
                           {t("barOrders.hold")}
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => {
-                          setDeclining(o.id);
-                          setReason("");
-                        }}
-                      >
-                        {t("barOrders.decline")}
-                      </button>
+                      {!(windowClosed && o.items.some((i) => i.alcohol)) && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => {
+                            setDeclining(o.id);
+                            setReason("");
+                          }}
+                        >
+                          {t("barOrders.decline")}
+                        </button>
+                      )}
                     </div>
                     {declining === o.id && (
                       <form

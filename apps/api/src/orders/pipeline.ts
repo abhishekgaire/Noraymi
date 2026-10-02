@@ -30,7 +30,7 @@ import {
 } from "../approvals/service.js";
 import { venueClock } from "../rooms/assignment.js";
 import { writeFixLine, type FixPayload } from "../rooms/fix.js";
-import { checkAlcohol } from "./alcohol.js";
+import { alcoholNow, checkAlcohol } from "./alcohol.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -263,6 +263,15 @@ export async function stepOrder(
       return { status: "done", order: done };
     }
     case "decline": {
+      // After the alcohol window closes there's no Decline: alcohol nobody accepted cancels itself (M3-22).
+      if (
+        order.items.some((i) => i.alcohol) &&
+        (await alcoholNow(c, venueId, input.now)).state === "closed"
+      )
+        throw new ApiError(
+          "alcohol_closed",
+          "after the close there's no decline; the order cancels itself",
+        );
       const reason = input.reason?.trim() ?? "";
       if (!reason)
         throw new ApiError("invalid_request", "a decline needs a reason the guest will see");

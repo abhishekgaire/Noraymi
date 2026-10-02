@@ -22,6 +22,7 @@ import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "
 import { MENU_PDF_KIND, makeMenuPdfHandler } from "./menu-pdf.js";
 import { printWatchSweep } from "../routes/print.js";
 import { escalationSweep } from "../orders/escalation.js";
+import { alcoholStopSweep } from "../orders/four-am.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -105,6 +106,8 @@ export function makeSweeps(
     printWatchSweep(pool),
     // Room orders nobody has accepted: phones, the board, the manager (M3-16).
     escalationSweep(pool),
+    // The 4 AM stop: alcohol nobody accepted is cancelled once the window closes (M3-22).
+    alcoholStopSweep(pool),
     holdSweep(pool),
     wrapUpSweep(pool),
     // The automatic texts on their triggers (M2-24).

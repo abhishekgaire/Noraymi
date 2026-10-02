@@ -541,7 +541,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-22 · Stop alcohol at 4:00 AM on every screen, and cancel what nobody accepted
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-06, M3-20
 - **Spec:** [Money rules](../spec/05-money-rules.md) 5 (The 4 AM stop); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Words on every staff screen, Room orders at the bar; [Order](../screens.md#order) note 3; [Bar](../screens.md#bar) note 5; [Testing and operations](../spec/13-testing-operations.md) · Tests (clock tests)
@@ -550,12 +550,17 @@ Definition of done: see CLAUDE.md.
   - The room's screens read "The bar stopped serving alcohol at 4 AM · your order was cancelled, nothing charged", and the bar screens list the order under "Cancelled at 4:00 AM". There's no Decline button after 4 AM, and the decline route refuses.
   - From 4:00 to 8:00 AM every alcohol button greys out on every screen with the reason in words, and every alcohol route answers `409 alcohol_closed` (M3-20).
 - **Acceptance:**
-  - [ ] At 4:00:00 AM on the simulated clock, on a normal night and on both daylight-saving nights (business dates Sat Oct 31, 2026 and Sat Mar 13, 2027), every alcohol button greys out and an unaccepted alcohol order cancels itself.
-  - [ ] The room then reads "The bar stopped serving alcohol at 4 AM · your order was cancelled, nothing charged", and the bar orders screen lists the order under "Cancelled at 4:00 AM", with no Decline button.
-  - [ ] An order of a Margarita and a Red Bull still ringing at 4:00 AM keeps ringing with the Red Bull alone.
-  - [ ] Every alcohol route answers `409 alcohol_closed` from 4:00 AM.
+  - [x] At 4:00:00 AM on the simulated clock, on a normal night and on both daylight-saving nights (business dates Sat Oct 31, 2026 and Sat Mar 13, 2027), every alcohol button greys out and an unaccepted alcohol order cancels itself.
+  - [x] The room then reads "The bar stopped serving alcohol at 4 AM · your order was cancelled, nothing charged", and the bar orders screen lists the order under "Cancelled at 4:00 AM", with no Decline button.
+  - [x] An order of a Margarita and a Red Bull still ringing at 4:00 AM keeps ringing with the Red Bull alone.
+  - [x] Every alcohol route answers `409 alcohol_closed` from 4:00 AM.
 - **Tests:** spec 13's clock tests at 4:00:00 AM on all three nights, end to end.
 - **Notes:** The data model has no cancel for one item, so splitting the alcohol items into their own cancelled order keeps both on the record (flagged). The Rail's "Demo: it's 4:02 AM" is a canvas control and isn't built; staging moves the simulated clock instead.
+  - Built: `apps/api/src/orders/four-am.ts` (the stop, a scheduler sweep every 5 seconds: once the window is closed for the venue's business date, every alcohol order still ringing or asked to wait is cancelled as `alcohol_closed`, nothing charged); M3-21's order cancelling is shared and takes the reason; Decline refuses an alcohol order once the window is closed (`409 alcohol_closed`), and the bar orders screen hides Decline on those; `apps/api/src/orders/four-am.int.test.ts` (spec 13's clock tests at 3:59:59 and 4:00:00 AM on Fri Sep 25, the fall-back night and the spring-forward night) and the Playwright test "after 4:00 AM the bar orders screen…".
+  - A sweep every 5 seconds stands in for a job at the close each business date: it reads the same window M3-01 works out (4:00 AM on the wall clock, or a house last call before it), so it acts within seconds of the close on every night, daylight saving included, without a per-date schedule.
+  - An order with a Margarita and a Red Bull: the order is cancelled (keeping both items on the record) and the Red Bull placed again as a new ringing order, the same split M3-21 uses; the flag's "alcohol items move to an order of their own" ends with the same two orders on the record, the other way round.
+  - The words: the room reads "The bar stopped serving alcohol at 4 AM · your order was cancelled, nothing charged", the bar "Cancelled at 4:00 AM" under Returned; alcohol greys out on every screen and every alcohol route answers `409 alcohol_closed` through M3-20.
+  - The Playwright test sets the order's cancellation as the sweep does, since the smoke run doesn't start the worker; the sweep itself is tested on the clock in the integration test.
 
 ### M3-23 · Raise the clear-out check at 4:30 AM
 

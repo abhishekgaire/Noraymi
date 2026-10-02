@@ -3472,3 +3472,49 @@ test("Cut off Room 9 from the board: every screen reads it, o1 is cancelled, the
     await db.end();
   }
 });
+
+/**
+ * The bar orders screen after the 4:00 AM stop (M3-22): an order the stop
+ * cancelled reads "Cancelled at 4:00 AM" under Returned, and an alcohol order
+ * still waiting offers no Decline.
+ */
+test("after 4:00 AM the bar orders screen lists Cancelled at 4:00 AM and offers no Decline", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T08:00:30Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    // The stop has cancelled o1 (the worker's sweep, which the smoke run doesn't start); o2 still waits.
+    await db.query(
+      `update orders set status = 'cancelled', cancel_reason = 'alcohol_closed', cancelled_at = '2026-09-26T04:00:00-04:00'
+        where id = (select row_id from seed_ids where slug = 'order_o1')`,
+    );
+    await page.goto("/bar-orders");
+    await expect(
+      page.getByRole("region", { name: "Returned" }).locator(".bar-order", { hasText: "Room 9" }),
+    ).toContainText("Cancelled at 4:00 AM");
+    const o2 = page
+      .getByRole("region", { name: "Waiting for you" })
+      .locator(".bar-order", { hasText: "Room 5" });
+    await expect(o2).toBeVisible();
+    await expect(o2.getByRole("button", { name: "Decline…" })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});

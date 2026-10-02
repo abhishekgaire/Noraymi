@@ -13,16 +13,22 @@ import { venueClock } from "./assignment.js";
  * ringing with just those, as a new order in its place. Singing is still fine.
  * There's no lifting a cut-off: the spec has none (flagged).
  */
-async function cancelAlcohol(
+/**
+ * Cancels alcohol orders still ringing or asked to wait, for a session (and one guest), or the whole
+ * venue (the 4 AM stop, M3-22). Order items are never deleted, so an order with other items too is
+ * cancelled and its other items placed again as a new ringing order: both stay on the record.
+ */
+export async function cancelAlcohol(
   c: Queryable,
   venueId: string,
-  where: { sessionId: string; roomGuestId: string | null },
-  userId: string,
+  where: { sessionId: string | null; roomGuestId: string | null },
+  userId: string | null,
   now: Temporal.Instant,
+  reason: "cut_off" | "alcohol_closed" = "cut_off",
 ): Promise<number> {
   const open = await c.query<{ id: string }>(
     `select o.id from orders o
-      where o.venue_id = $1 and o.session_id = $2 and o.status in ('ringing', 'held')
+      where o.venue_id = $1 and ($2::uuid is null or o.session_id = $2) and o.status in ('ringing', 'held')
         and ($3::uuid is null or o.room_guest_id = $3)
         and exists (select 1 from order_items i where i.venue_id = o.venue_id and i.order_id = o.id and i.alcohol)`,
     [venueId, where.sessionId, where.roomGuestId],
@@ -30,10 +36,10 @@ async function cancelAlcohol(
   for (const { id } of open.rows) {
     const o = (await orderById(c, venueId, id))!;
     await c.query(
-      `update orders set status = 'cancelled', cancel_reason = 'cut_off', cancelled_by = $3, cancelled_at = $4,
+      `update orders set status = 'cancelled', cancel_reason = $5, cancelled_by = $3, cancelled_at = $4,
               version = version + 1
         where venue_id = $1 and id = $2 and status in ('ringing', 'held')`,
-      [venueId, id, userId, now.toString()],
+      [venueId, id, userId, now.toString(), reason],
     );
     await emitEvent(c, {
       venueId,
