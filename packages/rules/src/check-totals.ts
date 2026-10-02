@@ -333,3 +333,53 @@ export function displayPrice(priceCents: number, surchargePct: number | null): C
   if (surchargePct === null || surchargePct <= 0) return cents(priceCents);
   return cents(priceCents + percent(priceCents, surchargePct));
 }
+
+/** What counts toward a minimum spend (Money rules 6): items and songs, after comps and voids. */
+const SPEND_KINDS = new Set(["item", "song", "comp", "void"]);
+
+/**
+ * A room's minimum spend (Money rules 6; M4-27; off at West 4): the spend toward it (items and songs
+ * after comps, before tax and gratuity; never room time, damage or fees) and what's left to it, which
+ * Present adds as a `min_spend` line.
+ */
+export function minSpendLeft(input: {
+  readonly minCents: number | null;
+  readonly lines: readonly { readonly kind: string; readonly cents: number }[];
+}): { spendCents: Cents; leftCents: Cents } {
+  const spend = input.lines.filter((l) => SPEND_KINDS.has(l.kind)).reduce((s, l) => s + l.cents, 0);
+  const left = input.minCents ? Math.max(0, input.minCents - spend) : 0;
+  return { spendCents: cents(spend), leftCents: cents(left) };
+}
+
+/** The minimum that applies at check-in: the big-party rule's when it applies, else the prices row's. */
+export function minSpendFor(input: {
+  readonly rows: readonly {
+    readonly tier: string;
+    readonly days: readonly number[];
+    readonly band: string | null;
+    readonly cents: number;
+  }[];
+  readonly tier: string;
+  /** Sunday 0 … Saturday 6, of the business date. */
+  readonly day: number;
+  readonly band: string | null;
+  readonly partySize: number;
+  readonly bigParty: {
+    readonly fromGuests: number;
+    readonly minSpendCents?: number | undefined;
+  } | null;
+}): number | null {
+  if (
+    input.bigParty &&
+    input.partySize >= input.bigParty.fromGuests &&
+    (input.bigParty.minSpendCents ?? 0) > 0
+  )
+    return input.bigParty.minSpendCents!;
+  const row = input.rows.find(
+    (r) =>
+      r.tier === input.tier &&
+      r.days.includes(input.day) &&
+      (r.band === null || r.band === input.band),
+  );
+  return row && row.cents > 0 ? row.cents : null;
+}

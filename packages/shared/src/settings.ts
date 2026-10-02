@@ -100,6 +100,8 @@ export const depositSchema = z
           z.object({ kind: z.literal("pct"), pct: z.number().positive().max(100) }).strict(),
         ]),
         refundHours: z.number().nonnegative(),
+        /** A minimum spend for a big party (Money rules 6; M4-27): 0 at West 4. */
+        minSpendCents: cents.optional(),
       })
       .strict()
       .nullable(),

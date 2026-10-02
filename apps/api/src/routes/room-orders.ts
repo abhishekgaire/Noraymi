@@ -232,6 +232,8 @@ export function roomOrderRoutes(
       per_minute_cents: Math.round(s.hourly_cents / 60),
       party_size: s.party_size,
       deposit_cents: s.deposit_cents,
+      // "$84 to your minimum" (M4-27): null with no minimum, as at West 4.
+      min_spend_left_cents: s.min_spend_left_cents,
       stay_on_until: s.stay_on_offer ? s.close : null,
       wrap_up_at: s.wrap_up && tile.next ? tile.next.at : null,
       time_zone: venue.rows[0]?.time_zone ?? "America/New_York",

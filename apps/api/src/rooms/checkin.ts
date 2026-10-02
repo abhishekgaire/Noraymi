@@ -18,7 +18,7 @@ import {
   withVenue,
   type Queryable,
 } from "@west4/db";
-import { businessDate, rateAt, type RoomForRate } from "@west4/rules";
+import { businessDate, minSpendFor, rateAt, type RoomForRate } from "@west4/rules";
 import { Temporal, type Clock } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { queueText } from "../texts/queue.js";
@@ -68,7 +68,13 @@ export async function priceContext(c: Queryable, venueId: string, at: Temporal.I
     readSetting(c, venueId, "deposit", date),
   ]);
   if (!prices) throw new ApiError("invalid_request", "prices aren't set for this venue");
-  return { venue, date, prices: prices.value, graceMin: deposit?.value.graceMin ?? 15 };
+  return {
+    venue,
+    date,
+    prices: prices.value,
+    graceMin: deposit?.value.graceMin ?? 15,
+    bigParty: deposit?.value.bigParty ?? null,
+  };
 }
 
 /** When Mark no-show becomes allowed: the grace past the start, or a running-late hold if that ends later. */
@@ -185,11 +191,21 @@ async function seat(ctx: Context, input: SeatInput) {
     );
     const code = newRoomCode(room.name);
     const hostToken = randomBytes(24).toString("base64url");
+    // A minimum spend, where a venue sets one (Money rules 6; M4-27; off at West 4): the big-party
+    // rule's when it applies, otherwise the prices row for this room's tier, night and band.
+    const minSpend = minSpendFor({
+      rows: priced.prices.minSpend,
+      tier: room.size_tier,
+      day: priced.date.dayOfWeek % 7,
+      band: rate.bandId,
+      partySize: input.partySize,
+      bigParty: priced.bigParty,
+    });
     const sessionId = (
       await c.query<{ id: string }>(
         `insert into room_sessions (venue_id, room_id, booking_id, party_size, started_at, booked_end_at, business_date,
-           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc, host_lock)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13) returning id`,
+           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc, host_lock, min_spend_cents)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13, $14) returning id`,
         [
           input.venueId,
           room.id,
@@ -206,6 +222,7 @@ async function seat(ctx: Context, input: SeatInput) {
           // A new session starts with the host lock on or off as the venue sets it (M3-10).
           (await readSetting(c, input.venueId, "ordering", priced.date))?.value.hostLockDefault ??
             false,
+          minSpend,
         ],
       )
     ).rows[0]!.id;

@@ -12,6 +12,8 @@ import {
   payMyShareEven,
   refundCap,
   displayPrice,
+  minSpendFor,
+  minSpendLeft,
   salesTaxRule,
   splitByItem,
   splitEven,
@@ -271,5 +273,72 @@ describe("displayPrice (M4-25)", () => {
     expect(displayPrice(1000, null)).toBe(1000);
     expect(displayPrice(1000, 2.7)).toBe(1027);
     expect(displayPrice(49860, 2.7)).toBe(51206);
+  });
+});
+
+describe("minimum spend (M4-27)", () => {
+  const rows = [{ tier: "large", days: [5, 6], band: null, cents: 30000 }];
+  it("leaves $84.00 after $216.00 of drinks on a $300.00 Friday minimum, and room time doesn't count", () => {
+    const min = minSpendFor({
+      rows,
+      tier: "large",
+      day: 5,
+      band: "Peak",
+      partySize: 10,
+      bigParty: null,
+    });
+    expect(min).toBe(30000);
+    expect(
+      minSpendLeft({
+        minCents: min,
+        lines: [
+          { kind: "room_time", cents: 50000 },
+          { kind: "item", cents: 21600 },
+          { kind: "damage", cents: 5000 },
+        ],
+      }),
+    ).toEqual({ spendCents: 21600, leftCents: 8400 });
+  });
+  it("a comp lowers the spend; no minimum on other days, tiers, or at West 4", () => {
+    expect(
+      minSpendLeft({
+        minCents: 30000,
+        lines: [
+          { kind: "item", cents: 21600 },
+          { kind: "comp", cents: -1600 },
+        ],
+      }).leftCents,
+    ).toBe(10000);
+    expect(
+      minSpendFor({ rows, tier: "large", day: 1, band: null, partySize: 10, bigParty: null }),
+    ).toBeNull();
+    expect(
+      minSpendFor({ rows, tier: "small", day: 5, band: null, partySize: 4, bigParty: null }),
+    ).toBeNull();
+    expect(
+      minSpendFor({
+        rows: [],
+        tier: "large",
+        day: 5,
+        band: null,
+        partySize: 12,
+        bigParty: { fromGuests: 20, minSpendCents: 0 },
+      }),
+    ).toBeNull();
+    expect(minSpendLeft({ minCents: null, lines: [{ kind: "item", cents: 100 }] }).leftCents).toBe(
+      0,
+    );
+  });
+  it("the big-party minimum wins when that rule applies", () => {
+    expect(
+      minSpendFor({
+        rows,
+        tier: "large",
+        day: 5,
+        band: null,
+        partySize: 22,
+        bigParty: { fromGuests: 20, minSpendCents: 50000 },
+      }),
+    ).toBe(50000);
   });
 });

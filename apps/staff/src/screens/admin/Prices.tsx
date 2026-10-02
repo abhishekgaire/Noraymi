@@ -466,7 +466,81 @@ export function Prices() {
           onChange={(c) => set({ damageFeeCents: c })}
         />
       </div>
-      <p className="small muted">{t("prices.minSpend")}</p>
+      {/* Minimum spend (Money rules 6; M4-27): per room size, nights and band; off at West 4. */}
+      <h3>{t("prices.minSpend.title")}</h3>
+      {current.minSpend.length === 0 && <p className="small muted">{t("prices.minSpend")}</p>}
+      {current.minSpend.map((row, i) => {
+        const setRow = (next: (typeof current.minSpend)[number]) =>
+          set({ minSpend: current.minSpend.map((r, j) => (j === i ? next : r)) });
+        return (
+          <fieldset key={i} className="band">
+            <legend>{t("prices.minSpend.row", { n: i + 1 })}</legend>
+            <label>
+              <span>{t("prices.minSpend.tier")}</span>
+              <input
+                aria-label={t("prices.minSpend.tier")}
+                value={row.tier}
+                onChange={(e) => setRow({ ...row, tier: e.target.value })}
+              />
+            </label>
+            <div className="actions">
+              {DAYS.map((d) => (
+                <label key={d} className="check">
+                  <input
+                    type="checkbox"
+                    checked={row.days.includes(d)}
+                    onChange={(e) =>
+                      setRow({
+                        ...row,
+                        days: e.target.checked
+                          ? [...row.days, d].sort((a, b) => a - b)
+                          : row.days.filter((x) => x !== d),
+                      })
+                    }
+                  />
+                  {t(`day.${d}` as never)}
+                </label>
+              ))}
+            </div>
+            <label>
+              <span>{t("prices.minSpend.band")}</span>
+              <select
+                aria-label={t("prices.minSpend.band")}
+                value={row.band ?? ""}
+                onChange={(e) => setRow({ ...row, band: e.target.value || null })}
+              >
+                <option value="">{t("prices.minSpend.allNight")}</option>
+                {current.bands.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Money
+              label={t("prices.minSpend.amount")}
+              cents={row.cents}
+              onChange={(c) => setRow({ ...row, cents: c })}
+            />
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => set({ minSpend: current.minSpend.filter((_, j) => j !== i) })}
+            >
+              {t("prices.minSpend.remove")}
+            </button>
+          </fieldset>
+        );
+      })}
+      <button
+        type="button"
+        className="secondary"
+        onClick={() =>
+          set({ minSpend: [...current.minSpend, { tier: "", days: [5, 6], band: null, cents: 0 }] })
+        }
+      >
+        {t("prices.minSpend.add")}
+      </button>
     </div>
   );
 }

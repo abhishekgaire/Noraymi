@@ -2555,7 +2555,7 @@ test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minut
     await expect(page.getByLabel("VIP an hour ($)")).toHaveValue("250.00");
     await expect(page.getByLabel("From this many guests")).toHaveValue("20");
     await expect(page.getByLabel("Damage fee ($)")).toHaveValue("150.00");
-    await expect(page.getByText("Minimum spend: off.")).toBeVisible();
+    await expect(page.getByText("Off: no room has a minimum spend")).toBeVisible();
     expect(await clippedText(page)).toEqual([]);
 
     await page.getByRole("button", { name: "Add a time band" }).click();

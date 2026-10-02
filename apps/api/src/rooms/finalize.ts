@@ -11,6 +11,7 @@ import {
 } from "@west4/db";
 import {
   checkTotals,
+  minSpendLeft,
   gratuityApplies,
   salesTaxRule,
   type TaxCategory,
@@ -45,6 +46,8 @@ const TAX_WORDS: Readonly<Record<TaxCategory, string>> = {
 export interface Worked {
   readonly totals: Totals;
   readonly roomTimeCents: number;
+  /** Any shortfall to the minimum spend (M4-27). */
+  readonly minSpendCents: number;
   readonly minutes: number | null;
   readonly gratuityPct: number | null;
   readonly rate: number;
@@ -93,6 +96,18 @@ export async function workOut(
     }));
   // Room time first, as the money cases list it: a tied leftover cent goes to the first category.
   if (session) net.unshift({ kind: "room_time", taxCategory: "room_time", cents: roomTime });
+  // A minimum spend (Money rules 6; M4-27; off at West 4): any shortfall is a `min_spend` line, tax
+  // category fee, worked out again at each finalize.
+  const minCents = check.room_session_id
+    ? ((
+        await c.query<{ m: number | null }>(
+          "select min_spend_cents as m from room_sessions where venue_id = $1 and id = $2",
+          [venueId, check.room_session_id],
+        )
+      ).rows[0]?.m ?? null)
+    : null;
+  const minSpend = minSpendLeft({ minCents, lines: net }).leftCents;
+  if (minSpend > 0) net.push({ kind: "min_spend", taxCategory: "fee", cents: minSpend });
   const g = pay.value.gratuity;
   const applies = gratuityApplies(
     g.auto,
@@ -103,6 +118,7 @@ export async function workOut(
   return {
     totals,
     roomTimeCents: roomTime,
+    minSpendCents: minSpend,
     minutes: session?.clock.minutes ?? null,
     gratuityPct: applies ? g.pct : null,
     rate: tax.rate,
@@ -171,12 +187,14 @@ export async function finalizeCheck(
     (l) => COMPUTED.has(l.kind) && l.reverses_id === null && !reversed.has(l.id),
   );
   const next: {
-    kind: "room_time" | "tax" | "gratuity";
+    kind: "room_time" | "min_spend" | "tax" | "gratuity";
     category: TaxCategory | null;
     cents: number;
   }[] = [];
   if (found.check.room_session_id)
     next.push({ kind: "room_time", category: "room_time", cents: worked.roomTimeCents });
+  if (worked.minSpendCents > 0)
+    next.push({ kind: "min_spend", category: "fee", cents: worked.minSpendCents });
   for (const [cat, cents] of Object.entries(worked.totals.taxByCategoryCents) as [
     TaxCategory,
     number,
@@ -188,16 +206,18 @@ export async function finalizeCheck(
   const describe = (n: (typeof next)[number]): string =>
     n.kind === "room_time"
       ? `Room time · ${worked.minutes ?? 0} min`
-      : n.kind === "tax"
-        ? `Tax · ${TAX_WORDS[n.category!]}`
-        : `Gratuity (${worked.gratuityPct ?? 0}%)`;
+      : n.kind === "min_spend"
+        ? "Minimum spend"
+        : n.kind === "tax"
+          ? `Tax · ${TAX_WORDS[n.category!]}`
+          : `Gratuity (${worked.gratuityPct ?? 0}%)`;
   // A kind is rewritten only when what it comes to changed (each line's words and amount).
   const signature = (items: { description: string; cents: number }[]) =>
     items
       .map((x) => `${x.description}:${x.cents}`)
       .sort()
       .join("|");
-  for (const kind of ["room_time", "tax", "gratuity"] as const) {
+  for (const kind of ["room_time", "min_spend", "tax", "gratuity"] as const) {
     const before = standing.filter((l) => l.kind === kind);
     const after = next.filter((n) => n.kind === kind);
     // Room time counts by amount alone: its words carry the minutes, which can change at the same amount.
@@ -247,7 +267,7 @@ export async function finalizeCheck(
         revision: rev,
         businessDate: date,
         // A tax line names no category of its own (Data model); its description says what it taxes.
-        taxCategory: n.kind === "room_time" ? "room_time" : null,
+        taxCategory: n.kind === "room_time" ? "room_time" : n.kind === "min_spend" ? "fee" : null,
         ...(n.kind === "tax"
           ? {
               taxRate: rateText(worked.rate),

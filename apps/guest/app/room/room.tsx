@@ -33,6 +33,8 @@ interface Bill {
   readonly room_time_cents: number;
   readonly drinks_cents: number;
   readonly tab_so_far_cents: number;
+  /** What's left to the minimum spend (M4-27); null with none, as at West 4. */
+  readonly min_spend_left_cents?: number | null;
   readonly per_minute_cents: number;
   readonly party_size: number;
   readonly deposit_cents: number;
@@ -455,6 +457,11 @@ export function RoomPage({
                 <strong>{money(bill.tab_so_far_cents)}</strong>
               </dd>
             </dl>
+            {(bill.min_spend_left_cents ?? 0) > 0 && (
+              <p className="notice">
+                {t("en", "minSpend.left", { amount: money(bill.min_spend_left_cents ?? 0) })}
+              </p>
+            )}
             <p className="hint">
               {t("en", "guestRoom.bill.note", {
                 rate: money(bill.per_minute_cents),

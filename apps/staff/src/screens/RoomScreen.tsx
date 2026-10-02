@@ -40,6 +40,8 @@ interface BoardRoom {
     readonly minutes: number;
     readonly room_time_cents: number;
     readonly tab_so_far_cents: number;
+    /** What's left to the minimum spend (M4-27); null with none. */
+    readonly min_spend_left_cents?: number | null;
     readonly deposit_cents: number;
     readonly booked_end_at: string | null;
     readonly hourly_cents: number;
@@ -407,6 +409,11 @@ export function RoomScreen() {
               </dd>
             </dl>
             <p className="small muted">{t("room.beforeTax")}</p>
+            {(s.min_spend_left_cents ?? 0) > 0 && (
+              <p className="small">
+                {t("minSpend.left", { amount: money(s.min_spend_left_cents as never) })}
+              </p>
+            )}
             {s.deposit_cents > 0 && (
               <p className="small">
                 {t("room.deposit", { amount: money(s.deposit_cents as never) })}

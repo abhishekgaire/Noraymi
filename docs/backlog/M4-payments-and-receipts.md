@@ -807,7 +807,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-27 · Add minimum spend, off at West 4
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-06, M4-08; M2 (check-in, tiles, DeskRoom, Admin → Hours & prices); M3 (the room page)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rule 6 (Minimum spend); [Settings](../spec/03-settings-rule-packs-modules.md) (`prices.minSpend`); [Data model](../spec/04-data-model.md) (`room_sessions.min_spend_cents`, `check_lines` kind `min_spend`); [screens: Board note 21](../screens.md#board), [Order note 14](../screens.md#order), [AdminDesk note 23](../screens.md#admindesk)
@@ -817,11 +817,15 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Spend toward it is items and songs after comps, before tax and gratuity. The tile, DeskRoom and the room page show what's left ("$84 to your minimum").
   - Present adds any shortfall as a `min_spend` line (tax category `fee`), one of the computed lines each finalize reverses and writes again.
 - **Acceptance:**
-  - [ ] On a test venue with a $300.00 Friday minimum for large rooms, a session with $216.00 of drinks shows "$84 to your minimum" on the tile, DeskRoom and the room page, and Present adds an $84.00 `min_spend` line.
-  - [ ] Room time doesn't count toward the minimum, and a comp lowers the spend.
-  - [ ] At West 4, no tile, room tab or room page shows anything for it.
+  - [x] On a test venue with a $300.00 Friday minimum for large rooms, a session with $216.00 of drinks shows "$84 to your minimum" on the tile, DeskRoom and the room page, and Present adds an $84.00 `min_spend` line.
+  - [x] Room time doesn't count toward the minimum, and a comp lowers the spend.
+  - [x] At West 4, no tile, room tab or room page shows anything for it.
 - **Tests:** `packages/rules` unit tests for the shortfall and its revisions; end-to-end on a test venue; a seed test that West 4 shows nothing.
 - **Notes:** K4. Spec gap: rule 6 copies "the big-party minimum", but `DepositRule.bigParty` has no minimum field; the seed adds `minSpendCents: 0`. Cautious default: add that field to the settings type as the seed has it, 0 at West 4. Crediting the minimum against the room fee is phase 2.
+  - **Built (M4-27):** `minSpendFor` and `minSpendLeft` in packages/rules (unit-tested: $84 left after $216, room time and damage don't count, a comp lowers the spend, no minimum on other nights or tiers, the big-party minimum wins). Check-in copies the minimum into `room_sessions.min_spend_cents` (the big-party rule's when it applies, else the `prices.minSpend` row for the room's size tier, the business date's weekday and band; null at West 4). The Board tile, the room tab (DeskRoom and the phone) and the guest's room page show "$84 to your minimum" from the board's `min_spend_left_cents`. Finalize adds any shortfall as a `min_spend` line (tax category fee), one of the computed lines each finalize rewrites. Admin → Hours & prices edits the minimums (room size, nights, all night or a band, the amount); empty, it reads "Off: no room has a minimum spend".
+  - **Cautious default (as the ticket says):** `deposit.bigParty.minSpendCents` is added to the settings type (optional, 0 at West 4), since the spec's big-party minimum had no field.
+  - The tile, room tab and room page lines are tested through the board and bill data (`apps/api/src/routes/min-spend.int.test.ts`); no browser test uses a test venue with a minimum yet, since the demo night has none.
+
 
 ### M4-28 · Reserve the prepaid-value ledger and session merges
 

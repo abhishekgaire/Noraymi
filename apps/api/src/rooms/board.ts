@@ -54,6 +54,21 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
       )
     ).rows.map((r) => [r.check_id, r.cents]),
   );
+  // Minimum spend (Money rules 6; M4-27; off at West 4): each session's minimum, and its check's spend
+  // toward it (items and songs after comps and voids).
+  const minimums = new Map(
+    (
+      await c.query<{ check_id: string; min: number | null; spend: number }>(
+        `select s.check_id, s.min_spend_cents as min,
+                coalesce((select sum(l.amount_cents) from check_lines l
+                           where l.venue_id = s.venue_id and l.check_id = s.check_id
+                             and l.kind in ('item', 'song', 'comp', 'void')), 0)::int as spend
+           from room_sessions s
+          where s.venue_id = $1 and s.check_id = any($2::uuid[]) and s.min_spend_cents is not null`,
+        [venueId, checkIds],
+      )
+    ).rows.map((r) => [r.check_id, r]),
+  );
   const bookingIds = [
     ...sessions.map((s) => s.booking_id),
     ...avail.rooms.map((r) => (r.current?.kind === "booking" ? r.current.ref_id : null)),
@@ -134,6 +149,10 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
             minutes: s.clock.minutes,
             room_time_cents: roomTime,
             tab_so_far_cents: roomTime + (s.check_id ? (lines.get(s.check_id) ?? 0) : 0),
+            min_spend_left_cents: (() => {
+              const m = s.check_id ? minimums.get(s.check_id) : undefined;
+              return m?.min ? Math.max(0, m.min - m.spend) : null;
+            })(),
             deposit_cents: booking?.deposit_cents ?? 0,
             booked_end_at: s.booked_end_at,
             paused: s.segments.at(-1)?.paused ?? false,

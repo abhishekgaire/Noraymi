@@ -946,7 +946,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "prices.slots": "Horas de inicio que se pueden reservar",
   "prices.slots.hint": "Horas como HH:MM, separadas por comas; vacío: cualquier media hora",
   "prices.damageFee": "Cargo por daños ($)",
-  "prices.minSpend": "Consumo mínimo: apagado. Se configura con los pagos.",
+  "prices.minSpend": "Desactivado: ninguna sala tiene gasto mínimo",
   "admin.section.alerts": "Avisos y reglas",
   "admin.hint.alerts": "Cuándo avisa la sala que su tiempo termina",
   "alertsRules.roomEnding": "Avisar estos minutos antes del final reservado",
@@ -1548,4 +1548,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cardFeeAdmin.review.line":
     "Una propina de más de {pct}% o {amount}, o ingresada {hours} horas tarde, necesita aprobación",
   "cardFeeAdmin.payShare": "Pagar mi parte: los invitados pagan su parte desde su teléfono",
+  "minSpend.left": "{amount} para llegar a tu mínimo",
+  "prices.minSpend.title": "Gasto mínimo",
+  "prices.minSpend.row": "Mínimo {n}",
+  "prices.minSpend.tier": "Tamaño de la sala",
+  "prices.minSpend.band": "Cuándo",
+  "prices.minSpend.allNight": "Toda la noche",
+  "prices.minSpend.amount": "Mínimo",
+  "prices.minSpend.remove": "Quitar",
+  "prices.minSpend.add": "Agregar un mínimo",
 };

@@ -931,7 +931,7 @@ export const en = {
   "prices.slots": "Start times guests can book",
   "prices.slots.hint": "Times as HH:MM, separated by commas; empty: any time on the half hour",
   "prices.damageFee": "Damage fee ($)",
-  "prices.minSpend": "Minimum spend: off. It's set with payments.",
+  "prices.minSpend": "Off: no room has a minimum spend",
   "admin.section.alerts": "Alerts & rules",
   "admin.hint.alerts": "When a room's tile warns that its time is ending",
   "alertsRules.roomEnding": "Warn this many minutes before a room's booked end",
@@ -1524,4 +1524,13 @@ export const en = {
   "cardFeeAdmin.review.line":
     "A tip over {pct}% or {amount}, or entered {hours} hours late, needs approval",
   "cardFeeAdmin.payShare": "Pay my share: guests pay their own share from their phones",
+  "minSpend.left": "{amount} to your minimum",
+  "prices.minSpend.title": "Minimum spend",
+  "prices.minSpend.row": "Minimum {n}",
+  "prices.minSpend.tier": "Room size",
+  "prices.minSpend.band": "When",
+  "prices.minSpend.allNight": "All night",
+  "prices.minSpend.amount": "Minimum",
+  "prices.minSpend.remove": "Remove",
+  "prices.minSpend.add": "Add a minimum",
 } as const;

@@ -74,6 +74,8 @@ interface BoardRoom {
     readonly guest_name: string | null;
     readonly party_size: number;
     readonly tab_so_far_cents: number;
+    /** What's left to the minimum spend (M4-27); null with none. */
+    readonly min_spend_left_cents?: number | null;
     readonly deposit_cents: number;
   } | null;
 }
@@ -652,6 +654,13 @@ export function Tonight() {
                           amount: money(r.session.tab_so_far_cents as never),
                         })}
                       </div>
+                      {(r.session.min_spend_left_cents ?? 0) > 0 && (
+                        <div className="small">
+                          {t("minSpend.left", {
+                            amount: money(r.session.min_spend_left_cents as never),
+                          })}
+                        </div>
+                      )}
                       <div className="small muted">
                         {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
                       </div>
