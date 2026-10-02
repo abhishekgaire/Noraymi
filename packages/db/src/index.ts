@@ -461,5 +461,12 @@ export {
   expectedInDrawer,
 } from "./cash.js";
 export type { DrawerRow } from "./cash.js";
-export { openSplit, insertSplit, shareOf, setShareState, sharesOfPayment, endSplit } from "./splits.js";
+export {
+  openSplit,
+  insertSplit,
+  shareOf,
+  setShareState,
+  sharesOfPayment,
+  endSplit,
+} from "./splits.js";
 export type { ShareRow, SplitRow } from "./splits.js";
