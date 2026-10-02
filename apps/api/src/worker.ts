@@ -31,7 +31,9 @@ const textSender = () => {
   return settings.mode === "twilio" ? new TwilioTextSender(settings) : new LogTextSender();
 };
 const venueTextSettings = loadVenueTextSettings(config.env);
+const stripe = new StripeClient(loadStripeSettings(config.env));
 const handlers = makeHandlers({
+  stripe: { pool, client: stripe },
   venueTexts: {
     client:
       venueTextSettings.mode === "twilio"

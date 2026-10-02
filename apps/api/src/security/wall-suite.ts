@@ -372,6 +372,16 @@ export const webhookWallCases: Readonly<Record<string, string>> = {
   // another venue's token (refused) and to the other venue's number (lands only there).
   "POST /v1/hooks/twilio":
     "inbox.int.test.ts · another venue's number and token never reach West 4's inbox",
+  // Stripe (M4-03): signed with the endpoint's own secret; the venue comes only from event.account through
+  // resolve_stripe_account, and the job runs under that venue. stripe-hooks.int.test.ts sends another
+  // organization's account and sees the event and its job land at that venue, never West 4.
+  "POST /v1/hooks/stripe/readers":
+    "stripe-hooks.int.test.ts · an event from another venue's account never reads or writes West 4's rows",
+  "POST /v1/hooks/stripe/connect":
+    "stripe-hooks.int.test.ts · an event from another venue's account never reads or writes West 4's rows",
+  // Our own account's billing events carry no venue: stored with venue_id null, which no venue can read.
+  "POST /v1/hooks/stripe/platform":
+    "stripe-hooks.int.test.ts · keep our own account's billing events, unprocessed, for M8",
 };
 
 export function checkWebhooks(routes: readonly RegisteredRoute[]): WallFinding[] {

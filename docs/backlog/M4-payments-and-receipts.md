@@ -73,7 +73,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - **Built against a fake Stripe** (the founder's choice, Sep 30: no Stripe account exists yet). `apps/api/src/stripe/fake` is a stateful stand-in that speaks Stripe's HTTP: it enforces each restricted key's permissions, saves the first answer to an idempotency key and refuses one reused with other parameters, and sends signed webhooks. Local runs, the tests and the smoke tests use it (`pnpm --filter @west4/api stripe:fake`, port 12111; `demo-start.sh` and Playwright start it). Swapping to the sandbox is only the keys in the environment. **The first Acceptance line stays open until it's run on a connected sandbox**; it passes on the fake.
   - Built: migration `0052_stripe_accounts.sql` (`integrations` kind `stripe`, `resolve_stripe_account` returning the account's venues); `packages/db/src/stripe.ts`; the client `apps/api/src/stripe/client.ts` (plain HTTPS, no SDK: pinned `STRIPE_API_VERSION`, the service's key, `Stripe-Account` only from `organizations.stripe_account_id` through `stripeAccountOf`, an idempotency key on every write, never in a transaction; a timeout, dropped connection or 5xx is `StripeUnknownResult`, never retried); `settings.ts` (`STRIPE_KEY_PAYMENTS`, `_REFUNDS`, `_REPORTING`, `_BILLING`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET_READERS`, `_CONNECT`, `_PLATFORM`; production won't start without them, staging refuses Stripe calls, local uses the fake); `accounts.ts` (Accounts v2: create, read, onboarding links, payouts); the ops command `stripe:create-account` (audited through the organizations trigger with request id `ops:stripe:create-account`; refuses an organization that has an account and an id another organization holds); `routes/payments-admin.ts`; `screens/admin/Payments.tsx` and `Connections.tsx`.
   - The client refuses, before sending: the billing key with `Stripe-Account`, a venue call without an account, a write from the reporting key, anything but a refund from the refunds key, and a write without an idempotency key. The fake enforces the same as Stripe would.
-  - Versions: `STRIPE_API_VERSION = "2025-09-30.clover"` and Accounts v2's `"2025-09-30.preview"` are placeholders to confirm against Stripe's changelog when the sandbox exists (the Accounts v2 question is still open with Stripe). `scripts/check-stripe-versions.sh`, part of `pnpm lint`, fails on any other version string outside the client, the Accounts v2 module and a `surcharge*.ts` file. ESLint refuses an import of the `stripe` package and any `api.stripe.com` address outside `apps/api/src/stripe`.
+  - Versions: `STRIPE_API_VERSION = "2026-08-26.dahlia"`, the sandbox account's own default, and Accounts v2's `"2026-08-26.preview"`, both confirmed against West 4's sandbox on Oct 2 (Accounts v2 answered nothing older than a 2026 preview). Which Accounts v2 features are on stable versions is still open with Stripe. `scripts/check-stripe-versions.sh`, part of `pnpm lint`, fails on any other version string outside the client, the Accounts v2 module and a `surcharge*.ts` file. ESLint refuses an import of the `stripe` package and any `api.stripe.com` address outside `apps/api/src/stripe`.
   - One organization per account is checked by the ops command, not by an index: the migration runner wraps each file in a transaction, which can't build an index concurrently, and the linter rightly refuses a blocking one on an existing table.
   - Admin → Payments reads the account from Stripe on each visit as well as on `account.updated` (M4-03), so it's right even if a webhook is late. Payouts are listed as Stripe has them; matching is M7.
   - The seed resets `stripe_account_id` on every load; the seed's own Stripe objects come in M4-10.
@@ -112,7 +112,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-03 · Receive Stripe webhooks on the three endpoints
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-01; M1 (jobs, worker pools, the event relay); `webhook_events` from M2's Twilio webhooks, or created here
 - **Spec:** [Stripe setup](../spec/06-stripe-setup.md) step 6; [Tenancy and access](../spec/02-tenancy-access.md) (resolver functions, tables without `venue_id`, jobs); [API](../spec/08-api.md) (Webhooks in); [Security and data retention](../spec/12-security-retention.md) 5 and the retention table
@@ -125,15 +125,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Events whose handlers come later (payouts in M7, plan billing in M8) are stored and left unprocessed for those handlers to pick up.
   - Local runs and CI use the Stripe CLI (`stripe listen --forward-connect-to`) and a test signer that posts signed events in any order.
 - **Acceptance:**
-  - [ ] An event with a bad signature, or signed with another endpoint's secret, is refused before any read or write.
-  - [ ] A test-mode event on a live endpoint, or a live one on staging, is refused.
-  - [ ] The same event delivered twice leaves one `webhook_events` row and one state change.
+  - [x] An event with a bad signature, or signed with another endpoint's secret, is refused before any read or write.
+  - [x] A test-mode event on a live endpoint, or a live one on staging, is refused.
+  - [x] The same event delivered twice leaves one `webhook_events` row and one state change.
   - [ ] `payment_intent.succeeded` before `amount_capturable_updated`, or `canceled` after `succeeded`, never moves a payment backward.
   - [ ] A payment whose PaymentIntent metadata was edited to name another payment still resolves by `stripe_pi_id`.
-  - [ ] An event from another venue's account never reads or writes West 4's rows.
-  - [ ] Stripe gets its 200 before the job runs.
+  - [x] An event from another venue's account never reads or writes West 4's rows.
+  - [x] Stripe gets its 200 before the job runs.
 - **Tests:** integration with signed fixtures and Stripe CLI replays; duplicate and out-of-order replays; venue-wall suite for webhooks; livemode tests.
 - **Notes:** Webhook payloads are kept 90 days; the retention job that deletes them comes in M8. Staging uses a connected sandbox account, so reader events arrive exactly as they will live.
+  - Built: migration `0054_stripe_webhooks.sql` (`webhook_events.venue_id` may be null; `endpoint` and `account` columns; `ingest_stripe_event`, a definer function that stores the event once and resolves the venue from `event.account`); `routes/stripe-hooks.ts` (the three endpoints, in a scope that keeps the body as text so the signature is checked over Stripe's exact bytes); `apps/api/src/stripe/webhooks.ts` (`validStripeSignature` with Stripe's 5-minute tolerance and any number of `v1` signatures; the `stripe.event` job; `stripeEventHandlers`, one handler per type); `account.updated` reads the account again from Stripe into Admin → Payments.
+  - Order of checks: the endpoint's own secret, then the livemode (staging and local take only test-mode events, production only live ones), then the type must be one this endpoint listens to (others get a 200 and are dropped). The event is stored once; a repeat stores nothing, and the job's dedupe key (`stripe.event:<event id>`) means one job however often it arrives. A repeat whose job never got queued (a crash between the two writes) queues it then.
+  - Jobs need a venue, so the route resolves the venue (through the definer function, no Stripe call) and queues the job under it: reader events on the critical pool, venue payments on the normal one. An organization with several venues gets its first venue here; payment events will find their own venue by `stripe_pi_id` once payments exist (M4-04, M4-05). Our own account's events (`/platform`) have no venue: they're stored with `venue_id` null, which `app_rw` can't see, and wait for plan billing (M8).
+  - **Two Acceptance lines wait for M4-05**, which builds the payment state machine they test: "`payment_intent.succeeded` before `amount_capturable_updated`, or `canceled` after `succeeded`, never moves a payment backward" and "a payment whose PaymentIntent metadata was edited still resolves by `stripe_pi_id`". The job and its handler table are here; M4-05 adds the payment handlers and those tests.
+  - The tests sign their own events with the fake's secrets (`signPayload`), in any order; the fake Stripe sends signed events the same way. Replays through the Stripe CLI (`stripe listen --forward-connect-to …/connect`) are part of the sandbox run.
+  - The Stripe webhook routes joined the venue-wall suite's webhook cases.
+
 
 ### M4-04 · Add the payment tables, allocations and the amount due
 

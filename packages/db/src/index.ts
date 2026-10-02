@@ -401,8 +401,11 @@ export {
   stripeIntegration,
   saveStripeIntegration,
   integrationStatuses,
+  ingestStripeEvent,
+  stripeEventRow,
+  markStripeEventProcessed,
 } from "./stripe.js";
-export type { StripeIntegration } from "./stripe.js";
+export type { StripeIntegration, StripeEventRow } from "./stripe.js";
 export {
   venueTerminal,
   setVenueTerminal,

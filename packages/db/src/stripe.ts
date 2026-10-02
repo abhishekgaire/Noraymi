@@ -90,3 +90,64 @@ export async function integrationStatuses(
   );
   return r.rows;
 }
+
+/** Stores a Stripe event once (M4-03), before its venue is set: through the definer function. */
+export async function ingestStripeEvent(
+  c: Queryable,
+  input: {
+    eventId: string;
+    type: string;
+    endpoint: string;
+    account: string | null;
+    payload: unknown;
+  },
+): Promise<{ id: string; venue_id: string | null; first: boolean; processed: boolean }> {
+  const r = await c.query<{
+    id: string;
+    venue_id: string | null;
+    first: boolean;
+    processed: boolean;
+  }>("select * from ingest_stripe_event($1, $2, $3, $4, $5)", [
+    input.eventId,
+    input.type,
+    input.endpoint,
+    input.account,
+    JSON.stringify(input.payload),
+  ]);
+  return r.rows[0]!;
+}
+
+export interface StripeEventRow {
+  readonly id: string;
+  readonly event_id: string;
+  readonly type: string;
+  readonly endpoint: string | null;
+  readonly account: string | null;
+  readonly payload: Record<string, unknown>;
+  readonly processed_at: string | null;
+}
+
+/** A stored event of this venue, locked while its job applies it. */
+export async function stripeEventRow(
+  c: Queryable,
+  venueId: string,
+  id: string,
+): Promise<StripeEventRow | null> {
+  const r = await c.query<StripeEventRow>(
+    `select id, event_id, type, endpoint, account, payload, to_json(processed_at) #>> '{}' as processed_at
+       from webhook_events where venue_id = $1 and id = $2 and provider = 'stripe' for update`,
+    [venueId, id],
+  );
+  return r.rows[0] ?? null;
+}
+
+export async function markStripeEventProcessed(
+  c: Queryable,
+  venueId: string,
+  id: string,
+): Promise<void> {
+  await c.query("update webhook_events set processed_at = now() where venue_id = $1 and id = $2", [
+    venueId,
+    id,
+  ]);
+}

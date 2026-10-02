@@ -7,7 +7,7 @@ import type { StripeClient } from "./client.js";
  * check-stripe-versions script fails CI otherwise). Which features are on
  * stable versions is open with Stripe (Open technical questions).
  */
-export const ACCOUNTS_V2_VERSION = "2025-09-30.preview";
+export const ACCOUNTS_V2_VERSION = "2026-08-26.preview";
 
 export interface VenueAccountInput {
   readonly displayName: string;

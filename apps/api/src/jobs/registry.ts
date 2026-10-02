@@ -6,6 +6,7 @@ import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { readerHealthSweep } from "./reader-health.js";
+import { STRIPE_EVENT_KIND, makeStripeEventHandler } from "../stripe/webhooks.js";
 import type { StripeClient } from "../stripe/client.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";
@@ -43,6 +44,8 @@ import {
  * retention are bulk. Later tickets add to these.
  */
 export interface HandlerDeps {
+  /** Stripe's events (M4-03): the pool their jobs read and write with, and the client to read objects again. */
+  readonly stripe?: { readonly pool: pg.Pool; readonly client: StripeClient };
   readonly s3: S3Settings;
   readonly mailer: Mailer;
   readonly email: EmailSettings;
@@ -63,10 +66,15 @@ export function makeHandlers({
   push,
   texts,
   venueTexts,
+  stripe,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
+  const stripeEvents = stripe
+    ? { [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client) }
+    : {};
   return {
-    critical: {},
+    critical: { ...stripeEvents },
     normal: {
+      ...stripeEvents,
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
       [PUSH_SEND_KIND]: makePushSendHandler(push),
       [TEXT_SEND_KIND]: makeSendTextHandler(texts),

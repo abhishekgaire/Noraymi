@@ -17,7 +17,7 @@ import type { StripeService, StripeSettings } from "./settings.js";
  * The live-or-sandbox choice lives here alone (the settings' key and base), so
  * training mode can route practice requests to the sandbox in one place (M7).
  */
-export const STRIPE_API_VERSION = "2025-09-30.clover";
+export const STRIPE_API_VERSION = "2026-08-26.dahlia";
 
 export type StripeParams = Record<string, unknown>;
 
