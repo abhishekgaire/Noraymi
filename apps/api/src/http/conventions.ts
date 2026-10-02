@@ -1,3 +1,4 @@
+import { AttemptOpen, OverAmountDue } from "@west4/db";
 import { randomUUID } from "node:crypto";
 import fp from "fastify-plugin";
 import rateLimit from "@fastify/rate-limit";
@@ -250,6 +251,17 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
 
   app.setErrorHandler((error: unknown, request, reply) => {
     if (error instanceof ApiError) return reply.code(error.status).send(error.toBody());
+    // The money core's refusals, wherever a payment write meets them (M4-04).
+    if (error instanceof OverAmountDue) {
+      const e = new ApiError("over_amount_due", "that's more than this check still owes", {
+        details: { due_cents: error.dueCents },
+      });
+      return reply.code(e.status).send(e.toBody());
+    }
+    if (error instanceof AttemptOpen) {
+      const e = new ApiError("in_progress", "another payment for this is still going");
+      return reply.code(e.status).send(e.toBody());
+    }
     const status = (error as { statusCode?: number }).statusCode;
     const message = error instanceof Error ? error.message : String(error);
     if (status === 429) {

@@ -149,7 +149,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-04 · Add the payment tables, allocations and the amount due
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1 (row-level security, audit triggers, the migration linter); M2 and M3 (the open room check and its lines as orders join at Accept)
 - **Spec:** [Data model](../spec/04-data-model.md) (the money core SQL, `payment_events`); [Money rules](../spec/05-money-rules.md) rules 11 and 12; [API](../spec/08-api.md) (Errors); [Security and data retention](../spec/12-security-retention.md) 4
@@ -160,13 +160,20 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Every payment write checks the amount due in the same short transaction and refuses more than it, tips aside, with `422 over_amount_due`.
   - A `payment_events` row for every status change: from, to, source (api, webhook or reconciler) and `stripe_event_id`.
 - **Acceptance:**
-  - [ ] The app role can't update `payments.amount_cents`, and can't delete any payment, attempt, allocation or event row.
-  - [ ] A second unfinished attempt for the same check and `portion_key` fails on `one_open_attempt`.
-  - [ ] Room 9 with its $120.00 deposit allocated and $618.60 of finalized lines has $498.60 due; a $498.61 payment answers `422 over_amount_due`.
-  - [ ] A $50.00 hold on an empty tab shows $0.00 due, never −$50.00.
-  - [ ] Two payments racing for more than the amount due between them: one lands, the other gets `422 over_amount_due`.
+  - [x] The app role can't update `payments.amount_cents`, and can't delete any payment, attempt, allocation or event row.
+  - [x] A second unfinished attempt for the same check and `portion_key` fails on `one_open_attempt`.
+  - [x] Room 9 with its $120.00 deposit allocated and $618.60 of finalized lines has $498.60 due; a $498.61 payment answers `422 over_amount_due`.
+  - [x] A $50.00 hold on an empty tab shows $0.00 due, never −$50.00.
+  - [x] Two payments racing for more than the amount due between them: one lands, the other gets `422 over_amount_due`.
 - **Tests:** migration tests (row-level security forced, grants, the index); property tests (the amount due is never negative; allocations add up); a concurrency test; venue-wall suite.
 - **Notes:** This ticket doesn't change `checks` or `check_lines`; M4-07 adds revisions and numbers. Payments other than holds and deposits run against a finalized revision (M4-07 and M4-08), so the amount due reads written lines.
+  - Built: migration `0055_payments.sql` (`payments`, `payment_attempts` with `one_open_attempt`, `payment_allocations`, `payment_events`; row-level security forced on all four, the grants as the money core says, `payments`, `payment_attempts` and `payment_allocations` audited); the definer functions `record_authorization`, `record_capture` and `set_tip` (owned by `app_definer`, acting only inside the caller's venue, never on a cash payment, audited with old and new values through the payments trigger); `amount_due(check, leave_out)`; `packages/db/src/payments.ts` (`insertPayment`, `allocate`, `amountDue`, `startAttempt`, `setPaymentStatus`, `setAllocationState`, and the three amount moves); the API's error handler answers `OverAmountDue` as `422 over_amount_due` (with `details.due_cents`) and `AttemptOpen` as `409 in_progress` on every route.
+  - Two additions to the money core's SQL, both needed by its own rules: `payment_allocations` has an `id` (so one allocation's state can move) and `follows_lines` (true for a deposit's allocation and a tab hold's, which Money rules 11 and 12 make follow the lines up to their amount). The core SQL's comment describes that rule without naming a column.
+  - `amount_due` locks the check row, takes the lines minus the fixed allocations (captured or in progress, a refund's negative), then lets the following allocations take what's left in the order they were made, and never answers below zero. A void after a payment can leave a check overpaid; the overpayment shows as $0.00 due, and settling it is a refund (M4-21). `leave_out` gives a tab's balance without its own hold.
+  - `insertPayment` writes the first `payment_events` row (from nothing to its status, source api); `setPaymentStatus` writes one per move. The state machine that decides which moves are allowed is M4-05.
+  - Tests: `packages/db/src/payments.int.test.ts`, as `app_rw` with row-level security on: the refused updates and deletes, the definer functions (and their audit row, and their refusal from another venue), `one_open_attempt`, Room 9's $498.60, the $50.00 hold, a two-payment race, 25 random checks (the amount due is never negative; without a hold, payments plus what's due equal the lines), and the event rows. The `422` itself shows on the first payment route (M4-05, M4-13).
+  - The seed wipes the four tables before checks and bookings.
+
 
 ### M4-05 · Run every card attempt through one state machine
 

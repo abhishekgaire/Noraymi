@@ -415,3 +415,23 @@ export {
   recordReadersSeen,
 } from "./readers.js";
 export type { VenueTerminal, ReaderRow } from "./readers.js";
+export {
+  OverAmountDue,
+  AttemptOpen,
+  insertPayment,
+  amountDue,
+  allocate,
+  setAllocationState,
+  startAttempt,
+  setPaymentStatus,
+  recordAuthorization,
+  recordCapture,
+  setTip,
+} from "./payments.js";
+export type {
+  PaymentMethod,
+  PaymentStatus,
+  PaymentSource,
+  NewPayment,
+  NewAttempt,
+} from "./payments.js";
