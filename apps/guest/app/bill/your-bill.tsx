@@ -38,6 +38,23 @@ export interface GuestBill {
   readonly card_on_file?: { readonly brand: string; readonly last4: string } | null;
   /** Staff chose Card on file: the guest's "Pay with Amex ··1005" (M4-17). */
   readonly on_file_request?: { readonly payment_id: string; readonly amount_cents: number } | null;
+  /** Pay my share (M4-18), when the venue offers it. */
+  readonly pay_share?: { readonly shares: number } | null;
+}
+
+/** The guest's share, as POST /room-session/shares answers it. */
+export interface ShareAnswer {
+  readonly share: {
+    readonly share_no: number;
+    readonly shares: number;
+    readonly share_cents: number;
+    readonly tax_cents: number;
+    readonly gratuity_cents: number;
+    readonly amount_cents: number;
+    readonly state: "open" | "paying" | "paid";
+  } | null;
+  readonly url: string | null;
+  readonly nothing_left: boolean;
 }
 
 const BRANDS: Record<string, string> = {
@@ -69,8 +86,11 @@ export function YourBill({
   payLink,
   payCash,
   payOnFile,
+  payShare,
 }: {
   bill: GuestBill;
+  /** Starts this guest's share of the bill (M4-18). */
+  payShare?: (kind: "even" | "items", name: string | null) => Promise<ShareAnswer | null>;
   /** Confirms the card on file staff asked for; answers paid, declined or checking (M4-17). */
   payOnFile?: (paymentId: string) => Promise<"paid" | "declined" | "checking" | null>;
   /** Asks for a payment-page link; absent on a tablet. */
@@ -82,6 +102,9 @@ export function YourBill({
   const [error, setError] = useState(false);
   const [cashSent, setCashSent] = useState(false);
   const [onFile, setOnFile] = useState<"declined" | "checking" | null>(null);
+  const [mine, setMine] = useState<ShareAnswer | null>(null);
+  const [name, setName] = useState("");
+  const [shareFailed, setShareFailed] = useState(false);
   const paid = bill.status === "paid";
 
   const another = async () => {
@@ -100,6 +123,15 @@ export function YourBill({
     setBusy(true);
     const r = await payOnFile(bill.on_file_request.payment_id).catch(() => null);
     setOnFile(r === "declined" ? "declined" : r === "paid" ? null : "checking");
+    setBusy(false);
+  };
+  const share = async (kind: "even" | "items") => {
+    if (!payShare) return;
+    setBusy(true);
+    setShareFailed(false);
+    const r = await payShare(kind, name.trim() || null).catch(() => null);
+    if (r) setMine(r);
+    else setShareFailed(true);
     setBusy(false);
   };
   const cash = async () => {
@@ -178,6 +210,64 @@ export function YourBill({
             )}
             {onFile === "checking" && <p role="status">{t("en", "payPage.checking")}</p>}
             {onFile === "declined" && <p role="alert">{t("en", "payPage.declined")}</p>}
+            {payShare && bill.pay_share && (
+              <div className="pay-share" role="group" aria-labelledby="share-h">
+                <h3 id="share-h">{t("en", "payShare.title")}</h3>
+                {!mine && (
+                  <>
+                    <label>
+                      <span>{t("en", "payShare.name")}</span>
+                      <input
+                        value={name}
+                        maxLength={40}
+                        autoComplete="given-name"
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                    </label>
+                    <button type="button" disabled={busy} onClick={() => void share("items")}>
+                      {t("en", "payShare.mine")}
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => void share("even")}>
+                      {t("en", "payShare.even", { n: bill.pay_share.shares })}
+                    </button>
+                  </>
+                )}
+                {mine?.share && mine.share.state === "paid" && (
+                  <p role="status">{t("en", "payShare.paid")}</p>
+                )}
+                {mine && mine.nothing_left && mine.share?.state !== "paid" && (
+                  <p role="status">{t("en", "payShare.nothingLeft")}</p>
+                )}
+                {mine?.share && mine.url && (
+                  <>
+                    <p>
+                      <strong>
+                        {t("en", "payShare.yours", {
+                          n: mine.share.share_no,
+                          of: mine.share.shares,
+                          amount: money(mine.share.share_cents),
+                        })}
+                      </strong>
+                    </p>
+                    <p className="hint">
+                      {t("en", "payShare.includes", {
+                        tax: money(mine.share.tax_cents),
+                        gratuity: money(mine.share.gratuity_cents),
+                      })}
+                    </p>
+                    {mine.share.amount_cents < mine.share.share_cents && (
+                      <p className="notice">
+                        {t("en", "payShare.less", { amount: money(mine.share.amount_cents) })}
+                      </p>
+                    )}
+                    <a className="button" href={mine.url}>
+                      {t("en", "payShare.pay", { amount: money(mine.share.amount_cents) })}
+                    </a>
+                  </>
+                )}
+                {shareFailed && <p role="alert">{t("en", "payShare.failed")}</p>}
+              </div>
+            )}
             {payLink && (
               <button type="button" disabled={busy} onClick={() => void another()}>
                 {t("en", "yourBill.payAnotherWay")}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EventClient, guestOrderWords, t, type MessageKey } from "@west4/shared";
-import { YourBill, type GuestBill } from "../bill/your-bill";
+import { YourBill, type GuestBill, type ShareAnswer } from "../bill/your-bill";
 
 /**
  * The room page on a joined guest's phone (M3-08, M3-09; screens Order notes
@@ -411,6 +411,13 @@ export function RoomPage({
                 payLink: async () => {
                   const r = await api("/v1/public/room-session/pay-link", { method: "POST" });
                   return r.ok ? ((await r.json()) as { url: string }).url : null;
+                },
+                payShare: async (kind: "even" | "items", name: string | null) => {
+                  const r = await api("/v1/public/room-session/shares", {
+                    method: "POST",
+                    body: JSON.stringify({ kind, name }),
+                  });
+                  return r.ok ? ((await r.json()) as ShareAnswer) : null;
                 },
                 payOnFile: async (paymentId: string) => {
                   const r = await api(`/v1/public/room-session/payments/${paymentId}/confirm`, {

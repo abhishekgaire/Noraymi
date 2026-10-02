@@ -177,3 +177,21 @@ body {
   margin: 0;
   font-size: 1rem;
 }
+
+/* Pay my share (M4-18): the share's pay link is a button to the payment page. */
+.guest a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.guest .pay-share {
+  display: grid;
+  gap: 8px;
+}

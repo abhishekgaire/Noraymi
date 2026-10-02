@@ -1,4 +1,5 @@
 import { amountDue, checkById, latestRevision, type Queryable } from "@west4/db";
+import { payShareOn } from "../payments/pay-my-share.js";
 
 /**
  * "Your bill" (M4-16; screens N5; Payment flows · Room close-out): what the
@@ -38,6 +39,8 @@ export interface GuestBill {
   readonly card_on_file: { readonly brand: string; readonly last4: string } | null;
   /** Staff chose Card on file and it waits for the guest's "Pay with Amex ··1005" (M4-17). */
   readonly on_file_request: { readonly payment_id: string; readonly amount_cents: number } | null;
+  /** Pay my share (M4-18), when the venue offers it: into how many shares the bill divides. */
+  readonly pay_share: { readonly shares: number } | null;
 }
 
 /** "0.08875" → "8.875" (a fraction), "20" → "20" (already a percent): decimal digits moved, never a float. */
@@ -70,28 +73,7 @@ export async function guestBill(
   const items = found.lines.filter((l) => !COMPUTED.has(l.kind));
   const sum = (ls: readonly { amount_cents: number | string }[]) =>
     ls.reduce((s, l) => s + Number(l.amount_cents), 0);
-  const money = await c.query<{
-    method: string;
-    amount_cents: string;
-    follows_lines: boolean;
-    booking_id: string | null;
-    card_brand: string | null;
-    card_last4: string | null;
-    name: string | null;
-    share_no: number | null;
-    shares: number | null;
-  }>(
-    `select p.method, a.amount_cents, a.follows_lines, p.booking_id, p.card_brand, p.card_last4,
-            g.name, s.share_no,
-            (select count(*)::int from split_shares x where x.venue_id = s.venue_id and x.split_id = s.split_id) as shares
-       from payment_allocations a
-       join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
-       left join split_shares s on s.venue_id = a.venue_id and s.id = a.share_id
-       left join room_guests g on g.venue_id = a.venue_id and g.id = coalesce(a.room_guest_id, s.room_guest_id)
-      where a.venue_id = $1 and a.check_id = $2 and a.state = 'captured' and a.kind = 'payment'
-      order by a.created_at, a.id`,
-    [venueId, checkId],
-  );
+  const money = await allocationsOn(c, venueId, checkId);
   const deposits = money.rows.filter((m) => m.follows_lines && m.booking_id);
   const paid = money.rows.filter((m) => !(m.follows_lines && m.booking_id));
   const onFile = deposits.find((d) => d.card_brand && d.card_last4);
@@ -115,6 +97,21 @@ export async function guestBill(
       [venueId, checkId],
     )
   ).rows[0];
+  // Pay my share (M4-18): the open split's share count, or the party size it would start at.
+  const shareOn = await payShareOn(c, venueId, found.check.business_date);
+  const shares = shareOn
+    ? (
+        await c.query<{ n: number }>(
+          `select coalesce(
+             (select nullif(count(*)::int, 0) from split_shares x join check_splits k on k.venue_id = x.venue_id and k.id = x.split_id
+               where k.venue_id = $1 and k.check_id = $2 and k.ended_at is null),
+             (select greatest(2, s.party_size) from room_sessions s join checks c2 on c2.venue_id = s.venue_id and c2.room_session_id = s.id
+               where c2.venue_id = $1 and c2.id = $2),
+             2) as n`,
+          [venueId, checkId],
+        )
+      ).rows[0]!.n
+    : 0;
   return {
     check_id: checkId,
     number: String(found.check.number),
@@ -143,27 +140,9 @@ export async function guestBill(
     // What's left to pay, counting only money that landed: an amount held while a guest confirms
     // (card on file) or a payment page is open still shows as due.
     amount_due_cents: (await amountDue(c, checkId)) + held,
-    payments: paid.map((m) => ({
-      kind:
-        m.share_no !== null
-          ? "share"
-          : m.method === "card_present"
-            ? "card"
-            : m.method === "cash"
-              ? "cash"
-              : m.method === "card_online"
-                ? "online"
-                : m.method === "card_on_file"
-                  ? "card_on_file"
-                  : "other",
-      amount_cents: Number(m.amount_cents),
-      brand: m.card_brand,
-      last4: m.card_last4,
-      name: m.name,
-      share_no: m.share_no,
-      shares: m.shares,
-    })),
+    payments: paid.map(paymentLine),
     card_on_file: onFile ? { brand: onFile.card_brand!, last4: onFile.card_last4! } : null,
+    pay_share: shareOn ? { shares } : null,
     on_file_request: request
       ? { payment_id: request.payment_id, amount_cents: Number(request.amount_cents) }
       : null,
@@ -182,4 +161,75 @@ export async function roomOfCheck(
     [venueId, checkId],
   );
   return r.rows[0]?.room_id;
+}
+
+type AllocationRow = {
+  method: string;
+  amount_cents: string;
+  follows_lines: boolean;
+  booking_id: string | null;
+  card_brand: string | null;
+  card_last4: string | null;
+  name: string | null;
+  share_no: number | null;
+  shares: number | null;
+};
+
+/** The captured payments on a check, with the guest and share each names (M4-16, M4-18). */
+async function allocationsOn(c: Queryable, venueId: string, checkId: string) {
+  return c.query<{
+    method: string;
+    amount_cents: string;
+    follows_lines: boolean;
+    booking_id: string | null;
+    card_brand: string | null;
+    card_last4: string | null;
+    name: string | null;
+    share_no: number | null;
+    shares: number | null;
+  }>(
+    `select p.method, a.amount_cents, a.follows_lines, p.booking_id, p.card_brand, p.card_last4,
+            g.name, s.share_no,
+            (select count(*)::int from split_shares x where x.venue_id = s.venue_id and x.split_id = s.split_id) as shares
+       from payment_allocations a
+       join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
+       left join split_shares s on s.venue_id = a.venue_id and s.id = a.share_id
+       left join room_guests g on g.venue_id = a.venue_id and g.id = coalesce(a.room_guest_id, s.room_guest_id)
+      where a.venue_id = $1 and a.check_id = $2 and a.state = 'captured' and a.kind = 'payment'
+      order by a.created_at, a.id`,
+    [venueId, checkId],
+  );
+}
+
+function paymentLine(m: AllocationRow): GuestBill["payments"][number] {
+  return {
+    kind:
+      m.share_no !== null
+        ? "share"
+        : m.method === "card_present"
+          ? "card"
+          : m.method === "cash"
+            ? "cash"
+            : m.method === "card_online"
+              ? "online"
+              : m.method === "card_on_file"
+                ? "card_on_file"
+                : "other",
+    amount_cents: Number(m.amount_cents),
+    brand: m.card_brand,
+    last4: m.card_last4,
+    name: m.name,
+    share_no: m.share_no,
+    shares: m.shares,
+  };
+}
+
+/** The payments on a check as the room tab lists them ("Paid by a guest · Kevin (share 1 of 12) $41.55"). */
+export async function checkPayments(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+): Promise<GuestBill["payments"]> {
+  const rows = (await allocationsOn(c, venueId, checkId)).rows;
+  return rows.filter((m) => !(m.follows_lines && m.booking_id)).map(paymentLine);
 }

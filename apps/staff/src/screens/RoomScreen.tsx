@@ -54,6 +54,15 @@ interface BoardRoom {
     readonly kind: "mic" | "tv" | "check" | "other";
   }[];
 }
+/** A payment on the check, as the room tab lists it (M4-18). */
+interface PaidLine {
+  readonly kind: "card" | "cash" | "online" | "card_on_file" | "share" | "other";
+  readonly amount_cents: number;
+  readonly last4: string | null;
+  readonly name: string | null;
+  readonly share_no: number | null;
+  readonly shares: number | null;
+}
 interface Line {
   readonly id: number;
   readonly kind: string;
@@ -65,6 +74,16 @@ interface Line {
 
 export function RoomScreen() {
   const { t, money } = useT();
+  const paidLabel = (p: PaidLine) => {
+    const amount = money(p.amount_cents as never);
+    if (p.kind === "share" && p.share_no !== null)
+      return `${t("yourBill.paidBy.share", { name: p.name ?? "", n: p.share_no, of: p.shares ?? p.share_no })} ${amount}`;
+    if ((p.kind === "card" || p.kind === "card_on_file") && p.last4)
+      return `${t("yourBill.paidBy.card", { last4: p.last4 })} ${amount}`;
+    if (p.kind === "cash") return `${t("yourBill.paidBy.cash")} ${amount}`;
+    if (p.kind === "online") return `${t("yourBill.paidBy.online")} ${amount}`;
+    return `${t("yourBill.paidBy.other")} ${amount}`;
+  };
   const { roomId = "" } = useParams();
   const { state } = useSession();
   const { now } = useClock();
@@ -80,6 +99,7 @@ export function RoomScreen() {
   const [cashTaken, setCashTaken] = useState<Taken | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
   const [onFile, setOnFile] = useState<OnFile | null>(null);
+  const [paidLines, setPaidLines] = useState<readonly PaidLine[]>([]);
   // A card on file waiting for the guest (M4-17): paid elsewhere, the room is released before this
   // screen's panel hears it, so the screen reads the payment once when the session is gone.
   const onFilePayment = useRef<string | null>(null);
@@ -113,6 +133,7 @@ export function RoomScreen() {
                 amount_due_cents?: number;
                 split?: Split | null;
                 on_file?: OnFile | null;
+                payments?: PaidLine[];
               }>("GET", `/v1/venues/${venueId}/checks/${r.session.check_id}`)
             : Promise.resolve({
                 lines: [] as Line[],
@@ -127,6 +148,7 @@ export function RoomScreen() {
         setCheckStatus(check.check?.status ?? null);
         setDueCents(check.amount_due_cents ?? 0);
         setSplit(("split" in check ? check.split : null) ?? null);
+        setPaidLines(("payments" in check ? check.payments : null) ?? []);
         const file = ("on_file" in check ? check.on_file : null) ?? null;
         setOnFile(file);
         if (file?.payment_id) onFilePayment.current = file.payment_id;
@@ -348,6 +370,16 @@ export function RoomScreen() {
                 onDone={() => void load()}
               />
             )}
+          {paidLines.length > 0 && (
+            <section className="paid-lines" aria-label={t("room.payments")}>
+              <h3>{t("room.payments")}</h3>
+              <ul>
+                {paidLines.map((p, i) => (
+                  <li key={i}>{paidLabel(p)}</li>
+                ))}
+              </ul>
+            </section>
+          )}
           {s.check_id &&
             (checkStatus === "finalized" || checkStatus === "partly_paid") &&
             dueCents > 0 &&

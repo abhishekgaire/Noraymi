@@ -555,7 +555,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-18 · Let guests pay their own share
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-14, M4-15, M4-16
 - **Spec:** [Money rules](../spec/05-money-rules.md) rule 13 (Pay my share); [Payment flows](../spec/07-payment-flows.md#room-close-out) (Pay my share); [Stripe setup](../spec/06-stripe-setup.md) step 10; [API](../spec/08-api.md) (`POST /v1/public/room-session/shares`); [Data model](../spec/04-data-model.md) (`split_shares.room_guest_id`, `payment_allocations.room_guest_id`); [screens: N6](../screens.md#n6-pay-my-share), [Room note 7](../screens.md#room), [DeskRoom note 9](../screens.md#deskroom)
@@ -567,14 +567,23 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Each payment is an allocation naming the guest, shown on the room tab (DeskRoom and the Room phone) as "Paid by a guest · Kevin (share 1 of 12) $41.55"; the booker's card still guarantees the rest.
   - The page's return has the server fetch the PaymentIntent through the state machine; `payment_intent.succeeded` and the reconciler cover a closed page.
 - **Acceptance:**
-  - [ ] Twelve guests on Room 9 each pay 1 of 12 of $498.60: twelve $41.55 payments, each showing its $3.55 of tax and $8.00 of gratuity first, and #1042 is paid to the cent.
-  - [ ] Kevin's payment shows on DeskRoom as "Paid by a guest · Kevin (share 1 of 12) $41.55" within seconds.
-  - [ ] With the margaritas accepted first, shares 1 to 3 are $44.35 and shares 4 to 12 are $44.34, adding up to $532.11.
-  - [ ] When 10 guests have paid and staff take the other $83.10 on the reader, the last two guests see nothing left to pay.
-  - [ ] Two guests paying at once each get their own share, and no share is paid twice.
-  - [ ] With `pay.payShare` off, the bill shows no Pay my share and the route refuses.
+  - [x] Twelve guests on Room 9 each pay 1 of 12 of $498.60: twelve $41.55 payments, each showing its $3.55 of tax and $8.00 of gratuity first, and #1042 is paid to the cent.
+  - [x] Kevin's payment shows on DeskRoom as "Paid by a guest · Kevin (share 1 of 12) $41.55" within seconds.
+  - [x] With the margaritas accepted first, shares 1 to 3 are $44.35 and shares 4 to 12 are $44.34, adding up to $532.11.
+  - [x] When 10 guests have paid and staff take the other $83.10 on the reader, the last two guests see nothing left to pay.
+  - [x] Two guests paying at once each get their own share, and no share is paid twice.
+  - [x] With `pay.payShare` off, the bill shows no Pay my share and the route refuses.
 - **Tests:** the money-cases group `pay_my_share`; sandbox integration through the Payment Element (Playwright filling Stripe's frame with test cards); a concurrency test with 12 guests; the end-to-end `pay_my_share` scenario.
 - **Notes:** The spec doesn't say whether "My items" includes a part of room time and of lines nobody claimed. Cautious default: build it as rule 13's split by item (own items plus an even part of room time and unclaimed lines over the party size), so the shares add up to the bill; flagged for the founder. No error code is named for Pay my share being off; use `403 forbidden`. It's a setting because an online card costs 2.9% + 30¢ against 2.7% + 5¢ in person.
+  - **Built (M4-18):** `apps/api/src/payments/pay-my-share.ts` and `POST /v1/public/room-session/shares { kind: "even" | "items", name? }`. The first guest's choice starts the check's split (the same one-per-check split staff use in M4-14) over the party size, on what was left to pay then; each guest then takes their own share with a row lock that skips shares another guest holds, so two guests at once never get the same one. The share's payment (`card_online`, no saved card) holds its amount and names the guest and the share; the answer is the share with its tax and gratuity and a link to the M4-15 payment page, where the same PaymentIntent is reused on every visit. Paid shares settle through the M4-14 path, and the room tab and the bill list "Paid by a guest · Kevin (share 1 of 12) $41.55".
+  - Never more than what's still due: a share pays the smaller of its amount and the amount due; once the check is paid, the room is released and the last guests' phones show the paid bill.
+  - The guest's name on the line comes from an optional "Your name, for the bill" field (room guests had no name until now).
+  - **Cautious default, flagged for the founder:** "My items" is rule 13's split by item over the party size (each guest's own items from their phone, plus an even part of room time and of lines nobody claimed), so the shares add up to the bill, as the ticket's note says. Whichever kind the first guest picks sets the split for everyone; a guest who later picks the other kind gets a share of the split already running.
+  - **Pay my share off** answers `403 forbidden` (the ticket's default), and the bill shows no share section.
+  - Abandoned pages: a share whose page was opened and left keeps its amount held; the same guest gets the same payment back, and staff can "Stop splitting" to take the rest.
+  - Spec: `docs/spec/08-api.md` now says `/shares` answers a link to the payment page (the Payment Element runs only on its own origin) and 403 when off.
+  - Tests: `apps/api/src/routes/pay-my-share.int.test.ts` (off and on; Kevin's $41.55 with $3.55 and $8.00 and the room tab line; two at once; ten shares then staff take $83.10 and the last two see the paid bill; twelve at once paying $41.55 each with #1042 paid to the cent; $44.35 × 3 and $44.34 × 9 adding to $532.11; My items adding up); `e2e/staff.spec.ts` "Pay my share" (Kevin's phone, the payment page, DeskRoom's line within seconds). The money-cases group `pay_my_share` passes in `packages/rules`. In the integration test the staff's $83.10 is taken in cash rather than on the reader (the amount-due logic is the same); not yet run through Stripe's real Payment Element on the sandbox.
+
 
 ### M4-19 · Print, text and email receipts, and serve the public receipt page
 

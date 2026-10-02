@@ -1,9 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import {
+  createPayLink,
   latestAttempt,
   paymentById,
   payTokenHash,
+  setPayLinkPayment,
   venueForBookingToken,
   withVenue,
 } from "@west4/db";
@@ -18,6 +20,8 @@ import { currentGuest } from "./room-orders.js";
 import { z } from "zod";
 import { chargeNow, guestConfirms } from "../payments/card-on-file.js";
 import { screenState } from "../payments/machine.js";
+import { businessDate } from "@west4/rules";
+import { startMyShare } from "../payments/pay-my-share.js";
 
 /**
  * Paying the bill from a guest's own phone (M4-16; screens N5; spec 08 · Guest room, Bookings):
@@ -27,6 +31,8 @@ import { screenState } from "../payments/machine.js";
  *   POST /v1/public/bookings/{token}/cash       "Pay cash to staff" from the booking link
  *   POST /v1/public/room-session/payments/{p}/confirm, /v1/public/bookings/{token}/payments/{p}/confirm
  *                                               "Pay with Amex ··1005": the guest's OK for a card on file (M4-17)
+ *   POST /v1/public/room-session/shares          Pay my share { kind: even | items, name? }: the guest's share and its
+ *                                               payment-page link; 403 when pay.payShare is off (M4-18)
  * A room tablet reads the bill but never pays from it. "Pay cash to staff" is the room call of kind
  * `check` (POST /room-session/calls on the room page), so staff come with the cash panel.
  */
@@ -110,6 +116,70 @@ export function billRoutes(
       if (!me.session.check_id) throw new ApiError("invalid_request", "the bill isn't ready yet");
       const link = await payAnotherWay(deps(), me.venueId, me.session.check_id, options.payAppUrl);
       return reply.code(201).send(link);
+    },
+  );
+
+  // Pay my share (M4-18): the guest's own share, and a payment-page link for it.
+  const shareBody = z
+    .object({
+      kind: z.enum(["even", "items"]),
+      name: z.string().trim().min(1).max(40).nullable().optional(),
+    })
+    .strict();
+  app.post<{ Body: unknown }>(
+    "/v1/public/room-session/shares",
+    {
+      config: route({
+        principals: ["guest_room"],
+        module: "room_ordering",
+        idempotency: "none",
+        tokenRoute: true,
+      }),
+    },
+    async (request, reply) => {
+      const parsed = shareBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", 'send { kind: "even" | "items" }');
+      const me = await currentGuest(request, options.pool, options.clock);
+      const checkId = me.session.check_id;
+      if (!checkId) throw new ApiError("invalid_request", "the bill isn't ready yet");
+      if (!options.payAppUrl)
+        throw new ApiError("invalid_request", "the payment page has no address here yet");
+      const now = options.clock.now();
+      const answer = await withVenue(
+        options.pool,
+        { venueId: me.venueId, requestId: request.requestId },
+        async (c) => {
+          const v = (
+            await c.query<{ time_zone: string; day_cutover: string }>(
+              "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
+              [me.venueId],
+            )
+          ).rows[0]!;
+          const share = await startMyShare(c, me.venueId, {
+            checkId,
+            roomGuestId: me.id,
+            partySize: me.session.party_size,
+            kind: parsed.data.kind,
+            name: parsed.data.name ?? null,
+            businessDate: businessDate(now, v.time_zone, v.day_cutover).businessDate.toString(),
+            now,
+          });
+          if (!share?.payment_id) return { share, url: null };
+          const link = await createPayLink(c, me.venueId, {
+            checkId,
+            amountCents: share.amount_cents,
+            expiresAt: now.add({ minutes: 60 }).toString(),
+            purpose: "link",
+          });
+          await setPayLinkPayment(c, me.venueId, link.id, share.payment_id);
+          return { share, url: `${options.payAppUrl}/pay/${link.token}` };
+        },
+      );
+      return reply.code(answer.url ? 201 : 200).send({
+        share: answer.share,
+        url: answer.url,
+        nothing_left: !answer.url,
+      });
     },
   );
 

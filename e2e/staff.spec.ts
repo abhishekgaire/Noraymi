@@ -4277,3 +4277,60 @@ test("Card on file: Room 9 waits for Marcus, the guest taps Pay with Amex ··10
     await db.end();
   }
 });
+
+/**
+ * Pay my share (M4-18; screens N6, DeskRoom note 9): after Present, Kevin
+ * joins Room 9 on his phone, takes an even share (1 of 12) with its tax and
+ * gratuity shown first, pays $41.55 on the payment page, and DeskRoom reads
+ * "Paid by a guest · Kevin (share 1 of 12) $41.55" within seconds.
+ */
+test("Pay my share: Kevin pays 1 of 12 on the phone and DeskRoom shows it", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    await expect(page.getByText("Check presented · ordering is closed")).toBeVisible();
+
+    const kevin = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await kevin.goto(`http://localhost:3001/v/west4karaoke/room/${room9}`);
+    await kevin.getByLabel("Room code").fill("KX4M7");
+    await kevin.getByRole("button", { name: "Join" }).click();
+    const bill = kevin.getByRole("region", { name: "Your bill · #1042" });
+    const share = bill.getByRole("group", { name: "Pay my share" });
+    await share.getByLabel("Your name, for the bill").fill("Kevin");
+    await share.getByRole("button", { name: "An even share (1 of 12)" }).click();
+    await expect(share.getByText("Your share 1 of 12 · $41.55")).toBeVisible();
+    await expect(share.getByText("Includes $3.55 tax and $8.00 gratuity")).toBeVisible();
+    await share.getByRole("link", { name: "Pay $41.55" }).click();
+    await expect(kevin).toHaveURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+    await kevin.getByRole("button", { name: "Pay $41.55" }).click();
+    await expect(kevin.getByRole("status")).toHaveText("Paid $41.55 · thank you");
+
+    await expect(page.getByRole("region", { name: "Payments" })).toContainText(
+      "Paid by a guest · Kevin (share 1 of 12) $41.55",
+      { timeout: 10_000 },
+    );
+    await kevin.context().close();
+  } finally {
+    await db.end();
+  }
+});

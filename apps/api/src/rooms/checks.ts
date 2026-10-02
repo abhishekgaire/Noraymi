@@ -17,6 +17,7 @@ import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
 import { workOut } from "./finalize.js";
 import { savedCardFor } from "../payments/card-on-file.js";
+import { checkPayments } from "./guest-bill.js";
 
 /**
  * Room checks (M2-08; spec 04 · the money core). Opening one takes its number
@@ -117,6 +118,8 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
       ).rows[0]
     : undefined;
   return {
+    // Each payment as it lands (M4-18): "Paid by a guest · Kevin (share 1 of 12) $41.55".
+    payments: await checkPayments(c, venueId, id),
     on_file: saved
       ? {
           brand: saved.brand,
