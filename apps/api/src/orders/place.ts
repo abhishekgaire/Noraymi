@@ -13,6 +13,7 @@ import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { stepOrder } from "./pipeline.js";
+import { alcoholBlock, checkAlcohol } from "./alcohol.js";
 
 /**
  * A staff order (M3-07; spec 10 · Adding drinks to a room from a staff
@@ -63,6 +64,15 @@ export async function placeStaffOrder(
   if (input.lines.length === 0) throw new ApiError("invalid_request", "nothing to send");
 
   const items = await orderItemsFor(c, venueId, input.lines, input.now);
+  // The alcohol window and the room's cut-off (M3-20).
+  await checkAlcohol(c, venueId, {
+    items: items.map((i) => ({ name: i.name, alcohol: i.alcohol })),
+    sessionId: ch.room_session_id,
+    checkId: input.checkId,
+    roomGuestId: null,
+    refusedBy: input.userId,
+    now: input.now,
+  });
 
   const clock = await venueClock(c, venueId);
   const orderId = await insertOrder(c, venueId, {
@@ -223,6 +233,15 @@ export async function placeRoomOrder(
       details: { reason: "host_lock" },
     });
   const items = await orderItemsFor(c, venueId, input.lines, input.now);
+  // The alcohol window, the room's cut-off and the guest's (M3-20).
+  await checkAlcohol(c, venueId, {
+    items: items.map((i) => ({ name: i.name, alcohol: i.alcohol })),
+    sessionId: input.sessionId,
+    checkId: session.check_id,
+    roomGuestId: input.roomGuestId,
+    refusedBy: null,
+    now: input.now,
+  });
   const clock = await venueClock(c, venueId);
   const orderId = await insertOrder(c, venueId, {
     checkId: session.check_id,
@@ -255,7 +274,10 @@ export interface AgainRound {
   })[];
   readonly total_cents: number;
   /** What the round had that can't be ordered again tonight, and why. */
-  readonly left_out: readonly { name: string; reason: "out_tonight" | "not_on_menu" }[];
+  readonly left_out: readonly {
+    name: string;
+    reason: "out_tonight" | "not_on_menu" | "window_closed" | "cut_off";
+  }[];
 }
 
 /**
@@ -268,7 +290,14 @@ export async function sameAgainRounds(
   venueId: string,
   sessionId: string,
   now: Temporal.Instant,
+  roomGuestId: string | null = null,
+  /** The list leaves refused alcohol out; ordering a round keeps it, so the order is refused and logged. */
+  hideRefused = true,
 ): Promise<AgainRound[]> {
+  // Alcohol outside the window, or for a cut-off room or guest, is left out too (M3-20).
+  const block = hideRefused
+    ? await alcoholBlock(c, venueId, { sessionId, roomGuestId }, now)
+    : null;
   const delivered = await c.query<{ id: string }>(
     `select id from orders where venue_id = $1 and session_id = $2 and status = 'delivered'
       order by delivered_at desc nulls last, placed_at desc limit 10`,
@@ -306,6 +335,7 @@ export async function sameAgainRounds(
       const name = v.variant_count > 1 ? `${v.item_name} · ${v.variant_name}` : v.item_name;
       const full = [name, ...item.options.map((o) => o.name)].join(" · ");
       if (missing) leftOut.push({ name: full, reason: "not_on_menu" });
+      else if (v.alcohol && block) leftOut.push({ name: full, reason: block });
       else if (out) leftOut.push({ name: full, reason: "out_tonight" });
       else
         lines.push({

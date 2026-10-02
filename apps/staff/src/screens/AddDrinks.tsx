@@ -36,6 +36,7 @@ interface Variant {
 interface Item {
   readonly id: string;
   readonly name: string;
+  readonly alcohol: boolean;
   readonly out_tonight: boolean;
   readonly variants: readonly Variant[];
   readonly groups: readonly Group[];
@@ -72,6 +73,8 @@ export function AddDrinks(props: {
   const { subscribe } = useEvents();
   const { venueId, checkId } = props;
   const [items, setItems] = useState<readonly Item[] | null>(null);
+  // Alcohol refused for this room right now (M3-20): greyed, with the reason in words.
+  const [alcoholBlock, setAlcoholBlock] = useState<"window_closed" | "cut_off" | null>(null);
   const [lines, setLines] = useState<readonly DraftLine[]>([]);
   const [orders, setOrders] = useState<readonly Order[]>([]);
   const [query, setQuery] = useState("");
@@ -80,12 +83,13 @@ export function AddDrinks(props: {
   const version = useRef(0);
 
   const loadMenu = useCallback(async () => {
-    const tree = await api<{ categories: { items: Item[] }[] }>(
-      "GET",
-      `/v1/venues/${venueId}/menu`,
-    );
+    const tree = await api<{
+      categories: { items: Item[] }[];
+      alcohol: { state: string; closes_at: string; blocked: "window_closed" | "cut_off" | null };
+    }>("GET", `/v1/venues/${venueId}/menu?session_id=${props.sessionId}`);
     setItems(tree.categories.flatMap((c) => c.items));
-  }, [venueId]);
+    setAlcoholBlock(tree.alcohol.blocked);
+  }, [venueId, props.sessionId]);
   const loadDraft = useCallback(async () => {
     const d = await api<{ lines: DraftLine[]; version: number }>(
       "GET",
@@ -110,7 +114,11 @@ export function AddDrinks(props: {
   useEffect(
     () =>
       subscribe((events) => {
-        if (events.length === 0 || events.some((e) => e.type === "menu.changed")) void loadMenu();
+        if (
+          events.length === 0 ||
+          events.some((e) => e.type === "menu.changed" || e.type === "session.updated")
+        )
+          void loadMenu();
         if (events.length === 0 || events.some((e) => e.type === "draft.updated")) void loadDraft();
         if (events.length === 0 || events.some((e) => e.type.startsWith("order.")))
           void loadOrders();
@@ -237,7 +245,11 @@ export function AddDrinks(props: {
         <ul className="drink-results">
           {matches.flatMap((item) =>
             item.variants.map((v) => {
-              const out = item.out_tonight || v.out_tonight;
+              const refused = item.alcohol && alcoholBlock !== null;
+              const out = item.out_tonight || v.out_tonight || refused;
+              const why = refused
+                ? t(alcoholBlock === "cut_off" ? "drinks.alcohol.cutOff" : "drinks.alcohol.closed")
+                : t("drinks.out");
               const label = item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
               return (
                 <li key={v.id}>
@@ -246,14 +258,12 @@ export function AddDrinks(props: {
                     className={`drink ${out ? "out" : ""}`}
                     disabled={out}
                     aria-label={
-                      out
-                        ? `${label} · ${t("drinks.out")}`
-                        : `${label} · ${money(v.price_cents as never)}`
+                      out ? `${label} · ${why}` : `${label} · ${money(v.price_cents as never)}`
                     }
                     onClick={() => ring(item, v)}
                   >
                     <span data-guest-text>{label}</span>
-                    <span>{out ? t("drinks.out") : money(v.price_cents as never)}</span>
+                    <span>{out ? why : money(v.price_cents as never)}</span>
                   </button>
                 </li>
               );

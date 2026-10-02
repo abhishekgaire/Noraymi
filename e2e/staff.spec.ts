@@ -3388,3 +3388,31 @@ test("the fix panel: $63.00 left on both screens, a $13.00 comp with a reason, t
     await db.end();
   }
 });
+
+/** The alcohol window on DeskRoom (M3-20): at 4:00 AM alcohol is greyed with the reason in words. */
+test("at 4:00 AM DeskRoom greys alcohol with the reason; a Red Bull still adds", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    // Signed in at 4:00 AM itself: moving the clock five hours on would end a session as idle.
+    await setClock(request, "2026-09-26T08:00:30Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    const drinks = page.getByRole("region", { name: "Add drinks" });
+    await drinks.getByLabel("Search the menu").fill("Bud");
+    const bud = drinks.getByRole("button", {
+      name: "Bud Light · No alcohol now · the window has closed",
+    });
+    await expect(bud).toBeDisabled();
+    await drinks.getByLabel("Search the menu").fill("Red Bull");
+    await expect(drinks.getByRole("button", { name: "Red Bull · $6.00" })).toBeEnabled();
+  } finally {
+    await db.end();
+  }
+});

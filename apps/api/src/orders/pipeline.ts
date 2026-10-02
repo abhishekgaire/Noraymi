@@ -30,6 +30,7 @@ import {
 } from "../approvals/service.js";
 import { venueClock } from "../rooms/assignment.js";
 import { writeFixLine, type FixPayload } from "../rooms/fix.js";
+import { checkAlcohol } from "./alcohol.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -218,6 +219,16 @@ export async function stepOrder(
 
   switch (step) {
     case "accept": {
+      // Accept runs the alcohol check again: the window may have closed, or the room been cut off (M3-20).
+      await checkAlcohol(c, venueId, {
+        items: order.items.map((i) => ({ name: lineName(i), alcohol: i.alcohol })),
+        sessionId: order.session_id,
+        checkId: order.check_id,
+        roomGuestId: order.room_guest_id,
+        orderId: order.id,
+        refusedBy: by,
+        now: input.now,
+      });
       const done = await move({ accepted_by: by, accepted_at: now });
       // The sale: the lines join the check now, at the price copied when it was ordered.
       const night = await nightOfNow(c, venueId, input.now);

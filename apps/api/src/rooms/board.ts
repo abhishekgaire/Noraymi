@@ -2,6 +2,7 @@ import { failedTickets, readSetting, roomNotes, type Queryable } from "@west4/db
 import { managerOnDutyAt } from "../approvals/service.js";
 import { agingFor, secondsSince } from "../orders/escalation.js";
 import { barLostSince, venueOpenNow } from "./bar-presence.js";
+import { alcoholNow } from "../orders/alcohol.js";
 import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
@@ -175,6 +176,8 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
     counts: { ...counts, tablets_online: tablets.online, tablets: tablets.total },
     headcount: count,
     alerts,
+    // The alcohol window now and when it next changes, so every screen greys alcohol together (M3-20).
+    alcohol: await alcoholNow(c, venueId, now),
   };
 }
 

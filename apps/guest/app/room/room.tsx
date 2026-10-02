@@ -20,6 +20,8 @@ interface RoomSession {
   readonly rotated: boolean;
   readonly host_lock: boolean;
   readonly host_name: string | null;
+  /** Why alcohol is hidden right now: the window closed, or a cut-off (M3-20). */
+  readonly alcohol_blocked?: "window_closed" | "cut_off" | null;
   /** A tablet between sessions (M3-12). */
   readonly available?: boolean;
 }
@@ -74,6 +76,7 @@ interface Variant {
 interface Item {
   readonly id: string;
   readonly name: string;
+  readonly alcohol: boolean;
   readonly description: string | null;
   readonly out_tonight: boolean;
   readonly variants: readonly Variant[];
@@ -538,6 +541,16 @@ export function RoomPage({
 
       <section aria-labelledby="menu-h">
         <h2 id="menu-h">{t("en", "guestRoom.menu")}</h2>
+        {room.alcohol_blocked && (
+          <p className="notice" role="status">
+            {t(
+              "en",
+              room.alcohol_blocked === "cut_off"
+                ? "orders.guest.cut_off"
+                : "guestRoom.alcoholClosed",
+            )}
+          </p>
+        )}
         {menu === null ? (
           <p aria-busy="true">{t("en", "guestRoom.menu.loading")}</p>
         ) : (
@@ -545,30 +558,33 @@ export function RoomPage({
             <section key={cat.id} className="menu-section" aria-label={cat.name}>
               <h3>{cat.name}</h3>
               <ul>
-                {cat.items.flatMap((item) =>
-                  item.variants.map((v) => {
-                    const out = item.out_tonight || v.out_tonight;
-                    const name = item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
-                    return (
-                      <li key={v.id}>
-                        <button
-                          type="button"
-                          className={out ? "menu-item out" : "menu-item"}
-                          disabled={out}
-                          aria-label={
-                            out
-                              ? `${name} · ${t("en", "guestRoom.out")}`
-                              : `${name} · ${money(v.price_cents)}`
-                          }
-                          onClick={() => tap(item, v)}
-                        >
-                          <span>{name}</span>
-                          <span>{out ? t("en", "guestRoom.out") : money(v.price_cents)}</span>
-                        </button>
-                      </li>
-                    );
-                  }),
-                )}
+                {cat.items
+                  .filter((item) => !(item.alcohol && room.alcohol_blocked))
+                  .flatMap((item) =>
+                    item.variants.map((v) => {
+                      const out = item.out_tonight || v.out_tonight;
+                      const name =
+                        item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
+                      return (
+                        <li key={v.id}>
+                          <button
+                            type="button"
+                            className={out ? "menu-item out" : "menu-item"}
+                            disabled={out}
+                            aria-label={
+                              out
+                                ? `${name} · ${t("en", "guestRoom.out")}`
+                                : `${name} · ${money(v.price_cents)}`
+                            }
+                            onClick={() => tap(item, v)}
+                          >
+                            <span>{name}</span>
+                            <span>{out ? t("en", "guestRoom.out") : money(v.price_cents)}</span>
+                          </button>
+                        </li>
+                      );
+                    }),
+                  )}
               </ul>
             </section>
           ))

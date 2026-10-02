@@ -22,6 +22,7 @@ import { businessDate, promotionChecks, wallClock, type Promotable } from "@west
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
+import { alcoholBlock, alcoholNow } from "../orders/alcohol.js";
 import { downloadLink } from "../files/storage.js";
 import type { S3Settings } from "../s3.js";
 import { ApiError } from "../http/errors.js";
@@ -363,17 +364,29 @@ export function menuRoutes(
   }
 
   // Staff menus leave hidden items out; Admin → Menu asks for them with ?include_hidden=true.
-  app.get<{ Params: { venueId: string }; Querystring: { include_hidden?: string } }>(
-    "/v1/venues/:venueId/menu",
-    { config: read("core") },
-    async (request) => ({
-      categories: await request.inVenue((c) =>
-        menuTree(c, request.venueId!, nowIso(), {
+  // With ?session_id= it also says whether alcohol is refused for that room right now (M3-20).
+  app.get<{
+    Params: { venueId: string };
+    Querystring: { include_hidden?: string; session_id?: string };
+  }>("/v1/venues/:venueId/menu", { config: read("core") }, async (request) => {
+    const sessionId = request.query.session_id;
+    if (sessionId !== undefined && !id.safeParse(sessionId).success)
+      throw new ApiError("invalid_request", "session_id must be an id");
+    return request.inVenue(async (c) => {
+      const now = options.clock.now();
+      return {
+        categories: await menuTree(c, request.venueId!, nowIso(), {
           shownOnly: request.query.include_hidden !== "true",
         }),
-      ),
-    }),
-  );
+        alcohol: {
+          ...(await alcoholNow(c, request.venueId!, now)),
+          blocked: sessionId
+            ? await alcoholBlock(c, request.venueId!, { sessionId, roomGuestId: null }, now)
+            : null,
+        },
+      };
+    });
+  });
 
   const outBody = z
     .object({
@@ -473,10 +486,14 @@ export function menuRoutes(
     async (request, reply) => {
       const venueId = await resolveVenueSlug(options.pool, request.params.slug);
       if (!venueId) throw new ApiError("not_found", "no such venue");
-      const categories = await withVenue(
+      const [categories, alcohol] = await withVenue(
         options.pool,
         { venueId, requestId: request.requestId },
-        (c) => menuTree(c, venueId, nowIso(), { shownOnly: true }),
+        async (c) =>
+          [
+            await menuTree(c, venueId, nowIso(), { shownOnly: true }),
+            await alcoholNow(c, venueId, options.clock.now()),
+          ] as const,
       );
       reply.header("Cache-Control", "no-store");
       return {
@@ -486,6 +503,7 @@ export function menuRoutes(
             items: cat.items.map(({ station: _s, shown: _h, ...item }) => item),
           }))
           .filter((cat) => cat.items.length > 0),
+        alcohol,
       };
     },
   );

@@ -15,6 +15,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { placeRoomOrder, sameAgainRounds } from "../orders/place.js";
 import { roomGuestOf } from "../rooms/room-guest.js";
+import { withVenueRefusing } from "../orders/alcohol.js";
 import { board } from "../rooms/board.js";
 import { CALL_KINDS, createCall, type CallKind } from "../rooms/calls.js";
 import { newRoomCode } from "../rooms/checkin.js";
@@ -118,7 +119,7 @@ export function roomOrderRoutes(
           parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
         );
       const me = await currentGuest(request, options.pool, options.clock);
-      const order = await withVenue(
+      const order = await withVenueRefusing(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
         (c) =>
@@ -143,7 +144,7 @@ export function roomOrderRoutes(
       const me = await currentGuest(request, options.pool, options.clock);
       if (!id.safeParse(request.params.orderId).success)
         throw new ApiError("not_found", "no such order");
-      return withVenue(
+      return withVenueRefusing(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
         async (c) => {
@@ -278,7 +279,7 @@ export function roomOrderRoutes(
     const rounds = await withVenue(
       options.pool,
       { venueId: me.venueId, requestId: request.requestId },
-      (c) => sameAgainRounds(c, me.venueId, me.session_id, options.clock.now()),
+      (c) => sameAgainRounds(c, me.venueId, me.session_id, options.clock.now(), me.id),
     );
     return { rounds };
   });
@@ -293,13 +294,13 @@ export function roomOrderRoutes(
         throw new ApiError("invalid_request", "send { order_id, client_order_id }");
       const me = await currentGuest(request, options.pool, options.clock);
       const now = options.clock.now();
-      const order = await withVenue(
+      const order = await withVenueRefusing(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
         async (c) => {
-          const round = (await sameAgainRounds(c, me.venueId, me.session_id, now)).find(
-            (r) => r.order_id === parsed.data.order_id,
-          );
+          const round = (
+            await sameAgainRounds(c, me.venueId, me.session_id, now, me.id, false)
+          ).find((r) => r.order_id === parsed.data.order_id);
           if (!round) throw new ApiError("not_found", "that round can't be ordered again");
           return placeRoomOrder(c, me.venueId, {
             sessionId: me.session_id,

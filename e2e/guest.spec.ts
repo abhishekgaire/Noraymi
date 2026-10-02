@@ -400,3 +400,38 @@ test("room tablets on a tablet: Room 11 available, Room 9's clock, $480.00 and a
     await db.end();
   }
 });
+
+/**
+ * The alcohol window on the room page (M3-20): at 4:00 AM the guest's menu
+ * hides alcohol and says why, while a Red Bull can still be ordered.
+ */
+test("at 4:00 AM the room page hides alcohol and says why; a Red Bull still orders", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  expect(
+    (
+      await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+        data: { server_time: "2026-09-26T08:00:30Z" },
+      })
+    ).ok(),
+  ).toBe(true);
+  const token = createHash("sha256")
+    .update("host-token:sess_room9")
+    .digest("base64url")
+    .slice(0, 32);
+  const page = await (
+    await browser.newContext({ viewport: { width: 390, height: 844 } })
+  ).newPage();
+  await page.goto(`/r/${token}`);
+  await expect(page.getByText("The bar has stopped serving alcohol for tonight")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Bud Light/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Margarita/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Red Bull · $6.00" }).click();
+  await page.getByRole("button", { name: "Send 1 to the bar · $6.00" }).click();
+  await expect(page.locator(".order", { hasText: "1 × Red Bull" }).locator(".status")).toHaveText(
+    "Sent to the bar · you can still cancel",
+  );
+  await page.context().close();
+});

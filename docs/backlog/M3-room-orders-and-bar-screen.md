@@ -497,7 +497,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-20 · Check the alcohol window and cut-offs on every route that creates an alcohol line
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3-01, M3-07, M3-09, M3-11
 - **Spec:** [Money rules](../spec/05-money-rules.md) 5; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Rule packs (The alcohol window); [Data model](../spec/04-data-model.md) · `alcohol_refusals`; [API](../spec/08-api.md) · Conventions (`alcohol_closed`, `cut_off`); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Ringing; [Order](../screens.md#order) note 3
@@ -506,11 +506,16 @@ Definition of done: see CLAUDE.md.
   - A refusal answers `409 alcohol_closed` or `409 cut_off` and is logged in `alcohol_refusals` (venue_id, session_id or check_id, room_guest_id, order_id, reason, item, refused_by, at).
   - Guest screens hide alcohol while it's refused, and staff screens grey out every alcohol button with the reason in words. The window's state and its next change come with the menu and the board, so every screen changes at the same moment.
 - **Acceptance:**
-  - [ ] With the window closed, an alcohol order from a guest, one from the host, a staff order from DeskRoom and a Same again all answer `409 alcohol_closed`, and each writes a refusal.
-  - [ ] An order of only a Red Bull still goes through.
-  - [ ] The guest menu hides alcohol, and DeskRoom greys it with the reason in words.
+  - [x] With the window closed, an alcohol order from a guest, one from the host, a staff order from DeskRoom and a Same again all answer `409 alcohol_closed`, and each writes a refusal.
+  - [x] An order of only a Red Bull still goes through.
+  - [x] The guest menu hides alcohol, and DeskRoom greys it with the reason in words.
 - **Tests:** an API test that calls every alcohol route with the window closed, and again with a cut-off.
 - **Notes:** An item is alcohol by `menu_items.alcohol`, copied onto `order_items.alcohol` when it's ordered.
+  - Built: `apps/api/src/orders/alcohol.ts` (the one check: the alcohol window from M3-01 on the venue's pack and house last call, then the room's cut-off, then the guest's; `AlcoholRefused` answers `409 alcohol_closed` or `409 cut_off`, and `inVenueRefusing` / `withVenueRefusing` log one `alcohol_refusals` row per alcohol item in a transaction of their own once the refused one has rolled back). It runs on guest and host orders, staff orders from DeskRoom and the Room phone, Same again, and again at Accept. The window's state and next change come with `GET /menu` (and, with `?session_id=`, whether alcohol is refused for that room), the public menu, the board and the guest's `GET /room-session` (`alcohol_blocked`); `apps/api/src/orders/alcohol.int.test.ts` and the Playwright tests "at 4:00 AM …" for the guest page and DeskRoom.
+  - On screen: the room page hides alcohol while it's refused and says why ("The bar has stopped serving alcohol for tonight", or the glossary's "Your server has paused alcohol for this room"); DeskRoom and the Room phone grey every alcohol drink with the reason in words ("No alcohol now · the window has closed", "No alcohol · this room is cut off"). Same again's list leaves refused alcohol out and says why; ordering a round that has it is refused and logged.
+  - Where no rule pack is published for the venue's id (a fresh install, tests), the built-in pack with the same id stands in; a pack published before M3-01 that lacks `firstSale` takes it from the built-in one.
+  - Packages aren't sold through any M3 route yet, so there's nothing to check there; quick sale, tabs, gift orders, Repeat round and moves join in M6.
+  - Fixed on the way: the board answered 500 after the night's close (the waitlist offer read a time range ending before it began); it now offers nothing after the close.
 
 ### M3-21 · Cut off a room or one guest
 

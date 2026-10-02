@@ -5,6 +5,7 @@ import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { placeStaffOrder } from "../orders/place.js";
+import { inVenueRefusing } from "../orders/alcohol.js";
 
 /**
  * Staff orders and unsent drinks (M3-07; spec 08 · Orders, Bar POS):
@@ -74,7 +75,7 @@ export function draftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       if (!id.safeParse(request.params.checkId).success)
         throw new ApiError("not_found", "no such check");
       const me = person(request);
-      const order = await request.inVenue((c) =>
+      const order = await inVenueRefusing(request, (c) =>
         placeStaffOrder(c, request.venueId!, {
           checkId: request.params.checkId,
           lines: parsed.data.lines,

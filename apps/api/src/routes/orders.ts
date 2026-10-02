@@ -6,6 +6,7 @@ import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { stepOrder, type StepInput } from "../orders/pipeline.js";
+import { inVenueRefusing } from "../orders/alcohol.js";
 
 /**
  * Orders (M3-06; spec 08 · Orders):
@@ -124,7 +125,7 @@ export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): vo
             ? { resolution: body["resolution"] as StepInput["resolution"] }
             : {}),
         };
-        const answer = await request.inVenue((c) =>
+        const answer = await inVenueRefusing(request, (c) =>
           stepOrder(c, request.venueId!, request.params.orderId, step, input),
         );
         return answer.status === "done" ? answer : reply.code(202).send(answer);

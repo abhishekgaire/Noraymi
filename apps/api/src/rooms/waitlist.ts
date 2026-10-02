@@ -222,7 +222,10 @@ export async function pickOfferRoom(
   const order = ["small", "medium", "large", "vip"];
   const venue = await venueClock(c, venueId);
   const night = await nightOf(c, venueId, venue, now);
-  const tonight = await blocksBetween(c, venueId, now, night.close ?? now.add({ hours: 12 }));
+  // After the night's close there's nothing left of tonight to offer (and no range to read).
+  const end = night.close ?? now.add({ hours: 12 });
+  if (Temporal.Instant.compare(end, now) <= 0) return null;
+  const tonight = await blocksBetween(c, venueId, now, end);
   for (const r of free.rooms) {
     if (only && r.room_id !== only) continue;
     const room = rooms.find((x) => x.id === r.room_id);

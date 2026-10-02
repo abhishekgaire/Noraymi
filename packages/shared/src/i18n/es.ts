@@ -1254,4 +1254,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "fix.voided": "Anulada: {line}",
   "fix.waiting": "Esperando a {name}",
   "fix.failed": "No se pudo. Inténtalo de nuevo.",
+  // Alcohol refused on the screens (M3-20).
+  "drinks.alcohol.closed": "Sin alcohol ahora · terminó el horario",
+  "drinks.alcohol.cutOff": "Sin alcohol · esta sala tiene corte",
+  "guestRoom.alcoholClosed": "La barra dejó de servir alcohol por esta noche",
 };

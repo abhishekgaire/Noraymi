@@ -22,6 +22,7 @@ import { ApiError } from "../http/errors.js";
 import { hashRoomCode } from "../rooms/checkin.js";
 import { openRoomCode, rotateForWrongCodes, WRONG_CODES_TO_ROTATE } from "../rooms/room-code.js";
 import { RoomAvailable, roomGuestOf } from "../rooms/room-guest.js";
+import { alcoholBlock } from "../orders/alcohol.js";
 
 /**
  * Joining a room (M3-08; screens N3; spec 09 · Joining a room; spec 02 · Guest
@@ -307,6 +308,10 @@ export function roomJoinRoutes(
       available: false,
       host_lock: g.session.host_lock,
       host_name: g.session.host_name,
+      // Why alcohol is hidden on this phone right now, if it is (M3-20).
+      alcohol_blocked: await withVenue(options.pool, { venueId }, (c) =>
+        alcoholBlock(c, venueId, { sessionId: g.session_id, roomGuestId: g.id }, now),
+      ),
       ordering_locked: g.session.ordering_locked,
       rotated,
       moved,

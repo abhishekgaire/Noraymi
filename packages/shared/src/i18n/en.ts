@@ -1233,4 +1233,8 @@ export const en = {
   "fix.voided": "Voided: {line}",
   "fix.waiting": "Waiting for {name}",
   "fix.failed": "That didn't go through. Try again.",
+  // Alcohol refused on the screens (M3-20).
+  "drinks.alcohol.closed": "No alcohol now · the window has closed",
+  "drinks.alcohol.cutOff": "No alcohol · this room is cut off",
+  "guestRoom.alcoholClosed": "The bar has stopped serving alcohol for tonight",
 } as const;
