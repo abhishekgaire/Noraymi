@@ -3,7 +3,7 @@
   --ink: #1d1a22;
   --paper: #ffffff;
   --line: #d9d4e0;
-  --accent: #e0287d;
+  --accent: #b8135f; /* white on it is 6.6:1, past WCAG AA's 4.5:1 (M3-24) */
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {

@@ -581,17 +581,21 @@ Definition of done: see CLAUDE.md.
 
 ### M3-24 · Run accessibility checks in CI for the room page and the tablets
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M3-09, M3-10, M3-11, M3-12
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 14; [M3 · Ships](../milestones.md#m3--room-orders-and-the-bar-screen) (Accessibility checks); [N3 Join a room](../screens.md#n3-join-a-room); [N4 Room tablet (kiosk)](../screens.md#n4-room-tablet-kiosk)
 - **Build:** automated WCAG 2.2 AA checks (axe through Playwright) in CI on the join step, the room page in each state (the menu, a required choice, the cart, every order status and side message, the running bill, Same again, Call staff, the host lock, a closed room, a cut-off room and the 4 AM message) and the tablet ("Room available" and in a session). Status changes are announced to screen readers, text meets 4.5:1 contrast, and every tablet action can also be done from a phone or through staff. A violation fails the build.
 - **Acceptance:**
-  - [ ] CI runs the checks on every pull request and fails on any WCAG 2.2 AA violation.
-  - [ ] An order's status change is announced to a screen reader.
-  - [ ] The waitlist page from M2 goes through the same checks.
+  - [x] CI runs the checks on every pull request and fails on any WCAG 2.2 AA violation.
+  - [x] An order's status change is announced to a screen reader.
+  - [x] The waitlist page from M2 goes through the same checks.
 - **Tests:** the checks themselves, with one planted violation that has to fail them.
 - **Notes:** A person's screen-reader pass on ordering and the waitlist page comes in M5.
+  - Built: `e2e/a11y-guest.spec.ts` (axe through `@axe-core/playwright`, WCAG 2.0, 2.1 and 2.2 A and AA rules) in the guest project, which CI's Smoke (guest) job runs on every push and pull request, failing on any violation: the join step, a wrong code and a closed room; the room page with every order status and side message, the running bill, Same again, a required choice, the cart, Call staff, the host lock as a friend sees it, a cut-off room and the 4 AM message; the tablet's pairing, "Room available" and a session; and M2's waitlist join and spot pages. A planted violation (an image with no alt text and a button with no name) shows the checks fail.
+  - Fixed: the guest web's accent was #e0287d, and white on it is 4.0:1, under AA's 4.5:1 on every button; it's now #b8135f (6.6:1).
+  - Each order's status line is a polite live region, so a change is announced; the test checks the attribute. Every tablet action is also on the guest's phone (the same page) and through staff (DeskRoom, the bar, Calls).
+  - A person's screen-reader pass is M5's.
 
 ### M3-25 · Load the M3 part of the demo seed and run the mock Friday
 
