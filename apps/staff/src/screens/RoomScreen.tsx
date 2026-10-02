@@ -11,6 +11,7 @@ import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
+import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { CutOffRoom } from "./CutOff.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
@@ -76,6 +77,8 @@ export function RoomScreen() {
   const [checkStatus, setCheckStatus] = useState<string | null>(null);
   const [dueCents, setDueCents] = useState(0);
   const [cashTaken, setCashTaken] = useState<Taken | null>(null);
+  const [split, setSplit] = useState<Split | null>(null);
+  const [share, setShare] = useState<Share | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -101,6 +104,7 @@ export function RoomScreen() {
                 pending_fixes: PendingFix[];
                 check?: { status: string };
                 amount_due_cents?: number;
+                split?: Split | null;
               }>("GET", `/v1/venues/${venueId}/checks/${r.session.check_id}`)
             : Promise.resolve({
                 lines: [] as Line[],
@@ -114,6 +118,7 @@ export function RoomScreen() {
         setPendingFixes(check.pending_fixes ?? []);
         setCheckStatus(check.check?.status ?? null);
         setDueCents(check.amount_due_cents ?? 0);
+        setSplit(("split" in check ? check.split : null) ?? null);
       } else {
         setLines([]);
         setStartedAt(null);
@@ -327,16 +332,34 @@ export function RoomScreen() {
               />
             )}
           {s.check_id &&
+            (checkStatus === "finalized" || checkStatus === "partly_paid") &&
+            dueCents > 0 &&
+            signedIn?.membership.permissions.includes("payments.take") && (
+              <SplitPanel
+                venueId={venueId}
+                checkId={s.check_id}
+                split={split}
+                picked={share?.id ?? null}
+                onPick={setShare}
+                onChanged={() => void load()}
+              />
+            )}
+          {/* With a split, a share is picked first; without one, the check's amount due. */}
+          {s.check_id &&
             (checkStatus === "finalized" ||
               checkStatus === "partly_paid" ||
               checkStatus === "paid") &&
+            (!split || share) &&
             signedIn?.membership.permissions.includes("payments.take") && (
               <TapPayment
+                key={`tap-${share?.id ?? "check"}`}
                 venueId={venueId}
                 checkId={s.check_id}
-                dueCents={dueCents}
+                dueCents={share ? share.amount_cents : dueCents}
+                shareId={share?.id ?? null}
                 onDone={() => {
                   // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
+                  setShare(null);
                   setDone(t("pay.paid"));
                   void load();
                 }}
@@ -344,13 +367,16 @@ export function RoomScreen() {
             )}
           {s.check_id &&
             (checkStatus === "finalized" || checkStatus === "partly_paid") &&
-            !cashTaken &&
+            (!split || share) &&
             signedIn?.membership.permissions.includes("payments.take") && (
               <CashPanel
+                key={`cash-${share?.id ?? "check"}`}
                 venueId={venueId}
                 checkId={s.check_id}
-                dueCents={dueCents}
+                dueCents={share ? share.amount_cents : dueCents}
+                shareId={share?.id ?? null}
                 onTaken={(taken) => {
+                  setShare(null);
                   setCashTaken(taken);
                   void load();
                 }}

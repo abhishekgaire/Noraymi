@@ -16,6 +16,7 @@ import {
 } from "@west4/db";
 import type { Temporal } from "@west4/shared";
 import { settleCheck } from "../rooms/present.js";
+import { settleShares } from "./splits.js";
 import type { IntentObservation, ReaderAction } from "../stripe/payments.js";
 import {
   UNKNOWN_READER_CODES,
@@ -122,6 +123,9 @@ export async function applyObservation(
   if (obs.attempt) await moveAttempt(obs.attempt.state, obs.attempt.code ?? null);
 
   const payment = (await paymentById(c, venueId, paymentId))!;
+  // A split's shares follow their payment (M4-14): paid, or open again if it was canceled.
+  if (changed && payment.status !== before.status)
+    await settleShares(c, venueId, paymentId, payment.status);
   // Money landed: each check it paid is paid in full or partly paid, and a paid room may go to cleaning.
   if (changed && payment.status === "captured" && before.status !== "captured" && now)
     for (const check of await allocatedChecks(c, venueId, paymentId))

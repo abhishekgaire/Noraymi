@@ -14,6 +14,7 @@ import { changeDue } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { settleCheck, type Settled } from "../rooms/present.js";
+import { claimShare } from "./splits.js";
 
 /**
  * Cash (M4-13; Money rules 15; Payment flows · Cash). Taken at a screen
@@ -57,6 +58,9 @@ export async function takeCash(
       details: { reason: "short" },
     });
   const at = input.now.toString();
+  // A split's share (M4-14): cash pays it at once.
+  if (input.shareId)
+    await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paid");
   const drawer = input.deviceId ? await drawerOfDevice(c, venueId, input.deviceId) : null;
   const inDrawer = drawer?.session_id ? drawer : null;
   const bankId = inDrawer ? null : await staffBank(c, venueId, input.userId, input.businessDate);

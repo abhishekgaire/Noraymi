@@ -90,6 +90,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, 1, 'room', '2026-09-25', $2, $3) returning id`,
     [v.venueB, sessionB.rows[0]!.id, v.ownerB],
   );
+  const splitB = await owner.query<{ id: string }>(
+    "insert into check_splits (venue_id, check_id, share_count, base_cents, created_by, created_at) values ($1, $2, 2, 100, $3, now()) returning id",
+    [v.venueB, checkB.rows[0]!.id, v.ownerB],
+  );
   const conversationB = await owner.query<{ id: string }>(
     "insert into conversations (venue_id, phone_e164) values ($1, '+12125550100') returning id",
     [v.venueB],
@@ -196,6 +200,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       g: guestRowB.rows[0]!.id,
       readerId: readerB.rows[0]!.id,
       paymentId: paymentB.rows[0]!.id,
+      splitId: splitB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -244,6 +249,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
         reader_id: "00000000-0000-4000-8000-000000000044",
       },
       "POST /v1/venues/:venueId/payments/:paymentId/change": { tendered_cents: 100 },
+      "POST /v1/venues/:venueId/checks/:checkId/splits": { kind: "even", shares: 2 },
       "POST /v1/venues/:venueId/payments/:paymentId/tap": {
         reader_id: "00000000-0000-4000-8000-000000000044",
       },

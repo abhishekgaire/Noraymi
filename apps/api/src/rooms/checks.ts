@@ -4,6 +4,7 @@ import {
   checkById,
   depositsOn,
   emitEvent,
+  openSplit,
   latestRevision,
   insertCheck,
   nextCheckNumber,
@@ -103,6 +104,8 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
   const deposits = await depositsOn(c, venueId, id);
   const due = await amountDue(c, id);
   return {
+    // The open split, if any (M4-14): it survives leaving the screen and switching devices.
+    split: await openSplit(c, venueId, id),
     deposit_cents: deposits.reduce((sum, d) => sum + d.amount_cents, 0),
     amount_due_cents: due,
     check: {

@@ -434,7 +434,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-14 · Split a check evenly or by item, kept on the server
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-06, M4-11, M4-13
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 1 and 13; [Payment flows](../spec/07-payment-flows.md#room-close-out) (Split); [Data model](../spec/04-data-model.md) (`check_splits`, `split_shares`, `payment_allocations.share_id`); [API](../spec/08-api.md) (`POST /checks/{c}/splits`, `POST /splits/{s}/stop`); [screens: N21](../screens.md#n21-close-out-steps-and-card-states), [Rail note 2](../screens.md#rail)
@@ -445,13 +445,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The next charge is always the rest. `POST /splits/{s}/stop` ("Stop splitting · charge the rest to …") ends the split and keeps the paid shares. A split survives leaving the screen and switching devices.
   - The check shows `partly_paid` until its allocations cover the amount due.
 - **Acceptance:**
-  - [ ] Room 9's $498.60 split evenly three ways shows three $166.20 shares; paying share 1 by tap and share 2 in cash, then leaving and reopening the room tab, still shows both paid and $166.20 left.
-  - [ ] Every split adds up to the cent: the shares, their tax parts and their gratuity parts each sum to the check's.
-  - [ ] Two shares can be paid at once on the two readers, and the same share can't be paid twice.
-  - [ ] After one paid share, "Stop splitting · charge the rest to …" charges the rest as one payment and keeps share 1 paid.
-  - [ ] A split by item gives each person their own items and an even part of the room time, with tax and gratuity by largest remainder.
+  - [x] Room 9's $498.60 split evenly three ways shows three $166.20 shares; paying share 1 by tap and share 2 in cash, then leaving and reopening the room tab, still shows both paid and $166.20 left.
+  - [x] Every split adds up to the cent: the shares, their tax parts and their gratuity parts each sum to the check's.
+  - [x] Two shares can be paid at once on the two readers, and the same share can't be paid twice.
+  - [x] After one paid share, "Stop splitting · charge the rest to …" charges the rest as one payment and keeps share 1 paid.
+  - [x] A split by item gives each person their own items and an even part of the room time, with tax and gratuity by largest remainder.
 - **Tests:** the money-cases group `splits` (including `split_even_room9_in_3`); property tests (shares add up, differ by at most 1 cent, the first shares are the larger ones); integration with two simulated readers at once; end-to-end split on DeskRoom.
 - **Notes:** The Rail canvas floors each share and gives the leftover to the last one; build the spec (money-cases ambiguity A11). Splitting by item stays on the room tab; bar tabs split evenly (M6).
+  - Built: migration `0060_splits.sql` (`check_splits` with one open split per check, `split_shares`, and the foreign key from `payment_allocations.share_id`); `packages/db/src/splits.ts`; `apps/api/src/payments/splits.ts` (`startSplit`, `stopSplit`, `claimShare`, `settleShares`); `routes/splits.ts` (`POST /checks/{c}/splits`, `POST /splits/{s}/stop`); `GET /checks/{c}` carries the open split with its shares; a tap or cash payment takes a `share_id` (portion key `share:<id>`); `SplitPanel` on the room screen, and the tap and cash panels pay a picked share.
+  - An even split divides what's left to pay when it starts (`base_cents`: the presented check less the deposit and anything paid) into N shares with leftover cents to the first, and gives each share its even part of the revision's tax and gratuity. A split by item uses `splitByItem` (M4-06) on the standing lines and the revision's room time, tax and gratuity; what's already paid (the deposit, earlier payments) comes off each share in proportion, so the shares add up to what's left (flagged: the spec doesn't say how a deposit meets a by-item split).
+  - A share pays only its own amount, only while it's open: a card payment marks it `paying` (a second payment for it is refused, `409 in_progress`), its capture marks it `paid`, and a canceled or failed payment opens it again; cash marks it paid at once. Shares of different portion keys pay at the same time on the two readers. Stop splitting is refused while a share is being paid, and ends the split with its paid shares kept; the rest is then paid as one payment.
+  - The split by item's line picker isn't on screen yet: the room screen splits evenly, and the by-item picker comes with the close-out screen (M4-20). Bar tabs split evenly in M6.
+  - Tests: `apps/api/src/routes/splits.int.test.ts` (Room 9 in three at $166.20, shares, tax parts and gratuity parts adding up to the check's; share 1 by tap and share 2 in cash, still paid when read again, $166.20 left, the same share refused twice; two shares at once on both readers; Stop splitting keeping share 1; a split by item with each person's lines and the parts adding up); `packages/rules` already covers the `splits` money cases and their properties (M4-06); Playwright "Split on DeskRoom".
+
 
 ### M4-15 · Serve the payment page on its own origin
 

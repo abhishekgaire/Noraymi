@@ -4102,7 +4102,7 @@ test("Cash at the front desk: Room 9's $498.60 with $500.00, $1.40 change, logge
     await cash.getByRole("button", { name: "$500.00" }).click();
     await expect(cash.getByLabel("Change")).toHaveText("Change $1.40");
     await cash.getByRole("button", { name: "Take $498.60 in cash" }).click();
-    const result = page.getByRole("region", { name: "Cash" });
+    const result = page.getByRole("region", { name: "Cash taken" });
     await expect(result.getByRole("status")).toHaveText("Logged to Diego · front-desk drawer");
     await expect(result.getByLabel("Change")).toHaveText("Change $1.40");
     const kick = await db.query("select count(*)::int as n from print_jobs where kind = 'drawer'");
@@ -4141,13 +4141,70 @@ test("Cash on Andy's phone: Room 5's $51.55 with the next $20, $8.45 change, int
     await cash.getByRole("button", { name: "$60.00" }).click();
     await expect(cash.getByLabel("Change")).toHaveText("Change $8.45");
     await cash.getByRole("button", { name: "Take $51.55 in cash" }).click();
-    await expect(page.getByRole("region", { name: "Cash" }).getByRole("status")).toHaveText(
+    await expect(page.getByRole("region", { name: "Cash taken" }).getByRole("status")).toHaveText(
       "Logged to Andy · their staff bank",
     );
     const bank = await db.query(
       "select cash_cents::int as cash from staff_banks where user_id = (select row_id from seed_ids where slug = 'andy')",
     );
     expect(bank.rows[0].cash).toBe(5155);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Split (M4-14) on DeskRoom: Room 9's $498.60 split evenly three ways shows
+ * three $166.20 shares; share 1 paid in cash is still paid after the tab is
+ * opened again; Stop splitting leaves the rest, $332.40, as one payment.
+ */
+test("Split on DeskRoom: three $166.20 shares, share 1 in cash kept after a reload, then Stop splitting", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const split = page.getByRole("region", { name: "Split" });
+    await split.getByLabel("How many ways").fill("3");
+    await split.getByRole("button", { name: "Split evenly" }).click();
+    for (const n of [1, 2, 3])
+      await expect(split.getByRole("listitem", { name: `Share ${n} of 3` })).toContainText(
+        "$166.20",
+      );
+    await split
+      .getByRole("listitem", { name: "Share 1 of 3" })
+      .getByRole("button", { name: "Pay this share" })
+      .click();
+    const cash = page.getByRole("region", { name: "Cash" });
+    await cash.getByRole("button", { name: "Exact $166.20" }).click();
+    await cash.getByRole("button", { name: "Take $166.20 in cash" }).click();
+    await expect(split.getByRole("listitem", { name: "Share 1 of 3" })).toContainText("Paid");
+
+    await page.reload();
+    await expect(split.getByRole("listitem", { name: "Share 1 of 3" })).toContainText("Paid");
+    await expect(split.getByRole("listitem", { name: "Share 2 of 3" })).toContainText("To pay");
+    await split.getByRole("button", { name: "Stop splitting · charge the rest to …" }).click();
+    await expect(split.getByRole("button", { name: "Split evenly" })).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Cash" })
+        .getByRole("button", { name: "Take $332.40 in cash" }),
+    ).toBeVisible();
     expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.end();

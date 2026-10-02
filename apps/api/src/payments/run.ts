@@ -32,6 +32,7 @@ import {
 } from "../stripe/payments.js";
 import { retrieveReader } from "../stripe/terminal.js";
 import { applyObservation, type Applied, type Observation } from "./machine.js";
+import { claimShare } from "./splits.js";
 import { openAttempt } from "./state.js";
 
 /**
@@ -103,6 +104,9 @@ export async function writeTap(
   const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
   if (!reader) throw new NoSuchReader();
   if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
+  // A split's share (M4-14): this check's, open, and paid in its own amount.
+  if (input.shareId)
+    await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paying");
   const paymentId = await insertPayment(c, venueId, {
     method: "card_present",
     status: "pending",

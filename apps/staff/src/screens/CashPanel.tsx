@@ -26,11 +26,14 @@ export function CashPanel({
   venueId,
   checkId,
   dueCents,
+  shareId,
   onTaken,
 }: {
   venueId: string;
   checkId: string;
   dueCents: number;
+  /** A split's share (M4-14): the payment pays it. */
+  shareId?: string | null;
   onTaken: (taken: Taken) => void;
 }) {
   const { t, money } = useT();
@@ -60,6 +63,7 @@ export function CashPanel({
           amount_cents: dueCents,
           tendered_cents: tendered,
           ...(tipCents > 0 ? { tip_cents: tipCents } : {}),
+          ...(shareId ? { share_id: shareId } : {}),
         },
         { idempotencyKey: newKey() },
       );
@@ -169,7 +173,7 @@ export function CashResult({ venueId, taken: first }: { venueId: string; taken: 
   };
 
   return (
-    <section className="cash" aria-label={t("cash.title")}>
+    <section className="cash" aria-label={t("cash.taken")}>
       <h3>{t("cash.title")}</h3>
       <p className="change-due" aria-label={t("cash.change")}>
         {t("cash.change")} <strong>{money(cents(taken.change_cents))}</strong>

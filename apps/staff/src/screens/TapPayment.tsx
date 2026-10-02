@@ -39,11 +39,14 @@ export function TapPayment({
   venueId,
   checkId,
   dueCents,
+  shareId,
   onDone,
 }: {
   venueId: string;
   checkId: string;
   dueCents: number;
+  /** A split's share (M4-14): the payment pays it. */
+  shareId?: string | null;
   onDone: () => void;
 }) {
   const { t, money } = useT();
@@ -122,6 +125,7 @@ export function TapPayment({
           amount_cents: dueCents,
           reader_id: picked,
           ...(tipCents > 0 ? { tip_cents: tipCents } : {}),
+          ...(shareId ? { share_id: shareId } : {}),
         },
         { idempotencyKey: newKey() },
       ),
