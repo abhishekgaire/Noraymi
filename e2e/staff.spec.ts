@@ -4334,3 +4334,134 @@ test("Pay my share: Kevin pays 1 of 12 on the phone and DeskRoom shows it", asyn
     await db.end();
   }
 });
+
+/**
+ * room9_closeout (M4-20; Payment flows · Room close-out; screens N21,
+ * DeskRoom) at desktop size: Present shows #1042 at $618.60 with the $120.00
+ * deposit off and $498.60 to pay; a tap on the front-desk reader (which skips
+ * its tip screen) pays it; the receipt choices follow, and once one is picked
+ * "Room 9 goes to cleaning" and its Board tile is cleaning.
+ */
+test("Close-out on DeskRoom: Room 9's #1042 at $618.60, paid by tap, the receipt, then cleaning", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const check = page.getByRole("region", { name: "#1042" });
+    await expect(check).toContainText("Total$618.60");
+    await expect(check).toContainText("Deposit−$120.00");
+    await expect(check).toContainText("Left to pay$498.60");
+    // Cash is always offered.
+    await expect(page.getByRole("region", { name: "Cash" })).toBeVisible();
+
+    const tap = page.getByRole("region", { name: "Tap at the reader" });
+    await tap.getByLabel("Front desk S710").check();
+    await tap.getByRole("button", { name: "Send $498.60 to the reader" }).click();
+    await expect(tap.getByRole("status")).toHaveText(
+      "Waiting for a tap on the front-desk reader · Cancel",
+    );
+    const ids = await presentCard(request, db, "Front desk S710");
+    await expect(page.getByRole("status").filter({ hasText: /^Paid$/ })).toBeVisible({
+      timeout: 15_000,
+    });
+    const reader = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+      headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.account },
+    });
+    expect(
+      ((await reader.json()) as { action: { process_payment_intent: { process_config: unknown } } })
+        .action,
+    ).toMatchObject({ process_payment_intent: { process_config: { skip_tipping: "true" } } });
+
+    const receipt = page.getByRole("region", { name: "Receipt" });
+    for (const choice of ["Text", "Email", "Print", "No receipt"])
+      await expect(receipt.getByRole("button", { name: choice, exact: true })).toBeVisible();
+    await receipt.getByRole("button", { name: "Print", exact: true }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Room 9 goes to cleaning" }),
+    ).toBeVisible();
+    const state = await db.query<{ state: string }>(
+      `select s.state from room_states s join rooms r on r.id = s.room_id
+        where r.name = 'Room 9' and s.until is null order by s.since desc limit 1`,
+    );
+    expect(state.rows[0]?.state).toBe("cleaning");
+    expect(
+      (await db.query("select count(*)::int as n from print_jobs where kind = 'receipt'")).rows[0]
+        .n,
+    ).toBe(1);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Close-out on Andy's phone (M4-20; Staff note 4): "Tab & close out →" on
+ * Priya R.'s row opens Room 3's tab, no one-tap Done exists, and Room 9's
+ * close-out in Español fits at 390 px with every string in Spanish.
+ */
+test("Close-out on the phone: Tab & close out → from Priya R.'s row, no Done, and Spanish that fits", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.goto("/today");
+    await page
+      .getByRole("list", { name: "Bookings tonight" })
+      .getByRole("listitem")
+      .filter({ hasText: "Priya R." })
+      .click();
+    await page.getByRole("link", { name: "Tab & close out →" }).click();
+    const room3 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 3'"))
+      .rows[0]!.id;
+    await expect(page).toHaveURL(new RegExp(`/room/${room3}$`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 3");
+    await expect(page.getByRole("button", { name: /^Done/ })).toHaveCount(0);
+
+    // Room 9's close-out in Español.
+    await db.query(
+      "update memberships set locale = 'es' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page.reload();
+    await page.getByRole("button", { name: "Presentar la cuenta" }).first().click();
+    const check = page.getByRole("region", { name: "#1042" });
+    await expect(check).toContainText("Por pagar$498.60");
+    await expect(
+      page.getByRole("region", { name: "Pagar con tarjeta en el lector" }),
+    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Efectivo" })).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.query(
+      "update memberships set locale = 'en' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await db.end();
+  }
+});

@@ -1093,3 +1093,22 @@ button.danger {
   width: min(560px, calc(100vw - 32px));
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
+
+/* Close-out (M4-20; Staff screens · rules every staff screen follows): the main actions on the
+   room tab are 52 to 64 px tall, and nothing needs a swipe or a long press. */
+.present button.primary,
+.tap-payment button.primary,
+.cash button.primary,
+.card-on-file button,
+.split button.primary,
+.receipt-step button,
+.sheet .actions .button.primary {
+  min-height: 56px;
+  max-height: 64px;
+  font-size: 1.05rem;
+}
+.receipt-step .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

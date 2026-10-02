@@ -11,6 +11,7 @@ import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
 import { CardOnFile, type OnFile } from "./CardOnFile.js";
+import { ReceiptStep } from "./ReceiptStep.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { CutOffRoom } from "./CutOff.js";
@@ -63,6 +64,18 @@ interface PaidLine {
   readonly share_no: number | null;
   readonly shares: number | null;
 }
+/** The presented check (M4-20): what close-out works from. */
+interface Presented {
+  readonly label: string;
+  readonly revision: number;
+  readonly subtotal_cents: number;
+  readonly tax_cents: number;
+  readonly gratuity_cents: number;
+  readonly total_cents: number;
+  readonly deposit_cents: number;
+}
+/** Lines finalize works out (room time, tax, gratuity): the tab shows them as totals, not as items. */
+const COMPUTED = new Set(["room_time", "min_spend", "tax", "gratuity"]);
 interface Line {
   readonly id: number;
   readonly kind: string;
@@ -100,9 +113,12 @@ export function RoomScreen() {
   const [split, setSplit] = useState<Split | null>(null);
   const [onFile, setOnFile] = useState<OnFile | null>(null);
   const [paidLines, setPaidLines] = useState<readonly PaidLine[]>([]);
-  // A card on file waiting for the guest (M4-17): paid elsewhere, the room is released before this
-  // screen's panel hears it, so the screen reads the payment once when the session is gone.
-  const onFilePayment = useRef<string | null>(null);
+  const [presented, setPresented] = useState<Presented | null>(null);
+  // The session's check, kept after the room is released: paid in full (on this screen or elsewhere,
+  // by a guest's phone or a card on file), the room goes to cleaning before a panel hears it, so the
+  // screen reads the check once when the session is gone and offers the receipt (M4-20).
+  const lastCheck = useRef<string | null>(null);
+  const [paidCheck, setPaidCheck] = useState<string | null>(null);
   const paidWords = useRef("");
   paidWords.current = t("pay.paid");
   const [share, setShare] = useState<Share | null>(null);
@@ -129,16 +145,18 @@ export function RoomScreen() {
             ? api<{
                 lines: Line[];
                 pending_fixes: PendingFix[];
-                check?: { status: string };
                 amount_due_cents?: number;
                 split?: Split | null;
                 on_file?: OnFile | null;
                 payments?: PaidLine[];
+                deposit_cents?: number;
+                check?: { status: string; label?: string };
+                totals?: Omit<Presented, "label" | "deposit_cents"> | null;
               }>("GET", `/v1/venues/${venueId}/checks/${r.session.check_id}`)
             : Promise.resolve({
                 lines: [] as Line[],
                 pending_fixes: [] as PendingFix[],
-                check: undefined as { status: string } | undefined,
+                check: undefined as { status: string; label?: string } | undefined,
                 amount_due_cents: 0,
               }),
         ]);
@@ -149,17 +167,37 @@ export function RoomScreen() {
         setDueCents(check.amount_due_cents ?? 0);
         setSplit(("split" in check ? check.split : null) ?? null);
         setPaidLines(("payments" in check ? check.payments : null) ?? []);
+        const status = check.check?.status;
+        setPresented(
+          status &&
+            ["finalized", "partly_paid", "paid"].includes(status) &&
+            "totals" in check &&
+            check.totals
+            ? {
+                ...check.totals,
+                label: check.check?.label ?? "",
+                deposit_cents: ("deposit_cents" in check ? check.deposit_cents : 0) ?? 0,
+              }
+            : null,
+        );
         const file = ("on_file" in check ? check.on_file : null) ?? null;
         setOnFile(file);
-        if (file?.payment_id) onFilePayment.current = file.payment_id;
+        lastCheck.current = r.session.check_id;
+        if (check.check?.status === "paid") setPaidCheck(r.session.check_id);
       } else {
         setLines([]);
         setStartedAt(null);
-        const waited = onFilePayment.current;
-        onFilePayment.current = null;
-        if (waited) {
-          const p = await api<{ state: string }>("GET", `/v1/venues/${venueId}/payments/${waited}`);
-          if (p.state === "paid") setDone(paidWords.current);
+        const last = lastCheck.current;
+        lastCheck.current = null;
+        if (last) {
+          const c = await api<{ check: { status: string } }>(
+            "GET",
+            `/v1/venues/${venueId}/checks/${last}`,
+          );
+          if (c.check.status === "paid") {
+            setDone(paidWords.current);
+            setPaidCheck(last);
+          }
         }
       }
       setFailed(false);
@@ -277,6 +315,7 @@ export function RoomScreen() {
         </p>
       )}
       {cashTaken && <CashResult venueId={venueId} taken={cashTaken} />}
+      {paidCheck && <ReceiptStep venueId={venueId} checkId={paidCheck} roomName={room.name} />}
       {sheet === "move" && s && (
         <MoveSheet
           venueId={venueId}
@@ -335,12 +374,14 @@ export function RoomScreen() {
             <dl>
               <dt>{t("room.roomTime")}</dt>
               <dd>{money(s.room_time_cents as never)}</dd>
-              {lines.map((l) => (
-                <div key={l.id} className="tab-line">
-                  <dt>{l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}</dt>
-                  <dd>{money(l.amount_cents as never)}</dd>
-                </div>
-              ))}
+              {lines
+                .filter((l) => !COMPUTED.has(l.kind))
+                .map((l) => (
+                  <div key={l.id} className="tab-line">
+                    <dt>{l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}</dt>
+                    <dd>{money(l.amount_cents as never)}</dd>
+                  </div>
+                ))}
               <dt>{t("room.drinks")}</dt>
               <dd>{money(drinks as never)}</dd>
               <dt>
@@ -357,6 +398,37 @@ export function RoomScreen() {
               </p>
             )}
           </section>
+          {presented && (
+            <section className="presented" aria-label={presented.label}>
+              <h2>{presented.label}</h2>
+              <dl>
+                <dt>{t("receipt.subtotal")}</dt>
+                <dd>{money(presented.subtotal_cents as never)}</dd>
+                <dt>{t("closeOut.tax")}</dt>
+                <dd>{money(presented.tax_cents as never)}</dd>
+                <dt>{t("closeOut.gratuity")}</dt>
+                <dd>{money(presented.gratuity_cents as never)}</dd>
+                <dt>
+                  <strong>{t("receipt.total")}</strong>
+                </dt>
+                <dd>
+                  <strong>{money(presented.total_cents as never)}</strong>
+                </dd>
+                {presented.deposit_cents > 0 && (
+                  <>
+                    <dt>{t("receipt.deposit")}</dt>
+                    <dd>−{money(presented.deposit_cents as never)}</dd>
+                  </>
+                )}
+                <dt>
+                  <strong>{t("receipt.due")}</strong>
+                </dt>
+                <dd>
+                  <strong>{money(dueCents as never)}</strong>
+                </dd>
+              </dl>
+            </section>
+          )}
           {s.check_id &&
             checkStatus &&
             signedIn?.membership.permissions.includes("payments.take") && (
@@ -426,9 +498,6 @@ export function RoomScreen() {
                 checkId={s.check_id}
                 dueCents={dueCents}
                 card={onFile}
-                onStarted={(id) => {
-                  onFilePayment.current = id;
-                }}
                 onDone={() => {
                   setDone(t("pay.paid"));
                   void load();

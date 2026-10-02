@@ -6,6 +6,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
+import { Link } from "react-router";
 
 /**
  * The staff phone's Tonight (M2-32; screens Staff): tonight's bookings in time
@@ -215,6 +216,12 @@ export function PhoneTonight() {
                   {t("phone.roomReady")}
                 </button>
               )}
+            {/* "Tab & close out →" opens the room tab (Staff note 4): never a one-tap Done. */}
+            {open.status === "checked_in" && roomOf(open)?.session && (
+              <Link className="button primary" to={`/room/${roomOf(open)!.room_id}`}>
+                {t("room.open")}
+              </Link>
+            )}
             {open.status === "checked_in" && roomOf(open)?.session && !roomOf(open)?.next && (
               <button
                 type="button"
