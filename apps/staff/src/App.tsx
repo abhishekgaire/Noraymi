@@ -16,6 +16,7 @@ import { Runs } from "./screens/Runs.js";
 import { ChimeLoop } from "./chime.js";
 import { Phone } from "./screens/admin/Phone.js";
 import { Payments } from "./screens/admin/Payments.js";
+import { DisputesScreen } from "./screens/admin/Disputes.js";
 import { Connections } from "./screens/admin/Connections.js";
 import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
@@ -126,6 +127,7 @@ export function StaffRoutes() {
           <Route path="safety" element={<Safety />} />
           <Route path="alerts" element={<AlertsRules />} />
           <Route path="payments" element={<Payments />} />
+          <Route path="disputes" element={<DisputesScreen />} />
           <Route path="connections" element={<Connections />} />
         </Route>
         <Route path="*" element={<NotFound />} />

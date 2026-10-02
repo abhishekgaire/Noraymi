@@ -99,6 +99,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, $3, 100, 'wall', 1, $4, '2026-09-25', now()) returning id`,
     [v.venueB, paymentB.rows[0]!.id, checkB.rows[0]!.id, v.ownerB],
   );
+  const disputeB = await owner.query<{ id: string }>(
+    `insert into disputes (venue_id, payment_id, stripe_dispute_id, reason, amount_cents, status, opened_at)
+       values ($1, $2, 'dp_wall_b', 'fraudulent', 100, 'needs_response', now()) returning id`,
+    [v.venueB, paymentB.rows[0]!.id],
+  );
   const conversationB = await owner.query<{ id: string }>(
     "insert into conversations (venue_id, phone_e164) values ($1, '+12125550100') returning id",
     [v.venueB],
@@ -207,6 +212,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       paymentId: paymentB.rows[0]!.id,
       splitId: splitB.rows[0]!.id,
       refundId: refundB.rows[0]!.id,
+      disputeId: disputeB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -257,6 +263,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/payments/:paymentId/change": { tendered_cents: 100 },
       "POST /v1/venues/:venueId/payments/:paymentId/approval": { reason: "Guest left" },
       "POST /v1/venues/:venueId/checks/:checkId/receipts": { channel: "print" },
+      "POST /v1/venues/:venueId/disputes/:disputeId/evidence": { note: "wall" },
       "POST /v1/venues/:venueId/checks/:checkId/refunds": {
         parts: [{ payment_id: "00000000-0000-4000-8000-000000000045", amount_cents: 100 }],
         reason: "wall",

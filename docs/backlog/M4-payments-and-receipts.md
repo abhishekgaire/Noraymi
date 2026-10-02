@@ -727,7 +727,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-24 · Open the disputes inbox with its evidence gathered
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-03, M4-19; M2 (files and damage photos)
 - **Spec:** [Stripe setup](../spec/06-stripe-setup.md) step 9; [Data model](../spec/04-data-model.md) (`disputes`, `files`); [API](../spec/08-api.md) (`GET /disputes`, `POST /disputes/{d}/evidence`, `/submit`); [screens: N37](../screens.md#n37-admin--payments-disputes-and-unmatched-payments)
@@ -738,12 +738,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `charge.dispute.closed`, `funds_withdrawn` and `funds_reinstated` update the item and are kept for the journal, which M7 posts.
   - Admin → Disputes, for owners and managers in a passkey session: the inbox with each deadline, the evidence gathered, and Submit.
 - **Acceptance:**
-  - [ ] A sandbox room-check payment on Stripe's dispute test card (4000 0000 0000 0259) opens a dispute that shows in the inbox with its due date, and with the receipt PDF, the clock times, the booking's accepted policy (where there is one), any damage photos and who served already attached.
-  - [ ] Submit sends the evidence to Stripe, and the item shows it was submitted.
-  - [ ] Maya and Diego can't open the inbox.
-  - [ ] `charge.dispute.closed` marks it won or lost, and funds withdrawn and reinstated are recorded with their amounts.
+  - [x] A sandbox room-check payment on Stripe's dispute test card (4000 0000 0000 0259) opens a dispute that shows in the inbox with its due date, and with the receipt PDF, the clock times, the booking's accepted policy (where there is one), any damage photos and who served already attached.
+  - [x] Submit sends the evidence to Stripe, and the item shows it was submitted.
+  - [x] Maya and Diego can't open the inbox.
+  - [x] `charge.dispute.closed` marks it won or lost, and funds withdrawn and reinstated are recorded with their amounts.
 - **Tests:** sandbox integration with the dispute test card; webhook replays; principal suite.
 - **Notes:** Closes GA-S10. Bookings made by staff before M5 carry no accepted policy, so their disputes go without that piece.
+  - **Built (M4-24):** migration 0066 (`disputes`, `dispute_funds`); `apps/api/src/payments/disputes.ts`; `GET /disputes`, `POST /disputes/{d}/evidence { note }`, `POST /disputes/{d}/submit` (owners and managers, passkey session only); Admin → Disputes (a new Admin section, since Admin → Payments is the owner's).
+  - `charge.dispute.created` reads the dispute from Stripe and opens the item once, with its evidence gathered from our rows: the check's receipt (#1042), the room clock (each segment: room, start and end in New York time, guests, rate), the booking's accepted policy (version, time, IP, browser; none before M5), damage photos (their file ids), and who accepted and delivered each order with the times. Submit, before the deadline, renders the receipt to a PDF (Chromium, as the menu PDF) and uploads it and the first damage photo through Stripe's Files API (`purpose=dispute_evidence`, multipart to files.stripe.com), sends the rest as text (and the policy as `refund_policy_disclosure`), and submits, each write keyed by the dispute. `charge.dispute.closed` reads Stripe and marks it won or lost; `funds_withdrawn` and `funds_reinstated` are kept once each (keyed by Stripe's event) with their amounts for M7's journal.
+  - **Simplified:** the gathered evidence lives on the dispute row (the receipt and photo are turned into files at Submit), rather than as `files` rows made when the dispute opens; nothing is lost, and Submit always sends the current receipt.
+  - **For the founder / sandbox:** the restricted payments key needs Files (write) and Disputes (write) permissions for this to work on the real sandbox; check them in the Stripe Dashboard before the M4-29 drill. Bar tab evidence (order times, the tip picked) joins with M6.
+  - Tests: `apps/api/src/routes/disputes.int.test.ts` (Room 9's balance paid with the fake's dispute test card `pm_card_createDispute` (4000 0000 0000 0259); the item opens once with its due date, receipt, clock times and who served and no policy; Maya and Diego refused; a note, Submit with a real PDF and the evidence at Stripe, a second Submit refused; funds withdrawn twice kept once, reinstated, closed as won); `e2e/staff.spec.ts` "Disputes inbox" (Admin → Disputes on #1042). Not yet run on the real sandbox.
+
 
 ### M4-25 · Build the card-fee engine, off at West 4
 

@@ -28,6 +28,7 @@ const ADMIN_SECTIONS = [
   "/admin/safety",
   "/admin/connections",
   "/admin/payments",
+  "/admin/disputes",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -4591,6 +4592,44 @@ test("Party size down on the Board: Room 9's one guest fewer waits for Abhishek 
       "select kind, status from approvals where kind = 'party_size_down'",
     );
     expect(asked.rows).toEqual([{ kind: "party_size_down", status: "pending" }]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Payments · Disputes (M4-24; screens N37): a dispute on Room 9's
+ * check shows its deadline and the evidence already gathered.
+ */
+test("Disputes inbox: a dispute on #1042 shows its deadline and the evidence gathered", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      `insert into disputes (venue_id, check_id, stripe_dispute_id, reason, amount_cents, status, due_by, evidence, opened_at)
+       select k.venue_id, k.id, 'dp_e2e', 'fraudulent', 49860, 'needs_response', '2026-10-02T23:59:59Z',
+              jsonb_build_object('receipt', jsonb_build_object('check_id', k.id, 'number', '#1042'),
+                'clock', jsonb_build_array('Room 9 · 8:00 PM to close-out'), 'policy', null,
+                'damage_photos', '[]'::jsonb, 'served', jsonb_build_array('2 × Chamisul Fresh'), 'note', null),
+              now()
+         from checks k where k.id = (select row_id from seed_ids where slug = 'chk_room9')`,
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/disputes");
+    const inbox = page.getByRole("region", { name: "Disputes" });
+    const item = inbox.getByRole("listitem", { name: "Disputed $498.60" });
+    await expect(item).toContainText("Answer by");
+    await expect(item).toContainText("Receipt for check #1042");
+    await expect(item).toContainText("Room clock times (1)");
+    await expect(item).toContainText("No accepted policy on this booking");
+    await expect(item).toContainText("Who served (1 orders)");
+    await expect(item.getByRole("button", { name: "Submit the evidence" })).toBeVisible();
   } finally {
     await db.end();
   }

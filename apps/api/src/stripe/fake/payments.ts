@@ -19,6 +19,8 @@ const TEST_CARDS: Record<string, { brand: string; last4: string }> = {
   pm_card_chargeCustomerFail: { brand: "visa", last4: "0341" },
   // 4000 0000 0000 5126: pays, then any refund fails (M4-21).
   pm_card_refundFail: { brand: "visa", last4: "5126" },
+  // 4000 0000 0000 0259: pays, then the cardholder's bank disputes it (M4-24).
+  pm_card_createDispute: { brand: "visa", last4: "0259" },
 };
 
 const needAccount = (account: string | null): string => {
@@ -282,8 +284,63 @@ fakeRouteSets.push((fake) => {
       payment_method: pm,
     });
     fake.emit("connect", "payment_intent.succeeded", pi, account);
+    // The dispute test card: the bank disputes it, with 7 days to answer.
+    if (pm === "pm_card_createDispute") {
+      const dispute = fake.put({
+        id: fakeId("dp"),
+        object: "dispute",
+        _account: account,
+        amount: pi["amount"],
+        currency: "usd",
+        reason: "fraudulent",
+        status: "needs_response",
+        payment_intent: pi["id"],
+        charge: charge["id"],
+        evidence: {},
+        evidence_details: {
+          due_by: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
+          submission_count: 0,
+        },
+      });
+      setTimeout(
+        () => fake.emit("connect", "charge.dispute.created", dispute, account),
+        0,
+      ).unref?.();
+    }
     return { body: pi };
   });
+
+  // Disputes (M4-24): read, and the evidence (submit=true sends it for review).
+  fake.route("GET", "/v1/disputes/:id", (req) => ({
+    body: fake.get(req.params["id"]!, needAccount(req.account), "dispute"),
+  }));
+  fake.route("POST", "/v1/disputes/:id", (req) => {
+    const dispute = fake.get(req.params["id"]!, needAccount(req.account), "dispute");
+    if (dispute["status"] !== "needs_response" && dispute["status"] !== "warning_needs_response")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "dispute_already_submitted",
+        "This dispute is already under review.",
+      );
+    dispute["evidence"] = {
+      ...(dispute["evidence"] as object),
+      ...((req.body["evidence"] as object) ?? {}),
+    };
+    if (req.body["submit"] === "true") {
+      dispute["status"] = "under_review";
+      (dispute["evidence_details"] as Record<string, unknown>)["submission_count"] = 1;
+    }
+    return { body: dispute };
+  });
+  fake.route("POST", "/v1/files", (req) => ({
+    body: fake.put({
+      id: fakeId("file"),
+      object: "file",
+      _account: needAccount(req.account),
+      purpose: "dispute_evidence",
+    }),
+  }));
 
   // Refunds (M4-21): pending first; Stripe then says succeeded (refund.updated) or, on the refund-fail
   // test card, failed (refund.failed). The event goes out after the answer, as Stripe's does.

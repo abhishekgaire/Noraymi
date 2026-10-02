@@ -289,9 +289,11 @@ export class FakeStripe {
       const body =
         raw === ""
           ? {}
-          : (req.headers["content-type"] ?? "").includes("application/json")
-            ? (JSON.parse(raw) as Record<string, unknown>)
-            : formDecode(raw);
+          : (req.headers["content-type"] ?? "").includes("multipart/form-data")
+            ? { _multipart: true }
+            : (req.headers["content-type"] ?? "").includes("application/json")
+              ? (JSON.parse(raw) as Record<string, unknown>)
+              : formDecode(raw);
       const query = formDecode(url.search.slice(1));
       const found = this.routes.find((r) => r.method === method && r.pattern.test(path));
       if (!found)

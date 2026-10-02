@@ -892,6 +892,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "message_templates",
       "webhook_events",
       "integrations",
+      "dispute_funds",
+      "disputes",
       "refunds",
       "receipts",
       "pay_links",

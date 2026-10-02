@@ -30,6 +30,13 @@ export interface StripeCall {
   readonly version?: string;
   /** Platform calls (making a venue's account) run on our account with the payments key. */
   readonly platform?: boolean;
+  /** A file for Stripe's Files API (dispute evidence, M4-24): sent multipart to Stripe's files host. */
+  readonly file?: {
+    readonly purpose: string;
+    readonly filename: string;
+    readonly contentType: string;
+    readonly data: Uint8Array;
+  };
 }
 
 /** Stripe answered with an error: a decline, a bad request, a key without the permission. */
@@ -160,9 +167,23 @@ export class StripeClient {
     };
     if (call.account) headers["stripe-account"] = call.account;
     if (call.idempotencyKey) headers["idempotency-key"] = call.idempotencyKey;
-    let url = `${this.settings.apiBase}${path}`;
-    let body: string | undefined;
-    if (method === "GET" || method === "DELETE") {
+    // Stripe takes files at files.stripe.com; the fake takes them at its own address.
+    const filesBase =
+      this.settings.apiBase === "https://api.stripe.com"
+        ? "https://files.stripe.com"
+        : this.settings.apiBase;
+    let url = `${call.file ? filesBase : this.settings.apiBase}${path}`;
+    let body: string | FormData | undefined;
+    if (call.file) {
+      const form = new FormData();
+      form.set("purpose", call.file.purpose);
+      form.set(
+        "file",
+        new Blob([Buffer.from(call.file.data)], { type: call.file.contentType }),
+        call.file.filename,
+      );
+      body = form;
+    } else if (method === "GET" || method === "DELETE") {
       const q = new URLSearchParams(formEncode(call.params ?? {})).toString();
       if (q) url += `${url.includes("?") ? "&" : "?"}${q}`;
     } else if (v2) {
