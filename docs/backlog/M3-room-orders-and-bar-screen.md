@@ -269,7 +269,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-10 · Add the running bill, Call staff and the host lock to the room page
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-20, M3-09
 - **Spec:** [Order](../screens.md#order) notes 11, 12 and 13; [API](../spec/08-api.md) · Guest room (`room-session/bill`, `calls`, `lock`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `OrderingSettings`; [Glossary · Host lock, Stay on by the minute](../glossary.md#rooms-time-and-bookings)
@@ -279,12 +279,18 @@ Definition of done: see CLAUDE.md.
   - Call staff: `POST /v1/public/room-session/calls` with another mic, TV, check or other; the guest reads "Staff get it on their phones".
   - The host lock (`POST /v1/public/room-session/lock`, host only): friends can see the menu but can't send orders, and read that Marcus has locked ordering. A new session starts locked or not per `ordering.hostLockDefault`.
 - **Acceptance:**
-  - [ ] Room 9's page reads room time, 161 min, $322.00; drinks on your tab $158.00; tab so far $480.00, before tax and gratuity, at $2.00 a minute for 12, with the $120 deposit coming off when they settle up; the ringing margaritas aren't in it.
-  - [ ] Room 9 reads "Stay on by the minute until we close at 4 AM", and Room 3's page shows the wrap-up message for Jae & co. at 11:00 PM.
-  - [ ] A call for another mic reaches the board and every staff phone's Calls list, and the guest reads "Staff get it on their phones".
-  - [ ] With Marcus's host lock on, a friend's order is refused and their page says Marcus has locked ordering.
+  - [x] Room 9's page reads room time, 161 min, $322.00; drinks on your tab $158.00; tab so far $480.00, before tax and gratuity, at $2.00 a minute for 12, with the $120 deposit coming off when they settle up; the ringing margaritas aren't in it.
+  - [x] Room 9 reads "Stay on by the minute until we close at 4 AM", and Room 3's page shows the wrap-up message for Jae & co. at 11:00 PM.
+  - [x] A call for another mic reaches the board and every staff phone's Calls list, and the guest reads "Staff get it on their phones".
+  - [x] With Marcus's host lock on, a friend's order is refused and their page says Marcus has locked ordering.
 - **Tests:** Playwright on a phone size; API tests for the lock.
 - **Notes:** Order note 11 replaces "Room 9 lights up on the bar screen with your reason". Minimum spend ("$84 to your minimum") is M4 and off at West 4.
+  - Built: `GET /v1/public/room-session/bill`, `POST …/calls` and `POST …/lock` in `apps/api/src/routes/room-orders.ts`; the host lock on guest orders (`409 ordering_closed`, `details.reason: "host_lock"`) in `placeRoomOrder`; `ordering.hostLockDefault` read at check-in; the bill, stay or wrap-up line, Call staff and the lock switch on `apps/guest/app/room/room.tsx`; `apps/api/src/routes/room-session.int.test.ts` and the guest Playwright test "tonight so far, the stay and wrap-up lines, Call staff and the host lock".
+  - The bill is the room's tile from the board, so the phone and staff read one number: minutes and room time, drinks on the tab (the check's lines, so ringing orders aren't in it), the tab so far before tax and gratuity, the rate a minute, the party size and the deposit, with the venue's time zone for the stay and wrap-up times.
+  - Wrap-up on the guest's phone reads "The next party has this room at 11 PM · please start wrapping up": it doesn't name the next party (Jae & co.) to the room, a cautious reading of "the wrap-up message for Jae & co." (flagged).
+  - Call staff makes the same room call as the room's other screens (the board, every staff phone's Calls list and a push to everyone), and the guest reads "Staff get it on their phones".
+  - Turning the host lock on also gives the room a new code (M3-08's reading of "the token rotates on a host lock"); the host's own phone keeps its token, and friends' phones take a fresh one and see "Marcus has locked ordering · ask them to send it", with Send disabled. Turning it off changes no code. `room-session` now carries `host_lock` and the host's first name.
+  - The bill is worked out from the whole board on each call; a lighter one-room read can replace it if the room page's refresh shows up in load tests (M8).
 
 ### M3-11 · Add Same again to the room page
 

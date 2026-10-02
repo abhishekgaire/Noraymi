@@ -215,3 +215,74 @@ test("the room page on a phone: order 2 × Margarita · Peach and follow it in t
     await db.end();
   }
 });
+
+/**
+ * Tonight so far, Call staff and the host lock on the room page (M3-10;
+ * screens Order notes 11 to 13): Room 9 reads $322.00 for 161 minutes, $158.00
+ * of drinks and $480.00 so far, with the $120 deposit and "Stay on by the
+ * minute until we close at 4 AM"; Room 3 is asked to wrap up for 11 PM; a call
+ * for another mic reads "Staff get it on their phones"; and with Marcus's
+ * lock on, a friend reads that Marcus has locked ordering.
+ */
+test("the room page on a phone: tonight so far, the stay and wrap-up lines, Call staff and the host lock", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const hostToken = (slug: string) =>
+      createHash("sha256").update(`host-token:${slug}`).digest("base64url").slice(0, 32);
+    const phone = async () =>
+      (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+
+    const marcus = await phone();
+    await marcus.goto(`/r/${hostToken("sess_room9")}`);
+    const bill = marcus.getByRole("region", { name: "Tonight so far" });
+    await expect(bill).toContainText("Room time · 161 min$322.00");
+    await expect(bill).toContainText("Drinks on your tab$158.00");
+    await expect(bill).toContainText("Tab so far$480.00");
+    await expect(bill).toContainText("Before tax and gratuity · $2.00 a minute for 12");
+    await expect(bill).toContainText("Your $120.00 deposit comes off when you settle up");
+    await expect(bill).toContainText("Stay on by the minute until we close at 4 AM");
+    await expect(bill).not.toContainText("Margarita");
+
+    await marcus.getByRole("button", { name: "Another mic" }).click();
+    await expect(marcus.getByText("Staff get it on their phones")).toBeVisible();
+
+    const room3 = await phone();
+    await room3.goto(`/r/${hostToken("sess_room3")}`);
+    await expect(room3.getByRole("region", { name: "Tonight so far" })).toContainText(
+      "The next party has this room at 11 PM · please start wrapping up",
+    );
+    await room3.context().close();
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    const friend = await phone();
+    await friend.goto(`/v/west4karaoke/room/${room9}`);
+    await friend.getByLabel("Room code").fill("KX4M7");
+    await friend.getByRole("button", { name: "Join" }).click();
+    await expect(friend.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+
+    // The switch follows the server: it turns on once the lock is saved.
+    await marcus.getByLabel(/Lock ordering/).click();
+    await expect(marcus.getByLabel(/Lock ordering/)).toBeChecked();
+    await friend.reload();
+    await expect(
+      friend.getByText("Marcus has locked ordering · ask them to send it"),
+    ).toBeVisible();
+    await friend.getByRole("button", { name: "Bud Light · $8.00" }).click();
+    await expect(
+      friend.getByRole("region", { name: "Your order · not sent yet" }).getByRole("button", {
+        name: /^Send/,
+      }),
+    ).toBeDisabled();
+    await friend.context().close();
+    await marcus.context().close();
+  } finally {
+    await db.end();
+  }
+});

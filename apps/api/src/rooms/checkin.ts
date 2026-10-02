@@ -176,8 +176,8 @@ async function seat(ctx: Context, input: SeatInput) {
     const sessionId = (
       await c.query<{ id: string }>(
         `insert into room_sessions (venue_id, room_id, booking_id, party_size, started_at, booked_end_at, business_date,
-           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12) returning id`,
+           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc, host_lock)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13) returning id`,
         [
           input.venueId,
           room.id,
@@ -191,6 +191,9 @@ async function seat(ctx: Context, input: SeatInput) {
           createHash("sha256").update(hostToken).digest("hex"),
           input.guest.id,
           sealRoomCode(code),
+          // A new session starts with the host lock on or off as the venue sets it (M3-10).
+          (await readSetting(c, input.venueId, "ordering", priced.date))?.value.hostLockDefault ??
+            false,
         ],
       )
     ).rows[0]!.id;

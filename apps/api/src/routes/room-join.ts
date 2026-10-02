@@ -297,6 +297,7 @@ export function roomJoinRoutes(
       code: openRoomCode(g.session.room_code_enc),
       is_host: g.is_host,
       host_lock: g.session.host_lock,
+      host_name: g.session.host_name,
       ordering_locked: g.session.ordering_locked,
       rotated,
       moved,

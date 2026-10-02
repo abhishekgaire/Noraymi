@@ -49,6 +49,8 @@ export interface RoomGuestRow {
     readonly ordering_locked: boolean;
     readonly check_id: string | null;
     readonly party_size: number;
+    /** The host's first name, from the session's guest ("Marcus"). */
+    readonly host_name: string | null;
   };
   readonly venue_name: string;
   readonly venue_slug: string;
@@ -77,6 +79,7 @@ export async function roomGuestById(
     ordering_locked: boolean;
     check_id: string | null;
     party_size: number;
+    host_name: string | null;
     venue_name: string;
     venue_slug: string;
   }>(
@@ -84,12 +87,13 @@ export async function roomGuestById(
             to_json(g.alcohol_cut_off_at) #>> '{}' as alcohol_cut_off_at,
             s.room_id as s_room_id, sr.name as s_room_name, s.token_version as s_token_version,
             s.ended_at is not null as s_ended, s.room_code_enc, s.host_lock, s.ordering_locked, s.check_id,
-            s.party_size, v.name as venue_name, v.slug as venue_slug
+            s.party_size, split_part(hg.name, ' ', 1) as host_name, v.name as venue_name, v.slug as venue_slug
        from room_guests g
        join room_sessions s on s.venue_id = g.venue_id and s.id = g.session_id
        join rooms gr on gr.venue_id = g.venue_id and gr.id = g.room_id
        join rooms sr on sr.venue_id = s.venue_id and sr.id = s.room_id
        join venues v on v.id = g.venue_id
+       left join guests hg on hg.venue_id = s.venue_id and hg.id = s.guest_id
       where g.venue_id = $1 and g.id = $2 and g.left_at is null`,
     [venueId, id],
   );
@@ -114,6 +118,7 @@ export async function roomGuestById(
       ordering_locked: row.ordering_locked,
       check_id: row.check_id,
       party_size: row.party_size,
+      host_name: row.host_name,
     },
     venue_name: row.venue_name,
     venue_slug: row.venue_slug,

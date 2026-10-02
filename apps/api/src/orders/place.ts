@@ -190,6 +190,7 @@ export async function placeRoomOrder(
     sessionId: string;
     roomGuestId: string;
     roomId: string;
+    isHost: boolean;
     lines: readonly StaffLine[];
     clientOrderId: string;
     now: Temporal.Instant;
@@ -200,8 +201,13 @@ export async function placeRoomOrder(
     [venueId, input.clientOrderId],
   );
   if (seen.rows[0]) return (await orderById(c, venueId, seen.rows[0].id))!;
-  const s = await c.query<{ check_id: string | null; ordering_locked: boolean; ended: boolean }>(
-    `select check_id, ordering_locked, ended_at is not null as ended from room_sessions
+  const s = await c.query<{
+    check_id: string | null;
+    ordering_locked: boolean;
+    host_lock: boolean;
+    ended: boolean;
+  }>(
+    `select check_id, ordering_locked, host_lock, ended_at is not null as ended from room_sessions
       where venue_id = $1 and id = $2`,
     [venueId, input.sessionId],
   );
@@ -210,6 +216,11 @@ export async function placeRoomOrder(
     throw new ApiError("ordering_closed", "this room isn't taking orders");
   if (session.ordering_locked)
     throw new ApiError("ordering_closed", "your bill is ready · ordering is closed");
+  // The host lock (M3-10): friends see the menu, but only the host sends orders.
+  if (session.host_lock && !input.isHost)
+    throw new ApiError("ordering_closed", "the host has locked ordering", {
+      details: { reason: "host_lock" },
+    });
   const items = await orderItemsFor(c, venueId, input.lines, input.now);
   const clock = await venueClock(c, venueId);
   const orderId = await insertOrder(c, venueId, {

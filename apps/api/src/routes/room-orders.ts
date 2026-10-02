@@ -1,12 +1,23 @@
 import type pg from "pg";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { listOrders, orderById, withVenue, type OrderRow, type RoomGuestRow } from "@west4/db";
+import {
+  emitEvent,
+  listOrders,
+  orderById,
+  withVenue,
+  type OrderRow,
+  type RoomGuestRow,
+} from "@west4/db";
 import { ORDER_STATUSES } from "@west4/rules";
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { placeRoomOrder } from "../orders/place.js";
+import { board } from "../rooms/board.js";
+import { CALL_KINDS, createCall, type CallKind } from "../rooms/calls.js";
+import { newRoomCode } from "../rooms/checkin.js";
+import { roomCodeColumns } from "../rooms/room-code.js";
 import { stepOrder } from "../orders/pipeline.js";
 
 /**
@@ -14,6 +25,9 @@ import { stepOrder } from "../orders/pipeline.js";
  *   GET  /v1/public/room-session/orders               the room's orders tonight, as the guest sees them
  *   POST /v1/public/room-session/orders               { client_order_id, lines }: rings at the bar
  *   POST /v1/public/room-session/orders/{o}/cancel    while ringing or asked to wait, by whoever placed it or the host
+ *   GET  /v1/public/room-session/bill                 tonight so far, before tax and gratuity (M3-10)
+ *   POST /v1/public/room-session/calls                { kind: mic | tv | check | other }: staff get it on their phones
+ *   POST /v1/public/room-session/lock                 { on }: the host lock, host only; turning it on gives the room a new code
  * Statuses come from the server; the page shows them in the glossary's guest words. A phone whose
  * session moved on must call GET /room-session first, which gives it a fresh token.
  */
@@ -107,6 +121,7 @@ export function roomOrderRoutes(
             sessionId: me.session_id,
             roomGuestId: me.id,
             roomId: me.session.room_id,
+            isHost: me.is_host,
             lines: parsed.data.lines,
             clientOrderId: parsed.data.client_order_id,
             now: options.clock.now(),
@@ -141,6 +156,115 @@ export function roomOrderRoutes(
           return { order: guestView(done.order, me) };
         },
       );
+    },
+  );
+
+  /**
+   * Tonight so far (M3-10): the room's tile from the board, so the phone and staff read one number:
+   * room time with its minutes, drinks on the tab, the tab so far before tax and gratuity, the rate
+   * a minute, the deposit, and the stay or wrap-up line. The next party is never named to the room.
+   */
+  app.get("/v1/public/room-session/bill", { config: guest }, async (request) => {
+    const me = currentGuest(request);
+    const now = options.clock.now();
+    const [tiles, venue] = await withVenue(
+      options.pool,
+      { venueId: me.venueId, requestId: request.requestId },
+      (c) =>
+        Promise.all([
+          board(c, me.venueId, now),
+          c.query<{ time_zone: string }>("select time_zone from venues where id = $1", [
+            me.venueId,
+          ]),
+        ]),
+    );
+    const tile = tiles.rooms.find((r) => r.room_id === me.session.room_id);
+    const s = tile?.session;
+    if (!tile || !s)
+      throw new ApiError("not_found", "this room's session has ended", {
+        details: { reason: "ended" },
+      });
+    return {
+      minutes: s.minutes,
+      room_time_cents: s.room_time_cents,
+      drinks_cents: s.tab_so_far_cents - s.room_time_cents,
+      tab_so_far_cents: s.tab_so_far_cents,
+      per_minute_cents: Math.round(s.hourly_cents / 60),
+      party_size: s.party_size,
+      deposit_cents: s.deposit_cents,
+      stay_on_until: s.stay_on_offer ? s.close : null,
+      wrap_up_at: s.wrap_up && tile.next ? tile.next.at : null,
+      time_zone: venue.rows[0]?.time_zone ?? "America/New_York",
+    };
+  });
+
+  const callBody = z.object({ kind: z.enum(CALL_KINDS as [CallKind, ...CallKind[]]) }).strict();
+  app.post<{ Body: unknown }>(
+    "/v1/public/room-session/calls",
+    { config: guest },
+    async (request, reply) => {
+      const parsed = callBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", `kind is one of ${CALL_KINDS.join(", ")}`);
+      const me = currentGuest(request);
+      const call = await withVenue(
+        options.pool,
+        { venueId: me.venueId, requestId: request.requestId },
+        (c) =>
+          createCall(c, me.venueId, {
+            sessionId: me.session_id,
+            kind: parsed.data.kind,
+            now: options.clock.now(),
+          }),
+      );
+      return reply.code(201).send({ call: { id: call.id, kind: call.kind } });
+    },
+  );
+
+  const lockBody = z.object({ on: z.boolean() }).strict();
+  app.post<{ Body: unknown }>(
+    "/v1/public/room-session/lock",
+    { config: guest },
+    async (request) => {
+      const parsed = lockBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { on }");
+      const me = currentGuest(request);
+      if (!me.is_host) throw new ApiError("forbidden", "only the host can lock ordering");
+      await withVenue(
+        options.pool,
+        { venueId: me.venueId, requestId: request.requestId },
+        async (c) => {
+          if (parsed.data.on && !me.session.host_lock) {
+            // Locking gives the room a new code, so a code passed around stops working; joined phones
+            // get a fresh token and the new code on their next call (M3-08).
+            const cols = roomCodeColumns(me.venueId, newRoomCode(me.session.room_name));
+            await c.query(
+              `update room_sessions set host_lock = true, room_code_hash = $3, room_code_enc = $4,
+                  token_version = token_version + 1, wrong_codes = 0
+            where venue_id = $1 and id = $2`,
+              [me.venueId, me.session_id, cols.hash, cols.sealed],
+            );
+            // The host's own phone keeps working without a rejoin.
+            await c.query(
+              "update room_guests set token_version = token_version + 1 where venue_id = $1 and id = $2",
+              [me.venueId, me.id],
+            );
+          } else if (!parsed.data.on) {
+            await c.query(
+              "update room_sessions set host_lock = false where venue_id = $1 and id = $2",
+              [me.venueId, me.session_id],
+            );
+          }
+          await emitEvent(c, {
+            venueId: me.venueId,
+            type: "session.updated",
+            entityId: me.session_id,
+            entityVersion: 0,
+            roomId: me.session.room_id,
+          });
+        },
+      );
+      return { host_lock: parsed.data.on };
     },
   );
 }

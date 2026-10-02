@@ -137,3 +137,32 @@ body {
   gap: 8px;
   min-height: 44px;
 }
+/* Tonight so far, Call staff and the host lock (M3-10). */
+.guest .bill dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin: 0;
+}
+.guest .bill dd {
+  margin: 0;
+  text-align: right;
+}
+.guest .call-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.guest .call-buttons button {
+  min-height: 44px;
+}
+.guest .lock {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 44px;
+}
+.guest .lock small {
+  display: block;
+  opacity: 0.8;
+}

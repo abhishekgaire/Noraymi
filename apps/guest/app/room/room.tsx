@@ -18,7 +18,32 @@ interface RoomSession {
   readonly is_host: boolean;
   readonly moved: { readonly from: string; readonly to: string } | null;
   readonly rotated: boolean;
+  readonly host_lock: boolean;
+  readonly host_name: string | null;
 }
+interface Bill {
+  readonly minutes: number;
+  readonly room_time_cents: number;
+  readonly drinks_cents: number;
+  readonly tab_so_far_cents: number;
+  readonly per_minute_cents: number;
+  readonly party_size: number;
+  readonly deposit_cents: number;
+  readonly stay_on_until: string | null;
+  readonly wrap_up_at: string | null;
+  readonly time_zone: string;
+}
+const CALLS = ["mic", "tv", "check", "other"] as const;
+/** "4 AM" on the hour, "11:05 PM" otherwise, in the venue's zone. */
+const clockTime = (iso: string, timeZone: string) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+  return parts.replace(":00 ", " ");
+};
 interface Option {
   readonly id: string;
   readonly name: string;
@@ -93,6 +118,8 @@ export function RoomPage() {
   const [room, setRoom] = useState<RoomSession | null>(null);
   const [menu, setMenu] = useState<readonly Category[] | null>(null);
   const [orders, setOrders] = useState<readonly GuestOrder[]>([]);
+  const [bill, setBill] = useState<Bill | null>(null);
+  const [called, setCalled] = useState(false);
   const [cart, setCart] = useState<readonly CartLine[]>([]);
   const [choosing, setChoosing] = useState<{
     item: Item;
@@ -107,10 +134,12 @@ export function RoomPage() {
   const clientOrderId = useRef(newOrderId());
 
   const loadOrders = useCallback(async () => {
-    const r = await fetch("/v1/public/room-session/orders", { cache: "no-store" }).catch(
-      () => null,
-    );
+    const [r, b] = await Promise.all([
+      fetch("/v1/public/room-session/orders", { cache: "no-store" }).catch(() => null),
+      fetch("/v1/public/room-session/bill", { cache: "no-store" }).catch(() => null),
+    ]);
     if (r?.ok) setOrders(((await r.json()) as { orders: GuestOrder[] }).orders);
+    if (b?.ok) setBill((await b.json()) as Bill);
   }, []);
   const load = useCallback(async () => {
     const r = await fetch("/v1/public/room-session", { cache: "no-store" }).catch(() => null);
@@ -239,6 +268,22 @@ export function RoomPage() {
       setBusy(false);
     }
   };
+  const call = async (kind: (typeof CALLS)[number]) => {
+    const r = await fetch("/v1/public/room-session/calls", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind }),
+    }).catch(() => null);
+    setCalled(r?.ok === true);
+  };
+  const lock = async (on: boolean) => {
+    await fetch("/v1/public/room-session/lock", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ on }),
+    }).catch(() => null);
+    await load();
+  };
   const cancel = async (orderId: string) => {
     await fetch(`/v1/public/room-session/orders/${orderId}/cancel`, { method: "POST" }).catch(
       () => null,
@@ -273,6 +318,65 @@ export function RoomPage() {
         <p className="notice" role="status">
           {notice}
         </p>
+      )}
+
+      {bill && (
+        <section className="bill" aria-labelledby="bill-h">
+          <h2 id="bill-h">{t("en", "guestRoom.bill")}</h2>
+          <dl>
+            <dt>{t("en", "guestRoom.bill.roomTime", { min: bill.minutes })}</dt>
+            <dd>{money(bill.room_time_cents)}</dd>
+            <dt>{t("en", "guestRoom.bill.drinks")}</dt>
+            <dd>{money(bill.drinks_cents)}</dd>
+            <dt>
+              <strong>{t("en", "guestRoom.bill.total")}</strong>
+            </dt>
+            <dd>
+              <strong>{money(bill.tab_so_far_cents)}</strong>
+            </dd>
+          </dl>
+          <p className="hint">
+            {t("en", "guestRoom.bill.note", {
+              rate: money(bill.per_minute_cents),
+              party: bill.party_size,
+            })}
+          </p>
+          {bill.deposit_cents > 0 && (
+            <p className="hint">
+              {t("en", "guestRoom.bill.deposit", { amount: money(bill.deposit_cents) })}
+            </p>
+          )}
+          {bill.stay_on_until && (
+            <p>
+              {t("en", "guestRoom.stayOn", { time: clockTime(bill.stay_on_until, bill.time_zone) })}
+            </p>
+          )}
+          {bill.wrap_up_at && (
+            <p className="notice">
+              {t("en", "guestRoom.wrapUp", { time: clockTime(bill.wrap_up_at, bill.time_zone) })}
+            </p>
+          )}
+        </section>
+      )}
+
+      {room.is_host ? (
+        <label className="lock">
+          <input
+            type="checkbox"
+            checked={room.host_lock}
+            onChange={(e) => void lock(e.target.checked)}
+          />
+          <span>
+            {t("en", "guestRoom.lock")}
+            <small>{t("en", "guestRoom.lock.hint")}</small>
+          </span>
+        </label>
+      ) : (
+        room.host_lock && (
+          <p className="notice" role="status">
+            {t("en", "guestRoom.locked", { name: room.host_name ?? t("en", "guestRoom.theHost") })}
+          </p>
+        )
       )}
 
       {orders.length > 0 && (
@@ -331,13 +435,29 @@ export function RoomPage() {
             ))}
           </ul>
           {error && <p role="alert">{error}</p>}
-          <button type="button" disabled={busy || count === 0} onClick={() => void send()}>
+          <button
+            type="button"
+            disabled={busy || count === 0 || (room.host_lock && !room.is_host)}
+            onClick={() => void send()}
+          >
             {busy
               ? t("en", "guestRoom.sending")
               : t("en", "guestRoom.send", { count, total: money(total) })}
           </button>
         </section>
       )}
+
+      <section className="calls" aria-labelledby="call-h">
+        <h2 id="call-h">{t("en", "guestRoom.call")}</h2>
+        <div className="call-buttons">
+          {CALLS.map((k) => (
+            <button key={k} type="button" className="secondary" onClick={() => void call(k)}>
+              {t("en", `guestRoom.call.${k}` as MessageKey)}
+            </button>
+          ))}
+        </div>
+        {called && <p role="status">{t("en", "guestRoom.call.sent")}</p>}
+      </section>
 
       <section aria-labelledby="menu-h">
         <h2 id="menu-h">{t("en", "guestRoom.menu")}</h2>
