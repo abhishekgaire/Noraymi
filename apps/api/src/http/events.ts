@@ -139,9 +139,18 @@ export const eventsPlugin = fp(async (app: FastifyInstance, options: EventsOptio
           return;
         }
         const principal = request.principal;
+        // A room tablet hears only the room it's paired to (M3-12), whatever the URL asks for.
         const boundRoom =
           principal.kind === "device" && principal.deviceKind === "room_tablet"
-            ? request.query.room
+            ? ((await request.inVenue(
+                async (c) =>
+                  (
+                    await c.query<{ room_id: string | null }>(
+                      "select room_id from devices where venue_id = $1 and id = $2",
+                      [request.params.venueId, principal.deviceId],
+                    )
+                  ).rows[0]?.room_id,
+              )) ?? "none")
             : principal.kind === "guest"
               ? principal.id
               : undefined;

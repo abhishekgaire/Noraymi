@@ -14,6 +14,7 @@ import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { placeRoomOrder, sameAgainRounds } from "../orders/place.js";
+import { roomGuestOf } from "../rooms/room-guest.js";
 import { board } from "../rooms/board.js";
 import { CALL_KINDS, createCall, type CallKind } from "../rooms/calls.js";
 import { newRoomCode } from "../rooms/checkin.js";
@@ -46,11 +47,13 @@ const orderBody = z
   .object({ client_order_id: z.string().min(8).max(64), lines: z.array(line).min(1).max(30) })
   .strict();
 
-/** The joined guest, current: the session still open and the token at its version. */
-function currentGuest(request: FastifyRequest): RoomGuestRow & { venueId: string } {
-  const g = request.roomGuest;
-  if (!g || request.principal.kind !== "guest")
-    throw new ApiError("unauthorized", "join the room first");
+/** The joined guest or tablet, current: the session still open and the token at its version. */
+async function currentGuest(
+  request: FastifyRequest,
+  pool: pg.Pool,
+  clock: Clock,
+): Promise<RoomGuestRow & { venueId: string }> {
+  const g = await roomGuestOf(request, pool, clock.now());
   if (g.session.ended)
     throw new ApiError("not_found", "this room's session has ended", {
       details: { reason: "ended" },
@@ -59,7 +62,7 @@ function currentGuest(request: FastifyRequest): RoomGuestRow & { venueId: string
     throw new ApiError("session_expired", "the room has a new code; open the room page again", {
       details: { reason: "rotated" },
     });
-  return { ...g, venueId: request.principal.venueId };
+  return g;
 }
 
 /** An order as the guest's phone shows it: no staff ids, whether it's theirs, and whether they may cancel it. */
@@ -88,14 +91,14 @@ export function roomOrderRoutes(
   options: { pool: pg.Pool; clock: Clock },
 ): void {
   const guest = route({
-    principals: ["guest_room"],
+    principals: ["guest_room", "room_tablet"],
     module: "room_ordering",
     idempotency: "none",
     tokenRoute: true,
   });
 
   app.get("/v1/public/room-session/orders", { config: guest }, async (request) => {
-    const me = currentGuest(request);
+    const me = await currentGuest(request, options.pool, options.clock);
     const orders = await withVenue(
       options.pool,
       { venueId: me.venueId, requestId: request.requestId },
@@ -114,7 +117,7 @@ export function roomOrderRoutes(
           "invalid_request",
           parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
         );
-      const me = currentGuest(request);
+      const me = await currentGuest(request, options.pool, options.clock);
       const order = await withVenue(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
@@ -137,7 +140,7 @@ export function roomOrderRoutes(
     "/v1/public/room-session/orders/:orderId/cancel",
     { config: guest },
     async (request) => {
-      const me = currentGuest(request);
+      const me = await currentGuest(request, options.pool, options.clock);
       if (!id.safeParse(request.params.orderId).success)
         throw new ApiError("not_found", "no such order");
       return withVenue(
@@ -167,7 +170,7 @@ export function roomOrderRoutes(
    * a minute, the deposit, and the stay or wrap-up line. The next party is never named to the room.
    */
   app.get("/v1/public/room-session/bill", { config: guest }, async (request) => {
-    const me = currentGuest(request);
+    const me = await currentGuest(request, options.pool, options.clock);
     const now = options.clock.now();
     const [tiles, venue] = await withVenue(
       options.pool,
@@ -208,7 +211,7 @@ export function roomOrderRoutes(
       const parsed = callBody.safeParse(request.body);
       if (!parsed.success)
         throw new ApiError("invalid_request", `kind is one of ${CALL_KINDS.join(", ")}`);
-      const me = currentGuest(request);
+      const me = await currentGuest(request, options.pool, options.clock);
       const call = await withVenue(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
@@ -230,7 +233,7 @@ export function roomOrderRoutes(
     async (request) => {
       const parsed = lockBody.safeParse(request.body);
       if (!parsed.success) throw new ApiError("invalid_request", "send { on }");
-      const me = currentGuest(request);
+      const me = await currentGuest(request, options.pool, options.clock);
       if (!me.is_host) throw new ApiError("forbidden", "only the host can lock ordering");
       await withVenue(
         options.pool,
@@ -271,7 +274,7 @@ export function roomOrderRoutes(
   );
 
   app.get("/v1/public/room-session/same-again", { config: guest }, async (request) => {
-    const me = currentGuest(request);
+    const me = await currentGuest(request, options.pool, options.clock);
     const rounds = await withVenue(
       options.pool,
       { venueId: me.venueId, requestId: request.requestId },
@@ -288,7 +291,7 @@ export function roomOrderRoutes(
       const parsed = againBody.safeParse(request.body);
       if (!parsed.success)
         throw new ApiError("invalid_request", "send { order_id, client_order_id }");
-      const me = currentGuest(request);
+      const me = await currentGuest(request, options.pool, options.clock);
       const now = options.clock.now();
       const order = await withVenue(
         options.pool,

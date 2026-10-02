@@ -21,6 +21,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { hashRoomCode } from "../rooms/checkin.js";
 import { openRoomCode, rotateForWrongCodes, WRONG_CODES_TO_ROTATE } from "../rooms/room-code.js";
+import { RoomAvailable, roomGuestOf } from "../rooms/room-guest.js";
 
 /**
  * Joining a room (M3-08; screens N3; spec 09 · Joining a room; spec 02 · Guest
@@ -110,7 +111,7 @@ export function roomJoinRoutes(
     tokenRoute: true,
   });
   const guestRoute = route({
-    principals: ["guest_room"],
+    principals: ["guest_room", "room_tablet"],
     module: "room_ordering",
     idempotency: "none",
     tokenRoute: true,
@@ -264,8 +265,14 @@ export function roomJoinRoutes(
   );
 
   app.get("/v1/public/room-session", { config: guestRoute }, async (request, reply) => {
-    const g = request.roomGuest;
-    if (!g) throw new ApiError("unauthorized", "join the room first");
+    let g: RoomGuestRow & { tablet: boolean };
+    try {
+      g = await roomGuestOf(request, options.pool, options.clock.now());
+    } catch (e) {
+      // A tablet between sessions reads "Room available" and takes no orders (M3-12).
+      if (e instanceof RoomAvailable) return { available: true, room: { name: e.roomName } };
+      throw e;
+    }
     if (g.session.ended) {
       setRoomCookie(reply, options.auth, null);
       throw new ApiError("not_found", "this room's session has ended", {
@@ -276,7 +283,7 @@ export function roomJoinRoutes(
     const venueId = (request.principal as { venueId: string }).venueId;
     let moved: { from: string; to: string } | null = null;
     let rotated = false;
-    if (g.token_version !== g.session.token_version) {
+    if (!g.tablet && g.token_version !== g.session.token_version) {
       // The session moved on: a fresh token at its version, in the room it's in now.
       const token = newToken();
       await withVenue(options.pool, { venueId, requestId: request.requestId }, (c) =>
@@ -296,6 +303,8 @@ export function roomJoinRoutes(
       room: { id: g.session.room_id, name: g.session.room_name },
       code: openRoomCode(g.session.room_code_enc),
       is_host: g.is_host,
+      tablet: g.tablet,
+      available: false,
       host_lock: g.session.host_lock,
       host_name: g.session.host_name,
       ordering_locked: g.session.ordering_locked,

@@ -312,7 +312,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-12 · Run the room tablets in kiosk mode
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-15, M3-10
 - **Spec:** [N4 Room tablet (kiosk)](../screens.md#n4-room-tablet-kiosk); [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Room tablet); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Room tablets; [Security and data retention](../spec/12-security-retention.md) 14
@@ -322,12 +322,18 @@ Definition of done: see CLAUDE.md.
   - Each tablet gets its own `room_guests` row for each session, named for the tablet and never the host, so its orders carry a room guest like a phone's and the host lock applies to it.
   - Every tablet action also works from a phone or through staff.
 - **Acceptance:**
-  - [ ] Room 11's tablet shows "Room available" and can't order.
-  - [ ] Room 9's tablet shows the clock and $480.00 so far, and an order from it rings on the bar orders screen.
-  - [ ] Room 4's tablet is off, and Admin reads 13 of 14 tablets online.
-  - [ ] No tablet screen shows a PIN pad or the private help link.
+  - [x] Room 11's tablet shows "Room available" and can't order.
+  - [x] Room 9's tablet shows the clock and $480.00 so far, and an order from it rings on the bar orders screen.
+  - [x] Room 4's tablet is off, and Admin reads 13 of 14 tablets online.
+  - [x] No tablet screen shows a PIN pad or the private help link.
 - **Tests:** Playwright on a tablet size as a paired device; a room-channel filter test.
 - **Notes:** The data model gives a tablet's orders no `room_guest_id`; a room guest row for each tablet is the cautious fit, so the host lock and cut-offs cover the tablet too (flagged). Setting up kiosk mode on the 14 tablets is part of M9's install.
+  - Built: `apps/api/src/rooms/room-guest.ts` (`roomGuestOf`: a phone's cookie or a room tablet's signed request; a tablet gets its own room guest per session, named for the tablet, never the host); the room page routes now take the `room_tablet` principal too; `GET /room-session` answers a tablet between sessions with `{ available: true, room }`; the guest web's `/tablet` page (pair with a code from Admin → Devices, then the room page in kiosk mode; `apps/guest/app/tablet/`); the room page takes a signed or plain caller (`RoomApi`); `apps/api/src/routes/room-tablet.int.test.ts`; the guest Playwright test "room tablets on a tablet".
+  - Security fix found on the way: a tablet's live channel was bound to the room its URL asked for; it's now bound to the room the device is paired to, whatever the URL says (`apps/api/src/http/events.ts`, with the room-channel filter test rewritten around a real paired tablet).
+  - A browser can't sign a WebSocket upgrade, so a tablet refreshes on the page's 10-second timer (the total more often than the minute the ticket asks); phones stay on the live channel.
+  - The tablet's token never rotates: its room guest follows the session's version on every call, so a new code or a move doesn't lock it out. The host lock covers it like a friend (cautious default in the ticket, flagged); cut-offs will too (M3-21).
+  - "Admin reads 13 of 14 tablets online" was already true (Admin → Devices and the Console, both tested); Room 4's tablet is off in the seed.
+  - Kiosk: no PIN pad, no help link and no host lock switch on the tablet, and no "You're in" line. Setting up Guided Access or lock-task mode on the iPads is M9's install.
 
 ### M3-13 · Print tickets to network printers, with failures and reprints
 

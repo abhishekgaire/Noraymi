@@ -20,6 +20,8 @@ interface RoomSession {
   readonly rotated: boolean;
   readonly host_lock: boolean;
   readonly host_name: string | null;
+  /** A tablet between sessions (M3-12). */
+  readonly available?: boolean;
 }
 interface Bill {
   readonly minutes: number;
@@ -120,7 +122,22 @@ const newOrderId = () => `room-${crypto.randomUUID()}`;
 const mustChoose = (item: Item) =>
   item.groups.some((g) => g.required && !g.options.some((o) => o.is_default));
 
-export function RoomPage() {
+/** How the page calls the room routes: a phone's plain fetch with its cookie, or a tablet's signed one. */
+export type RoomApi = (
+  path: string,
+  init?: { method?: string; body?: string },
+) => Promise<Response>;
+const plainApi: RoomApi = (path, init) =>
+  fetch(path, {
+    cache: "no-store",
+    method: init?.method ?? "GET",
+    ...(init?.body ? { body: init.body, headers: { "content-type": "application/json" } } : {}),
+  });
+
+export function RoomPage({
+  api = plainApi,
+  tablet = false,
+}: { api?: RoomApi; tablet?: boolean } = {}) {
   const [room, setRoom] = useState<RoomSession | null>(null);
   const [menu, setMenu] = useState<readonly Category[] | null>(null);
   const [orders, setOrders] = useState<readonly GuestOrder[]>([]);
@@ -142,16 +159,16 @@ export function RoomPage() {
 
   const loadOrders = useCallback(async () => {
     const [r, b, a] = await Promise.all([
-      fetch("/v1/public/room-session/orders", { cache: "no-store" }).catch(() => null),
-      fetch("/v1/public/room-session/bill", { cache: "no-store" }).catch(() => null),
-      fetch("/v1/public/room-session/same-again", { cache: "no-store" }).catch(() => null),
+      api("/v1/public/room-session/orders").catch(() => null),
+      api("/v1/public/room-session/bill").catch(() => null),
+      api("/v1/public/room-session/same-again").catch(() => null),
     ]);
     if (r?.ok) setOrders(((await r.json()) as { orders: GuestOrder[] }).orders);
     if (b?.ok) setBill((await b.json()) as Bill);
     if (a?.ok) setRounds(((await a.json()) as { rounds: Round[] }).rounds);
-  }, []);
+  }, [api]);
   const load = useCallback(async () => {
-    const r = await fetch("/v1/public/room-session", { cache: "no-store" }).catch(() => null);
+    const r = await api("/v1/public/room-session").catch(() => null);
     if (!r) return null;
     if (!r.ok) {
       setGone(r.status === 404 ? "ended" : "out");
@@ -162,9 +179,9 @@ export function RoomPage() {
     if (s.moved) setNotice(t("en", "guestRoom.moved", { room: s.moved.to, code: s.code ?? "" }));
     else if (s.rotated)
       setNotice(t("en", "guestRoom.newCode", { room: s.room.name, code: s.code ?? "" }));
-    await loadOrders();
+    if (!s.available) await loadOrders();
     return s;
-  }, [loadOrders]);
+  }, [api, loadOrders]);
   const loadMenu = useCallback(async (slug: string) => {
     const r = await fetch(`/v1/public/venues/${encodeURIComponent(slug)}/menu`, {
       cache: "no-store",
@@ -175,8 +192,10 @@ export function RoomPage() {
   useEffect(() => {
     let client: EventClient | undefined;
     void load().then((s) => {
-      if (!s) return;
+      if (!s || s.available) return;
       void loadMenu(s.venue.slug);
+      // A tablet can't sign a WebSocket upgrade, so it refreshes on the timer alone (M3-12).
+      if (tablet) return;
       // The room's live channel: order steps, a move or a new code, a menu change.
       client = new EventClient({
         url: `${eventsOrigin()}/v1/venues/${s.venue.id}/events`,
@@ -197,7 +216,7 @@ export function RoomPage() {
       clearInterval(timer);
       client?.stop();
     };
-  }, [load, loadMenu, loadOrders]);
+  }, [load, loadMenu, loadOrders, tablet]);
 
   const add = (item: Item, variant: Variant, optionIds: readonly string[]) => {
     const options = item.groups.flatMap((g) => g.options).filter((o) => optionIds.includes(o.id));
@@ -248,9 +267,8 @@ export function RoomPage() {
     setBusy(true);
     setError(null);
     try {
-      const r = await fetch("/v1/public/room-session/orders", {
+      const r = await api("/v1/public/room-session/orders", {
         method: "POST",
-        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           client_order_id: clientOrderId.current,
           lines: cart.map((l) => ({
@@ -279,9 +297,8 @@ export function RoomPage() {
   };
   const again = async (orderId: string) => {
     setError(null);
-    const r = await fetch("/v1/public/room-session/same-again", {
+    const r = await api("/v1/public/room-session/same-again", {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ order_id: orderId, client_order_id: newOrderId() }),
     }).catch(() => null);
     if (!r?.ok) {
@@ -293,23 +310,21 @@ export function RoomPage() {
     await loadOrders();
   };
   const call = async (kind: (typeof CALLS)[number]) => {
-    const r = await fetch("/v1/public/room-session/calls", {
+    const r = await api("/v1/public/room-session/calls", {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ kind }),
     }).catch(() => null);
     setCalled(r?.ok === true);
   };
   const lock = async (on: boolean) => {
-    await fetch("/v1/public/room-session/lock", {
+    await api("/v1/public/room-session/lock", {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify({ on }),
     }).catch(() => null);
     await load();
   };
   const cancel = async (orderId: string) => {
-    await fetch(`/v1/public/room-session/orders/${orderId}/cancel`, { method: "POST" }).catch(
+    await api(`/v1/public/room-session/orders/${orderId}/cancel`, { method: "POST" }).catch(
       () => null,
     );
     await loadOrders();
@@ -324,6 +339,15 @@ export function RoomPage() {
       </main>
     );
   if (!room) return <main className="guest" aria-busy="true" />;
+  if (room.available)
+    return (
+      <main className="guest room-page available">
+        <h1>{room.room.name}</h1>
+        <p className="big" role="status">
+          {t("en", "guestRoom.available")}
+        </p>
+      </main>
+    );
   const total = cart.reduce((s, l) => s + l.unit_cents * l.qty, 0);
   const count = cart.reduce((s, l) => s + l.qty, 0);
 
@@ -336,7 +360,7 @@ export function RoomPage() {
             ? t("en", "guestRoom.header", { room: room.room.name, code: room.code })
             : room.room.name}
         </h1>
-        <p>{room.is_host ? t("en", "guestRoom.host") : t("en", "guestRoom.friend")}</p>
+        {!tablet && <p>{room.is_host ? t("en", "guestRoom.host") : t("en", "guestRoom.friend")}</p>}
       </header>
       {notice && (
         <p className="notice" role="status">

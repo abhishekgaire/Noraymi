@@ -334,3 +334,69 @@ test("Same again on a phone: Room 3's round for $39.00, ordered again, and witho
     await db.end();
   }
 });
+
+/**
+ * Room tablets in kiosk mode (M3-12; screens N4), paired with codes from
+ * Admin → Devices: Room 11's reads "Room available" and offers nothing to
+ * order; Room 9's shows the clock and $480.00 so far, and an order from it
+ * rings at the bar as the tablet. No tablet shows a PIN pad or a help link.
+ */
+test("room tablets on a tablet: Room 11 available, Room 9's clock, $480.00 and an order", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const pairCode = async (room: string) => {
+      const code = randomBytes(4).toString("hex").toUpperCase();
+      await db.query(
+        `insert into device_pairing_codes (venue_id, code_hash, kind, name, room_id, expires_at)
+         select r.venue_id, $1, 'room_tablet', 'Tablet · ' || r.name, r.id, now() + interval '1 hour'
+           from rooms r where r.name = $2`,
+        [createHash("sha256").update(code).digest("hex"), room],
+      );
+      return code;
+    };
+    const tablet = async (room: string) => {
+      const page = await (
+        await browser.newContext({ viewport: { width: 1024, height: 768 } })
+      ).newPage();
+      await page.goto("/tablet");
+      await page.getByLabel("Pairing code from Admin → Devices").fill(await pairCode(room));
+      await page.getByRole("button", { name: "Pair" }).click();
+      return page;
+    };
+
+    const room11 = await tablet("Room 11");
+    await expect(room11.getByRole("heading", { level: 1 })).toHaveText("Room 11");
+    await expect(room11.getByRole("status")).toHaveText("Room available");
+    await expect(room11.getByRole("main").getByRole("button")).toHaveCount(0);
+    await room11.context().close();
+
+    const room9 = await tablet("Room 9");
+    await expect(room9.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+    const bill = room9.getByRole("region", { name: "Tonight so far" });
+    await expect(bill).toContainText("Room time · 161 min$322.00");
+    await expect(bill).toContainText("Tab so far$480.00");
+    await room9.getByRole("button", { name: "Bud Light · $8.00" }).click();
+    await room9.getByRole("button", { name: "Send 1 to the bar · $8.00" }).click();
+    await expect(
+      room9.locator(".order", { hasText: "1 × Bud Light" }).locator(".status"),
+    ).toHaveText("Sent to the bar · you can still cancel");
+    const rang = await db.query<{ name: string; status: string }>(
+      `select g.name, o.status from orders o join room_guests g on g.id = o.room_guest_id
+        where o.source = 'room' order by o.placed_at desc limit 1`,
+    );
+    expect(rang.rows[0]).toEqual({ name: "Tablet · Room 9", status: "ringing" });
+    // Kiosk: no PIN pad, no private help link, and no host lock switch.
+    await expect(room9.locator(".keypad")).toHaveCount(0);
+    await expect(room9.getByText(/manager, privately/i)).toHaveCount(0);
+    await expect(room9.getByLabel(/Lock ordering/)).toHaveCount(0);
+    await room9.context().close();
+  } finally {
+    await db.end();
+  }
+});

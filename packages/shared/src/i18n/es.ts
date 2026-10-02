@@ -1149,4 +1149,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestRoom.again": "Lo mismo otra vez",
   "guestRoom.again.order": "Pedir esto otra vez",
   "guestRoom.again.without": "Sin {names} · 86 esta noche",
+  // Room tablets in kiosk mode (M3-12).
+  "guestRoom.available": "Sala disponible",
+  "tablet.pair.title": "Vincular esta tableta",
+  "tablet.pair.code": "Código de vinculación de Admin → Dispositivos",
+  "tablet.pair.submit": "Vincular",
+  "tablet.pair.failed": "Ese código no funcionó. Crea uno nuevo en Admin → Dispositivos.",
+  "tablet.pair.wrongKind":
+    "Ese código es para otro tipo de pantalla. Crea un código de tableta de sala en Admin → Dispositivos.",
 };

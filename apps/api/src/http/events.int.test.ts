@@ -1,3 +1,4 @@
+import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import WebSocket from "ws";
@@ -191,10 +192,26 @@ describe("live events", () => {
     s.ws.close();
   });
 
-  it("a socket on Room 9's channel never receives an event for another room", async () => {
-    const roomA = v.venueA.replace(/^.{8}/, "aaaaaaaa"); // any uuid-shaped id
+  it("a room tablet hears only its own room, even when it asks for another (M3-12)", async () => {
+    // A tablet paired to room A; its socket asks for room B and still hears room A alone.
+    const owner = new pg.Client({ connectionString: db.url });
+    await owner.connect();
+    const room = await owner.query<{ id: string }>(
+      "insert into rooms (venue_id, name, size_tier, capacity_min, capacity_max) values ($1, 'Tablet room', 'small', 3, 6) returning id",
+      [v.venueA],
+    );
+    const roomA = room.rows[0]!.id;
     const roomB = v.venueA.replace(/^.{8}/, "bbbbbbbb");
-    const s = await connect(urlTwo, tablet(), `?room=${roomA}`);
+    const device = await owner.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name, room_id) values ($1, 'room_tablet', 'Tablet · A', $2) returning id",
+      [v.venueA, roomA],
+    );
+    await owner.end();
+    const s = await connect(
+      urlTwo,
+      { ...tablet(), deviceId: device.rows[0]!.id } as Principal,
+      `?room=${roomB}`,
+    );
     await s.next((f) => f["type"] === "hello");
     await emit("order.ready", "order-b", roomB);
     await emit("order.ready", "order-a", roomA);

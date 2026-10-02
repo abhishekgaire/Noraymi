@@ -1130,4 +1130,12 @@ export const en = {
   "guestRoom.again": "Same again",
   "guestRoom.again.order": "Order this again",
   "guestRoom.again.without": "Without {names} · 86'd tonight",
+  // Room tablets in kiosk mode (M3-12).
+  "guestRoom.available": "Room available",
+  "tablet.pair.title": "Pair this tablet",
+  "tablet.pair.code": "Pairing code from Admin → Devices",
+  "tablet.pair.submit": "Pair",
+  "tablet.pair.failed": "That code didn't work. Make a new one in Admin → Devices.",
+  "tablet.pair.wrongKind":
+    "That code is for another kind of screen. Make a room tablet code in Admin → Devices.",
 } as const;
