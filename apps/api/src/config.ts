@@ -23,6 +23,8 @@ export interface Config {
   readonly staffAppUrl: string | null;
   /** GUEST_APP_URL: the guest site, where a room's join link opens (M2-11). Local defaults to the Next server. */
   readonly guestAppUrl: string | null;
+  /** PAY_APP_URL: the payment page's own origin (M4-15), where a bill's "Pay another way" opens. */
+  readonly payAppUrl: string | null;
   /** Sign-in (M1-19): the key that seals authenticator secrets, and the passkey relying party. */
   readonly auth: AuthConfig;
   /** The Console's settings, or null where CONSOLE_URL isn't set yet (then the Console's routes don't exist). */
@@ -86,6 +88,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     databaseUrl: appDatabaseUrl(source),
     staffAppUrl: staffAppUrl(env, source),
     guestAppUrl: guestAppUrl(env, source),
+    payAppUrl: payAppUrl(env, source),
     auth: loadAuthConfig(env, source),
     console: loadConsoleConfig(env, source),
     rulePackSigningKey:
@@ -156,6 +159,13 @@ export function loadConsoleConfig(
       "CONSOLE_OIDC_ISSUER, CONSOLE_OIDC_CLIENT_ID and CONSOLE_OIDC_CLIENT_SECRET are not set: the Console needs single sign-on in production",
     );
   return { url, rpId: source["CONSOLE_RP_ID"] ?? new URL(url).hostname, origins: [url], oidc };
+}
+
+function payAppUrl(env: West4Env, source: Record<string, string | undefined>): string | null {
+  const raw = source["PAY_APP_URL"] ?? (env === "local" ? "http://pay.localhost:3001" : undefined);
+  if (!raw) return null;
+  if (!/^https?:\/\//.test(raw)) throw new Error("PAY_APP_URL must be an http(s) URL");
+  return raw.replace(/\/+$/, "");
 }
 
 function guestAppUrl(env: West4Env, source: Record<string, string | undefined>): string | null {

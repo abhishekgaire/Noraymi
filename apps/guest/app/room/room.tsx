@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EventClient, guestOrderWords, t, type MessageKey } from "@west4/shared";
+import { YourBill, type GuestBill } from "../bill/your-bill";
 
 /**
  * The room page on a joined guest's phone (M3-08, M3-09; screens Order notes
@@ -38,6 +39,8 @@ interface Bill {
   readonly stay_on_until: string | null;
   readonly wrap_up_at: string | null;
   readonly time_zone: string;
+  /** After Present (M4-16): the bill itself, with the ways to pay. */
+  readonly presented?: GuestBill | null;
 }
 const CALLS = ["mic", "tv", "check", "other"] as const;
 interface Round {
@@ -176,6 +179,15 @@ export function RoomPage({
     const r = await api("/v1/public/room-session").catch(() => null);
     if (!r) return null;
     if (!r.ok) {
+      // A paid room goes to cleaning and its session ends (M4-16): the phone keeps the paid bill.
+      if (r.status === 404) {
+        const b = await api("/v1/public/room-session/bill").catch(() => null);
+        const paid = b?.ok ? ((await b.json()) as { presented?: GuestBill | null }) : null;
+        if (paid?.presented) {
+          const presented = paid.presented;
+          setBill((prev) => ({ ...(prev as Bill), presented }));
+        }
+      }
       setGone(r.status === 404 ? "ended" : "out");
       return null;
     }
@@ -335,6 +347,18 @@ export function RoomPage({
     await loadOrders();
   };
 
+  if (gone === "ended" && bill?.presented)
+    return (
+      <main className="guest room-page">
+        {room && (
+          <header>
+            <p className="venue">{room.venue.name}</p>
+            <h1>{room.room.name}</h1>
+          </header>
+        )}
+        <YourBill bill={bill.presented} />
+      </main>
+    );
   if (gone)
     return (
       <main className="guest">
@@ -378,43 +402,66 @@ export function RoomPage({
         </p>
       )}
 
-      {bill && (
-        <section className="bill" aria-labelledby="bill-h">
-          <h2 id="bill-h">{t("en", "guestRoom.bill")}</h2>
-          <dl>
-            <dt>{t("en", "guestRoom.bill.roomTime", { min: bill.minutes })}</dt>
-            <dd>{money(bill.room_time_cents)}</dd>
-            <dt>{t("en", "guestRoom.bill.drinks")}</dt>
-            <dd>{money(bill.drinks_cents)}</dd>
-            <dt>
-              <strong>{t("en", "guestRoom.bill.total")}</strong>
-            </dt>
-            <dd>
-              <strong>{money(bill.tab_so_far_cents)}</strong>
-            </dd>
-          </dl>
-          <p className="hint">
-            {t("en", "guestRoom.bill.note", {
-              rate: money(bill.per_minute_cents),
-              party: bill.party_size,
-            })}
-          </p>
-          {bill.deposit_cents > 0 && (
+      {room.ordering_locked && bill?.presented ? (
+        <YourBill
+          bill={bill.presented}
+          {...(tablet
+            ? {}
+            : {
+                payLink: async () => {
+                  const r = await api("/v1/public/room-session/pay-link", { method: "POST" });
+                  return r.ok ? ((await r.json()) as { url: string }).url : null;
+                },
+                payCash: async () =>
+                  (
+                    await api("/v1/public/room-session/calls", {
+                      method: "POST",
+                      body: JSON.stringify({ kind: "check" }),
+                    })
+                  ).ok,
+              })}
+        />
+      ) : (
+        bill && (
+          <section className="bill" aria-labelledby="bill-h">
+            <h2 id="bill-h">{t("en", "guestRoom.bill")}</h2>
+            <dl>
+              <dt>{t("en", "guestRoom.bill.roomTime", { min: bill.minutes })}</dt>
+              <dd>{money(bill.room_time_cents)}</dd>
+              <dt>{t("en", "guestRoom.bill.drinks")}</dt>
+              <dd>{money(bill.drinks_cents)}</dd>
+              <dt>
+                <strong>{t("en", "guestRoom.bill.total")}</strong>
+              </dt>
+              <dd>
+                <strong>{money(bill.tab_so_far_cents)}</strong>
+              </dd>
+            </dl>
             <p className="hint">
-              {t("en", "guestRoom.bill.deposit", { amount: money(bill.deposit_cents) })}
+              {t("en", "guestRoom.bill.note", {
+                rate: money(bill.per_minute_cents),
+                party: bill.party_size,
+              })}
             </p>
-          )}
-          {bill.stay_on_until && (
-            <p>
-              {t("en", "guestRoom.stayOn", { time: clockTime(bill.stay_on_until, bill.time_zone) })}
-            </p>
-          )}
-          {bill.wrap_up_at && (
-            <p className="notice">
-              {t("en", "guestRoom.wrapUp", { time: clockTime(bill.wrap_up_at, bill.time_zone) })}
-            </p>
-          )}
-        </section>
+            {bill.deposit_cents > 0 && (
+              <p className="hint">
+                {t("en", "guestRoom.bill.deposit", { amount: money(bill.deposit_cents) })}
+              </p>
+            )}
+            {bill.stay_on_until && (
+              <p>
+                {t("en", "guestRoom.stayOn", {
+                  time: clockTime(bill.stay_on_until, bill.time_zone),
+                })}
+              </p>
+            )}
+            {bill.wrap_up_at && (
+              <p className="notice">
+                {t("en", "guestRoom.wrapUp", { time: clockTime(bill.wrap_up_at, bill.time_zone) })}
+              </p>
+            )}
+          </section>
+        )
       )}
 
       {room.is_host ? (

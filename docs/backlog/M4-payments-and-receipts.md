@@ -492,7 +492,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-16 · Show "Your bill" on the room page and the booking link
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-08, M4-15; M3 (the room page, tablets, room calls)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#room-close-out) (The guest's bill); [API](../spec/08-api.md) (`GET /v1/public/room-session/bill`); [screens: N5](../screens.md#n5-your-bill), [N4](../screens.md#n4-room-tablet-kiosk), [Order notes 4 and 13](../screens.md#order)
@@ -504,13 +504,23 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The room tablet shows "Your bill is ready · ordering is closed" and no pay buttons.
   - The page follows the room's channel (`check.updated`, `payment.updated`).
 - **Acceptance:**
-  - [ ] Room 9's bill after Present reads room time $322.00, drinks $158.00, tax $42.60, gratuity $96.00, total $618.60, deposit −$120.00 and $498.60 due.
-  - [ ] "Pay cash to staff" is on every bill, and tapping it reaches the Board and every staff phone's Calls list.
-  - [ ] Marcus's booking link shows the same bill as Kevin's room page.
-  - [ ] After Andy reopens #1042 and presents again, the bill shows revision 2.
-  - [ ] The bill passes the WCAG 2.2 AA checks.
+  - [x] Room 9's bill after Present reads room time $322.00, drinks $158.00, tax $42.60, gratuity $96.00, total $618.60, deposit −$120.00 and $498.60 due.
+  - [x] "Pay cash to staff" is on every bill, and tapping it reaches the Board and every staff phone's Calls list.
+  - [x] Marcus's booking link shows the same bill as Kevin's room page.
+  - [x] After Andy reopens #1042 and presents again, the bill shows revision 2.
+  - [x] The bill passes the WCAG 2.2 AA checks.
 - **Tests:** end-to-end on the seed (Room 9's phone, its tablet and Marcus's booking link); accessibility checks (axe) in CI on the bill.
 - **Notes:** The canvas has no bill state, and its "Tonight so far" is before tax and gratuity ([Order note 4](../screens.md#order)). "Pay cash to staff" as a `check` room call is a cautious reading: `room_calls` has a `check` kind and the spec names no other way for the tap to reach staff.
+  - **Built (M4-16):** `apps/api/src/rooms/guest-bill.ts` builds the bill once for every screen: the latest revision's room time, drinks, other lines, tax ("8.875%"), gratuity ("20%"), total, the deposit, each captured payment (by card ··4242, in cash, online, or "Paid by a guest · Kevin (share 1 of 12)"), what's left to pay, and the deposit's card for M4-17. `GET /room-session/bill` carries it as `presented` once the check is presented (null while open or reopened). The room page shows it in place of "Tonight so far"; the tablet shows it with no ways to pay.
+  - Ways to pay in this ticket: "Pay another way" (`POST /room-session/pay-link`, and `/bookings/{token}/pay-link`) makes a pay link for the amount due (good for 60 minutes) and opens the payment page from M4-15. A link opened earlier from the same bill and not paid is cancelled first, at Stripe and here, so two pages can't both take the balance; if Stripe already took it, the cancel records it as paid instead. "Pay cash to staff" is the room call of kind `check` from the room page, and `POST /bookings/{token}/cash` raises the same call from the booking link. "Pay with Amex ··1005" comes with M4-17 and Pay my share with M4-18.
+  - **Paid:** paying in full sends the room to cleaning and ends the session (M4-12). The room's phones still read the paid bill from `/room-session/bill` (`ended: true`, the paid bill only) and show "Paid in full · thank you"; the receipt link joins it in M4-19.
+  - **Live:** payment and check events now carry the room (`roomOfCheck`), so they reach the room's channel and the phones refresh the bill as each payment lands. The booking link has no room channel; it refreshes every 15 seconds.
+  - **The booking link:** migration 0062 adds `resolve_booking_link` (the venue from the token's hash, like pay links). `GET /v1/public/bookings/{token}` answers the minimum the bill needs (venue, first name, party size, start, status, the bill); the guest page is `/b/<token>` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. **Open for M5:** nothing issues booking tokens yet (M5 does when a booking is made), so the tests set Marcus's token directly and the demo has no booking link to open.
+  - Config: `PAY_APP_URL` (the payment page's origin; local default `http://pay.localhost:3001`) is new in `.env.example`; staging needs it with the pay hostname.
+  - Spec: `docs/spec/08-api.md` now lists `/room-session/pay-link`, `/bookings/{token}/pay-link` and `/bookings/{token}/cash`, and says a paid room's phones still read the bill.
+  - Words: the bill's labels are new keys (`yourBill.*`, `bookingLink.*`, English and Spanish). "Left to pay" follows CLAUDE.md's worked example; the glossary has no word for that line yet.
+  - Tests: `apps/api/src/routes/bill.int.test.ts` (Room 9's numbers, the booking link matching, cash calls, revision 2, pay link replacement, paid after the session ends); `e2e/guest.spec.ts` "Your bill" (phone, Board and Calls list, tablet, booking link, revision 2, the payment page for $498.60); `e2e/a11y-guest.spec.ts` (axe on the bill, room page and booking link).
+
 
 ### M4-17 · Charge the card on file with the guest's OK or a manager's approval
 

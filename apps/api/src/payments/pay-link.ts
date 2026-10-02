@@ -111,6 +111,8 @@ export async function openPayLink(
       await setPayLinkPayment(c, venueId, link.id, paymentId);
     }
     const payment = await paymentById(c, venueId, paymentId);
+    // A newer link from the same bill replaced this one (M4-16): its payment was cancelled.
+    if (payment!.status === "canceled") throw notFound();
     let attempt = await latestAttempt(c, venueId, paymentId);
     // After a declined card the guest tries again on the same PaymentIntent: a new attempt.
     if (

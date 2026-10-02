@@ -21,6 +21,7 @@ import { CALL_KINDS, createCall, type CallKind } from "../rooms/calls.js";
 import { newRoomCode } from "../rooms/checkin.js";
 import { roomCodeColumns } from "../rooms/room-code.js";
 import { stepOrder } from "../orders/pipeline.js";
+import { guestBill } from "../rooms/guest-bill.js";
 
 /**
  * Ordering from the room page (M3-09; spec 08 · Guest room):
@@ -29,7 +30,8 @@ import { stepOrder } from "../orders/pipeline.js";
  *   POST /v1/public/room-session/orders/{o}/cancel    while ringing or asked to wait, by whoever placed it or the host
  *   GET  /v1/public/room-session/same-again           the room's delivered rounds, priced from today's menu (M3-11)
  *   POST /v1/public/room-session/same-again           { order_id, client_order_id }: orders a round again; it rings like any order
- *   GET  /v1/public/room-session/bill                 tonight so far, before tax and gratuity (M3-10)
+ *   GET  /v1/public/room-session/bill                 tonight so far, before tax and gratuity (M3-10);
+ *                                                     after Present, `presented` is the bill (M4-16)
  *   POST /v1/public/room-session/calls                { kind: mic | tv | check | other }: staff get it on their phones
  *   POST /v1/public/room-session/lock                 { on }: the host lock, host only; turning it on gives the room a new code
  * Statuses come from the server; the page shows them in the glossary's guest words. A phone whose
@@ -49,7 +51,7 @@ const orderBody = z
   .strict();
 
 /** The joined guest or tablet, current: the session still open and the token at its version. */
-async function currentGuest(
+export async function currentGuest(
   request: FastifyRequest,
   pool: pg.Pool,
   clock: Clock,
@@ -171,18 +173,38 @@ export function roomOrderRoutes(
    * a minute, the deposit, and the stay or wrap-up line. The next party is never named to the room.
    */
   app.get("/v1/public/room-session/bill", { config: guest }, async (request) => {
+    // A paid room goes to cleaning and its session ends (M4-12); its phones still read the paid bill
+    // and its receipt link (M4-16), and nothing else.
+    const joined = await roomGuestOf(request, options.pool, options.clock.now());
+    if (joined.session.ended && joined.token_version === joined.session.token_version) {
+      const checkId = joined.session.check_id;
+      const paid = checkId
+        ? await withVenue(
+            options.pool,
+            { venueId: joined.venueId, requestId: request.requestId },
+            (c) => guestBill(c, joined.venueId, checkId),
+          )
+        : null;
+      if (paid?.status === "paid") return { ended: true, presented: paid };
+    }
     const me = await currentGuest(request, options.pool, options.clock);
     const now = options.clock.now();
-    const [tiles, venue] = await withVenue(
+    const [tiles, venue, presented] = await withVenue(
       options.pool,
       { venueId: me.venueId, requestId: request.requestId },
-      (c) =>
-        Promise.all([
+      async (c) => {
+        const read = await Promise.all([
           board(c, me.venueId, now),
           c.query<{ time_zone: string }>("select time_zone from venues where id = $1", [
             me.venueId,
           ]),
-        ]),
+        ]);
+        // One query at a time on the connection: the bill reads after the board.
+        const bill = me.session.check_id
+          ? await guestBill(c, me.venueId, me.session.check_id)
+          : null;
+        return [...read, bill] as const;
+      },
     );
     const tile = tiles.rooms.find((r) => r.room_id === me.session.room_id);
     const s = tile?.session;
@@ -201,6 +223,8 @@ export function roomOrderRoutes(
       stay_on_until: s.stay_on_offer ? s.close : null,
       wrap_up_at: s.wrap_up && tile.next ? tile.next.at : null,
       time_zone: venue.rows[0]?.time_zone ?? "America/New_York",
+      // Once staff Present the check (M4-16): the bill itself. A tablet shows it with no ways to pay.
+      presented,
     };
   });
 

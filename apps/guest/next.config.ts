@@ -32,6 +32,14 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-store" },
         ],
       },
+      // The guest's booking link (M4-16): its token is in the path.
+      {
+        source: "/b/:token",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
       {
         source: "/room",
         headers: [

@@ -214,3 +214,51 @@ test("the waitlist pages from M2 pass", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(await violations(page)).toEqual([]);
 });
+
+/** Your bill (M4-16) on Room 9's phone and on Marcus's booking link, after Present. */
+test("the bill passes on the room page and the booking link", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const c = db();
+  await c.connect();
+  try {
+    const token = randomBytes(24).toString("base64url");
+    const andy = (
+      await c.query<{ user_id: string; id: string; venue_id: string }>(
+        "select m.user_id, m.id, m.venue_id from memberships m join users u on u.id = m.user_id where u.name like 'Andy%'",
+      )
+    ).rows[0]!;
+    await c.query(
+      `insert into auth_sessions (principal, user_id, membership_id, assurance, client, token_hash, started_at, last_seen_at, expires_at)
+       values ('staff', $1, $2, 'pin', 'web', $3, '2026-09-25T22:41:00-04:00', '2026-09-25T22:41:00-04:00', '2026-09-26T06:00:00-04:00')`,
+      [andy.user_id, andy.id, createHash("sha256").update(token).digest("hex")],
+    );
+    await c.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    const bookingToken = randomBytes(16).toString("base64url");
+    await c.query(
+      "update bookings set manage_token_hash = $1 where id = (select row_id from seed_ids where slug = 'bk_marcus')",
+      [createHash("sha256").update(bookingToken).digest("hex")],
+    );
+    const check = (
+      await c.query<{ id: string }>("select row_id as id from seed_ids where slug = 'chk_room9'")
+    ).rows[0]!.id;
+    expect(
+      (
+        await request.post(`${API}/v1/venues/${andy.venue_id}/checks/${check}/present`, {
+          headers: { authorization: `Bearer ${token}` },
+          data: {},
+        })
+      ).status(),
+    ).toBe(200);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/r/${hostToken("sess_room9")}`);
+    await expect(page.getByRole("region", { name: "Your bill · #1042" })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+    await page.goto(`/b/${bookingToken}`);
+    await expect(page.getByRole("region", { name: "Your bill · #1042" })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+  } finally {
+    await c.end();
+  }
+});

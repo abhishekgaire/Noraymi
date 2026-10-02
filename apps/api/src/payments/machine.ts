@@ -25,6 +25,7 @@ import {
   openAttempt,
   statusOfIntent,
 } from "./state.js";
+import { roomOfCheck } from "../rooms/guest-bill.js";
 
 /**
  * The one function that records what Stripe says about a payment (M4-05):
@@ -131,9 +132,17 @@ export async function applyObservation(
     for (const check of await allocatedChecks(c, venueId, paymentId))
       await settleCheck(c, venueId, check, now);
   if (changed) {
-    await emitEvent(c, { venueId, type: "payment.updated", entityId: paymentId });
-    for (const check of await allocatedChecks(c, venueId, paymentId))
-      await emitEvent(c, { venueId, type: "check.updated", entityId: check });
+    const checks = await allocatedChecks(c, venueId, paymentId);
+    // A room's payments also reach its phones, so "Your bill" shows each one as it lands (M4-16).
+    const roomId = checks[0] ? await roomOfCheck(c, venueId, checks[0]) : undefined;
+    await emitEvent(c, { venueId, type: "payment.updated", entityId: paymentId, roomId });
+    for (const check of checks)
+      await emitEvent(c, {
+        venueId,
+        type: "check.updated",
+        entityId: check,
+        roomId: await roomOfCheck(c, venueId, check),
+      });
   }
   return { changed, payment, attempt };
 }

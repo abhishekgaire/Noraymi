@@ -81,3 +81,14 @@ export async function setPayLinkPayment(
     paymentId,
   ]);
 }
+
+/** The venue behind a booking link's token hash (M4-16), without a venue set (the definer function). */
+export async function venueForBookingToken(
+  c: Queryable,
+  tokenHash: string,
+): Promise<string | null> {
+  const r = await c.query<{ venue: string | null }>("select resolve_booking_link($1) as venue", [
+    tokenHash,
+  ]);
+  return r.rows[0]?.venue ?? null;
+}

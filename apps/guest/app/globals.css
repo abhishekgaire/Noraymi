@@ -166,3 +166,14 @@ body {
   display: block;
   opacity: 0.8;
 }
+
+/* Your bill (M4-16): the ways to pay, one full-width button each. */
+.guest .your-bill .ways {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.guest .your-bill .ways h3 {
+  margin: 0;
+  font-size: 1rem;
+}

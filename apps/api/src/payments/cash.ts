@@ -15,6 +15,7 @@ import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { settleCheck, type Settled } from "../rooms/present.js";
 import { claimShare } from "./splits.js";
+import { roomOfCheck } from "../rooms/guest-bill.js";
 
 /**
  * Cash (M4-13; Money rules 15; Payment flows · Cash). Taken at a screen
@@ -106,7 +107,9 @@ export async function takeCash(
     });
   if (bankId) await addToStaffBank(c, venueId, bankId, input.amountCents + input.tipCents);
   const settled = await settleCheck(c, venueId, input.checkId, input.now);
-  await emitEvent(c, { venueId, type: "payment.updated", entityId: paymentId });
+  const roomId = await roomOfCheck(c, venueId, input.checkId);
+  await emitEvent(c, { venueId, type: "payment.updated", entityId: paymentId, roomId });
+  await emitEvent(c, { venueId, type: "check.updated", entityId: input.checkId, roomId });
   const name =
     (
       await c.query<{ name: string }>(

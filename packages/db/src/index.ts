@@ -474,6 +474,7 @@ export {
   payTokenHash,
   createPayLink,
   venueForPayToken,
+  venueForBookingToken,
   payLinkByHash,
   setPayLinkPayment,
 } from "./pay-links.js";

@@ -505,3 +505,151 @@ test("the payment page: its own origin, strict headers, one PaymentIntent, paid 
     await db.end();
   }
 });
+
+/**
+ * "Your bill" (M4-16; screens N5 and N4) on the seed: after Present, Room 9's
+ * phone reads the bill to the cent, "Pay cash to staff" reaches the Board and
+ * the Calls list, the tablet shows the bill with no way to pay, Marcus's
+ * booking link shows the same bill, a reopen and a second Present show
+ * revision 2, and "Pay another way" opens the payment page for $498.60.
+ */
+test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's booking link", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
+    cwd: "apps/api",
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    },
+  });
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    // Andy's session, made directly so the test can present and reopen through the API.
+    const token = randomBytes(24).toString("base64url");
+    const andy = (
+      await db.query<{ user_id: string; id: string; venue_id: string }>(
+        "select m.user_id, m.id, m.venue_id from memberships m join users u on u.id = m.user_id where u.name like 'Andy%'",
+      )
+    ).rows[0]!;
+    await db.query(
+      `insert into auth_sessions (principal, user_id, membership_id, assurance, client, token_hash, started_at, last_seen_at, expires_at)
+       values ('staff', $1, $2, 'pin', 'web', $3, '2026-09-25T22:41:00-04:00', '2026-09-25T22:41:00-04:00', '2026-09-26T06:00:00-04:00')`,
+      [andy.user_id, andy.id, createHash("sha256").update(token).digest("hex")],
+    );
+    const staff = (method: "get" | "post", path: string) =>
+      request[method](`http://127.0.0.1:3000/v1/venues/${andy.venue_id}${path}`, {
+        headers: { authorization: `Bearer ${token}` },
+        ...(method === "post" ? { data: {} } : {}),
+      });
+    const ids = Object.fromEntries(
+      (
+        await db.query<{ slug: string; id: string }>("select slug, row_id as id from seed_ids")
+      ).rows.map((r) => [r.slug, r.id]),
+    );
+    // The ringing Margarita is cancelled first, so the check can be presented.
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = $1",
+      [ids["order_o1"]],
+    );
+    const bookingToken = randomBytes(16).toString("base64url");
+    await db.query("update bookings set manage_token_hash = $2 where id = $1", [
+      ids["bk_marcus"],
+      createHash("sha256").update(bookingToken).digest("hex"),
+    ]);
+
+    const phone = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    const hostToken = createHash("sha256")
+      .update("host-token:sess_room9")
+      .digest("base64url")
+      .slice(0, 32);
+    await phone.goto(`/r/${hostToken}`);
+    await expect(phone.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+    expect((await staff("post", `/checks/${ids["chk_room9"]}/present`)).status()).toBe(200);
+
+    await expect(phone.getByText("Your bill is ready · ordering is closed")).toBeVisible();
+    const bill = phone.getByRole("region", { name: "Your bill · #1042" });
+    for (const line of [
+      "Room time$322.00",
+      "Drinks$158.00",
+      "Tax (8.875%)$42.60",
+      "Gratuity included (20%)$96.00",
+      "Total$618.60",
+      "Deposit−$120.00",
+      "Left to pay$498.60",
+    ])
+      await expect(bill).toContainText(line);
+
+    await bill.getByRole("button", { name: "Pay cash to staff" }).click();
+    await expect(bill.getByText("Staff are on their way to take your cash")).toBeVisible();
+    const calls = (await (await staff("get", "/calls")).json()) as {
+      calls: { kind: string; room_name?: string }[];
+    };
+    expect(calls.calls.some((c) => c.kind === "check")).toBe(true);
+    const board = (await (await staff("get", "/board")).json()) as {
+      rooms: { room_id: string; calls?: { kind: string }[] }[];
+    };
+    expect(
+      board.rooms.find((r) => r.room_id === ids["room_9"])?.calls?.some((c) => c.kind === "check"),
+    ).toBe(true);
+
+    // The booking link reads the same bill.
+    const link = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    const opened = await link.goto(`/b/${bookingToken}`);
+    expect(opened?.headers()["referrer-policy"]).toBe("no-referrer");
+    const linkBill = link.getByRole("region", { name: "Your bill · #1042" });
+    await expect(linkBill).toContainText("Left to pay$498.60");
+    expect(await linkBill.locator("dl").innerText()).toBe(await bill.locator("dl").innerText());
+    expect((await link.goto("/b/not-a-real-booking-token-0000"))?.status()).toBe(404);
+
+    // Andy reopens and presents again: revision 2.
+    expect((await staff("post", `/checks/${ids["chk_room9"]}/reopen`)).status()).toBe(200);
+    expect((await staff("post", `/checks/${ids["chk_room9"]}/present`)).status()).toBe(200);
+    await phone.reload();
+    await expect(phone.getByRole("region", { name: "Your bill · #1042" })).toContainText(
+      "Revision 2",
+    );
+
+    // Room 9's tablet: the bill, and no way to pay from it.
+    const code = randomBytes(4).toString("hex").toUpperCase();
+    await db.query(
+      `insert into device_pairing_codes (venue_id, code_hash, kind, name, room_id, expires_at)
+       select r.venue_id, $1, 'room_tablet', 'Tablet · ' || r.name, r.id, now() + interval '1 hour'
+         from rooms r where r.name = 'Room 9'`,
+      [createHash("sha256").update(code).digest("hex")],
+    );
+    const tablet = await (
+      await browser.newContext({ viewport: { width: 1024, height: 768 } })
+    ).newPage();
+    await tablet.goto("/tablet");
+    await tablet.getByLabel("Pairing code from Admin → Devices").fill(code);
+    await tablet.getByRole("button", { name: "Pair" }).click();
+    await expect(tablet.getByText("Your bill is ready · ordering is closed")).toBeVisible();
+    await expect(tablet.getByRole("region", { name: "Your bill · #1042" })).toContainText(
+      "Left to pay$498.60",
+    );
+    await expect(tablet.getByRole("button", { name: "Pay another way" })).toHaveCount(0);
+    await expect(tablet.getByRole("button", { name: "Pay cash to staff" })).toHaveCount(0);
+
+    // Pay another way: the payment page on its own origin, for what's left.
+    await phone
+      .getByRole("region", { name: "Your bill · #1042" })
+      .getByRole("button", { name: "Pay another way" })
+      .click();
+    await expect(phone).toHaveURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+    await expect(phone.getByRole("heading", { level: 1 })).toHaveText("Pay $498.60");
+  } finally {
+    await db.end();
+  }
+});
