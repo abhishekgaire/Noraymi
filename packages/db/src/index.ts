@@ -434,6 +434,9 @@ export {
   allocatedChecks,
   setPaymentIntent,
   setPaymentCard,
+  applyDeposits,
+  depositsOn,
+  releaseAllocation,
 } from "./payments.js";
 export type {
   PaymentMethod,

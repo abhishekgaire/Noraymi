@@ -388,3 +388,71 @@ export async function setPaymentCard(
     [venueId, paymentId, card.brand, card.last4, card.funding, card.generatedCard],
   );
 }
+
+/**
+ * Check-in applies the booking's deposit (M4-09; Money rules 11): each captured payment of the booking
+ * that isn't allocated yet goes onto the check, following the check's lines up to its amount, so the
+ * check never shows a negative amount due. Returns the cents applied.
+ */
+export async function applyDeposits(
+  c: Queryable,
+  venueId: string,
+  input: { bookingId: string; checkId: string },
+): Promise<number> {
+  const r = await c.query<{ id: string; amount_cents: string }>(
+    `select p.id, p.amount_cents from payments p
+      where p.venue_id = $1 and p.booking_id = $2 and p.status = 'captured' and p.amount_cents > 0
+        and not exists (select 1 from payment_allocations a where a.venue_id = p.venue_id and a.payment_id = p.id
+                         and a.state <> 'released')
+      order by p.created_at, p.id`,
+    [venueId, input.bookingId],
+  );
+  let applied = 0;
+  for (const p of r.rows) {
+    await allocate(c, venueId, {
+      paymentId: p.id,
+      checkId: input.checkId,
+      amountCents: Number(p.amount_cents),
+      state: "captured",
+      followsLines: true,
+    });
+    applied += Number(p.amount_cents);
+  }
+  return applied;
+}
+
+/** The deposits on a check: each deposit payment's live allocation there (captured, following the lines). */
+export async function depositsOn(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+): Promise<
+  { payment_id: string; allocation_id: string; amount_cents: number; booking_id: string }[]
+> {
+  const r = await c.query<{
+    payment_id: string;
+    allocation_id: string;
+    amount_cents: string;
+    booking_id: string;
+  }>(
+    `select a.payment_id, a.id as allocation_id, a.amount_cents, p.booking_id
+       from payment_allocations a join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
+      where a.venue_id = $1 and a.check_id = $2 and a.state = 'captured' and a.follows_lines
+        and a.kind = 'payment' and p.booking_id is not null
+      order by a.created_at, a.id`,
+    [venueId, checkId],
+  );
+  return r.rows.map((x) => ({ ...x, amount_cents: Number(x.amount_cents) }));
+}
+
+/** Releases one allocation (its money goes elsewhere in the same transaction). */
+export async function releaseAllocation(
+  c: Queryable,
+  venueId: string,
+  allocationId: string,
+): Promise<void> {
+  await c.query(
+    "update payment_allocations set state = 'released' where venue_id = $1 and id = $2 and state <> 'released'",
+    [venueId, allocationId],
+  );
+}

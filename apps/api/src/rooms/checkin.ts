@@ -5,6 +5,7 @@ import {
   addVisualChecks,
   bookingById,
   emitEvent,
+  applyDeposits,
   findOrCreateGuest,
   insertCheck,
   listRooms,
@@ -102,6 +103,17 @@ export async function checkInPreview(
   const from = booking
     ? noShowFrom(booking.starts_at, ctx.graceMin, booking.running_late_until)
     : null;
+  // The deposit the sheet applies (M4-09): the booking's captured deposit payments, once they exist
+  // as payments (online booking, M5; the seed's, M4-10); until then the booking's own figure.
+  const paid = booking
+    ? (
+        await c.query<{ cents: string | null; n: number }>(
+          `select sum(amount_cents)::text as cents, count(*)::int as n from payments
+            where venue_id = $1 and booking_id = $2 and status = 'captured'`,
+          [venueId, booking.id],
+        )
+      ).rows[0]
+    : undefined;
   return {
     booking_id: booking?.id ?? null,
     guest_name: booking?.guest_name ?? null,
@@ -114,7 +126,7 @@ export async function checkInPreview(
     room_id: room.id,
     room_name: room.name,
     room_fits: party <= room.capacity_max,
-    deposit_cents: booking?.deposit_cents ?? 0,
+    deposit_cents: paid && paid.n > 0 ? Number(paid.cents) : (booking?.deposit_cents ?? 0),
     booked_start: booking?.starts_at ?? null,
     booked_end: booking?.ends_at ?? null,
     no_show_from: from?.toString() ?? null,
@@ -264,6 +276,10 @@ async function seat(ctx: Context, input: SeatInput) {
       sessionId,
       checkId,
     ]);
+    // The booking's deposit goes onto the check now (M4-09): before this it was money held for the guest.
+    const depositApplied = input.bookingId
+      ? await applyDeposits(c, input.venueId, { bookingId: input.bookingId, checkId })
+      : 0;
 
     // The Room code text, to the host, with the join link that carries the host token.
     let texted: "queued" | "no_phone" | "not_sent" = "no_phone";
@@ -316,6 +332,7 @@ async function seat(ctx: Context, input: SeatInput) {
       hourly_cents: rate.hourlyCents,
       ids_checked: input.idsChecked,
       text: texted,
+      deposit_applied_cents: depositApplied,
     };
   });
 }

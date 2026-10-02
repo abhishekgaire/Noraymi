@@ -20,6 +20,7 @@ import {
 import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
+import { settleDeposit } from "./deposit.js";
 
 /**
  * Finalizing a check into revisions (M4-07; Data model · the money core;
@@ -273,6 +274,12 @@ export async function finalizeCheck(
     rule_pack_version: worked.rulePackVersion,
     finalizedBy: input.userId,
     finalizedAt: at,
+  });
+  // The deposit against this total: any rest is kept as a forfeit on a fee check (M4-09).
+  await settleDeposit(c, venueId, checkId, {
+    totalCents: worked.totals.totalCents,
+    userId: input.userId,
+    now: input.now,
   });
   const updated = await c.query<{ version: number }>(
     "update checks set revision = $3, version = version + 1 where venue_id = $1 and id = $2 returning version",

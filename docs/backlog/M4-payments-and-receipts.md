@@ -297,7 +297,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-09 · Apply the deposit at check-in and write forfeit lines
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-04, M4-07; M2 (the check-in sheet and `POST /bookings/{b}/check-in`)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 11 and 12; [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online); [screens: N10](../screens.md#n10-check-in-sheet); [money cases](../../seed/money-cases.json) (`deposit_larger_than_check_forfeit`)
@@ -307,12 +307,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The same mechanism writes a kept deposit or a no-show charge as a `fee` check with a `forfeit` line (M5 applies the booking policy).
   - The check-in sheet's deposit step reads from the allocation.
 - **Acceptance:**
-  - [ ] Checking in Sam O. (3 guests, bills as 4) applies his $40.00 deposit, and the sheet shows it applied (−$40).
-  - [ ] Room 9's presented check shows the $120.00 deposit paid and $498.60 left.
-  - [ ] A party that shrank to 8 after the refund cut-off, on a $120.00 deposit, closes at $103.10 with $0.00 left and a $16.90 `forfeit` line on a `fee` check numbered next in sequence.
-  - [ ] No check shows a negative amount due at any point.
+  - [x] Checking in Sam O. (3 guests, bills as 4) applies his $40.00 deposit, and the sheet shows it applied (−$40).
+  - [x] Room 9's presented check shows the $120.00 deposit paid and $498.60 left.
+  - [x] A party that shrank to 8 after the refund cut-off, on a $120.00 deposit, closes at $103.10 with $0.00 left and a $16.90 `forfeit` line on a `fee` check numbered next in sequence.
+  - [x] No check shows a negative amount due at any point.
 - **Tests:** money case `deposit_larger_than_check_forfeit`; integration through M2's check-in route; property test (amount due never negative with a deposit).
 - **Notes:** Whether a kept deposit is taxable, and needs its own check number, is with the accountant (gate); the spec gives it its own `fee` check, and the `fee` category stays untaxed by default (M4-06). The deposit is compared with the check's total, tax and gratuity included (money-cases ambiguity A6).
+  - Built: `applyDeposits`, `depositsOn` and `releaseAllocation` in `packages/db/src/payments.ts`; check-in allocates the booking's captured, unallocated payments to the new check (following its lines) and answers `deposit_applied_cents`; `apps/api/src/rooms/deposit.ts` (`settleDeposit`, run by every finalize); `GET /checks/{c}` carries `deposit_cents` and `amount_due_cents`; the check-in preview's deposit is the booking's captured deposit payments once any exist, the booking's own figure until then (the seed's become payments in M4-10, online booking's in M5).
+  - The forfeit: the deposit is compared with the check's total, tax and gratuity included (ambiguity A6). Allocations never change amount, so when the split changes, the deposit's allocations are released and written again: the room check up to its total, the rest on the `fee` check, whose forfeit lines always add up to what's kept (a later revision that takes more of the deposit writes a negative forfeit line). The fee check takes the next number in the same transaction (no Stripe call there), its `forfeit` line is `fee` (untaxed, M4-06), and it's paid at once from the deposit. Finalizing again with the same total changes nothing.
+  - Kept deposits and no-show charges (M5) use the same fee check and forfeit line.
+  - "No check shows a negative amount due" holds through `amount_due`, which never answers below zero and lets a deposit follow the lines (the property test in `payments.int.test.ts` covers following allocations; this ticket's test checks $0.00 due right after check-in and after the forfeit).
+  - Tests: `apps/api/src/routes/deposit.int.test.ts` (Sam O.'s $40.00 applied at check-in through M2's route, $0.00 due; Room 9 presented with $120.00 paid and $498.60 left; a party of 8 on a $120.00 deposit closes at $103.10, $0.00 due, and a $16.90 forfeit on a paid fee check numbered next, the deposit's allocations adding up to $120.00).
+
 
 ### M4-10 · Load the seed's deposits, checks and drawers into staging
 

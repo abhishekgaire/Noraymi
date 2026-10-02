@@ -1,6 +1,8 @@
 import type pg from "pg";
 import {
+  amountDue,
   checkById,
+  depositsOn,
   emitEvent,
   latestRevision,
   insertCheck,
@@ -97,7 +99,12 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
         total_cents: worked.totals.totalCents,
       };
   }
+  // What's paid and what's left (M4-09): the deposits on it, and the amount due.
+  const deposits = await depositsOn(c, venueId, id);
+  const due = await amountDue(c, id);
   return {
+    deposit_cents: deposits.reduce((sum, d) => sum + d.amount_cents, 0),
+    amount_due_cents: due,
     check: {
       ...found.check,
       label: `#${found.check.number}`,
