@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { loadDemoSeed } from "@west4/db";
-import { createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
+import { randomUUID } from "node:crypto";
+import { loadDemoSeed, withVenue } from "@west4/db";
+import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { SEED_NOW, SimulatedClock, Temporal } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
+import { decide } from "../approvals/service.js";
 import type { Principal } from "../http/principal.js";
 
 /** M2-17 acceptance on the demo seed and the simulated clock. */
@@ -15,6 +17,28 @@ let venueId = "";
 let ids: Record<string, string> = {};
 const clock = new SimulatedClock(SEED_NOW);
 const at = (hhmm: string) => Temporal.Instant.from(`2026-09-25T${hhmm}:00-04:00`);
+/**
+ * A lower party size after the gratuity applies waits for approval (M4-23): Andy asks, Abhishek
+ * approves, and the size changes from that minute; asking for the same size again reads the rate.
+ */
+const lower = async (session: string, size: number) => {
+  const asked = await req("POST", `/sessions/${session}/party-size`, { party_size: size });
+  expect(asked.statusCode, asked.body).toBe(202);
+  const pool = appPool(db.url);
+  try {
+    await withVenue(pool, { venueId }, (c) =>
+      decide(c, venueId, asked.json().approval_id, {
+        decision: "approve",
+        userId: ids["abhishek"]!,
+        deviceId: randomUUID(),
+        at: clock.now(),
+      }),
+    );
+  } finally {
+    await pool.end();
+  }
+  return req("POST", `/sessions/${session}/party-size`, { party_size: size });
+};
 const req = (method: "GET" | "POST", path: string, payload?: unknown) =>
   app.inject({
     method,
@@ -105,7 +129,7 @@ describe("party size", () => {
     expect(checkIn.statusCode, checkIn.body).toBe(201);
     const session = checkIn.json<{ session_id: string }>().session_id;
     clock.set(at("22:50"));
-    const r = await req("POST", `/sessions/${session}/party-size`, { party_size: 2 });
+    const r = await lower(session, 2);
     expect(r.json()).toMatchObject({
       party_size: 2,
       min_guests: 4,
@@ -116,7 +140,7 @@ describe("party size", () => {
 
   it("Bianca L.'s party going from 22 to 19 in the VIP room changes $250.00 to $190.00 an hour from that minute", async () => {
     clock.set(at("22:52").add({ seconds: 30 }));
-    const r = await req("POST", `/sessions/${ids["sess_vip"]}/party-size`, { party_size: 19 });
+    const r = await lower(ids["sess_vip"]!, 19);
     expect(r.json()).toMatchObject({ rate_kind: "per_person", hourly_cents: 19000 });
     const v = await view(ids["sess_vip"]!);
     expect(v.segments.map((s) => s.hourly_cents)).toEqual([25000, 19000]);

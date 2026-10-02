@@ -174,7 +174,9 @@ describe("offering a waiting party a room", () => {
     ]);
     clock.set(SEED_NOW.add({ minutes: 9 }));
     expect(await sweepWaitlistOffers(pool, clock.now(), { allowList: null })).toEqual([]);
-    clock.set(SEED_NOW.add({ minutes: 10, seconds: 1 }));
+    // The clock ticks with real time from the reseed, and the offer was made a moment after it: 30
+    // seconds past the 10 minutes leaves room for a busy machine (it failed under load at 10:01).
+    clock.set(SEED_NOW.add({ minutes: 10, seconds: 30 }));
     expect(await sweepWaitlistOffers(pool, clock.now(), { allowList: null })).toEqual([
       { venueId, expired: [ids["wl_1"]] },
     ]);

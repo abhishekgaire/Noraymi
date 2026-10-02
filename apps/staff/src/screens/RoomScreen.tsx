@@ -248,9 +248,14 @@ export function RoomScreen() {
   const changeParty = async (partySize: number) => {
     if (!room?.session || partySize < 1) return;
     try {
-      await api("POST", `/v1/venues/${venueId}/sessions/${room.session.id}/party-size`, {
-        party_size: partySize,
-      });
+      const r = await api<{ status?: string; waiting_for?: { name: string } }>(
+        "POST",
+        `/v1/venues/${venueId}/sessions/${room.session.id}/party-size`,
+        { party_size: partySize },
+      );
+      // Fewer guests after the gratuity applies waits for a manager (M4-23).
+      if (r.status === "approval_pending" && r.waiting_for)
+        setDone(t("approvals.waitingFor", { name: r.waiting_for.name.split(" ")[0] ?? "" }));
       await load();
     } catch {
       setFailed(true);

@@ -1,6 +1,7 @@
-import { emitEvent, idCounts, listRooms, type Queryable } from "@west4/db";
-import { rateAt, type RoomForRate } from "@west4/rules";
-import type { Temporal } from "@west4/shared";
+import { emitEvent, idCounts, listRooms, readSetting, type Queryable } from "@west4/db";
+import { gratuityApplies, rateAt, type RoomForRate } from "@west4/rules";
+import { Temporal } from "@west4/shared";
+import { executors, requestApproval, TargetGone } from "../approvals/service.js";
 import { ApiError } from "../http/errors.js";
 import { priceContext } from "./checkin.js";
 
@@ -9,8 +10,73 @@ import { priceContext } from "./checkin.js";
  * a change closes the current segment on the minute and opens the next with
  * the new billable guests and rate (the VIP rate starts or stops as a VIP-room
  * party crosses its threshold). A paused clock stays paused at the new rate.
- * Lowering it after the gratuity applies needs approval from M4 on.
+ * Lowering it after the gratuity applies needs approval (M4-23; Money rules 3
+ * and 9): the ask answers 202 approval_pending (kind party_size_down) and
+ * nothing changes until it's approved; then the clock bills the lower size from
+ * that minute, and the next finalize records it in the gratuity basis. At West 4
+ * every room check carries the gratuity, so every lower size on a room asks.
  */
+export async function lowerNeedsApproval(
+  c: Queryable,
+  venueId: string,
+  sessionId: string,
+  at: Temporal.Instant,
+): Promise<boolean> {
+  const row = (
+    await c.query<{ kind: string; party_size: number; business_date: string }>(
+      `select k.kind, s.party_size, k.business_date::text from room_sessions s
+         join checks k on k.venue_id = s.venue_id and k.id = s.check_id
+        where s.venue_id = $1 and s.id = $2`,
+      [venueId, sessionId],
+    )
+  ).rows[0];
+  if (!row) return false;
+  const pay = await readSetting(c, venueId, "pay", Temporal.PlainDate.from(row.business_date));
+  if (!pay) return false;
+  const g = pay.value.gratuity;
+  void at;
+  return gratuityApplies(
+    g.auto,
+    { kind: row.kind as "room", partySize: row.party_size },
+    g.partyMin,
+  );
+}
+
+/** Asks for a lower party size: 202 approval_pending, "Waiting for Andy". */
+export async function askLowerPartySize(
+  c: Queryable,
+  venueId: string,
+  sessionId: string,
+  input: { partySize: number; userId: string; deviceId: string | null; at: Temporal.Instant },
+) {
+  const pending = await c.query(
+    `select 1 from approvals where venue_id = $1 and kind = 'party_size_down' and target_id = $2 and status = 'pending'`,
+    [venueId, sessionId],
+  );
+  if (pending.rows[0]) throw new ApiError("in_progress", "a lower party size is already waiting");
+  return requestApproval(c, venueId, {
+    kind: "party_size_down",
+    targetKind: "session",
+    targetId: sessionId,
+    amountCents: null,
+    reason: `Party size lowered to ${input.partySize}`,
+    payload: { party_size: input.partySize },
+    requestedBy: input.userId,
+    requestedDeviceId: input.deviceId,
+    now: input.at,
+  });
+}
+
+// Approved on the approver's own phone: the lower size bills from that minute.
+executors.set("party_size_down", async (c, venueId, approval, ctx) => {
+  const size = Number((approval.payload as { party_size?: number }).party_size);
+  const open = await c.query(
+    "select 1 from room_sessions where venue_id = $1 and id = $2 and ended_at is null",
+    [venueId, approval.target_id],
+  );
+  if (!open.rows[0] || !Number.isInteger(size) || size < 1) throw new TargetGone();
+  await changePartySize(c, venueId, approval.target_id, { partySize: size, at: ctx.at });
+});
 export async function changePartySize(
   c: Queryable,
   venueId: string,

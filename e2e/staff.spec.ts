@@ -4559,3 +4559,39 @@ test("Refund from check on DeskRoom: Room 9 paid, $20.00 back, Waiting for Abhis
     await db.end();
   }
 });
+
+/**
+ * A lower party size after the gratuity applies (M4-23; screens N13, N18) on
+ * the Board: Andy's "One guest fewer" on Room 9 waits for Abhishek, and the
+ * room still bills 12 until he approves.
+ */
+test("Party size down on the Board: Room 9's one guest fewer waits for Abhishek and keeps billing 12", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/tonight");
+    await page
+      .getByRole("listitem", { name: "Room 9" })
+      .getByRole("button", { name: "One guest fewer" })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Waiting for Abhishek" }),
+    ).toBeVisible();
+    const s = await db.query<{ party_size: number }>(
+      "select party_size from room_sessions where id = (select row_id from seed_ids where slug = 'sess_room9')",
+    );
+    expect(s.rows[0]!.party_size).toBe(12);
+    const asked = await db.query<{ kind: string; status: string }>(
+      "select kind, status from approvals where kind = 'party_size_down'",
+    );
+    expect(asked.rows).toEqual([{ kind: "party_size_down", status: "pending" }]);
+  } finally {
+    await db.end();
+  }
+});

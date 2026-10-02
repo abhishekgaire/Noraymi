@@ -704,7 +704,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-23 · Approve a lower party size after the gratuity applies
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-07; M2 (the party size control, approvals)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 3 and 9; [Data model](../spec/04-data-model.md) (`approvals` kind `party_size_down`); [API](../spec/08-api.md) (`POST /sessions/{s}/party-size` answers `202`); [screens: N13](../screens.md#n13-party-size-control), [N18](../screens.md#n18-approvals-inbox)
@@ -713,11 +713,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - On approval: the segment closes and the next opens at the lower size (M2's rule), the gratuity basis's largest party size recorded becomes the approved size, and the next finalize reverses the old gratuity line and writes the new one.
   - Raising the party size never needs approval.
 - **Acceptance:**
-  - [ ] Diego lowers Room 9 from 12 to 10: "Waiting for Andy" shows, the clock keeps billing 12 until Andy approves on his phone, then bills 10 from that minute.
-  - [ ] Andy's own request goes to Abhishek.
-  - [ ] After approval and Present, the revision's gratuity basis records a party of 10.
+  - [x] Diego lowers Room 9 from 12 to 10: "Waiting for Andy" shows, the clock keeps billing 12 until Andy approves on his phone, then bills 10 from that minute.
+  - [x] Andy's own request goes to Abhishek.
+  - [x] After approval and Present, the revision's gratuity basis records a party of 10.
 - **Tests:** approval routing tests; `packages/rules` unit tests for the gratuity basis; end-to-end on the Board panel.
 - **Notes:** The spec doesn't define when "the gratuity applies". At West 4 every room check carries it from check-in (`pay.gratuity.auto: rooms`), so every lower party size on a room needs approval. That's the cautious reading, since it protects the gratuity basis, but it may slow routine headcount fixes; flagged for the founder. The approval kind also covers "removing the gratuity", but the spec gives no route or screen for that, so none is built.
+  - **Built (M4-23):** `POST /sessions/{s}/party-size` with a lower size on a session whose check carries the gratuity (`gratuityApplies` on the pay settings: at West 4, every room) answers `202 approval_pending` (kind `party_size_down`, routed like every approval: Diego's to Andy, Andy's to Abhishek), and nothing changes. When approved, the executor runs M2's change at the approval's minute (the segment closes and the next bills the lower size), so the next finalize's gratuity basis records it. Declined, nothing changes. Raising never asks; a second lower request while one waits answers 409. The Board panel and the room tab say "Waiting for Andy".
+  - **Flagged (as the ticket's note says):** every lower size on a room now needs approval at West 4, which may slow routine headcount fixes; "removing the gratuity" has no route or screen in the spec, so none is built.
+  - M2's party-size tests (Sam O. 3 → 2, Bianca L. 22 → 19) now go through an approval by Abhishek; their rates are unchanged.
+  - Fixed a flaky M2 test: `offers.int.test.ts` checked the offer's expiry one second after its 10 minutes on a clock that ticks with real time, so a busy machine could miss it; it now checks at 10 minutes 30 seconds.
+  - Tests: `apps/api/src/routes/party-size-approval.int.test.ts` (Diego's 12 → 10 waits for Andy and keeps billing 12; raising doesn't ask; approved at 22:45, 10 from that minute; Andy's own goes to Abhishek; after Present the gratuity basis says 10); `e2e/staff.spec.ts` "Party size down on the Board".
+
 
 ### M4-24 · Open the disputes inbox with its evidence gathered
 

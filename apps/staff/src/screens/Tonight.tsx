@@ -255,12 +255,16 @@ export function Tonight() {
   const changeParty = async (s: Session, partySize: number) => {
     if (partySize < 1) return;
     try {
-      const r = await api<{ hourly_cents: number; min_guests: number }>(
-        "POST",
-        `/v1/venues/${venueId}/sessions/${s.id}/party-size`,
-        { party_size: partySize },
-      );
-      setRates((all) => ({ ...all, [s.id]: r }));
+      const r = await api<{
+        hourly_cents: number;
+        min_guests: number;
+        status?: string;
+        waiting_for?: { name: string };
+      }>("POST", `/v1/venues/${venueId}/sessions/${s.id}/party-size`, { party_size: partySize });
+      // Fewer guests after the gratuity applies waits for a manager (M4-23): nothing changes yet.
+      if (r.status === "approval_pending" && r.waiting_for)
+        setDone(t("approvals.waitingFor", { name: r.waiting_for.name.split(" ")[0] ?? "" }));
+      else setRates((all) => ({ ...all, [s.id]: r }));
       await load();
     } catch {
       setDone(t("party.failed"));
