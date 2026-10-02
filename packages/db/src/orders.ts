@@ -67,6 +67,8 @@ export interface OrderRow {
   /** The order's latest ticket: its job and whether it printed. */
   readonly ticket_job_id: string | null;
   readonly ticket_status: string | null;
+  /** The approver a pending void of this returned order waits for (M3-25). */
+  readonly approval_waiting_for: string | null;
   readonly amount_cents: number;
   readonly items: OrderItemRow[];
 }
@@ -117,6 +119,7 @@ const ORDER_COLS = [
   "ux.name as cancelled_by_name",
   "(select j.id from print_jobs j where j.venue_id = o.venue_id and j.order_id = o.id order by j.created_at desc, j.reprint_n desc limit 1) as ticket_job_id",
   "(select j.status from print_jobs j where j.venue_id = o.venue_id and j.order_id = o.id order by j.created_at desc, j.reprint_n desc limit 1) as ticket_status",
+  "(select u.name from approvals a join users u on u.id = a.routed_to where a.venue_id = o.venue_id and a.target_kind = 'order' and a.target_id = o.id and a.status = 'pending' limit 1) as approval_waiting_for",
 ].join(", ");
 
 const FROM = `orders o

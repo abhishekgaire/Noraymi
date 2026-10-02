@@ -231,6 +231,10 @@ describe("the order pipeline", () => {
       [o4],
     );
     expect(pending.rows).toEqual([{ kind: "void", amount_cents: "3600" }]);
+    // Asking again while it waits makes no second request (M3-25).
+    await step(o4, "resolve", { resolution: "void_made" });
+    const again = await raw.query("select 1 from approvals where target_id = $1", [o4]);
+    expect(again.rowCount).toBe(1);
   });
 
   it("delivering never charges", async () => {

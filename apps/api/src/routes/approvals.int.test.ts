@@ -88,6 +88,8 @@ beforeAll(async () => {
   venueId = (await loadDemoSeed({ databaseUrl: db.url, env: { WEST4_ENV: "local" } })).venueId;
   raw = new pg.Client({ connectionString: db.url });
   await raw.connect();
+  // The seed's own pending void (Diego's, M3-25) is the scenario tests' business; these count their own.
+  await raw.query("delete from approvals");
   pool = appPool(db.url);
   ids = Object.fromEntries(
     (

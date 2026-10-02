@@ -42,6 +42,7 @@ interface Order {
   readonly cancelled_by_name: string | null;
   readonly ticket_job_id: string | null;
   readonly ticket_status: string | null;
+  readonly approval_waiting_for: string | null;
   readonly amount_cents: number;
   readonly items: readonly {
     qty: number;
@@ -404,7 +405,12 @@ export function BarOrders() {
                                 : (o.cancelled_by_name ?? ""),
                           })}
                     </p>
-                    {o.status === "returned" && !o.return_resolution && (
+                    {o.status === "returned" && !o.return_resolution && o.approval_waiting_for && (
+                      <p className="small" role="status">
+                        {t("fix.waiting", { name: o.approval_waiting_for })}
+                      </p>
+                    )}
+                    {o.status === "returned" && !o.return_resolution && !o.approval_waiting_for && (
                       <div className="team-actions">
                         <button
                           type="button"

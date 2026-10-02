@@ -128,3 +128,82 @@ describe("the M1 part of the demo seed", () => {
     ).rejects.toThrow(/never loads into production/);
   });
 });
+
+describe("the M3 part of the demo seed", () => {
+  const drinks = async (slug: string) =>
+    (
+      await owner.query<{ cents: number }>(
+        `select coalesce(sum(amount_cents), 0)::int as cents from check_lines
+          where venue_id = $1 and check_id = $2 and tax_category = 'drink'`,
+        [first.venueId, await seedId(owner, first.venueId, slug)],
+      )
+    ).rows[0]!.cents;
+
+  it("keeps the ringing 2 × Margarita · Peach off Room 9's tab: drinks read $158.00", async () => {
+    expect(await drinks("chk_room9")).toBe(15800);
+    const o1 = await owner.query<{ status: string; lines: number }>(
+      `select o.status, (select count(*)::int from check_lines l join order_items i on i.id = l.source_id
+          where i.order_id = o.id) as lines from orders o where o.id = $1`,
+      [await seedId(owner, first.venueId, "order_o1")],
+    );
+    expect(o1.rows[0]).toEqual({ status: "ringing", lines: 0 });
+  });
+
+  it("loads Diego's unsent Red Bull on Tariq A.'s tab, outside the check", async () => {
+    const r = await owner.query<{ lines: { variant_id: string; qty: number }[] }>(
+      "select lines from order_drafts where venue_id = $1 and membership_id = $2 and check_id = $3",
+      [
+        first.venueId,
+        await seedId(owner, first.venueId, "diego.membership"),
+        await seedId(owner, first.venueId, "chk_t5"),
+      ],
+    );
+    expect(r.rows[0]?.lines).toEqual([
+      {
+        variant_id: await seedId(owner, first.venueId, "menu_redbull_regular"),
+        qty: 1,
+        option_ids: [],
+      },
+    ]);
+    expect(await drinks("chk_t5")).toBe(7900);
+  });
+
+  it("loads Diego's $70.00 void of the Large bucket, pending and routed to Andy", async () => {
+    const r = await owner.query<{
+      kind: string;
+      amount_cents: string;
+      reason: string;
+      status: string;
+      requested_by: string;
+      routed_to: string;
+      line: string;
+    }>(
+      `select a.kind, a.amount_cents, a.reason, a.status, a.requested_by, a.routed_to, l.description as line
+         from approvals a join check_lines l on l.id = (a.payload->>'line_id')::bigint
+        where a.venue_id = $1 and a.target_id = $2`,
+      [first.venueId, await seedId(owner, first.venueId, "chk_t5")],
+    );
+    expect(r.rows).toEqual([
+      {
+        kind: "void",
+        amount_cents: "7000",
+        reason: "rang it wrong",
+        status: "pending",
+        requested_by: await seedId(owner, first.venueId, "diego"),
+        routed_to: await seedId(owner, first.venueId, "andy"),
+        line: "Large bucket · 10 beers",
+      },
+    ]);
+  });
+
+  it("adds up reason-only use from the lines: Maya $12.00, Diego $0.00", async () => {
+    for (const r of seed.reason_only_used_tonight) {
+      const used = await owner.query<{ cents: number }>(
+        `select coalesce(sum(abs(amount_cents)), 0)::int as cents from check_lines
+          where venue_id = $1 and added_by = $2 and kind in ('comp', 'void') and approved_by is null`,
+        [first.venueId, await seedId(owner, first.venueId, r.person)],
+      );
+      expect(used.rows[0]?.cents).toBe(r.cents);
+    }
+  });
+});

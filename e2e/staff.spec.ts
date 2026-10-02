@@ -1,4 +1,4 @@
-import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { expect, test, type Browser, type Page, type APIRequestContext } from "@playwright/test";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
@@ -3517,4 +3517,237 @@ test("after 4:00 AM the bar orders screen lists Cancelled at 4:00 AM and offers 
   } finally {
     await db.end();
   }
+});
+
+/**
+ * The seed's M3 scenarios (M3-25), each from a fresh load of the demo seed.
+ * The rest of them run above: runner_o3 in "Runs on a phone", reason_only in
+ * "the fix panel", and the room-order half of alcohol_stop in "after 4:00 AM
+ * the bar orders screen".
+ */
+test.describe("M3 scenarios", () => {
+  const hostLink = (slug: string) =>
+    `http://localhost:3001/r/${createHash("sha256").update(`host-token:${slug}`).digest("base64url").slice(0, 32)}`;
+  const phone = async (browser: Browser) =>
+    (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  const seedRow = async (db: pg.Client, slug: string) =>
+    (await db.query<{ id: string }>("select row_id as id from seed_ids where slug = $1", [slug]))
+      .rows[0]!.id;
+
+  test("accept_o1: Room 9's 2 × Margarita · Peach joins the tab at Accept, prints, and the phone reads Being made", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      await setClock(request, "2026-09-26T02:41:00Z");
+      const marcus = await phone(browser);
+      await marcus.goto(hostLink("sess_room9"));
+      const bill = marcus.getByRole("region", { name: "Tonight so far" });
+      await expect(bill).toContainText("Drinks on your tab$158.00");
+      await expect(bill).toContainText("Tab so far$480.00");
+      const o1 = marcus.locator(".order", { hasText: "2 × Margarita · Peach" });
+      await expect(o1.locator(".status")).toHaveText("Sent to the bar · you can still cancel");
+
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await signInAndy(page, request, db);
+      await page.getByRole("link", { name: "Bar orders · 2" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar orders");
+      await page
+        .getByRole("region", { name: "Waiting for you" })
+        .locator(".bar-order", { hasText: "Room 9" })
+        .getByRole("button", { name: "Accept · print ticket" })
+        .click();
+      await expect(
+        page
+          .getByRole("region", { name: "Being made" })
+          .locator(".bar-order", { hasText: "Room 9" }),
+      ).toContainText(/Accepted by Andy C\. · 10:4\d · on Room 9's tab · ticket printing/);
+      await expect(page.getByRole("link", { name: "Bar orders · 1" })).toBeVisible({
+        timeout: 15_000,
+      });
+      const tickets = await db.query<{ n: number }>(
+        "select count(*)::int as n from print_jobs where order_id = $1",
+        [await seedRow(db, "order_o1")],
+      );
+      expect(tickets.rows[0]!.n).toBe(1);
+
+      await expect(o1.locator(".status")).toHaveText("Being made · on your tab", {
+        timeout: 15_000,
+      });
+      await marcus.reload();
+      await expect(bill).toContainText("Drinks on your tab$184.00");
+      await expect(bill).toContainText("Tab so far$506.00");
+      await marcus.context().close();
+    } finally {
+      await db.end();
+    }
+  });
+
+  test("ask_room5_wait and accept_o2: Asked to wait keeps aging at 2, then Accept puts $32.00 on Room 5's tab", async ({
+    page,
+    browser,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      await setClock(request, "2026-09-26T02:41:00Z");
+      const leo = await phone(browser);
+      await leo.goto(hostLink("sess_room5"));
+      const bill = leo.getByRole("region", { name: "Tonight so far" });
+      await expect(bill).toContainText("Tab so far$40.00");
+      const o2 = leo.locator(".order", { hasText: "4 × Bud Light" });
+
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await signInAndy(page, request, db);
+      await page.goto("/bar-orders");
+      const waiting = page.getByRole("region", { name: "Waiting for you" });
+      const card = waiting.locator(".bar-order", { hasText: "Room 5" });
+      await card.getByRole("button", { name: "Ask the room to wait" }).click();
+      await expect(card).toContainText(/Asked to wait · 2:\d\d/);
+      await expect(page.getByRole("link", { name: "Bar orders · 2" })).toBeVisible();
+      await expect(waiting.getByRole("button", { name: /^(Ready|Delivered)$/ })).toHaveCount(0);
+      await expect(o2.locator(".status")).toHaveText("The bar needs a few minutes", {
+        timeout: 15_000,
+      });
+
+      await card.getByRole("button", { name: "Accept · print ticket" }).click();
+      await expect(
+        page
+          .getByRole("region", { name: "Being made" })
+          .locator(".bar-order", { hasText: "Room 5" }),
+      ).toContainText(/Accepted by Andy C\./);
+      await leo.reload();
+      await expect(bill).toContainText("Tab so far$72.00");
+      await leo.context().close();
+
+      await page.goto("/tonight");
+      await expect(page.getByRole("listitem", { name: "Room 5", exact: true })).toContainText(
+        "ID ✓ 4 of 4",
+      );
+    } finally {
+      await db.end();
+    }
+  });
+
+  test("runner_returns_o4: No ID for someone who ordered, back at the bar, and the $36.00 void waits for approval", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      await setClock(request, "2026-09-26T02:41:00Z");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signInAndy(page, request, db);
+      await page.goto("/runs");
+      const o4 = page.locator(".run", { hasText: "Room 1" });
+      await o4.getByRole("button", { name: "Couldn't serve…" }).click();
+      await o4
+        .getByLabel("Why couldn't you serve it?")
+        .selectOption({ label: "No ID for someone who ordered" });
+      await o4.getByRole("button", { name: "Send it back to the bar" }).click();
+      await expect(page.getByRole("region", { name: "Returned tonight" })).toContainText(
+        "Couldn't serve: No ID for someone who ordered · Andy C.",
+      );
+
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto("/bar-orders");
+      const back = page
+        .getByRole("region", { name: "Returned" })
+        .locator(".bar-order", { hasText: "Room 1" });
+      await expect(back).toContainText("Couldn't serve: No ID for someone who ordered · Andy C.");
+      await expect(back.getByRole("button", { name: "Void · made (waste)" })).toBeVisible();
+      await expect(back.getByRole("button", { name: "Remake" })).toBeVisible();
+      await back.getByRole("button", { name: "Void · not made" }).click();
+      // $36.00 is over the $25.00 reason-only limit; Andy's own request goes to Abhishek.
+      await expect(back.getByRole("status")).toHaveText("Waiting for Abhishek G.");
+      await expect(back.getByRole("button", { name: "Void · not made" })).toHaveCount(0);
+      const voids = await db.query<{ n: number }>(
+        "select count(*)::int as n from check_lines where check_id = $1 and kind = 'void'",
+        [await seedRow(db, "chk_room1")],
+      );
+      expect(voids.rows[0]!.n).toBe(0);
+      const asked = await db.query<{ amount_cents: string }>(
+        "select amount_cents::text from approvals where target_kind = 'order' and target_id = $1 and status = 'pending'",
+        [await seedRow(db, "order_o4")],
+      );
+      expect(asked.rows).toEqual([{ amount_cents: "3600" }]);
+    } finally {
+      await db.end();
+    }
+  });
+
+  test("andy_approves_void: Approvals · 1 on Andy's phone, and Tariq A.'s drinks go from $79.00 to $9.00", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      await setClock(request, "2026-09-26T02:41:00Z");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.addInitScript(() => {
+        const fake = {
+          endpoint: "https://push.example.test/send/andy-void",
+          toJSON: () => ({
+            endpoint: "https://push.example.test/send/andy-void",
+            keys: { p256dh: "fake-p256dh", auth: "fake-auth" },
+          }),
+          unsubscribe: async () => true,
+        };
+        let subscribed = false;
+        PushManager.prototype.subscribe = async () => {
+          subscribed = true;
+          return fake as unknown as PushSubscription;
+        };
+        PushManager.prototype.getSubscription = async () =>
+          (subscribed ? fake : null) as unknown as PushSubscription;
+        Object.defineProperty(Notification, "permission", { get: () => "default" });
+        Notification.requestPermission = async () => "granted";
+      });
+      await signInAndy(page, request, db);
+      await page.goto("/setup");
+      await page.getByRole("button", { name: "Turn on alerts" }).click();
+      await expect(page.getByRole("status")).toHaveText("Alerts are on");
+
+      const tariq = await seedRow(db, "chk_t5");
+      const drinks = async () =>
+        (
+          await db.query<{ n: number }>(
+            "select coalesce(sum(amount_cents), 0)::int as n from check_lines where check_id = $1 and tax_category = 'drink'",
+            [tariq],
+          )
+        ).rows[0]!.n;
+      expect(await drinks()).toBe(7900);
+
+      await page.goto("/tonight");
+      await page.getByRole("link", { name: "Approvals" }).last().click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Approvals · 1");
+      await expect(page.getByText("Void · Large bucket · 10 beers")).toBeVisible();
+      await expect(page.getByText("$70.00")).toBeVisible();
+      await expect(page.getByText("Reason: rang it wrong")).toBeVisible();
+      await expect(page.getByText(/Diego R\. asked at 10:39\s?PM/)).toBeVisible();
+      await page.getByRole("button", { name: "Approve" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Approvals · 0");
+
+      const line = await db.query<{ amount_cents: string; approved_by: string; added_by: string }>(
+        "select amount_cents::text, approved_by, added_by from check_lines where check_id = $1 and kind = 'void'",
+        [tariq],
+      );
+      expect(line.rows).toEqual([
+        {
+          amount_cents: "-7000",
+          approved_by: await seedRow(db, "andy"),
+          added_by: await seedRow(db, "diego"),
+        },
+      ]);
+      expect(await drinks()).toBe(900);
+    } finally {
+      await db.end();
+    }
+  });
 });

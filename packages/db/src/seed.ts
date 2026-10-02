@@ -23,6 +23,7 @@ import {
   type SettingsKey,
 } from "@west4/shared";
 import type { DeviceKind } from "./devices.js";
+import { reasonOnlyUsed } from "./checks.js";
 
 /**
  * The demo seed loader (docs/demo-seed.md · Loading the seed; M1-17). It
@@ -66,6 +67,33 @@ export interface SeedFile {
   readonly texts: readonly SeedText[];
   readonly menu: SeedMenu;
   readonly orders: readonly SeedOrder[];
+  readonly order_drafts: readonly SeedDraft[];
+  readonly approvals: readonly SeedApproval[];
+  readonly reason_only_used_tonight: readonly { readonly person: string; readonly cents: number }[];
+  readonly bar_tabs: readonly { readonly id: string; readonly check: string }[];
+}
+
+/** An unsent draft (M3-25): a person's drinks on a tab, never part of its check. */
+export interface SeedDraft {
+  readonly membership: string;
+  readonly tab: string;
+  readonly lines: readonly { readonly item_id: string; readonly qty: number }[];
+}
+
+/** A pending approval (M3-25): a comp or void of one check line, over the reason-only limit. */
+export interface SeedApproval {
+  readonly id: string;
+  readonly line_kind: "comp" | "void";
+  readonly target: string;
+  readonly tab: string;
+  readonly item: string;
+  readonly amount_cents: number;
+  readonly reason: string;
+  readonly made: boolean;
+  readonly requested_by: string;
+  readonly requested_at: string | null;
+  readonly routed_to: string;
+  readonly status: "pending";
 }
 
 /** A room order (M3-06): ringing ones wait for Accept; accepted ones are on their check already. */
@@ -1590,6 +1618,76 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       }
     }
     log(`orders: ${seed.orders.length}`);
+
+    // Unsent drafts (M3-25): Diego's Red Bull on Tariq A.'s tab, keyed by his membership and the tab's check.
+    const tabCheck = (tab: string) => {
+      const t = seed.bar_tabs.find((x) => x.id === tab);
+      if (!t) throw new Error(`seed: no tab ${tab}`);
+      return id(t.check);
+    };
+    for (const d of seed.order_drafts) {
+      await client.query(
+        `insert into order_drafts (venue_id, membership_id, check_id, lines, updated_at) values ($1, $2, $3, $4, $5)`,
+        [
+          venueId,
+          id(`${d.membership}.membership`),
+          tabCheck(d.tab),
+          JSON.stringify(
+            d.lines.map((l) => ({
+              variant_id: id(`menu_${l.item_id}_regular`),
+              qty: l.qty,
+              option_ids: [],
+            })),
+          ),
+          SEED_NOW.toString(),
+        ],
+      );
+    }
+    log(`drafts: ${seed.order_drafts.length}`);
+
+    // Pending approvals (M3-25): the payload is what runs on Approve, the same as the fix panel writes (M3-19).
+    // The seed has no time for the request; it reads 10:39 PM, two minutes before "now".
+    const asked = new Date(SEED_NOW.epochMilliseconds - 2 * 60 * 1000).toISOString();
+    for (const a of seed.approvals) {
+      const lineId = lineIds.get(a.target);
+      if (lineId === undefined) throw new Error(`seed: approval ${a.id} names no line ${a.target}`);
+      const checkId = tabCheck(a.tab);
+      await client.query(
+        `insert into approvals (id, venue_id, kind, target_kind, target_id, amount_cents, reason, payload, requested_by,
+           requested_at, routed_to, status)
+         values ($1, $2, $3, 'check', $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          remember(a.id, "approvals"),
+          venueId,
+          a.line_kind,
+          checkId,
+          a.amount_cents,
+          a.reason,
+          JSON.stringify({
+            check_id: checkId,
+            line_id: lineId,
+            kind: a.line_kind,
+            made: a.made,
+            qty: 1,
+            description: a.item,
+          }),
+          id(a.requested_by),
+          a.requested_at ?? asked,
+          id(a.routed_to),
+          a.status,
+        ],
+      );
+    }
+    log(`approvals: ${seed.approvals.length}`);
+
+    // The reason-only totals the brief states must be what the lines add up to (spec 02 and 04).
+    for (const r of seed.reason_only_used_tonight) {
+      const used = await reasonOnlyUsed(client, venueId, id(r.person), seed.meta.business_date);
+      if (used !== r.cents)
+        throw new Error(
+          `seed: ${r.person}'s reason-only total is ${used}, the brief says ${r.cents}`,
+        );
+    }
 
     // Devices, with a heartbeat at "now" for each one the seed says is online.
     const offlineSince = new Date(SEED_NOW.epochMilliseconds - 3 * 60 * 60 * 1000);

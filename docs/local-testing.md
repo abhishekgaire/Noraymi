@@ -185,9 +185,8 @@ It reloads the demo night and prints new invite links. Your old passkeys are rem
 
 ## 8. What isn't built yet
 
-M2 covers rooms, the board, check-in, the waitlist, texts and the calendar. These come next:
+M2 covers rooms, the board, check-in, the waitlist, texts and the calendar. M3 adds the menu, ordering from the room and its tablet, the bar orders screen and tickets, Runs, comps and voids on drinks, cut-offs and the 4 AM stop (try them with `docs/mock-friday.md`). These come next:
 
-- **M3:** drinks, ordering from the room, the bar, voids and comps on drinks, cut-offs.
 - **M4:** presenting the check, paying, receipts.
 - **M5:** the public website, online booking and deposits.
 - **M2-27** (the CAPTCHA and daily limits on the waitlist page) waits for your choice of provider and limits.

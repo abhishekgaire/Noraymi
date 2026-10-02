@@ -599,7 +599,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-25 · Load the M3 part of the demo seed and run the mock Friday
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3-14, M3-16, M3-17, M3-18, M3-19, M3-21, M3-22, M3-23, M3-24
 - **Spec:** [Demo seed · Room orders](../demo-seed.md#room-orders), [Things to try](../demo-seed.md#things-to-try), [Loading the seed](../demo-seed.md#loading-the-seed); [Testing and operations](../spec/13-testing-operations.md) · Tests (end-to-end browser tests); [west4-friday.json](../../seed/west4-friday.json)
@@ -609,11 +609,17 @@ Definition of done: see CLAUDE.md.
   - A scripted mock Friday for two people in staging: orders from a tablet and from phones, a network printer and a USB printer, all six steps.
 - **Acceptance:**
   - [ ] In the mock Friday, every order from a tablet and from a phone rings on the bar orders screen and the board, prints on the bar printer (one network printer and one USB), moves through the six steps with the same words on every screen, and joins the right check at Accept.
-  - [ ] Room 9's drinks read $158.00, and the ringing 2 × Margarita · Peach isn't on the tab until it's accepted.
-  - [ ] Andy's phone reads "Approvals · 1" for Diego's void; approving it writes the VOID line on Tariq A.'s check, whose drinks go from $79.00 to $9.00.
-  - [ ] The seven scenarios pass as their `expect` text in the seed says; in `runner_returns_o4`, the $36.00 void waits for approval (M3-06).
+  - [x] Room 9's drinks read $158.00, and the ringing 2 × Margarita · Peach isn't on the tab until it's accepted.
+  - [x] Andy's phone reads "Approvals · 1" for Diego's void; approving it writes the VOID line on Tariq A.'s check, whose drinks go from $79.00 to $9.00.
+  - [x] The seven scenarios pass as their `expect` text in the seed says; in `runner_returns_o4`, the $36.00 void waits for approval (M3-06).
 - **Tests:** the scenario tests in CI on every pull request; the mock Friday as a written script, run by hand in staging.
 - **Notes:** Tariq A.'s tab screen, with "Waiting for Andy" on it, comes with the bar POS in M6.
+  - Built: the loader (`packages/db/src/seed.ts`) now loads `order_drafts` (Diego's Red Bull on Tariq A.'s check, keyed by his membership) and `approvals` (Diego's $70.00 void of the Large bucket, routed to Andy, its payload the same one the fix panel writes), and refuses to load if a person's reason-only total from the lines differs from `reason_only_used_tonight` (Maya $12.00, Diego $0.00). The menu and the orders (o1 to o4, e0 to e2) loaded with M3-03 and M3-06. Tests in `packages/db/src/seed.int.test.ts` ("the M3 part of the demo seed").
+  - The seed gives no time for Diego's request (`requested_at: null`); it loads as 10:39 PM, two minutes before "now".
+  - Scenario tests, in `e2e/staff.spec.ts` ("M3 scenarios"): `accept_o1`, `ask_room5_wait` with `accept_o2`, `runner_returns_o4` and `andy_approves_void`. The others already ran there: `runner_o3` in "Runs on a phone", `reason_only` in "the fix panel" and the room-order half of `alcohol_stop` in "after 4:00 AM the bar orders screen". All run from a fresh load. `andy_approves_void` checks the VOID line and drinks $79.00 → $9.00; the tax, total and tip choices it names come with settle-up in M4.
+  - Gap found and fixed: a returned order's void over the limit made the approval but the bar screen kept offering the three buttons, so it could be asked twice. The bar screen now reads "Waiting for {approver}" in their place, and the server refuses a second request while one waits (`approval_pending`). `runner_returns_o4`: Andy's own $36.00 void waits for Abhishek G. Whether return resolutions count against the reason-only limit is still the seed's open flag.
+  - The mock Friday is written in `docs/mock-friday.md`, for two people in staging on real printers. **It hasn't been run yet**, so the first Acceptance line stays open until it is; record the run here.
+  - `apps/api/src/routes/approvals.int.test.ts` now clears the seed's pending approval before counting its own.
 
 ## Coverage
 

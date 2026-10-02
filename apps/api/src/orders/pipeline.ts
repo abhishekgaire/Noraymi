@@ -382,6 +382,8 @@ export async function stepOrder(
         await announce(c, venueId, done, "order.accepted");
         return { status: "done", order: done };
       }
+      if (order.approval_waiting_for)
+        throw new ApiError("approval_pending", "this return is already waiting for approval");
       const reason = `Couldn't serve: ${RETURN_WORDS[(order.returned_reason ?? "other") as ReturnReason]}`;
       const amount = order.amount_cents;
       const night = await nightOfNow(c, venueId, input.now);

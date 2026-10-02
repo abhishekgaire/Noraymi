@@ -14,6 +14,7 @@ A POS and operations platform for karaoke venues, built for many venues from day
 | What a screen must do, and where to ignore the canvas | `docs/screens.md` |
 | The exact words staff and guests see | `docs/glossary.md`. The spec's vocabulary table is in `docs/spec/10-staff-screens-bar-pos.md`. |
 | The one Friday night that staging and every test use | `docs/demo-seed.md` and `seed/west4-friday.json` |
+| The mock Friday, run by hand in staging | `docs/mock-friday.md` |
 | Expected money results the rules must reproduce | `seed/money-cases.json` |
 | Why something is the way it is | `docs/decisions.md` (D1–D85, newest first) |
 | Product scope and phases | `docs/blueprint.md` |
@@ -111,7 +112,7 @@ docker compose up -d    # Postgres 16 (localhost:5432), the local S3 store (Rust
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
 pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
-pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 and M2 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
+pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 to M3 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 scripts/demo-start.sh   # local only: start everything in demo mode (no .env, no real keys), a fresh night at 10:41 PM and invite links; Ctrl+C stops it (docs/local-testing.md)
 scripts/demo-local.sh   # local only: reset the night to 10:41 PM and print new owner and manager invite links
