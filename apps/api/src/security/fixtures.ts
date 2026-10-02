@@ -124,6 +124,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   lineId: "999999",
   g: uuid(43),
   readerId: uuid(44),
+  paymentId: uuid(45),
   date: "2026-09-25",
   slug: "venue-b-sample",
   id: "rooms",

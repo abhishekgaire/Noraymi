@@ -133,8 +133,8 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - [x] An event with a bad signature, or signed with another endpoint's secret, is refused before any read or write.
   - [x] A test-mode event on a live endpoint, or a live one on staging, is refused.
   - [x] The same event delivered twice leaves one `webhook_events` row and one state change.
-  - [ ] `payment_intent.succeeded` before `amount_capturable_updated`, or `canceled` after `succeeded`, never moves a payment backward.
-  - [ ] A payment whose PaymentIntent metadata was edited to name another payment still resolves by `stripe_pi_id`.
+  - [x] `payment_intent.succeeded` before `amount_capturable_updated`, or `canceled` after `succeeded`, never moves a payment backward.
+  - [x] A payment whose PaymentIntent metadata was edited to name another payment still resolves by `stripe_pi_id`.
   - [x] An event from another venue's account never reads or writes West 4's rows.
   - [x] Stripe gets its 200 before the job runs.
 - **Tests:** integration with signed fixtures and Stripe CLI replays; duplicate and out-of-order replays; venue-wall suite for webhooks; livemode tests.
@@ -142,7 +142,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Built: migration `0054_stripe_webhooks.sql` (`webhook_events.venue_id` may be null; `endpoint` and `account` columns; `ingest_stripe_event`, a definer function that stores the event once and resolves the venue from `event.account`); `routes/stripe-hooks.ts` (the three endpoints, in a scope that keeps the body as text so the signature is checked over Stripe's exact bytes); `apps/api/src/stripe/webhooks.ts` (`validStripeSignature` with Stripe's 5-minute tolerance and any number of `v1` signatures; the `stripe.event` job; `stripeEventHandlers`, one handler per type); `account.updated` reads the account again from Stripe into Admin → Payments.
   - Order of checks: the endpoint's own secret, then the livemode (staging and local take only test-mode events, production only live ones), then the type must be one this endpoint listens to (others get a 200 and are dropped). The event is stored once; a repeat stores nothing, and the job's dedupe key (`stripe.event:<event id>`) means one job however often it arrives. A repeat whose job never got queued (a crash between the two writes) queues it then.
   - Jobs need a venue, so the route resolves the venue (through the definer function, no Stripe call) and queues the job under it: reader events on the critical pool, venue payments on the normal one. An organization with several venues gets its first venue here; payment events will find their own venue by `stripe_pi_id` once payments exist (M4-04, M4-05). Our own account's events (`/platform`) have no venue: they're stored with `venue_id` null, which `app_rw` can't see, and wait for plan billing (M8).
-  - **Two Acceptance lines wait for M4-05**, which builds the payment state machine they test: "`payment_intent.succeeded` before `amount_capturable_updated`, or `canceled` after `succeeded`, never moves a payment backward" and "a payment whose PaymentIntent metadata was edited still resolves by `stripe_pi_id`". The job and its handler table are here; M4-05 adds the payment handlers and those tests.
+  - Two Acceptance lines were checked in M4-05, which built the payment state machine they test (`apps/api/src/routes/payments.int.test.ts` · payment webhooks, and the state machine's property tests): "`payment_intent.succeeded` before `amount_capturable_updated`, or `canceled` after `succeeded`, never moves a payment backward" and "a payment whose PaymentIntent metadata was edited still resolves by `stripe_pi_id`". The job and its handler table are here; M4-05 adds the payment handlers and those tests.
   - The tests sign their own events with the fake's secrets (`signPayload`), in any order; the fake Stripe sends signed events the same way. Replays through the Stripe CLI (`stripe listen --forward-connect-to …/connect`) are part of the sandbox run.
   - The Stripe webhook routes joined the venue-wall suite's webhook cases.
 
@@ -177,7 +177,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-05 · Run every card attempt through one state machine
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-01, M4-03, M4-04
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#how-every-card-payment-runs) steps 1 to 4 and [What staff see](../spec/07-payment-flows.md#what-staff-see-during-a-card-payment); [Stripe setup](../spec/06-stripe-setup.md) step 5; [API](../spec/08-api.md) (Payments, Idempotency, Errors)
@@ -191,13 +191,23 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Stripe's `terminal_reader_offline` answers `503 reader_offline`, and `terminal_reader_busy` answers `409 reader_busy`.
   - A fault-injection hook in the Stripe client for tests (delay a call, drop the answer after Stripe processed it, kill the worker at a named step), absent from production builds.
 - **Acceptance:**
-  - [ ] With the answer dropped after Stripe succeeded, the attempt is `unknown`, screens show "Checking with Stripe · don't retry", and polling records Paid within 2 minutes.
-  - [ ] While an attempt is unknown, no screen can start a second payment for the same check portion.
-  - [ ] A declined card leaves one PaymentIntent; the next tap is attempt 2 with key `<payment_id>:process:2`.
-  - [ ] The same `Idempotency-Key` with the same body replays the first answer; with a different body it answers `422 key_reused`; while the first request runs, `409 in_progress`.
-  - [ ] No database transaction is open while any Stripe call is in flight (a test wraps the client and fails if one is).
+  - [x] With the answer dropped after Stripe succeeded, the attempt is `unknown`, screens show "Checking with Stripe · don't retry", and polling records Paid within 2 minutes.
+  - [x] While an attempt is unknown, no screen can start a second payment for the same check portion.
+  - [x] A declined card leaves one PaymentIntent; the next tap is attempt 2 with key `<payment_id>:process:2`.
+  - [x] The same `Idempotency-Key` with the same body replays the first answer; with a different body it answers `422 key_reused`; while the first request runs, `409 in_progress`.
+  - [x] No database transaction is open while any Stripe call is in flight (a test wraps the client and fails if one is).
 - **Tests:** property tests of the state machine (random event orders never move backward); integration with the fault-injection client and simulated readers; the unknown path, the decline path and the cancel-that-finds-success path.
 - **Notes:** The spec names no key for the PaymentIntent's own create call; `<payment_id>:create` follows its pattern (one PaymentIntent per payment) and lets the reconciler recover an id the API died before storing (M4-12).
+  - Built: `apps/api/src/payments/state.ts` (the forward-only moves for payments, attempts and allocations, and what a PaymentIntent's status means); `machine.ts` (`applyObservation`, the one function: the payment row locked, only forward moves, amounts through the definer functions, allocations captured or released with the payment, `payment.updated` and `check.updated`); `run.ts` (`writeTap` and `writeRetap` for step 1, the `payment.run` job for steps 2 and 3, `payment.check` polling, `checkNow`, `cancelPayment`, `runNow`); `webhooks.ts` (every PaymentIntent and reader-action event finds its payment by `stripe_pi_id`, reads Stripe again and applies); `apps/api/src/stripe/payments.ts`; `routes/payments.ts` (`POST /checks/{c}/payments` for `tap`, `POST /payments/{p}/tap`, `GET /payments/{p}`, `check-status`, `cancel`); migration `0056_payment_intent_id.sql`; the fake Stripe's PaymentIntents, reader actions and Stripe's own `present_payment_method` test helper.
+  - The API runs a new attempt's `payment.run` job itself at once (`runNow` claims it with a 60-second lease, as a worker would), so the screen hears straight away; if the API dies, the worker runs it after the lease. Polling and the 2-minute give-up are `payment.check` jobs every 2 seconds on the critical pool.
+  - Setting the PaymentIntent's id: the money core grants no update on `payments.stripe_pi_id`, and the payment is written before its PaymentIntent exists, so `set_payment_intent()` (a definer function) sets it once and refuses to change it. The grants stay as the spec has them.
+  - Taking a tap again after a decline, or on the other reader after `reader_offline`, is `POST /payments/{p}/tap`: a new attempt on the same payment and PaymentIntent (`<payment_id>:process:2`). It's not in spec 08's list; it's how "Tap again, as a new attempt on the same PaymentIntent" reaches the API (flagged for spec 08). A retry of the first request with the same key after a `503` isn't replayed (the API stores answers under 500); it's refused as over the amount due, because the first payment still holds its allocation.
+  - Reading of step 4, to confirm: "a reader action still `in_progress` after 20 seconds" is taken literally, from when the attempt started, so a guest who takes longer than 20 seconds to tap sees "Checking with Stripe · don't retry", and the tap is still recorded by the polling (for up to 2 minutes more). If the founder or Stripe means 20 seconds after the card is presented, it's one constant (`UNKNOWN_AFTER_S`) and where it counts from.
+  - A pending payment whose attempt failed (a decline, an offline reader) keeps its allocation until it's tapped again or canceled; the reconciler (M4-12) settles ones left behind.
+  - Fault injection: `StripeClient` takes `StripeFaults` (delay or fail before a call, drop Stripe's answer after it did the work, stop at a named step: `after-create-intent`, `before-process`, `after-process`). The client refuses faults in live mode, and nothing in the app passes them; only tests do.
+  - Tests: `state.test.ts` (2,000 random event orders never move a payment backward; finals take nothing more); `routes/payments.int.test.ts` against Postgres and the fake: Paid, the decline and attempt 2, the dropped answer (`202 payment_unknown`, `409 in_progress` for a second payment, polling records Paid), the 2-minute cancel and release, the cancel that finds success, `503 reader_offline` then the other reader, the idempotency replay, `422 key_reused` and `409 in_progress`, the webhooks (by `stripe_pi_id` with edited metadata; a repeat and a late cancel change nothing), and a `fetch` wrapper that sees no open transaction during any of the Stripe calls.
+  - Not yet run on the sandbox: West 4's sandbox account can't take card payments until its onboarding is finished in Admin → Payments.
+
 
 ### M4-06 · Work out check totals, tax and gratuity in packages/rules
 

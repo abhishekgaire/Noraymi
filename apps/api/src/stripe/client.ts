@@ -82,12 +82,41 @@ export function formEncode(params: StripeParams, prefix = ""): [string, string][
   return out;
 }
 
+/**
+ * Fault injection for tests (M4-05): delay or fail a call before it goes,
+ * drop Stripe's answer after Stripe did the work (the call then looks like a
+ * timeout), or stop the run at a named step, as a crash would. Never in live
+ * mode: the client refuses to be built with faults there.
+ */
+export interface StripeFaults {
+  before?(method: string, path: string): Promise<void> | void;
+  dropAnswer?(method: string, path: string, status: number): boolean;
+  step?(name: string): Promise<void> | void;
+}
+
+/** A run stopped at a named step by fault injection, as if the process had died there. */
+export class InjectedCrash extends Error {
+  constructor(readonly step: string) {
+    super(`injected crash at ${step}`);
+    this.name = "InjectedCrash";
+  }
+}
+
 export class StripeClient {
   constructor(
     readonly settings: StripeSettings,
     private readonly fetchImpl: typeof fetch = fetch,
-    private readonly timeoutMs = 20_000,
-  ) {}
+    /** Payment flows step 2: 10 to 15 seconds. */
+    private readonly timeoutMs = 15_000,
+    private readonly faults?: StripeFaults,
+  ) {
+    if (faults && settings.livemode) throw new Error("fault injection is never used in live mode");
+  }
+
+  /** A named step of a payment run; fault injection may stop the run here. */
+  async step(name: string): Promise<void> {
+    await this.faults?.step?.(name);
+  }
 
   get livemode(): boolean {
     return this.settings.livemode;
@@ -141,6 +170,7 @@ export class StripeClient {
       headers["content-type"] = "application/x-www-form-urlencoded";
       body = new URLSearchParams(formEncode(call.params ?? {})).toString();
     }
+    await this.faults?.before?.(method, path);
     let response: Response;
     try {
       response = await this.fetchImpl(url, {
@@ -155,6 +185,8 @@ export class StripeClient {
       );
     }
     const text = await response.text().catch(() => "");
+    if (this.faults?.dropAnswer?.(method, path, response.status))
+      throw new StripeUnknownResult(`no answer from Stripe for ${method} ${path}: injected`);
     if (response.status >= 500)
       throw new StripeUnknownResult(`Stripe answered ${response.status} for ${method} ${path}`);
     let json: unknown;

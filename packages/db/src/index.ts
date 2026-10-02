@@ -427,6 +427,13 @@ export {
   recordAuthorization,
   recordCapture,
   setTip,
+  paymentById,
+  paymentByIntent,
+  latestAttempt,
+  setAttemptState,
+  allocatedChecks,
+  setPaymentIntent,
+  setPaymentCard,
 } from "./payments.js";
 export type {
   PaymentMethod,
@@ -434,4 +441,6 @@ export type {
   PaymentSource,
   NewPayment,
   NewAttempt,
+  PaymentRow,
+  AttemptRow,
 } from "./payments.js";

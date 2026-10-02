@@ -1,3 +1,4 @@
+import type { Clock } from "@west4/shared";
 import type pg from "pg";
 import type { JobHandler, Schedule, Sweep } from "@west4/db";
 import type { S3Settings } from "../s3.js";
@@ -7,6 +8,8 @@ import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { readerHealthSweep } from "./reader-health.js";
 import { STRIPE_EVENT_KIND, makeStripeEventHandler } from "../stripe/webhooks.js";
+import { makePaymentHandlers } from "../payments/run.js";
+import "../payments/webhooks.js";
 import type { StripeClient } from "../stripe/client.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";
@@ -45,7 +48,11 @@ import {
  */
 export interface HandlerDeps {
   /** Stripe's events (M4-03): the pool their jobs read and write with, and the client to read objects again. */
-  readonly stripe?: { readonly pool: pg.Pool; readonly client: StripeClient };
+  readonly stripe?: {
+    readonly pool: pg.Pool;
+    readonly client: StripeClient;
+    readonly clock: Clock;
+  };
   readonly s3: S3Settings;
   readonly mailer: Mailer;
   readonly email: EmailSettings;
@@ -72,7 +79,13 @@ export function makeHandlers({
     ? { [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client) }
     : {};
   return {
-    critical: { ...stripeEvents },
+    // Card payments (M4-05): the run and the polling while a result is unknown.
+    critical: {
+      ...stripeEvents,
+      ...(stripe
+        ? makePaymentHandlers({ pool: stripe.pool, stripe: stripe.client, clock: stripe.clock })
+        : {}),
+    },
     normal: {
       ...stripeEvents,
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),

@@ -58,6 +58,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into devices (venue_id, kind, name, stripe_reader_id) values ($1, 'reader', 'B S710', 'tmr_b') returning id",
     [v.venueB],
   );
+  const paymentB = await owner.query<{ id: string }>(
+    "insert into payments (venue_id, method, status, business_date) values ($1, 'card_present', 'pending', '2026-09-25') returning id",
+    [v.venueB],
+  );
   const badgeB = await owner.query<{ id: string }>(
     "insert into staff_badges (venue_id, membership_id, uid_hash, label) values ($1, $2, $3, 'B fob') returning id",
     [v.venueB, staffB.membershipId, badgeUidHash(v.venueB, Buffer.from("04B0B0B0B0B0B0", "hex"))],
@@ -191,6 +195,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       lineId: lineB.rows[0]!.id,
       g: guestRowB.rows[0]!.id,
       readerId: readerB.rows[0]!.id,
+      paymentId: paymentB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -232,6 +237,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/print-host/jobs/:jobId": {
         printer_id: deviceB.rows[0]!.id,
         printed: true,
+      },
+      "POST /v1/venues/:venueId/checks/:checkId/payments": {
+        method: "tap",
+        amount_cents: 100,
+        reader_id: "00000000-0000-4000-8000-000000000044",
+      },
+      "POST /v1/venues/:venueId/payments/:paymentId/tap": {
+        reader_id: "00000000-0000-4000-8000-000000000044",
       },
       "POST /v1/venues/:venueId/checks/:checkId/orders": {
         lines: [{ variant_id: "00000000-0000-4000-8000-000000000001", qty: 1 }],

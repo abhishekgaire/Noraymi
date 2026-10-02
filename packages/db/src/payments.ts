@@ -256,3 +256,135 @@ export async function recordCapture(
 export async function setTip(c: Queryable, paymentId: string, tipCents: number): Promise<void> {
   await c.query("select set_tip($1, $2)", [paymentId, tipCents]);
 }
+
+export interface PaymentRow {
+  readonly id: string;
+  readonly method: PaymentMethod;
+  readonly status: PaymentStatus;
+  readonly stripe_pi_id: string | null;
+  readonly amount_cents: number;
+  readonly tip_cents: number;
+  readonly authorized_cents: number | null;
+  readonly card_brand: string | null;
+  readonly card_last4: string | null;
+  readonly business_date: string;
+  readonly booking_id: string | null;
+  readonly training: boolean;
+  readonly created_at: string;
+}
+
+export interface AttemptRow {
+  readonly attempt_no: number;
+  readonly check_id: string | null;
+  readonly booking_id: string | null;
+  readonly portion_key: string;
+  readonly action: string;
+  readonly reader_id: string | null;
+  readonly idem_key: string;
+  readonly amount_cents: number;
+  readonly state: "started" | "unknown" | "succeeded" | "failed" | "canceled";
+  readonly decline_code: string | null;
+  readonly started_at: string;
+  readonly resolved_at: string | null;
+}
+
+const PAYMENT_COLS = `id, method, status, stripe_pi_id, amount_cents::int, tip_cents::int,
+  authorized_cents::int, card_brand, card_last4, business_date::text, booking_id, training,
+  to_json(created_at) #>> '{}' as created_at`;
+
+/** A payment of this venue; `lock` holds its row for the state machine. */
+export async function paymentById(
+  c: Queryable,
+  venueId: string,
+  id: string,
+  lock = false,
+): Promise<PaymentRow | null> {
+  const r = await c.query<PaymentRow>(
+    `select ${PAYMENT_COLS} from payments where venue_id = $1 and id = $2${lock ? " for update" : ""}`,
+    [venueId, id],
+  );
+  return r.rows[0] ?? null;
+}
+
+/** The venue's payment behind a PaymentIntent: by Stripe's id, never by metadata. */
+export async function paymentByIntent(
+  c: Queryable,
+  venueId: string,
+  piId: string,
+): Promise<PaymentRow | null> {
+  const r = await c.query<PaymentRow>(
+    `select ${PAYMENT_COLS} from payments where venue_id = $1 and stripe_pi_id = $2`,
+    [venueId, piId],
+  );
+  return r.rows[0] ?? null;
+}
+
+export async function latestAttempt(
+  c: Queryable,
+  venueId: string,
+  paymentId: string,
+): Promise<AttemptRow | null> {
+  const r = await c.query<AttemptRow>(
+    `select attempt_no, check_id, booking_id, portion_key, action, reader_id, idem_key, amount_cents::int, state,
+            decline_code, to_json(started_at) #>> '{}' as started_at, to_json(resolved_at) #>> '{}' as resolved_at
+       from payment_attempts where venue_id = $1 and payment_id = $2 order by attempt_no desc limit 1`,
+    [venueId, paymentId],
+  );
+  return r.rows[0] ?? null;
+}
+
+export async function setAttemptState(
+  c: Queryable,
+  venueId: string,
+  paymentId: string,
+  attemptNo: number,
+  state: AttemptRow["state"],
+  declineCode: string | null = null,
+): Promise<void> {
+  await c.query(
+    `update payment_attempts set state = $4, decline_code = coalesce($5, decline_code),
+            resolved_at = case when $4 in ('succeeded', 'failed', 'canceled') then now() else resolved_at end
+      where venue_id = $1 and payment_id = $2 and attempt_no = $3`,
+    [venueId, paymentId, attemptNo, state, declineCode],
+  );
+}
+
+/** The checks a payment is allocated to. */
+export async function allocatedChecks(
+  c: Queryable,
+  venueId: string,
+  paymentId: string,
+): Promise<string[]> {
+  const r = await c.query<{ check_id: string }>(
+    "select distinct check_id from payment_allocations where venue_id = $1 and payment_id = $2",
+    [venueId, paymentId],
+  );
+  return r.rows.map((x) => x.check_id);
+}
+
+export async function setPaymentIntent(
+  c: Queryable,
+  paymentId: string,
+  piId: string,
+): Promise<void> {
+  await c.query("select set_payment_intent($1, $2)", [paymentId, piId]);
+}
+
+export async function setPaymentCard(
+  c: Queryable,
+  venueId: string,
+  paymentId: string,
+  card: {
+    brand: string | null;
+    last4: string | null;
+    funding: string | null;
+    generatedCard: string | null;
+  },
+): Promise<void> {
+  await c.query(
+    `update payments set card_brand = coalesce($3, card_brand), card_last4 = coalesce($4, card_last4),
+            card_funding = coalesce($5, card_funding), generated_card_pm = coalesce($6, generated_card_pm)
+      where venue_id = $1 and id = $2`,
+    [venueId, paymentId, card.brand, card.last4, card.funding, card.generatedCard],
+  );
+}
