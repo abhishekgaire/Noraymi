@@ -12,6 +12,7 @@ import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
 import { CardOnFile, type OnFile } from "./CardOnFile.js";
 import { ReceiptStep } from "./ReceiptStep.js";
+import { RefundSheet } from "./RefundSheet.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { CutOffRoom } from "./CutOff.js";
@@ -119,6 +120,7 @@ export function RoomScreen() {
   // screen reads the check once when the session is gone and offers the receipt (M4-20).
   const lastCheck = useRef<string | null>(null);
   const [paidCheck, setPaidCheck] = useState<string | null>(null);
+  const [refunding, setRefunding] = useState(false);
   const paidWords = useRef("");
   paidWords.current = t("pay.paid");
   const [share, setShare] = useState<Share | null>(null);
@@ -316,6 +318,14 @@ export function RoomScreen() {
       )}
       {cashTaken && <CashResult venueId={venueId} taken={cashTaken} />}
       {paidCheck && <ReceiptStep venueId={venueId} checkId={paidCheck} roomName={room.name} />}
+      {paidCheck && signedIn?.membership.permissions.includes("refunds.request") && (
+        <button type="button" className="secondary" onClick={() => setRefunding(true)}>
+          {t("refund.button")}
+        </button>
+      )}
+      {paidCheck && refunding && (
+        <RefundSheet venueId={venueId} checkId={paidCheck} onClose={() => setRefunding(false)} />
+      )}
       {sheet === "move" && s && (
         <MoveSheet
           venueId={venueId}

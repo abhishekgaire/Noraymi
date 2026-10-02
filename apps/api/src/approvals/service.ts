@@ -58,6 +58,23 @@ export interface PendingAnswer {
   readonly waiting_for: { readonly user_id: string; readonly name: string };
 }
 
+/** Who a request from this person would wait for now: the name on "[Send to Abhishek]" (M4-22). */
+export async function approverFor(
+  c: Queryable,
+  venueId: string,
+  requester: string,
+  now: Temporal.Instant,
+): Promise<{ user_id: string; name: string } | null> {
+  const people = await approvalPeople(c, venueId);
+  const routedTo = routeApproval({
+    requester,
+    managerOnDuty: await managerOnDutyAt(c, venueId, now),
+    people,
+  });
+  const p = people.find((x) => x.id === routedTo);
+  return p ? { user_id: p.id, name: p.name } : null;
+}
+
 export async function requestApproval(
   c: Queryable,
   venueId: string,

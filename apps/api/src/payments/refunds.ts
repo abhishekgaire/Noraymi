@@ -615,3 +615,97 @@ export async function refundView(c: Queryable, venueId: string, refundId: string
     failure_reason: refund.failure_reason,
   };
 }
+
+const BRAND_WORDS: Record<string, string> = {
+  amex: "Amex",
+  visa: "Visa",
+  mastercard: "Mastercard",
+  discover: "Discover",
+};
+
+/**
+ * What a refund sheet starts from (M4-22): the check (a booking's room check once it has one, else
+ * the booking's own deposit), its lines that can be given back, and each payment with how much it can
+ * still give back. Nothing is picked: the sheet starts empty.
+ */
+export async function refundable(
+  c: Queryable,
+  venueId: string,
+  input: { checkId?: string | null; bookingId?: string | null },
+) {
+  let checkId = input.checkId ?? null;
+  if (!checkId && input.bookingId)
+    checkId =
+      (
+        await c.query<{ id: string }>(
+          `select id from checks where venue_id = $1 and booking_id = $2 and kind = 'room'
+            order by opened_at desc limit 1`,
+          [venueId, input.bookingId],
+        )
+      ).rows[0]?.id ?? null;
+  const rows = checkId
+    ? await c.query<{
+        id: string;
+        method: string;
+        card_brand: string | null;
+        card_last4: string | null;
+        amount_cents: string;
+        tip_cents: string;
+      }>(
+        `select distinct p.id, p.method, p.card_brand, p.card_last4, p.amount_cents, p.tip_cents
+           from payments p join payment_allocations a on a.venue_id = p.venue_id and a.payment_id = p.id
+          where p.venue_id = $1 and a.check_id = $2 and a.kind = 'payment' and a.state = 'captured'
+            and p.status in ('captured', 'partly_refunded')`,
+        [venueId, checkId],
+      )
+    : await c.query<{
+        id: string;
+        method: string;
+        card_brand: string | null;
+        card_last4: string | null;
+        amount_cents: string;
+        tip_cents: string;
+      }>(
+        `select id, method, card_brand, card_last4, amount_cents, tip_cents from payments
+          where venue_id = $1 and booking_id = $2 and status in ('captured', 'partly_refunded')`,
+        [venueId, input.bookingId],
+      );
+  const payments = [];
+  for (const p of rows.rows) {
+    const captured = Number(p.amount_cents) + Number(p.tip_cents);
+    const max = Math.max(0, captured - (await refundedOf(c, venueId, p.id)));
+    payments.push({
+      payment_id: p.id,
+      method: p.method,
+      label:
+        p.card_brand && p.card_last4
+          ? `${BRAND_WORDS[p.card_brand] ?? p.card_brand} ··${p.card_last4}`
+          : null,
+      max_refundable_cents: max,
+    });
+  }
+  let lines: { id: number; description: string; qty: number; amount_cents: number }[] = [];
+  let label: string | null = null;
+  let status: string | null = null;
+  if (checkId) {
+    const found = (await checkById(c, venueId, checkId))!;
+    label = `#${found.check.number}`;
+    status = found.check.status;
+    const reversed = new Set(found.lines.map((l) => l.reverses_id).filter((x) => x !== null));
+    lines = found.lines
+      .filter((l) => REFUNDABLE.has(l.kind) && l.reverses_id === null && !reversed.has(l.id))
+      .map((l) => ({
+        id: Number(l.id),
+        description: l.kind === "room_time" ? "Room time" : l.description,
+        qty: Number(l.qty),
+        amount_cents: Number(l.amount_cents),
+      }));
+  }
+  return {
+    target: checkId
+      ? { kind: "check" as const, id: checkId, label, status }
+      : { kind: "booking" as const, id: input.bookingId!, label: null, status: null },
+    lines,
+    payments,
+  };
+}

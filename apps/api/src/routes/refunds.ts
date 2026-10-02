@@ -4,7 +4,7 @@ import { businessDate } from "@west4/rules";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { askRefund, refundView } from "../payments/refunds.js";
+import { askRefund, refundView, refundable } from "../payments/refunds.js";
 
 /**
  * Refunds (M4-21; spec 08 · Payments, Bookings):
@@ -121,6 +121,27 @@ export function refundRoutes(app: FastifyInstance, options: { clock: Clock }): v
         }),
       );
       return reply.code(202).send(answer);
+    },
+  );
+
+  // What the refund sheet starts from (M4-22): ?check= or ?booking=. Owners and managers only.
+  app.get<{ Params: { venueId: string }; Querystring: { check?: string; booking?: string } }>(
+    "/v1/venues/:venueId/refundable",
+    { config: route({ principals: ["owner_manager", "staff", "shared_device"], module: "core" }) },
+    async (request) => {
+      const p = request.principal;
+      const role =
+        p.kind === "user"
+          ? p.memberships.find((m) => m.venueId === request.venueId)?.role
+          : undefined;
+      if (role !== "owner" && role !== "manager")
+        throw new ApiError("forbidden", "owners and managers ask for refunds");
+      const { check, booking } = request.query;
+      if (check ? !uuid.safeParse(check).success : !booking || !uuid.safeParse(booking).success)
+        throw new ApiError("invalid_request", "send ?check= or ?booking=");
+      return request.inVenue((c) =>
+        refundable(c, request.venueId!, { checkId: check ?? null, bookingId: booking ?? null }),
+      );
     },
   );
 

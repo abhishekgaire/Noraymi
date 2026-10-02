@@ -4465,3 +4465,97 @@ test("Close-out on the phone: Tab & close out → from Priya R.'s row, no Done, 
     await db.end();
   }
 });
+
+/**
+ * Refund from check on the phone (M4-22; screens N22, Staff note 5): Andy's
+ * sheet on Marcus's booking starts empty, caps his Amex at $120.00 and ends
+ * on "Send to Abhishek"; in Español it reads in Spanish.
+ */
+test("Refund from check on the phone: Marcus's sheet starts empty, caps at $120.00, Send to Abhishek, and in Spanish", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.goto("/today");
+    const marcus = () =>
+      page.getByRole("listitem").filter({ hasText: /^8:00/ }).filter({ hasText: "Marcus T." });
+    await marcus().click();
+    await page.getByRole("button", { name: "Refund", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "Refund from check #1042" });
+    await expect(sheet.getByText("Amex ··1005 · up to $120.00")).toBeVisible();
+    // Nothing is picked or filled in.
+    for (const box of await sheet.getByRole("checkbox").all()) await expect(box).not.toBeChecked();
+    for (const input of await sheet.getByRole("textbox").all()) await expect(input).toHaveValue("");
+    const send = sheet.getByRole("button", { name: "Send to Abhishek" });
+    await expect(send).toBeDisabled();
+    await sheet.getByRole("button", { name: "Close" }).click();
+
+    await db.query(
+      "update memberships set locale = 'es' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await page.reload();
+    await marcus().click();
+    await page.getByRole("button", { name: "Reembolsar", exact: true }).click();
+    const hoja = page.getByRole("dialog", { name: "Reembolso de la cuenta #1042" });
+    await expect(hoja.getByText("Amex ··1005 · hasta $120.00")).toBeVisible();
+    await expect(hoja.getByRole("button", { name: "Enviar a Abhishek" })).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.query(
+      "update memberships set locale = 'en' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await db.end();
+  }
+});
+
+/**
+ * Refund from check on DeskRoom (M4-22): Room 9 paid in cash, Andy refunds
+ * $20.00 of it with a reason, confirms with his passkey, and the sheet reads
+ * "Waiting for Abhishek"; Abhishek's approval and Stripe's answer are in
+ * apps/api/src/routes/refunds.int.test.ts.
+ */
+test("Refund from check on DeskRoom: Room 9 paid, $20.00 back, Waiting for Abhishek", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const cash = page.getByRole("region", { name: "Cash" });
+    await cash.getByRole("button", { name: /^Exact/ }).click();
+    await cash.getByRole("button", { name: "Take $498.60 in cash" }).click();
+    await page.getByRole("button", { name: "Refund", exact: true }).click({ timeout: 15_000 });
+    const sheet = page.getByRole("dialog", { name: "Refund from check #1042" });
+    const cashLine = sheet.getByLabel(/^Cash · up to \$498\.60/);
+    await cashLine.fill("20.00");
+    await sheet.getByLabel("Reason").fill("The mic was out for twenty minutes");
+    await sheet.getByRole("button", { name: "Send to Abhishek" }).click();
+    await expect(sheet.getByRole("status")).toHaveText("Waiting for Abhishek");
+    const asked = await db.query<{ status: string; amount_cents: number }>(
+      "select status, amount_cents::int from refunds",
+    );
+    expect(asked.rows).toEqual([{ status: "pending", amount_cents: 2000 }]);
+  } finally {
+    await db.end();
+  }
+});

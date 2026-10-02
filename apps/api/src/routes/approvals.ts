@@ -4,7 +4,7 @@ import { approvalById, approvalsFor } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { decide } from "../approvals/service.js";
+import { approverFor, decide } from "../approvals/service.js";
 import type pg from "pg";
 import { latestAttempt } from "@west4/db";
 import { chargeNow } from "../payments/card-on-file.js";
@@ -16,6 +16,7 @@ import type { ReceiptDeps } from "../receipts/send.js";
 /**
  * Approvals (M2-15; spec 08 · Approvals):
  *   GET  /v1/venues/{v}/approvals?status=pending   what waits for me, and what I asked for
+ *   GET  /v1/venues/{v}/approvals/approver         who a request from me would wait for now (M4-22)
  *   GET  /v1/venues/{v}/approvals/{a}
  *   POST /v1/venues/{v}/approvals/{a}/decide       { decision: approve | decline } from the approver's own phone
  */
@@ -37,6 +38,20 @@ export function approvalRoutes(
     if (p.kind !== "user" || !p.userId) throw new ApiError("forbidden", "approvals are a person's");
     return p.userId;
   };
+
+  // Who my request would wait for now, so the button can name them: "[Send to Abhishek]" (M4-22).
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/approvals/approver",
+    { config: route({ principals: ["owner_manager", "staff", "shared_device"], module: "core" }) },
+    async (request) => {
+      const userId = userOf(request.principal as never);
+      const approver = await request.inVenue((c) =>
+        approverFor(c, request.venueId!, userId, options.clock.now()),
+      );
+      if (!approver) throw new ApiError("not_found", "there's nobody to approve this");
+      return approver;
+    },
+  );
 
   app.get<{ Params: { venueId: string }; Querystring: { status?: string } }>(
     "/v1/venues/:venueId/approvals",

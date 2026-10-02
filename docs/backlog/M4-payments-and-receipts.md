@@ -682,7 +682,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-22 · Offer Refund from check on the staff phone and DeskRoom
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-21
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#refunds); [screens: N22](../screens.md#n22-refund-from-check), [Staff note 5](../screens.md#staff), [DeskRoom note 8](../screens.md#deskroom)
@@ -691,11 +691,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Progress on the requester's screen: "Waiting for Abhishek", then "Refund pending", then "Refunded", or back to the manager with Stripe's reason.
   - Owners and managers only; the bar POS's Closed tonight gets the same sheet in M6.
 - **Acceptance:**
-  - [ ] Andy's refund sheet on Marcus's booking starts empty (never pre-filled), caps at $120.00 and ends on "[Send to Abhishek]".
-  - [ ] Maya and Diego don't see Refund.
-  - [ ] Each state reads right in English and in Spanish.
+  - [x] Andy's refund sheet on Marcus's booking starts empty (never pre-filled), caps at $120.00 and ends on "[Send to Abhishek]".
+  - [x] Maya and Diego don't see Refund.
+  - [x] Each state reads right in English and in Spanish.
 - **Tests:** end-to-end on the phone and on DeskRoom; role tests.
 - **Notes:** The canvas refund sheet is pre-filled with $360.00 on Marcus's $120 deposit and refunds at once ([Staff note 5](../screens.md#staff)).
+  - **Built (M4-22):** `apps/staff/src/screens/RefundSheet.tsx`, opened from "Refund" on the phone's booking sheet and on DeskRoom once a check is paid (owners and managers only: `refunds.request`). It reads `GET /refundable?check=|booking=` (a booking's room check once it has one, else the booking's deposit; the refundable lines; each payment with how much it can still give back) and `GET /approvals/approver` (who the request would wait for now), so the button reads "Send to Abhishek". Nothing is picked or filled in at first. Sending asks for the passkey again (step-up), then the sheet follows the refund: "Waiting for Abhishek", "Refund pending", "Refunded", or "Refund failed · reason" (or "Not approved"). Over the cap it says "At most $120.00 can come off this payment".
+  - The sheet opens on Marcus's booking while his check is still open (as the acceptance asks); sending a refund still needs a paid check, as the spec's "Refund from check. Staff pick a paid check" says, and answers so otherwise.
+  - English and Spanish strings (`refund.*`).
+  - Tests: `e2e/staff.spec.ts` "Refund from check on the phone" (Marcus's sheet empty, Amex ··1005 up to $120.00, "Send to Abhishek" disabled until filled, the same in Español with nothing cut off) and "Refund from check on DeskRoom" (Room 9 paid in cash, $20.00 back with a reason, the passkey, "Waiting for Abhishek"); `apps/api/src/routes/refunds.int.test.ts` (Diego and Maya get no sheet; Andy's sheet capped at $120.00; the approver is Abhishek).
+
 
 ### M4-23 · Approve a lower party size after the gratuity applies
 

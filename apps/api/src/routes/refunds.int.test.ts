@@ -201,6 +201,23 @@ describe("a refund off Marcus's deposit", () => {
     });
     expect((await ask("diego", 1000)).statusCode).toBe(403);
     expect((await ask("maya", 1000)).statusCode).toBe(403);
+    // Nor do they get the refund sheet (M4-22); Andy's starts empty, capped at $120.00 on the deposit.
+    for (const who of ["diego", "maya"])
+      expect(
+        (await as(w, who, "GET", `/refundable?booking=${w.ids["bk_marcus"]}`)).statusCode,
+      ).toBe(403);
+    const sheet = (await as(w, "andy", "GET", `/refundable?booking=${w.ids["bk_marcus"]}`)).json();
+    expect(sheet.target).toMatchObject({ kind: "check", label: "#1042" });
+    expect(sheet.payments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payment_id: w.deposit,
+          label: "Amex ··1005",
+          max_refundable_cents: 12000,
+        }),
+      ]),
+    );
+    expect((await as(w, "andy", "GET", "/approvals/approver")).json().name).toMatch(/^Abhishek/);
   });
 
   it("Andy's $50.00 waits for Abhishek, runs only after he approves, and is pending until Stripe says so", async () => {

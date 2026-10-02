@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { Link } from "react-router";
+import { RefundSheet } from "./RefundSheet.js";
 
 /**
  * The staff phone's Tonight (M2-32; screens Staff): tonight's bookings in time
@@ -59,6 +60,7 @@ export function PhoneTonight() {
   const [bookings, setBookings] = useState<readonly Booking[] | null>(null);
   const [board, setBoard] = useState<Board | null>(null);
   const [open, setOpen] = useState<Booking | null>(null);
+  const [refundFor, setRefundFor] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -157,6 +159,9 @@ export function PhoneTonight() {
           }}
         />
       )}
+      {refundFor && (
+        <RefundSheet venueId={venueId} bookingId={refundFor} onClose={() => setRefundFor(null)} />
+      )}
       {open && (
         <div className="sheet" role="dialog" aria-label={open.guest_name}>
           <h2>{open.guest_name}</h2>
@@ -216,6 +221,19 @@ export function PhoneTonight() {
                   {t("phone.roomReady")}
                 </button>
               )}
+            {/* Refund from check (M4-22): owners and managers, from the booking. */}
+            {permissions.includes("refunds.request") && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setRefundFor(open.id);
+                  setOpen(null);
+                }}
+              >
+                {t("refund.button")}
+              </button>
+            )}
             {/* "Tab & close out →" opens the room tab (Staff note 4): never a one-tap Done. */}
             {open.status === "checked_in" && roomOf(open)?.session && (
               <Link className="button primary" to={`/room/${roomOf(open)!.room_id}`}>
