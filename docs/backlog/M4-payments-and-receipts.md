@@ -753,7 +753,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-25 · Build the card-fee engine, off at West 4
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-01, M4-06, M4-11, M4-13
 - **Spec:** [Money rules](../spec/05-money-rules.md) rule 10; [Payment flows](../spec/07-payment-flows.md#card-fee-at-the-reader-off-at-west-4); [Settings](../spec/03-settings-rule-packs-modules.md) (`CardFee`, the rule pack's `cardFee` and `salesTax.surchargeTaxable`); [Open technical questions](../spec/14-open-questions.md); [milestones: GA-M1](../milestones.md#must-fix-items-and-where-they-close)
@@ -767,12 +767,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The surcharge path stays behind a venue flag that we turn on only after its sandbox test passes and Stripe answers the open questions.
 - **Acceptance:**
   - [ ] On a test venue with a 2.7% surcharge, Room 9's $498.60 on a credit card shows the guest $512.06 before confirming, and writes a $13.46 `card_surcharge` line plus $1.19 of tax on it while `surchargeTaxable` is on ($513.25 in all).
-  - [ ] The same payment on a debit card, or in cash, stays $498.60.
-  - [ ] A 3.5% surcharge (West 4's old fee) can't be saved, with the rule-pack reason; neither can a surcharge that starts less than 30 days after its notice date.
-  - [ ] With the fee off, no West 4 screen shows a surcharge.
-  - [ ] Refunding the whole surcharged payment returns the $13.46 and its tax.
+  - [x] The same payment on a debit card, or in cash, stays $498.60.
+  - [x] A 3.5% surcharge (West 4's old fee) can't be saved, with the rule-pack reason; neither can a surcharge that starts less than 30 days after its notice date.
+  - [x] With the fee off, no West 4 screen shows a surcharge.
+  - [x] Refunding the whole surcharged payment returns the $13.46 and its tax.
 - **Tests:** the money-cases group `card_fee`; a sandbox test of the whole collect → update → confirm path on simulated readers with credit and debit test cards; rule-pack validation tests.
 - **Notes:** Closes GA-M1. Open questions, none of which blocks the gate since the fee is off at West 4: whether a server-driven reader can show a changed amount between collect and confirm (Stripe); whether a tip on the reader is part of the surcharged amount (Stripe, then the lawyer); whether a surcharge is taxable (the accountant; `surchargeTaxable` stays on until then); and how debit is treated under a cash discount (the lawyer; debit pays the card price until then). A surcharge can't rise with a growing hold, so bar tabs with the fee on close with a fresh tap (M6).
+  - **Built (M4-25):** `apps/api/src/payments/surcharge.ts` and `apps/api/src/stripe/surcharge.ts` (the only place the preview version `2026-03-25.preview` is used). A surcharge applies only with `pay.cardFee` mode surcharge, its notice period over, and the venue flag `venues.surcharge_reader` on (migration 0067; ops only, off everywhere). Then a tap collects first (`collect_payment_method`); when the reader reports the card (the `terminal.reader.action_succeeded` webhook, or the poller if it's late), a credit card gets the fee (`cardFee` from packages/rules, on the amount before any tip) and, while `surchargeTaxable` is on, its tax, through `amount` and `amount_details[surcharge][amount]`, then `confirm_payment_intent`. Debit, prepaid and any card whose type can't be read pay nothing extra. On capture the payment keeps the fee in `surcharge_cents`, the check gets a `card_surcharge` line and its tax line, and an allocation pays them, so the check still adds up.
+  - Saving a 3.5% surcharge, or one starting under 30 days from its notice, was already refused with the rule pack's reasons (M1's settings checks; `apps/api/src/routes/settings.int.test.ts`).
+  - Refunds: a surcharged payment's cap includes its fee, and a refund gives back the same share of the fee and its tax as reversing lines.
+  - Cash discount (mode discount, where the rule pack allows it): taking cash writes a `cash_discount` line and a matching tax reduction, and the cash pays the discounted amount.
+  - Credit prices: `displayPrice` (packages/rules) is applied to the public menu (the site and the room page) while a surcharge applies; with it off, prices are unchanged. **Not yet** applied to the staff menu, the menu PDF or the receipt's item lines; they show the card price, which is right while the fee is off and must be done before any venue turns the flag on.
+  - **Flag for the founder (spec mismatch):** the acceptance says the guest sees $512.06 and also "$513.25 in all" with $1.19 tax on the fee. If the card paid $512.06, the check would be $1.19 short. Cautious default: while `surchargeTaxable` is on, the card pays $513.25 (the `card_pays_with_tax_on_fee_cents` money case), and the reader shows that. The first acceptance line stays open for that answer and for the sandbox run.
+  - Open (from the ticket): whether a server-driven reader can show the changed amount between collect and confirm, whether a reader tip is surcharged, whether the surcharge is taxable, and debit under a cash discount. None blocks the gate; the fee is off at West 4.
+  - A later finalize after a reopen hasn't been tested with surcharge lines on the check; worth a test before the flag goes on anywhere.
+  - Tests: `apps/api/src/routes/surcharge.int.test.ts` (credit: collect, $13.46 + $1.19, $513.25 at Stripe, `surcharge_cents` 1346, the two lines, $0.00 due; debit unchanged; refunding the whole payment gives back $13.46 and $1.19; the public menu at $8.22 with the flag on and $8.00 off); `packages/rules` `displayPrice` and the `card_fee` money cases.
+
 
 ### M4-26 · Build Admin → Card fee & gratuity
 

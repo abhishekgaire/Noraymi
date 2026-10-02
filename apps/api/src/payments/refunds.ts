@@ -165,6 +165,13 @@ const TAX_WORDS: Record<string, string> = {
   fee: "fees",
 };
 
+/** What a payment captured: the amount, any tip and any card surcharge (M4-25). */
+const capturedOf = (p: {
+  amount_cents: number;
+  tip_cents: number;
+  surcharge_cents?: number | null;
+}) => Number(p.amount_cents) + Number(p.tip_cents) + Number(p.surcharge_cents ?? 0);
+
 /** A payment's captured money, and whether it belongs to the check or booking being refunded. */
 async function refundablePayment(
   c: Queryable,
@@ -186,7 +193,7 @@ async function refundablePayment(
   if (!belongs) throw new ApiError("not_found", "no such payment on this check");
   if (payment.status !== "captured" && payment.status !== "partly_refunded")
     throw new ApiError("invalid_request", `this payment is ${payment.status}`);
-  const captured = Number(payment.amount_cents) + Number(payment.tip_cents);
+  const captured = capturedOf(payment);
   const cap = refundCap({
     capturedCents: captured,
     earlierRefundsCents: await refundedOf(c, venueId, part.paymentId),
@@ -251,6 +258,38 @@ export async function askRefund(
     );
   const total = input.parts.reduce((s, p) => s + p.amountCents, 0);
   const plan = input.checkId ? await planLines(c, venueId, input.checkId, input.lines) : [];
+  // A surcharged payment gives back the same share of its card fee and the tax on it (M4-25).
+  if (input.checkId)
+    for (const [i, part] of input.parts.entries()) {
+      const p = payments[i]!;
+      const fee = Number((p as { surcharge_cents?: number | null }).surcharge_cents ?? 0);
+      if (fee <= 0) continue;
+      const feeTax = Number(
+        (
+          await c.query<{ t: string }>(
+            "select coalesce(sum(amount_cents), 0) as t from check_lines where venue_id = $1 and check_id = $2 and kind = 'tax' and reason = $3",
+            [venueId, input.checkId, `payment ${p.id}`],
+          )
+        ).rows[0]!.t,
+      );
+      const captured = capturedOf(p);
+      const backFee = share(fee, part.amountCents, captured);
+      const backTax = share(feeTax, part.amountCents, captured);
+      if (backFee > 0)
+        plan.push({
+          description: "Refund · Credit card surcharge",
+          amount_cents: -backFee,
+          tax_category: "fee",
+          reverses_id: null,
+        });
+      if (backTax > 0)
+        plan.push({
+          description: "Refund · Tax · fees",
+          amount_cents: -backTax,
+          tax_category: null,
+          reverses_id: null,
+        });
+    }
   const planned = -plan.reduce((s, l) => s + l.amount_cents, 0);
   if (planned > total)
     throw new ApiError("invalid_request", "the lines come to more than the payments give back", {
@@ -309,7 +348,7 @@ async function landRefund(c: Queryable, venueId: string, refund: RefundRow, at: 
       [venueId, refund.payment_id],
     )
   ).rows[0]!.s;
-  const captured = Number(payment.amount_cents) + Number(payment.tip_cents);
+  const captured = capturedOf(payment);
   const to = Number(back) >= captured ? "refunded" : "partly_refunded";
   if (payment.status !== to) {
     if (payment.status === "captured" && to === "refunded")
@@ -651,8 +690,9 @@ export async function refundable(
         card_last4: string | null;
         amount_cents: string;
         tip_cents: string;
+        surcharge_cents: string | null;
       }>(
-        `select distinct p.id, p.method, p.card_brand, p.card_last4, p.amount_cents, p.tip_cents
+        `select distinct p.id, p.method, p.card_brand, p.card_last4, p.amount_cents, p.tip_cents, p.surcharge_cents
            from payments p join payment_allocations a on a.venue_id = p.venue_id and a.payment_id = p.id
           where p.venue_id = $1 and a.check_id = $2 and a.kind = 'payment' and a.state = 'captured'
             and p.status in ('captured', 'partly_refunded')`,
@@ -665,14 +705,20 @@ export async function refundable(
         card_last4: string | null;
         amount_cents: string;
         tip_cents: string;
+        surcharge_cents: string | null;
       }>(
-        `select id, method, card_brand, card_last4, amount_cents, tip_cents from payments
+        `select id, method, card_brand, card_last4, amount_cents, tip_cents, surcharge_cents from payments
           where venue_id = $1 and booking_id = $2 and status in ('captured', 'partly_refunded')`,
         [venueId, input.bookingId],
       );
   const payments = [];
   for (const p of rows.rows) {
-    const captured = Number(p.amount_cents) + Number(p.tip_cents);
+    const captured = capturedOf({
+      ...p,
+      amount_cents: Number(p.amount_cents),
+      tip_cents: Number(p.tip_cents),
+      surcharge_cents: Number(p.surcharge_cents ?? 0),
+    });
     const max = Math.max(0, captured - (await refundedOf(c, venueId, p.id)));
     payments.push({
       payment_id: p.id,

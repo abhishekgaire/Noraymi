@@ -39,6 +39,9 @@ export interface ReaderAction {
   readonly status?: "in_progress" | "succeeded" | "failed";
   readonly failure_code?: string | null;
   readonly process_payment_intent?: { readonly payment_intent?: string };
+  /** The surcharge path's steps (M4-25). */
+  readonly collect_payment_method?: { readonly payment_intent?: string };
+  readonly confirm_payment_intent?: { readonly payment_intent?: string };
 }
 
 /** What a PaymentIntent tells us, read from Stripe's object. */
@@ -48,6 +51,8 @@ export interface IntentObservation {
   readonly amountReceived: number;
   readonly amountCapturable: number;
   readonly tipCents: number;
+  /** The card surcharge Stripe added on the surcharge path (M4-25). */
+  readonly surchargeCents: number;
   readonly declineCode: string | null;
   readonly errorCode: string | null;
   readonly card: {
@@ -73,6 +78,9 @@ export function observeIntent(pi: StripeIntent): IntentObservation {
     amountReceived: pi.amount_received ?? 0,
     amountCapturable: pi.amount_capturable ?? 0,
     tipCents: pi.amount_details?.tip?.amount ?? 0,
+    surchargeCents:
+      (pi.amount_details as { surcharge?: { amount?: number } } | undefined)?.surcharge?.amount ??
+      0,
     declineCode: pi.last_payment_error?.decline_code ?? null,
     errorCode: pi.last_payment_error?.code ?? null,
     card: card

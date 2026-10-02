@@ -323,3 +323,13 @@ export function cardFee(input: {
     cardPaysWithTaxOnFeeCents: cents(input.amountCents + surcharge + tax),
   };
 }
+
+/**
+ * The price every screen shows (Money rules 10; M4-25): with a card surcharge on, the credit price
+ * (the price plus the surcharge, half up), so a guest never meets a fee they weren't shown; otherwise
+ * the price itself. One function for the site, the room page, the bar and the menu PDF.
+ */
+export function displayPrice(priceCents: number, surchargePct: number | null): Cents {
+  if (surchargePct === null || surchargePct <= 0) return cents(priceCents);
+  return cents(priceCents + percent(priceCents, surchargePct));
+}

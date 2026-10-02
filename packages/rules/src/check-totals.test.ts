@@ -11,6 +11,7 @@ import {
   depositVsCheck,
   payMyShareEven,
   refundCap,
+  displayPrice,
   salesTaxRule,
   splitByItem,
   splitEven,
@@ -262,5 +263,13 @@ describe("the money cases' properties", () => {
         .reduce((s, l) => s + l.cents, 0);
       if (t.gratuityCents > 0) expect(t.gratuityBaseCents).toBe(base);
     }
+  });
+});
+
+describe("displayPrice (M4-25)", () => {
+  it("shows the price itself with the fee off, and the credit price with a surcharge on", () => {
+    expect(displayPrice(1000, null)).toBe(1000);
+    expect(displayPrice(1000, 2.7)).toBe(1027);
+    expect(displayPrice(49860, 2.7)).toBe(51206);
   });
 });

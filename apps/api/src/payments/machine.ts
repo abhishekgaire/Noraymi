@@ -14,7 +14,7 @@ import {
   type PaymentSource,
   type Queryable,
 } from "@west4/db";
-import type { Temporal } from "@west4/shared";
+import { Temporal } from "@west4/shared";
 import { settleCheck } from "../rooms/present.js";
 import { settleShares } from "./splits.js";
 import type { IntentObservation, ReaderAction } from "../stripe/payments.js";
@@ -26,6 +26,7 @@ import {
   statusOfIntent,
 } from "./state.js";
 import { roomOfCheck } from "../rooms/guest-bill.js";
+import { recordSurcharge } from "./surcharge.js";
 
 /**
  * The one function that records what Stripe says about a payment (M4-05):
@@ -85,13 +86,28 @@ export async function applyObservation(
     if (target === "captured" && (await movePayment("captured"))) {
       // The tip is what was entered before the tap ("Additional tip (optional)") plus any the reader took.
       const tip = before.tip_cents + intent.tipCents;
+      const surcharge = intent.surchargeCents;
       await recordCapture(c, paymentId, {
-        amountCents: intent.amountReceived - tip,
+        amountCents: intent.amountReceived - tip - surcharge,
         tipCents: tip,
-        surchargeCents: 0,
+        surchargeCents: surcharge,
       });
       if (intent.card) await setPaymentCard(c, venueId, paymentId, intent.card);
+      // What the check's allocation held, before it's captured: the card paid beyond it only the fee and its tax.
+      const held = (
+        await c.query<{ s: string }>(
+          "select coalesce(sum(amount_cents), 0) as s from payment_allocations where venue_id = $1 and payment_id = $2 and state = 'in_progress'",
+          [venueId, paymentId],
+        )
+      ).rows[0]!.s;
       await setAllocationState(c, venueId, paymentId, "in_progress", "captured");
+      // The card fee at the reader (M4-25): its line, the tax on it, and their allocation.
+      if (surcharge > 0)
+        await recordSurcharge(c, venueId, paymentId, {
+          surchargeCents: surcharge,
+          paidBeyondCents: intent.amountReceived - tip - Number(held),
+          at: (now ?? Temporal.Now.instant()).toString(),
+        });
       await moveAttempt("succeeded");
     } else if (target === "authorized" && (await movePayment("authorized"))) {
       await recordAuthorization(c, paymentId, intent.amountCapturable);

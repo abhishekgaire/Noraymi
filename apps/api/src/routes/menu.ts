@@ -26,6 +26,8 @@ import { alcoholBlock, alcoholNow } from "../orders/alcohol.js";
 import { downloadLink } from "../files/storage.js";
 import type { S3Settings } from "../s3.js";
 import { ApiError } from "../http/errors.js";
+import { displayPrice } from "@west4/rules";
+import { creditPricePct } from "../payments/surcharge.js";
 
 /**
  * The menu (M3-03; spec 08 · Menu):
@@ -486,15 +488,18 @@ export function menuRoutes(
     async (request, reply) => {
       const venueId = await resolveVenueSlug(options.pool, request.params.slug);
       if (!venueId) throw new ApiError("not_found", "no such venue");
-      const [categories, alcohol] = await withVenue(
+      const [tree, alcohol, creditPct] = await withVenue(
         options.pool,
         { venueId, requestId: request.requestId },
         async (c) =>
           [
             await menuTree(c, venueId, nowIso(), { shownOnly: true }),
             await alcoholNow(c, venueId, options.clock.now()),
+            await creditPricePct(c, venueId, options.clock.now()),
           ] as const,
       );
+      // With a card surcharge on, every price shows the credit price (M4-25); with it off, nothing changes.
+      const categories = withCreditPrices(tree, creditPct);
       reply.header("Cache-Control", "no-store");
       return {
         categories: categories
@@ -507,4 +512,35 @@ export function menuRoutes(
       };
     },
   );
+}
+
+/** Every price on a menu at its displayed price (M4-25): the credit price while a surcharge is on. */
+function withCreditPrices<T extends { items: readonly unknown[] }>(
+  tree: readonly T[],
+  pct: number | null,
+): T[] {
+  if (pct === null) return [...tree];
+  return tree.map((cat) => ({
+    ...cat,
+    items: cat.items.map((raw) => {
+      const item = raw as {
+        variants: { price_cents: number }[];
+        groups: { options: { price_delta_cents: number }[] }[];
+      };
+      return {
+        ...item,
+        variants: item.variants.map((v) => ({
+          ...v,
+          price_cents: displayPrice(v.price_cents, pct),
+        })),
+        groups: item.groups.map((g) => ({
+          ...g,
+          options: g.options.map((o) => ({
+            ...o,
+            price_delta_cents: displayPrice(o.price_delta_cents, pct),
+          })),
+        })),
+      };
+    }),
+  }));
 }

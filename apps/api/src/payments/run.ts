@@ -44,6 +44,8 @@ import {
 } from "./card-on-file.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { REFUND_RUN_KIND, runRefund } from "./refunds.js";
+import { confirmCollected, surchargeFor } from "./surcharge.js";
+import { collectOnReader } from "../stripe/surcharge.js";
 
 /**
  * How every card payment runs (M4-05; Payment flows steps 1 to 4):
@@ -217,6 +219,8 @@ interface Context {
   readonly attempt: AttemptRow | null;
   readonly account: string | null;
   readonly skipTipping: boolean;
+  /** The card fee at the reader is on (M4-25): collect first, then confirm. */
+  readonly collect: boolean;
 }
 
 async function context(
@@ -241,6 +245,7 @@ async function context(
       attempt,
       account: await stripeAccountOf(c, venueId),
       skipTipping: kind === "room",
+      collect: (await surchargeFor(c, venueId, payment.business_date)) !== null,
     };
   });
 }
@@ -325,12 +330,20 @@ export async function runAttempt(
       await inVenue((c) => setPaymentIntent(c, paymentId, pi.id));
     }
     await deps.stripe.step("before-process");
-    await processOnReader(
-      deps.stripe,
-      account,
-      { readerId: attempt.reader_id!, piId, skipTipping: ctx.skipTipping },
-      attempt.idem_key,
-    );
+    if (ctx.collect)
+      await collectOnReader(
+        deps.stripe,
+        account,
+        { readerId: attempt.reader_id!, piId, skipTipping: ctx.skipTipping },
+        attempt.idem_key,
+      );
+    else
+      await processOnReader(
+        deps.stripe,
+        account,
+        { readerId: attempt.reader_id!, piId, skipTipping: ctx.skipTipping },
+        attempt.idem_key,
+      );
     await deps.stripe.step("after-process");
   } catch (e) {
     if (e instanceof StripeUnknownResult) {
@@ -389,8 +402,11 @@ export async function observe(deps: PaymentDeps, ctx: Context): Promise<Observat
   if (ctx.attempt?.reader_id && openAttempt(ctx.attempt.state)) {
     const r = await retrieveReader(deps.stripe, ctx.account, ctx.attempt.reader_id);
     const action = (r.action ?? null) as ReaderAction | null;
-    if (action?.process_payment_intent?.payment_intent === ctx.payment.stripe_pi_id)
-      reader = action;
+    const on =
+      action?.process_payment_intent?.payment_intent ??
+      action?.collect_payment_method?.payment_intent ??
+      action?.confirm_payment_intent?.payment_intent;
+    if (on === ctx.payment.stripe_pi_id) reader = action;
   }
   return { intent, reader };
 }
@@ -480,6 +496,7 @@ export async function cancelPayment(
           amountReceived: 0,
           amountCapturable: 0,
           tipCents: 0,
+          surchargeCents: 0,
           declineCode: null,
           errorCode: null,
           card: null,
@@ -496,6 +513,8 @@ export async function pollAttempt(
   venueId: string,
   payload: { payment_id: string; attempt_no: number; n: number; unknown_since: string | null },
 ): Promise<void> {
+  // The surcharge path (M4-25): a collected card is confirmed here if its webhook is late.
+  await confirmCollected(deps, venueId, payload.payment_id).catch(() => undefined);
   const applied = await checkNow(deps, venueId, payload.payment_id, "api");
   if (!applied?.attempt || applied.attempt.attempt_no !== payload.attempt_no) return;
   const { attempt, payment } = applied;

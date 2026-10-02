@@ -16,6 +16,7 @@ import { ApiError } from "../http/errors.js";
 import { settleCheck, type Settled } from "../rooms/present.js";
 import { claimShare } from "./splits.js";
 import { roomOfCheck } from "../rooms/guest-bill.js";
+import { applyCashDiscount } from "./surcharge.js";
 
 /**
  * Cash (M4-13; Money rules 15; Payment flows · Cash). Taken at a screen
@@ -49,6 +50,16 @@ export async function takeCash(
     now: Temporal.Instant;
   },
 ): Promise<CashTaken> {
+  // A cash discount, where a venue has one (M4-25; off at West 4): the cash pays the discounted amount.
+  if (!input.shareId) {
+    const discounted = await applyCashDiscount(c, venueId, {
+      checkId: input.checkId,
+      amountCents: input.amountCents,
+      businessDate: input.businessDate,
+      at: input.now.toString(),
+    });
+    if (discounted !== input.amountCents) input = { ...input, amountCents: discounted };
+  }
   const change = changeDue({
     owedCents: input.amountCents,
     tipCents: input.tipCents,

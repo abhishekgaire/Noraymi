@@ -267,6 +267,8 @@ export interface PaymentRow {
   readonly stripe_pi_id: string | null;
   readonly amount_cents: number;
   readonly tip_cents: number;
+  /** A card surcharge the card paid on top (M4-25). */
+  readonly surcharge_cents: number;
   readonly authorized_cents: number | null;
   readonly card_brand: string | null;
   readonly card_last4: string | null;
@@ -292,7 +294,7 @@ export interface AttemptRow {
 }
 
 const PAYMENT_COLS = `id, method, status, stripe_pi_id, amount_cents::int, tip_cents::int,
-  authorized_cents::int, card_brand, card_last4, business_date::text, booking_id, training,
+  surcharge_cents::int, authorized_cents::int, card_brand, card_last4, business_date::text, booking_id, training,
   to_json(created_at) #>> '{}' as created_at`;
 
 /** A payment of this venue; `lock` holds its row for the state machine. */

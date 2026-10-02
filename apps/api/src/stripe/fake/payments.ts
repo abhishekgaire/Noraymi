@@ -44,10 +44,15 @@ function withCharge(
     : expand
       ? Object.values(expand as object).map(String)
       : [];
+  let out = pi;
   const charge = pi["latest_charge"];
   if (typeof charge === "string" && wanted.includes("latest_charge"))
-    return { ...pi, latest_charge: fake.objects.get(charge) ?? charge };
-  return pi;
+    out = { ...out, latest_charge: fake.objects.get(charge) ?? charge };
+  // The collected card on the surcharge path (M4-25), with its funding type.
+  const method = pi["payment_method"];
+  if (typeof method === "string" && wanted.includes("payment_method") && fake.objects.has(method))
+    out = { ...out, payment_method: fake.objects.get(method) };
+  return out;
 }
 
 fakeRouteSets.push((fake) => {
@@ -449,6 +454,99 @@ fakeRouteSets.push((fake) => {
     return { body: reader };
   });
 
+  // The surcharge path (M4-25): collect first, change the amount, then confirm.
+  fake.route("POST", "/v1/terminal/readers/:id/collect_payment_method", (req) => {
+    const account = needAccount(req.account);
+    const reader = fake.get(req.params["id"]!, account, "terminal.reader");
+    if (reader["status"] !== "online")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_offline",
+        "Reader is currently offline.",
+      );
+    const pi = fake.get(String(req.body["payment_intent"]), account, "payment_intent");
+    reader["action"] = {
+      type: "collect_payment_method",
+      status: "in_progress",
+      failure_code: null,
+      collect_payment_method: {
+        payment_intent: pi["id"],
+        collect_config: req.body["collect_config"] ?? {},
+      },
+    };
+    return { body: reader };
+  });
+  fake.route("POST", "/v1/payment_intents/:id", (req) => {
+    const pi = fake.get(req.params["id"]!, needAccount(req.account), "payment_intent");
+    if (pi["status"] !== "requires_confirmation" && pi["status"] !== "requires_payment_method")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_intent_unexpected_state",
+        `PaymentIntent is ${String(pi["status"])}`,
+      );
+    if (req.body["amount"] !== undefined) pi["amount"] = Number(req.body["amount"]);
+    const surcharge = (
+      req.body["amount_details"] as { surcharge?: { amount?: string } } | undefined
+    )?.surcharge?.amount;
+    if (surcharge !== undefined)
+      pi["amount_details"] = {
+        ...(pi["amount_details"] as object),
+        surcharge: { amount: Number(surcharge) },
+      };
+    return { body: pi };
+  });
+  fake.route("POST", "/v1/terminal/readers/:id/confirm_payment_intent", (req) => {
+    const account = needAccount(req.account);
+    const reader = fake.get(req.params["id"]!, account, "terminal.reader");
+    const pi = fake.get(String(req.body["payment_intent"]), account, "payment_intent");
+    if (pi["status"] !== "requires_confirmation")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_intent_unexpected_state",
+        `PaymentIntent is ${String(pi["status"])}`,
+      );
+    const collected = pi["_collected"] as { number: string; funding: string; tip: number };
+    const charge = fake.put({
+      id: fakeId("ch"),
+      object: "charge",
+      _account: account,
+      amount: Number(pi["amount"]) + collected.tip,
+      payment_intent: pi["id"],
+      payment_method_details: {
+        type: "card_present",
+        card_present: {
+          brand: "visa",
+          last4: collected.number.slice(-4),
+          funding: collected.funding,
+          generated_card: null,
+        },
+      },
+    });
+    pi["status"] = pi["capture_method"] === "manual" ? "requires_capture" : "succeeded";
+    if (pi["status"] === "succeeded") pi["amount_received"] = Number(pi["amount"]) + collected.tip;
+    else pi["amount_capturable"] = Number(pi["amount"]);
+    pi["latest_charge"] = charge["id"];
+    reader["action"] = {
+      type: "confirm_payment_intent",
+      status: "succeeded",
+      failure_code: null,
+      confirm_payment_intent: { payment_intent: pi["id"] },
+    };
+    fake.emit("readers", "terminal.reader.action_succeeded", reader, account);
+    fake.emit(
+      "connect",
+      pi["status"] === "succeeded"
+        ? "payment_intent.succeeded"
+        : "payment_intent.amount_capturable_updated",
+      pi,
+      account,
+    );
+    return { body: reader };
+  });
+
   fake.route("POST", "/v1/terminal/readers/:id/cancel_action", (req) => {
     const account = needAccount(req.account);
     const reader = fake.get(req.params["id"]!, account, "terminal.reader");
@@ -485,7 +583,11 @@ fakeRouteSets.push((fake) => {
         "terminal_reader_action_not_in_progress",
         "No action in progress.",
       );
-    const piId = (action["process_payment_intent"] as { payment_intent: string }).payment_intent;
+    const piId = (
+      (action["process_payment_intent"] ?? action["collect_payment_method"]) as {
+        payment_intent: string;
+      }
+    ).payment_intent;
     const pi = fake.get(piId, account, "payment_intent");
     const number = String(
       (req.body["card_present"] as { number?: string } | undefined)?.number ?? "4242424242424242",
@@ -503,6 +605,25 @@ fakeRouteSets.push((fake) => {
       return { body: reader };
     }
     const tip = Number(req.body["amount_tip"] ?? 0);
+    // Stripe's debit test cards (4000 0566 5566 5556, 5200 8282 8282 8210) collect as debit.
+    const funding = ["4000056655665556", "5200828282828210"].includes(number) ? "debit" : "credit";
+    // A collect (M4-25): the card is read and attached; nothing is charged until confirm.
+    if (action["type"] === "collect_payment_method") {
+      pi["status"] = "requires_confirmation";
+      pi["payment_method"] = fake.put({
+        id: fakeId("pm"),
+        object: "payment_method",
+        _account: account,
+        type: "card_present",
+        card_present: { brand: "visa", last4: number.slice(-4), funding },
+      })["id"];
+      pi["_collected"] = { number, funding, tip };
+      action["status"] = "succeeded";
+      (action["collect_payment_method"] as Record<string, unknown>)["payment_method"] =
+        pi["payment_method"];
+      fake.emit("readers", "terminal.reader.action_succeeded", reader, account);
+      return { body: reader };
+    }
     const charge = fake.put({
       id: fakeId("ch"),
       object: "charge",
@@ -514,7 +635,7 @@ fakeRouteSets.push((fake) => {
         card_present: {
           brand: "visa",
           last4: number.slice(-4),
-          funding: "credit",
+          funding,
           generated_card: null,
         },
       },
