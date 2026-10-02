@@ -5,6 +5,8 @@ import type { Mailer } from "../email/mailer.js";
 import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
+import { readerHealthSweep } from "./reader-health.js";
+import type { StripeClient } from "../stripe/client.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";
 import { TEXT_TRIGGER_KIND, makeTextTriggerHandler, textTriggerSweep } from "../texts/triggers.js";
@@ -99,10 +101,13 @@ export function makeSweeps(
   pool: pg.Pool,
   log?: (line: string) => void,
   texts: Pick<VenueTextSettings, "allowList"> = { allowList: null },
+  stripe?: StripeClient,
 ): Sweep[] {
   const s3 = makeS3();
   return [
     deviceWatchSweep(pool, log),
+    // Card readers' status from Stripe every 30 seconds (M4-02).
+    ...(stripe ? [readerHealthSweep(pool, stripe, log)] : []),
     // Tickets not confirmed within three polls (M3-13).
     printWatchSweep(pool),
     // Room orders nobody has accepted: phones, the board, the manager (M3-16).

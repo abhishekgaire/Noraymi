@@ -3,6 +3,8 @@ import { Scheduler, Worker } from "@west4/db";
 import { loadConfig } from "./config.js";
 import { makeClock } from "./clock.js";
 import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
+import { StripeClient } from "./stripe/client.js";
+import { loadStripeSettings } from "./stripe/settings.js";
 import { makeS3 } from "./s3.js";
 import { SmtpMailer } from "./email/mailer.js";
 import { loadEmailSettings } from "./email/settings.js";
@@ -56,7 +58,12 @@ const workers = (["critical", "normal", "bulk"] as const).map(
 );
 const scheduler = new Scheduler(pool, {
   schedules,
-  sweeps: makeSweeps(pool, log, venueTextSettings),
+  sweeps: makeSweeps(
+    pool,
+    log,
+    venueTextSettings,
+    new StripeClient(loadStripeSettings(config.env)),
+  ),
   clock,
   log,
 });

@@ -1,4 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { StripeClient } from "../stripe/client.js";
+import { pushTipScreen } from "../stripe/terminal-setup.js";
 import { readSetting, rulePackFor, saveSettings, settingHistory, SettingsRefused } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { isSettingsKey, Temporal, type Clock } from "@west4/shared";
@@ -15,7 +17,10 @@ interface VenueParams {
  *   PUT  /v1/venues/{v}/settings/{key}   a new version of one key
  *   PUT  /v1/venues/{v}/settings         Save and publish: several keys, all or nothing
  */
-export function settingsRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+export function settingsRoutes(
+  app: FastifyInstance,
+  options: { clock: Clock; stripe?: () => StripeClient },
+): void {
   const staff = route({ principals: ["owner_manager"], module: "core", action: "admin.access" });
   const admin = route({
     principals: ["owner_manager"],
@@ -79,7 +84,20 @@ export function settingsRoutes(app: FastifyInstance, options: { clock: Clock }):
           check: { pack: pack.pack, cutover: venue.day_cutover },
         }),
       );
-      return { business_date: today.toString(), saved };
+      // A new pay.tipScreen goes to the readers' Terminal Configuration (M4-02), after the commit.
+      let readers: "updating" | "failed" | undefined;
+      if ("pay" in values && options.stripe) {
+        readers = await pushTipScreen(
+          request.inVenue,
+          options.stripe(),
+          request.venueId!,
+          today,
+          `venue:${request.venueId}:tip-screen:${request.requestId}`,
+        )
+          .then((pushed) => (pushed ? ("updating" as const) : undefined))
+          .catch(() => "failed" as const);
+      }
+      return { business_date: today.toString(), saved, ...(readers ? { readers } : {}) };
     } catch (error) {
       if (error instanceof SettingsRefused)
         throw new ApiError("invalid_request", error.reasons.join(" "), {

@@ -54,6 +54,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into devices (venue_id, kind, name) values ($1, 'front_desk', 'B desk') returning id",
     [v.venueB],
   );
+  const readerB = await owner.query<{ id: string }>(
+    "insert into devices (venue_id, kind, name, stripe_reader_id) values ($1, 'reader', 'B S710', 'tmr_b') returning id",
+    [v.venueB],
+  );
   const badgeB = await owner.query<{ id: string }>(
     "insert into staff_badges (venue_id, membership_id, uid_hash, label) values ($1, $2, $3, 'B fob') returning id",
     [v.venueB, staffB.membershipId, badgeUidHash(v.venueB, Buffer.from("04B0B0B0B0B0B0", "hex"))],
@@ -186,6 +190,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       jobId: jobB.rows[0]!.id,
       lineId: lineB.rows[0]!.id,
       g: guestRowB.rows[0]!.id,
+      readerId: readerB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

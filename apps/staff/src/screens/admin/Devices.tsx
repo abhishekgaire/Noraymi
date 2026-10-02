@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { MessageKey } from "@west4/shared";
+import { cents, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -274,6 +274,127 @@ export function Devices() {
         printers={(devices ?? []).filter((d) => d.kind === "printer")}
         onAdded={load}
       />
+      <Readers venueId={venueId} />
+    </section>
+  );
+}
+
+/**
+ * Card readers (M4-02; Stripe setup 4; AdminDesk note 9): each reader with its
+ * label, model, online and cellular, and the $10 a month cellular fee; add
+ * one with the code it shows. Only the S710, S700 and WisePOS E are offered,
+ * the S700 and WisePOS E labeled "no cellular backup"; never the M2.
+ */
+interface Reader {
+  readonly id: string;
+  readonly label: string;
+  readonly model: string | null;
+  readonly registered: boolean;
+  readonly online: boolean;
+  readonly cellular: boolean;
+  readonly monthly_fee_cents: number;
+}
+
+function Readers({ venueId }: { venueId: string }) {
+  const { t, money } = useT();
+  const [readers, setReaders] = useState<readonly Reader[] | null>(null);
+  const [label, setLabel] = useState("");
+  const [code, setCode] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const r = await api<{ readers: Reader[] }>("GET", `/v1/venues/${venueId}/readers`);
+    setReaders(r.readers);
+  }, [venueId]);
+  useEffect(() => {
+    if (venueId) load().catch(() => setError(t("shell.error.cantReach")));
+  }, [venueId, load, t]);
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    setBusy(true);
+    try {
+      const r = await api<Reader>("POST", `/v1/venues/${venueId}/readers`, {
+        registration_code: code.trim(),
+        label: label.trim(),
+      });
+      setMessage(t("readers.registered", { name: r.label }));
+      setCode("");
+      setLabel("");
+      await load();
+    } catch (err) {
+      const details = (err as ApiCallError)?.details as { reason?: string } | undefined;
+      setError(
+        details?.reason === "unsupported_reader" ? t("readers.unsupported") : t("readers.failed"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="readers" aria-labelledby="readers-h">
+      <h3 id="readers-h">{t("readers.title")}</h3>
+      {readers === null ? (
+        !error && <p role="status">{t("shell.loading")}</p>
+      ) : readers.length === 0 ? (
+        <p className="muted">{t("readers.none")}</p>
+      ) : (
+        <ul className="list">
+          {readers.map((r) => (
+            <li key={r.id} aria-label={r.label}>
+              <strong>{r.label}</strong>
+              <span>
+                {r.model ? t(`readers.model.${r.model}` as MessageKey) : t("readers.notRegistered")}
+              </span>
+              <span className={r.online ? "ok" : "muted"}>
+                {r.online ? t("readers.online") : t("readers.offline")}
+              </span>
+              {r.cellular && (
+                <span className="small">
+                  {t("readers.cellular", { fee: money(cents(r.monthly_fee_cents)) })}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="small muted">{t("readers.tipDelay")}</p>
+      <form onSubmit={(e) => void add(e)} className="invite-fields">
+        <h4>{t("readers.add")}</h4>
+        <p className="small muted">{t("readers.supported")}</p>
+        <label>
+          <span>{t("readers.label")}</span>
+          <input
+            aria-label={t("readers.label")}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+          <span className="small muted">{t("readers.label.hint")}</span>
+        </label>
+        <label>
+          <span>{t("readers.code")}</span>
+          <input
+            aria-label={t("readers.code")}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <span className="small muted">{t("readers.code.hint")}</span>
+        </label>
+        <button type="submit" className="primary" disabled={busy || !label.trim() || !code.trim()}>
+          {t("readers.register")}
+        </button>
+        {message && <p role="status">{message}</p>}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
     </section>
   );
 }

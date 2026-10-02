@@ -6,6 +6,7 @@ import {
   withVenue,
   DEVICE_SILENCE_MS,
   type QuietSweepResult,
+  type Queryable,
   type Sweep,
 } from "@west4/db";
 import { businessDate, hoursFor, openNow } from "@west4/rules";
@@ -26,6 +27,28 @@ export interface VenueSweep extends QuietSweepResult {
   readonly venueId: string;
 }
 
+/** Whether the venue is inside its opening hours right now (no hours set: never). */
+export async function venueOpenNow(
+  c: Queryable,
+  v: { id: string; time_zone: string; day_cutover: string },
+  now: Temporal.Instant,
+): Promise<boolean> {
+  const date = businessDate(now, v.time_zone, v.day_cutover).businessDate;
+  const [hours, closure] = await Promise.all([
+    readSetting(c, v.id, "hours", date),
+    closureOn(c, v.id, date.toString()),
+  ]);
+  // No hours yet means no "opening hours" to be quiet during.
+  if (!hours) return false;
+  const h = hoursFor(
+    { timeZone: v.time_zone, dayCutover: v.day_cutover },
+    date,
+    hours.value,
+    closure,
+  );
+  return openNow(h, now);
+}
+
 export async function sweepQuietDevices(
   pool: pg.Pool,
   now: Temporal.Instant,
@@ -40,20 +63,7 @@ export async function sweepQuietDevices(
       pool,
       { venueId: v.id, requestId: "device-watch" },
       async (c) => {
-        const date = businessDate(now, v.time_zone, v.day_cutover).businessDate;
-        const [hours, closure] = await Promise.all([
-          readSetting(c, v.id, "hours", date),
-          closureOn(c, v.id, date.toString()),
-        ]);
-        // No hours yet means no "opening hours" to be quiet during.
-        if (!hours) return null;
-        const h = hoursFor(
-          { timeZone: v.time_zone, dayCutover: v.day_cutover },
-          date,
-          hours.value,
-          closure,
-        );
-        if (!openNow(h, now)) return null;
+        if (!(await venueOpenNow(c, v, now))) return null;
         const quiet = await flagQuietDevices(c, v.id, now, silenceMs);
         // A bar computer gone quiet with no other heard from: no bar device connected (M3-17).
         if (quiet.offline.length > 0 && (await barsHeard(c, v.id, now)) === 0) {

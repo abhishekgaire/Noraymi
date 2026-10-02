@@ -82,7 +82,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-02 · Register the Terminal: configuration, Location and both S710s
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-01; M1 (devices and heartbeats)
 - **Spec:** [Stripe setup](../spec/06-stripe-setup.md) step 4; [Devices, printing and offline](../spec/09-devices-printing-offline.md) (Devices at West 4, Heartbeats, Supported hardware); [Settings](../spec/03-settings-rule-packs-modules.md) (`pay.tipScreen`); [screens: AdminDesk note 9](../screens.md#admindesk)
@@ -96,11 +96,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Admin → Printers & devices lists both readers with label, online, cellular on and the monthly cellular fee ($10 a reader a month). Only the S710, S700 and WisePOS E are offered, the S700 and WisePOS E labeled "no cellular backup"; never the M2.
 - **Acceptance:**
   - [ ] On the connected sandbox, two simulated readers are registered as "Bar S710" and "Front desk S710" to West 4's Location, whose configuration has cellular on and tips of 18, 20 and 22% with $1, $2 and $3 under $10.
-  - [ ] Admin → Printers & devices and the Console's venue list both show both readers online, read from the same rows.
-  - [ ] A request naming another venue's reader answers not found and nothing reaches Stripe.
-  - [ ] A reader offline for 2 minutes during opening hours raises `device.offline` to the manager.
+  - [x] Admin → Printers & devices and the Console's venue list both show both readers online, read from the same rows.
+  - [x] A request naming another venue's reader answers not found and nothing reaches Stripe.
+  - [x] A reader offline for 2 minutes during opening hours raises `device.offline` to the manager.
 - **Tests:** integration with simulated readers; venue-wall test for reader ids; unit test for the 2-minute rule.
 - **Notes:** Registering the two real S710s to the Location is an outside step on this milestone's list. The M2 reader works only through Stripe's mobile SDKs, so it's never offered.
+  - Built on the fake Stripe (see M4-01). **The first Acceptance line stays open until it's run on a connected sandbox with Stripe's simulated readers**; it passes on the fake, whose registration codes `simulated-s710`, `simulated-s700` and `simulated-wpe` make simulated readers as the sandbox's do (`simulated-m2` makes an M2, to test the refusal).
+  - Built: migration `0053_terminal.sql` (`venues.stripe_terminal_config_id`, `app_rw` may update the two Terminal ids; `devices.stripe_reader_id`, `reader_model`, `cellular`); `packages/db/src/readers.ts`; `apps/api/src/stripe/terminal.ts` and `terminal-setup.ts`; `routes/readers.ts` (`GET` and `POST /readers`, `POST /readers/{readerId}/refresh`); `jobs/reader-health.ts` (the `readers.health` sweep, every 30 s, opening hours only); a readers section on Admin → Printers & devices.
+  - The first reader registered makes the Configuration and the Location, with idempotency keys naming the venue, so a retry answers the same objects. Registering takes over the seed's unregistered row of the same name (so "Bar S710" keeps its device id) or adds a row. A reader Stripe reports as any model but the S710, S700 or WisePOS E is deleted at Stripe and refused (`details.reason: "unsupported_reader"`).
+  - Health: each online reading is a heartbeat in `device_heartbeats` (never audited), and the quiet-device sweep's 2-minute rule raises `device.offline`; a reader back online raises `device.online`. Stripe unreachable means no heartbeats, so the readers go offline after 2 minutes, which is the honest reading.
+  - A save of `pay` pushes `tipScreen` to the Configuration after the commit and answers `readers: "updating"` (or `"failed"`, the settings save itself standing). The 5-minute note shows under the reader list; Admin → Card fee & gratuity (M4-26) will show it beside the tip choices.
+  - The Location's address is the venue's `address` as stored (line 1, city and state). The seed has no postal code and none is invented; Stripe's US Locations need one, so the owner's onboarding or Admin must supply it before the sandbox run (flagged).
+  - `readerId` joined the principal and venue-wall suites. The seed resets the Terminal ids on every load; registering the seed's readers comes in M4-10.
+
 
 ### M4-03 · Receive Stripe webhooks on the three endpoints
 

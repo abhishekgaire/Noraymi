@@ -801,7 +801,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
        values ($1, $2, $3, $4, $5, $6, $7, $8)
        on conflict (id) do update set org_id = excluded.org_id, name = excluded.name, slug = excluded.slug,
          address = excluded.address, time_zone = excluded.time_zone, day_cutover = excluded.day_cutover,
-         rule_pack_id = excluded.rule_pack_id`,
+         rule_pack_id = excluded.rule_pack_id, stripe_location_id = null, stripe_terminal_config_id = null`,
       [
         venueId,
         orgId,

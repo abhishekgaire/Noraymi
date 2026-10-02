@@ -106,7 +106,7 @@ export class StripeClient {
       throw new StripeMisuse("the reporting key only reads");
     if (service === "refunds" && method !== "GET" && !path.startsWith("/v1/refunds"))
       throw new StripeMisuse("the refunds key only makes refunds");
-    if (method !== "GET" && !call.idempotencyKey)
+    if (method === "POST" && !call.idempotencyKey)
       throw new StripeMisuse("every write to Stripe carries an idempotency key");
   }
 

@@ -1308,4 +1308,27 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "connections.status.not_connected": "No conectado",
   "connections.status.disconnected": "Desconectado",
   "connections.status.error": "No funciona",
+  "readers.title": "Lectores de tarjetas",
+  "readers.none": "Aún no hay lectores de tarjetas",
+  "readers.online": "En línea",
+  "readers.offline": "Sin conexión",
+  "readers.notRegistered": "Aún no registrado en Stripe",
+  "readers.model.stripe_s710": "S710",
+  "readers.model.stripe_s700": "S700 · sin respaldo celular",
+  "readers.model.bbpos_wisepos_e": "WisePOS E · sin respaldo celular",
+  "readers.cellular": "Celular activo · {fee} al mes",
+  "readers.tipDelay":
+    "Los lectores pueden tardar hasta 5 minutos en aplicar un cambio en las opciones de propina.",
+  "readers.add": "Agregar un lector de tarjetas",
+  "readers.supported":
+    "Funciona con el S710, el S700 y el WisePOS E. Solo el S710 tiene respaldo celular.",
+  "readers.label": "Nombre que elige el personal",
+  "readers.label.hint": "Por ejemplo Bar S710 o Front desk S710",
+  "readers.code": "Código de registro",
+  "readers.code.hint": "El código que muestra el lector en su configuración",
+  "readers.register": "Registrar",
+  "readers.registered": "{name} está registrado",
+  "readers.failed":
+    "No se pudo registrar el lector. Revisa el código que muestra e inténtalo de nuevo.",
+  "readers.unsupported": "Aquí solo funcionan el S710, el S700 y el WisePOS E.",
 };

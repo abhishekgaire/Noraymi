@@ -1,6 +1,7 @@
 import { StripeClient } from "./stripe/client.js";
 import { loadStripeSettings } from "./stripe/settings.js";
 import { paymentsAdminRoutes } from "./routes/payments-admin.js";
+import { readerRoutes } from "./routes/readers.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -201,7 +202,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         config: config.auth,
         email: options.email ?? { allowList: null },
       });
-      settingsRoutes(scope, { clock });
+      settingsRoutes(scope, { clock, stripe });
       rulePackRoutes(scope, { clock });
       roomsRoutes(scope, { clock });
       bookingsRoutes(scope, { clock });
@@ -226,6 +227,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
       approvalRoutes(scope, { clock });
       paymentsAdminRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
+      readerRoutes(scope, { clock, stripe });
       orderRoutes(scope, { clock });
       draftRoutes(scope, { clock });
       let s3: S3Settings | null = null;

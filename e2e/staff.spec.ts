@@ -3808,3 +3808,55 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
     await db.end();
   }
 });
+
+/**
+ * Card readers on Admin → Printers & devices (M4-02): the seed's two S710s
+ * wait to be registered; registering the Bar S710 with the code it shows
+ * makes it an S710 with cellular at $10.00 a month.
+ */
+test("Admin → Printers & devices: register the Bar S710 with its code", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    const made = await request.post("http://127.0.0.1:12111/v2/core/accounts", {
+      headers: {
+        authorization: "Bearer rk_test_fake_payments",
+        "idempotency-key": `e2e-r-${Date.now()}`,
+      },
+      data: { display_name: "West 4 Boho Karaoke" },
+    });
+    await db.query("update organizations set stripe_account_id = $1", [
+      ((await made.json()) as { id: string }).id,
+    ]);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/devices");
+    const readers = page.getByRole("region", { name: "Card readers" });
+    const bar = readers.getByRole("listitem", { name: "Bar S710" });
+    await expect(bar).toContainText("Not registered with Stripe yet");
+    await expect(readers).toContainText("Only the S710 has cellular backup");
+    await readers.getByLabel("Name staff pick").fill("Bar S710");
+    await readers.getByLabel("Registration code").fill("simulated-s710");
+    await readers.getByRole("button", { name: "Register" }).click();
+    await expect(readers.getByRole("status")).toHaveText("Bar S710 is registered");
+    await expect(bar).toContainText("S710");
+    await expect(bar).toContainText("Cellular on · $10.00 a month");
+    await readers.getByLabel("Name staff pick").fill("Bar M2");
+    await readers.getByLabel("Registration code").fill("simulated-m2");
+    await readers.getByRole("button", { name: "Register" }).click();
+    await expect(readers.getByRole("alert")).toHaveText(
+      "Only the S710, S700 and WisePOS E work here.",
+    );
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
