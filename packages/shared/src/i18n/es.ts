@@ -1204,4 +1204,19 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "barOrders.86.unknown": "Eso no está en el menú",
   "barOrders.footer":
     "Tiempos en pantalla: ámbar a los 2 min, rosa a los 4 cuando se avisa al gerente de turno; teléfonos de barra a los 30 s; un mensaje o llamada a los 6; campana como respaldo.",
+  // Aging and escalating room orders (M3-16).
+  "orders.push.ringing": "{room}: hay un pedido sonando ({items})",
+  "orders.push.waiting": "El pedido de {room} lleva {minutes} min esperando en la barra ({items})",
+  "text.orderWaiting":
+    "{venue}: el pedido de {room} lleva {minutes} min esperando en la barra ({items}). Nadie lo ha aceptado.",
+  "alert.order": "El pedido de {room} lleva {age} sonando ({items})",
+  "alert.order.held": "El pedido de {room} lleva {age} esperando ({items})",
+  "alert.order.phone": "en el teléfono de {name}",
+  "alert.order.texted": "se envió mensaje a {name}",
+  "alert.order.show": "Ver",
+  "menu.barOrders.count": "Pedidos del bar · {n}",
+  "barOrders.mute": "Silenciar la campana 60 s",
+  "barOrders.muted": "Campana en silencio · vuelve en {s} s",
+  // Orders waiting on a locked bar screen (M3-16).
+  "signIn.ordersWaiting": "Pedidos del bar · {n} en espera",
 };

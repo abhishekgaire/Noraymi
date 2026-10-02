@@ -14,6 +14,7 @@ import {
 } from "../device.js";
 import { startHeartbeats } from "../heartbeat.js";
 import { roleKey, useT } from "../i18n.js";
+import { WaitingWhileLocked } from "../chime.js";
 import { useSession } from "../session.js";
 import { LanguageSwitch } from "../layout/LanguageSwitch.js";
 import { Keypad } from "./Keypad.js";
@@ -350,6 +351,7 @@ export function SignIn() {
             {statusLine}
           </p>
         )}
+        <WaitingWhileLocked device={device} />
         {!chosen && (
           <>
             <p className="badge-line">{t("signIn.tapBadge")}</p>

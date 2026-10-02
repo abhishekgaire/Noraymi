@@ -1,3 +1,4 @@
+import type { MessageKey } from "@west4/shared";
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { Membership } from "../api.js";
@@ -8,7 +9,7 @@ import { menu, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
 import { WaitingStrip } from "../approvals/WaitingStrip.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
-import { useUnreadTexts } from "./unread.js";
+import { useUnreadTexts, useWaitingOrders } from "./unread.js";
 
 /**
  * The frame around every staff screen: the venue, the venue's time and
@@ -57,6 +58,13 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
     menu,
   );
   const unread = useUnreadTexts(membership.venue_id, membership.permissions.includes("texts.send"));
+  const waiting = useWaitingOrders(
+    membership.venue_id,
+    membership.permissions.includes("orders.accept") && entries.some((e) => e.id === "barOrders"),
+  );
+  // "Bar orders · 2" (M3-16): every ringing and asked-to-wait order.
+  const label = (id: string, key: MessageKey) =>
+    id === "barOrders" && waiting > 0 ? t("menu.barOrders.count", { n: waiting }) : t(key);
   const badge = (id: string) =>
     id === "messages" && unread > 0 ? (
       <span className="badge" aria-label={t("messages.unread", { count: unread })}>
@@ -136,7 +144,7 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
             ) : (
               <li key={entry.id}>
                 <NavLink to={entry.path} className="menu-link">
-                  {t(entry.labelKey)} {badge(entry.id)}
+                  {label(entry.id, entry.labelKey)} {badge(entry.id)}
                 </NavLink>
               </li>
             ),

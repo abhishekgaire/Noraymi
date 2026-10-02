@@ -46,6 +46,17 @@ export type Alert =
       readonly waiting: readonly string[];
     }
   | {
+      readonly kind: "order";
+      readonly color: string;
+      readonly order_id: string;
+      readonly status: string;
+      readonly room_name: string | null;
+      readonly items: string | null;
+      readonly age_sec: number;
+      readonly told: "phone" | "texted" | null;
+      readonly manager: string | null;
+    }
+  | {
       readonly kind: "ticket";
       readonly color: string;
       readonly job_id: string;
@@ -75,6 +86,7 @@ export interface AlertActions {
   readonly move: (sessionId: string, roomName: string) => void;
   readonly onIt: (callId: string) => void;
   readonly reprint: (jobId: string) => void;
+  readonly showOrders: () => void;
   readonly offer: (entryId: string) => void;
   readonly show: (roomId: string) => void;
   readonly noProblem: (conversationId: string) => void;
@@ -142,6 +154,16 @@ export function Alerts({
         });
       case "code":
         return t("alert.code", { room: a.room_name });
+      case "order": {
+        const age = `${Math.floor(a.age_sec / 60)}:${String(a.age_sec % 60).padStart(2, "0")}`;
+        const base = t(a.status === "held" ? "alert.order.held" : "alert.order", {
+          room: a.room_name ?? "",
+          age,
+          items: a.items ?? "",
+        });
+        if (!a.told || !a.manager) return `${base}.`;
+        return `${base} · ${t(a.told === "texted" ? "alert.order.texted" : "alert.order.phone", { name: a.manager })}.`;
+      }
       case "ticket":
         return a.room_name ? t("alert.ticket", { room: a.room_name }) : t("alert.ticket.noRoom");
       case "late":
@@ -183,6 +205,11 @@ export function Alerts({
                   </button>
                 )}
               </>
+            )}
+            {a.kind === "order" && (
+              <button type="button" className="secondary" onClick={() => actions.showOrders()}>
+                {t("alert.order.show")}
+              </button>
             )}
             {a.kind === "ticket" && (
               <button type="button" className="primary" onClick={() => actions.reprint(a.job_id)}>

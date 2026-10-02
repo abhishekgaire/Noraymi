@@ -176,7 +176,7 @@ describe("the Tonight board at 10:41 PM", () => {
     expect(vip(after).room_time_cents).toBe(Math.round((25000 * 72) / 60));
   });
 
-  it("the alerts band at 10:41 PM, in the seed's order (less Room 5's order, M3)", async () => {
+  it("the alerts band at 10:41 PM, in the seed's order, Room 5's order at 2:11 among them (M3-16)", async () => {
     clock.set(SEED_NOW);
     const b = (await app.inject({ method: "GET", url: `/v1/venues/${venueId}/board` })).json<{
       alerts: Record<string, unknown>[];
@@ -195,6 +195,8 @@ describe("the Tonight board at 10:41 PM", () => {
           ];
         case "call":
           return [a["color"], a["kind"], a["room_name"], a["call"], a["minutes_ago"]];
+        case "order":
+          return [a["color"], a["kind"], a["room_name"], a["age_sec"], a["items"], a["told"]];
         case "offer":
           return [
             a["color"],
@@ -221,6 +223,7 @@ describe("the Tonight board at 10:41 PM", () => {
     expect(short).toEqual([
       ["pink", "needed_now", "Room 7", 11, "The Parks", 8],
       ["pink", "call", "Room 9", "mic", 2],
+      ["amber", "order", "Room 5", 131, "4 × Bud Light", null],
       ["amber", "near_end", "Room 3", 4, "Jae & co.", 5],
       ["lime", "offer", "Room 11", "Amara B.", 7, 26, true],
       ["grey", "wipe", ["Room 6 8", "Room 13 5"], ["Nadia K.", "Chris P."]],

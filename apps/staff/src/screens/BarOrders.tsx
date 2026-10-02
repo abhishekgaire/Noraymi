@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { hiddenScreens } from "../navigation.js";
 import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
+import { muteChime, useChimeMute } from "../chime.js";
 
 /**
  * The bar orders screen (M3-15; screens Bar notes 1–6, 8 and 9; spec 10 ·
@@ -78,6 +79,7 @@ export function BarOrders() {
   const [error, setError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const night = useVenueTime(timeZone, cutover)?.businessDate.toString();
+  const muteLeft = useChimeMute();
 
   const load = useCallback(async () => {
     if (!venueId) return;
@@ -471,7 +473,17 @@ export function BarOrders() {
         </form>
       </section>
 
-      <p className="small muted footer-line">{t("barOrders.footer")}</p>
+      <p className="small muted footer-line">
+        {t("barOrders.footer")}{" "}
+        <button
+          type="button"
+          className="secondary"
+          disabled={muteLeft > 0}
+          onClick={() => muteChime(60)}
+        >
+          {muteLeft > 0 ? t("barOrders.muted", { s: muteLeft }) : t("barOrders.mute")}
+        </button>
+      </p>
     </section>
   );
 }

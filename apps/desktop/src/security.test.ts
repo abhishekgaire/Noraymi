@@ -42,3 +42,15 @@ describe("the desktop app's walls", () => {
     expect(isTrustedSender(null, allowed)).toBe(false);
   });
 });
+
+describe("the staff window", () => {
+  it("is sandboxed and never throttled in the background, so the chime plays behind other windows (M3-16)", async () => {
+    const { staffWebPreferences } = await import("./security.js");
+    expect(staffWebPreferences("/app/preload.cjs")).toMatchObject({
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    });
+  });
+});

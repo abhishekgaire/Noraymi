@@ -41,6 +41,22 @@ export const textJobPayload = z.discriminatedUnion("template", [
         .strict(),
     })
     .strict(),
+  // The manager on duty, when a room's order has waited 6 minutes unaccepted (M3-16).
+  z
+    .object({
+      template: z.literal("order_waiting"),
+      to: e164,
+      locale: z.enum(["en", "es"]),
+      data: z
+        .object({
+          venueName: z.string().min(1),
+          room: z.string().min(1),
+          minutes: z.number().int().positive(),
+          items: z.string().min(1).max(200),
+        })
+        .strict(),
+    })
+    .strict(),
 ]);
 
 export type TextJobPayload = z.infer<typeof textJobPayload>;
@@ -59,6 +75,13 @@ export function renderText(payload: TextJobPayload): string {
         venue: payload.data.venueName,
         url: payload.data.url,
         hours: payload.data.hours,
+      });
+    case "order_waiting":
+      return t(locale, "text.orderWaiting", {
+        venue: payload.data.venueName,
+        room: payload.data.room,
+        minutes: payload.data.minutes,
+        items: payload.data.items,
       });
   }
 }

@@ -12,6 +12,7 @@ import { Hours } from "./screens/admin/Hours.js";
 import { Rooms } from "./screens/admin/Rooms.js";
 import { Menu } from "./screens/admin/Menu.js";
 import { BarOrders } from "./screens/BarOrders.js";
+import { ChimeLoop } from "./chime.js";
 import { Phone } from "./screens/admin/Phone.js";
 import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
@@ -53,6 +54,7 @@ function WithLocale({ children }: { children: ReactNode }) {
     <LocaleProvider locale={locale}>
       <Title />
       <Heartbeats />
+      <ChimeLoop />
       {children}
     </LocaleProvider>
   );

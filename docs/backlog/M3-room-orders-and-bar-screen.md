@@ -408,7 +408,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-16 · Age and escalate room orders on the bar screens, phones and the board
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-22, M1-28, M2-09, M2-15, M2-29, M3-15
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Room orders at the bar; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 7, Room orders at the bar (Escalation); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `PosSettings.orderAging`; [Glossary · The escalation sentence](../glossary.md#the-escalation-sentence); [Board](../screens.md#board) note 5; [Bar](../screens.md#bar) note 4
@@ -418,13 +418,18 @@ Definition of done: see CLAUDE.md.
   - The chime as a backup: the desktop app plays it even when its window isn't in front, and while the screen is locked (the locked device's ring channel from M1-15). Mute silences the chime for 60 seconds.
   - The board's menu badge "Bar orders · N" counts every ringing and asked-to-wait order.
 - **Acceptance:**
-  - [ ] On the simulated clock, an order placed at 10:41:00 PM that nobody accepts buzzes bar phones at 10:41:30, shows on the board at 10:43:00, reads "on Andy's phone" at 10:45:00 as his phone buzzes, and texts Andy at 10:47:00, when the board reads "texted Andy".
-  - [ ] An asked-to-wait order keeps aging and escalating, and accepting it stops everything.
-  - [ ] At 10:41 PM the board's badge reads "Bar orders · 2".
-  - [ ] Mute stops the chime for 60 seconds while the colors keep changing.
-  - [ ] With the bar computer locked, a new order still shows and chimes there.
+  - [x] On the simulated clock, an order placed at 10:41:00 PM that nobody accepts buzzes bar phones at 10:41:30, shows on the board at 10:43:00, reads "on Andy's phone" at 10:45:00 as his phone buzzes, and texts Andy at 10:47:00, when the board reads "texted Andy".
+  - [x] An asked-to-wait order keeps aging and escalating, and accepting it stops everything.
+  - [x] At 10:41 PM the board's badge reads "Bar orders · 2".
+  - [x] Mute stops the chime for 60 seconds while the colors keep changing.
+  - [x] With the bar computer locked, a new order still shows and chimes there.
 - **Tests:** job tests on the simulated clock; a desktop-app test that the chime plays with the window in the background.
 - **Notes:** "Bar-role phones" isn't defined further; until M7's duty says who's on the bar, this buzzes bartenders' phones and the front desk's while its covering-the-bar switch is on (flagged). "A text or call at 6": this sends a text, since the spec names no calling service, and the staff alert isn't one of the 14 guest texts (flagged).
+  - Built: migration `0048_order_escalation.sql` (`orders.escalation_level`, 0 to 4); `apps/api/src/orders/escalation.ts` (the escalation sweep every 5 seconds on `pos.orderAging`: 30 s a push to the bartenders' and the front desk's phones, 2 min the board, 4 min a push to the manager on duty, 6 min a text to their verified number with the new `order_waiting` staff text; each once, with `order.escalated`); the board's order alert ("Room 5's order has been ringing 2:11 (4 × Bud Light)." amber from 2 minutes, pink from 4, then "· on Andy's phone" and "· texted Andy", with Show to the bar orders screen); "Bar orders · 2" in the side menu; the chime (`apps/staff/src/chime.ts`: on paired bar and front-desk computers in the desktop app, signed in or locked, a chime for each new ringing order and once a minute while one has waited 2 minutes) and Mute for 60 seconds on the bar orders screen; the locked bar screen's "Bar orders · 2 waiting"; the desktop window never throttled in the background (`staffWebPreferences`).
+  - Tests: `apps/api/src/orders/escalation.int.test.ts` on the simulated clock (10:41:30, 10:43, 10:45 and 10:47; held keeps escalating, Accept stops it); `apps/staff/src/chime.test.ts` (new order, no repeat, the once-a-minute reminder, Mute); `apps/desktop/src/security.test.ts` (the window isn't throttled, so the chime plays behind other windows); Playwright: the alerts band now includes Room 5's order, "Bar orders · 2" and Mute, and a locked bar computer showing a new order.
+  - Bar-role phones are the bartenders' and the front desk's (the front desk covers the bar by default in the seed's permissions), until M7's duty says who's on the bar (cautious default in the ticket). "A text or call at 6" sends a text; the manager on duty is texted only at a verified number.
+  - `pos.orderAging` comes from the seed's settings (30, 120, 240, 360; chime on; mute 60) until Admin → Bar POS (M6).
+  - The chime can't be heard in an automated test; the tests check when it would sound and that the window keeps running in the background.
 
 ### M3-17 · Alert when no bar device is connected
 

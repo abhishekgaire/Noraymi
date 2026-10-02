@@ -1185,4 +1185,19 @@ export const en = {
   "barOrders.86.unknown": "That isn't on the menu",
   "barOrders.footer":
     "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",
+  // Aging and escalating room orders (M3-16).
+  "orders.push.ringing": "{room}: an order is ringing ({items})",
+  "orders.push.waiting": "{room}'s order has waited {minutes} min at the bar ({items})",
+  "text.orderWaiting":
+    "{venue}: {room}'s order has waited {minutes} min at the bar ({items}). Nobody has accepted it yet.",
+  "alert.order": "{room}'s order has been ringing {age} ({items})",
+  "alert.order.held": "{room}'s order has waited {age} ({items})",
+  "alert.order.phone": "on {name}'s phone",
+  "alert.order.texted": "texted {name}",
+  "alert.order.show": "Show",
+  "menu.barOrders.count": "Bar orders · {n}",
+  "barOrders.mute": "Mute the chime for 60 s",
+  "barOrders.muted": "Chime muted · back in {s} s",
+  // Orders waiting on a locked bar screen (M3-16).
+  "signIn.ordersWaiting": "Bar orders · {n} waiting",
 } as const;

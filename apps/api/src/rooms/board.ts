@@ -1,4 +1,6 @@
 import { failedTickets, readSetting, roomNotes, type Queryable } from "@west4/db";
+import { managerOnDutyAt } from "../approvals/service.js";
+import { agingFor, secondsSince } from "../orders/escalation.js";
 import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
@@ -187,6 +189,7 @@ const COLOR_ORDER = ["pink", "amber", "lime", "grey"] as const;
 const KIND_ORDER = [
   "needed_now",
   "call",
+  "order",
   "ticket",
   "near_end",
   "code",
@@ -269,6 +272,54 @@ async function boardAlerts(
       call: k.kind,
       minutes_ago: minutes(k.created_at),
     });
+  // Room orders nobody has accepted (M3-16): amber from 2 minutes, pink from 4, saying who was told.
+  const aging = await agingFor(c, venueId, now);
+  const waitingOrders = await c.query<{
+    id: string;
+    status: string;
+    placed_at: string;
+    escalation_level: number;
+    room_name: string | null;
+    items: string | null;
+  }>(
+    `select o.id, o.status, to_json(o.placed_at) #>> '{}' as placed_at, o.escalation_level, r.name as room_name,
+            (select string_agg(i.qty || ' × ' || i.name_snapshot, ', ' order by i.sort)
+               from order_items i where i.venue_id = o.venue_id and i.order_id = o.id) as items
+       from orders o
+       left join room_sessions s on s.venue_id = o.venue_id and s.id = o.session_id
+       left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+      where o.venue_id = $1 and o.status in ('ringing', 'held') order by o.placed_at`,
+    [venueId],
+  );
+  let managerName: string | null | undefined;
+  for (const o of waitingOrders.rows) {
+    const age = secondsSince(o.placed_at, now);
+    if (age < aging.amberSec) continue;
+    if (managerName === undefined && o.escalation_level >= 3) {
+      const m = await managerOnDutyAt(c, venueId, now);
+      managerName = m
+        ? ((
+            await c.query<{ name: string }>(
+              "select split_part(name, ' ', 1) as name from users where id = $1",
+              [m],
+            )
+          ).rows[0]?.name ?? null)
+        : null;
+    }
+    out.push({
+      kind: "order",
+      color: age >= aging.pinkSec ? "pink" : "amber",
+      since: o.placed_at,
+      order_id: o.id,
+      status: o.status,
+      room_name: o.room_name,
+      items: o.items,
+      age_sec: age,
+      told: o.escalation_level >= 4 ? "texted" : o.escalation_level >= 3 ? "phone" : null,
+      manager: managerName ?? null,
+    });
+  }
+
   // A ticket that didn't print (M3-13): pink until someone reprints it.
   for (const j of await failedTickets(c, venueId, now.toString()))
     out.push({

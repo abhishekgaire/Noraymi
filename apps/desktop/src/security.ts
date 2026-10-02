@@ -35,3 +35,20 @@ export function isTrustedSender(
   if (!frame || !frame.isMainFrame) return false;
   return isAllowedUrl(frame.url, allowed);
 }
+
+/**
+ * The staff window's web preferences (M1-28, M3-16): isolated and sandboxed,
+ * and never throttled in the background, so the bar's chime and timers run
+ * while another window is in front or the screen is locked.
+ */
+export function staffWebPreferences(preload: string) {
+  return {
+    preload,
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    backgroundThrottling: false,
+  } as const;
+}

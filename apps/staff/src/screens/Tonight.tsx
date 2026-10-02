@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
 import { useClock } from "../clock.js";
@@ -120,6 +120,7 @@ interface Arrival {
 }
 
 export function Tonight() {
+  const navigate = useNavigate();
   const { t, money, time } = useT();
   const { state } = useSession();
   const { now } = useClock();
@@ -207,6 +208,9 @@ export function Tonight() {
               "message.received",
               "print_job.failed",
               "print_job.queued",
+              "order.escalated",
+              "order.accepted",
+              "order.cancelled",
             ].includes(e.type),
           )
         )
@@ -458,6 +462,7 @@ export function Tonight() {
                     void load();
                   })
                   .catch(() => setFailed(true)),
+              showOrders: () => void navigate("/bar-orders"),
               show: (roomId) =>
                 document
                   .querySelector(`[data-room="${roomId}"]`)

@@ -21,6 +21,7 @@ import { makeSendMessageHandler } from "./send-message.js";
 import { AUDIT_EXPORT_KIND, auditExportSchedule, makeAuditExportHandler } from "./audit-export.js";
 import { MENU_PDF_KIND, makeMenuPdfHandler } from "./menu-pdf.js";
 import { printWatchSweep } from "../routes/print.js";
+import { escalationSweep } from "../orders/escalation.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -102,6 +103,8 @@ export function makeSweeps(
     deviceWatchSweep(pool, log),
     // Tickets not confirmed within three polls (M3-13).
     printWatchSweep(pool),
+    // Room orders nobody has accepted: phones, the board, the manager (M3-16).
+    escalationSweep(pool),
     holdSweep(pool),
     wrapUpSweep(pool),
     // The automatic texts on their triggers (M2-24).

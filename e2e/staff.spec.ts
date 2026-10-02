@@ -2172,7 +2172,7 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     const band = page.getByRole("list", { name: "Alerts" });
-    const expected = seed.board_alerts.filter((a) => !/order has been ringing/.test(a.text));
+    const expected = seed.board_alerts;
     await expect(band.getByRole("listitem")).toHaveCount(expected.length);
     const items = band.getByRole("listitem");
     // The colors in the seed's order, and each alert's key facts.
@@ -2182,16 +2182,21 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
       "Room 7 is 11 min past its time, and The Parks (8) are booked into Room 7 at 11:00.",
     );
     await expect(items.nth(1)).toContainText("Room 9 called for another mic, 2 min ago.");
+    // The 2-minute escalation (M3-16), with Show taking the bar to its orders.
     await expect(items.nth(2)).toContainText(
+      /Room 5's order has been ringing 2:1\d \(4 × Bud Light\)\./,
+    );
+    await expect(items.nth(2).getByRole("button", { name: "Show" })).toBeVisible();
+    await expect(items.nth(3)).toContainText(
       "Room 3: 4 min left, and Jae & co. are booked at 11:00.",
     );
-    await expect(items.nth(3)).toContainText(
+    await expect(items.nth(4)).toContainText(
       "Room 11 is free all night, and Amara B. (7) has waited 26 min.",
     );
-    await expect(items.nth(4)).toContainText(
+    await expect(items.nth(5)).toContainText(
       "Rooms 6 and 13 need a wipe (8 and 5 min), and Nadia K. and Chris P. are waiting.",
     );
-    await expect(items.nth(5)).toContainText(
+    await expect(items.nth(6)).toContainText(
       'Sam O. texted "running 15 late" for the 10:30 in Room 2, and it\'s held until 10:45.',
     );
     await expect(page.getByText("Priya K.")).toHaveCount(0);
@@ -2203,7 +2208,7 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
       .getByRole("dialog", { name: "Move Room 7" })
       .getByRole("button", { name: "Cancel" })
       .click();
-    await items.nth(3).getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
+    await items.nth(4).getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
     await expect(
       page
         .getByRole("complementary", { name: "Waitlist" })
@@ -3173,3 +3178,83 @@ for (const size of [
     }
   });
 }
+
+/**
+ * The board's count and the chime's Mute (M3-16): at 10:41 PM the side menu
+ * reads "Bar orders · 2" (o1 and o2); on the bar orders screen, Mute silences
+ * the chime for 60 seconds while the colors keep changing.
+ */
+test("Bar orders · 2 in the side menu, and Mute for 60 seconds on the bar orders screen", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const link = page.getByRole("link", { name: "Bar orders · 2" });
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar orders");
+    await page.getByRole("button", { name: "Mute the chime for 60 s" }).click();
+    await expect(
+      page.getByRole("button", { name: /^Chime muted · back in (60|59|58) s$/ }),
+    ).toBeDisabled();
+    // The colors keep going while it's muted.
+    await expect(
+      page.getByRole("region", { name: "Waiting for you" }).locator(".bar-order.amber"),
+    ).toHaveCount(1);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * A locked bar computer (M3-16): with nobody signed in, the orders waiting at
+ * the bar still show on its sign-in screen, and a new one adds to them.
+ */
+test("a locked bar computer still shows the orders waiting at the bar", async ({ page }) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    await expect(page.getByText("Bar orders · 2 waiting")).toBeVisible();
+    // A guest's order rings while the screen is locked.
+    await db.query(
+      `insert into orders (venue_id, check_id, session_id, source, placed_at, business_date)
+       select s.venue_id, s.check_id, s.id, 'room', '2026-09-25T22:41:00-04:00', '2026-09-25'
+         from room_sessions s where s.id = (select row_id from seed_ids where slug = 'sess_room9')`,
+    );
+    await expect(page.getByText("Bar orders · 3 waiting")).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await db.end();
+  }
+});

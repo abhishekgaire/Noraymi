@@ -18,7 +18,12 @@ import {
 import { Temporal } from "@west4/shared";
 import { DesktopCache } from "./cache.js";
 import { SealedStore, type Sealer } from "./keychain.js";
-import { allowedOriginsFrom, isAllowedUrl, isTrustedSender } from "./security.js";
+import {
+  allowedOriginsFrom,
+  isAllowedUrl,
+  isTrustedSender,
+  staffWebPreferences,
+} from "./security.js";
 
 /**
  * The Electron shell around the staff app (M1-28, spec 12 · 10). It shows
@@ -213,14 +218,7 @@ function createWindow(): BrowserWindow {
     width: 1280,
     height: 800,
     title: "West 4 Staff",
-    webPreferences: {
-      preload: path.join(here, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-    },
+    webPreferences: staffWebPreferences(path.join(here, "preload.cjs")),
   });
   // Our hostnames only: no navigation elsewhere, no new windows at all.
   window.webContents.on("will-navigate", (event, url) => {
