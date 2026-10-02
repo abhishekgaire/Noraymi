@@ -738,7 +738,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `charge.dispute.closed`, `funds_withdrawn` and `funds_reinstated` update the item and are kept for the journal, which M7 posts.
   - Admin → Disputes, for owners and managers in a passkey session: the inbox with each deadline, the evidence gathered, and Submit.
 - **Acceptance:**
-  - [x] A sandbox room-check payment on Stripe's dispute test card (4000 0000 0000 0259) opens a dispute that shows in the inbox with its due date, and with the receipt PDF, the clock times, the booking's accepted policy (where there is one), any damage photos and who served already attached.
+  - [ ] A sandbox room-check payment on Stripe's dispute test card (4000 0000 0000 0259) opens a dispute that shows in the inbox with its due date, and with the receipt PDF, the clock times, the booking's accepted policy (where there is one), any damage photos and who served already attached.
   - [x] Submit sends the evidence to Stripe, and the item shows it was submitted.
   - [x] Maya and Diego can't open the inbox.
   - [x] `charge.dispute.closed` marks it won or lost, and funds withdrawn and reinstated are recorded with their amounts.
