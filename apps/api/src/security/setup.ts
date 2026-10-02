@@ -143,6 +143,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, 'item', 'B''s beer', 1, 800, 800, 'drink', '2026-09-25') returning id::text`,
     [v.venueB, checkB.rows[0]!.id],
   );
+  const guestRowB = await owner.query<{ id: string }>(
+    `insert into room_guests (venue_id, session_id, room_id, token_hash, token_version, joined_at)
+       values ($1, $2, $3, md5(random()::text), 1, now()) returning id`,
+    [v.venueB, sessionB.rows[0]!.id, roomB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -180,6 +185,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       draftKey: checkB.rows[0]!.id,
       jobId: jobB.rows[0]!.id,
       lineId: lineB.rows[0]!.id,
+      g: guestRowB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -214,6 +220,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/menu/items/:menuItemId/out-tonight": {},
       "POST /v1/venues/:venueId/orders/:orderId/decline": { reason: "x" },
       "PUT /v1/venues/:venueId/drafts/:draftKey": { lines: [], version: 0 },
+      "POST /v1/venues/:venueId/sessions/:sessionId/cut-off": { reason: "x" },
+      "POST /v1/venues/:venueId/sessions/:sessionId/guests/:g/cut-off": { reason: "x" },
       "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/comp": { reason: "x", made: true },
       "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/void": { reason: "x", made: false },
       "POST /v1/venues/:venueId/print-host/jobs/:jobId": {

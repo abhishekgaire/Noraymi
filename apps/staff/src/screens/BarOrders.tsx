@@ -389,7 +389,10 @@ export function BarOrders() {
                           })
                         : t(staffOrderWordsKey(o), {
                             reason: o.decline_reason ?? "",
-                            name: o.cancelled_by_name ?? "",
+                            name:
+                              o.cancel_reason === "cut_off"
+                                ? (o.cancelled_by_name ?? "").split(" ")[0]!
+                                : (o.cancelled_by_name ?? ""),
                           })}
                     </p>
                     {o.status === "returned" && !o.return_resolution && (

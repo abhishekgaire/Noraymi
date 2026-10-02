@@ -3416,3 +3416,59 @@ test("at 4:00 AM DeskRoom greys alcohol with the reason; a Red Bull still adds",
     await db.end();
   }
 });
+
+/**
+ * Cutting off Room 9 (M3-21) from the board's tile panel at 10:41 PM: the
+ * board, DeskRoom and the Room phone read "Cut off by Andy at 10:41 PM", o1
+ * shows "Cancelled · cut off by Andy" under Returned on the bar orders screen,
+ * and the guest's phone hides alcohol with the glossary's words.
+ */
+test("Cut off Room 9 from the board: every screen reads it, o1 is cancelled, the guest's phone pauses alcohol", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const tile = page.getByRole("listitem", { name: "Room 9", exact: true });
+    await tile.getByRole("button", { name: "No more alcohol for this room" }).click();
+    const sheet = page.getByRole("dialog", { name: "No more alcohol for this room" });
+    await sheet.getByLabel("Why is Room 9 cut off?").fill("Someone looks too drunk");
+    await sheet.getByRole("button", { name: "Cut off", exact: true }).click();
+    await expect(tile).toContainText(/Cut off by Andy at 10:4\d PM/);
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await expect(page.getByText(/Cut off by Andy at 10:4\d PM/)).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByText(/Cut off by Andy at 10:4\d PM/)).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await page.goto("/bar-orders");
+    await expect(
+      page.getByRole("region", { name: "Returned" }).locator(".bar-order", { hasText: "Room 9" }),
+    ).toContainText("Cancelled · cut off by Andy");
+
+    const token = createHash("sha256")
+      .update("host-token:sess_room9")
+      .digest("base64url")
+      .slice(0, 32);
+    const phone = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await phone.goto(`http://localhost:3001/r/${token}`);
+    await expect(
+      phone.getByText("Your server has paused alcohol for this room").first(),
+    ).toBeVisible();
+    await expect(phone.getByRole("button", { name: /^Bud Light/ })).toHaveCount(0);
+    await phone.context().close();
+  } finally {
+    await db.end();
+  }
+});

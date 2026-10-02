@@ -1237,4 +1237,14 @@ export const en = {
   "drinks.alcohol.closed": "No alcohol now · the window has closed",
   "drinks.alcohol.cutOff": "No alcohol · this room is cut off",
   "guestRoom.alcoholClosed": "The bar has stopped serving alcohol for tonight",
+  // Cutting off a room or one guest (M3-21).
+  "cutOff.room": "No more alcohol for this room",
+  "cutOff.guestButton": "No more alcohol for this guest",
+  "cutOff.by": "Cut off by {name} at {time}",
+  "cutOff.why.room": "Why is {room} cut off?",
+  "cutOff.why.guest": "Why is this guest cut off?",
+  "cutOff.confirm": "Cut off",
+  "cutOff.host": "The host",
+  "cutOff.guest": "Guest {n}",
+  "cutOff.failed": "That didn't go through. Try again.",
 } as const;

@@ -49,6 +49,7 @@ import { orderRoutes } from "./routes/orders.js";
 import { draftRoutes } from "./routes/drafts.js";
 import { roomGuestAuthenticator, roomJoinRoutes } from "./routes/room-join.js";
 import { roomOrderRoutes } from "./routes/room-orders.js";
+import { cutOffRoutes } from "./routes/cut-off.js";
 import { printerAuthenticator, printRoutes } from "./routes/print.js";
 import { setRoomCodeKey } from "./rooms/room-code.js";
 import { makeS3, type S3Settings } from "./s3.js";
@@ -202,6 +203,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       setRoomCodeKey(config.auth.secretKey);
       roomJoinRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
       roomOrderRoutes(scope, { pool: gatePoolRef!, clock });
+      cutOffRoutes(scope, { clock });
       printRoutes(scope, { pool: gatePoolRef!, clock });
       reasonOnlyRoutes(scope, { clock });
       faultRoutes(scope, { clock });

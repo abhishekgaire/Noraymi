@@ -1258,4 +1258,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "drinks.alcohol.closed": "Sin alcohol ahora · terminó el horario",
   "drinks.alcohol.cutOff": "Sin alcohol · esta sala tiene corte",
   "guestRoom.alcoholClosed": "La barra dejó de servir alcohol por esta noche",
+  // Cutting off a room or one guest (M3-21).
+  "cutOff.room": "No más alcohol para esta sala",
+  "cutOff.guestButton": "No más alcohol para este cliente",
+  "cutOff.by": "Corte de {name} a las {time}",
+  "cutOff.why.room": "¿Por qué se corta {room}?",
+  "cutOff.why.guest": "¿Por qué se corta a este cliente?",
+  "cutOff.confirm": "Cortar",
+  "cutOff.host": "El anfitrión",
+  "cutOff.guest": "Cliente {n}",
+  "cutOff.failed": "No se pudo. Inténtalo de nuevo.",
 };

@@ -39,6 +39,10 @@ interface SessionRow {
   token_version: number;
   /** The booking's guest (M2-24: the board's "Text Rob & Kim: please wrap up"). */
   guest_name: string | null;
+  /** The room's alcohol cut-off (M3-21): when, by whom (first name) and why. */
+  alcohol_cut_off_at: string | null;
+  alcohol_cut_off_by_name: string | null;
+  alcohol_cut_off_reason: string | null;
 }
 
 interface SegmentRow {
@@ -61,7 +65,10 @@ const SESSION_COLS = `s.id, s.room_id, r.name as room_name, s.booking_id, s.chec
   coalesce(
     (select g.name from bookings b join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
       where b.venue_id = s.venue_id and b.id = s.booking_id),
-    (select g.name from guests g where g.venue_id = s.venue_id and g.id = s.guest_id)) as guest_name`;
+    (select g.name from guests g where g.venue_id = s.venue_id and g.id = s.guest_id)) as guest_name,
+  ${iso("s.alcohol_cut_off_at")} as alcohol_cut_off_at,
+  (select split_part(u.name, ' ', 1) from users u where u.id = s.alcohol_cut_off_by) as alcohol_cut_off_by_name,
+  s.alcohol_cut_off_reason`;
 const SEGMENT_COLS = `id, session_id, ${iso("started_at")} as started_at, ${iso("ended_at")} as ended_at,
   billable_guests, rate_kind, hourly_cents, increment_min, rounding, paused`;
 

@@ -38,6 +38,9 @@ const view = (v: Awaited<ReturnType<typeof sessionViews>>[number]) => ({
   wrap_up: v.clock.wrapUp,
   close: v.close,
   segments: v.segments,
+  // The room's alcohol cut-off (M3-21).
+  alcohol_cut_off_at: v.alcohol_cut_off_at,
+  alcohol_cut_off_by_name: v.alcohol_cut_off_by_name,
 });
 
 export function sessionsRoutes(app: FastifyInstance, options: { clock: Clock }): void {

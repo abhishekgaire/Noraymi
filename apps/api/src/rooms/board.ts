@@ -140,6 +140,13 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
             stay_on_offer: s.clock.stayOnOffer,
             wrap_up: s.clock.wrapUp,
             close: s.close,
+            cut_off: s.alcohol_cut_off_at
+              ? {
+                  at: s.alcohol_cut_off_at,
+                  by: s.alcohol_cut_off_by_name,
+                  reason: s.alcohol_cut_off_reason,
+                }
+              : null,
           }
         : null,
       next: nextBookings.get(r.room_id) ?? null,

@@ -519,7 +519,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-21 · Cut off a room or one guest
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-29, M2-31, M3-08, M3-20
 - **Spec:** [N16 No more alcohol (cut off)](../screens.md#n16-no-more-alcohol-cut-off); [Money rules](../spec/05-money-rules.md) 5 (Cut-offs); [API](../spec/08-api.md) · Board and sessions (`/cut-off`, `/guests/{g}/cut-off`); [Data model](../spec/04-data-model.md) · `room_sessions`, `room_guests`; [Board](../screens.md#board) note 12; [DeskRoom](../screens.md#deskroom) note 7; [Room](../screens.md#room) note 4
@@ -528,12 +528,16 @@ Definition of done: see CLAUDE.md.
   - A room cut-off stops room, host, staff and gift orders for that room; a guest cut-off stops that guest's own orders while the rest of the room still orders. Their alcohol orders still ringing or asked to wait are cancelled with `cut_off`; an order that also has other items keeps ringing with just those.
   - Every screen for that room shows "Cut off by Andy at 10:30 PM" and greys out alcohol; the guest's phone hides alcohol and shows "Your server has paused alcohol for this room"; the bar screens show "Cancelled · cut off by Andy"; Same again leaves alcohol out. Singing is still fine, and a runner can't cut off.
 - **Acceptance:**
-  - [ ] Andy cuts off Room 9 at 10:41 PM on a fresh load: the room page, the host, a staff order from DeskRoom and Room 9's tablet are all refused alcohol, and every screen for Room 9 shows "Cut off by Andy at 10:41 PM" (the form the done-when writes as 10:30 PM, Hana K.'s time in the seed).
-  - [ ] o1, the 2 × Margarita · Peach still ringing for Room 9, is cancelled as "Cancelled · cut off by Andy", and Room 9's phones read "Your server has paused alcohol for this room".
-  - [ ] Cutting off one Room 9 guest refuses that guest's alcohol order and lets another guest's through.
-  - [ ] Each refusal is logged, and a runner's cut-off answers `403`.
+  - [x] Andy cuts off Room 9 at 10:41 PM on a fresh load: the room page, the host, a staff order from DeskRoom and Room 9's tablet are all refused alcohol, and every screen for Room 9 shows "Cut off by Andy at 10:41 PM" (the form the done-when writes as 10:30 PM, Hana K.'s time in the seed).
+  - [x] o1, the 2 × Margarita · Peach still ringing for Room 9, is cancelled as "Cancelled · cut off by Andy", and Room 9's phones read "Your server has paused alcohol for this room".
+  - [x] Cutting off one Room 9 guest refuses that guest's alcohol order and lets another guest's through.
+  - [x] Each refusal is logged, and a runner's cut-off answers `403`.
 - **Tests:** an API test over every alcohol route; Playwright for the control on the board, DeskRoom and the Room phone.
 - **Notes:** The spec has no way to lift a cut-off, so none is built (flagged). A tab's cut-off (Hana K.'s) is M6. Mixed orders split as at 4 AM (M3-22).
+  - Built: `apps/api/src/rooms/cut-off.ts` and `apps/api/src/routes/cut-off.ts` (`POST /sessions/{s}/cut-off`, `POST /sessions/{s}/guests/{g}/cut-off`, each `{ reason }` and `cutoff.apply`, so a runner gets 403; and `GET /sessions/{s}/guests`, the room's joined phones and tablets); `apps/staff/src/screens/CutOff.tsx` on the board's tile panel (the room), DeskRoom and the Room phone (the room and each guest), asking the reason in a sheet; sessions, the board and the room's tile carry the cut-off; `apps/api/src/rooms/cut-off.int.test.ts` and the Playwright test "Cut off Room 9 from the board".
+  - A cut-off records who, why and when and logs a refusal. The room's (or the guest's) alcohol orders still ringing or asked to wait are cancelled as `cut_off`; an order with other items too is cancelled and its other items placed again as a new ringing order, since order items are never deleted. The guest's phone and the tablet are refused through M3-20's check, the guest page hides alcohol with "Your server has paused alcohol for this room", DeskRoom greys it, and Same again leaves it out.
+  - Every screen reads "Cut off by Andy at 10:41 PM" (first name and the venue's time); the bar orders screen reads "Cancelled · cut off by Andy".
+  - There's no lifting a cut-off (the ticket's flag); cutting off a room or guest twice answers `409`. Guests have no names, so the list reads "The host", "Guest 2" or the tablet's name.
 
 ### M3-22 · Stop alcohol at 4:00 AM on every screen, and cancel what nobody accepted
 

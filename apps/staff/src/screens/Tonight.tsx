@@ -10,6 +10,7 @@ import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { Alerts, type Alert } from "./Alerts.js";
 import { DamageSheet } from "./DamageSheet.js";
+import { CutOffRoom } from "./CutOff.js";
 import { Headcount } from "./Headcount.js";
 import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
@@ -91,6 +92,8 @@ interface Board {
 interface Session {
   readonly id: string;
   readonly guest_name: string | null;
+  readonly alcohol_cut_off_at?: string | null;
+  readonly alcohol_cut_off_by_name?: string | null;
   readonly room_id: string;
   readonly check_id: string | null;
   readonly segments: readonly { readonly paused: boolean }[];
@@ -690,6 +693,21 @@ export function Tonight() {
                       )}
                       {noteList(s.room_id)}
                       {faultList(s.room_id)}
+                      <CutOffRoom
+                        venueId={venueId}
+                        sessionId={s.id}
+                        roomName={s.room_name}
+                        timeZone={timeZone}
+                        cutOff={
+                          s.alcohol_cut_off_at
+                            ? { at: s.alcohol_cut_off_at, by: s.alcohol_cut_off_by_name ?? null }
+                            : null
+                        }
+                        canCutOff={
+                          signedIn?.membership.permissions.includes("cutoff.apply") ?? false
+                        }
+                        onDone={() => void load()}
+                      />
                       <div className="actions">
                         <button
                           type="button"

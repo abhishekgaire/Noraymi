@@ -8,6 +8,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
+import { CutOffRoom } from "./CutOff.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { MoveSheet } from "./MoveSheet.js";
@@ -38,6 +39,7 @@ interface BoardRoom {
     readonly stay_on_offer: boolean;
     readonly wrap_up: boolean;
     readonly close: string | null;
+    readonly cut_off: { readonly at: string; readonly by: string | null } | null;
   } | null;
   readonly next: { readonly name: string; readonly party_size: number; readonly at: string } | null;
   readonly notes: readonly { readonly id: string; readonly text: string }[];
@@ -295,6 +297,16 @@ export function RoomScreen() {
               </p>
             )}
           </section>
+          <CutOffRoom
+            venueId={venueId}
+            sessionId={s.id}
+            roomName={room.name}
+            timeZone={timeZone}
+            cutOff={s.cut_off}
+            canCutOff={signedIn?.membership.permissions.includes("cutoff.apply") ?? false}
+            onDone={() => void load()}
+            guests
+          />
           {s.check_id && signedIn?.membership.permissions.includes("comps.reasonOnly") && (
             <FixPanel
               venueId={venueId}
