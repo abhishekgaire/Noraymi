@@ -269,7 +269,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-08 · Present the check and reopen it
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-07; M3 (orders, ordering from the room, the room page and tablets); M2 (room states and cleaning)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rule 6 (Presenting the check, After payment); [Payment flows](../spec/07-payment-flows.md#room-close-out) steps 1 and 4; [API](../spec/08-api.md) (`POST /checks/{c}/present`, `/reopen`; `409 orders_open`; `409 ordering_closed`); [screens: N5](../screens.md#n5-your-bill), [N4](../screens.md#n4-room-tablet-kiosk), [N21](../screens.md#n21-close-out-steps-and-card-states)
@@ -279,14 +279,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `POST /checks/{c}/reopen` for managers and owners: the check goes to `reopened`, `ordering_locked` clears and ordering opens again; the next finalize writes the next revision.
   - Paid in full: the check goes to `paid` with `paid_at`; the room goes to cleaning only when no order on it is ringing, held or on a check that isn't paid; an order accepted after the check is paid opens a new check on the session, which staff settle before the room is released.
 - **Acceptance:**
-  - [ ] Presenting Room 9 while o1 rings answers `409 orders_open`, and DeskRoom lists "2 × Margarita · Peach is ringing at the bar · accept or cancel it first"; an asked-to-wait order blocks it the same way.
-  - [ ] With o1 cancelled, Present finalizes #1042 at $618.60, Room 9's phones and tablet read "Your bill is ready · ordering is closed", and a new order from Kevin's phone answers `409 ordering_closed`.
-  - [ ] Andy reopens #1042, ordering opens, the 2 × Margarita · Peach is ordered again and accepted, and Present writes revision 2 at $652.11 with $532.11 left.
-  - [ ] Diego (front desk) can't reopen a check.
-  - [ ] Once #1042 is paid in full, Room 9 goes to cleaning; with an order still ringing on the room it doesn't, and the screen names the order.
-  - [ ] An order accepted after #1042 is paid lands on a new check for Room 9, and the room isn't released until that check is paid.
+  - [x] Presenting Room 9 while o1 rings answers `409 orders_open`, and DeskRoom lists "2 × Margarita · Peach is ringing at the bar · accept or cancel it first"; an asked-to-wait order blocks it the same way.
+  - [x] With o1 cancelled, Present finalizes #1042 at $618.60, Room 9's phones and tablet read "Your bill is ready · ordering is closed", and a new order from Kevin's phone answers `409 ordering_closed`.
+  - [x] Andy reopens #1042, ordering opens, the 2 × Margarita · Peach is ordered again and accepted, and Present writes revision 2 at $652.11 with $532.11 left.
+  - [x] Diego (front desk) can't reopen a check.
+  - [x] Once #1042 is paid in full, Room 9 goes to cleaning; with an order still ringing on the room it doesn't, and the screen names the order.
+  - [x] An order accepted after #1042 is paid lands on a new check for Room 9, and the room isn't released until that check is paid.
 - **Tests:** money cases `room9_present_blocked_while_o1_rings`, `room9_present_blocked_while_order_held`, `room9_present_allowed_once_cancelled` and `room9_reopen_check_revision2`; integration of the room channel's events; end-to-end on the seed (Room 9).
 - **Notes:** milestones.md says "Accepting the ringing margaritas after [Present the check] writes revision 2", but Present is refused while o1 rings (rule 6). The test does what money case `room9_reopen_check_revision2` does: cancel o1, present revision 1, reopen, and accept the margaritas ordered again. The canvas closes out in one step; build the four steps ([DeskRoom note 2](../screens.md#deskroom), [Room note 2](../screens.md#room)).
+  - Built: `apps/api/src/rooms/present.ts` (`presentCheck`, `reopenCheck`, `settleCheck`, `releaseRoom`, `openOrders`, `checkForAccept`); `POST /checks/{c}/present` and `/reopen`; the state machine settles every check a captured payment lands on (paid with `paid_at`, or partly paid) in the same transaction; Accept on a paid check opens a new check on the session; the staff room screen's `PresentCheck` panel; the room page and tablet show "Your bill is ready · ordering is closed" and stop sending orders.
+  - `409 orders_open` carries `details.orders` (`order_id`, `status`, and the items as the bar shows them, "2 × Margarita · Peach"); the screen builds the sentence in either language. An asked-to-wait order reads "2 × Margarita · Peach is waiting at the bar · accept or cancel it first": the glossary has only the ringing sentence, so the held one follows its pattern (flagged for the glossary).
+  - Present finalizes (M4-07), sets the check `finalized` and `room_sessions.ordering_locked`, and sends `check.updated` and `session.updated` on the room's channel, which the room page reloads on. Reopen is the owner's or a manager's (the permission table has no action for it, so the route checks the role, as Team does): the check goes `reopened`, ordering opens, and staff orders are taken again on a reopened check.
+  - Paid in full ends the session (the M2 end, which sends the room to cleaning) only when no order on it rings or waits and no other check on the session is unpaid; otherwise `settleCheck` answers what holds it (`room.blocked_by`, `room.unpaid_checks`) for the close-out screen (M4-20). A new check for an order accepted after payment takes its number in the accept transaction (no Stripe call happens there).
+  - Present is staff's step on the room screen here; the full four-step close-out (ways to pay, additional tip, receipt) comes in M4-20.
+  - Tests: `apps/api/src/routes/present.int.test.ts` (o1 ringing, then held; present at $618.60 with the room's events; Diego can't reopen; Andy reopens, the margaritas are ordered again, revision 2 is $652.11 with $532.11 due; paid in full with o1 ringing doesn't release the room and names o1; o1 accepted after payment lands on a new check, and paying it releases the room to cleaning); the Playwright test "Present the check".
+
 
 ### M4-09 · Apply the deposit at check-in and write forfeit lines
 

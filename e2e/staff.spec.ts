@@ -3860,3 +3860,50 @@ test("Admin → Printers & devices: register the Bar S710 with its code", async 
     await db.end();
   }
 });
+
+/**
+ * Present the check (M4-08): on Room 9's screen, Present is refused while o1
+ * rings and names it in the glossary's words; with o1 cancelled it presents,
+ * and Room 9's phone reads "Your bill is ready · ordering is closed".
+ */
+test("Present the check: blocked while 2 × Margarita · Peach rings, then presented, and Room 9's phone reads the bill is ready", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
+    const present = page.getByRole("region", { name: "Present the check" });
+    await present.getByRole("button", { name: "Present the check" }).click();
+    await expect(present.getByRole("alert")).toHaveText(
+      "2 × Margarita · Peach is ringing at the bar · accept or cancel it first",
+    );
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await present.getByRole("button", { name: "Present the check" }).click();
+    await expect(present.getByRole("status")).toHaveText("Check presented · ordering is closed");
+    await expect(present.getByRole("button", { name: "Reopen the check" })).toBeVisible();
+
+    const marcus = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    const token = createHash("sha256")
+      .update("host-token:sess_room9")
+      .digest("base64url")
+      .slice(0, 32);
+    await marcus.goto(`http://localhost:3001/r/${token}`);
+    await expect(marcus.getByText("Your bill is ready · ordering is closed")).toBeVisible();
+    await marcus.context().close();
+  } finally {
+    await db.end();
+  }
+});

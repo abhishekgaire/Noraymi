@@ -1308,4 +1308,12 @@ export const en = {
   "readers.failed": "Couldn't register the reader. Check the code it shows and try again.",
   "readers.unsupported": "Only the S710, S700 and WisePOS E work here.",
   "payments.needs.count": "{count} things left to finish in Stripe's setup",
+  "guestRoom.billReady": "Your bill is ready · ordering is closed",
+  "present.button": "Present the check",
+  "present.blocked.ringing": "{items} is ringing at the bar · accept or cancel it first",
+  "present.blocked.held": "{items} is waiting at the bar · accept or cancel it first",
+  "present.done": "Check presented · ordering is closed",
+  "present.reopen": "Reopen the check",
+  "present.reopened": "Check reopened · ordering is open",
+  "present.failed": "Couldn't present the check. Try again.",
 } as const;

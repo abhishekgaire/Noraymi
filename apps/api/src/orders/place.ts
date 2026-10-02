@@ -59,7 +59,8 @@ export async function placeStaffOrder(
   );
   const ch = check.rows[0];
   if (!ch) throw new ApiError("not_found", "no such check");
-  if (ch.status !== "open")
+  // A reopened check takes orders again (M4-08); a presented or paid one doesn't.
+  if (ch.status !== "open" && ch.status !== "reopened")
     throw new ApiError("ordering_closed", "this check is closed to new orders");
   if (input.lines.length === 0) throw new ApiError("invalid_request", "nothing to send");
 

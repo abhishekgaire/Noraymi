@@ -1332,4 +1332,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "No se pudo registrar el lector. Revisa el código que muestra e inténtalo de nuevo.",
   "readers.unsupported": "Aquí solo funcionan el S710, el S700 y el WisePOS E.",
   "payments.needs.count": "Faltan {count} cosas por completar en la configuración de Stripe",
+  "guestRoom.billReady": "Tu cuenta está lista · ya no se toman pedidos",
+  "present.button": "Presentar la cuenta",
+  "present.blocked.ringing": "{items} está sonando en la barra · acéptalo o cancélalo primero",
+  "present.blocked.held": "{items} está en espera en la barra · acéptalo o cancélalo primero",
+  "present.done": "Cuenta presentada · ya no se toman pedidos",
+  "present.reopen": "Reabrir la cuenta",
+  "present.reopened": "Cuenta reabierta · se pueden pedir cosas",
+  "present.failed": "No se pudo presentar la cuenta. Inténtalo de nuevo.",
 };

@@ -7,6 +7,7 @@ import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
 import { fixLine } from "../rooms/fix.js";
 import { finalizeCheck } from "../rooms/finalize.js";
+import { presentCheck, reopenCheck } from "../rooms/present.js";
 
 /** M2 adds damage lines only; items come with ordering in M3. */
 const lineBody = z
@@ -31,6 +32,72 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
       request.inVenue((c) =>
         checkView(c, request.venueId!, request.params.checkId, options.clock.now()),
       ),
+  );
+
+  // Present the check (M4-08): refused with 409 orders_open while an order rings or waits.
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/present",
+    {
+      config: route({
+        principals: ["owner_manager", "staff", "shared_device"],
+        module: "core",
+        action: "payments.take",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.checkId).success)
+        throw new ApiError("not_found", "no such check");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "presenting is a person's work");
+      const header = request.headers["if-match"];
+      const ifMatch =
+        typeof header === "string" && /^"?\d+"?$/.test(header)
+          ? Number(header.replace(/"/g, ""))
+          : undefined;
+      const done = await request.inVenue((c) =>
+        presentCheck(c, request.venueId!, request.params.checkId, {
+          userId: p.userId,
+          now: options.clock.now(),
+          ...(ifMatch !== undefined ? { ifMatch } : {}),
+        }),
+      );
+      return {
+        status: "finalized",
+        revision: done.revision,
+        version: done.version,
+        subtotal_cents: done.worked.totals.subtotalCents,
+        tax_cents: done.worked.totals.taxCents,
+        gratuity_cents: done.worked.totals.gratuityCents,
+        total_cents: done.worked.totals.totalCents,
+      };
+    },
+  );
+
+  // Reopen (M4-08): a manager's or an owner's; ordering opens again.
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/reopen",
+    {
+      config: route({
+        principals: ["owner_manager", "staff", "shared_device"],
+        module: "core",
+        action: "payments.take",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.checkId).success)
+        throw new ApiError("not_found", "no such check");
+      const p = request.principal;
+      const role =
+        p.kind === "user"
+          ? p.memberships.find((m) => m.venueId === request.venueId)?.role
+          : undefined;
+      if (role !== "owner" && role !== "manager")
+        throw new ApiError("forbidden", "a manager reopens a check");
+      await request.inVenue((c) => reopenCheck(c, request.venueId!, request.params.checkId));
+      return { status: "reopened" };
+    },
   );
 
   // Finalize (M4-07): writes revision n + 1. If-Match carries the version read; a stale one is 409.

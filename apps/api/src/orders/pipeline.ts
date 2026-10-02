@@ -19,6 +19,7 @@ import {
   type OrderStep,
 } from "@west4/rules";
 import { cents, Temporal } from "@west4/shared";
+import { checkForAccept } from "../rooms/present.js";
 import { ApiError } from "../http/errors.js";
 import { enqueuePush } from "../push/send-push.js";
 import {
@@ -229,7 +230,20 @@ export async function stepOrder(
         refusedBy: by,
         now: input.now,
       });
-      const done = await move({ accepted_by: by, accepted_at: now });
+      const moved = await move({ accepted_by: by, accepted_at: now });
+      // After the room's check is paid, an accepted order opens a new check on the session (M4-08).
+      const target = await checkForAccept(c, venueId, {
+        checkId: moved.check_id,
+        openedBy: by ?? moved.placed_by ?? "",
+        now: input.now,
+      });
+      if (target !== moved.check_id)
+        await c.query("update orders set check_id = $3 where venue_id = $1 and id = $2", [
+          venueId,
+          moved.id,
+          target,
+        ]);
+      const done = target === moved.check_id ? moved : { ...moved, check_id: target };
       // The sale: the lines join the check now, at the price copied when it was ordered.
       const night = await nightOfNow(c, venueId, input.now);
       for (const item of done.items) {

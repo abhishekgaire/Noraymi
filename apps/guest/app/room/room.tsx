@@ -24,6 +24,8 @@ interface RoomSession {
   readonly alcohol_blocked?: "window_closed" | "cut_off" | null;
   /** A tablet between sessions (M3-12). */
   readonly available?: boolean;
+  /** The check is presented (M4-08): the bill is ready and ordering is closed. */
+  readonly ordering_locked?: boolean;
 }
 interface Bill {
   readonly minutes: number;
@@ -365,6 +367,11 @@ export function RoomPage({
         </h1>
         {!tablet && <p>{room.is_host ? t("en", "guestRoom.host") : t("en", "guestRoom.friend")}</p>}
       </header>
+      {room.ordering_locked && (
+        <p className="notice bill-ready" role="status">
+          {t("en", "guestRoom.billReady")}
+        </p>
+      )}
       {notice && (
         <p className="notice" role="status">
           {notice}
@@ -488,7 +495,12 @@ export function RoomPage({
           {error && <p role="alert">{error}</p>}
           <button
             type="button"
-            disabled={busy || count === 0 || (room.host_lock && !room.is_host)}
+            disabled={
+              busy ||
+              count === 0 ||
+              room.ordering_locked === true ||
+              (room.host_lock && !room.is_host)
+            }
             onClick={() => void send()}
           >
             {busy

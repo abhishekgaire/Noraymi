@@ -14,6 +14,8 @@ import {
   type PaymentSource,
   type Queryable,
 } from "@west4/db";
+import type { Temporal } from "@west4/shared";
+import { settleCheck } from "../rooms/present.js";
 import type { IntentObservation, ReaderAction } from "../stripe/payments.js";
 import {
   UNKNOWN_READER_CODES,
@@ -55,6 +57,8 @@ export async function applyObservation(
   obs: Observation,
   source: PaymentSource,
   stripeEventId: string | null = null,
+  /** The venue's clock now: a check paid in full records when (M4-08). */
+  now?: Temporal.Instant,
 ): Promise<Applied | null> {
   const before = await paymentById(c, venueId, paymentId, true);
   if (!before) return null;
@@ -116,6 +120,10 @@ export async function applyObservation(
   if (obs.attempt) await moveAttempt(obs.attempt.state, obs.attempt.code ?? null);
 
   const payment = (await paymentById(c, venueId, paymentId))!;
+  // Money landed: each check it paid is paid in full or partly paid, and a paid room may go to cleaning.
+  if (changed && payment.status === "captured" && before.status !== "captured" && now)
+    for (const check of await allocatedChecks(c, venueId, paymentId))
+      await settleCheck(c, venueId, check, now);
   if (changed) {
     await emitEvent(c, { venueId, type: "payment.updated", entityId: paymentId });
     for (const check of await allocatedChecks(c, venueId, paymentId))

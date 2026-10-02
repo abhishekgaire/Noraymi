@@ -8,6 +8,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
+import { PresentCheck } from "./PresentCheck.js";
 import { CutOffRoom } from "./CutOff.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
@@ -70,6 +71,7 @@ export function RoomScreen() {
   const [room, setRoom] = useState<BoardRoom | null>(null);
   const [lines, setLines] = useState<readonly Line[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
+  const [checkStatus, setCheckStatus] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -90,15 +92,20 @@ export function RoomScreen() {
             `/v1/venues/${venueId}/sessions/${r.session.id}`,
           ),
           r.session.check_id
-            ? api<{ lines: Line[]; pending_fixes: PendingFix[] }>(
+            ? api<{ lines: Line[]; pending_fixes: PendingFix[]; check?: { status: string } }>(
                 "GET",
                 `/v1/venues/${venueId}/checks/${r.session.check_id}`,
               )
-            : Promise.resolve({ lines: [] as Line[], pending_fixes: [] as PendingFix[] }),
+            : Promise.resolve({
+                lines: [] as Line[],
+                pending_fixes: [] as PendingFix[],
+                check: undefined as { status: string } | undefined,
+              }),
         ]);
         setStartedAt(session.session.started_at);
         setLines(check.lines);
         setPendingFixes(check.pending_fixes ?? []);
+        setCheckStatus(check.check?.status ?? null);
       } else {
         setLines([]);
         setStartedAt(null);
@@ -297,6 +304,19 @@ export function RoomScreen() {
               </p>
             )}
           </section>
+          {s.check_id &&
+            checkStatus &&
+            signedIn?.membership.permissions.includes("payments.take") && (
+              <PresentCheck
+                venueId={venueId}
+                checkId={s.check_id}
+                status={checkStatus}
+                canReopen={
+                  signedIn.membership.role === "owner" || signedIn.membership.role === "manager"
+                }
+                onDone={() => void load()}
+              />
+            )}
           <CutOffRoom
             venueId={venueId}
             sessionId={s.id}

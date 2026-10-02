@@ -218,7 +218,7 @@ export async function runAttempt(
   if (ctx.attempt.state !== "started") return null;
   const { payment, attempt, account } = ctx;
   const record = (obs: Observation) =>
-    inVenue((c) => applyObservation(c, venueId, paymentId, obs, "api"));
+    inVenue((c) => applyObservation(c, venueId, paymentId, obs, "api", null, deps.clock.now()));
   const now = deps.clock.now();
   try {
     let piId = payment.stripe_pi_id;
@@ -321,7 +321,9 @@ export async function checkNow(
     if (e instanceof StripeUnknownResult || e instanceof StripeError) obs = {};
     else throw e;
   }
-  return inVenue((c) => applyObservation(c, venueId, paymentId, obs, source, stripeEventId));
+  return inVenue((c) =>
+    applyObservation(c, venueId, paymentId, obs, source, stripeEventId, deps.clock.now()),
+  );
 }
 
 /**
@@ -357,7 +359,15 @@ export async function cancelPayment(
         `${paymentId}:cancel`,
       );
       return inVenue((c) =>
-        applyObservation(c, venueId, paymentId, { intent: observeIntent(pi) }, source),
+        applyObservation(
+          c,
+          venueId,
+          paymentId,
+          { intent: observeIntent(pi) },
+          source,
+          null,
+          deps.clock.now(),
+        ),
       );
     } catch (e) {
       if (!(e instanceof StripeError)) throw e;
