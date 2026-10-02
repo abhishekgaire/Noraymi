@@ -63,6 +63,10 @@ fakeRouteSets.push((fake) => {
     };
   });
 
+  fake.route("GET", "/v1/terminal/locations/:id", (req) => ({
+    body: fake.get(req.params["id"]!, needAccount(req.account), "terminal.location"),
+  }));
+
   fake.route("POST", "/v1/terminal/readers", (req) => {
     const account = needAccount(req.account);
     const code = String(req.body["registration_code"] ?? "");

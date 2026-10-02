@@ -207,3 +207,52 @@ describe("the M3 part of the demo seed", () => {
     }
   });
 });
+
+describe("the M4 part of the demo seed", () => {
+  it("loads Room 9 as #1042 with Marcus's $120.00 deposit on Amex ··1005, allocated to its check", async () => {
+    const r = await owner.query<{
+      number: string;
+      brand: string;
+      last4: string;
+      amount: number;
+      allocated: number;
+    }>(
+      `select k.number, p.card_brand as brand, p.card_last4 as last4, p.amount_cents::int as amount,
+              (select sum(a.amount_cents)::int from payment_allocations a where a.payment_id = p.id and a.check_id = k.id) as allocated
+         from checks k join payments p on p.booking_id = k.booking_id
+        where k.venue_id = $1 and k.id = $2`,
+      [first.venueId, await seedId(owner, first.venueId, "chk_room9")],
+    );
+    expect(r.rows).toEqual([
+      { number: "1042", brand: "amex", last4: "1005", amount: 12000, allocated: 12000 },
+    ]);
+  });
+
+  it("loads every booking's captured deposit, and allocates only the seated parties'", async () => {
+    const r = await owner.query<{ n: number; allocated: number; cents: number }>(
+      `select count(*)::int as n, sum(amount_cents)::int as cents,
+              count(*) filter (where exists (select 1 from payment_allocations a where a.payment_id = p.id))::int as allocated
+         from payments p where p.venue_id = $1 and p.method = 'card_online'`,
+      [first.venueId],
+    );
+    const seated = seed.bookings.filter((b) => b.status === "checked_in").length;
+    expect(r.rows[0]).toEqual({
+      n: seed.bookings.length,
+      allocated: seated,
+      cents: seed.bookings.reduce((s, b) => s + (b.deposit_captured_cents ?? 0), 0),
+    });
+  });
+
+  it("opens both house drawers with $300.00, each paired to its screen", async () => {
+    const r = await owner.query<{ name: string; opening: number; state: string; screen: string }>(
+      `select d.name, s.opening_cents::int as opening, s.state,
+              (select v.name from devices v where v.cash_drawer_id = d.id) as screen
+         from cash_drawers d join drawer_sessions s on s.drawer_id = d.id where d.venue_id = $1 order by d.name`,
+      [first.venueId],
+    );
+    expect(r.rows).toEqual([
+      { name: "Bar drawer", opening: 30000, state: "open", screen: expect.any(String) },
+      { name: "Front-desk drawer", opening: 30000, state: "open", screen: expect.any(String) },
+    ]);
+  });
+});

@@ -1,14 +1,7 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import {
-  applyDeposits,
-  generateSigningKey,
-  insertPayment,
-  loadDemoSeed,
-  publishRulePack,
-  withVenue,
-} from "@west4/db";
+import { generateSigningKey, loadDemoSeed, publishRulePack } from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { FrozenClock, SEED_NOW, Temporal, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
@@ -22,22 +15,10 @@ let api: FastifyInstance;
 let venueId: string;
 let ids: Record<string, string>;
 const clock = new FrozenClock(SEED_NOW);
-const night = "2026-09-25";
 const at = (hhmm: string) =>
   Temporal.ZonedDateTime.from(`2026-09-25T${hhmm}:00[America/New_York]`).toInstant();
 const req = (method: "GET" | "POST", path: string, payload?: unknown) =>
   api.inject({ method, url: `/v1/venues/${venueId}${path}`, ...(payload ? { payload } : {}) });
-const deposit = (bookingSlug: string, cents: number) =>
-  withVenue(app, { venueId }, (c) =>
-    insertPayment(c, venueId, {
-      method: "card_online",
-      status: "captured",
-      businessDate: night,
-      amountCents: cents,
-      bookingId: ids[bookingSlug]!,
-    }),
-  );
-
 beforeAll(async () => {
   db = await createTestDatabase({ migrate: true });
   venueId = (await loadDemoSeed({ databaseUrl: db.url, env: { WEST4_ENV: "local" } })).venueId;
@@ -80,7 +61,6 @@ afterAll(async () => {
 
 describe("the deposit", () => {
   it("is applied when Sam O. checks in (3 guests, bills as 4): $40.00 off, and nothing shows below zero", async () => {
-    await deposit("bk_sam", 4000);
     clock.set(at("22:44"));
     const preview = await req("GET", `/check-in/preview?booking=${ids["bk_sam"]}`);
     expect(preview.json().deposit_cents).toBe(4000);
@@ -96,10 +76,7 @@ describe("the deposit", () => {
 
   it("Room 9's presented check shows the $120.00 deposit paid and $498.60 left", async () => {
     clock.set(SEED_NOW);
-    await deposit("bk_marcus", 12000);
-    await withVenue(app, { venueId }, (c) =>
-      applyDeposits(c, venueId, { bookingId: ids["bk_marcus"]!, checkId: ids["chk_room9"]! }),
-    );
+    // The seed loads Marcus's deposit as a captured payment, allocated at check-in (M4-10).
     await owner.query(
       "update orders set status = 'cancelled', cancel_reason = 'guest' where id = $1",
       [ids["order_o1"]],
@@ -118,7 +95,10 @@ describe("the deposit", () => {
     await owner.query("update bookings set party_size = 12, deposit_cents = 12000 where id = $1", [
       ids["bk_parks"],
     ]);
-    await deposit("bk_parks", 12000);
+    // The seed's deposit for the Parks, raised as if they had booked 12 (owner's SQL: amounts never change in the app).
+    await owner.query("update payments set amount_cents = 12000 where booking_id = $1", [
+      ids["bk_parks"],
+    ]);
     const seated = await req("POST", `/bookings/${ids["bk_parks"]}/check-in`, {
       party_size: 8,
       ids_checked: 8,

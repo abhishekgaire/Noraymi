@@ -21,7 +21,6 @@ let app: pg.Pool;
 let venueId: string;
 let otherVenue: string;
 let room9: string;
-let marcusBooking: string;
 let diego: string;
 const night = "2026-09-25";
 
@@ -61,7 +60,6 @@ beforeAll(async () => {
   owner = new pg.Pool({ connectionString: db.url });
   app = appPool(db.url);
   room9 = await seedId(owner, venueId, "chk_room9");
-  marcusBooking = await seedId(owner, venueId, "bk_marcus");
   diego = await seedId(owner, venueId, "diego");
   const org = (
     await owner.query<{ id: string }>(
@@ -186,20 +184,7 @@ describe("the payment tables", () => {
           taxCategory: cat,
           businessDate: night,
         });
-      const deposit = await insertPayment(c, venueId, {
-        method: "card_online",
-        status: "captured",
-        businessDate: night,
-        amountCents: 12000,
-        bookingId: marcusBooking,
-      });
-      await allocate(c, venueId, {
-        paymentId: deposit,
-        checkId: room9,
-        amountCents: 12000,
-        state: "captured",
-        followsLines: true,
-      });
+      // Marcus's $120.00 deposit is the seed's, allocated at check-in (M4-10).
     });
     expect(await inVenue((c) => amountDue(c, room9))).toBe(49860);
     const tooMuch = inVenue(async (c) => {

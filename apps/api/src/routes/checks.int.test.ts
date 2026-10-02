@@ -98,8 +98,9 @@ describe("checks", () => {
       Array.from({ length: 20 }, () => nextCheckNumber(pool, venueId)),
     );
     expect(new Set(numbers).size).toBe(20);
-    expect(Math.min(...numbers)).toBe(1054);
-    expect(Math.max(...numbers)).toBe(1073);
+    // In order after the seed's checks, with no gaps; only #1042 is a fixed number (M4-10).
+    expect(Math.min(...numbers)).toBeGreaterThan(1042);
+    expect(Math.max(...numbers) - Math.min(...numbers)).toBe(19);
     // Two check-ins at once: two checks, two numbers.
     const opened = await Promise.all(
       ["sess_room1", "sess_room3"].map((s) =>

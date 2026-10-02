@@ -112,7 +112,7 @@ docker compose up -d    # Postgres 16 (localhost:5432), the local S3 store (Rust
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
 pnpm db:reset           # local only: drop, recreate and migrate the database
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
-pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 to M3 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
+pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 to M4 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
 scripts/demo-start.sh   # local only: start everything in demo mode (no .env, no real keys), a fresh night at 10:41 PM and invite links; Ctrl+C stops it (docs/local-testing.md)
 scripts/demo-local.sh   # local only: reset the night to 10:41 PM and print new owner and manager invite links
@@ -127,6 +127,7 @@ pnpm test:walls         # the venue-wall suite: every route, job kind and webhoo
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm --filter @west4/api dev:test   # the API without .env (what the smoke tests start, so real credentials never load)
 pnpm --filter @west4/api stripe:fake   # the fake Stripe on 127.0.0.1:12111: every Stripe call goes here while no real keys are set (the smoke tests and demo-start run it)
+pnpm --filter @west4/api stripe:seed   # after pnpm seed: the night's Stripe side on the fake or the sandbox (deposits as PaymentIntents, both readers); demo-local.sh runs it
 pnpm --filter @west4/api stripe:create-account -- --org <id> [--email <contact>]   # ops, audited: make an organization's Stripe account (Accounts v2) and store its id
 pnpm format             # Prettier --write
 pnpm --filter @west4/api twilio:subaccount -- --venue <slug> --number <+1…>   # one-time: a venue's own Twilio subaccount with a number we already own (needs our platform TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)

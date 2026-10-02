@@ -1001,7 +1001,7 @@ test("Admin → Printers & devices: West 4's devices, a code pairs a new browser
 });
 
 /**
- * Rule-pack versions (M1-36). Two of our staff approve 2026.10 in the Console
+ * Rule-pack versions (M1-36). Two of our staff approve 2026.11 in the Console
  * (through its API here, each with a software security key) and publish it
  * effective Sat Sep 26. Andy opens Admin on business date Fri Sep 25 and reads
  * what changes and when, before it applies.
@@ -1016,8 +1016,8 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
   });
   await db.connect();
   const clean = async () => {
-    await db.query("delete from rule_packs where version = '2026.10'");
-    await db.query("delete from rule_pack_drafts where version = '2026.10'");
+    await db.query("delete from rule_packs where version = '2026.11'");
+    await db.query("delete from rule_pack_drafts where version = '2026.11'");
     await db.query("delete from console_sessions");
     await db.query("delete from console_challenges");
     await db.query("delete from console_credentials");
@@ -1028,7 +1028,7 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
     await db.query(
       "insert into console_staff (name, email) values ('Second approver', 'second@demo.west4.local')",
     );
-    // Our two staff sign in to the Console's API, each with a security key, and publish 2026.10.
+    // Our two staff sign in to the Console's API, each with a security key, and publish 2026.11.
     const consoleSignIn = async (email: string) => {
       const ctx = request;
       const sso = await ctx.post("/v1/console/auth/local", { data: { email } });
@@ -1060,7 +1060,7 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
         effective_on: "2026-09-26",
         data: {
           ...current,
-          version: "2026.10",
+          version: "2026.11",
           alcohol: { ...current.alcohol, lastSale: "03:00" },
         },
       },
@@ -1094,7 +1094,7 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     await page.goto("/admin");
     await expect(
-      page.getByText("Rules update 2026.10 starts Sat, Sep 26 (business date)"),
+      page.getByText("Rules update 2026.11 starts Sat, Sep 26 (business date)"),
     ).toBeVisible();
     await expect(page.getByText("alcohol.lastSale: 04:00 → 03:00")).toBeVisible();
     expect(await clippedText(page)).toEqual([]);

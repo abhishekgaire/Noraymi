@@ -128,6 +128,10 @@ beforeAll(async () => {
     })
   ).id;
   await owner.query("update organizations set stripe_account_id = $1", [account]);
+  // These tests are about taps: Room 9's seeded deposit allocation is set aside so its drinks are what's due.
+  await owner.query(
+    "update payment_allocations set state = 'released' where check_id = (select row_id from seed_ids where slug = 'chk_room9')",
+  );
   const abhishek: Principal = {
     kind: "user",
     userId: ids["abhishek"]!,

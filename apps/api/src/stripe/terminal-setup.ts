@@ -6,7 +6,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import type { PaySettings, Temporal } from "@west4/shared";
-import type { StripeClient } from "./client.js";
+import { StripeError, type StripeClient } from "./client.js";
 import { createConfiguration, createLocation, updateConfiguration } from "./terminal.js";
 
 type InVenue = <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
@@ -38,8 +38,23 @@ export async function ensureTerminal(
   const account = await inVenue((c) => stripeAccountOf(c, venueId));
   if (!account) throw new NoStripeAccount();
   const venue = await inVenue((c) => venueTerminal(c, venueId));
-  if (venue.location_id && venue.config_id)
-    return { account, locationId: venue.location_id, configId: venue.config_id };
+  if (venue.location_id && venue.config_id) {
+    // The ids survive a seed reload; make sure Stripe still has the Location (a new sandbox or fake doesn't).
+    const still = await stripe
+      .call("payments", "GET", `/v1/terminal/locations/${encodeURIComponent(venue.location_id)}`, {
+        account,
+      })
+      .then(() => true)
+      .catch((e: unknown) => !(e instanceof StripeError && e.status === 404));
+    if (still) return { account, locationId: venue.location_id, configId: venue.config_id };
+    await inVenue((c) =>
+      c.query(
+        "update venues set stripe_location_id = null, stripe_terminal_config_id = null where id = $1",
+        [venueId],
+      ),
+    );
+    return ensureTerminal(inVenue, stripe, venueId, today);
+  }
   const tip = await tipScreen(inVenue, venueId, today);
   const config = venue.config_id
     ? { id: venue.config_id }

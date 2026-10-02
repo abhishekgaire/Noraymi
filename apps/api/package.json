@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "twilio:subaccount": "tsx src/texts/setup-subaccount.ts",
     "stripe:fake": "tsx src/stripe/fake/main.ts",
-    "stripe:create-account": "tsx --env-file-if-exists=../../.env src/stripe/create-account.ts"
+    "stripe:create-account": "tsx --env-file-if-exists=../../.env src/stripe/create-account.ts",
+    "stripe:seed": "tsx --env-file-if-exists=../../.env src/stripe/seed-stripe.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1142.0",

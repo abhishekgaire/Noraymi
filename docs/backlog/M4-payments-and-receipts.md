@@ -322,7 +322,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-10 · Load the seed's deposits, checks and drawers into staging
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-02, M4-04, M4-09; M1 (the seed loader)
 - **Spec:** [Demo seed](../demo-seed.md#loading-the-seed); [Testing and operations](../spec/13-testing-operations.md) (Environments, The demo seed); [seed file](../../seed/west4-friday.json) (`bookings`, `checks`, `drawers`, `devices`)
@@ -331,12 +331,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The seed's card brand and last four (Marcus's "Amex ··1005") stay on our rows for display; the sandbox card underneath is Stripe's test card of that brand.
   - Every test that changes state starts from a fresh load, so the next test still sees 10:41 PM.
 - **Acceptance:**
-  - [ ] After a load, Room 9 shows #1042, $480.00 tab so far and the $120.00 deposit on Amex ··1005.
-  - [ ] Marcus's deposit is a real $120.00 captured PaymentIntent in the sandbox that can be refunded.
-  - [ ] Both drawers show an open session of $300.00.
-  - [ ] No test depends on any check number but #1042.
+  - [x] After a load, Room 9 shows #1042, $480.00 tab so far and the $120.00 deposit on Amex ··1005.
+  - [x] Marcus's deposit is a real $120.00 captured PaymentIntent in the sandbox that can be refunded.
+  - [x] Both drawers show an open session of $300.00.
+  - [x] No test depends on any check number but #1042.
 - **Tests:** the loader's own test against the seed's `expected_at_now` numbers and row counts.
 - **Notes:** Stripe's test cards can't end in the seed's last fours (its test Amex ends in 0005), so the display fields come from the seed and tests assert on our rows. The drawers' opening times and cash aren't in the seed (null); the sessions open at the business date's start with the $300.00 starting bank.
+  - Built: the seed loader (`packages/db/src/seed.ts`) writes each booking's captured deposit as a `card_online` payment with the brief's card for display (Marcus's Amex ··1005, two Visas; the rest have no card in the brief and show none), allocates the seated parties' deposits to their checks (following the lines), and opens both house drawers with $300.00 at the business date's 6:00 AM start (the brief has no time), each paired to its screen; migration `0058_cash_drawers.sql` (`cash_drawers`, `drawer_sessions` with one open session per drawer; moves and counts come with M4-13 and M7); `pnpm --filter @west4/api stripe:seed` (`apps/api/src/stripe/seed-stripe.ts`), which puts the night's Stripe side in place on the fake or the sandbox: the account (kept across reloads; a sandbox id this Stripe doesn't know is an error, never a second account), the Location (made again if Stripe no longer has it), both readers attached by label (registered as simulated S710s when missing, never in live mode), and every deposit backed by a Customer and a confirmed PaymentIntent on Stripe's test card of the seed's brand, saved for off-session charges. `demo-local.sh` runs it without `.env`, on the fake.
+  - The seed no longer clears the Stripe account and Terminal ids on a reload, so a sandbox account outlives `pnpm seed`. Test databases start empty, and the tests that need an account make their own. `pnpm seed` itself never calls Stripe; staging runs `stripe:seed` after it.
+  - **Sandbox run, Oct 2:** on West 4's sandbox account, `stripe:seed` attached Bar S710 and Front desk S710 and made 11 deposit PaymentIntents. Marcus's is `succeeded`, $120.00, captured, not refunded, with the card saved (`setup_future_usage: off_session`); Stripe's test Amex underneath ends in 8431, and our row keeps the brief's ··1005.
+  - Room 9 shows #1042, a $480.00 tab so far and the $120.00 deposit on Amex ··1005 in our rows (the seed's own test and `GET /checks` with `deposit_cents`); the room tab on screen still words the deposit from the booking ("Deposit $120.00 · comes off at settle-up"), and the card is printed on the bill in M4-16.
+  - Only #1042 is a fixed number: M2's tests that expected #1054 now read the counter.
+  - Two fixes this ticket found: the seed's wipe list was missing `check_revisions` (M4-07), and an M1 browser test published its own rule-pack draft named 2026.10 and deleted any 2026.10 to start clean, which removed the built-in 2026.10 (M4-06); that test now uses 2026.11.
+
 
 ### M4-11 · Take a tap on the chosen reader, with every reader state
 

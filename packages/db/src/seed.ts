@@ -73,6 +73,23 @@ export interface SeedFile {
   readonly approvals: readonly SeedApproval[];
   readonly reason_only_used_tonight: readonly { readonly person: string; readonly cents: number }[];
   readonly bar_tabs: readonly { readonly id: string; readonly check: string }[];
+  readonly drawers: readonly SeedDrawer[];
+}
+
+/** A house drawer and its open session (M4-10): $300.00 starting bank, the manager on duty answering for it. */
+export interface SeedDrawer {
+  readonly id: string;
+  readonly name: string;
+  readonly kick_port_of: string;
+  readonly screen: string;
+  readonly session: {
+    readonly id: string;
+    readonly model: "house" | "per_person";
+    readonly state: "open";
+    readonly responsible: string;
+    readonly opening_cents: number;
+    readonly opened_at: string | null;
+  };
 }
 
 /** An unsent draft (M3-25): a person's drinks on a tab, never part of its check. */
@@ -207,6 +224,9 @@ export interface SeedBooking {
   readonly ends_at: string;
   readonly business_date: string;
   readonly deposit_cents: number;
+  /** What the deposit was paid with, when the brief names the card (Marcus's Amex ··1005). */
+  readonly deposit_card?: { readonly brand: string; readonly last4: string } | null;
+  readonly deposit_captured_cents?: number;
   readonly running_late_until?: string | null;
   readonly status: "pending" | "confirmed" | "checked_in" | "no_show" | "cancelled" | "completed";
 }
@@ -792,7 +812,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     const orgId = remember("org_west4", "organizations");
     await client.query(
       `insert into organizations (id, legal_name) values ($1, $2)
-       on conflict (id) do update set legal_name = excluded.legal_name, stripe_account_id = null`,
+       on conflict (id) do update set legal_name = excluded.legal_name`,
       [orgId, seed.venue.legal_name ?? seed.venue.name],
     );
     const venueId = remember(seed.venue.id, "venues");
@@ -803,7 +823,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
        values ($1, $2, $3, $4, $5, $6, $7, $8)
        on conflict (id) do update set org_id = excluded.org_id, name = excluded.name, slug = excluded.slug,
          address = excluded.address, time_zone = excluded.time_zone, day_cutover = excluded.day_cutover,
-         rule_pack_id = excluded.rule_pack_id, stripe_location_id = null, stripe_terminal_config_id = null`,
+         rule_pack_id = excluded.rule_pack_id`,
       [
         venueId,
         orgId,
@@ -827,7 +847,10 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "delete from device_nonces where device_id in (select id from devices where venue_id = $1)",
       [venueId],
     );
+    await client.query("update devices set cash_drawer_id = null where venue_id = $1", [venueId]);
     for (const table of [
+      "drawer_sessions",
+      "cash_drawers",
       "order_drafts",
       "pin_lockouts",
       "staff_badges",
@@ -871,6 +894,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "payment_allocations",
       "payment_attempts",
       "payments",
+      "check_revisions",
       "check_lines",
       "checks",
       "venue_counters",
@@ -1403,6 +1427,45 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     );
     log(`checks: ${opened.length}, from #${base} to #${base + opened.length - 1}`);
 
+    // Deposits (M4-10; Money rules 11): each booking's captured deposit is a card_online payment, with the
+    // card the brief names for display. A seated party's deposit is allocated to its check, following the
+    // lines; the rest are money held for the guest until check-in. The PaymentIntents behind them are made
+    // by `pnpm --filter @west4/api stripe:seed` (Stripe's sandbox, or the fake), never here.
+    let deposits = 0;
+    for (const b of seed.bookings) {
+      const cents = b.deposit_captured_cents ?? 0;
+      if (cents <= 0) continue;
+      const paymentId = remember(`pay_${b.id}`, "payments");
+      await client.query(
+        `insert into payments (id, venue_id, booking_id, method, status, amount_cents, card_brand, card_last4,
+           card_funding, business_date)
+         values ($1, $2, $3, 'card_online', 'captured', $4, $5, $6, $7, $8)`,
+        [
+          paymentId,
+          venueId,
+          id(b.id),
+          cents,
+          b.deposit_card ? b.deposit_card.brand.toLowerCase() : null,
+          b.deposit_card?.last4 ?? null,
+          b.deposit_card ? "credit" : null,
+          b.business_date,
+        ],
+      );
+      await client.query(
+        "insert into payment_events (venue_id, payment_id, from_status, to_status, source) values ($1, $2, null, 'captured', 'api')",
+        [venueId, paymentId],
+      );
+      const seated = seed.sessions.find((x) => x.booking === b.id && x.check);
+      if (seated?.check)
+        await client.query(
+          `insert into payment_allocations (venue_id, payment_id, check_id, amount_cents, kind, state, follows_lines)
+           values ($1, $2, $3, $4, 'payment', 'captured', true)`,
+          [venueId, paymentId, id(seated.check), cents],
+        );
+      deposits += 1;
+    }
+    log(`deposits: ${deposits}`);
+
     // Room blocks (M2-05): every confirmed booking's time (cleaning is 0 at West 4); every session from
     // its start to its booked end, or an hour for a walk-in, extended 15 minutes at a time to cover
     // 10:41 PM where it stayed on; the two rooms cleaning since their party left; Room 4's fault.
@@ -1730,6 +1793,46 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       }
     }
     log(`devices: ${seed.devices.length}`);
+
+    // The two house drawers (M4-10): each on its receipt printer's kick port, paired to its screen, with an
+    // open session of $300.00. The brief gives no opening time; the sessions open as the business date starts.
+    const dayStart = Temporal.ZonedDateTime.from(
+      `${seed.meta.business_date}T${dayCutover}:00[${seed.venue.time_zone}]`,
+    ).toInstant();
+    for (const d of seed.drawers ?? []) {
+      const drawerId = remember(d.id, "cash_drawers");
+      await client.query(
+        `insert into cash_drawers (id, venue_id, name, station, printer_device_id) values ($1, $2, $3, $4, $5)`,
+        [
+          drawerId,
+          venueId,
+          d.name,
+          d.id.includes("bar") ? "bar" : "front_desk",
+          id(d.kick_port_of),
+        ],
+      );
+      await client.query("update devices set cash_drawer_id = $3 where venue_id = $1 and id = $2", [
+        venueId,
+        id(d.screen),
+        drawerId,
+      ]);
+      await client.query(
+        `insert into drawer_sessions (id, venue_id, drawer_id, model, responsible_id, state, business_date, opened_at,
+           opening_cents)
+         values ($1, $2, $3, $4, $5, 'open', $6, $7, $8)`,
+        [
+          remember(d.session.id, "drawer_sessions"),
+          venueId,
+          drawerId,
+          d.session.model,
+          id(d.session.responsible),
+          seed.meta.business_date,
+          d.session.opened_at ?? dayStart.toString(),
+          d.session.opening_cents,
+        ],
+      );
+    }
+    log(`drawers: ${(seed.drawers ?? []).length} open at $300.00`);
 
     // Our own staff for the Console (M1-35): one demo account, signed in locally with a security key.
     await client.query(

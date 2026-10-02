@@ -76,23 +76,7 @@ beforeAll(async () => {
     authenticators: [async () => who],
   });
   await api.ready();
-  // Marcus's $120.00 deposit, allocated to the check (check-in does this from M4-09).
-  await withVenue(app, { venueId }, async (c) => {
-    const p = await insertPayment(c, venueId, {
-      method: "card_online",
-      status: "captured",
-      businessDate: night,
-      amountCents: 12000,
-      bookingId: ids["bk_marcus"]!,
-    });
-    await allocate(c, venueId, {
-      paymentId: p,
-      checkId: room9(),
-      amountCents: 12000,
-      state: "captured",
-      followsLines: true,
-    });
-  });
+  // Marcus's $120.00 deposit is the seed's, allocated at check-in (M4-10).
 });
 
 afterAll(async () => {

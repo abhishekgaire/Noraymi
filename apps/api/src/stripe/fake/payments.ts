@@ -9,6 +9,13 @@ import { FakeError, fakeId, fakeRouteSets, type FakeStripe } from "./server.js";
  * reader event to /readers and the PaymentIntent event to /connect.
  */
 const DECLINE = "4000000000000002";
+/** Stripe's test PaymentMethods by brand, and the last four of their test cards. */
+const TEST_CARDS: Record<string, { brand: string; last4: string }> = {
+  pm_card_visa: { brand: "visa", last4: "4242" },
+  pm_card_amex: { brand: "amex", last4: "0005" },
+  pm_card_mastercard: { brand: "mastercard", last4: "4444" },
+  pm_card_discover: { brand: "discover", last4: "1117" },
+};
 
 const needAccount = (account: string | null): string => {
   if (!account)
@@ -38,6 +45,18 @@ function withCharge(
 }
 
 fakeRouteSets.push((fake) => {
+  // Customers on the venue's account (deposits save the card for later charges).
+  fake.route("POST", "/v1/customers", (req) => ({
+    body: fake.put({
+      id: fakeId("cus"),
+      object: "customer",
+      _account: needAccount(req.account),
+      name: req.body["name"] ?? null,
+      email: req.body["email"] ?? null,
+      metadata: req.body["metadata"] ?? {},
+    }),
+  }));
+
   fake.route("POST", "/v1/payment_intents", (req) => {
     const account = needAccount(req.account);
     const amount = Number(req.body["amount"]);
@@ -48,6 +67,49 @@ fakeRouteSets.push((fake) => {
         "parameter_invalid_integer",
         "amount must be a positive integer",
       );
+    const pm = req.body["payment_method"];
+    // Stripe's test payment methods, confirmed at once: the deposit a guest paid online.
+    if (typeof pm === "string" && req.body["confirm"] === "true") {
+      const card = TEST_CARDS[pm];
+      if (!card)
+        throw new FakeError(
+          400,
+          "invalid_request_error",
+          "resource_missing",
+          `No such PaymentMethod: '${pm}'`,
+        );
+      const charge = fake.put({
+        id: fakeId("ch"),
+        object: "charge",
+        _account: account,
+        amount,
+        payment_method_details: {
+          type: "card",
+          card: { brand: card.brand, last4: card.last4, funding: "credit" },
+        },
+      });
+      return {
+        body: fake.put({
+          id: fakeId("pi"),
+          object: "payment_intent",
+          _account: account,
+          amount,
+          currency: req.body["currency"] ?? "usd",
+          status: "succeeded",
+          capture_method: "automatic",
+          payment_method: pm,
+          customer: req.body["customer"] ?? null,
+          setup_future_usage: req.body["setup_future_usage"] ?? null,
+          payment_method_types: req.body["payment_method_types"] ?? ["card"],
+          amount_received: amount,
+          amount_capturable: 0,
+          amount_details: {},
+          last_payment_error: null,
+          latest_charge: charge["id"],
+          metadata: req.body["metadata"] ?? {},
+        }),
+      };
+    }
     return {
       body: fake.put({
         id: fakeId("pi"),
