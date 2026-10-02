@@ -1,3 +1,4 @@
+import { CupsPrinters, VirtualPrinter, type PrinterPort } from "./printers.js";
 import { utimesSync, writeFileSync } from "node:fs";
 import { powerSaveBlocker } from "electron";
 // electron-updater is CommonJS and its autoUpdater is a getter: a default import reaches it, a named one can't.
@@ -46,6 +47,12 @@ let cache: DesktopCache | null = null;
 const updates = new UpdateGate(null);
 const readers = new ReaderHub();
 let emulated: EmulatedReader | null = null;
+// The USB printers this computer hosts (M3-14): CUPS raw, or a virtual printer when asked for.
+const virtualPrinter =
+  process.env["WEST4_FAKE_PRINTER"] === "1"
+    ? new VirtualPrinter(process.env["WEST4_FAKE_PRINTER_DIR"] ?? null)
+    : null;
+const printers: PrinterPort = virtualPrinter ?? new CupsPrinters();
 let mainWindow: BrowserWindow | null = null;
 
 /** Tell the page about a tap or a change of readers (M1-30). */
@@ -159,6 +166,28 @@ function registerIpc(): void {
       if (typeof uid !== "string" || !/^[0-9a-fA-F]{14}$/.test(uid))
         throw new Error("refused: not a UID");
       await emulated.present(uid.toUpperCase());
+    }),
+  );
+  ipcMain.handle(
+    "west4:printers",
+    guarded(() => printers.list()),
+  );
+  ipcMain.handle(
+    "west4:print",
+    guarded(async (serial: unknown, base64: unknown) => {
+      if (typeof serial !== "string" || serial.length === 0 || serial.length > 200)
+        throw new Error("refused: not a printer");
+      if (typeof base64 !== "string" || base64.length > 200_000)
+        throw new Error("refused: not a ticket");
+      await printers.print(serial, Buffer.from(base64, "base64"));
+    }),
+  );
+  // The virtual printer (WEST4_FAKE_PRINTER=1): unplug it, or plug it back in, for development and tests.
+  ipcMain.handle(
+    "west4:printer:fake-plug",
+    guarded((plugged: unknown) => {
+      if (!virtualPrinter) throw new Error("refused: no virtual printer");
+      virtualPrinter.plugged = plugged === true;
     }),
   );
   ipcMain.handle(

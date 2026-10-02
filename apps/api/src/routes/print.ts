@@ -21,7 +21,7 @@ import { z } from "zod";
 import type { Authenticator } from "../http/conventions.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { ticketEpos, ticketText, type TicketPayload } from "../print/ticket.js";
+import { ticketEpos, ticketEscPos, ticketText, type TicketPayload } from "../print/ticket.js";
 
 /**
  * Printing tickets to network printers (M3-13; spec 09 · Tickets; spec 02 · Printer):
@@ -33,6 +33,8 @@ import { ticketEpos, ticketText, type TicketPayload } from "../print/ticket.js";
  *   POST   /v1/venues/{v}/print-jobs/{j}/reprint       a new job, "REPRINT 2", then 3 and so on
  *   POST   /v1/venues/{v}/printers                     Admin: add a printer, its credential shown once
  *   POST   /v1/venues/{v}/printers/{d}/test            Admin: print a test ticket on it
+ *   POST   /v1/venues/{v}/print-host/next              a desktop host's USB printer: its next job as ESC/POS (M3-14)
+ *   POST   /v1/venues/{v}/print-host/jobs/{j}          the host's word on it: { printer_id, printed, failure? }
  * A printer signs in with HTTP Basic (its device id and secret) and sees only its own jobs. A job not
  * confirmed within three 5-second polls is marked failed by the print watch, and print_job.failed tells
  * the bar orders screen and the board.
@@ -352,6 +354,96 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         });
       });
       return reply.code(201).send({ job_id: job });
+    },
+  );
+
+  // A desktop app hosting USB printers (M3-14): it asks for each printer's next job over its signed
+  // channel, prints the ESC/POS bytes, and confirms. A printer it doesn't host is no printer of its own.
+  const host = route({
+    principals: ["shared_device"],
+    module: "core",
+    idempotency: "none",
+    rateLimit: false,
+  });
+  const hostedPrinter = async (c: Queryable, request: FastifyRequest, printerId: string) => {
+    const h = request.signedDevice;
+    if (!h || h.venueId !== request.venueId)
+      throw new ApiError("forbidden", "a host prints on its own printers");
+    const p = await c.query<{ station: string | null }>(
+      `select station from devices where venue_id = $1 and id = $2 and kind = 'printer'
+          and host_device_id = $3 and revoked_at is null`,
+      [request.venueId, printerId, h.deviceId],
+    );
+    if (!p.rows[0]) throw new ApiError("not_found", "no such printer on this host");
+    return p.rows[0].station ?? (h.kind === "front_desk" ? "front_desk" : "bar");
+  };
+  const nextBody = z.object({ printer_id: z.string().uuid() }).strict();
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/print-host/next",
+    { config: host },
+    async (request) => {
+      const parsed = nextBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { printer_id }");
+      return request.inVenue(async (c) => {
+        const station = await hostedPrinter(c, request, parsed.data.printer_id);
+        const job = await claimPrintJob(c, request.venueId!, {
+          deviceId: parsed.data.printer_id,
+          station,
+          now: options.clock.now().toString(),
+        });
+        if (!job) return { job: null };
+        const bytes = ticketEscPos(job.payload as TicketPayload, {
+          timeZone: await venueZone(c, request.venueId!),
+          reprintN: job.reprint_n,
+        });
+        return {
+          job: {
+            id: job.id,
+            reprint_n: job.reprint_n,
+            escpos: Buffer.from(bytes).toString("base64"),
+          },
+        };
+      });
+    },
+  );
+  const doneBody = z
+    .object({
+      printer_id: z.string().uuid(),
+      printed: z.boolean(),
+      failure: z.string().max(200).nullable().optional(),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; jobId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/print-host/jobs/:jobId",
+    { config: host },
+    async (request) => {
+      const parsed = doneBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { printer_id, printed, failure? }");
+      if (!z.string().uuid().safeParse(request.params.jobId).success)
+        throw new ApiError("not_found", "no such job");
+      return request.inVenue(async (c) => {
+        await hostedPrinter(c, request, parsed.data.printer_id);
+        const job = await settlePrintJob(
+          c,
+          request.venueId!,
+          parsed.data.printer_id,
+          request.params.jobId,
+          {
+            printed: parsed.data.printed,
+            failure: parsed.data.failure ?? null,
+            now: options.clock.now().toString(),
+          },
+        );
+        if (!job) throw new ApiError("not_found", "no such job");
+        await announce(
+          c,
+          request.venueId!,
+          job,
+          parsed.data.printed ? "print_job.printed" : "print_job.failed",
+        );
+        return { status: job.status };
+      });
     },
   );
 }

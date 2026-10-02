@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld("west4", {
     cancelPair: (): Promise<void> => ipcRenderer.invoke("west4:badge:cancel"),
     fakeTap: (uid: string): Promise<void> => ipcRenderer.invoke("west4:badge:fake-tap", uid),
   },
+  /** The USB printers this computer hosts, and raw ESC/POS to one of them (M3-14). */
+  printers: (): Promise<{ name: string; serial: string }[]> => ipcRenderer.invoke("west4:printers"),
+  print: (serial: string, base64: string): Promise<void> =>
+    ipcRenderer.invoke("west4:print", serial, base64),
+  fakePlug: (plugged: boolean): Promise<void> =>
+    ipcRenderer.invoke("west4:printer:fake-plug", plugged),
   venue: {
     configure: (clock: {
       time_zone: string;

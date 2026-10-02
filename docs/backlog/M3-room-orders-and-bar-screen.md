@@ -363,17 +363,22 @@ Definition of done: see CLAUDE.md.
 
 ### M3-14 · Print to USB printers through the desktop app's print host
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-28, M3-13
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Tickets (USB printers print through a desktop-app host); [Scope and architecture](../spec/01-scope-architecture.md) · Desktop app, Printers
 - **Build:** the desktop app on the bar and front-desk computers hosts their USB printers. It takes their jobs over its signed channel, prints raw ESC/POS, and confirms each job. A USB printer is a `printer` device reported through its host's heartbeats. Unconfirmed jobs take M3-13's failure and reprint path.
 - **Acceptance:**
-  - [ ] With a USB printer on the bar computer, accepting an order prints its ticket and confirms the job.
-  - [ ] With the USB printer unplugged, "Ticket didn't print · Reprint" shows, and the reprint says "REPRINT 2".
-  - [ ] The bar computer's heartbeat reports its USB printer's state.
+  - [x] With a USB printer on the bar computer, accepting an order prints its ticket and confirms the job.
+  - [x] With the USB printer unplugged, "Ticket didn't print · Reprint" shows, and the reprint says "REPRINT 2".
+  - [x] The bar computer's heartbeat reports its USB printer's state.
 - **Tests:** an integration test with a virtual USB printer; a check on a real USB printer on the staging bar computer.
 - **Notes:** The cash drawer on the same printer's kick port comes in M4.
+  - Built: ESC/POS tickets (`ticketEscPos` in `apps/api/src/print/ticket.ts`: initialize, ASCII lines, the reprint line in bold, feed and cut); `POST /v1/venues/{v}/print-host/next` and `POST …/print-host/jobs/{j}` in `apps/api/src/routes/print.ts` (signed by the host computer, for printers it hosts only); an attached USB printer takes its host's station (the bar computer's prints the bar's tickets) and protocol `usb`; `apps/desktop/src/printers.ts` (CUPS raw on macOS and Linux, and a virtual USB printer with `WEST4_FAKE_PRINTER=1` that writes its tickets to `WEST4_FAKE_PRINTER_DIR` and can be unplugged over IPC); the bridge's `printers()`, `print()` and `fakePlug()`; `apps/staff/src/print-host.ts` (every 3 seconds, one turn at a time: ask, print, confirm or fail) started with the heartbeats, which now list the host's USB printers as attached.
+  - Tests: `apps/api/src/routes/print-host.int.test.ts` runs the host's side with a virtual USB printer (the ticket printed and confirmed; unplugged, the failure line on the board and the failed list, and REPRINT 2 once it's back; another host's printer refused); `apps/desktop/src/printers.test.ts`; `apps/staff/src/print-host.test.ts`.
+  - An unplugged printer's ticket fails at once (the host reports it), and one the host never asks for fails through M3-13's print watch after 15 seconds. A printer that's unplugged drops out of the heartbeat's attached list, so it goes quiet and offline like any device.
+  - Windows printing isn't built: West 4's bar and front-desk computers' operating system isn't in the spec, and Windows raw printing needs the spooler API (flagged for M9's install).
+  - [ ] Still to do on hardware: the check on a real USB printer on the staging bar computer (staging isn't up yet, M1-02).
 
 ### M3-15 · Build the bar orders screen
 

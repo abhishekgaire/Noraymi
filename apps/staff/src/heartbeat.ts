@@ -1,5 +1,6 @@
 import { ApiCallError } from "./api.js";
 import { deviceRevoked, signedApi, type StoredDevice } from "./device.js";
+import { startPrintHost } from "./print-host.js";
 
 /**
  * A paired shared screen checks in every 30 seconds (M1-16, spec 09): its app
@@ -11,32 +12,43 @@ export const HEARTBEAT_MS = 30_000;
 
 const registered = new Map<string, string>();
 
+/** A peripheral the host sees, registered once as a device of its own (M1-30 readers, M3-14 printers). */
+export async function attachedId(
+  device: StoredDevice,
+  kind: "nfc_reader" | "printer",
+  peripheral: { name: string; serial: string },
+): Promise<string | null> {
+  const key = `${kind}:${peripheral.serial}`;
+  const known = registered.get(key);
+  if (known) return known;
+  try {
+    const made = await signedApi<{ device_id: string }>(
+      device,
+      "POST",
+      `/v1/venues/${device.venueId}/devices/attached`,
+      { kind, name: peripheral.name, serial: peripheral.serial },
+    );
+    registered.set(key, made.device_id);
+    return made.device_id;
+  } catch {
+    return null;
+  }
+}
+
+/** The readers and USB printers the host can see right now: a printer that's unplugged drops out. */
 async function attachedIds(device: StoredDevice): Promise<string[]> {
   const shell = typeof window === "undefined" ? undefined : window.west4;
   if (!shell) return [];
   const readers = await shell.readers().catch(() => []);
+  const printers = shell.printers ? await shell.printers().catch(() => []) : [];
   const ids: string[] = [];
   for (const reader of readers) {
-    let id = registered.get(reader.serial);
-    if (!id) {
-      try {
-        const made = await signedApi<{ device_id: string }>(
-          device,
-          "POST",
-          `/v1/venues/${device.venueId}/devices/attached`,
-          {
-            kind: "nfc_reader",
-            name: reader.name,
-            serial: reader.serial,
-          },
-        );
-        id = made.device_id;
-        registered.set(reader.serial, id);
-      } catch {
-        continue;
-      }
-    }
-    ids.push(id);
+    const id = await attachedId(device, "nfc_reader", reader);
+    if (id) ids.push(id);
+  }
+  for (const printer of printers) {
+    const id = await attachedId(device, "printer", printer);
+    if (id) ids.push(id);
   }
   return ids;
 }
@@ -60,5 +72,9 @@ export function startHeartbeats(device: StoredDevice): () => void {
     });
   void tick();
   const timer = setInterval(tick, HEARTBEAT_MS);
-  return () => clearInterval(timer);
+  const stopPrinting = startPrintHost(device);
+  return () => {
+    clearInterval(timer);
+    stopPrinting();
+  };
 }

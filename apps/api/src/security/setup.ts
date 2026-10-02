@@ -208,6 +208,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/menu/items/:menuItemId/out-tonight": {},
       "POST /v1/venues/:venueId/orders/:orderId/decline": { reason: "x" },
       "PUT /v1/venues/:venueId/drafts/:draftKey": { lines: [], version: 0 },
+      "POST /v1/venues/:venueId/print-host/jobs/:jobId": {
+        printer_id: deviceB.rows[0]!.id,
+        printed: true,
+      },
       "POST /v1/venues/:venueId/checks/:checkId/orders": {
         lines: [{ variant_id: "00000000-0000-4000-8000-000000000001", qty: 1 }],
       },

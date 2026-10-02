@@ -12,6 +12,10 @@ interface West4Desktop {
     clear(): Promise<void>;
   };
   readonly readers: () => Promise<{ name: string; serial: string }[]>;
+  /** The USB printers this computer hosts, and raw ESC/POS to one of them (M3-14). */
+  readonly printers?: () => Promise<{ name: string; serial: string }[]>;
+  readonly print?: (serial: string, base64: string) => Promise<void>;
+  readonly fakePlug?: (plugged: boolean) => Promise<void>;
   readonly badge: {
     onTap(listener: (tap: { url: string; reader: string }) => void): () => void;
     onReaders(listener: (list: { name: string; serial: string }[]) => void): () => void;

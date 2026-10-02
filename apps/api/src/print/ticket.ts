@@ -85,3 +85,31 @@ export function ticketEpos(
     `</PrintData></ePOSPrint></PrintRequestInfo>`
   );
 }
+
+/**
+ * Raw ESC/POS for a USB printer on a desktop-app host (M3-14): initialize,
+ * the ticket's lines in plain ASCII (receipt printers' code pages), the
+ * reprint or remake line in bold, feed and cut.
+ */
+export function ticketEscPos(
+  p: TicketPayload,
+  opts: { timeZone: string; reprintN: number },
+): Uint8Array {
+  const ESC = 0x1b;
+  const GS = 0x1d;
+  const bytes: number[] = [ESC, 0x40];
+  const ascii = (s: string) =>
+    s
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^\x20-\x7e]/g, "?");
+  for (const line of ticketLines(p, opts)) {
+    const bold = /^(REPRINT \d+|REMAKE|TEST TICKET)$/.test(line);
+    if (bold) bytes.push(ESC, 0x45, 1);
+    for (const ch of ascii(line)) bytes.push(ch.charCodeAt(0));
+    bytes.push(0x0a);
+    if (bold) bytes.push(ESC, 0x45, 0);
+  }
+  bytes.push(ESC, 0x64, 3, GS, 0x56, 0x42, 0);
+  return Uint8Array.from(bytes);
+}
