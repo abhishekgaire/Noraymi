@@ -29,6 +29,7 @@ import {
   type PendingAnswer,
 } from "../approvals/service.js";
 import { venueClock } from "../rooms/assignment.js";
+import { writeFixLine, type FixPayload } from "../rooms/fix.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -395,6 +396,16 @@ export async function stepOrder(
 
 /** An approved void of a returned order (over the reason-only limit) runs here, on the approver's phone. */
 executors.set("void", async (c, venueId, approval: ApprovalRow, ctx) => {
+  // A void of a sent line from the fix panel (M3-19) carries the line it reverses.
+  if ((approval.payload as { line_id?: number }).line_id !== undefined) {
+    await writeFixLine(c, venueId, approval.payload as unknown as FixPayload, {
+      reason: approval.reason,
+      addedBy: approval.requested_by,
+      approvedBy: ctx.approverId,
+      at: ctx.at,
+    });
+    return;
+  }
   const p = approval.payload as { order_id?: string; resolution?: "void_not_made" | "void_made" };
   if (!p.order_id || !p.resolution) throw new TargetGone();
   const order = await orderById(c, venueId, p.order_id);

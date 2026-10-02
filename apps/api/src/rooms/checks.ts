@@ -63,9 +63,22 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
     : undefined;
   const roomTime = session?.clock.roomTimeCents ?? 0;
   const lines = found.lines.reduce((sum, l) => sum + l.amount_cents, 0);
+  // Comps and voids waiting for approval (M3-19): the line shows "Waiting for Andy" on every screen.
+  const pending = await c.query<{ line_id: string; kind: string; waiting_for: string }>(
+    `select a.payload->>'line_id' as line_id, a.kind, u.name as waiting_for
+       from approvals a join users u on u.id = a.routed_to
+      where a.venue_id = $1 and a.target_id = $2 and a.status = 'pending' and a.kind in ('comp', 'void')
+        and a.payload ? 'line_id'`,
+    [venueId, id],
+  );
   return {
     check: { ...found.check, label: `#${found.check.number}` },
     lines: found.lines,
+    pending_fixes: pending.rows.map((p) => ({
+      line_id: Number(p.line_id),
+      kind: p.kind,
+      waiting_for: p.waiting_for,
+    })),
     room_time_cents: roomTime,
     minutes: session?.clock.minutes ?? null,
     lines_cents: lines,

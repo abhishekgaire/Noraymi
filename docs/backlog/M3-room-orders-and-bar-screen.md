@@ -474,7 +474,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-19 · Build the fix panel for comps and voids on every screen
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-14, M2-15, M2-31, M3-06
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Changing a sent drink; [Tenancy and access](../spec/02-tenancy-access.md) · The reason-only limit, Approvals; [Money rules](../spec/05-money-rules.md) 7; [API](../spec/08-api.md) · Checks (`/lines/{l}/comp`, `/lines/{l}/void`); [Room](../screens.md#room) note 1; [DeskRoom](../screens.md#deskroom) note 1; [Rail](../screens.md#rail) note 4
@@ -484,12 +484,16 @@ Definition of done: see CLAUDE.md.
   - Unsent drinks aren't on the check, so taking one off is just an edit. Once a check is paid, a correction is a refund (M4).
   - Every comp and void, within the limit or approved, is there for the nightly exceptions report (M7).
 - **Acceptance:**
-  - [ ] Maya's panel reads "$63 left this shift" on DeskRoom and on the Room phone alike, from her $12.00 comp tonight.
-  - [ ] Maya comps a $13.00 drink on Room 9 with a reason: no approval, and both screens then read "$50 left this shift".
-  - [ ] Diego's void of a $26.00 line shows "Waiting for Andy" and lands in Andy's inbox; Andy decides on his own phone, and the VOID line appears only once he approves.
-  - [ ] Andy's own void of more than $25.00 goes to Abhishek.
+  - [x] Maya's panel reads "$63 left this shift" on DeskRoom and on the Room phone alike, from her $12.00 comp tonight.
+  - [x] Maya comps a $13.00 drink on Room 9 with a reason: no approval, and both screens then read "$50 left this shift".
+  - [x] Diego's void of a $26.00 line shows "Waiting for Andy" and lands in Andy's inbox; Andy decides on his own phone, and the VOID line appears only once he approves.
+  - [x] Andy's own void of more than $25.00 goes to Abhishek.
 - **Tests:** the `reason_only_limits` group again, through the API; an end-to-end test across two screens.
 - **Notes:** Moving a line to another tab belongs to the same panel on the bar POS and comes with tabs in M6. The seed's pending void (Diego's, on Tariq A.'s check) loads in M3-25. Practice checks leave the totals from M7.
+  - Built: `apps/api/src/rooms/fix.ts` (`fixLine` and `writeFixLine`); `POST /checks/{c}/lines/{l}/comp` and `/void` with `{ reason, made, qty? }` in `apps/api/src/routes/checks.ts` (action `comps.reasonOnly`): within the reason-only limit `201` with the line, over it `202 approval_pending` routed by M2-15's rules; the `comp` and `void` approval executors now also write a fixed line when the approval carries one; `GET /checks/{c}` returns `pending_fixes` (the line, comp or void, and who it waits for); `apps/staff/src/screens/FixPanel.tsx` under the running tab on DeskRoom and the Room phone ("Fix a sent drink": "$X left this shift", each sent line with Fix or "Waiting for Andy C.", COMP or VOID, made or not, how many, the reason); `apps/api/src/rooms/fix.int.test.ts` and the Playwright test "the fix panel".
+  - The fixed line is negative, points at the original (`reverses_id`), and is labelled "COMP · Margarita · Peach" or "VOID · …", with its reason, `made`, who added it and, when approved, who approved it. A fix can take part of a line (one Margarita of two); a line can't be fixed past its quantity, twice while one is waiting, or once its check is closed (`409 ordering_closed`: once it's paid, a correction is a refund, M4).
+  - The panel sits outside the "Running tab" region, so the tab still reads only the check's lines; the board's panel is DeskRoom, which the board opens. The bar POS uses the same panel in M6.
+  - Every comp and void is a check line with its reason and approver, which the nightly exceptions report (M7) reads.
 
 ### M3-20 · Check the alcohol window and cut-offs on every route that creates an alcohol line
 

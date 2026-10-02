@@ -121,6 +121,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   draftKey: uuid(40),
   roomId: uuid(41),
   jobId: uuid(42),
+  lineId: "999999",
   slug: "venue-b-sample",
   id: "rooms",
   key: "hours",

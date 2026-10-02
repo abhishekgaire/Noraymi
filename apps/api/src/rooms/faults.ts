@@ -1,3 +1,4 @@
+import { writeFixLine, type FixPayload } from "./fix.js";
 import {
   addBlock,
   addCheckLine,
@@ -383,6 +384,16 @@ export async function backInService(
 
 /** What runs when a comp (room time now, drinks in M3) or a clock pause is approved. */
 executors.set("comp", async (c, venueId, approval, ctx) => {
+  // A comp of a sent line from the fix panel (M3-19) carries the line it reverses.
+  if ((approval.payload as { line_id?: number }).line_id !== undefined) {
+    await writeFixLine(c, venueId, approval.payload as unknown as FixPayload, {
+      reason: approval.reason,
+      addedBy: approval.requested_by,
+      approvedBy: ctx.approverId,
+      at: ctx.at,
+    });
+    return;
+  }
   await writeComp(c, venueId, approval.payload as CompPayload, {
     reason: approval.reason,
     addedBy: approval.requested_by,

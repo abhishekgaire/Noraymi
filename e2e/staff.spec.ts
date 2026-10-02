@@ -3322,3 +3322,69 @@ test("Runs on a phone: I've got it, Delivered at 10:52, a too-drunk return offer
     await db.end();
   }
 });
+
+/**
+ * The fix panel across two screens (M3-19): Maya's panel reads "$63.00 left
+ * this shift" on DeskRoom and on the Room phone layout alike, from her $12.00
+ * comp tonight; she comps one $13.00 Margarita on Room 9 with a reason, no
+ * approval, and both read "$50.00 left this shift".
+ */
+test("the fix panel: $63.00 left on both screens, a $13.00 comp with a reason, then $50.00 left", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    // o1 accepted at the bar: 2 × Margarita · Peach on Room 9.
+    await page.goto("/bar-orders");
+    await page
+      .getByRole("region", { name: "Waiting for you" })
+      .locator(".bar-order", { hasText: "Room 9" })
+      .getByRole("button", { name: "Accept · print ticket" })
+      .click();
+    await expect(page.getByRole("region", { name: "Being made" })).toContainText("Room 9");
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    const fix = page.getByRole("region", { name: "Fix a sent drink" });
+    await expect(fix).toContainText("$63.00 left this shift");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(fix).toContainText("$63.00 left this shift");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.reload();
+
+    await fix.getByRole("button", { name: "Fix · Margarita · Peach" }).click();
+    await fix.getByLabel("How many").fill("1");
+    await fix.getByLabel("Reason").fill("Spilled on the way");
+    await fix.getByRole("button", { name: "Comp it" }).click();
+    await expect(fix.getByRole("status")).toHaveText("Comped: Margarita · Peach");
+    await expect(fix).toContainText("$50.00 left this shift");
+    await expect(page.getByRole("region", { name: "Running tab" })).toContainText(
+      "COMP · Margarita · Peach-$13.00",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(fix).toContainText("$50.00 left this shift");
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

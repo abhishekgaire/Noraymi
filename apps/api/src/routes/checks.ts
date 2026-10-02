@@ -5,6 +5,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
+import { fixLine } from "../rooms/fix.js";
 
 /** M2 adds damage lines only; items come with ordering in M3. */
 const lineBody = z
@@ -64,4 +65,54 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
       return reply.code(201).send(view);
     },
   );
+
+  // The fix panel (M3-19): comp or void a sent line, within the reason-only limit or through approval.
+  const fixBody = z
+    .object({
+      reason: z.string().trim().min(1).max(300),
+      made: z.boolean(),
+      qty: z.number().int().min(1).max(100).optional(),
+    })
+    .strict();
+  for (const kind of ["comp", "void"] as const) {
+    app.post<{ Params: { venueId: string; checkId: string; lineId: string }; Body: unknown }>(
+      `/v1/venues/:venueId/checks/:checkId/lines/:lineId/${kind}`,
+      {
+        config: route({
+          principals: ["owner_manager", "staff"],
+          module: "core",
+          action: "comps.reasonOnly",
+          idempotency: "optional",
+        }),
+      },
+      async (request, reply) => {
+        const parsed = fixBody.safeParse(request.body);
+        if (!parsed.success)
+          throw new ApiError("invalid_request", `a ${kind} needs { reason, made }`);
+        const p = request.principal;
+        if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+        const lineId = Number(request.params.lineId);
+        if (
+          !Number.isSafeInteger(lineId) ||
+          lineId <= 0 ||
+          !z.string().uuid().safeParse(request.params.checkId).success
+        )
+          throw new ApiError("not_found", "no such line on this check");
+        const answer = await request.inVenue((c) =>
+          fixLine(c, request.venueId!, {
+            checkId: request.params.checkId,
+            lineId,
+            kind,
+            made: parsed.data.made,
+            qty: parsed.data.qty,
+            reason: parsed.data.reason,
+            userId: p.userId,
+            deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+            now: options.clock.now(),
+          }),
+        );
+        return reply.code(answer.status === "added" ? 201 : 202).send(answer);
+      },
+    );
+  }
 }

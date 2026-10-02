@@ -7,6 +7,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { MoveSheet } from "./MoveSheet.js";
@@ -52,6 +53,7 @@ interface Line {
   readonly description: string;
   readonly qty: number;
   readonly amount_cents: number;
+  readonly reverses_id?: number | null;
 }
 
 export function RoomScreen() {
@@ -65,6 +67,7 @@ export function RoomScreen() {
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const [room, setRoom] = useState<BoardRoom | null>(null);
   const [lines, setLines] = useState<readonly Line[]>([]);
+  const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -85,11 +88,15 @@ export function RoomScreen() {
             `/v1/venues/${venueId}/sessions/${r.session.id}`,
           ),
           r.session.check_id
-            ? api<{ lines: Line[] }>("GET", `/v1/venues/${venueId}/checks/${r.session.check_id}`)
-            : Promise.resolve({ lines: [] as Line[] }),
+            ? api<{ lines: Line[]; pending_fixes: PendingFix[] }>(
+                "GET",
+                `/v1/venues/${venueId}/checks/${r.session.check_id}`,
+              )
+            : Promise.resolve({ lines: [] as Line[], pending_fixes: [] as PendingFix[] }),
         ]);
         setStartedAt(session.session.started_at);
         setLines(check.lines);
+        setPendingFixes(check.pending_fixes ?? []);
       } else {
         setLines([]);
         setStartedAt(null);
@@ -288,6 +295,15 @@ export function RoomScreen() {
               </p>
             )}
           </section>
+          {s.check_id && signedIn?.membership.permissions.includes("comps.reasonOnly") && (
+            <FixPanel
+              venueId={venueId}
+              checkId={s.check_id}
+              lines={lines}
+              pending={pendingFixes}
+              onDone={() => void load()}
+            />
+          )}
           {s.check_id && signedIn?.membership.permissions.includes("orders.accept") && (
             <AddDrinks
               venueId={venueId}

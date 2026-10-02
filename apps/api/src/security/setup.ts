@@ -138,6 +138,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     `insert into print_jobs (venue_id, order_id, kind, station, payload) values ($1, $2, 'ticket', 'bar', '{}') returning id`,
     [v.venueB, orderB.rows[0]!.id],
   );
+  const lineB = await owner.query<{ id: string }>(
+    `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category, business_date)
+       values ($1, $2, 'item', 'B''s beer', 1, 800, 800, 'drink', '2026-09-25') returning id::text`,
+    [v.venueB, checkB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -174,6 +179,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       orderId: orderB.rows[0]!.id,
       draftKey: checkB.rows[0]!.id,
       jobId: jobB.rows[0]!.id,
+      lineId: lineB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -208,6 +214,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/menu/items/:menuItemId/out-tonight": {},
       "POST /v1/venues/:venueId/orders/:orderId/decline": { reason: "x" },
       "PUT /v1/venues/:venueId/drafts/:draftKey": { lines: [], version: 0 },
+      "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/comp": { reason: "x", made: true },
+      "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/void": { reason: "x", made: false },
       "POST /v1/venues/:venueId/print-host/jobs/:jobId": {
         printer_id: deviceB.rows[0]!.id,
         printed: true,
