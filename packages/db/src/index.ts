@@ -385,3 +385,13 @@ export {
   openSessionInRoom,
 } from "./room-guests.js";
 export type { RoomGuestRow } from "./room-guests.js";
+export {
+  resolvePrinter,
+  claimPrintJob,
+  printerJob,
+  settlePrintJob,
+  failStalePrintJobs,
+  reprintJob,
+  failedTickets,
+} from "./print-jobs.js";
+export type { PrintJobRow, FailedTicket } from "./print-jobs.js";

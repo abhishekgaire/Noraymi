@@ -1,6 +1,7 @@
 import {
   addCheckLine,
   emitEvent,
+  idCounts,
   insertPrintJob,
   moveOrder,
   orderById,
@@ -83,6 +84,17 @@ async function ticket(
   remake: boolean,
 ) {
   const stations = [...new Set(order.items.map((i) => i.station))];
+  // The ID status for the ticket: IDs checked of the party, as the room's tile shows it.
+  let ids: { checked: number; party: number } | null = null;
+  if (order.session_id) {
+    const party = await c.query<{ party_size: number }>(
+      "select party_size from room_sessions where venue_id = $1 and id = $2",
+      [venueId, order.session_id],
+    );
+    const counts = await idCounts(c, venueId, [order.session_id]);
+    if (party.rows[0])
+      ids = { checked: counts.get(order.session_id) ?? 0, party: party.rows[0].party_size };
+  }
   for (const station of stations) {
     await insertPrintJob(c, venueId, {
       orderId: order.id,
@@ -95,6 +107,7 @@ async function ticket(
         remake,
         accepted_by: order.accepted_by_name,
         accepted_at: order.accepted_at,
+        ids,
         lines: order.items
           .filter((i) => i.station === station)
           .map((i) => ({

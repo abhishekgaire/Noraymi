@@ -1,4 +1,4 @@
-import { readSetting, roomNotes, type Queryable } from "@west4/db";
+import { failedTickets, readSetting, roomNotes, type Queryable } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
@@ -184,7 +184,16 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
  * reading of the seed's order, flagged). Room-order alerts join in M3.
  */
 const COLOR_ORDER = ["pink", "amber", "lime", "grey"] as const;
-const KIND_ORDER = ["needed_now", "call", "near_end", "code", "offer", "wipe", "late"] as const;
+const KIND_ORDER = [
+  "needed_now",
+  "call",
+  "ticket",
+  "near_end",
+  "code",
+  "offer",
+  "wipe",
+  "late",
+] as const;
 
 async function boardAlerts(
   c: Queryable,
@@ -259,6 +268,16 @@ async function boardAlerts(
       room_name: k.room_name,
       call: k.kind,
       minutes_ago: minutes(k.created_at),
+    });
+  // A ticket that didn't print (M3-13): pink until someone reprints it.
+  for (const j of await failedTickets(c, venueId, now.toString()))
+    out.push({
+      kind: "ticket",
+      color: "pink",
+      since: j.failed_at,
+      job_id: j.id,
+      room_name: j.room_name,
+      reprint_n: j.reprint_n,
     });
   // Ten wrong room codes rotated a room's code (M3-08): amber for half an hour.
   const rotated = await c.query<{ session_id: string; room_name: string; at: string }>(

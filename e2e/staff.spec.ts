@@ -3030,3 +3030,58 @@ test("Adding drinks to Room 9: an amber Margarita until Peach, Hoegaarden 86'd, 
     await db.end();
   }
 });
+
+/**
+ * A ticket that didn't print (M3-13): with the bar printer unplugged, o4's
+ * ticket for Room 1 fails and the board reads "Room 1 · Ticket didn't print"
+ * with Reprint; the reprint is REPRINT 2, and when that fails too, REPRINT 3.
+ */
+test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    // The print watch's verdict on o4's ticket, as it gives it after three polls with no printer.
+    const fail = (where: string) =>
+      db.query(
+        `update print_jobs set status = 'failed', failed_at = '2026-09-25T22:41:00-04:00', confirmed_at = null ${where}`,
+      );
+    await fail("where order_id = (select row_id from seed_ids where slug = 'order_o4')");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    const alert = page.locator(".alert", { hasText: "Room 1 · Ticket didn't print" });
+    await expect(alert).toBeVisible();
+    await alert.getByRole("button", { name: "Reprint" }).click();
+    await expect(alert).toHaveCount(0);
+    const reprints = async () =>
+      (
+        await db.query<{ n: number }>(
+          "select reprint_n as n from print_jobs where reprint_of is not null order by reprint_n",
+        )
+      ).rows.map((r) => r.n);
+    expect(await reprints()).toEqual([2]);
+
+    await fail("where reprint_n = 2");
+    await page.reload();
+    await expect(alert).toBeVisible();
+    await alert.getByRole("button", { name: "Reprint" }).click();
+    await expect(alert).toHaveCount(0);
+    expect(await reprints()).toEqual([2, 3]);
+  } finally {
+    await db.end();
+  }
+});

@@ -46,6 +46,12 @@ export type Alert =
       readonly waiting: readonly string[];
     }
   | {
+      readonly kind: "ticket";
+      readonly color: string;
+      readonly job_id: string;
+      readonly room_name: string | null;
+    }
+  | {
       readonly kind: "code";
       readonly color: string;
       readonly session_id: string;
@@ -68,6 +74,7 @@ export interface AlertActions {
   readonly wrapUp: (sessionId: string, name: string) => void;
   readonly move: (sessionId: string, roomName: string) => void;
   readonly onIt: (callId: string) => void;
+  readonly reprint: (jobId: string) => void;
   readonly offer: (entryId: string) => void;
   readonly show: (roomId: string) => void;
   readonly noProblem: (conversationId: string) => void;
@@ -135,6 +142,8 @@ export function Alerts({
         });
       case "code":
         return t("alert.code", { room: a.room_name });
+      case "ticket":
+        return a.room_name ? t("alert.ticket", { room: a.room_name }) : t("alert.ticket.noRoom");
       case "late":
         return t("alert.late", {
           name: a.name,
@@ -174,6 +183,11 @@ export function Alerts({
                   </button>
                 )}
               </>
+            )}
+            {a.kind === "ticket" && (
+              <button type="button" className="primary" onClick={() => actions.reprint(a.job_id)}>
+                {t("alert.reprint")}
+              </button>
             )}
             {a.kind === "call" && (
               <button type="button" className="primary" onClick={() => actions.onIt(a.call_id)}>

@@ -49,6 +49,7 @@ import { orderRoutes } from "./routes/orders.js";
 import { draftRoutes } from "./routes/drafts.js";
 import { roomGuestAuthenticator, roomJoinRoutes } from "./routes/room-join.js";
 import { roomOrderRoutes } from "./routes/room-orders.js";
+import { printerAuthenticator, printRoutes } from "./routes/print.js";
 import { setRoomCodeKey } from "./rooms/room-code.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
@@ -125,7 +126,9 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     minClientVersion: process.env["MIN_CLIENT_VERSION"] ?? "0.0.0",
     authenticators: [
       // A room cookie answers only on the guest room routes, so it goes first (M3-08).
-      ...(gate && config ? [roomGuestAuthenticator(gatePoolRef!)] : []),
+      ...(gate && config
+        ? [roomGuestAuthenticator(gatePoolRef!), printerAuthenticator(gatePoolRef!)]
+        : []),
       ...(options.authenticators ?? []),
       ...(gate && config
         ? [
@@ -199,6 +202,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       setRoomCodeKey(config.auth.secretKey);
       roomJoinRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
       roomOrderRoutes(scope, { pool: gatePoolRef!, clock });
+      printRoutes(scope, { pool: gatePoolRef!, clock });
       reasonOnlyRoutes(scope, { clock });
       faultRoutes(scope, { clock });
       partySizeRoutes(scope, { clock });

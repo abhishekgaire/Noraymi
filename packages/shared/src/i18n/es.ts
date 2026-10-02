@@ -1157,4 +1157,22 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "tablet.pair.failed": "Ese código no funcionó. Crea uno nuevo en Admin → Dispositivos.",
   "tablet.pair.wrongKind":
     "Ese código es para otro tipo de pantalla. Crea un código de tableta de sala en Admin → Dispositivos.",
+  // Tickets on network printers: the failure line, reprints and Admin's printers (M3-13).
+  "alert.ticket": "{room} · El ticket no se imprimió",
+  "alert.ticket.noRoom": "El ticket no se imprimió",
+  "alert.reprint": "Reimprimir",
+  "printers.title": "Impresoras de red",
+  "printers.add": "Agregar una impresora",
+  "printers.name": "Nombre de la impresora",
+  "printers.station": "Estación",
+  "printers.station.bar": "Barra",
+  "printers.station.front_desk": "Recepción",
+  "printers.protocol": "Tipo",
+  "printers.protocol.cloudprnt": "Star CloudPRNT",
+  "printers.protocol.server_direct": "Epson Server Direct Print",
+  "printers.credential":
+    "Configura la impresora para consultar {url} cada 5 segundos, con usuario {user} y contraseña {password}. La contraseña se muestra solo esta vez.",
+  "printers.test": "Imprimir un ticket de prueba",
+  "printers.testSent": "Ticket de prueba enviado a {name}",
+  "printers.failed": "No funcionó. Inténtalo de nuevo.",
 };

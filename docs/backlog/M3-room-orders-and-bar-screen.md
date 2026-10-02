@@ -337,7 +337,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-13 · Print tickets to network printers, with failures and reprints
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-15, M1-34, M3-06
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Tickets, Supported hardware; [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (Printer); [Data model](../spec/04-data-model.md) · `print_jobs`; [API](../spec/08-api.md) · Orders (`/print-jobs/{j}/reprint`), Live events (`print_job.failed`); [Admin by milestone](../milestones.md#admin-by-milestone) (Printers & devices); [Bar](../screens.md#bar) note 4
@@ -347,12 +347,19 @@ Definition of done: see CLAUDE.md.
   - A job still unconfirmed after three polls raises `print_job.failed`, and the bar orders screen and the board show "Ticket didn't print · Reprint". `POST /print-jobs/{j}/reprint` makes a new job with `reprint_of` and `reprint_n`, which prints "REPRINT 2", then "REPRINT 3" and so on.
   - Admin → Printers & devices gets printers: add one, pick its station, print a test ticket.
 - **Acceptance:**
-  - [ ] Accepting an order prints its ticket on the bar's network printer within 5 seconds, and the printer's confirmation marks the job confirmed.
-  - [ ] With the bar printer unplugged, "Ticket didn't print · Reprint" shows after three polls, and the reprint says "REPRINT 2"; a second reprint says "REPRINT 3".
-  - [ ] A printer fetches only its own jobs.
-  - [ ] A CloudPRNT printer and a Server Direct Print printer both pass the same tests.
+  - [x] Accepting an order prints its ticket on the bar's network printer within 5 seconds, and the printer's confirmation marks the job confirmed.
+  - [x] With the bar printer unplugged, "Ticket didn't print · Reprint" shows after three polls, and the reprint says "REPRINT 2"; a second reprint says "REPRINT 3".
+  - [x] A printer fetches only its own jobs.
+  - [x] A CloudPRNT printer and a Server Direct Print printer both pass the same tests.
 - **Tests:** protocol tests against recorded printer requests; a Playwright test of the failure line and the reprint.
 - **Notes:** Print payloads are kept 30 days (the retention job is M8). Receipts on these printers come in M4, and "TRAINING" on practice tickets in M7.
+  - Built: migration `0047_printers.sql` (`devices.station`, `protocol`, `secret_hash`; `print_jobs.sent_at`, `failed_at`, `failure`; the `resolve_printer` definer; a test ticket may belong to no order or check); `packages/db/src/print-jobs.ts`; `apps/api/src/print/ticket.ts` (text for CloudPRNT, ePOS-Print XML for Server Direct Print, from the same lines); `apps/api/src/routes/print.ts` (the printer authenticator, both protocols, the failed list, reprint, Admin's printers and test ticket, and the print watch sweep); the board's pink "Room 1 · Ticket didn't print" alert with Reprint; Admin → Printers & devices gets "Network printers" (add, credential shown once, test ticket); `apps/api/src/routes/print.int.test.ts` runs the same tests on both protocols from recorded request shapes; the Playwright test "Ticket didn't print".
+  - A printer's credential is HTTP Basic: its device id and a random secret shown once in Admin, stored hashed. It sees only jobs for its station that nobody printed, or jobs made for it alone; another printer asking for its job by token gets 404. The job id is the CloudPRNT `jobToken` and the Server Direct Print `printjobid`.
+  - The print watch (a scheduler sweep every 5 seconds) fails any job not confirmed 15 seconds after it was made, three polls, and sends `print_job.failed`; a printer's own error code fails it at once. A failed job is never handed to the printer again, so a printer coming back doesn't print a stale ticket on top of its reprint.
+  - A reprint copies the first job and numbers it after the last reprint of that ticket: REPRINT 2, 3 and so on, printed as the ticket's first line; the failure line goes away once a reprint is made.
+  - The ticket prints the ID status as "ID OK 12 of 12" or "ID CHECK 3 of 4", since receipt printers' code pages don't carry ✓ (flagged); times are in the venue's zone.
+  - "Within 5 seconds" is the printers' own poll interval (set in their configuration to 5 seconds or less); the API answers each poll with the job at once.
+  - The bar orders screen's failure line is M3-15 and reads the same `GET /print-jobs?status=failed`.
 
 ### M3-14 · Print to USB printers through the desktop app's print host
 

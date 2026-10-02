@@ -1138,4 +1138,22 @@ export const en = {
   "tablet.pair.failed": "That code didn't work. Make a new one in Admin → Devices.",
   "tablet.pair.wrongKind":
     "That code is for another kind of screen. Make a room tablet code in Admin → Devices.",
+  // Tickets on network printers: the failure line, reprints and Admin's printers (M3-13).
+  "alert.ticket": "{room} · Ticket didn't print",
+  "alert.ticket.noRoom": "Ticket didn't print",
+  "alert.reprint": "Reprint",
+  "printers.title": "Network printers",
+  "printers.add": "Add a printer",
+  "printers.name": "Printer name",
+  "printers.station": "Station",
+  "printers.station.bar": "Bar",
+  "printers.station.front_desk": "Front desk",
+  "printers.protocol": "Kind",
+  "printers.protocol.cloudprnt": "Star CloudPRNT",
+  "printers.protocol.server_direct": "Epson Server Direct Print",
+  "printers.credential":
+    "Set the printer to poll {url} every 5 seconds, with user {user} and password {password}. The password shows only this once.",
+  "printers.test": "Print a test ticket",
+  "printers.testSent": "Test ticket sent to {name}",
+  "printers.failed": "That didn't work. Try again.",
 } as const;

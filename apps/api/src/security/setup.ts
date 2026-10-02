@@ -134,6 +134,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, $3, 'room', now(), '2026-09-25') returning id`,
     [v.venueB, checkB.rows[0]!.id, sessionB.rows[0]!.id],
   );
+  const jobB = await owner.query<{ id: string }>(
+    `insert into print_jobs (venue_id, order_id, kind, station, payload) values ($1, $2, 'ticket', 'bar', '{}') returning id`,
+    [v.venueB, orderB.rows[0]!.id],
+  );
   const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
     venueA: v.venueA,
     venueB: v.venueB,
@@ -169,6 +173,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       menuItemId: menuItemB.rows[0]!.id,
       orderId: orderB.rows[0]!.id,
       draftKey: checkB.rows[0]!.id,
+      jobId: jobB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

@@ -205,6 +205,8 @@ export function Tonight() {
               "room.call",
               "waitlist.updated",
               "message.received",
+              "print_job.failed",
+              "print_job.queued",
             ].includes(e.type),
           )
         )
@@ -440,6 +442,10 @@ export function Tonight() {
                   .then(() => setDone(t("wrapUp.sent", { name })))
                   .catch(() => setDone(t("wrapUp.failed"))),
               move: (sessionId, roomName) => setMoving({ sessionId, roomName }),
+              reprint: (jobId) =>
+                void api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`)
+                  .then(() => load())
+                  .catch(() => setFailed(true)),
               onIt: (callId) =>
                 void api("POST", `/v1/venues/${venueId}/calls/${callId}/ack`)
                   .then(() => load())

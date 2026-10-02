@@ -59,6 +59,7 @@ const EXEMPT_PREFIXES = [
   "/v1/console/",
   "/v1/invites/",
   "/v1/public/",
+  "/v1/print/", // a printer's own credential names its venue; it sees only its own jobs (print.int.test.ts)
   "/v1/auth/",
   "/v1/devices/",
   "/v1/push/", // the public VAPID key

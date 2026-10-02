@@ -269,6 +269,11 @@ export function Devices() {
         </>
       )}
       <PairForm venueId={venueId} timeZone={timeZone} onMade={load} />
+      <Printers
+        venueId={venueId}
+        printers={(devices ?? []).filter((d) => d.kind === "printer")}
+        onAdded={load}
+      />
     </section>
   );
 }
@@ -343,5 +348,124 @@ function PairForm({
         </p>
       )}
     </form>
+  );
+}
+
+/**
+ * Network printers (M3-13): add a Star CloudPRNT or Epson Server Direct Print
+ * printer for a station, its credential shown once, and print a test ticket.
+ */
+function Printers({
+  venueId,
+  printers,
+  onAdded,
+}: {
+  venueId: string;
+  printers: readonly { id: string; name: string }[];
+  onAdded: () => Promise<void>;
+}) {
+  const { t } = useT();
+  const [name, setName] = useState("");
+  const [station, setStation] = useState("bar");
+  const [protocol, setProtocol] = useState("cloudprnt");
+  const [made, setMade] = useState<{ url: string; user: string; password: string } | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const r = await api<{ username: string; password: string; poll_path: string }>(
+        "POST",
+        `/v1/venues/${venueId}/printers`,
+        { name: name.trim(), station, protocol },
+      );
+      setMade({
+        url: `${window.location.origin}${r.poll_path}`,
+        user: r.username,
+        password: r.password,
+      });
+      setName("");
+      await onAdded();
+    } catch {
+      setError(t("printers.failed"));
+    }
+  };
+  const test = async (printer: { id: string; name: string }) => {
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/printers/${printer.id}/test`);
+      setMessage(t("printers.testSent", { name: printer.name }));
+    } catch {
+      setError(t("printers.failed"));
+    }
+  };
+
+  return (
+    <section className="printers" aria-labelledby="printers-h">
+      <h3 id="printers-h">{t("printers.title")}</h3>
+      {printers.length > 0 && (
+        <ul className="faults">
+          {printers.map((p) => (
+            <li key={p.id}>
+              <span>{p.name}</span>{" "}
+              <button type="button" className="secondary" onClick={() => void test(p)}>
+                {t("printers.test")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {message && (
+        <p className="small" role="status">
+          {message}
+        </p>
+      )}
+      {made && (
+        <p className="notice" role="status">
+          {t("printers.credential", { url: made.url, user: made.user, password: made.password })}
+        </p>
+      )}
+      <form className="invite-form" onSubmit={(e) => void add(e)}>
+        <h4>{t("printers.add")}</h4>
+        <div className="invite-fields">
+          <label>
+            <span>{t("printers.name")}</span>
+            <input value={name} required maxLength={60} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label>
+            <span>{t("printers.station")}</span>
+            <select
+              aria-label={t("printers.station")}
+              value={station}
+              onChange={(e) => setStation(e.target.value)}
+            >
+              <option value="bar">{t("printers.station.bar")}</option>
+              <option value="front_desk">{t("printers.station.front_desk")}</option>
+            </select>
+          </label>
+          <label>
+            <span>{t("printers.protocol")}</span>
+            <select
+              aria-label={t("printers.protocol")}
+              value={protocol}
+              onChange={(e) => setProtocol(e.target.value)}
+            >
+              <option value="cloudprnt">{t("printers.protocol.cloudprnt")}</option>
+              <option value="server_direct">{t("printers.protocol.server_direct")}</option>
+            </select>
+          </label>
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="primary">
+          {t("printers.add")}
+        </button>
+      </form>
+    </section>
   );
 }
