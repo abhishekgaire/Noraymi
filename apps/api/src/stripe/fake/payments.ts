@@ -130,6 +130,26 @@ fakeRouteSets.push((fake) => {
     };
   });
 
+  // The account's PaymentIntents, newest first (the reconciler's list).
+  fake.route("GET", "/v1/payment_intents", (req) => {
+    const account = needAccount(req.account);
+    const gte = Number((req.query["created"] as { gte?: string } | undefined)?.gte ?? 0);
+    const expand = req.query["expand"];
+    const wantsCharge = (
+      Array.isArray(expand) ? expand : expand ? Object.values(expand as object) : []
+    )
+      .map(String)
+      .includes("data.latest_charge");
+    const data = fake
+      .list(
+        "payment_intent",
+        account,
+        (pi) => Number(pi["created"] ?? Math.floor(Date.now() / 1000)) >= gte,
+      )
+      .map((pi) => (wantsCharge ? withCharge(fake, pi, ["latest_charge"]) : pi));
+    return { body: { object: "list", data, has_more: false } };
+  });
+
   fake.route("GET", "/v1/payment_intents/:id", (req) => ({
     body: withCharge(
       fake,

@@ -161,6 +161,8 @@ export interface NewAttempt {
   readonly action: string;
   readonly readerId?: string | null;
   readonly amountCents: number;
+  /** The venue's clock when it starts (the simulated one in demos and tests), never the database's. */
+  readonly startedAt?: string;
 }
 
 /** A new attempt, numbered after the payment's last; its key is `<payment_id>:<action>:<attempt_no>`. */
@@ -179,8 +181,8 @@ export async function startAttempt(
     await c.query("savepoint one_open_attempt");
     await c.query(
       `insert into payment_attempts (venue_id, payment_id, attempt_no, check_id, booking_id, portion_key, action,
-         reader_id, idem_key, amount_cents, state)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'started')`,
+         reader_id, idem_key, amount_cents, state, started_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'started', coalesce($11::timestamptz, now()))`,
       [
         venueId,
         a.paymentId,
@@ -192,6 +194,7 @@ export async function startAttempt(
         a.readerId ?? null,
         idemKey,
         a.amountCents,
+        a.startedAt ?? null,
       ],
     );
     await c.query("release savepoint one_open_attempt");

@@ -124,6 +124,7 @@ export async function writeTap(
     action: "process",
     readerId: reader.stripe_reader_id,
     amountCents: input.amountCents + (input.tipCents ?? 0),
+    startedAt: input.now.toString(),
   });
   await enqueueRun(c, venueId, paymentId, attemptNo, input.now);
   return { paymentId, attemptNo };
@@ -150,6 +151,7 @@ export async function writeRetap(
     action: "process",
     readerId: reader.stripe_reader_id,
     amountCents: last.amount_cents,
+    startedAt: input.now.toString(),
   });
   await enqueueRun(c, venueId, input.paymentId, attemptNo, input.now);
   return { attemptNo };

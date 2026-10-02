@@ -376,7 +376,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-12 · Reconcile unknown results and pass the chaos tests
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-05, M4-11
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#how-every-card-payment-runs) step 5; [Stripe setup](../spec/06-stripe-setup.md) steps 6 and 11; [Testing and operations](../spec/13-testing-operations.md) (Payment chaos tests, Stripe flow tests)
@@ -387,13 +387,20 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - It also checks bookings still pending after 2 minutes (M5's deposits use it).
   - A chaos harness in CI and staging: kill the worker between Stripe's success and our record for each action (create, process, off_session, capture, refund); time out calls; drop a reader mid-payment; drop, repeat and reorder webhooks.
 - **Acceptance:**
-  - [ ] Killing the API between Stripe's success and our commit on Room 9's $498.60 tap: within 5 minutes the reconciler records Paid, the check shows $0.00 due, and Stripe shows exactly one charge.
-  - [ ] Killing it after the PaymentIntent was created but before its id was stored: the reconciler finds the same PaymentIntent by its key and cancels it if no attempt ran, or adopts it if it succeeded; no second PaymentIntent exists.
-  - [ ] A payment made straight in the sandbox Dashboard lands as unmatched and is never put on a check.
-  - [ ] With webhooks switched off for a run, every payment still ends paid, failed or canceled.
-  - [ ] Timeouts, a reader dropping mid-payment and missing webhooks all end in a known state, with no attempt left unknown after the reconciler's next run.
+  - [x] Killing the API between Stripe's success and our commit on Room 9's $498.60 tap: within 5 minutes the reconciler records Paid, the check shows $0.00 due, and Stripe shows exactly one charge.
+  - [x] Killing it after the PaymentIntent was created but before its id was stored: the reconciler finds the same PaymentIntent by its key and cancels it if no attempt ran, or adopts it if it succeeded; no second PaymentIntent exists.
+  - [x] A payment made straight in the sandbox Dashboard lands as unmatched and is never put on a check.
+  - [x] With webhooks switched off for a run, every payment still ends paid, failed or canceled.
+  - [x] Timeouts, a reader dropping mid-payment and missing webhooks all end in a known state, with no attempt left unknown after the reconciler's next run.
 - **Tests:** the chaos suite named in [Testing and operations](../spec/13-testing-operations.md), one fault per action; assertions against Stripe's own list of PaymentIntents and charges, not only our rows.
 - **Notes:** The data model names no table for Unmatched payments; the cautious default above (`payments.method = 'external'`, no allocation) is flagged for M7.
+  - Built: `apps/api/src/payments/reconcile.ts` (`reconcileVenue`; the `payment.reconcile` job on the critical pool, one per venue every 5 minutes, queued by the scheduler's `payments.reconcile` sweep with a dedupe key per 5-minute slot); the fake's PaymentIntent list; `apps/api/src/payments/chaos.int.test.ts`.
+  - The reconciler reads again every card attempt still started or unknown after 2 minutes, through the same state machine, and cancels it if it's still unclear (the cancel records a success if it finds one). A payment with no stored PaymentIntent id sends its create call again with `<payment_id>:create` and the first attempt's amount, which Stripe answers with the same PaymentIntent; it's then adopted if it succeeded and canceled if no attempt ran. The account's succeeded PaymentIntents of the last 24 hours with no row of ours become unmatched payments: method `external`, status captured, the card for display, no allocation, a `payment_events` row from the reconciler and a `payment.unmatched` event to managers (the cautious default, flagged for M7's list). Nothing is matched by metadata.
+  - Found and fixed: an attempt's `started_at` came from the database's own clock while the app runs on the venue's (simulated in demos and tests), so the 2-minute and 20-second rules measured against the wrong time. Attempts now start at the venue's clock.
+  - The chaos suite (all without webhooks; assertions on the fake's own PaymentIntents and charges): the API killed between Stripe's success and our record on Room 9's $498.60 (Paid, $0.00 due, one charge, one PaymentIntent); killed after the PaymentIntent was made but before its id was stored (found by its key and canceled, or adopted when it went through; never a second one); a Dashboard payment (unmatched, never on a check, recorded once); a reader dropping mid-payment (canceled, amount freed); and a timeout (no attempt left unknown after the next run). Off-session charges (M4-17), captures (M6) and refunds (M4-21) join the suite with their tickets.
+  - "Bookings still pending after 2 minutes" have no rows yet: online booking's deposits (M5) add that step to the same job.
+  - The chaos suite runs in CI with the integration tests; running it in staging against the sandbox is part of the live payment drill (M4-30).
+
 
 ### M4-13 · Take cash into the drawer at the screen where it's taken
 

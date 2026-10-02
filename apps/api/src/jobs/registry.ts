@@ -9,6 +9,7 @@ import { deviceWatchSweep } from "./device-watch.js";
 import { readerHealthSweep } from "./reader-health.js";
 import { STRIPE_EVENT_KIND, makeStripeEventHandler } from "../stripe/webhooks.js";
 import { makePaymentHandlers } from "../payments/run.js";
+import { RECONCILE_KIND, makeReconcileHandler, reconcileSweep } from "../payments/reconcile.js";
 import "../payments/webhooks.js";
 import type { StripeClient } from "../stripe/client.js";
 import { holdSweep } from "./hold-sweep.js";
@@ -85,6 +86,16 @@ export function makeHandlers({
       ...(stripe
         ? makePaymentHandlers({ pool: stripe.pool, stripe: stripe.client, clock: stripe.clock })
         : {}),
+      // The reconciler (M4-12): unknown results and PaymentIntents with no row, every 5 minutes.
+      ...(stripe
+        ? {
+            [RECONCILE_KIND]: makeReconcileHandler({
+              pool: stripe.pool,
+              stripe: stripe.client,
+              clock: stripe.clock,
+            }),
+          }
+        : {}),
     },
     normal: {
       ...stripeEvents,
@@ -128,7 +139,7 @@ export function makeSweeps(
   return [
     deviceWatchSweep(pool, log),
     // Card readers' status from Stripe every 30 seconds (M4-02).
-    ...(stripe ? [readerHealthSweep(pool, stripe, log)] : []),
+    ...(stripe ? [readerHealthSweep(pool, stripe, log), reconcileSweep(pool)] : []),
     // Tickets not confirmed within three polls (M3-13).
     printWatchSweep(pool),
     // Room orders nobody has accepted: phones, the board, the manager (M3-16).
