@@ -197,7 +197,9 @@ const newYorkCounty: RulePack = {
     drinkingUpMin: 30, drinkingUpFrom: "windowClose",   // how drinking-up is measured is open with the lawyer; this is the cautious default
     promotions: { freeDrinks: false, multipleForOne: "eachAtLeastHalfPrice", hourlyAlcohol: false, privateFunctionException: false },   // false until the lawyer answers
   },
-  salesTax: { rate: 0.08875, jurisdictionCode: "…", surchargeTaxable: true },   // the code and the surcharge rule come from the accountant
+  salesTax: { rate: 0.08875, jurisdictionCode: "…", surchargeTaxable: true,      // the code and the surcharge rule come from the accountant
+              taxedCategories: ["room_time", "drink", "damage"] },              // what the rate taxes (Money rules 8); fee stays untaxed
+                                                                                // until the accountant answers. Added in version 2026.10
   wages: { region: "nyc", minimumCents: 1700, tippedCashCents: 1135, tipCreditCents: 565 },
   cardFee: {
     surcharge: { creditOnly: true, cap: "inPersonCardCost", networkCapPct: 3, noticeDays: 30, showCreditPrice: true },

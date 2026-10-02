@@ -33,6 +33,13 @@ export interface RulePack {
     /** The jurisdiction code from the accountant; null until answered (Open technical questions). */
     readonly jurisdictionCode: string | null;
     readonly surchargeTaxable: boolean;
+    /**
+     * The categories taxed at `rate` (Money rules 8). From version 2026.10 (M4-06): room time, drinks and
+     * damage at West 4; `fee` (kept deposits, no-show charges, minimum spend) untaxed until the accountant answers.
+     */
+    readonly taxedCategories?: readonly (
+      "room_time" | "drink" | "food" | "song" | "damage" | "fee" | "surcharge"
+    )[];
   };
   readonly wages: {
     readonly region: string;
@@ -112,7 +119,18 @@ export const newYorkCounty: RulePack = {
   retention: { tipRecordsYears: 6, guestChecksYears: 3, incidentsYears: 3 },
 };
 
-export const builtInRulePacks: readonly RulePack[] = [newYorkCounty];
+/**
+ * Version 2026.10 (M4-06): the same pack with the taxed categories as data, as the seed's rule pack has
+ * them. Locally and in staging the bootstrap loads it; in production it's published through the Console's
+ * two-approver flow.
+ */
+export const newYorkCountyTaxed: RulePack = {
+  ...newYorkCounty,
+  version: "2026.10",
+  salesTax: { ...newYorkCounty.salesTax, taxedCategories: ["room_time", "drink", "damage"] },
+};
+
+export const builtInRulePacks: readonly RulePack[] = [newYorkCounty, newYorkCountyTaxed];
 
 /**
  * Canonical JSON: keys sorted at every level, no whitespace, so the same pack

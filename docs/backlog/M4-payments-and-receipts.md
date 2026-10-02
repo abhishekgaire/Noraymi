@@ -211,7 +211,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-06 · Work out check totals, tax and gratuity in packages/rules
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2 (room time in `packages/rules`); M1 (the rule pack and settings types)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 1, 8, 9, 11, 13 and 14, and Room 9, worked through; [Settings](../spec/03-settings-rule-packs-modules.md) (`PaySettings`, the rule pack's `salesTax`); [money cases](../../seed/money-cases.json) (`meta.rounding`, `meta.properties`)
@@ -221,16 +221,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `checkRevision`: reverse revision n's computed lines (room_time, min_spend, tax, gratuity) and write the new ones; the gratuity basis each revision stores (the rule, the largest party size recorded, the percent).
   - `canPresentCheck`, `splitEven` (leftover cents to the first shares), `splitByItem` (each person's own items plus an even part of room time and lines nobody claimed; tax and gratuity by largest remainder), `payMyShareEven`, `refundCap`, `depositVsCheck` and `cardFee` (used by M4-25).
 - **Acceptance:**
-  - [ ] Room 9 at 10:41 PM: subtotal $480.00, tax $42.60 (room time $28.58 and drinks $14.02), gratuity $96.00, total $618.60, deposit $120.00, $498.60 left.
-  - [ ] With the margaritas accepted first: $506.00, tax $44.91, gratuity $101.20, $652.11 and $532.11 left.
-  - [ ] Three $12.00 Jäger Bomb lines tax to $3.20, never $3.21.
-  - [ ] Room 9 with the $150.00 damage fee taxes $55.91 on $630.00 and keeps the gratuity at $96.00.
-  - [ ] Bar tabs carry no gratuity: Jess P. $32.66, Luis M. $63.15, Seat 6 $13.07, Hana K. $43.55, Tariq A. $86.01 ($9.80 after the void).
-  - [ ] $32.66 in two is $16.33 + $16.33, $32.67 is $16.34 + $16.33, $498.60 in three is $166.20 each, and in twelve $41.55 each, with Kevin's share showing $3.55 of tax and $8.00 of gratuity.
-  - [ ] Marcus's refund cap is $120.00, $120.01 is refused, and after a $50.00 refund at most $70.00 more can come off.
-  - [ ] 8 guests on a $120.00 deposit: $103.10 applied, $0.00 left, a $16.90 forfeit.
+  - [x] Room 9 at 10:41 PM: subtotal $480.00, tax $42.60 (room time $28.58 and drinks $14.02), gratuity $96.00, total $618.60, deposit $120.00, $498.60 left.
+  - [x] With the margaritas accepted first: $506.00, tax $44.91, gratuity $101.20, $652.11 and $532.11 left.
+  - [x] Three $12.00 Jäger Bomb lines tax to $3.20, never $3.21.
+  - [x] Room 9 with the $150.00 damage fee taxes $55.91 on $630.00 and keeps the gratuity at $96.00.
+  - [x] Bar tabs carry no gratuity: Jess P. $32.66, Luis M. $63.15, Seat 6 $13.07, Hana K. $43.55, Tariq A. $86.01 ($9.80 after the void).
+  - [x] $32.66 in two is $16.33 + $16.33, $32.67 is $16.34 + $16.33, $498.60 in three is $166.20 each, and in twelve $41.55 each, with Kevin's share showing $3.55 of tax and $8.00 of gratuity.
+  - [x] Marcus's refund cap is $120.00, $120.01 is refused, and after a $50.00 refund at most $70.00 more can come off.
+  - [x] 8 guests on a $120.00 deposit: $103.10 applied, $0.00 left, a $16.90 forfeit.
 - **Tests:** every case in the money-cases groups `room9_close_out`, `tax_and_gratuity`, `tab_so_far` (with `if_presented_now`), `bar_tabs`, `splits`, `pay_my_share`, `refunds`, `card_fee`, and `deposit_larger_than_check_forfeit` from `deposits`, read straight from the JSON so a failure names the case id; property tests for `meta.properties`; the `must_not_equal` check.
 - **Notes:** How kept deposits, no-show charges and card surcharges are taxed is with the accountant ([Open technical questions](../spec/14-open-questions.md), gate), so it's rule-pack data with the cautious default above, which matches money case `deposit_larger_than_check_forfeit`. The spec's `RulePack.salesTax` has no list of taxed categories while the seed's `rulePack.taxedCategories` has one: add it to the type and publish it as a new rule-pack version through the Console's two-approver flow (M1). Tax shared by category follows money-cases ambiguity A9.
+  - Built: `packages/rules/src/check-totals.ts` (`checkTotals`, `salesTaxRule`, `gratuityApplies`, `checkRevision`, `canPresentCheck`, `splitEven`, `splitByItem`, `payMyShareEven`, `refundCap`, `depositVsCheck`, `cardFee`, and `ratio`/`percent`, which turn a decimal rate into an exact fraction so no float ever multiplies an amount); `check-totals.test.ts` reads every case of `room9_close_out`, `tax_and_gratuity`, `tab_so_far` (its `if_presented_now`), `bar_tabs`, `splits`, `pay_my_share`, `refunds`, `card_fee` and `deposit_larger_than_check_forfeit` from the JSON by id, checks `must_not_equal` (three Jäger Bombs tax to $3.20, never $3.21), and runs property tests for `meta.properties` (splits add up and differ by at most a cent, first shares larger; tax by category adds up; total = subtotal + tax + gratuity; left to pay never negative; no gratuity on damage or fees).
+  - Rule pack: `RulePack.salesTax.taxedCategories` added to the type and to spec 03, and published as version **2026.10** (`newYorkCountyTaxed`: room_time, drink and damage, as the seed's rule pack has them; `surcharge` taxed while `surchargeTaxable`; `fee` untaxed until the accountant answers). Version 2026.09 stays exactly as spec 03 gave it, since earlier tests and checks name it. The bootstrap loads both locally and in staging (the later version wins on the same effective date); in production 2026.10 is published through the Console's two-approver flow. A pack without `taxedCategories` makes `salesTaxRule` refuse loudly rather than guess.
+  - `checkRevision` reverses and rewrites only the computed lines (room_time, min_spend, tax, gratuity) whose amount changed, which is what the money case's revision 2 shows (only tax and gratuity move when the margaritas are added).
+  - `splitByItem` has no money case; it's tested by hand on Room 9's lines (each person's own items, room time and unclaimed lines evenly, tax and gratuity by largest remainder, everything adding up).
+
 
 ### M4-07 · Finalize checks into revisions, with tax lines and check numbers
 
