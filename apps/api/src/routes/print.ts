@@ -21,7 +21,16 @@ import { z } from "zod";
 import type { Authenticator } from "../http/conventions.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { ticketEpos, ticketEscPos, ticketText, type TicketPayload } from "../print/ticket.js";
+import {
+  DRAWER_MARKUP,
+  DRAWER_MARKUP_TYPE,
+  drawerKickEpos,
+  drawerKickEscPos,
+  ticketEpos,
+  ticketEscPos,
+  ticketText,
+  type TicketPayload,
+} from "../print/ticket.js";
 
 /**
  * Printing tickets to network printers (M3-13; spec 09 · Tickets; spec 02 · Printer):
@@ -156,7 +165,12 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
   app.post("/v1/print/cloudprnt", { config: printer }, async (request) => {
     const job = await nextJob(request);
     return job
-      ? { jobReady: true, mediaTypes: ["text/plain"], jobToken: job.id }
+      ? {
+          jobReady: true,
+          // A drawer kick is Star markup; a ticket is plain text (M4-13).
+          mediaTypes: [job.kind === "drawer" ? DRAWER_MARKUP_TYPE : "text/plain"],
+          jobToken: job.id,
+        }
       : { jobReady: false };
   });
 
@@ -170,12 +184,18 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const text = await inPrinterVenue(request, async (c) => {
         const job = await printerJob(c, me(request).venueId, me(request).deviceId, token);
         if (!job) throw new ApiError("not_found", "no such job");
-        return ticketText(job.payload as TicketPayload, {
-          timeZone: await venueZone(c, me(request).venueId),
-          reprintN: job.reprint_n,
-        });
+        if (job.kind === "drawer") return { kick: true, body: DRAWER_MARKUP };
+        return {
+          kick: false,
+          body: ticketText(job.payload as TicketPayload, {
+            timeZone: await venueZone(c, me(request).venueId),
+            reprintN: job.reprint_n,
+          }),
+        };
       });
-      return reply.type("text/plain; charset=utf-8").send(text);
+      return reply
+        .type(text.kick ? `${DRAWER_MARKUP_TYPE}; charset=utf-8` : "text/plain; charset=utf-8")
+        .send(text.body);
     },
   );
 
@@ -220,11 +240,13 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const job = await nextJob(request);
       if (!job) return reply.type("text/xml; charset=utf-8").send("");
       const xmlBody = await inPrinterVenue(request, async (c) =>
-        ticketEpos(job.payload as TicketPayload, {
-          timeZone: await venueZone(c, me(request).venueId),
-          reprintN: job.reprint_n,
-          jobId: job.id,
-        }),
+        job.kind === "drawer"
+          ? drawerKickEpos(job.id)
+          : ticketEpos(job.payload as TicketPayload, {
+              timeZone: await venueZone(c, me(request).venueId),
+              reprintN: job.reprint_n,
+              jobId: job.id,
+            }),
       );
       return reply.type("text/xml; charset=utf-8").send(xmlBody);
     },
@@ -392,10 +414,13 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
           now: options.clock.now().toString(),
         });
         if (!job) return { job: null };
-        const bytes = ticketEscPos(job.payload as TicketPayload, {
-          timeZone: await venueZone(c, request.venueId!),
-          reprintN: job.reprint_n,
-        });
+        const bytes =
+          job.kind === "drawer"
+            ? drawerKickEscPos()
+            : ticketEscPos(job.payload as TicketPayload, {
+                timeZone: await venueZone(c, request.venueId!),
+                reprintN: job.reprint_n,
+              });
         return {
           job: {
             id: job.id,

@@ -113,3 +113,26 @@ export function ticketEscPos(
   bytes.push(ESC, 0x64, 3, GS, 0x56, 0x42, 0);
   return Uint8Array.from(bytes);
 }
+
+/**
+ * Opening a cash drawer through its printer's kick port (M4-13), one job of kind `drawer`:
+ *  - ESC/POS for a USB printer: ESC p 0 25 250, a pulse on pin 2;
+ *  - ePOS-Print XML for Epson Server Direct Print: a pulse to drawer 1;
+ *  - Star Document Markup for CloudPRNT: [drawer].
+ * To check on the real printers in staging (M4-29): some drawers sit on pin 5.
+ */
+export function drawerKickEscPos(): Uint8Array {
+  return Uint8Array.from([0x1b, 0x40, 0x1b, 0x70, 0x00, 0x19, 0xfa]);
+}
+
+export function drawerKickEpos(jobId: string): string {
+  return (
+    `<PrintRequestInfo Version="2.00"><ePOSPrint><Parameter><devid>local_printer</devid><timeout>10000</timeout>` +
+    `<printjobid>${xml(jobId)}</printjobid></Parameter><PrintData>` +
+    `<epos-print xmlns="http://www.epson-pos.com/schemas/2011/03/epos-print"><pulse drawer="drawer_1" time="pulse_100"/></epos-print>` +
+    `</PrintData></ePOSPrint></PrintRequestInfo>`
+  );
+}
+
+export const DRAWER_MARKUP = "[drawer]\n";
+export const DRAWER_MARKUP_TYPE = "text/vnd.star.markup";

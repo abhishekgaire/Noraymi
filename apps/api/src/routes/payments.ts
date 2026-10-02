@@ -8,6 +8,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { StripeClient } from "../stripe/client.js";
 import "../payments/webhooks.js";
+import { fixChange, takeCash } from "../payments/cash.js";
 import { screenState, type Applied } from "../payments/machine.js";
 import {
   NoSuchReader,
@@ -42,6 +43,17 @@ const tapBody = z
     tip_cents: z.number().int().min(0).optional(),
   })
   .strict();
+/** Cash (M4-13): the amount, what was handed over, and any cash tip. */
+const cashBody = z
+  .object({
+    method: z.literal("cash"),
+    amount_cents: z.number().int().positive(),
+    tendered_cents: z.number().int().positive(),
+    tip_cents: z.number().int().min(0).optional(),
+    share_id: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+const changeBody = z.object({ tendered_cents: z.number().int().positive() }).strict();
 const retapBody = z.object({ reader_id: z.string().uuid() }).strict();
 const uuid = z.string().uuid();
 
@@ -144,12 +156,46 @@ export function paymentRoutes(
     "/v1/venues/:venueId/checks/:checkId/payments",
     { config: take },
     async (request, reply) => {
-      const parsed = tapBody.safeParse(request.body);
-      if (!parsed.success)
-        throw new ApiError("invalid_request", 'send { method: "tap", amount_cents, reader_id }');
       if (!uuid.safeParse(request.params.checkId).success)
         throw new ApiError("not_found", "no such check");
       const venueId = request.venueId!;
+      const cash = cashBody.safeParse(request.body);
+      if (cash.success) {
+        const p = request.principal;
+        if (p.kind !== "user") throw new ApiError("forbidden", "taking cash is a person's work");
+        const deviceId = request.signedDevice?.deviceId ?? request.session?.deviceId ?? null;
+        const taken = await request.inVenue(async (c) => {
+          const check = await c.query<{ status: string }>(
+            "select status from checks where venue_id = $1 and id = $2",
+            [venueId, request.params.checkId],
+          );
+          if (!check.rows[0]) throw new ApiError("not_found", "no such check");
+          if (["paid", "void"].includes(check.rows[0].status))
+            throw new ApiError("invalid_request", `this check is ${check.rows[0].status}`);
+          return takeCash(c, venueId, {
+            checkId: request.params.checkId,
+            amountCents: cash.data.amount_cents,
+            tenderedCents: cash.data.tendered_cents,
+            tipCents: cash.data.tip_cents ?? 0,
+            shareId: cash.data.share_id ?? null,
+            userId: p.userId,
+            deviceId,
+            businessDate: await night(c, venueId),
+            now: options.clock.now(),
+          });
+        });
+        reply.code(201);
+        return {
+          ...paymentView(await current(request, taken.paymentId)),
+          change_cents: taken.changeCents,
+          logged_to: taken.loggedTo,
+          check_status: taken.settled.status,
+          room: taken.settled.room,
+        };
+      }
+      const parsed = tapBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", 'send { method: "tap" or "cash", amount_cents, … }');
       let written;
       try {
         written = await request.inVenue(async (c) => {
@@ -214,6 +260,28 @@ export function paymentRoutes(
       }
       await runNow(deps(), venueId, paymentId, attemptNo);
       return answer(paymentView(await current(request, paymentId)));
+    },
+  );
+
+  // "Wrong amount? Fix the change" (M4-13): the cash payment stays; the corrected figures are recorded.
+  app.post<{ Params: { venueId: string; paymentId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/payments/:paymentId/change",
+    { config: take },
+    async (request) => {
+      const paymentId = paymentParam(request);
+      const parsed = changeBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { tendered_cents }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "a person fixes the change");
+      const fixed = await request.inVenue((c) =>
+        fixChange(c, request.venueId!, {
+          paymentId,
+          tenderedCents: parsed.data.tendered_cents,
+          userId: p.userId,
+          at: options.clock.now().toString(),
+        }),
+      );
+      return { change_cents: fixed.changeCents };
     },
   );
 

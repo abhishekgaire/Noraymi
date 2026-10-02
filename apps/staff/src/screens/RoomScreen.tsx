@@ -10,6 +10,7 @@ import { AddDrinks } from "./AddDrinks.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
+import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { CutOffRoom } from "./CutOff.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
@@ -74,6 +75,7 @@ export function RoomScreen() {
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
   const [checkStatus, setCheckStatus] = useState<string | null>(null);
   const [dueCents, setDueCents] = useState(0);
+  const [cashTaken, setCashTaken] = useState<Taken | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -230,6 +232,7 @@ export function RoomScreen() {
           {done}
         </p>
       )}
+      {cashTaken && <CashResult venueId={venueId} taken={cashTaken} />}
       {sheet === "move" && s && (
         <MoveSheet
           venueId={venueId}
@@ -335,6 +338,20 @@ export function RoomScreen() {
                 onDone={() => {
                   // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
                   setDone(t("pay.paid"));
+                  void load();
+                }}
+              />
+            )}
+          {s.check_id &&
+            (checkStatus === "finalized" || checkStatus === "partly_paid") &&
+            !cashTaken &&
+            signedIn?.membership.permissions.includes("payments.take") && (
+              <CashPanel
+                venueId={venueId}
+                checkId={s.check_id}
+                dueCents={dueCents}
+                onTaken={(taken) => {
+                  setCashTaken(taken);
                   void load();
                 }}
               />

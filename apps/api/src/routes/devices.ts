@@ -42,6 +42,8 @@ const patchBody = z
   .object({
     name: z.string().min(1).max(80).optional(),
     room_id: z.string().uuid().nullable().optional(),
+    /** The drawer a shared screen rings cash into (M4-13). */
+    cash_drawer_id: z.string().uuid().nullable().optional(),
   })
   .strict();
 const isInstant = (s: string): boolean => {
@@ -210,13 +212,29 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
     { config: admin },
     async (request) => {
       const parsed = patchBody.safeParse(request.body);
-      if (!parsed.success) throw new ApiError("invalid_request", "send { name?, room_id? }");
-      const updated = await request.inVenue((c) =>
-        updateDevice(c, request.venueId!, request.params.d, {
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { name?, room_id?, cash_drawer_id? }");
+      const updated = await request.inVenue(async (c) => {
+        const row = await updateDevice(c, request.venueId!, request.params.d, {
           name: parsed.data.name,
           roomId: parsed.data.room_id,
-        }),
-      );
+        });
+        if (row && parsed.data.cash_drawer_id !== undefined) {
+          if (parsed.data.cash_drawer_id) {
+            const drawer = await c.query(
+              "select 1 from cash_drawers where venue_id = $1 and id = $2",
+              [request.venueId, parsed.data.cash_drawer_id],
+            );
+            if (drawer.rowCount === 0) throw new ApiError("not_found", "no such drawer");
+          }
+          await c.query("update devices set cash_drawer_id = $3 where venue_id = $1 and id = $2", [
+            request.venueId,
+            request.params.d,
+            parsed.data.cash_drawer_id,
+          ]);
+        }
+        return row;
+      });
       if (!updated) throw new ApiError("not_found", "no such device, or it was revoked");
       return updated;
     },

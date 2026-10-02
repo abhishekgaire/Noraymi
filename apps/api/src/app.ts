@@ -4,6 +4,7 @@ import { paymentsAdminRoutes } from "./routes/payments-admin.js";
 import { readerRoutes } from "./routes/readers.js";
 import { stripeHookRoutes } from "./routes/stripe-hooks.js";
 import { paymentRoutes } from "./routes/payments.js";
+import { drawerRoutes } from "./routes/drawers.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -232,6 +233,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       readerRoutes(scope, { clock, stripe });
       stripeHookRoutes(scope, { pool: gatePoolRef!, clock, stripe });
       paymentRoutes(scope, { pool: gatePoolRef!, clock, stripe });
+      drawerRoutes(scope, { clock });
       orderRoutes(scope, { clock });
       draftRoutes(scope, { clock });
       let s3: S3Settings | null = null;

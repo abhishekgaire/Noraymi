@@ -4053,3 +4053,103 @@ test("on the Room phone, Cancel while waiting frees the $498.60 for another way 
     await db.end();
   }
 });
+
+/**
+ * Cash (M4-13): Diego at the front-desk computer, paired to the front-desk
+ * drawer, takes Room 9's $498.60 with $500.00: "Change $1.40" in large type,
+ * the drawer kick queued, and "Logged to Diego · front-desk drawer"; then
+ * "Wrong amount? Fix the change". On Andy's phone, Room 5's cash goes into
+ * his staff bank.
+ */
+test("Cash at the front desk: Room 9's $498.60 with $500.00, $1.40 change, logged to Diego · front-desk drawer", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "front_desk", "Front desk"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Diego R\./ }).click();
+    await typePin(page, "6358");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    // The newly paired screen rings cash into the front-desk drawer (PATCH /devices/{d} in Admin).
+    await db.query(
+      `update devices set cash_drawer_id = (select row_id from seed_ids where slug = 'drawer_front')
+        where kind = 'front_desk' and cash_drawer_id is null`,
+    );
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const cash = page.getByRole("region", { name: "Cash" });
+    await cash.getByRole("button", { name: "$500.00" }).click();
+    await expect(cash.getByLabel("Change")).toHaveText("Change $1.40");
+    await cash.getByRole("button", { name: "Take $498.60 in cash" }).click();
+    const result = page.getByRole("region", { name: "Cash" });
+    await expect(result.getByRole("status")).toHaveText("Logged to Diego · front-desk drawer");
+    await expect(result.getByLabel("Change")).toHaveText("Change $1.40");
+    const kick = await db.query("select count(*)::int as n from print_jobs where kind = 'drawer'");
+    expect(kick.rows[0].n).toBe(1);
+    await result.getByRole("button", { name: "Wrong amount? Fix the change" }).click();
+    await result.getByLabel("Handed over").fill("600");
+    await result.getByRole("button", { name: "Fix the change" }).click();
+    await expect(result.getByLabel("Change")).toHaveText("Change $101.40");
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+test("Cash on Andy's phone: Room 5's $51.55 with the next $20, $8.45 change, into his staff bank", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o2')",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    const room5 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 5'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room5}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const cash = page.getByRole("region", { name: "Cash" });
+    await cash.getByRole("button", { name: "$60.00" }).click();
+    await expect(cash.getByLabel("Change")).toHaveText("Change $8.45");
+    await cash.getByRole("button", { name: "Take $51.55 in cash" }).click();
+    await expect(page.getByRole("region", { name: "Cash" }).getByRole("status")).toHaveText(
+      "Logged to Andy · their staff bank",
+    );
+    const bank = await db.query(
+      "select cash_cents::int as cash from staff_banks where user_id = (select row_id from seed_ids where slug = 'andy')",
+    );
+    expect(bank.rows[0].cash).toBe(5155);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

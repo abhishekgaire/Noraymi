@@ -275,6 +275,7 @@ export function Devices() {
         onAdded={load}
       />
       <Readers venueId={venueId} />
+      <Drawers venueId={venueId} />
     </section>
   );
 }
@@ -587,6 +588,68 @@ function Printers({
           {t("printers.add")}
         </button>
       </form>
+    </section>
+  );
+}
+
+/**
+ * Cash drawers (M4-13; screens Board note 18): West 4's two, each on its
+ * receipt printer's kick port, with its open session and starting bank.
+ */
+interface Drawer {
+  readonly id: string;
+  readonly name: string;
+  readonly printer: string | null;
+  readonly open: boolean;
+  readonly opening_cents: number | null;
+}
+
+function Drawers({ venueId }: { venueId: string }) {
+  const { t, money } = useT();
+  const [drawers, setDrawers] = useState<readonly Drawer[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const load = useCallback(async () => {
+    setDrawers((await api<{ drawers: Drawer[] }>("GET", `/v1/venues/${venueId}/drawers`)).drawers);
+  }, [venueId]);
+  useEffect(() => {
+    if (venueId) load().catch(() => setFailed(true));
+  }, [venueId, load]);
+  const open = async (id: string) => {
+    await api("POST", `/v1/venues/${venueId}/drawers/${id}/open`).catch(() => setFailed(true));
+    await load();
+  };
+  return (
+    <section className="drawers" aria-labelledby="drawers-h">
+      <h3 id="drawers-h">{t("drawers.title")}</h3>
+      {failed && (
+        <p className="error" role="alert">
+          {t("shell.error.cantReach")}
+        </p>
+      )}
+      {drawers === null ? (
+        !failed && <p role="status">{t("shell.loading")}</p>
+      ) : (
+        <ul className="list">
+          {drawers.map((d) => (
+            <li key={d.id} aria-label={d.name}>
+              <strong>{d.name}</strong>
+              {d.printer && (
+                <span className="small muted">{t("drawers.printer", { printer: d.printer })}</span>
+              )}
+              {d.open ? (
+                <span>{t("drawers.open", { amount: money(cents(d.opening_cents ?? 0)) })}</span>
+              ) : (
+                <>
+                  <span className="muted">{t("drawers.closed")}</span>
+                  <button type="button" className="secondary" onClick={() => void open(d.id)}>
+                    {t("drawers.openNow")}
+                  </button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

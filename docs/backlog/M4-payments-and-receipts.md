@@ -404,7 +404,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-13 · Take cash into the drawer at the screen where it's taken
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-04, M4-08; M3 (print jobs and the desktop app's USB print host); M1 (devices)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rule 15; [Payment flows](../spec/07-payment-flows.md#room-close-out) (Cash); [Devices, printing and offline](../spec/09-devices-printing-offline.md) (Cash drawers at West 4, Cash drawer); [Data model](../spec/04-data-model.md) (`cash_drawers`, `drawer_sessions`, `drawer_moves`, `staff_banks`); [API](../spec/08-api.md) (Payments; `POST /drawers/{d}/open`); [screens: N21](../screens.md#n21-close-out-steps-and-card-states), [Board note 18](../screens.md#board)
@@ -417,13 +417,20 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The cash panel: Exact, the next $5, $10 or $20, or Other; the change due in large type; "Wrong amount? Fix the change"; a cash-tip field; and the log line "Logged to Maya · bar drawer".
   - The drawer opens only for a cash payment (or an approved no-sale in M7), and every opening is logged against the open session and the person.
 - **Acceptance:**
-  - [ ] Diego takes Room 9's $498.60 in cash at the front desk with $500.00 handed over: $1.40 change in large type, the front-desk drawer opens, and the log reads "Logged to Diego · front-desk drawer".
-  - [ ] Room 5's $51.55 with "the next $20" ($60.00) shows $8.45 change; "Wrong amount? Fix the change" to $100.00 shows $48.45, and the $51.55 payment and the drawer's expected cash don't change.
-  - [ ] Cash Andy takes on his phone goes into his staff bank and opens no drawer.
-  - [ ] A cash payment row can't be changed after insert.
-  - [ ] A $5.00 cash tip on a room check is stored as the payment's tip (the receipt calls it "Additional tip (optional)", M4-19).
+  - [x] Diego takes Room 9's $498.60 in cash at the front desk with $500.00 handed over: $1.40 change in large type, the front-desk drawer opens, and the log reads "Logged to Diego · front-desk drawer".
+  - [x] Room 5's $51.55 with "the next $20" ($60.00) shows $8.45 change; "Wrong amount? Fix the change" to $100.00 shows $48.45, and the $51.55 payment and the drawer's expected cash don't change.
+  - [x] Cash Andy takes on his phone goes into his staff bank and opens no drawer.
+  - [x] A cash payment row can't be changed after insert.
+  - [x] A $5.00 cash tip on a room check is stored as the payment's tip (the receipt calls it "Additional tip (optional)", M4-19).
 - **Tests:** integration (the kick in a CloudPRNT job, and through the USB print host in the desktop app's test harness); unit tests for the next-$5, $10 and $20 buttons; end-to-end cash on DeskRoom and the Room phone.
 - **Notes:** The canvas shows one "House drawer"; build two ([Board note 18](../screens.md#board)). Spec gaps, with cautious defaults: the data model says a cash payment never changes after insert, while "Wrong amount? Fix the change" changes the change, so keep the payment row as inserted and record the corrected amount handed over and change in a nullable `detail` column on `payment_events` (an expand-only migration); and nothing says when a house drawer's session opens, so a job opens it at the business date's start with the starting bank.
+  - Built: migration `0059_cash.sql` (`drawer_moves`, `staff_banks`, `payment_events.detail`, and a `drawer` print-job kind; `cash_drawers` and `drawer_sessions` came with M4-10); `packages/rules/src/cash.ts` (`cashOffers`, `changeDue`); `packages/db/src/cash.ts`; `apps/api/src/payments/cash.ts` (`takeCash`, `fixChange`); `POST /checks/{c}/payments` with `method: cash` (`amount_cents`, `tendered_cents`, `tip_cents`); `POST /payments/{p}/change`; `routes/drawers.ts` (`GET /drawers`, `POST /drawers/{d}/open`, and the `drawers.open` sweep that opens each drawer's session as the business date starts, with `drawer.startingBankCents` and the model from the `drawer` setting); `PATCH /devices/{d}` takes `cash_drawer_id`; the kick for each printer kind (ESC/POS `ESC p 0 25 250` through the desktop print host, an ePOS `pulse` for Epson Server Direct Print, Star markup `[drawer]` for CloudPRNT); `CashPanel` and `CashResult` on the room screen; drawers on Admin → Printers & devices.
+  - A cash payment is captured when inserted with the amount handed over, the change, the tip and where the cash sits (the screen's drawer session, or the person's staff bank). A `sale` move records the cash that stays (the amount and the tip) with who took it and at which screen. The drawer opens only for a cash payment taken at a screen paired to a drawer (never in training), through a `drawer` job to that drawer's printer; a staff phone, or any screen with no drawer, puts the cash in the person's staff bank for the business date and opens nothing.
+  - "Wrong amount? Fix the change" keeps the payment as inserted and writes a `payment_events` row with `detail` (the corrected amount handed over, the change and who fixed it), the ticket's cautious default. The drawer's expected cash doesn't move.
+  - The cash panel's quick amounts are Exact and the next $5, $10 and $20, each shown once ($498.60 offers Exact and $500.00; $51.55 offers $55.00 and $60.00). The log reads "Logged to Diego · front-desk drawer", or "Logged to Andy · their staff bank" on a phone (that second sentence isn't in the glossary; flagged). The change stays on screen in large type after the room goes to cleaning.
+  - To check on the real printers in staging (M4-29): which kick pin each drawer uses (pin 2 here) and that the CloudPRNT printer takes Star markup.
+  - Tests: `packages/rules/src/cash.test.ts`; `apps/api/src/routes/cash.int.test.ts` (Diego's $498.60 with $500.00 at the front desk: $1.40, the kick to the front-desk printer, the move naming him and the screen; Room 5's $51.55 with $60.00, fixed to $100.00, the payment and the drawer's expected cash unchanged; no change to a cash payment after insert; Andy's phone into his staff bank with a $5.00 tip and no kick; short cash refused; the three kicks rendered; the drawers open with $300.00); Playwright "Cash at the front desk" (a paired front-desk screen, Diego's PIN) and "Cash on Andy's phone".
+
 
 ### M4-14 · Split a check evenly or by item, kept on the server
 

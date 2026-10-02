@@ -7,6 +7,7 @@ import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { readerHealthSweep } from "./reader-health.js";
+import { drawerSweep } from "../routes/drawers.js";
 import { STRIPE_EVENT_KIND, makeStripeEventHandler } from "../stripe/webhooks.js";
 import { makePaymentHandlers } from "../payments/run.js";
 import { RECONCILE_KIND, makeReconcileHandler, reconcileSweep } from "../payments/reconcile.js";
@@ -138,6 +139,8 @@ export function makeSweeps(
   const s3 = makeS3();
   return [
     deviceWatchSweep(pool, log),
+    // Each drawer's session opens as the business date starts (M4-13).
+    drawerSweep(pool),
     // Card readers' status from Stripe every 30 seconds (M4-02).
     ...(stripe ? [readerHealthSweep(pool, stripe, log), reconcileSweep(pool)] : []),
     // Tickets not confirmed within three polls (M3-13).

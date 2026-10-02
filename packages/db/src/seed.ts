@@ -849,6 +849,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     );
     await client.query("update devices set cash_drawer_id = null where venue_id = $1", [venueId]);
     for (const table of [
+      "drawer_moves",
+      "staff_banks",
       "drawer_sessions",
       "cash_drawers",
       "order_drafts",
