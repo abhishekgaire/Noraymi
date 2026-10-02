@@ -790,7 +790,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     const orgId = remember("org_west4", "organizations");
     await client.query(
       `insert into organizations (id, legal_name) values ($1, $2)
-       on conflict (id) do update set legal_name = excluded.legal_name`,
+       on conflict (id) do update set legal_name = excluded.legal_name, stripe_account_id = null`,
       [orgId, seed.venue.name],
     );
     const venueId = remember(seed.venue.id, "venues");

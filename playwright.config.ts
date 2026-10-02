@@ -25,6 +25,13 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // The fake Stripe (M4-01): no keys load in the smoke tests, so every Stripe call goes here.
+      command: "pnpm --filter @west4/api stripe:fake",
+      url: "http://127.0.0.1:12111/fake/health",
+      reuseExistingServer: !ci,
+      timeout: 60_000,
+    },
+    {
       // dev:test never reads .env, so the smoke tests can't pick up real credentials.
       command: "pnpm --filter @west4/api dev:test",
       // The simulated clock (server_time 10:41 PM after a seed load) needs the staging switch and the database.
@@ -44,6 +51,8 @@ export default defineConfig({
         S3_ACCESS_KEY_ID: process.env["S3_ACCESS_KEY_ID"] ?? "west4",
         S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
         S3_BUCKET_FILES: process.env["S3_BUCKET_FILES"] ?? "west4-files",
+        // Stripe's hosted pages send the owner back here (M4-01).
+        STAFF_APP_URL: process.env["STAFF_APP_URL"] ?? "http://localhost:5173",
       },
       url: "http://127.0.0.1:3000/v1/health",
       reuseExistingServer: !ci,

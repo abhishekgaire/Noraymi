@@ -126,6 +126,8 @@ pnpm test:principals    # the principal suite: every route as every principal, p
 pnpm test:walls         # the venue-wall suite: every route, job kind and webhook as venue A with venue B's ids (Postgres only; also inside test:integration)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm --filter @west4/api dev:test   # the API without .env (what the smoke tests start, so real credentials never load)
+pnpm --filter @west4/api stripe:fake   # the fake Stripe on 127.0.0.1:12111: every Stripe call goes here while no real keys are set (the smoke tests and demo-start run it)
+pnpm --filter @west4/api stripe:create-account -- --org <id> [--email <contact>]   # ops, audited: make an organization's Stripe account (Accounts v2) and store its id
 pnpm format             # Prettier --write
 pnpm --filter @west4/api twilio:subaccount -- --venue <slug> --number <+1…>   # one-time: a venue's own Twilio subaccount with a number we already own (needs our platform TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
 pnpm --filter @west4/desktop rebuild-native   # build the USB NFC reader's PC/SC binding for Electron's Node (optional; WEST4_FAKE_READER=1 runs an emulated reader instead, and WEST4_FAKE_PRINTER=1 a virtual USB printer that keeps its tickets in WEST4_FAKE_PRINTER_DIR)

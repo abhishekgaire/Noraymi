@@ -11,7 +11,7 @@
   "scripts": {
     "build:packages": "tsc -b",
     "dev": "tsc -b && pnpm -r --parallel --stream run dev",
-    "lint": "eslint . && prettier --check .",
+    "lint": "eslint . && prettier --check . && bash scripts/check-stripe-versions.sh",
     "i18n:check": "node scripts/i18n-check.mjs",
     "check": "bash scripts/check.sh",
     "format": "prettier --write .",

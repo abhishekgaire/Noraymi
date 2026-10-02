@@ -27,8 +27,11 @@ export WEBAUTHN_RP_ID=localhost WEBAUTHN_ORIGINS=http://localhost:3000,http://lo
 export S3_ENDPOINT=http://localhost:9000 S3_REGION=us-east-1 S3_ACCESS_KEY_ID=west4
 export S3_SECRET_ACCESS_KEY=west4secret S3_BUCKET_FILES=west4-files S3_BUCKET_AUDIT=west4-audit
 export SMTP_URL=smtp://localhost:1025 EMAIL_FROM="West 4 <no-reply@west4.local>"
+export STAFF_APP_URL=http://localhost:5173
 
 pids=()
+# The fake Stripe (M4-01): no real keys in demo mode, so card payments go to this stand-in.
+pnpm --filter @west4/api stripe:fake >.demo-logs/stripe.log 2>&1 & pids+=($!)
 pnpm --filter @west4/api dev:test >.demo-logs/api.log 2>&1 & pids+=($!)
 (cd apps/api && pnpm exec tsx src/worker.ts) >.demo-logs/worker.log 2>&1 & pids+=($!)
 pnpm --filter @west4/staff dev >.demo-logs/staff.log 2>&1 & pids+=($!)

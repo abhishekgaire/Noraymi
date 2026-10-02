@@ -26,6 +26,8 @@ export const ERROR_STATUS = {
   reader_busy: 409,
   reader_offline: 503,
   rate_limited: 429,
+  /** Stripe refused or couldn't be reached for something that isn't a payment (M4-01). */
+  stripe_error: 502,
   internal: 500,
 } as const;
 
@@ -37,6 +39,7 @@ const RETRYABLE: ReadonlySet<ErrorCode> = new Set([
   "reader_offline",
   "rate_limited",
   "internal",
+  "stripe_error",
 ]);
 
 export class ApiError extends Error {

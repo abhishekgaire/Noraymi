@@ -1,3 +1,6 @@
+import { StripeClient } from "./stripe/client.js";
+import { loadStripeSettings } from "./stripe/settings.js";
+import { paymentsAdminRoutes } from "./routes/payments-admin.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -76,6 +79,8 @@ export interface AppOptions {
   readonly extraRoutes?: (app: FastifyInstance) => Promise<void> | void;
   /** Who the API may email (M1-18); index.ts loads it from the environment, tests pass one. */
   readonly email?: Pick<EmailSettings, "allowList">;
+  /** Stripe (M4-01). Defaults to the environment's keys, or the fake Stripe locally. */
+  readonly stripe?: StripeClient;
 }
 
 /** server_time is shown in New York time, the platform's home zone (spec conventions · Time zone). */
@@ -91,6 +96,9 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   let gate: ModuleGate | undefined;
   let permissions: PermissionGate | undefined;
   let gatePoolRef: pg.Pool | undefined;
+  let stripeClient: StripeClient | undefined = options.stripe;
+  const stripe = (): StripeClient =>
+    (stripeClient ??= new StripeClient(loadStripeSettings(config!.env)));
 
   if (config) {
     void app.register(dbPlugin, { databaseUrl: config.databaseUrl });
@@ -217,6 +225,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       boardRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
       approvalRoutes(scope, { clock });
+      paymentsAdminRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
       orderRoutes(scope, { clock });
       draftRoutes(scope, { clock });
       let s3: S3Settings | null = null;

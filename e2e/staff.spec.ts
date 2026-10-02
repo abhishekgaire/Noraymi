@@ -26,6 +26,8 @@ const ADMIN_SECTIONS = [
   "/admin/rooms",
   "/admin/menu",
   "/admin/safety",
+  "/admin/connections",
+  "/admin/payments",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -3750,4 +3752,59 @@ test.describe("M3 scenarios", () => {
       await db.end();
     }
   });
+});
+
+/**
+ * Admin → Payments (M4-01, N37), the owner's alone. With West 4's account
+ * made (the ops command's job, done here against the fake Stripe), it reads
+ * what Stripe still needs; Connect with Stripe opens Stripe's onboarding and
+ * comes back with card payments on. Connections lists Stripe, Twilio and email.
+ */
+test("Admin → Payments: Stripe needs more information, Connect with Stripe, then card payments are on", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    const made = await request.post("http://127.0.0.1:12111/v2/core/accounts", {
+      headers: {
+        authorization: "Bearer rk_test_fake_payments",
+        "idempotency-key": `e2e-${Date.now()}`,
+      },
+      data: { display_name: "West 4 Boho Karaoke", contact_email: ABHISHEK },
+    });
+    const accountId = ((await made.json()) as { id: string }).id;
+    await db.query("update organizations set stripe_account_id = $1", [accountId]);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/payments");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Payments");
+    const banner = page.getByRole("alert");
+    await expect(banner).toContainText("Stripe needs more information");
+    await expect(banner).toContainText("Business details and a bank account");
+    await expect(page.getByText("Card payments aren't on yet")).toBeVisible();
+    await expect(page.getByText("No payouts yet")).toBeVisible();
+    await page.getByRole("button", { name: "Connect with Stripe" }).click();
+    await expect(page).toHaveURL(/\/admin\/payments\?onboarded=1$/);
+    await expect(page.getByText("Card payments are on")).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Open the Stripe Dashboard" })).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.goto("/admin/connections");
+    await expect(page.getByRole("listitem", { name: "Stripe · card payments" })).toContainText(
+      "Connected",
+    );
+    await expect(page.getByRole("listitem", { name: "Twilio · texts" })).toBeVisible();
+    await expect(page.getByRole("listitem", { name: "Email" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
 });

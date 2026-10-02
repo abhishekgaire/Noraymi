@@ -64,5 +64,34 @@ export default tseslint.config(
     plugins: { west4 },
     rules: { "west4/no-jsx-literals": "error" },
   },
+  {
+    // Stripe (M4-01): only apps/api/src/stripe talks to Stripe, through its one client with the pinned
+    // version, the service's key and the venue's account. Nothing else imports the Stripe SDK or calls
+    // Stripe's API address. (Stripe.js in the guest payment page is the browser library, not the SDK.)
+    files: ["**/*.{ts,tsx,js,mjs,cjs,cts}"],
+    ignores: ["apps/api/src/stripe/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "stripe", message: "Use the Stripe client in apps/api/src/stripe." }],
+          patterns: [
+            { group: ["stripe/*"], message: "Use the Stripe client in apps/api/src/stripe." },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/api\\.stripe\\.com/]",
+          message: "Only apps/api/src/stripe calls Stripe.",
+        },
+        {
+          selector: "TemplateElement[value.raw=/api\\.stripe\\.com/]",
+          message: "Only apps/api/src/stripe calls Stripe.",
+        },
+      ],
+    },
+  },
   prettier,
 );

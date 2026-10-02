@@ -50,7 +50,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-01 · Create West 4's Stripe account and a pinned Stripe client
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1 (settings, Admin shell, the `integrations` table, secrets, audit); outside: our company entity and Stripe platform account
 - **Spec:** [Stripe setup](../spec/06-stripe-setup.md) steps 1, 2, 7 and 8; [Security and data retention](../spec/12-security-retention.md) 5; [Tenancy and access](../spec/02-tenancy-access.md) (`resolve_stripe_account`, who sees Payments); [Open technical questions](../spec/14-open-questions.md) (Accounts v2 on stable versions); [screens: AdminDesk notes 21 and 28](../screens.md#admindesk), [N37](../screens.md#n37-admin--payments-disputes-and-unmatched-payments)
@@ -63,13 +63,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Calls leave only from our fixed egress IPs (the keys are IP-restricted); a key-rotation runbook with at most 7 days of overlap.
 - **Acceptance:**
   - [ ] On the connected sandbox, the ops command creates West 4's account with `fees_collector` and `losses_collector` set to stripe, and `organizations.stripe_account_id` holds it.
-  - [ ] Every Stripe request made for West 4 carries West 4's account id; a request running as venue B can never send West 4's id (venue-wall test).
-  - [ ] The refunds key can't create a PaymentIntent, the reporting key can't write, and the billing key is never sent with `Stripe-Account`.
-  - [ ] After onboarding, Admin → Payments shows card payments enabled; a sandbox account with requirements due shows the banner.
-  - [ ] Abhishek (owner) sees Admin → Payments; Andy (manager) doesn't, and no PIN session reaches it.
-  - [ ] CI fails if any API version other than the pinned one appears outside the Accounts v2 module and the surcharge path (M4-25).
+  - [x] Every Stripe request made for West 4 carries West 4's account id; a request running as venue B can never send West 4's id (venue-wall test).
+  - [x] The refunds key can't create a PaymentIntent, the reporting key can't write, and the billing key is never sent with `Stripe-Account`.
+  - [x] After onboarding, Admin → Payments shows card payments enabled; a sandbox account with requirements due shows the banner.
+  - [x] Abhishek (owner) sees Admin → Payments; Andy (manager) doesn't, and no PIN session reaches it.
+  - [x] CI fails if any API version other than the pinned one appears outside the Accounts v2 module and the surcharge path (M4-25).
 - **Tests:** unit (account and key choice per service); integration on the connected sandbox (create the account, receive `account.updated`); principal suite (Payments owner only); venue-wall suite (account ids).
 - **Notes:** M4 can't start until our entity and platform account exist, the one question that stops a milestone ([Open technical questions](../spec/14-open-questions.md)). Which Accounts v2 features are on stable versions is open with Stripe; cautious default: pin one stable version for everything and confine preview versions to the Accounts v2 calls and the surcharge path, each in its own module. Setup's "Connect with Stripe" (step 7) is phase 2, so the button sits in Admin → Payments. Matching payouts to payments (`payouts`, `payout_lines`) and Unmatched payments come in M7; our plan in M8.
+  - **Built against a fake Stripe** (the founder's choice, Sep 30: no Stripe account exists yet). `apps/api/src/stripe/fake` is a stateful stand-in that speaks Stripe's HTTP: it enforces each restricted key's permissions, saves the first answer to an idempotency key and refuses one reused with other parameters, and sends signed webhooks. Local runs, the tests and the smoke tests use it (`pnpm --filter @west4/api stripe:fake`, port 12111; `demo-start.sh` and Playwright start it). Swapping to the sandbox is only the keys in the environment. **The first Acceptance line stays open until it's run on a connected sandbox**; it passes on the fake.
+  - Built: migration `0052_stripe_accounts.sql` (`integrations` kind `stripe`, `resolve_stripe_account` returning the account's venues); `packages/db/src/stripe.ts`; the client `apps/api/src/stripe/client.ts` (plain HTTPS, no SDK: pinned `STRIPE_API_VERSION`, the service's key, `Stripe-Account` only from `organizations.stripe_account_id` through `stripeAccountOf`, an idempotency key on every write, never in a transaction; a timeout, dropped connection or 5xx is `StripeUnknownResult`, never retried); `settings.ts` (`STRIPE_KEY_PAYMENTS`, `_REFUNDS`, `_REPORTING`, `_BILLING`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET_READERS`, `_CONNECT`, `_PLATFORM`; production won't start without them, staging refuses Stripe calls, local uses the fake); `accounts.ts` (Accounts v2: create, read, onboarding links, payouts); the ops command `stripe:create-account` (audited through the organizations trigger with request id `ops:stripe:create-account`; refuses an organization that has an account and an id another organization holds); `routes/payments-admin.ts`; `screens/admin/Payments.tsx` and `Connections.tsx`.
+  - The client refuses, before sending: the billing key with `Stripe-Account`, a venue call without an account, a write from the reporting key, anything but a refund from the refunds key, and a write without an idempotency key. The fake enforces the same as Stripe would.
+  - Versions: `STRIPE_API_VERSION = "2025-09-30.clover"` and Accounts v2's `"2025-09-30.preview"` are placeholders to confirm against Stripe's changelog when the sandbox exists (the Accounts v2 question is still open with Stripe). `scripts/check-stripe-versions.sh`, part of `pnpm lint`, fails on any other version string outside the client, the Accounts v2 module and a `surcharge*.ts` file. ESLint refuses an import of the `stripe` package and any `api.stripe.com` address outside `apps/api/src/stripe`.
+  - One organization per account is checked by the ops command, not by an index: the migration runner wraps each file in a transaction, which can't build an index concurrently, and the linter rightly refuses a blocking one on an existing table.
+  - Admin → Payments reads the account from Stripe on each visit as well as on `account.updated` (M4-03), so it's right even if a webhook is late. Payouts are listed as Stripe has them; matching is M7.
+  - The seed resets `stripe_account_id` on every load; the seed's own Stripe objects come in M4-10.
+  - Not done here, and needs the founder: fixed egress IPs for the IP-restricted keys (a NAT gateway with an Elastic IP, about $35 a month; `infra/README.md` · Not yet), and wiring staging's task definitions to the new key names once the `stripe` secret holds them. The key-rotation runbook is in `infra/README.md` · Stripe keys.
+
 
 ### M4-02 · Register the Terminal: configuration, Location and both S710s
 

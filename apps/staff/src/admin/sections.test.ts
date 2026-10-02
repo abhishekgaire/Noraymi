@@ -20,6 +20,7 @@ describe("the Admin sections", () => {
       "texts",
       "alerts",
       "safety",
+      "connections",
       "payments",
       "console",
     ]);
@@ -36,6 +37,7 @@ describe("the Admin sections", () => {
       "texts",
       "alerts",
       "safety",
+      "connections",
     ]);
     expect(manager).not.toContain("team");
   });
