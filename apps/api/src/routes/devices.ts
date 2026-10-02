@@ -1,3 +1,4 @@
+import { barConnected, isBarComputer } from "../rooms/bar-presence.js";
 import type { FastifyInstance } from "fastify";
 import {
   claimDevice,
@@ -179,6 +180,11 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
             network: parsed.data.network ?? null,
             clockSkewMs,
             attached: parsed.data.attached ?? [],
+          }).then(async (r) => {
+            // A bar computer heard from again clears "no bar device connected" (M3-17).
+            if (await isBarComputer(c, device.venueId, device.deviceId))
+              await barConnected(c, device.venueId);
+            return r;
           }),
       );
       return {

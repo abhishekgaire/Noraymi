@@ -1,6 +1,7 @@
 import { failedTickets, readSetting, roomNotes, type Queryable } from "@west4/db";
 import { managerOnDutyAt } from "../approvals/service.js";
 import { agingFor, secondsSince } from "../orders/escalation.js";
+import { barLostSince, venueOpenNow } from "./bar-presence.js";
 import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
@@ -187,6 +188,7 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
  */
 const COLOR_ORDER = ["pink", "amber", "lime", "grey"] as const;
 const KIND_ORDER = [
+  "no_bar",
   "needed_now",
   "call",
   "order",
@@ -272,6 +274,11 @@ async function boardAlerts(
       call: k.kind,
       minutes_ago: minutes(k.created_at),
     });
+  // No bar device connected during opening hours (M3-17): pink, first, until one connects.
+  const lost = await barLostSince(c, venueId);
+  if (lost && (await venueOpenNow(c, venueId, now)))
+    out.push({ kind: "no_bar", color: "pink", since: lost, lost_at: lost });
+
   // Room orders nobody has accepted (M3-16): amber from 2 minutes, pink from 4, saying who was told.
   const aging = await agingFor(c, venueId, now);
   const waitingOrders = await c.query<{

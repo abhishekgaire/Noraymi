@@ -1200,4 +1200,7 @@ export const en = {
   "barOrders.muted": "Chime muted · back in {s} s",
   // Orders waiting on a locked bar screen (M3-16).
   "signIn.ordersWaiting": "Bar orders · {n} waiting",
+  // No bar device connected (M3-17); the words are for the founder to confirm.
+  "bar.lost.push": "No bar device is connected: room orders aren't showing at the bar",
+  "alert.noBar": "No bar device connected since {time} · room orders reach only the phones",
 } as const;

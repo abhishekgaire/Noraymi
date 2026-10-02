@@ -317,8 +317,10 @@ describe("heartbeats", () => {
     expect(swept[0]!.venueOffline).toBe(true);
     expect(swept[0]!.offline).toHaveLength(28);
     const events = await eventsSince(mark);
+    // The whole venue is down, and with it the bar computer, so "no bar device connected" too (M3-17).
     expect(events).toEqual([
       expect.objectContaining({ type: "venue.offline", entity_id: v.venueA, audience: "managers" }),
+      expect.objectContaining({ type: "bar.disconnected", entity_id: v.venueA }),
     ]);
     expect(await sweepQuietDevices(pool, clock.now())).toEqual([]);
 
@@ -328,11 +330,13 @@ describe("heartbeats", () => {
     const after = await eventsSince(mark);
     expect(after.map((e) => e.type)).toEqual([
       "venue.offline",
+      "bar.disconnected",
       "venue.online",
       "device.online",
       "device.online",
       "device.online",
       "device.online",
+      "bar.connected",
     ]);
     expect(await eventsSince(0, v.venueB)).toEqual([]);
   });

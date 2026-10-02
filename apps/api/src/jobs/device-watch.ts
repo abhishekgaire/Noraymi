@@ -9,6 +9,7 @@ import {
   type Sweep,
 } from "@west4/db";
 import { businessDate, hoursFor, openNow } from "@west4/rules";
+import { barLost, barsHeard } from "../rooms/bar-presence.js";
 import type { Temporal } from "@west4/shared";
 
 /**
@@ -53,7 +54,16 @@ export async function sweepQuietDevices(
           closure,
         );
         if (!openNow(h, now)) return null;
-        return flagQuietDevices(c, v.id, now, silenceMs);
+        const quiet = await flagQuietDevices(c, v.id, now, silenceMs);
+        // A bar computer gone quiet with no other heard from: no bar device connected (M3-17).
+        if (quiet.offline.length > 0 && (await barsHeard(c, v.id, now)) === 0) {
+          const bars = await c.query<{ n: number }>(
+            "select count(*)::int as n from devices where venue_id = $1 and id = any($2::uuid[]) and kind = 'bar_computer'",
+            [v.id, quiet.offline],
+          );
+          if (bars.rows[0]!.n > 0) await barLost(c, v.id, now);
+        }
+        return quiet;
       },
     );
     if (result && result.offline.length > 0) flagged.push({ venueId: v.id, ...result });

@@ -46,6 +46,11 @@ export type Alert =
       readonly waiting: readonly string[];
     }
   | {
+      readonly kind: "no_bar";
+      readonly color: string;
+      readonly lost_at: string;
+    }
+  | {
       readonly kind: "order";
       readonly color: string;
       readonly order_id: string;
@@ -154,6 +159,8 @@ export function Alerts({
         });
       case "code":
         return t("alert.code", { room: a.room_name });
+      case "no_bar":
+        return t("alert.noBar", { time: short(a.lost_at) });
       case "order": {
         const age = `${Math.floor(a.age_sec / 60)}:${String(a.age_sec % 60).padStart(2, "0")}`;
         const base = t(a.status === "held" ? "alert.order.held" : "alert.order", {

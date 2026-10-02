@@ -1,3 +1,4 @@
+import { barConnected, barLost, isBarComputer } from "../rooms/bar-presence.js";
 import websocket from "@fastify/websocket";
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
@@ -15,11 +16,16 @@ export interface EventsOptions {
   readonly drainMs?: number;
 }
 
+/** How long a dropped bar computer has to reconnect before the phones buzz (a reload, M3-17). */
+export const BAR_GRACE_MS = 5_000;
+
 interface Socket {
   readonly ws: WebSocket;
   readonly sub: Subscription;
   /** The last seq of this venue this socket has been told about (sent or filtered), for the client's cursor. */
   lastSeq: number;
+  /** The bar computer behind this socket, if it's one (M3-17). */
+  barDevice?: string;
 }
 
 /**
@@ -203,8 +209,40 @@ export const eventsPlugin = fp(async (app: FastifyInstance, options: EventsOptio
           send(ws, { type: "caught_up", seq: latest });
         }
         sockets.add(socket);
-        ws.on("close", () => sockets.delete(socket));
-        ws.on("error", () => sockets.delete(socket));
+        // A bar computer's connection (M3-17): its socket, as a device or as the person signed in on it.
+        const barDevice =
+          principal.kind === "device"
+            ? principal.deviceKind === "bar_computer"
+              ? principal.deviceId
+              : null
+            : (request.session?.deviceId ?? null);
+        const isBar =
+          barDevice !== null &&
+          (await request
+            .inVenue((c) => isBarComputer(c, sub.venueId, barDevice))
+            .catch(() => false));
+        if (isBar) await request.inVenue((c) => barConnected(c, sub.venueId)).catch(() => false);
+        let gone = false;
+        const leave = () => {
+          if (gone) return;
+          gone = true;
+          sockets.delete(socket);
+          if (!isBar) return;
+          // The last bar computer's socket closed: raise it, unless another is connected within a
+          // few seconds (a reload reconnects before then).
+          setTimeout(() => {
+            const still = [...sockets].some(
+              (s) => s.barDevice !== undefined && s.sub.venueId === sub.venueId,
+            );
+            if (!still)
+              void request
+                .inVenue((c) => barLost(c, sub.venueId, options.clock.now()))
+                .catch(() => false);
+          }, BAR_GRACE_MS).unref();
+        };
+        if (isBar) socket.barDevice = barDevice!;
+        ws.on("close", leave);
+        ws.on("error", leave);
       },
     );
   });

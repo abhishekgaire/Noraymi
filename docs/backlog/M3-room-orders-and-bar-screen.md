@@ -433,17 +433,21 @@ Definition of done: see CLAUDE.md.
 
 ### M3-17 · Alert when no bar device is connected
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-16, M1-22, M2-29
 - **Spec:** [N32 No bar device connected](../screens.md#n32-no-bar-device-connected); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Room orders at the bar; [Board](../screens.md#board) note 17; [Bar](../screens.md#bar) note 9
 - **Build:** the server tracks which bar computers have a live connection. If none does during opening hours (M1-12), every bar-role phone buzzes at once and the board shows the alert; it clears when one connects.
 - **Acceptance:**
-  - [ ] Disconnecting the bar computer at 10:41 PM buzzes Maya's phone at once and puts the alert on the board.
-  - [ ] Disconnecting it at 5:00 AM, after the close, raises nothing.
-  - [ ] Reconnecting clears the alert everywhere.
+  - [x] Disconnecting the bar computer at 10:41 PM buzzes Maya's phone at once and puts the alert on the board.
+  - [x] Disconnecting it at 5:00 AM, after the close, raises nothing.
+  - [x] Reconnecting clears the alert everywhere.
 - **Tests:** integration tests on the simulated clock.
 - **Notes:** The board alert is the flows review's ask and isn't decided in the fix brief (N32), but M3's Ships lists it. Its words aren't fixed, so "No bar device connected" (N32's title) goes in the catalog for the founder to confirm (flagged).
+  - Built: migration `0049_bar_presence.sql` (`bar_presence.lost_at`); `apps/api/src/rooms/bar-presence.ts`; the live sockets in `apps/api/src/http/events.ts` mark a bar computer's connection (as the device, or as the person signed in on it) and clear the alert on connect; when the last one closes, after 5 seconds' grace for a reload, during opening hours, the bartenders' and the front desk's phones get "No bar device is connected: room orders aren't showing at the bar" and the board shows a pink alert first, "No bar device connected since 10:41 PM · room orders reach only the phones"; the heartbeat watch raises it too when the bar computer goes quiet and no other is heard from, and a bar computer's heartbeat clears it; `apps/api/src/rooms/bar-presence.int.test.ts`; the venue-outage heartbeat test now expects the bar alert with it.
+  - Once per outage; `bar.disconnected` and `bar.connected` refresh the board. Outside opening hours (the 6:00 AM test at 5:00 AM, after the 4:00 AM close) nothing is raised.
+  - The socket presence is kept per API process; with more than one API task, the heartbeat watch (2 minutes) still catches a bar computer that's gone. The alert's words are in the catalog for the founder to confirm (the ticket's flag).
+  - The tests drive the raise and clear directly and through the heartbeat watch on the simulated clock; a socket-level test isn't in this ticket.
 
 ### M3-18 · Carry runs on every staff phone, and take returns
 

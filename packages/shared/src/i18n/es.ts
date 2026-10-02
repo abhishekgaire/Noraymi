@@ -1219,4 +1219,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "barOrders.muted": "Campana en silencio · vuelve en {s} s",
   // Orders waiting on a locked bar screen (M3-16).
   "signIn.ordersWaiting": "Pedidos del bar · {n} en espera",
+  // No bar device connected (M3-17); the words are for the founder to confirm.
+  "bar.lost.push":
+    "No hay ningún dispositivo de barra conectado: los pedidos de las salas no se ven en la barra",
+  "alert.noBar":
+    "Ningún dispositivo de barra conectado desde las {time} · los pedidos de las salas solo llegan a los teléfonos",
 };

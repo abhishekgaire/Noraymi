@@ -209,6 +209,8 @@ export function Tonight() {
               "print_job.failed",
               "print_job.queued",
               "order.escalated",
+              "bar.connected",
+              "bar.disconnected",
               "order.accepted",
               "order.cancelled",
             ].includes(e.type),
