@@ -15,6 +15,8 @@ const TEST_CARDS: Record<string, { brand: string; last4: string }> = {
   pm_card_amex: { brand: "amex", last4: "0005" },
   pm_card_mastercard: { brand: "mastercard", last4: "4444" },
   pm_card_discover: { brand: "discover", last4: "1117" },
+  // 4000 0000 0000 0341: attaches to a Customer, then declines every later charge (M4-17).
+  pm_card_chargeCustomerFail: { brand: "visa", last4: "0341" },
 };
 
 const needAccount = (account: string | null): string => {
@@ -97,6 +99,43 @@ fakeRouteSets.push((fake) => {
           "resource_missing",
           `No such PaymentMethod: '${pm}'`,
         );
+      // A later charge on a card that attaches but declines: the PaymentIntent stays, and the error carries it.
+      if (pm === "pm_card_chargeCustomerFail" && req.body["off_session"] === "true") {
+        const failed = fake.put({
+          id: fakeId("pi"),
+          object: "payment_intent",
+          _account: account,
+          amount,
+          currency: req.body["currency"] ?? "usd",
+          status: "requires_payment_method",
+          capture_method: "automatic",
+          payment_method: null,
+          customer: req.body["customer"] ?? null,
+          amount_received: 0,
+          amount_capturable: 0,
+          amount_details: {},
+          last_payment_error: {
+            code: "card_declined",
+            decline_code: "generic_decline",
+            message: "Your card was declined.",
+          },
+          latest_charge: null,
+          metadata: req.body["metadata"] ?? {},
+        });
+        fake.emit("connect", "payment_intent.payment_failed", failed, account);
+        return {
+          status: 402,
+          body: {
+            error: {
+              type: "card_error",
+              code: "card_declined",
+              decline_code: "generic_decline",
+              message: "Your card was declined.",
+              payment_intent: failed,
+            },
+          },
+        };
+      }
       const charge = fake.put({
         id: fakeId("ch"),
         object: "charge",
@@ -107,27 +146,29 @@ fakeRouteSets.push((fake) => {
           card: { brand: card.brand, last4: card.last4, funding: "credit" },
         },
       });
-      return {
-        body: fake.put({
-          id: fakeId("pi"),
-          object: "payment_intent",
-          _account: account,
-          amount,
-          currency: req.body["currency"] ?? "usd",
-          status: "succeeded",
-          capture_method: "automatic",
-          payment_method: pm,
-          customer: req.body["customer"] ?? null,
-          setup_future_usage: req.body["setup_future_usage"] ?? null,
-          payment_method_types: req.body["payment_method_types"] ?? ["card"],
-          amount_received: amount,
-          amount_capturable: 0,
-          amount_details: {},
-          last_payment_error: null,
-          latest_charge: charge["id"],
-          metadata: req.body["metadata"] ?? {},
-        }),
-      };
+      const succeeded = fake.put({
+        id: fakeId("pi"),
+        object: "payment_intent",
+        _account: account,
+        amount,
+        currency: req.body["currency"] ?? "usd",
+        status: "succeeded",
+        capture_method: "automatic",
+        payment_method: pm,
+        customer: req.body["customer"] ?? null,
+        setup_future_usage: req.body["setup_future_usage"] ?? null,
+        payment_method_types: req.body["payment_method_types"] ?? ["card"],
+        amount_received: amount,
+        amount_capturable: 0,
+        amount_details: {},
+        last_payment_error: null,
+        latest_charge: charge["id"],
+        metadata: req.body["metadata"] ?? {},
+      });
+      (charge as Record<string, unknown>)["payment_intent"] = succeeded["id"];
+      if (req.body["off_session"] === "true")
+        fake.emit("connect", "payment_intent.succeeded", succeeded, account);
+      return { body: withCharge(fake, succeeded, req.body["expand"]) };
     }
     return {
       body: fake.put({

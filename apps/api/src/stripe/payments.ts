@@ -227,3 +227,56 @@ export async function registerPayDomain(
     params: { domain_name: domain, enabled: true },
   });
 }
+
+/** The Customer and saved card behind a deposit's PaymentIntent (M4-17), read from Stripe itself. */
+export async function savedCardOf(
+  stripe: StripeClient,
+  account: string,
+  depositPiId: string,
+): Promise<{ customer: string; paymentMethod: string } | null> {
+  const pi = await stripe.call<{ customer: string | null; payment_method: string | null }>(
+    "payments",
+    "GET",
+    `/v1/payment_intents/${encodeURIComponent(depositPiId)}`,
+    { account },
+  );
+  return pi.customer && pi.payment_method
+    ? { customer: pi.customer, paymentMethod: pi.payment_method }
+    : null;
+}
+
+/**
+ * A charge on the saved card with the guest away from the payment (M4-17; Payment flows · Card on
+ * file): `off_session=true` and `confirm=true`, keyed `<payment_id>:off_session:<n>`. A decline, or a
+ * bank asking for authentication, comes back as a StripeError with the PaymentIntent it left.
+ */
+export async function createOffSessionIntent(
+  stripe: StripeClient,
+  account: string,
+  input: {
+    amountCents: number;
+    paymentId: string;
+    checkId: string | null;
+    customer: string;
+    paymentMethod: string;
+  },
+  idempotencyKey: string,
+): Promise<StripeIntent> {
+  return stripe.call("payments", "POST", "/v1/payment_intents", {
+    account,
+    idempotencyKey,
+    params: {
+      amount: input.amountCents,
+      currency: "usd",
+      customer: input.customer,
+      payment_method: input.paymentMethod,
+      off_session: true,
+      confirm: true,
+      expand: ["latest_charge"],
+      metadata: {
+        payment_id: input.paymentId,
+        ...(input.checkId ? { check_id: input.checkId } : {}),
+      },
+    },
+  });
+}

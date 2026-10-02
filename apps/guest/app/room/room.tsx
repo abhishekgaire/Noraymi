@@ -412,6 +412,17 @@ export function RoomPage({
                   const r = await api("/v1/public/room-session/pay-link", { method: "POST" });
                   return r.ok ? ((await r.json()) as { url: string }).url : null;
                 },
+                payOnFile: async (paymentId: string) => {
+                  const r = await api(`/v1/public/room-session/payments/${paymentId}/confirm`, {
+                    method: "POST",
+                  });
+                  if (!r.ok) return null;
+                  const done = (await r.json()) as {
+                    status: "paid" | "declined" | "checking";
+                  };
+                  void loadOrders();
+                  return done.status;
+                },
                 payCash: async () =>
                   (
                     await api("/v1/public/room-session/calls", {

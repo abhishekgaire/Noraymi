@@ -231,15 +231,33 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       headcountRoutes(scope, { clock });
       boardRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
-      approvalRoutes(scope, { clock });
+      approvalRoutes(scope, {
+        clock,
+        pool: gatePoolRef!,
+        stripe,
+        payAppUrl: config.payAppUrl,
+        texts: loadVenueTextSettings(config.env),
+      });
       paymentsAdminRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
       readerRoutes(scope, { clock, stripe });
       stripeHookRoutes(scope, { pool: gatePoolRef!, clock, stripe });
-      paymentRoutes(scope, { pool: gatePoolRef!, clock, stripe });
+      paymentRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        stripe,
+        payAppUrl: config.payAppUrl,
+        texts: loadVenueTextSettings(config.env),
+      });
       drawerRoutes(scope, { clock });
       splitRoutes(scope, { clock });
       payRoutes(scope, { pool: gatePoolRef!, clock, stripe });
-      billRoutes(scope, { pool: gatePoolRef!, clock, stripe, payAppUrl: config.payAppUrl });
+      billRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        stripe,
+        payAppUrl: config.payAppUrl,
+        texts: loadVenueTextSettings(config.env),
+      });
       orderRoutes(scope, { clock });
       draftRoutes(scope, { clock });
       let s3: S3Settings | null = null;

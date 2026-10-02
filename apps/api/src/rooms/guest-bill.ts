@@ -36,6 +36,8 @@ export interface GuestBill {
   }[];
   /** The card that paid the deposit, which the guest may confirm for the rest (M4-17). */
   readonly card_on_file: { readonly brand: string; readonly last4: string } | null;
+  /** Staff chose Card on file and it waits for the guest's "Pay with Amex ··1005" (M4-17). */
+  readonly on_file_request: { readonly payment_id: string; readonly amount_cents: number } | null;
 }
 
 /** "0.08875" → "8.875" (a fraction), "20" → "20" (already a percent): decimal digits moved, never a float. */
@@ -93,6 +95,26 @@ export async function guestBill(
   const deposits = money.rows.filter((m) => m.follows_lines && m.booking_id);
   const paid = money.rows.filter((m) => !(m.follows_lines && m.booking_id));
   const onFile = deposits.find((d) => d.card_brand && d.card_last4);
+  const held = Number(
+    (
+      await c.query<{ held: string }>(
+        `select coalesce(sum(amount_cents), 0) as held from payment_allocations
+          where venue_id = $1 and check_id = $2 and state = 'in_progress' and not follows_lines`,
+        [venueId, checkId],
+      )
+    ).rows[0]!.held,
+  );
+  const request = (
+    await c.query<{ payment_id: string; amount_cents: string }>(
+      `select a.payment_id, a.amount_cents from payment_allocations a
+         join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
+        where a.venue_id = $1 and a.check_id = $2 and a.state = 'in_progress'
+          and p.method = 'card_on_file' and p.status = 'pending'
+          and not exists (select 1 from payment_attempts t where t.venue_id = p.venue_id and t.payment_id = p.id)
+        order by a.created_at desc limit 1`,
+      [venueId, checkId],
+    )
+  ).rows[0];
   return {
     check_id: checkId,
     number: String(found.check.number),
@@ -118,7 +140,9 @@ export async function guestBill(
     ),
     total_cents: Number(rev.total_cents),
     deposit_cents: sum(deposits),
-    amount_due_cents: await amountDue(c, checkId),
+    // What's left to pay, counting only money that landed: an amount held while a guest confirms
+    // (card on file) or a payment page is open still shows as due.
+    amount_due_cents: (await amountDue(c, checkId)) + held,
     payments: paid.map((m) => ({
       kind:
         m.share_no !== null
@@ -140,6 +164,9 @@ export async function guestBill(
       shares: m.shares,
     })),
     card_on_file: onFile ? { brand: onFile.card_brand!, last4: onFile.card_last4! } : null,
+    on_file_request: request
+      ? { payment_id: request.payment_id, amount_cents: Number(request.amount_cents) }
+      : null,
   };
 }
 

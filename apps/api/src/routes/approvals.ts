@@ -5,6 +5,10 @@ import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { decide } from "../approvals/service.js";
+import type pg from "pg";
+import { latestAttempt } from "@west4/db";
+import { chargeNow } from "../payments/card-on-file.js";
+import type { StripeClient } from "../stripe/client.js";
 
 /**
  * Approvals (M2-15; spec 08 · Approvals):
@@ -14,7 +18,16 @@ import { decide } from "../approvals/service.js";
  */
 const body = z.object({ decision: z.enum(["approve", "decline"]) }).strict();
 
-export function approvalRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+export function approvalRoutes(
+  app: FastifyInstance,
+  options: {
+    clock: Clock;
+    pool?: pg.Pool;
+    stripe?: () => StripeClient;
+    payAppUrl?: string | null;
+    texts?: { allowList: readonly string[] | null };
+  },
+): void {
   const read = route({ principals: ["owner_manager", "staff"], module: "core" });
   const userOf = (p: { kind: string; userId?: string }) => {
     if (p.kind !== "user" || !p.userId) throw new ApiError("forbidden", "approvals are a person's");
@@ -72,7 +85,7 @@ export function approvalRoutes(app: FastifyInstance, options: { clock: Clock }):
       const device = request.signedDevice;
       if (!device || device.kind !== "staff_phone" || device.venueId !== request.venueId)
         throw new ApiError("forbidden", "an approval is decided on your own phone");
-      return request.inVenue(async (c) => {
+      const answer = await request.inVenue(async (c) => {
         const owner = await c.query<{ user_id: string | null; revoked_at: string | null }>(
           "select user_id, revoked_at::text from devices where venue_id = $1 and id = $2",
           [request.venueId, device.deviceId],
@@ -88,6 +101,23 @@ export function approvalRoutes(app: FastifyInstance, options: { clock: Clock }):
           }),
         };
       });
+      // An approved card on file (M4-17) charges now, after the decision has committed; the worker
+      // runs the same job if this process can't.
+      const a = answer.approval;
+      if (a.kind === "card_on_file" && a.status === "approved" && options.pool && options.stripe) {
+        const deps = {
+          pool: options.pool,
+          stripe: options.stripe(),
+          clock: options.clock,
+          payAppUrl: options.payAppUrl ?? null,
+          texts: options.texts ?? { allowList: null },
+        };
+        const attempt = await request.inVenue((c) =>
+          latestAttempt(c, request.venueId!, a.target_id),
+        );
+        if (attempt) await chargeNow(deps, request.venueId!, a.target_id, attempt.attempt_no);
+      }
+      return answer;
     },
   );
 }

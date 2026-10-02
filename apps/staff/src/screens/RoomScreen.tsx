@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
@@ -10,6 +10,7 @@ import { AddDrinks } from "./AddDrinks.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
+import { CardOnFile, type OnFile } from "./CardOnFile.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { CutOffRoom } from "./CutOff.js";
@@ -78,6 +79,12 @@ export function RoomScreen() {
   const [dueCents, setDueCents] = useState(0);
   const [cashTaken, setCashTaken] = useState<Taken | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
+  const [onFile, setOnFile] = useState<OnFile | null>(null);
+  // A card on file waiting for the guest (M4-17): paid elsewhere, the room is released before this
+  // screen's panel hears it, so the screen reads the payment once when the session is gone.
+  const onFilePayment = useRef<string | null>(null);
+  const paidWords = useRef("");
+  paidWords.current = t("pay.paid");
   const [share, setShare] = useState<Share | null>(null);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
@@ -105,6 +112,7 @@ export function RoomScreen() {
                 check?: { status: string };
                 amount_due_cents?: number;
                 split?: Split | null;
+                on_file?: OnFile | null;
               }>("GET", `/v1/venues/${venueId}/checks/${r.session.check_id}`)
             : Promise.resolve({
                 lines: [] as Line[],
@@ -119,9 +127,18 @@ export function RoomScreen() {
         setCheckStatus(check.check?.status ?? null);
         setDueCents(check.amount_due_cents ?? 0);
         setSplit(("split" in check ? check.split : null) ?? null);
+        const file = ("on_file" in check ? check.on_file : null) ?? null;
+        setOnFile(file);
+        if (file?.payment_id) onFilePayment.current = file.payment_id;
       } else {
         setLines([]);
         setStartedAt(null);
+        const waited = onFilePayment.current;
+        onFilePayment.current = null;
+        if (waited) {
+          const p = await api<{ state: string }>("GET", `/v1/venues/${venueId}/payments/${waited}`);
+          if (p.state === "paid") setDone(paidWords.current);
+        }
       }
       setFailed(false);
     } catch {
@@ -360,6 +377,27 @@ export function RoomScreen() {
                 onDone={() => {
                   // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
                   setShare(null);
+                  setDone(t("pay.paid"));
+                  void load();
+                }}
+              />
+            )}
+          {s.check_id &&
+            onFile &&
+            (checkStatus === "finalized" ||
+              checkStatus === "partly_paid" ||
+              checkStatus === "paid") &&
+            !split &&
+            signedIn?.membership.permissions.includes("payments.take") && (
+              <CardOnFile
+                venueId={venueId}
+                checkId={s.check_id}
+                dueCents={dueCents}
+                card={onFile}
+                onStarted={(id) => {
+                  onFilePayment.current = id;
+                }}
+                onDone={() => {
                   setDone(t("pay.paid"));
                   void load();
                 }}

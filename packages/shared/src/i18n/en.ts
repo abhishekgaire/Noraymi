@@ -1393,4 +1393,11 @@ export const en = {
   "yourBill.failed": "Couldn't open the payment page. Try again.",
   "bookingLink.party": "Party of {n}",
   "bookingLink.noBill": "Your bill shows here once staff present it",
+  "yourBill.payOnFile": "Pay with {brand} ··{last4}",
+  "pay.onFile.button": "Card on file · {brand} ··{last4}",
+  "pay.onFile.waiting": "Waiting for {name} to confirm on their phone",
+  "pay.onFile.ask": "Ask a manager to approve",
+  "pay.onFile.reason": "Why the guest can't confirm",
+  "pay.onFile.send": "Send to a manager",
+  "pay.onFile.approvalDeclined": "Not approved · nothing was charged",
 } as const;

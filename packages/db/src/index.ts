@@ -424,6 +424,7 @@ export {
   amountDue,
   allocate,
   setAllocationState,
+  setMitReason,
   startAttempt,
   setPaymentStatus,
   recordAuthorization,

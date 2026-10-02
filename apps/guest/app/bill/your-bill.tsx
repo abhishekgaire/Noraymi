@@ -35,7 +35,17 @@ export interface GuestBill {
     readonly share_no: number | null;
     readonly shares: number | null;
   }[];
+  readonly card_on_file?: { readonly brand: string; readonly last4: string } | null;
+  /** Staff chose Card on file: the guest's "Pay with Amex ··1005" (M4-17). */
+  readonly on_file_request?: { readonly payment_id: string; readonly amount_cents: number } | null;
 }
+
+const BRANDS: Record<string, string> = {
+  amex: "Amex",
+  visa: "Visa",
+  mastercard: "Mastercard",
+  discover: "Discover",
+};
 
 const money = (c: number) =>
   c < 0 ? `−${formatMoney("en", cents(-c))}` : formatMoney("en", cents(c));
@@ -58,8 +68,11 @@ export function YourBill({
   bill,
   payLink,
   payCash,
+  payOnFile,
 }: {
   bill: GuestBill;
+  /** Confirms the card on file staff asked for; answers paid, declined or checking (M4-17). */
+  payOnFile?: (paymentId: string) => Promise<"paid" | "declined" | "checking" | null>;
   /** Asks for a payment-page link; absent on a tablet. */
   payLink?: () => Promise<string | null>;
   /** "Pay cash to staff"; absent on a tablet. */
@@ -68,7 +81,8 @@ export function YourBill({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [cashSent, setCashSent] = useState(false);
-  const paid = bill.status === "paid" || bill.amount_due_cents <= 0;
+  const [onFile, setOnFile] = useState<"declined" | "checking" | null>(null);
+  const paid = bill.status === "paid";
 
   const another = async () => {
     if (!payLink) return;
@@ -80,6 +94,13 @@ export function YourBill({
       setError(true);
       setBusy(false);
     }
+  };
+  const confirmOnFile = async () => {
+    if (!payOnFile || !bill.on_file_request) return;
+    setBusy(true);
+    const r = await payOnFile(bill.on_file_request.payment_id).catch(() => null);
+    setOnFile(r === "declined" ? "declined" : r === "paid" ? null : "checking");
+    setBusy(false);
   };
   const cash = async () => {
     if (!payCash) return;
@@ -147,6 +168,16 @@ export function YourBill({
         (payLink || payCash) && (
           <div className="ways" role="group" aria-labelledby="ways-h">
             <h3 id="ways-h">{t("en", "yourBill.ways")}</h3>
+            {payOnFile && bill.on_file_request && bill.card_on_file && onFile !== "checking" && (
+              <button type="button" disabled={busy} onClick={() => void confirmOnFile()}>
+                {t("en", "yourBill.payOnFile", {
+                  brand: BRANDS[bill.card_on_file.brand] ?? bill.card_on_file.brand,
+                  last4: bill.card_on_file.last4,
+                })}
+              </button>
+            )}
+            {onFile === "checking" && <p role="status">{t("en", "payPage.checking")}</p>}
+            {onFile === "declined" && <p role="alert">{t("en", "payPage.declined")}</p>}
             {payLink && (
               <button type="button" disabled={busy} onClick={() => void another()}>
                 {t("en", "yourBill.payAnotherWay")}

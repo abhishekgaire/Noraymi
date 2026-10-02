@@ -459,3 +459,17 @@ export async function releaseAllocation(
     [venueId, allocationId],
   );
 }
+
+/** The reason a saved card was charged without the guest (M4-17), written when a manager approves. */
+export async function setMitReason(
+  c: Queryable,
+  venueId: string,
+  paymentId: string,
+  reason: string,
+): Promise<void> {
+  await c.query("update payments set mit_reason = $3 where venue_id = $1 and id = $2", [
+    venueId,
+    paymentId,
+    reason,
+  ]);
+}

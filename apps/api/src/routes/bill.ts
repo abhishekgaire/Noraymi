@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
-import { payTokenHash, venueForBookingToken, withVenue } from "@west4/db";
+import {
+  latestAttempt,
+  paymentById,
+  payTokenHash,
+  venueForBookingToken,
+  withVenue,
+} from "@west4/db";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -9,6 +15,9 @@ import { guestBill } from "../rooms/guest-bill.js";
 import { createCall } from "../rooms/calls.js";
 import type { StripeClient } from "../stripe/client.js";
 import { currentGuest } from "./room-orders.js";
+import { z } from "zod";
+import { chargeNow, guestConfirms } from "../payments/card-on-file.js";
+import { screenState } from "../payments/machine.js";
 
 /**
  * Paying the bill from a guest's own phone (M4-16; screens N5; spec 08 · Guest room, Bookings):
@@ -16,6 +25,8 @@ import { currentGuest } from "./room-orders.js";
  *   GET  /v1/public/bookings/{token}        the booking link: the booking, and its bill once presented
  *   POST /v1/public/bookings/{token}/pay-link   the same "Pay another way" from the booking link
  *   POST /v1/public/bookings/{token}/cash       "Pay cash to staff" from the booking link
+ *   POST /v1/public/room-session/payments/{p}/confirm, /v1/public/bookings/{token}/payments/{p}/confirm
+ *                                               "Pay with Amex ··1005": the guest's OK for a card on file (M4-17)
  * A room tablet reads the bill but never pays from it. "Pay cash to staff" is the room call of kind
  * `check` (POST /room-session/calls on the room page), so staff come with the cash panel.
  */
@@ -23,9 +34,66 @@ const notFound = () => new ApiError("not_found", "this link isn't valid");
 
 export function billRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; stripe: () => StripeClient; payAppUrl: string | null },
+  options: {
+    pool: pg.Pool;
+    clock: Clock;
+    stripe: () => StripeClient;
+    payAppUrl: string | null;
+    texts?: { allowList: readonly string[] | null };
+  },
 ): void {
   const deps = () => ({ pool: options.pool, stripe: options.stripe(), clock: options.clock });
+
+  /** "Pay with Amex ··1005" (M4-17): the guest's OK; the charge runs now. */
+  async function confirmOnFile(venueId: string, checkId: string, paymentId: string) {
+    if (!z.string().uuid().safeParse(paymentId).success)
+      throw new ApiError("not_found", "no such payment");
+    const attemptNo = await withVenue(
+      options.pool,
+      { venueId, requestId: `payment:${paymentId}:guest-ok` },
+      (c) => guestConfirms(c, venueId, { paymentId, checkId, now: options.clock.now() }),
+    );
+    await chargeNow(
+      {
+        ...deps(),
+        payAppUrl: options.payAppUrl,
+        texts: options.texts ?? { allowList: null },
+      },
+      venueId,
+      paymentId,
+      attemptNo,
+    );
+    return withVenue(
+      options.pool,
+      { venueId, requestId: `payment:${paymentId}:read` },
+      async (c) => {
+        const payment = (await paymentById(c, venueId, paymentId))!;
+        const state = screenState(payment, await latestAttempt(c, venueId, paymentId));
+        return {
+          status:
+            state === "paid" ? "paid" : state === "declined" ? "declined" : ("checking" as const),
+          bill: await guestBill(c, venueId, checkId),
+        };
+      },
+    );
+  }
+
+  app.post<{ Params: { paymentId: string } }>(
+    "/v1/public/room-session/payments/:paymentId/confirm",
+    {
+      config: route({
+        principals: ["guest_room"],
+        module: "room_ordering",
+        idempotency: "none",
+        tokenRoute: true,
+      }),
+    },
+    async (request) => {
+      const me = await currentGuest(request, options.pool, options.clock);
+      if (!me.session.check_id) throw new ApiError("not_found", "no such payment");
+      return confirmOnFile(me.venueId, me.session.check_id, request.params.paymentId);
+    },
+  );
 
   app.post(
     "/v1/public/room-session/pay-link",
@@ -110,6 +178,15 @@ export function billRoutes(
       if (!bill) throw new ApiError("invalid_request", "the bill isn't ready yet");
       const link = await payAnotherWay(deps(), venueId, bill.check_id, options.payAppUrl);
       return reply.code(201).send(link);
+    },
+  );
+  app.post<{ Params: { token: string; paymentId: string } }>(
+    "/v1/public/bookings/:token/payments/:paymentId/confirm",
+    { config: tokenConfig },
+    async (request) => {
+      const { venueId, bill } = await booking(request.params.token);
+      if (!bill) throw new ApiError("not_found", "no such payment");
+      return confirmOnFile(venueId, bill.check_id, request.params.paymentId);
     },
   );
   app.post<{ Params: { token: string } }>(

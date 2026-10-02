@@ -16,6 +16,7 @@ import { venueClock } from "./assignment.js";
 import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
 import { workOut } from "./finalize.js";
+import { savedCardFor } from "../payments/card-on-file.js";
 
 /**
  * Room checks (M2-08; spec 04 · the money core). Opening one takes its number
@@ -103,7 +104,27 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
   // What's paid and what's left (M4-09): the deposits on it, and the amount due.
   const deposits = await depositsOn(c, venueId, id);
   const due = await amountDue(c, id);
+  // Card on file (M4-17): the deposit's card, and a charge waiting for the guest or a manager, if any.
+  const saved = await savedCardFor(c, venueId, id);
+  const waiting = saved
+    ? (
+        await c.query<{ id: string }>(
+          `select p.id from payments p join payment_allocations a on a.venue_id = p.venue_id and a.payment_id = p.id
+            where p.venue_id = $1 and a.check_id = $2 and p.method = 'card_on_file' and p.status = 'pending'
+              and a.state = 'in_progress' order by p.created_at desc limit 1`,
+          [venueId, id],
+        )
+      ).rows[0]
+    : undefined;
   return {
+    on_file: saved
+      ? {
+          brand: saved.brand,
+          last4: saved.last4,
+          guest_name: saved.guest_first_name,
+          payment_id: waiting?.id ?? null,
+        }
+      : null,
     // The open split, if any (M4-14): it survives leaving the screen and switching devices.
     split: await openSplit(c, venueId, id),
     deposit_cents: deposits.reduce((sum, d) => sum + d.amount_cents, 0),

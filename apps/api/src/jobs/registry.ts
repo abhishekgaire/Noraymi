@@ -54,6 +54,9 @@ export interface HandlerDeps {
     readonly pool: pg.Pool;
     readonly client: StripeClient;
     readonly clock: Clock;
+    /** For the pay link texted after a declined card on file (M4-17). */
+    readonly payAppUrl?: string | null;
+    readonly texts?: Pick<VenueTextSettings, "allowList">;
   };
   readonly s3: S3Settings;
   readonly mailer: Mailer;
@@ -85,7 +88,13 @@ export function makeHandlers({
     critical: {
       ...stripeEvents,
       ...(stripe
-        ? makePaymentHandlers({ pool: stripe.pool, stripe: stripe.client, clock: stripe.clock })
+        ? makePaymentHandlers({
+            pool: stripe.pool,
+            stripe: stripe.client,
+            clock: stripe.clock,
+            payAppUrl: stripe.payAppUrl ?? null,
+            texts: stripe.texts ?? { allowList: null },
+          })
         : {}),
       // The reconciler (M4-12): unknown results and PaymentIntents with no row, every 5 minutes.
       ...(stripe

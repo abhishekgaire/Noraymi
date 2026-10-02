@@ -24,16 +24,25 @@ import { StripeError, StripeUnknownResult, type StripeClient } from "../stripe/c
 import {
   cancelIntent,
   cancelReaderAction,
+  createOffSessionIntent,
   createReaderIntent,
   observeIntent,
   processOnReader,
   retrieveIntent,
+  savedCardOf,
   type ReaderAction,
 } from "../stripe/payments.js";
 import { retrieveReader } from "../stripe/terminal.js";
 import { applyObservation, type Applied, type Observation } from "./machine.js";
 import { claimShare } from "./splits.js";
 import { openAttempt } from "./state.js";
+import {
+  ON_FILE_DECLINED_KIND,
+  enqueueDeclined,
+  followUpDecline,
+  savedCardFor,
+} from "./card-on-file.js";
+import type { VenueTextSettings } from "../texts/venue.js";
 
 /**
  * How every card payment runs (M4-05; Payment flows steps 1 to 4):
@@ -58,6 +67,9 @@ export interface PaymentDeps {
   readonly pool: pg.Pool;
   readonly stripe: StripeClient;
   readonly clock: Clock;
+  /** For the pay link texted after a declined card on file (M4-17); the worker sets them. */
+  readonly payAppUrl?: string | null;
+  readonly texts?: Pick<VenueTextSettings, "allowList">;
 }
 
 type InVenue = <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
@@ -161,7 +173,7 @@ export async function writeRetap(
   return { attemptNo };
 }
 
-async function enqueueRun(
+export async function enqueueRun(
   c: Queryable,
   venueId: string,
   paymentId: string,
@@ -247,6 +259,58 @@ export async function runAttempt(
   const record = (obs: Observation) =>
     inVenue((c) => applyObservation(c, venueId, paymentId, obs, "api", null, deps.clock.now()));
   const now = deps.clock.now();
+  if (attempt.action === "off_session") {
+    // Card on file (M4-17): one call creates and confirms the charge on the deposit's saved card.
+    const card = attempt.check_id
+      ? await inVenue((c) => savedCardFor(c, venueId, attempt.check_id!))
+      : null;
+    try {
+      const saved = card ? await savedCardOf(deps.stripe, account, card.deposit_pi_id) : null;
+      if (!saved) return record({ attempt: { state: "failed", code: "no_saved_card" } });
+      const pi = await createOffSessionIntent(
+        deps.stripe,
+        account,
+        {
+          amountCents: attempt.amount_cents,
+          paymentId,
+          checkId: attempt.check_id,
+          customer: saved.customer,
+          paymentMethod: saved.paymentMethod,
+        },
+        attempt.idem_key,
+      );
+      await inVenue((c) => setPaymentIntent(c, paymentId, pi.id));
+      const applied = await record({ intent: observeIntent(pi) });
+      // A bank asking the cardholder to authenticate can't be answered off-session: treat it as a decline.
+      if (pi.status !== "succeeded")
+        await inVenue((c) => enqueueDeclined(c, venueId, paymentId, now));
+      return applied;
+    } catch (e) {
+      if (e instanceof StripeError) {
+        const piId = e.paymentIntentId;
+        if (piId) await inVenue((c) => setPaymentIntent(c, paymentId, piId));
+        const applied = await record({
+          attempt: { state: "failed", code: e.declineCode ?? e.code ?? e.type },
+        });
+        await inVenue((c) => enqueueDeclined(c, venueId, paymentId, now));
+        return applied;
+      }
+      if (!(e instanceof StripeUnknownResult)) throw e;
+      const applied = await record({ attempt: { state: "unknown" } });
+      await inVenue((c) =>
+        enqueueCheck(
+          c,
+          venueId,
+          paymentId,
+          attemptNo,
+          now.add({ seconds: POLL_EVERY_S }),
+          1,
+          now.toString(),
+        ),
+      );
+      return applied;
+    }
+  }
   try {
     let piId = payment.stripe_pi_id;
     if (!piId) {
@@ -473,6 +537,15 @@ export function makePaymentHandlers(deps: PaymentDeps): Record<string, JobHandle
     [PAYMENT_CHECK_KIND]: async (job) => {
       await pollAttempt(deps, job.job.venue_id, job.job.payload as never);
     },
+    // A declined card on file (M4-17): cancel it, and text the guest a pay link for the balance.
+    [ON_FILE_DECLINED_KIND]: async (job) => {
+      const p = job.job.payload as { payment_id: string };
+      await followUpDecline(
+        { ...deps, payAppUrl: deps.payAppUrl ?? null, texts: deps.texts ?? { allowList: null } },
+        job.job.venue_id,
+        p.payment_id,
+      );
+    },
   };
 }
 
@@ -489,26 +562,34 @@ export async function runNow(
   paymentId: string,
   attemptNo: number,
 ): Promise<Applied | null> {
-  const inVenue = venueTx(deps, venueId, `payment:${paymentId}:${attemptNo}:now`);
+  return claimAndRun(deps, venueId, `${PAYMENT_RUN_KIND}:${paymentId}:${attemptNo}`, () =>
+    runAttempt(deps, venueId, paymentId, attemptNo),
+  );
+}
+
+/** Claims a queued job by its dedupe key (with a lease, as a worker would) and runs it here and now. */
+export async function claimAndRun<T>(
+  deps: PaymentDeps,
+  venueId: string,
+  dedupeKey: string,
+  work: () => Promise<T>,
+): Promise<T | null> {
+  const inVenue = venueTx(deps, venueId, `job:${dedupeKey}:now`);
   const now = deps.clock.now();
   const claimed = await inVenue((c) =>
     c.query<{ id: string; attempts: number; max_attempts: number }>(
       `update jobs set status = 'running', attempts = attempts + 1, locked_until = $3
         where venue_id = $1 and dedupe_key = $2 and status = 'queued'
         returning id, attempts, max_attempts`,
-      [
-        venueId,
-        `${PAYMENT_RUN_KIND}:${paymentId}:${attemptNo}`,
-        new Date(now.add({ seconds: 60 }).epochMilliseconds),
-      ],
+      [venueId, dedupeKey, new Date(now.add({ seconds: 60 }).epochMilliseconds)],
     ),
   );
   const job = claimed.rows[0];
   if (!job) return null;
   try {
-    const applied = await runAttempt(deps, venueId, paymentId, attemptNo);
+    const done = await work();
     await inVenue((c) => complete(c, job.id, deps.clock.now()));
-    return applied;
+    return done;
   } catch (e) {
     await inVenue((c) =>
       fail(c, job, e instanceof Error ? e.message : String(e), deps.clock.now()),

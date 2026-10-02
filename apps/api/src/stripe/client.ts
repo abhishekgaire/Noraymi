@@ -41,6 +41,8 @@ export class StripeError extends Error {
     message: string,
     readonly declineCode: string | null = null,
     readonly requestId: string | null = null,
+    /** The PaymentIntent a declined confirm left behind (an off-session charge, M4-17). */
+    readonly paymentIntentId: string | null = null,
   ) {
     super(message);
     this.name = "StripeError";
@@ -196,14 +198,18 @@ export class StripeClient {
       throw new StripeUnknownResult(`Stripe's answer to ${method} ${path} wasn't JSON`);
     }
     if (!response.ok) {
-      const err = (json as { error?: Record<string, string | undefined> }).error ?? {};
+      const err =
+        (json as { error?: Record<string, string | { id?: string } | undefined> }).error ?? {};
+      const text = (k: string) => (typeof err[k] === "string" ? err[k] : null);
+      const pi = err["payment_intent"];
       throw new StripeError(
         response.status,
-        err["type"] ?? "api_error",
-        err["code"] ?? null,
-        err["message"] ?? `Stripe answered ${response.status}`,
-        err["decline_code"] ?? null,
+        text("type") ?? "api_error",
+        text("code"),
+        text("message") ?? `Stripe answered ${response.status}`,
+        text("decline_code"),
         response.headers.get("request-id"),
+        typeof pi === "object" && pi?.id ? pi.id : null,
       );
     }
     return json as T;

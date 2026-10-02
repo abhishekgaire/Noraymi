@@ -524,7 +524,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-17 · Charge the card on file with the guest's OK or a manager's approval
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-05, M4-15, M4-16; M2 (approvals, the Approvals inbox, texts)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#room-close-out) (Card on file); [API](../spec/08-api.md) (Payments; `POST /v1/public/room-session/payments/{p}/confirm`; `POST /v1/public/bookings/{token}/payments/{p}/confirm`; Approvals); [Data model](../spec/04-data-model.md) (`approvals` kind `card_on_file`, `payments.mit_reason`); [Song systems and texts](../spec/11-song-systems-texts.md) (Receipt and Payment link texts); [screens: N8](../screens.md#n8-confirm-the-card-on-file), [N18](../screens.md#n18-approvals-inbox)
@@ -536,13 +536,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Declined, or `requires_action`: staff see "Declined · try another card or cash", and the guest is texted a pay link for the balance (the Payment link text) that opens the payment page.
   - Cancel releases the allocation.
 - **Acceptance:**
-  - [ ] Andy picks Card on file on Room 9: DeskRoom shows "Waiting for Marcus to confirm on his phone · Cancel"; Marcus taps "Pay with Amex ··1005"; $498.60 is charged off-session, #1042 is paid and the receipt text reaches his number.
-  - [ ] With Marcus gone, Diego's "Ask a manager to approve" lands in Andy's Approvals inbox, Diego sees "Waiting for Andy", the charge runs only after Andy approves on his own phone, and `mit_reason` holds Diego's reason.
-  - [ ] Andy's own request goes to Abhishek; nobody approves their own request or approves on the requester's device.
-  - [ ] A saved card that declines shows "Declined · try another card or cash" and texts Marcus a pay link that pays the same balance.
-  - [ ] While Marcus hasn't confirmed, nobody can start a second payment for the same amount.
+  - [x] Andy picks Card on file on Room 9: DeskRoom shows "Waiting for Marcus to confirm on his phone · Cancel"; Marcus taps "Pay with Amex ··1005"; $498.60 is charged off-session, #1042 is paid and the receipt text reaches his number.
+  - [x] With Marcus gone, Diego's "Ask a manager to approve" lands in Andy's Approvals inbox, Diego sees "Waiting for Andy", the charge runs only after Andy approves on his own phone, and `mit_reason` holds Diego's reason.
+  - [x] Andy's own request goes to Abhishek; nobody approves their own request or approves on the requester's device.
+  - [x] A saved card that declines shows "Declined · try another card or cash" and texts Marcus a pay link that pays the same balance.
+  - [x] While Marcus hasn't confirmed, nobody can start a second payment for the same amount.
 - **Tests:** sandbox integration (a saved test card; Stripe's test card that attaches but declines charges, 4000 0000 0000 0341); approval routing and role tests; end-to-end on DeskRoom, the Room phone and the guest's bill.
 - **Notes:** The canvas goes "Ask Marcus to confirm" → Paid ([DeskRoom note 2](../screens.md#deskroom)). The guest isn't texted to confirm: they confirm from the bill or the booking link, as the spec says. Online cards cost 2.9% + 30¢.
+  - **Built (M4-17):** `apps/api/src/payments/card-on-file.ts`. Staff's `POST /checks/{c}/payments { method: "card_on_file", amount_cents }` writes a pending payment that holds the amount (so a second payment for it answers 422), with no charge yet; the screen says "Waiting for Marcus to confirm on their phone · Cancel". The guest's "Pay with Amex ··1005" (on the bill and the booking link: `POST /room-session/payments/{p}/confirm`, `POST /bookings/{token}/payments/{p}/confirm`) or a manager's approval starts the one attempt (`<payment_id>:off_session:1`), and the `payment.run` job makes the charge outside any transaction: the deposit's Customer and saved card are read from the deposit's PaymentIntent at Stripe (nothing new is stored), then `off_session=true, confirm=true`. The route runs the job at once; the worker runs it if that process can't.
+  - **Manager:** `POST /payments/{p}/approval { reason }` (or `reason` on the create, which answers 202 at once) asks the manager on duty through M2's approvals (kind `card_on_file`), so Andy's own request goes to Abhishek and nobody decides their own or on the asking device. Approving writes the reason to `mit_reason` (migration 0063 lets the API set it after the row exists) and charges; declining cancels the payment and frees the amount (approvals gained decline handlers for this). Cancel at any point releases the amount, and a later approval expires.
+  - **Declined** (or a bank asking for authentication, which can't be answered off-session): the attempt fails with its code, the staff screen shows "Declined · try another card or cash", and a follow-up job (`payment.on_file_declined`) cancels the payment at Stripe and here and texts the guest the Payment link text with a pay link for the balance (good for 24 hours) that opens the M4-15 payment page. Tested with Stripe's 4000 0000 0000 0341 behaviour in the fake (`pm_card_chargeCustomerFail`).
+  - **The receipt text** in the first acceptance line needs receipts and their links, which M4-19 builds; M4-19 sends it after a card-on-file payment. Everything else in that line is tested here.
+  - **Flag for the founder (wording):** the glossary's "Waiting for Marcus to confirm on his phone" assumes a pronoun the app can't know for a guest, so the screen says "on their phone". The Payment link text's West 4 wording is about a deposit ("…pay the {amount} deposit here"), which reads wrong for a balance after a declined card; the spec has one Payment link text for both. Suggest a wording that fits both, or a second text.
+  - Bill: what's left to pay now counts only money that landed, so an amount held while the guest confirms (or a payment page is open) still shows as due; "Paid in full" shows only when the check is paid.
+  - DeskRoom and the Room phone share the room screen, so both get the Card on file panel; it shows only when the check has a saved card. When the guest pays from their phone, the room is released and the screen keeps "Paid".
+  - Tests: `apps/api/src/routes/card-on-file.int.test.ts` (guest confirms; Andy → Abhishek declined; Diego → Andy approved with `mit_reason`; declined card → pay link text pays the same $498.60; no second payment while waiting); `e2e/staff.spec.ts` "Card on file" (DeskRoom waits, the guest's phone pays, Paid). Not yet run on the real Stripe sandbox.
+
 
 ### M4-18 · Let guests pay their own share
 

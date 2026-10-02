@@ -44,6 +44,16 @@ export function BookingBill({ token, initial }: { token: string; initial: Bookin
             return r.ok ? ((await r.json()) as { url: string }).url : null;
           }}
           payCash={async () => (await fetch(`${path}/cash`, { method: "POST" })).ok}
+          payOnFile={async (paymentId) => {
+            const r = await fetch(`${path}/payments/${paymentId}/confirm`, { method: "POST" });
+            if (!r.ok) return null;
+            const done = (await r.json()) as {
+              status: "paid" | "declined" | "checking";
+              bill: GuestBill | null;
+            };
+            if (done.bill) setLink({ ...link, bill: done.bill });
+            return done.status;
+          }}
         />
       ) : (
         <p role="status">{t("en", "bookingLink.noBill")}</p>

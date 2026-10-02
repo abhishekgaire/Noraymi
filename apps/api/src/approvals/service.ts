@@ -34,6 +34,9 @@ export type Executor = (
 /** Registered by the module that owns each kind (rooms/faults.ts: comp and clock_pause). */
 export const executors = new Map<string, Executor>();
 
+/** What runs when an approval of a kind is declined, for kinds that held something (card_on_file, M4-17). */
+export const declineHandlers = new Map<string, Executor>();
+
 /**
  * The manager on duty at an instant (spec 02 · Approvals): the one function
  * approvals, room-order escalation and alerts all ask. Until M7's time clock,
@@ -159,6 +162,11 @@ export async function decide(
       status = "expired";
     }
   }
+  if (status === "declined")
+    await declineHandlers.get(approval.kind)?.(c, venueId, approval, {
+      approverId: input.userId,
+      at: input.at,
+    });
   await decideApproval(c, venueId, id, {
     status,
     approverId: input.userId,

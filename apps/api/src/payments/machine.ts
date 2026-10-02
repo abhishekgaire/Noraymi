@@ -149,12 +149,23 @@ export async function applyObservation(
 
 /** What staff see for a payment (Payment flows · What staff see during a card payment). */
 export type ScreenState =
-  "waiting" | "paid" | "authorized" | "declined" | "unknown" | "canceled" | "failed";
+  | "waiting"
+  | "waiting_guest"
+  | "paid"
+  | "authorized"
+  | "declined"
+  | "unknown"
+  | "canceled"
+  | "failed";
 
 export function screenState(p: PaymentRow, a: AttemptRow | null): ScreenState {
   if (p.status === "captured" || p.status === "partly_refunded" || p.status === "refunded")
     return "paid";
   if (p.status === "authorized") return "authorized";
+  // Card on file (M4-17): waiting for the guest (or a manager) until a charge is tried; a decline stays
+  // "Declined · try another card or cash" after the payment is cancelled to free the amount.
+  if (p.method === "card_on_file" && a?.state === "failed") return "declined";
+  if (p.method === "card_on_file" && !a && p.status === "pending") return "waiting_guest";
   if (p.status === "canceled") return "canceled";
   if (p.status === "failed" || p.status === "capture_failed") return "failed";
   if (a?.state === "unknown") return "unknown";

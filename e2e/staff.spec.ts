@@ -4210,3 +4210,70 @@ test("Split on DeskRoom: three $166.20 shares, share 1 in cash kept after a relo
     await db.end();
   }
 });
+
+/**
+ * Card on file (M4-17; screens N8, DeskRoom note 2) on Room 9 after Present:
+ * Andy picks the card on file, DeskRoom waits for Marcus, Marcus taps "Pay
+ * with Amex ··1005" on his phone's bill, and the check is paid off-session.
+ */
+test("Card on file: Room 9 waits for Marcus, the guest taps Pay with Amex ··1005 on the phone, Paid", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const onFile = page.getByRole("region", { name: "Card on file · Amex ··1005" });
+    await onFile.getByRole("button", { name: "Card on file · Amex ··1005" }).click();
+    await expect(onFile.getByRole("status")).toHaveText(
+      "Waiting for Marcus to confirm on their phone · Cancel",
+    );
+    await expect(onFile.getByRole("button", { name: "Ask a manager to approve" })).toBeVisible();
+
+    const phone = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    const hostToken = createHash("sha256")
+      .update("host-token:sess_room9")
+      .digest("base64url")
+      .slice(0, 32);
+    await phone.goto(`http://localhost:3001/r/${hostToken}`);
+    const bill = phone.getByRole("region", { name: "Your bill · #1042" });
+    await bill.getByRole("button", { name: "Pay with Amex ··1005" }).click();
+    await expect(
+      phone.getByRole("status").filter({ hasText: "Paid in full · thank you" }),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: /^Paid$/ })
+        .first(),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    const paid = await db.query<{ status: string; mit_reason: string | null }>(
+      "select status, mit_reason from payments where method = 'card_on_file'",
+    );
+    expect(paid.rows).toEqual([{ status: "captured", mit_reason: null }]);
+    await phone.context().close();
+  } finally {
+    await db.end();
+  }
+});

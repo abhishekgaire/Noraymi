@@ -249,6 +249,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
         reader_id: "00000000-0000-4000-8000-000000000044",
       },
       "POST /v1/venues/:venueId/payments/:paymentId/change": { tendered_cents: 100 },
+      "POST /v1/venues/:venueId/payments/:paymentId/approval": { reason: "Guest left" },
       "POST /v1/venues/:venueId/checks/:checkId/splits": { kind: "even", shares: 2 },
       "POST /v1/venues/:venueId/payments/:paymentId/tap": {
         reader_id: "00000000-0000-4000-8000-000000000044",

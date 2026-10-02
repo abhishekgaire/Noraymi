@@ -20,6 +20,7 @@ import {
   writeTap,
   type PaymentDeps,
 } from "../payments/run.js";
+import { askGuest, askManager, savedCardFor } from "../payments/card-on-file.js";
 
 /**
  * Payments (M4-05; spec 08 · Payments; Payment flows · What staff see):
@@ -30,8 +31,10 @@ import {
  *   POST /v1/venues/{v}/payments/{p}/cancel
  * Money routes need an Idempotency-Key. A tap that can't be known yet answers
  * 202 payment_unknown ("Checking with Stripe · don't retry"); a reader that's
- * offline 503 reader_offline, one that's busy 409 reader_busy. Cash and card
- * on file come with M4-13 and M4-17.
+ * offline 503 reader_offline, one that's busy 409 reader_busy. Cash came with
+ * M4-13. Card on file (M4-17): `{ method: "card_on_file", amount_cents }` waits
+ * for the guest; `POST /payments/{p}/approval { reason }` asks a manager
+ * instead (202 approval_pending).
  */
 const tapBody = z
   .object({
@@ -53,6 +56,16 @@ const cashBody = z
     share_id: z.string().uuid().nullable().optional(),
   })
   .strict();
+/** Card on file (M4-17): staff ask, and the payment waits for the guest's OK or a manager's. */
+const onFileBody = z
+  .object({
+    method: z.literal("card_on_file"),
+    amount_cents: z.number().int().positive(),
+    /** The guest has left: ask a manager at once, with this reason (202 approval_pending). */
+    reason: z.string().trim().min(1).max(500).optional(),
+  })
+  .strict();
+const approvalBody = z.object({ reason: z.string().trim().min(1).max(500) }).strict();
 const changeBody = z.object({ tendered_cents: z.number().int().positive() }).strict();
 const retapBody = z.object({ reader_id: z.string().uuid() }).strict();
 const uuid = z.string().uuid();
@@ -60,6 +73,8 @@ const uuid = z.string().uuid();
 export function paymentView(
   a: Pick<Applied, "payment" | "attempt"> & {
     reader?: { id: string; label: string; station: string } | null;
+    on_file?: { brand: string; last4: string; guest_name: string | null } | null;
+    approval?: { id: string; status: string; waiting_for: string } | null;
   },
 ) {
   const { payment, attempt } = a;
@@ -82,6 +97,34 @@ export function paymentView(
         }
       : null,
     reader: a.reader ?? null,
+    ...(payment.method === "card_on_file"
+      ? { on_file: a.on_file ?? null, approval: a.approval ?? null }
+      : {}),
+  };
+}
+
+/** A card-on-file payment's card and guest ("Waiting for Marcus"), and its manager's approval if asked. */
+async function onFileDetails(c: Queryable, venueId: string, paymentId: string) {
+  const check = (
+    await c.query<{ check_id: string }>(
+      "select check_id from payment_allocations where venue_id = $1 and payment_id = $2 limit 1",
+      [venueId, paymentId],
+    )
+  ).rows[0];
+  const card = check ? await savedCardFor(c, venueId, check.check_id) : null;
+  const approval = (
+    await c.query<{ id: string; status: string; waiting_for: string }>(
+      `select a.id, a.status, u.name as waiting_for from approvals a join users u on u.id = a.routed_to
+        where a.venue_id = $1 and a.kind = 'card_on_file' and a.target_id = $2
+        order by a.requested_at desc limit 1`,
+      [venueId, paymentId],
+    )
+  ).rows[0];
+  return {
+    on_file: card
+      ? { brand: card.brand, last4: card.last4, guest_name: card.guest_first_name }
+      : null,
+    approval: approval ?? null,
   };
 }
 
@@ -107,7 +150,13 @@ function answer(view: ReturnType<typeof paymentView>) {
 
 export function paymentRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; stripe: () => StripeClient },
+  options: {
+    pool: pg.Pool;
+    clock: Clock;
+    stripe: () => StripeClient;
+    payAppUrl?: string | null;
+    texts?: { allowList: readonly string[] | null };
+  },
 ): void {
   const deps = (): PaymentDeps => ({
     pool: options.pool,
@@ -141,6 +190,7 @@ export function paymentRoutes(
         payment,
         attempt,
         reader: attempt?.reader_id ? await readerByStripeId(c, venueId, attempt.reader_id) : null,
+        ...(payment.method === "card_on_file" ? await onFileDetails(c, venueId, paymentId) : {}),
       };
     });
     if (!found) throw new ApiError("not_found", "no such payment");
@@ -193,9 +243,45 @@ export function paymentRoutes(
           room: taken.settled.room,
         };
       }
+      const onFile = onFileBody.safeParse(request.body);
+      if (onFile.success) {
+        const asked = await request.inVenue(async (c) => {
+          const check = await c.query<{ status: string }>(
+            "select status from checks where venue_id = $1 and id = $2",
+            [venueId, request.params.checkId],
+          );
+          if (!check.rows[0]) throw new ApiError("not_found", "no such check");
+          if (["paid", "void"].includes(check.rows[0].status))
+            throw new ApiError("invalid_request", `this check is ${check.rows[0].status}`);
+          const made = await askGuest(c, venueId, {
+            checkId: request.params.checkId,
+            amountCents: onFile.data.amount_cents,
+            businessDate: await night(c, venueId),
+          });
+          const p = request.principal;
+          const pending =
+            onFile.data.reason && p.kind === "user"
+              ? await askManager(c, venueId, {
+                  paymentId: made.paymentId,
+                  reason: onFile.data.reason,
+                  userId: p.userId,
+                  deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+                  now: options.clock.now(),
+                })
+              : null;
+          return { ...made, pending };
+        });
+        if (asked.pending)
+          return reply.code(202).send({ ...asked.pending, payment_id: asked.paymentId });
+        reply.code(201);
+        return paymentView(await current(request, asked.paymentId));
+      }
       const parsed = tapBody.safeParse(request.body);
       if (!parsed.success)
-        throw new ApiError("invalid_request", 'send { method: "tap" or "cash", amount_cents, … }');
+        throw new ApiError(
+          "invalid_request",
+          'send { method: "tap", "cash" or "card_on_file", amount_cents, … }',
+        );
       let written;
       try {
         written = await request.inVenue(async (c) => {
@@ -282,6 +368,31 @@ export function paymentRoutes(
         }),
       );
       return { change_cents: fixed.changeCents };
+    },
+  );
+
+  // "Ask a manager to approve" (M4-17): the guest has left; the charge runs when the manager approves.
+  app.post<{ Params: { venueId: string; paymentId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/payments/:paymentId/approval",
+    { config: take },
+    async (request, reply) => {
+      const paymentId = paymentParam(request);
+      const parsed = approvalBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { reason }");
+      const p = request.principal;
+      if (p.kind !== "user")
+        throw new ApiError("forbidden", "asking for an approval is a person's");
+      const deviceId = request.signedDevice?.deviceId ?? request.session?.deviceId ?? null;
+      const pending = await request.inVenue((c) =>
+        askManager(c, request.venueId!, {
+          paymentId,
+          reason: parsed.data.reason,
+          userId: p.userId,
+          deviceId,
+          now: options.clock.now(),
+        }),
+      );
+      return reply.code(202).send(pending);
     },
   );
 

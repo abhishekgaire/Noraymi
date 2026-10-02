@@ -1417,4 +1417,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "yourBill.failed": "No se pudo abrir la página de pago. Inténtalo de nuevo.",
   "bookingLink.party": "Grupo de {n}",
   "bookingLink.noBill": "Tu cuenta aparecerá aquí cuando el personal la presente",
+  "yourBill.payOnFile": "Pagar con {brand} ··{last4}",
+  "pay.onFile.button": "Tarjeta guardada · {brand} ··{last4}",
+  "pay.onFile.waiting": "Esperando que {name} confirme en su teléfono",
+  "pay.onFile.ask": "Pedir aprobación a un gerente",
+  "pay.onFile.reason": "Por qué el invitado no puede confirmar",
+  "pay.onFile.send": "Enviar a un gerente",
+  "pay.onFile.approvalDeclined": "No aprobado · no se cobró nada",
 };
