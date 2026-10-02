@@ -286,3 +286,51 @@ test("the room page on a phone: tonight so far, the stay and wrap-up lines, Call
     await db.end();
   }
 });
+
+/**
+ * Same again on the room page (M3-11; screens N7): once o3 is delivered,
+ * Room 3's phone lists its round for $39.00 and one tap orders it again;
+ * with Strawberry 86'd tonight the round is offered without it, and says so.
+ */
+test("Same again on a phone: Room 3's round for $39.00, ordered again, and without what's 86'd", async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query(
+      "update orders set status = 'delivered', delivered_at = '2026-09-25T22:40:00-04:00' where id = (select row_id from seed_ids where slug = 'order_o3')",
+    );
+    const token = createHash("sha256")
+      .update("host-token:sess_room3")
+      .digest("base64url")
+      .slice(0, 32);
+    const page = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await page.goto(`/r/${token}`);
+    const again = page.getByRole("region", { name: "Same again" });
+    await expect(again).toContainText("2 × Margarita · Peach, 1 × Margarita · Strawberry · $39.00");
+    await again.getByRole("button", { name: "Order this again" }).click();
+    const order = page.locator(".order").first();
+    await expect(order.locator(".status")).toHaveText("Sent to the bar · you can still cancel");
+    const placed = await db.query<{ n: number }>(
+      "select count(*)::int as n from orders where same_again_of = (select row_id from seed_ids where slug = 'order_o3') and status = 'ringing'",
+    );
+    expect(placed.rows[0]!.n).toBe(1);
+
+    await db.query(
+      `update menu_options set out_until = '2026-09-26T10:00:00Z'
+        where name = 'Strawberry' and item_id = (select id from menu_items where name = 'Margarita')`,
+    );
+    await page.reload();
+    await expect(again).toContainText("2 × Margarita · Peach · $26.00");
+    await expect(again).toContainText("Without Margarita · Strawberry · 86'd tonight");
+    await page.context().close();
+  } finally {
+    await db.end();
+  }
+});

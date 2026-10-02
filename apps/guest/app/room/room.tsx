@@ -34,6 +34,12 @@ interface Bill {
   readonly time_zone: string;
 }
 const CALLS = ["mic", "tv", "check", "other"] as const;
+interface Round {
+  readonly order_id: string;
+  readonly lines: readonly { qty: number; name: string; options: readonly string[] }[];
+  readonly total_cents: number;
+  readonly left_out: readonly { name: string; reason: string }[];
+}
 /** "4 AM" on the hour, "11:05 PM" otherwise, in the venue's zone. */
 const clockTime = (iso: string, timeZone: string) => {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -119,6 +125,7 @@ export function RoomPage() {
   const [menu, setMenu] = useState<readonly Category[] | null>(null);
   const [orders, setOrders] = useState<readonly GuestOrder[]>([]);
   const [bill, setBill] = useState<Bill | null>(null);
+  const [rounds, setRounds] = useState<readonly Round[]>([]);
   const [called, setCalled] = useState(false);
   const [cart, setCart] = useState<readonly CartLine[]>([]);
   const [choosing, setChoosing] = useState<{
@@ -134,12 +141,14 @@ export function RoomPage() {
   const clientOrderId = useRef(newOrderId());
 
   const loadOrders = useCallback(async () => {
-    const [r, b] = await Promise.all([
+    const [r, b, a] = await Promise.all([
       fetch("/v1/public/room-session/orders", { cache: "no-store" }).catch(() => null),
       fetch("/v1/public/room-session/bill", { cache: "no-store" }).catch(() => null),
+      fetch("/v1/public/room-session/same-again", { cache: "no-store" }).catch(() => null),
     ]);
     if (r?.ok) setOrders(((await r.json()) as { orders: GuestOrder[] }).orders);
     if (b?.ok) setBill((await b.json()) as Bill);
+    if (a?.ok) setRounds(((await a.json()) as { rounds: Round[] }).rounds);
   }, []);
   const load = useCallback(async () => {
     const r = await fetch("/v1/public/room-session", { cache: "no-store" }).catch(() => null);
@@ -267,6 +276,21 @@ export function RoomPage() {
     } finally {
       setBusy(false);
     }
+  };
+  const again = async (orderId: string) => {
+    setError(null);
+    const r = await fetch("/v1/public/room-session/same-again", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ order_id: orderId, client_order_id: newOrderId() }),
+    }).catch(() => null);
+    if (!r?.ok) {
+      const body = r
+        ? ((await r.json().catch(() => ({}))) as { error?: { message?: string } })
+        : {};
+      setError(body.error?.message ?? t("en", "guestRoom.sendFailed"));
+    }
+    await loadOrders();
   };
   const call = async (kind: (typeof CALLS)[number]) => {
     const r = await fetch("/v1/public/room-session/calls", {
@@ -444,6 +468,35 @@ export function RoomPage() {
               ? t("en", "guestRoom.sending")
               : t("en", "guestRoom.send", { count, total: money(total) })}
           </button>
+        </section>
+      )}
+
+      {rounds.length > 0 && (
+        <section className="again" aria-labelledby="again-h">
+          <h2 id="again-h">{t("en", "guestRoom.again")}</h2>
+          <ul>
+            {rounds.map((r) => (
+              <li key={r.order_id}>
+                <p>
+                  {r.lines
+                    .map((l) => [`${l.qty} × ${l.name}`, ...l.options].join(" · "))
+                    .join(", ")}
+                  {" · "}
+                  {money(r.total_cents)}
+                </p>
+                {r.left_out.length > 0 && (
+                  <p className="hint">
+                    {t("en", "guestRoom.again.without", {
+                      names: r.left_out.map((x) => x.name).join(", "),
+                    })}
+                  </p>
+                )}
+                <button type="button" onClick={() => void again(r.order_id)}>
+                  {t("en", "guestRoom.again.order")}
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

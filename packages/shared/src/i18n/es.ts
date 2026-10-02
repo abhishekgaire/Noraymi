@@ -1145,4 +1145,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestRoom.lock.hint": "Tus amigos ven el menú, pero solo tú envías pedidos",
   "guestRoom.locked": "{name} bloqueó los pedidos · pídele que lo envíe",
   "guestRoom.theHost": "El anfitrión",
+  // Same again on the room page (M3-11).
+  "guestRoom.again": "Lo mismo otra vez",
+  "guestRoom.again.order": "Pedir esto otra vez",
+  "guestRoom.again.without": "Sin {names} · 86 esta noche",
 };

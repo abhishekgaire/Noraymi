@@ -135,3 +135,46 @@ describe("the room page's bill, calls and host lock", () => {
     expect((await as(friend, "POST", "/orders", order)).statusCode).toBe(201);
   });
 });
+
+describe("Same again", () => {
+  it("after o3 is delivered, Room 3 lists 2 × Margarita · Peach and 1 × Margarita · Strawberry for $39.00", async () => {
+    await raw.query("update orders set status = 'delivered', delivered_at = now() where id = $1", [
+      ids["order_o3"],
+    ]);
+    const host = await hostOf("sess_room3");
+    const rounds = (await as(host, "GET", "/same-again")).json().rounds;
+    expect(rounds).toHaveLength(1);
+    expect(rounds[0]).toMatchObject({
+      order_id: ids["order_o3"],
+      total_cents: 3900,
+      left_out: [],
+      lines: [
+        { name: "Margarita", options: ["Peach"], qty: 2, unit_cents: 1300 },
+        { name: "Margarita", options: ["Strawberry"], qty: 1, unit_cents: 1300 },
+      ],
+    });
+    const r = await as(host, "POST", "/same-again", {
+      order_id: ids["order_o3"],
+      client_order_id: "again-o3-0001",
+    });
+    expect(r.statusCode).toBe(201);
+    expect(r.json().order).toMatchObject({
+      status: "ringing",
+      same_again_of: ids["order_o3"],
+      amount_cents: 3900,
+    });
+  });
+
+  it("a round with something 86'd tonight is offered without it, and says so", async () => {
+    await raw.query(
+      `update menu_options set out_until = '2026-09-26T10:00:00Z'
+        where name = 'Strawberry' and item_id = (select id from menu_items where name = 'Margarita')`,
+    );
+    const rounds = (await as(await hostOf("sess_room3"), "GET", "/same-again")).json().rounds;
+    expect(rounds[0]).toMatchObject({
+      total_cents: 2600,
+      left_out: [{ name: "Margarita · Strawberry", reason: "out_tonight" }],
+    });
+    expect(rounds[0].lines).toHaveLength(1);
+  });
+});

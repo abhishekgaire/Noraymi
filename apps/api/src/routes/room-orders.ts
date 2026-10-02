@@ -13,7 +13,7 @@ import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { placeRoomOrder } from "../orders/place.js";
+import { placeRoomOrder, sameAgainRounds } from "../orders/place.js";
 import { board } from "../rooms/board.js";
 import { CALL_KINDS, createCall, type CallKind } from "../rooms/calls.js";
 import { newRoomCode } from "../rooms/checkin.js";
@@ -25,6 +25,8 @@ import { stepOrder } from "../orders/pipeline.js";
  *   GET  /v1/public/room-session/orders               the room's orders tonight, as the guest sees them
  *   POST /v1/public/room-session/orders               { client_order_id, lines }: rings at the bar
  *   POST /v1/public/room-session/orders/{o}/cancel    while ringing or asked to wait, by whoever placed it or the host
+ *   GET  /v1/public/room-session/same-again           the room's delivered rounds, priced from today's menu (M3-11)
+ *   POST /v1/public/room-session/same-again           { order_id, client_order_id }: orders a round again; it rings like any order
  *   GET  /v1/public/room-session/bill                 tonight so far, before tax and gratuity (M3-10)
  *   POST /v1/public/room-session/calls                { kind: mic | tv | check | other }: staff get it on their phones
  *   POST /v1/public/room-session/lock                 { on }: the host lock, host only; turning it on gives the room a new code
@@ -265,6 +267,56 @@ export function roomOrderRoutes(
         },
       );
       return { host_lock: parsed.data.on };
+    },
+  );
+
+  app.get("/v1/public/room-session/same-again", { config: guest }, async (request) => {
+    const me = currentGuest(request);
+    const rounds = await withVenue(
+      options.pool,
+      { venueId: me.venueId, requestId: request.requestId },
+      (c) => sameAgainRounds(c, me.venueId, me.session_id, options.clock.now()),
+    );
+    return { rounds };
+  });
+
+  const againBody = z.object({ order_id: id, client_order_id: z.string().min(8).max(64) }).strict();
+  app.post<{ Body: unknown }>(
+    "/v1/public/room-session/same-again",
+    { config: guest },
+    async (request, reply) => {
+      const parsed = againBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { order_id, client_order_id }");
+      const me = currentGuest(request);
+      const now = options.clock.now();
+      const order = await withVenue(
+        options.pool,
+        { venueId: me.venueId, requestId: request.requestId },
+        async (c) => {
+          const round = (await sameAgainRounds(c, me.venueId, me.session_id, now)).find(
+            (r) => r.order_id === parsed.data.order_id,
+          );
+          if (!round) throw new ApiError("not_found", "that round can't be ordered again");
+          return placeRoomOrder(c, me.venueId, {
+            sessionId: me.session_id,
+            roomGuestId: me.id,
+            roomId: me.session.room_id,
+            isHost: me.is_host,
+            lines: round.lines.map((l) => ({
+              variant_id: l.variant_id,
+              qty: l.qty,
+              option_ids: l.option_ids,
+            })),
+            clientOrderId: parsed.data.client_order_id,
+            sameAgainOf: round.order_id,
+            now,
+          });
+        },
+      );
+      return reply
+        .code(201)
+        .send({ order: { ...guestView(order, me), same_again_of: order.same_again_of } });
     },
   );
 }

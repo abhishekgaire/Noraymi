@@ -1126,4 +1126,8 @@ export const en = {
   "guestRoom.lock.hint": "Friends can see the menu, but only you can send orders",
   "guestRoom.locked": "{name} has locked ordering · ask them to send it",
   "guestRoom.theHost": "The host",
+  // Same again on the room page (M3-11).
+  "guestRoom.again": "Same again",
+  "guestRoom.again.order": "Order this again",
+  "guestRoom.again.without": "Without {names} · 86'd tonight",
 } as const;

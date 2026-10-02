@@ -294,17 +294,21 @@ Definition of done: see CLAUDE.md.
 
 ### M3-11 · Add Same again to the room page
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M3-09
 - **Spec:** [N7 Same again](../screens.md#n7-same-again); [Data model](../spec/04-data-model.md) · Same again; [API](../spec/08-api.md) · Guest room (`room-session/same-again`); [Order](../screens.md#order) note 6
 - **Build:** `GET /v1/public/room-session/same-again` lists the session's delivered orders, newest first, each with its items and total before tax, priced from today's menu and leaving out anything 86'd, outside the alcohol window or blocked by a cut-off (M3-20, M3-21). One tap places a new order with `same_again_of` set, which rings the bar and needs Accept like any other.
 - **Acceptance:**
-  - [ ] After o3 is delivered, Room 3's page lists "2 × Margarita · Peach, 1 × Margarita · Strawberry" for $39.00 under Same again.
-  - [ ] One tap orders it again: it reads "Sent to the bar · you can still cancel" and rings on the bar orders screen as a new order with `same_again_of`.
-  - [ ] A round with an item that's 86'd tonight is offered without it, and says so.
+  - [x] After o3 is delivered, Room 3's page lists "2 × Margarita · Peach, 1 × Margarita · Strawberry" for $39.00 under Same again.
+  - [x] One tap orders it again: it reads "Sent to the bar · you can still cancel" and rings on the bar orders screen as a new order with `same_again_of`.
+  - [x] A round with an item that's 86'd tonight is offered without it, and says so.
 - **Tests:** API tests; Playwright on a phone size.
 - **Notes:** None.
+  - Built: `sameAgainRounds` in `apps/api/src/orders/place.ts`; `GET` and `POST /v1/public/room-session/same-again` (`{ order_id, client_order_id }`) in `apps/api/src/routes/room-orders.ts`; the "Same again" row on the room page; tests in `room-session.int.test.ts` and the guest Playwright test "Same again on a phone".
+  - A round is one of the session's last ten delivered orders, newest first. Each item is priced from today's menu by its size, and each choice is matched by its group and name; an item that's off the menu, or whose size or choice is 86'd, is left out and listed ("Without Margarita · Strawberry · 86'd tonight"). A round with nothing left isn't offered.
+  - The new order goes through `placeRoomOrder` like any guest order (`same_again_of` set): it rings and needs Accept, and the host lock and ordering lock apply. The alcohol window and cut-offs leave items out from M3-20 and M3-21.
+  - "Rings on the bar orders screen" is checked as a new ringing order with `same_again_of`; the screen itself is M3-15.
 
 ### M3-12 · Run the room tablets in kiosk mode
 

@@ -193,6 +193,7 @@ export async function placeRoomOrder(
     isHost: boolean;
     lines: readonly StaffLine[];
     clientOrderId: string;
+    sameAgainOf?: string | null;
     now: Temporal.Instant;
   },
 ): Promise<OrderRow> {
@@ -231,6 +232,7 @@ export async function placeRoomOrder(
     placedAt: input.now.toString(),
     businessDate: businessDate(input.now, clock.timeZone, clock.dayCutover).businessDate.toString(),
     clientOrderId: input.clientOrderId,
+    sameAgainOf: input.sameAgainOf ?? null,
     items,
   });
   await emitEvent(c, {
@@ -241,4 +243,88 @@ export async function placeRoomOrder(
     roomId: input.roomId,
   });
   return (await orderById(c, venueId, orderId))!;
+}
+
+export interface AgainRound {
+  readonly order_id: string;
+  readonly delivered_at: string | null;
+  readonly lines: readonly (StaffLine & {
+    name: string;
+    options: readonly string[];
+    unit_cents: number;
+  })[];
+  readonly total_cents: number;
+  /** What the round had that can't be ordered again tonight, and why. */
+  readonly left_out: readonly { name: string; reason: "out_tonight" | "not_on_menu" }[];
+}
+
+/**
+ * Same again (M3-11; screens N7): a session's delivered rounds, newest first, priced from today's
+ * menu, each choice matched by its group and name, leaving out anything 86'd or off the menu and
+ * saying so. The alcohol window and cut-offs leave items out here too from M3-20 and M3-21.
+ */
+export async function sameAgainRounds(
+  c: Queryable,
+  venueId: string,
+  sessionId: string,
+  now: Temporal.Instant,
+): Promise<AgainRound[]> {
+  const delivered = await c.query<{ id: string }>(
+    `select id from orders where venue_id = $1 and session_id = $2 and status = 'delivered'
+      order by delivered_at desc nulls last, placed_at desc limit 10`,
+    [venueId, sessionId],
+  );
+  const nowIso = new Date(now.epochMilliseconds).toISOString();
+  const rounds: AgainRound[] = [];
+  for (const { id } of delivered.rows) {
+    const order = (await orderById(c, venueId, id))!;
+    const lines: AgainRound["lines"][number][] = [];
+    const leftOut: AgainRound["left_out"][number][] = [];
+    for (const item of order.items) {
+      const v = item.variant_id
+        ? await orderableVariant(c, venueId, item.variant_id, nowIso)
+        : null;
+      if (!v || !v.shown) {
+        leftOut.push({ name: item.name_snapshot, reason: "not_on_menu" });
+        continue;
+      }
+      const optionIds: string[] = [];
+      let missing = false;
+      let out = v.out_tonight;
+      let extra = 0;
+      for (const o of item.options) {
+        const match = v.groups
+          .find((g) => g.name === o.group)
+          ?.options.find((x) => x.name === o.name);
+        if (!match) missing = true;
+        else {
+          optionIds.push(match.id);
+          extra += match.price_delta_cents;
+          out ||= match.out_tonight;
+        }
+      }
+      const name = v.variant_count > 1 ? `${v.item_name} · ${v.variant_name}` : v.item_name;
+      const full = [name, ...item.options.map((o) => o.name)].join(" · ");
+      if (missing) leftOut.push({ name: full, reason: "not_on_menu" });
+      else if (out) leftOut.push({ name: full, reason: "out_tonight" });
+      else
+        lines.push({
+          variant_id: v.variant_id,
+          qty: item.qty,
+          option_ids: optionIds,
+          name,
+          options: item.options.map((o) => o.name),
+          unit_cents: v.price_cents + extra,
+        });
+    }
+    if (lines.length === 0) continue;
+    rounds.push({
+      order_id: order.id,
+      delivered_at: order.delivered_at,
+      lines,
+      total_cents: lines.reduce((s, l) => s + l.unit_cents * l.qty, 0),
+      left_out: leftOut,
+    });
+  }
+  return rounds;
 }
