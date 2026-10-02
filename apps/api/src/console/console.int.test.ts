@@ -186,6 +186,11 @@ describe("the Console", () => {
       router: { online: true, backup_internet: "on", on_backup_now: false },
     });
     expect(venues.some((x) => x.id === v.venueB)).toBe(true);
+    // The go-live checklist (M4-29), from the same rows Admin → Payments reads: not yet, unchecked.
+    expect((a as unknown as { go_live: unknown }).go_live).toMatchObject({
+      passes: false,
+      merchant_category: { status: "pending" },
+    });
     // The API's own role (app_rw) can't list venues; the Console's definer door can.
     const rw = appPool(db.url);
     try {

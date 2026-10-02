@@ -4703,3 +4703,50 @@ test("Admin → Card fee & gratuity: West 4's settings, and a tip change reaches
     await db.end();
   }
 });
+
+/**
+ * The go-live checklist in Admin → Payments (M4-29), the owner's: the
+ * merchant category matches Stripe's, Andy and Abhishek each have a Dashboard
+ * login and a Tap to Pay phone confirmed, and West 4 passes.
+ */
+test("Go-live checklist: the merchant category, Andy and Abhishek confirmed, and West 4 passes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    const account = (
+      await db.query<{ a: string }>("select stripe_account_id as a from organizations limit 1")
+    ).rows[0]!.a;
+    // The account's onboarding is done in the fake, so it reports its merchant category.
+    expect((await request.get(`http://127.0.0.1:12111/fake/onboarding/${account}`)).ok()).toBe(
+      true,
+    );
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/payments");
+    const list = page.getByRole("region", { name: "Go-live checklist" });
+    await expect(list.getByRole("status")).toHaveText("Not yet: finish each check below");
+    await list.getByLabel("The category we expect").fill("5813");
+    await list.getByRole("button", { name: "Save the category" }).click();
+    await expect(list.getByText("Checked: Stripe has 5813")).toBeVisible();
+    // Each box follows the server's answer, so it's ticked a moment after the click.
+    for (const name of ["Abhishek", "Andy"])
+      for (const label of ["has a Stripe Dashboard login", "has a Tap to Pay phone"]) {
+        const box = list.getByRole("checkbox", { name: new RegExp(`^${name}.* ${label}$`) });
+        await box.click();
+        await expect(box).toBeChecked();
+      }
+    await expect(list.getByRole("status")).toHaveText("Passes: West 4 is ready to take payments");
+    await expect(list.getByText(/^Confirmed by Abhishek/).first()).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});

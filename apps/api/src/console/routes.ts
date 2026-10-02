@@ -24,6 +24,7 @@ import { isModuleId, moduleDef, rulePackChanges, type Clock, type RulePack } fro
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
+import { goLive } from "../payments/go-live.js";
 
 /**
  * The minimal Console (M1-35; screens.md · Console notes 1, 2, 4, 5): a
@@ -87,11 +88,12 @@ export function consoleRoutes(
     const venues = await consoleVenues(options.pool);
     const out = [];
     for (const v of venues) {
-      const devices = await app.db.withVenue(
+      const [devices, checklist] = await app.db.withVenue(
         { venueId: v.id, userId: staff.id, requestId: request.requestId },
-        (c) => listDevices(c, v.id),
+        async (c) => [await listDevices(c, v.id), await goLive(c, v.id)] as const,
       );
-      out.push({ ...v, health: deviceHealth(devices) });
+      // The go-live checklist (M4-29): the same rows Admin → Payments reads.
+      out.push({ ...v, health: deviceHealth(devices), go_live: checklist });
     }
     return { venues: out };
   });

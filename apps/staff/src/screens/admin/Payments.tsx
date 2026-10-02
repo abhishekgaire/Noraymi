@@ -3,6 +3,7 @@ import { cents, type MessageKey } from "@west4/shared";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { GoLive } from "./GoLive.js";
 
 /**
  * Admin → Payments (M4-01; screens N37; Stripe setup 1, 2 and 7), the
@@ -145,6 +146,7 @@ export function Payments() {
           )}
         </>
       )}
+      {account?.account_id && <GoLive venueId={venueId} />}
     </section>
   );
 }

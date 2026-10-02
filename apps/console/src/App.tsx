@@ -30,6 +30,8 @@ interface VenueSummary {
   slug: string;
   time_zone: string;
   health: Health;
+  /** The go-live checklist (M4-29): the same rows as Admin → Payments. */
+  go_live?: { passes: boolean; merchant_category: { status: string } };
 }
 
 interface VenueDetail {
@@ -321,6 +323,18 @@ function Venues({
                   >
                     <span className="venue-name">{v.name}</span>
                     <span className="muted small">{healthLine(v.health)}</span>
+                    {v.go_live && (
+                      <span className="muted small">
+                        {v.go_live.passes
+                          ? t("en", "console.goLive.passes")
+                          : t("en", "console.goLive.notYet", {
+                              merchant: t(
+                                "en",
+                                `console.goLive.merchant.${v.go_live.merchant_category.status}` as MessageKey,
+                              ),
+                            })}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}

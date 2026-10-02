@@ -15,6 +15,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import type { Queryable } from "@west4/db";
+import { merchantCategoryPasses } from "../payments/go-live.js";
 
 interface VenueParams {
   venueId: string;
@@ -90,6 +91,11 @@ export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate 
 
       if (target === "on") {
         if (!row.allowed) throw new ApiError("forbidden", t("en", "modules.refused.notAllowed"));
+        // Bar tabs & quick sale wait for the go-live checklist's merchant category (M4-29).
+        if (id === "bar_tabs" && !(await merchantCategoryPasses(c, venueId)))
+          throw new ApiError("invalid_request", t("en", "modules.refused.merchantCategory"), {
+            details: { reason: "merchant_category" },
+          });
         const missing = missingNeeds(states, id);
         if (missing.length > 0) {
           throw new ApiError(

@@ -21,6 +21,8 @@ export interface AccountV2 {
   readonly configuration?: {
     readonly merchant?: {
       readonly capabilities?: { readonly card_payments?: { readonly status?: string } };
+      /** The merchant category code Stripe has for the account (M4-29). */
+      readonly mcc?: string | null;
     };
   };
   readonly defaults?: {

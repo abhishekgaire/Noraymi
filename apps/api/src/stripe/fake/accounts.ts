@@ -26,7 +26,12 @@ function setCard(
   needs: string[],
 ): void {
   a["configuration"] = {
-    merchant: { capabilities: { card_payments: { requested: true, status } } },
+    // The fake's onboarded account reports a merchant category (5813, drinking places) for tests;
+    // which category fits a karaoke bar is open with Stripe (M4-29).
+    merchant: {
+      capabilities: { card_payments: { requested: true, status } },
+      ...(status === "active" ? { mcc: "5813" } : {}),
+    },
   };
   a["requirements"] = {
     entries: needs.map((description) => ({

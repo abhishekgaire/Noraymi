@@ -11,6 +11,7 @@ import { billRoutes } from "./routes/bill.js";
 import { receiptRoutes } from "./routes/receipts.js";
 import { refundRoutes } from "./routes/refunds.js";
 import { disputeRoutes } from "./routes/disputes.js";
+import { goLiveRoutes } from "./routes/go-live.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -265,6 +266,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       payRoutes(scope, { pool: gatePoolRef!, clock, stripe });
       receiptRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });
       refundRoutes(scope, { clock });
+      goLiveRoutes(scope, { pool: gatePoolRef!, clock, stripe });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

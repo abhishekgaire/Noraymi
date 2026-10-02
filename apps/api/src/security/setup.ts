@@ -213,6 +213,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       splitId: splitB.rows[0]!.id,
       refundId: refundB.rows[0]!.id,
       disputeId: disputeB.rows[0]!.id,
+      userId: v.ownerB,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -264,6 +265,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/payments/:paymentId/approval": { reason: "Guest left" },
       "POST /v1/venues/:venueId/checks/:checkId/receipts": { channel: "print" },
       "POST /v1/venues/:venueId/disputes/:disputeId/evidence": { note: "wall" },
+      "POST /v1/venues/:venueId/go-live/people/:userId": { check: "tap_to_pay", confirmed: true },
       "POST /v1/venues/:venueId/checks/:checkId/refunds": {
         parts: [{ payment_id: "00000000-0000-4000-8000-000000000045", amount_cents: 100 }],
         reason: "wall",

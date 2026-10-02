@@ -852,7 +852,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-29 · Run the go-live checklist for West 4
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-01, M4-02
 - **Spec:** [milestones: M4](../milestones.md#m4--payments-and-receipts) (the go-live checklist); [Stripe setup](../spec/06-stripe-setup.md) steps 3 and 11; [Scope and architecture](../spec/01-scope-architecture.md) (When our cloud is down); [screens: Setup note 8](../screens.md#setup), [Setup note 10](../screens.md#setup)
@@ -861,11 +861,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Turning on Bar tabs & quick sale (`PATCH /modules/{id}`) is refused, with the reason, until the merchant category check passes.
   - The Console's venue list reads the same rows, so Admin and the Console never disagree.
 - **Acceptance:**
-  - [ ] With the merchant category not yet checked, turning on Bar tabs & quick sale is refused with the reason.
-  - [ ] The checklist shows Andy and Abhishek each with a Dashboard login and a Tap to Pay phone confirmed, and passes for West 4.
-  - [ ] The Console shows the same state for West 4.
+  - [x] With the merchant category not yet checked, turning on Bar tabs & quick sale is refused with the reason.
+  - [x] The checklist shows Andy and Abhishek each with a Dashboard login and a Tap to Pay phone confirmed, and passes for West 4.
+  - [x] The Console shows the same state for West 4.
 - **Tests:** the module-guard test; principal suite (owner only); end-to-end.
 - **Notes:** Stripe has no API that lists Dashboard users, so those two checks are the owner's confirmation. Which merchant category fits a karaoke bar is open with Stripe ([Open technical questions](../spec/14-open-questions.md)): the checklist stores the category we expect for the venue and checks the account against it. The spec names no table for these checks, only "the same rows" as Setup and the Console; cautious default: a small `setup_checks` table (venue_id, key, status, confirmed_by, confirmed_at), flagged. The outage drill (M8) uses these logins.
+  - **Built (M4-29):** migration 0069 (`setup_checks`, the ticket's cautious default: one row per check, with expected, found, who confirmed and when). `apps/api/src/payments/go-live.ts` and owner-only routes `GET /go-live` (reads the account's merchant category from Stripe first, outside any transaction), `PUT /go-live/merchant-category { expected }` and `POST /go-live/people/{user} { check, confirmed }`. Admin → Payments shows the checklist: the category we expect against what Stripe has (Checked, Doesn't match or Not checked yet), and for each owner and manager two boxes (Dashboard login that can take payments; phone that runs Tap to Pay) with "Confirmed by Abhishek, date". It passes when all of them do. Turning on Bar tabs & quick sale is refused with the reason until the category passes (`modules.refused.merchantCategory`, details reason `merchant_category`). The Console's venue list reads the same checklist inside each venue's wall and shows "Go-live checklist: passes" or "not yet · merchant category …".
+  - **Open with Stripe (as the ticket's note says):** which merchant category fits a karaoke bar. The expected code is the owner's entry; nothing is filled in for them. The fake reports 5813 (drinking places) once onboarded, for tests only.
+  - Reads don't run the route's permission check, so the checklist's read checks the owner role itself (a manager gets 403).
+  - Tests: `apps/api/src/routes/go-live.int.test.ts` (Bar tabs refused with the reason; the category matching, Andy and Abhishek confirmed, passes; then Bar tabs turns on; Andy refused); `apps/api/src/console/console.int.test.ts` (the Console's list carries the checklist); `e2e/staff.spec.ts` "Go-live checklist" (Abhishek's Admin → Payments, through to "Passes").
+
 
 ### M4-30 · Prove Room 9's close-outs end to end and run the live payment drill
 

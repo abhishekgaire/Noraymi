@@ -128,6 +128,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   splitId: uuid(46),
   refundId: uuid(47),
   disputeId: uuid(48),
+  userId: uuid(49),
   date: "2026-09-25",
   slug: "venue-b-sample",
   id: "rooms",
