@@ -874,7 +874,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-30 · Prove Room 9's close-outs end to end and run the live payment drill
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M4-01 to M4-29; outside: West 4's onboarding and both S710s registered to its Location
 - **Spec:** [milestones: M4 done when](../milestones.md#m4--payments-and-receipts); [Testing and operations](../spec/13-testing-operations.md) (Tests, Environments); [demo seed: Things to try](../demo-seed.md#things-to-try)
@@ -885,14 +885,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
 - **Acceptance:**
   - [ ] The chaos suite (M4-12) passes in CI and blocks a merge when it fails.
   - [ ] On the connected sandbox, Room 9 closes out as the seed says ($618.60, −$120.00, $498.60) by one tap; by 12 payments of $41.55; and by an even split of three $166.20 shares with one in cash; every split adds up to the cent.
-  - [ ] Reopening #1042 and accepting the 2 × Margarita · Peach writes revision 2 at $652.11 with $532.11 left.
+  - [x] Reopening #1042 and accepting the 2 × Margarita · Peach writes revision 2 at $652.11 with $532.11 left.
   - [ ] Live payments on both S710s are captured and refunded, and under forced timeouts Stripe's live Dashboard shows no double charge.
-  - [ ] Andy's refund waits in Abhishek's inbox, can't go over $120.00, and shows "Refunded" only after Stripe confirms.
+  - [x] Andy's refund waits in Abhishek's inbox, can't go over $120.00, and shows "Refunded" only after Stripe confirms.
   - [ ] A sandbox dispute shows in the inbox with its evidence gathered.
-  - [ ] Room 9's receipt reads the same printed, texted, emailed and on the public page.
+  - [x] Room 9's receipt reads the same printed, texted, emailed and on the public page.
   - [ ] The ledger and merge tests pass, and the go-live checklist passes for West 4.
 - **Tests:** the suites above in CI against the sandbox, and the recorded live drill.
 - **Notes:** The drill-only flag must never be set outside the drill's hour; the runbook says who sets and clears it.
+  - **Built (M4-30):** the live drill's tools. A time-limited drill flag (`venues.drill_drop_until`, migration 0070): while it's in the future, our copy of Stripe's answer to a tap is dropped on purpose, so the payment reads "Checking with Stripe · don't retry" and the poller and reconciler settle it; it turns itself off at its end (tested in `apps/api/src/payments/drill.int.test.ts`: one PaymentIntent, Paid, and normal again after the end). The runbook `docs/runbooks/live-payment-drill.md` (who, the four payments on both S710s, the cable pull, who sets and clears the flag and how, the refunds, the Dashboard check, stop if anything charged twice). The record: `pnpm --filter @west4/api drill:record -- --date <night>` prints every reader payment of the night with its reader, amount, attempts, PaymentIntent and refunds, for `docs/drills/<date>.md`.
+  - **Covered against the fake and the database (ticked):** revision 2 at $652.11 with $532.11 left (`present.int.test.ts`, `finalize.int.test.ts`); Andy's refund waiting for Abhishek, capped at $120.00, "Refunded" only after Stripe confirms (`refunds.int.test.ts`); Room 9's receipt the same four ways (`receipts.int.test.ts`). Also passing against the fake: Room 9 by one tap (M4-11, and once on the real sandbox in M4-11), by 12 shares of $41.55 (`pay-my-share.int.test.ts`), split three ways at $166.20 with one share in cash (`splits.int.test.ts`), the dispute inbox (`disputes.int.test.ts`), the ledger and merges (`prepaid-merge.int.test.ts`) and the checklist (`go-live.int.test.ts`).
+  - **Blocked on the founder, then open:**
+    - West 4's Stripe onboarding finished (Admin → Payments → Connect with Stripe) and both real S710s registered to its Location; then the live drill as the runbook says, with its record committed.
+    - The sandbox runs: Room 9 by 12 Pay my share payments and the three-way split through Stripe's real Payment Element, and a dispute with Stripe's 0259 card. These need the payment page on a real hostname (a domain), and the restricted keys need Files, Disputes and Refunds permissions.
+    - "Blocks a merge": the chaos suite runs in CI's integration job today; making a failure block merging is a GitHub branch-protection setting on `main` (Settings → Branches → require the "Integration" check), which is the founder's to switch on.
+    - The go-live checklist passing for West 4 itself needs the merchant category from Stripe and the founder's confirmations on production.
+
 
 ## Coverage
 

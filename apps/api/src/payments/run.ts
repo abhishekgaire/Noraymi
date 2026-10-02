@@ -19,7 +19,7 @@ import {
   type PaymentSource,
   type Queryable,
 } from "@west4/db";
-import type { Clock, Temporal } from "@west4/shared";
+import { Temporal, type Clock } from "@west4/shared";
 import { StripeError, StripeUnknownResult, type StripeClient } from "../stripe/client.js";
 import {
   cancelIntent,
@@ -345,6 +345,10 @@ export async function runAttempt(
         attempt.idem_key,
       );
     await deps.stripe.step("after-process");
+    // The live drill (M4-30): during its hour, our copy of Stripe's answer is dropped on purpose,
+    // so the payment goes to "Checking with Stripe" and the poller and reconciler settle it.
+    if (await inVenue((c) => drillDropsAnswer(c, venueId, now)))
+      throw new StripeUnknownResult("drill: our copy of Stripe's answer was dropped on purpose");
   } catch (e) {
     if (e instanceof StripeUnknownResult) {
       const applied = await record({ attempt: { state: "unknown" } });
@@ -621,4 +625,14 @@ export async function claimAndRun<T>(
     );
     throw e;
   }
+}
+
+/** Whether the live drill's flag is on for this venue now (M4-30): never past its end. */
+async function drillDropsAnswer(c: Queryable, venueId: string, now: Temporal.Instant) {
+  const r = await c.query<{ until: string | null }>(
+    "select to_json(drill_drop_until) #>> '{}' as until from venues where id = $1",
+    [venueId],
+  );
+  const until = r.rows[0]?.until;
+  return !!until && Temporal.Instant.compare(now, Temporal.Instant.from(until)) < 0;
 }
