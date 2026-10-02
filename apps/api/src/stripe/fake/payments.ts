@@ -17,6 +17,8 @@ const TEST_CARDS: Record<string, { brand: string; last4: string }> = {
   pm_card_discover: { brand: "discover", last4: "1117" },
   // 4000 0000 0000 0341: attaches to a Customer, then declines every later charge (M4-17).
   pm_card_chargeCustomerFail: { brand: "visa", last4: "0341" },
+  // 4000 0000 0000 5126: pays, then any refund fails (M4-21).
+  pm_card_refundFail: { brand: "visa", last4: "5126" },
 };
 
 const needAccount = (account: string | null): string => {
@@ -282,6 +284,61 @@ fakeRouteSets.push((fake) => {
     fake.emit("connect", "payment_intent.succeeded", pi, account);
     return { body: pi };
   });
+
+  // Refunds (M4-21): pending first; Stripe then says succeeded (refund.updated) or, on the refund-fail
+  // test card, failed (refund.failed). The event goes out after the answer, as Stripe's does.
+  fake.route("POST", "/v1/refunds", (req) => {
+    const account = needAccount(req.account);
+    const pi = fake.get(String(req.body["payment_intent"] ?? ""), account, "payment_intent");
+    if (pi["status"] !== "succeeded")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "charge_not_refundable",
+        "This PaymentIntent has nothing captured to refund.",
+      );
+    const received = Number(pi["amount_received"] ?? 0);
+    const already = Number(pi["_refunded"] ?? 0);
+    const amount =
+      req.body["amount"] === undefined ? received - already : Number(req.body["amount"]);
+    if (!Number.isInteger(amount) || amount <= 0 || amount > received - already)
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "amount_too_large",
+        `Refund amount is greater than the unrefunded amount on the charge.`,
+      );
+    pi["_refunded"] = already + amount;
+    const fails = pi["payment_method"] === "pm_card_refundFail";
+    const refund = fake.put({
+      id: fakeId("re"),
+      object: "refund",
+      _account: account,
+      amount,
+      currency: "usd",
+      payment_intent: pi["id"],
+      charge: pi["latest_charge"] ?? null,
+      status: "pending",
+      failure_reason: null,
+      metadata: req.body["metadata"] ?? {},
+    });
+    const answer = { ...refund };
+    setTimeout(() => {
+      if (fails) {
+        pi["_refunded"] = Number(pi["_refunded"]) - amount;
+        Object.assign(refund, { status: "failed", failure_reason: "expired_or_canceled_card" });
+        fake.emit("connect", "refund.failed", refund, account);
+      } else {
+        refund["status"] = "succeeded";
+        fake.emit("connect", "refund.updated", refund, account);
+      }
+    }, 0).unref?.();
+    return { body: answer };
+  });
+
+  fake.route("GET", "/v1/refunds/:id", (req) => ({
+    body: fake.get(req.params["id"]!, needAccount(req.account), "refund"),
+  }));
 
   fake.route("POST", "/v1/payment_intents/:id/cancel", (req) => {
     const pi = fake.get(req.params["id"]!, needAccount(req.account), "payment_intent");

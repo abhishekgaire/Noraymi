@@ -43,6 +43,7 @@ import {
   savedCardFor,
 } from "./card-on-file.js";
 import type { VenueTextSettings } from "../texts/venue.js";
+import { REFUND_RUN_KIND, runRefund } from "./refunds.js";
 
 /**
  * How every card payment runs (M4-05; Payment flows steps 1 to 4):
@@ -536,6 +537,11 @@ export function makePaymentHandlers(deps: PaymentDeps): Record<string, JobHandle
     },
     [PAYMENT_CHECK_KIND]: async (job) => {
       await pollAttempt(deps, job.job.venue_id, job.job.payload as never);
+    },
+    // An approved card refund (M4-21): sent to Stripe once, keyed <payment_id>:refund:<n>.
+    [REFUND_RUN_KIND]: async (job) => {
+      const p = job.job.payload as { refund_id: string };
+      await runRefund(deps, job.job.venue_id, p.refund_id);
     },
     // A declined card on file (M4-17): cancel it, and text the guest a pay link for the balance.
     [ON_FILE_DECLINED_KIND]: async (job) => {

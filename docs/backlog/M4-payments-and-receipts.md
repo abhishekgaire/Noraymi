@@ -648,7 +648,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-21 · Refund from a paid check, approved on another phone and capped
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-05, M4-07, M4-13; M2 (approvals)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 14 and 16; [Payment flows](../spec/07-payment-flows.md#refunds); [Data model](../spec/04-data-model.md) (`refunds`, `approvals` kind `refund`); [API](../spec/08-api.md) (`POST /checks/{c}/refunds`, `GET /refunds/{r}`, `POST /bookings/{b}/refunds`); [Tenancy and access](../spec/02-tenancy-access.md) (Approvals, roles); [screens: N22](../screens.md#n22-refund-from-check)
@@ -662,14 +662,23 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `POST /bookings/{b}/refunds` refunds a deposit on a booking not yet checked in, by the same rules, and sends the Deposit refund text.
   - On a shared screen, a refund asks for the PIN again.
 - **Acceptance:**
-  - [ ] Andy asks to refund $120.00 of Marcus's deposit: it shows "Waiting for Abhishek" and lands in Abhishek's Approvals inbox, never Andy's.
-  - [ ] $120.01 off Marcus's deposit answers `422 over_refundable`; after a $50.00 refund, at most $70.00 more can come off.
-  - [ ] After Abhishek approves, screens show "Refund pending" until `refund.updated` says succeeded, then "Refunded"; with that webhook held back in the sandbox, it stays pending.
-  - [ ] A refund Stripe fails goes back to Andy with Stripe's reason, and the money stays owed to Marcus.
-  - [ ] Diego (front desk) and Maya (bartender) can't ask for a refund.
-  - [ ] The check's amount due is $0.00 after a refund succeeds.
+  - [x] Andy asks to refund $120.00 of Marcus's deposit: it shows "Waiting for Abhishek" and lands in Abhishek's Approvals inbox, never Andy's.
+  - [x] $120.01 off Marcus's deposit answers `422 over_refundable`; after a $50.00 refund, at most $70.00 more can come off.
+  - [x] After Abhishek approves, screens show "Refund pending" until `refund.updated` says succeeded, then "Refunded"; with that webhook held back in the sandbox, it stays pending.
+  - [x] A refund Stripe fails goes back to Andy with Stripe's reason, and the money stays owed to Marcus.
+  - [x] Diego (front desk) and Maya (bartender) can't ask for a refund.
+  - [x] The check's amount due is $0.00 after a refund succeeds.
 - **Tests:** the money-cases group `refunds`; sandbox integration (a refund that fails, with Stripe's refund-failure test card); webhook replays out of order (`refund.failed` then `refund.updated`); approval routing and role tests; chaos (kill after Stripe's refund succeeds and before our record).
 - **Notes:** How a partial refund's share of tax and gratuity rounds isn't pinned down (money-cases ambiguity A8). Cautious default: share them by largest remainder of the revision's tax and gratuity lines, so refunding a whole check returns them exactly. The spec says large refunds ask for the passkey again but sets no amount; cautious default: every refund request asks again (the passkey in a passkey session, the PIN on a shared screen). "Refunds over a set amount alert the owner" has no amount either; the exceptions report and alerts come in M7 and M8. The attempt `action` list names no refund action, so the refund key follows the same `<payment_id>:<action>:<n>` pattern. Gratuity refunded after its pool is paid is M7's and waits on the lawyer.
+  - **Built (M4-21):** migration 0065 (`refunds`, and `payment_allocations.refund_id`); `apps/api/src/payments/refunds.ts`; `POST /checks/{c}/refunds { lines?, parts, reason }`, `POST /bookings/{b}/refunds { parts, reason }` and `GET /refunds/{r}` (`apps/api/src/routes/refunds.ts`). Asking needs `refunds.request` (owners and managers) and the passkey again (step-up), and answers `202 approval_pending` through M2's approvals (Andy's go to Abhishek; nobody decides their own or on the asking device). Each payment's part is capped by `refundCap` (packages/rules, the `refunds` money cases): what it captured, tip included, less pending and succeeded refunds, else `422 over_refundable` with `max_refundable_cents`.
+  - On approval: the reversing lines first (kind `refund`: each picked line, then its share of each tax line and of the gratuity, half up over that tax's base and the gratuity's base, so a whole check gives back exactly its tax and gratuity; anything the payments give back beyond the picked lines is one "Refund · reason" line), then each card refund in the `refund.run` job, outside any transaction, keyed `<payment_id>:refund:<n>`. The approve route runs it at once; the worker runs it otherwise. A cash refund is a drawer move out of the drawer or staff bank that took it, done at once.
+  - Status follows Stripe: `refund.updated` and `refund.failed` both read the refund from Stripe now, so events in any order land right, and only a succeeded refund writes the negative allocation and moves the payment to partly refunded or refunded. Until then the screen reads "Refund pending". A failed one keeps Stripe's reason (`failure_reason`) and leaves the money owed to the guest (the deposit covers that much less of the check).
+  - If our process stops after Stripe makes the refund but before we keep its id, the webhook still finds it by the refund id in its metadata, and the job's retry with the same key makes nothing new (tested by dropping Stripe's answer).
+  - A refund posts to the current business date with `adjusts_business_date` set to the payment's night when that's different.
+  - A deposit refund before check-in sends the Deposit refund text when it succeeds.
+  - **Not here:** "before capture, capture less or cancel instead" applies to tab holds and comes with M6's tabs (a refund here needs a captured payment). On a shared screen the step-up is the passkey too; a PIN re-ask for shared screens is open (flagged). Gratuity refunded after its pool is paid is M7's.
+  - Tests: `apps/api/src/routes/refunds.int.test.ts` (over the cap, Diego and Maya refused, Waiting for Abhishek, runs only after his approval, pending with the webhook held back, Refunded and $0.00 due, the replayed event changing nothing, one Stripe refund keyed `:refund:1`, $70.00 left after $50.00, the dropped answer, a deposit before check-in with its text, and a refund Stripe fails with `expired_or_canceled_card` and events out of order). Not yet run on the real sandbox.
+
 
 ### M4-22 · Offer Refund from check on the staff phone and DeskRoom
 

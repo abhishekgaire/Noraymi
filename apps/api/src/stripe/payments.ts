@@ -280,3 +280,39 @@ export async function createOffSessionIntent(
     },
   });
 }
+
+export interface StripeRefund {
+  readonly id: string;
+  readonly status: "pending" | "requires_action" | "succeeded" | "failed" | "canceled";
+  readonly amount: number;
+  readonly failure_reason?: string | null;
+  readonly metadata?: Record<string, string>;
+}
+
+/** A refund on the venue's account (M4-21; Payment flows · Refunds), keyed `<payment_id>:refund:<n>`. */
+export async function createRefund(
+  stripe: StripeClient,
+  account: string,
+  input: { piId: string; amountCents: number; refundId: string },
+  idempotencyKey: string,
+): Promise<StripeRefund> {
+  return stripe.call("refunds", "POST", "/v1/refunds", {
+    account,
+    idempotencyKey,
+    params: {
+      payment_intent: input.piId,
+      amount: input.amountCents,
+      metadata: { refund_id: input.refundId },
+    },
+  });
+}
+
+export async function retrieveRefund(
+  stripe: StripeClient,
+  account: string,
+  stripeRefundId: string,
+): Promise<StripeRefund> {
+  return stripe.call("refunds", "GET", `/v1/refunds/${encodeURIComponent(stripeRefundId)}`, {
+    account,
+  });
+}

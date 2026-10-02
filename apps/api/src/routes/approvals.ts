@@ -8,6 +8,8 @@ import { decide } from "../approvals/service.js";
 import type pg from "pg";
 import { latestAttempt } from "@west4/db";
 import { chargeNow } from "../payments/card-on-file.js";
+import { claimAndRun } from "../payments/run.js";
+import { REFUND_RUN_KIND, runRefund } from "../payments/refunds.js";
 import type { StripeClient } from "../stripe/client.js";
 import type { ReceiptDeps } from "../receipts/send.js";
 
@@ -119,6 +121,15 @@ export function approvalRoutes(
           latestAttempt(c, request.venueId!, a.target_id),
         );
         if (attempt) await chargeNow(deps, request.venueId!, a.target_id, attempt.attempt_no);
+      }
+      // An approved refund goes to Stripe now, after the decision has committed (M4-21).
+      if (a.kind === "refund" && a.status === "approved" && options.pool && options.stripe) {
+        const deps = { pool: options.pool, stripe: options.stripe(), clock: options.clock };
+        const ids = ((a.payload as { refund_ids?: string[] }).refund_ids ?? []).filter(Boolean);
+        for (const id of ids)
+          await claimAndRun(deps, request.venueId!, `${REFUND_RUN_KIND}:${id}`, () =>
+            runRefund(deps, request.venueId!, id),
+          );
       }
       return answer;
     },
