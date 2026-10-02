@@ -57,6 +57,25 @@ fakeRouteSets.push((fake) => {
     }),
   }));
 
+  // The payment page's domain, registered for Apple Pay and Google Pay (M4-15).
+  fake.route("POST", "/v1/payment_method_domains", (req) => {
+    const account = needAccount(req.account);
+    const domain = String(req.body["domain_name"] ?? "");
+    const known = fake.list("payment_method_domain", account, (d) => d["domain_name"] === domain);
+    if (known[0]) return { body: known[0] };
+    return {
+      body: fake.put({
+        id: fakeId("pmd"),
+        object: "payment_method_domain",
+        _account: account,
+        domain_name: domain,
+        enabled: true,
+        apple_pay: { status: "active" },
+        google_pay: { status: "active" },
+      }),
+    };
+  });
+
   fake.route("POST", "/v1/payment_intents", (req) => {
     const account = needAccount(req.account);
     const amount = Number(req.body["amount"]);
@@ -115,10 +134,14 @@ fakeRouteSets.push((fake) => {
         id: fakeId("pi"),
         object: "payment_intent",
         _account: account,
+        client_secret: `pi_secret_${fakeId("cs")}`,
         amount,
         currency: req.body["currency"] ?? "usd",
         status: "requires_payment_method",
         capture_method: req.body["capture_method"] ?? "automatic",
+        automatic_payment_methods: req.body["automatic_payment_methods"] ?? null,
+        setup_future_usage: req.body["setup_future_usage"] ?? null,
+        customer: req.body["customer"] ?? null,
         payment_method_types: req.body["payment_method_types"] ?? ["card"],
         amount_received: 0,
         amount_capturable: 0,
@@ -157,6 +180,67 @@ fakeRouteSets.push((fake) => {
       req.query["expand"],
     ),
   }));
+
+  // Confirming with a test PaymentMethod, as Stripe.js does after the Payment Element.
+  fake.route("POST", "/v1/payment_intents/:id/confirm", (req) => {
+    const account = needAccount(req.account);
+    const pi = fake.get(req.params["id"]!, account, "payment_intent");
+    const pm = String(req.body["payment_method"] ?? "");
+    if (pi["status"] !== "requires_payment_method")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_intent_unexpected_state",
+        `PaymentIntent is ${String(pi["status"])}`,
+      );
+    if (pm === "pm_card_chargeDeclined") {
+      pi["last_payment_error"] = {
+        code: "card_declined",
+        decline_code: "generic_decline",
+        message: "Your card was declined.",
+      };
+      fake.emit("connect", "payment_intent.payment_failed", pi, account);
+      return {
+        status: 402,
+        body: {
+          error: {
+            type: "card_error",
+            code: "card_declined",
+            decline_code: "generic_decline",
+            message: "Your card was declined.",
+          },
+        },
+      };
+    }
+    const card = TEST_CARDS[pm];
+    if (!card)
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "resource_missing",
+        `No such PaymentMethod: '${pm}'`,
+      );
+    const charge = fake.put({
+      id: fakeId("ch"),
+      object: "charge",
+      _account: account,
+      amount: pi["amount"],
+      payment_intent: pi["id"],
+      payment_method_details: {
+        type: "card",
+        card: { brand: card.brand, last4: card.last4, funding: "credit" },
+      },
+    });
+    Object.assign(pi, {
+      status: "succeeded",
+      amount_received: pi["amount"],
+      latest_charge: charge["id"],
+      last_payment_error: null,
+      payment_method: pm,
+    });
+    fake.emit("connect", "payment_intent.succeeded", pi, account);
+    return { body: pi };
+  });
 
   fake.route("POST", "/v1/payment_intents/:id/cancel", (req) => {
     const pi = fake.get(req.params["id"]!, needAccount(req.account), "payment_intent");

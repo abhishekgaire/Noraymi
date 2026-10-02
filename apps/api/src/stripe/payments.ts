@@ -169,3 +169,61 @@ export async function cancelReaderAction(
     },
   );
 }
+
+/**
+ * An online payment's PaymentIntent (M4-15; Stripe setup 10): a direct charge on the venue's account
+ * for the Payment Element (Apple Pay, Google Pay, card) on our payment page. One per payment.
+ */
+export async function createOnlineIntent(
+  stripe: StripeClient,
+  account: string,
+  input: {
+    amountCents: number;
+    paymentId: string;
+    checkId: string | null;
+    saveCard?: boolean;
+    customer?: string;
+  },
+): Promise<StripeIntent & { client_secret: string }> {
+  return stripe.call("payments", "POST", "/v1/payment_intents", {
+    account,
+    idempotencyKey: `${input.paymentId}:create`,
+    params: {
+      amount: input.amountCents,
+      currency: "usd",
+      automatic_payment_methods: { enabled: true },
+      ...(input.saveCard ? { setup_future_usage: "off_session" } : {}),
+      ...(input.customer ? { customer: input.customer } : {}),
+      metadata: {
+        payment_id: input.paymentId,
+        ...(input.checkId ? { check_id: input.checkId } : {}),
+      },
+    },
+  });
+}
+
+export async function retrieveIntentSecret(
+  stripe: StripeClient,
+  account: string,
+  piId: string,
+): Promise<StripeIntent & { client_secret: string }> {
+  return stripe.call("payments", "GET", `/v1/payment_intents/${encodeURIComponent(piId)}`, {
+    account,
+  });
+}
+
+/**
+ * Registers the payment page's hostname on the venue's account (M4-15), which Apple Pay and Google
+ * Pay need before the Payment Element offers them. Registering a known domain again is harmless.
+ */
+export async function registerPayDomain(
+  stripe: StripeClient,
+  account: string,
+  domain: string,
+): Promise<{ id: string; domain_name: string; enabled: boolean }> {
+  return stripe.call("payments", "POST", "/v1/payment_method_domains", {
+    account,
+    idempotencyKey: `pmd:${account}:${domain}`,
+    params: { domain_name: domain, enabled: true },
+  });
+}

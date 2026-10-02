@@ -1363,4 +1363,11 @@ export const en = {
   "split.stop": "Stop splitting · charge the rest to …",
   "split.failed": "Couldn't change the split. Try again.",
   "cash.taken": "Cash taken",
+  "payPage.title": "Pay {amount}",
+  "payPage.pay": "Pay {amount}",
+  "payPage.paid": "Paid {amount} · thank you",
+  "payPage.checking": "Checking your payment · don't pay again",
+  "payPage.declined": "Your card was declined · try another card",
+  "payPage.testMode": "Test payment · no real card is charged",
+  "payPage.testDecline": "Try a declined test card",
 } as const;

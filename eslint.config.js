@@ -69,7 +69,8 @@ export default tseslint.config(
     // version, the service's key and the venue's account. Nothing else imports the Stripe SDK or calls
     // Stripe's API address. (Stripe.js in the guest payment page is the browser library, not the SDK.)
     files: ["**/*.{ts,tsx,js,mjs,cjs,cts}"],
-    ignores: ["apps/api/src/stripe/**"],
+    // The payment page's Content Security Policy names Stripe's hosts; it calls nothing (M4-15).
+    ignores: ["apps/api/src/stripe/**", "apps/guest/pay-policy.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

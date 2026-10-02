@@ -1387,4 +1387,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "split.stop": "Dejar de dividir · cobrar el resto a …",
   "split.failed": "No se pudo cambiar la división. Inténtalo de nuevo.",
   "cash.taken": "Efectivo cobrado",
+  "payPage.title": "Pagar {amount}",
+  "payPage.pay": "Pagar {amount}",
+  "payPage.paid": "Pagado {amount} · gracias",
+  "payPage.checking": "Comprobando tu pago · no pagues de nuevo",
+  "payPage.declined": "Tu tarjeta fue rechazada · prueba otra tarjeta",
+  "payPage.testMode": "Pago de prueba · no se cobra ninguna tarjeta real",
+  "payPage.testDecline": "Probar una tarjeta de prueba rechazada",
 };

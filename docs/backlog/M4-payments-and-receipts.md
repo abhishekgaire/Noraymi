@@ -461,7 +461,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-15 · Serve the payment page on its own origin
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-01, M4-05; M3 (`apps/guest`)
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 1, 8 and 9; [Stripe setup](../spec/06-stripe-setup.md) step 10; [API](../spec/08-api.md) (`POST /v1/public/pay/{token}`); [Tenancy and access](../spec/02-tenancy-access.md) (Guest with a link)
@@ -474,13 +474,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Token routes send `Referrer-Policy: no-referrer` and `Cache-Control: no-store` and stay out of CDN logs.
   - While the server waits for Stripe's answer, the page says it's still checking and never shows a second pay button.
 - **Acceptance:**
-  - [ ] The page's headers include COOP same-origin, a CSP with nonces and `frame-ancestors 'none'`, and no service worker registers.
-  - [ ] An unlisted script added to the page fails the check in CI.
+  - [x] The page's headers include COOP same-origin, a CSP with nonces and `frame-ancestors 'none'`, and no service worker registers.
+  - [x] An unlisted script added to the page fails the check in CI.
   - [ ] Apple Pay and Google Pay show on the sandbox page, because the domain is registered on West 4's account.
-  - [ ] Reloading a pay link reuses its PaymentIntent.
-  - [ ] A wrong or expired token answers not found.
+  - [x] Reloading a pay link reuses its PaymentIntent.
+  - [x] A wrong or expired token answers not found.
 - **Tests:** header and CSP snapshot tests; the changed-script check as a CI job and a weekly scheduled job; Playwright on the page; principal suite (Guest with a link).
 - **Notes:** This is GA-M9's payment-page part; the rest of GA-M9 closes in M8. Which PCI validation we file, and what script-protection confirmation venues get, is the QSA's (gate). Security 1 lets Stripe-hosted Checkout replace this page if it proves heavy; that's the founder's call, not this ticket's. M5's done-when runs these checks again for the booking deposit.
+  - **Built (M4-15):** `apps/guest/proxy.ts` serves `/pay/<token>` only on the pay hostname (`PAY_HOST`, default `pay.localhost:3001`; 404 anywhere else) with a fresh nonce per request; `apps/guest/pay-policy.ts` is the one list of allowed scripts (Stripe.js, our own bundle) with a reason for each, the CSP (`frame-ancestors 'none'`, nonces, Stripe's frames only) and the headers (COOP same-origin, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, nosniff). Our own scripts carry subresource integrity from the production build (`experimental.sri`). The page registers no service worker and loads no analytics.
+  - The API side: migration 0061 adds `pay_links` (128-bit token, stored as a SHA-256 hash, one payment each); `POST /v1/public/pay/{token}` creates the PaymentIntent once on West 4's account (idempotency key `<payment_id>:create`) and every reload gets the same one back; `…/confirm` asks Stripe for the answer and shows "Checking your payment · don't pay again" with no second button until it comes.
+  - The changed-script check: `pnpm --filter @west4/guest check:pay -- <url>` (unit-tested in `apps/guest/pay-check.test.ts`, including an unlisted script failing), run by `.github/workflows/pay-page-check.yml` after every staging deploy and every Monday. It skips with a notice until `STAGING_PAY_CHECK_URL` is set, because staging has no pay hostname yet.
+  - Wallet domains: `registerPayDomain` (`POST /v1/payment_method_domains` with `Stripe-Account`) runs from `stripe:seed` when `PAY_DOMAIN` is set; `localhost` names are skipped because Stripe can't verify them. **Open:** "Apple Pay and Google Pay show on the sandbox page" needs a real pay hostname on HTTPS (a domain is the founder's decision); then set `PAY_DOMAIN`, run `stripe:seed` and check on a phone.
+  - **Open for infra:** "stay out of CDN logs": when staging gets the pay hostname, its CloudFront/ALB logging must exclude `/pay/*` and `/v1/public/pay/*`.
+  - Next's dev server sends `Cache-Control: no-cache` on dynamic pages; the production build sends `no-store`. The Playwright test accepts either.
+  - Pay links are created only by tests in M4-15; M4-16 and M4-18 create them from the app.
+
 
 ### M4-16 · Show "Your bill" on the room page and the booking link
 

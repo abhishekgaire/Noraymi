@@ -1,0 +1,33 @@
+name: Payment page check
+
+# M4-15: the payment page's scripts and headers are compared with the policy in
+# apps/guest/pay-policy.ts after every staging deploy and once a week, so a change
+# nobody approved (a new script, a loosened header) raises an alert. The page to
+# load is STAGING_PAY_CHECK_URL: a pay link kept open on staging for this check.
+# Until staging has a pay hostname the check is skipped with a notice.
+
+on:
+  workflow_run:
+    workflows: ["Deploy staging"]
+    types: [completed]
+  schedule:
+    - cron: "17 14 * * 1"
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Payment page matches its policy
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Check the live payment page
+        env:
+          PAY_URL: ${{ vars.STAGING_PAY_CHECK_URL }}
+        run: |
+          if [ -z "$PAY_URL" ]; then
+            echo "::notice::STAGING_PAY_CHECK_URL isn't set yet (staging has no pay hostname); skipped"
+            exit 0
+          fi
+          pnpm --filter @west4/guest check:pay -- "$PAY_URL"

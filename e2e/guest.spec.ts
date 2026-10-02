@@ -435,3 +435,73 @@ test("at 4:00 AM the room page hides alcohol and says why; a Red Bull still orde
   );
   await page.context().close();
 });
+
+/**
+ * The payment page on its own origin (M4-15; Security 1), against the fake
+ * Stripe: only on the pay. hostname, a nonce CSP that frames nothing and is
+ * framed by nothing, no service worker, a reload that keeps the same
+ * PaymentIntent, a wrong token that finds nothing, and a test card that pays.
+ */
+test("the payment page: its own origin, strict headers, one PaymentIntent, paid with a test card", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
+    cwd: "apps/api",
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    },
+  });
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const token = randomBytes(16).toString("base64url");
+    await db.query(
+      `insert into pay_links (venue_id, token_hash, check_id, amount_cents, expires_at, purpose)
+       select c.venue_id, $1, c.id, 2500, now() + interval '1 day', 'balance'
+         from checks c join seed_ids s on s.row_id = c.id where s.slug = 'chk_room9'`,
+      [createHash("sha256").update(token).digest("hex")],
+    );
+    // Not on the guest site's own hostname.
+    expect((await page.goto(`/pay/${token}`))?.status()).toBe(404);
+
+    const url = `http://pay.localhost:3001/pay/${token}`;
+    const r = await page.goto(url);
+    expect(r?.status()).toBe(200);
+    const h = r!.headers();
+    expect(h["cross-origin-opener-policy"]).toBe("same-origin");
+    expect(h["referrer-policy"]).toBe("no-referrer");
+    // Next's dev server says no-cache on a dynamic page; the production build says no-store.
+    expect(h["cache-control"]).toMatch(/no-store|no-cache/);
+    expect(h["content-security-policy"]).toMatch(/script-src[^;]*'nonce-/);
+    expect(h["content-security-policy"]).toContain("frame-ancestors 'none'");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pay $25.00");
+    expect(await page.evaluate(() => navigator.serviceWorker.getRegistrations())).toHaveLength(0);
+
+    const intentOf = async () =>
+      (
+        await db.query<{ pi: string | null }>(
+          `select p.stripe_pi_id as pi from pay_links l join payments p on p.id = l.payment_id
+            where l.token_hash = $1`,
+          [createHash("sha256").update(token).digest("hex")],
+        )
+      ).rows[0]?.pi;
+    const first = await intentOf();
+    expect(first).toMatch(/^pi_/);
+    await page.reload();
+    expect(await intentOf()).toBe(first);
+
+    expect((await page.goto(`http://pay.localhost:3001/pay/not-a-real-token`))?.status()).toBe(404);
+
+    await page.goto(url);
+    await page.getByRole("button", { name: "Pay $25.00" }).click();
+    await expect(page.getByRole("status")).toHaveText("Paid $25.00 · thank you");
+  } finally {
+    await db.end();
+  }
+});

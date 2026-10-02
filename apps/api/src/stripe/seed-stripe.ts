@@ -7,6 +7,7 @@ import { StripeClient, StripeError } from "./client.js";
 import { retrieveAccount } from "./accounts.js";
 import { createAccountFor } from "./create-account.js";
 import { loadStripeSettings } from "./settings.js";
+import { registerPayDomain } from "./payments.js";
 import { hasCellular, listReaders, readerModel, registerReader } from "./terminal.js";
 import { ensureTerminal } from "./terminal-setup.js";
 
@@ -160,6 +161,12 @@ export async function seedStripe(
     if (pi.status !== "succeeded")
       throw new Error(`deposit ${d.id}: PaymentIntent ${pi.id} is ${pi.status}`);
     await inVenue((c) => setPaymentIntent(c, d.id, pi.id));
+  }
+  // The payment page's own hostname, for Apple Pay and Google Pay (M4-15). Local hosts can't be registered.
+  const payDomain = process.env["PAY_DOMAIN"];
+  if (payDomain && !/localhost$/.test(payDomain)) {
+    await registerPayDomain(stripe, terminal.account, payDomain);
+    log(`stripe: ${payDomain} registered for wallets`);
   }
   log(
     `stripe: account ${account}, ${readers} readers, ${deposits.rows.length} deposits backed by PaymentIntents`,

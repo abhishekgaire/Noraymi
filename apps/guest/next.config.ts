@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
   // A self-contained server for the container image (apps/guest/Dockerfile).
   output: "standalone",
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
+  // Subresource integrity on our own scripts, for the payment page (M4-15; Security 1). Build-time only.
+  experimental: { sri: { algorithm: "sha256" } },
   rewrites() {
     return [{ source: "/v1/:path*", destination: `${api}/v1/:path*` }];
   },
