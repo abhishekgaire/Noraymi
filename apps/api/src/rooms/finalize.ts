@@ -83,10 +83,22 @@ export async function workOut(
   if (!pack) throw new ApiError("internal", `no usable rule pack ${packId} for ${date.toString()}`);
   if (!pay) throw new ApiError("internal", "the pay settings aren't set");
   const tax = salesTaxRule(pack.pack);
-  const session = check.room_session_id
-    ? (await sessionViews(c, venueId, now, check.room_session_id))[0]
-    : undefined;
-  const roomTime = session?.clock.roomTimeCents ?? 0;
+  // Every session on the check (a merge puts two on one, M4-28), each billing its own segments.
+  const onCheck = (
+    await c.query<{ id: string }>(
+      "select id from room_sessions where venue_id = $1 and check_id = $2 order by started_at, id",
+      [venueId, check.id],
+    )
+  ).rows.map((r) => r.id);
+  const sessionIds =
+    onCheck.length > 0 ? onCheck : check.room_session_id ? [check.room_session_id] : [];
+  const views = [];
+  for (const id of sessionIds) {
+    const v = (await sessionViews(c, venueId, now, id))[0];
+    if (v) views.push(v);
+  }
+  const session = views.find((v) => v.id === check.room_session_id) ?? views[0];
+  const roomTime = views.reduce((sum, v) => sum + v.clock.roomTimeCents, 0);
   const net: TotalsLine[] = lines
     .filter((l) => !COMPUTED.has(l.kind))
     .map((l) => ({
@@ -119,7 +131,7 @@ export async function workOut(
     totals,
     roomTimeCents: roomTime,
     minSpendCents: minSpend,
-    minutes: session?.clock.minutes ?? null,
+    minutes: session ? views.reduce((sum, v) => sum + v.clock.minutes, 0) : null,
     gratuityPct: applies ? g.pct : null,
     rate: tax.rate,
     jurisdictionCode: tax.jurisdictionCode,
@@ -131,19 +143,21 @@ export async function workOut(
       : null,
     billingBasis: session
       ? {
-          minutes: session.clock.minutes,
+          minutes: views.reduce((sum, v) => sum + v.clock.minutes, 0),
           room_time_cents: roomTime,
-          segments: session.segments.map((s) => ({
-            started_at: s.started_at,
-            ended_at: s.ended_at,
-            rate_kind: s.rate_kind,
-            billable_guests: s.billable_guests,
-            hourly_cents: s.hourly_cents,
-            band_id: s.band_id,
-            increment_min: s.increment_min,
-            rounding: s.rounding,
-            paused: s.paused,
-          })),
+          segments: views
+            .flatMap((v) => v.segments)
+            .map((s) => ({
+              started_at: s.started_at,
+              ended_at: s.ended_at,
+              rate_kind: s.rate_kind,
+              billable_guests: s.billable_guests,
+              hourly_cents: s.hourly_cents,
+              band_id: s.band_id,
+              increment_min: s.increment_min,
+              rounding: s.rounding,
+              paused: s.paused,
+            })),
         }
       : null,
   };

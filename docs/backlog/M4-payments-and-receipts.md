@@ -829,7 +829,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-28 · Reserve the prepaid-value ledger and session merges
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-04, M4-07, M4-09
 - **Spec:** [Money rules](../spec/05-money-rules.md) rules 11, 12 and 16; [Data model](../spec/04-data-model.md) (`prepaid_accounts`, `prepaid_ledger`, `room_sessions` merges, `payments.method` prepaid); [decisions](../decisions.md) (D83)
@@ -839,12 +839,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Each ledger kind maps to the prepaid-value account that M7's nightly journal posts.
   - Merging two sessions, with no route and no screen: the second session's `check_id` points at the first's check; its lines move as `transfer_out` and `transfer_in` lines in one transaction; its deposit or hold allocations move with them (the old allocation released and the same amount inserted on the first check), so both guarantees stay; each session keeps its own room and segments.
 - **Acceptance:**
-  - [ ] Issue $50.00, redeem $30.00 onto a check, expire $5.00 and refund $15.00: the balance reads $50.00, $20.00, $15.00 and $0.00, and the ledger sums match at every step.
-  - [ ] Redeeming more than the balance is refused.
-  - [ ] Merging Room 10's session into Room 9's keeps both deposits ($120.00 and $90.00) allocated to one check, both sessions' segments bill as before, and the merged amount due is the two checks' sum.
-  - [ ] Merging a session whose check carries a card hold (on a test venue with room holds) keeps that hold's allocation on the merged check.
+  - [x] Issue $50.00, redeem $30.00 onto a check, expire $5.00 and refund $15.00: the balance reads $50.00, $20.00, $15.00 and $0.00, and the ledger sums match at every step.
+  - [x] Redeeming more than the balance is refused.
+  - [x] Merging Room 10's session into Room 9's keeps both deposits ($120.00 and $90.00) allocated to one check, both sessions' segments bill as before, and the merged amount due is the two checks' sum.
+  - [x] Merging a session whose check carries a card hold (on a test venue with room holds) keeps that hold's allocation on the merged check.
 - **Tests:** property tests for the ledger (the balance is the sum, never negative); integration tests of a merge with a deposit and with a hold; the principal suite finds no route for either.
 - **Notes:** K5 and K9 reservations: gift cards are phase 2 and stored value phase 3, and merges have no screen in phase 1. M6 uses the ledger for song credit bought at a song price (none at West 4).
+  - **Built (M4-28):** migration 0068 (`prepaid_accounts`, `prepaid_ledger`: issued is the only positive kind, enforced by the table). `apps/api/src/payments/prepaid.ts`: issue, redeem onto a check (a `prepaid` payment captured and allocated, never more than the balance or the amount due), expire and refund; each move locks the account first, so two moves at once can't take it below zero, and the balance is always the ledger's sum. `PREPAID_JOURNAL_ACCOUNT` maps every kind to the prepaid-value account for M7's journal. `apps/api/src/rooms/merge.ts`: merging moves each standing line as `transfer_out`/`transfer_in`, moves every deposit and hold allocation (released on the old check, the same amount on the new, same state and `follows_lines`), and points the second session at the first check; finalize now bills every session on a check, each with its own segments.
+  - **Reserved, not finished:** a prepaid refund takes the balance off the ledger and names the payment that bought it; giving that money back to the card through the refund engine comes with gift cards (phase 2), since the engine's refunds today belong to a check or a booking. Merges and the ledger have no route and no screen, so the principal suite finds nothing new.
+  - Tests: `apps/api/src/routes/prepaid-merge.int.test.ts` ($50.00 → $20.00 → $15.00 → $0.00 with the ledger matching each step; redeeming over the balance refused; 200 random moves with the balance always the sum and never negative; Room 10 merged into Room 9 with both deposits ($90.00 and $120.00) on one check and the subtotals adding up; a held session's allocation moving in progress).
+
 
 ### M4-29 · Run the go-live checklist for West 4
 
