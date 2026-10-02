@@ -9,7 +9,8 @@ import { stepOrder, type StepInput } from "../orders/pipeline.js";
 
 /**
  * Orders (M3-06; spec 08 · Orders):
- *   GET  /v1/venues/{v}/orders?status=ringing,held     the bar's Waiting list; ready,on_the_way is the Runs
+ *   GET  /v1/venues/{v}/orders?status=ringing,held     the bar's Waiting list; ready,on_the_way is the Runs;
+ *                                                      &business_date= keeps one night (the bar's Delivered tonight)
  *   POST /v1/venues/{v}/orders/{o}/accept | hold | ready | claim | deliver
  *   POST /v1/venues/{v}/orders/{o}/cancel   { for?: "guest" | "staff" }
  *   POST /v1/venues/{v}/orders/{o}/decline  { reason }                 the guest sees the reason
@@ -59,7 +60,10 @@ const ACTION: Record<Step, string> = {
 };
 
 export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): void {
-  app.get<{ Params: { venueId: string }; Querystring: { status?: string; session_id?: string } }>(
+  app.get<{
+    Params: { venueId: string };
+    Querystring: { status?: string; session_id?: string; business_date?: string };
+  }>(
     "/v1/venues/:venueId/orders",
     { config: route({ principals: ["owner_manager", "staff", "shared_device"], module: "core" }) },
     async (request) => {
@@ -69,9 +73,12 @@ export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       const sessionId = request.query.session_id;
       if (sessionId !== undefined && !z.string().uuid().safeParse(sessionId).success)
         throw new ApiError("invalid_request", "session_id must be an id");
+      const date = request.query.business_date;
+      if (date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(date))
+        throw new ApiError("invalid_request", "business_date is YYYY-MM-DD");
       return {
         orders: await request.inVenue((c) =>
-          listOrders(c, request.venueId!, statuses, { sessionId }),
+          listOrders(c, request.venueId!, statuses, { sessionId, businessDate: date }),
         ),
       };
     },

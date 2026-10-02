@@ -2930,6 +2930,7 @@ test("Admin → Menu: button names, a refused $6.00 happy hour, $6.50 saved, a h
     await expect(page.getByRole("heading", { name: "Packages", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Happy hours and specials" })).toHaveCount(0);
   } finally {
+    await db.query("update venue_modules set state = 'on' where module_id = 'packages'");
     await db.end();
   }
 });
@@ -3085,3 +3086,90 @@ test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3",
     await db.end();
   }
 });
+
+/**
+ * The bar orders screen (M3-15) on the bar computer, from the seed at 10:41
+ * PM, at 900 × 640 and 1280 × 800: o1 and o2 ringing under Waiting for you
+ * (o2 amber), o3 and o4 ready for a runner with o4's ID line; Maya's Accept on
+ * o1 stamps her name and moves it to Being made, its ticket printed once the
+ * printer confirms; nothing offers Ready on an order that isn't accepted; and
+ * with Bar screen & tickets off, the screen and its menu entry are gone.
+ */
+for (const size of [
+  { width: 900, height: 640 },
+  { width: 1280, height: 800 },
+]) {
+  test(`the bar orders screen at ${size.width} × ${size.height}: the seed's orders, Accept as Maya, and the module off`, async ({
+    page,
+  }) => {
+    test.setTimeout(150_000);
+    const db = new pg.Client({
+      connectionString:
+        process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    });
+    await db.connect();
+    try {
+      await db.query("update memberships set locale = 'en'");
+      await page.setViewportSize(size);
+      await page.goto("/sign-in");
+      await page.getByRole("button", { name: "Pair this screen" }).click();
+      await page
+        .getByLabel("Pairing code from Admin → Devices")
+        .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+      expect(
+        (
+          await page.request.post("/v1/ops/clock", {
+            data: { server_time: "2026-09-26T02:41:00Z" },
+          })
+        ).ok(),
+      ).toBe(true);
+      await page.getByRole("button", { name: "Pair", exact: true }).click();
+      await page.getByRole("button", { name: /Maya S\./ }).click();
+      await typePin(page, "4071");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+      await page.goto("/bar-orders");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar orders");
+
+      const column = (name: string) => page.getByRole("region", { name });
+      const waiting = column("Waiting for you");
+      const o1 = waiting.locator(".bar-order", { hasText: "Room 9" });
+      const o2 = waiting.locator(".bar-order", { hasText: "Room 5" });
+      await expect(o1).toContainText(/Ringing · 0:4\d/);
+      await expect(o2).toContainText(/Ringing · 2:1\d/);
+      await expect(o2).toHaveClass(/amber/);
+      await expect(o2).toContainText("Leo M. · 4");
+      await expect(o2).toContainText("ID ✓ 4 of 4");
+      const ready = column("Ready for a runner");
+      await expect(ready.locator(".bar-order", { hasText: "Room 3" })).toContainText(
+        /Ready for a runner · 4:0\d/,
+      );
+      const o4 = ready.locator(".bar-order", { hasText: "Room 1" });
+      await expect(o4).toContainText(/Ready for a runner · 1:[34]\d/);
+      await expect(o4).toContainText("ID ✓ 3 of 4 · the runner checks the last ID");
+      await expect(page.getByText("Ages on screen: amber at 2 min, pink at 4")).toBeVisible();
+      // Nothing waiting offers Ready or Delivered.
+      await expect(waiting.getByRole("button", { name: /^(Ready|Delivered)$/ })).toHaveCount(0);
+      expect(await clippedText(page)).toEqual([]);
+
+      await o1.getByRole("button", { name: "Accept · print ticket" }).click();
+      const making = column("Being made").locator(".bar-order", { hasText: "Room 9" });
+      await expect(making).toContainText(
+        /Accepted by Maya S\. · 10:4\d · on Room 9's tab · ticket printing/,
+      );
+      // The bar printer confirms the ticket.
+      await db.query(
+        "update print_jobs set status = 'printed', confirmed_at = now() where order_id = (select row_id from seed_ids where slug = 'order_o1')",
+      );
+      await page.reload();
+      await expect(making).toContainText("ticket printed");
+
+      await db.query("update venue_modules set state = 'off' where module_id = 'bar_screen'");
+      await page.reload();
+      await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Bar orders");
+      await expect(page.getByRole("link", { name: "Bar orders" })).toHaveCount(0);
+    } finally {
+      await db.query("update venue_modules set state = 'on' where module_id = 'bar_screen'");
+      await db.end();
+    }
+  });
+}

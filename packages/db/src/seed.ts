@@ -858,8 +858,10 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     for (const person of seed.team) {
       const userId = remember(person.id, "users");
       await client.query(
+        // A fresh Friday: nobody's phone is verified yet, whatever an earlier run's invite did.
         `insert into users (id, name, email) values ($1, $2, $3)
-         on conflict (id) do update set name = excluded.name, email = excluded.email`,
+         on conflict (id) do update set name = excluded.name, email = excluded.email,
+           phone_e164 = null, phone_verified_at = null`,
         [userId, person.name, person.demo_email ?? null],
       );
       await client.query("delete from auth_challenges where user_id = $1", [userId]);

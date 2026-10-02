@@ -382,7 +382,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-15 · Build the bar orders screen
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-21, M3-06, M3-13
 - **Spec:** [Bar](../screens.md#bar); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Room orders at the bar; [Glossary · Order statuses](../glossary.md#order-statuses); [Demo seed · Room orders](../demo-seed.md#room-orders)
@@ -393,12 +393,18 @@ Definition of done: see CLAUDE.md.
   - The footer's one sentence: "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup."
   - Besides its live events, the screen checks for ringing orders every 15 seconds. It exists only while Bar screen & tickets is on.
 - **Acceptance:**
-  - [ ] At 10:41 PM it shows o1 "Ringing · 0:43" and o2 "Ringing · 2:11" in amber under Waiting for you, and o3 "Ready for a runner · 4:00" and o4 "Ready for a runner · 1:35" with "ID ✓ 3 of 4 · the runner checks the last ID".
-  - [ ] Maya's badge tap, then Accept on o1, stamps "Accepted by Maya" and moves it to Being made with a printed ticket.
-  - [ ] No button offers Ready or Delivered on an order that isn't accepted.
-  - [ ] With Bar screen & tickets off, the screen and its menu entry are gone.
+  - [x] At 10:41 PM it shows o1 "Ringing · 0:43" and o2 "Ringing · 2:11" in amber under Waiting for you, and o3 "Ready for a runner · 4:00" and o4 "Ready for a runner · 1:35" with "ID ✓ 3 of 4 · the runner checks the last ID".
+  - [x] Maya's badge tap, then Accept on o1, stamps "Accepted by Maya" and moves it to Being made with a printed ticket.
+  - [x] No button offers Ready or Delivered on an order that isn't accepted.
+  - [x] With Bar screen & tickets off, the screen and its menu entry are gone.
 - **Tests:** Playwright against the seed at 900 × 640 and 1280 × 800.
 - **Notes:** [Bar](../screens.md#bar) notes 1–6, 8 and 9 now; note 7 (the outage banners) is M8. Room 5 is Leo M. · 4 with "ID ✓ 4 of 4", and Room 3 is Priya R. (note 6).
+  - Built: `apps/staff/src/screens/BarOrders.tsx` at `/bar-orders` (the side menu's Bar orders entry, now shipped, needs `orders.accept` and Bar screen & tickets on), its strings in both languages, styles; order reads now carry the party's name and size, IDs checked, who returned or cancelled it, and the latest ticket's job and state, and `GET /orders` takes `business_date` so Delivered tonight is tonight's; the Playwright tests "the bar orders screen" at 900 × 640 and 1280 × 800.
+  - The columns: Waiting for you (oldest first, cyan under a minute, amber from 2 minutes, pink from 4; Accept · print ticket, Ask the room to wait while ringing, Decline… with the reason the room sees); Being made ("Accepted by Maya S. · 10:41 · on Room 9's tab · ticket printed", or printing, or didn't print; Ready); Ready for a runner (age since Ready, or "On its way · Andy"); Delivered tonight (time and runner); Returned ("Couldn't serve: reason · Andy" with Void · not made, Void · made (waste) and Remake until resolved, then declined and cancelled orders with their words). Only Waiting offers Accept, only Being made offers Ready, and nothing offers Delivered (a runner's step).
+  - Each card has the ID line ("ID ✓ 3 of 4 · the runner checks the last ID") and, when its ticket failed, "Ticket didn't print · Reprint". Under the columns: the out-tonight list with Back on, an 86 field over the menu, and the footer sentence.
+  - The side menu, the W4 button, the signed-in person and Lock come from the shell every screen already has; Accept is stamped by the signed-in person through the API.
+  - The screen refetches on order, print-job and menu events, and checks every 15 seconds besides.
+  - Fixed on the way: the seed now clears every team member's verified phone, so the invite test ("a manager's phone: the PIN pad waits…") passes on a database an earlier run used; Playwright tests that turn a module off turn it back on.
 
 ### M3-16 · Age and escalate room orders on the bar screens, phones and the board
 

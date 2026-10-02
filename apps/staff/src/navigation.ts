@@ -41,7 +41,7 @@ export const menu: readonly MenuEntry[] = [
     path: "/bar-orders",
     screen: "barOrders",
     action: "orders.accept",
-    shipped: false,
+    shipped: true,
   },
   {
     id: "songQueue",

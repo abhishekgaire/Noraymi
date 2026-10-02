@@ -58,6 +58,15 @@ export interface OrderRow {
   readonly cancelled_at: string | null;
   readonly decline_reason: string | null;
   readonly version: number;
+  /** The party's name and size, and IDs checked in the session (the bar's ID line). */
+  readonly guest_name: string | null;
+  readonly party_size: number | null;
+  readonly ids_checked: number;
+  readonly returned_by_name: string | null;
+  readonly cancelled_by_name: string | null;
+  /** The order's latest ticket: its job and whether it printed. */
+  readonly ticket_job_id: string | null;
+  readonly ticket_status: string | null;
   readonly amount_cents: number;
   readonly items: OrderItemRow[];
 }
@@ -101,6 +110,13 @@ const ORDER_COLS = [
   ts("cancelled_at"),
   "o.decline_reason",
   "o.version",
+  "gg.name as guest_name",
+  "s.party_size",
+  "(select count(*)::int from id_checks i where i.venue_id = o.venue_id and i.session_id = o.session_id) as ids_checked",
+  "ur.name as returned_by_name",
+  "ux.name as cancelled_by_name",
+  "(select j.id from print_jobs j where j.venue_id = o.venue_id and j.order_id = o.id order by j.created_at desc, j.reprint_n desc limit 1) as ticket_job_id",
+  "(select j.status from print_jobs j where j.venue_id = o.venue_id and j.order_id = o.id order by j.created_at desc, j.reprint_n desc limit 1) as ticket_status",
 ].join(", ");
 
 const FROM = `orders o
@@ -108,7 +124,10 @@ const FROM = `orders o
   left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
   left join users ua on ua.id = o.accepted_by
   left join users uc on uc.id = o.claimed_by
-  left join users ud on ud.id = o.delivered_by`;
+  left join users ud on ud.id = o.delivered_by
+  left join users ur on ur.id = o.returned_by
+  left join users ux on ux.id = o.cancelled_by
+  left join guests gg on gg.venue_id = s.venue_id and gg.id = s.guest_id`;
 
 async function withItems(
   c: Queryable,
@@ -152,13 +171,24 @@ export async function listOrders(
   c: Queryable,
   venueId: string,
   statuses: readonly string[],
-  options: { sessionId?: string | undefined; limit?: number } = {},
+  options: {
+    sessionId?: string | undefined;
+    businessDate?: string | undefined;
+    limit?: number;
+  } = {},
 ): Promise<OrderRow[]> {
   const r = await c.query<Omit<OrderRow, "items" | "amount_cents">>(
     `select ${ORDER_COLS} from ${FROM}
       where o.venue_id = $1 and o.status = any($2::text[]) and ($3::uuid is null or o.session_id = $3)
+        and ($5::date is null or o.business_date = $5::date)
       order by o.placed_at, o.id limit $4`,
-    [venueId, statuses, options.sessionId ?? null, options.limit ?? 200],
+    [
+      venueId,
+      statuses,
+      options.sessionId ?? null,
+      options.limit ?? 200,
+      options.businessDate ?? null,
+    ],
   );
   return withItems(c, venueId, r.rows);
 }
