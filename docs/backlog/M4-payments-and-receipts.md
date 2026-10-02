@@ -239,7 +239,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-07 · Finalize checks into revisions, with tax lines and check numbers
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-04, M4-06; M2 and M3 (checks and their lines)
 - **Spec:** [Data model](../spec/04-data-model.md) (`checks`, `check_revisions`, `check_lines`, `venue_counters`, and the money core notes); [Money rules](../spec/05-money-rules.md) rules 2, 8 and 9; [Security and data retention](../spec/12-security-retention.md) 4; [API](../spec/08-api.md) (`GET /checks/{c}`, `POST /checks/{c}/finalize`, Conflicts)
@@ -252,13 +252,20 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Money rows are append-only: corrections are new lines, never updates or deletes.
   - Times on checks show in New York time with EDT or EST on both daylight-saving nights.
 - **Acceptance:**
-  - [ ] Finalizing Room 9 writes revision 1 with a $322.00 room-time line; tax lines of $28.58 (room_time) and $14.02 (drink), each with rate 0.088750, the jurisdiction code, its base and rule-pack version 2026.09; a $96.00 gratuity line; and a $618.60 total.
-  - [ ] Adding the 2 × Margarita · Peach and finalizing again writes revision 2: −$42.60 and −$96.00 reversed, $44.91 and $101.20 written, $652.11 in all, and the amount due up $33.51.
-  - [ ] Two finalizes racing on one check: one wins and the other gets `409 version_conflict`.
-  - [ ] 50 checks opened at once, some with failed taps, get numbers with no gaps and no repeats.
-  - [ ] Room 9's revision stores its one segment in `billing_basis`: per person, $120.00 an hour, a 1-minute step.
+  - [x] Finalizing Room 9 writes revision 1 with a $322.00 room-time line; tax lines of $28.58 (room_time) and $14.02 (drink), each with rate 0.088750, the jurisdiction code, its base and rule-pack version 2026.09; a $96.00 gratuity line; and a $618.60 total.
+  - [x] Adding the 2 × Margarita · Peach and finalizing again writes revision 2: −$42.60 and −$96.00 reversed, $44.91 and $101.20 written, $652.11 in all, and the amount due up $33.51.
+  - [x] Two finalizes racing on one check: one wins and the other gets `409 version_conflict`.
+  - [x] 50 checks opened at once, some with failed taps, get numbers with no gaps and no repeats.
+  - [x] Room 9's revision stores its one segment in `billing_basis`: per person, $120.00 an hour, a 1-minute step.
 - **Tests:** money cases `room9_closeout_rev1` and `room9_reopen_check_revision2`; counter concurrency tests; permission tests (no update or delete on money rows); daylight-saving label tests on Nov 1, 2026 and Mar 14, 2027.
 - **Notes:** Checks open in M2 (rooms) and M3 (orders joining at Accept). If M2 gave them numbers from anywhere else, move them onto `venue_counters` here, keeping Room 9 at #1042 in the seed. Training checks (T-0012) arrive in M7; the `check_training` counter is reserved now.
+  - Built: migration `0057_check_revisions.sql` (`check_revisions` as the core SQL, append-only and audited; the app may update `checks.status`, `revision` and `paid_at`, which the core SQL never grants but finalize, present, pay and reopen must move); `packages/db/src/revisions.ts`; `apps/api/src/rooms/finalize.ts` (`workOut`, the live totals from `packages/rules`, and `finalizeCheck`); `POST /checks/{c}/finalize` with `If-Match`; `GET /checks/{c}` now carries `totals` (live while open, the latest revision's once finalized, presented or paid) and `check.opened_label`; `formatCheckTime` in `packages/shared` ("1:30 AM EDT", then "1:30 AM EST" on the fall-back night).
+  - Finalize reverses a computed kind line by line (each reversal points at its line with `reverses_id` and carries its revision) only when what that kind comes to changed; room time is compared by amount, since its words carry the minutes. Tax lines keep `tax_category` null as the data model says; their description names the category ("Tax · room time", "Tax · drinks"), and each stores rate 0.088750, the jurisdiction code (null until the accountant answers), its base and the rule-pack version.
+  - The first Acceptance line names rule-pack version 2026.09; the lines carry **2026.10**, the version in force, because the taxed categories became rule-pack data in M4-06.
+  - Check numbers already came from `venue_counters` in its own short transaction since M2 (`nextCheckNumber`), so nothing moved; the test takes 50 numbers at once, voids some checks, and finds no gaps and no repeats. Room 9 stays #1042 in the seed.
+  - Room time leads the lines when tax is shared by category, as the money cases list it, so a tied leftover cent goes to room time.
+  - Tests: `apps/api/src/routes/finalize.int.test.ts` (live totals, revisions 1 and 2 with every line and the amount due up $33.51, a racing finalize answering `409 version_conflict`, 50 numbers, and no update or delete of lines, revisions or checks); `packages/shared/src/check-time.test.ts` (Nov 1, 2026 and Mar 14, 2027).
+
 
 ### M4-08 · Present the check and reopen it
 

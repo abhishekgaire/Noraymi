@@ -15,7 +15,14 @@ export {
   formatDate,
 } from "./i18n/index.js";
 export type { Locale, MessageKey, MessageParams, PluralKey } from "./i18n/index.js";
-export { systemClock, SimulatedClock, FrozenClock, SEED_NOW, formatInZone } from "./clock.js";
+export {
+  systemClock,
+  SimulatedClock,
+  FrozenClock,
+  SEED_NOW,
+  formatInZone,
+  formatCheckTime,
+} from "./clock.js";
 export type { Clock } from "./clock.js";
 export { EventClient } from "./events-client.js";
 export type {

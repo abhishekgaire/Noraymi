@@ -6,6 +6,7 @@ import { ApiError } from "../http/errors.js";
 import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
 import { fixLine } from "../rooms/fix.js";
+import { finalizeCheck } from "../rooms/finalize.js";
 
 /** M2 adds damage lines only; items come with ordering in M3. */
 const lineBody = z
@@ -30,6 +31,46 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
       request.inVenue((c) =>
         checkView(c, request.venueId!, request.params.checkId, options.clock.now()),
       ),
+  );
+
+  // Finalize (M4-07): writes revision n + 1. If-Match carries the version read; a stale one is 409.
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/finalize",
+    {
+      config: route({
+        principals: ["owner_manager", "staff", "shared_device"],
+        module: "core",
+        action: "payments.take",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.checkId).success)
+        throw new ApiError("not_found", "no such check");
+      const header = request.headers["if-match"];
+      const ifMatch =
+        typeof header === "string" && /^"?\d+"?$/.test(header)
+          ? Number(header.replace(/"/g, ""))
+          : undefined;
+      const p = request.principal;
+      const userId = p.kind === "user" ? p.userId : null;
+      if (!userId) throw new ApiError("forbidden", "finalizing is a person's work");
+      const done = await request.inVenue((c) =>
+        finalizeCheck(c, request.venueId!, request.params.checkId, {
+          userId,
+          now: options.clock.now(),
+          ...(ifMatch !== undefined ? { ifMatch } : {}),
+        }),
+      );
+      return {
+        revision: done.revision,
+        version: done.version,
+        subtotal_cents: done.worked.totals.subtotalCents,
+        tax_cents: done.worked.totals.taxCents,
+        gratuity_cents: done.worked.totals.gratuityCents,
+        total_cents: done.worked.totals.totalCents,
+      };
+    },
   );
 
   app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(

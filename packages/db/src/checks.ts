@@ -149,6 +149,12 @@ export interface CheckLineRow {
   readonly added_at: string;
   /** A damage line's photo (M2-21). */
   readonly file_id: string | null;
+  /** Computed lines (room time, tax, gratuity) belong to a revision (M4-07). */
+  readonly revision: number | null;
+  /** On tax lines: the rate, the base and the rule-pack version (M4-07). */
+  readonly tax_rate: string | null;
+  readonly taxable_base_cents: number | null;
+  readonly rule_pack_version: string | null;
 }
 
 export async function checkById(c: Queryable, venueId: string, id: string) {
@@ -170,7 +176,8 @@ export async function checkById(c: Queryable, venueId: string, id: string) {
     }
   >(
     `select id, kind, description, qty, unit_cents, amount_cents, tax_category, reverses_id, reason,
-            to_json(added_at) #>> '{}' as added_at, file_id
+            to_json(added_at) #>> '{}' as added_at, file_id, revision, tax_rate::text,
+            taxable_base_cents::int, rule_pack_version
        from check_lines where venue_id = $1 and check_id = $2 order by id`,
     [venueId, id],
   );

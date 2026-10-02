@@ -2,14 +2,17 @@ import type pg from "pg";
 import {
   checkById,
   emitEvent,
+  latestRevision,
   insertCheck,
   nextCheckNumber,
   withVenue,
   type Queryable,
 } from "@west4/db";
-import type { Temporal } from "@west4/shared";
+import { formatCheckTime, type Temporal } from "@west4/shared";
+import { venueClock } from "./assignment.js";
 import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
+import { workOut } from "./finalize.js";
 
 /**
  * Room checks (M2-08; spec 04 · the money core). Opening one takes its number
@@ -71,8 +74,36 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
         and a.payload ? 'line_id'`,
     [venueId, id],
   );
+  // Totals (M4-07): live from packages/rules while the check is open, the finalized revision's once presented.
+  let totals: Record<string, number> | null = null;
+  if (["finalized", "partly_paid", "paid"].includes(found.check.status)) {
+    const rev = await latestRevision(c, venueId, id);
+    if (rev)
+      totals = {
+        revision: rev.rev,
+        subtotal_cents: rev.subtotal_cents,
+        tax_cents: rev.tax_cents,
+        gratuity_cents: rev.gratuity_cents,
+        total_cents: rev.total_cents,
+      };
+  } else {
+    const worked = await workOut(c, venueId, found.check, found.lines, now).catch(() => null);
+    if (worked)
+      totals = {
+        revision: found.check.revision,
+        subtotal_cents: worked.totals.subtotalCents,
+        tax_cents: worked.totals.taxCents,
+        gratuity_cents: worked.totals.gratuityCents,
+        total_cents: worked.totals.totalCents,
+      };
+  }
   return {
-    check: { ...found.check, label: `#${found.check.number}` },
+    check: {
+      ...found.check,
+      label: `#${found.check.number}`,
+      opened_label: formatCheckTime(found.check.opened_at, (await venueClock(c, venueId)).timeZone),
+    },
+    totals,
     lines: found.lines,
     pending_fixes: pending.rows.map((p) => ({
       line_id: Number(p.line_id),

@@ -53,6 +53,7 @@ interface SegmentRow {
   billable_guests: number;
   rate_kind: string;
   hourly_cents: number;
+  band_id: string | null;
   increment_min: 1 | 15 | 30 | 60;
   rounding: "up" | "nearest" | "down";
   paused: boolean;
@@ -70,7 +71,7 @@ const SESSION_COLS = `s.id, s.room_id, r.name as room_name, s.booking_id, s.chec
   (select split_part(u.name, ' ', 1) from users u where u.id = s.alcohol_cut_off_by) as alcohol_cut_off_by_name,
   s.alcohol_cut_off_reason`;
 const SEGMENT_COLS = `id, session_id, ${iso("started_at")} as started_at, ${iso("ended_at")} as ended_at,
-  billable_guests, rate_kind, hourly_cents, increment_min, rounding, paused`;
+  billable_guests, rate_kind, hourly_cents, band_id, increment_min, rounding, paused`;
 
 async function sessionRows(c: Queryable, venueId: string, where: string, args: unknown[]) {
   const r = await c.query<SessionRow>(

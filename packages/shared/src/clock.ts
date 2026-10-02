@@ -69,3 +69,22 @@ export function formatInZone(instant: Temporal.Instant, timeZone: string): strin
     .toZonedDateTimeISO(timeZone)
     .toString({ timeZoneName: "never", fractionalSecondDigits: 0 });
 }
+
+/**
+ * A time on a check or receipt (M4-07): New York time with its zone, "1:30 AM EDT" or "1:30 AM EST",
+ * so the two 1:30s on the fall-back night read apart.
+ */
+/** Intl puts a narrow no-break space before AM and PM; checks print a plain one. */
+const NARROW_SPACE = new RegExp("\\u202f", "g");
+
+export function formatCheckTime(instant: Temporal.Instant | string, timeZone: string): string {
+  const at = typeof instant === "string" ? Temporal.Instant.from(instant) : instant;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  })
+    .format(new Date(at.epochMilliseconds))
+    .replace(NARROW_SPACE, " ");
+}

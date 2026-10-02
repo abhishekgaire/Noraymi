@@ -444,3 +444,5 @@ export type {
   PaymentRow,
   AttemptRow,
 } from "./payments.js";
+export { latestRevision, insertRevision, insertComputedLine } from "./revisions.js";
+export type { RevisionRow, ComputedLineInput } from "./revisions.js";
