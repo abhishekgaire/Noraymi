@@ -3907,3 +3907,149 @@ test("Present the check: blocked while 2 × Margarita · Peach rings, then prese
     await db.end();
   }
 });
+
+/**
+ * Tap at the reader (M4-11) on Room 9, after Present: the reader picker,
+ * "Waiting for a tap on the front-desk reader · Cancel", a declined card,
+ * Tap again on the same payment, and Paid. The night's Stripe side (both
+ * readers, the deposits) comes from stripe:seed on the fake.
+ */
+const stripeSeed = () =>
+  execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
+    cwd: "apps/api",
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    },
+  });
+const presentCard = async (
+  request: APIRequestContext,
+  db: pg.Client,
+  readerName: string,
+  number = "4242424242424242",
+) => {
+  const ids = (
+    await db.query<{ reader: string; account: string }>(
+      `select d.stripe_reader_id as reader, o.stripe_account_id as account
+         from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id where d.name = $1`,
+      [readerName],
+    )
+  ).rows[0]!;
+  const r = await request.post(
+    `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+    {
+      headers: {
+        authorization: "Bearer rk_test_fake_payments",
+        "stripe-account": ids.account,
+        "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}`,
+      },
+      form: { "card_present[number]": number },
+    },
+  );
+  expect(r.ok(), await r.text()).toBe(true);
+  return ids;
+};
+
+test("Tap at the reader: Room 9's $498.60 waits on the front-desk reader, a decline, Tap again, then Paid", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const tap = page.getByRole("region", { name: "Tap at the reader" });
+    await expect(tap.getByText("Pick a reader first")).toBeVisible();
+    // Nothing goes to a reader until one is picked.
+    await expect(tap.getByRole("button", { name: "Send $498.60 to the reader" })).toBeDisabled();
+    await tap.getByLabel("Front desk S710").check();
+    await tap.getByRole("button", { name: "Send $498.60 to the reader" }).click();
+    await expect(tap.getByRole("status")).toHaveText(
+      "Waiting for a tap on the front-desk reader · Cancel",
+    );
+
+    const ids = await presentCard(request, db, "Front desk S710", "4000000000000002");
+    await expect(tap.getByRole("alert")).toHaveText("Declined · try another card or cash");
+    await tap.getByRole("button", { name: "Tap again" }).click();
+    await expect(tap.getByRole("status")).toHaveText(
+      "Waiting for a tap on the front-desk reader · Cancel",
+    );
+    await presentCard(request, db, "Front desk S710");
+    // Paid in full: the room goes to cleaning, and "Paid" stays on the screen.
+    await expect(page.getByRole("status").filter({ hasText: /^Paid$/ })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // One PaymentIntent for $498.60, and the reader skipped its tip screen.
+    const reader = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+      headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.account },
+    });
+    expect(
+      ((await reader.json()) as { action: { process_payment_intent: { process_config: unknown } } })
+        .action,
+    ).toMatchObject({
+      status: "succeeded",
+      process_payment_intent: { process_config: { skip_tipping: "true" } },
+    });
+    const payment = await db.query<{ amount: number; attempts: number; status: string }>(
+      `select p.amount_cents::int as amount, p.status,
+              (select count(*)::int from payment_attempts a where a.payment_id = p.id) as attempts
+         from payments p where p.method = 'card_present' order by p.created_at desc limit 1`,
+    );
+    expect(payment.rows[0]).toEqual({ amount: 49860, attempts: 2, status: "captured" });
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+test("on the Room phone, Cancel while waiting frees the $498.60 for another way to pay", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const tap = page.getByRole("region", { name: "Tap at the reader" });
+    await tap.getByLabel("Bar S710").check();
+    await tap.getByRole("button", { name: "Send $498.60 to the reader" }).click();
+    await expect(tap.getByRole("status")).toHaveText(
+      "Waiting for a tap on the bar reader · Cancel",
+    );
+    await tap.getByRole("button", { name: "Cancel" }).click();
+    await expect(tap.getByRole("status")).toHaveText("Canceled · nothing was charged");
+    await expect(tap.getByRole("button", { name: "Send $498.60 to the reader" })).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

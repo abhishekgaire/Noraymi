@@ -81,9 +81,11 @@ export async function applyObservation(
   if (intent) {
     const target = statusOfIntent(intent.status);
     if (target === "captured" && (await movePayment("captured"))) {
+      // The tip is what was entered before the tap ("Additional tip (optional)") plus any the reader took.
+      const tip = before.tip_cents + intent.tipCents;
       await recordCapture(c, paymentId, {
-        amountCents: intent.amountReceived - intent.tipCents,
-        tipCents: intent.tipCents,
+        amountCents: intent.amountReceived - tip,
+        tipCents: tip,
         surchargeCents: 0,
       });
       if (intent.card) await setPaymentCard(c, venueId, paymentId, intent.card);

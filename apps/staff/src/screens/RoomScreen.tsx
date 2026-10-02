@@ -9,6 +9,7 @@ import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
+import { TapPayment } from "./TapPayment.js";
 import { CutOffRoom } from "./CutOff.js";
 import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
@@ -72,6 +73,7 @@ export function RoomScreen() {
   const [lines, setLines] = useState<readonly Line[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
   const [checkStatus, setCheckStatus] = useState<string | null>(null);
+  const [dueCents, setDueCents] = useState(0);
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -92,20 +94,24 @@ export function RoomScreen() {
             `/v1/venues/${venueId}/sessions/${r.session.id}`,
           ),
           r.session.check_id
-            ? api<{ lines: Line[]; pending_fixes: PendingFix[]; check?: { status: string } }>(
-                "GET",
-                `/v1/venues/${venueId}/checks/${r.session.check_id}`,
-              )
+            ? api<{
+                lines: Line[];
+                pending_fixes: PendingFix[];
+                check?: { status: string };
+                amount_due_cents?: number;
+              }>("GET", `/v1/venues/${venueId}/checks/${r.session.check_id}`)
             : Promise.resolve({
                 lines: [] as Line[],
                 pending_fixes: [] as PendingFix[],
                 check: undefined as { status: string } | undefined,
+                amount_due_cents: 0,
               }),
         ]);
         setStartedAt(session.session.started_at);
         setLines(check.lines);
         setPendingFixes(check.pending_fixes ?? []);
         setCheckStatus(check.check?.status ?? null);
+        setDueCents(check.amount_due_cents ?? 0);
       } else {
         setLines([]);
         setStartedAt(null);
@@ -315,6 +321,22 @@ export function RoomScreen() {
                   signedIn.membership.role === "owner" || signedIn.membership.role === "manager"
                 }
                 onDone={() => void load()}
+              />
+            )}
+          {s.check_id &&
+            (checkStatus === "finalized" ||
+              checkStatus === "partly_paid" ||
+              checkStatus === "paid") &&
+            signedIn?.membership.permissions.includes("payments.take") && (
+              <TapPayment
+                venueId={venueId}
+                checkId={s.check_id}
+                dueCents={dueCents}
+                onDone={() => {
+                  // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
+                  setDone(t("pay.paid"));
+                  void load();
+                }}
               />
             )}
           <CutOffRoom

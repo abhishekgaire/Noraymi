@@ -42,11 +42,12 @@ export interface ReaderRow {
   readonly cellular: boolean | null;
   readonly online: boolean;
   readonly last_seen_at: string | null;
+  readonly station: string | null;
 }
 
 export async function venueReaders(c: Queryable, venueId: string): Promise<ReaderRow[]> {
   const r = await c.query<ReaderRow>(
-    `select d.id, d.name, d.stripe_reader_id, d.reader_model, d.cellular,
+    `select d.id, d.name, d.stripe_reader_id, d.reader_model, d.cellular, d.station,
             (h.last_seen_at is not null and h.offline_since is null) as online,
             to_json(h.last_seen_at) #>> '{}' as last_seen_at
        from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
@@ -116,3 +117,21 @@ export async function recordReadersSeen(
   );
   return before.rows.map((r) => r.device_id);
 }
+
+/** The reader behind a Stripe reader id, with its label and station: bar or front desk (M4-11). */
+export async function readerByStripeId(
+  c: Queryable,
+  venueId: string,
+  stripeReaderId: string,
+): Promise<{ id: string; label: string; station: string } | null> {
+  const r = await c.query<{ id: string; label: string; station: string | null }>(
+    "select id, name as label, station from devices where venue_id = $1 and kind = 'reader' and stripe_reader_id = $2",
+    [venueId, stripeReaderId],
+  );
+  const row = r.rows[0];
+  return row ? { id: row.id, label: row.label, station: stationOf(row.station, row.label) } : null;
+}
+
+/** A reader's station: as set, or from its label ("Bar S710" is the bar's; any other the front desk's). */
+export const stationOf = (station: string | null, label: string): string =>
+  station ?? (/^bar\b/i.test(label) ? "bar" : "front_desk");

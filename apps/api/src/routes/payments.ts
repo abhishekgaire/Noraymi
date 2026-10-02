@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type pg from "pg";
-import { latestAttempt, paymentById, type Queryable } from "@west4/db";
+import { latestAttempt, paymentById, readerByStripeId, type Queryable } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import "../payments/webhooks.js";
 import { screenState, type Applied } from "../payments/machine.js";
 import {
   NoSuchReader,
+  ReaderQuiet,
   cancelPayment,
   checkNow,
   runNow,
@@ -37,12 +38,18 @@ const tapBody = z
     amount_cents: z.number().int().positive(),
     reader_id: z.string().uuid(),
     share_id: z.string().uuid().nullable().optional(),
+    /** "Additional tip (optional)", entered before the tap: added to what the reader charges (M4-11). */
+    tip_cents: z.number().int().min(0).optional(),
   })
   .strict();
 const retapBody = z.object({ reader_id: z.string().uuid() }).strict();
 const uuid = z.string().uuid();
 
-export function paymentView(a: Pick<Applied, "payment" | "attempt">) {
+export function paymentView(
+  a: Pick<Applied, "payment" | "attempt"> & {
+    reader?: { id: string; label: string; station: string } | null;
+  },
+) {
   const { payment, attempt } = a;
   return {
     id: payment.id,
@@ -62,6 +69,7 @@ export function paymentView(a: Pick<Applied, "payment" | "attempt">) {
           check_id: attempt.check_id,
         }
       : null,
+    reader: a.reader ?? null,
   };
 }
 
@@ -115,7 +123,13 @@ export function paymentRoutes(
     const venueId = request.venueId!;
     const found = await request.inVenue(async (c) => {
       const payment = await paymentById(c, venueId, paymentId);
-      return payment ? { payment, attempt: await latestAttempt(c, venueId, paymentId) } : null;
+      if (!payment) return null;
+      const attempt = await latestAttempt(c, venueId, paymentId);
+      return {
+        payment,
+        attempt,
+        reader: attempt?.reader_id ? await readerByStripeId(c, venueId, attempt.reader_id) : null,
+      };
     });
     if (!found) throw new ApiError("not_found", "no such payment");
     return found;
@@ -151,16 +165,25 @@ export function paymentRoutes(
             amountCents: parsed.data.amount_cents,
             readerDeviceId: parsed.data.reader_id,
             shareId: parsed.data.share_id ?? null,
+            tipCents: parsed.data.tip_cents ?? 0,
             businessDate: await night(c, venueId),
             now: options.clock.now(),
           });
         });
       } catch (e) {
         if (e instanceof NoSuchReader) throw new ApiError("not_found", "no such reader");
+        if (e instanceof ReaderQuiet)
+          throw new ApiError(
+            "reader_offline",
+            "the reader is offline: use the other reader, or take cash",
+            {
+              details: { reader_id: parsed.data.reader_id },
+            },
+          );
         throw e;
       }
-      const ran = await runNow(deps(), venueId, written.paymentId, written.attemptNo);
-      const view = paymentView(ran ?? (await current(request, written.paymentId)));
+      await runNow(deps(), venueId, written.paymentId, written.attemptNo);
+      const view = paymentView(await current(request, written.paymentId));
       reply.code(201);
       return answer(view);
     },
@@ -189,8 +212,8 @@ export function paymentRoutes(
           throw new ApiError("invalid_request", e.message);
         throw e;
       }
-      const ran = await runNow(deps(), venueId, paymentId, attemptNo);
-      return answer(paymentView(ran ?? (await current(request, paymentId))));
+      await runNow(deps(), venueId, paymentId, attemptNo);
+      return answer(paymentView(await current(request, paymentId)));
     },
   );
 
@@ -212,8 +235,8 @@ export function paymentRoutes(
     async (request) => {
       const paymentId = paymentParam(request);
       await current(request, paymentId);
-      const applied = await checkNow(deps(), request.venueId!, paymentId, "api");
-      return paymentView(applied ?? (await current(request, paymentId)));
+      await checkNow(deps(), request.venueId!, paymentId, "api");
+      return paymentView(await current(request, paymentId));
     },
   );
 
@@ -223,8 +246,8 @@ export function paymentRoutes(
     async (request) => {
       const paymentId = paymentParam(request);
       await current(request, paymentId);
-      const applied = await cancelPayment(deps(), request.venueId!, paymentId, "api");
-      return paymentView(applied ?? (await current(request, paymentId)));
+      await cancelPayment(deps(), request.venueId!, paymentId, "api");
+      return paymentView(await current(request, paymentId));
     },
   );
 }

@@ -413,6 +413,8 @@ export {
   readerOfVenue,
   saveReader,
   recordReadersSeen,
+  readerByStripeId,
+  stationOf,
 } from "./readers.js";
 export type { VenueTerminal, ReaderRow } from "./readers.js";
 export {

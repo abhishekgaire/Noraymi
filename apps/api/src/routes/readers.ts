@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { emitEvent, readerOfVenue, saveReader, venueReaders } from "@west4/db";
+import { emitEvent, readerOfVenue, saveReader, stationOf, venueReaders } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
@@ -56,6 +56,7 @@ export function readerRoutes(
     online: r.online,
     cellular: r.cellular ?? false,
     monthly_fee_cents: r.cellular ? CELLULAR_FEE_CENTS : 0,
+    station: stationOf(r.station, r.name),
   });
 
   app.get<{ Params: { venueId: string } }>(

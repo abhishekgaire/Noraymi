@@ -100,14 +100,19 @@ export async function api<T>(
   method: "GET" | "POST" | "PATCH" | "PUT",
   path: string,
   body?: unknown,
-  options: { stepUp?: string } = {},
+  options: { stepUp?: string; idempotencyKey?: string } = {},
 ): Promise<T> {
   let response: Response;
   try {
     const init: RequestInit = {
       method,
       credentials: "same-origin",
-      headers: { ...sessionHeaders(), ...(options.stepUp ? { "x-step-up": options.stepUp } : {}) },
+      headers: {
+        ...sessionHeaders(),
+        ...(options.stepUp ? { "x-step-up": options.stepUp } : {}),
+        // Money routes need one (M4-11): a retry of the same tap is the same payment.
+        ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}),
+      },
     };
     if (body !== undefined) {
       init.headers = { ...init.headers, "content-type": "application/json" };

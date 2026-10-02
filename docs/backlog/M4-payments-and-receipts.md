@@ -347,7 +347,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-11 · Take a tap on the chosen reader, with every reader state
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4-02, M4-05, M4-08
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#room-close-out) (Tap at the reader, Additional tip) and [What staff see](../spec/07-payment-flows.md#what-staff-see-during-a-card-payment); [Stripe setup](../spec/06-stripe-setup.md) step 4; [API](../spec/08-api.md) (`POST /checks/{c}/payments`); [screens: N21](../screens.md#n21-close-out-steps-and-card-states); [glossary](../glossary.md#other-exact-sentences)
@@ -358,14 +358,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The reader picker lists "Front desk S710" and "Bar S710", this screen's station first; nothing goes to a reader until one is picked.
   - An "Additional tip (optional)" entered before the tap adds to the amount sent to the reader and is recorded with `set_tip()`; tips may go over the amount due.
 - **Acceptance:**
-  - [ ] Room 9's $498.60 on the Front desk S710 shows "Waiting for a tap on the front-desk reader · Cancel", then Paid; Stripe shows one $498.60 PaymentIntent, and the reader showed no tip screen.
-  - [ ] A declining test card shows "Declined · try another card or cash"; the next tap is attempt 2 on the same PaymentIntent, and cash stays offered.
-  - [ ] Cancel while waiting clears the reader, cancels the PaymentIntent and frees the $498.60 for another way to pay.
-  - [ ] A second action on a busy reader shows "Reader busy", and picking the other reader works.
-  - [ ] A reader Stripe reports offline shows "Reader offline · use the bar reader".
-  - [ ] A $20.00 additional tip charges $518.60, stores $20.00 in `tip_cents` and leaves $0.00 due.
+  - [x] Room 9's $498.60 on the Front desk S710 shows "Waiting for a tap on the front-desk reader · Cancel", then Paid; Stripe shows one $498.60 PaymentIntent, and the reader showed no tip screen.
+  - [x] A declining test card shows "Declined · try another card or cash"; the next tap is attempt 2 on the same PaymentIntent, and cash stays offered.
+  - [x] Cancel while waiting clears the reader, cancels the PaymentIntent and frees the $498.60 for another way to pay.
+  - [x] A second action on a busy reader shows "Reader busy", and picking the other reader works.
+  - [x] A reader Stripe reports offline shows "Reader offline · use the bar reader".
+  - [x] A $20.00 additional tip charges $518.60, stores $20.00 in `tip_cents` and leaves $0.00 due.
 - **Tests:** integration on the connected sandbox with simulated readers (`POST /v1/test_helpers/terminal/readers/{reader}/present_payment_method`, including a declining test card); reader busy with two actions on one reader; reader offline and timeouts through the fault-injection client; end-to-end card states on DeskRoom and the Room phone.
 - **Notes:** The spec marks an attempt unknown when a reader action is still `in_progress` after 20 seconds, which also catches a guest who is slow to tap: the tap still lands as Paid, but staff lose Cancel at 20 seconds. Build it as the spec says and watch it in the staff trial (M9).
+  - Built on M4-05's run: the tap's `tip_cents` ("Additional tip (optional)") is added to what the reader charges, stored as the payment's tip from the start (never allocated, so it can go over the amount due), and kept as the tip at capture together with any tip the reader took; a reader with no heartbeat for 2 minutes is refused as `503 reader_offline` before anything goes to Stripe; every payment answer names its reader (label and station); readers carry a station (as set, or "Bar…" is the bar's and any other the front desk's); `apps/staff/src/screens/TapPayment.tsx` on the room screen (DeskRoom and the Room phone) once the check is presented: the reader picker (this screen's station first, nothing sent until one is picked), the additional tip, and the states in the glossary's words: "Waiting for a tap on the front-desk reader · Cancel" (or the bar reader), Paid, "Declined · try another card or cash" with Tap again (attempt 2 on the same PaymentIntent), "Checking with Stripe · don't retry", "Reader offline · use the bar reader" (or the front-desk reader) and "Reader busy"; Cancel shows "Canceled · nothing was charged" and offers the amount again. The panel polls `check-status` every 2 seconds, which reads Stripe through the state machine. The staff `api()` helper sends an `Idempotency-Key` on money routes.
+  - Paid in full sends the room to cleaning at once (M4-08), so the room screen keeps "Paid" on screen after the room's session ends; the receipt choices before "Room 9 goes to cleaning" come with M4-19 and M4-20.
+  - Cash stays offered after a decline: the cash panel itself comes with M4-13.
+  - **Sandbox run, Oct 2:** through the app's routes on West 4's sandbox, Present finalized Room 9 at $618.60 with $498.60 due after the seeded deposit; the tap waited on the Front desk S710 (`skip_tipping` sent, a room check), Stripe's simulated reader took the card (`present_payment_method`), and check-status recorded Paid (Visa ··4242); Stripe shows one succeeded $498.60 PaymentIntent.
+  - A Stripe error that isn't the card's (for example `account_invalid`) also fails the attempt, and the screen reads it as declined; M4-12's reconciler and the go-live checklist (M4-29) are where account problems are caught.
+  - Tests: `payments.int.test.ts` adds the additional tip ($30.00 + $20.00 tip sent as $50.00, recorded as amount and tip, $30.00 allocated), a reader with no heartbeat (503, nothing at Stripe) and a busy reader (409 `reader_busy`, then the front-desk reader); Playwright "Tap at the reader" (desktop: picker, waiting, decline, Tap again, Paid, one payment of $498.60 in two attempts, `skip_tipping` on the reader) and "Cancel while waiting" (the Room phone at 390 px).
+
 
 ### M4-12 · Reconcile unknown results and pass the chaos tests
 

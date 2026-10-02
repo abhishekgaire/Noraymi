@@ -67,6 +67,22 @@ const venueTx =
 
 /** The reader isn't ours (404, nothing sent to Stripe). */
 export class NoSuchReader extends Error {}
+/** No heartbeat from the reader for 2 minutes (503 reader_offline, nothing sent to Stripe). */
+export class ReaderQuiet extends Error {}
+
+async function quiet(
+  c: Queryable,
+  venueId: string,
+  deviceId: string,
+  now: Temporal.Instant,
+): Promise<boolean> {
+  const r = await c.query<{ quiet: boolean }>(
+    `select (offline_since is not null or last_seen_at < $3::timestamptz - interval '2 minutes') as quiet
+       from device_heartbeats where venue_id = $1 and device_id = $2`,
+    [venueId, deviceId, now.toString()],
+  );
+  return r.rows[0]?.quiet ?? false;
+}
 
 /** Step 1 for a tap: inside the caller's transaction. */
 export async function writeTap(
@@ -77,6 +93,8 @@ export async function writeTap(
     amountCents: number;
     readerDeviceId: string;
     shareId?: string | null;
+    /** "Additional tip (optional)": the reader charges it on top; it's the guest's, never allocated. */
+    tipCents?: number;
     businessDate: string;
     training?: boolean;
     now: Temporal.Instant;
@@ -84,10 +102,12 @@ export async function writeTap(
 ): Promise<{ paymentId: string; attemptNo: number }> {
   const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
   if (!reader) throw new NoSuchReader();
+  if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
   const paymentId = await insertPayment(c, venueId, {
     method: "card_present",
     status: "pending",
     businessDate: input.businessDate,
+    tipCents: input.tipCents ?? 0,
     training: input.training ?? false,
   });
   await allocate(c, venueId, {
@@ -103,7 +123,7 @@ export async function writeTap(
     portionKey: input.shareId ? `share:${input.shareId}` : "full",
     action: "process",
     readerId: reader.stripe_reader_id,
-    amountCents: input.amountCents,
+    amountCents: input.amountCents + (input.tipCents ?? 0),
   });
   await enqueueRun(c, venueId, paymentId, attemptNo, input.now);
   return { paymentId, attemptNo };
@@ -117,6 +137,7 @@ export async function writeRetap(
 ): Promise<{ attemptNo: number }> {
   const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
   if (!reader) throw new NoSuchReader();
+  if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
   const payment = await paymentById(c, venueId, input.paymentId, true);
   const last = await latestAttempt(c, venueId, input.paymentId);
   if (!payment || !last || payment.method !== "card_present")

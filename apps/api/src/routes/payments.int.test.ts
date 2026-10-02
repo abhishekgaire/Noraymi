@@ -170,9 +170,15 @@ beforeAll(async () => {
   });
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   faults.drop = null;
   faults.delay = null;
+  // The reader-health sweep keeps readers' heartbeats fresh in a running venue; here the clock jumps instead.
+  await owner.query(
+    `update device_heartbeats set last_seen_at = $1, offline_since = null
+      where device_id in (select id from devices where kind = 'reader')`,
+    [new Date(clock.now().epochMilliseconds)],
+  );
 });
 
 afterAll(async () => {
@@ -364,6 +370,87 @@ describe("a tap on a reader", () => {
       url: `/v1/venues/${venueId}/payments/${done.json().id}/cancel`,
       headers: { "idempotency-key": key() },
     });
+  });
+
+  it("adds an additional tip entered before the tap to what the reader charges, and records it as the tip", async () => {
+    const r = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/checks/${ids["chk_t1"]}/payments`,
+      headers: { "idempotency-key": key() },
+      payload: {
+        method: "tap",
+        amount_cents: 3000,
+        reader_id: ids["dev_bar_reader"],
+        tip_cents: 2000,
+      },
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    const pi = fake.list(
+      "payment_intent",
+      account,
+      (x) => (x["metadata"] as { payment_id?: string }).payment_id === r.json().id,
+    )[0]!;
+    expect(pi["amount"]).toBe(5000);
+    await present("dev_bar_reader");
+    const paid = (await checkStatus(r.json().id)).json();
+    expect(paid).toMatchObject({ state: "paid", amount_cents: 3000, tip_cents: 2000 });
+    // The tip is never allocated: the tab's $30.00 is what's paid.
+    const alloc = await owner.query<{ s: number }>(
+      "select sum(amount_cents)::int as s from payment_allocations where payment_id = $1",
+      [r.json().id],
+    );
+    expect(alloc.rows[0]!.s).toBe(3000);
+  });
+
+  it("refuses a reader with no heartbeat for 2 minutes as reader_offline, and nothing reaches Stripe", async () => {
+    await owner.query("update device_heartbeats set offline_since = now() where device_id = $1", [
+      ids["dev_bar_reader"],
+    ]);
+    await owner.query(
+      `insert into device_heartbeats (device_id, venue_id, last_seen_at, offline_since) values ($1, $2, now() - interval '3 minutes', now())
+       on conflict (device_id) do update set offline_since = now()`,
+      [ids["dev_bar_reader"], venueId],
+    );
+    const seen = fake.requests.length;
+    const r = await tap("chk_t2", 1000);
+    expect(r.statusCode).toBe(503);
+    expect(r.json().error).toMatchObject({
+      code: "reader_offline",
+      details: { reader_id: ids["dev_bar_reader"] },
+    });
+    expect(fake.requests.length).toBe(seen);
+    await owner.query(
+      "update device_heartbeats set offline_since = null, last_seen_at = $2 where device_id = $1",
+      [ids["dev_bar_reader"], new Date(clock.now().epochMilliseconds)],
+    );
+  });
+
+  it("answers reader_busy for a second action on a busy reader, and the other reader takes it", async () => {
+    const first = await tap("chk_t2", 1000);
+    expect(first.json()).toMatchObject({
+      state: "waiting",
+      reader: { label: "Bar S710", station: "bar" },
+    });
+    const second = await tap("chk_t4", 1000);
+    expect(second.statusCode).toBe(409);
+    expect(second.json().error.code).toBe("reader_busy");
+    const p = second.json().error.details.payment;
+    const front = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/payments/${p.id}/tap`,
+      headers: { "idempotency-key": key() },
+      payload: { reader_id: ids["dev_front_reader"] },
+    });
+    expect(front.json()).toMatchObject({
+      state: "waiting",
+      reader: { label: "Front desk S710", station: "front_desk" },
+    });
+    for (const id of [first.json().id, p.id])
+      await app.inject({
+        method: "POST",
+        url: `/v1/venues/${venueId}/payments/${id}/cancel`,
+        headers: { "idempotency-key": key() },
+      });
   });
 
   it("never has a database transaction open while a Stripe call is in flight", () => {
