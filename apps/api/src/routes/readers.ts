@@ -8,12 +8,11 @@ import { ApiError } from "../http/errors.js";
 import { StripeError, type StripeClient } from "../stripe/client.js";
 import {
   CELLULAR_FEE_CENTS,
-  SUPPORTED_READERS,
   deleteReader,
   hasCellular,
   registerReader,
+  readerModel,
   retrieveReader,
-  type ReaderModel,
 } from "../stripe/terminal.js";
 import { NoStripeAccount, ensureTerminal } from "../stripe/terminal-setup.js";
 import { stripeFailure } from "./payments-admin.js";
@@ -92,6 +91,11 @@ export function readerRoutes(
           throw new ApiError("invalid_request", "this venue has no Stripe account yet");
         return stripeFailure(e);
       }
+      // One attempt, one key: the screen's own Idempotency-Key when it sends one (a retry of the same
+      // tap), otherwise this request. A key Stripe has seen answers its first result for 24 hours, so a
+      // fresh attempt after a refusal must never reuse one.
+      const header = request.headers["idempotency-key"];
+      const attempt = typeof header === "string" && header ? header : request.requestId;
       let reader;
       try {
         reader = await registerReader(
@@ -102,7 +106,7 @@ export function readerRoutes(
             label: parsed.data.label,
             location: setup.locationId,
           },
-          `venue:${venueId}:reader:${parsed.data.registration_code}:${parsed.data.label}`,
+          `venue:${venueId}:reader:${attempt}`,
         );
       } catch (e) {
         if (e instanceof StripeError && e.status === 400)
@@ -112,13 +116,13 @@ export function readerRoutes(
           );
         return stripeFailure(e);
       }
-      if (!SUPPORTED_READERS.includes(reader.device_type as ReaderModel)) {
+      const model = readerModel(reader.device_type, stripe.livemode);
+      if (!model) {
         await deleteReader(stripe, setup.account, reader.id).catch(() => undefined);
         throw new ApiError("invalid_request", "only the S710, S700 and WisePOS E work here", {
           details: { reason: "unsupported_reader", device_type: reader.device_type },
         });
       }
-      const model = reader.device_type as ReaderModel;
       const id = await request.inVenue(async (c) => {
         const deviceId = await saveReader(c, venueId, {
           name: parsed.data.label,

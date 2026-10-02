@@ -72,7 +72,7 @@ export async function readerOfVenue(
   return r.rows[0] ?? null;
 }
 
-/** A newly registered reader; the seed's unregistered row of the same name is taken over. */
+/** A newly registered reader: the venue's reader row of the same name is taken over (the seed's, or one being replaced). */
 export async function saveReader(
   c: Queryable,
   venueId: string,
@@ -81,7 +81,7 @@ export async function saveReader(
   const existing = await c.query<{ id: string }>(
     `update devices set stripe_reader_id = $3, reader_model = $4, cellular = $5
       where id = (select id from devices where venue_id = $1 and kind = 'reader' and name = $2
-                    and revoked_at is null and stripe_reader_id is null limit 1)
+                    and revoked_at is null order by stripe_reader_id nulls first limit 1)
       returning id`,
     [venueId, input.name, input.stripeReaderId, input.model, input.cellular],
   );

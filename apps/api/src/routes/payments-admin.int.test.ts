@@ -121,7 +121,7 @@ describe("West 4's Stripe account", () => {
     expect(before.json()).toMatchObject({
       account_id: accountId,
       card_payments_enabled: false,
-      needs: ["Business details and a bank account"],
+      needs: ["configuration.merchant.mcc", "identity.business_details.address"],
     });
     const link = await app.inject({
       method: "POST",
@@ -143,12 +143,12 @@ describe("West 4's Stripe account", () => {
     await fetch(`${fake.base}/fake/accounts/${accountId}/needs`, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: "needs[0]=A representative's date of birth",
+      body: "needs[0]=identity.individual.dob",
     });
     const due = await app.inject({ method: "GET", url: `/v1/venues/${v.venueA}/payments` });
     expect(due.json()).toMatchObject({
       card_payments_enabled: false,
-      needs: ["A representative's date of birth"],
+      needs: ["identity.individual.dob"],
     });
   });
 

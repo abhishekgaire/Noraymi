@@ -152,6 +152,28 @@ describe("West 4's card readers", () => {
     expect(fake.list("terminal.location", accountId)).toHaveLength(1);
   });
 
+  it("registers a replacement under the same name on the same row, with a fresh key each attempt", async () => {
+    const before = (
+      await owner.query("select id, stripe_reader_id from devices where id = $1", [
+        ids["dev_front_reader"],
+      ])
+    ).rows[0];
+    const r = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/readers`,
+      payload: { registration_code: "simulated-s710", label: "Front desk S710" },
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json().id).toBe(ids["dev_front_reader"]);
+    const after = (
+      await owner.query("select stripe_reader_id from devices where id = $1", [
+        ids["dev_front_reader"],
+      ])
+    ).rows[0];
+    expect(after.stripe_reader_id).not.toBe(before.stripe_reader_id);
+    expect(fake.requests.at(-1)?.idempotencyKey).toMatch(/^venue:.+:reader:/);
+  });
+
   it("never takes an M2", async () => {
     const r = await app.inject({
       method: "POST",
@@ -161,7 +183,9 @@ describe("West 4's card readers", () => {
     expect(r.statusCode).toBe(400);
     expect(r.json().error.details).toMatchObject({ reason: "unsupported_reader" });
     expect(
-      fake.list("terminal.reader", accountId).some((x) => x["device_type"] === "stripe_m2"),
+      fake
+        .list("terminal.reader", accountId)
+        .some((x) => String(x["device_type"]).endsWith("stripe_m2")),
     ).toBe(false);
   });
 

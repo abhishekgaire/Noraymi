@@ -4,6 +4,7 @@ import {
   SUPPORTED_READERS,
   configurationParams,
   hasCellular,
+  readerModel,
 } from "./terminal.js";
 import { formEncode } from "./client.js";
 
@@ -32,5 +33,13 @@ describe("the Terminal Configuration from pay.tipScreen", () => {
     expect(SUPPORTED_READERS).not.toContain("stripe_m2");
     expect(SUPPORTED_READERS.filter(hasCellular)).toEqual(["stripe_s710"]);
     expect(CELLULAR_FEE_CENTS).toBe(1000);
+  });
+
+  it("counts a sandbox's simulated reader as the model it simulates, never in live mode", () => {
+    expect(readerModel("simulated_stripe_s710", false)).toBe("stripe_s710");
+    expect(readerModel("simulated_stripe_s710", true)).toBeNull();
+    expect(readerModel("stripe_s710", true)).toBe("stripe_s710");
+    expect(readerModel("simulated_stripe_m2", false)).toBeNull();
+    expect(readerModel("stripe_m2", true)).toBeNull();
   });
 });

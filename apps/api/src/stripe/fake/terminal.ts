@@ -7,11 +7,12 @@ import { FakeError, fakeId, fakeRouteSets } from "./server.js";
  * "simulated-m2" registers an M2 so the refusal can be tested. A test helper
  * takes a reader offline or back.
  */
+// Stripe's sandbox reports a simulated reader's type with "simulated_" in front (West 4's sandbox, Oct 2).
 const MODEL_OF_CODE: Record<string, string> = {
-  "simulated-s710": "stripe_s710",
-  "simulated-s700": "stripe_s700",
-  "simulated-wpe": "bbpos_wisepos_e",
-  "simulated-m2": "stripe_m2",
+  "simulated-s710": "simulated_stripe_s710",
+  "simulated-s700": "simulated_stripe_s700",
+  "simulated-wpe": "simulated_bbpos_wisepos_e",
+  "simulated-m2": "simulated_stripe_m2",
 };
 
 const needAccount = (account: string | null): string => {

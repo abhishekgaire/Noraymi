@@ -64,13 +64,15 @@ fakeRouteSets.push((fake) => {
       identity: b.identity,
       defaults: b.defaults,
       configuration: {
-        merchant: { capabilities: { card_payments: { requested: true, status: "pending" } } },
+        merchant: { capabilities: { card_payments: { requested: true, status: "restricted" } } },
       },
+      // As Stripe lists them: field paths, not sentences (West 4's sandbox account had 31).
       requirements: {
         entries: [
+          { description: "configuration.merchant.mcc", minimum_deadline: { status: "past_due" } },
           {
-            description: "Business details and a bank account",
-            minimum_deadline: { status: "currently_due" },
+            description: "identity.business_details.address",
+            minimum_deadline: { status: "past_due" },
           },
         ],
       },

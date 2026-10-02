@@ -17,6 +17,18 @@ export const SUPPORTED_READERS: readonly ReaderModel[] = [
 export const CELLULAR_FEE_CENTS = 1000;
 export const hasCellular = (model: ReaderModel): boolean => model === "stripe_s710";
 
+/**
+ * The model a reader reports, as one of ours or null. Stripe's sandbox reports a simulated reader
+ * as "simulated_stripe_s710" and so on; outside live mode that counts as the model it simulates.
+ */
+export function readerModel(deviceType: string, livemode: boolean): ReaderModel | null {
+  const type =
+    !livemode && deviceType.startsWith("simulated_")
+      ? deviceType.slice("simulated_".length)
+      : deviceType;
+  return (SUPPORTED_READERS as readonly string[]).includes(type) ? (type as ReaderModel) : null;
+}
+
 export interface StripeReader {
   readonly id: string;
   readonly label: string | null;

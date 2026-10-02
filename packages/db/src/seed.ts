@@ -47,6 +47,8 @@ export interface SeedFile {
     readonly id: string;
     readonly name: string;
     readonly address: string;
+    readonly postal_code?: string;
+    readonly legal_name?: string;
     readonly phone_e164: string;
     readonly time_zone: string;
     readonly slug: string;
@@ -786,12 +788,12 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
   try {
     await client.query("begin");
 
-    // The organization and the venue. The seed has no legal name; the venue's name stands in (Notes).
+    // The organization and the venue: West 4 Inc. (the founder's, Oct 2), or the venue's name if a seed has none.
     const orgId = remember("org_west4", "organizations");
     await client.query(
       `insert into organizations (id, legal_name) values ($1, $2)
        on conflict (id) do update set legal_name = excluded.legal_name, stripe_account_id = null`,
-      [orgId, seed.venue.name],
+      [orgId, seed.venue.legal_name ?? seed.venue.name],
     );
     const venueId = remember(seed.venue.id, "venues");
     const [line1, city, state] = seed.venue.address.split(",").map((s) => s.trim());
@@ -807,7 +809,12 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         orgId,
         seed.venue.name,
         seed.venue.slug,
-        JSON.stringify({ line1, city, state }),
+        JSON.stringify({
+          line1,
+          city,
+          state,
+          ...(seed.venue.postal_code ? { postal_code: seed.venue.postal_code } : {}),
+        }),
         seed.venue.time_zone,
         dayCutover,
         seed.venue.rule_pack_id,

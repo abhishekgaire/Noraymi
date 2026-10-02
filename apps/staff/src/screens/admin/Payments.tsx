@@ -80,11 +80,7 @@ export function Payments() {
               {account.needs.length > 0 && (
                 <div className="banner amber" role="alert">
                   <strong>{t("payments.needs")}</strong>
-                  <ul>
-                    {account.needs.map((n) => (
-                      <li key={n}>{n}</li>
-                    ))}
-                  </ul>
+                  <p>{t("payments.needs.count", { count: account.needs.length })}</p>
                   <p className="small">{t("payments.needs.hint")}</p>
                 </div>
               )}

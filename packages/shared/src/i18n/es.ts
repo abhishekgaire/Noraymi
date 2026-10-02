@@ -1331,4 +1331,5 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "readers.failed":
     "No se pudo registrar el lector. Revisa el código que muestra e inténtalo de nuevo.",
   "readers.unsupported": "Aquí solo funcionan el S710, el S700 y el WisePOS E.",
+  "payments.needs.count": "Faltan {count} cosas por completar en la configuración de Stripe",
 };

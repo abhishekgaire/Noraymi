@@ -3788,7 +3788,7 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Payments");
     const banner = page.getByRole("alert");
     await expect(banner).toContainText("Stripe needs more information");
-    await expect(banner).toContainText("Business details and a bank account");
+    await expect(banner).toContainText("2 things left to finish in Stripe's setup");
     await expect(page.getByText("Card payments aren't on yet")).toBeVisible();
     await expect(page.getByText("No payouts yet")).toBeVisible();
     await page.getByRole("button", { name: "Connect with Stripe" }).click();

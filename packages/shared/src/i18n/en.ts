@@ -1307,4 +1307,5 @@ export const en = {
   "readers.registered": "{name} is registered",
   "readers.failed": "Couldn't register the reader. Check the code it shows and try again.",
   "readers.unsupported": "Only the S710, S700 and WisePOS E work here.",
+  "payments.needs.count": "{count} things left to finish in Stripe's setup",
 } as const;
