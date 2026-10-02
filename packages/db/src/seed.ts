@@ -810,6 +810,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "lost_items",
       "alcohol_refusals",
       "bar_presence",
+      "clear_out_checks",
       "print_jobs",
       "order_items",
       "orders",

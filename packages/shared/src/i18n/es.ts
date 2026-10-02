@@ -1268,4 +1268,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cutOff.host": "El anfitrión",
   "cutOff.guest": "Cliente {n}",
   "cutOff.failed": "No se pudo. Inténtalo de nuevo.",
+  // The clear-out check (M3-23).
+  "clearOut.push": "Revisión de cierre: recorre cada sala y la barra · que no quede ninguna bebida",
+  "alert.clearOut": "Recorre cada sala y la barra · que no quede ninguna bebida",
+  "alert.clearOut.done": "Revisión de cierre · {name} · {time}",
+  "alert.clearOut.button": "Hecho",
 };

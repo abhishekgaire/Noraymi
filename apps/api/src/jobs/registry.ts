@@ -23,6 +23,7 @@ import { MENU_PDF_KIND, makeMenuPdfHandler } from "./menu-pdf.js";
 import { printWatchSweep } from "../routes/print.js";
 import { escalationSweep } from "../orders/escalation.js";
 import { alcoholStopSweep } from "../orders/four-am.js";
+import { clearOutSweep } from "../rooms/clear-out.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -108,6 +109,8 @@ export function makeSweeps(
     escalationSweep(pool),
     // The 4 AM stop: alcohol nobody accepted is cancelled once the window closes (M3-22).
     alcoholStopSweep(pool),
+    // The clear-out check at the close plus drinking-up time (M3-23).
+    clearOutSweep(pool),
     holdSweep(pool),
     wrapUpSweep(pool),
     // The automatic texts on their triggers (M2-24).

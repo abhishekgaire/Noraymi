@@ -564,17 +564,20 @@ Definition of done: see CLAUDE.md.
 
 ### M3-23 · Raise the clear-out check at 4:30 AM
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-06, M2-29, M3-01
 - **Spec:** [N17 Clear-out check](../screens.md#n17-clear-out-check); [Money rules](../spec/05-money-rules.md) 5 (Clear-out check); [Data model](../spec/04-data-model.md) · `clear_out_checks`; [API](../spec/08-api.md) · Night close (`POST /nights/{date}/clear-out`), Live events (`clear_out.due`); [Board](../screens.md#board) note 13
 - **Build:** `clear_out_checks` (venue_id, business_date, due_at, done_by, done_at, note), one per business date. A job raises it at the close plus the drinking-up time (M3-01; 4:30 AM at West 4) with `clear_out.due` to the board, Close the night (M7) and the manager on duty's phone. The board asks "Walk every room and the bar · no drinks left out" with [Done]. `POST /nights/{date}/clear-out` records who and when, and the board then shows "Clear-out check · Andy · 4:31 AM".
 - **Acceptance:**
-  - [ ] At 4:30 AM on the simulated clock the board asks "Walk every room and the bar · no drinks left out", and Andy's phone gets it.
-  - [ ] Andy's [Done] at 4:31 AM records "Clear-out check · Andy · 4:31 AM".
-  - [ ] Business date Fri Sep 25 has one clear-out check, however often the job runs.
+  - [x] At 4:30 AM on the simulated clock the board asks "Walk every room and the bar · no drinks left out", and Andy's phone gets it.
+  - [x] Andy's [Done] at 4:31 AM records "Clear-out check · Andy · 4:31 AM".
+  - [x] Business date Fri Sep 25 has one clear-out check, however often the job runs.
 - **Tests:** job and API tests on the simulated clock, on a normal night and both daylight-saving nights.
 - **Notes:** Close the night refuses to close before the check is done; it enforces that in M7. When drinking-up time starts is open with the lawyer (see M3-01).
+  - Built: migration `0051_clear_out_checks.sql` (one per venue per business date); `apps/api/src/rooms/clear-out.ts` (a scheduler sweep every 15 seconds raises the check once at M3-01's `clearOutDue`, with `clear_out.due` and a push to the manager on duty); `POST /v1/venues/{v}/nights/{date}/clear-out` (`{ note? }`, records who and when; a second Done answers `409`); the board's alert, amber "Walk every room and the bar · no drinks left out" with Done, then grey "Clear-out check · Andy · 4:31 AM"; `apps/api/src/rooms/clear-out.int.test.ts` at 4:29:59 and 4:30:00 on Fri Sep 25 and both daylight-saving nights.
+  - The check belongs to the business date whose close it follows: 4:30 AM on Saturday is Friday's. A sweep stands in for a per-date job, like M3-22's stop, and the unique row per date keeps it to one however often it runs.
+  - Done needs `guests.checkin` (every staff role), since whoever walks the rooms marks it; Close the night (M7) will refuse to close before it's done. The seed wipes the night's check on a reload.
 
 ### M3-24 · Run accessibility checks in CI for the room page and the tablets
 

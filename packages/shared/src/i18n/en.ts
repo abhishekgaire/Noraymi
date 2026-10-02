@@ -1247,4 +1247,9 @@ export const en = {
   "cutOff.host": "The host",
   "cutOff.guest": "Guest {n}",
   "cutOff.failed": "That didn't go through. Try again.",
+  // The clear-out check (M3-23).
+  "clearOut.push": "Clear-out check: walk every room and the bar · no drinks left out",
+  "alert.clearOut": "Walk every room and the bar · no drinks left out",
+  "alert.clearOut.done": "Clear-out check · {name} · {time}",
+  "alert.clearOut.button": "Done",
 } as const;

@@ -46,6 +46,14 @@ export type Alert =
       readonly waiting: readonly string[];
     }
   | {
+      readonly kind: "clear_out";
+      readonly color: string;
+      readonly done: boolean;
+      readonly business_date: string;
+      readonly done_at?: string;
+      readonly done_by?: string | null;
+    }
+  | {
       readonly kind: "no_bar";
       readonly color: string;
       readonly lost_at: string;
@@ -92,6 +100,7 @@ export interface AlertActions {
   readonly onIt: (callId: string) => void;
   readonly reprint: (jobId: string) => void;
   readonly showOrders: () => void;
+  readonly clearOut: (businessDate: string) => void;
   readonly offer: (entryId: string) => void;
   readonly show: (roomId: string) => void;
   readonly noProblem: (conversationId: string) => void;
@@ -159,6 +168,17 @@ export function Alerts({
         });
       case "code":
         return t("alert.code", { room: a.room_name });
+      case "clear_out":
+        return a.done
+          ? t("alert.clearOut.done", {
+              name: a.done_by ?? "",
+              time: new Intl.DateTimeFormat("en-US", {
+                timeZone,
+                hour: "numeric",
+                minute: "2-digit",
+              }).format(new Date(a.done_at!)),
+            })
+          : t("alert.clearOut");
       case "no_bar":
         return t("alert.noBar", { time: short(a.lost_at) });
       case "order": {
@@ -212,6 +232,15 @@ export function Alerts({
                   </button>
                 )}
               </>
+            )}
+            {a.kind === "clear_out" && !a.done && (
+              <button
+                type="button"
+                className="primary"
+                onClick={() => actions.clearOut(a.business_date)}
+              >
+                {t("alert.clearOut.button")}
+              </button>
             )}
             {a.kind === "order" && (
               <button type="button" className="secondary" onClick={() => actions.showOrders()}>

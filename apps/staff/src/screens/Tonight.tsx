@@ -213,6 +213,8 @@ export function Tonight() {
               "print_job.queued",
               "order.escalated",
               "bar.connected",
+              "clear_out.due",
+              "clear_out.done",
               "bar.disconnected",
               "order.accepted",
               "order.cancelled",
@@ -468,6 +470,10 @@ export function Tonight() {
                   })
                   .catch(() => setFailed(true)),
               showOrders: () => void navigate("/bar-orders"),
+              clearOut: (date) =>
+                void api("POST", `/v1/venues/${venueId}/nights/${date}/clear-out`, {})
+                  .then(() => load())
+                  .catch(() => setFailed(true)),
               show: (roomId) =>
                 document
                   .querySelector(`[data-room="${roomId}"]`)

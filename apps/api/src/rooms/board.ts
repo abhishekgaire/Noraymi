@@ -3,6 +3,7 @@ import { managerOnDutyAt } from "../approvals/service.js";
 import { agingFor, secondsSince } from "../orders/escalation.js";
 import { barLostSince, venueOpenNow } from "./bar-presence.js";
 import { alcoholNow } from "../orders/alcohol.js";
+import { clearOutFor } from "./clear-out.js";
 import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
@@ -199,6 +200,7 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
 const COLOR_ORDER = ["pink", "amber", "lime", "grey"] as const;
 const KIND_ORDER = [
   "no_bar",
+  "clear_out",
   "needed_now",
   "call",
   "order",
@@ -284,6 +286,34 @@ async function boardAlerts(
       call: k.kind,
       minutes_ago: minutes(k.created_at),
     });
+  // The clear-out check (M3-23): amber while it waits, grey once done, for tonight's business date.
+  const v = await venueClock(c, venueId);
+  const clear = await clearOutFor(
+    c,
+    venueId,
+    businessDate(now, v.timeZone, v.dayCutover).businessDate.toString(),
+  );
+  if (clear)
+    out.push(
+      clear.done_at
+        ? {
+            kind: "clear_out",
+            color: "grey",
+            since: clear.done_at,
+            done: true,
+            done_at: clear.done_at,
+            done_by: clear.done_by_name,
+            business_date: clear.business_date,
+          }
+        : {
+            kind: "clear_out",
+            color: "amber",
+            since: clear.due_at,
+            done: false,
+            business_date: clear.business_date,
+          },
+    );
+
   // No bar device connected during opening hours (M3-17): pink, first, until one connects.
   const lost = await barLostSince(c, venueId);
   if (lost && (await venueOpenNow(c, venueId, now)))
