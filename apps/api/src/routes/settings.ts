@@ -2,8 +2,8 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { StripeClient } from "../stripe/client.js";
 import { pushTipScreen } from "../stripe/terminal-setup.js";
 import { readSetting, rulePackFor, saveSettings, settingHistory, SettingsRefused } from "@west4/db";
-import { businessDate } from "@west4/rules";
-import { isSettingsKey, Temporal, type Clock } from "@west4/shared";
+import { businessDate, checkSetting } from "@west4/rules";
+import { isSettingsKey, settingsSchemas, Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 
@@ -74,6 +74,23 @@ export function settingsRoutes(
     const pack = await request.inVenue((c) => rulePackFor(c, packId, today));
     if (!pack)
       throw new ApiError("internal", `no usable rule pack ${packId} for ${today.toString()}`);
+    // A card-fee change asks for the passkey again (M4-26; Tenancy and access), once the rule pack's
+    // checks pass, so a refused fee says why rather than asking for the passkey first.
+    if ("pay" in values) {
+      const parsed = settingsSchemas.pay.safeParse(values["pay"]);
+      const reasons = parsed.success
+        ? checkSetting("pay", parsed.data, { pack: pack.pack, cutover: venue.day_cutover, today })
+        : [];
+      if (reasons.length > 0)
+        throw new ApiError("invalid_request", reasons.join(" "), { details: { reasons } });
+      const current = await request.inVenue((c) => readSetting(c, request.venueId!, "pay", today));
+      const next = (values["pay"] as { cardFee?: unknown } | null)?.cardFee;
+      if (canonical(next) !== canonical(current?.value.cardFee)) {
+        const consume = request.server.consumeStepUp;
+        if (!consume) throw new ApiError("step_up_required", "confirm with your passkey");
+        await consume(request);
+      }
+    }
     try {
       const saved = await request.inVenue((c) =>
         saveSettings(c, {
@@ -129,4 +146,14 @@ export function settingsRoutes(
       return save(request, values);
     },
   );
+}
+
+/** JSON with its keys sorted, so two equal values compare equal whatever order they were sent in. */
+function canonical(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v ?? null);
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  return `{${Object.keys(v)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`)
+    .join(",")}}`;
 }

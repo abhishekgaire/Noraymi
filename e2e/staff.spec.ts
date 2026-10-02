@@ -29,6 +29,7 @@ const ADMIN_SECTIONS = [
   "/admin/connections",
   "/admin/payments",
   "/admin/disputes",
+  "/admin/card-fee",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -4630,6 +4631,74 @@ test("Disputes inbox: a dispute on #1042 shows its deadline and the evidence gat
     await expect(item).toContainText("No accepted policy on this booking");
     await expect(item).toContainText("Who served (1 orders)");
     await expect(item.getByRole("button", { name: "Submit the evidence" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Card fee & gratuity (M4-26; screens AdminDesk notes 18 and 26):
+ * West 4's card fee off, a 20% gratuity on room checks, tips of 18, 20 and
+ * 22%, tip review at 25%, $50.00 and 2 hours, Pay my share on; a change to a
+ * tip choice reaches the readers' configuration.
+ */
+test("Admin → Card fee & gratuity: West 4's settings, and a tip change reaches the readers", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/card-fee");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Card fee & gratuity");
+    await expect(page.getByRole("radio", { name: "Off" })).toBeChecked();
+    await expect(page.getByText("No card fee: every card pays the price shown")).toBeVisible();
+    await expect(page.getByLabel("Added to")).toHaveValue("rooms");
+    await expect(page.getByLabel("Gratuity percent")).toHaveValue("20");
+    await expect(page.getByLabel("Tip choice 1 (%)")).toHaveValue("18");
+    await expect(page.getByLabel("Tip choice 2 (%)")).toHaveValue("20");
+    await expect(page.getByLabel("Tip choice 3 (%)")).toHaveValue("22");
+    await expect(
+      page.getByText("A tip over 25% or $50.00, or entered 2 hours late, needs approval"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", {
+        name: "Pay my share: guests pay their own share from their phones",
+      }),
+    ).toBeChecked();
+
+    await page.getByLabel("Tip choice 1 (%)").fill("15");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByLabel("Tip choice 1 (%)")).toHaveValue("15", { timeout: 10_000 });
+    const ids = (
+      await db.query<{ config: string; account: string }>(
+        `select v.stripe_terminal_config_id as config, o.stripe_account_id as account
+           from venues v join organizations o on o.id = v.org_id where v.slug = 'west4karaoke'`,
+      )
+    ).rows[0]!;
+    await expect
+      .poll(
+        async () => {
+          const r = await request.get(
+            `http://127.0.0.1:12111/v1/terminal/configurations/${ids.config}`,
+            {
+              headers: {
+                authorization: "Bearer rk_test_fake_payments",
+                "stripe-account": ids.account,
+              },
+            },
+          );
+          const tipping = ((await r.json()) as { tipping?: { usd?: { percentages?: string[] } } })
+            .tipping;
+          return tipping?.usd?.percentages?.map(String);
+        },
+        { timeout: 10_000 },
+      )
+      .toEqual(["15", "20", "22"]);
   } finally {
     await db.end();
   }

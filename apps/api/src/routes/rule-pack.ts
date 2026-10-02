@@ -45,7 +45,17 @@ export function rulePackRoutes(app: FastifyInstance, options: { clock: Clock }):
       return {
         pack_id: packId,
         business_date: today.toString(),
-        current: current ? { version: current.version, effective_on: current.effectiveOn } : null,
+        current: current
+          ? {
+              version: current.version,
+              effective_on: current.effectiveOn,
+              // For Admin → Card fee & gratuity's preview (M4-26): the rate, and whether a surcharge is taxed.
+              sales_tax: {
+                rate: current.pack.salesTax.rate,
+                surcharge_taxable: current.pack.salesTax.surchargeTaxable,
+              },
+            }
+          : null,
         next: next
           ? {
               version: next.version,

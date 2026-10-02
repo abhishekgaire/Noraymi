@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
@@ -44,8 +45,35 @@ const pay = {
   payShare: { on: true },
 };
 
-const put = (path: string, payload: unknown) =>
-  app.inject({ method: "PUT", url: `/v1/venues/${v.venueA}${path}`, payload });
+const put = (path: string, payload: unknown, headers: Record<string, string> = {}) =>
+  app.inject({ method: "PUT", url: `/v1/venues/${v.venueA}${path}`, payload, headers });
+/**
+ * A card-fee change asks for the passkey again (M4-26): a real session for the owner, and a step-up
+ * token for it, as the passkey ceremony gives.
+ */
+const steppedUp = async (): Promise<Record<string, string>> => {
+  const owner = new pg.Client({ connectionString: db.url });
+  await owner.connect();
+  try {
+    const token = randomBytes(24).toString("base64url");
+    const step = randomBytes(24).toString("base64url");
+    const session = (
+      await owner.query<{ id: string }>(
+        `insert into auth_sessions (principal, user_id, membership_id, assurance, client, token_hash, started_at, last_seen_at, expires_at)
+         values ('staff', $1, $2, 'passkey', 'web', $3, now(), now(), now() + interval '1 hour') returning id`,
+        [v.ownerA, v.membershipA, createHash("sha256").update(token).digest("hex")],
+      )
+    ).rows[0]!.id;
+    await owner.query(
+      `insert into auth_challenges (user_id, purpose, challenge, session_id, attempts, created_at, expires_at)
+       values ($1, 'step_up_token', $2, $3, 0, now(), now() + interval '1 hour')`,
+      [v.ownerA, createHash("sha256").update(step).digest("hex"), session],
+    );
+    return { authorization: `Bearer ${token}`, "x-step-up": step };
+  } finally {
+    await owner.end();
+  }
+};
 const get = (path: string) => app.inject({ method: "GET", url: `/v1/venues/${v.venueA}${path}` });
 
 beforeAll(async () => {
@@ -70,7 +98,8 @@ beforeAll(async () => {
   app = buildApp({
     config,
     clock: new FrozenClock(SEED_NOW),
-    authenticators: [async () => andy],
+    // A request with a bearer token signs in as its session instead (the step-up tests).
+    authenticators: [async (request) => (request.headers.authorization ? undefined : andy)],
     eventsPollMs: 100,
   });
   await app.ready();
@@ -150,10 +179,13 @@ describe("settings", () => {
     });
     expect(soon.statusCode).toBe(400);
     expect(soon.json().error.message).toContain("from 2026-10-25");
-    const ok = await put("/settings/pay", {
-      value: { ...pay, cardFee: { mode: "surcharge", pct: 2.7, noticeSentOn: "2026-08-01" } },
-    });
-    expect(ok.statusCode).toBe(200);
+    const value = { ...pay, cardFee: { mode: "surcharge", pct: 2.7, noticeSentOn: "2026-08-01" } };
+    // A valid card-fee change still needs the passkey again (M4-26).
+    const unconfirmed = await put("/settings/pay", { value });
+    expect(unconfirmed.statusCode).toBe(403);
+    expect(unconfirmed.json().error.code).toBe("step_up_required");
+    const ok = await put("/settings/pay", { value }, await steppedUp());
+    expect(ok.statusCode, ok.body).toBe(200);
   });
 
   it("a drawer change saved at 10:41 PM on Fri Sep 25 reads 'Starts Sat Sep 26', and business date Sep 25 still gets the old version", async () => {
@@ -172,10 +204,14 @@ describe("settings", () => {
       value: { drawer: "perPerson" },
     });
     // The tip-pool method waits too; a tip-screen change is live at once.
-    const poolChange = await put("/settings/pay", { value: { ...pay, pool: "even" } });
+    // The earlier test saved a 2.7% surcharge; these keep it, so neither is a card-fee change.
+    const fee = { mode: "surcharge", pct: 2.7, noticeSentOn: "2026-08-01" };
+    const poolChange = await put("/settings/pay", {
+      value: { ...pay, cardFee: fee, pool: "even" },
+    });
     expect(poolChange.json().saved[0].startsOn).toBe("2026-09-26");
     const screen = await put("/settings/pay", {
-      value: { ...pay, tipScreen: { ...pay.tipScreen, pcts: [15, 18, 20] } },
+      value: { ...pay, cardFee: fee, tipScreen: { ...pay.tipScreen, pcts: [15, 18, 20] } },
     });
     expect(screen.json().saved[0].startsOn).toBe("2026-09-25");
   });

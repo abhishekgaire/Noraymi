@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { api, type ApiCallError } from "../api.js";
+import { api, stepUpToken, type ApiCallError } from "../api.js";
 
 /**
  * "Save and publish" (screens.md · AdminDesk): a section changes settings
@@ -48,7 +48,14 @@ export function AdminDraftProvider({
   const save = useCallback(async () => {
     setSaving(true);
     try {
-      await api("PUT", `/v1/venues/${venueId}/settings`, { values });
+      try {
+        await api("PUT", `/v1/venues/${venueId}/settings`, { values });
+      } catch (e) {
+        // A card-fee change asks for the passkey again (M4-26): confirm it, then save once more.
+        if ((e as ApiCallError)?.code !== "step_up_required") throw e;
+        const stepUp = await stepUpToken();
+        await api("PUT", `/v1/venues/${venueId}/settings`, { values }, { stepUp });
+      }
       setValues({});
       setError(null);
       setStatus("published");

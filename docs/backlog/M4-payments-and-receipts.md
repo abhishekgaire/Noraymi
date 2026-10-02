@@ -786,7 +786,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M4-26 · Build Admin → Card fee & gratuity
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4-02, M4-25; M1 (settings and Admin)
 - **Spec:** [Settings](../spec/03-settings-rule-packs-modules.md) (`PaySettings`); [Tenancy and access](../spec/02-tenancy-access.md) (card-fee changes ask for the passkey again); [milestones: Admin by milestone](../milestones.md#admin-by-milestone); [screens: AdminDesk notes 18 and 26](../screens.md#admindesk)
@@ -794,11 +794,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - One section editing `pay`: the card fee (off at West 4), with a preview whose tax line follows `salesTax.surchargeTaxable`; the gratuity (`auto` off, rooms, parties or all; `pct`; `partyMin` for parties), always labeled "Gratuity"; the reader's tip screen (on; 18, 20 and 22%; $1, $2 and $3 under $10), whose save updates the Terminal Configuration and says readers can take up to 5 minutes; tip review (25%, $50, 2 hours); and Pay my share (on).
   - A card-fee change asks for the passkey again; every save runs the rule-pack checks, writes new versions and sends `settings.changed`.
 - **Acceptance:**
-  - [ ] West 4 shows the card fee off, a 20% gratuity on rooms, tips of 18, 20 and 22%, tip review at 25%, $50 and 2 hours, and Pay my share on.
-  - [ ] A change to the tip choices reaches both readers' configuration.
-  - [ ] No PIN session opens the section, and a card-fee change asks for the passkey again.
+  - [x] West 4 shows the card fee off, a 20% gratuity on rooms, tips of 18, 20 and 22%, tip review at 25%, $50 and 2 hours, and Pay my share on.
+  - [x] A change to the tip choices reaches both readers' configuration.
+  - [x] No PIN session opens the section, and a card-fee change asks for the passkey again.
 - **Tests:** settings validation tests; principal suite; end-to-end in Admin.
 - **Notes:** The canvas's surcharge preview adds no tax on the surcharge ([AdminDesk note 18](../screens.md#admindesk)). `pay.pool` is M7's. `pay.roomHold` is off at West 4 and in no milestone ([Open points](#open-points)).
+  - **Built (M4-26):** Admin → Card fee & gratuity (`apps/staff/src/screens/admin/CardFee.tsx`, `/admin/card-fee`, owners and managers): the card fee (Off, Credit card surcharge with its percent and the date the notice went out, or Cash discount) with a preview on a $100.00 bill whose tax line shows only while the rule pack's `surchargeTaxable` is on (the venue's rule-pack read now returns the tax rate and that flag); the gratuity (added to nothing, room checks, parties from a size, or every check; the percent), always called "Gratuity"; the reader's tip screen (on, three percentages, the fixed amounts under the smart threshold, and "Readers take up to 5 minutes to show a change"); tip review; and Pay my share. Saved through Save and publish, which runs the rule-pack checks, writes new versions and sends `settings.changed` (M1), and pushes a tip-screen change to the readers' Terminal Configuration (M4-02).
+  - A card-fee change asks for the passkey again: the settings save checks the rule pack first (so a 3.5% surcharge says why), then, if `pay.cardFee` differs from what's saved, needs a step-up token; Save and publish asks for the passkey and saves once more. The section is behind `owner_manager` routes, so a PIN session can't open it.
+  - The tip-screen's fixed amounts and threshold, and tip review's limits, show as read-only lines here (the acceptance reads them; editing them can come when a venue asks).
+  - Tests: `apps/api/src/routes/settings.int.test.ts` (a valid card-fee change answers `step_up_required` without the passkey and saves with it; other `pay` changes don't ask); `e2e/staff.spec.ts` "Admin → Card fee & gratuity" (West 4's values, a tip choice changed to 15% reaching the readers' configuration) and the Spanish fit check over the new section.
+
 
 ### M4-27 · Add minimum spend, off at West 4
 
