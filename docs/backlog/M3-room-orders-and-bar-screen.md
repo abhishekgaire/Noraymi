@@ -451,7 +451,7 @@ Definition of done: see CLAUDE.md.
 
 ### M3-18 · Carry runs on every staff phone, and take returns
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-22, M2-12, M3-06
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Words on every staff screen (Runs), The board and staff phones (Runs); [Staff](../screens.md#staff) notes 1 and 18; [Data model](../spec/04-data-model.md) · `alcohol_refusals`, `id_checks`; [Glossary · Return (Couldn't serve)](../glossary.md#orders-and-the-bar)
@@ -461,12 +461,16 @@ Definition of done: see CLAUDE.md.
   - Runs shows each order's ID status, and the runner can record an ID checked at the room (`POST /sessions/{s}/id-checks` with the `order_id`).
   - The Runs tab becomes the runner's home, in place of M1's stub.
 - **Acceptance:**
-  - [ ] On Andy's phone, I've got it on o3 (Room 3) shows "On its way · Andy" everywhere, and Delivered shows "Delivered · 10:52 · Andy" at 10:52 PM on the simulated clock, adding nothing to Room 3's check.
-  - [ ] A runner returning o4 (Room 1) with "No ID for someone who ordered" puts "Couldn't serve: No ID for someone who ordered · Andy" under Returned, Andy's phone gets it, and a refusal is logged.
-  - [ ] A "Someone looks too drunk" return offers Andy "Cut off Room 1?", and a runner's phone offers no cut-off.
-  - [ ] The runner records Room 1's last ID, and its chip reads "ID ✓ 4 of 4".
+  - [x] On Andy's phone, I've got it on o3 (Room 3) shows "On its way · Andy" everywhere, and Delivered shows "Delivered · 10:52 · Andy" at 10:52 PM on the simulated clock, adding nothing to Room 3's check.
+  - [x] A runner returning o4 (Room 1) with "No ID for someone who ordered" puts "Couldn't serve: No ID for someone who ordered · Andy" under Returned, Andy's phone gets it, and a refusal is logged.
+  - [x] A "Someone looks too drunk" return offers Andy "Cut off Room 1?", and a runner's phone offers no cut-off.
+  - [x] The runner records Room 1's last ID, and its chip reads "ID ✓ 4 of 4".
 - **Tests:** Playwright on a phone size; API tests for returns and refusals.
 - **Notes:** The spec doesn't say who gets the push when a run is ready; every role carries runs, so it goes to every signed-in staff phone (flagged).
+  - Built: `apps/staff/src/screens/Runs.tsx` at `/runs` (the runner's home, in place of M1's stub, and every phone's Runs tab): Ready for a runner with its age, I've got it, Delivered (for the runner who claimed it, or straight from Ready), Couldn't serve… with the spec's four reasons, the ID line and "Record an ID checked here" (`POST /sessions/{s}/id-checks` now takes `order_id`, checked to be that room's order); "Returned tonight" for people who run the bar, with "Cut off Room 1?" on a "Someone looks too drunk" return for anyone who may cut off (it opens the room's tab, where M3-21 puts the cut-off); migration `0050_alcohol_refusals.sql`, and a return for no ID or too drunk logs a refusal per alcohol item; a push to every staff phone when a run is ready ("Room 3's order is ready for a runner", the ticket's flag); `apps/api/src/routes/runs.int.test.ts` and the Playwright test "Runs on a phone".
+  - The return reasons now read as the spec has them everywhere (bar, board, phones, the void line's reason): "No ID for someone who ordered", "Someone looks too drunk", "Nobody in the room", Other.
+  - A runner (the Staff role) sees no Returned list and is never offered a cut-off; the permission table already keeps `cutoff.apply` from them.
+  - The seed now also wipes refusals and the bar's presence row on a reload.
 
 ### M3-19 · Build the fix panel for comps and voids on every screen
 

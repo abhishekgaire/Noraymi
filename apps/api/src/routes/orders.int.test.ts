@@ -203,7 +203,7 @@ describe("the order pipeline", () => {
       [ids["chk_room5"]],
     );
     expect(voids.rows).toEqual([
-      { amount_cents: "-800", made: true, reason: "Couldn't serve: Too drunk to serve" },
+      { amount_cents: "-800", made: true, reason: "Couldn't serve: Someone looks too drunk" },
     ]);
     expect((await check("chk_room5")).lines_cents).toBe(before - 800);
   });

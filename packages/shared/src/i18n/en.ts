@@ -1053,9 +1053,9 @@ export const en = {
   "orders.staff.declined": "Declined by the bar · {reason}",
   "orders.staff.alcohol_closed": "Cancelled at 4:00 AM",
   "orders.staff.cut_off": "Cancelled · cut off by {name}",
-  "orders.return.no_id": "No ID",
-  "orders.return.too_drunk": "Too drunk to serve",
-  "orders.return.nobody_there": "Nobody there",
+  "orders.return.no_id": "No ID for someone who ordered",
+  "orders.return.too_drunk": "Someone looks too drunk",
+  "orders.return.nobody_there": "Nobody in the room",
   "orders.return.other": "Other",
   "orders.returned.push": "{room}: couldn't serve · {reason}",
   // Adding drinks to a room from DeskRoom and the Room phone (M3-07).
@@ -1203,4 +1203,17 @@ export const en = {
   // No bar device connected (M3-17); the words are for the founder to confirm.
   "bar.lost.push": "No bar device is connected: room orders aren't showing at the bar",
   "alert.noBar": "No bar device connected since {time} · room orders reach only the phones",
+  // Runs on every staff phone (M3-18).
+  "orders.push.ready": "{room}'s order is ready for a runner",
+  "runs.title": "Runs",
+  "runs.none": "No runs right now",
+  "runs.claim": "I've got it",
+  "runs.deliver": "Delivered",
+  "runs.return": "Couldn't serve…",
+  "runs.return.why": "Why couldn't you serve it?",
+  "runs.return.send": "Send it back to the bar",
+  "runs.recordId": "Record an ID checked here",
+  "runs.returned": "Returned tonight",
+  "runs.cutOff": "Cut off {room}?",
+  "runs.failed": "That didn't go through. Try again.",
 } as const;

@@ -37,12 +37,19 @@ export async function nightKey(
 export async function addVisualChecks(
   c: Queryable,
   venueId: string,
-  input: { sessionId: string; count: number; checkedBy: string; at: string },
+  input: {
+    sessionId: string;
+    count: number;
+    checkedBy: string;
+    at: string;
+    /** The order a runner checked an ID for, at the room (M3-18). */
+    orderId?: string | null;
+  },
 ): Promise<void> {
   for (let i = 0; i < input.count; i++)
     await c.query(
-      `insert into id_checks (venue_id, session_id, checked_by, checked_at, method) values ($1, $2, $3, $4, 'visual')`,
-      [venueId, input.sessionId, input.checkedBy, input.at],
+      `insert into id_checks (venue_id, session_id, checked_by, checked_at, method, order_id) values ($1, $2, $3, $4, 'visual', $5)`,
+      [venueId, input.sessionId, input.checkedBy, input.at, input.orderId ?? null],
     );
 }
 

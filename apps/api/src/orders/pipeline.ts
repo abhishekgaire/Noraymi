@@ -59,9 +59,9 @@ export interface StepInput {
 export type StepAnswer = { readonly status: "done"; readonly order: OrderRow } | PendingAnswer;
 
 const RETURN_WORDS: Record<ReturnReason, string> = {
-  no_id: "No ID",
-  too_drunk: "Too drunk to serve",
-  nobody_there: "Nobody there",
+  no_id: "No ID for someone who ordered",
+  too_drunk: "Someone looks too drunk",
+  nobody_there: "Nobody in the room",
   other: "Other",
 };
 
@@ -275,6 +275,18 @@ export async function stepOrder(
     case "ready": {
       const done = await move({ ready_by: by, ready_at: now });
       await announce(c, venueId, done, "order.ready");
+      // Every role carries runs, so every signed-in staff phone hears a run is ready (M3-18, flagged).
+      await enqueuePush(c, {
+        venueId,
+        audience: { kind: "everyone" },
+        message: {
+          key: "orders.push.ready",
+          params: { room: done.room_name ?? "" },
+          url: "/runs",
+          tag: `run-${done.id}`,
+        },
+        runAt: input.now,
+      });
       return { status: "done", order: done };
     }
     case "claim": {
@@ -297,6 +309,27 @@ export async function stepOrder(
         returned_note: input.note?.trim() ? input.note.trim().slice(0, 300) : null,
       });
       await announce(c, venueId, done, "order.returned");
+      // No ID or too drunk is an alcohol refusal (M3-18), logged once per alcohol item.
+      if (input.returnedReason === "no_id" || input.returnedReason === "too_drunk") {
+        const night = await nightOfNow(c, venueId, input.now);
+        for (const item of done.items.filter((i) => i.alcohol))
+          await c.query(
+            `insert into alcohol_refusals (venue_id, session_id, check_id, room_guest_id, order_id, reason, item, refused_by, at, business_date)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              venueId,
+              done.session_id,
+              done.check_id,
+              done.room_guest_id,
+              done.id,
+              input.returnedReason,
+              lineName(item),
+              by,
+              now,
+              night,
+            ],
+          );
+      }
       const manager = await managerOnDutyAt(c, venueId, input.now);
       if (manager)
         await enqueuePush(c, {

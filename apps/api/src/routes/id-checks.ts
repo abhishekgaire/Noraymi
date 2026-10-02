@@ -14,7 +14,12 @@ import { ApiError } from "../http/errors.js";
  */
 const body = z.discriminatedUnion("method", [
   z
-    .object({ method: z.literal("visual"), count: z.number().int().min(1).max(50).optional() })
+    .object({
+      method: z.literal("visual"),
+      count: z.number().int().min(1).max(50).optional(),
+      // The runner's check at the room, for the order they're carrying (M3-18).
+      order_id: z.string().uuid().optional(),
+    })
     .strict(),
   z.object({ method: z.literal("scan"), fields: z.record(z.string(), z.unknown()) }).strict(),
 ]);
@@ -61,11 +66,20 @@ export function idCheckRoutes(
         ).rows[0];
         if (!session) throw new ApiError("not_found", "no such session");
         if (parsed.data.method === "visual") {
+          const orderId = parsed.data.order_id ?? null;
+          if (orderId) {
+            const o = await c.query(
+              "select 1 from orders where venue_id = $1 and id = $2 and session_id = $3",
+              [venueId, orderId, session.id],
+            );
+            if (o.rowCount === 0) throw new ApiError("not_found", "no such order in this room");
+          }
           await addVisualChecks(c, venueId, {
             sessionId: session.id,
             count: parsed.data.count ?? 1,
             checkedBy: p.userId,
             at: now.toString(),
+            orderId,
           });
           return {
             method: "visual",

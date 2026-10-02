@@ -1068,9 +1068,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "orders.staff.declined": "Rechazado por la barra · {reason}",
   "orders.staff.alcohol_closed": "Cancelado a las 4:00 AM",
   "orders.staff.cut_off": "Cancelado · corte de {name}",
-  "orders.return.no_id": "Sin identificación",
-  "orders.return.too_drunk": "Demasiado ebrio para servir",
-  "orders.return.nobody_there": "No había nadie",
+  "orders.return.no_id": "Sin identificación de alguien que pidió",
+  "orders.return.too_drunk": "Alguien se ve demasiado ebrio",
+  "orders.return.nobody_there": "No hay nadie en la sala",
   "orders.return.other": "Otro",
   "orders.returned.push": "{room}: no se pudo servir · {reason}",
   // Adding drinks to a room from DeskRoom and the Room phone (M3-07).
@@ -1224,4 +1224,17 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "No hay ningún dispositivo de barra conectado: los pedidos de las salas no se ven en la barra",
   "alert.noBar":
     "Ningún dispositivo de barra conectado desde las {time} · los pedidos de las salas solo llegan a los teléfonos",
+  // Runs on every staff phone (M3-18).
+  "orders.push.ready": "El pedido de {room} está listo para llevar",
+  "runs.title": "Entregas",
+  "runs.none": "No hay entregas ahora",
+  "runs.claim": "Lo llevo yo",
+  "runs.deliver": "Entregado",
+  "runs.return": "No se pudo servir…",
+  "runs.return.why": "¿Por qué no se pudo servir?",
+  "runs.return.send": "Devolverlo a la barra",
+  "runs.recordId": "Registrar una identificación revisada aquí",
+  "runs.returned": "Devueltos esta noche",
+  "runs.cutOff": "¿Cortar el alcohol en {room}?",
+  "runs.failed": "No se pudo. Inténtalo de nuevo.",
 };

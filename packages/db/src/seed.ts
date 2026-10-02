@@ -808,6 +808,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "room_faults",
       "room_notes",
       "lost_items",
+      "alcohol_refusals",
+      "bar_presence",
       "print_jobs",
       "order_items",
       "orders",

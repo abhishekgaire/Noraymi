@@ -1063,3 +1063,23 @@ button.danger {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+/* Runs on staff phones (M3-18). */
+.run-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.run {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+}
+.run p {
+  margin: 0 0 4px;
+}
+.run button,
+.run .button {
+  min-height: 44px;
+}

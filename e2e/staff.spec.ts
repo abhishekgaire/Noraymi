@@ -3258,3 +3258,67 @@ test("a locked bar computer still shows the orders waiting at the bar", async ({
     await db.end();
   }
 });
+
+/**
+ * Runs on Andy's phone (M3-18): I've got it on o3 reads "On its way · Andy
+ * C.", Delivered at 10:52 PM takes it off and adds nothing to Room 3's check;
+ * o4 sent back with "Someone looks too drunk" shows under Returned tonight
+ * with "Cut off Room 1?", which only someone who may cut off is offered; and
+ * Room 1's last ID is recorded from the run.
+ */
+test("Runs on a phone: I've got it, Delivered at 10:52, a too-drunk return offering Cut off Room 1?, and an ID", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.goto("/runs");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Runs");
+    const o3 = page.locator(".run", { hasText: "Room 3" });
+    const o4 = page.locator(".run", { hasText: "Room 1" });
+    await expect(o3).toContainText(/Ready for a runner · 4:\d\d/);
+    await expect(o4).toContainText("ID ✓ 3 of 4 · the runner checks the last ID");
+    expect(await clippedText(page)).toEqual([]);
+
+    await o3.getByRole("button", { name: "I've got it" }).click();
+    await expect(o3).toContainText("On its way · Andy C.");
+    const lines = async () =>
+      (
+        await db.query<{ n: number }>(
+          "select coalesce(sum(amount_cents), 0)::int as n from check_lines where check_id = (select row_id from seed_ids where slug = 'chk_room3')",
+        )
+      ).rows[0]!.n;
+    const before = await lines();
+    await setClock(request, "2026-09-26T02:52:00Z");
+    await o3.getByRole("button", { name: "Delivered" }).click();
+    await expect(o3).toHaveCount(0);
+    const delivered = await db.query<{ at: string }>(
+      "select to_char(delivered_at at time zone 'America/New_York', 'HH24:MI') as at from orders where id = (select row_id from seed_ids where slug = 'order_o3')",
+    );
+    expect(delivered.rows[0]!.at).toBe("22:52");
+    expect(await lines()).toBe(before);
+
+    // Room 1's last ID, checked at the room.
+    await o4.getByRole("button", { name: "Record an ID checked here" }).click();
+    await expect(o4).toContainText("ID ✓ 4 of 4");
+
+    await o4.getByRole("button", { name: "Couldn't serve…" }).click();
+    await o4
+      .getByLabel("Why couldn't you serve it?")
+      .selectOption({ label: "Someone looks too drunk" });
+    await o4.getByRole("button", { name: "Send it back to the bar" }).click();
+    const back = page.getByRole("region", { name: "Returned tonight" });
+    await expect(back).toContainText("Couldn't serve: Someone looks too drunk · Andy C.");
+    await expect(back.getByRole("link", { name: "Cut off Room 1?" })).toBeVisible();
+    const refusals = await db.query<{ n: number }>(
+      "select count(*)::int as n from alcohol_refusals where reason = 'too_drunk'",
+    );
+    expect(refusals.rows[0]!.n).toBe(1);
+  } finally {
+    await db.end();
+  }
+});
