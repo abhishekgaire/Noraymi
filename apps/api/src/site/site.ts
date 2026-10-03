@@ -20,6 +20,7 @@ import { ApiError } from "../http/errors.js";
 import { downloadLink } from "../files/storage.js";
 import type { S3Settings } from "../s3.js";
 import { sectionStates } from "./versions.js";
+import { livePromotions } from "../menu/promotions.js";
 
 /**
  * The guest site (M5-01; Scope and architecture · Guest web; screens Main,
@@ -159,14 +160,9 @@ export async function siteView(
         : null;
     })
     .filter((x): x is { name: string; fromCents: number; toCents: number } => x !== null);
+  // Packages pass the promotion checks again before the site shows them (M5-03).
   const packages = on("packages")
-    ? (
-        await c.query<{ name: string; price_cents: number; hourly: boolean }>(
-          `select name, price_cents, hourly from packages where venue_id = $1 and shown
-            and not private_function_only order by price_cents, name`,
-          [venueId],
-        )
-      ).rows
+    ? (await livePromotions(c, venueId, tonight, pack?.pack ?? null)).packages
     : [];
 
   const sections = Object.fromEntries(

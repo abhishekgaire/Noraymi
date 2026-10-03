@@ -737,3 +737,86 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
     await db.end();
   }
 });
+
+/**
+ * The menu page, the PDF and the room page's menu (M5-03) read one list: every
+ * row the room page's route gives shows on the page at the same price, and in
+ * the PDF the job prints; an item hidden in Admin → Menu goes from all three;
+ * Hoegaarden, Casamigos Blanco and Casamigos · bottle read "86'd tonight"; no
+ * price rules, no happy-hour banner.
+ */
+test("the menu page, the PDF and the room page's menu show the same items and prices", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const { menuPdfText } = await import("../apps/api/src/menu/pdf-text.js");
+  const databaseUrl = process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4";
+  const cents = (s: string) => Math.round(Number(s.replace(/[$,]/g, "")) * 100);
+  const pdfMoney = (c: number) => `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
+  type Api = {
+    categories: {
+      items: {
+        name: string;
+        out_tonight: boolean;
+        variants: { name: string; price_cents: number; out_tonight: boolean }[];
+      }[];
+    }[];
+    happy_hours: unknown[];
+  };
+  const compare = async () => {
+    const api = (await (
+      await request.get("http://127.0.0.1:3000/v1/public/venues/west4karaoke/menu")
+    ).json()) as Api;
+    const expected = api.categories.flatMap((c) =>
+      c.items.flatMap((i) =>
+        i.variants.map((v) => ({
+          name: i.variants.length > 1 ? `${i.name} · ${v.name}` : i.name,
+          price: i.out_tonight || v.out_tonight ? "86'd tonight" : v.price_cents,
+        })),
+      ),
+    );
+    await page.goto("/v/west4karaoke/menu");
+    const shown = await page.locator("[data-menu-row]").evaluateAll((rows) =>
+      rows.map((r) => ({
+        name: r.querySelector(".name")?.textContent ?? "",
+        price: r.querySelector(".price")?.textContent ?? "",
+      })),
+    );
+    expect(
+      shown.map((r) => ({
+        name: r.name,
+        price: r.price.startsWith("$") ? cents(r.price) : r.price,
+      })),
+    ).toEqual(expected);
+    const pdf = await menuPdfText(databaseUrl, "west4karaoke", "2026-09-26T02:41:00Z");
+    for (const c of api.categories)
+      for (const i of c.items) {
+        expect(pdf, i.name).toContain(i.name);
+        for (const v of i.variants) expect(pdf, i.name).toContain(pdfMoney(v.price_cents));
+      }
+    return { api, pdf };
+  };
+
+  const first = await compare();
+  expect(first.api.happy_hours).toEqual([]);
+  await expect(page.getByRole("heading", { name: "Happy hour" })).toHaveCount(0);
+  for (const name of ["Hoegaarden", "Casamigos Blanco", "Casamigos · bottle"])
+    await expect(
+      page.locator("[data-menu-row]").filter({ has: page.getByText(name, { exact: true }) }),
+    ).toContainText("86'd tonight");
+  expect(first.pdf).toContain("Bud Light");
+
+  // Hidden in Admin → Menu: gone from all three.
+  const db = new pg.Client({ connectionString: databaseUrl });
+  await db.connect();
+  try {
+    await db.query("update menu_items set shown = false where name = 'Bud Light'");
+  } finally {
+    await db.end();
+  }
+  const after = await compare();
+  expect(JSON.stringify(after.api)).not.toContain("Bud Light");
+  expect(after.pdf).not.toContain("Bud Light");
+  await expect(page.getByText("Bud Light")).toHaveCount(0);
+});

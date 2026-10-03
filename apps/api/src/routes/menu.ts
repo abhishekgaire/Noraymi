@@ -26,8 +26,8 @@ import { alcoholBlock, alcoholNow } from "../orders/alcohol.js";
 import { downloadLink } from "../files/storage.js";
 import type { S3Settings } from "../s3.js";
 import { ApiError } from "../http/errors.js";
-import { displayPrice } from "@west4/rules";
-import { creditPricePct } from "../payments/surcharge.js";
+import { promotableOf } from "../menu/promotions.js";
+import { guestMenu } from "../menu/guest-menu.js";
 
 /**
  * The menu (M3-03; spec 08 · Menu):
@@ -233,32 +233,8 @@ export function menuRoutes(
       case "menu_variants":
         return itemThing(String(row["item_id"]));
       case "packages":
-        return [
-          {
-            kind: "package",
-            name: String(row["name"]),
-            priceCents: Number(row["price_cents"]),
-            hourly: row["hourly"] === true,
-            privateFunctionOnly: row["private_function_only"] === true,
-            contents: (row["contents"] as { item_id: string; qty: number | null }[]).map((x) => ({
-              itemId: x.item_id,
-              qty: x.qty,
-            })),
-          },
-        ];
-      case "price_rules": {
-        const target = row["target"] as { item_ids: string[]; qty?: number };
-        return [
-          {
-            kind: "priceRule",
-            name: String(row["name"]),
-            hourly: row["kind"] === "hourly",
-            target: { itemIds: target.item_ids, ...(target.qty ? { qty: target.qty } : {}) },
-            ...(row["price_cents"] != null ? { priceCents: Number(row["price_cents"]) } : {}),
-            ...(row["pct_off"] != null ? { pctOff: Number(row["pct_off"]) } : {}),
-          },
-        ];
-      }
+      case "price_rules":
+        return [promotableOf(table, row)];
       default:
         return [];
     }
@@ -488,59 +464,11 @@ export function menuRoutes(
     async (request, reply) => {
       const venueId = await resolveVenueSlug(options.pool, request.params.slug);
       if (!venueId) throw new ApiError("not_found", "no such venue");
-      const [tree, alcohol, creditPct] = await withVenue(
-        options.pool,
-        { venueId, requestId: request.requestId },
-        async (c) =>
-          [
-            await menuTree(c, venueId, nowIso(), { shownOnly: true }),
-            await alcoholNow(c, venueId, options.clock.now()),
-            await creditPricePct(c, venueId, options.clock.now()),
-          ] as const,
+      const menu = await withVenue(options.pool, { venueId, requestId: request.requestId }, (c) =>
+        guestMenu(c, venueId, options.clock.now()),
       );
-      // With a card surcharge on, every price shows the credit price (M4-25); with it off, nothing changes.
-      const categories = withCreditPrices(tree, creditPct);
       reply.header("Cache-Control", "no-store");
-      return {
-        categories: categories
-          .map((cat) => ({
-            ...cat,
-            items: cat.items.map(({ station: _s, shown: _h, ...item }) => item),
-          }))
-          .filter((cat) => cat.items.length > 0),
-        alcohol,
-      };
+      return menu;
     },
   );
-}
-
-/** Every price on a menu at its displayed price (M4-25): the credit price while a surcharge is on. */
-function withCreditPrices<T extends { items: readonly unknown[] }>(
-  tree: readonly T[],
-  pct: number | null,
-): T[] {
-  if (pct === null) return [...tree];
-  return tree.map((cat) => ({
-    ...cat,
-    items: cat.items.map((raw) => {
-      const item = raw as {
-        variants: { price_cents: number }[];
-        groups: { options: { price_delta_cents: number }[] }[];
-      };
-      return {
-        ...item,
-        variants: item.variants.map((v) => ({
-          ...v,
-          price_cents: displayPrice(v.price_cents, pct),
-        })),
-        groups: item.groups.map((g) => ({
-          ...g,
-          options: g.options.map((o) => ({
-            ...o,
-            price_delta_cents: displayPrice(o.price_delta_cents, pct),
-          })),
-        })),
-      };
-    }),
-  }));
 }

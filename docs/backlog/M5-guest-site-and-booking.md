@@ -102,7 +102,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-03 · Serve the menu page and the PDF from one menu list
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-01; M3 (the menu, the menu PDF job, the room page)
 - **Spec:** [API](../spec/08-api.md) (Menu: `GET /v1/public/venues/{slug}/menu`); [Security and data retention](../spec/12-security-retention.md) 14 (HTML first, tagged PDF); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (promotion checks, `price_rules`); [screens: Menu](../screens.md#menu)
@@ -112,12 +112,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The happy-hour banner comes from dated `price_rules` and hides when there are none; any promotion the checks refuse is hidden.
   - `menu.changed` purges the page's cache, and M3's job renders the PDF again.
 - **Acceptance:**
-  - [ ] The menu page, the PDF and Room 9's room page show the same items and prices.
-  - [ ] An item hidden in Admin → Menu is gone from the page, the PDF and the room page within a minute.
-  - [ ] Hoegaarden, Casamigos Blanco and Casamigos · bottle show "86'd tonight" on the page.
-  - [ ] With no price rules, no happy-hour banner shows.
+  - [x] The menu page, the PDF and Room 9's room page show the same items and prices.
+  - [x] An item hidden in Admin → Menu is gone from the page, the PDF and the room page within a minute.
+  - [x] Hoegaarden, Casamigos Blanco and Casamigos · bottle show "86'd tonight" on the page.
+  - [x] With no price rules, no happy-hour banner shows.
 - **Tests:** a comparison test that renders the page, reads the PDF's text and calls the room page's menu route, and fails on any difference; end-to-end.
 - **Notes:** [Menu notes 1 to 4](../screens.md#menu). The allergy notice and allergen fields are phase 2.
+  - One list: `guestMenu()` (`apps/api/src/menu/guest-menu.ts`) is what `GET /v1/public/venues/{slug}/menu` (the menu page and the room page) returns and what the menu PDF job prints, credit prices included while a surcharge is on (before, the PDF printed cash prices). The public route now also carries `packages` and `happy_hours`.
+  - Promotions: `livePromotions()` re-runs the rule pack's promotion checks on every shown package and every happy-hour price rule in date today, and drops any the checks refuse, so a rule saved under an older pack (or straight into the table) is never advertised. With Packages & specials off, there are none. The site's packages (M5-01) go through the same filter. Only `happy_hour` rules make the banner; `special` and `hourly` rules don't (flagged).
+  - The page: `/menu` (the bare domain) and `/v/{slug}/menu`, server-rendered with no cache, so a hide or an 86 shows on the next load; there's no CDN copy to purge yet (`menu.changed` re-renders the PDF, as in M3-05). 86'd rows stay in place, struck through and greyed (still past 4.5:1 in light and dark), reading "86'd tonight". The PDF link shows once a PDF exists. The PDF prints packages under "Packages".
+  - Test: the end-to-end comparison reads the page's rows, the room page's menu route and the PDF's text (printed by the job's own code, `menu/pdf-text.ts`, then read by pdf.js), before and after hiding Bud Light; an integration test covers the banner, refused and out-of-date rules, and the module; the menu page joins the accessibility checks.
 
 ### M5-04 · Take private-party enquiries into Messages
 

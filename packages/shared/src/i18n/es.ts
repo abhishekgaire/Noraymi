@@ -1701,4 +1701,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "website.republish": "Volver a publicar",
   "website.later":
     "Estilos, orden de secciones y dirección web propia llegan con el creador de sitios.",
+  "site.menuPage.title": "Menú",
+  "site.menuPage.pdf": "Menú en PDF",
+  "site.menuPage.out": "86 esta noche",
+  "site.menuPage.happyHour": "Happy hour",
+  "site.menuPage.everyDay": "Todos los días",
+  "site.menuPage.pctOff": "{pct}% de descuento",
+  "site.menuPage.forPrice": "{qty} por {amount}",
+  "site.menuPage.packages": "Paquetes",
+  "site.menuPage.rooms": "Salas privadas",
 };

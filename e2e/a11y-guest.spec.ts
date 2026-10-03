@@ -272,3 +272,13 @@ test("the site's home and parties pages pass", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your night. Your door.");
   expect(await violations(page)).toEqual([]);
 });
+
+/** The menu page (M5-03), with its 86'd rows greyed, in light and dark. */
+test("the menu page passes, light and dark", async ({ page }) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto("/menu");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Menu");
+    expect(await violations(page)).toEqual([]);
+  }
+});

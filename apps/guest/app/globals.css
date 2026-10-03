@@ -291,3 +291,34 @@ body {
   border-radius: 8px;
   object-fit: cover;
 }
+
+/* The menu page (M5-03) */
+.menu-page ul {
+  list-style: none;
+  padding: 0;
+}
+.menu-page .menu-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line, #3334);
+}
+.menu-page .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+.menu-page .price {
+  white-space: nowrap;
+}
+.menu-page .menu-row.out .name {
+  text-decoration: line-through;
+}
+.menu-page .menu-row.out {
+  /* Greyed, and still past 4.5:1 in light and dark. */
+  opacity: 0.72;
+}
+.menu-page .desc,
+.menu-page .choices {
+  font-size: 0.9em;
+  margin: 4px 0 0;
+}

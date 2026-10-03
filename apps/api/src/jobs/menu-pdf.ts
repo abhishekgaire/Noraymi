@@ -1,5 +1,6 @@
 import { DeleteObjectCommand, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
-import { emitEvent, menuTree, type JobContext, type JobHandler } from "@west4/db";
+import { emitEvent, type JobContext, type JobHandler } from "@west4/db";
+import { guestMenu } from "../menu/guest-menu.js";
 import { htmlToPdf, menuHtml } from "../menu/pdf.js";
 
 /**
@@ -19,17 +20,18 @@ export function makeMenuPdfHandler(
 ): JobHandler {
   return async ({ job, clock, step }: JobContext) => {
     const now = clock.now();
-    const { name, categories } = await step(async (c) => {
+    const { name, menu } = await step(async (c) => {
       const v = await c.query<{ name: string }>("select name from venues where id = $1", [
         job.venue_id,
       ]);
       if (!v.rows[0]) throw new Error(`venue ${job.venue_id} not visible`);
       return {
         name: v.rows[0].name,
-        categories: await menuTree(c, job.venue_id, now.toString(), { shownOnly: true }),
+        // The same list the menu page and the room page read (M5-03).
+        menu: await guestMenu(c, job.venue_id, now),
       };
     });
-    const pdf = await render(menuHtml(name, categories));
+    const pdf = await render(menuHtml(name, menu.categories, menu.packages));
     const key = `${job.venue_id}/menu_pdf/${job.id}.pdf`;
     await s3.send(
       new PutObjectCommand({ Bucket: bucket, Key: key, Body: pdf, ContentType: "application/pdf" }),

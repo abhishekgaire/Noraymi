@@ -1674,4 +1674,13 @@ export const en = {
   "website.liveTag": "Live",
   "website.republish": "Publish again",
   "website.later": "Styles, section order and your own web address come with the website builder.",
+  "site.menuPage.title": "Menu",
+  "site.menuPage.pdf": "Menu PDF",
+  "site.menuPage.out": "86'd tonight",
+  "site.menuPage.happyHour": "Happy hour",
+  "site.menuPage.everyDay": "Every day",
+  "site.menuPage.pctOff": "{pct}% off",
+  "site.menuPage.forPrice": "{qty} for {amount}",
+  "site.menuPage.packages": "Packages",
+  "site.menuPage.rooms": "Private rooms",
 } as const;

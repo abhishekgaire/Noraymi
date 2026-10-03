@@ -112,3 +112,70 @@ export const hhmmWords = (hhmm: string) => {
   const hour = h % 12 === 0 ? 12 : h % 12;
   return `${hour}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h < 12 || h === 24 ? "AM" : "PM"}`;
 };
+
+/** The guest menu (M5-03): the same list the room page and the PDF read. */
+export interface GuestMenu {
+  readonly categories: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly items: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly description: string | null;
+      readonly out_tonight: boolean;
+      readonly variants: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly price_cents: number;
+        readonly out_tonight: boolean;
+      }[];
+      readonly groups: readonly {
+        readonly id: string;
+        readonly name: string;
+        readonly options: readonly {
+          readonly id: string;
+          readonly name: string;
+          readonly price_delta_cents: number;
+          readonly out_tonight: boolean;
+        }[];
+      }[];
+    }[];
+  }[];
+  readonly packages: readonly { name: string; price_cents: number; hourly: boolean }[];
+  readonly happy_hours: readonly {
+    readonly name: string;
+    readonly days: readonly number[];
+    readonly from_min: number | null;
+    readonly to_min: number | null;
+    readonly pct_off: number | null;
+    readonly price_cents: number | null;
+    readonly qty: number;
+    readonly items: readonly string[];
+  }[];
+}
+
+export async function fetchMenu(slug: string): Promise<GuestMenu> {
+  const r = await fetch(`${api}/v1/public/venues/${encodeURIComponent(slug)}/menu`, {
+    cache: "no-store",
+  });
+  if (r.status === 404) notFound();
+  if (!r.ok) throw new Error(`the menu couldn't load (${r.status})`);
+  return (await r.json()) as GuestMenu;
+}
+
+/** A link to the current menu PDF, or null before the first one is rendered. */
+export async function fetchMenuPdf(slug: string): Promise<string | null> {
+  const r = await fetch(`${api}/v1/public/venues/${encodeURIComponent(slug)}/menu/pdf`, {
+    cache: "no-store",
+  }).catch(() => null);
+  if (!r?.ok) return null;
+  return ((await r.json()) as { url: string }).url;
+}
+
+/** Minutes from midnight (past 1440 into the next morning) → "4 PM". */
+export const minuteWords = (min: number) => {
+  const m = min % 1440;
+  return hhmmWords(
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`,
+  );
+};

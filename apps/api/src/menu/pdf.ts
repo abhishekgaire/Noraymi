@@ -1,4 +1,16 @@
-import type { MenuCategory } from "@west4/db";
+/** The part of a menu category the PDF prints: the guest menu's list (menu/guest-menu.ts). */
+interface PdfCategory {
+  readonly name: string;
+  readonly items: readonly {
+    readonly name: string;
+    readonly description: string | null;
+    readonly variants: readonly { readonly name: string; readonly price_cents: number }[];
+    readonly groups: readonly {
+      readonly name: string;
+      readonly options: readonly { readonly name: string; readonly price_delta_cents: number }[];
+    }[];
+  }[];
+}
 
 /**
  * The menu PDF (M3-05; spec 01 · Files and PDFs; spec 12 · 14): the same
@@ -10,7 +22,11 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)}
 const money = (cents: number) =>
   `$${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 
-export function menuHtml(venueName: string, categories: readonly MenuCategory[]): string {
+export function menuHtml(
+  venueName: string,
+  categories: readonly PdfCategory[],
+  packages: readonly { name: string; price_cents: number; hourly: boolean }[] = [],
+): string {
   const sections = categories
     .filter((c) => c.items.length > 0)
     .map((c) => {
@@ -40,6 +56,15 @@ export function menuHtml(venueName: string, categories: readonly MenuCategory[])
       return `<section><h2>${escape(c.name)}</h2><ul>${items}</ul></section>`;
     })
     .join("");
+  // Packages, with Packages & specials on and the promotion checks passing (M5-03).
+  const packs = packages.length
+    ? `<section><h2>Packages</h2><ul>${packages
+        .map(
+          (p) =>
+            `<li><p class="line"><span class="name">${escape(p.name)}</span> <span class="price">${money(p.price_cents)}${p.hourly ? " an hour" : ""}</span></p></li>`,
+        )
+        .join("")}</ul></section>`
+    : "";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(venueName)} · Menu</title>
 <style>
   body { font-family: "Noto Sans", Helvetica, Arial, sans-serif; color: #111; margin: 0; font-size: 11pt; }
@@ -51,7 +76,7 @@ export function menuHtml(venueName: string, categories: readonly MenuCategory[])
   .line { display: flex; justify-content: space-between; gap: 8pt; }
   .price { white-space: nowrap; }
   .desc, .choices { font-size: 9pt; color: #333; }
-</style></head><body><main><h1>${escape(venueName)} · Menu</h1>${sections}</main></body></html>`;
+</style></head><body><main><h1>${escape(venueName)} · Menu</h1>${sections}${packs}</main></body></html>`;
 }
 
 /** Prints HTML to a tagged PDF with Chromium; MENU_PDF_CHROMIUM names a system Chromium (the API image). */
