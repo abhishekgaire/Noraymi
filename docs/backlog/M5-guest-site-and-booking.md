@@ -147,7 +147,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-05 · Guard booking and enquiries with the CAPTCHA and daily limits
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M2 (the server-checked CAPTCHA and daily limits)
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 8; [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) step 1; [API](../spec/08-api.md) (Bookings, Enquiries)
@@ -161,10 +161,11 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - [ ] Five payment retries on one booking leave one PaymentIntent in Stripe.
 - **Tests:** integration; a test that drives each limit to its edge.
 - **Notes:** Radar rules and our per-venue decline-rate alarm (Security 8) come with watching production in M8.
+  - Blocked with M2-27 on the founder: which CAPTCHA provider, and the daily limits per phone number, IP address and device. Nothing is invented meanwhile. The other two lines don't wait: one PaymentIntent per booking is built with the deposit payment (M5-09), and booking takes +1 numbers only (M5-08), as enquiries already do (M5-04).
 
 ### M5-06 · Build Admin → Deposits & cancelling, with the policy guests accept
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1 (settings, the rule pack); M4-09 (forfeit lines)
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`DepositRule`); [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) (What the guest sees on the booking page); [Data model](../spec/04-data-model.md) (`policy_versions`); [screens: AdminDesk notes 16 and 17](../screens.md#admindesk), [Book note 2](../screens.md#book)
@@ -173,11 +174,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Each save builds the words guests read from these settings and writes a new `policy_versions` row (kind deposit, version, text, hash, published_at): the deposit comes off the bill; the card is saved, and the rest of the tab and a no-show charge can go on it later, with how each amount is worked out and when; the refund cut-off; and "A 20% gratuity is added to room tabs." Book and Manage both read it.
   - With Online booking & deposits off, the section reads "Online booking is off".
 - **Acceptance:**
-  - [ ] West 4 shows a first-hour deposit, 24 hours, keep on a late cancel, keep on a no-show, a 15-minute grace, and $250 from 20 guests.
-  - [ ] A save writes a new policy version; the booking page shows its words above the pay button, and a booking made before the save keeps the version it accepted.
-  - [ ] The policy names the saved card, the later charges, how each is worked out and when.
+  - [x] West 4 shows a first-hour deposit, 24 hours, keep on a late cancel, keep on a no-show, a 15-minute grace, and $250 from 20 guests.
+  - [x] A save writes a new policy version; the booking page shows its words above the pay button, and a booking made before the save keeps the version it accepted.
+  - [x] The policy names the saved card, the later charges, how each is worked out and when.
 - **Tests:** settings validation; policy hashing and versioning; end-to-end.
 - **Notes:** The seed doesn't give West 4's late-cancel and no-show outcomes; the Book, Manage and AdminDesk boards all use keep and keep (`DEPOSIT = { late: "keep", noShow: "keep" }`), so load those, flagged. The canvas policy never mentions the saved card ([Book note 2](../screens.md#book)) and has no cardHold mode ([AdminDesk note 16](../screens.md#admindesk)).
+  - Built: migration 0074 (`policy_versions`: kind, version, text, SHA-256 hash, published_at and by; insert-only; `bookings.policy_version_id`, there since 0029, now points at it). `depositPolicyText()` in `packages/rules` builds the words from `deposit` and the gratuity in `pay`; every save of either key (in the same transaction) publishes the next version when the words change, and keeps the current one when they don't. The seed publishes West 4's version 1 (first hour, 24 hours, keep, keep, 15 minutes, $250 from 20).
+  - Routes (not in the API table, flagged): `GET /v1/venues/{v}/policy-versions` for Admin, and `GET /v1/public/venues/{slug}/policy` for Book and Manage, readable whatever the modules say so existing bookings keep their terms.
+  - The rule-pack checks on save gain `checkDeposit`: each mode's value has to mean what the mode says (whole cents above $0, a whole percent 1 to 100, none for the first hour and a card hold), whole-hour cut-offs up to 30 days, and big parties from 2 guests. The rule pack itself sets no deposit limits.
+  - Policy wording: the deposit sentence by mode; the big-party sentence; the saved card (the rest of the tab, the amount due and never more, after the guest confirms on their phone, or with a manager's approval if they've left, and an itemized receipt texted at once, from Payment flows · Card on file); the refund cut-off; the late cancel; the no-show with its grace minutes and, for "first hour", "up to the first hour's room time in total, the deposit included"; and the gratuity sentence. A card hold says nothing is charged. These are our words from the spec, not a lawyer's (flagged).
+  - The booking page's Terms step reads the public route in M5-08 and M5-09; until the booking page exists, the second acceptance line is checked through that route and a seed booking that keeps version 1.
 
 ### M5-07 · Quote a booking and hold a real room for 10 minutes
 

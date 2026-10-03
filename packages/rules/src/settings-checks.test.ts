@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { newYorkCounty, Temporal } from "@west4/shared";
 import {
+  checkDeposit,
   checkHours,
   checkLanguages,
   checkPay,
@@ -83,5 +84,29 @@ describe("rule-pack checks on settings", () => {
         ctx,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("the deposit checks (M5-06)", () => {
+  const west4 = {
+    on: true,
+    mode: "firstHour" as const,
+    value: 0,
+    refundHours: 24,
+    late: "keep" as const,
+    noShow: "keep" as const,
+    graceMin: 15,
+    bigParty: { fromGuests: 20, deposit: { kind: "flat" as const, cents: 25000 }, refundHours: 24 },
+  };
+  it("passes West 4's deposit and refuses an amount that doesn't fit its mode", () => {
+    expect(checkDeposit(west4)).toEqual([]);
+    expect(checkDeposit({ ...west4, mode: "percent", value: 120 })).toEqual([
+      "A percent deposit is a whole percent from 1 to 100.",
+    ]);
+    expect(checkDeposit({ ...west4, mode: "flat", value: 0 })).toHaveLength(1);
+    expect(checkDeposit({ ...west4, value: 500 })).toEqual([
+      "The first-hour and card-hold deposits take no amount.",
+    ]);
+    expect(checkDeposit({ ...west4, refundHours: 1.5 })).toHaveLength(1);
   });
 });

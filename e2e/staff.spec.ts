@@ -31,6 +31,7 @@ const ADMIN_SECTIONS = [
   "/admin/disputes",
   "/admin/card-fee",
   "/admin/website",
+  "/admin/deposits",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -4848,6 +4849,52 @@ test("a party enquiry for 22 lands in Messages unread; a reply with a link point
     await thread.getByRole("button", { name: "Send" }).click();
     await expect(thread.getByRole("alert")).toHaveText(
       "A reply can't carry a link. For a deposit, send the Payment link text.",
+    );
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Deposits & cancelling (M5-06): West 4's deposit, the words guests
+ * accept, and a save that publishes policy version 2; with Online booking &
+ * deposits off, the section says so.
+ */
+test("Admin → Deposits & cancelling: West 4's terms, a 48-hour cut-off published as version 2, and booking off", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInAndy(page, request, db);
+    await page.goto("/admin/deposits");
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Deposits & cancelling" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Deposit", { exact: true })).toHaveValue("firstHour");
+    await expect(page.getByLabel("Full refund up to (hours before the start)")).toHaveValue("24");
+    await expect(page.getByLabel("Cancelled later")).toHaveValue("keep");
+    await expect(page.getByLabel("No-show", { exact: true })).toHaveValue("keep");
+    await expect(page.getByLabel("No-show after (minutes late)")).toHaveValue("15");
+    await expect(page.getByLabel("From (guests)")).toHaveValue("20");
+    await expect(page.getByLabel("Big-party deposit")).toHaveValue("250.00");
+    const policy = page.locator(".policy");
+    await expect(policy).toContainText("We save the card you pay with.");
+    await expect(policy).toContainText("Cancel at least 24 hours before your start");
+    await expect(page.getByText("Live: version 1")).toBeVisible();
+
+    await page.getByLabel("Full refund up to (hours before the start)").fill("48");
+    await expect(policy).toContainText("Cancel at least 48 hours before your start");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    await expect(page.getByText("Live: version 2")).toBeVisible();
+    const live = await (await request.get("/v1/public/venues/west4karaoke/policy")).json();
+    expect(live).toMatchObject({ version: 2, text: expect.stringContaining("48 hours") });
+
+    await db.query("update venue_modules set state = 'off' where module_id = 'online_booking'");
+    await page.reload();
+    await expect(page.getByRole("status")).toHaveText(
+      "Online booking is off. Turn on Online booking & deposits in Features to set deposits.",
     );
   } finally {
     await db.end();

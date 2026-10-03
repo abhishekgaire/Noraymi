@@ -22,7 +22,11 @@ import {
   type Role,
   type SettingsKey,
   siteContentSchema,
+  type DepositRule,
+  type PaySettings,
 } from "@west4/shared";
+import { depositPolicyText } from "@west4/rules";
+import { publishPolicy } from "./policies.js";
 import type { DeviceKind } from "./devices.js";
 import { reasonOnlyUsed } from "./checks.js";
 
@@ -918,6 +922,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "session_segments",
       "room_sessions",
       "bookings",
+      "policy_versions",
       "guests",
       "room_states",
       "rooms",
@@ -1016,6 +1021,17 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`settings: ${settings.length} keys`);
+
+    // The deposit policy guests accept (M5-06), version 1, built from the deposit and pay settings.
+    const depositSetting = settings.find((x) => x.key === "deposit")?.value as
+      DepositRule | undefined;
+    const paySetting = settings.find((x) => x.key === "pay")?.value as PaySettings | undefined;
+    if (depositSetting && paySetting)
+      await publishPolicy(client, venueId, {
+        text: depositPolicyText(depositSetting, paySetting.gratuity),
+        at: SEED_NOW.toString(),
+        by: null,
+      });
 
     // The guest site (M5-01): West 4's words as published version 1, checked against the content schema.
     if (seed.site) {

@@ -15,6 +15,7 @@ import { goLiveRoutes } from "./routes/go-live.js";
 import { siteRoutes } from "./routes/site.js";
 import { siteVersionsRoutes } from "./routes/site-versions.js";
 import { enquiriesRoutes } from "./routes/enquiries.js";
+import { policyRoutes } from "./routes/policies.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -274,6 +275,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       siteRoutes(scope, { pool: gatePoolRef!, clock, s3: () => (s3 ??= makeS3()) });
       siteVersionsRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       enquiriesRoutes(scope, { pool: gatePoolRef!, clock });
+      policyRoutes(scope, { pool: gatePoolRef! });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

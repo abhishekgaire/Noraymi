@@ -1731,4 +1731,67 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.enquiry.sent": "Enviado. Te respondemos por mensaje de texto.",
   "site.enquiry.sentLine": "Atento a un mensaje en el {phone}.",
   "site.enquiry.another": "Enviar otra",
+  "policy.deposit.off": "No se cobra depósito para reservar.",
+  "policy.deposit.firstHour":
+    "Un depósito de la primera hora de sala reserva tu sala. Se descuenta de tu cuenta.",
+  "policy.deposit.perPerson":
+    "Un depósito de {amount} por persona reserva tu sala. Se descuenta de tu cuenta.",
+  "policy.deposit.flat": "Un depósito de {amount} reserva tu sala. Se descuenta de tu cuenta.",
+  "policy.deposit.percent":
+    "Un depósito del {pct}% de la primera hora de sala reserva tu sala. Se descuenta de tu cuenta.",
+  "policy.deposit.cardHold": "Tu tarjeta reserva la sala. No se cobra nada ahora.",
+  "policy.bigParty.flat":
+    "Los grupos de {n} o más pagan un depósito de {amount}, que se devuelve completo si cancelas al menos {hours} horas antes del inicio.",
+  "policy.bigParty.pct":
+    "Los grupos de {n} o más pagan un depósito del {pct}% del tiempo de sala o del consumo mínimo, lo que sea mayor, que se devuelve completo si cancelas al menos {hours} horas antes del inicio.",
+  "policy.card":
+    "Guardamos la tarjeta con la que pagas. Al final de tu visita, el resto de tu cuenta puede cargarse en ella: el importe pendiente y nunca más, cobrado cuando lo confirmes en tu teléfono, o con la aprobación de un gerente si ya te fuiste. Te enviamos al momento un recibo detallado por mensaje.",
+  "policy.refund": "Cancela al menos {hours} horas antes del inicio para un reembolso completo.",
+  "policy.refund.cardHold": "Cancela al menos {hours} horas antes del inicio y no se cobra nada.",
+  "policy.late.keep": "Si cancelas más tarde, el depósito no se devuelve.",
+  "policy.late.half": "Si cancelas más tarde, se devuelve la mitad del depósito.",
+  "policy.late.refund": "Si cancelas más tarde, el depósito igualmente se devuelve completo.",
+  "policy.noShow.keep":
+    "Si nadie de tu grupo llega en los {grace} minutos siguientes al inicio, la reserva es una no presentación y el depósito no se devuelve.",
+  "policy.noShow.firstHour":
+    "Si nadie de tu grupo llega en los {grace} minutos siguientes al inicio, la reserva es una no presentación: pasados esos {grace} minutos cobramos a la tarjeta guardada hasta la primera hora de sala en total, depósito incluido.",
+  "policy.noShow.nothing":
+    "Si nadie de tu grupo llega en los {grace} minutos siguientes al inicio, la reserva es una no presentación y el depósito se devuelve.",
+  "policy.noShow.cardHold":
+    "Si nadie de tu grupo llega en los {grace} minutos siguientes al inicio, la reserva es una no presentación y no se cobra nada.",
+  "policy.gratuity": "Se añade una propina del {pct}% a las cuentas de sala.",
+  "admin.section.deposits": "Depósitos y cancelaciones",
+  "admin.hint.deposits":
+    "El depósito, reembolsos y no presentaciones, y la política que aceptan los clientes",
+  "deposits.bookingOff":
+    "La reserva en línea está desactivada. Activa Reservas en línea y depósitos en Funciones para configurar depósitos.",
+  "deposits.on": "Cobrar un depósito para reservar",
+  "deposits.mode": "Depósito",
+  "deposits.mode.firstHour": "La primera hora",
+  "deposits.mode.perPerson": "Una cantidad por persona",
+  "deposits.mode.flat": "Un importe fijo",
+  "deposits.mode.percent": "Un porcentaje de la primera hora",
+  "deposits.mode.cardHold": "Guardar la tarjeta, sin cobrar",
+  "deposits.amount": "Importe",
+  "deposits.perGuest": "Importe por persona",
+  "deposits.percent": "Porcentaje",
+  "deposits.refundHours": "Reembolso completo hasta (horas antes del inicio)",
+  "deposits.late": "Cancelación tardía",
+  "deposits.late.keep": "Retener el depósito",
+  "deposits.late.half": "Devolver la mitad",
+  "deposits.late.refund": "Devolverlo todo",
+  "deposits.noShow": "No presentación",
+  "deposits.noShow.keep": "Retener el depósito",
+  "deposits.noShow.firstHour": "Cobrar hasta la primera hora",
+  "deposits.noShow.nothing": "No cobrar nada",
+  "deposits.grace": "No presentación tras (minutos de retraso)",
+  "deposits.bigParty": "Grupos grandes",
+  "deposits.bigParty.on": "Un depósito distinto para grupos grandes",
+  "deposits.bigParty.from": "Desde (personas)",
+  "deposits.bigParty.amount": "Depósito para grupos grandes",
+  "deposits.bigParty.refundHours": "Reembolso completo para grupos grandes hasta (horas)",
+  "deposits.policy": "Lo que aceptan los clientes",
+  "deposits.policy.hint":
+    "Reservar y Gestionar muestran este texto sobre el botón de pago. Guardar y publicar crea una versión nueva; cada reserva conserva la versión que aceptó.",
+  "deposits.policy.live": "En línea: versión {n}",
 };

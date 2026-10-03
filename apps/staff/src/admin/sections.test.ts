@@ -24,6 +24,7 @@ describe("the Admin sections", () => {
       "payments",
       "cardFee",
       "disputes",
+      "deposits",
       "website",
       "console",
     ]);
@@ -43,6 +44,7 @@ describe("the Admin sections", () => {
       "connections",
       "cardFee",
       "disputes",
+      "deposits",
       "website",
     ]);
     expect(manager).not.toContain("team");

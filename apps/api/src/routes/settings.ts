@@ -1,8 +1,15 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { StripeClient } from "../stripe/client.js";
 import { pushTipScreen } from "../stripe/terminal-setup.js";
-import { readSetting, rulePackFor, saveSettings, settingHistory, SettingsRefused } from "@west4/db";
-import { businessDate, checkSetting } from "@west4/rules";
+import {
+  publishPolicy,
+  readSetting,
+  rulePackFor,
+  saveSettings,
+  settingHistory,
+  SettingsRefused,
+} from "@west4/db";
+import { businessDate, checkSetting, depositPolicyText } from "@west4/rules";
 import { isSettingsKey, settingsSchemas, Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -92,15 +99,31 @@ export function settingsRoutes(
       }
     }
     try {
-      const saved = await request.inVenue((c) =>
-        saveSettings(c, {
+      const savedBy = request.principal.kind === "user" ? request.principal.userId : undefined;
+      const { saved, policy } = await request.inVenue(async (c) => {
+        const saved = await saveSettings(c, {
           venueId: request.venueId!,
           values,
-          savedBy: request.principal.kind === "user" ? request.principal.userId : undefined,
+          savedBy,
           today,
           check: { pack: pack.pack, cutover: venue.day_cutover },
-        }),
-      );
+        });
+        // The words guests accept follow the deposit and the gratuity (M5-06): a new version when they change.
+        let policy: number | undefined;
+        if ("deposit" in values || "pay" in values) {
+          const deposit = await readSetting(c, request.venueId!, "deposit", today);
+          const pay = await readSetting(c, request.venueId!, "pay", today);
+          if (deposit && pay)
+            policy = (
+              await publishPolicy(c, request.venueId!, {
+                text: depositPolicyText(deposit.value, pay.value.gratuity),
+                at: options.clock.now().toString(),
+                by: savedBy ?? null,
+              })
+            ).version.version;
+        }
+        return { saved, policy };
+      });
       // A new pay.tipScreen goes to the readers' Terminal Configuration (M4-02), after the commit.
       let readers: "updating" | "failed" | undefined;
       if ("pay" in values && options.stripe) {
@@ -114,7 +137,12 @@ export function settingsRoutes(
           .then((pushed) => (pushed ? ("updating" as const) : undefined))
           .catch(() => "failed" as const);
       }
-      return { business_date: today.toString(), saved, ...(readers ? { readers } : {}) };
+      return {
+        business_date: today.toString(),
+        saved,
+        ...(policy !== undefined ? { policy_version: policy } : {}),
+        ...(readers ? { readers } : {}),
+      };
     } catch (error) {
       if (error instanceof SettingsRefused)
         throw new ApiError("invalid_request", error.reasons.join(" "), {

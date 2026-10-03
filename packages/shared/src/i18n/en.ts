@@ -1702,4 +1702,67 @@ export const en = {
   "site.enquiry.sent": "Sent. We'll reply by text.",
   "site.enquiry.sentLine": "Watch for a text at {phone}.",
   "site.enquiry.another": "Send another",
+  "policy.deposit.off": "No deposit is taken to book.",
+  "policy.deposit.firstHour":
+    "A deposit of the first hour's room time holds your room. It comes off your bill.",
+  "policy.deposit.perPerson":
+    "A deposit of {amount} a guest holds your room. It comes off your bill.",
+  "policy.deposit.flat": "A {amount} deposit holds your room. It comes off your bill.",
+  "policy.deposit.percent":
+    "A deposit of {pct}% of the first hour's room time holds your room. It comes off your bill.",
+  "policy.deposit.cardHold": "Your card holds the room. Nothing is charged now.",
+  "policy.bigParty.flat":
+    "Parties of {n} or more pay a {amount} deposit instead, refunded in full if you cancel at least {hours} hours before your start.",
+  "policy.bigParty.pct":
+    "Parties of {n} or more pay a deposit of {pct}% of the room time or the minimum spend, whichever is more, refunded in full if you cancel at least {hours} hours before your start.",
+  "policy.card":
+    "We save the card you pay with. At the end of your visit, the rest of your tab can go on it: the amount due on your bill and never more, charged once you confirm on your phone, or with a manager's approval if you've already left. An itemized receipt is texted to you at once.",
+  "policy.refund": "Cancel at least {hours} hours before your start for a full refund.",
+  "policy.refund.cardHold":
+    "Cancel at least {hours} hours before your start and nothing is charged.",
+  "policy.late.keep": "Cancel later than that and the deposit is kept.",
+  "policy.late.half": "Cancel later than that and half the deposit is refunded.",
+  "policy.late.refund": "Cancel later than that and the deposit is still refunded in full.",
+  "policy.noShow.keep":
+    "If nobody from your party arrives within {grace} minutes of your start, the booking is a no-show and the deposit is kept.",
+  "policy.noShow.firstHour":
+    "If nobody from your party arrives within {grace} minutes of your start, the booking is a no-show: after those {grace} minutes we charge the saved card up to the first hour's room time in total, the deposit included.",
+  "policy.noShow.nothing":
+    "If nobody from your party arrives within {grace} minutes of your start, the booking is a no-show and the deposit is refunded.",
+  "policy.noShow.cardHold":
+    "If nobody from your party arrives within {grace} minutes of your start, the booking is a no-show and nothing is charged.",
+  "policy.gratuity": "A {pct}% gratuity is added to room tabs.",
+  "admin.section.deposits": "Deposits & cancelling",
+  "admin.hint.deposits": "The deposit, refunds and no-shows, and the policy guests accept",
+  "deposits.bookingOff":
+    "Online booking is off. Turn on Online booking & deposits in Features to set deposits.",
+  "deposits.on": "Take a deposit to book",
+  "deposits.mode": "Deposit",
+  "deposits.mode.firstHour": "The first hour",
+  "deposits.mode.perPerson": "So much a guest",
+  "deposits.mode.flat": "A flat amount",
+  "deposits.mode.percent": "A percent of the first hour",
+  "deposits.mode.cardHold": "Save a card, charge nothing",
+  "deposits.amount": "Amount",
+  "deposits.perGuest": "Amount a guest",
+  "deposits.percent": "Percent",
+  "deposits.refundHours": "Full refund up to (hours before the start)",
+  "deposits.late": "Cancelled later",
+  "deposits.late.keep": "Keep the deposit",
+  "deposits.late.half": "Refund half",
+  "deposits.late.refund": "Refund it all",
+  "deposits.noShow": "No-show",
+  "deposits.noShow.keep": "Keep the deposit",
+  "deposits.noShow.firstHour": "Charge up to the first hour",
+  "deposits.noShow.nothing": "Charge nothing",
+  "deposits.grace": "No-show after (minutes late)",
+  "deposits.bigParty": "Big parties",
+  "deposits.bigParty.on": "A different deposit for big parties",
+  "deposits.bigParty.from": "From (guests)",
+  "deposits.bigParty.amount": "Big-party deposit",
+  "deposits.bigParty.refundHours": "Big-party full refund up to (hours)",
+  "deposits.policy": "What guests accept",
+  "deposits.policy.hint":
+    "Book and Manage show these words above the pay button. Save and publish makes them a new version; bookings keep the version they accepted.",
+  "deposits.policy.live": "Live: version {n}",
 } as const;

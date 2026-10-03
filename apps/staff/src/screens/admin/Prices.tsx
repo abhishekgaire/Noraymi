@@ -33,7 +33,7 @@ const minutesOf = (value: string) => {
   return h * 60 + m;
 };
 
-function Money({
+export function Money({
   label,
   cents,
   onChange,

@@ -46,9 +46,30 @@ export function checkSetting<K extends SettingsKey>(
       return checkLanguages(value as SettingsValue<"languages">);
     case "safety":
       return checkSafety(value as SettingsValue<"safety">);
+    case "deposit":
+      return checkDeposit(value as SettingsValue<"deposit">);
     default:
       return [];
   }
+}
+
+/** Admin → Deposits & cancelling (M5-06): each mode's value means what the mode says. */
+export function checkDeposit(deposit: SettingsValue<"deposit">): string[] {
+  const reasons: string[] = [];
+  const v = deposit.value;
+  if ((deposit.mode === "perPerson" || deposit.mode === "flat") && (!Number.isInteger(v) || v < 1))
+    reasons.push("A per-guest or flat deposit needs an amount in whole cents, more than $0.");
+  if (deposit.mode === "percent" && (!Number.isInteger(v) || v < 1 || v > 100))
+    reasons.push("A percent deposit is a whole percent from 1 to 100.");
+  if ((deposit.mode === "firstHour" || deposit.mode === "cardHold") && v !== 0)
+    reasons.push("The first-hour and card-hold deposits take no amount.");
+  if (!Number.isInteger(deposit.refundHours) || deposit.refundHours > 24 * 30)
+    reasons.push("The refund cut-off is a whole number of hours, at most 30 days.");
+  const big = deposit.bigParty;
+  if (big && big.fromGuests < 2) reasons.push("A big party starts at 2 guests or more.");
+  if (big && (!Number.isInteger(big.refundHours) || big.refundHours > 24 * 30))
+    reasons.push("The big-party refund cut-off is a whole number of hours, at most 30 days.");
+  return reasons;
 }
 
 export function checkHours(

@@ -8,6 +8,7 @@ export {
   checkPay,
   checkLanguages,
   checkSafety,
+  checkDeposit,
   IN_PERSON_CARD_COST_PCT,
 } from "./settings-checks.js";
 export type { CheckContext } from "./settings-checks.js";
@@ -58,3 +59,4 @@ export type { OrderStatus, OrderStep, StepResult } from "./orders.js";
 export * from "./check-totals.js";
 export * from "./cash.js";
 export * from "./site.js";
+export * from "./policy.js";
