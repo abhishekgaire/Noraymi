@@ -9,7 +9,8 @@ import {
   type Queryable,
 } from "@west4/db";
 import { allInCents, businessDate, hoursFor, openNow, percent, roomFor } from "@west4/rules";
-import { siteContentSchema, Temporal, type ModuleId, type SiteContent } from "@west4/shared";
+import type { Temporal } from "@west4/shared";
+import { siteContentSchema, type ModuleId, type SiteContent } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 
 /**
