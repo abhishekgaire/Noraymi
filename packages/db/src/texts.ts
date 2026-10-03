@@ -41,7 +41,7 @@ export async function conversationFor(
   input: {
     phoneE164: string;
     guestId: string | null;
-    contextKind: "booking" | "waitlist" | "session" | null;
+    contextKind: "booking" | "waitlist" | "session" | "enquiry" | null;
     contextId: string | null;
   },
 ): Promise<string> {
@@ -274,7 +274,7 @@ export interface ConversationRow {
   readonly guest_id: string | null;
   readonly guest_name: string | null;
   readonly phone_e164: string;
-  readonly context_kind: "booking" | "waitlist" | "session" | null;
+  readonly context_kind: "booking" | "waitlist" | "session" | "enquiry" | null;
   readonly context_id: string | null;
   readonly unread: number;
   readonly assigned_to: string | null;

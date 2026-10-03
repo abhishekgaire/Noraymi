@@ -322,3 +322,19 @@ body {
   font-size: 0.9em;
   margin: 4px 0 0;
 }
+
+/* The party enquiry form (M5-04) */
+.enquiry {
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+}
+.enquiry label {
+  display: grid;
+  gap: 4px;
+}
+.enquiry input,
+.enquiry textarea {
+  min-height: 44px;
+  font: inherit;
+}

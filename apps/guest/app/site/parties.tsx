@@ -1,6 +1,7 @@
 import { t, type MessageKey } from "@west4/shared";
 import { BookButton, Photos, SiteFooter, SiteHeader } from "./home";
 import { money, phoneLabel, type SiteView } from "./data";
+import { EnquiryForm } from "./enquiry-form";
 
 /**
  * Private parties (M5-01; screens Parties): what the venue hosts, its room
@@ -166,6 +167,7 @@ export function Parties({ site, base, path }: { site: SiteView; base: string; pa
 
         <section id="enquire" aria-labelledby="enquire-h">
           <h2 id="enquire-h">{t("en", "site.parties.enquire")}</h2>
+          <EnquiryForm slug={site.venue.slug} today={site.business_date} />
           {site.phone && (
             <p>{t("en", "site.parties.enquireCall", { phone: phoneLabel(site.phone) })}</p>
           )}

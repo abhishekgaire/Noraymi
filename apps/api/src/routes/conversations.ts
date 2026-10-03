@@ -11,6 +11,7 @@ import {
 import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { enquiryForConversation } from "../enquiries/enquiries.js";
 import { optOut, runningLateReply, sendReply, sendTemplateIn } from "../texts/inbox.js";
 import { queueText } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
@@ -102,6 +103,11 @@ export function conversationRoutes(
         return {
           conversation: { ...conversation, unread: 0 },
           messages: await threadMessages(c, venueId, conversation.id),
+          // A party enquiry's size, date and words, for the thread's header (M5-04).
+          enquiry:
+            conversation.context_kind === "enquiry"
+              ? await enquiryForConversation(c, venueId, conversation.id)
+              : null,
         };
       });
     },

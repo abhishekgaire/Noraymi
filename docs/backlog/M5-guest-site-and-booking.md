@@ -125,7 +125,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-04 · Take private-party enquiries into Messages
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M5-01; M2 (Messages, `conversations`, the CAPTCHA)
 - **Spec:** [API](../spec/08-api.md) (Enquiries); [Data model](../spec/04-data-model.md) (`enquiries`, `conversations`); [Song systems and texts](../spec/11-song-systems-texts.md) (Two-way inbox); [milestones: GA-N1](../milestones.md#must-fix-items-and-where-they-close); [screens: Parties note 1](../screens.md#parties)
@@ -135,11 +135,15 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `GET /enquiries` for staff.
   - Staff answer in the thread: free text only as a reply in an open service conversation, with links and promotions blocked; a deposit goes out through the Payment link text (M5-13).
 - **Acceptance:**
-  - [ ] An enquiry for 22 guests lands in Messages as an unread thread with its party size, date and message.
-  - [ ] The form won't take an email address in place of a mobile number.
-  - [ ] A staff reply with a link is blocked, and the Payment link text is offered instead.
+  - [x] An enquiry for 22 guests lands in Messages as an unread thread with its party size, date and message.
+  - [x] The form won't take an email address in place of a mobile number.
+  - [x] A staff reply with a link is blocked, and the Payment link text is offered instead.
 - **Tests:** integration; CAPTCHA test; end-to-end.
 - **Notes:** The canvas takes "phone or email", but the inbox is texts only ([Parties note 1](../screens.md#parties)); whether an email-only enquiry is allowed is undecided, so the form takes a mobile number (cautious default). Packages on the page are menu items ordered from the room; selling them in the booking is phase 2 (K3).
+  - Built: migration 0073 (`enquiries`, and `enquiry` as a conversation context); `POST /v1/public/venues/{slug}/enquiries` (website module) finds or makes the guest by mobile number, opens a conversation of its own, puts the guest's message in as its first incoming text (so it's unread, opens the 24-hour reply window, and is assigned to the manager on duty), and sends `message.received`; `GET /v1/venues/{v}/enquiries` (owner, manager and staff with Messages) lists them newest first. The thread shows "Party enquiry · 22 guests · Sat, Oct 10" above the texts.
+  - The form takes a name, a US mobile number (+1 only), guests, a date (tonight or later, on the venue's clock) and anything else. An address with "@" is refused in the form and by the server ("We reply by text…"). The canvas's occasion chips aren't built: `enquiries` has no field for them, and the guest can say it in the message (flagged).
+  - A reply with a link was already refused (M2-30); its message now points to the Payment link text. The button that sends it from the thread comes with M5-13.
+  - **Not built here: the CAPTCHA and daily limits.** They're M5-05, which waits on M2-27 (blocked on the founder: the CAPTCHA provider and the limit numbers). Until then the route runs without them, like the waitlist page.
 
 ### M5-05 · Guard booking and enquiries with the CAPTCHA and daily limits
 

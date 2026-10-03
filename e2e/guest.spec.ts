@@ -820,3 +820,36 @@ test("the menu page, the PDF and the room page's menu show the same items and pr
   expect(after.pdf).not.toContain("Bud Light");
   await expect(page.getByText("Bud Light")).toHaveCount(0);
 });
+
+/** The enquiry form on the private parties page (M5-04): no email address, then sent by text. */
+test("the parties page takes an enquiry for 22 by mobile number, not email", async ({ page }) => {
+  await page.goto("/v/west4karaoke/parties");
+  const form = page.locator("form.enquiry");
+  await form.getByLabel("Your name").fill("Priya");
+  await form.getByLabel("Mobile number").fill("priya@example.com");
+  await expect(form.getByText("We reply by text.")).toBeVisible();
+  await form.getByLabel("Guests").fill("22");
+  await form.getByLabel("Date").fill("2026-10-10");
+  await form.getByLabel("Anything else?").fill("Office party, from 8 PM.");
+  await form.getByRole("button", { name: "Send enquiry" }).click();
+  await expect(form.getByRole("alert")).toHaveText(
+    "We reply by text, so we need a mobile number, not an email address.",
+  );
+  await form.getByLabel("Mobile number").fill("(646) 555-0142");
+  await form.getByRole("button", { name: "Send enquiry" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Sent." })).toContainText(
+    "Sent. We'll reply by text.",
+  );
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const row = await db.query(
+      "select e.party_size, e.date::text, c.unread from enquiries e join conversations c on c.id = e.conversation_id",
+    );
+    expect(row.rows).toEqual([{ party_size: 22, date: "2026-10-10", unread: 1 }]);
+  } finally {
+    await db.end();
+  }
+});

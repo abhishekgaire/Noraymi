@@ -890,6 +890,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "duty_managers",
       "id_checks",
       "id_scan_keys",
+      "enquiries",
       "messages",
       "conversations",
       "message_templates",

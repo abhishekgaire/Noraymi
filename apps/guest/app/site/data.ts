@@ -23,6 +23,7 @@ export interface SiteView {
     readonly singAtTheBar: SiteContent["singAtTheBar"] | null;
   };
   readonly now: string;
+  readonly business_date: string;
   readonly hours: {
     readonly open_now: boolean;
     readonly closed_tonight: boolean;

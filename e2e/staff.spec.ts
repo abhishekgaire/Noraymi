@@ -1888,7 +1888,9 @@ test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a 
     await expect(thread).toContainText("No problem. We'll hold your room until 10:45 PM.");
     await thread.getByLabel("Reply").fill("Book again at west4karaoke.com/book");
     await thread.getByRole("button", { name: "Send" }).click();
-    await expect(thread.getByRole("alert")).toHaveText("A reply can't carry a link");
+    await expect(thread.getByRole("alert")).toHaveText(
+      "A reply can't carry a link. For a deposit, send the Payment link text.",
+    );
     await page.goto("/tonight");
     await expect(page.getByRole("listitem", { name: "Sam O.", exact: true })).toContainText(
       /Room 2 · Open · held for Sam O\. until 10:45\s?PM/,
@@ -4806,6 +4808,46 @@ test("Admin → Website: new hero words go live, version 1 comes back, alt text 
     await expect(page.getByText(/^Version 3 is live/)).toBeVisible();
     expect(await (await request.get("http://localhost:3001/")).text()).toContain(
       "Lose your voice.",
+    );
+  } finally {
+    await db.end();
+  }
+});
+
+/** A party enquiry from the website (M5-04) in Messages: unread, its size and date, and a link refused. */
+test("a party enquiry for 22 lands in Messages unread; a reply with a link points to the Payment link text", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    const sent = await request.post("/v1/public/venues/west4karaoke/enquiries", {
+      data: {
+        name: "Priya",
+        phone: "+16465550142",
+        party_size: 22,
+        date: "2026-10-10",
+        message: "Office party, about 22 of us, from 8 PM.",
+      },
+    });
+    expect(sent.status()).toBe(201);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page
+      .getByRole("link", { name: /Messages/ })
+      .first()
+      .click();
+    const priya = page.getByRole("button", { name: "Priya" });
+    await expect(priya).toContainText("Party enquiry");
+    await expect(priya).toContainText("1 unread");
+    await priya.click();
+    const thread = page.getByRole("region", { name: "Priya" });
+    await expect(thread).toContainText("Party enquiry · 22 guests · Sat, Oct 10");
+    await expect(thread).toContainText("Office party, about 22 of us, from 8 PM.");
+    await thread.getByLabel("Reply").fill("Pay the deposit at west4karaoke.com/pay");
+    await thread.getByRole("button", { name: "Send" }).click();
+    await expect(thread.getByRole("alert")).toHaveText(
+      "A reply can't carry a link. For a deposit, send the Payment link text.",
     );
   } finally {
     await db.end();

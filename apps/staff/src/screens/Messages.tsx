@@ -17,7 +17,7 @@ interface Conversation {
   readonly id: string;
   readonly guest_name: string | null;
   readonly phone_e164: string;
-  readonly context_kind: "booking" | "waitlist" | "session" | null;
+  readonly context_kind: "booking" | "waitlist" | "session" | "enquiry" | null;
   readonly unread: number;
   readonly last_body: string | null;
   readonly opted_out: boolean;
@@ -49,14 +49,17 @@ function Thread({
   conversationId: string;
   onBack: () => void;
 }) {
-  const { t, time } = useT();
+  const { t, time, date } = useT();
   const { subscribe } = useEvents();
   const { state } = useSession();
   const cutover = state.status === "signedIn" ? state.membership.venue.day_cutover : "06:00";
   const venueTime = useVenueTime(timeZone, cutover);
-  const [data, setData] = useState<{ conversation: Conversation; messages: Message[] } | null>(
-    null,
-  );
+  const [data, setData] = useState<{
+    conversation: Conversation;
+    messages: Message[];
+    /** A party enquiry from the website (M5-04). */
+    enquiry?: { party_size: number; date: string } | null;
+  } | null>(null);
   const [reply, setReply] = useState("");
   const [holdUntil, setHoldUntil] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +167,11 @@ function Thread({
         {t("messages.back")}
       </button>
       <h2>{name}</h2>
+      {data.enquiry && (
+        <p className="notice">
+          {t("messages.enquiry", { n: data.enquiry.party_size, date: date(data.enquiry.date) })}
+        </p>
+      )}
       <ol className="texts">
         {data.messages.map((m) => (
           <li key={m.id} className={m.direction === "inbound" ? "text in" : "text out"}>
