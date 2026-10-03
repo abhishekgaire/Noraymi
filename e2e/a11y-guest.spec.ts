@@ -262,3 +262,13 @@ test("the bill passes on the room page and the booking link", async ({ page, req
     await c.end();
   }
 });
+
+/** The site's home and private parties pages (M5-01). */
+test("the site's home and parties pages pass", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lose your voice.");
+  expect(await violations(page)).toEqual([]);
+  await page.goto("/v/west4karaoke/parties");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your night. Your door.");
+  expect(await violations(page)).toEqual([]);
+});

@@ -47,7 +47,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-01 · Render the guest site from site_versions
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3 (`apps/guest`, the menu); M1 (settings, modules, `closures`)
 - **Spec:** [Scope and architecture](../spec/01-scope-architecture.md) (Guest web); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`site_versions`, `website.priceWording`, `hours`, what each module hides); [Song systems and texts](../spec/11-song-systems-texts.md) (Songbook); [screens: Main](../screens.md#main), [Rooms](../screens.md#rooms), [Parties](../screens.md#parties)
@@ -60,13 +60,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - "Sing at the bar" opens the singer's queue page (M6); until that page ships, the section waits behind a venue flag.
   - Sections follow the modules, as the table of what each module hides says; the site sits behind the CDN and refreshes on `settings.changed` and `menu.changed`.
 - **Acceptance:**
-  - [ ] With the clock pinned at Fri Sep 25, 10:41 PM, the homepage reads open until 4 AM.
-  - [ ] Every price line reads "$10 a person an hour, plus tax and a 20% gratuity" and "VIP room $250 an hour"; switching `website.priceWording` to `allIn` changes every one of them.
-  - [ ] The Rooms picker for 3 guests on a Friday shows a small room billed for 4.
-  - [ ] With no catalog, the song section shows its heading and song count and no search box.
-  - [ ] Each page's HTML carries its content with JavaScript off.
+  - [x] With the clock pinned at Fri Sep 25, 10:41 PM, the homepage reads open until 4 AM.
+  - [x] Every price line reads "$10 a person an hour, plus tax and a 20% gratuity" and "VIP room $250 an hour"; switching `website.priceWording` to `allIn` changes every one of them.
+  - [x] The Rooms picker for 3 guests on a Friday shows a small room billed for 4.
+  - [x] With no catalog, the song section shows its heading and song count and no search box.
+  - [x] Each page's HTML carries its content with JavaScript off.
 - **Tests:** Playwright on staging with the pinned clock; server-render snapshots; module-effects tests; `packages/rules` unit tests for the price wording.
 - **Notes:** Canvas differences: "Open now" from the device clock ([Main note 3](../screens.md#main)), the price wording ([Main note 4](../screens.md#main), [Rooms note 1](../screens.md#rooms)), the songbook search ([Main note 5](../screens.md#main)) and "Sing at the bar" linking nowhere ([Main note 1](../screens.md#main)). The spec doesn't give the `allIn` wording itself, only that it shows totals that include tax and gratuity; flagged. West 4's domain moves in M9, so M5 runs on staging hosts.
+  - **Built (M5-01):** migration 0071 (`site_versions`, one draft at a time, every published version kept); the content's shape (`packages/shared/src/site.ts`: hero, numbers, songbook, Sing at the bar with its `live` flag, house rules, find us, rooms, parties), and West 4's words as published version 1 in the seed (`seed/west4-friday.json` → `site`, taken from the Main, Rooms and Parties boards; prices moved out of the words, since they're live facts). `GET /v1/public/venues/{slug}/site?guests=&hours=` returns the words and every live fact: open now from `hours` and `closures` on the venue's clock, the price lines' numbers from `prices`, the gratuity and the rule pack's tax, room sizes from the rooms, tonight's billable minimum, the menu's price ranges, packages, the phone number, the parties estimate, and which modules leave sections on (the website module off answers not found). `packages/rules/src/site.ts`: `allInCents` and `roomFor`, unit-tested.
+  - Pages (`apps/guest`, server-rendered): `/` (the venue in `SITE_VENUE`, West 4 by default), `/v/{slug}` and `/v/{slug}/parties`. The Rooms picker's − and + and the estimator's are links (`?guests=`, `&hours=`), so they work with JavaScript off. Booking off: the hero reads "Call to book · (212) 255-0011" and Book links go. Waitlist off: no "Join the waitlist". Rooms off: no Rooms section. Packages off or none entered: no packages section.
+  - **Flagged:** the `allIn` wording isn't in the spec; built as "$12.89 a person an hour, tax and the 20% gratuity included" and "VIP room $322.19 an hour, tax and gratuity included" (tax on the price, the gratuity untaxed). West 4 has no packages entered yet, so the parties page's "Drinks, sorted." section stays hidden until it does. The canvas's line "A deposit holds your room, refunded if you cancel 24 hours ahead" waits for M5-06's policy, so the number reads the price only.
+  - **Not here:** "Full menu" links to `/v/{slug}/menu` (M5-03), Book to `/v/{slug}/book` (M5-07), the enquiry form to M5-04; Sing at the bar stays hidden until M6's queue page (`singAtTheBar.live` false). Pages render on each request, so a settings or menu change shows at once; caching them in a CDN waits for West 4's domain (M9), and the API's site read already says `s-maxage=60`.
+  - Tests: `apps/api/src/routes/site.int.test.ts` (open until 4 AM, the words and phone, both wordings, the estimate, the picker, the songbook, modules); `e2e/guest.spec.ts` (the site: open line, price lines, picker for 3 → small room billed for 4, songbook with no search; JavaScript off with the parties estimate; all in and booking off); `e2e/a11y-guest.spec.ts` (axe on both pages).
+
 
 ### M5-02 · Build Admin → Website
 

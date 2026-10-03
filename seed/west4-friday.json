@@ -4590,5 +4590,91 @@
    "do": "Open Close the night at Sat 4:12 AM (business date Fri Sep 25).",
    "expect": "Nine checks each link to their fix; \"3 slips not entered · tips post to Sat Sep 26\"; both drawers counted blind; the clear-out check is due at 4:30 AM and closes as \"Clear-out check · Andy · 4:31 AM\"; the demo ends \"Night closed · 4:48 AM\"."
   }
- ]
+ ],
+ "site": {
+  "source": "The Main, Rooms and Parties canvas boards (West 4's own words); live facts (hours, prices, menu, phone) come from settings and the menu",
+  "published_version": 1,
+  "content": {
+   "hero": {
+    "headline": "Lose your voice.",
+    "lead": "14 private karaoke rooms in the West Village. Strong drinks. Louder friends. Zero judgment."
+   },
+   "numbers": [
+    {
+     "value": "14",
+     "text": "private rooms. Three friends or forty."
+    },
+    {
+     "value": "113K",
+     "text": "songs. English, Spanish, Japanese, Chinese, Korean, and the one you are thinking of."
+    },
+    {
+     "value": "4AM",
+     "text": "closing time, every single night."
+    }
+   ],
+   "songbook": {
+    "heading": "113,000 songs.",
+    "songCount": 113000
+   },
+   "singAtTheBar": {
+    "heading": "Sing at the bar.",
+    "lead": "Buy a drink, get a song. The bar mic runs every night until 4 AM, and it is the fastest way to make thirty new friends.",
+    "live": false
+   },
+   "houseRules": [
+    "Walk-ins welcome. Bar first, room when one opens.",
+    "Bring your own food. No outside drinks.",
+    "21 and over, with ID. Always."
+   ],
+   "findUs": {
+    "directions": "Between Jones and Barrow. A/C/E/B/D/F/M to W 4th.",
+    "social": [
+     {
+      "label": "Instagram",
+      "handle": "@bohow4th"
+     },
+     {
+      "label": "TikTok",
+      "handle": "@bohowest4"
+     }
+    ]
+   },
+   "rooms": {
+    "heading": "14 rooms. Three to forty.",
+    "lead": "Every room is private: your screen, your mics, your playlist, door closed. Tell us how many and we match the room."
+   },
+   "parties": {
+    "headline": "Your night. Your door.",
+    "lead": "Fourteen rooms on W 4th St, from three friends up to the VIP room for 40. Open till 4 AM. The door closes and the mic is yours.",
+    "hosts": [
+     {
+      "title": "Birthdays",
+      "tag": "3 to 20",
+      "text": "A room sized to your crew. Bring your own food, cake included. Drinks go on one tab."
+     },
+     {
+      "title": "Bachelorettes",
+      "tag": "Till 4 AM",
+      "text": "113,000 songs and a closed door. Order to the room from your phone and it lands on the tab you settle when you leave."
+     },
+     {
+      "title": "Office nights",
+      "tag": "20 to 40",
+      "text": "The whole team in the VIP room, however many of you come. Fewer than 20? Take a large room."
+     },
+     {
+      "title": "Full buyouts",
+      "tag": "All 14 rooms",
+      "text": "Every room and the bar, just for you. Tell us the date and the headcount and we'll work it out together."
+     }
+    ],
+    "notes": [
+     "1 hour minimum, then by the minute. Stay later if nobody's booked after you.",
+     "Bring your own food. No outside drinks. 21 and over, with ID."
+    ],
+    "packagesNote": "Ordered to your room, on your tab."
+   }
+  }
+ }
 }

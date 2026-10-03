@@ -16,9 +16,76 @@ test.beforeEach(async ({ request }) => {
   expect(clock.ok()).toBe(true);
 });
 
-test("the guest web opens", async ({ page }) => {
+/**
+ * West 4's site (M5-01; screens Main, Rooms, Parties) at Fri Sep 25, 10:41 PM:
+ * open until 4 AM, the price wording, the Rooms picker, the songbook with its
+ * count and no search, and every page readable with JavaScript off.
+ */
+test("the site: open until 4 AM, the prices, the rooms picker and the songbook", async ({
+  page,
+}) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Guest web");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lose your voice.");
+  await expect(page.locator(".hero .open-line")).toHaveText("Open now · until 4 AM");
+  const rooms = page.getByRole("region", { name: "14 rooms. Three to forty." });
+  await expect(rooms).toContainText("$10 a person an hour, plus tax and a 20% gratuity");
+  await expect(rooms).toContainText("VIP room $250 an hour");
+  await expect(page.getByRole("heading", { name: "113,000 songs." })).toBeVisible();
+  await expect(page.getByText("113,000 songs in the rooms")).toBeVisible();
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  // Sing at the bar waits behind its flag until the singer's queue page ships (M6).
+  await expect(page.getByRole("heading", { name: "Sing at the bar." })).toHaveCount(0);
+
+  // The picker: 3 guests on a Friday fit a small room billed for 4.
+  await rooms.getByRole("link", { name: "One fewer" }).click();
+  await expect(page).toHaveURL(/guests=3#rooms$/);
+  await expect(page.locator("#rooms .fit")).toContainText("A small room fits you");
+  await expect(page.locator("#rooms .fit")).toContainText(
+    "$40 an hour · tonight bills at least 4 guests",
+  );
+});
+
+test("the site with JavaScript off still reads, and the parties page estimates a night", async ({
+  browser,
+}) => {
+  const page = await (await browser.newContext({ javaScriptEnabled: false })).newPage();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lose your voice.");
+  await expect(page.locator(".hero .open-line")).toHaveText("Open now · until 4 AM");
+  await page.goto("/v/west4karaoke/parties?guests=12&hours=3");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your night. Your door.");
+  const estimate = page.getByRole("region", { name: "Rough room cost" });
+  await expect(estimate).toContainText("Room time$360");
+  await expect(estimate).toContainText("Tax 8.875%$31.95");
+  await expect(estimate).toContainText("Gratuity 20%$72");
+  await expect(estimate).toContainText("Room time, all in$463.95");
+  await page.context().close();
+});
+
+test("all in, and booking off: every price line changes, and the hero reads Call to book", async ({
+  page,
+}) => {
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query(
+      `update venue_settings set value = '{"priceWording": "allIn"}' where key = 'website'`,
+    );
+    await db.query("update venue_modules set state = 'off' where module_id = 'online_booking'");
+    await page.goto("/");
+    const rooms = page.getByRole("region", { name: "14 rooms. Three to forty." });
+    await expect(rooms).toContainText("$12.89 a person an hour, tax and the 20% gratuity included");
+    await expect(rooms).toContainText("VIP room $322.19 an hour, tax and gratuity included");
+    await expect(page.getByText("a person an hour, plus tax")).toHaveCount(0);
+    await expect(
+      page.locator(".hero").getByRole("link", { name: /^Call to book/ }),
+    ).toHaveAttribute("href", "tel:+12122550011");
+    await expect(page.getByRole("link", { name: "Book a room" })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
 });
 
 /**

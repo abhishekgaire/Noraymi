@@ -209,3 +209,71 @@ body {
   margin: 0;
   white-space: nowrap;
 }
+
+/* The guest site (M5-01): the venue's home page and private parties page. */
+.site-header,
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+.site-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.site-header a,
+.site-footer a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.guest.site section {
+  margin: 32px 0;
+}
+.guest.site .kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+}
+.guest.site .numbers,
+.guest.site .menu-teaser {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+.guest.site .numbers dt {
+  font-size: 2rem;
+  font-weight: 700;
+}
+.guest.site .numbers dd,
+.guest.site .menu-teaser dd,
+.guest.site .find-us dd {
+  margin: 0;
+}
+.guest.site .picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.guest.site .hosts,
+.guest.site .tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+}
+.guest.site .estimate {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+}
+.guest.site .estimate dd {
+  margin: 0;
+  text-align: right;
+}

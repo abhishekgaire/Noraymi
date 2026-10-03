@@ -21,6 +21,7 @@ import {
   type ModuleId,
   type Role,
   type SettingsKey,
+  siteContentSchema,
 } from "@west4/shared";
 import type { DeviceKind } from "./devices.js";
 import { reasonOnlyUsed } from "./checks.js";
@@ -43,6 +44,8 @@ import { reasonOnlyUsed } from "./checks.js";
 /** The parts of seed/west4-friday.json this ticket reads. */
 export interface SeedFile {
   readonly meta: { readonly now: string; readonly business_date: string };
+  /** The guest site's published content (M5-01). */
+  readonly site?: { readonly published_version: number; readonly content: unknown };
   readonly venue: {
     readonly id: string;
     readonly name: string;
@@ -893,6 +896,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "webhook_events",
       "integrations",
       "setup_checks",
+      "site_versions",
       "prepaid_ledger",
       "prepaid_accounts",
       "dispute_funds",
@@ -1011,6 +1015,17 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`settings: ${settings.length} keys`);
+
+    // The guest site (M5-01): West 4's words as published version 1, checked against the content schema.
+    if (seed.site) {
+      const content = siteContentSchema.parse(seed.site.content);
+      await client.query(
+        `insert into site_versions (venue_id, version, status, content, published_at)
+         values ($1, $2, 'published', $3, $4)`,
+        [venueId, seed.site.published_version, JSON.stringify(content), seed.meta.now],
+      );
+      log(`site: version ${seed.site.published_version} published`);
+    }
 
     // Modules: on and off as Admin → Features shows, allowed by phase.
     const modules = mapSeedModules(seed.venue);
