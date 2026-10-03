@@ -10,8 +10,16 @@ import {
 } from "@west4/db";
 import { allInCents, businessDate, hoursFor, openNow, percent, roomFor } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
-import { siteContentSchema, type ModuleId, type SiteContent } from "@west4/shared";
+import {
+  siteContentSchema,
+  type ModuleId,
+  type SiteContent,
+  type SiteSection,
+} from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { downloadLink } from "../files/storage.js";
+import type { S3Settings } from "../s3.js";
+import { sectionStates } from "./versions.js";
 
 /**
  * The guest site (M5-01; Scope and architecture · Guest web; screens Main,
@@ -42,7 +50,7 @@ export async function siteView(
   c: Queryable,
   venueId: string,
   now: Temporal.Instant,
-  options: { guests?: number; hours?: number } = {},
+  options: { guests?: number; hours?: number; s3?: () => S3Settings } = {},
 ) {
   const states = statesOf(await venueModules(c, venueId));
   const on = (id: ModuleId) => states[id] === "on";
@@ -161,6 +169,21 @@ export async function siteView(
       ).rows
     : [];
 
+  const sections = Object.fromEntries(
+    sectionStates(content, states).map((x) => [x.id, x.shown]),
+  ) as Record<SiteSection, boolean>;
+  // Photos link for an hour; the CDN keeps the page for a minute.
+  const photos = (
+    await Promise.all(
+      content.photos.map(async (p) => {
+        if (!options.s3) return null;
+        const link = await downloadLink(c, options.s3(), venueId, p.file_id, 3600).catch(
+          () => null,
+        );
+        return link ? { url: link.url, alt: p.alt, place: p.place } : null;
+      }),
+    )
+  ).filter((p) => p !== null);
   return {
     venue: {
       name: venue.name,
@@ -178,8 +201,11 @@ export async function siteView(
     content: {
       ...content,
       // "Sing at the bar" waits behind its flag, and the bar's module.
-      singAtTheBar: on("bar_mode") && content.singAtTheBar.live ? content.singAtTheBar : null,
+      singAtTheBar:
+        sections.singAtTheBar && content.singAtTheBar.live ? content.singAtTheBar : null,
     },
+    sections,
+    photos,
     now: now.toString(),
     business_date: tonight.toString(),
     hours: {
@@ -216,8 +242,8 @@ export async function siteView(
     modules: {
       booking: on("online_booking"),
       waitlist: on("waitlist"),
-      rooms: on("rooms"),
-      packages: on("packages"),
+      rooms: sections.rooms,
+      packages: sections.packages,
     },
   };
 }

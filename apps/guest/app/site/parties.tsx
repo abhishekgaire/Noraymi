@@ -1,5 +1,5 @@
 import { t, type MessageKey } from "@west4/shared";
-import { BookButton, SiteFooter, SiteHeader } from "./home";
+import { BookButton, Photos, SiteFooter, SiteHeader } from "./home";
 import { money, phoneLabel, type SiteView } from "./data";
 
 /**
@@ -37,6 +37,7 @@ export function Parties({ site, base, path }: { site: SiteView; base: string; pa
           <p className="kicker">{t("en", "site.nav.parties")}</p>
           <h1 id="parties-h">{c.headline}</h1>
           <p className="lead">{c.lead}</p>
+          <Photos site={site} place="parties" />
           <a className="button" href="#enquire">
             {t("en", "site.parties.plan")}
           </a>

@@ -30,6 +30,7 @@ const ADMIN_SECTIONS = [
   "/admin/payments",
   "/admin/disputes",
   "/admin/card-fee",
+  "/admin/website",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -4746,6 +4747,66 @@ test("Go-live checklist: the merchant category, Andy and Abhishek confirmed, and
       }
     await expect(list.getByRole("status")).toHaveText("Passes: West 4 is ready to take payments");
     await expect(list.getByText(/^Confirmed by Abhishek/).first()).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Website (M5-02): new hero words, published, show on the live
+ * homepage, and version 1 published again brings the old ones back; a photo
+ * can't be saved without alt text; Packages can't be switched on while its
+ * module is off, and says why.
+ */
+test("Admin → Website: new hero words go live, version 1 comes back, alt text and a module-off section", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const db = await dbClient();
+  try {
+    await db.query("update venue_modules set state = 'off' where module_id = 'packages'");
+    await signInAndy(page, request, db);
+    await page.goto("/admin/website");
+    await expect(page.getByRole("heading", { level: 2, name: "Website" })).toBeVisible();
+    await expect(page.getByText("Live: version 1")).toBeVisible();
+
+    // Packages: off, with the reason.
+    const packages = page.getByRole("checkbox", { name: "Packages" });
+    await expect(packages).toBeDisabled();
+    await expect(page.getByText("Turn on Packages & specials in Features first.")).toBeVisible();
+
+    // A photo without alt text isn't saved.
+    await page.getByLabel("Add a photo").setInputFiles({
+      name: "room9.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+    });
+    await expect(page.getByLabel("Alt text: what the photo shows")).toBeVisible();
+    await page.getByRole("button", { name: "Save draft" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Every photo needs alt text before you save.");
+    await page.getByRole("button", { name: "Remove photo" }).click();
+
+    const home = await (await request.get("http://localhost:3001/")).text();
+    expect(home).toContain("Lose your voice.");
+    await page.getByLabel("Headline", { exact: true }).fill("Sing it like you mean it.");
+    await page.getByRole("button", { name: "Save draft" }).click();
+    await expect(page.getByText("Draft saved. It goes live when you publish.")).toBeVisible();
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
+    await expect(page.getByText(/^Version 2 is live/)).toBeVisible();
+    expect(await (await request.get("http://localhost:3001/")).text()).toContain(
+      "Sing it like you mean it.",
+    );
+
+    const v1 = page.getByRole("listitem").filter({ hasText: "Version 1" });
+    await v1.getByRole("button", { name: "Publish again" }).click();
+    await expect(page.getByText(/^Version 3 is live/)).toBeVisible();
+    expect(await (await request.get("http://localhost:3001/")).text()).toContain(
+      "Lose your voice.",
+    );
   } finally {
     await db.end();
   }

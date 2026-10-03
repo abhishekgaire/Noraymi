@@ -76,7 +76,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-02 · Build Admin → Website
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-01; M2 (`POST /files`)
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (One place for each fact, `website`); [Security and data retention](../spec/12-security-retention.md) 14; [milestones: Admin by milestone](../milestones.md#admin-by-milestone); [screens: SiteBuilder note 2](../screens.md#sitebuilder), [AdminDesk note 15](../screens.md#admindesk)
@@ -87,12 +87,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Routes: `GET /site-versions`, `PUT /site-versions/draft`, `POST /site-versions/draft/publish` and `POST /site-versions/{v}/republish`.
   - Styles, section order and domains wait for the website builder in phase 2.
 - **Acceptance:**
-  - [ ] New hero words, published, show on the live homepage within a minute, and the previous version can be published again.
-  - [ ] A photo without alt text can't be saved.
-  - [ ] A section whose module is off can't be switched on here, and Admin says why.
-  - [ ] No PIN session opens Admin → Website.
+  - [x] New hero words, published, show on the live homepage within a minute, and the previous version can be published again.
+  - [x] A photo without alt text can't be saved.
+  - [x] A section whose module is off can't be switched on here, and Admin says why.
+  - [x] No PIN session opens Admin → Website.
 - **Tests:** API and end-to-end tests; principal suite.
 - **Notes:** The API names no routes for `site_versions`; the four above are the cautious default, flagged. The canvas's free-text "Happy hour line" goes ([AdminDesk note 15](../screens.md#admindesk)); price rules are edited in Admin → Menu (M3).
+  - Built: `/v1/venues/{v}/site-versions` (GET, `PUT draft`, `POST draft/publish`, `POST {n}/republish`), owner or manager in a passkey session (`admin.access`), website module on. Publishing gives the draft the next version number; republishing copies an earlier version's words into a new published version, so the history is never rewritten and the site always shows the highest number. Each publish emits `settings.changed` (entity `site`). The public site is cached for 60 seconds, so a publish shows within a minute.
+  - Content gains `hidden` (sections Admin turned off) and `photos` (`file_id`, `alt` required and trimmed, `place`: hero, rooms or parties). Sections and their modules: Sing at the bar → Bar mode, Rooms → Rooms, Packages → Packages; numbers, songbook, menu, house rules, find us and private parties need no module. A section whose module is off stays hidden whatever the content says, and switching it on is refused with "Turn on {module} in Features first." Hiding it is always allowed. With Private parties hidden, the parties page answers 404 and the footer link goes.
+  - Photos: a new `site_photo` file kind (migration 0072: JPEG, PNG or WebP up to 10 MB; no HEIC, because browsers can't show it). A photo has to be a `site_photo` file of this venue; it's attached on save. The site gets one-hour signed links.
+  - `website.priceWording` is edited on the same screen but saved with Save and publish, like every other setting; the site's words go through the screen's own Save draft and Publish.
+  - The happy-hour line has no free-text field (note 15). Staff wording for this screen is in both catalogs; the site's own words stay the venue's (English at West 4).
+  - Flagged: the route names (above); which sections need which module (cautious default); words editable here are the hero, rooms, parties and song count (the numbers, house rules and find-us words are kept from the seed until the phase 2 builder).
 
 ### M5-03 · Serve the menu page and the PDF from one menu list
 

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { cents, formatMoney, type SiteContent } from "@west4/shared";
+import { cents, formatMoney, type SiteContent, type SiteSection } from "@west4/shared";
 
 /**
  * The guest site's data (M5-01): one server-side read of
@@ -60,6 +60,8 @@ export interface SiteView {
   readonly menu: readonly { name: string; fromCents: number; toCents: number }[];
   readonly packages: readonly { name: string; price_cents: number; hourly: boolean }[];
   readonly songs: { readonly count: number | null; readonly search: boolean };
+  readonly sections: Readonly<Record<SiteSection, boolean>>;
+  readonly photos: readonly { url: string; alt: string; place: "hero" | "rooms" | "parties" }[];
   readonly modules: {
     readonly booking: boolean;
     readonly waitlist: boolean;

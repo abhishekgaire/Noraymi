@@ -138,6 +138,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   flag: "beta",
   token: "sample-token",
   code: "ABCD",
+  version: "1",
 };
 
 export function fillUrl(

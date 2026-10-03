@@ -69,9 +69,11 @@ export function SiteFooter({ site, base }: { site: SiteView; base: string }) {
           <a href={`tel:${site.phone}`}>{phoneLabel(site.phone)}</a>
         </p>
       )}
-      <p>
-        <a href={`${base}/parties`}>{t("en", "site.nav.parties")} →</a>
-      </p>
+      {site.sections.parties && (
+        <p>
+          <a href={`${base}/parties`}>{t("en", "site.nav.parties")} →</a>
+        </p>
+      )}
     </footer>
   );
 }
@@ -91,6 +93,19 @@ export function BookButton({ site, base }: { site: SiteView; base: string }) {
   );
 }
 
+/** The venue's photos for one place on the page, each with the alt text Admin required (M5-02). */
+export function Photos({ site, place }: { site: SiteView; place: "hero" | "rooms" | "parties" }) {
+  const photos = site.photos.filter((p) => p.place === place);
+  if (photos.length === 0) return null;
+  return (
+    <div className="site-photos">
+      {photos.map((p) => (
+        <img key={p.url} src={p.url} alt={p.alt} loading="lazy" />
+      ))}
+    </div>
+  );
+}
+
 export function RoomsSection({ site, base, path }: { site: SiteView; base: string; path: string }) {
   const r = site.rooms;
   const max = Math.max(...r.tiers.map((x) => x.capacityMax), 1);
@@ -100,6 +115,7 @@ export function RoomsSection({ site, base, path }: { site: SiteView; base: strin
       <p className="kicker">{t("en", "site.rooms")}</p>
       <h2 id="rooms-h">{site.content.rooms.heading}</h2>
       <p>{site.content.rooms.lead}</p>
+      <Photos site={site} place="rooms" />
       <div className="picker" aria-label={t("en", "site.rooms.howMany")}>
         <p>{t("en", "site.rooms.howMany")}</p>
         <a
@@ -164,45 +180,56 @@ export function Home({ site, base, path }: { site: SiteView; base: string; path:
           <p className="kicker">{addressLine(site)}</p>
           <h1 id="hero-h">{c.hero.headline}</h1>
           <p className="lead">{c.hero.lead}</p>
+          <Photos site={site} place="hero" />
           <BookButton site={site} base={base} />
           <p className="open-line" role="status">
             {openLine(site)}
           </p>
         </section>
 
-        <section aria-labelledby="numbers-h">
-          <h2 id="numbers-h" className="kicker">
-            {t("en", "site.numbers")}
-          </h2>
-          <dl className="numbers">
-            {c.numbers.map((n) => (
-              <div key={n.value}>
-                <dt>{n.value}</dt>
-                <dd>{n.text}</dd>
-              </div>
-            ))}
-            {p.per_person_cents !== null && (
-              <div>
-                <dt>{money(p.per_person_cents)}</dt>
-                <dd>
-                  {t("en", p.wording === "allIn" ? "site.number.priceAllIn" : "site.number.price", {
-                    pct: p.gratuity_pct,
-                  })}
-                </dd>
-              </div>
-            )}
-          </dl>
-        </section>
+        {site.sections.numbers && (
+          <section aria-labelledby="numbers-h">
+            <h2 id="numbers-h" className="kicker">
+              {t("en", "site.numbers")}
+            </h2>
+            <dl className="numbers">
+              {c.numbers.map((n) => (
+                <div key={n.value}>
+                  <dt>{n.value}</dt>
+                  <dd>{n.text}</dd>
+                </div>
+              ))}
+              {p.per_person_cents !== null && (
+                <div>
+                  <dt>{money(p.per_person_cents)}</dt>
+                  <dd>
+                    {t(
+                      "en",
+                      p.wording === "allIn" ? "site.number.priceAllIn" : "site.number.price",
+                      {
+                        pct: p.gratuity_pct,
+                      },
+                    )}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+        )}
 
-        <section aria-labelledby="songs-h">
-          <p className="kicker">{t("en", "site.songbook")}</p>
-          <h2 id="songs-h">{c.songbook.heading}</h2>
-          {site.songs.count !== null && (
-            <p>
-              {t("en", "site.songbook.count", { count: site.songs.count.toLocaleString("en-US") })}
-            </p>
-          )}
-        </section>
+        {site.sections.songbook && (
+          <section aria-labelledby="songs-h">
+            <p className="kicker">{t("en", "site.songbook")}</p>
+            <h2 id="songs-h">{c.songbook.heading}</h2>
+            {site.songs.count !== null && (
+              <p>
+                {t("en", "site.songbook.count", {
+                  count: site.songs.count.toLocaleString("en-US"),
+                })}
+              </p>
+            )}
+          </section>
+        )}
 
         {c.singAtTheBar && (
           <section aria-labelledby="bar-h">
@@ -212,91 +239,97 @@ export function Home({ site, base, path }: { site: SiteView; base: string; path:
           </section>
         )}
 
-        <section id="menu" aria-labelledby="menu-h">
-          <h2 id="menu-h">{t("en", "site.menu.title")}</h2>
-          <dl className="menu-teaser">
-            {site.menu.slice(0, 6).map((m) => (
-              <div key={m.name}>
-                <dt>{m.name}</dt>
-                <dd>
-                  {m.fromCents === m.toCents
-                    ? money(m.fromCents)
-                    : t("en", "site.menu.from", { amount: money(m.fromCents) })}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <a href={`${base}/menu`}>{t("en", "site.menu.full")}</a>
-        </section>
+        {site.sections.menu && (
+          <section id="menu" aria-labelledby="menu-h">
+            <h2 id="menu-h">{t("en", "site.menu.title")}</h2>
+            <dl className="menu-teaser">
+              {site.menu.slice(0, 6).map((m) => (
+                <div key={m.name}>
+                  <dt>{m.name}</dt>
+                  <dd>
+                    {m.fromCents === m.toCents
+                      ? money(m.fromCents)
+                      : t("en", "site.menu.from", { amount: money(m.fromCents) })}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <a href={`${base}/menu`}>{t("en", "site.menu.full")}</a>
+          </section>
+        )}
 
-        <section aria-labelledby="rules-h">
-          <h2 id="rules-h">{t("en", "site.houseRules")}</h2>
-          <ol className="house-rules">
-            {c.houseRules.map((rule, i) => (
-              <li key={rule}>
-                {rule}
-                {i === 0 && site.modules.waitlist && (
-                  <>
-                    {" "}
-                    <a href={`/v/${site.venue.slug}/waitlist`}>{t("en", "site.waitlist.join")}</a>
-                  </>
-                )}
-              </li>
-            ))}
-          </ol>
-        </section>
+        {site.sections.houseRules && (
+          <section aria-labelledby="rules-h">
+            <h2 id="rules-h">{t("en", "site.houseRules")}</h2>
+            <ol className="house-rules">
+              {c.houseRules.map((rule, i) => (
+                <li key={rule}>
+                  {rule}
+                  {i === 0 && site.modules.waitlist && (
+                    <>
+                      {" "}
+                      <a href={`/v/${site.venue.slug}/waitlist`}>{t("en", "site.waitlist.join")}</a>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
         {site.modules.rooms && <RoomsSection site={site} base={base} path={path} />}
 
-        <section aria-labelledby="find-h">
-          <h2 id="find-h">{t("en", "site.findUs")}</h2>
-          <dl className="find-us">
-            <dt>{t("en", "site.findUs.address")}</dt>
-            <dd>
-              {site.venue.address?.line1}
-              <br />
-              {[
-                site.venue.address?.city,
-                site.venue.address?.region,
-                site.venue.address?.postal_code,
-              ]
-                .filter(Boolean)
-                .join(", ")}
-              <br />
-              {c.findUs.directions}
-            </dd>
-            {site.phone && (
-              <>
-                <dt>{t("en", "site.findUs.call")}</dt>
-                <dd>
-                  <a href={`tel:${site.phone}`}>{phoneLabel(site.phone)}</a>
-                </dd>
-              </>
-            )}
-            <dt>{t("en", "site.findUs.hours")}</dt>
-            <dd>
-              <ul className="hours">
-                {site.hours.weekly.map((w) => (
-                  <li key={w.day}>
-                    {t("en", `day.${w.day}` as MessageKey)}{" "}
-                    {t("en", "site.findUs.hoursRow", {
-                      opens: hhmmWords(w.opens),
-                      closes: hhmmWords(w.closes),
-                    })}
-                  </li>
-                ))}
-              </ul>
-            </dd>
-            <dt>{t("en", "site.findUs.rightNow")}</dt>
-            <dd>{openLine(site)}</dd>
-            {c.findUs.social.map((s) => (
-              <Fragment key={s.label}>
-                <dt>{s.label}</dt>
-                <dd>{s.handle}</dd>
-              </Fragment>
-            ))}
-          </dl>
-        </section>
+        {site.sections.findUs && (
+          <section aria-labelledby="find-h">
+            <h2 id="find-h">{t("en", "site.findUs")}</h2>
+            <dl className="find-us">
+              <dt>{t("en", "site.findUs.address")}</dt>
+              <dd>
+                {site.venue.address?.line1}
+                <br />
+                {[
+                  site.venue.address?.city,
+                  site.venue.address?.region,
+                  site.venue.address?.postal_code,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+                <br />
+                {c.findUs.directions}
+              </dd>
+              {site.phone && (
+                <>
+                  <dt>{t("en", "site.findUs.call")}</dt>
+                  <dd>
+                    <a href={`tel:${site.phone}`}>{phoneLabel(site.phone)}</a>
+                  </dd>
+                </>
+              )}
+              <dt>{t("en", "site.findUs.hours")}</dt>
+              <dd>
+                <ul className="hours">
+                  {site.hours.weekly.map((w) => (
+                    <li key={w.day}>
+                      {t("en", `day.${w.day}` as MessageKey)}{" "}
+                      {t("en", "site.findUs.hoursRow", {
+                        opens: hhmmWords(w.opens),
+                        closes: hhmmWords(w.closes),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              </dd>
+              <dt>{t("en", "site.findUs.rightNow")}</dt>
+              <dd>{openLine(site)}</dd>
+              {c.findUs.social.map((s) => (
+                <Fragment key={s.label}>
+                  <dt>{s.label}</dt>
+                  <dd>{s.handle}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </section>
+        )}
       </main>
       <SiteFooter site={site} base={base} />
     </>

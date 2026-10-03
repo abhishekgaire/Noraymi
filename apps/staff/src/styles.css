@@ -1112,3 +1112,36 @@ button.danger {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Admin → Website (M5-02) */
+.website ul.list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.website ul.list li {
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.website input[type="checkbox"],
+.website input[type="radio"] {
+  width: 24px;
+  height: 24px;
+}
+.website label:has(> input[type="checkbox"]),
+.website fieldset label {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.website textarea {
+  min-height: 88px;
+}
+.website .tag {
+  font-weight: 600;
+}

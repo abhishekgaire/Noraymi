@@ -24,6 +24,7 @@ describe("the Admin sections", () => {
       "payments",
       "cardFee",
       "disputes",
+      "website",
       "console",
     ]);
     const manager = visibleSections(permissionsOf("manager"), { includeUnshipped: true }).map(
@@ -42,6 +43,7 @@ describe("the Admin sections", () => {
       "connections",
       "cardFee",
       "disputes",
+      "website",
     ]);
     expect(manager).not.toContain("team");
   });

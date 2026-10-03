@@ -1,4 +1,35 @@
 import { z } from "zod";
+import type { ModuleId } from "./modules.js";
+
+/**
+ * The sections Admin → Website can show or hide (M5-02), and the module each
+ * one needs. A section whose module is off stays hidden whatever the content
+ * says, and Admin can't switch it on.
+ */
+export const SITE_SECTIONS = {
+  numbers: null,
+  songbook: null,
+  singAtTheBar: "bar_mode",
+  menu: null,
+  houseRules: null,
+  rooms: "rooms",
+  findUs: null,
+  parties: null,
+  packages: "packages",
+} as const satisfies Record<string, ModuleId | null>;
+export type SiteSection = keyof typeof SITE_SECTIONS;
+export const SITE_SECTION_IDS = Object.keys(SITE_SECTIONS) as SiteSection[];
+
+/** Where a photo shows. Every photo carries alt text (Security and data retention 14). */
+export const SITE_PHOTO_PLACES = ["hero", "rooms", "parties"] as const;
+export const sitePhotoSchema = z
+  .object({
+    file_id: z.string().uuid(),
+    alt: z.string().trim().min(1, "a photo needs alt text").max(200),
+    place: z.enum(SITE_PHOTO_PLACES),
+  })
+  .strict();
+export type SitePhoto = z.infer<typeof sitePhotoSchema>;
 
 /**
  * A guest site's content (M5-01; Data model · site_versions): the venue's own
@@ -45,6 +76,9 @@ export const siteContentSchema = z
         packagesNote: line.nullable(),
       })
       .strict(),
+    /** The sections Admin turned off (M5-02); every other section shows when its module is on. */
+    hidden: z.array(z.enum(SITE_SECTION_IDS as [SiteSection, ...SiteSection[]])).default([]),
+    photos: z.array(sitePhotoSchema).max(12).default([]),
   })
   .strict();
 export type SiteContent = z.infer<typeof siteContentSchema>;

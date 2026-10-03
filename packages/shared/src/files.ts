@@ -12,7 +12,8 @@ export type FileKind =
   | "songbook"
   | "dispute_evidence"
   | "menu_pdf"
-  | "receipt_pdf";
+  | "receipt_pdf"
+  | "site_photo";
 
 const MB = 1024 * 1024;
 const PHOTO = { types: ["image/jpeg", "image/png", "image/heic"], maxBytes: 10 * MB } as const;
@@ -30,6 +31,8 @@ export const FILE_RULES: Readonly<
   dispute_evidence: { types: ["application/pdf", "image/jpeg", "image/png"], maxBytes: 5 * MB },
   menu_pdf: { types: ["application/pdf"], maxBytes: 20 * MB },
   receipt_pdf: { types: ["application/pdf"], maxBytes: 5 * MB },
+  // Browsers show these on the guest site, so no HEIC.
+  site_photo: { types: ["image/jpeg", "image/png", "image/webp"], maxBytes: 10 * MB },
 };
 
 export const isFileKind = (k: string): k is FileKind => k in FILE_RULES;
