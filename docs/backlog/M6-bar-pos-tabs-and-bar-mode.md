@@ -99,7 +99,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-03 · Ring a round: usual options, repeat round, undo and drafts on the server
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-02; M3 (`POST /checks/{c}/orders`, the alcohol check)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (rules 3, 5, 8 and 10; Ringing); [Data model](../spec/04-data-model.md) (`order_drafts`); [API](../spec/08-api.md) (`GET` and `PUT /drafts/{key}`, `POST /tabs/{t}/repeat-round`, `draft.updated`)
@@ -111,13 +111,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Send prints the ticket and puts the round on the tab through the hold-raise check (M6-07); Send & close sends and opens payment in one tap; while the network is slow the round shows as sending, never a frozen screen.
   - The check says when someone else has drinks not sent on it ("2 not sent").
 - **Acceptance:**
-  - [ ] Another round on Jess P.'s tab takes 2 taps (Repeat round, Send) and under 3 seconds.
-  - [ ] Diego's unsent Red Bull ($6.00) on Tariq A.'s tab follows him to the other terminal, isn't on the check, and Maya sees "1 not sent" on Tariq's row.
-  - [ ] A margarita with no flavor holds Send back, and the button names the missing flavor.
-  - [ ] Repeat round on a round with a Hoegaarden leaves it out and says so.
+  - [x] Another round on Jess P.'s tab takes 2 taps (Repeat round, Send) and under 3 seconds.
+  - [x] Diego's unsent Red Bull ($6.00) on Tariq A.'s tab follows him to the other terminal, isn't on the check, and Maya sees "1 not sent" on Tariq's row.
+  - [x] A margarita with no flavor holds Send back, and the button names the missing flavor.
+  - [x] Repeat round on a round with a Hoegaarden leaves it out and says so.
   - [ ] Sends are confirmed within 300 ms at the 95th percentile in staging.
 - **Tests:** unit tests for draft versions and conflicts; integration; end-to-end with a latency budget.
 - **Notes:** A round that has to wait for a hold raise (M6-07) takes Stripe's time, so it shows as sending; the 300 ms target covers the rest.
+  - Built: `POST /v1/venues/{v}/tabs/{t}/repeat-round` copies the tab's last round (its last order that wasn't cancelled) into the caller's unsent drinks with its options, merges it with anything already rung, sends `draft.updated` to the person, and lists what it left out: 86'd tonight, alcohol after the 4 AM stop, or alcohol on a cut-off tab. Nothing is sent until Send.
+  - The seed's tab lines have no orders behind them, so for a tab with no orders the last round is the drinks put on it at the latest time, matched to the menu by name, with their usual options (Jess P.: 2 × Modelo and a Jäger Bomb).
+  - The bar POS: Repeat round on a tab, Undo step by step on unsent drinks (no "are you sure?"), and Send shows "Sending…" while it's in flight. The tab row's "N not sent" now counts other people's unsent drinks on the tab (Maya sees Diego's "1 not sent" on Tariq A.); the caller's own are in the round.
+  - Tax is worked out once on the whole tab, so a second identical round takes Jess P. from $32.66 to $65.33, not $65.32.
+  - Not here: Send & close (it opens payment, which is M6-08), the hold-raise check on Send (M6-07), and clearing drafts at the night close (M7-12). Draft versions and conflicts were built and tested in M3-07; this ticket uses them unchanged.
+  - Not checked: "under 300 ms at the 95th percentile in staging" needs staging; locally the two taps and the new total take well under 3 seconds (checked in the e2e test).
 
 ### M6-04 · Share the terminal: badge takeover, idle and wipe locks, "Maya · on break"
 

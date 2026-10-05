@@ -1860,4 +1860,11 @@ export const en = {
   "rail.badge.cutOff": "Cut off",
   "rail.badge.waiting": "Waiting for {name}",
   "rail.badge.unsent": "{n} not sent",
+  "drinks.undo": "Undo",
+  "drinks.sending": "Sending…",
+  "rail.repeat": "Repeat round",
+  "rail.leftOut": "Left out: {list}",
+  "rail.leftOut.out": "86'd tonight",
+  "rail.leftOut.window_closed": "alcohol has stopped",
+  "rail.leftOut.cut_off": "cut off",
 } as const;

@@ -55,12 +55,14 @@ export async function listTabs(
       [venueId, states, OPEN, today],
     )
   ).rows;
+  // Someone else's drinks not sent yet on the tab ("1 not sent"); the caller sees their own in the round.
   const unsent = options.membershipId
     ? new Map(
         (
           await c.query<{ check_id: string; n: number }>(
-            `select check_id, coalesce((select sum((l->>'qty')::int) from jsonb_array_elements(lines) l), 0)::int as n
-               from order_drafts where venue_id = $1 and membership_id = $2 and check_id is not null`,
+            `select check_id, coalesce(sum((select sum((l->>'qty')::int) from jsonb_array_elements(lines) l)), 0)::int as n
+               from order_drafts where venue_id = $1 and membership_id <> $2 and check_id is not null
+              group by check_id`,
             [venueId, options.membershipId],
           )
         ).rows.map((r) => [r.check_id, r.n]),

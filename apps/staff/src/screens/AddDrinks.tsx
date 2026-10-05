@@ -73,6 +73,8 @@ export function AddDrinks(props: {
   search?: boolean;
   /** Each new request rings one of this variant, as a tap on the bar POS grid. */
   ringRequest?: { readonly variantId: string; readonly n: number } | null;
+  /** Bumped when the server changed the draft for us (Repeat round, M6-03). */
+  refresh?: number;
 }) {
   const { t, money } = useT();
   const { subscribe } = useEvents();
@@ -85,7 +87,10 @@ export function AddDrinks(props: {
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const version = useRef(0);
+  // Undo, step by step, on unsent drinks (M6-03): each change keeps what was there before.
+  const history = useRef<(readonly DraftLine[])[]>([]);
 
   const loadMenu = useCallback(async () => {
     const tree = await api<{
@@ -142,8 +147,13 @@ export function AddDrinks(props: {
     return m;
   }, [items]);
 
+  useEffect(() => {
+    if (props.refresh) void loadDraft();
+  }, [props.refresh, loadDraft]);
+
   /** Saves the lines as rung; when another screen saved first, its lines win and show here. */
-  const save = async (next: readonly DraftLine[]) => {
+  const save = async (next: readonly DraftLine[], undoable = true) => {
+    if (undoable) history.current = [...history.current.slice(-49), lines];
     setLines(next);
     setSent(false);
     try {
@@ -218,19 +228,30 @@ export function AddDrinks(props: {
     })
     .find((x) => x !== null);
 
+  const undo = () => {
+    const previous = history.current.at(-1);
+    if (!previous) return;
+    history.current = history.current.slice(0, -1);
+    void save(previous, false);
+  };
+
   const send = async () => {
     setError(null);
+    setSending(true);
     try {
       await api("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
         client_order_id: crypto.randomUUID(),
         lines,
       });
       setLines([]);
+      history.current = [];
       setSent(true);
       await Promise.all([loadDraft(), loadOrders()]);
       props.onSent();
     } catch (e) {
       setError((e as ApiCallError)?.message ?? t("drinks.failed"));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -366,14 +387,26 @@ export function AddDrinks(props: {
               );
             })}
           </ul>
-          <button
-            type="button"
-            className="primary send"
-            disabled={missing !== undefined || count === 0}
-            onClick={() => void send()}
-          >
-            {missing ? t("drinks.sendMissing", missing) : t("drinks.send", { count })}
-          </button>
+          <div className="actions">
+            {history.current.length > 0 && (
+              <button type="button" className="secondary" disabled={sending} onClick={undo}>
+                {t("drinks.undo")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="primary send"
+              disabled={missing !== undefined || count === 0 || sending}
+              aria-busy={sending}
+              onClick={() => void send()}
+            >
+              {sending
+                ? t("drinks.sending")
+                : missing
+                  ? t("drinks.sendMissing", missing)
+                  : t("drinks.send", { count })}
+            </button>
+          </div>
         </div>
       )}
       {sent && (

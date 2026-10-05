@@ -1890,4 +1890,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.badge.cutOff": "Cortado",
   "rail.badge.waiting": "Esperando a {name}",
   "rail.badge.unsent": "{n} sin enviar",
+  "drinks.undo": "Deshacer",
+  "drinks.sending": "Enviando…",
+  "rail.repeat": "Repetir ronda",
+  "rail.leftOut": "Fuera: {list}",
+  "rail.leftOut.out": "86 esta noche",
+  "rail.leftOut.window_closed": "se acabó el alcohol",
+  "rail.leftOut.cut_off": "cortado",
 };

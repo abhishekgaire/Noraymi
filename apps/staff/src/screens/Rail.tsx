@@ -130,6 +130,8 @@ export function Rail() {
   const [picked, setPicked] = useState<Picked>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
+  const [draftRefresh, setDraftRefresh] = useState(0);
+  const [leftOut, setLeftOut] = useState<string | null>(null);
   const [eightySix, setEightySix] = useState(false);
   const [choosing, setChoosing] = useState<Item | null>(null);
   const [declining, setDeclining] = useState<string | null>(null);
@@ -242,7 +244,33 @@ export function Rail() {
   /** A new tab or room starts with no tap waiting, so nothing rings on it by itself. */
   const pick = (next: Picked) => {
     setRingRequest(null);
+    setLeftOut(null);
     setPicked(next);
+  };
+  /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
+  const repeat = async (tabId: string) => {
+    setError(null);
+    setLeftOut(null);
+    try {
+      const r = await api<{ left_out: { name: string; reason: string }[] }>(
+        "POST",
+        `/v1/venues/${venueId}/tabs/${tabId}/repeat-round`,
+      );
+      setDraftRefresh((n) => n + 1);
+      if (r.left_out.length > 0)
+        setLeftOut(
+          t("rail.leftOut", {
+            list: r.left_out
+              .map(
+                (x) =>
+                  `${x.name} (${t(`rail.leftOut.${x.reason as "out" | "window_closed" | "cut_off"}`)})`,
+              )
+              .join(", "),
+          }),
+        );
+    } catch (e) {
+      setError(e instanceof ApiCallError ? e.message : t("drinks.failed"));
+    }
   };
   const tapItem = (item: Item) => {
     if (eightySix) {
@@ -667,8 +695,23 @@ export function Rail() {
                     )}
                   </strong>
                 </p>
+                {tab && (
+                  <button
+                    type="button"
+                    className="secondary repeat"
+                    onClick={() => void repeat(tab.id)}
+                  >
+                    {t("rail.repeat")}
+                  </button>
+                )}
+                {leftOut && (
+                  <p className="small" role="status">
+                    {leftOut}
+                  </p>
+                )}
                 {checkId && (
                   <AddDrinks
+                    refresh={draftRefresh}
                     key={checkId}
                     venueId={venueId}
                     checkId={checkId}

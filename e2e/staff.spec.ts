@@ -5044,3 +5044,47 @@ test("the bar POS: five tabs, the rooms, Room 5's order accepted, and 86 on Hoeg
     await db.end();
   }
 });
+
+/**
+ * Ringing a round on the bar POS (M6-03): another round on Jess P.'s tab in
+ * two taps under 3 seconds; a margarita with no flavor holds Send back and
+ * names it; Undo takes back the last tap with no "are you sure?".
+ */
+test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita's flavor, and Undo", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await expect(panel).toContainText("$32.66");
+
+    const started = Date.now();
+    await panel.getByRole("button", { name: "Repeat round" }).click();
+    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await expect(panel.locator(".total")).toContainText("$65.33");
+    expect(Date.now() - started).toBeLessThan(3000);
+
+    // A margarita has no usual flavor: Send waits and says what's missing.
+    await page.getByRole("tab", { name: "Cocktails" }).click();
+    await page.getByRole("button", { name: /^Margarita · \$/ }).click();
+    await expect(panel.getByRole("button", { name: "Pick flavor for Margarita" })).toBeDisabled();
+    await panel.getByLabel("Margarita · Flavor").selectOption({ label: "Peach" });
+    await expect(panel.getByRole("button", { name: "Send 1 to the bar" })).toBeEnabled();
+
+    // Undo, step by step: the flavor, then the margarita.
+    await panel.getByRole("button", { name: "Undo" }).click();
+    await expect(panel.getByRole("button", { name: "Pick flavor for Margarita" })).toBeVisible();
+    await panel.getByRole("button", { name: "Undo" }).click();
+    await expect(panel.getByRole("button", { name: /^Send/ })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: /^Pick/ })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});
