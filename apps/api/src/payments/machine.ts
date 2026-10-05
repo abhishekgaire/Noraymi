@@ -27,6 +27,7 @@ import {
 } from "./state.js";
 import { roomOfCheck } from "../rooms/guest-bill.js";
 import { recordSurcharge } from "./surcharge.js";
+import { settleTabOpening } from "../tabs/open.js";
 
 /**
  * The one function that records what Stripe says about a payment (M4-05):
@@ -140,6 +141,9 @@ export async function applyObservation(
   if (obs.attempt) await moveAttempt(obs.attempt.state, obs.attempt.code ?? null);
 
   const payment = (await paymentById(c, venueId, paymentId))!;
+  // A bar tab's opening hold (M6-06): the tab opens once the hold is placed, or nothing does.
+  if (changed && payment.status !== before.status)
+    await settleTabOpening(c, venueId, payment, intent, now ?? Temporal.Now.instant());
   // A split's shares follow their payment (M4-14): paid, or open again if it was canceled.
   if (changed && payment.status !== before.status)
     await settleShares(c, venueId, paymentId, payment.status);

@@ -11,6 +11,7 @@ import { businessDate, cardFee, percent } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { confirmOnReader, retrieveCollected, setSurcharge } from "../stripe/surcharge.js";
 import type { PaymentDeps } from "./run.js";
+import { confirmTabCard } from "../tabs/open.js";
 
 /**
  * The card fee at the reader (M4-25; Money rules 10; Payment flows · Card fee
@@ -74,6 +75,8 @@ export async function surchargeFor(
  * reader confirms. Outside any transaction; each write keyed by the payment and the attempt.
  */
 export async function confirmCollected(deps: PaymentDeps, venueId: string, paymentId: string) {
+  // A bar tab's opening hold (M6-06): the card is checked against the open tabs before confirm.
+  if (await confirmTabCard(deps, venueId, paymentId)) return;
   const ctx = await withVenue(
     deps.pool,
     { venueId, requestId: `payment:${paymentId}:collected` },

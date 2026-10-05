@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
 import type { Clock } from "@west4/shared";
@@ -13,6 +13,25 @@ import {
   startQuickSale,
 } from "../tabs/quick-sale.js";
 import { inVenueRefusing } from "../orders/alcohol.js";
+import type { StripeClient } from "../stripe/client.js";
+import {
+  cancelPayment,
+  checkNow,
+  enqueueRun,
+  quiet,
+  runNow,
+  type PaymentDeps,
+} from "../payments/run.js";
+import { confirmCollected } from "../payments/surcharge.js";
+import { latestAttempt, paymentById } from "@west4/db";
+import { screenState } from "../payments/machine.js";
+import {
+  nameOpening,
+  openingView,
+  reserveTabCheckNumber,
+  tabConsent,
+  writeTabOpening,
+} from "../tabs/open.js";
 
 /**
  * Bar tabs (M6-02; API · Bar tabs):
@@ -22,14 +41,28 @@ import { inVenueRefusing } from "../orders/alcohol.js";
  *   POST /v1/venues/{v}/quick-sales             { client_order_id, lines }: a quick check with the round, ready to pay (M6-05)
  *   GET  /v1/venues/{v}/quick-sales/{c}         the sale and the reader's tip choices
  *   POST /v1/venues/{v}/quick-sales/{c}/void    Back to the sale: voided, number kept, drinks back in the round
- * Opening, closing and the rest of the tab routes come with M6-06 onwards.
+ *   GET  /v1/venues/{v}/tabs/consent             the consent line read out at New tab, and its policy version (M6-06)
+ *   POST /v1/venues/{v}/tabs                     { reader_id, consent_text_version, name?, label?, party_size? }:
+ *                                                Open, card first; the bar reader collects the card (M6-06)
+ *   POST /v1/venues/{v}/tabs/openings/{o}/check-status   read Stripe now: the card checked, the hold confirmed
+ *   POST /v1/venues/{v}/tabs/openings/{o}/name           Open: { name, label } typed or tapped while the guest taps
+ *   POST /v1/venues/{v}/tabs/openings/{o}/cancel         the card never came: nothing held, nothing opened
+ * Closing and the rest of the tab routes come with M6-07 onwards.
  */
 const STATES =
   /^(open|tipping|awaiting_tip|captured|walkout_captured|capture_failed|closed)(,(open|tipping|awaiting_tip|captured|walkout_captured|capture_failed|closed))*$/;
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function tabRoutes(app: FastifyInstance, options: { clock: Clock; pool: pg.Pool }): void {
+export function tabRoutes(
+  app: FastifyInstance,
+  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient },
+): void {
+  const deps = (): PaymentDeps => ({
+    pool: options.pool,
+    stripe: options.stripe(),
+    clock: options.clock,
+  });
   app.get<{ Params: { venueId: string }; Querystring: { state?: string } }>(
     "/v1/venues/:venueId/tabs",
     {
@@ -182,6 +215,177 @@ export function tabRoutes(app: FastifyInstance, options: { clock: Clock; pool: p
           now: options.clock.now(),
         }),
       );
+    },
+  );
+
+  // New tab (M6-06): the consent line, built from the tab settings and saved as a policy version.
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/tabs/consent",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+      }),
+    },
+    async (request) => request.inVenue((c) => tabConsent(c, request.venueId!, options.clock.now())),
+  );
+
+  const openBody = z
+    .object({
+      reader_id: id,
+      consent_text_version: id,
+      name: z.string().trim().min(1).max(80).nullable().optional(),
+      label: z.string().trim().min(1).max(80).nullable().optional(),
+      party_size: z.number().int().min(1).max(200).nullable().optional(),
+    })
+    .strict();
+  const opening = route({
+    principals: ["owner_manager", "staff"],
+    module: "bar_tabs",
+    action: "pos.use",
+    idempotency: "required",
+  });
+
+  /** The opening as New tab shows it: waiting on the reader, declined, opened, or the card's open tab. */
+  const view = async (request: FastifyRequest, openingId: string) =>
+    request.inVenue(async (q) => {
+      const venueId = request.venueId!;
+      const o = await openingView(q, venueId, openingId);
+      const payment = (await paymentById(q, venueId, o.payment_id))!;
+      const attempt = await latestAttempt(q, venueId, o.payment_id);
+      return {
+        id: o.id,
+        state: o.state,
+        payment: {
+          id: payment.id,
+          status: payment.status,
+          state: screenState(payment, attempt),
+          decline_code: attempt?.state === "failed" ? attempt.decline_code : null,
+        },
+        card: o.card_last4 ? { brand: o.card_brand, last4: o.card_last4 } : null,
+        tab: o.tab_id ? { id: o.tab_id, check_id: o.tab_check_id, name: o.tab_name } : null,
+      };
+    });
+
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs",
+    { config: opening },
+    async (request, reply) => {
+      const parsed = openBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { reader_id, consent_text_version, … }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const m = p.memberships.find((x) => x.venueId === request.venueId);
+      if (!m) throw new ApiError("forbidden", "not a member of this venue");
+      const venueId = request.venueId!;
+      const payments = deps();
+      const number = await reserveTabCheckNumber(options.pool, venueId);
+      const written = await request.inVenue((c) =>
+        writeTabOpening(
+          c,
+          venueId,
+          {
+            readerDeviceId: parsed.data.reader_id,
+            consentVersionId: parsed.data.consent_text_version,
+            name: parsed.data.name ?? null,
+            label: parsed.data.label ?? null,
+            partySize: parsed.data.party_size ?? null,
+            checkNumber: number,
+            userId: p.userId,
+            membershipId: m.membershipId,
+            now: options.clock.now(),
+          },
+          { readerQuiet: quiet, enqueueRun },
+        ),
+      );
+      // The bar reader goes to work outside any transaction (M4-05).
+      await runNow(payments, venueId, written.paymentId, written.attemptNo);
+      const v = await view(request, written.openingId);
+      if (v.payment.decline_code === "terminal_reader_offline")
+        throw new ApiError(
+          "reader_offline",
+          "the bar reader is offline: no new tabs until it's back",
+          {
+            details: { opening: v },
+          },
+        );
+      if (v.payment.decline_code === "terminal_reader_busy")
+        throw new ApiError("reader_busy", "another payment is on the bar reader", {
+          details: { opening: v },
+        });
+      return reply.code(201).send(v);
+    },
+  );
+
+  const openingParam = (o: string) => {
+    if (!id.safeParse(o).success) throw new ApiError("not_found", "no such tab opening");
+    return o;
+  };
+  const paymentOfOpening = async (request: FastifyRequest, o: string) =>
+    (await view(request, o)).payment.id;
+
+  app.post<{ Params: { venueId: string; o: string } }>(
+    "/v1/venues/:venueId/tabs/openings/:o/check-status",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const o = openingParam(request.params.o);
+      const venueId = request.venueId!;
+      const paymentId = await paymentOfOpening(request, o);
+      // The card collected: checked against the open tabs, then confirmed (or its open tab opened).
+      await confirmCollected(deps(), venueId, paymentId).catch(() => undefined);
+      await checkNow(deps(), venueId, paymentId, "api");
+      return view(request, o);
+    },
+  );
+
+  app.post<{ Params: { venueId: string; o: string } }>(
+    "/v1/venues/:venueId/tabs/openings/:o/cancel",
+    { config: opening },
+    async (request) => {
+      const o = openingParam(request.params.o);
+      const venueId = request.venueId!;
+      const paymentId = await paymentOfOpening(request, o);
+      await cancelPayment(deps(), venueId, paymentId, "api");
+      return view(request, o);
+    },
+  );
+
+  const nameBody = z
+    .object({
+      name: z.string().trim().min(1).max(80).nullable(),
+      label: z.string().trim().min(1).max(80).nullable(),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; o: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/openings/:o/name",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const o = openingParam(request.params.o);
+      const parsed = nameBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { name, label }");
+      await request.inVenue((c) =>
+        nameOpening(c, request.venueId!, o, {
+          name: parsed.data.name,
+          label: parsed.data.label,
+        }),
+      );
+      return view(request, o);
     },
   );
 }

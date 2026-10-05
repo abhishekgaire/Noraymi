@@ -1394,3 +1394,28 @@ button.danger {
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
 }
+/* New tab, card first (M6-06): the consent line to read out, then a name or a label. */
+.new-tab-button {
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 8px;
+}
+.new-tab {
+  display: grid;
+  gap: 10px;
+}
+.new-tab .consent {
+  margin: 0;
+  padding: 12px;
+  border-left: 4px solid var(--line);
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+.new-tab .labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.new-tab .labels > span {
+  flex-basis: 100%;
+}

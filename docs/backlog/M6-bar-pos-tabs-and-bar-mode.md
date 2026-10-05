@@ -178,7 +178,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-06 · Open a tab card first, with the consent line and one tab per card
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-02; M4-02, M4-05, M4-29 (the merchant category check before bar tabs turn on)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#bar-tab-with-a-growing-hold) (the state diagram, The consent line, steps 1 and 2); [Data model](../spec/04-data-model.md) (`tabs`, `policy_versions`); [API](../spec/08-api.md) (`POST /tabs`, `GET /tabs?state=`); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Tabs, card first); [screens: N23](../screens.md#n23-new-bar-tab-consent-line-and-slip), [Rail note 13](../screens.md#rail); [milestones: GA-M11](../milestones.md#must-fix-items-and-where-they-close)
@@ -193,12 +193,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - No new tabs offline: New tab grays out, with the reason, while the bar computer isn't online.
   - In parties mode, New tab asks for the party size.
 - **Acceptance:**
-  - [ ] Opening a tab for a tapped phone takes 4 taps (New tab, Read to guest ✓, a label, Open) and under 20 seconds, reading the line included; Stripe shows a $50.00 authorization with incremental support.
-  - [ ] Tapping Jess P.'s Visa ··4417 at New tab opens her tab, and Stripe shows no second hold.
-  - [ ] Every tab stores who read the line and its version, and its slip prints the same words.
-  - [ ] With the bar computer offline, New tab is grayed out with the reason.
+  - [x] Opening a tab for a tapped phone takes 4 taps (New tab, Read to guest ✓, a label, Open) and under 20 seconds, reading the line included; Stripe shows a $50.00 authorization with incremental support.
+  - [x] Tapping Jess P.'s Visa ··4417 at New tab opens her tab, and Stripe shows no second hold.
+  - [x] Every tab stores who read the line and its version, and its slip prints the same words.
+  - [x] With the bar computer offline, New tab is grayed out with the reason.
 - **Tests:** sandbox integration on simulated readers; the repeat-tap test; property tests of the tab state machine; a timed end-to-end.
 - **Notes:** Open question: does a card that's collected but not confirmed carry its fingerprint (Stripe, M6)? Cautious default: check before confirming when the fingerprint is there; when it isn't, confirm, check straight after, and on a match cancel the new PaymentIntent at once (releasing its hold) and open the existing tab. A phone and the plastic card behind it read as two cards, so this catches repeat taps, not every duplicate. Closes GA-M11's "the 4:30 AM charge told when a tab opens" and "no new tabs offline".
+  - Built: `tabs` moves go through `moveTab()` (apps/api/src/tabs/state.ts), which allows only the diagram's moves (`canMoveTab` in packages/shared, with seeded random-walk property tests); the partial unique index on the fingerprint while `open` or `tipping` came with M6-02. Migration 0079 adds the `tab_consent` policy kind, `tabs.consent_text_version` as a foreign key, and `tab_openings`, where a tab waits while the reader collects the card (added to the data model).
+  - The consent line is built from the `tabs` settings (`tabConsentLine`, "$50" and "4:30 AM" at West 4) by `GET /tabs/consent`, which saves a new `policy_versions` row only when the words change; `POST /tabs` refuses a stale version. The slip's lines (`tabSlip`, apps/api/src/tabs/slip.ts) print the tab's own version of the line, wrapped to 32 columns; printing the slip itself comes with M6-09.
+  - `POST /tabs` takes the check number first, then the run (M4-05) makes a Customer and a $50.00 manual-capture PaymentIntent with incremental support and `setup_future_usage=off_session`, and the bar reader collects with `skip_tipping` and `allow_redisplay=limited`. Once collected (webhook, poll or `check-status`), the fingerprint is checked under a lock before `confirm_payment_intent`; a match cancels the PaymentIntent unconfirmed and opens that tab. On the hold, the payment stores incremental and overcapture support, `capture_before` and the saved card; the tab gets its card ("Visa ··4242"), hold, consent version and reader, and the opener's Quick sale round moves onto it unsent.
+  - The ticket's cautious default is built: with no fingerprint before confirm, the card is checked on the hold, and a match releases the new hold at once (`tab.release_hold` job). The fake Stripe now gives card fingerprints, brands, a dip's cardholder name and the hold terms.
+  - The bar POS: New tab (greyed out with "No new tabs while the bar computer is offline." while the screen is offline), the consent line, Read to guest ✓, then a first name or a label (Seat 1–8, Standing, By the stage, Window, from the canvas, minus labels on open tabs) and Open while the guest taps; a card with an open tab jumps to it ("Jess P.'s tab is already open on this card…"). Parties mode (`pay.gratuity.auto` = parties) asks the party size before Read to guest ✓.
+  - Flagged: the spec says New tab puts the reader to work; here it starts at Read to guest ✓, one tap later, so the consent is always recorded before a card can be read (still 4 taps). Labels are stored in the bartender's language ("Asiento 3"). The seed's five tabs have no fingerprints yet, so Jess P.'s ··4417 is matched in the tests by setting hers; M6-27 opens the seed's tabs through this flow on the sandbox.
 
 ### M6-07 · Grow the hold, and handle a declined raise
 

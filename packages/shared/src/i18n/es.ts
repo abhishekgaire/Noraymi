@@ -1904,4 +1904,28 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.nextSale": "Marca la siguiente bebida para empezar otra venta.",
   "rail.tipChoices": "El lector ofrece {list} de propina.",
   "drinks.pay": "Cobrar {count}",
+  "newTab.button": "Nueva cuenta",
+  "newTab.title": "Abrir una cuenta",
+  "newTab.offline":
+    "No se abren cuentas nuevas mientras la computadora de la barra esté sin conexión.",
+  "newTab.readOut": "Léale esto al cliente antes de que pase la tarjeta:",
+  "newTab.read": "Leído al cliente ✓",
+  "newTab.partySize": "¿Cuántos son en el grupo?",
+  "newTab.waiting": "Acerque, inserte o deslice la tarjeta en el lector de la barra",
+  "newTab.name": "Nombre del cliente",
+  "newTab.nameHint": "Nombre, o sáltelo y elija una etiqueta",
+  "newTab.labels": "O una etiqueta, con un toque",
+  "newTab.label.seat": "Asiento {n}",
+  "newTab.label.standing": "De pie",
+  "newTab.label.stage": "Junto al escenario",
+  "newTab.label.window": "Ventana",
+  "newTab.lastFour":
+    "Los últimos cuatro dígitos de la tarjeta siempre van en la cuenta, para que cualquiera la encuentre.",
+  "newTab.open": "Abrir",
+  "newTab.opening": "Se abre en cuanto se lea la tarjeta.",
+  "newTab.existing":
+    "La cuenta de {name} ya está abierta con esta tarjeta. Una tarjeta, una cuenta abierta: no se retuvo nada nuevo.",
+  "newTab.readerOffline":
+    "El lector de la barra está sin conexión: no se abren cuentas nuevas hasta que vuelva.",
+  "newTab.noReader": "No hay lector en la barra. Agregue uno en Admin → Dispositivos.",
 };

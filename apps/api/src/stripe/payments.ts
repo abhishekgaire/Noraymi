@@ -22,6 +22,13 @@ export interface StripeIntent {
             readonly last4?: string;
             readonly funding?: string;
             readonly generated_card?: string | null;
+            /** A bar tab's hold (M6-06). */
+            readonly fingerprint?: string | null;
+            readonly cardholder_name?: string | null;
+            readonly incremental_authorization_supported?: boolean;
+            readonly overcapture_supported?: boolean;
+            readonly amount_authorized?: number;
+            readonly capture_before?: number;
           };
           readonly card?: {
             readonly brand?: string;
@@ -61,6 +68,16 @@ export interface IntentObservation {
     funding: string | null;
     generatedCard: string | null;
   } | null;
+  /** A manual-capture hold's terms, as the charge reports them (M6-06; Payment flows step 2). */
+  readonly hold: {
+    readonly fingerprint: string | null;
+    readonly cardholderName: string | null;
+    readonly incrementalSupported: boolean | null;
+    readonly overcaptureSupported: boolean | null;
+    readonly amountAuthorized: number | null;
+    /** ISO time. */
+    readonly captureBefore: string | null;
+  } | null;
 }
 
 export function observeIntent(pi: StripeIntent): IntentObservation {
@@ -89,6 +106,18 @@ export function observeIntent(pi: StripeIntent): IntentObservation {
           last4: card.last4 ?? null,
           funding: card.funding ?? null,
           generatedCard: card.generated_card ?? null,
+        }
+      : null,
+    hold: present
+      ? {
+          fingerprint: present.fingerprint ?? null,
+          cardholderName: present.cardholder_name ?? null,
+          incrementalSupported: present.incremental_authorization_supported ?? null,
+          overcaptureSupported: present.overcapture_supported ?? null,
+          amountAuthorized: present.amount_authorized ?? null,
+          captureBefore: present.capture_before
+            ? new Date(present.capture_before * 1000).toISOString()
+            : null,
         }
       : null,
   };

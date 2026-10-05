@@ -114,6 +114,18 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into tabs (venue_id, check_id, name, opened_at) values ($1, $2, 'B tab', now()) returning id",
     [v.venueB, barCheckB.rows[0]!.id],
   );
+  // A tab being opened only venue B has, with its consent line's policy version (M6-06).
+  const consentB = await owner.query<{ id: string }>(
+    `insert into policy_versions (venue_id, kind, version, text, hash, published_at)
+       values ($1, 'tab_consent', 1, 'B words', repeat('b', 64), now()) returning id`,
+    [v.venueB],
+  );
+  const openingB = await owner.query<{ id: string }>(
+    `insert into tab_openings (venue_id, payment_id, check_number, consent_text_version, consent_read_by,
+       opened_by, created_at)
+     values ($1, $2, 3, $3, $4, $4, now()) returning id`,
+    [v.venueB, paymentB.rows[0]!.id, consentB.rows[0]!.id, v.ownerB],
+  );
   // A draft bar POS layout only venue B has.
   const layoutB = await owner.query<{ id: string }>(
     "insert into pos_layouts (venue_id, station, status, sections) values ($1, 'bar', 'draft', '{}') returning id",
@@ -238,10 +250,12 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       version: "777",
       l: layoutB.rows[0]!.id,
       t: tabB.rows[0]!.id,
+      o: openingB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
       "POST /v1/venues/:venueId/team/:m/badges/keys": { uid: "04AABBCCDDEEFF" },
+      "POST /v1/venues/:venueId/tabs/openings/:o/name": { name: "B", label: null },
       "POST /v1/venues/:venueId/team/:m/badges": { sun: "https://x.test/?e=00&c=00", label: "x" },
       "PATCH /v1/venues/:venueId/devices/:d": { name: "renamed" },
       "PATCH /v1/venues/:venueId/modules/:id": { state: "off" },

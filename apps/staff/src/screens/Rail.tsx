@@ -15,6 +15,7 @@ import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { QuickSale } from "./QuickSale.js";
+import { NewTab } from "./NewTab.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -26,7 +27,9 @@ import { QuickSale } from "./QuickSale.js";
  * sections of 25 fixed slots (pos_layouts, M6-01), a search across the menu,
  * and 86. Right, the tab or room picked: its card and chips, what's on it,
  * and the round being rung, sent as a staff order accepted as it's placed.
- * Opening tabs, Quick sale, Close and Move come with M6-05 to M6-13.
+ * New tab opens a tab card first, with the consent line read out (M6-06), and
+ * is greyed out with the reason while the bar computer is offline. Close and
+ * Move come with M6-07 to M6-13.
  */
 interface Variant {
   readonly id: string;
@@ -116,7 +119,7 @@ export function Rail() {
   const { state, lock, signInWithBadge } = useSession();
   const navigate = useNavigate();
   const { now } = useClock();
-  const { subscribe } = useEvents();
+  const { subscribe, connected } = useEvents();
   const signedIn = state.status === "signedIn" ? state : null;
   const venueId = signedIn?.membership.venue_id ?? "";
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
@@ -140,6 +143,8 @@ export function Rail() {
   const [find, setFind] = useState("");
   const [filter, setFilter] = useState<"all" | "mine" | "rooms">("all");
   const [picked, setPicked] = useState<Picked>({ kind: "quick" });
+  const [newTab, setNewTab] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
   const [draftRefresh, setDraftRefresh] = useState(0);
@@ -313,6 +318,8 @@ export function Rail() {
   const pick = (next: Picked) => {
     setRingRequest(null);
     setLeftOut(null);
+    setNotice(null);
+    setNewTab(false);
     setPicked(next);
   };
   /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
@@ -525,6 +532,23 @@ export function Rail() {
       ) : (
         <div className="rail-body">
           <nav className="rail-left" aria-label={t("rail.tabs")}>
+            <button
+              type="button"
+              className="primary new-tab-button"
+              disabled={!connected}
+              aria-pressed={newTab}
+              onClick={() => {
+                setNotice(null);
+                setNewTab(true);
+              }}
+            >
+              {t("newTab.button")}
+            </button>
+            {!connected && (
+              <p className="small muted" role="status">
+                {t("newTab.offline")}
+              </p>
+            )}
             <label>
               <input
                 type="search"
@@ -744,7 +768,24 @@ export function Rail() {
           </div>
 
           <aside className="rail-right" aria-label={t("rail.picked")}>
-            {picked?.kind === "quick" ? (
+            {notice && (
+              <p className="small" role="status">
+                {notice}
+              </p>
+            )}
+            {newTab ? (
+              <NewTab
+                venueId={venueId}
+                takenLabels={openTabs.flatMap((x) => (x.label ? [x.label] : []))}
+                onClose={() => setNewTab(false)}
+                onOpened={(opened, existing) => {
+                  void load().then(() => {
+                    pick({ kind: "tab", id: opened.id });
+                    if (existing) setNotice(t("newTab.existing", { name: opened.name }));
+                  });
+                }}
+              />
+            ) : picked?.kind === "quick" ? (
               <QuickSale
                 venueId={venueId}
                 ringRequest={ringRequest}

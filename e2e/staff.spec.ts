@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
+import { fakeFingerprint } from "../apps/api/src/stripe/fake/payments.js";
 import { catalogs } from "@west4/shared";
 
 /**
@@ -5262,6 +5263,127 @@ test("Quick sale: a walk-up Bud Light in cash in three taps, logged to Maya · b
     // Back to the sale: voided, and the Modelo is back in the round.
     await panel.getByRole("button", { name: "Back to the sale" }).click();
     await expect(panel.getByRole("button", { name: "Pay for 1" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * New tab, card first (M6-06): a tapped phone opens in four taps (New tab, Read to guest ✓, a
+ * label, Open) in under 20 seconds with the consent line on screen, as a $50.00 authorization with
+ * incremental support; Jess P.'s Visa ··4417 at New tab opens her tab with no second hold; and with
+ * the bar computer offline, New tab is greyed out with the reason.
+ */
+test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, none offline", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const tap = async (number: string, extra: Record<string, string> = {}) => {
+      const ids = (
+        await db.query<{ reader: string; account: string }>(
+          `select d.stripe_reader_id as reader, o.stripe_account_id as account
+             from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+            where d.name = 'Bar S710'`,
+        )
+      ).rows[0]!;
+      // The guest taps once the reader is asking.
+      await expect
+        .poll(async () => {
+          const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+            headers: {
+              authorization: "Bearer rk_test_fake_payments",
+              "stripe-account": ids.account,
+            },
+          });
+          return ((await r.json()) as { action?: { status?: string } }).action?.status;
+        })
+        .toBe("in_progress");
+      const r = await request.post(
+        `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+        {
+          headers: {
+            authorization: "Bearer rk_test_fake_payments",
+            "stripe-account": ids.account,
+            "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}`,
+          },
+          form: { "card_present[number]": number, ...extra },
+        },
+      );
+      expect(r.ok(), await r.text()).toBe(true);
+      return ids;
+    };
+    const panel = page.getByRole("complementary");
+
+    // Four taps, the guest's phone tapped while the bartender picks a label.
+    const started = Date.now();
+    await page.getByRole("button", { name: "New tab" }).click();
+    await expect(panel.locator(".consent")).toHaveText(
+      "We'll hold $50 on this card and add to it as you order. We charge your tab when you close out, or at 4:30 AM if it's still open. Add your tip on the reader.",
+    );
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    const ids = await tap("4242424242424242", { "card_present[wallet]": "true" });
+    await panel.getByRole("button", { name: "Seat 2" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 2");
+    expect(Date.now() - started).toBeLessThan(20_000);
+    await expect(panel).toContainText("Visa ··4242");
+    await expect(panel).toContainText("Hold $50.00");
+    await expect(page.getByRole("list", { name: "Bar tabs" }).locator(".name")).toContainText([
+      "Seat 2",
+    ]);
+    const held = (
+      await db.query<{ pi: string; read_by: string }>(
+        `select p.stripe_pi_id as pi, u.name as read_by from tabs t
+           join payments p on p.id = t.payment_id join users u on u.id = t.consent_read_by
+          where t.name = 'Seat 2'`,
+      )
+    ).rows[0]!;
+    expect(held.read_by).toMatch(/^Maya/);
+    const pi = await (
+      await request.get(`http://127.0.0.1:12111/v1/payment_intents/${held.pi}`, {
+        headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.account },
+        params: { "expand[]": "latest_charge" },
+      })
+    ).json();
+    expect(pi).toMatchObject({ status: "requires_capture", amount_capturable: 5000 });
+    expect(pi.latest_charge.payment_method_details.card_present).toMatchObject({
+      incremental_authorization_supported: true,
+    });
+
+    // Jess P.'s Visa ··4417, which her tab already holds: her tab opens, and nothing new is held.
+    await db.query(
+      "update tabs set card_fingerprint = $1 where id = (select row_id from seed_ids where slug = 'tab_t1')",
+      [fakeFingerprint("4000000000004417")],
+    );
+    const holds = async () =>
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int as n from payments where status = 'authorized'",
+        )
+      ).rows[0]!.n;
+    const before = await holds();
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await tap("4000000000004417");
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Jess P.");
+    await expect(panel).toContainText(
+      "Jess P.'s tab is already open on this card. One card, one open tab, so nothing new was held on it.",
+    );
+    expect(await holds()).toBe(before);
+
+    // The bar computer offline: New tab greyed out, with the reason.
+    await page.context().setOffline(true);
+    await expect(page.getByRole("button", { name: "New tab" })).toBeDisabled();
+    await expect(page.getByRole("navigation", { name: "Tabs and rooms" })).toContainText(
+      "No new tabs while the bar computer is offline.",
+    );
+    await page.context().setOffline(false);
+    await expect(page.getByRole("button", { name: "New tab" })).toBeEnabled();
   } finally {
     await db.end();
   }

@@ -921,6 +921,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "pos_layouts",
       "prepaid_ledger",
       "prepaid_accounts",
+      "tab_openings",
       "dispute_funds",
       "disputes",
       "refunds",

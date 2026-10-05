@@ -10,3 +10,4 @@ export {
   formDecode,
   type FakeEvent,
 } from "./server.js";
+export { fakeFingerprint } from "./payments.js";

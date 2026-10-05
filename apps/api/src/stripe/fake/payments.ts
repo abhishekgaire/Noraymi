@@ -23,6 +23,24 @@ const TEST_CARDS: Record<string, { brand: string; last4: string }> = {
   pm_card_createDispute: { brand: "visa", last4: "0259" },
 };
 
+/** A card's brand from its number, as a reader reads it. */
+const brandOf = (number: string) =>
+  number.startsWith("4")
+    ? "visa"
+    : number.startsWith("5") || number.startsWith("2")
+      ? "mastercard"
+      : number.startsWith("34") || number.startsWith("37")
+        ? "amex"
+        : number.startsWith("6")
+          ? "discover"
+          : "unknown";
+/** The same card always reads as the same fingerprint on an account, as Stripe's does. */
+export function fakeFingerprint(number: string): string {
+  let h = 2166136261;
+  for (const ch of number) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return `fp_${h.toString(36).padStart(7, "0")}${number.slice(-4)}`;
+}
+
 const needAccount = (account: string | null): string => {
   if (!account)
     throw new FakeError(
@@ -193,6 +211,7 @@ fakeRouteSets.push((fake) => {
         setup_future_usage: req.body["setup_future_usage"] ?? null,
         customer: req.body["customer"] ?? null,
         payment_method_types: req.body["payment_method_types"] ?? ["card"],
+        payment_method_options: req.body["payment_method_options"] ?? {},
         amount_received: 0,
         amount_capturable: 0,
         amount_details: {},
@@ -508,7 +527,19 @@ fakeRouteSets.push((fake) => {
         "payment_intent_unexpected_state",
         `PaymentIntent is ${String(pi["status"])}`,
       );
-    const collected = pi["_collected"] as { number: string; funding: string; tip: number };
+    const collected = pi["_collected"] as {
+      number: string;
+      funding: string;
+      tip: number;
+      cardholderName: string | null;
+      wallet: boolean;
+    };
+    // A bar tab's hold (M6-06): incremental and overcapture support, when it must be captured,
+    // and the card saved from the tap (a phone's wallet saves none).
+    const manual = pi["capture_method"] === "manual";
+    const incremental =
+      (pi["payment_method_options"] as { card_present?: Record<string, unknown> } | undefined)
+        ?.card_present?.["request_incremental_authorization_support"] === "true";
     const charge = fake.put({
       id: fakeId("ch"),
       object: "charge",
@@ -518,10 +549,30 @@ fakeRouteSets.push((fake) => {
       payment_method_details: {
         type: "card_present",
         card_present: {
-          brand: "visa",
+          brand: brandOf(collected.number),
           last4: collected.number.slice(-4),
           funding: collected.funding,
-          generated_card: null,
+          fingerprint: fakeFingerprint(collected.number),
+          cardholder_name: collected.cardholderName,
+          generated_card:
+            pi["setup_future_usage"] && !collected.wallet
+              ? fake.put({
+                  id: fakeId("pm"),
+                  object: "payment_method",
+                  _account: account,
+                  type: "card",
+                  card: { brand: brandOf(collected.number), last4: collected.number.slice(-4) },
+                  customer: pi["customer"] ?? null,
+                })["id"]
+              : null,
+          ...(manual
+            ? {
+                incremental_authorization_supported: incremental,
+                overcapture_supported: true,
+                amount_authorized: Number(pi["amount"]),
+                capture_before: Math.floor(Date.now() / 1000) + 2 * 24 * 3600,
+              }
+            : {}),
         },
       },
     });
@@ -609,15 +660,31 @@ fakeRouteSets.push((fake) => {
     const funding = ["4000056655665556", "5200828282828210"].includes(number) ? "debit" : "credit";
     // A collect (M4-25): the card is read and attached; nothing is charged until confirm.
     if (action["type"] === "collect_payment_method") {
+      // A dip or swipe brings the cardholder's name; a tap or a phone doesn't (M6-06).
+      const present = req.body["card_present"] as
+        { cardholder_name?: string; wallet?: string; fingerprint_on_confirm?: string } | undefined;
+      // Whether a collected card carries its fingerprint before confirm is an open question
+      // (M6-06): this fake-only switch reads it only once the hold is placed.
+      const laterFingerprint = present?.fingerprint_on_confirm === "true";
+      const cardholderName = present?.cardholder_name ?? null;
+      const wallet = present?.wallet === "true";
       pi["status"] = "requires_confirmation";
       pi["payment_method"] = fake.put({
         id: fakeId("pm"),
         object: "payment_method",
         _account: account,
         type: "card_present",
-        card_present: { brand: "visa", last4: number.slice(-4), funding },
+        card_present: {
+          brand: brandOf(number),
+          last4: number.slice(-4),
+          funding,
+          fingerprint: laterFingerprint ? null : fakeFingerprint(number),
+          cardholder_name: cardholderName,
+          read_method: cardholderName ? "contact_emv" : "contactless_emv",
+          ...(wallet ? { wallet: { type: "apple_pay" } } : {}),
+        },
       })["id"];
-      pi["_collected"] = { number, funding, tip };
+      pi["_collected"] = { number, funding, tip, cardholderName, wallet };
       action["status"] = "succeeded";
       (action["collect_payment_method"] as Record<string, unknown>)["payment_method"] =
         pi["payment_method"];

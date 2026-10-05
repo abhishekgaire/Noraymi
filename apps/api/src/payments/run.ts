@@ -46,6 +46,8 @@ import type { VenueTextSettings } from "../texts/venue.js";
 import { REFUND_RUN_KIND, runRefund } from "./refunds.js";
 import { confirmCollected, surchargeFor } from "./surcharge.js";
 import { collectOnReader } from "../stripe/surcharge.js";
+import { collectForTab, createTabCustomer, createTabIntent } from "../stripe/tabs.js";
+import { TAB_RELEASE_KIND, openingOfPayment } from "../tabs/open.js";
 
 /**
  * How every card payment runs (M4-05; Payment flows steps 1 to 4):
@@ -86,7 +88,7 @@ export class NoSuchReader extends Error {}
 /** No heartbeat from the reader for 2 minutes (503 reader_offline, nothing sent to Stripe). */
 export class ReaderQuiet extends Error {}
 
-async function quiet(
+export async function quiet(
   c: Queryable,
   venueId: string,
   deviceId: string,
@@ -223,6 +225,8 @@ interface Context {
   readonly amountEligibleCents: number | null;
   /** The card fee at the reader is on (M4-25): collect first, then confirm. */
   readonly collect: boolean;
+  /** A bar tab's opening hold (M6-06): collect first, check the card, then confirm. */
+  readonly tab: boolean;
 }
 
 async function context(
@@ -261,6 +265,7 @@ async function context(
       amountEligibleCents:
         drinks !== null && drinks > 0 ? Math.min(drinks, attempt!.amount_cents) : null,
       collect: (await surchargeFor(c, venueId, payment.business_date)) !== null,
+      tab: (await openingOfPayment(c, venueId, paymentId)) !== null,
     };
   });
 }
@@ -335,17 +340,30 @@ export async function runAttempt(
   try {
     let piId = payment.stripe_pi_id;
     if (!piId) {
-      const pi = await createReaderIntent(deps.stripe, account, {
-        amountCents: attempt.amount_cents,
-        paymentId,
-        checkId: attempt.check_id,
-      });
+      const pi = ctx.tab
+        ? await createTabIntent(deps.stripe, account, {
+            amountCents: attempt.amount_cents,
+            paymentId,
+            customer: (await createTabCustomer(deps.stripe, account, paymentId)).id,
+          })
+        : await createReaderIntent(deps.stripe, account, {
+            amountCents: attempt.amount_cents,
+            paymentId,
+            checkId: attempt.check_id,
+          });
       piId = pi.id;
       await deps.stripe.step("after-create-intent");
       await inVenue((c) => setPaymentIntent(c, paymentId, pi.id));
     }
     await deps.stripe.step("before-process");
-    if (ctx.collect)
+    if (ctx.tab)
+      await collectForTab(
+        deps.stripe,
+        account,
+        { readerId: attempt.reader_id!, piId },
+        attempt.idem_key,
+      );
+    else if (ctx.collect)
       await collectOnReader(
         deps.stripe,
         account,
@@ -529,6 +547,7 @@ export async function cancelPayment(
           declineCode: null,
           errorCode: null,
           card: null,
+          hold: null,
         },
       },
       source,
@@ -590,6 +609,11 @@ export function makePaymentHandlers(deps: PaymentDeps): Record<string, JobHandle
     [REFUND_RUN_KIND]: async (job) => {
       const p = job.job.payload as { refund_id: string };
       await runRefund(deps, job.job.venue_id, p.refund_id);
+    },
+    // A bar tab's new hold on a card that already had an open tab (M6-06): released at once.
+    [TAB_RELEASE_KIND]: async (job) => {
+      const p = job.job.payload as { payment_id: string };
+      await cancelPayment(deps, job.job.venue_id, p.payment_id, "api");
     },
     // A declined card on file (M4-17): cancel it, and text the guest a pay link for the balance.
     [ON_FILE_DECLINED_KIND]: async (job) => {

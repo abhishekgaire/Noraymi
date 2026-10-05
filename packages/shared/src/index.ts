@@ -112,3 +112,13 @@ export { guestOrderWords, staffOrderWordsKey } from "./orders.js";
 export type { OrderForWords } from "./orders.js";
 export * from "./site.js";
 export * from "./pos.js";
+export {
+  TAB_STATES,
+  TAB_CARD_HELD,
+  TAB_SETTLED,
+  canMoveTab,
+  isTabState,
+  tabConsentLine,
+  tabNameFromCard,
+} from "./tabs.js";
+export type { TabState } from "./tabs.js";
