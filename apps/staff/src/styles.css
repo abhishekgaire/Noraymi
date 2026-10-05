@@ -1180,3 +1180,205 @@ button.danger {
   min-width: 44px;
   min-height: 44px;
 }
+
+/* The bar POS, the Rail (M6-02): nothing moves; wet-proof targets */
+.rail {
+  display: grid;
+  gap: 8px;
+}
+.rail-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.rail-top .who,
+.rail-top .clock {
+  font-weight: 600;
+  white-space: nowrap;
+  padding-top: 8px;
+}
+.rail-orders {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex: 1;
+}
+.rail-order {
+  min-width: 260px;
+  border: 2px solid var(--line, #ccc);
+  border-radius: 8px;
+  padding: 8px;
+}
+.rail-order.amber {
+  border-color: #c98a00;
+}
+.rail-order.pink {
+  border-color: #d0457a;
+}
+.rail-order .actions button {
+  min-height: 52px;
+}
+.rail-body {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 320px;
+  gap: 12px;
+  align-items: start;
+}
+.rail-left input[type="search"],
+.rail-tools input[type="search"] {
+  min-height: 52px;
+  width: 100%;
+  font: inherit;
+}
+.rail-filters,
+.rail-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.rail-filters .chip,
+.rail-sections .chip {
+  min-height: 52px;
+  min-width: 64px;
+}
+.rail-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 6px;
+}
+.rail-row {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+  font: inherit;
+  padding: 8px;
+  border: 1px solid var(--line, #ccc);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+}
+.rail-row.on {
+  outline: 3px solid currentColor;
+}
+.rail-row .badge {
+  font-size: 0.85em;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid currentColor;
+}
+.rail-tools {
+  display: flex;
+  gap: 8px;
+}
+.rail-tools button {
+  min-height: 52px;
+  min-width: 88px;
+}
+.rail-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(115px, 1fr));
+  gap: 6px;
+}
+.rail-grid .slot {
+  min-height: 100px;
+}
+.rail-grid .slot button {
+  width: 100%;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--line, #ccc);
+  background: transparent;
+  color: inherit;
+}
+.rail-grid .slot.out button {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.rail-grid .slot.empty {
+  border: 1px dashed var(--line, #ccc);
+  border-radius: 8px;
+}
+.rail .sheet {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rail .sheet button {
+  min-height: 52px;
+}
+.rail-right .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rail-right .on-tab {
+  list-style: none;
+  padding: 0;
+}
+.rail-right .on-tab li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rail-right .send,
+.rail-right button.primary {
+  min-height: 56px;
+}
+.rail .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.rail-title {
+  font-size: 1rem;
+  margin: 0;
+  padding-top: 8px;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .rail-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail-top {
+    flex-wrap: wrap;
+  }
+  .rail-orders {
+    flex-direction: column;
+    overflow-x: visible;
+    min-width: 0;
+    width: 100%;
+  }
+  .rail-order {
+    min-width: 0;
+  }
+  .rail-order .actions {
+    flex-wrap: wrap;
+  }
+  .rail-grid {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  }
+}

@@ -47,6 +47,21 @@ import { reasonOnlyUsed } from "./checks.js";
 // ---------------------------------------------------------------- the file
 
 /** The parts of seed/west4-friday.json this ticket reads. */
+interface SeedTab {
+  readonly id: string;
+  readonly check: string;
+  readonly name: string;
+  readonly label?: string | null;
+  readonly state: string;
+  readonly card_brand: string;
+  readonly card_last4: string;
+  readonly hold_cents: number;
+  readonly opened_at: string;
+  readonly owner: string;
+  readonly cut_off_at?: string;
+  readonly cut_off_by?: string;
+}
+
 export interface SeedFile {
   readonly meta: { readonly now: string; readonly business_date: string };
   /** The guest site's published content (M5-01). */
@@ -80,7 +95,7 @@ export interface SeedFile {
   readonly order_drafts: readonly SeedDraft[];
   readonly approvals: readonly SeedApproval[];
   readonly reason_only_used_tonight: readonly { readonly person: string; readonly cents: number }[];
-  readonly bar_tabs: readonly { readonly id: string; readonly check: string }[];
+  readonly bar_tabs: readonly SeedTab[];
   readonly drawers: readonly SeedDrawer[];
 }
 
@@ -919,6 +934,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "payments",
       "check_revisions",
       "check_lines",
+      "tabs",
       "checks",
       "venue_counters",
       "session_segments",
@@ -1472,6 +1488,31 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       [venueId, base + opened.length],
     );
     log(`checks: ${opened.length}, from #${base} to #${base + opened.length - 1}`);
+
+    // The bar tabs (M6-02), on their bar checks. Their cards and holds go on Stripe with M6-06.
+    for (const t of seed.bar_tabs) {
+      await client.query(
+        `insert into tabs (id, venue_id, check_id, state, name, label, card_brand, card_last4, hold_cents,
+           owner_id, opened_by, opened_at, cut_off_at, cut_off_by)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12, $13)`,
+        [
+          remember(t.id, "tabs"),
+          venueId,
+          id(t.check),
+          t.state,
+          t.name,
+          t.label ?? null,
+          t.card_brand,
+          t.card_last4,
+          t.hold_cents,
+          id(t.owner),
+          t.opened_at,
+          t.cut_off_at ?? null,
+          t.cut_off_by ? id(t.cut_off_by) : null,
+        ],
+      );
+    }
+    log(`tabs: ${seed.bar_tabs.length}`);
 
     // Deposits (M4-10; Money rules 11): each booking's captured deposit is a card_online payment, with the
     // card the brief names for display. A seated party's deposit is allocated to its check, following the

@@ -4937,3 +4937,110 @@ test("Admin → Bar POS: add Nütrl to Favorites' first open slot, publish, star
     await db.end();
   }
 });
+
+/** Maya signs in by name and PIN on the paired bar computer (the Rail's home). */
+async function signInMayaAtTheBar(page: Page, request: APIRequestContext, db: pg.Client) {
+  await db.query("update memberships set locale = 'en'");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/sign-in");
+  await page.getByRole("button", { name: "Pair this screen" }).click();
+  await page
+    .getByLabel("Pairing code from Admin → Devices")
+    .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+  expect(
+    (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Pair", exact: true }).click();
+  await page.getByRole("button", { name: /Maya S\./ }).click();
+  await typePin(page, "4071");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+}
+
+/**
+ * The bar POS (M6-02): Maya's five tabs in the order opened, then the rooms
+ * with the seed's numbers; the two ringing room orders with Accept, and
+ * accepting Room 5's prints its ticket; 86 on Hoegaarden greys it in its slot
+ * and on the guest menu with nothing shifting; the words.
+ */
+test("the bar POS: five tabs, the rooms, Room 5's order accepted, and 86 on Hoegaarden", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const tabs = page.getByRole("list", { name: "Bar tabs" }).locator(".name");
+    await expect(tabs).toHaveText([
+      "Hana K.",
+      "Jess P.",
+      "Luis M.",
+      "Tariq A.",
+      "Seat 6 · blue jacket",
+    ]);
+    const rooms = page.getByRole("list", { name: "Rooms" });
+    await expect(rooms.getByRole("button", { name: /Room 12/ })).toContainText(
+      "Opened 9:00 PM · 101 min · $235.67 room time",
+    );
+    await expect(rooms.getByRole("button", { name: /VIP room/ })).toContainText(
+      "$295.83 room time",
+    );
+    await expect(rooms.getByRole("button", { name: /Room 9/ })).toContainText("$322.00 room time");
+    await expect(page.getByRole("list", { name: "Bar tabs" })).toContainText("Waiting for Andy");
+    await expect(page.getByRole("list", { name: "Bar tabs" })).toContainText("Cut off");
+
+    // The two ringing room orders across the top.
+    const orders = page.getByRole("list", { name: "Room orders waiting" }).getByRole("listitem");
+    await expect(orders).toHaveCount(2);
+    // Oldest first: Room 5 at 2:11 (amber), then Room 9 at 0:43.
+    await expect(orders.nth(0)).toContainText("Room 5 Ringing · 2:1");
+    await expect(orders.nth(0)).toHaveClass(/amber/);
+    await expect(orders.nth(1)).toContainText("Room 9 Ringing · 0:4");
+    await expect(page.getByRole("button", { name: "Ask the room to wait" }).first()).toBeVisible();
+    const tickets = async () =>
+      (await db.query("select count(*)::int as n from print_jobs where kind = 'ticket'")).rows[0].n;
+    const ticketsBefore = await tickets();
+    await orders.nth(0).getByRole("button", { name: "Accept · print ticket" }).click();
+    await expect(orders).toHaveCount(1);
+    expect(await tickets()).toBe(ticketsBefore + 1);
+    await page.getByRole("button", { name: /^Room 5/ }).click();
+    await expect(page.getByRole("complementary")).toContainText("$72.00");
+
+    // 86: Hoegaarden is out tonight in the seed; back on, then 86'd again, in the same slot.
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const grid = page.getByRole("list", { name: "Beer" }).locator("li");
+    // The grid's geometry: 25 slots, five across, each at least 115 × 100 px.
+    const boxes = await grid.evaluateAll((els) =>
+      els.map((e) => {
+        const r = e.getBoundingClientRect();
+        return { x: Math.round(r.x), y: Math.round(r.y), w: r.width, h: r.height };
+      }),
+    );
+    expect(boxes).toHaveLength(25);
+    for (const b of boxes) {
+      expect(b.w).toBeGreaterThanOrEqual(115);
+      expect(b.h).toBeGreaterThanOrEqual(100);
+    }
+    expect(new Set(boxes.map((b) => b.x)).size).toBe(5);
+    expect(new Set(boxes.map((b) => b.y)).size).toBe(5);
+    const before = await grid.allInnerTexts();
+    await expect(page.getByRole("button", { name: "Hoegaarden · 86'd tonight" })).toBeDisabled();
+    await page.getByRole("button", { name: "86", exact: true }).click();
+    await page.getByRole("button", { name: "Hoegaarden · 86'd tonight" }).click();
+    await expect(page.getByRole("button", { name: /^Hoegaarden · \$/ })).toBeEnabled();
+    await page.getByRole("button", { name: "86", exact: true }).click();
+    await page.getByRole("button", { name: /^Hoegaarden · \$/ }).click();
+    await expect(page.getByRole("button", { name: "Hoegaarden · 86'd tonight" })).toBeDisabled();
+    expect(await grid.allInnerTexts()).toEqual(before);
+    const guest = await (
+      await request.get("http://127.0.0.1:3000/v1/public/venues/west4karaoke/menu")
+    ).json();
+    const hoe = guest.categories
+      .flatMap((c: { items: { name: string; out_tonight: boolean }[] }) => c.items)
+      .find((i: { name: string }) => i.name === "Hoegaarden");
+    expect(hoe.out_tonight).toBe(true);
+    await expect(page.locator("body")).not.toContainText(/\bHold\b(?! \$)/);
+  } finally {
+    await db.end();
+  }
+});

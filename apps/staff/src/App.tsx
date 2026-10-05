@@ -18,6 +18,7 @@ import { Phone } from "./screens/admin/Phone.js";
 import { Website } from "./screens/admin/Website.js";
 import { Deposits } from "./screens/admin/Deposits.js";
 import { BarPos } from "./screens/admin/BarPos.js";
+import { Rail } from "./screens/Rail.js";
 import { Payments } from "./screens/admin/Payments.js";
 import { DisputesScreen } from "./screens/admin/Disputes.js";
 import { CardFee } from "./screens/admin/CardFee.js";
@@ -26,7 +27,6 @@ import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
 import { AlertsRules } from "./screens/admin/AlertsRules.js";
 import { Team } from "./screens/admin/Team.js";
-import { Home } from "./screens/Home.js";
 import { Tonight } from "./screens/Tonight.js";
 import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
@@ -107,7 +107,7 @@ export function StaffRoutes() {
       <Route element={<Shell />}>
         <Route index element={<HomeRedirect />} />
         <Route path="/tonight" element={<Tonight />} />
-        <Route path="/bar" element={<Home titleKey="menu.barPos" />} />
+        <Route path="/bar" element={<Rail />} />
         <Route path="/bar-orders" element={<BarOrders />} />
         <Route path={runs.path} element={<Runs />} />
         <Route path="/setup" element={<Setup />} />

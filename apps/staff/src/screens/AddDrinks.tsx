@@ -66,8 +66,13 @@ const sameLine = (a: DraftLine, b: DraftLine) =>
 export function AddDrinks(props: {
   venueId: string;
   checkId: string;
-  sessionId: string;
+  /** A room's session; a bar tab has none (M6-02). */
+  sessionId?: string | null;
   onSent: () => void;
+  /** The bar POS (M6-02) rings from its own grid: no search box here. */
+  search?: boolean;
+  /** Each new request rings one of this variant, as a tap on the bar POS grid. */
+  ringRequest?: { readonly variantId: string; readonly n: number } | null;
 }) {
   const { t, money } = useT();
   const { subscribe } = useEvents();
@@ -86,7 +91,10 @@ export function AddDrinks(props: {
     const tree = await api<{
       categories: { items: Item[] }[];
       alcohol: { state: string; closes_at: string; blocked: "window_closed" | "cut_off" | null };
-    }>("GET", `/v1/venues/${venueId}/menu?session_id=${props.sessionId}`);
+    }>(
+      "GET",
+      `/v1/venues/${venueId}/menu${props.sessionId ? `?session_id=${props.sessionId}` : ""}`,
+    );
     setItems(tree.categories.flatMap((c) => c.items));
     setAlcoholBlock(tree.alcohol.blocked);
   }, [venueId, props.sessionId]);
@@ -99,6 +107,7 @@ export function AddDrinks(props: {
     setLines(d.lines.map((l) => ({ ...l, option_ids: l.option_ids ?? [] })));
   }, [venueId, checkId]);
   const loadOrders = useCallback(async () => {
+    if (!props.sessionId) return;
     const r = await api<{ orders: Order[] }>(
       "GET",
       `/v1/venues/${venueId}/orders?status=${OPEN}&session_id=${props.sessionId}`,
@@ -166,6 +175,17 @@ export function AddDrinks(props: {
         : [...lines, line],
     );
   };
+  // A tap on the bar POS grid (M6-02) rings here, once per request.
+  const lastRing = useRef(0);
+  useEffect(() => {
+    const req = props.ringRequest;
+    if (!req || req.n === lastRing.current) return;
+    const found = byVariant.get(req.variantId);
+    if (!found) return;
+    lastRing.current = req.n;
+    ring(found.item, found.variant);
+    // ring reads the latest lines; the request is the only trigger.
+  }, [props.ringRequest, byVariant]);
   const setQty = (i: number, qty: number) =>
     void save(
       qty <= 0
@@ -228,15 +248,17 @@ export function AddDrinks(props: {
           {error}
         </p>
       )}
-      <label className="grow">
-        <span>{t("drinks.search")}</span>
-        <input
-          type="search"
-          value={query}
-          placeholder={t("drinks.search.hint")}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
+      {props.search !== false && (
+        <label className="grow">
+          <span>{t("drinks.search")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={t("drinks.search.hint")}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+      )}
       {items === null && q && <p role="status">{t("shell.loading")}</p>}
       {items !== null && q && matches.length === 0 && (
         <p className="muted small">{t("drinks.noMatch")}</p>

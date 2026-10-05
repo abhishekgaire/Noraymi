@@ -73,7 +73,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-02 · Build the bar POS screen around the fixed grid
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-01; M3 (room-order cards, 86, the desktop side menu); M1 (the desktop app shell)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (rules 1, 2, 4, 7, 9, 10 and 12; The bar POS screen; 86 from the bar POS; Room orders at the bar; Adding drinks to a room from a staff screen); [screens: Rail](../screens.md#rail) (notes 1, 10, 11, 12, 14, 15 and 19); [glossary](../glossary.md#say-this-not-that)
@@ -84,12 +84,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Rooms on the Rail ring drinks onto the room's check as staff orders accepted as they're placed, so the ticket prints at the bar.
   - Menu buttons at least 115 × 100 px and main actions 52 to 64 px tall; nothing needs a swipe or a long press.
 - **Acceptance:**
-  - [ ] Maya's bar POS lists five tabs in the order opened (Hana K., Jess P., Luis M., Tariq A., Seat 6 · blue jacket), then Room 9, Room 12 and the VIP room with the seed's numbers (Room 12 opened 9:00 PM with $235.67 of room time; the VIP room $295.83).
-  - [ ] The two ringing room orders (Room 9 at 0:43 and Room 5 at 2:11, amber) show across the top with Accept; accepting o2 prints a ticket and takes Room 5's tab to $72.00.
-  - [ ] 86 on Hoegaarden grays it out in its slot on the bar POS and on the guest menu, and nothing shifts.
-  - [ ] The screen says "Ask the room to wait", "Back to the sale" and "their phones explain", and never "Hold" for a room order.
+  - [x] Maya's bar POS lists five tabs in the order opened (Hana K., Jess P., Luis M., Tariq A., Seat 6 · blue jacket), then Room 9, Room 12 and the VIP room with the seed's numbers (Room 12 opened 9:00 PM with $235.67 of room time; the VIP room $295.83).
+  - [x] The two ringing room orders (Room 9 at 0:43 and Room 5 at 2:11, amber) show across the top with Accept; accepting o2 prints a ticket and takes Room 5's tab to $72.00.
+  - [x] 86 on Hoegaarden grays it out in its slot on the bar POS and on the guest menu, and nothing shifts.
+  - [x] The screen says "Ask the room to wait", "Back to the sale" and "their phones explain", and never "Hold" for a room order.
 - **Tests:** Playwright on the desktop layout with the seed; visual regression on the grid; the language test.
 - **Notes:** The canvas has no side menu and no way to 86 ([Rail note 12](../screens.md#rail)), shows older room numbers ([Rail note 14](../screens.md#rail)) and Room 5 as 4 of 5 IDs; build "ID ✓ 4 of 4" ([Rail note 15](../screens.md#rail)).
+  - Built: the Rail at `/bar` (`apps/staff/src/screens/Rail.tsx`), the bar computer's home. Top: who's signed in, the ringing and held room orders oldest first (aged new, amber at 2:00, pink at 4:00) with Accept · print ticket, Ask the room to wait and Decline… (no Decline for alcohol once the window closes; the decline form says "Their phones explain why."), and the venue's clock. Left: the find box, All · Mine · Rooms, the bar tabs in the order opened, every open room in the order opened (with opened time, minutes and room time), and Closed tonight. Center: the ten sections of tonight's layout (M6-01), a menu search and 86. Right: the tab or room, its chips, what's on it, the total, and the round, rung from the grid.
+  - Migration 0077 creates `tabs` from the data model, plus `name` (the bar's name for the tab, "Jess P."; `label` keeps where it sits, "Seat 3"), flagged. The seed loader now loads the five tabs on their bar checks (M6-27's seed, a piece at a time). `GET /tabs?state=` lists open tabs and tonight's closed ones with each check's totals, a fix waiting for a manager and the caller's unsent count. `GET /board` now also gives each session's `started_at`.
+  - Rounds reuse M3-07's AddDrinks (drafts on the server, usual options, Send as a staff order accepted as it's placed), now without a session for a tab and with the Rail's grid ringing into it. Repeat round and Undo are M6-03; New tab M6-06; Quick sale M6-05; Close and Move M6-08 and M6-13; Wipe screen and Lock M6-04. The hold badges ("Hold · $6 left", "Hold raise declined", "Partly paid …", "Paid $272.19 · no hold") come with the tickets that build them.
+  - 86 from the Rail: tap 86, then an item; an item with sizes or flavors asks which (or all). It calls M3's out-tonight route, so it greys on every staff screen and the guest menu.
+  - Visual regression: there's no screenshot baseline set-up, and baselines taken on macOS wouldn't match CI's Linux, so the e2e test checks the grid's geometry instead (25 slots, five across, each at least 115 × 100 px, nothing shifting after 86). Flagged in case pixel screenshots are wanted in CI.
+  - Room orders across the top are oldest first, so Room 5 (2:11, amber) comes before Room 9 (0:43).
 
 ### M6-03 · Ring a round: usual options, repeat round, undo and drafts on the server
 

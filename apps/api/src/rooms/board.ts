@@ -143,6 +143,7 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
         ? {
             id: s.id,
             check_id: s.check_id,
+            started_at: s.started_at,
             guest_name: s.guest_name,
             party_size: s.party_size,
             ids_checked: s.ids_checked,
