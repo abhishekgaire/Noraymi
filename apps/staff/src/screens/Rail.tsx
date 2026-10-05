@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   POS_SECTIONS,
   Temporal,
@@ -11,6 +12,7 @@ import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
+import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
 
 /**
@@ -110,13 +112,22 @@ const PINK_S = 240;
 
 export function Rail() {
   const { t, money, time } = useT();
-  const { state } = useSession();
+  const { state, lock, signInWithBadge } = useSession();
+  const navigate = useNavigate();
   const { now } = useClock();
   const { subscribe } = useEvents();
   const signedIn = state.status === "signedIn" ? state : null;
   const venueId = signedIn?.membership.venue_id ?? "";
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const me = signedIn?.me.user;
+  const meId = me?.id ?? "";
+  // Sharing the terminal (M6-04): the locks, and whether the person signed in is on a break.
+  const [terminal, setTerminal] = useState({
+    idle_lock_min: 3,
+    wipe_lock_sec: 10,
+    on_break: false,
+  });
+  const [wipeLeft, setWipeLeft] = useState(0);
   const [sections, setSections] = useState<PosLayoutSections | null>(null);
   const [items, setItems] = useState<readonly Item[]>([]);
   const [windowClosed, setWindowClosed] = useState(false);
@@ -143,7 +154,7 @@ export function Rail() {
   const load = useCallback(async () => {
     if (!venueId) return;
     try {
-      const [layouts, menu, tabList, board, orders] = await Promise.all([
+      const [layouts, menu, tabList, board, orders, term] = await Promise.all([
         api<{ tonight: { sections: PosLayoutSections } | null }>(
           "GET",
           `/v1/venues/${venueId}/pos/layouts?station=bar`,
@@ -155,7 +166,12 @@ export function Rail() {
         api<{ tabs: Tab[] }>("GET", `/v1/venues/${venueId}/tabs`),
         api<{ rooms: RoomTile[] }>("GET", `/v1/venues/${venueId}/board`),
         api<{ orders: WaitingOrder[] }>("GET", `/v1/venues/${venueId}/orders?status=ringing,held`),
+        api<{ idle_lock_min: number; wipe_lock_sec: number; on_break: boolean }>(
+          "GET",
+          `/v1/venues/${venueId}/pos/terminal`,
+        ),
       ]);
+      setTerminal(term);
       setSections(layouts.tonight?.sections ?? null);
       setItems(menu.categories.flatMap((c) => c.items));
       setWindowClosed(menu.alcohol.state !== "open");
@@ -167,8 +183,59 @@ export function Rail() {
     } catch {
       setFailed(true);
     }
-  }, [venueId]);
+    // Whoever is signed in: a badge takeover reloads everything as the new person.
+  }, [venueId, meId]);
   useEffect(() => void load(), [load]);
+  useEffect(() => setPicked(null), [meId]);
+
+  const lockNow = useCallback(async () => {
+    await lock();
+    navigate("/sign-in", { replace: true });
+  }, [lock, navigate]);
+
+  // A badge on the reader takes over at once (M6-04): the last person's session ends, the new
+  // person's own tabs and unsent drinks load. A refused badge leaves the screen locked.
+  useEffect(() => {
+    const west4 = window.west4;
+    if (!west4) return;
+    return west4.badge.onTap(({ url }) => {
+      void (async () => {
+        const device = await readDevice();
+        if (!device) return;
+        await api("POST", "/v1/auth/logout", {}).catch(() => undefined);
+        try {
+          await signInWithBadge(device, url);
+        } catch {
+          await lockNow();
+        }
+      })();
+    });
+  }, [signInWithBadge, lockNow]);
+
+  // The idle lock (M6-04): pos.idleLockMin without a touch or a key locks the screen.
+  const lastTouch = useRef(Date.now());
+  useEffect(() => {
+    const touched = () => {
+      lastTouch.current = Date.now();
+    };
+    window.addEventListener("pointerdown", touched, true);
+    window.addEventListener("keydown", touched, true);
+    const id = setInterval(() => {
+      if (Date.now() - lastTouch.current >= terminal.idle_lock_min * 60_000) void lockNow();
+    }, 1000);
+    return () => {
+      window.removeEventListener("pointerdown", touched, true);
+      window.removeEventListener("keydown", touched, true);
+      clearInterval(id);
+    };
+  }, [terminal.idle_lock_min, lockNow]);
+
+  // Wipe screen (M6-04): touch is off for pos.wipeLockSec.
+  useEffect(() => {
+    if (wipeLeft <= 0) return;
+    const id = setTimeout(() => setWipeLeft((n) => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [wipeLeft]);
   useEffect(
     () =>
       subscribe((events) => {
@@ -344,7 +411,9 @@ export function Rail() {
     <section className="rail" aria-label={t("menu.barPos")}>
       <header className="rail-top">
         <h1 className="rail-title">{t("menu.barPos")}</h1>
-        <span className="who">{me?.name}</span>
+        <span className="who">
+          {terminal.on_break && me ? t("rail.onBreak", { name: me.name.split(" ")[0]! }) : me?.name}
+        </span>
         <ul className="rail-orders" aria-label={t("rail.roomOrders")}>
           {waiting.map((o) => {
             const age = ageS(o.placed_at);
@@ -418,7 +487,27 @@ export function Rail() {
           })}
         </ul>
         <span className="clock">{now ? time(now.toString(), timeZone) : ""}</span>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setWipeLeft(terminal.wipe_lock_sec)}
+        >
+          {t("rail.wipe")}
+        </button>
       </header>
+      {wipeLeft > 0 && (
+        <div
+          className="wipe-overlay"
+          role="status"
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onClickCapture={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          {t("rail.wiping", { n: wipeLeft })}
+        </div>
+      )}
 
       {failed && (
         <p className="error" role="alert">

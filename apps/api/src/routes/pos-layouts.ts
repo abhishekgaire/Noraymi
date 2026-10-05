@@ -1,6 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { readSetting } from "@west4/db";
+import { businessDate } from "@west4/rules";
 import type { Clock } from "@west4/shared";
+import { venueClock } from "../rooms/assignment.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { layoutsView, publishLayout, saveLayoutDraft } from "../pos/layouts.js";
@@ -10,6 +13,7 @@ import { layoutsView, publishLayout, saveLayoutDraft } from "../pos/layouts.js";
  *   GET  /v1/venues/{v}/pos/layouts?station=bar      tonight's layout, the next one, the draft, every version
  *   POST /v1/venues/{v}/pos/layouts                  { station, sections }: save the station's draft
  *   POST /v1/venues/{v}/pos/layouts/{l}/publish      the draft goes live at the next business date
+ *   GET  /v1/venues/{v}/pos/terminal                 the idle and wipe locks, and whether the caller is on a break (M6-04)
  */
 const station = z.string().regex(/^[a-z][a-z0-9_]{0,31}$/);
 
@@ -36,6 +40,42 @@ export function posLayoutRoutes(app: FastifyInstance, options: { clock: Clock })
       if (!s.success) throw new ApiError("invalid_request", "station is a lowercase name");
       return request.inVenue((c) => layoutsView(c, request.venueId!, s.data, options.clock.now()));
     },
+  );
+
+  // The bar POS terminal (M6-04): its locks, and whether the person signed in is on a break.
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/pos/terminal",
+    { config: read },
+    async (request) =>
+      request.inVenue(async (c) => {
+        const venue = await venueClock(c, request.venueId!);
+        const today = businessDate(
+          options.clock.now(),
+          venue.timeZone,
+          venue.dayCutover,
+        ).businessDate;
+        const pos = await readSetting(c, request.venueId!, "pos", today);
+        const p = request.principal;
+        const membershipId =
+          p.kind === "user"
+            ? (p.memberships.find((m) => m.venueId === request.venueId)?.membershipId ?? null)
+            : null;
+        // On a break: her last punch is a break that hasn't ended.
+        const last = membershipId
+          ? (
+              await c.query<{ kind: string }>(
+                `select kind from time_punches where venue_id = $1 and membership_id = $2
+                  order by at desc, created_at desc limit 1`,
+                [request.venueId, membershipId],
+              )
+            ).rows[0]
+          : undefined;
+        return {
+          idle_lock_min: pos?.value.idleLockMin ?? 3,
+          wipe_lock_sec: pos?.value.wipeLockSec ?? 10,
+          on_break: last?.kind === "break_start",
+        };
+      }),
   );
 
   app.post<{ Params: { venueId: string }; Body: unknown }>(

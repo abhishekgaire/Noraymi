@@ -936,6 +936,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "check_lines",
       "tabs",
       "checks",
+      "time_punches",
       "venue_counters",
       "session_segments",
       "room_sessions",

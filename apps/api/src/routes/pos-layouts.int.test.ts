@@ -138,4 +138,23 @@ describe("bar POS layouts", () => {
       403,
     );
   });
+
+  it("the terminal: 3 idle minutes, a 10-second wipe, and Maya on a break while her break punch is open", async () => {
+    as("maya", "bartender", "pin");
+    expect((await call("GET", "/pos/terminal")).json()).toMatchObject({
+      idle_lock_min: 3,
+      wipe_lock_sec: 10,
+      on_break: false,
+    });
+    const punch = (kind: string, at: string) =>
+      owner.query(
+        "insert into time_punches (venue_id, membership_id, kind, duty, at) values ($1, $2, $3, 'bar', $4)",
+        [venueId, ids["maya.membership"], kind, at],
+      );
+    await punch("clock_in", "2026-09-25T20:00:00-04:00");
+    await punch("break_start", "2026-09-25T22:30:00-04:00");
+    expect((await call("GET", "/pos/terminal")).json().on_break).toBe(true);
+    await punch("break_end", "2026-09-25T22:40:00-04:00");
+    expect((await call("GET", "/pos/terminal")).json().on_break).toBe(false);
+  });
 });

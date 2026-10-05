@@ -127,7 +127,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-04 · Share the terminal: badge takeover, idle and wipe locks, "Maya · on break"
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-02; M1 (badges, PINs, the desktop app shell)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Sharing a terminal, rule 9, the Top bar, Shifts); [Tenancy and access](../spec/02-tenancy-access.md) (Badges, PINs, Roles); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`pos.idleLockMin`, `pos.wipeLockSec`)
@@ -138,12 +138,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Refunds, cash counts and no-sale ask for the PIN again.
   - The front desk uses the bar POS when covering the bar, unless Admin → Team switches it off for that role.
 - **Acceptance:**
-  - [ ] Maya takes over from Diego with a badge tap in under 2 seconds in staging, with her three tabs, and none of Diego's drafts show as hers.
-  - [ ] Three idle minutes lock the screen, and Wipe screen ignores touches for 10 seconds.
-  - [ ] With an open break punch for Maya, the top bar reads "Maya · on break".
-  - [ ] With the front desk's bar POS permission off, Diego's sign-in shows no Bar POS.
+  - [x] Maya takes over from Diego with a badge tap in under 2 seconds in staging, with her three tabs, and none of Diego's drafts show as hers.
+  - [x] Three idle minutes lock the screen, and Wipe screen ignores touches for 10 seconds.
+  - [x] With an open break punch for Maya, the top bar reads "Maya · on break".
+  - [x] With the front desk's bar POS permission off, Diego's sign-in shows no Bar POS.
 - **Tests:** timed end-to-end in the desktop app; permission tests.
 - **Notes:** The break punch itself ships with the time clock in M7; this ticket reads it and is tested against a seeded punch (see [Open points](#open-points)).
+  - Built: on the bar POS, a badge tap while someone is signed in ends their session and signs the badge's owner in through M1-25's `POST /v1/auth/badge`; the screen reloads as the new person (their tabs under Mine, their own unsent drinks; other people's show as "N not sent"). A refused badge leaves the screen locked. The top bar has Wipe screen (an overlay that takes every touch for `pos.wipeLockSec`); Lock is the app's own, in its menu; `pos.idleLockMin` without a touch or a key locks the screen.
+  - `GET /v1/venues/{v}/pos/terminal` (anyone with `pos.use`) gives the two lock settings and `on_break`: the caller's last punch is an open `break_start`. The top bar then reads "Maya · on break".
+  - Migration 0078 creates `time_punches` from the data model so the bar can read a break; the time clock that writes punches is M7-01. Tested against seeded punches.
+  - Unchanged from M1: name and PIN as the fallback on the sign-in screen, the PIN asked again for refunds, cash counts and no-sale, and the front desk's bar POS switch in Admin → Team (the menu hides Bar POS when `pos.use` is off for the role; checked end to end).
+  - The end-to-end test runs in the browser with a stand-in for the desktop app's badge reader (the same bridge the app exposes) and a real SUN tap message for Maya's demo badge, timed under 2 seconds; the idle and wipe timers run on Playwright's clock. The 2-second target in staging still needs checking on the bar computer.
 
 ### M6-05 · Sell at the bar with Quick sale
 

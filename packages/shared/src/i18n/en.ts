@@ -1867,4 +1867,7 @@ export const en = {
   "rail.leftOut.out": "86'd tonight",
   "rail.leftOut.window_closed": "alcohol has stopped",
   "rail.leftOut.cut_off": "cut off",
+  "rail.onBreak": "{name} · on break",
+  "rail.wipe": "Wipe screen",
+  "rail.wiping": "Wiping · touch is off for {n} s",
 } as const;

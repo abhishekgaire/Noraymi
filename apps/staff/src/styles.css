@@ -1382,3 +1382,15 @@ button.danger {
     grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
   }
 }
+.wipe-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+}

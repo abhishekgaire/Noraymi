@@ -5088,3 +5088,137 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
     await db.end();
   }
 });
+
+/** The desktop app's bridge as the bar computer has it, with a badge reader the test taps (M6-04). */
+const desktopBridge = () => {
+  const tokenKey = "west4.test.token";
+  const w = window as unknown as Record<string, unknown>;
+  w["west4"] = {
+    desktop: true,
+    version: async () => "test",
+    token: {
+      get: async () => sessionStorage.getItem(tokenKey),
+      set: async (v: string) => sessionStorage.setItem(tokenKey, v),
+      clear: async () => sessionStorage.removeItem(tokenKey),
+    },
+    readers: async () => [],
+    badge: {
+      onTap: (listener: (tap: { url: string; reader: string }) => void) => {
+        const taps = ((w["__badgeTaps"] as unknown[]) ??= []) as unknown[];
+        taps.push(listener);
+        return () => taps.splice(taps.indexOf(listener), 1);
+      },
+      onReaders: () => () => undefined,
+      pairStart: async () => ({ uid: "" }),
+      pairFinish: async () => ({ uid: "", url: "" }),
+      cancelPair: async () => undefined,
+      fakeTap: async () => undefined,
+    },
+    venue: { configure: async () => undefined },
+  };
+};
+
+/**
+ * Sharing the bar computer (M6-04): Maya's badge takes over from Diego in under
+ * 2 seconds with her three tabs and none of his unsent drinks; "Maya · on break"
+ * while her break punch is open; Wipe screen ignores touches for 10 seconds;
+ * three idle minutes lock the screen; with the front desk's bar POS switched
+ * off, Diego's sign-in shows no Bar POS.
+ */
+test("sharing the bar computer: Maya's badge takes over from Diego, on break, Wipe screen and the idle lock", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const { FakeBadge } = await import("../apps/api/src/auth/test-badge.js");
+  const { LOCAL_DEV_AUTH_KEY, parseAuthSecretKey } = await import("../packages/db/src/auth.js");
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const maya = (
+      await db.query<{ id: string }>(
+        "select m.id from memberships m join users u on u.id = m.user_id where u.name = 'Maya S.'",
+      )
+    ).rows[0]!.id;
+    await db.query(
+      "insert into time_punches (venue_id, membership_id, kind, duty, at) values ($1, $2, 'break_start', 'bar', '2026-09-25T22:35:00-04:00')",
+      [venueId, maya],
+    );
+    await page.clock.install();
+    await page.addInitScript(desktopBridge);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Diego R\./ }).click();
+    await typePin(page, "6358");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.getByRole("link", { name: "Bar POS" }).first().click();
+    await expect(page.locator(".rail-top .who")).toHaveText("Diego R.");
+
+    // Maya's badge: the reader hands over a tap; she's on the screen within 2 seconds.
+    const badge = new FakeBadge({
+      secret: parseAuthSecretKey(LOCAL_DEV_AUTH_KEY),
+      venueId,
+      badgeId: "badge_maya",
+    });
+    const tap = badge.tap();
+    const started = Date.now();
+    await page.evaluate((url) => {
+      const taps = (
+        window as unknown as { __badgeTaps: ((t: { url: string; reader: string }) => void)[] }
+      ).__badgeTaps;
+      for (const listener of [...taps]) listener({ url, reader: "test" });
+    }, `https://w4.example/t?e=${tap.picc_data}&c=${tap.cmac}`);
+    await expect(page.locator(".rail-top .who")).toHaveText("Maya · on break");
+    expect(Date.now() - started).toBeLessThan(2000);
+    await page.getByRole("button", { name: "Mine", exact: true }).click();
+    await expect(page.getByRole("list", { name: "Bar tabs" }).locator(".name")).toHaveText([
+      "Hana K.",
+      "Jess P.",
+      "Luis M.",
+    ]);
+    // Diego's unsent Red Bull stays his: Maya sees "1 not sent" on Tariq A.'s row, and no round of her own.
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    const tariq = page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Tariq A\./ });
+    await expect(tariq).toContainText("1 not sent");
+    await tariq.click();
+    await expect(
+      page.getByRole("complementary").getByRole("button", { name: /^Send/ }),
+    ).toHaveCount(0);
+
+    // Wipe screen: touch is off for 10 seconds.
+    await page.getByRole("button", { name: "Wipe screen" }).click();
+    await expect(page.getByText("Wiping · touch is off for 10 s")).toBeVisible();
+    await page.mouse.click(200, 400);
+    await page.clock.runFor(10_500);
+    await expect(page.locator(".wipe-overlay")).toHaveCount(0);
+
+    // Three idle minutes lock the screen.
+    await page.clock.runFor(3 * 60_000 + 2_000);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+
+    // With the front desk's bar POS switched off, Diego sees no Bar POS.
+    // Admin → Team's switch: an override on top of the role's defaults.
+    await db.query(
+      `insert into role_permissions (venue_id, role, action, allowed) values ($1, 'front_desk', 'pos.use', false)
+       on conflict (venue_id, role, action) do update set allowed = false`,
+      [venueId],
+    );
+    await page.getByRole("button", { name: /Diego R\./ }).click();
+    await typePin(page, "6358");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("link", { name: "Bar POS" })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});

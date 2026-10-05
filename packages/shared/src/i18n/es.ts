@@ -1897,4 +1897,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.leftOut.out": "86 esta noche",
   "rail.leftOut.window_closed": "se acabó el alcohol",
   "rail.leftOut.cut_off": "cortado",
+  "rail.onBreak": "{name} · en descanso",
+  "rail.wipe": "Limpiar pantalla",
+  "rail.wiping": "Limpiando · la pantalla no responde durante {n} s",
 };
