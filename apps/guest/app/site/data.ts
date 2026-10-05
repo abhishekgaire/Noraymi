@@ -180,3 +180,107 @@ export const minuteWords = (min: number) => {
     `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`,
   );
 };
+
+/** The quote a booking shows before paying (M5-07). */
+export interface Quote {
+  readonly business_date: string;
+  readonly min_guests: number;
+  readonly billable_guests: number;
+  readonly minutes: number;
+  readonly room_time_cents: number;
+  readonly tax_cents: number;
+  readonly gratuity_cents: number;
+  readonly total_cents: number;
+  readonly deposit_cents: number;
+}
+
+export interface Availability {
+  readonly business_date: string;
+  readonly today: string;
+  readonly guests: number;
+  readonly hours: number;
+  readonly min_guests: number;
+  readonly billable_guests: number;
+  readonly limits: { min_hours: number; max_hours: number; max_guests: number };
+  readonly price_wording: "plusTaxAndGratuity" | "allIn";
+  readonly tax_pct: string;
+  readonly gratuity_pct: number;
+  readonly closed: boolean;
+  readonly too_big: boolean;
+  readonly slots: readonly {
+    start: string;
+    time: string;
+    zone: string;
+    offset: string;
+    free: boolean;
+    size_tier: string | null;
+  }[];
+  readonly quote: Quote | null;
+}
+
+/** null when Online booking & deposits is off. */
+export async function fetchAvailability(
+  slug: string,
+  q: { date?: string | undefined; guests: number; hours?: number | undefined },
+): Promise<Availability | null> {
+  const params = new URLSearchParams({ guests: String(q.guests) });
+  if (q.date) params.set("date", q.date);
+  if (q.hours) params.set("hours", String(q.hours));
+  const r = await fetch(
+    `${api}/v1/public/venues/${encodeURIComponent(slug)}/availability?${params}`,
+    { cache: "no-store" },
+  );
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`availability couldn't load (${r.status})`);
+  return (await r.json()) as Availability;
+}
+
+export interface HeldBooking {
+  readonly id: string;
+  readonly status: "pending" | "lapsed" | "cancelled" | "confirmed" | string;
+  readonly party_size: number;
+  readonly size_tier: string;
+  readonly starts_at: string;
+  readonly ends_at: string;
+  readonly time_zone: string;
+  readonly pending_until: string | null;
+  readonly seconds_left: number | null;
+  readonly more_time_left: number;
+  readonly refund_cutoff_at: string | null;
+  readonly price_wording: "plusTaxAndGratuity" | "allIn";
+  readonly tax_pct: string;
+  readonly gratuity_pct: number;
+  readonly quote: Quote;
+}
+
+export async function fetchHold(token: string): Promise<HeldBooking | null> {
+  const r = await fetch(`${api}/v1/public/bookings/${encodeURIComponent(token)}/hold`, {
+    cache: "no-store",
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`the booking couldn't load (${r.status})`);
+  return (await r.json()) as HeldBooking;
+}
+
+/** "Fri, Sep 25" for a business date. */
+export const dateWords = (date: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T12:00:00Z`));
+
+/** The query the Pick form sends, checked; the party starts at tonight's billable minimum. */
+export function pickQuery(
+  q: { date?: string; guests?: string; hours?: string },
+  defaultGuests: number,
+) {
+  const guests = Number(q.guests);
+  const hours = Number(q.hours);
+  return {
+    date: q.date && /^\d{4}-\d{2}-\d{2}$/.test(q.date) ? q.date : undefined,
+    guests: Number.isInteger(guests) && guests >= 1 && guests <= 500 ? guests : defaultGuests,
+    hours: Number.isInteger(hours * 2) && hours > 0 && hours <= 24 ? hours : undefined,
+  };
+}

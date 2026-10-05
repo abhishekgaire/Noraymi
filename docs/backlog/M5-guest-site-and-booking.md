@@ -187,7 +187,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-07 · Quote a booking and hold a real room for 10 minutes
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-05, M5-06; M2 (room assignment, `room_blocks`, bookings)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) step 1 and the booking page's steps; [Money rules](../spec/05-money-rules.md) rules 2, 3 and 11; [Data model](../spec/04-data-model.md) (Room assignment, `room_blocks`, `bookings.pending_until`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`prices.booking`, `website.priceWording`); [API](../spec/08-api.md) (`GET /v1/public/venues/{slug}/availability`, `POST /v1/public/venues/{slug}/bookings`); [Security and data retention](../spec/12-security-retention.md) 14; [screens: Book](../screens.md#book), [N1](../screens.md#n1-booking-steps-after-the-price)
@@ -199,13 +199,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - At one minute left the page offers "More time" (10 more minutes, at least ten times), which extends the hold.
   - A job releases lapsed holds. Parties above `prices.booking.maxGuests` are sent to the enquiry form.
 - **Acceptance:**
-  - [ ] Jae & co. (5 guests, Fri Sep 25, 11:00 PM, 2 hours) see room time $100.00, tax $8.88 and the 20% gratuity $20.00 ($128.88) and a $50.00 deposit before paying.
-  - [ ] Picking the slot holds a small room for 10 minutes with a countdown, and no second guest can hold that room for an overlapping time.
-  - [ ] A party of 3 on a Friday can book, reads "Fri & Sat bill at least 4 · you pay for 4" and pays a $40.00 deposit.
-  - [ ] On Nov 1, 2026 the grid shows 1:00 AM EDT and 1:00 AM EST; on Mar 14, 2027 no 2:30 AM slot can be picked.
-  - [ ] A lapsed hold frees the room within a minute.
+  - [x] Jae & co. (5 guests, Fri Sep 25, 11:00 PM, 2 hours) see room time $100.00, tax $8.88 and the 20% gratuity $20.00 ($128.88) and a $50.00 deposit before paying.
+  - [x] Picking the slot holds a small room for 10 minutes with a countdown, and no second guest can hold that room for an overlapping time.
+  - [x] A party of 3 on a Friday can book, reads "Fri & Sat bill at least 4 · you pay for 4" and pays a $40.00 deposit.
+  - [x] On Nov 1, 2026 the grid shows 1:00 AM EDT and 1:00 AM EST; on Mar 14, 2027 no 2:30 AM slot can be picked.
+  - [x] A lapsed hold frees the room within a minute.
 - **Tests:** the money-cases group `deposits` (the `deposit_party*` cases: $40.00 for 3 or 4 on a Friday, $30.00 for 3 on a weeknight, $120.00 for 12, $190.00 for 19, $250.00 from 20); the `billable_guests` and `business_date` groups against the quote; daylight-saving tests; a concurrency test on holds (the room-block exclusion).
 - **Notes:** The canvas stops the guests stepper at 4 on Fridays ([Book note 3](../screens.md#book)) and reads the device date ([Book note 4](../screens.md#book)). Spec gaps: Security 14 says countdowns can be extended but not how; "More time" above is the cautious default, following WCAG 2.2's timing rule. West 4's `prices.booking` limits aren't in the seed; they're set in Admin → Hours & prices (M2).
+  - Built: `bookingQuote()` in `packages/rules` (room time minute by minute at the rate in force, tax, the gratuity before tax, the deposit), tested with Jae's $128.88 and the `deposit_party*` cases; `GET /v1/public/venues/{slug}/availability` and `POST /v1/public/venues/{slug}/bookings`, plus `GET /v1/public/bookings/{token}/hold` and `POST …/more-time` (the cautious default: the API table names only the first two). Online booking & deposits must be on (404 `booking_off` otherwise).
+  - Migration 0075: a web booking can have no guest while it's pending or cancelled (the name comes at Details, M5-08), and `hold_extensions` counts More time (10 minutes each, ten times). The hold is a `hold` room block with `expires_at`; the hold sweep (every 15 seconds) now also cancels web bookings whose hold lapsed. The booking's 128-bit link token is stored hashed in `manage_token_hash` and becomes the manage link.
+  - Rooms: online holds take only rooms marked bookable online, smallest that fits first. At West 4 the VIP room isn't bookable online, so 21 to 40 guests are sent to the enquiry form with 41 and up (flagged: the founder may want the VIP room online).
+  - Fixed on the way: parallel holds deadlocked on the room-block exclusion index (Postgres 40P01, a 500). Room assignment now takes a per-venue lock for the rest of its transaction, so holds take turns and each gets its own room or "no room".
+  - Tonight (Sep 25) every small room is booked from 11 PM, so a hold for Jae at 11 PM gets a medium room; the "small room" acceptance is tested on Fri Oct 2.
+  - Also fixed: the staff Spanish-screen e2e check flagged "Teléfono con Tap to Pay" (M4-29) as English because the loose pattern "{opens} to {closes}" matched it; a text that is exactly a Spanish catalog string now counts as Spanish.
 
 ### M5-08 · Take the guest's details, consents and the policy they accept
 

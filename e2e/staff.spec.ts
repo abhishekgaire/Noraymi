@@ -154,6 +154,8 @@ async function visibleTexts(page: Page): Promise<string[]> {
 }
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** A text that is a Spanish catalog string word for word is Spanish, whatever a loose English pattern says. */
+const esExact = new Set<string>(Object.values(catalogs.es));
 const matchers = (locale: "en" | "es") =>
   Object.values(catalogs[locale]).map(
     (v) => new RegExp(`^${escape(v).replace(/\\\{\w+\\\}/g, ".+")}$`),
@@ -230,7 +232,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
         `not Spanish: "${text}"`,
       ).toBe(true);
       expect(
-        enOnly.some((m) => m.test(text)),
+        !esExact.has(text) && enOnly.some((m) => m.test(text)),
         `English on a Spanish screen: "${text}"`,
       ).toBe(false);
     }
@@ -652,7 +654,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
           `${path} not Spanish: "${text}"`,
         ).toBe(true);
         expect(
-          enOnly.some((m) => m.test(text)),
+          !esExact.has(text) && enOnly.some((m) => m.test(text)),
           `${path} English on a Spanish screen: "${text}"`,
         ).toBe(false);
       }

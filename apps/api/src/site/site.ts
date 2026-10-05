@@ -30,7 +30,7 @@ import { livePromotions } from "../menu/promotions.js";
  * the rule pack's tax, room sizes from the rooms, the menu's price ranges, the
  * phone number, and which sections the modules leave on.
  */
-const pctOf = (rate: number) => {
+export const pctOf = (rate: number) => {
   const [whole, frac = ""] = String(rate).split(".");
   const digits = (whole! + frac.padEnd(2, "0")).replace(/^0+(?=\d)/, "");
   const point = digits.length - Math.max(0, frac.length - 2);

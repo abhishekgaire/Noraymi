@@ -338,3 +338,61 @@ body {
   min-height: 44px;
   font: inherit;
 }
+
+/* Book a room (M5-07) */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.book-page .pick {
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+}
+.book-page .pick label {
+  display: grid;
+  gap: 4px;
+}
+.book-page .pick input,
+.book-page .pick select {
+  min-height: 44px;
+  font: inherit;
+}
+.book-page .slots {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.book-page .slot {
+  min-height: 44px;
+  min-width: 96px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+.book-page .slot.taken {
+  display: inline-block;
+  text-decoration: line-through;
+}
+.book-page .quote dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.book-page .quote .total,
+.book-page .quote .deposit {
+  font-weight: 700;
+}
+.book-page .countdown {
+  font-size: 1.25em;
+  font-variant-numeric: tabular-nums;
+}

@@ -853,3 +853,61 @@ test("the parties page takes an enquiry for 22 by mobile number, not email", asy
     await db.end();
   }
 });
+
+/**
+ * Book a room, the Pick step (M5-07): Jae & co.'s price before paying, the
+ * hold with its countdown and More time, a hold that runs out, a party of 3
+ * on a Friday, and both 1 AMs on the fall-back night.
+ */
+test("Book: 5 guests for 2 hours on a Friday at 11 PM, held for 10 minutes, More time, then the hold runs out", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=5&hours=2");
+  const quote = page.locator(".quote");
+  await expect(quote).toContainText("Room time, 2 hours for 5$100");
+  await expect(quote).toContainText("Tax 8.875%$8.88");
+  await expect(quote).toContainText("Gratuity 20%$20");
+  await expect(quote).toContainText("Room time, all in$128.88");
+  await expect(quote).toContainText("Deposit to hold it$50");
+  await page.getByRole("button", { name: "Hold 11 PM EDT" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A small room held for you");
+  await expect(page.getByText("Fri, Oct 2 · 11 PM · 5 guests · 2 hours")).toBeVisible();
+  await expect(page.getByText(/^(10:00|9:5\d) left to finish$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "More time" })).toHaveCount(0);
+  const held = page.url();
+
+  // At one minute left, More time adds 10 minutes.
+  const at = (iso: string) =>
+    request.post("http://127.0.0.1:3000/v1/ops/clock", { data: { server_time: iso } });
+  expect((await at("2026-09-26T02:50:10Z")).ok()).toBe(true);
+  await page.reload();
+  await expect(page.getByText("One minute left. Need more time?")).toBeAttached();
+  await page.getByRole("button", { name: "More time" }).click();
+  await expect(page.getByText(/^(10:00|9:5\d) left to finish$/)).toBeVisible();
+
+  // Past the hold, the room is let go and the guest picks again.
+  expect((await at("2026-09-26T03:01:00Z")).ok()).toBe(true);
+  await page.goto(held);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Your hold ran out, and the room went back on sale.",
+  );
+  await expect(page.getByRole("link", { name: "Pick a time again" })).toBeVisible();
+});
+
+test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 AM EST", async ({
+  page,
+}) => {
+  await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=3&hours=1");
+  await expect(page.getByRole("note")).toHaveText("Fri & Sat bill at least 4 · you pay for 4");
+  await expect(page.locator(".quote")).toContainText("Deposit to hold it$40");
+  await page.goto("/v/west4karaoke/book?date=2026-10-31&guests=4&hours=1");
+  await expect(page.getByRole("button", { name: "Hold 1 AM EDT" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hold 1 AM EST" })).toBeVisible();
+  await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=25&hours=2");
+  await expect(page.getByRole("link", { name: "Plan a party" })).toHaveAttribute(
+    "href",
+    "/v/west4karaoke/parties#enquire",
+  );
+});

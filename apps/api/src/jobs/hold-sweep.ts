@@ -1,11 +1,13 @@
 import type pg from "pg";
 import { emitEvent, expireHolds, withVenue, type Sweep } from "@west4/db";
 import type { Clock } from "@west4/shared";
+import { lapseHolds } from "../bookings/online.js";
 
 /**
  * Lapsed holds (M2-05; spec 04 · room_blocks): a hold on a room (a slot being
  * paid for, a payment link, a waitlist offer) is gone once it expires, and the
- * room is free again. Every 15 seconds, venue by venue.
+ * room is free again, and a web booking left pending past its hold is
+ * cancelled. Every 15 seconds, venue by venue.
  */
 export const HOLD_SWEEP_EVERY_MS = 15_000;
 
@@ -18,6 +20,8 @@ export async function sweepHolds(
   for (const v of venues.rows) {
     const rooms = await withVenue(pool, { venueId: v.id, requestId: "sweep:holds" }, async (c) => {
       const gone = await expireHolds(c, now);
+      // A web booking whose hold lapsed unpaid is cancelled (M5-07): the guest picks a time again.
+      await lapseHolds(c, v.id, now);
       for (const roomId of new Set(gone))
         await emitEvent(c, {
           venueId: v.id,

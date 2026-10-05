@@ -108,17 +108,26 @@ const spanWithin =
   });
 
 /** The venue's live rooms, as assignment sees them; a room out of service isn't available. */
-async function roomsForAssignment(c: Queryable, venueId: string, cleaningMin: number) {
+async function roomsForAssignment(
+  c: Queryable,
+  venueId: string,
+  cleaningMin: number,
+  options: { online?: boolean } = {},
+) {
   const rooms = await listRooms(c, venueId);
-  return rooms.map((r): RoomForAssignment & { readonly state: string } => ({
-    id: r.id,
-    name: r.name,
-    capacityMin: r.capacity_min,
-    capacityMax: r.capacity_max,
-    cleaningMin: r.cleaning_min ?? cleaningMin,
-    available: r.state !== "out_of_service",
-    state: r.state,
-  }));
+  return rooms.map(
+    (r): RoomForAssignment & { readonly state: string; readonly sizeTier: string } => ({
+      id: r.id,
+      name: r.name,
+      capacityMin: r.capacity_min,
+      capacityMax: r.capacity_max,
+      cleaningMin: r.cleaning_min ?? cleaningMin,
+      // A guest booking online gets only the rooms the venue offers online (M5-07).
+      available: r.state !== "out_of_service" && (!options.online || r.bookable_online),
+      state: r.state,
+      sizeTier: r.size_tier,
+    }),
+  );
 }
 
 const iso = (raw: string | null): string | null =>
@@ -282,12 +291,21 @@ export async function assignBooking(
     refId: string | null;
     kind?: "booking" | "hold";
     expiresAt?: Temporal.Instant | null;
+    /** Only rooms bookable online (a guest's own booking, M5-07). */
+    online?: boolean;
   },
 ): Promise<BlockRow> {
+  // One assignment at a time per venue, until this transaction ends: parallel holds on one
+  // night would otherwise wait on each other's blocks in the exclusion index and deadlock.
+  await c.query("select pg_advisory_xact_lock(hashtextextended('room-assignment:' || $1, 0))", [
+    venueId,
+  ]);
   const venue = await venueClock(c, venueId);
   const night = await nightOf(c, venueId, venue, input.from);
   const settings = await settingsOn(c, venueId, night.businessDate);
-  const rooms = await roomsForAssignment(c, venueId, settings.cleaningMin);
+  const rooms = await roomsForAssignment(c, venueId, settings.cleaningMin, {
+    online: input.online ?? false,
+  });
   const blocks = (
     await blocksBetween(c, venueId, input.from.subtract({ hours: 24 }), input.to.add({ hours: 24 }))
   ).map(spanWithin(night, venue));
@@ -322,6 +340,41 @@ export async function assignBooking(
   }
   throw new ApiError("room_not_free", "no room fits this party at that time", {
     details: { reason: "no_room" },
+  });
+}
+
+/**
+ * Which of a night's start times have a free room that fits (M5-07: the
+ * public availability grid): rooms and blocks are read once, then each slot
+ * is tried as [start, start + length) plus cleaning. Online, only rooms
+ * bookable online count, and the first fitting room's size tier is named.
+ */
+export async function freeSlots(
+  c: Queryable,
+  venueId: string,
+  input: {
+    party: number;
+    slots: readonly { from: Temporal.Instant; to: Temporal.Instant }[];
+    online: boolean;
+  },
+): Promise<{ free: boolean; sizeTier: string | null }[]> {
+  if (input.slots.length === 0) return [];
+  const venue = await venueClock(c, venueId);
+  const night = await nightOf(c, venueId, venue, input.slots[0]!.from);
+  const settings = await settingsOn(c, venueId, night.businessDate);
+  const rooms = await roomsForAssignment(c, venueId, settings.cleaningMin, {
+    online: input.online,
+  });
+  const first = input.slots[0]!.from;
+  const last = input.slots[input.slots.length - 1]!.to;
+  const blocks = (
+    await blocksBetween(c, venueId, first.subtract({ hours: 24 }), last.add({ hours: 24 }))
+  ).map(spanWithin(night, venue));
+  return input.slots.map((s) => {
+    const choice = chooseRoom(rooms, blocks, input.party, s.from, s.to, night.close);
+    return "room" in choice
+      ? { free: true, sizeTier: choice.room.sizeTier }
+      : { free: false, sizeTier: null };
   });
 }
 

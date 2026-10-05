@@ -256,11 +256,13 @@ export function Deposits() {
 
           <h3>{t("deposits.policy")}</h3>
           <p className="small muted">{t("deposits.policy.hint")}</p>
-          <div className="policy" data-guest-text>
+          <div className="policy">
             {depositPolicyText(current, pay.gratuity)
               .split("\n")
               .map((line) => (
-                <p key={line}>{line}</p>
+                <p key={line} data-guest-text>
+                  {line}
+                </p>
               ))}
           </div>
           {live && (

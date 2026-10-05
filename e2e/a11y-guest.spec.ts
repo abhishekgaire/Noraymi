@@ -282,3 +282,13 @@ test("the menu page passes, light and dark", async ({ page }) => {
     expect(await violations(page)).toEqual([]);
   }
 });
+
+/** Book a room (M5-07): the Pick step and a held booking with its countdown. */
+test("the Book page and a held booking pass", async ({ page }) => {
+  await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=5&hours=2");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book a room");
+  expect(await violations(page)).toEqual([]);
+  await page.getByRole("button", { name: "Hold 11 PM EDT" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A small room held for you");
+  expect(await violations(page)).toEqual([]);
+});
