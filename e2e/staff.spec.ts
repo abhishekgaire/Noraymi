@@ -32,6 +32,7 @@ const ADMIN_SECTIONS = [
   "/admin/card-fee",
   "/admin/website",
   "/admin/deposits",
+  "/admin/bar-pos",
 ];
 const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -4898,6 +4899,40 @@ test("Admin → Deposits & cancelling: West 4's terms, a 48-hour cut-off publish
     await expect(page.getByRole("status")).toHaveText(
       "Online booking is off. Turn on Online booking & deposits in Features to set deposits.",
     );
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Bar POS · Layout (M6-01): West 4's version 1, an item added to the
+ * first open Favorites slot with nothing else moving, and Publish at 10:41 PM
+ * on Fri Sep 25 reading "Starts Sat, Sep 26" while tonight keeps version 1.
+ */
+test("Admin → Bar POS: add Nütrl to Favorites' first open slot, publish, starts Sat Sep 26", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInAndy(page, request, db);
+    await page.goto("/admin/bar-pos");
+    await expect(page.getByRole("heading", { level: 2, name: "Bar POS" })).toBeVisible();
+    await expect(page.getByText("Tonight: version 1")).toBeVisible();
+    const slots = page.getByRole("list", { name: "Favorites" }).getByRole("listitem");
+    await expect(slots).toHaveCount(25);
+    const before = await slots.allInnerTexts();
+    expect(before[22]).toBe("Open slot");
+    await page.getByLabel("Add an item").selectOption({ label: "Nütrl hard seltzer" });
+    await page.getByRole("button", { name: "Add to the first open slot" }).click();
+    const after = await slots.allInnerTexts();
+    expect(after[22]).toContain("Nütrl hard seltzer");
+    expect(after.slice(0, 22)).toEqual(before.slice(0, 22));
+    await page.getByRole("button", { name: "Publish" }).click();
+    await expect(page.getByRole("status")).toHaveText(
+      /^Version 2 published\. Starts Sat, Sep 26\.$/,
+    );
+    await expect(page.getByText("Tonight: version 1 · Version 2 starts Sat, Sep 26")).toBeVisible();
   } finally {
     await db.end();
   }

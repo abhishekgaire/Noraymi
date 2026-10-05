@@ -63,3 +63,16 @@ export function wallClock(
     .toZonedDateTime({ timeZone, plainTime: at }) // disambiguation defaults to "compatible"
     .toInstant();
 }
+
+/**
+ * The business date a "starts next business date" change begins (M6-01;
+ * spec 03 · When a change starts): the day after the business date `now`
+ * belongs to, so until the cutover tonight keeps what it has.
+ */
+export function nextBusinessDate(
+  now: Temporal.Instant,
+  timeZone: string,
+  cutover: string,
+): Temporal.PlainDate {
+  return businessDate(now, timeZone, cutover).businessDate.add({ days: 1 });
+}

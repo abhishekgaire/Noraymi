@@ -104,6 +104,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, 'dp_wall_b', 'fraudulent', 100, 'needs_response', now()) returning id`,
     [v.venueB, paymentB.rows[0]!.id],
   );
+  // A draft bar POS layout only venue B has.
+  const layoutB = await owner.query<{ id: string }>(
+    "insert into pos_layouts (venue_id, station, status, sections) values ($1, 'bar', 'draft', '{}') returning id",
+    [v.venueB],
+  );
   // A published site version only venue B has: version 777.
   await owner.query(
     `insert into site_versions (venue_id, version, status, content, published_at)
@@ -221,6 +226,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       disputeId: disputeB.rows[0]!.id,
       userId: v.ownerB,
       version: "777",
+      l: layoutB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

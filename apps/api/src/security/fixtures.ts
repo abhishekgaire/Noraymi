@@ -139,6 +139,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   token: "sample-token",
   code: "ABCD",
   version: "1",
+  l: uuid(50),
 };
 
 export function fillUrl(

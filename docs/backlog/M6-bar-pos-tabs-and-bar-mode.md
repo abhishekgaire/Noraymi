@@ -50,7 +50,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-01 · Publish bar POS layouts that start at the next business date
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3 (the menu with `button_name`); M1 (settings, Admin)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (rule 2, The bar POS screen, Admin → Bar POS: Layout); [Data model](../spec/04-data-model.md) (`pos_layouts`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`pos.layouts`, When a change starts); [API](../spec/08-api.md) (`GET /pos/layouts`, `POST /pos/layouts`, `/pos/layouts/{l}/publish`); [screens: N33](../screens.md#n33-admin--bar-pos)
@@ -60,11 +60,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Admin → Bar POS → Layout: a 25-slot grid for each section, per station, showing each item's `button_name`. West 4 has one station, the bar.
   - West 4's first published layout comes from the Rail board's fixed positions (its `PAGES`), since the seed has none.
 - **Acceptance:**
-  - [ ] Publishing on Fri Sep 25 at 10:41 PM shows "Starts Sat Sep 26", and the bar POS keeps tonight's layout until the 6:00 AM cutover.
-  - [ ] An item added to a section takes an empty slot, and no other item moves.
-  - [ ] A layout that names another venue's item is refused.
+  - [x] Publishing on Fri Sep 25 at 10:41 PM shows "Starts Sat Sep 26", and the bar POS keeps tonight's layout until the 6:00 AM cutover.
+  - [x] An item added to a section takes an empty slot, and no other item moves.
+  - [x] A layout that names another venue's item is refused.
 - **Tests:** unit tests for the business-date start; integration; end-to-end on the editor.
 - **Notes:** The seed has no `pos_layouts`; the Rail board's layout becomes West 4's first version.
+  - Built: migration 0076 (`pos_layouts`: station, version, draft or published, sections, published by and at, starts_on; one draft per station). The sections are fixed in `packages/shared/src/pos.ts`: favorites, beer, soju, cocktails, shots, spirits, wine, soft, bottles, buckets, 25 slots each. `addToSection` puts a new item in the first open slot and moves nothing else.
+  - Publishing gives the draft the station's next version, starting at `nextBusinessDate()` (tested on a normal night and both daylight-saving nights), and saves `pos.layouts` through Save and publish, whose M1 rule already starts a layouts change at the next business date. So `GET /pos/layouts` keeps showing version 1 as tonight's until 6:00 AM.
+  - `GET /pos/layouts` is for anyone with `pos.use` (the bar POS reads it in M6-02); saving and publishing are Admin, passkey only. A slot naming an item that isn't on this venue's menu is refused (`unknown_item`).
+  - Seed: `seed-pos-layout.ts` holds the Rail board's `PAGES` by the seed's item ids; the loader publishes it as version 1 for the bar and sets `pos.layouts` to `{ bar: 1 }`.
+  - Admin → Bar POS (`/admin/bar-pos`) has the Layout part only; the rest of that section (reason-only limits, locks, tip path, order aging, tab settings) is M6-25.
 
 ### M6-02 · Build the bar POS screen around the fixed grid
 

@@ -27,6 +27,7 @@ import {
 } from "@west4/shared";
 import { depositPolicyText } from "@west4/rules";
 import { publishPolicy } from "./policies.js";
+import { WEST4_POS_LAYOUT } from "./seed-pos-layout.js";
 import type { DeviceKind } from "./devices.js";
 import { reasonOnlyUsed } from "./checks.js";
 
@@ -902,6 +903,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "integrations",
       "setup_checks",
       "site_versions",
+      "pos_layouts",
       "prepaid_ledger",
       "prepaid_accounts",
       "dispute_funds",
@@ -1654,6 +1656,24 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         await addGroup(`${item.option_group!}_mixer`, "Mixer", false, group.mixers, undefined, 1);
     }
     log(`menu: ${seed.menu.items.length} items in ${sections.length} sections, ${out.size} 86'd`);
+
+    // The bar POS layout (M6-01): version 1, in force from the seed's business date.
+    const layout = Object.fromEntries(
+      Object.entries(WEST4_POS_LAYOUT).map(([section, slots]) => [
+        section,
+        slots.map((item) => (item === null ? null : id(`menu_${item}`))),
+      ]),
+    );
+    await client.query(
+      `insert into pos_layouts (venue_id, station, version, status, sections, published_at, starts_on)
+       values ($1, 'bar', 1, 'published', $2, $3, $4)`,
+      [venueId, JSON.stringify(layout), SEED_NOW.toString(), businessDate],
+    );
+    await client.query(
+      `update venue_settings set value = jsonb_set(value, '{layouts}', '{"bar": 1}')
+        where venue_id = $1 and key = 'pos'`,
+      [venueId],
+    );
 
     // Room orders (M3-06): o1 and o2 ringing, o3 and o4 accepted and ready with their tickets
     // printed, and the earlier delivered ones, whose lines are on their checks already. The seed

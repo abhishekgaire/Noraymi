@@ -24,6 +24,7 @@ describe("the Admin sections", () => {
       "payments",
       "cardFee",
       "disputes",
+      "barPos",
       "deposits",
       "website",
       "console",
@@ -44,6 +45,7 @@ describe("the Admin sections", () => {
       "connections",
       "cardFee",
       "disputes",
+      "barPos",
       "deposits",
       "website",
     ]);

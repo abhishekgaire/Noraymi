@@ -1145,3 +1145,38 @@ button.danger {
 .website .tag {
   font-weight: 600;
 }
+
+/* Admin → Bar POS · Layout (M6-01): 25 fixed slots, five across */
+.bar-pos .sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bar-pos .sections .chip {
+  min-height: 44px;
+}
+.bar-pos .slots {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.bar-pos .slot {
+  min-height: 56px;
+  border: 1px solid var(--line, #ccc);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.bar-pos .slot.empty {
+  border-style: dashed;
+}
+.bar-pos .slot .link {
+  min-width: 44px;
+  min-height: 44px;
+}
