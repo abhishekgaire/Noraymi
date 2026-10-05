@@ -139,11 +139,19 @@ export async function cancelIntent(
   });
 }
 
-/** Room checks carry the gratuity, so their taps skip the reader's tip screen (Stripe setup 4). */
+/**
+ * Room checks carry the gratuity, so their taps skip the reader's tip screen (Stripe setup 4).
+ * A bar or quick sale tips on the drinks before tax (M6-05): `tipping[amount_eligible]`.
+ */
 export async function processOnReader(
   stripe: StripeClient,
   account: string,
-  input: { readerId: string; piId: string; skipTipping: boolean },
+  input: {
+    readerId: string;
+    piId: string;
+    skipTipping: boolean;
+    amountEligibleCents?: number | null;
+  },
   idempotencyKey: string,
 ): Promise<{ id: string; action?: ReaderAction | null }> {
   return stripe.call(
@@ -155,7 +163,11 @@ export async function processOnReader(
       idempotencyKey,
       params: {
         payment_intent: input.piId,
-        ...(input.skipTipping ? { process_config: { skip_tipping: true } } : {}),
+        ...(input.skipTipping
+          ? { process_config: { skip_tipping: true } }
+          : input.amountEligibleCents
+            ? { process_config: { tipping: { amount_eligible: input.amountEligibleCents } } }
+            : {}),
       },
     },
   );

@@ -152,7 +152,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-05 · Sell at the bar with Quick sale
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-03; M4-11, M4-13, M4-19
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Paying at the bar: Cash and Receipt; Tabs, card first); [Stripe setup](../spec/06-stripe-setup.md) step 4 (`process_config[tipping][amount_eligible]`); [Data model](../spec/04-data-model.md) (`checks.kind` quick); [Song systems and texts](../spec/11-song-systems-texts.md) (Credits); [milestones: GA-M11](../milestones.md#must-fix-items-and-where-they-close) (cash always taken)
@@ -163,12 +163,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - A round rung on Quick sale can move onto a new tab unsent, when the card is taken after.
   - In bar mode, a drink bought without a tab earns a singer a credit when the bartender picks the singer on the sale.
 - **Acceptance:**
-  - [ ] A walk-up Bud Light paid in cash takes 3 taps (the beer, Pay, the bill handed over) and under 8 seconds; the bar drawer opens and the log reads "Logged to Maya · bar drawer".
-  - [ ] A $9.00 quick sale on the reader offers $1, $2 and $3; a $30.00 one offers $5.40, $6.00 and $6.60.
-  - [ ] A declined tap voids the check, keeps its number, and offers cash.
+  - [x] A walk-up Bud Light paid in cash takes 3 taps (the beer, Pay, the bill handed over) and under 8 seconds; the bar drawer opens and the log reads "Logged to Maya · bar drawer".
+  - [x] A $9.00 quick sale on the reader offers $1, $2 and $3; a $30.00 one offers $5.40, $6.00 and $6.60.
+  - [x] A declined tap voids the check, keeps its number, and offers cash.
   - [ ] Picking Kira on a drink bought at the bar gives her one credit.
 - **Tests:** the money-cases group `tips` (the `tip_choices` cases); a timed end-to-end; a sandbox tap on a simulated reader.
 - **Notes:** The canvas says "Back to the tab" on a quick sale ([Rail note 11](../screens.md#rail)).
+  - Built: `POST /v1/venues/{v}/quick-sales` makes a walk-up sale's own `quick` check (its number taken first, in its own transaction), puts the person's rung drinks on it as a staff order accepted at once (the ticket prints), finalizes it and empties their quick draft; a retried Pay with the same `client_order_id` answers the same sale. `GET …/quick-sales/{c}` shows it with the reader's tip choices; `POST …/quick-sales/{c}/void` is Back to the sale.
+  - The reader: a bar or quick sale's tap now sends `process_config[tipping][amount_eligible]` (or `collect_config` with the card fee on) with the drinks before tax, so the reader's choices work on them. `tipChoices()` in `packages/rules` gives the same choices for the screen, tested with the seed's `tip_choices` cases ($9.00: $1, $2, $3; $30.00: $5.40, $6.00, $6.60).
+  - The bar POS opens on Quick sale. Pay replaces Send there; the pay panel offers the tap (M4-11) and cash with one tap on what the guest handed over (the cash panel's new `oneTap`, so a walk-up beer is three taps), then the change, "Logged to Maya · bar drawer" and the receipt (M4-19). Ringing the next drink starts the next sale.
+  - A declined tap: M4's pay panel shows Declined and the cash panel stays. "Back to the sale" then voids the unpaid check (it keeps its number) and puts its drinks back in the person's quick sale, refused while money is taken or held, or a tap is still on the reader. Read as: the declined *sale* is voided on the way back, not the moment the card declines (flagged).
+  - Fixed on the way: a drink rung a moment before Send or Pay could be saved to the draft after the sale had cleared it. Saves now run in order, and Send and Pay wait for the last one.
+  - Not here: moving a quick-sale round onto a new tab comes with opening tabs (M6-06); picking a singer for a drink credit needs the singer queue (M6-18), so that acceptance line is checked there.
 
 ### M6-06 · Open a tab card first, with the consent line and one tab per card
 

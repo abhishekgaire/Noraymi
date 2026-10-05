@@ -13,7 +13,12 @@ export const SURCHARGE_PREVIEW_VERSION = "2026-03-25.preview";
 export async function collectOnReader(
   stripe: StripeClient,
   account: string,
-  input: { readerId: string; piId: string; skipTipping: boolean },
+  input: {
+    readerId: string;
+    piId: string;
+    skipTipping: boolean;
+    amountEligibleCents?: number | null;
+  },
   idempotencyKey: string,
 ): Promise<unknown> {
   return stripe.call(
@@ -25,7 +30,11 @@ export async function collectOnReader(
       idempotencyKey,
       params: {
         payment_intent: input.piId,
-        ...(input.skipTipping ? { collect_config: { skip_tipping: true } } : {}),
+        ...(input.skipTipping
+          ? { collect_config: { skip_tipping: true } }
+          : input.amountEligibleCents
+            ? { collect_config: { tipping: { amount_eligible: input.amountEligibleCents } } }
+            : {}),
       },
     },
   );

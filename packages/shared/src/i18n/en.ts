@@ -1870,4 +1870,8 @@ export const en = {
   "rail.onBreak": "{name} · on break",
   "rail.wipe": "Wipe screen",
   "rail.wiping": "Wiping · touch is off for {n} s",
+  "rail.quickSale": "Quick sale",
+  "rail.nextSale": "Ring the next drink to start the next sale.",
+  "rail.tipChoices": "The reader offers {list} as a tip.",
+  "drinks.pay": "Pay for {count}",
 } as const;

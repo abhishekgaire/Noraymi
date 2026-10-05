@@ -219,6 +219,8 @@ interface Context {
   readonly attempt: AttemptRow | null;
   readonly account: string | null;
   readonly skipTipping: boolean;
+  /** A bar or quick sale's drinks before tax, which the reader's tip choices work on (M6-05). */
+  readonly amountEligibleCents: number | null;
   /** The card fee at the reader is on (M4-25): collect first, then confirm. */
   readonly collect: boolean;
 }
@@ -240,11 +242,24 @@ async function context(
           )
         ).rows[0]?.kind
       : null;
+    const drinks =
+      attempt?.check_id && kind && kind !== "room"
+        ? (
+            await c.query<{ cents: number }>(
+              `select coalesce(sum(amount_cents), 0)::int as cents from check_lines
+                where venue_id = $1 and check_id = $2 and kind in ('item', 'comp', 'void', 'discount')`,
+              [venueId, attempt.check_id],
+            )
+          ).rows[0]!.cents
+        : null;
     return {
       payment,
       attempt,
       account: await stripeAccountOf(c, venueId),
       skipTipping: kind === "room",
+      // A share of a split tips on no more than its own amount.
+      amountEligibleCents:
+        drinks !== null && drinks > 0 ? Math.min(drinks, attempt!.amount_cents) : null,
       collect: (await surchargeFor(c, venueId, payment.business_date)) !== null,
     };
   });
@@ -334,14 +349,24 @@ export async function runAttempt(
       await collectOnReader(
         deps.stripe,
         account,
-        { readerId: attempt.reader_id!, piId, skipTipping: ctx.skipTipping },
+        {
+          readerId: attempt.reader_id!,
+          piId,
+          skipTipping: ctx.skipTipping,
+          amountEligibleCents: ctx.amountEligibleCents,
+        },
         attempt.idem_key,
       );
     else
       await processOnReader(
         deps.stripe,
         account,
-        { readerId: attempt.reader_id!, piId, skipTipping: ctx.skipTipping },
+        {
+          readerId: attempt.reader_id!,
+          piId,
+          skipTipping: ctx.skipTipping,
+          amountEligibleCents: ctx.amountEligibleCents,
+        },
         attempt.idem_key,
       );
     await deps.stripe.step("after-process");

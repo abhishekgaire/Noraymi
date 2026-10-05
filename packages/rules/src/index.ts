@@ -61,3 +61,4 @@ export * from "./cash.js";
 export * from "./site.js";
 export * from "./policy.js";
 export * from "./quote.js";
+export * from "./tips.js";

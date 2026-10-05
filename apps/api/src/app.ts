@@ -281,7 +281,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       policyRoutes(scope, { pool: gatePoolRef! });
       onlineBookingRoutes(scope, { pool: gatePoolRef!, clock });
       posLayoutRoutes(scope, { clock });
-      tabRoutes(scope, { clock });
+      tabRoutes(scope, { clock, pool: gatePoolRef! });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

@@ -14,6 +14,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { QuickSale } from "./QuickSale.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -105,7 +106,7 @@ interface CheckLine {
   readonly description: string;
   readonly amount_cents: number;
 }
-type Picked = { kind: "tab"; id: string } | { kind: "room"; id: string } | null;
+type Picked = { kind: "tab"; id: string } | { kind: "room"; id: string } | { kind: "quick" } | null;
 
 const AMBER_S = 120;
 const PINK_S = 240;
@@ -138,7 +139,7 @@ export function Rail() {
   const [query, setQuery] = useState("");
   const [find, setFind] = useState("");
   const [filter, setFilter] = useState<"all" | "mine" | "rooms">("all");
-  const [picked, setPicked] = useState<Picked>(null);
+  const [picked, setPicked] = useState<Picked>({ kind: "quick" });
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
   const [draftRefresh, setDraftRefresh] = useState(0);
@@ -186,7 +187,7 @@ export function Rail() {
     // Whoever is signed in: a badge takeover reloads everything as the new person.
   }, [venueId, meId]);
   useEffect(() => void load(), [load]);
-  useEffect(() => setPicked(null), [meId]);
+  useEffect(() => setPicked({ kind: "quick" }), [meId]);
 
   const lockNow = useCallback(async () => {
     await lock();
@@ -347,7 +348,7 @@ export function Rail() {
       else setChoosing(item);
       return;
     }
-    if (!checkId) {
+    if (!checkId && picked?.kind !== "quick") {
       setError(t("rail.pickFirst"));
       return;
     }
@@ -546,6 +547,14 @@ export function Rail() {
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              className={picked?.kind === "quick" ? "rail-row quick on" : "rail-row quick"}
+              aria-pressed={picked?.kind === "quick"}
+              onClick={() => pick({ kind: "quick" })}
+            >
+              <span className="name">{t("rail.quickSale")}</span>
+            </button>
             <ul className="rail-list" aria-label={t("rail.barTabs")}>
               {shownTabs.map((x) => (
                 <li key={x.id}>
@@ -735,7 +744,14 @@ export function Rail() {
           </div>
 
           <aside className="rail-right" aria-label={t("rail.picked")}>
-            {!tab && !room ? (
+            {picked?.kind === "quick" ? (
+              <QuickSale
+                venueId={venueId}
+                ringRequest={ringRequest}
+                refresh={draftRefresh}
+                onChanged={() => void load()}
+              />
+            ) : !tab && !room ? (
               <p className="muted">{t("rail.pickFirst")}</p>
             ) : (
               <>

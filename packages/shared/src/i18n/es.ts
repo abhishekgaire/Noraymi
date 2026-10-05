@@ -1900,4 +1900,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.onBreak": "{name} · en descanso",
   "rail.wipe": "Limpiar pantalla",
   "rail.wiping": "Limpiando · la pantalla no responde durante {n} s",
+  "rail.quickSale": "Venta rápida",
+  "rail.nextSale": "Marca la siguiente bebida para empezar otra venta.",
+  "rail.tipChoices": "El lector ofrece {list} de propina.",
+  "drinks.pay": "Cobrar {count}",
 };

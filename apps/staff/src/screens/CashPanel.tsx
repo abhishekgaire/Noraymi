@@ -28,6 +28,7 @@ export function CashPanel({
   dueCents,
   shareId,
   onTaken,
+  oneTap = false,
 }: {
   venueId: string;
   checkId: string;
@@ -35,6 +36,8 @@ export function CashPanel({
   /** A split's share (M4-14): the payment pays it. */
   shareId?: string | null;
   onTaken: (taken: Taken) => void;
+  /** The bar's quick sale (M6-05): one tap on what the guest handed over takes it. */
+  oneTap?: boolean;
 }) {
   const { t, money } = useT();
   const [tendered, setTendered] = useState<number | null>(null);
@@ -50,8 +53,10 @@ export function CashPanel({
       ? null
       : changeDue({ owedCents: dueCents, tipCents, tenderedCents: tendered });
 
-  const take = async () => {
-    if (tendered === null || change === null) return;
+  const take = async (handed: number | null = tendered) => {
+    const owed =
+      handed === null ? null : changeDue({ owedCents: dueCents, tipCents, tenderedCents: handed });
+    if (handed === null || owed === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -61,7 +66,7 @@ export function CashPanel({
         {
           method: "cash",
           amount_cents: dueCents,
-          tendered_cents: tendered,
+          tendered_cents: handed,
           ...(tipCents > 0 ? { tip_cents: tipCents } : {}),
           ...(shareId ? { share_id: shareId } : {}),
         },
@@ -89,6 +94,7 @@ export function CashPanel({
             onClick={() => {
               setTendered(o.cents);
               setOther("");
+              if (oneTap) void take(o.cents);
             }}
           >
             {o.kind === "exact" ? t("cash.exact", { amount: money(o.cents) }) : money(o.cents)}

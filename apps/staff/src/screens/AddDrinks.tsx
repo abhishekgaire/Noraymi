@@ -41,7 +41,7 @@ interface Item {
   readonly variants: readonly Variant[];
   readonly groups: readonly Group[];
 }
-interface DraftLine {
+export interface DraftLine {
   readonly variant_id: string;
   readonly qty: number;
   readonly option_ids: readonly string[];
@@ -75,6 +75,8 @@ export function AddDrinks(props: {
   ringRequest?: { readonly variantId: string; readonly n: number } | null;
   /** Bumped when the server changed the draft for us (Repeat round, M6-03). */
   refresh?: number;
+  /** Quick sale (M6-05): Pay makes the sale from the lines instead of sending them to a check. */
+  onPay?: (lines: readonly DraftLine[]) => Promise<void>;
 }) {
   const { t, money } = useT();
   const { subscribe } = useEvents();
@@ -152,21 +154,28 @@ export function AddDrinks(props: {
   }, [props.refresh, loadDraft]);
 
   /** Saves the lines as rung; when another screen saved first, its lines win and show here. */
-  const save = async (next: readonly DraftLine[], undoable = true) => {
+  // Saves run one after another, and Send or Pay waits for the last one (M6-05): a drink rung a
+  // moment before Pay is saved before the sale clears the draft, never after it.
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  const save = (next: readonly DraftLine[], undoable = true) => {
     if (undoable) history.current = [...history.current.slice(-49), lines];
     setLines(next);
     setSent(false);
-    try {
-      const r = await api<{ version: number }>("PUT", `/v1/venues/${venueId}/drafts/${checkId}`, {
-        lines: next,
-        version: version.current,
-      });
-      version.current = r.version;
-    } catch (e) {
-      const err = e as ApiCallError;
-      if (err?.code === "version_conflict") await loadDraft();
-      else setError(err?.message ?? t("drinks.failed"));
-    }
+    const run = async () => {
+      try {
+        const r = await api<{ version: number }>("PUT", `/v1/venues/${venueId}/drafts/${checkId}`, {
+          lines: next,
+          version: version.current,
+        });
+        version.current = r.version;
+      } catch (e) {
+        const err = e as ApiCallError;
+        if (err?.code === "version_conflict") await loadDraft();
+        else setError(err?.message ?? t("drinks.failed"));
+      }
+    };
+    saving.current = saving.current.then(run);
+    return saving.current;
   };
 
   const ring = (item: Item, variant: Variant) => {
@@ -239,10 +248,13 @@ export function AddDrinks(props: {
     setError(null);
     setSending(true);
     try {
-      await api("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
-        client_order_id: crypto.randomUUID(),
-        lines,
-      });
+      await saving.current;
+      if (props.onPay) await props.onPay(lines);
+      else
+        await api("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
+          client_order_id: crypto.randomUUID(),
+          lines,
+        });
       setLines([]);
       history.current = [];
       setSent(true);
@@ -404,7 +416,9 @@ export function AddDrinks(props: {
                 ? t("drinks.sending")
                 : missing
                   ? t("drinks.sendMissing", missing)
-                  : t("drinks.send", { count })}
+                  : props.onPay
+                    ? t("drinks.pay", { count })
+                    : t("drinks.send", { count })}
             </button>
           </div>
         </div>

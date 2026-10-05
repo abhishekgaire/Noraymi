@@ -5222,3 +5222,47 @@ test("sharing the bar computer: Maya's badge takes over from Diego, on break, Wi
     await db.end();
   }
 });
+
+/**
+ * Quick sale (M6-05): a walk-up Bud Light in cash in three taps (the beer,
+ * Pay, the bill handed over) under 8 seconds, logged to Maya's bar drawer;
+ * a $9.00 sale shows the reader's $1, $2 and $3; the next drink starts the
+ * next sale.
+ */
+test("Quick sale: a walk-up Bud Light in cash in three taps, logged to Maya · bar drawer", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    // The newly paired bar computer opens the bar drawer, as Admin → Devices pairs it.
+    await db.query(
+      `update devices set cash_drawer_id = (select id from cash_drawers where station = 'bar' limit 1)
+        where kind = 'bar_computer' and cash_drawer_id is null`,
+    );
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    const started = Date.now();
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    await panel
+      .getByRole("group", { name: /handed over/i })
+      .getByRole("button", { name: "$10.00" })
+      .click();
+    await expect(panel).toContainText("Logged to Maya · bar drawer");
+    expect(Date.now() - started).toBeLessThan(8000);
+    await expect(panel.getByRole("button", { name: "Text" })).toBeVisible();
+
+    // The next drink starts the next sale: a $9.00 Modelo, whose reader offers $1, $2 and $3.
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    await expect(panel).toContainText("The reader offers $1.00, $2.00, $3.00 as a tip.");
+    // Back to the sale: voided, and the Modelo is back in the round.
+    await panel.getByRole("button", { name: "Back to the sale" }).click();
+    await expect(panel.getByRole("button", { name: "Pay for 1" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});

@@ -1,0 +1,149 @@
+import { useState } from "react";
+import { api, ApiCallError } from "../api.js";
+import { useT } from "../i18n.js";
+import { AddDrinks, type DraftLine } from "./AddDrinks.js";
+import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
+import { ReceiptStep } from "./ReceiptStep.js";
+import { TapPayment } from "./TapPayment.js";
+
+/**
+ * Quick sale on the bar POS (M6-05; Staff screens and the bar POS · Paying at
+ * the bar: Cash and Receipt): the person's own walk-up sale. The drinks are
+ * rung from the grid into their quick draft; Pay makes the sale's own check
+ * and opens the pay panel: a tap at the reader (its tip choices worked out on
+ * the drinks before tax) or cash, one tap on what the guest handed over. Then
+ * the receipt. "Back to the sale" voids an unpaid sale, keeping its number,
+ * and puts its drinks back. Ringing the next drink starts the next sale.
+ */
+interface Sale {
+  readonly check_id: string;
+  readonly check_label: string;
+  readonly amount_due_cents: number;
+  readonly totals: { readonly total_cents: number } | null;
+  readonly tip_choices: {
+    readonly kind: "fixed" | "percent";
+    readonly choices_cents: readonly number[];
+  } | null;
+}
+
+export function QuickSale({
+  venueId,
+  ringRequest,
+  refresh,
+  onChanged,
+}: {
+  venueId: string;
+  ringRequest: { variantId: string; n: number } | null;
+  refresh: number;
+  onChanged: () => void;
+}) {
+  const { t, money } = useT();
+  const [sale, setSale] = useState<Sale | null>(null);
+  const [paid, setPaid] = useState(false);
+  const [cash, setCash] = useState<Taken | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRing, setLastRing] = useState(0);
+  // The grid tap a sale was paid from: a drinks panel shown again never rings it a second time.
+  const [used, setUsed] = useState(0);
+
+  // A drink rung after a sale was paid starts the next sale, without choosing.
+  if (ringRequest && ringRequest.n !== lastRing) {
+    setLastRing(ringRequest.n);
+    if (paid) {
+      setSale(null);
+      setPaid(false);
+      setCash(null);
+    }
+  }
+
+  const pay = async (lines: readonly DraftLine[]) => {
+    setError(null);
+    const s = await api<Sale>("POST", `/v1/venues/${venueId}/quick-sales`, {
+      client_order_id: crypto.randomUUID(),
+      lines,
+    });
+    setSale(s);
+    setUsed(ringRequest?.n ?? 0);
+    onChanged();
+  };
+  const back = async () => {
+    if (!sale) return;
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/quick-sales/${sale.check_id}/void`);
+      setSale(null);
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiCallError ? e.message : t("drinks.failed"));
+    }
+  };
+
+  if (!sale)
+    return (
+      <AddDrinks
+        venueId={venueId}
+        checkId="quick"
+        search={false}
+        ringRequest={ringRequest && ringRequest.n > used ? ringRequest : null}
+        refresh={refresh}
+        onSent={onChanged}
+        onPay={pay}
+      />
+    );
+
+  return (
+    <section className="quick-pay" aria-label={t("rail.quickSale")}>
+      <h3>
+        {t("rail.quickSale")} · {sale.check_label}
+      </h3>
+      <p className="total">
+        {t("rail.total")} <strong>{money(sale.amount_due_cents as never)}</strong>
+      </p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {paid ? (
+        <>
+          {cash && <CashResult venueId={venueId} taken={cash} />}
+          <ReceiptStep venueId={venueId} checkId={sale.check_id} roomName={t("rail.quickSale")} />
+          <p className="small muted">{t("rail.nextSale")}</p>
+        </>
+      ) : (
+        <>
+          {sale.tip_choices && (
+            <p className="small">
+              {t("rail.tipChoices", {
+                list: sale.tip_choices.choices_cents.map((c) => money(c as never)).join(", "),
+              })}
+            </p>
+          )}
+          <TapPayment
+            venueId={venueId}
+            checkId={sale.check_id}
+            dueCents={sale.amount_due_cents}
+            onDone={() => {
+              setPaid(true);
+              onChanged();
+            }}
+          />
+          <CashPanel
+            venueId={venueId}
+            checkId={sale.check_id}
+            dueCents={sale.amount_due_cents}
+            oneTap
+            onTaken={(taken) => {
+              setCash(taken);
+              setPaid(true);
+              onChanged();
+            }}
+          />
+          <button type="button" className="link" onClick={() => void back()}>
+            {t("rail.backToSale")}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
