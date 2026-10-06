@@ -1,5 +1,12 @@
 import { assertOutsideTransaction } from "@west4/db";
-import type { StripeService, StripeSettings } from "./settings.js";
+import type { West4Env } from "../config.js";
+import {
+  LIVE_KEY,
+  loadStripeSandboxSettings,
+  loadStripeSettings,
+  type StripeService,
+  type StripeSettings,
+} from "./settings.js";
 
 /**
  * The one Stripe client (M4-01; Stripe setup 5 and 7). Every call to Stripe
@@ -14,8 +21,11 @@ import type { StripeService, StripeSettings } from "./settings.js";
  *    every venue call must carry one;
  *  - every write carries an idempotency key;
  *  - never inside a database transaction.
- * The live-or-sandbox choice lives here alone (the settings' key and base), so
- * training mode can route practice requests to the sandbox in one place (M7).
+ * The live-or-sandbox choice lives here alone (M7-04): a practice payment's
+ * calls go through `forTraining(true)`, which sends them to the sandbox
+ * client attached to this one, each marked `training`. The live client
+ * refuses a practice call, and the sandbox client refuses a live one or a
+ * live key, before anything leaves the process.
  */
 export const STRIPE_API_VERSION = "2026-08-26.dahlia";
 
@@ -30,6 +40,8 @@ export interface StripeCall {
   readonly version?: string;
   /** Platform calls (making a venue's account) run on our account with the payments key. */
   readonly platform?: boolean;
+  /** A practice payment's call (M7-04): only the sandbox client sends it. */
+  readonly training?: boolean;
   /** A file for Stripe's Files API (dispute evidence, M4-24): sent multipart to Stripe's files host. */
   readonly file?: {
     readonly purpose: string;
@@ -122,6 +134,39 @@ export class StripeClient {
     if (faults && settings.livemode) throw new Error("fault injection is never used in live mode");
   }
 
+  /** Training mode's sandbox client (M7-04), when this environment has one. */
+  private sandboxClient: StripeClient | null = null;
+
+  /** Training mode's sandbox settings, when attached (its webhook secret, M7-04). */
+  get sandboxSettings(): StripeSettings | null {
+    return this.settings.sandbox ? this.settings : (this.sandboxClient?.settings ?? null);
+  }
+
+  /** Attach the sandbox that practice payments use. */
+  withSandbox(sandbox: StripeClient): this {
+    if (!sandbox.settings.sandbox) throw new Error("the training client must be the sandbox");
+    this.sandboxClient = sandbox;
+    return this;
+  }
+
+  /**
+   * The client for one payment: this one for a live payment; for a practice
+   * payment the sandbox, with every call marked practice. With no sandbox
+   * attached, the marked calls land on this client and are refused unsent.
+   */
+  forTraining(training: boolean): StripeClient {
+    if (!training || this.settings.sandbox) return this;
+    const target = this.sandboxClient ?? this;
+    const bound = Object.create(target) as StripeClient;
+    bound.call = <T>(
+      service: StripeService,
+      method: "GET" | "POST" | "DELETE",
+      path: string,
+      call: StripeCall,
+    ): Promise<T> => target.call<T>(service, method, path, { ...call, training: true });
+    return bound;
+  }
+
   /** A named step of a payment run; fault injection may stop the run here. */
   async step(name: string): Promise<void> {
     await this.faults?.step?.(name);
@@ -157,9 +202,16 @@ export class StripeClient {
     assertOutsideTransaction("stripe");
     if (this.settings.mode === "off")
       throw new StripeMisuse("Stripe isn't set up here (no keys and no fake)");
+    // Training mode (M7-04): a practice call never reaches live Stripe, and the sandbox takes nothing else.
+    if (call.training && !this.settings.sandbox)
+      throw new StripeMisuse("a practice payment never goes to live Stripe");
+    if (this.settings.sandbox && !call.training)
+      throw new StripeMisuse("the training sandbox takes practice payments only");
     StripeClient.check(service, method, path, call);
     const key = this.settings.keys[service];
     if (!key) throw new StripeMisuse(`no ${service} key`);
+    if (this.settings.sandbox && LIVE_KEY.test(key))
+      throw new StripeMisuse("the training sandbox never sends a live key");
     const v2 = path.startsWith("/v2/");
     const headers: Record<string, string> = {
       authorization: `Bearer ${key}`,
@@ -235,4 +287,11 @@ export class StripeClient {
     }
     return json as T;
   }
+}
+
+/** The environment's Stripe: the live client with training mode's sandbox attached (M4-01, M7-04). */
+export function stripeFromEnv(env: West4Env): StripeClient {
+  return new StripeClient(loadStripeSettings(env)).withSandbox(
+    new StripeClient(loadStripeSandboxSettings(env)),
+  );
 }

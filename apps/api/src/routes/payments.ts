@@ -98,6 +98,8 @@ export function paymentView(
     method: payment.method,
     status: payment.status,
     state: screenState(payment, attempt),
+    /** A practice payment (M7-04): the screen offers [Tap a test card] while it waits. */
+    training: payment.training,
     amount_cents: payment.amount_cents,
     tip_cents: payment.tip_cents,
     card_brand: payment.card_brand,

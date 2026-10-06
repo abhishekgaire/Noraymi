@@ -82,6 +82,7 @@ fakeRouteSets.push((fake) => {
         ],
       },
     });
+    if (req.sandbox) fake.sandboxAccounts.add(String(a["id"]));
     return { body: accountView(a, ["configuration.merchant", "requirements"]) };
   });
 

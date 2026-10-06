@@ -14,7 +14,7 @@ import {
   readerOfVenue,
   saveDraft,
   startAttempt,
-  stripeAccountOf,
+  stripeAccountFor,
   withVenue,
   type PaymentRow,
   type Queryable,
@@ -161,7 +161,7 @@ export async function writeTabOpening(
     throw new ApiError("invalid_request", "how many in the party?", {
       details: { reason: "party_size" },
     });
-  const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
+  const reader = await readerOfVenue(c, venueId, input.readerDeviceId, input.training ?? false);
   if (!reader) throw new ApiError("not_found", "no such reader");
   if (await checks.readerQuiet(c, venueId, input.readerDeviceId, input.now))
     throw new ApiError("reader_offline", "the bar reader is offline: no new tabs until it's back", {
@@ -238,16 +238,24 @@ export async function openingOfPayment(
   return r.rows[0] ?? null;
 }
 
-/** The card's open tab at the venue (one per card while it's open), under a lock on the fingerprint. */
-async function openTabOfCard(c: Queryable, venueId: string, fingerprint: string) {
+/**
+ * The card's open tab at the venue (one per card while it's open), under a lock on the fingerprint.
+ * A practice tab and a live tab never meet (M7-04): a test card's fingerprint finds only practice tabs.
+ */
+async function openTabOfCard(
+  c: Queryable,
+  venueId: string,
+  fingerprint: string,
+  training: boolean,
+) {
   await c.query("select pg_advisory_xact_lock(hashtext('tab_card:' || $1::text || $2::text))", [
     venueId,
     fingerprint,
   ]);
   const r = await c.query<{ id: string; check_id: string }>(
-    `select id, check_id from tabs
-      where venue_id = $1 and card_fingerprint = $2 and state = any($3) limit 1`,
-    [venueId, fingerprint, TAB_CARD_HELD],
+    `select t.id, t.check_id from tabs t join checks k on k.venue_id = t.venue_id and k.id = t.check_id
+      where t.venue_id = $1 and t.card_fingerprint = $2 and t.state = any($3) and k.training = $4 limit 1`,
+    [venueId, fingerprint, TAB_CARD_HELD, training],
   );
   return r.rows[0] ?? null;
 }
@@ -325,12 +333,15 @@ export async function confirmTabCard(
       opening,
       payment: await paymentById(c, venueId, paymentId),
       attempt: await latestAttempt(c, venueId, paymentId),
-      account: await stripeAccountOf(c, venueId),
     };
   });
   if (!ctx) return false;
-  const { payment, attempt, account } = ctx;
-  if (!payment?.stripe_pi_id || !account || !attempt?.reader_id) return true;
+  const { payment, attempt } = ctx;
+  if (!payment?.stripe_pi_id || !attempt?.reader_id) return true;
+  // A practice tab's hold is on the sandbox account (M7-04).
+  const account = await inVenue((c) => stripeAccountFor(c, venueId, payment.training));
+  if (!account) return true;
+  deps = { ...deps, stripe: deps.stripe.forTraining(payment.training) };
   if (ctx.opening.state === "canceled" || ctx.opening.state === "opened") return true;
   const card = await retrieveCollectedCard(deps.stripe, account, payment.stripe_pi_id);
   if (card.status !== "requires_confirmation") return true;
@@ -349,7 +360,9 @@ export async function confirmTabCard(
         tabNameFromCard(card.cardholderName),
       ],
     );
-    const tab = card.fingerprint ? await openTabOfCard(c, venueId, card.fingerprint) : null;
+    const tab = card.fingerprint
+      ? await openTabOfCard(c, venueId, card.fingerprint, payment.training)
+      : null;
     if (!tab) return "confirm" as const;
     await settleExisting(c, venueId, o, tab, deps.clock.now());
     return "existing" as const;
@@ -409,7 +422,7 @@ export async function settleTabOpening(
   );
   const fingerprint = o.card_fingerprint ?? hold?.fingerprint ?? null;
   if (fingerprint) {
-    const tab = await openTabOfCard(c, venueId, fingerprint);
+    const tab = await openTabOfCard(c, venueId, fingerprint, payment.training);
     if (tab) {
       // The card's fingerprint came only with the hold: release the new hold at once.
       await settleExisting(c, venueId, o, tab, now);

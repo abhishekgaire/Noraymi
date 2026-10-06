@@ -5,7 +5,8 @@ import {
   insertPayment,
   isNightClosed,
   readerOfVenue,
-  stripeAccountOf,
+  stripeAccountFor,
+  checkIsTraining,
   withVenue,
   type Queryable,
 } from "@west4/db";
@@ -215,7 +216,12 @@ export async function startSavedCharge(
     });
   let reader: { id: string; stripe_reader_id: string } | null = null;
   if (input.readerDeviceId) {
-    reader = await readerOfVenue(c, venueId, input.readerDeviceId);
+    reader = await readerOfVenue(
+      c,
+      venueId,
+      input.readerDeviceId,
+      await checkIsTraining(c, venueId, checkId),
+    );
     if (!reader) throw new ApiError("not_found", "no such reader");
     if (await input.readerQuiet(c, venueId, input.readerDeviceId, input.now))
       throw new ApiError("reader_offline", "the bar reader is offline: ask a manager instead", {
@@ -358,10 +364,13 @@ export async function askSavedCard(
       const confirm = await confirmById(c, venueId, confirmId);
       if (!confirm || confirm.state !== "asking") return null;
       const card = await tabSavedCard(c, venueId, confirm.check_id);
-      return { confirm, card, account: await stripeAccountOf(c, venueId) };
+      // A practice tab's reader and card are on the sandbox (M7-04).
+      const training = await checkIsTraining(c, venueId, confirm.check_id);
+      return { confirm, card, training, account: await stripeAccountFor(c, venueId, training) };
     },
   );
   if (!ctx?.account || !ctx.card) return null;
+  deps = { ...deps, stripe: deps.stripe.forTraining(ctx.training) };
   const amount = formatMoney("en", cents(ctx.confirm.amount_cents));
   try {
     await collectInputs(
@@ -407,13 +416,15 @@ export async function checkSavedCard(deps: ChargeDeps, venueId: string, confirmI
   const first = await withVenue(
     deps.pool,
     { venueId, requestId: `tab-confirm:${confirmId}` },
-    async (c) => ({
-      confirm: await confirmById(c, venueId, confirmId),
-      account: await stripeAccountOf(c, venueId),
-    }),
+    async (c) => {
+      const confirm = await confirmById(c, venueId, confirmId);
+      const training = confirm ? await checkIsTraining(c, venueId, confirm.check_id) : false;
+      return { confirm, training, account: await stripeAccountFor(c, venueId, training) };
+    },
   );
   const confirm = first.confirm;
   if (!confirm || confirm.state !== "asking" || !first.account) return;
+  deps = { ...deps, stripe: deps.stripe.forTraining(first.training) };
   const takeDown = () =>
     cancelReaderAction(
       deps.stripe,
@@ -498,13 +509,15 @@ export async function takeDownQuestion(deps: PaymentDeps, venueId: string, payme
   const found = await withVenue(
     deps.pool,
     { venueId, requestId: `payment:${paymentId}:confirm` },
-    async (c) => ({
-      confirm: await confirmOfPayment(c, venueId, paymentId),
-      account: await stripeAccountOf(c, venueId),
-    }),
+    async (c) => {
+      const confirm = await confirmOfPayment(c, venueId, paymentId);
+      const training = confirm ? await checkIsTraining(c, venueId, confirm.check_id) : false;
+      return { confirm, training, account: await stripeAccountFor(c, venueId, training) };
+    },
   );
   const confirm = found.confirm;
   if (!confirm || confirm.state !== "asking" || !found.account) return;
+  deps = { ...deps, stripe: deps.stripe.forTraining(found.training) };
   await cancelReaderAction(
     deps.stripe,
     found.account,

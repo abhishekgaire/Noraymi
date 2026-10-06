@@ -28,6 +28,13 @@ export interface StripeSettings {
   readonly publishableKey: string;
   /** Each webhook endpoint's own signing secret. */
   readonly webhookSecrets: Readonly<Record<StripeEndpoint, string>>;
+  /**
+   * Training mode's sandbox (M7-04): only practice payments, only test keys,
+   * West 4's sandbox account and simulated readers. Its events arrive at
+   * /v1/hooks/stripe/training, signed with `trainingWebhookSecret`.
+   */
+  readonly sandbox?: boolean;
+  readonly trainingWebhookSecret?: string;
 }
 
 export const FAKE_STRIPE_PORT = 12111;
@@ -103,4 +110,79 @@ export function loadStripeSettings(
     publishableKey,
     webhookSecrets: secrets,
   };
+}
+
+/**
+ * Training mode's Stripe (M7-04; Security and data retention 15): a separate
+ * sandbox with its own restricted keys under their own names. Practice
+ * payments go here and nowhere else. A live key here is refused when the
+ * settings load, and the client refuses to send one. With no sandbox keys,
+ * locally (or wherever STRIPE_API_BASE names a fake) the fake Stripe plays
+ * the sandbox with its own keys; anywhere else practice card payments are
+ * refused ("Stripe isn't set up here"), never sent to the live account.
+ */
+export const FAKE_SANDBOX_KEYS: Readonly<Record<StripeService, string>> = {
+  payments: "rk_test_fake_sandbox_payments",
+  refunds: "rk_test_fake_sandbox_refunds",
+  reporting: "rk_test_fake_sandbox_reporting",
+  billing: "",
+};
+export const FAKE_TRAINING_WEBHOOK_SECRET = "whsec_fake_training";
+const SANDBOX_KEY_VARS: Readonly<Record<Exclude<StripeService, "billing">, string>> = {
+  payments: "STRIPE_SANDBOX_KEY_PAYMENTS",
+  refunds: "STRIPE_SANDBOX_KEY_REFUNDS",
+  reporting: "STRIPE_SANDBOX_KEY_REPORTING",
+};
+const SANDBOX_SECRET_VAR = "STRIPE_SANDBOX_WEBHOOK_SECRET_TRAINING";
+/** A live-mode key, by Stripe's prefixes: never sent for a practice payment. */
+export const LIVE_KEY = /^(sk|rk|pk)_live_/;
+
+export function fakeSandboxSettings(
+  apiBase = `http://127.0.0.1:${FAKE_STRIPE_PORT}`,
+): StripeSettings {
+  return {
+    mode: "fake",
+    apiBase,
+    livemode: false,
+    keys: FAKE_SANDBOX_KEYS,
+    publishableKey: "pk_test_fake_sandbox",
+    webhookSecrets: { readers: "", connect: "", platform: "" },
+    sandbox: true,
+    trainingWebhookSecret: FAKE_TRAINING_WEBHOOK_SECRET,
+  };
+}
+
+export function loadStripeSandboxSettings(
+  env: West4Env,
+  source: Record<string, string | undefined> = process.env,
+): StripeSettings {
+  const set = (v: string | undefined) => !!v && !PLACEHOLDER.test(v);
+  const keys = {
+    payments: source[SANDBOX_KEY_VARS.payments] ?? "",
+    refunds: source[SANDBOX_KEY_VARS.refunds] ?? "",
+    reporting: source[SANDBOX_KEY_VARS.reporting] ?? "",
+    billing: "",
+  };
+  const secret = source[SANDBOX_SECRET_VAR] ?? "";
+  if (set(keys.payments) && set(keys.refunds) && set(keys.reporting) && set(secret)) {
+    for (const [name, key] of Object.entries(keys))
+      if (LIVE_KEY.test(key))
+        throw new Error(
+          `the sandbox's ${name} key is a live key: training mode takes test keys only`,
+        );
+    return {
+      mode: "stripe",
+      apiBase: source["STRIPE_API_BASE"] || "https://api.stripe.com",
+      livemode: false,
+      keys,
+      publishableKey: "",
+      webhookSecrets: { readers: "", connect: "", platform: "" },
+      sandbox: true,
+      trainingWebhookSecret: secret,
+    };
+  }
+  const base = source["STRIPE_API_BASE"];
+  if (env === "local") return fakeSandboxSettings(base || undefined);
+  if (env !== "production" && base) return fakeSandboxSettings(base);
+  return { ...fakeSandboxSettings(), mode: "off", apiBase: "", trainingWebhookSecret: "" };
 }

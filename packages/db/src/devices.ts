@@ -158,9 +158,10 @@ export async function listDevices(client: Queryable, venueId: string): Promise<D
             h.last_seen_at::text, (h.last_seen_at is not null and h.offline_since is null) as online,
             h.clock_skew_ms, h.app_version, h.network
        from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
-      where d.venue_id = $1 order by d.kind, d.name`,
+      where d.venue_id = $1 and not d.sandbox order by d.kind, d.name`,
     [venueId],
   );
+  // Training mode's simulated readers (M7-04) live in the sandbox, not in the venue's device list.
   return r.rows;
 }
 

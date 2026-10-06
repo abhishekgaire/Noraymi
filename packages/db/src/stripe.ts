@@ -14,9 +14,42 @@ export async function stripeAccountOf(c: Queryable, venueId: string): Promise<st
   return r.rows[0]?.stripe_account_id ?? null;
 }
 
+/**
+ * The organization's sandbox connected account (M7-04): practice payments go
+ * there and nowhere else. Null until ops makes it (`stripe:create-account --sandbox`).
+ */
+export async function stripeTrainingAccountOf(
+  c: Queryable,
+  venueId: string,
+): Promise<string | null> {
+  const r = await c.query<{ id: string | null }>(
+    `select o.stripe_training_account_id as id from venues v join organizations o on o.id = v.org_id where v.id = $1`,
+    [venueId],
+  );
+  return r.rows[0]?.id ?? null;
+}
+
+/** The account a payment uses: the sandbox one for a practice payment, the live one otherwise. */
+export function stripeAccountFor(
+  c: Queryable,
+  venueId: string,
+  training: boolean,
+): Promise<string | null> {
+  return training ? stripeTrainingAccountOf(c, venueId) : stripeAccountOf(c, venueId);
+}
+
 /** The venues of a Stripe account (`event.account`), through the definer function. */
-export async function venuesOfStripeAccount(c: Queryable, account: string): Promise<string[]> {
-  const r = await c.query<{ id: string }>("select resolve_stripe_account($1) as id", [account]);
+export async function venuesOfStripeAccount(
+  c: Queryable,
+  account: string,
+  training = false,
+): Promise<string[]> {
+  const r = await c.query<{ id: string }>(
+    training
+      ? "select resolve_stripe_training_account($1) as id"
+      : "select resolve_stripe_account($1) as id",
+    [account],
+  );
   return r.rows.map((x) => x.id);
 }
 

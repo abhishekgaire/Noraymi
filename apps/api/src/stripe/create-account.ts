@@ -1,7 +1,7 @@
 import { saveStripeIntegration, withVenue } from "@west4/db";
 import pg from "pg";
 import { loadConfig } from "../config.js";
-import { StripeClient } from "./client.js";
+import { StripeClient, stripeFromEnv } from "./client.js";
 import { accountStatus, createVenueAccount } from "./accounts.js";
 import { loadStripeSettings } from "./settings.js";
 
@@ -69,6 +69,53 @@ export async function createAccountFor(
   return { accountId: account.id, venues: venues.map((v) => v.id) };
 }
 
+/**
+ * Training mode's sandbox account (M7-04): the same organization's connected
+ * account in the sandbox, made with the sandbox's keys and stored in
+ * `organizations.stripe_training_account_id`. Practice payments, and only
+ * they, run on it. Ops onboard it with Stripe's test data in the sandbox.
+ */
+export async function createTrainingAccountFor(
+  owner: pg.Pool,
+  stripe: StripeClient,
+  orgId: string,
+  email?: string,
+): Promise<{ accountId: string }> {
+  const org = (
+    await owner.query<{
+      legal_name: string;
+      id: string | null;
+      venue: string | null;
+      name: string | null;
+    }>(
+      `select o.legal_name, o.stripe_training_account_id as id,
+              (select v.id from venues v where v.org_id = o.id order by v.created_at limit 1) as venue,
+              (select v.name from venues v where v.org_id = o.id order by v.created_at limit 1) as name
+         from organizations o where o.id = $1`,
+      [orgId],
+    )
+  ).rows[0];
+  if (!org) throw new Error(`no organization ${orgId}`);
+  if (org.id) throw new Error(`organization ${orgId} already has sandbox account ${org.id}`);
+  if (!org.venue) throw new Error(`organization ${orgId} has no venue`);
+  const account = await createVenueAccount(
+    stripe.forTraining(true),
+    {
+      displayName: org.name ?? org.legal_name,
+      contactEmail: email ?? "training@demo.west4.local",
+      registeredName: org.legal_name,
+    },
+    `org:${orgId}:create-training-account`,
+  );
+  await withVenue(owner, { venueId: org.venue, requestId: "ops:stripe:create-account" }, (c) =>
+    c.query("update organizations set stripe_training_account_id = $2 where id = $1", [
+      orgId,
+      account.id,
+    ]),
+  );
+  return { accountId: account.id };
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const arg = (name: string) => {
@@ -76,12 +123,23 @@ async function main(): Promise<void> {
     return i >= 0 ? args[i + 1] : undefined;
   };
   const orgId = arg("org");
-  if (!orgId) throw new Error("usage: --org <organization id> [--email <contact email>]");
+  if (!orgId)
+    throw new Error("usage: --org <organization id> [--email <contact email>] [--sandbox]");
   const config = loadConfig();
   const owner = new pg.Pool({
     connectionString: process.env["DATABASE_URL"] ?? config.databaseUrl,
   });
   try {
+    if (args.includes("--sandbox")) {
+      const made = await createTrainingAccountFor(
+        owner,
+        stripeFromEnv(config.env),
+        orgId,
+        arg("email"),
+      );
+      console.warn(`Sandbox account ${made.accountId} made and stored for training mode.`);
+      return;
+    }
     const made = await createAccountFor(
       owner,
       new StripeClient(loadStripeSettings(config.env)),

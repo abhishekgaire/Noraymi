@@ -402,6 +402,8 @@ export {
   saveStripeIntegration,
   integrationStatuses,
   ingestStripeEvent,
+  stripeTrainingAccountOf,
+  stripeAccountFor,
   stripeEventRow,
   markStripeEventProcessed,
 } from "./stripe.js";

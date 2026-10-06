@@ -2,11 +2,13 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
+  FAKE_SANDBOX_KEYS,
   FAKE_STRIPE_KEYS,
+  FAKE_TRAINING_WEBHOOK_SECRET,
   FAKE_WEBHOOK_SECRETS,
-  type StripeEndpoint,
   type StripeService,
 } from "../settings.js";
+import type { WebhookEndpoint } from "../webhooks.js";
 
 /**
  * A fake Stripe (M4-01): a stand-in that speaks the subset of Stripe's HTTP
@@ -26,6 +28,8 @@ export interface FakeRequest {
   readonly body: Record<string, unknown>;
   readonly account: string | null;
   readonly service: StripeService;
+  /** Made with training mode's sandbox keys (M7-04). */
+  readonly sandbox: boolean;
   readonly version: string | null;
 }
 
@@ -92,10 +96,25 @@ export const fakeId = (prefix: string): string =>
 const SERVICE_OF_KEY = new Map<string, StripeService>(
   Object.entries(FAKE_STRIPE_KEYS).map(([s, k]) => [k, s as StripeService]),
 );
+/**
+ * Training mode's sandbox (M7-04) is a separate Stripe: its own keys, and
+ * accounts made with them are the sandbox's. As in Stripe, a sandbox key
+ * never reaches a live account (and the other way round), and the sandbox's
+ * events go to its own endpoint, `training`.
+ */
+const SANDBOX_SERVICE_OF_KEY = new Map<string, StripeService>(
+  Object.entries(FAKE_SANDBOX_KEYS)
+    .filter(([, k]) => k)
+    .map(([s, k]) => [k, s as StripeService]),
+);
+const SECRET_OF: Readonly<Record<WebhookEndpoint, string>> = {
+  ...FAKE_WEBHOOK_SECRETS,
+  training: FAKE_TRAINING_WEBHOOK_SECRET,
+};
 
 export interface FakeStripeOptions {
   /** Where each endpoint's events go; none: kept in `events` only. */
-  readonly webhooks?: Partial<Record<StripeEndpoint, string>>;
+  readonly webhooks?: Partial<Record<WebhookEndpoint, string>>;
   /** Delay before a webhook is sent, as Stripe's are a moment after the call. */
   readonly webhookDelayMs?: number;
   /** The address the fake tells browsers to open (onboarding links). */
@@ -110,7 +129,7 @@ export class FakeStripe {
   /** Every object the fake holds, by id. */
   readonly objects = new Map<string, Record<string, unknown>>();
   /** Every event made, delivered or not, newest last. */
-  readonly events: { endpoint: StripeEndpoint; event: FakeEvent; delivered: boolean }[] = [];
+  readonly events: { endpoint: WebhookEndpoint; event: FakeEvent; delivered: boolean }[] = [];
   /** Every request seen: method, path, the account header and the key's service. */
   readonly requests: {
     method: string;
@@ -118,9 +137,14 @@ export class FakeStripe {
     account: string | null;
     service: StripeService;
     idempotencyKey: string | null;
+    /** The key was the sandbox's (M7-04); `livePrefix`: it looked like a live key. */
+    sandbox: boolean;
+    livePrefix: boolean;
   }[] = [];
+  /** Which accounts belong to the sandbox (made with its keys). */
+  readonly sandboxAccounts = new Set<string>();
   base = "";
-  webhooks: Partial<Record<StripeEndpoint, string>>;
+  webhooks: Partial<Record<WebhookEndpoint, string>>;
   /** Tests: the next requests to these paths time out (the fake holds the connection, then drops it). */
   readonly dropNext: { method: string; path: RegExp; afterHandling: boolean }[] = [];
 
@@ -194,11 +218,13 @@ export class FakeStripe {
 
   /** Makes an event and sends it to its endpoint after the delay; returns at once. */
   emit(
-    endpoint: StripeEndpoint,
+    endpoint: WebhookEndpoint,
     type: string,
     object: Record<string, unknown>,
     account?: string,
   ): FakeEvent {
+    // The sandbox's events go to its own endpoint (M7-04).
+    if (account && this.sandboxAccounts.has(account)) endpoint = "training";
     const event: FakeEvent = {
       id: fakeId("evt"),
       object: "event",
@@ -220,7 +246,7 @@ export class FakeStripe {
 
   /** Posts one stored event, signed with its endpoint's secret. Tests call it to replay. */
   async deliver(
-    entry: { endpoint: StripeEndpoint; event: FakeEvent; delivered: boolean },
+    entry: { endpoint: WebhookEndpoint; event: FakeEvent; delivered: boolean },
     url = this.webhooks[entry.endpoint],
   ): Promise<number> {
     if (!url) return 0;
@@ -230,7 +256,7 @@ export class FakeStripe {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "stripe-signature": signPayload(payload, FAKE_WEBHOOK_SECRETS[entry.endpoint]),
+          "stripe-signature": signPayload(payload, SECRET_OF[entry.endpoint]),
         },
         body: payload,
       });
@@ -273,17 +299,35 @@ export class FakeStripe {
       const path = url.pathname;
       const browser = path.startsWith("/fake/");
       let service: StripeService = "payments";
+      let sandbox = false;
+      const key = (req.headers.authorization ?? "").replace(/^Bearer /, "");
       if (!browser) {
-        const key = (req.headers.authorization ?? "").replace(/^Bearer /, "");
-        const s = SERVICE_OF_KEY.get(key);
+        const s = SERVICE_OF_KEY.get(key) ?? SANDBOX_SERVICE_OF_KEY.get(key);
         if (!s) throw new FakeError(401, "invalid_request_error", null, "Invalid API Key provided");
         service = s;
+        sandbox = SANDBOX_SERVICE_OF_KEY.has(key);
       }
       const account = (req.headers["stripe-account"] as string | undefined) ?? null;
       const idemKey = (req.headers["idempotency-key"] as string | undefined) ?? null;
       if (!browser) {
-        this.requests.push({ method, path, account, service, idempotencyKey: idemKey });
+        this.requests.push({
+          method,
+          path,
+          account,
+          service,
+          idempotencyKey: idemKey,
+          sandbox,
+          livePrefix: /^(sk|rk|pk)_live_/.test(key),
+        });
         restrict(service, method, path, account);
+        // One Stripe never sees the other's accounts.
+        if (account && this.objects.has(account) && this.sandboxAccounts.has(account) !== sandbox)
+          throw new FakeError(
+            403,
+            "invalid_request_error",
+            "account_invalid",
+            `The provided key does not have access to account '${account}' (or that account does not exist).`,
+          );
       }
       const drop = this.dropNext.findIndex((d) => d.method === method && d.path.test(path));
       const body =
@@ -315,6 +359,7 @@ export class FakeStripe {
         body,
         account,
         service,
+        sandbox,
         version: (req.headers["stripe-version"] as string | undefined) ?? null,
       };
       if (drop >= 0 && !this.dropNext[drop]!.afterHandling) {
@@ -324,7 +369,9 @@ export class FakeStripe {
       }
       let answer: FakeAnswer;
       const cacheKey =
-        idemKey && method === "POST" ? `${service}|${account ?? ""}|${idemKey}` : null;
+        idemKey && method === "POST"
+          ? `${sandbox ? "sandbox" : "main"}|${service}|${account ?? ""}|${idemKey}`
+          : null;
       const hash = createHash("sha256").update(`${path}|${raw}`).digest("hex");
       const cached = cacheKey ? this.idempotency.get(cacheKey) : undefined;
       if (cached) {

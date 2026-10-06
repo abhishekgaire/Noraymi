@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { emitEvent, readerOfVenue, stripeAccountOf, withVenue, type Queryable } from "@west4/db";
+import {
+  checkIsTraining,
+  emitEvent,
+  readerOfVenue,
+  stripeAccountFor,
+  withVenue,
+  type Queryable,
+} from "@west4/db";
 import { roomCardConsentLine, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { NoSuchReader, ReaderQuiet, quiet, type PaymentDeps } from "../payments/run.js";
@@ -128,7 +135,12 @@ export async function startRoomCard(
     throw new ApiError("invalid_request", "read the guest the consent line first", {
       details: { reason: "consent" },
     });
-  const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
+  const reader = await readerOfVenue(
+    c,
+    venueId,
+    input.readerDeviceId,
+    await checkIsTraining(c, venueId, input.checkId),
+  );
   if (!reader) throw new NoSuchReader();
   if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
   const waiting = await c.query<{ id: string }>(
@@ -172,10 +184,13 @@ async function fail(deps: PaymentDeps, venueId: string, id: string, code: string
 
 /** Step 2, outside any transaction: the Customer, the SetupIntent, and the reader asking for the card. */
 export async function driveRoomCard(deps: PaymentDeps, venueId: string, id: string) {
-  const { row, account } = await inVenue(deps, venueId, async (c) => ({
-    row: await cardRow(c, venueId, id),
-    account: await stripeAccountOf(c, venueId),
-  }));
+  const { row, account, training } = await inVenue(deps, venueId, async (c) => {
+    const row = await cardRow(c, venueId, id);
+    // A practice room's card is saved on the sandbox, from a simulated reader (M7-04).
+    const training = row ? await checkIsTraining(c, venueId, row.check_id) : false;
+    return { row, training, account: await stripeAccountFor(c, venueId, training) };
+  });
+  deps = { ...deps, stripe: deps.stripe.forTraining(training) };
   if (!row || row.state !== "waiting") return row;
   if (!account) return fail(deps, venueId, id, "no_stripe_account");
   try {
@@ -245,10 +260,13 @@ async function save(deps: PaymentDeps, venueId: string, id: string, si: StripeSe
 
 /** Step 3: what the reader and the SetupIntent say now. */
 export async function checkRoomCard(deps: PaymentDeps, venueId: string, id: string) {
-  const { row, account } = await inVenue(deps, venueId, async (c) => ({
-    row: await cardRow(c, venueId, id),
-    account: await stripeAccountOf(c, venueId),
-  }));
+  const { row, account, training } = await inVenue(deps, venueId, async (c) => {
+    const row = await cardRow(c, venueId, id);
+    // A practice room's card is saved on the sandbox, from a simulated reader (M7-04).
+    const training = row ? await checkIsTraining(c, venueId, row.check_id) : false;
+    return { row, training, account: await stripeAccountFor(c, venueId, training) };
+  });
+  deps = { ...deps, stripe: deps.stripe.forTraining(training) };
   if (!row || row.state !== "waiting" || !account) return row;
   if (!row.stripe_setup_intent_id) return driveRoomCard(deps, venueId, id);
   const si = await retrieveRoomSetupIntent(deps.stripe, account, row.stripe_setup_intent_id);
@@ -268,10 +286,13 @@ export async function checkRoomCard(deps: PaymentDeps, venueId: string, id: stri
 
 /** Staff cancel the tap: the reader stops asking and the SetupIntent is canceled, unless it was saved. */
 export async function cancelRoomCard(deps: PaymentDeps, venueId: string, id: string) {
-  const { row, account } = await inVenue(deps, venueId, async (c) => ({
-    row: await cardRow(c, venueId, id),
-    account: await stripeAccountOf(c, venueId),
-  }));
+  const { row, account, training } = await inVenue(deps, venueId, async (c) => {
+    const row = await cardRow(c, venueId, id);
+    // A practice room's card is saved on the sandbox, from a simulated reader (M7-04).
+    const training = row ? await checkIsTraining(c, venueId, row.check_id) : false;
+    return { row, training, account: await stripeAccountFor(c, venueId, training) };
+  });
+  deps = { ...deps, stripe: deps.stripe.forTraining(training) };
   if (!row || row.state !== "waiting") return row;
   if (account && row.stripe_setup_intent_id) {
     const si = await retrieveRoomSetupIntent(deps.stripe, account, row.stripe_setup_intent_id);

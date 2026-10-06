@@ -3,8 +3,7 @@ import { Scheduler, Worker } from "@west4/db";
 import { loadConfig } from "./config.js";
 import { makeClock } from "./clock.js";
 import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
-import { StripeClient } from "./stripe/client.js";
-import { loadStripeSettings } from "./stripe/settings.js";
+import { stripeFromEnv } from "./stripe/client.js";
 import { makeS3 } from "./s3.js";
 import { SmtpMailer } from "./email/mailer.js";
 import { loadEmailSettings } from "./email/settings.js";
@@ -31,7 +30,7 @@ const textSender = () => {
   return settings.mode === "twilio" ? new TwilioTextSender(settings) : new LogTextSender();
 };
 const venueTextSettings = loadVenueTextSettings(config.env);
-const stripe = new StripeClient(loadStripeSettings(config.env));
+const stripe = stripeFromEnv(config.env);
 const handlers = makeHandlers({
   stripe: {
     pool,
@@ -66,12 +65,7 @@ const workers = (["critical", "normal", "bulk"] as const).map(
 );
 const scheduler = new Scheduler(pool, {
   schedules,
-  sweeps: makeSweeps(
-    pool,
-    log,
-    venueTextSettings,
-    new StripeClient(loadStripeSettings(config.env)),
-  ),
+  sweeps: makeSweeps(pool, log, venueTextSettings, stripeFromEnv(config.env)),
   clock,
   log,
 });

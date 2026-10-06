@@ -1,3 +1,4 @@
+import { paymentIsTraining } from "../stripe/training.js";
 import {
   allocate,
   emitEvent,
@@ -9,7 +10,7 @@ import {
   setAllocationState,
   setTip,
   startAttempt,
-  stripeAccountOf,
+  stripeAccountFor,
   withVenue,
   type AttemptRow,
   type PaymentRow,
@@ -254,7 +255,7 @@ export async function startClose(
   if (input.path === "reader") {
     if (!input.readerDeviceId)
       throw new ApiError("invalid_request", "pick the reader", { details: { reason: "reader" } });
-    reader = await readerOfVenue(c, venueId, input.readerDeviceId);
+    reader = await readerOfVenue(c, venueId, input.readerDeviceId, payment.training);
     if (!reader) throw new ApiError("not_found", "no such reader");
     if (await input.readerQuiet(c, venueId, input.readerDeviceId, input.now))
       throw new ApiError("reader_offline", "the bar reader is offline: print the slip instead", {
@@ -575,16 +576,20 @@ export async function askReader(
     if (!closing || !closing.stripe_reader_id) return null;
     const receipt = closing.receipt === "text" && !closing.receipt_sent_at;
     if (!receipt && closing.state !== "asking" && closing.state !== "custom") return null;
+    const training = await paymentIsTraining(c, venueId, closing.payment_id);
     return {
       closing,
       receipt,
-      account: await stripeAccountOf(c, venueId),
+      training,
+      // A practice tab closes on the sandbox's simulated reader (M7-04).
+      account: await stripeAccountFor(c, venueId, training),
       question: receipt
         ? ({ type: "phone", title: "Text me the receipt" } as const)
         : await readerQuestion(c, venueId, closing, deps.clock.now()),
     };
   });
   if (!ctx?.account) return null;
+  deps = { ...deps, stripe: deps.stripe.forTraining(ctx.training) };
   const step = ctx.receipt ? receiptTag(ctx.closing) : stepTag(ctx.closing);
   try {
     await collectInputs(
@@ -626,15 +631,17 @@ export async function checkClose(
 ): Promise<void> {
   const inVenue = <T>(work: (c: Queryable) => Promise<T>) =>
     withVenue(deps.pool, { venueId, requestId: `tab-close:${closingId}` }, work);
-  const first = await inVenue(async (c) => ({
-    closing: await closingById(c, venueId, closingId),
-    account: await stripeAccountOf(c, venueId),
-  }));
+  const first = await inVenue(async (c) => {
+    const closing = await closingById(c, venueId, closingId);
+    const training = closing ? await paymentIsTraining(c, venueId, closing.payment_id) : false;
+    return { closing, training, account: await stripeAccountFor(c, venueId, training) };
+  });
   const closing = first.closing;
   if (!closing || !first.account || !closing.stripe_reader_id) {
     if (closing) await driveClose(deps, venueId, closing.payment_id);
     return;
   }
+  deps = { ...deps, stripe: deps.stripe.forTraining(first.training) };
   const asking = closing.state === "asking" || closing.state === "custom";
   const receipt = closing.receipt === "text" && !closing.receipt_sent_at;
   if (!asking && !receipt) {
@@ -773,12 +780,14 @@ export async function driveClose(deps: PaymentDeps, venueId: string, paymentId: 
 export async function cancelClose(deps: PaymentDeps, venueId: string, closingId: string) {
   const inVenue = <T>(work: (c: Queryable) => Promise<T>) =>
     withVenue(deps.pool, { venueId, requestId: `tab-close:${closingId}` }, work);
-  const ctx = await inVenue(async (c) => ({
-    closing: await closingById(c, venueId, closingId),
-    account: await stripeAccountOf(c, venueId),
-  }));
+  const ctx = await inVenue(async (c) => {
+    const closing = await closingById(c, venueId, closingId);
+    const training = closing ? await paymentIsTraining(c, venueId, closing.payment_id) : false;
+    return { closing, training, account: await stripeAccountFor(c, venueId, training) };
+  });
   const closing = ctx.closing;
   if (!closing || (closing.state !== "asking" && closing.state !== "custom")) return;
+  deps = { ...deps, stripe: deps.stripe.forTraining(ctx.training) };
   if (ctx.account && closing.stripe_reader_id)
     await cancelReaderAction(
       deps.stripe,

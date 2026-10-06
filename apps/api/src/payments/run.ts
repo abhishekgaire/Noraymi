@@ -12,7 +12,7 @@ import {
   readerOfVenue,
   setPaymentIntent,
   startAttempt,
-  stripeAccountOf,
+  stripeAccountFor,
   withVenue,
   type AttemptRow,
   type JobHandler,
@@ -135,7 +135,9 @@ export async function writeTap(
     now: Temporal.Instant;
   },
 ): Promise<{ paymentId: string; attemptNo: number }> {
-  const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
+  // A practice check's card goes to Stripe's sandbox only (M7-03, M7-04), on a simulated reader.
+  const training = input.training || (await checkIsTraining(c, venueId, input.checkId));
+  const reader = await readerOfVenue(c, venueId, input.readerDeviceId, training);
   if (!reader) throw new NoSuchReader();
   if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
   // A split's share (M4-14): this check's, open, and paid in its own amount.
@@ -147,8 +149,7 @@ export async function writeTap(
     status: "pending",
     businessDate: input.businessDate,
     tipCents: input.tipCents ?? 0,
-    // A practice check's card goes to Stripe's sandbox only (M7-03, M7-04).
-    training: input.training || (await checkIsTraining(c, venueId, input.checkId)),
+    training,
   });
   await allocate(c, venueId, {
     paymentId,
@@ -177,10 +178,10 @@ export async function writeRetap(
   venueId: string,
   input: { paymentId: string; readerDeviceId: string; now: Temporal.Instant },
 ): Promise<{ attemptNo: number }> {
-  const reader = await readerOfVenue(c, venueId, input.readerDeviceId);
+  const payment = await paymentById(c, venueId, input.paymentId, true);
+  const reader = await readerOfVenue(c, venueId, input.readerDeviceId, payment?.training ?? false);
   if (!reader) throw new NoSuchReader();
   if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
-  const payment = await paymentById(c, venueId, input.paymentId, true);
   const last = await latestAttempt(c, venueId, input.paymentId);
   if (!payment || !last || payment.method !== "card_present")
     throw new Error("no card payment to tap again");
@@ -238,6 +239,8 @@ async function enqueueCheck(
 
 interface Context {
   readonly payment: PaymentRow;
+  /** The payment's Stripe: the sandbox for a practice payment (M7-04). */
+  readonly stripe: StripeClient;
   readonly attempt: AttemptRow | null;
   readonly account: string | null;
   readonly skipTipping: boolean;
@@ -253,6 +256,7 @@ async function context(
   inVenue: InVenue,
   venueId: string,
   paymentId: string,
+  stripe: StripeClient,
 ): Promise<Context | null> {
   return inVenue(async (c) => {
     const payment = await paymentById(c, venueId, paymentId);
@@ -278,8 +282,10 @@ async function context(
         : null;
     return {
       payment,
+      stripe: stripe.forTraining(payment.training),
       attempt,
-      account: await stripeAccountOf(c, venueId),
+      // A practice payment's account is the organization's sandbox one (M7-04).
+      account: await stripeAccountFor(c, venueId, payment.training),
       skipTipping: kind === "room",
       // A share of a split tips on no more than its own amount.
       amountEligibleCents:
@@ -298,9 +304,10 @@ export async function runAttempt(
   attemptNo: number,
 ): Promise<Applied | null> {
   const inVenue = venueTx(deps, venueId, `payment:${paymentId}:${attemptNo}`);
-  const ctx = await context(inVenue, venueId, paymentId);
+  const ctx = await context(inVenue, venueId, paymentId, deps.stripe);
   if (!ctx || !ctx.account || !ctx.attempt || ctx.attempt.attempt_no !== attemptNo) return null;
   if (ctx.attempt.state !== "started") return null;
+  deps = { ...deps, stripe: ctx.stripe };
   const { payment, attempt, account } = ctx;
   const record = (obs: Observation) =>
     inVenue((c) => applyObservation(c, venueId, paymentId, obs, "api", null, deps.clock.now()));
@@ -539,11 +546,11 @@ export async function runAttempt(
 export async function observe(deps: PaymentDeps, ctx: Context): Promise<Observation> {
   if (!ctx.account || !ctx.payment.stripe_pi_id) return {};
   const intent = observeIntent(
-    await retrieveIntent(deps.stripe, ctx.account, ctx.payment.stripe_pi_id),
+    await retrieveIntent(ctx.stripe, ctx.account, ctx.payment.stripe_pi_id),
   );
   let reader: ReaderAction | null = null;
   if (ctx.attempt?.reader_id && openAttempt(ctx.attempt.state)) {
-    const r = await retrieveReader(deps.stripe, ctx.account, ctx.attempt.reader_id);
+    const r = await retrieveReader(ctx.stripe, ctx.account, ctx.attempt.reader_id);
     const action = (r.action ?? null) as ReaderAction | null;
     const on =
       action?.process_payment_intent?.payment_intent ??
@@ -563,7 +570,7 @@ export async function checkNow(
   stripeEventId: string | null = null,
 ): Promise<Applied | null> {
   const inVenue = venueTx(deps, venueId, `payment:${paymentId}:check`);
-  const ctx = await context(inVenue, venueId, paymentId);
+  const ctx = await context(inVenue, venueId, paymentId, deps.stripe);
   if (!ctx) return null;
   let obs: Observation;
   try {
@@ -589,9 +596,10 @@ export async function cancelPayment(
   source: PaymentSource,
 ) {
   const inVenue = venueTx(deps, venueId, `payment:${paymentId}:cancel`);
-  const ctx = await context(inVenue, venueId, paymentId);
+  const ctx = await context(inVenue, venueId, paymentId, deps.stripe);
   if (!ctx) return null;
   const { payment, attempt, account } = ctx;
+  deps = { ...deps, stripe: ctx.stripe };
   // A tab's raise (M6-07) never cancels the hold it was growing: read Stripe once more, and a raise
   // still unclear ends as not raised, with the old hold standing.
   // A tab's capture (M6-08) never cancels the hold either: still unclear after the read, it wasn't
@@ -691,11 +699,13 @@ export async function cancelReplacedHold(
   const inVenue = venueTx(deps, venueId, `payment:${paymentId}:replaced`);
   const found = await inVenue(async (c) => ({
     payment: await paymentById(c, venueId, paymentId),
-    account: await stripeAccountOf(c, venueId),
     replaced: (await holdsToCancel(c, venueId)).includes(paymentId),
   }));
-  const { payment, account, replaced } = found;
-  if (!payment || !account || !replaced || !payment.stripe_pi_id) return null;
+  const { payment, replaced } = found;
+  if (!payment) return null;
+  const account = await inVenue((c) => stripeAccountFor(c, venueId, payment.training));
+  if (!account || !replaced || !payment.stripe_pi_id) return null;
+  deps = { ...deps, stripe: deps.stripe.forTraining(payment.training) };
   let pi;
   try {
     pi = await cancelIntent(deps.stripe, account, payment.stripe_pi_id, `${paymentId}:cancel`);

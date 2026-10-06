@@ -3,7 +3,7 @@ import {
   paymentById,
   readSetting,
   rulePackFor,
-  stripeAccountOf,
+  stripeAccountFor,
   withVenue,
   type Queryable,
 } from "@west4/db";
@@ -94,13 +94,14 @@ export async function confirmCollected(deps: PaymentDeps, venueId: string, payme
         payment,
         attempt,
         held: Number(held),
-        account: await stripeAccountOf(c, venueId),
+        account: await stripeAccountFor(c, venueId, payment.training),
         terms: await surchargeFor(c, venueId, payment.business_date),
       };
     },
   );
   // Only the surcharge path collects first; without it, nothing waits to be confirmed.
   if (!ctx?.account || !ctx.terms) return;
+  deps = { ...deps, stripe: deps.stripe.forTraining(ctx.payment.training) };
   const pi = await retrieveCollected(deps.stripe, ctx.account, ctx.payment.stripe_pi_id!);
   if (pi.status !== "requires_confirmation") return;
   const method = typeof pi.payment_method === "object" ? pi.payment_method : null;

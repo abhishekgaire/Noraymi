@@ -14,10 +14,18 @@ export interface VenueTerminal {
   readonly config_id: string | null;
 }
 
-export async function venueTerminal(c: Queryable, venueId: string): Promise<VenueTerminal> {
+export async function venueTerminal(
+  c: Queryable,
+  venueId: string,
+  /** The sandbox Location and Configuration for training mode (M7-04). */
+  training = false,
+): Promise<VenueTerminal> {
   const r = await c.query<VenueTerminal>(
-    `select name, address, stripe_location_id as location_id, stripe_terminal_config_id as config_id
-       from venues where id = $1`,
+    training
+      ? `select name, address, stripe_training_location_id as location_id,
+                stripe_training_terminal_config_id as config_id from venues where id = $1`
+      : `select name, address, stripe_location_id as location_id, stripe_terminal_config_id as config_id
+           from venues where id = $1`,
     [venueId],
   );
   return r.rows[0]!;
@@ -26,10 +34,13 @@ export async function venueTerminal(c: Queryable, venueId: string): Promise<Venu
 export async function setVenueTerminal(
   c: Queryable,
   venueId: string,
-  ids: { locationId: string; configId: string },
+  ids: { locationId: string | null; configId: string | null },
+  training = false,
 ): Promise<void> {
   await c.query(
-    "update venues set stripe_location_id = $2, stripe_terminal_config_id = $3 where id = $1",
+    training
+      ? "update venues set stripe_training_location_id = $2, stripe_training_terminal_config_id = $3 where id = $1"
+      : "update venues set stripe_location_id = $2, stripe_terminal_config_id = $3 where id = $1",
     [venueId, ids.locationId, ids.configId],
   );
 }
@@ -43,11 +54,13 @@ export interface ReaderRow {
   readonly online: boolean;
   readonly last_seen_at: string | null;
   readonly station: string | null;
+  /** A simulated reader in Stripe's sandbox, for training mode only (M7-04). */
+  readonly sandbox: boolean;
 }
 
 export async function venueReaders(c: Queryable, venueId: string): Promise<ReaderRow[]> {
   const r = await c.query<ReaderRow>(
-    `select d.id, d.name, d.stripe_reader_id, d.reader_model, d.cellular, d.station,
+    `select d.id, d.name, d.stripe_reader_id, d.reader_model, d.cellular, d.station, d.sandbox,
             (h.last_seen_at is not null and h.offline_since is null) as online,
             to_json(h.last_seen_at) #>> '{}' as last_seen_at
        from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
@@ -59,16 +72,22 @@ export async function venueReaders(c: Queryable, venueId: string): Promise<Reade
 }
 
 /** A reader of this venue, by our device id: its Stripe id, or null (not ours, revoked or not registered). */
+/**
+ * A reader of the venue a payment may use: a practice payment only a sandbox
+ * (simulated) reader, a live payment only a live one (M7-04), so a practice
+ * request naming the Bar S710 finds nothing and nothing reaches Stripe.
+ */
 export async function readerOfVenue(
   c: Queryable,
   venueId: string,
   deviceId: string,
+  training = false,
 ): Promise<{ id: string; name: string; stripe_reader_id: string } | null> {
   const r = await c.query<{ id: string; name: string; stripe_reader_id: string }>(
     `select id, name, stripe_reader_id from devices
       where venue_id = $1 and id = $2 and kind = 'reader' and revoked_at is null and disabled_at is null
-        and stripe_reader_id is not null`,
-    [venueId, deviceId],
+        and stripe_reader_id is not null and sandbox = $3`,
+    [venueId, deviceId, training],
   );
   return r.rows[0] ?? null;
 }
@@ -77,20 +96,28 @@ export async function readerOfVenue(
 export async function saveReader(
   c: Queryable,
   venueId: string,
-  input: { name: string; stripeReaderId: string; model: string; cellular: boolean },
+  input: {
+    name: string;
+    stripeReaderId: string;
+    model: string;
+    cellular: boolean;
+    /** A simulated reader in the sandbox (M7-04): kept apart from the live reader of the same label. */
+    sandbox?: boolean;
+  },
 ): Promise<string> {
+  const sandbox = input.sandbox ?? false;
   const existing = await c.query<{ id: string }>(
     `update devices set stripe_reader_id = $3, reader_model = $4, cellular = $5
       where id = (select id from devices where venue_id = $1 and kind = 'reader' and name = $2
-                    and revoked_at is null order by stripe_reader_id nulls first limit 1)
+                    and sandbox = $6 and revoked_at is null order by stripe_reader_id nulls first limit 1)
       returning id`,
-    [venueId, input.name, input.stripeReaderId, input.model, input.cellular],
+    [venueId, input.name, input.stripeReaderId, input.model, input.cellular, sandbox],
   );
   if (existing.rows[0]) return existing.rows[0].id;
   const r = await c.query<{ id: string }>(
-    `insert into devices (venue_id, kind, name, stripe_reader_id, reader_model, cellular)
-       values ($1, 'reader', $2, $3, $4, $5) returning id`,
-    [venueId, input.name, input.stripeReaderId, input.model, input.cellular],
+    `insert into devices (venue_id, kind, name, stripe_reader_id, reader_model, cellular, sandbox)
+       values ($1, 'reader', $2, $3, $4, $5, $6) returning id`,
+    [venueId, input.name, input.stripeReaderId, input.model, input.cellular, sandbox],
   );
   return r.rows[0]!.id;
 }

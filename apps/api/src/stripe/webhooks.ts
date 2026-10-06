@@ -26,7 +26,10 @@ export const STRIPE_EVENT_KIND = "stripe.event";
 /** Stripe's default tolerance between the signature's time and ours. */
 export const SIGNATURE_TOLERANCE_S = 300;
 
-export const ENDPOINT_EVENTS: Readonly<Record<StripeEndpoint, readonly string[]>> = {
+/** The live endpoints and training mode's sandbox endpoint (M7-04). */
+export type WebhookEndpoint = StripeEndpoint | "training";
+
+export const ENDPOINT_EVENTS: Readonly<Record<WebhookEndpoint, readonly string[]>> = {
   readers: [
     "terminal.reader.action_succeeded",
     "terminal.reader.action_failed",
@@ -53,6 +56,20 @@ export const ENDPOINT_EVENTS: Readonly<Record<StripeEndpoint, readonly string[]>
     "customer.subscription.deleted",
     "invoice.paid",
     "invoice.payment_failed",
+  ],
+  // Training mode's sandbox (M7-04): the reader and payment events of practice payments only.
+  training: [
+    "terminal.reader.action_succeeded",
+    "terminal.reader.action_failed",
+    "terminal.reader.action_updated",
+    "payment_intent.succeeded",
+    "payment_intent.amount_capturable_updated",
+    "payment_intent.payment_failed",
+    "payment_intent.requires_action",
+    "payment_intent.canceled",
+    "charge.refunded",
+    "refund.updated",
+    "refund.failed",
   ],
 };
 
@@ -84,6 +101,8 @@ export interface StripeEventContext {
   readonly stripe: StripeClient;
   readonly venueId: string;
   readonly event: StripeEventRow;
+  /** From the training endpoint (M7-04): it may only touch practice payments, and live ones only live. */
+  readonly training: boolean;
   readonly now: Temporal.Instant;
   /** A short transaction with the venue set. */
   readonly inVenue: <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
@@ -116,6 +135,7 @@ export function makeStripeEventHandler(pool: pg.Pool, stripe: StripeClient): Job
       stripe,
       venueId,
       event,
+      training: event.endpoint === "training",
       now: job.clock.now(),
       inVenue: (work) => withVenue(pool, { venueId, requestId: `stripe:${event.event_id}` }, work),
     });

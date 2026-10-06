@@ -14,7 +14,7 @@ import {
   refundsOfApproval,
   setPaymentStatus,
   setRefundStatus,
-  stripeAccountOf,
+  stripeAccountFor,
   withVenue,
   type Queryable,
   type RefundRow,
@@ -492,13 +492,17 @@ export async function runRefund(deps: RefundDeps, venueId: string, refundId: str
     if (!refund || refund.status !== "pending" || refund.stripe_refund_id || !refund.approved_by)
       return null;
     const payment = await paymentById(c, venueId, refund.payment_id);
+    const training = payment?.training ?? false;
     return {
       refund,
       piId: payment?.stripe_pi_id ?? null,
-      account: await stripeAccountOf(c, venueId),
+      training,
+      // A practice payment is refunded on the sandbox only (M7-04).
+      account: await stripeAccountFor(c, venueId, training),
     };
   });
   if (!ctx) return;
+  deps = { ...deps, stripe: deps.stripe.forTraining(ctx.training) };
   const now = deps.clock.now().toString();
   if (!ctx.piId || !ctx.account) {
     await inVenue((c) =>
@@ -544,6 +548,8 @@ export async function applyRefund(
   stripeRefundId: string,
   refundIdHint: string | null,
   texts: { allowList: readonly string[] | null } = { allowList: null },
+  /** A webhook's side (M7-04): the training endpoint applies to practice refunds only, and live to live. */
+  side: boolean | null = null,
 ) {
   const inVenue = <T>(work: (c: Queryable) => Promise<T>) =>
     withVenue(deps.pool, { venueId, requestId: `refund:${stripeRefundId}` }, work);
@@ -554,8 +560,13 @@ export async function applyRefund(
     return refundIdHint ? refundById(c, venueId, refundIdHint) : null;
   });
   if (!known || known.status !== "pending") return;
-  const account = await inVenue((c) => stripeAccountOf(c, venueId));
+  const training = await inVenue(
+    async (c) => (await paymentById(c, venueId, known.payment_id))?.training ?? false,
+  );
+  if (side !== null && side !== training) return;
+  const account = await inVenue((c) => stripeAccountFor(c, venueId, training));
   if (!account) return;
+  deps = { ...deps, stripe: deps.stripe.forTraining(training) };
   const fresh = await retrieveRefund(deps.stripe, account, stripeRefundId);
   const at = deps.clock.now().toString();
   await inVenue(async (c) => {
@@ -649,6 +660,8 @@ for (const type of ["refund.updated", "refund.failed"])
       ctx.venueId,
       object.id,
       object.metadata?.["refund_id"] ?? null,
+      undefined,
+      ctx.training,
     );
   });
 

@@ -463,6 +463,9 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
     await page.goto("/sign-in");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Iniciar sesión");
     await typePin(page, "6358");
+    // He isn't on the clock, so the time clock comes first (M7-01); "Ahora no" goes on.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Control horario");
+    await page.getByRole("button", { name: "Ahora no" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
     await expect(page.locator(".tabs")).toContainText("Esta noche");
     await expect(page.locator(".tabs")).toContainText("Alertas");
@@ -493,6 +496,8 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
       await deskPage.getByRole("button", { name: /Diego Test/ }).click();
       await expect(deskPage.getByText("Diego Test · escribe tu PIN")).toBeVisible();
       await typePin(deskPage, "6358");
+      await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Control horario");
+      await deskPage.getByRole("button", { name: "Ahora no" }).click();
       await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
       await expect(deskPage.locator(".topbar .who")).toHaveText("Diego Test · Recepción");
     } finally {
@@ -2450,6 +2455,8 @@ test("the staff phone: Andy's Tonight, booking actions by status, and a runner's
     await expect(runner.getByRole("status")).toContainText("You're set");
     await runner.goto("/sign-in");
     await typePin(runner, "7193");
+    await expect(runner.getByRole("heading", { level: 1 })).toHaveText("Time clock");
+    await runner.getByRole("button", { name: "Not now" }).click();
     const runnerTabs = runner.locator(".tabs");
     await expect(runnerTabs.getByRole("link", { name: "Tonight", exact: true })).toBeVisible();
     await expect(runnerTabs.getByRole("link", { name: "Calls" })).toBeVisible();
@@ -3974,7 +3981,7 @@ test("the hold grows: a round past the $50.00 hold raises it to $80.00, and the 
       await db.query<{ reader: string; account: string }>(
         `select d.stripe_reader_id as reader, o.stripe_account_id as account
            from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-          where d.name = 'Bar S710'`,
+          where d.name = 'Bar S710' and not d.sandbox`,
       )
     ).rows[0]!;
     const headers = {
@@ -4036,7 +4043,7 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
       await db.query<{ reader: string; account: string }>(
         `select d.stripe_reader_id as reader, o.stripe_account_id as account
            from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-          where d.name = 'Bar S710'`,
+          where d.name = 'Bar S710' and not d.sandbox`,
       )
     ).rows[0]!;
     const headers = {
@@ -4136,7 +4143,7 @@ test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··441
       await db.query<{ reader: string; account: string }>(
         `select d.stripe_reader_id as reader, o.stripe_account_id as account
            from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-          where d.name = 'Bar S710'`,
+          where d.name = 'Bar S710' and not d.sandbox`,
       )
     ).rows[0]!;
     const headers = {
@@ -4242,7 +4249,7 @@ test("Pay a tab another way: a declined new card keeps the hold, then cash close
       await db.query<{ reader: string; account: string }>(
         `select d.stripe_reader_id as reader, o.stripe_account_id as account
            from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-          where d.name = 'Bar S710'`,
+          where d.name = 'Bar S710' and not d.sandbox`,
       )
     ).rows[0]!;
     const headers = {
@@ -4327,7 +4334,7 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
       await db.query<{ reader: string; account: string }>(
         `select d.stripe_reader_id as reader, o.stripe_account_id as account
            from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-          where d.name = 'Bar S710'`,
+          where d.name = 'Bar S710' and not d.sandbox`,
       )
     ).rows[0]!;
     const headers = {
@@ -4440,7 +4447,7 @@ const presentCard = async (
   const ids = (
     await db.query<{ reader: string; account: string }>(
       `select d.stripe_reader_id as reader, o.stripe_account_id as account
-         from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id where d.name = $1`,
+         from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id where d.name = $1 and not d.sandbox`,
       [readerName],
     )
   ).rows[0]!;
@@ -6232,7 +6239,7 @@ test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, no
         await db.query<{ reader: string; account: string }>(
           `select d.stripe_reader_id as reader, o.stripe_account_id as account
              from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-            where d.name = 'Bar S710'`,
+            where d.name = 'Bar S710' and not d.sandbox`,
         )
       ).rows[0]!;
       // The guest taps once the reader is asking.
@@ -6988,7 +6995,7 @@ const fakeStripe = async (db: pg.Client) => {
     await db.query<{ account: string }>(
       `select o.stripe_account_id as account
          from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
-        where d.name = 'Bar S710'`,
+        where d.name = 'Bar S710' and not d.sandbox`,
     )
   ).rows[0]!.account;
   return { authorization: "Bearer rk_test_fake_payments", "stripe-account": account };
@@ -7518,6 +7525,95 @@ test("training mode: the band on every staff route, at 1440 and 390, that can't 
     await page.goto("/bar");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
     await expect(band).toHaveCount(0);
+  } finally {
+    await db.query("update memberships set training = false");
+    await db.end();
+  }
+});
+
+/**
+ * Practice payments on Stripe's sandbox (M7-04): Maya in training rings a Bud Light, the reader
+ * picker lists only the sandbox's simulated readers, and [Tap a test card] on the waiting state
+ * shows the real card states: "Waiting for a tap on the bar reader · Cancel", "Declined · try
+ * another card or cash", then Paid. The PaymentIntent is on West 4's sandbox account, never live.
+ */
+test("training mode: a trainee's tap runs on a simulated reader, declined then paid with a test card", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    await db.query(
+      "update memberships set training = true where user_id = (select id from users where name = 'Maya S.')",
+    );
+    await page.reload();
+    await expect(page.getByTestId("training-band")).toBeVisible();
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    const tap = panel.getByRole("region", { name: "Tap at the reader" });
+    // The sandbox's simulated readers only: the live Bar S710 isn't offered.
+    const picker = tap.getByRole("group", { name: "Reader" });
+    await expect(picker.getByRole("radio")).toHaveCount(2);
+    const practiceBar = (
+      await db.query<{ id: string }>(
+        "select id from devices where kind = 'reader' and sandbox and name = 'Bar S710'",
+      )
+    ).rows[0]!.id;
+    await tap.getByLabel("Bar S710").check();
+    await tap.getByRole("button", { name: /^Send \$.* to the reader$/ }).click();
+    await expect(tap.getByRole("status").first()).toHaveText(
+      "Waiting for a tap on the bar reader · Cancel",
+    );
+    await tap.getByRole("button", { name: "Tap a declined test card" }).click();
+    await expect(tap.getByRole("alert")).toHaveText("Declined · try another card or cash", {
+      timeout: 15_000,
+    });
+    await tap.getByRole("button", { name: "Tap again" }).click();
+    await expect(tap.getByRole("status").first()).toHaveText(
+      "Waiting for a tap on the bar reader · Cancel",
+    );
+    await tap.getByRole("button", { name: "Tap a test card" }).click();
+    await expect(panel.getByRole("button", { name: "Text" })).toBeVisible({ timeout: 15_000 });
+
+    const payment = await db.query<{
+      training: boolean;
+      status: string;
+      pi: string;
+      reader: string;
+    }>(
+      `select p.training, p.status, p.stripe_pi_id as pi,
+              (select reader_id from payment_attempts a where a.payment_id = p.id order by attempt_no desc limit 1) as reader
+         from payments p where p.method = 'card_present' order by p.created_at desc limit 1`,
+    );
+    const row = payment.rows[0]!;
+    expect(row).toMatchObject({ training: true, status: "captured" });
+    const ids = (
+      await db.query<{ sandbox: string; live: string; reader: string }>(
+        `select o.stripe_training_account_id as sandbox, o.stripe_account_id as live,
+                (select stripe_reader_id from devices where id = $1) as reader
+           from organizations o limit 1`,
+        [practiceBar],
+      )
+    ).rows[0]!;
+    expect(row.reader).toBe(ids.reader);
+    // On the sandbox account with the sandbox's key; the live key can't even see it.
+    const atSandbox = await request.get(`http://127.0.0.1:12111/v1/payment_intents/${row.pi}`, {
+      headers: {
+        authorization: "Bearer rk_test_fake_sandbox_payments",
+        "stripe-account": ids.sandbox,
+      },
+    });
+    expect(((await atSandbox.json()) as { status: string }).status).toBe("succeeded");
+    const atLive = await request.get(`http://127.0.0.1:12111/v1/payment_intents/${row.pi}`, {
+      headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.live },
+    });
+    expect(atLive.status()).toBe(404);
+    expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.query("update memberships set training = false");
     await db.end();

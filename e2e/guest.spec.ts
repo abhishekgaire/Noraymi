@@ -730,7 +730,10 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
     await expect(phone.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
     expect((await staff("post", `/checks/${ids["chk_room9"]}/present`)).status()).toBe(200);
 
-    await expect(phone.getByText("Your bill is ready · ordering is closed")).toBeVisible();
+    // The live socket may connect just after Present; the page's 10-second refresh catches it then.
+    await expect(phone.getByText("Your bill is ready · ordering is closed")).toBeVisible({
+      timeout: 15_000,
+    });
     const bill = phone.getByRole("region", { name: "Your bill · #1042" });
     for (const line of [
       "Room time$322.00",

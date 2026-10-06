@@ -85,6 +85,8 @@ const handlePayment: StripeEventHandler = async (ctx) => {
   }
   const payment = await ctx.inVenue((c) => paymentByIntent(c, ctx.venueId, piId));
   if (!payment) return;
+  // The training endpoint applies only to practice payments, and the live ones only to live (M7-04).
+  if (payment.training !== ctx.training) return;
   // A card collected on the surcharge path (M4-25): the fee, then confirm.
   if (ctx.event.type === "terminal.reader.action_succeeded")
     await confirmCollected(

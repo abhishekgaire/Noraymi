@@ -3,6 +3,7 @@ import { cents, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { readDevice } from "../device.js";
 import { useT } from "../i18n.js";
+import { TestCard } from "./TestCard.js";
 
 /**
  * Tap at the reader (M4-11; Payment flows · What staff see during a card
@@ -26,6 +27,8 @@ interface Payment {
   readonly amount_cents: number;
   readonly tip_cents: number;
   readonly reader: { readonly id: string; readonly station: string } | null;
+  /** A practice payment (M7-04) on a simulated reader. */
+  readonly training?: boolean;
 }
 type Problem = { kind: "offline" | "busy"; station: string } | { kind: "failed" } | null;
 
@@ -213,6 +216,9 @@ export function TapPayment({
             {t("pay.cancel")}
           </button>
         </p>
+      )}
+      {payment?.state === "waiting" && payment.training && (
+        <TestCard venueId={venueId} readerId={payment.reader?.id ?? picked} />
       )}
       {payment?.state === "unknown" && <p role="status">{t("pay.unknown")}</p>}
       {payment?.state === "paid" && <p role="status">{t("pay.paid")}</p>}

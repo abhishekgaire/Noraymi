@@ -2,7 +2,7 @@ import type pg from "pg";
 import {
   emitEvent,
   recordReadersSeen,
-  stripeAccountOf,
+  stripeAccountFor,
   venueReaders,
   venueTerminal,
   withVenue,
@@ -33,35 +33,39 @@ export async function sweepReaders(
     "select id, time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues_for_scheduler()",
   );
   const out: { venueId: string; online: number; backOnline: string[] }[] = [];
-  for (const v of venues.rows) {
-    const ctx = { venueId: v.id, requestId: "reader-health" };
-    const plan = await withVenue(pool, ctx, async (c) => {
-      if (!(await venueOpenNow(c, v, now))) return null;
-      const readers = (await venueReaders(c, v.id)).filter((r) => r.stripe_reader_id);
-      if (readers.length === 0) return null;
-      const account = await stripeAccountOf(c, v.id);
-      const location = (await venueTerminal(c, v.id)).location_id;
-      return account && location ? { account, location, readers } : null;
-    });
-    if (!plan) continue;
-    let listed;
-    try {
-      listed = await listReaders(stripe, plan.account, plan.location);
-    } catch (e) {
-      // No answer is no heartbeat: two minutes of that and the readers show offline.
-      log?.(`reader health for ${v.id}: ${(e as Error).message}`);
-      continue;
+  // Live readers on the live Location; training mode's simulated readers on the sandbox's (M7-04).
+  for (const v of venues.rows)
+    for (const training of [false, true]) {
+      const ctx = { venueId: v.id, requestId: "reader-health" };
+      const plan = await withVenue(pool, ctx, async (c) => {
+        if (!(await venueOpenNow(c, v, now))) return null;
+        const readers = (await venueReaders(c, v.id)).filter(
+          (r) => r.stripe_reader_id && r.sandbox === training,
+        );
+        if (readers.length === 0) return null;
+        const account = await stripeAccountFor(c, v.id, training);
+        const location = (await venueTerminal(c, v.id, training)).location_id;
+        return account && location ? { account, location, readers } : null;
+      });
+      if (!plan) continue;
+      let listed;
+      try {
+        listed = await listReaders(stripe.forTraining(training), plan.account, plan.location);
+      } catch (e) {
+        // No answer is no heartbeat: two minutes of that and the readers show offline.
+        log?.(`reader health for ${v.id}: ${(e as Error).message}`);
+        continue;
+      }
+      const online = new Set(listed.filter((r) => r.status === "online").map((r) => r.id));
+      const seen = plan.readers.filter((r) => online.has(r.stripe_reader_id!)).map((r) => r.id);
+      const back = await withVenue(pool, ctx, async (c) => {
+        const b = await recordReadersSeen(c, v.id, seen, new Date(now.epochMilliseconds));
+        for (const id of b)
+          await emitEvent(c, { venueId: v.id, type: "device.online", entityId: id });
+        return b;
+      });
+      out.push({ venueId: v.id, online: seen.length, backOnline: back });
     }
-    const online = new Set(listed.filter((r) => r.status === "online").map((r) => r.id));
-    const seen = plan.readers.filter((r) => online.has(r.stripe_reader_id!)).map((r) => r.id);
-    const back = await withVenue(pool, ctx, async (c) => {
-      const b = await recordReadersSeen(c, v.id, seen, new Date(now.epochMilliseconds));
-      for (const id of b)
-        await emitEvent(c, { venueId: v.id, type: "device.online", entityId: id });
-      return b;
-    });
-    out.push({ venueId: v.id, online: seen.length, backOnline: back });
-  }
   return out;
 }
 

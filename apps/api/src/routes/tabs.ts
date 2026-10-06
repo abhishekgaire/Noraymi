@@ -397,6 +397,8 @@ export function tabRoutes(
           status: payment.status,
           state: screenState(payment, attempt),
           decline_code: attempt?.state === "failed" ? attempt.decline_code : null,
+          // A practice hold (M7-04): New tab offers [Tap a test card] while it waits.
+          training: payment.training,
         },
         card: o.card_last4 ? { brand: o.card_brand, last4: o.card_last4 } : null,
         tab: o.tab_id ? { id: o.tab_id, check_id: o.tab_check_id, name: o.tab_name } : null,

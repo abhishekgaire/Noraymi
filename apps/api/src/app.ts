@@ -1,5 +1,5 @@
-import { StripeClient } from "./stripe/client.js";
-import { loadStripeSettings } from "./stripe/settings.js";
+import type { StripeClient } from "./stripe/client.js";
+import { stripeFromEnv } from "./stripe/client.js";
 import { paymentsAdminRoutes } from "./routes/payments-admin.js";
 import { readerRoutes } from "./routes/readers.js";
 import { stripeHookRoutes } from "./routes/stripe-hooks.js";
@@ -84,7 +84,9 @@ import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
 
 export interface AppOptions {
-  readonly logger?: boolean;
+  /** true for the default log; tests may pass a stream to read what was logged (M7-04). */
+  readonly logger?:
+    boolean | { readonly level?: string; readonly stream: { write(line: string): void } };
   readonly config?: Config;
   /** Tests pass a clock; otherwise it follows the config. */
   readonly clock?: Clock;
@@ -119,8 +121,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   let permissions: PermissionGate | undefined;
   let gatePoolRef: pg.Pool | undefined;
   let stripeClient: StripeClient | undefined = options.stripe;
-  const stripe = (): StripeClient =>
-    (stripeClient ??= new StripeClient(loadStripeSettings(config!.env)));
+  const stripe = (): StripeClient => (stripeClient ??= stripeFromEnv(config!.env));
 
   if (config) {
     void app.register(dbPlugin, { databaseUrl: config.databaseUrl });

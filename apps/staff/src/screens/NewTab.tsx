@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { TestCard } from "./TestCard.js";
 
 /**
  * New tab, card first (M6-06; Staff screens and the bar POS · Tabs, card
@@ -21,7 +22,7 @@ interface Consent {
 interface Opening {
   readonly id: string;
   readonly state: "waiting" | "opened" | "existing" | "canceled";
-  readonly payment: { readonly state: string };
+  readonly payment: { readonly state: string; readonly training?: boolean };
   readonly card: { readonly brand: string | null; readonly last4: string } | null;
   readonly tab: { readonly id: string; readonly name: string } | null;
 }
@@ -51,6 +52,7 @@ export function NewTab({
   const [consent, setConsent] = useState<Consent | null>(null);
   const [partySize, setPartySize] = useState<number | null>(null);
   const [opening, setOpening] = useState<Opening | null>(null);
+  const [readerId, setReaderId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [label, setLabel] = useState<string | null>(null);
   const [openPressed, setOpenPressed] = useState(false);
@@ -110,6 +112,7 @@ export function NewTab({
         setProblem("noReader");
         return;
       }
+      setReaderId(bar.id);
       const o = await api<Opening>(
         "POST",
         `/v1/venues/${venueId}/tabs`,
@@ -220,6 +223,9 @@ export function NewTab({
         <>
           {state === "waiting" && (
             <p role="status">{openPressed ? t("newTab.opening") : t("newTab.waiting")}</p>
+          )}
+          {state === "waiting" && !openPressed && opening.payment.training && (
+            <TestCard venueId={venueId} readerId={readerId} />
           )}
           {state === "unknown" && <p role="status">{t("pay.unknown")}</p>}
           {state === "declined" && (

@@ -1735,3 +1735,21 @@ a.song-count {
   background: var(--accent);
   color: var(--accent-text);
 }
+
+/* Training mode's [Tap a test card] (M7-04): two plain buttons under the waiting line, 44 px or more. */
+.test-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.test-card p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.test-card button {
+  min-height: 48px;
+  max-width: 100%;
+  white-space: normal;
+}

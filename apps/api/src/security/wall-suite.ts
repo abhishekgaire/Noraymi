@@ -395,6 +395,10 @@ export const webhookWallCases: Readonly<Record<string, string>> = {
     "stripe-hooks.int.test.ts · an event from another venue's account never reads or writes West 4's rows",
   "POST /v1/hooks/stripe/connect":
     "stripe-hooks.int.test.ts · an event from another venue's account never reads or writes West 4's rows",
+  // Training mode's sandbox (M7-04): its own secret, test-mode events only, and the venue only from the
+  // organization's sandbox account (stripe_training_account_id); a live account's id there names no venue.
+  "POST /v1/hooks/stripe/training":
+    "training-stripe.int.test.ts · the sandbox's events land only at the training endpoint, and only on practice payments",
   // Our own account's billing events carry no venue: stored with venue_id null, which no venue can read.
   "POST /v1/hooks/stripe/platform":
     "stripe-hooks.int.test.ts · keep our own account's billing events, unprocessed, for M8",

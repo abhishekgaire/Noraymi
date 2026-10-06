@@ -1,4 +1,5 @@
 import {
+  checkIsTraining,
   allocate,
   insertPayment,
   latestAttempt,
@@ -81,6 +82,8 @@ export async function openPayLink(
         [venueId],
       )
     ).rows[0]!;
+    // A practice check pays only on a simulated reader (M7-04): its link never opens a live payment.
+    if (link.check_id && (await checkIsTraining(c, venueId, link.check_id))) throw notFound();
     const account = await stripeAccountOf(c, venueId);
     if (!account) throw new ApiError("invalid_request", "this venue can't take card payments yet");
     let paymentId = link.payment_id;

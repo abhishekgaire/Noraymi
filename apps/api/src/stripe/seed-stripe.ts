@@ -11,9 +11,10 @@ import { businessDate } from "@west4/rules";
 import { SEED_NOW } from "@west4/shared";
 import pg from "pg";
 import { loadConfig } from "../config.js";
-import { StripeClient, StripeError } from "./client.js";
+import type { StripeClient } from "./client.js";
+import { StripeError, stripeFromEnv } from "./client.js";
 import { retrieveAccount } from "./accounts.js";
-import { createAccountFor } from "./create-account.js";
+import { createAccountFor, createTrainingAccountFor } from "./create-account.js";
 import { loadStripeSettings } from "./settings.js";
 import { observeIntent, registerPayDomain, retrieveIntent } from "./payments.js";
 import { confirmOnReader } from "./surcharge.js";
@@ -158,7 +159,7 @@ export async function seedStripe(
   const terminal = await ensureTerminal(inVenue, stripe, venue.id, today);
   const atStripe = await listReaders(stripe, terminal.account, terminal.locationId);
   let readers = 0;
-  for (const r of await inVenue((c) => venueReaders(c, venue.id))) {
+  for (const r of (await inVenue((c) => venueReaders(c, venue.id))).filter((x) => !x.sandbox)) {
     let reader = atStripe.find((x) => x.label === r.name);
     if (!reader)
       reader = await registerReader(
@@ -247,7 +248,7 @@ export async function seedStripe(
     [venue.id],
   );
   const bar = (await inVenue((c) => venueReaders(c, venue.id))).find(
-    (r) => r.name === "Bar S710" && r.stripe_reader_id,
+    (r) => r.name === "Bar S710" && r.stripe_reader_id && !r.sandbox,
   );
   if (holds.rows.length > 0 && !bar) throw new Error("no Bar S710 to tap the tabs' cards on");
   const cards = tabCards(stripe.settings.mode === "fake");
@@ -334,6 +335,93 @@ export async function seedStripe(
   return { account, readers, deposits: deposits.rows.length, holds: holds.rows.length };
 }
 
+/**
+ * Training mode's side (M7-04): West 4's sandbox account (kept across
+ * reloads like the live one), its sandbox Terminal Location, and a simulated
+ * "Bar S710" and "Front desk S710" on it, the readers a screen in training
+ * picks from. Skipped when this environment has no sandbox.
+ */
+export async function seedTrainingStripe(
+  owner: pg.Pool,
+  stripe: StripeClient,
+  log: (line: string) => void = (l) => console.warn(l),
+): Promise<{ account: string; readers: number } | null> {
+  const sandbox = stripe.sandboxSettings;
+  if (!sandbox || sandbox.mode === "off") return null;
+  const practice = stripe.forTraining(true);
+  const venue = (
+    await owner.query<{
+      id: string;
+      org_id: string;
+      time_zone: string;
+      day_cutover: string;
+      account: string | null;
+    }>(
+      `select v.id, v.org_id, v.time_zone, to_char(v.day_cutover, 'HH24:MI') as day_cutover,
+              o.stripe_training_account_id as account
+         from venues v join organizations o on o.id = v.org_id where v.slug = 'west4karaoke'`,
+    )
+  ).rows[0];
+  if (!venue) throw new Error("no West 4 here: run pnpm seed first");
+  const inVenue = <T>(work: (c: Queryable) => Promise<T>) =>
+    withVenue(owner, { venueId: venue.id, requestId: "ops:stripe:seed:training" }, work);
+  let account = venue.account;
+  if (account) {
+    const known = await retrieveAccount(practice, account)
+      .then(() => true)
+      .catch((e: unknown) =>
+        e instanceof StripeError && (e.status === 404 || e.status === 403)
+          ? false
+          : Promise.reject(e),
+      );
+    if (!known) {
+      if (sandbox.mode !== "fake")
+        throw new Error(
+          `organization ${venue.org_id} holds sandbox account ${account}, which the sandbox doesn't know; clear organizations.stripe_training_account_id to make a new one`,
+        );
+      await owner.query(
+        "update organizations set stripe_training_account_id = null where id = $1",
+        [venue.org_id],
+      );
+      account = null;
+    }
+  }
+  if (!account) {
+    account = (await createTrainingAccountFor(owner, stripe, venue.org_id)).accountId;
+    log(`stripe: made sandbox account ${account}`);
+  }
+  const today = businessDate(SEED_NOW, venue.time_zone, venue.day_cutover).businessDate;
+  const terminal = await ensureTerminal(inVenue, stripe, venue.id, today, true);
+  const atStripe = await listReaders(practice, terminal.account, terminal.locationId);
+  const all = await inVenue((c) => venueReaders(c, venue.id));
+  const labels = [...new Set(all.filter((r) => !r.sandbox).map((r) => r.name))];
+  let readers = 0;
+  for (const label of labels) {
+    const reader =
+      atStripe.find((x) => x.label === label) ??
+      (await registerReader(
+        practice,
+        terminal.account,
+        { registrationCode: "simulated-s710", label, location: terminal.locationId },
+        `seed:${venue.id}:training-reader:${label}:${Date.now()}`,
+      ));
+    const model = readerModel(reader.device_type, false);
+    if (!model) continue;
+    await inVenue((c) =>
+      saveReader(c, venue.id, {
+        name: label,
+        stripeReaderId: reader.id,
+        model,
+        cellular: hasCellular(model),
+        sandbox: true,
+      }),
+    );
+    readers += 1;
+  }
+  log(`stripe: sandbox account ${account}, ${readers} simulated readers for training mode`);
+  return { account, readers };
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const settings = loadStripeSettings(config.env);
@@ -346,7 +434,9 @@ async function main(): Promise<void> {
     connectionString: databaseUrl(),
   });
   try {
-    await seedStripe(owner, new StripeClient(settings));
+    const stripe = stripeFromEnv(config.env);
+    await seedStripe(owner, stripe);
+    await seedTrainingStripe(owner, stripe);
   } catch (e) {
     if (e instanceof Error && /no answer from Stripe/.test(e.message)) {
       console.warn("stripe:seed: Stripe (or the fake) isn't answering; skipped");

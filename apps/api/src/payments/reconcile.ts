@@ -3,7 +3,7 @@ import {
   emitEvent,
   enqueue,
   setPaymentIntent,
-  stripeAccountOf,
+  stripeAccountFor,
   withVenue,
   type JobHandler,
   type Queryable,
@@ -45,11 +45,31 @@ export interface Reconciled {
 }
 
 export async function reconcileVenue(deps: PaymentDeps, venueId: string): Promise<Reconciled> {
+  const live = await reconcilePass(deps, venueId, false);
+  // The training pass (M7-04): practice payments only, read from the sandbox account only.
+  const practice = await reconcilePass(deps, venueId, true);
+  return {
+    resolved: [...live.resolved, ...practice.resolved],
+    recovered: [...live.recovered, ...practice.recovered],
+    unmatched: live.unmatched,
+  };
+}
+
+async function reconcilePass(
+  deps: PaymentDeps,
+  venueId: string,
+  training: boolean,
+): Promise<Reconciled> {
   const inVenue = <T>(work: (c: Queryable) => Promise<T>) =>
-    withVenue(deps.pool, { venueId, requestId: "reconciler" }, work);
+    withVenue(
+      deps.pool,
+      { venueId, requestId: training ? "reconciler:training" : "reconciler" },
+      work,
+    );
   const now = deps.clock.now();
   const before = new Date(now.subtract({ seconds: STALE_AFTER_S }).epochMilliseconds);
-  const account = await inVenue((c) => stripeAccountOf(c, venueId));
+  const account = await inVenue((c) => stripeAccountFor(c, venueId, training));
+  const stripe = deps.stripe.forTraining(training);
   const out: Reconciled = { resolved: [], recovered: [], unmatched: [] };
   if (!account) return out;
 
@@ -65,9 +85,9 @@ export async function reconcileVenue(deps: PaymentDeps, venueId: string): Promis
       `select a.payment_id, p.stripe_pi_id, a.attempt_no, a.amount_cents, a.check_id
          from payment_attempts a join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
         where a.venue_id = $1 and a.state in ('started', 'unknown') and a.started_at < $2
-          and p.method in ('card_present', 'card_online', 'card_on_file')
+          and p.method in ('card_present', 'card_online', 'card_on_file') and p.training = $3
         order by a.started_at`,
-      [venueId, before],
+      [venueId, before, training],
     ),
   );
   for (const row of stale.rows) {
@@ -82,7 +102,7 @@ export async function reconcileVenue(deps: PaymentDeps, venueId: string): Promis
       );
       let pi: StripeIntent;
       try {
-        pi = await createReaderIntent(deps.stripe, account, {
+        pi = await createReaderIntent(stripe, account, {
           amountCents: Number(first.rows[0]!.amount_cents),
           paymentId: row.payment_id,
           checkId: first.rows[0]!.check_id,
@@ -103,6 +123,10 @@ export async function reconcileVenue(deps: PaymentDeps, venueId: string): Promis
     out.resolved.push(row.payment_id);
   }
 
+  // A practice payment's sandbox has nothing else to settle: no replaced holds counted twice, and a
+  // PaymentIntent made by hand in the sandbox is never real money.
+  if (training) return out;
+
   // 4 (M6-11): a bar tab paid another way whose hold is still standing (the API died after the new card
   // or the cash and before the cancel): the hold is canceled now, once, by the same key.
   const replaced = await inVenue((c) => holdsToCancel(c, venueId));
@@ -118,19 +142,14 @@ export async function reconcileVenue(deps: PaymentDeps, venueId: string): Promis
   // 3: the account's recent PaymentIntents with no row of ours.
   let page: { data: StripeIntent[] };
   try {
-    page = await deps.stripe.call<{ data: StripeIntent[] }>(
-      "payments",
-      "GET",
-      "/v1/payment_intents",
-      {
-        account,
-        params: {
-          limit: 100,
-          created: { gte: Math.floor(now.subtract({ hours: 24 }).epochMilliseconds / 1000) },
-          expand: ["data.latest_charge"],
-        },
+    page = await stripe.call<{ data: StripeIntent[] }>("payments", "GET", "/v1/payment_intents", {
+      account,
+      params: {
+        limit: 100,
+        created: { gte: Math.floor(now.subtract({ hours: 24 }).epochMilliseconds / 1000) },
+        expand: ["data.latest_charge"],
       },
-    );
+    });
   } catch (e) {
     if (e instanceof StripeError || e instanceof StripeUnknownResult) return out;
     throw e;

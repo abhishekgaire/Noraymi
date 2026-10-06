@@ -222,6 +222,9 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
     await page.getByRole("button", { name: "Owner or manager? Sign in with your passkey" }).click();
     await page.getByLabel("Email").fill(email);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    // A new owner isn't on the clock, so the time clock comes first (M7-01).
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Time clock");
+    await page.getByRole("button", { name: "Not now" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
 
     // Admin → Team: pair a new badge to Diego in one tap on the (fake) reader.

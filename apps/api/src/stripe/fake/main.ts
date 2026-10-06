@@ -13,6 +13,7 @@ const fake = new FakeStripe({
     readers: `${hooks}/readers`,
     connect: `${hooks}/connect`,
     platform: `${hooks}/platform`,
+    training: `${hooks}/training`,
   },
   webhookDelayMs: 200,
 });
