@@ -205,6 +205,15 @@ describe("Friday, before and after its close", () => {
       )
     ).rows[0];
     expect(p).toEqual({ status: "captured", tip: 800, business_date: SATURDAY, adjusts: FRIDAY });
+    // Its tip-ledger row (M7-08) posts to Saturday too, pointing back at Friday.
+    const ledger = await owner.query(
+      `select source, amount_cents::int as amount, business_date::text, adjusts_business_date::text as adjusts
+         from tip_ledger where payment_id = $1`,
+      [ids["pay_slip_1"]],
+    );
+    expect(ledger.rows).toEqual([
+      { source: "card_tip", amount: 800, business_date: SATURDAY, adjusts: FRIDAY },
+    ]);
   });
 
   it("Maya clocks out at 5:15 AM: her shift stays Friday's", async () => {

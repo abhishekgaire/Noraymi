@@ -25,6 +25,7 @@ export const MONEY_TABLES: ReadonlySet<string> = new Set([
   "venue_counters",
   "drawer_moves",
   "tip_pools",
+  "tip_ledger",
   "night_closes",
 ]);
 

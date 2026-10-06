@@ -388,6 +388,22 @@ describe("Close to the card: the tip on the reader, captured in one call (step 5
       )
     ).rows[0]!;
     expect(paid).toEqual({ amount: 3266, tip: 600 });
+    // The tip ledger (M7-08): one card tip of $6.00, on the shift of the person who closed the tab.
+    const ledger = await owner.query<{
+      source: string;
+      amount: number;
+      closer: boolean;
+      shift: boolean;
+    }>(
+      `select l.source, l.amount_cents::int as amount, l.user_id = t.closed_by as closer,
+              s.membership_id = m.id as shift
+         from tip_ledger l join tabs t on t.payment_id = l.payment_id
+         left join shifts s on s.id = l.shift_id
+         left join memberships m on m.venue_id = l.venue_id and m.user_id = l.user_id
+        where l.payment_id = $1`,
+      [tab.paymentId],
+    );
+    expect(ledger.rows).toEqual([{ source: "card_tip", amount: 600, closer: true, shift: true }]);
     const check = await owner.query<{ status: string }>("select status from checks where id = $1", [
       tab.check_id,
     ]);

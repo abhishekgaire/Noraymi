@@ -993,6 +993,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "tab_openings",
       "dispute_funds",
       "disputes",
+      "tip_ledger",
       "refunds",
       "receipts",
       "pay_links",

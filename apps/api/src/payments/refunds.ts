@@ -66,6 +66,8 @@ interface PlannedLine {
   readonly amount_cents: number;
   readonly tax_category: string | null;
   readonly reverses_id: number | null;
+  /** The refund's share of the gratuity (M7-08: a negative tip-ledger row). */
+  readonly gratuity?: boolean;
 }
 
 /** Half up, in integers: a × b ÷ d. */
@@ -154,6 +156,7 @@ async function planLines(
         amount_cents: -back,
         tax_category: null,
         reverses_id: null,
+        gratuity: true,
       });
   }
   return out;
@@ -427,6 +430,18 @@ executors.set("refund", async (c, venueId, approval, ctx) => {
           approval.reason,
         ],
       );
+  // The tip ledger (M7-08): the refund's share of gratuity, and any of a tip it gives back, as negative rows.
+  if (payload.check_id)
+    for (const l of payload.plan ?? [])
+      if (l.gratuity || l.description === "Refund · Gratuity")
+        await c.query("select tip_ledger_reverse($1, 'gratuity', $2, $3::date, $4, null, $5)", [
+          venueId,
+          l.amount_cents,
+          businessDate,
+          payload.check_id,
+          refunds[0]!.id,
+        ]);
+  for (const refund of refunds) await reverseTip(c, venueId, refund.id, businessDate);
   for (const refund of refunds) {
     await c.query("update refunds set approved_by = $3 where venue_id = $1 and id = $2", [
       venueId,
@@ -448,7 +463,8 @@ executors.set("refund", async (c, venueId, approval, ctx) => {
           drawerSessionId: held.drawer_session_id,
           staffBankId: held.staff_bank_id,
           kind: "refund",
-          amountCents: -refund.amount_cents,
+          // The size of the move; its kind says it goes out (M7-05's expected cash).
+          amountCents: refund.amount_cents,
           paymentId: payment.id,
           takenBy: ctx.approverId,
           reason: refund.reason,
@@ -794,4 +810,48 @@ export async function refundable(
     lines,
     payments,
   };
+}
+
+/**
+ * A refunded tip (M7-08): a payment's refunds give back its amount and
+ * surcharge first; whatever goes past them comes off its tip, as a negative
+ * tip-ledger row. Practice payments write nothing.
+ */
+async function reverseTip(c: Queryable, venueId: string, refundId: string, businessDate: string) {
+  const r = (
+    await c.query<{
+      payment_id: string;
+      method: string;
+      training: boolean;
+      base: string;
+      tip: string;
+      before: string;
+      this: string;
+      check_id: string | null;
+    }>(
+      `select p.id as payment_id, p.method, p.training, (p.amount_cents + p.surcharge_cents)::text as base,
+              p.tip_cents::text as tip, f.amount_cents::text as this, f.check_id,
+              coalesce((select sum(o.amount_cents) from refunds o
+                         where o.venue_id = f.venue_id and o.payment_id = f.payment_id and o.id <> f.id
+                           and o.status not in ('failed', 'canceled') and o.n < f.n), 0)::text as before
+         from refunds f join payments p on p.venue_id = f.venue_id and p.id = f.payment_id
+        where f.venue_id = $1 and f.id = $2`,
+      [venueId, refundId],
+    )
+  ).rows[0];
+  if (!r || r.training) return;
+  const clamp = (n: number) => Math.min(Math.max(n, 0), Number(r.tip));
+  const tipBack =
+    clamp(Number(r.before) + Number(r.this) - Number(r.base)) -
+    clamp(Number(r.before) - Number(r.base));
+  if (tipBack > 0)
+    await c.query("select tip_ledger_reverse($1, $2, $3, $4::date, $5, $6, $7)", [
+      venueId,
+      r.method === "cash" ? "cash_tip" : "card_tip",
+      tipBack,
+      businessDate,
+      r.check_id,
+      r.payment_id,
+      refundId,
+    ]);
 }

@@ -249,7 +249,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-08 · Keep the tip ledger
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7-01, M7-02; M4-07 (gratuity lines), M4-20 ("Additional tip (optional)"), M4-13 (cash tips at the cash panel), M4-21 (refunds); M6 (tips on the reader, Tips to enter, tip review approvals, the sweeper)
 - **Spec:** [Data model](../spec/04-data-model.md) · `tip_ledger`, `shifts`; [Money rules](../spec/05-money-rules.md) 9, 14 and 16; [Payment flows](../spec/07-payment-flows.md) · Bar tab with a growing hold 5–7, Refunds; [Security and data retention](../spec/12-security-retention.md) · How long we keep things (6 years); [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-M2
@@ -260,13 +260,19 @@ Definition of done: see CLAUDE.md.
   - `business_date` and `adjusts_business_date` come from M7-02, so a slip tip entered after the close posts to the next night and points back.
   - Practice payments write nothing. Every screen and export labels the source "Gratuity", from the rule pack's `gratuity.label`.
 - **Acceptance:**
-  - [ ] Paying Room 9's #1042 in full writes one gratuity row of $96.00, or $101.20 if o1 was accepted before the check was presented.
-  - [ ] Closing Jess P.'s tab with 20% on the reader writes a card tip row of $6.00 (the middle of $5.40, $6.00 and $6.60) on the shift of the person who closed it.
-  - [ ] A tip of $20.00 on Ana R.'s $62.50 slip waits for approval (over 25%) and enters the ledger only once approved.
-  - [ ] A refund of part of Room 9's check writes a negative gratuity row for that part on the refund's business date.
-  - [ ] For every closed night, the ledger's gratuity rows dated to it (adjustments of earlier nights aside) equal the Z report's gratuity.
+  - [x] Paying Room 9's #1042 in full writes one gratuity row of $96.00, or $101.20 if o1 was accepted before the check was presented.
+  - [x] Closing Jess P.'s tab with 20% on the reader writes a card tip row of $6.00 (the middle of $5.40, $6.00 and $6.60) on the shift of the person who closed it.
+  - [x] A tip of $20.00 on Ana R.'s $62.50 slip waits for approval (over 25%) and enters the ledger only once approved.
+  - [x] A refund of part of Room 9's check writes a negative gratuity row for that part on the refund's business date.
+  - [x] For every closed night, the ledger's gratuity rows dated to it (adjustments of earlier nights aside) equal the Z report's gratuity.
 - **Tests:** integration tests at each collection point; a property test that the ledger equals gratuity lines plus tips on payments for every simulated night; money-cases group `tips` (`tip_choices_t1`, `tip_review_over_25pct`, `tip_review_entered_late` and the rest).
 - **Notes:** Spec gap: each ledger row names a person and a shift, but the spec doesn't say whose shift a gratuity or card tip is credited to before pooling. Cautious default above (the person who collected it, as the "daily log of the tips collected by each employee on each shift" reads); confirm with the founder.
+  - Built (M7-08): migration `0099_tip_ledger.sql`, the `tip_ledger` table (insert-only, row-level security, audited, the closed-night guard) and triggers that run at commit, so each row is written in the money's own transaction and the payment's allocation to its check is there to read: a payment's tip once it's captured, or the difference when a captured tip changes (a slip tip entered or approved); a check's gratuity once it's paid (its gratuity lines, less what the ledger already holds for it, so a check paid again after a reopen isn't counted twice). The refund approval (`payments/refunds.ts`) writes a refund's share of gratuity and any tip it gives back as negative rows (`tip_ledger_reverse`), credited to whoever had the original row. Each row's date is the money's own business date moved past any closed night, keeping the payment's `adjusts_business_date` (Dev S.'s late slip tip posts to Sat Sep 26 pointing at Fri Sep 25).
+  - Who it's credited to (the cautious default this ticket names): whoever the transaction runs for (`app.user_id`) and their open shift, or their shift on that night if they've clocked out; for a bar tab, whoever closed the tab (`tabs.closed_by`), since the capture runs in a job. A guest's Pay my share, the tip cut-off and the sweeper leave it empty. Confirm with the founder.
+  - The acceptance's $20.00 slip is tested on Dev S.'s $48.00 tab (the slip tests' seed), not Ana R.'s $62.50; the rule is the same (over 25%). The "$101.20 if o1 was accepted first" case isn't a separate test: the row is the check's gratuity lines, whatever they hold.
+  - Fix found here: a cash refund's drawer move was stored as a negative amount while expected cash also subtracts it, which would have raised what the drawer should hold. It's now stored as its size, like every other move.
+  - Not here: the screens and exports that label the source "Gratuity" from the rule pack's `gratuity.label` are My tips (M7-10) and payroll (M7-16); cash tips declared at clock-out are M7-11.
+  - Tests: integration `apps/api/src/routes/tip-ledger.int.test.ts` (Room 9's $96.00 gratuity and a $5.00 cash tip on Diego's shift; a refund's negative gratuity share and the $5.00 tip it gives back, credited to Diego; nothing for practice money; Friday's gratuity rows equal its gratuity lines, refunds included); ledger checks added to `tab-close.int.test.ts` (Jess P.'s $6.00 on the closer's shift), `tab-slip.int.test.ts` (nothing until the over-25% tip is approved) and `night-closes.int.test.ts` (the late slip tip on Saturday).
 
 ### M7-09 · Pool tips by hours with eligibility and shares by occupation
 

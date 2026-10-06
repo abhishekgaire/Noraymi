@@ -312,6 +312,15 @@ describe("Tips to enter (screens N26)", () => {
       slip: { waiting_for: "Andy C." },
     });
     expect(await payment(ids["pay_slip_1"]!)).toMatchObject({ status: "authorized", tip: 0 });
+    // The tip ledger (M7-08) has nothing for it until it's approved.
+    const ledger = async () =>
+      (
+        await owner.query<{ source: string; amount: number }>(
+          "select source, amount_cents::int as amount from tip_ledger where payment_id = $1",
+          [ids["pay_slip_1"]],
+        )
+      ).rows;
+    expect(await ledger()).toEqual([]);
     // Another tip while it waits is refused.
     expect((await tip(dev.id, 900)).json()).toMatchObject({
       error: { details: { reason: "tip_waiting" } },
@@ -324,6 +333,7 @@ describe("Tips to enter (screens N26)", () => {
       tip: 2000,
     });
     expect(await tabState(dev.id)).toBe("captured");
+    expect(await ledger()).toEqual([{ source: "card_tip", amount: 2000 }]);
   });
 
   it("a tip typed in 2 h 1 min after the slip waits for Andy; declined, the slip waits again", async () => {
