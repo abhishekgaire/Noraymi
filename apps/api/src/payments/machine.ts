@@ -30,7 +30,8 @@ import { roomOfCheck } from "../rooms/guest-bill.js";
 import { recordSurcharge } from "./surcharge.js";
 import { settleTabOpening } from "../tabs/open.js";
 import { settleIncrement } from "../tabs/hold.js";
-import { settleClose } from "../tabs/close.js";
+import { closingById, settleClose } from "../tabs/close.js";
+import { settleWalkout, walkoutOfRestPayment } from "../tabs/walkout.js";
 
 /**
  * The one function that records what Stripe says about a payment (M4-05):
@@ -160,6 +161,27 @@ export async function applyObservation(
       (await settleClose(
         c,
         venueId,
+        (await paymentById(c, venueId, paymentId))!,
+        latest,
+        now ?? Temporal.Now.instant(),
+      ))
+    )
+      changed = true;
+  }
+
+  // A walkout's rest on the saved card (M6-16): the tab is walkout_captured, or capture_failed for a manager.
+  if (attempt?.action === "off_session") {
+    const walkout = await walkoutOfRestPayment(c, venueId, paymentId);
+    const latest = walkout ? await latestAttempt(c, venueId, paymentId) : null;
+    const closing = walkout ? await closingById(c, venueId, walkout) : null;
+    if (
+      closing &&
+      latest &&
+      latest.attempt_no === attempt.attempt_no &&
+      (await settleWalkout(
+        c,
+        venueId,
+        closing,
         (await paymentById(c, venueId, paymentId))!,
         latest,
         now ?? Temporal.Now.instant(),

@@ -80,7 +80,7 @@ export const menu: readonly MenuEntry[] = [
     path: "/close-the-night",
     screen: "closeTheNight",
     action: "night.close",
-    shipped: false,
+    shipped: true,
   },
   {
     id: "admin",

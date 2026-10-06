@@ -1946,6 +1946,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.holdChecking":
     "Aumentando la retención · Consultando con Stripe · no lo intentes de nuevo. La ronda aún no se envió.",
   "tabs.push.over": "La cuenta de barra de {name} pasó de {limit}: va en {total}",
+  "tabs.push.captureFailed": "No se pudo cobrar la cuenta de barra de {name}: faltan {amount}",
   "closeTab.waiting": "Esperando la propina en el lector de la barra",
   "closeTab.title": "Cerrar cuenta",
   "closeTab.toCard": "Cerrar con la tarjeta",
@@ -2024,4 +2025,22 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "fix.move.cutOffNoName": "Cortado · el alcohol no se puede mover aquí",
   "fix.move.back": "Atrás",
   "fix.move.none": "No hay otra cuenta abierta.",
+  // Close the night: the open bar tabs (M6-16).
+  "night.failed": "No se pudo cargar la noche. Revisa la conexión e inténtalo de nuevo.",
+  "night.barTabs": "Cuentas de barra abiertas",
+  "night.noTabs": "No hay cuentas de barra abiertas",
+  "night.cutOffAt": "Toda cuenta que siga abierta se cobra a las {time}",
+  "night.skipped": "se omite hasta que se decida",
+  "night.tipping": "En la pantalla de propina",
+  "night.chargeRemaining": "Cobrar las cuentas restantes",
+  "night.cards": "Tarjetas por cobrar: {count}",
+  "night.inAll": "En total: {total}",
+  "night.noTip": "Cada una por su saldo, sin propina",
+  "night.chargeThem": "Cobrarlas",
+  "night.charging": "Cobrando…",
+  "night.back": "Todavía no",
+  "night.charged": "Cobrando {count} cuentas · {total}",
+  "night.changed":
+    "Las cuentas abiertas cambiaron. No se cobró nada: revísalas y confirma de nuevo.",
+  "night.chargeFailed": "No se pudieron cobrar las cuentas. Inténtalo de nuevo.",
 };

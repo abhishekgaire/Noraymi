@@ -1530,3 +1530,19 @@ button.danger {
 .close-tab .actions button {
   min-height: 44px;
 }
+
+/* Close the night: the open bar tabs (M6-16). */
+.night-tabs {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.night-tab {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.night-tab .badge-text {
+  flex-basis: 100%;
+}

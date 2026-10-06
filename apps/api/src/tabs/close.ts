@@ -35,6 +35,7 @@ import { moveTab } from "./state.js";
 import { printSlip } from "./slip.js";
 import { hasOpenSplit, settleHeldShare, splitAtClose } from "./split.js";
 import { enqueueRun, runNow, type PaymentDeps } from "../payments/run.js";
+import { alertCaptureFailed, settleWalkout, type WalkoutRow } from "./walkout.js";
 
 /**
  * Closing a bar tab on its hold, with the tip on the reader (M6-08; Payment
@@ -77,7 +78,7 @@ export type ClosingState =
   | "slip";
 const ACTIVE: readonly ClosingState[] = ["asking", "custom", "raising", "capturing"];
 
-export interface ClosingRow {
+export interface ClosingRow extends WalkoutRow {
   id: string;
   tab_id: string;
   check_id: string;
@@ -100,7 +101,8 @@ export interface ClosingRow {
   receipt: "text" | "print" | "none" | null;
   receipt_step_no: number | null;
   receipt_sent_at: string | null;
-  closed_by: string;
+  /** Empty for the tab cut-off job (M6-16). */
+  closed_by: string | null;
   slip_printed_at: string | null;
   slip_photo_file_id: string | null;
   tip_entered_by: string | null;
@@ -113,7 +115,7 @@ const CLOSING_COLS = `id, tab_id, check_id, payment_id, path, reader_device_id, 
   choices_cents, tip_choice, tip_cents, to_json(tip_picked_at) #>> '{}' as tip_picked_at, capture_cents,
   receipt, receipt_step_no, to_json(receipt_sent_at) #>> '{}' as receipt_sent_at, closed_by,
   to_json(slip_printed_at) #>> '{}' as slip_printed_at, slip_photo_file_id, tip_entered_by,
-  to_json(tip_entered_at) #>> '{}' as tip_entered_at, tip_approval_id`;
+  to_json(tip_entered_at) #>> '{}' as tip_entered_at, tip_approval_id, walkout, rest_cents, rest_payment_id`;
 
 export async function closingById(c: Queryable, venueId: string, id: string, lock = false) {
   const r = await c.query<ClosingRow>(
@@ -472,7 +474,8 @@ async function failClose(
   await moveTab(c, venueId, closing.tab_id, "capture_failed");
   await emitEvent(c, { venueId, type: "tab.updated", entityId: closing.tab_id });
   await emitEvent(c, { venueId, type: "check.updated", entityId: closing.check_id });
-  void now;
+  // Never retried: the manager on duty hears, and the tab waits on their list (M6-16).
+  await alertCaptureFailed(c, venueId, closing.tab_id, now, closing.id, closing.balance_cents);
 }
 
 /**
@@ -525,6 +528,8 @@ export async function settleClose(
 ): Promise<boolean> {
   const closing = await activeClosingOfPayment(c, venueId, payment.id);
   if (!closing) return false;
+  // A walkout (M6-16): no raise, the rest on the saved card, and the tab ends walkout_captured.
+  if (closing.walkout) return settleWalkout(c, venueId, closing, payment, attempt, now);
   if (closing.state === "raising" && attempt.action === "increment") {
     if (attempt.state === "succeeded") {
       await nextStep(c, venueId, closing, now);

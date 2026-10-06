@@ -6173,3 +6173,62 @@ test("the bar POS: Tariq A.'s void waits for Andy on the line and the tab row, t
     await db.end();
   }
 });
+
+/**
+ * Close the night's open bar tabs (M6-16; screens Night note 5): Andy sees the five tabs with their cards
+ * and totals, Tariq A.'s waiting for him and skipped; Charge the remaining tabs asks once with 4 cards and
+ * $152.43, then charges them, and only Tariq A.'s tab is left. The holds come from stripe:seed on the fake.
+ */
+for (const size of [
+  { name: "desktop", width: 1280, height: 800 },
+  { name: "phone", width: 390, height: 844 },
+]) {
+  test(`Close the night (${size.name}): Charge the remaining tabs shows 4 cards and $152.43 and skips Tariq A.'s`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      stripeSeed();
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await signInAndy(page, request, db);
+      await page.goto("/close-the-night");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Close the night");
+      const list = page.locator(".night-tabs");
+      await expect(list.locator("li")).toHaveCount(5);
+      await expect(list.locator("li").nth(1)).toContainText("Jess P.");
+      await expect(list.locator("li").nth(1)).toContainText("Visa ··4417");
+      await expect(list.locator("li").nth(1)).toContainText("$32.66");
+      await expect(list.locator("li").nth(3)).toContainText("Waiting for Andy");
+      await expect(list.locator("li").nth(3)).toContainText("skipped until it's decided");
+      await expect(page.getByText("Any tab still open is charged at 4:30 AM")).toBeVisible();
+
+      await page.getByRole("button", { name: "Charge the remaining tabs" }).click();
+      const confirm = page.getByRole("group", { name: "Charge the remaining tabs" });
+      await expect(confirm).toContainText("Cards to charge: 4");
+      await expect(confirm).toContainText("Altogether: $152.43");
+      await expect(confirm).toContainText("Each at its balance, with no tip");
+      await confirm.getByRole("button", { name: "Charge them" }).click();
+      await expect(page.getByRole("status")).toHaveText("Charging 4 tabs · $152.43");
+      await expect(list.locator("li")).toHaveCount(1);
+      await expect(list).toContainText("Tariq A.");
+      await expect(page.getByRole("button", { name: "Charge the remaining tabs" })).toBeDisabled();
+      const states = await db.query<{ name: string; state: string }>(
+        "select name, state from tabs where state = 'walkout_captured' order by opened_at",
+      );
+      expect(states.rows.map((r) => r.name)).toEqual([
+        "Hana K.",
+        "Jess P.",
+        "Luis M.",
+        "Seat 6 · blue jacket",
+      ]);
+      // Nothing clipped sideways at this width.
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    } finally {
+      await db.end();
+    }
+  });
+}

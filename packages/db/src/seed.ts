@@ -917,6 +917,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "alcohol_refusals",
       "bar_presence",
       "clear_out_checks",
+      // The 4:30 AM tab cut-off, once a night (M6-16).
+      "tab_cut_off_runs",
       "order_items",
       "orders",
       "room_guests",
@@ -1517,12 +1519,39 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     const slipBase = base + opened.length;
     log(`checks: ${opened.length}, from #${base} to #${base + opened.length - 1}`);
 
-    // The bar tabs (M6-02), on their bar checks. Their cards and holds go on Stripe with M6-06.
+    // The bar tabs (M6-02), on their bar checks, each on its hold (M6-16: Charge the remaining tabs and the
+    // cut-off capture them): an authorized card_present payment for the tab's hold, the opening hold raised
+    // once where the tab's hold grew (Luis M.'s $50 to $80). Its PaymentIntent on Stripe comes from
+    // `stripe:seed`, as the slips' do; a fresh id on every load, for the same reason. Until then there is
+    // no PaymentIntent to raise, so the hold reads as one that can't grow (capped at the hold plus the
+    // overcapture allowance); `stripe:seed` writes what Stripe says the card supports.
+    const tabOpeningHold = Number((seed.settings["tabs"] ?? {})["openingHoldCents"] ?? 0);
     for (const t of seed.bar_tabs) {
+      const holdId = randomUUID();
+      ids[`pay_${t.id}`] = holdId;
+      seedRows.push({ slug: `pay_${t.id}`, entity: "payments", id: holdId });
+      await client.query(
+        `insert into payments (id, venue_id, method, status, amount_cents, authorized_cents, card_brand, card_last4,
+           card_funding, business_date, incremental_supported, overcapture_supported, increments_used)
+         values ($1, $2, 'card_present', 'authorized', 0, $3, $4, $5, 'credit', $6, false, true, $7)`,
+        [
+          holdId,
+          venueId,
+          t.hold_cents,
+          t.card_brand.toLowerCase(),
+          t.card_last4,
+          seed.meta.business_date,
+          t.hold_cents > tabOpeningHold ? 1 : 0,
+        ],
+      );
+      await client.query(
+        "insert into payment_events (venue_id, payment_id, from_status, to_status, source) values ($1, $2, null, 'authorized', 'api')",
+        [venueId, holdId],
+      );
       await client.query(
         `insert into tabs (id, venue_id, check_id, state, name, label, card_brand, card_last4, hold_cents,
-           owner_id, opened_by, opened_at, cut_off_at, cut_off_by)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12, $13)`,
+           owner_id, opened_by, opened_at, cut_off_at, cut_off_by, payment_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12, $13, $14)`,
         [
           remember(t.id, "tabs"),
           venueId,
@@ -1537,6 +1566,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
           t.opened_at,
           t.cut_off_at ?? null,
           t.cut_off_by ? id(t.cut_off_by) : null,
+          holdId,
         ],
       );
     }

@@ -19,6 +19,7 @@ import { policyRoutes } from "./routes/policies.js";
 import { onlineBookingRoutes } from "./routes/online-bookings.js";
 import { posLayoutRoutes } from "./routes/pos-layouts.js";
 import { tabRoutes } from "./routes/tabs.js";
+import { nightRoutes } from "./routes/nights.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
 import { StoredClock } from "@west4/db";
@@ -282,6 +283,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       onlineBookingRoutes(scope, { pool: gatePoolRef!, clock });
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
+      nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

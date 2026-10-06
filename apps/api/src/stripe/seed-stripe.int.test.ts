@@ -38,7 +38,8 @@ afterAll(async () => {
 describe("stripe:seed", () => {
   it("backs every deposit with a succeeded PaymentIntent and attaches both readers by label", async () => {
     const done = await seedStripe(owner, stripe, () => undefined);
-    expect(done).toMatchObject({ readers: 2, deposits: 11, holds: 3 });
+    // The three paper slips' holds and the five open bar tabs' (M6-16).
+    expect(done).toMatchObject({ readers: 2, deposits: 11, holds: 8 });
     const marcus = (
       await owner.query<{ pi: string; brand: string; last4: string }>(
         `select p.stripe_pi_id as pi, p.card_brand as brand, p.card_last4 as last4 from payments p
@@ -77,6 +78,18 @@ describe("stripe:seed", () => {
       capture_method: "manual",
     });
     expect(ana.over).toBe(true);
+    // The bar tabs' holds (M6-16): Luis M.'s grown $80.00, and able to grow once Stripe says so.
+    const luis = (
+      await owner.query<{ pi: string; grows: boolean }>(
+        `select p.stripe_pi_id as pi, p.incremental_supported as grows from payments p
+          where p.id = (select row_id from seed_ids where slug = 'pay_tab_t2')`,
+      )
+    ).rows[0]!;
+    expect(fake.objects.get(luis.pi)).toMatchObject({
+      status: "requires_capture",
+      amount_capturable: 8000,
+    });
+    expect(luis.grows).toBe(true);
   });
 
   it("does nothing new on a second run: no new PaymentIntents, the same readers", async () => {

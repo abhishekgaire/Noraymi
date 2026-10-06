@@ -107,12 +107,15 @@ describe("the M1 part of the demo seed", () => {
   });
 
   it("gives the same ids on a second load, and keeps every slug in seed_ids", async () => {
-    // Except the paper slips' held payments (M6-09): Stripe keys are built from a payment's id, so each
+    // Except the paper slips' and the bar tabs' held payments (M6-09, M6-16): Stripe keys are built from a payment's id, so each
     // load gives those a fresh one.
     const stable = (all: Readonly<Record<string, string>>) =>
-      Object.fromEntries(Object.entries(all).filter(([slug]) => !/^pay_slip_\d$/.test(slug)));
+      Object.fromEntries(
+        Object.entries(all).filter(([slug]) => !/^pay_(slip_\d|tab_t\d)$/.test(slug)),
+      );
     expect(stable(second.ids)).toEqual(stable(first.ids));
     expect(second.ids["pay_slip_1"]).not.toBe(first.ids["pay_slip_1"]);
+    expect(second.ids["pay_tab_t1"]).not.toBe(first.ids["pay_tab_t1"]);
     expect(second.venueId).toBe(first.venueId);
     const r = await owner.query<{ n: number }>(
       "select count(*)::int as n from seed_ids where venue_id = $1",
