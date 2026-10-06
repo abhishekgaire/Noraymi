@@ -547,7 +547,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-19 · Reconcile two weeks of staging nights to the cent
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** L (then 14 real days of runs)
 - **Depends on:** M7-12, M7-13, M7-14, M7-15, M7-16
 - **Spec:** [milestones](../milestones.md#m7--close-the-night-and-the-books) · M7 Done when; [Testing and operations](../spec/13-testing-operations.md) · Environments, The demo seed, Tests; [Money rules](../spec/05-money-rules.md); [demo seed](../demo-seed.md#loading-the-seed)
@@ -562,6 +562,11 @@ Definition of done: see CLAUDE.md.
   - [ ] Each night's reconcile report is kept as evidence for M7-20.
 - **Tests:** the runner and the reconcile script run in CI in a one-night compressed mode, without payouts, on every merge that touches money code.
 - **Notes:** Stripe lists a payout's balance transactions only for automatic payouts, so the runs take real days; start as soon as M7-14 and M7-15 land. If the sandbox doesn't send `payout.reconciliation_completed`, match on `payout.paid` plus a daily re-check, and record it. One more real day on the spring-forward night (business date Sat Mar 13, 2027) is cheap once the runner exists.
+- **Built (M7-19), and what's waiting:**
+  - The reconcile script, `apps/api/src/reconcile/night.ts` (`reconcileNight`) and `pnpm --filter @west4/api reconcile -- --date …` (`reconcile/cli.ts`; writes each night's JSON report as evidence and exits non-zero on any difference): the stored Z report against the night's lines by category, tax and each check's gratuity; each drawer session's expected cash against its moves and its count against its over or short (and none left uncounted); the tip ledger's tips against the night's payments and its gratuity against the paid checks' gratuity lines (refunded shares included); the closed pool's shares against its sources; each payout's lines against the payout; every journal balanced; and no practice check or tip anywhere. Each difference names the night, the rule and, where there is one, the check.
+  - The night runner, `apps/api/src/reconcile/runner.ts` (`playNight` over a `NightClient`), API calls only: declines what's ringing, decides the waiting void on Andy's phone, clears unsent drinks, pays every tab at the bar and every room at the front desk, clears the waitlist and cleaning, a no-sale, counts both drawers at what they hold (the front desk $5.00 short), cash tips declared and everyone clocked out, the clear-out at 4:31 AM and the close at 4:48.
+  - CI's one-night compressed mode: `apps/api/src/reconcile/night-run.int.test.ts` plays the seed's Friday to its close and reconciles it with no difference, and shows a tampered drawer move named under "drawers". It runs with the integration suite on every merge.
+  - **Blocked:** the acceptance needs staging (M1-02 is still in progress) with the connected Stripe sandbox and simulated readers, a staging HTTP `NightClient`, a night built fresh each real day from the seed's venue (bookings with deposits, walk-ins, the order outcomes, splits, Pay my share, a refund, a no-show charge, a practice check, a break-glass payment, Charge the remaining tabs), and 14 real days so the sandbox's automatic payouts land between them (Sat Oct 31, 2026, the fall-back night, among them). The compressed night doesn't yet script holds and reader tips, splits, Pay my share, refunds, no-show charges, a practice check or a break-glass payment through the API; those come with the staging runner. Each night's reconcile JSON is the evidence M7-20 keeps.
 
 ### M7-20 · Close GA-M2 and GA-M4, and sign off M7
 

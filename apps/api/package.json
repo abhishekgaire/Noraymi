@@ -13,6 +13,7 @@
     "stripe:create-account": "tsx --env-file-if-exists=../../.env src/stripe/create-account.ts",
     "stripe:seed": "tsx --env-file-if-exists=../../.env src/stripe/seed-stripe.ts",
     "seed:files": "tsx --env-file-if-exists=../../.env src/files/seed-files.ts",
+    "reconcile": "tsx --env-file-if-exists=../../.env src/reconcile/cli.ts",
     "drill:record": "tsx --env-file-if-exists=../../.env src/stripe/drill-record.ts"
   },
   "dependencies": {
