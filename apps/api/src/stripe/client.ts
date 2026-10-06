@@ -1,5 +1,6 @@
 import { assertOutsideTransaction } from "@west4/db";
 import type { West4Env } from "../config.js";
+import { noteVendorCall } from "../vendors/outcomes.js";
 import {
   LIVE_KEY,
   loadStripeSandboxSettings,
@@ -194,6 +195,31 @@ export class StripeClient {
   }
 
   async call<T>(
+    service: StripeService,
+    method: "GET" | "POST" | "DELETE",
+    path: string,
+    call: StripeCall,
+  ): Promise<T> {
+    // Our error rate on Stripe (M8-01): an answer counts as a call, no answer
+    // (or a 429) as a failed one; a call refused before sending isn't counted.
+    // Practice payments on the sandbox never count.
+    const counted = !call.training && !this.settings.sandbox;
+    try {
+      const result = await this.send<T>(service, method, path, call);
+      if (counted) noteVendorCall("stripe", call.account, false);
+      return result;
+    } catch (error) {
+      if (counted) {
+        if (error instanceof StripeUnknownResult && !error.message.endsWith(": injected"))
+          noteVendorCall("stripe", call.account, true);
+        else if (error instanceof StripeError)
+          noteVendorCall("stripe", call.account, error.status === 429);
+      }
+      throw error;
+    }
+  }
+
+  private async send<T>(
     service: StripeService,
     method: "GET" | "POST" | "DELETE",
     path: string,

@@ -521,3 +521,18 @@ export { trainingOf } from "./training.js";
 export { reasonOnlyUsed } from "./reports/reason-only.js";
 export { RETENTION } from "./retention.js";
 export type { Retention } from "./retention.js";
+export {
+  VENDORS,
+  recordVendorCall,
+  venueVendorCalls,
+  overallVendorCalls,
+  venueVendorHealth,
+  setVendorHealth,
+  venueOnBackupInternet,
+} from "./vendor-health.js";
+export type {
+  Vendor,
+  VendorCallCount,
+  VendorHealthRow,
+  VendorTroubleSource,
+} from "./vendor-health.js";

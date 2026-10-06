@@ -129,6 +129,36 @@ form {
   background: var(--danger);
   color: var(--accent-text);
 }
+/* The outage and vendor banners (M8-01): amber on backup internet, pink offline. */
+.band.connection-backup {
+  background: #d97706;
+  color: #121212;
+}
+.band.connection-offline {
+  background: #e0287d;
+  color: #fff;
+}
+.band.connection-replayed {
+  background: var(--notice);
+  color: var(--accent-text);
+}
+.band.connection-stripe,
+.band.connection-twilio {
+  background: var(--panel);
+  color: var(--text);
+  border-bottom: 2px solid #d97706;
+}
+/* The Board's footer (M8-01): the connection and the last sync. */
+.sync-footer {
+  margin-top: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.sync-footer.offline {
+  color: #ff8fc0;
+}
 /* Training mode (M7-03): the permanent "TRAINING · not real money" band. */
 .band.training {
   background: var(--accent);

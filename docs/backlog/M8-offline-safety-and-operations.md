@@ -1,3 +1,4 @@
+
 # M8 · Offline, safety and operations
 
 Sep 29, 2026 · the backlog for [M8 · Offline, safety and operations](../milestones.md#m8--offline-safety-and-operations), one ticket per Claude Code session. The [spec](../spec/README.md) says how each piece works, [screens](../screens.md) says where to build differently from the frozen canvas, and the checks use the [demo seed](../demo-seed.md)'s names and numbers. Paths follow the repo layout M1's first ticket creates (`apps/api`, `apps/staff`, `apps/desktop`, `apps/guest`, `apps/console`, `packages/db`, `packages/rules`, `packages/shared`). Runbooks go in `docs/runbooks/`.
@@ -35,7 +36,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-01 · Show the outage and vendor banners, and the sync footer
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-09 (event stream and WebSockets), M1-16 (heartbeats), M1-21 (string catalogs), M2-29 (the board), M3-15 (the bar orders screen), M6 (the bar POS)
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Outages; [Scope and architecture](../spec/01-scope-architecture.md) · When the venue's internet drops, When our cloud is down; [Testing and operations](../spec/13-testing-operations.md) · Outage drills; [decisions](../decisions.md) D53; [glossary](../glossary.md#other-exact-sentences) · Outage banners; screens [N29](../screens.md#n29-outage-banners-and-queue-mode), [Board](../screens.md#board) note 14, [Bar](../screens.md#bar) note 7, [Rail](../screens.md#rail) note 17, [Staff](../screens.md#staff) note 17
@@ -46,13 +47,19 @@ Definition of done: see CLAUDE.md.
   - Vendor-health checks, a job in `apps/api`: Stripe's and Twilio's published status feeds plus our own error rates on calls to them, per venue and overall, set a vendor-health state on the venue's channel (a new `vendor.health` event).
   - While "Texts are delayed" shows, Text buttons still work, and a room-ready text that fails still shows "Not delivered · Call".
 - **Acceptance:**
-  - [ ] With the router reporting LTE, the Board, the bar POS and the bar orders screen show the amber banner, and everything else keeps working.
-  - [ ] With our API unreachable from the bar computer, the pink banner shows there, and the footer keeps the time of the last sync.
-  - [ ] Pushing our Stripe error rate over its threshold shows "Stripe is having trouble · card payments may fail" on the Board, the bar POS, the bar orders screen and every staff phone, and clearing it hides the banner.
-  - [ ] Twilio trouble shows "Texts are delayed", and a failed Room ready text to Amara B. still shows "Not delivered · Call".
-  - [ ] No staff screen says "works offline".
+  - [x] With the router reporting LTE, the Board, the bar POS and the bar orders screen show the amber banner, and everything else keeps working.
+  - [x] With our API unreachable from the bar computer, the pink banner shows there, and the footer keeps the time of the last sync.
+  - [x] Pushing our Stripe error rate over its threshold shows "Stripe is having trouble · card payments may fail" on the Board, the bar POS, the bar orders screen and every staff phone, and clearing it hides the banner.
+  - [x] Twilio trouble shows "Texts are delayed", and a failed Room ready text to Amara B. still shows "Not delivered · Call".
+  - [x] No staff screen says "works offline".
 - **Tests:** unit tests for the connection state; Playwright with network faults (the browser offline, the API host blocked, forced vendor error rates); the language test.
 - **Notes:** Canvas: no banners, and the footer says "works offline" ([Board](../screens.md#board) note 14). Don't build the boards' "Demo:" controls. Spec gaps: [Scope and architecture](../spec/01-scope-architecture.md) says the vendor-health checks also cover the CDN, but no CDN banner wording exists (cautious default: no staff banner for the CDN until wording is set; guest pages fail as they would offline); `vendor.health` isn't in the event table (add it).
+  - **Built (M8-01).** Migration `0106_vendor_health.sql`: `vendor_calls` (our calls to Stripe and Twilio per venue and minute, no audit, like heartbeats) and `vendor_health` (one state per venue and vendor, audited), both behind the venue wall, plus the definer `vendor_call_totals` for the overall rate (counts only, no venue named). `packages/db/src/vendor-health.ts` records, reads and sets them; a change raises `vendor.health` (added to [API](../spec/08-api.md)'s event table). The Stripe client (`call`) and the Twilio venue client (`send`) report each call to `apps/api/src/vendors/outcomes.ts`: no answer, a 5xx or a 429 is a failed call; a decline or a refused number is an answer. The API and the worker count them against the venue(s) behind the account (`resolve_stripe_account`, `resolve_twilio_account`), after the call and outside any transaction. The job `vendors.health` (`apps/api/src/jobs/vendor-health.ts`, every 30 s) reads the status feeds, the venue's rate and the overall rate. `GET /v1/venues/{v}/connection` returns backup internet (the router's heartbeat `on_backup_now`) and both vendors' state. Staff app: `connection-state.ts` (pure, unit-tested) and `connection.tsx` (a poll every 10 s, at once on `vendor.health` and the router's events; the browser's offline event); the shell shows the banners, and the Board's footer reads "Online · synced 4 s ago".
+  - **Cautious defaults (settings, platform-wide, from the environment; the spec sets none).** A vendor is in trouble at 20% failed of at least 5 calls in 5 minutes, for the venue or for every venue together (`VENDOR_ERROR_RATE_PERCENT`, `VENDOR_ERROR_MIN_CALLS`, `VENDOR_ERROR_WINDOW_MINUTES`). Status feeds are read only when `STRIPE_STATUS_URL` and `TWILIO_STATUS_URL` are set (a Statuspage-style `status.indicator`; major or critical is trouble, minor isn't, no answer says nothing); both are empty until someone confirms each vendor's feed URL for staging. No CDN check or banner until its wording is set. Offline, the vendor banners hide (their state is unknown) and only the pink banner shows.
+  - **Words the spec doesn't give.** The footer's other states: "On backup internet · synced 4 s ago", "Offline · synced 3 min ago", "Offline · not synced yet" and "Connecting…" before the first answer; ages read "N s ago", "N min ago", "N h ago". Spanish for every banner and footer string.
+  - **Where they show.** The amber, pink and "Confirm replayed orders (N)" banners on the Board (`/tonight`), the bar POS (`/bar`) and the bar orders screen (`/bar-orders`); other screens keep "Offline · reconnecting" when the connection drops. The two vendor banners on every staff screen, phones included. Offline means the browser has no network or our API didn't answer a poll (no answer, 502, 503 or 504).
+  - **For later tickets.** M8-02 makes the router's heartbeat report LTE (`network.on_backup_now`; the tests set it directly) and raises `venue.backup_internet`. M8-05 adds `replayed_waiting` to the connection answer; the banner and its count are built and tested in the unit tests. Queue mode and "queued · not charged" are M8-03/M8-04.
+
 
 ### M8-02 · Report the router as a device: on the line or on LTE
 
@@ -477,51 +484,51 @@ Definition of done: see CLAUDE.md.
 
 Every "Ships" item, done-when line, Admin section and must-fix item that milestones.md gives M8, and where it lands.
 
-| From milestones.md | Tickets |
-| --- | --- |
-| Ships · Offline and outages: the banners and "Online · synced 4 s ago" | M8-01 |
-| Ships · Offline and outages: the router as a device reporting the line or LTE | M8-02 |
-| Ships · Offline and outages: the read-only board and tabs from the desktop cache | M8-03 |
-| Ships · Offline and outages: queue mode behind an offline code, rounds "queued · not charged" | M8-04 |
-| Ships · Offline and outages: replay as asked to wait, "Confirm replayed orders (3)", "Review after outage" | M8-05 |
-| Ships · Offline and outages: the one-page break-glass card | M8-06, M8-07 |
-| Ships · Safety: the help alert, "Manager needed", the incident log kept 3 years | M8-08 |
-| Ships · The license register (C6) | M8-09 |
-| Ships · The minimal Console, part 2: support grants | M8-10 |
-| Ships · The minimal Console, part 2: the emergency actions | M8-11 |
-| Ships · Data jobs: the nightly retention job, detaching saved cards on schedule | M8-12 |
-| Ships · Data jobs: guest erase | M8-13 |
-| Ships · Data jobs: destroying each night's ID-scan key after 7 days | M8-14 |
-| Ships · Our plan billing | M8-15 |
-| Ships · Watching production: metrics, logs and traces, error tracking, the public status page | M8-16 |
-| Ships · Watching production: alerts with runbooks | M8-17 |
-| Ships · Watching production: the synthetic order and reader payment every 5 minutes | M8-18 |
-| Ships · Backups and load: the per-venue restore and its monthly drill | M8-20 |
-| Ships · Backups and load: the Friday-night load test | M8-21 |
-| Ships · Texts go live | M8-22 |
-| Ships · The one-room mic power trial (K1) | M8-23 |
-| Ships · Canvas boards: Board, Rail, Bar, Night, Staff, Console and AdminDesk | M8-01, M8-03, M8-04, M8-05, M8-06, M8-08, M8-09, M8-10, M8-11, M8-02, M8-15 |
-| Done when · The outage drills pass at West 4 | M8-07, M8-01, M8-02, M8-03, M8-04, M8-05, M8-06 |
-| Done when · A help alert from Room 9 reaches only the managers' phones | M8-08 |
-| Done when · The restore drill brings one venue back from a scratch copy | M8-20 |
-| Done when · In the load test (20 venues peaking together) | M8-21 |
-| Done when · A support grant opens only after the owner approves it | M8-10, M8-11 |
-| Done when · The retention job deletes or pseudonymizes what's past its time | M8-12, M8-13 |
-| Done when · A license inside its reminder window sends the reminder | M8-09 |
-| Done when · A failed plan payment on our test venue shows the banner | M8-15 |
-| Done when · A second responder is on call | M8-17 |
-| Admin · Printers & devices: the router (M8) | M8-02 |
-| Admin · Safety: the help alert and incidents (M8) | M8-08 |
-| Admin · Payments (owner only): our plan (M8) | M8-15 |
-| Admin · Licenses | M8-09 |
-| Admin · Console (owner only) | M8-10 |
-| Must-fix · GA-M3 (marketing texts and 10DLC) | M8-22, M8-24 |
-| Must-fix · GA-M8 (offline mode) | M8-01, M8-02, M8-03, M8-04, M8-05, M8-06, M8-07, M8-24 |
-| Must-fix · GA-M9 (the security and PCI baseline) | M8-19, M8-10, M8-11, M8-14, M8-16, M8-24 |
-| Must-fix · GA-M10 (the license register) | M8-09, M8-24 |
-| Should-have · GA-S4 (the mic power trial) | M8-23 |
-| Should-have · GA-S6 (the help alert and the incident log) | M8-08 |
-| Should-have · GA-S7 (destroying the ID-scan keys) | M8-14 |
-| Should-have · GA-S8 (the license register) | M8-09 |
+| From milestones.md                                                                                          | Tickets                                                                     |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Ships · Offline and outages: the banners and "Online · synced 4 s ago"                                    | M8-01                                                                       |
+| Ships · Offline and outages: the router as a device reporting the line or LTE                              | M8-02                                                                       |
+| Ships · Offline and outages: the read-only board and tabs from the desktop cache                           | M8-03                                                                       |
+| Ships · Offline and outages: queue mode behind an offline code, rounds "queued · not charged"             | M8-04                                                                       |
+| Ships · Offline and outages: replay as asked to wait, "Confirm replayed orders (3)", "Review after outage" | M8-05                                                                       |
+| Ships · Offline and outages: the one-page break-glass card                                                 | M8-06, M8-07                                                                |
+| Ships · Safety: the help alert, "Manager needed", the incident log kept 3 years                            | M8-08                                                                       |
+| Ships · The license register (C6)                                                                          | M8-09                                                                       |
+| Ships · The minimal Console, part 2: support grants                                                        | M8-10                                                                       |
+| Ships · The minimal Console, part 2: the emergency actions                                                 | M8-11                                                                       |
+| Ships · Data jobs: the nightly retention job, detaching saved cards on schedule                            | M8-12                                                                       |
+| Ships · Data jobs: guest erase                                                                             | M8-13                                                                       |
+| Ships · Data jobs: destroying each night's ID-scan key after 7 days                                        | M8-14                                                                       |
+| Ships · Our plan billing                                                                                   | M8-15                                                                       |
+| Ships · Watching production: metrics, logs and traces, error tracking, the public status page              | M8-16                                                                       |
+| Ships · Watching production: alerts with runbooks                                                          | M8-17                                                                       |
+| Ships · Watching production: the synthetic order and reader payment every 5 minutes                        | M8-18                                                                       |
+| Ships · Backups and load: the per-venue restore and its monthly drill                                      | M8-20                                                                       |
+| Ships · Backups and load: the Friday-night load test                                                       | M8-21                                                                       |
+| Ships · Texts go live                                                                                      | M8-22                                                                       |
+| Ships · The one-room mic power trial (K1)                                                                  | M8-23                                                                       |
+| Ships · Canvas boards: Board, Rail, Bar, Night, Staff, Console and AdminDesk                               | M8-01, M8-03, M8-04, M8-05, M8-06, M8-08, M8-09, M8-10, M8-11, M8-02, M8-15 |
+| Done when · The outage drills pass at West 4                                                               | M8-07, M8-01, M8-02, M8-03, M8-04, M8-05, M8-06                             |
+| Done when · A help alert from Room 9 reaches only the managers' phones                                     | M8-08                                                                       |
+| Done when · The restore drill brings one venue back from a scratch copy                                    | M8-20                                                                       |
+| Done when · In the load test (20 venues peaking together)                                                  | M8-21                                                                       |
+| Done when · A support grant opens only after the owner approves it                                         | M8-10, M8-11                                                                |
+| Done when · The retention job deletes or pseudonymizes what's past its time                                | M8-12, M8-13                                                                |
+| Done when · A license inside its reminder window sends the reminder                                        | M8-09                                                                       |
+| Done when · A failed plan payment on our test venue shows the banner                                       | M8-15                                                                       |
+| Done when · A second responder is on call                                                                  | M8-17                                                                       |
+| Admin · Printers & devices: the router (M8)                                                                | M8-02                                                                       |
+| Admin · Safety: the help alert and incidents (M8)                                                          | M8-08                                                                       |
+| Admin · Payments (owner only): our plan (M8)                                                               | M8-15                                                                       |
+| Admin · Licenses                                                                                           | M8-09                                                                       |
+| Admin · Console (owner only)                                                                               | M8-10                                                                       |
+| Must-fix · GA-M3 (marketing texts and 10DLC)                                                               | M8-22, M8-24                                                                |
+| Must-fix · GA-M8 (offline mode)                                                                            | M8-01, M8-02, M8-03, M8-04, M8-05, M8-06, M8-07, M8-24                      |
+| Must-fix · GA-M9 (the security and PCI baseline)                                                           | M8-19, M8-10, M8-11, M8-14, M8-16, M8-24                                    |
+| Must-fix · GA-M10 (the license register)                                                                   | M8-09, M8-24                                                                |
+| Should-have · GA-S4 (the mic power trial)                                                                  | M8-23                                                                       |
+| Should-have · GA-S6 (the help alert and the incident log)                                                  | M8-08                                                                       |
+| Should-have · GA-S7 (destroying the ID-scan keys)                                                          | M8-14                                                                       |
+| Should-have · GA-S8 (the license register)                                                                 | M8-09                                                                       |
 
 **Size:** 24 tickets: 5 S, 14 M and 5 L, about 53 to 72 working days at the ranges' low and high ends, against the 3–4 weeks in milestones.md.

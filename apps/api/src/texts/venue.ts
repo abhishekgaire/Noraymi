@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { assertOutsideTransaction } from "@west4/db";
 import type { West4Env } from "../config.js";
+import { noteVendorCall } from "../vendors/outcomes.js";
 
 /**
  * Guest texts from a venue's own Twilio subaccount (M2-09; spec 11 · Texts
@@ -33,17 +34,26 @@ export class TwilioVenueClient implements VenueTextClient {
     assertOutsideTransaction("text");
     const form = new URLSearchParams({ To: text.to, From: text.from, Body: text.body });
     if (text.statusCallback) form.set("StatusCallback", text.statusCallback);
-    const response = await this.fetchImpl(
-      `${this.baseUrl}/2010-04-01/Accounts/${encodeURIComponent(account.accountSid)}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          authorization: `Basic ${Buffer.from(`${account.accountSid}:${account.authToken}`).toString("base64")}`,
-          "content-type": "application/x-www-form-urlencoded",
+    let response: Response;
+    try {
+      response = await this.fetchImpl(
+        `${this.baseUrl}/2010-04-01/Accounts/${encodeURIComponent(account.accountSid)}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Basic ${Buffer.from(`${account.accountSid}:${account.authToken}`).toString("base64")}`,
+            "content-type": "application/x-www-form-urlencoded",
+          },
+          body: form.toString(),
         },
-        body: form.toString(),
-      },
-    );
+      );
+    } catch (error) {
+      // No answer: our error rate on Twilio (M8-01).
+      noteVendorCall("twilio", account.accountSid, true);
+      throw error;
+    }
+    // A 5xx or a 429 is Twilio's trouble; a refused number is an answer.
+    noteVendorCall("twilio", account.accountSid, response.status >= 500 || response.status === 429);
     if (!response.ok) throw new Error(`Twilio answered ${response.status} for a guest text`);
     const sid = ((await response.json()) as { sid?: string }).sid;
     if (!sid) throw new Error("Twilio answered without a message SID");

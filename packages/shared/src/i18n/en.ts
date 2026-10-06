@@ -2504,4 +2504,18 @@ export const en = {
   "reports.exportFailed":
     "That didn't work: is the night closed, and are the addresses set in Admin → Connections?",
   "tabs.reports": "Reports",
+  "connection.banner.backup": "On backup internet · card readers may take up to 2 min to switch",
+  "connection.banner.offline": "Offline · read-only · orders queue with an offline code",
+  "connection.banner.replayed": "Confirm replayed orders ({n})",
+  "connection.banner.stripe": "Stripe is having trouble · card payments may fail",
+  "connection.banner.twilio": "Texts are delayed",
+  "connection.footer.online": "Online · synced {ago}",
+  "connection.footer.backup": "On backup internet · synced {ago}",
+  "connection.footer.offline": "Offline · synced {ago}",
+  "connection.footer.offlineNever": "Offline · not synced yet",
+  "connection.footer.connecting": "Connecting…",
+  "connection.ago.seconds": "{n} s ago",
+  "connection.ago.minutes": "{n} min ago",
+  "connection.ago.hours": "{n} h ago",
+  "connection.footer.label": "Connection",
 } as const;

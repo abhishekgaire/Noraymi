@@ -2,6 +2,7 @@ import pg from "pg";
 import { Scheduler, Worker } from "@west4/db";
 import { loadConfig } from "./config.js";
 import { makeClock } from "./clock.js";
+import { databaseVendorObserver, setVendorObserver } from "./vendors/outcomes.js";
 import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
 import { stripeFromEnv } from "./stripe/client.js";
 import { makeS3 } from "./s3.js";
@@ -23,6 +24,8 @@ const pool = new pg.Pool({
 });
 const clock = makeClock(config, pool);
 const log = (line: string) => process.stdout.write(`${line}\n`);
+// Our error rate on Stripe and Twilio, counted per venue for the vendor-health job (M8-01).
+setVendorObserver(databaseVendorObserver(pool, clock));
 const email = loadEmailSettings(config.env);
 const mailer = new SmtpMailer(email.smtpUrl);
 const textSender = () => {

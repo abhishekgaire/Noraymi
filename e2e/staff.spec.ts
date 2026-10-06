@@ -5,7 +5,8 @@ import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
 import { fakeFingerprint } from "../apps/api/src/stripe/fake/payments.js";
-import { catalogs } from "@west4/shared";
+import { catalogs, Temporal } from "@west4/shared";
+import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 
 /**
  * The staff app shell (M1-21). Andy (manager) enrols a passkey with
@@ -7942,3 +7943,206 @@ for (const size of [
     }
   });
 }
+
+/**
+ * The outage and vendor banners (M8-01; spec 09 · Outages, screens N29). The
+ * vendor-health job runs here as the worker runs it, on the venue's 10:41 PM,
+ * after our own error rate on Stripe or Twilio is forced over its threshold.
+ */
+const NIGHT = Temporal.Instant.from("2026-09-26T02:41:00Z");
+const vendorSweep = async () => {
+  const pool = new pg.Pool({
+    connectionString:
+      process.env["APP_DATABASE_URL"] ?? "postgres://app_rw:app_rw@localhost:5432/west4",
+    max: 2,
+  });
+  try {
+    await sweepVendorHealth(pool, NIGHT, loadVendorHealthSettings({}));
+  } finally {
+    await pool.end();
+  }
+};
+const forceVendorErrors = (
+  db: pg.Client,
+  vendor: "stripe" | "twilio",
+  calls: number,
+  errors: number,
+) =>
+  db.query(
+    `insert into vendor_calls (venue_id, vendor, minute, calls, errors)
+     select id, $1, $2, $3, $4 from venues where name = 'West 4 Boho Karaoke'
+     on conflict (venue_id, vendor, minute) do update set calls = excluded.calls, errors = excluded.errors`,
+    [vendor, NIGHT.toString(), calls, errors],
+  );
+const routerOnLte = (db: pg.Client, on: boolean) =>
+  db.query(
+    `update device_heartbeats h set network = jsonb_set(coalesce(h.network, '{}'), '{on_backup_now}', $1::jsonb)
+       from devices d where d.id = h.device_id and d.kind = 'router'`,
+    [on ? "true" : "false"],
+  );
+const AMBER = "On backup internet · card readers may take up to 2 min to switch";
+const PINK = "Offline · read-only · orders queue with an offline code";
+const STRIPE_TROUBLE = "Stripe is having trouble · card payments may fail";
+
+test("the router on LTE: the amber banner on the Board, the bar POS and the bar orders screen, and the night goes on", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await routerOnLte(db, true);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const amber = page.getByTestId("banner-backup");
+    await expect(amber).toHaveText(AMBER);
+    await expect(page.getByTestId("sync-footer")).toHaveText(
+      /^On backup internet · synced \d+ s ago$/,
+    );
+    await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
+    for (const [path, heading] of [
+      ["/bar", "Bar POS"],
+      ["/bar-orders", "Bar orders"],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
+      await expect(amber).toHaveText(AMBER);
+      await expect(page.getByTestId("banner-offline")).toHaveCount(0);
+    }
+    // Everything else keeps working.
+    await page.getByRole("button", { name: "Mute the chime for 60 s" }).click();
+    await expect(
+      page.getByRole("button", { name: /^Chime muted · back in \d+ s$/ }),
+    ).toBeDisabled();
+    // Other screens don't carry the outage banners.
+    await page.goto("/calls");
+    await expect(page.getByTestId("banner-backup")).toHaveCount(0);
+    // The line comes back.
+    await routerOnLte(db, false);
+    await page.goto("/tonight");
+    await expect(page.getByTestId("sync-footer")).toHaveText(/^Online · synced \d+ s ago$/);
+    await expect(amber).toHaveCount(0);
+    expect((await page.locator("body").innerText()).toLowerCase()).not.toContain("works offline");
+  } finally {
+    await db.end();
+  }
+});
+
+test("our API unreachable from the bar computer: the pink banner on the bar POS until it answers again", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    // The bar computer: the API host blocked.
+    await signInMayaAtTheBar(page, request, db);
+    await expect(page.getByTestId("banner-offline")).toHaveCount(0);
+    await page.route("**/v1/**", (route) => route.abort());
+    await expect(page.getByTestId("banner-offline")).toHaveText(PINK, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    await page.unroute("**/v1/**");
+    await expect(page.getByTestId("banner-offline")).toHaveCount(0, { timeout: 20_000 });
+  } finally {
+    await db.end();
+  }
+});
+
+test("the Board offline: the browser loses the network, the pink banner shows, and the footer keeps the last sync", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const footer = page.getByTestId("sync-footer");
+    await expect(footer).toHaveText(/^Online · synced \d+ s ago$/);
+    await page.context().setOffline(true);
+    await expect(page.getByTestId("banner-offline")).toHaveText(PINK);
+    // The board stays readable, and the footer counts on from the last sync.
+    await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
+    await expect(footer).toHaveText(/^Offline · synced ([3-9]|\d\d) s ago$/, { timeout: 15_000 });
+    await page.context().setOffline(false);
+    await expect(page.getByTestId("banner-offline")).toHaveCount(0, { timeout: 20_000 });
+    await expect(footer).toHaveText(/^Online · synced \d+ s ago$/);
+    // The API host blocked instead: the same banner once a poll goes unanswered.
+    await page.route("**/v1/**", (route) => route.abort());
+    await expect(page.getByTestId("banner-offline")).toHaveText(PINK, { timeout: 20_000 });
+    await expect(footer).toHaveText(/^Offline · synced \d+ s ago$/);
+  } finally {
+    await db.end();
+  }
+});
+
+test("Stripe's error rate over its threshold: the banner on the Board, the bar POS, bar orders and a phone, in Spanish too, then cleared", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await forceVendorErrors(db, "stripe", 10, 4);
+    await vendorSweep();
+    const banner = page.getByTestId("banner-stripe");
+    await expect(banner).toHaveText(STRIPE_TROUBLE, { timeout: 20_000 });
+    for (const path of ["/bar", "/bar-orders"]) {
+      await page.goto(path);
+      await expect(banner).toHaveText(STRIPE_TROUBLE);
+    }
+    // A staff phone.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/calls");
+    await expect(banner).toHaveText(STRIPE_TROUBLE);
+    expect(await clippedText(page)).toEqual([]);
+    // Spanish.
+    await db.query("update memberships set locale = 'es'");
+    await page.reload();
+    await expect(banner).toHaveText(catalogs.es["connection.banner.stripe"]);
+    await db.query("update memberships set locale = 'en'");
+    // Cleared: the errors stop, the next check hides the banner.
+    await db.query("delete from vendor_calls");
+    await vendorSweep();
+    await page.reload();
+    await expect(page.getByTestId("banner-stripe")).toHaveCount(0, { timeout: 20_000 });
+  } finally {
+    await db.end();
+  }
+});
+
+test("Twilio trouble: Texts are delayed, Text still works, and Amara B.'s failed Room ready text reads Not delivered · Call", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await forceVendorErrors(db, "twilio", 5, 5);
+    await vendorSweep();
+    await expect(page.getByTestId("banner-twilio")).toHaveText("Texts are delayed", {
+      timeout: 20_000,
+    });
+    const band = page.getByRole("list", { name: "Alerts" });
+    await band.getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
+    const drawer = page.getByRole("complementary", { name: "Waitlist" });
+    const amara = drawer.getByRole("listitem", { name: "Amara B." });
+    await expect(amara.getByRole("timer")).toHaveText(/^Room 11 · (10:00|9:\d\d) to claim$/);
+    const text = await db.query<{ id: string }>(
+      "select m.id from messages m join message_templates t on t.id = m.template_id where t.key = 'room_ready' order by m.created_at desc limit 1",
+    );
+    // The room-ready text was still queued to send; Twilio then reports it failed.
+    expect(text.rows).toHaveLength(1);
+    await db.query("update messages set status = 'failed' where id = $1", [text.rows[0]!.id]);
+    await page.reload();
+    await expect(page.getByTestId("banner-twilio")).toHaveText("Texts are delayed");
+    await page.getByRole("button", { name: /^Waitlist · \d$/ }).click();
+    await expect(amara).toContainText("Not delivered · Call (347) 555-0177");
+  } finally {
+    await db.end();
+  }
+});

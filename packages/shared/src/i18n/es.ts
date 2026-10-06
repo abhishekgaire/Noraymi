@@ -2551,4 +2551,20 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "reports.exportFailed":
     "No funcionó: ¿está cerrada la noche y están puestas las direcciones en Admin → Conexiones?",
   "tabs.reports": "Informes",
+  "connection.banner.backup":
+    "Con internet de respaldo · los lectores de tarjetas pueden tardar hasta 2 min en cambiar",
+  "connection.banner.offline":
+    "Sin conexión · solo lectura · los pedidos se ponen en cola con un código sin conexión",
+  "connection.banner.replayed": "Confirmar pedidos reenviados ({n})",
+  "connection.banner.stripe": "Stripe tiene problemas · los pagos con tarjeta pueden fallar",
+  "connection.banner.twilio": "Los mensajes de texto llegan con retraso",
+  "connection.footer.online": "En línea · sincronizado {ago}",
+  "connection.footer.backup": "Con internet de respaldo · sincronizado {ago}",
+  "connection.footer.offline": "Sin conexión · sincronizado {ago}",
+  "connection.footer.offlineNever": "Sin conexión · aún sin sincronizar",
+  "connection.footer.connecting": "Conectando…",
+  "connection.ago.seconds": "hace {n} s",
+  "connection.ago.minutes": "hace {n} min",
+  "connection.ago.hours": "hace {n} h",
+  "connection.footer.label": "Conexión",
 };

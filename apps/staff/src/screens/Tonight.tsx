@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { SyncFooter } from "../connection.js";
 import { Link, useNavigate } from "react-router";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
@@ -837,6 +838,8 @@ export function Tonight() {
           <LostAndFound venueId={venueId} rooms={rooms} />
         </>
       )}
+      {/* "Online · synced 4 s ago", never "works offline" (M8-01; screens Board note 14). */}
+      <SyncFooter />
     </section>
   );
 }

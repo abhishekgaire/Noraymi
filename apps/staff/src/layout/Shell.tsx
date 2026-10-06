@@ -4,6 +4,8 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-route
 import type { Membership } from "../api.js";
 import { useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
+import { ConnectionBanners, useConnection } from "../connection.js";
+import { banners, isOutageScreen } from "../connection-state.js";
 import { roleKey, useT } from "../i18n.js";
 import { menu, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
@@ -98,6 +100,13 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
     [subscribe, refresh],
   );
 
+  // The Board, the bar POS and the bar orders screen show the outage banners; other screens keep
+  // "Offline · reconnecting" when the live connection drops.
+  const outageScreen = isOutageScreen(location.pathname);
+  const connection = useConnection();
+  const connectionBands = banners(connection, outageScreen);
+  const showReconnecting = !outageScreen && (!connected || connection.kind === "offline");
+
   const onLock = () => {
     void lock().then(() => navigate("/sign-in", { replace: true }));
   };
@@ -107,9 +116,11 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
       <a className="skip" href="#main">
         {t("shell.skipToContent")}
       </a>
-      {(!connected || membership.training) && (
+      {(showReconnecting || membership.training || connectionBands.length > 0) && (
         <div className="bands">
-          {!connected && (
+          {/* The outage and vendor banners (M8-01; spec 09 · Outages). */}
+          <ConnectionBanners outageScreen={outageScreen} />
+          {showReconnecting && (
             <div className="band offline" role="status">
               {t("shell.offline")}
             </div>

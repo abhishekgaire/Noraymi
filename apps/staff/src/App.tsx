@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { ClockProvider } from "./clock.js";
 import { EventsProvider } from "./events.js";
+import { ConnectionProvider } from "./connection.js";
 import { LocaleProvider, useT } from "./i18n.js";
 import { Shell } from "./layout/Shell.js";
 import { homeFor, runs } from "./navigation.js";
@@ -57,7 +58,9 @@ export function Providers({ children, session }: { children: ReactNode; session?
     <ClockProvider>
       <SessionProvider initial={session}>
         <WithLocale>
-          <EventsProvider>{children}</EventsProvider>
+          <EventsProvider>
+            <ConnectionProvider>{children}</ConnectionProvider>
+          </EventsProvider>
         </WithLocale>
       </SessionProvider>
     </ClockProvider>

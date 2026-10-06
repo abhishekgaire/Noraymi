@@ -935,6 +935,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "phone_codes",
       "device_pairing_codes",
       "device_heartbeats",
+      "vendor_calls",
+      "vendor_health",
       "print_jobs",
       // A card tapped for a room names its reader and its consent (M6-13).
       "check_cards",

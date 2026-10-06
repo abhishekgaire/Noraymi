@@ -36,6 +36,7 @@ import { alcoholStopSweep } from "../orders/four-am.js";
 import { clearOutSweep } from "../rooms/clear-out.js";
 import { holdWatchSweep } from "../tabs/expiry.js";
 import { tabCutOffSweep } from "../tabs/walkout.js";
+import { vendorHealthSweep } from "./vendor-health.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -153,6 +154,8 @@ export function makeSweeps(
   const s3 = makeS3();
   return [
     deviceWatchSweep(pool, log),
+    // Stripe and Twilio health for the staff banners (M8-01).
+    vendorHealthSweep(pool, log),
     // Each drawer's session opens as the business date starts (M4-13).
     drawerSweep(pool),
     // Card readers' status from Stripe every 30 seconds (M4-02).
