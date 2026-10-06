@@ -98,6 +98,38 @@ export interface SeedFile {
   readonly bar_tabs: readonly SeedTab[];
   readonly tip_slips: readonly SeedTipSlip[];
   readonly drawers: readonly SeedDrawer[];
+  readonly singers: readonly SeedSinger[];
+  readonly song_queue: SeedSongQueue;
+}
+
+/** A bar-mode singer (M6-18): a confirmed number, a tab once they owe something, and the credits they hold. */
+export interface SeedSinger {
+  readonly id: string;
+  readonly name: string;
+  readonly phone_e164: string;
+  readonly check: string | null;
+  readonly credits: number;
+}
+
+/** The night's singer queue (M6-18): round 3, 23 sung, Luis M. singing and six up next. */
+export interface SeedSongQueue {
+  readonly bar_mode_started_at: string;
+  readonly songs_sung_so_far: number;
+  readonly round: number;
+  readonly now_singing: {
+    readonly singer: string;
+    readonly title: string;
+    readonly artist: string;
+    readonly started_by: string;
+    readonly started_at: string;
+    readonly check: string | null;
+  };
+  readonly up_next: readonly {
+    readonly position: number;
+    readonly singer: string;
+    readonly title: string;
+    readonly artist: string;
+  }[];
 }
 
 /** A signed paper tip slip waiting in Tips to enter (M6-09): a bar tab awaiting its tip, its photo kept. */
@@ -919,6 +951,12 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "clear_out_checks",
       // The 4:30 AM tab cut-off, once a night (M6-16).
       "tab_cut_off_runs",
+      // Bar mode (M6-18): credits point at songs, lines and payments; songs at singers and the night.
+      "song_queue_moves",
+      "song_credits",
+      "song_queue",
+      "song_nights",
+      "singers",
       "order_items",
       "orders",
       "room_guests",
@@ -1571,6 +1609,124 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`tabs: ${seed.bar_tabs.length}`);
+
+    // Bar mode's queue (M6-18): the seven singers, confirmed when bar mode started; the night's row (round 3,
+    // 23 sung); Luis M. singing on a credit (his $0.00 song line is ln_t2_3) and six up next, all in round 3.
+    // Credits: each drink unit on a singer's tab earned one (none for the comped Jäger Bomb); the seed gives
+    // how many each singer still holds, so the earlier units were spent on the songs before tonight's 10:41 PM
+    // (the seed doesn't name those songs; their time is the drink's). Kira's and Ben T.'s credits came from
+    // drinks bought at the bar, whose quick sales aren't in the seed, so they name no line (flagged for M6-27).
+    // Each queued song holds one of its singer's credits; Sofia R. has none, so hers is flagged.
+    const q = seed.song_queue;
+    const songStart = q.bar_mode_started_at;
+    await client.query(
+      "insert into song_nights (venue_id, business_date, started_at, songs_sung) values ($1, $2, $3, $4)",
+      [venueId, businessDate, songStart, q.songs_sung_so_far],
+    );
+    for (const sg of seed.singers)
+      await client.query(
+        `insert into singers (id, venue_id, display_name, phone_e164, phone_verified_at, check_id, joined_at, last_song_at)
+         values ($1, $2, $3, $4, $5, $6, $5, $7)`,
+        [
+          remember(sg.id, "singers"),
+          venueId,
+          sg.name,
+          sg.phone_e164,
+          songStart,
+          sg.check ? id(sg.check) : null,
+          sg.id === q.now_singing.singer ? q.now_singing.started_at : null,
+        ],
+      );
+    const songs = [
+      { slug: `song_${q.now_singing.singer}`, ...q.now_singing, position: 1, status: "singing" },
+      ...q.up_next.map((u) => ({
+        slug: `song_${u.singer}`,
+        ...u,
+        position: u.position + 1,
+        status: "queued",
+        started_by: null,
+        started_at: null,
+      })),
+    ];
+    for (const song of songs) {
+      const sg = seed.singers.find((x) => x.id === song.singer)!;
+      await client.query(
+        `insert into song_queue (id, venue_id, business_date, singer_id, check_id, title, artist, round, position, status,
+           pay_with, queued_at, started_by, started_at, check_line_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'credit', $11, $12, $13, $14)`,
+        [
+          remember(song.slug, "song_queue"),
+          venueId,
+          businessDate,
+          id(sg.id),
+          sg.check ? id(sg.check) : null,
+          song.title,
+          song.artist,
+          q.round,
+          song.position,
+          song.status,
+          songStart,
+          song.started_by ? id(song.started_by) : null,
+          song.started_at,
+          song.status === "singing"
+            ? (lineIds.get(
+                (seed.checks.find((c) => c.id === sg.check)?.lines ?? []).find(
+                  (l) => l.kind === "song",
+                )?.id ?? "",
+              ) ?? null)
+            : null,
+        ],
+      );
+    }
+    let creditCount = 0;
+    for (const sg of seed.singers) {
+      const lines = sg.check ? (seed.checks.find((c) => c.id === sg.check)?.lines ?? []) : [];
+      const reversed = (lineSlug: string) =>
+        lines
+          .filter((l) => (l.kind === "comp" || l.kind === "void") && l.comp_of === lineSlug)
+          .reduce((n, l) => n + l.qty, 0);
+      const units = lines
+        .filter((l) => l.kind === "item" && l.tax_category === "drink")
+        .flatMap((l) =>
+          Array.from({ length: Math.max(0, l.qty - reversed(l.id)) }, (_, k) => ({
+            line: lineIds.get(l.id)!,
+            unit: k + 1,
+            at: l.added_at ?? seed.checks.find((c) => c.id === sg.check)!.opened_at,
+          })),
+        );
+      // Bought at the bar, with no line here: one unit for each credit held.
+      const earned = sg.check
+        ? units
+        : Array.from({ length: sg.credits }, () => ({ line: null, unit: null, at: songStart }));
+      const spent = earned.length - sg.credits;
+      if (spent < 0) throw new Error(`seed: ${sg.id} holds more credits than drinks earned`);
+      const singing = q.now_singing.singer === sg.id;
+      const queued = songs.find((x) => x.singer === sg.id && x.status === "queued");
+      for (const [k, e] of earned.entries()) {
+        const creditId = randomUUID();
+        // The last spent credit is the song now singing's; the first one held is the queued song's.
+        const usedBy =
+          k === spent - 1 && singing
+            ? id(`song_${sg.id}`)
+            : k === spent && queued
+              ? id(queued.slug)
+              : null;
+        const usedAt =
+          k < spent ? (k === spent - 1 && singing ? q.now_singing.started_at : e.at) : null;
+        await client.query(
+          `insert into song_credits (id, venue_id, singer_id, source, check_line_id, unit, earned_at, used_by_queue_id, used_at)
+           values ($1, $2, $3, 'drink', $4, $5, $6, $7, $8)`,
+          [creditId, venueId, id(sg.id), e.line, e.unit, e.at, usedBy, usedAt],
+        );
+        if (usedBy)
+          await client.query(
+            "update song_queue set credit_id = $3 where venue_id = $1 and id = $2",
+            [venueId, usedBy, creditId],
+          );
+        creditCount += 1;
+      }
+    }
+    log(`singers: ${seed.singers.length}, songs: ${songs.length}, credits: ${creditCount}`);
 
     // The paper tip slips (M6-09; screens N26): three bar tabs whose slips printed and were signed, waiting
     // as awaiting_tip with their holds standing, each with the photo of its signed slip. The brief gives each

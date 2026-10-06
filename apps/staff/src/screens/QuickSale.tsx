@@ -4,6 +4,7 @@ import { useT } from "../i18n.js";
 import { AddDrinks, type DraftLine } from "./AddDrinks.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
+import { SongCredit } from "./SongCredit.js";
 import { TapPayment } from "./TapPayment.js";
 
 /**
@@ -108,6 +109,8 @@ export function QuickSale({
         <>
           {cash && <CashResult venueId={venueId} taken={cash} />}
           <ReceiptStep venueId={venueId} checkId={sale.check_id} roomName={t("rail.quickSale")} />
+          {/* In bar mode, the singer who bought the drink gets its song credit (M6-18). */}
+          <SongCredit venueId={venueId} checkId={sale.check_id} />
           <p className="small muted">{t("rail.nextSale")}</p>
         </>
       ) : (

@@ -5783,6 +5783,46 @@ test("Quick sale: a walk-up Bud Light in cash in three taps, logged to Maya · b
 });
 
 /**
+ * The song queue on the bar POS (M6-18; the M6-05 line): the top bar reads "Song queue · 6" from the
+ * seed's queue, and picking Kira on a Bud Light paid in cash at the bar gives her one credit.
+ */
+test("Song queue · 6 on the bar POS, and picking Kira on a drink bought at the bar gives her a credit", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await expect(page.getByText("Song queue · 6")).toBeVisible();
+    const kira = async () =>
+      Number(
+        (
+          await db.query<{ n: string }>(
+            `select count(*) as n from song_credits k join singers s on s.id = k.singer_id
+              where s.display_name = 'Kira' and k.used_at is null and k.forfeited_at is null`,
+          )
+        ).rows[0]!.n,
+      );
+    expect(await kira()).toBe(1);
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    await panel
+      .getByRole("group", { name: /handed over/i })
+      .getByRole("button", { name: "$10.00" })
+      .click();
+    const credit = panel.getByRole("region", { name: "Song credit for" });
+    await credit.getByRole("button", { name: "Kira", exact: true }).click();
+    await expect(credit.getByRole("status")).toContainText("Song credit for Kira");
+    await expect.poll(kira).toBe(2);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * New tab, card first (M6-06): a tapped phone opens in four taps (New tab, Read to guest ✓, a
  * label, Open) in under 20 seconds with the consent line on screen, as a $50.00 authorization with
  * incremental support; Jess P.'s Visa ··4417 at New tab opens her tab with no second hold; and with

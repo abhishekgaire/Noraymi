@@ -114,6 +114,21 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into tabs (venue_id, check_id, name, opened_at) values ($1, $2, 'B tab', now()) returning id",
     [v.venueB, barCheckB.rows[0]!.id],
   );
+  // A singer and a queued song only venue B has (M6-18).
+  await owner.query(
+    "insert into song_nights (venue_id, business_date, started_at) values ($1, '2026-09-25', now())",
+    [v.venueB],
+  );
+  const singerB = await owner.query<{ id: string }>(
+    `insert into singers (venue_id, display_name, phone_e164, phone_verified_at, joined_at)
+       values ($1, 'B singer', '+12125550100', now(), now()) returning id`,
+    [v.venueB],
+  );
+  const songB = await owner.query<{ id: string }>(
+    `insert into song_queue (venue_id, business_date, singer_id, title, round, position, pay_with, queued_at)
+       values ($1, '2026-09-25', $2, 'B song', 1, 1, 'credit', now()) returning id`,
+    [v.venueB, singerB.rows[0]!.id],
+  );
   // A tab being opened only venue B has, with its consent line's policy version (M6-06).
   const consentB = await owner.query<{ id: string }>(
     `insert into policy_versions (venue_id, kind, version, text, hash, published_at)
@@ -251,11 +266,17 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       l: layoutB.rows[0]!.id,
       t: tabB.rows[0]!.id,
       o: openingB.rows[0]!.id,
+      q: songB.rows[0]!.id,
+      s: singerB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
       "POST /v1/venues/:venueId/team/:m/badges/keys": { uid: "04AABBCCDDEEFF" },
       "POST /v1/venues/:venueId/tabs/openings/:o/name": { name: "B", label: null },
+      "POST /v1/venues/:venueId/song-queue": { singer_id: singerB.rows[0]!.id, title: "B" },
+      "POST /v1/venues/:venueId/song-queue/:q/move": { direction: "down", reason: "B" },
+      "POST /v1/venues/:venueId/singers/:s/verify": { code: "123456" },
+      "POST /v1/venues/:venueId/singers/:s/credits": { check_id: checkB.rows[0]!.id },
       "POST /v1/venues/:venueId/team/:m/badges": { sun: "https://x.test/?e=00&c=00", label: "x" },
       "PATCH /v1/venues/:venueId/devices/:d": { name: "renamed" },
       "PATCH /v1/venues/:venueId/modules/:id": { state: "off" },

@@ -1227,6 +1227,7 @@ button.danger {
   gap: 12px;
 }
 .rail-top .who,
+.rail-top .song-count,
 .rail-top .clock {
   font-weight: 600;
   white-space: nowrap;
@@ -1415,6 +1416,14 @@ button.danger {
 }
 .rail-right .on-tab button.tab-line[aria-expanded="true"] {
   border-color: currentColor;
+}
+.song-credit .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.song-credit .chips button {
+  min-height: 44px;
 }
 .fix-panel .chips {
   display: flex;

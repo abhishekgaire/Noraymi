@@ -1,3 +1,4 @@
+import { syncCheckCredits } from "../songs/queue.js";
 import {
   addCheckLine,
   emitEvent,
@@ -182,6 +183,8 @@ async function writeVoids(
       addedAt: who.at.toString(),
     });
   }
+  // A voided drink on a singer's tab takes back the credit it earned, if not yet spent (M6-18).
+  await syncCheckCredits(c, venueId, order.check_id, who.at);
   const moved = await moveOrder(c, venueId, order.id, ["returned"], {
     return_resolution: who.resolution,
   });
@@ -261,6 +264,8 @@ export async function stepOrder(
           addedAt: now,
         });
       }
+      // Bar mode (M6-18): a drink rung on a singer's tab earns their song credit by itself.
+      await syncCheckCredits(c, venueId, done.check_id, input.now);
       await ticket(c, venueId, done, input.now, false);
       await announce(c, venueId, done, "order.accepted");
       await emitEvent(c, {

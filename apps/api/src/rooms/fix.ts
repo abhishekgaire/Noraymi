@@ -1,3 +1,4 @@
+import { syncCheckCredits } from "../songs/queue.js";
 import { addCheckLine, emitEvent, readSetting, reasonOnlyUsed, type Queryable } from "@west4/db";
 import { businessDate, reasonOnly } from "@west4/rules";
 import { cents, type Temporal } from "@west4/shared";
@@ -82,6 +83,8 @@ export async function writeFixLine(
     approvedBy: who.approvedBy,
     addedAt: who.at.toString(),
   });
+  // A comped or voided drink on a singer's tab takes back the credit it earned, if not yet spent (M6-18).
+  await syncCheckCredits(c, venueId, p.check_id, who.at);
   await emitEvent(c, { venueId, type: "check.updated", entityId: p.check_id, entityVersion: 0 });
   return id;
 }

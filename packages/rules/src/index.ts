@@ -64,3 +64,4 @@ export * from "./quote.js";
 export * from "./tips.js";
 export * from "./hold-expiry.js";
 export * from "./hold.js";
+export * from "./song-queue.js";
