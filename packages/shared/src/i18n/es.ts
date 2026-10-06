@@ -2214,4 +2214,28 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "gift.send": "Enviar {count} a {name}",
   "gift.sent": "Enviado · la bebida de {name} va en esta cuenta · revisa su ID al entregarla",
   "gift.cutOff": "Sin alcohol para {name}",
+  // Admin → Bar mode settings (M6-26).
+  "barMode.settings.now": "Los cambios aplican al instante.",
+  "barMode.songs": "Canciones",
+  "barMode.price.label": "Precio por canción",
+  "barMode.price.notSet":
+    "Precio por canción · sin definir · las canciones necesitan un crédito de bebida",
+  "barMode.price.set": "Precio por canción · {price} · por una canción sin crédito",
+  "barMode.price.charge": "Cobrar un precio por canción",
+  "barMode.price.hint":
+    "Sin precio, una canción sin crédito se marca “Necesita un crédito de bebida” y no puede empezar hasta que quien canta tenga uno.",
+  "barMode.drinkCredit": "Compra una bebida, canta una canción",
+  "barMode.drinkCredit.hint":
+    "Cada bebida comprada da un crédito de canción, que se registra como una línea de canción de $0.00 al empezar la canción.",
+  "barMode.freeDrink": "Compra una canción, llévate una bebida",
+  "barMode.freeDrink.hint":
+    "Una bebida gratis con una canción es alcohol gratis: las revisiones de promociones la rechazan hasta que responda el abogado.",
+  "barMode.freeNights": "Noches gratis",
+  "barMode.freeNights.hint": "Esas noches las canciones no cuestan nada y no gastan crédito.",
+  "barMode.perRound": "Canciones por persona por ronda",
+  "barMode.upNextCount": "Personas que muestra la TV de Siguiente después de quien canta",
+  "barMode.alerts": "Avisos para quien canta",
+  "barMode.alerts.before": "Un aviso cuando falta poco para su turno",
+  "barMode.alerts.beforeCount": "Personas antes de ti al avisar",
+  "barMode.alerts.upNext": "El texto Sigues tú",
 };

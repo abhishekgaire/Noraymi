@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { prepaidCreditValue, songCharge } from "./song-queue.js";
+import { prepaidCreditValue, songCharge, songFlag } from "./song-queue.js";
 
 /** What Started charges (M6-19): the seed's singers at West 4 (no song price) and a $5.00 test venue. */
 describe("songCharge", () => {
@@ -55,5 +55,21 @@ describe("songCharge", () => {
     expect(prepaidCreditValue(1000, 2)).toBe(500);
     expect(prepaidCreditValue(500, 1)).toBe(500);
     expect(prepaidCreditValue(0, 0)).toBe(0);
+  });
+});
+
+describe("free nights (M6-26)", () => {
+  it("a song is $0.00 at the price, spends no credit and needs no tab", () => {
+    const drink = { source: "drink" as const, valueCents: 0 };
+    expect(
+      songCharge({ credit: drink, songPriceCents: null, hasTab: true, freeNight: true }),
+    ).toEqual({ kind: "charge", paidWith: "price", amountCents: 0, postsLine: true });
+    expect(
+      songCharge({ credit: null, songPriceCents: 500, hasTab: false, freeNight: true }),
+    ).toEqual({ kind: "charge", paidWith: "price", amountCents: 0, postsLine: false });
+  });
+  it("no song is flagged as needing a drink credit", () => {
+    expect(songFlag({ holdsCredit: false, songPriceCents: null })).toBe("needs_drink_credit");
+    expect(songFlag({ holdsCredit: false, songPriceCents: null, freeNight: true })).toBeNull();
   });
 });

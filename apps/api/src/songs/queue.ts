@@ -59,6 +59,11 @@ export async function barMode(c: Queryable, venueId: string, date: Temporal.Plai
     songsPerRound: s?.value.songsPerRound ?? 1,
     /** Singers the Up next TV and the queue page list after the one singing (M6-22). */
     upNextCount: s?.value.upNextCount ?? 5,
+    /**
+     * Tonight is a free night (`barMode.freeNights`, days 0 = Sunday to 6, by business date; M6-26): songs
+     * cost nothing and spend no credit. The song price still sells song credit for other nights.
+     */
+    freeNight: (s?.value.freeNights ?? []).includes(date.dayOfWeek % 7),
   };
 }
 
@@ -217,7 +222,11 @@ export async function queueView(
       holds_credit: holds,
       flag:
         s.pay_with === "credit"
-          ? songFlag({ holdsCredit: holds, songPriceCents: settings.songPriceCents })
+          ? songFlag({
+              holdsCredit: holds,
+              songPriceCents: settings.songPriceCents,
+              freeNight: settings.freeNight,
+            })
           : null,
       credits: sg.credits,
       started_at: s.started_at,
@@ -277,7 +286,12 @@ export async function queueSong(
   const place = placeNewSong(songs.map(asQueued), input.singerId, settings.songsPerRound);
   const credit = await freeCredit(c, venueId, input.singerId);
   // A song is paid with a credit when one is free or the venue sells no songs; otherwise at the price.
-  const payWith = credit || settings.songPriceCents === null ? "credit" : "price";
+  // On a free night it's at the night's price, $0.00, and no credit is held for it.
+  const payWith = settings.freeNight
+    ? "price"
+    : credit || settings.songPriceCents === null
+      ? "credit"
+      : "price";
   const r = await c.query<{ id: string }>(
     `insert into song_queue (venue_id, business_date, singer_id, check_id, title, artist, catalog_id, round, position,
        pay_with, price_cents, queued_by, queued_at)
@@ -293,7 +307,7 @@ export async function queueSong(
       place.round,
       place.position,
       payWith,
-      payWith === "price" ? settings.songPriceCents : null,
+      payWith === "price" ? (settings.freeNight ? 0 : settings.songPriceCents) : null,
       input.userId,
       input.now.toString(),
     ],

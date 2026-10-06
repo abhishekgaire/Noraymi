@@ -6834,3 +6834,43 @@ test("The songbook: a CSV loads in Admin → Bar mode, line 12's missing title i
     await db.end();
   }
 });
+
+test("Admin → Bar mode: West 4's settings, a free drink with a song refused, 2 songs per round saved", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInAndy(page, request, db);
+    await page.goto("/admin/bar-mode");
+    await expect(page.getByText("Song price · not set · songs need a drink credit")).toBeVisible();
+    await expect(page.getByLabel("Charge a song price")).not.toBeChecked();
+    await expect(page.getByLabel("Buy a drink, get a song")).toBeChecked();
+    await expect(page.getByLabel("Buy a song, get a drink")).not.toBeChecked();
+    await expect(page.getByLabel("Songs per singer per round")).toHaveValue("1");
+    await expect(page.getByLabel("A push when singers are close to their turn")).toBeChecked();
+    await expect(page.getByLabel("Singers before you at the push")).toHaveValue("2");
+    await expect(page.getByLabel("The You're up next text")).toBeChecked();
+    await expect(page.getByLabel("Singers the Up next TV shows after the one singing")).toHaveValue(
+      "5",
+    );
+    await expect(page.getByText("No songbook yet. Singers type a title and artist.")).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.getByLabel("Buy a song, get a drink").check();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(
+      page.getByText("a free drink with a song is free alcohol", { exact: false }),
+    ).toBeVisible();
+    await page.getByLabel("Buy a song, get a drink").uncheck();
+    await page.getByLabel("Songs per singer per round").fill("2");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const saved = await db.query<{ value: { songsPerRound: number; freeDrinkWithSong?: boolean } }>(
+      "select value from venue_settings where key = 'barMode' order by version desc limit 1",
+    );
+    expect(saved.rows[0]!.value).toMatchObject({ songsPerRound: 2, freeDrinkWithSong: false });
+  } finally {
+    await db.end();
+  }
+});

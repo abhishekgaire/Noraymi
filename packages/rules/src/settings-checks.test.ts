@@ -8,6 +8,7 @@ import {
   checkPos,
   checkSafety,
   checkTabs,
+  checkBarMode,
   checkSetting,
 } from "./settings-checks.js";
 
@@ -150,5 +151,44 @@ describe("the bar POS and tab checks (M6-25)", () => {
       "The amount that flags a tab is more than the opening hold.",
     ]);
     expect(checkSetting("tabs", { ...tabs, flagOverCents: 0 }, ctx)).toHaveLength(1);
+  });
+});
+
+describe("checkBarMode (M6-26)", () => {
+  const west4 = {
+    songPriceCents: null,
+    drinkCredit: true,
+    freeNights: [],
+    songsPerRound: 1,
+    alerts: { beforeYou: 2, upNextText: true },
+    upNextCount: 5,
+  };
+  const context = { pack: newYorkCounty };
+  it("passes West 4's values and a set song price", () => {
+    expect(checkBarMode(west4, context)).toEqual([]);
+    expect(checkBarMode({ ...west4, songPriceCents: 500, freeNights: [0, 1] }, context)).toEqual(
+      [],
+    );
+  });
+  it("runs the promotion checks: a free drink with a song is refused with the reason", () => {
+    expect(checkBarMode({ ...west4, freeDrinkWithSong: true }, context)).toEqual([
+      "Buy a song, get a drink: a free drink with a song is free alcohol, which this venue's rules don't allow until the lawyer answers.",
+    ]);
+    const cleared = {
+      pack: {
+        ...newYorkCounty,
+        alcohol: {
+          ...newYorkCounty.alcohol,
+          promotions: { ...newYorkCounty.alcohol.promotions, freeDrinks: true },
+        },
+      },
+    };
+    expect(checkBarMode({ ...west4, freeDrinkWithSong: true }, cleared)).toEqual([]);
+  });
+  it("refuses a $0.00 price, a night twice and a TV outside 1 to 10", () => {
+    expect(checkBarMode({ ...west4, songPriceCents: 0 }, context)).toHaveLength(1);
+    expect(checkBarMode({ ...west4, freeNights: [5, 5] }, context)).toHaveLength(1);
+    expect(checkBarMode({ ...west4, upNextCount: 0 }, context)).toHaveLength(1);
+    expect(checkBarMode({ ...west4, upNextCount: 11 }, context)).toHaveLength(1);
   });
 });

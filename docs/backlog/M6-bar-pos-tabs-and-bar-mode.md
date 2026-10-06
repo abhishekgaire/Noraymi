@@ -695,7 +695,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-26 · Build Admin → Bar mode
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6-18, M6-23
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`BarModeSettings`, promotion checks); [Song systems and texts](../spec/11-song-systems-texts.md) (Bar mode, Promotions); [screens: N34](../screens.md#n34-admin--bar-mode), [AdminDesk note 27](../screens.md#admindesk); [Open technical questions](../spec/14-open-questions.md)
@@ -703,10 +703,15 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The `barMode` editor: the song price ("Song price · not set · songs need a drink credit" at West 4), the drink credit ("Buy a drink, get a song", on), free nights, songs per round (1), singer alerts (2 singers before you, and the You're up next text), how many singers the TV shows (5), and the songbook upload (M6-23).
   - Every save runs the rule pack's promotion checks.
 - **Acceptance:**
-  - [ ] West 4 shows "Song price · not set · songs need a drink credit", drink credit on, 1 song per round and both alerts on.
-  - [ ] A free drink with a song can't be set up: the promotion checks refuse it with the reason.
+  - [x] West 4 shows "Song price · not set · songs need a drink credit", drink credit on, 1 song per round and both alerts on.
+  - [x] A free drink with a song can't be set up: the promotion checks refuse it with the reason.
 - **Tests:** settings validation; end-to-end.
 - **Notes:** West 4's song price is the founder's open question; M6 ships it unset, and Admin can set it any time. "Buy a song, get a drink" waits for the lawyer ([Open technical questions](../spec/14-open-questions.md)).
+  - Built: Admin → Bar mode (`/admin/bar-mode`) now opens with the `barMode` editor (`apps/staff/src/screens/admin/BarModeSettings.tsx`) above the songbook upload, saved through Save and publish and live at once: the song price ("Song price · not set · songs need a drink credit" while unset; "Charge a song price" shows the amount), "Buy a drink, get a song", "Buy a song, get a drink", free nights (a box per day), songs per singer per round, the TV's count, and the singer alerts (the push at n singers before you, 0 being off, and the You're up next text). English and Spanish strings.
+  - Promotion checks: `promotionChecks` has a new `songOffer` kind, and `checkSetting` runs `checkBarMode` on every `barMode` save, so "Buy a song, get a drink" is refused with "Buy a song, get a drink: a free drink with a song is free alcohol, which this venue's rules don't allow until the lawyer answers." while the pack's `promotions.freeDrinks` is false (both built-in packs). To make it something Admin can try to set up, `BarModeSettings` gained an optional `freeDrinkWithSong` (spec 03's type and promotion-checks line updated; no decision changed).
+  - Free nights are now read (M6-19 left them unread): `barMode()` answers `freeNight` for the business date's weekday (0 = Sunday); on a free night a queued song goes in at $0.00 with no credit held, isn't flagged "Needs a drink credit", and Started posts a $0.00 line on a tab (nothing without one) and spends no credit; a credit the song already held goes back. The song price still sells song credit for other nights. Spec 11's Credits line says so.
+  - Defaults flagged (the spec gives no ranges): a song price, when set, is more than $0.00 (free songs are free nights); free nights name each day once; the TV shows 1 to 10 singers. Reading "free nights: days with no song price" as songs being free (not as needing a credit) is my reading; flagged for the owner. Turning the push back on starts it at 2, the spec's value.
+  - Tests: rules unit tests (`checkBarMode`, free-night `songCharge` and `songFlag`); integration `bar-mode-settings.int.test.ts` (West 4's values, the free drink refused and nothing saved, the ranges, a $5.00 price and 2 per round, a Friday free night: Sofia R. unflagged and started at $0.00 with no credit spent); e2e "Admin → Bar mode: West 4's settings, a free drink with a song refused, 2 songs per round saved".
 
 ### M6-27 · Load the seed's bar tabs, slips and singer queue into staging
 

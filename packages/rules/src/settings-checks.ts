@@ -1,5 +1,6 @@
 import type { RulePack, SettingsKey, SettingsValue } from "@west4/shared";
 import { Temporal } from "@west4/shared";
+import { promotionChecks } from "./promotions.js";
 import { parseCutover } from "./time.js";
 
 /**
@@ -52,6 +53,8 @@ export function checkSetting<K extends SettingsKey>(
       return checkPos(value as SettingsValue<"pos">);
     case "tabs":
       return checkTabs(value as SettingsValue<"tabs">);
+    case "barMode":
+      return checkBarMode(value as SettingsValue<"barMode">, context);
     default:
       return [];
   }
@@ -177,5 +180,31 @@ export function checkTabs(tabs: SettingsValue<"tabs">): string[] {
   if (tabs.openingHoldCents < 100) reasons.push("The opening hold is $1.00 or more.");
   if (tabs.flagOverCents <= tabs.openingHoldCents)
     reasons.push("The amount that flags a tab is more than the opening hold.");
+  return reasons;
+}
+
+/**
+ * Admin → Bar mode (M6-26; spec 03 · BarModeSettings, promotion checks): every save runs the pack's
+ * promotion checks on the song offer, so a free drink with a song is refused with the reason. Ranges
+ * the spec doesn't give are cautious defaults: a song price, when set, is more than $0.00 (free songs
+ * are free nights); free nights name each day once; the TV shows 1 to 10 singers after the one singing.
+ */
+export function checkBarMode(
+  barMode: SettingsValue<"barMode">,
+  context: Pick<CheckContext, "pack">,
+): string[] {
+  const reasons = promotionChecks(
+    { kind: "songOffer", freeDrinkWithSong: barMode.freeDrinkWithSong === true },
+    {},
+    context.pack,
+  ).map((r) => r.message);
+  if (barMode.songPriceCents === 0)
+    reasons.push(
+      "A song price is more than $0.00. Leave it not set to have songs need a drink credit, or pick free nights.",
+    );
+  if (new Set(barMode.freeNights).size !== barMode.freeNights.length)
+    reasons.push("Each free night is a different day of the week.");
+  if (barMode.upNextCount < 1 || barMode.upNextCount > 10)
+    reasons.push("The Up next TV shows 1 to 10 singers after the one singing.");
   return reasons;
 }

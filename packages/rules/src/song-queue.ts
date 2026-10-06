@@ -117,8 +117,12 @@ export function drinkCreditUnits(lines: readonly CreditLine[]): ReadonlyMap<numb
 export function songFlag(input: {
   readonly holdsCredit: boolean;
   readonly songPriceCents: number | null;
+  /** A free night (`barMode.freeNights`): no song price, so no song needs a credit. */
+  readonly freeNight?: boolean;
 }): "needs_drink_credit" | null {
-  return !input.holdsCredit && input.songPriceCents === null ? "needs_drink_credit" : null;
+  return !input.freeNight && !input.holdsCredit && input.songPriceCents === null
+    ? "needs_drink_credit"
+    : null;
 }
 
 export type SongCharge =
@@ -142,8 +146,15 @@ export function songCharge(input: {
   readonly credit: { readonly source: "drink" | "prepaid"; readonly valueCents: number } | null;
   readonly songPriceCents: number | null;
   readonly hasTab: boolean;
+  /**
+   * A free night (`barMode.freeNights`, M6-26): the song costs nothing and spends no credit; a $0.00
+   * line posts on a tab, and a singer with no tab needs none.
+   */
+  readonly freeNight?: boolean;
 }): SongCharge {
   const { credit, songPriceCents, hasTab } = input;
+  if (input.freeNight)
+    return { kind: "charge", paidWith: "price", amountCents: 0, postsLine: hasTab };
   if (credit)
     return {
       kind: "charge",

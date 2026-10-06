@@ -213,6 +213,8 @@ export const barModeSchema = z
       .object({ beforeYou: z.number().int().nonnegative(), upNextText: z.boolean() })
       .strict(),
     upNextCount: z.number().int().nonnegative(),
+    /** "Buy a song, get a drink": a free drink with a song, which the promotion checks refuse until the lawyer answers. */
+    freeDrinkWithSong: z.boolean().optional(),
   })
   .strict();
 

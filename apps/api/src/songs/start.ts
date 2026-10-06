@@ -115,7 +115,20 @@ export async function startSong(
   }
 
   // The credit it uses: the one it holds, else one that's free now.
-  const creditId = song.credit_id ?? (await freeCredit(c, venueId, song.singer_id));
+  // On a free night none is spent, and a credit the song held goes back to the singer.
+  if (settings.freeNight && song.credit_id) {
+    await c.query(
+      "update song_credits set used_by_queue_id = null where venue_id = $1 and id = $2",
+      [venueId, song.credit_id],
+    );
+    await c.query("update song_queue set credit_id = null where venue_id = $1 and id = $2", [
+      venueId,
+      song.id,
+    ]);
+  }
+  const creditId = settings.freeNight
+    ? null
+    : (song.credit_id ?? (await freeCredit(c, venueId, song.singer_id)));
   const credit = creditId
     ? (
         await c.query<{
@@ -140,6 +153,7 @@ export async function startSong(
       : null,
     songPriceCents: settings.songPriceCents,
     hasTab: tab !== null,
+    freeNight: settings.freeNight,
   });
   if (charge.kind === "refused")
     throw new ApiError(

@@ -3,12 +3,13 @@ import { FILE_RULES, type MessageKey } from "@west4/shared";
 import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { BarModeSettings } from "./BarModeSettings.js";
 
 /**
  * Admin → Bar mode (M6-23; screens N34; Song systems and texts · Songbook; D63): the songbook upload.
  * A CSV of title, artist and code goes straight to storage through POST /files, then POST
  * /songbook/uploads checks every row: all pass and it replaces the last upload; otherwise nothing
- * loads and each failing line is listed. The `barMode` settings join this section in M6-26.
+ * loads and each failing line is listed. The `barMode` settings (M6-26) come first, in BarModeSettings.
  */
 interface Summary {
   readonly songs: number;
@@ -101,6 +102,8 @@ export function BarMode() {
   return (
     <section className="bar-mode">
       <h2>{t("admin.section.barMode")}</h2>
+      <p className="small muted">{t("barMode.settings.now")}</p>
+      {venueId && <BarModeSettings venueId={venueId} />}
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}

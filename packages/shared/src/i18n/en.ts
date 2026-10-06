@@ -2174,4 +2174,27 @@ export const en = {
   "gift.send": "Send {count} to {name}",
   "gift.sent": "Sent · {name}'s drink is on this tab · check their ID at hand-off",
   "gift.cutOff": "No alcohol for {name}",
+  // Admin → Bar mode settings (M6-26).
+  "barMode.settings.now": "Changes are live at once.",
+  "barMode.songs": "Songs",
+  "barMode.price.label": "Song price",
+  "barMode.price.notSet": "Song price · not set · songs need a drink credit",
+  "barMode.price.set": "Song price · {price} · for a song without a credit",
+  "barMode.price.charge": "Charge a song price",
+  "barMode.price.hint":
+    "Not set, a song without a credit is flagged “Needs a drink credit” and can't start until the singer has one.",
+  "barMode.drinkCredit": "Buy a drink, get a song",
+  "barMode.drinkCredit.hint":
+    "Each drink bought earns one song credit, posted as a $0.00 song line when the song starts.",
+  "barMode.freeDrink": "Buy a song, get a drink",
+  "barMode.freeDrink.hint":
+    "A free drink with a song is free alcohol: the promotion checks refuse it until the lawyer answers.",
+  "barMode.freeNights": "Free nights",
+  "barMode.freeNights.hint": "On these nights songs cost nothing and spend no credit.",
+  "barMode.perRound": "Songs per singer per round",
+  "barMode.upNextCount": "Singers the Up next TV shows after the one singing",
+  "barMode.alerts": "Singer alerts",
+  "barMode.alerts.before": "A push when singers are close to their turn",
+  "barMode.alerts.beforeCount": "Singers before you at the push",
+  "barMode.alerts.upNext": "The You're up next text",
 } as const;

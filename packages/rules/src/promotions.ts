@@ -44,7 +44,12 @@ export type Promotable =
       /** A whole percentage off. */
       readonly pctOff?: number;
     }
-  | { readonly kind: "comp"; readonly itemId: string; readonly reason: string };
+  | { readonly kind: "comp"; readonly itemId: string; readonly reason: string }
+  | {
+      /** Bar mode's song offer (M6-26): "Buy a drink, get a song" is a $0.00 song; a free drink with a song is free alcohol. */
+      readonly kind: "songOffer";
+      readonly freeDrinkWithSong: boolean;
+    };
 
 export type PromotionRefusalCode =
   | "alcohol_quantity_not_fixed"
@@ -53,6 +58,7 @@ export type PromotionRefusalCode =
   | "free_alcohol"
   | "private_function_not_cleared"
   | "comp_needs_reason"
+  | "free_drink_with_song"
   | "unknown_item";
 
 export interface PromotionRefusal {
@@ -133,6 +139,14 @@ export function promotionChecks(
       }
       break;
     }
+
+    case "songOffer":
+      if (thing.freeDrinkWithSong && !rules.freeDrinks)
+        refuse(
+          "free_drink_with_song",
+          "Buy a song, get a drink: a free drink with a song is free alcohol, which this venue's rules don't allow until the lawyer answers.",
+        );
+      break;
 
     case "comp":
       lookup(thing.itemId);
