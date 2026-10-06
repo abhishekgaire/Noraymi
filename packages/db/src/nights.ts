@@ -86,6 +86,13 @@ export async function latePostsTo(
   return r.rows[0]!.d;
 }
 
+/** A night with a pulled tray still uncounted can't close (M7-07). */
+export class UncountedTrays extends Error {
+  constructor() {
+    super("a pulled tray is still uncounted");
+  }
+}
+
 /**
  * Close a night (Close the night, M7-12, calls this inside its transaction): the next Z number from
  * `venue_counters` and the `night_closes` row. From here the database refuses any row dated to it.
@@ -101,6 +108,12 @@ export async function recordNightClose(
     exportId?: string | null;
   },
 ): Promise<NightClose> {
+  // A pulled tray is counted before the night closes (M7-07; Money rules 15).
+  const trays = await c.query(
+    "select 1 from drawer_sessions where venue_id = $1 and business_date = $2::date and state = 'pulled'",
+    [venueId, input.businessDate],
+  );
+  if ((trays.rowCount ?? 0) > 0) throw new UncountedTrays();
   await c.query(
     "insert into venue_counters (venue_id, name, next) values ($1, 'z_report', 1) on conflict (venue_id, name) do nothing",
     [venueId],

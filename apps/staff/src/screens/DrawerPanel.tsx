@@ -32,6 +32,9 @@ interface Session {
   readonly id: string;
   readonly state: "open" | "pulled" | "counted" | "closed";
   readonly opened_with_cents: number;
+  readonly model: "house" | "per_person";
+  readonly owner: string | null;
+  readonly tray_label: string | null;
   readonly responsible: string | null;
   readonly waiting_for: string | null;
   readonly count: Count | null;
@@ -64,6 +67,9 @@ interface Person {
   readonly role: string;
 }
 interface Drawers {
+  readonly model: "house" | "per_person";
+  readonly count_later: boolean;
+  readonly can_count_in: boolean;
   readonly drawers: readonly Drawer[];
   readonly people: readonly Person[];
   readonly me: {
@@ -93,7 +99,8 @@ export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHand
   const [failed, setFailed] = useState(false);
   // The form open now: one drawer's count or move, or the handover of every open drawer.
   const [form, setForm] = useState<
-    | { kind: "count" | "paid_out" | "no_sale" | "tip_out"; drawer: Drawer }
+    | { kind: "count"; drawer: Drawer; path: string; title: string }
+    | { kind: "paid_out" | "no_sale" | "tip_out"; drawer: Drawer }
     | { kind: "handover" }
     | null
   >(null);
@@ -171,10 +178,14 @@ export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHand
           {d.sessions.map((s) => (
             <SessionView key={s.id} session={s} money={money} t={t} />
           ))}
-          {d.can_count && d.sessions.some((s) => s.state === "open") && form === null && (
-            <button type="button" onClick={() => setForm({ kind: "count", drawer: d })}>
-              {t("drawer.count")}
-            </button>
+          {form === null && (
+            <CountButtons
+              data={data}
+              drawer={d}
+              venueId={venueId}
+              onCount={(path, title) => setForm({ kind: "count", drawer: d, path, title })}
+              onDone={done}
+            />
           )}
           {d.here && form === null && d.sessions.some((s) => s.state === "open") && (
             <MoveButtons
@@ -190,9 +201,9 @@ export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHand
           )}
           {form?.kind === "count" && form.drawer.id === d.id && (
             <CountForm
-              venueId={venueId}
+              path={form.path}
+              title={form.title}
               data={data}
-              drawer={d}
               onDone={() => {
                 setForm(null);
                 void load();
@@ -250,7 +261,14 @@ function SessionView({ session: s, t, money }: { session: Session; t: T; money: 
   return (
     <div className="drawer-session">
       <p className="small muted">
-        {s.state === "open" ? t("drawer.blind") : s.state === "closed" ? t("drawer.closed") : ""}
+        {s.model === "per_person" && s.owner ? `${t("drawer.ownedBy", { name: s.owner })} · ` : ""}
+        {s.state === "open"
+          ? t("drawer.blind")
+          : s.state === "closed"
+            ? t("drawer.closed")
+            : s.state === "pulled"
+              ? t("drawer.trayPulled", { label: s.tray_label ?? "" })
+              : ""}
         {s.responsible ? ` · ${t("drawer.answersFor", { name: s.responsible })}` : ""}
         {s.waiting_for ? ` · ${t("drawer.waitingFor", { name: s.waiting_for })}` : ""}
       </p>
@@ -647,14 +665,14 @@ function readRefusal(e: unknown): { reason: "note" | "witness"; answer: Answer }
 }
 
 function CountForm({
-  venueId,
+  path,
+  title,
   data,
-  drawer,
   onDone,
 }: {
-  venueId: string;
+  path: string;
+  title: string;
   data: Drawers;
-  drawer: Drawer;
   onDone: () => void;
 }) {
   const { t, money } = useT();
@@ -663,20 +681,12 @@ function CountForm({
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const session = drawer.sessions.find((s) => s.state === "open")!;
   const save = async () => {
     if (toCents(f.amount) === null) return;
     setBusy(true);
     setError(null);
     try {
-      await api(
-        "POST",
-        `/v1/venues/${venueId}/drawer-sessions/${session.id}/count`,
-        body(f, data, needs),
-        {
-          idempotencyKey: `count-${session.id}-${Date.now()}`,
-        },
-      );
+      await api("POST", path, body(f, data, needs), { idempotencyKey: `count-${Date.now()}` });
       onDone();
     } catch (e) {
       const refusal = readRefusal(e);
@@ -699,6 +709,7 @@ function CountForm({
         void save();
       }}
     >
+      <h4>{title}</h4>
       <p className="small muted">{t("drawer.countHint")}</p>
       <Fields
         f={f}
@@ -848,5 +859,96 @@ function Handover({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * The count buttons on a drawer: a house drawer's blind count; for a drawer
+ * per person (M7-07), Count in the starting bank at its own screen, Count it
+ * now or Pull the tray for its owner, and the blind count of a pulled tray.
+ */
+function CountButtons({
+  data,
+  drawer: d,
+  venueId,
+  onCount,
+  onDone,
+}: {
+  data: Drawers;
+  drawer: Drawer;
+  venueId: string;
+  onCount: (path: string, title: string) => void;
+  onDone: (message?: string) => void;
+}) {
+  const { t } = useT();
+  const [error, setError] = useState(false);
+  const open = d.sessions.find((s) => s.state === "open");
+  const manager = data.me.role === "owner" || data.me.role === "manager";
+  const v = `/v1/venues/${venueId}`;
+  const pull = async () => {
+    setError(false);
+    try {
+      await api(
+        "POST",
+        `${v}/drawers/${d.id}/pull`,
+        {},
+        { idempotencyKey: `pull-${d.id}-${Date.now()}` },
+      );
+      onDone();
+    } catch {
+      setError(true);
+    }
+  };
+  return (
+    <div className="actions">
+      {!open && d.here && data.model === "per_person" && data.can_count_in && (
+        <button
+          type="button"
+          onClick={() => onCount(`${v}/drawers/${d.id}/open`, t("drawer.countIn"))}
+        >
+          {t("drawer.countIn")}
+        </button>
+      )}
+      {open && d.can_count && open.model === "house" && (
+        <button
+          type="button"
+          onClick={() => onCount(`${v}/drawer-sessions/${open.id}/count`, t("drawer.count"))}
+        >
+          {t("drawer.count")}
+        </button>
+      )}
+      {open && d.can_count && open.model === "per_person" && (
+        <>
+          <button
+            type="button"
+            onClick={() => onCount(`${v}/drawers/${d.id}/swap`, t("drawer.swap"))}
+          >
+            {t("drawer.swap")}
+          </button>
+          {data.count_later && (
+            <button type="button" className="secondary" onClick={() => void pull()}>
+              {t("drawer.pull")}
+            </button>
+          )}
+        </>
+      )}
+      {manager &&
+        d.sessions
+          .filter((s) => s.state === "pulled")
+          .map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onCount(`${v}/drawer-sessions/${s.id}/count`, t("drawer.count"))}
+            >
+              {`${t("drawer.count")} · ${s.tray_label ?? ""}`}
+            </button>
+          ))}
+      {error && (
+        <p role="alert" className="error">
+          {t("drawer.moveFailed")}
+        </p>
+      )}
+    </div>
   );
 }

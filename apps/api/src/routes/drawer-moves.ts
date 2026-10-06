@@ -17,6 +17,7 @@ import { attachFile } from "../files/storage.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { mayCount } from "./drawers.js";
+import { ownDrawerOnly } from "../payments/cash.js";
 
 /**
  * Drops, paid-outs, no-sales and tip-outs at the drawer (M7-06; Money rules
@@ -71,6 +72,7 @@ async function atTheDrawer(
   venueId: string,
   sessionId: string,
   deviceId: string | null,
+  userId?: string,
 ): Promise<DrawerSessionRow> {
   const session = await drawerSessionById(c, venueId, sessionId, true);
   if (!session) throw new ApiError("not_found", "no such drawer session");
@@ -79,6 +81,8 @@ async function atTheDrawer(
   const here = deviceId ? await drawerOfDevice(c, venueId, deviceId) : null;
   if (here?.session_id !== sessionId)
     throw new ApiError("forbidden", "this happens at the drawer's own screen");
+  // A drawer per person opens only for its owner (M7-07).
+  if (userId) await ownDrawerOnly(c, venueId, sessionId, userId);
   return session;
 }
 
@@ -157,7 +161,7 @@ export function drawerMoveRoutes(app: FastifyInstance, options: { clock: Clock }
       const venueId = request.venueId!;
       const now = options.clock.now();
       return request.inVenue(async (c) => {
-        const session = await atTheDrawer(c, venueId, s, actor.deviceId);
+        const session = await atTheDrawer(c, venueId, s, actor.deviceId, actor.userId);
         const bank = await staffBankOf(c, venueId, actor.userId, session.business_date);
         if (!bank || bank.cash_cents <= 0)
           throw new ApiError("invalid_request", "there's no cash in your staff bank to drop", {
@@ -201,7 +205,7 @@ export function drawerMoveRoutes(app: FastifyInstance, options: { clock: Clock }
       const venueId = request.venueId!;
       const now = options.clock.now();
       const answer = await request.inVenue(async (c) => {
-        const session = await atTheDrawer(c, venueId, s, actor.deviceId);
+        const session = await atTheDrawer(c, venueId, s, actor.deviceId, actor.userId);
         if (!mayCount(actor.role, session.station))
           throw new ApiError("forbidden", "a paid-out is taken by the people who work this drawer");
         const file = (
@@ -275,7 +279,7 @@ export function drawerMoveRoutes(app: FastifyInstance, options: { clock: Clock }
       await pinAgain(request, parsed.data.pin);
       const now = options.clock.now();
       return request.inVenue(async (c) => {
-        const open = await atTheDrawer(c, venueId, s, actor.deviceId);
+        const open = await atTheDrawer(c, venueId, s, actor.deviceId, actor.userId);
         const moveId = await insertDrawerMove(c, venueId, {
           drawerSessionId: s,
           kind: "no_sale",
@@ -306,7 +310,7 @@ export function drawerMoveRoutes(app: FastifyInstance, options: { clock: Clock }
       await pinAgain(request, parsed.data.pin);
       const now = options.clock.now();
       return request.inVenue(async (c) => {
-        const session = await atTheDrawer(c, venueId, s, actor.deviceId);
+        const session = await atTheDrawer(c, venueId, s, actor.deviceId, actor.userId);
         const paid = await c.query(
           "select 1 from memberships where venue_id = $1 and user_id = $2 and status = 'active'",
           [venueId, parsed.data.paid_to],

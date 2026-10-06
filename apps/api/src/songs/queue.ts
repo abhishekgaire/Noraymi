@@ -26,6 +26,7 @@ import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { enqueueText } from "../jobs/send-text.js";
+import { ownDrawerOnly } from "../payments/cash.js";
 import { issuePrepaid } from "../payments/prepaid.js";
 
 /**
@@ -860,6 +861,7 @@ export async function buyPrepaidCredits(
   const night = date.toString();
   const drawer = input.deviceId ? await drawerOfDevice(c, venueId, input.deviceId) : null;
   const inDrawer = drawer?.session_id ? drawer : null;
+  if (inDrawer?.session_id) await ownDrawerOnly(c, venueId, inDrawer.session_id, input.userId);
   const bankId = inDrawer ? null : await staffBank(c, venueId, input.userId, night);
   const paymentId = await insertPayment(c, venueId, {
     method: "cash",

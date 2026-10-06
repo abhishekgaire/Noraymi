@@ -2311,4 +2311,13 @@ export const en = {
   "drawer.paidTo": "Paid to",
   "drawer.openIt": "Open the drawer",
   "drawer.moveFailed": "That didn't go through. Try again.",
+  "cash.notYourDrawer": "This is {owner}'s drawer. Hand the cash to {owner}, or swap trays.",
+  "drawer.countIn": "Count in the starting bank",
+  "drawer.countInHint":
+    "Count the bank into your drawer. Only you take cash into it until you swap or pull the tray.",
+  "drawer.swap": "Count it now",
+  "drawer.pull": "Pull the tray",
+  "drawer.trayPulled": "{label} · tray pulled",
+  "drawer.ownedBy": "{name}'s drawer",
+  "drawer.opened": "Open",
 } as const;

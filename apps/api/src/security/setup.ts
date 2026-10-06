@@ -287,6 +287,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
       "POST /v1/venues/:venueId/drawer-sessions/:s/count": { counted_cents: 0 },
+      "POST /v1/venues/:venueId/drawers/:d/swap": { counted_cents: 0 },
       "POST /v1/venues/:venueId/drawer-sessions/:s/paid-out": {
         amount_cents: 100,
         reason: "B",

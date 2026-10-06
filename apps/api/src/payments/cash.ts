@@ -86,6 +86,7 @@ export async function takeCash(
   const drawer =
     input.deviceId && !training ? await drawerOfDevice(c, venueId, input.deviceId) : null;
   const inDrawer = drawer?.session_id ? drawer : null;
+  if (inDrawer) await ownDrawerOnly(c, venueId, inDrawer.session_id!, input.userId);
   const bankId =
     inDrawer || training ? null : await staffBank(c, venueId, input.userId, input.businessDate);
   const paymentId = await insertPayment(c, venueId, {
@@ -187,4 +188,31 @@ export async function fixChange(
     ],
   );
   return { changeCents: change };
+}
+
+/**
+ * A drawer per person (M7-07; Money rules 15): only its owner takes cash
+ * into it. Anyone else is told to hand the cash to the owner or swap trays.
+ */
+export async function ownDrawerOnly(
+  c: Queryable,
+  venueId: string,
+  sessionId: string,
+  userId: string,
+): Promise<void> {
+  const r = await c.query<{ model: string; owner_id: string | null; owner: string | null }>(
+    `select s.model, s.owner_id, split_part(u.name, ' ', 1) as owner
+       from drawer_sessions s left join users u on u.id = s.owner_id
+      where s.venue_id = $1 and s.id = $2`,
+    [venueId, sessionId],
+  );
+  const s = r.rows[0];
+  if (s?.model === "per_person" && s.owner_id !== userId)
+    throw new ApiError(
+      "invalid_request",
+      `this is ${s.owner ?? "someone"}'s drawer: hand the cash to them or swap trays`,
+      {
+        details: { reason: "not_your_drawer", owner: s.owner },
+      },
+    );
 }

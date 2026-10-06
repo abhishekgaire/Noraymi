@@ -7696,3 +7696,51 @@ test("a paid-out with a photo of the receipt waits for Andy", async ({ page, req
     await db.end();
   }
 });
+
+/**
+ * A drawer per person (M7-07): on Sat Sep 26, with Admin's switch in force, Maya counts in $300.00 at the
+ * bar computer, her drawer is hers alone, and at clock-out she pulls the tray for the close.
+ */
+test("a drawer per person: Maya counts in $300.00 and pulls her tray", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await db.query(
+      `update devices set cash_drawer_id = (select id from cash_drawers where name = 'Bar drawer')
+        where id = (select id from devices where kind = 'bar_computer' order by created_at desc limit 1)`,
+    );
+    // Friday's drawers were counted at its close, and the switch Admin saved starts Saturday.
+    await db.query(
+      "update drawer_sessions set state = 'counted', counted_cents = 30000 where state = 'open'",
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select venue_id, key, version + 1,
+              value || '{"drawer": "perPerson", "perPerson": {"who": "bartenders", "countLater": true}}'::jsonb,
+              '2026-09-26'
+         from venue_settings where key = 'drawer' order by version desc limit 1`,
+    );
+    await setClock(request, "2026-09-27T00:00:00Z");
+    // A new night: Maya signs in again at the bar computer.
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Staff sign-in");
+    await page.goto("/tonight");
+    await page.getByRole("button", { name: "Cash drawers" }).click();
+    const bar = page.getByRole("article", { name: "Bar drawer" });
+    await bar.getByRole("button", { name: "Count in the starting bank" }).click();
+    await bar.getByLabel("What you counted, $").fill("300");
+    await bar.getByLabel("Your PIN again").fill("4071");
+    await bar.getByRole("button", { name: "Save the count" }).click();
+    await expect(bar).toContainText("Maya S.'s drawer · Blind count · open");
+    await expect(bar).toContainText("Opened with$300.00");
+    await bar.getByRole("button", { name: "Pull the tray" }).click();
+    await expect(bar).toContainText("Maya S.'s drawer · Bar · Maya S. · tray pulled");
+  } finally {
+    await db.end();
+  }
+});

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cashOffers, changeDue } from "@west4/rules";
 import { cents } from "@west4/shared";
-import { api, type ApiCallError } from "../api.js";
+import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 
 /**
@@ -77,8 +77,14 @@ export function CashPanel({
       );
       onTaken(r);
     } catch (e) {
+      const err = e instanceof ApiCallError ? e : null;
       setError(
-        (e as ApiCallError)?.code === "over_amount_due" ? t("cash.overDue") : t("cash.failed"),
+        err?.code === "over_amount_due"
+          ? t("cash.overDue")
+          : err?.details["reason"] === "not_your_drawer"
+            ? // A drawer per person (M7-07): only its owner takes cash into it.
+              t("cash.notYourDrawer", { owner: String(err.details["owner"] ?? "") })
+            : t("cash.failed"),
       );
     } finally {
       setBusy(false);

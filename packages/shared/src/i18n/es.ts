@@ -2356,4 +2356,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "drawer.paidTo": "Pagado a",
   "drawer.openIt": "Abrir el cajón",
   "drawer.moveFailed": "No se pudo hacer. Inténtalo de nuevo.",
+  "cash.notYourDrawer":
+    "Este es el cajón de {owner}. Dale el efectivo a {owner} o cambien de bandeja.",
+  "drawer.countIn": "Contar el fondo inicial",
+  "drawer.countInHint":
+    "Cuenta el fondo en tu cajón. Solo tú cobras en efectivo en él hasta que cambies o saques la bandeja.",
+  "drawer.swap": "Contarlo ahora",
+  "drawer.pull": "Sacar la bandeja",
+  "drawer.trayPulled": "{label} · bandeja fuera",
+  "drawer.ownedBy": "Cajón de {name}",
+  "drawer.opened": "Abrir",
 };

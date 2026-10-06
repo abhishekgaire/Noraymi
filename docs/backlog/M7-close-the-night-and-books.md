@@ -226,7 +226,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-07 · Run a drawer per person with trays
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7-05, M7-06, M7-01
 - **Spec:** [Money rules](../spec/05-money-rules.md) 15; [Data model](../spec/04-data-model.md) · `drawer_sessions` (`model`, `owner_id`, `tray_label`, `pulled_at`); [API](../spec/08-api.md) · Drawer (`/swap`, `/pull`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `drawer.perPerson`; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Cash drawer; screens [Night](../screens.md#night) notes 7 and 9, [Board](../screens.md#board) note 18
@@ -235,12 +235,17 @@ Definition of done: see CLAUDE.md.
   - `POST /drawers/{d}/swap` at a shift change counts the session then, blind; or `POST /drawers/{d}/pull` pulls the tray (`pulled`, `pulled_at`, `tray_label`) to count at close while the next person counts in a fresh bank (`perPerson.countLater`).
   - Over or short stays on the owner's session. Night lists every session, pulled trays included, and M7-12's close waits for all of them.
 - **Acceptance:**
-  - [ ] With Admin set to a drawer per person on Fri Sep 25, Sat Sep 26 opens that way and Fri Sep 25 stays house drawers.
-  - [ ] Maya counts in $300.00 on the bar drawer; Diego, covering the bar, can't take cash into Maya's session and is told to hand the cash to Maya or swap trays.
-  - [ ] With count later on, Maya pulls her tray at clock-out and Diego counts in a fresh bank; Night shows "Bar · Maya S. · tray pulled" until the tray is counted blind at close, and its over or short stays on Maya's session.
-  - [ ] The night won't close while a pulled tray is uncounted.
+  - [x] With Admin set to a drawer per person on Fri Sep 25, Sat Sep 26 opens that way and Fri Sep 25 stays house drawers.
+  - [x] Maya counts in $300.00 on the bar drawer; Diego, covering the bar, can't take cash into Maya's session and is told to hand the cash to Maya or swap trays.
+  - [x] With count later on, Maya pulls her tray at clock-out and Diego counts in a fresh bank; Night shows "Bar · Maya S. · tray pulled" until the tray is counted blind at close, and its over or short stays on Maya's session.
+  - [x] The night won't close while a pulled tray is uncounted.
 - **Tests:** integration tests for the swap and pull states and for the drawer opening only for the session's owner; a clock test that the model follows the setting in force at the business date's start; Playwright for the per-person path.
 - **Notes:** Canvas: Night's per-person demo gives Diego a Staff role with cash sales and a reason-only comp; build Diego as Front desk, who can do both ([Night](../screens.md#night) note 9).
+  - Built (M7-07): in `apps/api/src/routes/drawers.ts`, the model comes from the `drawer` setting in force at the business date's start. With a drawer per person the 5-minute sweep opens nothing; `POST /drawers/{d}/open { counted_cents, pin? }` opens the caller's own session with the bank they counted in (`owner_id`, PIN again in a PIN or badge session); a drawer already in use answers `409` until it's swapped or pulled. `POST /drawers/{d}/swap` counts the owner's session blind (the M7-05 count, with its note and second counter); `POST /drawers/{d}/pull { tray_label? }` (only with `perPerson.countLater`) marks it `pulled` with "Bar · Maya S.", and the tray is counted later with `POST /drawer-sessions/{s}/count` by its owner or a manager, the over or short staying on her session. Migration `0098_drawer_trays.sql` grants `tray_label`.
+  - Only the owner takes cash into a per-person session: cash at the cash panel (`ownDrawerOnly` in `payments/cash.ts`, also song credits) and every drawer move refuse anyone else with `reason: "not_your_drawer"`, and the cash panel says "This is Maya's drawer. Hand the cash to Maya, or swap trays."
+  - `recordNightClose` refuses while a pulled tray is uncounted (`UncountedTrays`); M7-12's checklist will list it. Night's panel shows "Maya S.'s drawer · Bar · Maya S. · tray pulled", with Count in the starting bank, Count it now and Pull the tray.
+  - Cautious reading: who has a drawer of their own. `perPerson.who` names bartenders (and servers), but this ticket has Diego, Front desk, counting in at the bar when he covers it (the glossary says the front desk covers the bar on a bartender's break), so front desk counts too. Owners and managers don't open their own drawers.
+  - Tests: integration `apps/api/src/routes/drawer-trays.int.test.ts` (the switch on Fri starting Sat and the sweep opening nothing; Maya counting in after a badge with her PIN; Diego and Andy kept out of her drawer; the pull, Diego's fresh bank, the close refused until the tray is counted $5.00 short on Maya's session); the wall body for `/swap`; e2e "a drawer per person: Maya counts in $300.00 and pulls her tray".
 
 ### M7-08 · Keep the tip ledger
 

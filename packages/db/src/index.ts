@@ -514,6 +514,7 @@ export {
   nightClose,
   isNightClosed,
   recordNightClose,
+  UncountedTrays,
   type NightClose,
 } from "./nights.js";
 export { trainingOf } from "./training.js";

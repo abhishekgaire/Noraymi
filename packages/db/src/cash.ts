@@ -53,6 +53,8 @@ export async function openDrawerSession(
     drawerId: string;
     model: "house" | "per_person";
     responsibleId: string | null;
+    /** A drawer per person: whose session it is (M7-07). */
+    ownerId?: string | null;
     businessDate: string;
     openingCents: number;
     at: string;
@@ -64,8 +66,9 @@ export async function openDrawerSession(
   );
   if (open.rows[0]) return { id: open.rows[0].id, opened: false };
   const r = await c.query<{ id: string }>(
-    `insert into drawer_sessions (venue_id, drawer_id, model, responsible_id, state, business_date, opened_at, opening_cents)
-     values ($1, $2, $3, $4, 'open', open_business_date($1, $5::date), $6, $7) returning id`,
+    `insert into drawer_sessions (venue_id, drawer_id, model, responsible_id, state, business_date, opened_at, opening_cents,
+       owner_id)
+     values ($1, $2, $3, $4, 'open', open_business_date($1, $5::date), $6, $7, $8) returning id`,
     [
       venueId,
       input.drawerId,
@@ -74,6 +77,7 @@ export async function openDrawerSession(
       input.businessDate,
       input.at,
       input.openingCents,
+      input.ownerId ?? null,
     ],
   );
   return { id: r.rows[0]!.id, opened: true };
@@ -310,6 +314,8 @@ export interface DrawerPanelRow extends DrawerSessionRow {
   readonly responsible_name: string | null;
   readonly approved_by: string | null;
   readonly handover_id: string | null;
+  readonly owner_name: string | null;
+  readonly tray_label: string | null;
 }
 
 export async function drawerSessionsOfDate(
@@ -321,13 +327,14 @@ export async function drawerSessionsOfDate(
     `select ${SESSION_COLS}, to_json(s.opened_at) #>> '{}' as opened_at, s.counted_cents::int as counted_cents,
             s.expected_cents::int as expected_cents, s.over_short_cents::int as over_short_cents, s.note,
             to_json(s.counted_at) #>> '{}' as counted_at, cb.name as counted_by_name, w.name as witness_name,
-            r.name as responsible_name, s.approved_by, s.handover_id
+            r.name as responsible_name, s.approved_by, s.handover_id, o.name as owner_name, s.tray_label
        from drawer_sessions s join cash_drawers d on d.venue_id = s.venue_id and d.id = s.drawer_id
+       left join users o on o.id = s.owner_id
        left join users cb on cb.id = s.counted_by
        left join users w on w.id = s.witness_id
        left join users r on r.id = s.responsible_id
       where s.venue_id = $1 and s.business_date = $2::date
-      order by d.name, s.opened_at desc, s.id`,
+      order by d.name, s.opened_at desc, (s.state = 'open') desc, s.id`,
     [venueId, businessDate],
   );
   return r.rows;

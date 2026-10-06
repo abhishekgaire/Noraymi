@@ -48,7 +48,13 @@ import { venueClock } from "../rooms/assignment.js";
  * note or a second counter is kept on the session, and the retry must carry
  * the same number, so seeing the answer can't change the count.
  */
-async function openFor(c: Queryable, venueId: string, drawerId: string, now: Temporal.Instant) {
+async function openFor(
+  c: Queryable,
+  venueId: string,
+  drawerId: string,
+  now: Temporal.Instant,
+  perPerson?: { ownerId: string; countedCents: number },
+): Promise<{ id: string | null; opened: boolean; model: "house" | "per_person" }> {
   const v = (
     await c.query<{ time_zone: string; day_cutover: string }>(
       "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
@@ -58,14 +64,53 @@ async function openFor(c: Queryable, venueId: string, drawerId: string, now: Tem
   const date = businessDate(now, v.time_zone, v.day_cutover).businessDate;
   const setting = await readSetting(c, venueId, "drawer", date);
   const model = setting?.value.drawer === "perPerson" ? "per_person" : "house";
-  return openDrawerSession(c, venueId, {
+  // A drawer per person (M7-07) opens only when its owner counts in the starting bank.
+  if (model === "per_person" && !perPerson) return { id: null, opened: false, model };
+  const opened = await openDrawerSession(c, venueId, {
     drawerId,
     model,
     responsibleId: model === "house" ? await managerOnDutyAt(c, venueId, now) : null,
+    ownerId: perPerson?.ownerId ?? null,
     businessDate: date.toString(),
-    openingCents: setting?.value.startingBankCents ?? 0,
+    openingCents: perPerson ? perPerson.countedCents : (setting?.value.startingBankCents ?? 0),
     at: now.toString(),
   });
+  return { ...opened, model };
+}
+
+/** The drawer model and its per-person options in force for the business date now (M7-07). */
+async function modelNow(c: Queryable, venueId: string, now: Temporal.Instant) {
+  const v = await venueClock(c, venueId);
+  const date = businessDate(now, v.timeZone, v.dayCutover).businessDate;
+  const value = (await readSetting(c, venueId, "drawer", date))?.value as CashSettings | undefined;
+  return {
+    model: value?.drawer === "perPerson" ? ("per_person" as const) : ("house" as const),
+    who: value?.perPerson.who ?? "bartenders",
+    countLater: value?.perPerson.countLater ?? false,
+  };
+}
+
+/**
+ * Who has a drawer of their own under `perPerson.who`: bartenders, and the
+ * front desk, who covers the bar on a bartender's break (glossary · Front
+ * desk); servers too with "bartendersAndServers".
+ */
+export function hasOwnDrawer(role: Role, who: "bartenders" | "bartendersAndServers"): boolean {
+  return (
+    role === "bartender" ||
+    role === "front_desk" ||
+    (who === "bartendersAndServers" && role === "staff")
+  );
+}
+
+/** A per-person session is counted by its owner, or an owner or manager; a house one by D21. */
+function mayCountSession(
+  actor: { userId: string; role: Role },
+  session: DrawerSessionRow,
+): boolean {
+  if (session.model === "per_person")
+    return session.owner_id === actor.userId || actor.role === "owner" || actor.role === "manager";
+  return mayCount(actor.role, session.station);
 }
 
 type Role = "owner" | "manager" | "bartender" | "front_desk" | "staff";
@@ -92,6 +137,15 @@ const countBody = z
   })
   .strict();
 type CountBody = z.infer<typeof countBody>;
+const openBody = z
+  .object({
+    counted_cents: z.number().int().min(0).max(100_000_000).optional(),
+    pin: z
+      .string()
+      .regex(/^\d{4,6}$/)
+      .optional(),
+  })
+  .strict();
 
 interface Actor {
   readonly userId: string;
@@ -268,6 +322,8 @@ function panelSession(s: DrawerPanelRow, waitingFor: string | null) {
     id: s.id,
     state: s.state,
     model: s.model,
+    owner: s.owner_name,
+    tray_label: s.tray_label,
     opened_at: s.opened_at,
     opened_with_cents: s.opening_cents,
     responsible: s.responsible_name,
@@ -326,8 +382,16 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
                 [venueId, p.userId, date],
               )
             : null;
+        const perPerson = await modelNow(c, venueId, options.clock.now());
         return {
           business_date: date,
+          // The model in force tonight (M7-07), and whether this person counts in a drawer of their own.
+          model: perPerson.model,
+          count_later: perPerson.countLater,
+          can_count_in:
+            perPerson.model === "per_person" &&
+            role !== undefined &&
+            hasOwnDrawer(role, perPerson.who),
           // Who may count or take the drawers, for the second-counter and incoming-manager pickers.
           people: people.map((x) => ({ user_id: x.id, name: x.name, role: x.role })),
           me: {
@@ -351,7 +415,17 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
             open: d.session_id !== null,
             opening_cents: d.opening_cents,
             can_count:
-              role !== undefined && mayCount(role, d.station as "bar" | "front_desk" | null),
+              role !== undefined &&
+              (() => {
+                const open = sessions.find((s) => s.drawer_id === d.id && s.state === "open");
+                if (open?.model === "per_person")
+                  return (
+                    open.owner_id === (p.kind === "user" ? p.userId : null) ||
+                    role === "owner" ||
+                    role === "manager"
+                  );
+                return mayCount(role, d.station as "bar" | "front_desk" | null);
+              })(),
             here: d.id === hereId,
             sessions: sessions
               .filter((s) => s.drawer_id === d.id)
@@ -394,24 +468,55 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
       config: route({
         principals: ["owner_manager", "staff", "shared_device"],
         module: "core",
-        action: "drawer.count",
         idempotency: "optional",
       }),
     },
     async (request) => {
       if (!z.string().uuid().safeParse(request.params.d).success)
         throw new ApiError("not_found", "no such drawer");
+      const parsed = openBody.safeParse(request.body ?? {});
+      if (!parsed.success) throw new ApiError("invalid_request", "send { counted_cents }");
       const venueId = request.venueId!;
-      return request.inVenue(async (c) => {
+      const now = options.clock.now();
+      const p = request.principal;
+      const role =
+        p.kind === "user" ? p.memberships.find((m) => m.venueId === venueId)?.role : undefined;
+      const { model, who } = await request.inVenue(async (c) => {
         const found = await c.query("select 1 from cash_drawers where venue_id = $1 and id = $2", [
           venueId,
           request.params.d,
         ]);
         if (found.rowCount === 0) throw new ApiError("not_found", "no such drawer");
-        const s = await openFor(c, venueId, request.params.d, options.clock.now());
+        return modelNow(c, venueId, now);
+      });
+      let perPerson: { ownerId: string; countedCents: number } | undefined;
+      if (model === "per_person") {
+        // Each person opens their own session by counting in the starting bank (Money rules 15).
+        if (p.kind !== "user" || !role || !hasOwnDrawer(role, who))
+          throw new ApiError("forbidden", "only someone with a drawer of their own counts one in", {
+            details: { reason: "no_drawer" },
+          });
+        if (parsed.data.counted_cents === undefined)
+          throw new ApiError("invalid_request", "count in the starting bank", {
+            details: { reason: "count_in" },
+          });
+        await checkPins(request, {
+          counted_cents: parsed.data.counted_cents,
+          pin: parsed.data.pin,
+        });
+        perPerson = { ownerId: p.userId, countedCents: parsed.data.counted_cents };
+      } else if (role === "staff")
+        throw new ApiError("forbidden", "this drawer is opened by the people who work it");
+      return request.inVenue(async (c) => {
+        const s = await openFor(c, venueId, request.params.d, now, perPerson);
+        if (!s.opened && s.model === "per_person" && s.id)
+          throw new ApiError(
+            "version_conflict",
+            "this drawer is in use: swap or pull the tray first",
+          );
         if (s.opened)
           await emitEvent(c, { venueId, type: "drawer.updated", entityId: request.params.d });
-        return { session_id: s.id, opened: s.opened };
+        return { session_id: s.id, opened: s.opened, model: s.model };
       });
     },
   );
@@ -435,7 +540,7 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
       const venueId = request.venueId!;
       const session = await request.inVenue((c) => drawerSessionById(c, venueId, request.params.s));
       if (!session) throw new ApiError("not_found", "no such drawer session");
-      if (!mayCount(actor.role, session.station))
+      if (!mayCountSession(actor, session))
         throw new ApiError("forbidden", "this drawer is counted by the people who work it");
       await checkPins(request, parsed.data);
       const outcome = await request.inVenue(async (c) => {
@@ -596,6 +701,101 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
           waiting_for: { user_id: done.handover.to_user_id, name: done.handover.to_name },
         },
       };
+    },
+  );
+
+  /** The open per-person session on a drawer, for its owner or a manager (M7-07). */
+  const ownSession = async (request: FastifyRequest<{ Params: { d: string } }>, actor: Actor) => {
+    if (!z.string().uuid().safeParse(request.params.d).success)
+      throw new ApiError("not_found", "no such drawer");
+    const venueId = request.venueId!;
+    const session = await request.inVenue(async (c) => {
+      const r = await c.query<{ id: string }>(
+        "select id from drawer_sessions where venue_id = $1 and drawer_id = $2 and state = 'open'",
+        [venueId, request.params.d],
+      );
+      return r.rows[0] ? drawerSessionById(c, venueId, r.rows[0].id) : null;
+    });
+    if (!session) throw new ApiError("not_found", "this drawer has no open session");
+    if (session.model !== "per_person")
+      throw new ApiError(
+        "invalid_request",
+        "swap and pull are for a drawer per person; hand a house drawer over",
+      );
+    if (!mayCountSession(actor, session))
+      throw new ApiError("forbidden", "only the drawer's owner or a manager swaps or pulls it");
+    return session;
+  };
+
+  // A shift change, counted now: the owner's session is counted blind and the drawer is free.
+  app.post<{ Params: { venueId: string; d: string }; Body: unknown }>(
+    "/v1/venues/:venueId/drawers/:d/swap",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const parsed = countBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { counted_cents }");
+      const actor = actorOf(request);
+      const session = await ownSession(request, actor);
+      await checkPins(request, parsed.data);
+      const venueId = request.venueId!;
+      const outcome = await request.inVenue(async (c) =>
+        countSession(c, venueId, (await drawerSessionById(c, venueId, session.id, true))!, {
+          body: parsed.data,
+          actor,
+          at: options.clock.now(),
+          close: false,
+        }),
+      );
+      if (!outcome.ok) refuse(outcome);
+      return outcome.answer;
+    },
+  );
+
+  // A shift change, counted later (`perPerson.countLater`): the tray comes out, labelled, for the close.
+  const pullBody = z.object({ tray_label: z.string().trim().min(1).max(60).optional() }).strict();
+  app.post<{ Params: { venueId: string; d: string }; Body: unknown }>(
+    "/v1/venues/:venueId/drawers/:d/pull",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const parsed = pullBody.safeParse(request.body ?? {});
+      if (!parsed.success) throw new ApiError("invalid_request", "send { tray_label? }");
+      const actor = actorOf(request);
+      const session = await ownSession(request, actor);
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        if (!(await modelNow(c, venueId, now)).countLater)
+          throw new ApiError("invalid_request", "this venue counts a drawer at the shift change", {
+            details: { reason: "count_now" },
+          });
+        const owner = (
+          await c.query<{ name: string }>("select name from users where id = $1", [
+            session.owner_id,
+          ])
+        ).rows[0]?.name;
+        const label =
+          parsed.data.tray_label ??
+          `${session.drawer_name.replace(/ drawer$/i, "")} · ${owner ?? ""}`;
+        await c.query(
+          `update drawer_sessions set state = 'pulled', pulled_at = $3, tray_label = $4
+            where venue_id = $1 and id = $2 and state = 'open'`,
+          [venueId, session.id, now.toString(), label],
+        );
+        await emitEvent(c, { venueId, type: "drawer.updated", entityId: session.drawer_id });
+        return { session_id: session.id, state: "pulled", tray_label: label };
+      });
     },
   );
 }
