@@ -322,7 +322,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-11 · Pay a tab with another card or cash
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-08; M4-13
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#paying-with-a-different-card) and [Bar tab step 7](../spec/07-payment-flows.md#bar-tab-with-a-growing-hold); [Money rules](../spec/05-money-rules.md) rule 12; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Another card, Cash); [milestones: GA-M11](../milestones.md#must-fix-items-and-where-they-close)
@@ -331,12 +331,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Cash, always offered: the cash payment takes over the hold's allocation, then the hold is canceled, and the tab closes as `closed`.
   - Settling a check any other way cancels its open card holds.
 - **Acceptance:**
-  - [ ] Hana K. pays $43.55 with another card: the new card is charged, then her $50.00 hold on Visa ··5120 is released, and Stripe shows the old PaymentIntent canceled after the new one succeeded.
-  - [ ] A declined new card leaves the $50.00 hold in place.
-  - [ ] Seat 6 pays $13.07 in cash: the bar drawer opens, the hold is canceled, and the tab closes.
-  - [ ] Killed after the new card succeeds but before the hold is canceled, the reconciler cancels the old hold and nothing is charged twice.
+  - [x] Hana K. pays $43.55 with another card: the new card is charged, then her $50.00 hold on Visa ··5120 is released, and Stripe shows the old PaymentIntent canceled after the new one succeeded.
+  - [x] A declined new card leaves the $50.00 hold in place.
+  - [x] Seat 6 pays $13.07 in cash: the bar drawer opens, the hold is canceled, and the tab closes.
+  - [x] Killed after the new card succeeds but before the hold is canceled, the reconciler cancels the old hold and nothing is charged twice.
 - **Tests:** sandbox integration; chaos; end-to-end.
 - **Notes:** Closes GA-M11's "cash always taken" on the bar POS.
+  - Built: `POST /tabs/{t}/pay { method: tap, amount_cents, reader_id }` or `{ method: cash, amount_cents, tendered_cents, tip_cents? }` (apps/api/src/routes/payments.ts, rules in apps/api/src/tabs/pay.ts). It refuses a tab that isn't `open`, a split tab (`split_open`: shares pay one by one), a hold whose raise is still unclear (`hold_checking`), and another payment in flight; it finalizes the check (no drinks while paying) and takes the balance with the hold left out of what's due (`amount_changed` if the screen's amount is stale). Another card is M4's tap (`writeTap` with `leaveOut`), the tip on the reader; cash is M4-13's `takeCash`, opening the bar drawer.
+  - Once the replacing payment has succeeded, in the same transaction that records it (`applyObservation` for a card, `takeCash` for cash), `takeOverHold` checks the tab owes nothing beside its hold with nothing else in flight, releases the hold's allocation, writes a `tab.cancel_hold` job, clears "Hold raise declined", and moves the tab to `closed` (closed_at, closed by whoever finalized it). The cancel (`cancelReplacedHold`, keyed `<payment_id>:cancel`) runs outside any transaction: at once after cash, from the job after a card. The reconciler gets a 4th pass that cancels any hold still standing on a `closed` tab (`holdsToCancel`). A decline leaves the hold authorized and the tab `open`; canceling the declined card reopens the check so the tab takes drinks again (`afterTabPaymentEnded`), and paying in cash (or Close to the card) first sets a declined new card aside.
+  - Lifted M6-10's `held_card_last`: a split's last share paid another way now replaces the hold the same way (`takeOverHold` fires when the last share's money lands). M6-07's "clear Hold raise declined when another card is added" is done as part of the card replacing the hold.
+  - The bar POS: Close tab now offers "Another card" (TapPayment against the tab's route, no tip field, Cancel on a decline) and "Cash" (CashPanel, one tap), then "Paid · the hold on the tab's card is released", the change and where it was logged, and the receipt (ReceiptStep, "Tab closed"). English and Spanish. API spec lists `/pay` under Bar tabs. Fake Stripe's cancel now records `canceled_at`.
+  - Read as: the tabs' hold has no allocation row of its own in today's data (its guarantee is computed via `tabHoldOf`), so "takes over the hold's allocation" releases one if it exists and otherwise is the replacing payment's captured allocation standing alone. Cash on a tab with no standing hold (M6-12's reopened tabs) closes the tab the same way once nothing is due. Sandbox runs on simulated readers wait for staging (M6-27).
+  - Tests: apps/api/src/routes/tab-pay.int.test.ts (Hana K.'s $43.55 on another card, the old PaymentIntent canceled after the new one succeeded, once; a declined card keeping the $50.00 hold and Cancel reopening the tab; Seat 6's $13.07 in cash with the bar drawer kick after a declined card set aside; a split's last share in cash; the chaos case: the cancel job killed, the reconciler cancels the hold, nothing charged twice); tab-split.int.test.ts updated for the lifted refusal; e2e "Pay a tab another way: a declined new card keeps the hold, then cash closes the tab and releases it".
 
 ### M6-12 · Reopen a settled tab and charge the saved card
 

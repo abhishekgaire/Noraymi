@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
+import { ReceiptStep } from "./ReceiptStep.js";
+import { TapPayment } from "./TapPayment.js";
 
 /**
  * Close a tab to its held card (M6-08; Staff screens and the bar POS · Paying
@@ -12,7 +15,8 @@ import { useT } from "../i18n.js";
  * offline reader offers the slip; a tip screen nobody touched for 2 minutes,
  * or a venue whose bar tabs tip on paper, prints it (M6-09), and the tip is
  * entered later from Tips to enter. Paid, the receipt: Text (the guest types their number on the reader),
- * Print or No receipt.
+ * Print or No receipt. Another card (the tip on the reader) or Cash pays the balance instead (M6-11): the
+ * hold is released once that payment has succeeded, and a declined card leaves it standing.
  */
 interface Reader {
   readonly id: string;
@@ -48,6 +52,7 @@ const newKey = () => `close-${Date.now()}-${Math.random().toString(36).slice(2, 
 export function CloseTab({
   venueId,
   tabId,
+  checkId,
   card,
   totalCents,
   resume,
@@ -56,6 +61,7 @@ export function CloseTab({
 }: {
   venueId: string;
   tabId: string;
+  checkId: string;
   card: string | null;
   totalCents: number;
   /** The tab is already closing (`tipping`): pick up where it is. */
@@ -69,6 +75,10 @@ export function CloseTab({
   const [slipped, setSlipped] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  // Another card or cash (M6-11), and what it paid.
+  const [other, setOther] = useState<"card" | "cash" | null>(null);
+  const [paidOther, setPaidOther] = useState<Taken | "card" | null>(null);
+  const payUrl = `/v1/venues/${venueId}/tabs/${tabId}/pay`;
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const base = `/v1/venues/${venueId}/tabs/${tabId}/close`;
 
@@ -169,7 +179,53 @@ export function CloseTab({
       </p>
       {closing && closing.gratuity_cents > 0 && <p className="small">{t("closeOut.gratuity")}</p>}
 
-      {!closing && !slipped && (
+      {paidOther && (
+        <>
+          {paidOther !== "card" && <CashResult venueId={venueId} taken={paidOther} />}
+          <p role="status">{t("closeTab.released")}</p>
+          <ReceiptStep
+            venueId={venueId}
+            checkId={checkId}
+            roomName=""
+            doneText={t("closeTab.closed")}
+          />
+          <button type="button" className="primary" onClick={onClose}>
+            {t("closeTab.done")}
+          </button>
+        </>
+      )}
+      {other && !paidOther && (
+        <>
+          {other === "card" ? (
+            <TapPayment
+              venueId={venueId}
+              checkId={checkId}
+              dueCents={totalCents}
+              payUrl={payUrl}
+              onDone={() => {
+                setPaidOther("card");
+                onChanged();
+              }}
+            />
+          ) : (
+            <CashPanel
+              venueId={venueId}
+              checkId={checkId}
+              dueCents={totalCents}
+              payUrl={payUrl}
+              oneTap
+              onTaken={(taken) => {
+                setPaidOther(taken);
+                onChanged();
+              }}
+            />
+          )}
+          <button type="button" className="link" onClick={() => setOther(null)}>
+            {t("closeTab.otherWays")}
+          </button>
+        </>
+      )}
+      {!closing && !slipped && !other && (
         <div className="actions">
           <button type="button" className="primary" disabled={busy} onClick={() => void toCard()}>
             {t("closeTab.toCard")}
@@ -179,6 +235,22 @@ export function CloseTab({
                 <span data-guest-text>{card}</span>
               </>
             ) : null}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() => setOther("card")}
+          >
+            {t("closeTab.anotherCard")}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() => setOther("cash")}
+          >
+            {t("cash.title")}
           </button>
           <button type="button" className="link" onClick={onClose}>
             {t("closeTab.back")}

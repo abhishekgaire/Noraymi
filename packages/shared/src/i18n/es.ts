@@ -1979,5 +1979,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "approvals.tipReason.over_pct": "Más del {pct}% de la cuenta",
   "approvals.tipReason.over_cents": "Más de {amount}",
   "approvals.tipReason.late": "Anotada más de {hours} horas después del comprobante",
+  "closeTab.anotherCard": "Otra tarjeta",
+  "closeTab.otherWays": "Volver a Cerrar cuenta",
+  "closeTab.released": "Pagado · se liberó la retención en la tarjeta de la cuenta",
+  "closeTab.closed": "Cuenta cerrada",
   "closeTab.slipPrinted": "Comprobante impreso · anota la propina en Propinas por anotar",
 };

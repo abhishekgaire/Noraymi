@@ -13,7 +13,8 @@ import { businessDate } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { StripeError, StripeUnknownResult } from "../stripe/client.js";
 import { createReaderIntent, observeIntent, type StripeIntent } from "../stripe/payments.js";
-import { cancelPayment, checkNow, type PaymentDeps } from "./run.js";
+import { cancelPayment, cancelReplacedHold, checkNow, type PaymentDeps } from "./run.js";
+import { holdsToCancel } from "../tabs/pay.js";
 
 /**
  * The reconciler (M4-12; Payment flows step 5; Stripe setup 6 and 11). Every
@@ -28,7 +29,9 @@ import { cancelPayment, checkNow, type PaymentDeps } from "./run.js";
  *  3. the account's recent PaymentIntents with no row of ours (a break-glass
  *     Tap to Pay payment from Stripe's Dashboard app) are recorded as
  *     unmatched: a `payments` row with method `external`, no allocation, and
- *     a reconciler event, for M7's Unmatched payments list.
+ *     a reconciler event, for M7's Unmatched payments list;
+ *  4. a bar tab's hold still standing after another card or cash paid the tab
+ *     (M6-11) is canceled, keyed <payment_id>:cancel (run before 3).
  * Nothing is ever matched by metadata. Every Stripe call is outside a transaction.
  */
 export const RECONCILE_KIND = "payment.reconcile";
@@ -98,6 +101,18 @@ export async function reconcileVenue(deps: PaymentDeps, venueId: string): Promis
     )
       await cancelPayment(deps, venueId, row.payment_id, "reconciler");
     out.resolved.push(row.payment_id);
+  }
+
+  // 4 (M6-11): a bar tab paid another way whose hold is still standing (the API died after the new card
+  // or the cash and before the cancel): the hold is canceled now, once, by the same key.
+  const replaced = await inVenue((c) => holdsToCancel(c, venueId));
+  for (const id of replaced) {
+    try {
+      await cancelReplacedHold(deps, venueId, id, "reconciler");
+      out.resolved.push(id);
+    } catch (e) {
+      if (!(e instanceof StripeUnknownResult)) throw e;
+    }
   }
 
   // 3: the account's recent PaymentIntents with no row of ours.

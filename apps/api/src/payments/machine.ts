@@ -16,6 +16,7 @@ import {
 } from "@west4/db";
 import { Temporal } from "@west4/shared";
 import { settleCheck } from "../rooms/present.js";
+import { afterTabPaymentEnded, takeOverHold } from "../tabs/pay.js";
 import { settleShares } from "./splits.js";
 import type { IntentObservation, ReaderAction } from "../stripe/payments.js";
 import {
@@ -174,6 +175,19 @@ export async function applyObservation(
   // A split's shares follow their payment (M4-14): paid, or open again if it was canceled.
   if (changed && payment.status !== before.status)
     await settleShares(c, venueId, paymentId, payment.status);
+  // Another card on a bar tab (M6-11): once it has succeeded, it takes over the hold's allocation and the
+  // tab closes; the hold's cancel is a job run outside this transaction. One that ended without money
+  // leaves the hold standing and the tab taking drinks again.
+  if (changed && payment.status === "captured" && before.status !== "captured" && now)
+    for (const check of await allocatedChecks(c, venueId, paymentId))
+      await takeOverHold(c, venueId, check, now);
+  if (
+    changed &&
+    payment.status !== before.status &&
+    (payment.status === "canceled" || payment.status === "failed")
+  )
+    for (const check of await allocatedChecks(c, venueId, paymentId))
+      await afterTabPaymentEnded(c, venueId, check);
   // Money landed: each check it paid is paid in full or partly paid, and a paid room may go to cleaning.
   if (changed && payment.status === "captured" && before.status !== "captured" && now)
     for (const check of await allocatedChecks(c, venueId, paymentId))

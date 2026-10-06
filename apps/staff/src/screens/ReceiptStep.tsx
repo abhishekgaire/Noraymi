@@ -11,10 +11,13 @@ export function ReceiptStep({
   venueId,
   checkId,
   roomName,
+  doneText,
 }: {
   venueId: string;
   checkId: string;
   roomName: string;
+  /** What shows once the receipt is sent (a bar tab: "Tab closed"); a room goes to cleaning. */
+  doneText?: string;
 }) {
   const { t } = useT();
   const [asking, setAsking] = useState<"text" | "email" | null>(null);
@@ -50,7 +53,7 @@ export function ReceiptStep({
   if (finished)
     return (
       <p className="notice" role="status">
-        {t("closeOut.cleaning", { room: roomName })}
+        {doneText ?? t("closeOut.cleaning", { room: roomName })}
       </p>
     );
   return (

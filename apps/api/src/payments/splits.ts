@@ -201,9 +201,9 @@ export async function tabHoldOf(
 
 /**
  * Before a payment takes a share: it must be a share of this check's open split, not paid or being
- * paid, and the amount is the share's. On a bar tab with a hold, the held card's share is captured last
- * (M6-10), so the last share left is never paid another way while the hold stands; the payment's
- * allocation leaves the hold out of what's due (the answer).
+ * paid, and the amount is the share's. On a bar tab with a hold, the payment's allocation leaves the hold
+ * out of what's due (the answer). The last share paid another way replaces the hold, which is canceled
+ * only once that payment has succeeded (M6-11, lifting M6-10's `held_card_last`).
  */
 export async function claimShare(
   c: Queryable,
@@ -225,16 +225,6 @@ export async function claimShare(
       details: { amount_cents: share.amount_cents },
     });
   const hold = await tabHoldOf(c, venueId, checkId);
-  if (hold) {
-    const others = await c.query(
-      "select 1 from split_shares where venue_id = $1 and split_id = $2 and id <> $3 and state = 'open'",
-      [venueId, share.split_id, shareId],
-    );
-    if (!others.rowCount)
-      throw new ApiError("invalid_request", "the last share goes on the held card", {
-        details: { reason: "held_card_last" },
-      });
-  }
   await setShareState(c, venueId, shareId, state);
   return { leaveOut: hold?.paymentId ?? null };
 }

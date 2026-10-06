@@ -9,11 +9,13 @@ import { ApiError } from "../http/errors.js";
 import type { StripeClient } from "../stripe/client.js";
 import "../payments/webhooks.js";
 import { fixChange, takeCash } from "../payments/cash.js";
+import { declinedOnTab, startTabPayment } from "../tabs/pay.js";
 import { screenState, type Applied } from "../payments/machine.js";
 import {
   NoSuchReader,
   ReaderQuiet,
   cancelPayment,
+  cancelReplacedHold,
   checkNow,
   runNow,
   writeRetap,
@@ -310,6 +312,107 @@ export function paymentRoutes(
             "the reader is offline: use the other reader, or take cash",
             {
               details: { reader_id: parsed.data.reader_id },
+            },
+          );
+        throw e;
+      }
+      await runNow(deps(), venueId, written.paymentId, written.attemptNo);
+      const view = paymentView(await current(request, written.paymentId));
+      reply.code(201);
+      return answer(view);
+    },
+  );
+
+  // Pay a tab another way (M6-11): another card (the tip on the reader) or cash, for the tab's balance.
+  // The hold is canceled only once this payment has succeeded; a declined card leaves it standing.
+  const tabPay = route({
+    principals: ["owner_manager", "staff"],
+    module: "bar_tabs",
+    action: "payments.take",
+    idempotency: "required",
+  });
+  const tabTapBody = tapBody.omit({ share_id: true, tip_cents: true }).strict();
+  const tabCashBody = cashBody.omit({ share_id: true }).strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/pay",
+    { config: tabPay },
+    async (request, reply) => {
+      if (!uuid.safeParse(request.params.t).success) throw new ApiError("not_found", "no such tab");
+      const tabId = request.params.t;
+      const venueId = request.venueId!;
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "taking payment is a person's work");
+      const cash = tabCashBody.safeParse(request.body);
+      const tap = cash.success ? null : tabTapBody.safeParse(request.body);
+      if (!cash.success && !tap?.success)
+        throw new ApiError(
+          "invalid_request",
+          'send { method: "tap", amount_cents, reader_id } or { method: "cash", amount_cents, tendered_cents, tip_cents? }',
+        );
+      // A new card that was declined is set aside first (outside any transaction): nothing was charged.
+      const declined = await request.inVenue((c) => declinedOnTab(c, venueId, tabId));
+      for (const id of declined) await cancelPayment(deps(), venueId, id, "api");
+      const now = options.clock.now();
+      if (cash.success) {
+        const deviceId = request.signedDevice?.deviceId ?? request.session?.deviceId ?? null;
+        const taken = await request.inVenue(async (c) => {
+          const started = await startTabPayment(c, venueId, tabId, {
+            userId: p.userId,
+            amountCents: cash.data.amount_cents,
+            now,
+          });
+          return takeCash(c, venueId, {
+            checkId: started.checkId,
+            amountCents: started.balanceCents,
+            tenderedCents: cash.data.tendered_cents,
+            tipCents: cash.data.tip_cents ?? 0,
+            leaveOut: started.holdId,
+            userId: p.userId,
+            deviceId,
+            businessDate: await night(c, venueId),
+            now,
+          });
+        });
+        // The cash has replaced the hold: cancel it now (the job written with the cash, and the
+        // reconciler, are there if this doesn't get through).
+        if (taken.replaced?.holdId)
+          await cancelReplacedHold(deps(), venueId, taken.replaced.holdId, "api").catch(
+            () => undefined,
+          );
+        reply.code(201);
+        return {
+          ...paymentView(await current(request, taken.paymentId)),
+          change_cents: taken.changeCents,
+          logged_to: taken.loggedTo,
+          check_status: taken.settled.status,
+          tab_state: taken.replaced ? "closed" : "open",
+        };
+      }
+      let written;
+      try {
+        written = await request.inVenue(async (c) => {
+          const started = await startTabPayment(c, venueId, tabId, {
+            userId: p.userId,
+            amountCents: tap!.data!.amount_cents,
+            now,
+          });
+          return writeTap(c, venueId, {
+            checkId: started.checkId,
+            amountCents: started.balanceCents,
+            readerDeviceId: tap!.data!.reader_id,
+            leaveOut: started.holdId,
+            businessDate: await night(c, venueId),
+            now,
+          });
+        });
+      } catch (e) {
+        if (e instanceof NoSuchReader) throw new ApiError("not_found", "no such reader");
+        if (e instanceof ReaderQuiet)
+          throw new ApiError(
+            "reader_offline",
+            "the reader is offline: use the other reader, or take cash",
+            {
+              details: { reader_id: tap!.data!.reader_id },
             },
           );
         throw e;

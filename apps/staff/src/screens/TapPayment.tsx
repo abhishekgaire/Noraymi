@@ -40,6 +40,7 @@ export function TapPayment({
   checkId,
   dueCents,
   shareId,
+  payUrl,
   onDone,
 }: {
   venueId: string;
@@ -47,6 +48,11 @@ export function TapPayment({
   dueCents: number;
   /** A split's share (M4-14): the payment pays it. */
   shareId?: string | null;
+  /**
+   * Another card on a bar tab (M6-11): the tab's own pay route, the tip asked on the reader (no tip field
+   * here), and a declined card can be canceled so the tab takes drinks again.
+   */
+  payUrl?: string;
   onDone: () => void;
 }) {
   const { t, money } = useT();
@@ -119,7 +125,7 @@ export function TapPayment({
     run(() =>
       api(
         "POST",
-        `/v1/venues/${venueId}/checks/${checkId}/payments`,
+        payUrl ?? `/v1/venues/${venueId}/checks/${checkId}/payments`,
         {
           method: "tap",
           amount_cents: dueCents,
@@ -175,7 +181,7 @@ export function TapPayment({
               </label>
             ))}
           </fieldset>
-          {!pending && (
+          {!pending && !payUrl && (
             <label>
               <span>{t("pay.tip")}</span>
               <input
@@ -210,7 +216,19 @@ export function TapPayment({
       )}
       {payment?.state === "unknown" && <p role="status">{t("pay.unknown")}</p>}
       {payment?.state === "paid" && <p role="status">{t("pay.paid")}</p>}
-      {payment?.state === "declined" && !problem && <p role="alert">{t("pay.declined")}</p>}
+      {payment?.state === "declined" && !problem && (
+        <p role="alert">
+          {t("pay.declined")}
+          {payUrl && (
+            <>
+              {" · "}
+              <button type="button" className="link" disabled={busy} onClick={() => void cancel()}>
+                {t("pay.cancel")}
+              </button>
+            </>
+          )}
+        </p>
+      )}
       {payment?.state === "canceled" && <p role="status">{t("pay.canceled")}</p>}
       {problem?.kind === "offline" && (
         <p role="alert">{t(`pay.offline.${other(problem.station)}` as MessageKey)}</p>

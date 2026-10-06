@@ -1946,5 +1946,9 @@ export const en = {
   "approvals.tipReason.over_pct": "Over {pct}% of the tab",
   "approvals.tipReason.over_cents": "Over {amount}",
   "approvals.tipReason.late": "Entered more than {hours} hours after the slip",
+  "closeTab.anotherCard": "Another card",
+  "closeTab.otherWays": "Back to Close tab",
+  "closeTab.released": "Paid · the hold on the tab's card is released",
+  "closeTab.closed": "Tab closed",
   "closeTab.slipPrinted": "Slip printed · enter the tip from Tips to enter",
 } as const;

@@ -29,6 +29,7 @@ export function CashPanel({
   shareId,
   onTaken,
   oneTap = false,
+  payUrl,
 }: {
   venueId: string;
   checkId: string;
@@ -38,6 +39,8 @@ export function CashPanel({
   onTaken: (taken: Taken) => void;
   /** The bar's quick sale (M6-05): one tap on what the guest handed over takes it. */
   oneTap?: boolean;
+  /** Cash on a bar tab (M6-11): the tab's own pay route, which cancels its hold once the cash is in. */
+  payUrl?: string;
 }) {
   const { t, money } = useT();
   const [tendered, setTendered] = useState<number | null>(null);
@@ -62,7 +65,7 @@ export function CashPanel({
     try {
       const r = await api<Taken>(
         "POST",
-        `/v1/venues/${venueId}/checks/${checkId}/payments`,
+        payUrl ?? `/v1/venues/${venueId}/checks/${checkId}/payments`,
         {
           method: "cash",
           amount_cents: dueCents,

@@ -4197,6 +4197,89 @@ test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··441
     await db.end();
   }
 });
+/**
+ * Pay a tab another way (M6-11): a new card that's declined leaves the $50.00 hold standing; cash then
+ * pays the $32.66 in one tap, and the hold on the tab's card is released and the tab closes.
+ */
+test("Pay a tab another way: a declined new card keeps the hold, then cash closes the tab and releases it", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+    const ids = (
+      await db.query<{ reader: string; account: string }>(
+        `select d.stripe_reader_id as reader, o.stripe_account_id as account
+           from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+          where d.name = 'Bar S710'`,
+      )
+    ).rows[0]!;
+    const headers = {
+      authorization: "Bearer rk_test_fake_payments",
+      "stripe-account": ids.account,
+    };
+    const readerAction = async () => {
+      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+        headers,
+      });
+      return ((await r.json()) as { action?: { type?: string } }).action?.type ?? "";
+    };
+    const hold = async () =>
+      (
+        await db.query<{ status: string; state: string }>(
+          `select p.status, t.state from tabs t join payments p on p.id = t.payment_id where t.name = 'Seat 7'`,
+        )
+      ).rows[0];
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect.poll(readerAction).toBe("collect_payment_method");
+    const tapped = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
+        form: { "card_present[number]": "4000000000005120" },
+      },
+    );
+    expect(tapped.ok(), await tapped.text()).toBe(true);
+    await panel.getByRole("button", { name: "Seat 7" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 7");
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("tab", { name: "Shots" }).click();
+    await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await expect(panel.locator(".total").first()).toContainText("$32.66");
+
+    await panel.getByRole("button", { name: "Close tab", exact: true }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    await closing.getByRole("button", { name: "Another card" }).click();
+    const tap = closing.getByRole("region", { name: "Tap at the reader" });
+    await tap.getByLabel("Bar S710").check();
+    await tap.getByRole("button", { name: "Send $32.66 to the reader" }).click();
+    await expect.poll(readerAction).toBe("process_payment_intent");
+    await presentCard(request, db, "Bar S710", "4000000000000002");
+    await expect(tap.getByRole("alert")).toContainText("Declined · try another card or cash");
+    expect(await hold()).toEqual({ status: "authorized", state: "open" });
+
+    await closing.getByRole("button", { name: "Back to Close tab" }).click();
+    await closing.getByRole("button", { name: "Cash", exact: true }).click();
+    await closing.getByRole("button", { name: "Exact $32.66" }).click();
+    await expect(closing).toContainText("Logged to Maya");
+    await expect(closing.getByRole("status").first()).toBeVisible();
+    await expect(closing).toContainText("Paid · the hold on the tab's card is released");
+    await expect.poll(hold).toEqual({ status: "canceled", state: "closed" });
+    expect(await clippedText(page)).toEqual([]);
+    await closing.getByRole("button", { name: "Done" }).click();
+  } finally {
+    await db.end();
+  }
+});
 const presentCard = async (
   request: APIRequestContext,
   db: pg.Client,

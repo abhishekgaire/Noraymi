@@ -431,6 +431,8 @@ fakeRouteSets.push((fake) => {
         `This PaymentIntent's status is ${String(pi["status"])}, so it can't be canceled.`,
       );
     pi["status"] = "canceled";
+    pi["canceled_at"] = Math.floor(Date.now() / 1000);
+    pi["cancellation_reason"] = req.body["cancellation_reason"] ?? null;
     fake.emit("connect", "payment_intent.canceled", pi, req.account!);
     return { body: pi };
   });

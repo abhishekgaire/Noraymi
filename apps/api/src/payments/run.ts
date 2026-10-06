@@ -55,6 +55,7 @@ import {
 } from "../stripe/tabs.js";
 import { TAB_CLOSE_CHECK_KIND, closeCheckJob } from "../tabs/close.js";
 import { TAB_RELEASE_KIND, openingOfPayment } from "../tabs/open.js";
+import { TAB_CANCEL_HOLD_KIND, holdsToCancel } from "../tabs/pay.js";
 
 /**
  * How every card payment runs (M4-05; Payment flows steps 1 to 4):
@@ -120,6 +121,8 @@ export async function writeTap(
     shareId?: string | null;
     /** "Additional tip (optional)": the reader charges it on top; it's the guest's, never allocated. */
     tipCents?: number;
+    /** A bar tab's hold this card replaces (M6-11): left out of what's due. */
+    leaveOut?: string | null;
     businessDate: string;
     training?: boolean;
     now: Temporal.Instant;
@@ -145,7 +148,7 @@ export async function writeTap(
     amountCents: input.amountCents,
     state: "in_progress",
     shareId: input.shareId ?? null,
-    leaveOut: claimed?.leaveOut ?? null,
+    leaveOut: claimed?.leaveOut ?? input.leaveOut ?? null,
   });
   const { attemptNo } = await startAttempt(c, venueId, {
     paymentId,
@@ -657,6 +660,45 @@ export async function cancelPayment(
   );
 }
 
+/**
+ * A bar tab's hold that another card or cash replaced (M6-11): `POST /v1/payment_intents/{id}/cancel`,
+ * keyed `<payment_id>:cancel`, only for a hold on a closed tab whose allocation was taken over. A lost
+ * answer is read back; the reconciler cancels any still standing.
+ */
+export async function cancelReplacedHold(
+  deps: PaymentDeps,
+  venueId: string,
+  paymentId: string,
+  source: PaymentSource,
+): Promise<Applied | null> {
+  const inVenue = venueTx(deps, venueId, `payment:${paymentId}:replaced`);
+  const found = await inVenue(async (c) => ({
+    payment: await paymentById(c, venueId, paymentId),
+    account: await stripeAccountOf(c, venueId),
+    replaced: (await holdsToCancel(c, venueId)).includes(paymentId),
+  }));
+  const { payment, account, replaced } = found;
+  if (!payment || !account || !replaced || !payment.stripe_pi_id) return null;
+  let pi;
+  try {
+    pi = await cancelIntent(deps.stripe, account, payment.stripe_pi_id, `${paymentId}:cancel`);
+  } catch (e) {
+    if (e instanceof StripeError) return checkNow(deps, venueId, paymentId, source);
+    throw e;
+  }
+  return inVenue((c) =>
+    applyObservation(
+      c,
+      venueId,
+      paymentId,
+      { intent: observeIntent(pi) },
+      source,
+      null,
+      deps.clock.now(),
+    ),
+  );
+}
+
 /** The `payment.check` job: poll every 2 seconds; unknown after 20; give up after 2 minutes unknown. */
 export async function pollAttempt(
   deps: PaymentDeps,
@@ -720,6 +762,11 @@ export function makePaymentHandlers(deps: PaymentDeps): Record<string, JobHandle
     [TAB_RELEASE_KIND]: async (job) => {
       const p = job.job.payload as { payment_id: string };
       await cancelPayment(deps, job.job.venue_id, p.payment_id, "api");
+    },
+    // A tab paid another way (M6-11): its hold is canceled once the replacement has succeeded.
+    [TAB_CANCEL_HOLD_KIND]: async (job) => {
+      const p = job.job.payload as { payment_id: string };
+      await cancelReplacedHold(deps, job.job.venue_id, p.payment_id, "api");
     },
     // Closing a bar tab (M6-08): the reader's tip screen, read every 2 seconds while it asks.
     [TAB_CLOSE_CHECK_KIND]: async (job) => {

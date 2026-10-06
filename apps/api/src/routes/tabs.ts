@@ -37,6 +37,7 @@ import {
 import { latestAttempt, paymentById } from "@west4/db";
 import { enterSlipTip } from "../tabs/tip.js";
 import { splitTab } from "../tabs/split.js";
+import { declinedOnTab } from "../tabs/pay.js";
 import { screenState } from "../payments/machine.js";
 import {
   nameOpening,
@@ -63,6 +64,10 @@ import {
  *   POST /v1/venues/{v}/tabs/{t}/close            { tip: reader | slip | none, reader_id? }: Close (M6-08); the reader
  *                                                asks for the tip, or the hold is captured at once, or the
  *                                                paper slip prints and the tab is awaiting_tip (M6-09)
+ *   POST /v1/venues/{v}/tabs/{t}/pay              { method: tap, amount_cents, reader_id } or { method: cash,
+ *                                                amount_cents, tendered_cents, tip_cents? }: another card or
+ *                                                cash for the balance (M6-11, in routes/payments.ts); once it
+ *                                                succeeds the hold is canceled and the tab is closed
  *   POST /v1/venues/{v}/tabs/{t}/split            { shares: 2-4 }: split evenly, kept on the server (M6-10); each
  *                                                share pays by a new tap or cash (POST /checks/{c}/payments with
  *                                                share_id), the held card's last, by Close to the card
@@ -459,6 +464,9 @@ export function tabRoutes(
       if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
       const venueId = request.venueId!;
       const payments = deps();
+      // Another card declined on this tab (M6-11) is set aside first: the hold still guarantees it.
+      for (const id of await request.inVenue((c) => declinedOnTab(c, venueId, tabId)))
+        await cancelPayment(payments, venueId, id, "api");
       const started = await request.inVenue((c) =>
         startClose(c, venueId, tabId, {
           path: parsed.data.tip,

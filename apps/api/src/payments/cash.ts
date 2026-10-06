@@ -15,6 +15,7 @@ import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { settleCheck, type Settled } from "../rooms/present.js";
 import { claimShare } from "./splits.js";
+import { takeOverHold } from "../tabs/pay.js";
 import { roomOfCheck } from "../rooms/guest-bill.js";
 import { applyCashDiscount } from "./surcharge.js";
 
@@ -32,6 +33,8 @@ export interface CashTaken {
   readonly changeCents: number;
   readonly loggedTo: { readonly name: string; readonly drawer: string | null };
   readonly settled: Settled;
+  /** The bar tab this cash closed, and the hold it replaced (canceled outside the transaction). */
+  readonly replaced: { readonly tabId: string; readonly holdId: string | null } | null;
 }
 
 export async function takeCash(
@@ -43,6 +46,8 @@ export async function takeCash(
     tenderedCents: number;
     tipCents: number;
     shareId?: string | null;
+    /** A bar tab's hold this cash replaces (M6-11): left out of what's due. */
+    leaveOut?: string | null;
     userId: string;
     deviceId: string | null;
     businessDate: string;
@@ -95,7 +100,7 @@ export async function takeCash(
     amountCents: input.amountCents,
     state: "captured",
     shareId: input.shareId ?? null,
-    leaveOut: claimed?.leaveOut ?? null,
+    leaveOut: claimed?.leaveOut ?? input.leaveOut ?? null,
   });
   // The cash that stays: the amount and the tip (the change went back to the guest).
   await insertDrawerMove(c, venueId, {
@@ -119,6 +124,8 @@ export async function takeCash(
       createdAt: at,
     });
   if (bankId) await addToStaffBank(c, venueId, bankId, input.amountCents + input.tipCents);
+  // Paying a tab in cash (M6-11): the cash takes over the hold's allocation, and the hold is canceled.
+  const replaced = await takeOverHold(c, venueId, input.checkId, input.now);
   const settled = await settleCheck(c, venueId, input.checkId, input.now);
   const roomId = await roomOfCheck(c, venueId, input.checkId);
   await emitEvent(c, { venueId, type: "payment.updated", entityId: paymentId, roomId });
@@ -135,6 +142,7 @@ export async function takeCash(
     changeCents: change,
     loggedTo: { name, drawer: inDrawer?.name ?? null },
     settled,
+    replaced,
   };
 }
 

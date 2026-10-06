@@ -891,6 +891,7 @@ export function Rail() {
                     key={tab.id}
                     venueId={venueId}
                     tabId={tab.id}
+                    checkId={tab.check_id}
                     card={tab.card ? `${tab.card.brand ?? ""} ··${tab.card.last4}`.trim() : null}
                     totalCents={tab.rest_cents}
                     resume={tab.state === "tipping"}

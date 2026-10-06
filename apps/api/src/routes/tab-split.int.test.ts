@@ -323,11 +323,7 @@ describe("Split a tab and keep its paid shares (step 8)", () => {
     expect(back.split!.shares.map((s) => s.state)).toEqual(["open", "paid"]);
     expect(await checkStatusOf(tab.check_id)).toBe("partly_paid");
     expect(await payment(tab.paymentId)).toMatchObject({ status: "authorized" });
-    // The last share goes on the held card, never another way while the hold stands.
-    const last = await cash(tab.check_id, back.split!.shares[0]!);
-    expect(last.statusCode).toBe(400);
-    expect(last.json().error.details.reason).toBe("held_card_last");
-
+    // The last share may go another way too (M6-11, tab-pay.int.test.ts); here it goes on the held card.
     // Close to the card: the tip is asked on her share's drinks ($15.00), and $16.33 plus it is captured.
     const asked = await close(tab.id);
     expect(asked.statusCode, asked.body).toBe(200);
