@@ -1,4 +1,12 @@
-import { saveReader, setPaymentIntent, venueReaders, withVenue, type Queryable } from "@west4/db";
+import {
+  databaseUrl,
+  readSetting,
+  saveReader,
+  setPaymentIntent,
+  venueReaders,
+  withVenue,
+  type Queryable,
+} from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { SEED_NOW } from "@west4/shared";
 import pg from "pg";
@@ -9,7 +17,13 @@ import { createAccountFor } from "./create-account.js";
 import { loadStripeSettings } from "./settings.js";
 import { observeIntent, registerPayDomain, retrieveIntent } from "./payments.js";
 import { confirmOnReader } from "./surcharge.js";
-import { collectForTab, createTabCustomer, createTabIntent } from "./tabs.js";
+import {
+  collectForTab,
+  createTabCustomer,
+  createTabIntent,
+  incrementHold,
+  retrieveCollectedCard,
+} from "./tabs.js";
 import { hasCellular, listReaders, readerModel, registerReader } from "./terminal.js";
 import { ensureTerminal } from "./terminal-setup.js";
 
@@ -26,11 +40,13 @@ import { ensureTerminal } from "./terminal-setup.js";
  *    test card of the seed's brand, confirmed, the card saved for later
  *    charges, so refunds and card on file work. Our rows keep the seed's
  *    brand and last four for display (Stripe's test Amex ends in 0005);
- *  - every held bar tab without a PaymentIntent (the paper slips', M6-09)
- *    backed by a real hold: a manual-capture PaymentIntent asking for
- *    incremental authorization, its card tapped on the simulated bar reader
- *    (Stripe's test card of the brand) and confirmed, so entering the tip
- *    captures on it.
+ *  - every held bar tab without a PaymentIntent (the five open tabs and the
+ *    paper slips, M6-27) backed by a real hold: a manual-capture
+ *    PaymentIntent asking for incremental authorization, its card tapped on
+ *    the simulated bar reader (Stripe's test card of the brand) and
+ *    confirmed, Luis M.'s and Tariq A.'s raised from the opening hold, and the
+ *    card's fingerprint and saved card kept, so Send grows the hold, closing
+ *    and entering the tip capture on it, and the same card reopens its tab.
  * Nothing runs in live mode, and nothing runs inside a transaction.
  */
 /** Stripe's test card numbers a simulated reader takes, by brand. */
@@ -47,6 +63,37 @@ const TEST_PM: Record<string, string> = {
   mastercard: "pm_card_mastercard",
   discover: "pm_card_discover",
 };
+
+/**
+ * The card each seed tab is tapped with (M6-27). The fake reads any number, so it gets the brand's test-card
+ * prefix, zeros and the seed's last four (4242 4200 0000 4417 for Jess P.): every tab its own fingerprint,
+ * and none the same as a card the tests tap to open a new tab. A sandbox takes only Stripe's own test cards, and the same card always reads
+ * as the same fingerprint, so each card goes to one tab only; a tab left without a card of its own is
+ * tapped with the brand's first and carries no fingerprint (two open tabs can't hold one card).
+ */
+const SANDBOX_CARDS: Record<string, readonly string[]> = {
+  visa: ["4242424242424242", "4000056655665556"],
+  mastercard: ["5555555555554444", "2223003122003222", "5200828282828210"],
+  amex: ["378282246310005", "371449635398431"],
+  discover: ["6011111111111117", "6011000990139424"],
+};
+
+export function tabCards(fake: boolean) {
+  const used = new Map<string, number>();
+  return (brandName: string, last4: string | null): { number: string; fingerprint: boolean } => {
+    const brand = brandName.toLowerCase();
+    const first = TEST_CARD[brand] ?? TEST_CARD["visa"]!;
+    if (fake)
+      return {
+        number: last4 ? `${first.slice(0, 6)}${"0".repeat(first.length - 10)}${last4}` : first,
+        fingerprint: true,
+      };
+    const n = used.get(brand) ?? 0;
+    used.set(brand, n + 1);
+    const own = (SANDBOX_CARDS[brand] ?? [])[n];
+    return { number: own ?? first, fingerprint: own !== undefined };
+  };
+}
 
 export async function seedStripe(
   owner: pg.Pool,
@@ -177,27 +224,40 @@ export async function seedStripe(
       throw new Error(`deposit ${d.id}: PaymentIntent ${pi.id} is ${pi.status}`);
     await inVenue((c) => setPaymentIntent(c, d.id, pi.id));
   }
-  // The held bar tabs (the paper slips waiting for their tips): a hold tapped on the simulated bar reader.
+  // The held bar tabs (M6-27): the five open tabs and the three paper slips, each opened the way the bar's
+  // New tab opens one: a manual-capture PaymentIntent asking for incremental authorization, its card tapped
+  // on the simulated bar reader and confirmed. A tab whose hold grew (Luis M.'s to $80.00, Tariq A.'s to $100.00) opens at the venue's
+  // opening hold and is raised to its hold, as Send does. The card's fingerprint goes on the tab, so
+  // tapping the same card at New tab opens that tab again.
+  const openingHold =
+    (await inVenue((c) => readSetting(c, venue.id, "tabs", today)))?.value.openingHoldCents ?? 0;
   const holds = await owner.query<{
     id: string;
+    tab_id: string;
     authorized_cents: number;
+    increments_used: number;
     card_brand: string | null;
+    card_last4: string | null;
   }>(
-    `select p.id, p.authorized_cents::int as authorized_cents, p.card_brand
+    `select p.id, t.id as tab_id, p.authorized_cents::int as authorized_cents, p.increments_used,
+            p.card_brand, p.card_last4
        from payments p join tabs t on t.venue_id = p.venue_id and t.payment_id = p.id
       where p.venue_id = $1 and p.method = 'card_present' and p.status = 'authorized' and p.stripe_pi_id is null
-      order by t.opened_at, p.id`,
+      order by t.state = 'open' desc, t.opened_at, p.id`,
     [venue.id],
   );
   const bar = (await inVenue((c) => venueReaders(c, venue.id))).find(
     (r) => r.name === "Bar S710" && r.stripe_reader_id,
   );
   if (holds.rows.length > 0 && !bar) throw new Error("no Bar S710 to tap the tabs' cards on");
+  const cards = tabCards(stripe.settings.mode === "fake");
   for (const h of holds.rows) {
     const readerId = bar!.stripe_reader_id!;
+    const card = cards(h.card_brand ?? "visa", h.card_last4);
+    const grew = h.increments_used > 0 && openingHold > 0 && h.authorized_cents > openingHold;
     const customer = await createTabCustomer(stripe, terminal.account, h.id);
     const pi = await createTabIntent(stripe, terminal.account, {
-      amountCents: h.authorized_cents,
+      amountCents: grew ? openingHold : h.authorized_cents,
       paymentId: h.id,
       customer: customer.id,
     });
@@ -214,9 +274,7 @@ export async function seedStripe(
       {
         account: terminal.account,
         idempotencyKey: `${h.id}:seed:present`,
-        params: {
-          card_present: { number: TEST_CARD[h.card_brand ?? "visa"] ?? TEST_CARD["visa"] },
-        },
+        params: { card_present: { number: card.number } },
       },
     );
     await confirmOnReader(
@@ -225,21 +283,43 @@ export async function seedStripe(
       { readerId, piId: pi.id },
       `${h.id}:seed:confirm`,
     );
+    if (grew)
+      await incrementHold(
+        stripe,
+        terminal.account,
+        { piId: pi.id, targetCents: h.authorized_cents },
+        `${h.id}:seed:increment:${h.authorized_cents}`,
+      );
     const held = observeIntent(await retrieveIntent(stripe, terminal.account, pi.id));
     if (held.status !== "requires_capture")
       throw new Error(`tab hold ${h.id}: PaymentIntent ${pi.id} is ${held.status}`);
+    if ((held.amountCapturable ?? 0) !== h.authorized_cents)
+      throw new Error(
+        `tab hold ${h.id}: PaymentIntent ${pi.id} holds ${held.amountCapturable}, not ${h.authorized_cents}`,
+      );
+    const collected = card.fingerprint
+      ? await retrieveCollectedCard(stripe, terminal.account, pi.id)
+      : null;
     await inVenue(async (c) => {
       await setPaymentIntent(c, h.id, pi.id);
       await c.query(
-        `update payments set incremental_supported = $2, overcapture_supported = $3, capture_before = $4
+        `update payments set incremental_supported = $2, overcapture_supported = $3, capture_before = $4,
+                generated_card_pm = $5
           where id = $1`,
         [
           h.id,
           held.hold?.incrementalSupported ?? null,
           held.hold?.overcaptureSupported ?? null,
           held.hold?.captureBefore ?? null,
+          held.card?.generatedCard ?? null,
         ],
       );
+      // Our rows keep the seed's brand and last four for display, over Stripe's test card of the brand.
+      if (collected?.fingerprint)
+        await c.query("update tabs set card_fingerprint = $2 where id = $1", [
+          h.tab_id,
+          collected.fingerprint,
+        ]);
     });
   }
   // The payment page's own hostname, for Apple Pay and Google Pay (M4-15). Local hosts can't be registered.
@@ -262,7 +342,8 @@ async function main(): Promise<void> {
     return;
   }
   const owner = new pg.Pool({
-    connectionString: process.env["DATABASE_URL"] ?? config.databaseUrl,
+    // The table owner (DATABASE_URL, or the DB_* parts ECS injects), never the API's app_rw.
+    connectionString: databaseUrl(),
   });
   try {
     await seedStripe(owner, new StripeClient(settings));

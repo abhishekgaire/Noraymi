@@ -1563,7 +1563,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
 
     // The bar tabs (M6-02), on their bar checks, each on its hold (M6-16: Charge the remaining tabs and the
     // cut-off capture them): an authorized card_present payment for the tab's hold, the opening hold raised
-    // once where the tab's hold grew (Luis M.'s $50 to $80). Its PaymentIntent on Stripe comes from
+    // once where the tab's hold grew (Luis M.'s $50 to $80; Tariq A.'s to $100, since every tab opens at $50). Its PaymentIntent on Stripe comes from
     // `stripe:seed`, as the slips' do; a fresh id on every load, for the same reason. Until then there is
     // no PaymentIntent to raise, so the hold reads as one that can't grow (capped at the hold plus the
     // overcapture allowance); `stripe:seed` writes what Stripe says the card supports.
@@ -1817,13 +1817,14 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
           slip.signed_at,
         ],
       );
-      // The photo's row only: the image itself isn't in local storage (the staging seed brings it, M6-27).
+      // The photo's row; its image (a stand-in, since the brief has none) goes in the object store with
+      // `seed:files` (M6-27), which also writes its size.
       const photoId = slip.photo_saved ? remember(`${slip.id}.photo`, "files") : null;
       if (photoId)
         await client.query(
           `insert into files (id, venue_id, kind, storage_key, content_type, bytes, uploaded_by, uploaded_at,
              attached_at)
-           values ($1, $2, 'slip_photo', $5, 'image/jpeg', 1, $3, $4, $4)`,
+           values ($1, $2, 'slip_photo', $5, 'image/png', 1, $3, $4, $4)`,
           [photoId, venueId, id("maya"), slip.signed_at, `${venueId}/slip_photo/${photoId}`],
         );
       await client.query(

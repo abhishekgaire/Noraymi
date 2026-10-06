@@ -431,6 +431,8 @@ Staging is seeded from [`seed/west4-friday.json`](../seed/west4-friday.json) ([T
 
 Tests that change state (accept o1, approve the void, check Sam O. in) start from a fresh load, so the next test still sees 10:41 PM.
 
+**After the loader.** Two steps put the night's outside side in place, in staging (the deploy runs them after the seed) and locally (`scripts/demo-local.sh`): `stripe:seed` backs the deposits and every bar tab's hold with a real authorization, each card tapped on the simulated Bar S710 (Stripe's test card of the seed's brand; our rows keep the seed's brand and last four), every hold opened at the $50.00 opening hold and raised where it grew (Luis M.'s to $80.00, Tariq A.'s to $100.00); and `seed:files` puts a stand-in photo behind each paper slip, since the brief has none.
+
 ## Open points
 
 Things the fix brief leaves open or gets wrong, so nobody trips on them. Each needs an answer before the build reaches it.

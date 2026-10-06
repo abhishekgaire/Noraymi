@@ -13,6 +13,9 @@ pnpm seed >/dev/null
 # The night's Stripe side (M4-10): deposits backed by PaymentIntents and the two readers, on the fake.
 # Demo mode never reads .env, so real keys never load here; it skips itself when the fake isn't up.
 (cd apps/api && pnpm exec tsx src/stripe/seed-stripe.ts 2>&1 | tail -1)
+# The slips' photos (M6-27) in the local object store; skipped with a warning when it isn't up.
+(cd apps/api && S3_ENDPOINT=${S3_ENDPOINT:-http://localhost:9000} S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-west4} \
+  S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-west4secret} pnpm exec tsx src/files/seed-files.ts 2>&1 | tail -1) || true
 echo "Seeded West 4: Fri Sep 25, 2026."
 if curl -sf http://127.0.0.1:3000/v1/health >/dev/null; then
   curl -sf -X POST http://127.0.0.1:3000/v1/ops/clock -H 'content-type: application/json' \

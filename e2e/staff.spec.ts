@@ -5499,6 +5499,85 @@ async function signInMayaAtTheBar(page: Page, request: APIRequestContext, db: pg
  * accepting Room 5's prints its ticket; 86 on Hoegaarden greys it in its slot
  * and on the guest menu with nothing shifting; the words.
  */
+/**
+ * The seed's bar after a load (M6-27): `pnpm seed`, then `stripe:seed` and `seed:files`, as staging runs
+ * them. Maya's bar POS shows the five tabs at the seed's totals, each on a hold Stripe placed (so none
+ * reads as one that can't grow), Luis M.'s grown to $80.00 and Tariq A.'s at $100.00, the badges, the
+ * three slips to enter with their photos, and "Song queue · 6".
+ */
+test("after a load, Maya's bar POS matches the seed: five tabs on their holds, three slips, Song queue · 6", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    execSync("pnpm exec tsx src/files/seed-files.ts", {
+      cwd: "apps/api",
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+        S3_ENDPOINT: process.env["S3_ENDPOINT"] ?? "http://localhost:9000",
+        S3_ACCESS_KEY_ID: process.env["S3_ACCESS_KEY_ID"] ?? "west4",
+        S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
+      },
+    });
+    await signInMayaAtTheBar(page, request, db);
+    const list = page.getByRole("list", { name: "Bar tabs" });
+    await expect(list.locator(".name")).toHaveText([
+      "Hana K.",
+      "Jess P.",
+      "Luis M.",
+      "Tariq A.",
+      "Seat 6 · blue jacket",
+    ]);
+    await expect(list.locator(".amount")).toHaveText([
+      "$43.55",
+      "$32.66",
+      "$63.15",
+      "$86.01",
+      "$13.07",
+    ]);
+    const row = (name: RegExp) => list.getByRole("listitem").filter({ hasText: name });
+    await expect(row(/Hana K\./).locator(".badge")).toHaveText(["Cut off"]);
+    await expect(
+      row(/Tariq A\./)
+        .locator(".badge")
+        .first(),
+    ).toContainText("Waiting for Andy");
+    // Every hold is a real authorization that can grow: no "Hold · … left" on any tab.
+    await expect(list).not.toContainText("left");
+    const panel = page.getByRole("complementary");
+    for (const [name, hold] of [
+      [/Hana K\./, "Hold $50.00"],
+      [/Jess P\./, "Hold $50.00"],
+      [/Luis M\./, "Hold $80.00"],
+      [/Tariq A\./, "Hold $100.00"],
+      [/Seat 6/, "Hold $50.00"],
+    ] as const) {
+      await list.getByRole("button", { name }).click();
+      await expect(panel).toContainText(hold);
+    }
+    await expect(page.getByRole("link", { name: "Song queue · 6" })).toBeVisible();
+
+    // The three slips to enter, each with its photo in the object store.
+    await page.goto("/tips");
+    const slips = page.locator(".tips-to-enter .cards > li");
+    await expect(slips.locator("strong")).toHaveText(["Dev S.", "Tom W.", "Ana R."]);
+    for (let i = 0; i < 3; i++) await expect(slips.nth(i)).toContainText("Photo saved");
+    await slips.nth(0).getByRole("button").click();
+    const photo = page.getByRole("img", { name: "Photo of the signed slip" });
+    await expect(photo).toBeVisible();
+    await expect
+      .poll(() => photo.evaluate((img) => (img as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0);
+  } finally {
+    await db.end();
+  }
+});
+
 test("the bar POS: five tabs, the rooms, Room 5's order accepted, and 86 on Hoegaarden", async ({
   page,
   request,

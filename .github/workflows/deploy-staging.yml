@@ -96,6 +96,25 @@ jobs:
           aws logs get-log-events --log-group-name "/west4/staging/migrate" --log-stream-name "migrate/migrate/$id" --query 'events[].message' --output text || true
           test "$code" = "0"
 
+      - name: Load the seed's Stripe side and slip photos (M4-10, M6-27)
+        run: |
+          set -euo pipefail
+          # stripe:seed backs the deposits and the bar tabs' holds on the connected sandbox (it skips itself
+          # while the Stripe secret isn't wired in); seed:files puts the paper slips' photos in the files bucket.
+          for script in dist/stripe/seed-stripe.js dist/files/seed-files.js; do
+            task=$(aws ecs run-task --cluster "${{ vars.ECS_CLUSTER }}" --launch-type FARGATE \
+              --task-definition "${{ steps.taskdefs.outputs.migrate }}" \
+              --overrides "{\"containerOverrides\":[{\"name\":\"migrate\",\"command\":[\"node\",\"$script\"]}]}" \
+              --network-configuration "awsvpcConfiguration={subnets=[${{ vars.ECS_SUBNETS }}],securityGroups=[${{ vars.ECS_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
+              --query 'tasks[0].taskArn' --output text)
+            echo "$script task $task"
+            aws ecs wait tasks-stopped --cluster "${{ vars.ECS_CLUSTER }}" --tasks "$task"
+            code=$(aws ecs describe-tasks --cluster "${{ vars.ECS_CLUSTER }}" --tasks "$task" --query 'tasks[0].containers[0].exitCode' --output text)
+            id=${task##*/}
+            aws logs get-log-events --log-group-name "/west4/staging/migrate" --log-stream-name "migrate/migrate/$id" --query 'events[].message' --output text || true
+            test "$code" = "0"
+          done
+
       - name: Roll the services
         run: |
           set -euo pipefail
