@@ -501,17 +501,20 @@ Definition of done: see CLAUDE.md.
 
 ### M7-17 · Report the sales-tax quarter
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7-13
 - **Spec:** [API](../spec/08-api.md) · Reports and exports (`/reports/tax-quarter`); [Money rules](../spec/05-money-rules.md) 2 and 8; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Rule packs (`salesTax`); [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-S12; [Open technical questions](../spec/14-open-questions.md); screens [N38](../screens.md#n38-reports-and-exports)
 - **Build:** `GET /reports/tax-quarter` for New York's quarters (Mar–May, Jun–Aug, Sep–Nov, Dec–Feb), by business date: taxable base and tax per category and jurisdiction code, sales not taxed (the gratuity), and late adjustments in the quarter they post to. The after-midnight sales of each quarter's last night (Nov 30, Feb 28 or 29, May 31, Aug 31) show on their own line. Practice is left out; it runs on the replica; exporting asks for the passkey again. DeskReports and Reports show it.
 - **Acceptance:**
-  - [ ] The Sep–Nov 2026 quarter includes Fri Sep 25 and shows 8.875% tax on room time, drinks and damage fees.
-  - [ ] Sales from midnight to 6:00 AM on Tue Dec 1, 2026 (business date Mon Nov 30) show on their own line.
-  - [ ] The quarter's tax equals the sum of its nights' tax lines to the cent.
+  - [x] The Sep–Nov 2026 quarter includes Fri Sep 25 and shows 8.875% tax on room time, drinks and damage fees.
+  - [x] Sales from midnight to 6:00 AM on Tue Dec 1, 2026 (business date Mon Nov 30) show on their own line.
+  - [x] The quarter's tax equals the sum of its nights' tax lines to the cent.
 - **Tests:** unit tests for quarter boundaries by business date, including Feb 29, 2028; an integration test against M7-19's nights.
 - **Notes:** Open question (accountant, gate): which business date gets after-midnight sales on the nights a quarter ends. Build the cautious default as a rule-pack field (`salesTax.quarterBoundary`, "businessDate"), so the answer ships as a new rule-pack version; the split line shows either way. The $300,000 sales-tax alert is phase 2 ([Not in phase 1](../milestones.md#not-in-phase-1)).
+  - Built (M7-17): `packages/rules/src/tax-quarter.ts` (`taxQuarterOf`: Mar–May, Jun–Aug, Sep–Nov and Dec–Feb by business date, Dec–Feb named for December's year, Feb 29 in leap years); the rule pack's optional `salesTax.quarterBoundary` ("businessDate" when absent, the cautious default; the answer ships as a new rule-pack version); `GET /reports/tax-quarter?date=` (`routes/tax-quarter.ts`, owners and managers, live views only): tax is written once per rate on each check, so each check's tax is shared over its taxed categories (the rule pack's `taxedCategories`) by their bases, largest remainder, and the categories still add up to the tax lines; the untaxed gratuity; late adjustments posted in the quarter; and the last night's tax lines written after local midnight on their own line. `&format=csv` is the export and asks for the passkey again.
+  - Not here: the Reports screens (DeskReports and Reports) are M7-18's, which show this report. "Runs on the replica": the report reads through the app pool like every other read until staging has a read replica (M8).
+  - Tests: unit `packages/rules/src/tax-quarter.test.ts` (Fri Sep 25 in Sep–Nov 2026, each quarter's last night, Dec–Feb across the new year and to Feb 29, 2028); integration `apps/api/src/routes/tax-quarter.int.test.ts` (Room 9 with a damage fee presented: room time, drinks and damage at 8.875%, the quarter's tax equal to its tax lines, the gratuity untaxed; a Mon Nov 30 check's tax line written at 1:15 AM Tue Dec 1 on its own line; the CSV refused without the passkey again). M7-19's integration test runs it against the staging nights.
 
 ### M7-18 · Build Reports and the report routes
 

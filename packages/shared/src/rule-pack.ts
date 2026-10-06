@@ -34,6 +34,12 @@ export interface RulePack {
     readonly jurisdictionCode: string | null;
     readonly surchargeTaxable: boolean;
     /**
+     * Which quarter a quarter's last night's after-midnight sales belong to (M7-17): their business date
+     * (the cautious default while the accountant answers), or the calendar date. The report splits them
+     * out on their own line either way. Absent means "businessDate".
+     */
+    readonly quarterBoundary?: "businessDate" | "calendarDate";
+    /**
      * The categories taxed at `rate` (Money rules 8). From version 2026.10 (M4-06): room time, drinks and
      * damage at West 4; `fee` (kept deposits, no-show charges, minimum spend) untaxed until the accountant answers.
      */

@@ -97,3 +97,5 @@ export { ACCOUNTS, isBalanced, journalCsv, nightJournal, payoutJournal } from ".
 export type { Account, Journal, JournalLine, NightJournalInput, NightMoney } from "./journal.js";
 export { payrollCsv, payrollRows } from "./payroll.js";
 export type { PayrollRow, PayrollShift } from "./payroll.js";
+export { taxQuarterOf } from "./tax-quarter.js";
+export type { TaxQuarter } from "./tax-quarter.js";

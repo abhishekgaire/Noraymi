@@ -208,6 +208,8 @@ const newYorkCounty: RulePack = {
   salesTax: { rate: 0.08875, jurisdictionCode: "…", surchargeTaxable: true,      // the code and the surcharge rule come from the accountant
               taxedCategories: ["room_time", "drink", "damage"] },              // what the rate taxes (Money rules 8); fee stays untaxed
                                                                                 // until the accountant answers. Added in version 2026.10
+  // salesTax.quarterBoundary (M7-17): "businessDate" (the cautious default, absent means it) or "calendarDate":
+  // which quarter a quarter's last night's after-midnight sales count in; the report shows them on their own line
   wages: { region: "nyc", minimumCents: 1700, tippedCashCents: 1135, tipCreditCents: 565 },
   cardFee: {
     surcharge: { creditOnly: true, cap: "inPersonCardCost", networkCapPct: 3, noticeDays: 30, showCreditPrice: true },
