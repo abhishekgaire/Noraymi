@@ -125,6 +125,7 @@ export function SingQueue({ slug }: { slug: string }) {
         </p>
       )}
       {page.me && <Mine me={page.me} songPriceCents={page.song_price_cents} />}
+      {page.me && page.open && <Alerts api={api} slug={slug} />}
       {page.me && page.open && <AddSong api={api} catalog={catalog} onAdded={() => void load()} />}
       {!page.me && page.open && <Join api={api} onJoined={() => void load()} />}
       {!page.open && <p role="status">{t("en", "guestSing.off")}</p>}
@@ -198,6 +199,91 @@ function Mine({
               </li>
             ))}
           </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
+type AlertState = "checking" | "ready" | "on" | "blocked" | "failed";
+
+const pushSupported = () =>
+  typeof window !== "undefined" &&
+  "serviceWorker" in navigator &&
+  "PushManager" in window &&
+  "Notification" in window;
+
+function base64UrlToBytes(value: string): Uint8Array {
+  const padded = value
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(value.length / 4) * 4, "=");
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
+
+/**
+ * Singer alerts (M6-21): the phone allows push, and its subscription goes to the server for this singer.
+ * A phone that can't or won't allow it is told to keep the page open, where the place always shows.
+ */
+function Alerts({ api, slug }: { api: string; slug: string }) {
+  const scope = `/v/${slug}/sing`;
+  const [state, setState] = useState<AlertState>("checking");
+
+  useEffect(() => {
+    if (!pushSupported() || Notification.permission === "denied") {
+      setState("blocked");
+      return;
+    }
+    void navigator.serviceWorker
+      .getRegistration(scope)
+      .then((r) => r?.pushManager.getSubscription())
+      .then((sub) => setState(sub && Notification.permission === "granted" ? "on" : "ready"))
+      .catch(() => setState("ready"));
+  }, [scope]);
+
+  const turnOn = async () => {
+    setState("checking");
+    try {
+      if ((await Notification.requestPermission()) !== "granted") {
+        setState("blocked");
+        return;
+      }
+      const registration = await navigator.serviceWorker.register("/sing-sw.js", { scope });
+      await navigator.serviceWorker.ready;
+      const key = (await (await fetch("/v1/push/vapid-key")).json()) as { public_key: string };
+      const sub =
+        (await registration.pushManager.getSubscription()) ??
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64UrlToBytes(key.public_key) as BufferSource,
+        }));
+      const json = sub.toJSON();
+      const r = await fetch(`${api}/alerts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          endpoint: sub.endpoint,
+          keys: { p256dh: json.keys?.["p256dh"], auth: json.keys?.["auth"] },
+        }),
+      });
+      setState(r.ok ? "on" : "failed");
+    } catch {
+      setState("failed");
+    }
+  };
+
+  if (state === "checking") return null;
+  return (
+    <section className="alerts" aria-label={t("en", "guestSing.alerts")}>
+      {state === "on" && <p>{t("en", "guestSing.alertsOn")}</p>}
+      {state === "blocked" && <p>{t("en", "guestSing.alertsBlocked")}</p>}
+      {(state === "ready" || state === "failed") && (
+        <>
+          <p className="hint">{t("en", "guestSing.alertsLead")}</p>
+          <button type="button" className="secondary" onClick={() => void turnOn()}>
+            {t("en", "guestSing.alerts")}
+          </button>
+          {state === "failed" && <p role="alert">{t("en", "guestSing.alertsFailed")}</p>}
         </>
       )}
     </section>

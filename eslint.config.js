@@ -52,8 +52,8 @@ export default tseslint.config(
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   {
-    // The staff service worker (M1-22) runs in a worker scope, not a window.
-    files: ["apps/staff/public/sw.js"],
+    // The staff service worker (M1-22) and the singer's (M6-21) run in a worker scope, not a window.
+    files: ["apps/staff/public/sw.js", "apps/guest/public/sing-sw.js"],
     languageOptions: {
       globals: { self: "readonly", caches: "readonly", fetch: "readonly", URL: "readonly" },
     },

@@ -12,6 +12,7 @@ import { IDEMPOTENCY_CLEANUP_KIND } from "../jobs/idempotency-cleanup.js";
 import { EMAIL_SEND_KIND } from "../jobs/send-email.js";
 import { TEXT_SEND_KIND } from "../jobs/send-text.js";
 import { PUSH_SEND_KIND } from "../push/send-push.js";
+import { SINGER_PUSH_KIND } from "../songs/alerts.js";
 import { MESSAGE_SEND_KIND } from "../texts/queue.js";
 import type { FakePushSender } from "../push/sender.js";
 import { PARAM_SAMPLES, fillUrl, inject, type Cast } from "./fixtures.js";
@@ -312,6 +313,21 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the text trigger didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  [SINGER_PUSH_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => {
+      const b = c as unknown as { singerB: string; songB: string };
+      return { singer_id: b.singerB, queue_id: b.songB, alert: "up_next", count: 0 };
+    },
+    // Venue B's singer and song aren't venue A's: no push goes to singer B's phone, and the job finishes.
+    expect: (job, { push }) =>
+      job.status !== "done"
+        ? `the singer alert didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`
+        : push.sent.length > 0
+          ? "a singer alert went to venue B's singer from venue A"
+          : null,
   },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },

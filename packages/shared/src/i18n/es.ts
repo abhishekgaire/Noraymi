@@ -828,6 +828,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestSing.add": "Añadir a la cola",
   "guestSing.adding": "Añadiendo…",
   "guestSing.addFailed": "No pudimos añadir la canción. Inténtalo de nuevo.",
+  "guestSing.alerts": "Avísame en este teléfono",
+  "guestSing.alertsLead": "Te avisamos cuando falten 2 cantantes antes que tú, y cuando te toque.",
+  "guestSing.alertsOn": "Los avisos están activados en este teléfono.",
+  "guestSing.alertsBlocked":
+    "Este teléfono no permite avisos. Deja esta página abierta para ver tu lugar.",
+  "guestSing.alertsFailed": "No pudimos activar los avisos. Inténtalo de nuevo.",
   "dayName.5": "viernes",
   "dayName.6": "sábado",
   "dayName.other": "entre semana",

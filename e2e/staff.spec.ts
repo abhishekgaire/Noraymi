@@ -295,6 +295,9 @@ test("Andy's phone installs the staff app, turns on alerts and gets a test alert
         unsubscribe: async () => true,
       };
       let subscribed = false;
+      // Headless Chromium answers "denied" whatever the grant: the phone says yes here.
+      Object.defineProperty(Notification, "permission", { get: () => "granted" });
+      Notification.requestPermission = async () => "granted";
       PushManager.prototype.subscribe = async () => {
         subscribed = true;
         return fake as unknown as PushSubscription;
@@ -1462,6 +1465,9 @@ test("Andy's phone: Approvals · 1, Diego's comp approved onto Room 9, and his o
         unsubscribe: async () => true,
       };
       let subscribed = false;
+      // Headless Chromium answers "denied" whatever the grant: the phone says yes here.
+      Object.defineProperty(Notification, "permission", { get: () => "granted" });
+      Notification.requestPermission = async () => "granted";
       PushManager.prototype.subscribe = async () => {
         subscribed = true;
         return fake as unknown as PushSubscription;
@@ -5883,6 +5889,124 @@ test("Started and Skip: Jess P.'s $0.00 song line and the play log, Kira skipped
     expect(skipped.status, skipped.body).toBe(200);
     await page.reload();
     await expect(page.getByText("Song queue · 4")).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Singer alerts (M6-21): Ben T. signs in on the queue page and taps "Alert me on this phone" (the browser's
+ * permission and push subscription are stubbed: a headless browser has no push service), which plans "2 singers before you"
+ * for his song at once. Maya starts Jess P.'s song and then Kira's: Ben T.'s open page reads "You're up next
+ * at the bar · come to the stage", the up-next push is planned once, and the You're up next text with it.
+ */
+test("Singer alerts: Ben T. turns alerts on, and Kira's start makes him up next by push and text", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const song = async (slug: string) =>
+      (
+        await db.query<{ id: string }>(
+          "select row_id as id from seed_ids where venue_id = $1 and slug = $2",
+          [v, slug],
+        )
+      ).rows[0]!.id;
+    const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await ben.grantPermissions(["notifications"], { origin: "http://localhost:3001" });
+    await ben.addInitScript(() => {
+      const fake = {
+        endpoint: "https://push.example.test/send/ben-e2e",
+        toJSON: () => ({
+          endpoint: "https://push.example.test/send/ben-e2e",
+          keys: { p256dh: "BPk3-e2e", auth: "a1-e2e" },
+        }),
+      };
+      let subscribed = false;
+      // Headless Chromium answers "denied" whatever the grant: the phone says yes here.
+      Object.defineProperty(Notification, "permission", { get: () => "granted" });
+      Notification.requestPermission = async () => "granted";
+      PushManager.prototype.subscribe = async function () {
+        subscribed = true;
+        return fake as unknown as PushSubscription;
+      };
+      PushManager.prototype.getSubscription = async function () {
+        return (subscribed ? fake : null) as unknown as PushSubscription;
+      };
+    });
+    const phone = await ben.newPage();
+    await phone.goto("http://localhost:3001/v/west4karaoke/sing");
+    await phone.getByLabel("Your name on the TV").fill("Ben");
+    await phone.getByLabel("Mobile number").fill("(646) 555-0163");
+    await phone.getByRole("button", { name: "Text me a code" }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query("select 1 from jobs where kind = 'text.send' and payload->>'to' = $1", [
+              "+16465550163",
+            ])
+          ).rowCount,
+      )
+      .toBeGreaterThan(0);
+    const code = (
+      await db.query<{ code: string }>(
+        `select payload->'data'->>'code' as code from jobs where kind = 'text.send'
+           and payload->>'to' = '+16465550163' order by created_at desc limit 1`,
+      )
+    ).rows[0]!.code;
+    await phone.getByLabel("The code we texted you").fill(code);
+    await phone.getByRole("button", { name: "Confirm" }).click();
+    await expect(phone.getByRole("status")).toHaveText("2 singers before you");
+    await phone.getByRole("button", { name: "Alert me on this phone" }).click();
+    await expect(phone.getByText("Alerts are on for this phone.")).toBeVisible();
+    const benSong = await song("song_sg_ben");
+    const planned = async () =>
+      (
+        await db.query<{ dedupe_key: string }>(
+          "select dedupe_key from jobs where dedupe_key like $1 order by dedupe_key",
+          [`%${benSong}`],
+        )
+      ).rows.map((r) => r.dedupe_key);
+    expect(await planned()).toEqual([`singer-alert:before:${benSong}`]);
+    const tap = (path: string, key: string) =>
+      page.evaluate(
+        async ([p, k]) => {
+          const token = sessionStorage.getItem("west4.staff.token");
+          const r = await fetch(p!, {
+            method: "POST",
+            headers: {
+              "idempotency-key": k!,
+              ...(token ? { authorization: `Bearer ${token}` } : {}),
+            },
+          });
+          return { status: r.status, body: await r.text() };
+        },
+        [path, key],
+      );
+    for (const who of ["song_sg_jess", "song_sg_kira"]) {
+      const r = await tap(
+        `/v1/venues/${v}/song-queue/${await song(who)}/start`,
+        `e2e-alerts-${who}-${Date.now()}`,
+      );
+      expect(r.status, r.body).toBe(200);
+    }
+    // The open page shows the alert: on the live channel, or at the latest on its 15-second refresh.
+    await expect(phone.getByRole("status")).toHaveText(
+      "You're up next at the bar · come to the stage",
+      { timeout: 20_000 },
+    );
+    expect(await planned()).toEqual([
+      `singer-alert:before:${benSong}`,
+      `singer-alert:up_next:${benSong}`,
+      `text:up_next:${benSong}`,
+    ]);
+    await ben.close();
   } finally {
     await db.end();
   }

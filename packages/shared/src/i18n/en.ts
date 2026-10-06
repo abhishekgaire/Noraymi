@@ -816,6 +816,12 @@ export const en = {
   "guestSing.add": "Add to the queue",
   "guestSing.adding": "Adding…",
   "guestSing.addFailed": "Couldn't add the song. Try again.",
+  "guestSing.alerts": "Alert me on this phone",
+  "guestSing.alertsLead": "We'll tell you at 2 singers before you, and when you're up next.",
+  "guestSing.alertsOn": "Alerts are on for this phone.",
+  "guestSing.alertsBlocked":
+    "This phone doesn't allow alerts. Keep this page open to see your place.",
+  "guestSing.alertsFailed": "Couldn't turn on alerts. Try again.",
   "dayName.5": "Friday",
   "dayName.6": "Saturday",
   "dayName.other": "weeknights",

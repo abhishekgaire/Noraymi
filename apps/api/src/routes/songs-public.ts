@@ -15,6 +15,7 @@ import {
   singerByToken,
   verifySingerCode,
 } from "../songs/public.js";
+import { planSingerAlerts, saveSingerSubscription } from "../songs/alerts.js";
 
 /**
  * Bar mode's public routes (M6-20; API · Bar mode), for the singer's queue page:
@@ -26,6 +27,8 @@ import {
  *                                                 singer's own songs, place and credits
  *   POST /v1/public/venues/{slug}/queue           { title, artist? } as the singer: a song into the rotation
  *   GET  /v1/public/venues/{slug}/songs?q=        the songbook search: empty until a songbook loads (M6-23)
+ *   POST /v1/public/venues/{slug}/alerts          { endpoint, keys } as the singer: the phone's push
+ *                                                 subscription for the singer alerts (M6-21)
  * The live channel takes the same cookie: a singer follows `song_queue.updated` on /v1/venues/{v}/events.
  *
  * Not built yet, and joining here when M2-27 lands: the server-checked CAPTCHA and the daily limits on
@@ -60,7 +63,7 @@ function setSingerCookie(reply: FastifyReply, auth: AuthConfig, token: string): 
   reply.header("Set-Cookie", parts.join("; "));
 }
 
-const PUBLIC_PATH = /^\/v1\/public\/venues\/([^/]+)\/(queue|songs)$/;
+const PUBLIC_PATH = /^\/v1\/public\/venues\/([^/]+)\/(queue|songs|alerts)$/;
 const EVENTS_PATH = /^\/v1\/venues\/([0-9a-f-]{36})\/events$/i;
 
 /**
@@ -226,5 +229,38 @@ export function publicSongRoutes(
     { config: open },
     async (request) =>
       inVenue(request, false, async () => ({ catalog: false, songs: [] as never[] })),
+  );
+
+  // The singer's phone allows alerts (M6-21): its push subscription is kept for the singer, and the
+  // singer's place is checked at once, so a phone that turns alerts on at 2 singers before gets that push.
+  const alertsBody = z
+    .object({
+      endpoint: z.string().url().max(1000).startsWith("https://"),
+      keys: z
+        .object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) })
+        .strict(),
+    })
+    .strict();
+  app.post<{ Params: { slug: string }; Body: unknown }>(
+    "/v1/public/venues/:slug/alerts",
+    { config: singer },
+    async (request, reply) => {
+      const parsed = alertsBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { endpoint, keys }");
+      const id = await inVenue(request, true, async (c, venueId) => {
+        const singerId = singerOf(request, venueId);
+        if (!singerId) throw new ApiError("forbidden", "join the queue first");
+        const now = options.clock.now();
+        const saved = await saveSingerSubscription(c, venueId, {
+          singerId,
+          endpoint: parsed.data.endpoint,
+          keys: parsed.data.keys,
+          now,
+        });
+        await planSingerAlerts(c, venueId, now, singerId);
+        return saved;
+      });
+      return reply.code(201).send({ subscription_id: id });
+    },
   );
 }

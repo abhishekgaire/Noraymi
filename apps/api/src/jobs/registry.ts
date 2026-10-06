@@ -21,6 +21,7 @@ import { sweepUnattachedFiles } from "../files/storage.js";
 import { makeS3 } from "../s3.js";
 import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
 import type { PushSender } from "../push/sender.js";
+import { SINGER_PUSH_KIND, makeSingerPushHandler } from "../songs/alerts.js";
 import { TEXT_SEND_KIND, makeSendTextHandler } from "./send-text.js";
 import type { TextSender } from "../texts/sender.js";
 import type { VenueTextClient, VenueTextSettings } from "../texts/venue.js";
@@ -113,6 +114,7 @@ export function makeHandlers({
       ...stripeEvents,
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
       [PUSH_SEND_KIND]: makePushSendHandler(push),
+      [SINGER_PUSH_KIND]: makeSingerPushHandler(push),
       [TEXT_SEND_KIND]: makeSendTextHandler(texts),
       ...(venueTexts
         ? {

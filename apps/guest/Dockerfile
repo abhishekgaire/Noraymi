@@ -17,6 +17,7 @@ WORKDIR /app
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 COPY --from=build /repo/apps/guest/.next/standalone /app
 COPY --from=build /repo/apps/guest/.next/static /app/apps/guest/.next/static
+COPY --from=build /repo/apps/guest/public /app/apps/guest/public
 USER node
 EXPOSE 3001
 CMD ["node", "apps/guest/server.js"]

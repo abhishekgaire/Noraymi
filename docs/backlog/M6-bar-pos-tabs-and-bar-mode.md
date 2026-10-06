@@ -579,7 +579,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-21 · Alert singers by push and text
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-19, M6-20; M2 (texts and STOP)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) (Alerts; The automatic texts, #12 You're up next); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`barMode.alerts`); [decisions](../decisions.md) (D62)
@@ -590,11 +590,15 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Each alert goes once per queued song. A push needs the singer's phone to allow it, and the open page always shows the alert; STOP stops the text at once.
   - With Bar mode off, no alert or text goes out.
 - **Acceptance:**
-  - [ ] Ben T. gets "2 singers before you" by push; when Kira starts, he gets "You're up next at the bar · come to the stage" by push and "You're up next at the bar. Come to the stage when this song ends." by text (Twilio test credentials).
-  - [ ] Songs started and skipped around him never send him the same alert twice.
-  - [ ] A singer who texted STOP still gets the push but no text.
+  - [x] Ben T. gets "2 singers before you" by push; when Kira starts, he gets "You're up next at the bar · come to the stage" by push and "You're up next at the bar. Come to the stage when this song ends." by text (Twilio test credentials).
+  - [x] Songs started and skipped around him never send him the same alert twice.
+  - [x] A singer who texted STOP still gets the push but no text.
 - **Tests:** integration (web push to a test subscription; Twilio test credentials); end-to-end.
 - **Notes:** The per-singer limit and these alerts are GA-M11's guardrails; text reminders for unpaid tabs aren't adopted.
+  - **Built (M6-21):** `apps/api/src/songs/alerts.ts`. `planSingerAlerts` runs inside the Started and Skip transactions (`songs/start.ts`) and works out each queued singer's place as the distinct singers still to start before their next song (the queue page's count). At exactly `barMode.alerts.beforeYou` (2; 0 turns it off) it queues a `singer.push` job "2 singers before you"; at 0 with someone else singing, a `singer.push` job "You're up next at the bar · come to the stage" and, with `upNextText` on, the automatic texts' `text.trigger` job for the `up_next` template ("You're up next at the bar. Come to the stage when this song ends."). Every job's dedupe key carries the song's id (`singer-alert:before:{q}`, `singer-alert:up_next:{q}`, `text:up_next:{q}`), so each alert goes once per queued song. The text takes M2's normal path, so a STOP, the template switched off or Guest texts off stops it while the push still goes. With bar mode not `on`, nothing is planned. The push job checks the song is still queued and the singer's, reads the subscriptions in one short transaction, sends outside any transaction (the existing `PushSender`, VAPID keys of M1-22) and revokes a subscription the push service calls gone.
+  - Guest web push was new: migration 0089 `singer_push_subscriptions` (per singer, forced row-level security, venue walls, in the seed wipe list); `POST /v1/public/venues/{slug}/alerts` { endpoint, keys } for the `singer` principal alone (the singer cookie authenticator now covers that path); the queue page's "Alert me on this phone" (with "Alerts are on for this phone." and, when the browser can't or won't, "This phone doesn't allow alerts. Keep this page open to see your place."), and `apps/guest/public/sing-sw.js`, a service worker scoped to the queue page that only shows pushes and opens the page on a tap (the guest Docker image now copies `public/`). New guest strings in English and Spanish. The page itself already showed the alert's words as the place (M6-20).
+  - Defaults flagged: a phone that turns alerts on also has its place checked at once, so Ben T. turning alerts on at 2 singers before gets "2 singers before you" then (the seed's demo, before anyone starts); a singer skipped past 2 (3 → 1) gets no "2 singers before you", since the spec says "at 2"; moves up or down and new songs don't re-plan (the ticket names Started and Skip). Pushes are in English like the rest of the queue page. A retried push job may repeat a push to a phone it already reached (the notification tag replaces it on the phone); the text never repeats.
+  - Tests: `apps/api/src/routes/singer-alerts.int.test.ts` (Ben T.'s "2 singers before you" on turning alerts on, no repeat on subscribing again or a skip behind him; Jess P.'s start gives Tariq A. his; Kira's start gives Ben T. the up-next push and the text through the Twilio client with the subaccount's test credentials; Hana K. skipped and Ben T. re-subscribing repeat nothing; Tariq A. after STOP gets the push and only the STOP confirmation; a gone subscription revoked; bar mode off plans nothing); the wall suite's `singer.push` case (venue B's singer and song, with a subscription, from venue A: no push); e2e "Singer alerts: Ben T. turns alerts on, and Kira's start makes him up next by push and text" (headless Chromium has no push service, so the permission and subscription are stubbed in the browser).
 
 ### M6-22 · Build the KJ's song-queue screen and the Up next TV
 

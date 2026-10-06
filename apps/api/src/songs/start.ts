@@ -2,6 +2,7 @@ import { addCheckLine, emitEvent, type Queryable } from "@west4/db";
 import { prepaidCreditValue, songCharge } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { planSingerAlerts } from "./alerts.js";
 import { redeemPrepaid, spendPrepaid } from "../payments/prepaid.js";
 import { flagIfOver, holdCardOf, tabOfCheck, withinHold, type TabHold } from "../tabs/hold.js";
 import {
@@ -272,6 +273,7 @@ export async function startSong(
       entityVersion: 0,
     });
   }
+  await planSingerAlerts(c, venueId, input.now);
   await updated(c, venueId, nightId);
   return {
     kind: "started",
@@ -311,6 +313,7 @@ export async function skipSong(
     );
     await holdFreeCredits(c, venueId, song.singer_id);
   }
+  await planSingerAlerts(c, venueId, input.now);
   await updated(c, venueId, nightId);
   return { id: song.id, status: "skipped", credit_returned: song.credit_id !== null };
 }

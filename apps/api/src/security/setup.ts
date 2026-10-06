@@ -129,6 +129,12 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, '2026-09-25', $2, 'B song', 1, 1, 'credit', now()) returning id`,
     [v.venueB, singerB.rows[0]!.id],
   );
+  // Singer B's phone allows alerts (M6-21): a push to it from venue A would be a leak.
+  await owner.query(
+    `insert into singer_push_subscriptions (venue_id, singer_id, endpoint, keys, created_at)
+       values ($1, $2, 'https://push.example.test/singer-b', '{"p256dh":"x","auth":"y"}', now())`,
+    [v.venueB, singerB.rows[0]!.id],
+  );
   // A tab being opened only venue B has, with its consent line's policy version (M6-06).
   const consentB = await owner.query<{ id: string }>(
     `insert into policy_versions (venue_id, kind, version, text, hash, published_at)
@@ -218,7 +224,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, $3, md5(random()::text), 1, now()) returning id`,
     [v.venueB, sessionB.rows[0]!.id, roomB.rows[0]!.id],
   );
-  const cast: Cast & { ownerB: string; messageB: string; guestB: string; sessionB: string } = {
+  const cast: Cast & {
+    ownerB: string;
+    messageB: string;
+    guestB: string;
+    sessionB: string;
+    singerB: string;
+    songB: string;
+  } = {
     venueA: v.venueA,
     venueB: v.venueB,
     ownerA: v.ownerA,
@@ -230,6 +243,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     messageB: messageB.rows[0]!.id,
     guestB: guestB.rows[0]!.id,
     sessionB: sessionB.rows[0]!.id,
+    singerB: singerB.rows[0]!.id,
+    songB: songB.rows[0]!.id,
   };
   const fixtures: WallFixtures = {
     venueOwned: {
