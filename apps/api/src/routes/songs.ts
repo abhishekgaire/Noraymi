@@ -14,6 +14,7 @@ import {
   songMoves,
   verifySinger,
 } from "../songs/queue.js";
+import { upNextDisplay } from "../songs/public.js";
 import { skipSong, startSong, type StartAnswer } from "../songs/start.js";
 import { runNow, type PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
@@ -22,6 +23,9 @@ import type { StripeClient } from "../stripe/client.js";
  * Bar mode (M6-18; API · Bar mode), staff side:
  *   GET  /v1/venues/{v}/song-queue                 tonight's queue: who's singing, up next in order with each
  *                                                  singer's credits and flags, the round, songs sung, the singers
+ *   GET  /v1/venues/{v}/up-next                    the Up next TV (M6-22), its own device kind only: who's singing,
+ *                                                  the next barMode.upNextCount singers and the venue's slug for the
+ *                                                  join QR code; names and the song, never a phone number
  *   POST /v1/venues/{v}/song-queue                 { singer_id, title, artist?, catalog_id? }: a song into the rotation
  *   POST /v1/venues/{v}/song-queue/{q}/start       Started (M6-19): the singer before is sung; the song's line posts to
  *                                                  the singer's tab ($0.00 on a drink credit, else the price, growing
@@ -58,6 +62,14 @@ export function songRoutes(
     "/v1/venues/:venueId/song-queue",
     { config: route({ ...staff, principals: [...staff.principals], action: "pos.use" }) },
     async (request) => request.inVenue((c) => queueView(c, request.venueId!, options.clock.now())),
+  );
+
+  // The Up next TV: a paired `up_next_display` and nothing else (Tenancy and access · Up next display).
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/up-next",
+    { config: route({ principals: ["up_next_display"], module: "bar_mode" }) },
+    async (request) =>
+      request.inVenue((c) => upNextDisplay(c, request.venueId!, options.clock.now())),
   );
 
   const queueBody = z

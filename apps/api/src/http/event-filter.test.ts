@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toWire } from "@west4/db";
 import { visibleTo, type Subscription } from "./event-filter.js";
+import { splitDeviceQuery } from "./device-auth.js";
 import type { Principal } from "./principal.js";
 
 const V = "venue-1";
@@ -132,5 +133,74 @@ describe("the wire event", () => {
       entity_version: 7,
       at: "2026-09-26T02:41:00.000Z",
     });
+  });
+});
+
+// M6-22: the Up next TV's channel carries the queue display and nothing else, whatever the audience.
+const EVERY_TYPE = [
+  "approval.decided",
+  "approval.requested",
+  "booking.updated",
+  "check.updated",
+  "device.updated",
+  "drawer.updated",
+  "headcount.updated",
+  "membership.changed",
+  "menu.changed",
+  "message.received",
+  "message.updated",
+  "order.cancelled",
+  "order.ready",
+  "order.ringing",
+  "payment.updated",
+  "refund.updated",
+  "room.call",
+  "room.guest_joined",
+  "room.updated",
+  "session.code_changed",
+  "session.updated",
+  "settings.changed",
+  "song_queue.updated",
+  "tab.awaiting_tip",
+  "tab.updated",
+  "waitlist.updated",
+];
+describe("the Up next TV's channel (M6-22)", () => {
+  it("passes only song_queue.updated, for every event type and audience, locked or not, in or out of a room", () => {
+    for (const type of EVERY_TYPE)
+      for (const audience of [null, "staff", "managers", "user", "display"] as const)
+        for (const locked of [false, true])
+          for (const room_id of [null, "room-9"]) {
+            const seen = visibleTo(
+              { principal: display, venueId: V, locked, roomId: "room-9" },
+              ev({ type, audience, room_id, user_id: "maya" } as never),
+            );
+            expect(seen, `${type} ${audience} ${locked} ${room_id}`).toBe(
+              type === "song_queue.updated",
+            );
+          }
+  });
+
+  it("another venue's TV hears nothing of this venue", () => {
+    expect(
+      visibleTo(
+        { principal: { ...display, venueId: "other" } as Principal, venueId: V },
+        ev({ type: "song_queue.updated" }),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("a signed socket URL (M6-22)", () => {
+  it("splits off the four device values and keeps the URL as it was signed", () => {
+    const s = splitDeviceQuery(
+      "/v1/venues/v1/events?after=12&x-device-id=d&x-device-timestamp=1&x-device-nonce=n&x-device-signature=a%2Bb%3D",
+    );
+    expect(s.signed).toBe(true);
+    expect(s.path).toBe("/v1/venues/v1/events?after=12");
+    expect(s.values.get("x-device-signature")).toBe("a+b=");
+    const plain = splitDeviceQuery("/v1/venues/v1/events?x-device-id=d&x-device-nonce=n");
+    expect(plain.path).toBe("/v1/venues/v1/events");
+    expect(splitDeviceQuery("/v1/venues/v1/events?after=3").signed).toBe(false);
   });
 });

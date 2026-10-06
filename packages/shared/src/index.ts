@@ -100,6 +100,7 @@ export {
   sha256Hex,
   makeDeviceKey,
   signDeviceRequest,
+  signDeviceSocketPath,
   verifyDeviceSignature,
 } from "./device-signing.js";
 export { PIN_BLOCKLIST, pinProblem } from "./pins.js";

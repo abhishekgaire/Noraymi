@@ -1571,3 +1571,97 @@ button.danger {
 .night-failed button {
   min-height: 44px;
 }
+
+/* The KJ's song queue (M6-22; screens N27) and "Song queue · 6" as a link. */
+a.song-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rail-top a.song-count {
+  padding-top: 0;
+}
+.bar-orders-head,
+.song-queue-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.song-queue-head h1 {
+  margin-right: auto;
+}
+.song-queue h2 {
+  margin: 16px 0 8px;
+}
+.sq-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.sq-song {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.sq-who {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sq-place {
+  font-weight: 700;
+  min-width: 24px;
+}
+.sq-song .pill {
+  margin-top: 4px;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.sq-move,
+.sq-add form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.sq-move label,
+.sq-add label {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 200px;
+}
+.sq-add {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.sq-add h3 {
+  flex-basis: 100%;
+  margin: 0;
+}
+@media (min-width: 900px) {
+  .sq-song {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .sq-move,
+  .sq-song > .error {
+    grid-column: 1 / -1;
+  }
+}

@@ -57,6 +57,8 @@ export async function barMode(c: Queryable, venueId: string, date: Temporal.Plai
     songPriceCents: s?.value.songPriceCents ?? null,
     drinkCredit: s?.value.drinkCredit ?? false,
     songsPerRound: s?.value.songsPerRound ?? 1,
+    /** Singers the Up next TV and the queue page list after the one singing (M6-22). */
+    upNextCount: s?.value.upNextCount ?? 5,
   };
 }
 
@@ -133,6 +135,8 @@ export interface QueueView {
   readonly songs_sung: number;
   readonly song_price_cents: number | null;
   readonly songs_per_round: number;
+  /** `barMode.upNextCount`: how many singers the TV and the queue page show after the one singing. */
+  readonly up_next_count: number;
   /** "Buy a drink, get a song": drinks earn credits. */
   readonly drink_credit: boolean;
   readonly singing: QueueSongView | null;
@@ -228,6 +232,7 @@ export async function queueView(
     songs_sung: night?.songs_sung ?? 0,
     song_price_cents: settings.songPriceCents,
     songs_per_round: settings.songsPerRound,
+    up_next_count: settings.upNextCount,
     drink_credit: settings.drinkCredit,
     singing: singing ? view(singing, 0) : null,
     up_next: queued.map((s, i) => view(s, i + 1)),

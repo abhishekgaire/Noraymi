@@ -48,7 +48,8 @@ export const menu: readonly MenuEntry[] = [
     labelKey: "menu.songQueue",
     path: "/song-queue",
     screen: "songQueue",
-    shipped: false,
+    action: "pos.use",
+    shipped: true,
   },
   {
     id: "calendar",

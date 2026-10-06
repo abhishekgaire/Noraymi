@@ -21,7 +21,17 @@ import type { Principal } from "./principal.js";
  */
 export function deviceAuthenticator(pool: pg.Pool, now: () => number = Date.now): Authenticator {
   return async (request: FastifyRequest): Promise<Principal | undefined> => {
+    // A browser can't put headers on a WebSocket, so a socket upgrade may carry the same four values as
+    // query parameters (M6-22: the Up next TV follows its channel). They're signed over the URL without
+    // them; the nonce is still spent once, so a logged URL can't be replayed.
+    const raw = request.raw.url ?? request.url;
+    const socket =
+      request.method === "GET" &&
+      String(request.headers.upgrade ?? "").toLowerCase() === "websocket" &&
+      request.headers[DEVICE_HEADERS.id] === undefined;
+    const query = socket ? splitDeviceQuery(raw) : undefined;
     const h = (name: string): string | undefined => {
+      if (query?.signed) return query.values.get(name) ?? undefined;
       const v = request.headers[name];
       return Array.isArray(v) ? v[0] : v;
     };
@@ -46,7 +56,7 @@ export function deviceAuthenticator(pool: pg.Pool, now: () => number = Date.now)
         : request.body === undefined || request.body === null
           ? ""
           : JSON.stringify(request.body);
-    const path = request.raw.url ?? request.url;
+    const path = query?.signed ? query.path : raw;
     const signingString = deviceSigningString({
       method: request.method,
       path,
@@ -75,5 +85,32 @@ export function deviceAuthenticator(pool: pg.Pool, now: () => number = Date.now)
       return undefined;
     }
     return { kind: "device", deviceId, venueId: device.venueId, deviceKind: device.kind };
+  };
+}
+
+/** A socket URL's device values, and the URL as it was signed: the same URL without them. */
+export function splitDeviceQuery(url: string): {
+  signed: boolean;
+  values: URLSearchParams;
+  path: string;
+} {
+  const at = url.indexOf("?");
+  if (at < 0) return { signed: false, values: new URLSearchParams(), path: url };
+  const params = new URLSearchParams(url.slice(at + 1));
+  const values = new URLSearchParams();
+  const names: readonly string[] = Object.values(DEVICE_HEADERS);
+  const rest: string[] = [];
+  for (const part of url.slice(at + 1).split("&")) {
+    const name = decodeURIComponent(part.split("=")[0] ?? "");
+    if (!names.includes(name) && part !== "") rest.push(part);
+  }
+  for (const name of names) {
+    const v = params.get(name);
+    if (v !== null) values.set(name, v);
+  }
+  return {
+    signed: values.has(DEVICE_HEADERS.id),
+    values,
+    path: url.slice(0, at) + (rest.length > 0 ? `?${rest.join("&")}` : ""),
   };
 }

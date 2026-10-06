@@ -12,6 +12,7 @@ import { Hours } from "./screens/admin/Hours.js";
 import { Rooms } from "./screens/admin/Rooms.js";
 import { Menu } from "./screens/admin/Menu.js";
 import { BarOrders } from "./screens/BarOrders.js";
+import { SongQueue } from "./screens/SongQueue.js";
 import { Runs } from "./screens/Runs.js";
 import { ChimeLoop } from "./chime.js";
 import { Phone } from "./screens/admin/Phone.js";
@@ -111,6 +112,7 @@ export function StaffRoutes() {
         <Route path="/tonight" element={<Tonight />} />
         <Route path="/bar" element={<Rail />} />
         <Route path="/bar-orders" element={<BarOrders />} />
+        <Route path="/song-queue" element={<SongQueue />} />
         <Route path={runs.path} element={<Runs />} />
         <Route path="/setup" element={<Setup />} />
         <Route path="/approvals" element={<Approvals />} />

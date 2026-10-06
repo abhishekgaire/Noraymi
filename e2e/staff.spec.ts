@@ -35,7 +35,7 @@ const ADMIN_SECTIONS = [
   "/admin/deposits",
   "/admin/bar-pos",
 ];
-const SCREENS = ["/tonight", "/bar", "/runs", "/setup", "/admin", "/sign-in"];
+const SCREENS = ["/tonight", "/bar", "/song-queue", "/runs", "/setup", "/admin", "/sign-in"];
 
 /**
  * Every test starts from a fresh load of the demo seed at 10:41 PM, whatever
@@ -123,7 +123,7 @@ async function enrolPasskey(
 /** A pairing code for a shared screen, written the way Admin → Devices makes one (M1-15). */
 async function pairingCode(
   db: pg.Client,
-  kind: "bar_computer" | "front_desk",
+  kind: "bar_computer" | "front_desk" | "up_next_display",
   name: string,
 ): Promise<string> {
   const code = randomBytes(4).toString("hex").toUpperCase();
@@ -6501,6 +6501,137 @@ test("Close the night: a tab that couldn't be charged is settled in cash", async
       "select state from tabs where name = 'Seat 6 · blue jacket'",
     );
     expect(tab.rows[0]!.state).toBe("closed");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The KJ's song queue and the Up next TV (M6-22; screens N27, N28): "Song queue · 6" on the bar POS
+ * opens the queue: Luis M. singing, then Jess P., Kira, Ben T., Tariq A., Hana K. and Sofia R. flagged
+ * "Needs a drink credit". A TV paired with an Up next TV code shows Luis M., the next five and the
+ * join QR code, and no phone number. Ben T. is signed in on his queue page. Maya taps Started on
+ * Jess P.: within 3 seconds the TV shows Jess P. singing and Ben T.'s page reads "1 singer before you".
+ */
+test("The KJ song queue and the Up next TV: Started on Jess P. reaches the TV and Ben T.'s page within 3 seconds", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  const phoneNumber = /\+1\d{10}|\(?\d{3}\)?[ .-]?\d{3}[ .-]\d{4}|555-?01\d\d/;
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page.getByRole("link", { name: "Song queue · 6" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Song queue");
+    await expect(page.getByText("Round 3 · 23 songs sung")).toBeVisible();
+    const now = page.getByRole("region", { name: "Now singing" });
+    await expect(now).toContainText("Luis M.");
+    await expect(now).toContainText("Mr. Brightside · The Killers");
+    const next = page.getByRole("region", { name: "Up next" });
+    const rows = next.getByRole("listitem");
+    await expect(rows.locator("strong")).toHaveText([
+      "Jess P.",
+      "Kira",
+      "Ben T.",
+      "Tariq A.",
+      "Hana K.",
+      "Sofia R.",
+    ]);
+    await expect(next.getByRole("listitem", { name: "Sofia R." })).toContainText(
+      "Needs a drink credit",
+    );
+    await expect(next.getByText("Needs a drink credit")).toHaveCount(1);
+    expect(await page.locator("main, .content").first().innerText()).not.toMatch(phoneNumber);
+
+    // The Up next TV, paired like a shared device.
+    const tvContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const tv = await tvContext.newPage();
+    await tv.goto("http://localhost:3001/tv");
+    await tv
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "up_next_display", "Up next TV · e2e"));
+    await tv.getByRole("button", { name: "Pair" }).click();
+    await expect(tv.locator(".tv-singing strong")).toHaveText("Luis M.");
+    await expect(tv.locator(".tv-next li")).toHaveText([
+      "Jess P.",
+      "Kira",
+      "Ben T.",
+      "Tariq A.",
+      "Hana K.",
+    ]);
+    const qr = tv.getByRole("img", { name: "Scan to sing" });
+    await expect(qr).toBeVisible();
+    expect(await qr.getAttribute("data-url")).toBe("http://localhost:3001/v/west4karaoke/sing");
+    expect(await tv.locator("body").innerText()).not.toMatch(phoneNumber);
+
+    // Ben T. on his queue page.
+    const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const phone = await ben.newPage();
+    await phone.goto("http://localhost:3001/v/west4karaoke/sing");
+    await phone.getByLabel("Your name on the TV").fill("Ben");
+    await phone.getByLabel("Mobile number").fill("(646) 555-0163");
+    await phone.getByRole("button", { name: "Text me a code" }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query("select 1 from jobs where kind = 'text.send' and payload->>'to' = $1", [
+              "+16465550163",
+            ])
+          ).rowCount,
+      )
+      .toBeGreaterThan(0);
+    const code = (
+      await db.query<{ code: string }>(
+        `select payload->'data'->>'code' as code from jobs where kind = 'text.send'
+           and payload->>'to' = '+16465550163' order by created_at desc limit 1`,
+      )
+    ).rows[0]!.code;
+    await phone.getByLabel("The code we texted you").fill(code);
+    await phone.getByRole("button", { name: "Confirm" }).click();
+    await expect(phone.getByRole("status")).toHaveText("2 singers before you");
+    // Let both live channels settle before the tap.
+    await tv.waitForTimeout(1500);
+
+    await next
+      .getByRole("listitem", { name: "Jess P." })
+      .getByRole("button", { name: "Started" })
+      .click();
+    await expect(tv.locator(".tv-singing strong")).toHaveText("Jess P.", { timeout: 3000 });
+    await expect(phone.getByRole("status")).toHaveText("1 singer before you", { timeout: 3000 });
+    await expect(tv.locator(".tv-next li")).toHaveText([
+      "Kira",
+      "Ben T.",
+      "Tariq A.",
+      "Hana K.",
+      "Sofia R.",
+    ]);
+    await expect(now).toContainText("Jess P.");
+    await expect(page.getByText("Round 3 · 24 songs sung")).toBeVisible();
+
+    // A move needs a reason, and is logged with it.
+    await next
+      .getByRole("listitem", { name: "Hana K." })
+      .getByRole("button", { name: "Move up" })
+      .click();
+    await page.getByLabel("Why move it?").fill("Her friends are leaving");
+    await next.getByRole("button", { name: "Move up" }).and(page.locator("[type=submit]")).click();
+    await expect(rows.locator("strong")).toHaveText([
+      "Kira",
+      "Ben T.",
+      "Hana K.",
+      "Tariq A.",
+      "Sofia R.",
+    ]);
+    const moved = await db.query<{ reason: string }>(
+      "select reason from song_queue_moves order by moved_at desc limit 1",
+    );
+    expect(moved.rows[0]?.reason).toBe("Her friends are leaving");
+    expect(await tv.locator("body").innerText()).not.toMatch(phoneNumber);
+    await tvContext.close();
+    await ben.close();
   } finally {
     await db.end();
   }

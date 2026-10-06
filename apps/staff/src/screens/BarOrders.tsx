@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { hiddenScreens } from "../navigation.js";
 import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
+import { SongQueueLink } from "./SongQueue.js";
 import { muteChime, useChimeMute } from "../chime.js";
 
 /**
@@ -234,7 +235,10 @@ export function BarOrders() {
 
   return (
     <section className="bar-orders">
-      <h1>{t("menu.barOrders")}</h1>
+      <div className="bar-orders-head">
+        <h1>{t("menu.barOrders")}</h1>
+        {venueId && <SongQueueLink venueId={venueId} />}
+      </div>
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}

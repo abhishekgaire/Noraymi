@@ -435,3 +435,64 @@ body {
   color: inherit;
   border: 1px solid var(--line);
 }
+
+/* The Up next TV (M6-22; screens N28): read across a bar, names only. */
+.tv {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 4vh 4vw;
+}
+.tv-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4vw;
+  align-items: start;
+}
+.tv h1,
+.tv h2 {
+  margin: 0 0 1vh;
+  font-size: clamp(20px, 3vw, 48px);
+  font-weight: 600;
+  opacity: 0.8;
+}
+.tv-singing {
+  display: grid;
+  margin: 0 0 4vh;
+  font-size: clamp(24px, 3.5vw, 56px);
+  overflow-wrap: anywhere;
+}
+.tv-singing strong {
+  font-size: clamp(36px, 7vw, 120px);
+  color: var(--accent);
+}
+.tv-next {
+  margin: 0;
+  padding-left: 1.4em;
+  font-size: clamp(24px, 4.5vw, 72px);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.tv-join {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  font-size: clamp(16px, 2vw, 32px);
+}
+.tv-qr {
+  width: clamp(160px, 24vw, 420px);
+  height: auto;
+}
+.tv-join-title {
+  margin: 1vh 0 0;
+  font-weight: 700;
+  font-size: clamp(20px, 3vw, 48px);
+}
+.tv-off,
+.tv-notice {
+  font-size: clamp(20px, 3vw, 40px);
+}
+@media (max-width: 700px) {
+  .tv-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -103,3 +103,20 @@ export async function verifyDeviceSignature(args: {
     return false;
   }
 }
+
+/**
+ * A WebSocket URL signed by a device (M6-22). A browser can't set headers on a socket, so the same
+ * four values ride as query parameters, signed over the URL without them (a GET with no body).
+ */
+export async function signDeviceSocketPath(args: {
+  deviceId: string;
+  privateKey: CryptoKey;
+  /** The path and query to open, e.g. /v1/venues/{v}/events?after=12. */
+  path: string;
+}): Promise<string> {
+  const headers = await signDeviceRequest({ ...args, method: "GET" });
+  const query = Object.entries(headers)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+  return `${args.path}${args.path.includes("?") ? "&" : "?"}${query}`;
+}

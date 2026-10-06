@@ -19,9 +19,6 @@ export async function barModeState(c: Queryable, venueId: string) {
   return (await venueModules(c, venueId)).find((m) => m.module_id === "bar_mode")?.state ?? "off";
 }
 
-/** How many singers the page lists after the one singing, as the Up next TV does. */
-const UP_NEXT_SHOWN = 5;
-
 /** A code texted to the number: to the singer who already has it confirmed here, or to a new one. */
 export async function requestSingerCode(
   c: Queryable,
@@ -201,7 +198,7 @@ export async function queuePage(
     singing: q.singing
       ? { singer: q.singing.singer, title: q.singing.title, artist: q.singing.artist }
       : null,
-    up_next: q.up_next.slice(0, UP_NEXT_SHOWN).map((s) => ({ place: s.place, singer: s.singer })),
+    up_next: q.up_next.slice(0, q.up_next_count).map((s) => ({ place: s.place, singer: s.singer })),
     count: q.count,
     me,
   };
@@ -221,4 +218,46 @@ export async function queueOwnSong(
     userId: null,
     now: input.now,
   });
+}
+
+/**
+ * The Up next TV (M6-22; Devices, printing and offline · Up next display): who's singing now, the
+ * next `barMode.upNextCount` singers and what the join QR code opens. Display names and the song
+ * only: never a phone number, a credit, a flag or a tab.
+ */
+export interface UpNextDisplay {
+  readonly venue_id: string;
+  readonly venue_name: string;
+  /** The venue's slug: the QR code opens /v/{slug}/sing on the guest web. */
+  readonly slug: string;
+  readonly open: boolean;
+  readonly singing: {
+    readonly singer: string;
+    readonly title: string;
+    readonly artist: string | null;
+  } | null;
+  readonly up_next: readonly { readonly place: number; readonly singer: string }[];
+}
+
+export async function upNextDisplay(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+): Promise<UpNextDisplay> {
+  const q = await queueView(c, venueId, now);
+  const venue = (
+    await c.query<{ name: string; slug: string }>("select name, slug from venues where id = $1", [
+      venueId,
+    ])
+  ).rows[0]!;
+  return {
+    venue_id: venueId,
+    venue_name: venue.name,
+    slug: venue.slug,
+    open: (await barModeState(c, venueId)) === "on",
+    singing: q.singing
+      ? { singer: q.singing.singer, title: q.singing.title, artist: q.singing.artist }
+      : null,
+    up_next: q.up_next.slice(0, q.up_next_count).map((s) => ({ place: s.place, singer: s.singer })),
+  };
 }

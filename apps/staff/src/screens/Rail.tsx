@@ -14,6 +14,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { SongQueueLink } from "./SongQueue.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
 import { NewTab } from "./NewTab.js";
@@ -224,27 +225,6 @@ export function Rail() {
   const [error, setError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  // Bar mode (M6-18): "Song queue · 6" in the top bar, the songs still to sing.
-  const barModeOn = signedIn?.membership.modules.bar_mode !== "off";
-  const [songCount, setSongCount] = useState<number | null>(null);
-  const loadSongs = useCallback(async () => {
-    if (!venueId || !barModeOn) return setSongCount(null);
-    try {
-      setSongCount((await api<{ count: number }>("GET", `/v1/venues/${venueId}/song-queue`)).count);
-    } catch {
-      setSongCount(null);
-    }
-  }, [venueId, barModeOn]);
-  useEffect(() => void loadSongs(), [loadSongs]);
-  useEffect(
-    () =>
-      subscribe((events) => {
-        if (events.length === 0 || events.some((e) => e.type === "song_queue.updated"))
-          void loadSongs();
-      }),
-    [subscribe, loadSongs],
-  );
-
   const load = useCallback(async () => {
     if (!venueId) return;
     try {
@@ -675,11 +655,8 @@ export function Rail() {
             </li>
           ))}
         </ul>
-        {songCount !== null && (
-          <span className="song-count" role="status">
-            {t("rail.songQueue", { n: songCount })}
-          </span>
-        )}
+        {/* Bar mode (M6-18, M6-22): "Song queue · 6" opens the song queue. */}
+        {venueId && <SongQueueLink venueId={venueId} />}
         <span className="clock">{now ? time(now.toString(), timeZone) : ""}</span>
         <button
           type="button"

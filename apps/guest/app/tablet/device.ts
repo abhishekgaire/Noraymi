@@ -13,10 +13,11 @@ export interface TabletDevice {
   readonly privateKey: CryptoKey;
 }
 
-const DB = "west4-tablet";
+/** Each kind of shared screen keeps its key in its own database: the tablet's, or the Up next TV's (M6-22). */
+export type DeviceDb = "west4-tablet" | "west4-tv";
 const STORE = "device";
 
-function open(): Promise<IDBDatabase> {
+function open(DB: DeviceDb): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const r = indexedDB.open(DB, 1);
     r.onupgradeneeded = () => r.result.createObjectStore(STORE);
@@ -25,9 +26,9 @@ function open(): Promise<IDBDatabase> {
   });
 }
 
-export async function readTablet(): Promise<TabletDevice | null> {
+export async function readTablet(dbName: DeviceDb = "west4-tablet"): Promise<TabletDevice | null> {
   try {
-    const db = await open();
+    const db = await open(dbName);
     return await new Promise((resolve, reject) => {
       const r = db.transaction(STORE).objectStore(STORE).get("device");
       r.onsuccess = () => resolve((r.result as TabletDevice | undefined) ?? null);
@@ -38,8 +39,8 @@ export async function readTablet(): Promise<TabletDevice | null> {
   }
 }
 
-async function store(device: TabletDevice | null): Promise<void> {
-  const db = await open();
+async function store(device: TabletDevice | null, dbName: DeviceDb): Promise<void> {
+  const db = await open(dbName);
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     if (device) tx.objectStore(STORE).put(device, "device");
@@ -49,8 +50,12 @@ async function store(device: TabletDevice | null): Promise<void> {
   });
 }
 
-/** Claims a pairing code; only a code Admin made for a room tablet pairs here. */
-export async function pairTablet(code: string): Promise<TabletDevice | "wrong_kind" | "refused"> {
+/** Claims a pairing code; only a code Admin made for this kind (a room tablet, or the Up next TV) pairs here. */
+export async function pairTablet(
+  code: string,
+  kind: "room_tablet" | "up_next_display" = "room_tablet",
+  dbName: DeviceDb = "west4-tablet",
+): Promise<TabletDevice | "wrong_kind" | "refused"> {
   const key = await makeDeviceKey();
   const r = await fetch("/v1/devices/claim", {
     method: "POST",
@@ -64,19 +69,19 @@ export async function pairTablet(code: string): Promise<TabletDevice | "wrong_ki
     kind: string;
     name: string;
   };
-  if (claimed.kind !== "room_tablet") return "wrong_kind";
+  if (claimed.kind !== kind) return "wrong_kind";
   const device = {
     deviceId: claimed.device_id,
     venueId: claimed.venue_id,
     name: claimed.name,
     privateKey: key.privateKey,
   };
-  await store(device);
+  await store(device, dbName);
   return device;
 }
 
-export async function forgetTablet(): Promise<void> {
-  await store(null);
+export async function forgetTablet(dbName: DeviceDb = "west4-tablet"): Promise<void> {
+  await store(null, dbName);
 }
 
 /** A room call signed by the tablet's key. */
