@@ -2479,4 +2479,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "report.adjustmentFor": "Del {date}",
   "report.printed": "Enviado a la impresora de recepción",
   "report.printFailed": "No se imprimió. Inténtalo de nuevo.",
+  "push.payoutOff.body":
+    "Un pago de Stripe ({payout}) no cuadra con sus líneas. Revisa Admin → Pagos.",
+  "unmatched.title": "Pagos sin asignar · {count}",
+  "unmatched.none": "Todos los pagos de Stripe están en una cuenta",
+  "unmatched.pick": "La cuenta a la que pertenece",
+  "unmatched.match": "Asignar",
+  "unmatched.overDue": "Es más de lo que la cuenta todavía debe ({due}).",
+  "unmatched.failed": "No se pudo hacer. Inténtalo de nuevo.",
 };

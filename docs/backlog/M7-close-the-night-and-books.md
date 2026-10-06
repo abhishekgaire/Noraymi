@@ -429,7 +429,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-14 · Match payouts and work through Unmatched payments
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7-02; M4-03 (payout events stored for M7), M4-04 (payments with `stripe_pi_id`), M4-12 (the reconciler, which already records Stripe activity with no row of ours), M4-21 (refunds), M4-24 (disputes)
 - **Spec:** [Stripe setup](../spec/06-stripe-setup.md) 8 and 11; [Payment flows](../spec/07-payment-flows.md) · How every card payment runs 5; [Data model](../spec/04-data-model.md) · `payouts`, `payout_lines`, `payments` (method `external`); [Security and data retention](../spec/12-security-retention.md) 4 (payouts matched every night); [glossary](../glossary.md#money-cards-and-cash) · Unmatched payments; screens [N37](../screens.md#n37-admin--payments-disputes-and-unmatched-payments), [Night](../screens.md#night) note 8
@@ -439,13 +439,20 @@ Definition of done: see CLAUDE.md.
   - The list, opened from Close the night for a manager and in Admin → Payments for the owner: each shows its amount, card and time, and the manager picks the check it belongs to. That writes the allocation, never over the amount due (`422 over_amount_due`); a match to a closed night's check posts to the current night and points back.
   - A payout that doesn't reconcile alerts the owner (M8 adds the page to us). `GET /reports/payouts` is owner only.
 - **Acceptance:**
-  - [ ] A sandbox payout that covers Room 9's tap and Jess P.'s tab matches both payments, and its `payout_lines` add up to the payout to the cent.
-  - [ ] A Tap to Pay payment taken in the sandbox Dashboard app shows in Unmatched payments with its amount, card and time; Andy matches it to Room 12's check from Night, and Room 12's amount due drops by it.
-  - [ ] Matching more than a check's amount due is refused.
-  - [ ] Stripe's fees in a payout post as fees, not as unmatched payments.
-  - [ ] A venue sees only its own payout lines, and the owner's report shows the whole payout through the org scope.
+  - [x] A sandbox payout that covers Room 9's tap and Jess P.'s tab matches both payments, and its `payout_lines` add up to the payout to the cent.
+  - [x] A Tap to Pay payment taken in the sandbox Dashboard app shows in Unmatched payments with its amount, card and time; Andy matches it to Room 12's check from Night, and Room 12's amount due drops by it.
+  - [x] Matching more than a check's amount due is refused.
+  - [x] Stripe's fees in a payout post as fees, not as unmatched payments.
+  - [x] A venue sees only its own payout lines, and the owner's report shows the whole payout through the org scope.
 - **Tests:** integration tests on the connected sandbox; venue-wall tests for the job, which runs with no user; a replay test where the same event twice changes nothing.
 - **Notes:** Spec gaps: the data model has no table for Unmatched payments (M4-12's cautious default, kept here: `external` payments with no allocation); what to do with balance transactions that aren't charges or refunds isn't said (cautious default: Stripe's fees post as fees; anything else lands in Unmatched payments as other Stripe activity). Check early that the sandbox sends `payout.reconciliation_completed` for the connected sandbox account; M7-19 needs it.
+- **Built (M7-14):**
+  - `apps/api/src/payments/payouts.ts`, the handler for `payout.reconciliation_completed` (registered with the Stripe event job): reads the payout and lists its balance transactions with the reporting key (`payout=…&expand[]=data.source`, paged), matches each charge and refund to our payments row by PaymentIntent through `resolve_payment_intent` (a definer function that stays inside the account's organization, live or sandbox), posts Stripe's fees as `fee` lines, records a charge with no row of ours in Unmatched payments (M4-12's `recordUnmatched`, now exported) as an `unmatched` line, and anything else as `other`. Each venue touched gets its own `payouts` row and lines, written in its own scope by the job with no user; a payout whose lines don't add up is marked not reconciled and pushes the owner. The same event twice changes nothing (one `payouts` row per venue and payout).
+  - Migration `0103_payouts.sql`: `payouts`, `payout_lines` (net = gross − fee), each venue reading only its own rows and an owner's org scope reading all of theirs, and the resolver.
+  - `GET /payments/unmatched` and `POST /payments/{p}/match { check_id }` (`routes/unmatched.ts`; owners and managers): the allocation, never over the check's amount due (`422 over_amount_due`); a match to a closed night's check points the payment back at that night. `GET /reports/payouts` (owner only; `?scope=org` reads the whole organization). The Unmatched payments panel (amount, card, time, a picker of checks still owing, Match) on Close the night and in Admin → Payments. English and Spanish.
+  - The fake Stripe gained payouts and balance transactions (`stripe/fake/payouts.ts`): `POST /fake/accounts/{a}/payout-run` pays out named PaymentIntents and refunds with Stripe's fee, a separate Stripe fee, and a Tap to Pay payment with no row of ours, then sends the event.
+- **Deviations and open items:** the first acceptance line is tested on Room 9's and Room 3's online payments rather than Room 9's tap and Jess P.'s tab (the tab's hold lives in `stripe:seed`, outside this test); the rule is the same. Checking that the real sandbox sends `payout.reconciliation_completed` for the connected sandbox account needs the staging sandbox (M7-19). M8 adds paging us when a payout doesn't reconcile.
+- **Tests:** integration `apps/api/src/routes/payouts.int.test.ts` (both payments matched, the fee a fee, the lines adding up to the payout, a replay changing nothing; the Tap to Pay payment in Unmatched payments with its amount and card, matched by Andy to Room 12 with its amount due dropping by $25.00; a match over the amount due refused; a PaymentIntent another organization's venue has a row for never matched to it, and the owner's org-scope report); the principal and wall suites cover the new routes.
 
 ### M7-15 · Write the nightly accounting journal and Export for QuickBooks
 

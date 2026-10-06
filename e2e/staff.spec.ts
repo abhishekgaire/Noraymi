@@ -6649,7 +6649,9 @@ for (const size of [
       await expect(confirm).toContainText("Altogether: $152.43");
       await expect(confirm).toContainText("Each at its balance, with no tip");
       await confirm.getByRole("button", { name: "Charge them" }).click();
-      await expect(page.getByRole("status")).toHaveText("Charging 4 tabs · $152.43");
+      await expect(page.getByRole("status").filter({ hasText: "Charging" })).toHaveText(
+        "Charging 4 tabs · $152.43",
+      );
       await expect(list.locator("li")).toHaveCount(1);
       await expect(list).toContainText("Tariq A.");
       await expect(page.getByRole("button", { name: "Charge the remaining tabs" })).toBeDisabled();

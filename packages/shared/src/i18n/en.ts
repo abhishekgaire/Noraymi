@@ -2432,4 +2432,12 @@ export const en = {
   "report.adjustmentFor": "For {date}",
   "report.printed": "Sent to the front-desk printer",
   "report.printFailed": "It didn't print. Try again.",
+  "push.payoutOff.body":
+    "A Stripe payout ({payout}) doesn't add up to its lines. Check Admin → Payments.",
+  "unmatched.title": "Unmatched payments · {count}",
+  "unmatched.none": "Every Stripe payment is on a check",
+  "unmatched.pick": "The check it belongs to",
+  "unmatched.match": "Match",
+  "unmatched.overDue": "That's more than the check still owes ({due}).",
+  "unmatched.failed": "That didn't go through. Try again.",
 } as const;

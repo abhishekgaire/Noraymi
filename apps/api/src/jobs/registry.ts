@@ -12,6 +12,7 @@ import { STRIPE_EVENT_KIND, makeStripeEventHandler } from "../stripe/webhooks.js
 import { makePaymentHandlers } from "../payments/run.js";
 import { RECONCILE_KIND, makeReconcileHandler, reconcileSweep } from "../payments/reconcile.js";
 import "../payments/webhooks.js";
+import "../payments/payouts.js";
 import type { StripeClient } from "../stripe/client.js";
 import { holdSweep } from "./hold-sweep.js";
 import { wrapUpSweep } from "./wrap-up-sweep.js";

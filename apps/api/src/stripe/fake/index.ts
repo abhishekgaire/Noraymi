@@ -2,6 +2,7 @@
 import "./accounts.js";
 import "./terminal.js";
 import "./payments.js";
+import "./payouts.js";
 export {
   FakeStripe,
   FakeError,

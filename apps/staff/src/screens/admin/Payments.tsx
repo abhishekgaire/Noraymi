@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { cents, type MessageKey } from "@west4/shared";
+import { UnmatchedPayments } from "../UnmatchedPayments.js";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -147,6 +148,14 @@ export function Payments() {
         </>
       )}
       {account?.account_id && <GoLive venueId={venueId} />}
+      {venueId && (
+        <UnmatchedPayments
+          venueId={venueId}
+          timeZone={
+            state.status === "signedIn" ? state.membership.venue.time_zone : "America/New_York"
+          }
+        />
+      )}
     </section>
   );
 }

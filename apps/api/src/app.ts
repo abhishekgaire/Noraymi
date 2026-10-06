@@ -20,6 +20,7 @@ import { policyRoutes } from "./routes/policies.js";
 import { onlineBookingRoutes } from "./routes/online-bookings.js";
 import { posLayoutRoutes } from "./routes/pos-layouts.js";
 import { tabRoutes } from "./routes/tabs.js";
+import { unmatchedRoutes } from "./routes/unmatched.js";
 import { tabHandOverRoutes } from "./routes/tab-hand-over.js";
 import { songRoutes } from "./routes/songs.js";
 import { publicSongRoutes, singerAuthenticator } from "./routes/songs-public.js";
@@ -300,6 +301,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       songRoutes(scope, { clock, pool: gatePoolRef!, stripe, s3: () => (s3 ??= makeS3()) });
       publicSongRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
       nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
+      unmatchedRoutes(scope, { clock, pool: gatePoolRef! });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

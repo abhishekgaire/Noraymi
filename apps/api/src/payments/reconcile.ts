@@ -171,7 +171,7 @@ async function reconcilePass(
   return out;
 }
 
-async function recordUnmatched(
+export async function recordUnmatched(
   deps: PaymentDeps,
   venueId: string,
   pi: StripeIntent,

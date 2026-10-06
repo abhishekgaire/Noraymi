@@ -295,6 +295,9 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/drawer-sessions/:s/count": { counted_cents: 0 },
       "POST /v1/venues/:venueId/drawers/:d/swap": { counted_cents: 0 },
       "PATCH /v1/venues/:venueId/punches/:p": { at: "2026-09-25T19:00:00-04:00", reason: "B" },
+      "POST /v1/venues/:venueId/payments/:p/match": {
+        check_id: "00000000-0000-4000-8000-000000000001",
+      },
       "POST /v1/venues/:venueId/drawer-sessions/:s/paid-out": {
         amount_cents: 100,
         reason: "B",
