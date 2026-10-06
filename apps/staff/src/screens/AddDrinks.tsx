@@ -103,7 +103,8 @@ export function AddDrinks(props: {
     }>(
       "GET",
       // A room asks for its session; a bar tab for its check, so its cut-off greys alcohol (M6-14).
-      `/v1/venues/${venueId}/menu${props.sessionId ? `?session_id=${props.sessionId}` : `?check_id=${checkId}`}`,
+      // A quick sale has no check yet: no cut-off to ask about, only the 4 AM stop.
+      `/v1/venues/${venueId}/menu${props.sessionId ? `?session_id=${props.sessionId}` : checkId === "quick" ? "" : `?check_id=${checkId}`}`,
     );
     setItems(tree.categories.flatMap((c) => c.items));
     setAlcoholBlock(tree.alcohol.blocked);
