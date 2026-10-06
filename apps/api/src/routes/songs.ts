@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type pg from "pg";
 import { z } from "zod";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
@@ -13,12 +14,19 @@ import {
   songMoves,
   verifySinger,
 } from "../songs/queue.js";
+import { skipSong, startSong, type StartAnswer } from "../songs/start.js";
+import { runNow, type PaymentDeps } from "../payments/run.js";
+import type { StripeClient } from "../stripe/client.js";
 
 /**
  * Bar mode (M6-18; API · Bar mode), staff side:
  *   GET  /v1/venues/{v}/song-queue                 tonight's queue: who's singing, up next in order with each
  *                                                  singer's credits and flags, the round, songs sung, the singers
  *   POST /v1/venues/{v}/song-queue                 { singer_id, title, artist?, catalog_id? }: a song into the rotation
+ *   POST /v1/venues/{v}/song-queue/{q}/start       Started (M6-19): the singer before is sung; the song's line posts to
+ *                                                  the singer's tab ($0.00 on a drink credit, else the price, growing
+ *                                                  the hold), or a credit is spent with no tab; the play log is written
+ *   POST /v1/venues/{v}/song-queue/{q}/skip        Skip (M6-19): free; a credit held for the song comes back
  *   POST /v1/venues/{v}/song-queue/{q}/move        { direction: up | down, reason }: a staff move, logged
  *   GET  /v1/venues/{v}/song-queue/{q}/moves       that song's move log: who, which way, when and why
  *   POST /v1/venues/{v}/singers                    + Singer: { display_name, phone_e164, tab_id?, locale? }; a code is texted
@@ -32,7 +40,15 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const id = z.string().uuid();
 const staff = { principals: ["owner_manager", "staff"] as const, module: "bar_mode" };
 
-export function songRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+export function songRoutes(
+  app: FastifyInstance,
+  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient },
+): void {
+  const deps = (): PaymentDeps => ({
+    pool: options.pool,
+    stripe: options.stripe(),
+    clock: options.clock,
+  });
   const user = (p: { kind: string; userId?: string }) => {
     if (p.kind !== "user" || !p.userId) throw new ApiError("forbidden", "this is a person's work");
     return p.userId;
@@ -79,6 +95,63 @@ export function songRoutes(app: FastifyInstance, options: { clock: Clock }): voi
         }),
       );
       return reply.code(201).send(song);
+    },
+  );
+
+  // Started: a money route (the song's line), so it takes an Idempotency-Key. A hold raise runs outside the
+  // transaction, then the start is tried once more, as a round's send is.
+  app.post<{ Params: { venueId: string; q: string } }>(
+    "/v1/venues/:venueId/song-queue/:q/start",
+    {
+      config: route({
+        ...staff,
+        principals: [...staff.principals],
+        action: "pos.use",
+        idempotency: "required",
+      }),
+    },
+    async (request) => {
+      if (!uuid.test(request.params.q)) throw new ApiError("not_found", "no such song");
+      const userId = user(request.principal);
+      const venueId = request.venueId!;
+      const input = { queueId: request.params.q, userId, source: "staff" as const };
+      let answer: StartAnswer = await request.inVenue((c) =>
+        startSong(c, venueId, { ...input, now: options.clock.now() }),
+      );
+      if (answer.kind === "raise") {
+        await runNow(deps(), venueId, answer.paymentId, answer.attemptNo);
+        answer = await request.inVenue((c) =>
+          startSong(c, venueId, { ...input, now: options.clock.now(), raised: true }),
+        );
+      }
+      if (answer.kind === "checking" || answer.kind === "raise")
+        throw new ApiError("payment_unknown", "Checking with Stripe · don't retry", {
+          details: { reason: "hold_checking", payment_id: answer.paymentId },
+        });
+      return answer.song;
+    },
+  );
+
+  app.post<{ Params: { venueId: string; q: string } }>(
+    "/v1/venues/:venueId/song-queue/:q/skip",
+    {
+      config: route({
+        ...staff,
+        principals: [...staff.principals],
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!uuid.test(request.params.q)) throw new ApiError("not_found", "no such song");
+      const userId = user(request.principal);
+      return request.inVenue((c) =>
+        skipSong(c, request.venueId!, {
+          queueId: request.params.q,
+          userId,
+          now: options.clock.now(),
+        }),
+      );
     },
   );
 

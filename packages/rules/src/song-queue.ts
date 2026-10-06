@@ -120,3 +120,43 @@ export function songFlag(input: {
 }): "needs_drink_credit" | null {
   return !input.holdsCredit && input.songPriceCents === null ? "needs_drink_credit" : null;
 }
+
+export type SongCharge =
+  | {
+      readonly kind: "charge";
+      readonly paidWith: "drink_credit" | "prepaid_credit" | "price";
+      /** The song line's amount, in cents ($0.00 on a drink credit). */
+      readonly amountCents: number;
+      /** Whether a line posts: only on an open tab. */
+      readonly postsLine: boolean;
+    }
+  | { readonly kind: "refused"; readonly reason: "needs_drink_credit" | "needs_tab" };
+
+/**
+ * What Started charges (M6-19; Money rules 6, Songs; Payment flows · Songs on a tab). A song is charged when it
+ * starts, never when it's queued: a drink credit posts $0.00; a prepaid song credit posts what was paid for it,
+ * redeemed from the prepaid value; with no credit, the venue's song price. A singer with no tab spends a credit
+ * and no line posts. With no credit and no song price the song needs a drink credit; with a price, a tab.
+ */
+export function songCharge(input: {
+  readonly credit: { readonly source: "drink" | "prepaid"; readonly valueCents: number } | null;
+  readonly songPriceCents: number | null;
+  readonly hasTab: boolean;
+}): SongCharge {
+  const { credit, songPriceCents, hasTab } = input;
+  if (credit)
+    return {
+      kind: "charge",
+      paidWith: credit.source === "prepaid" ? "prepaid_credit" : "drink_credit",
+      amountCents: credit.source === "prepaid" ? credit.valueCents : 0,
+      postsLine: hasTab,
+    };
+  if (songPriceCents === null) return { kind: "refused", reason: "needs_drink_credit" };
+  if (!hasTab) return { kind: "refused", reason: "needs_tab" };
+  return { kind: "charge", paidWith: "price", amountCents: songPriceCents, postsLine: true };
+}
+
+/** One prepaid song credit's value: what its purchase paid, shared over the credits it gave (whole cents). */
+export function prepaidCreditValue(issuedCents: number, credits: number): number {
+  return credits > 0 ? Math.floor(issuedCents / credits) : 0;
+}

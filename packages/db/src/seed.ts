@@ -952,6 +952,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       // The 4:30 AM tab cut-off, once a night (M6-16).
       "tab_cut_off_runs",
       // Bar mode (M6-18): credits point at songs, lines and payments; songs at singers and the night.
+      "song_plays",
       "song_queue_moves",
       "song_credits",
       "song_queue",
@@ -1726,6 +1727,24 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
         creditCount += 1;
       }
     }
+    // The play log (M6-19): Luis M.'s song, started by Maya at 10:39 PM on his tab.
+    const singingNow = seed.singers.find((x) => x.id === q.now_singing.singer)!;
+    await client.query(
+      `insert into song_plays (venue_id, business_date, queue_id, singer_id, check_id, title, artist, started_at,
+         started_by, source)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'staff')`,
+      [
+        venueId,
+        businessDate,
+        id(`song_${q.now_singing.singer}`),
+        id(singingNow.id),
+        singingNow.check ? id(singingNow.check) : null,
+        q.now_singing.title,
+        q.now_singing.artist,
+        q.now_singing.started_at,
+        q.now_singing.started_by ? id(q.now_singing.started_by) : null,
+      ],
+    );
     log(`singers: ${seed.singers.length}, songs: ${songs.length}, credits: ${creditCount}`);
 
     // The paper tip slips (M6-09; screens N26): three bar tabs whose slips printed and were signed, waiting

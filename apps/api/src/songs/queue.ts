@@ -66,7 +66,12 @@ async function barModeOn(c: Queryable, venueId: string): Promise<boolean> {
 }
 
 /** The night's row, made on the first change and locked: every change to the queue goes one at a time. */
-async function lockNight(c: Queryable, venueId: string, date: string, now: Temporal.Instant) {
+export async function lockNight(
+  c: Queryable,
+  venueId: string,
+  date: string,
+  now: Temporal.Instant,
+) {
   await c.query(
     `insert into song_nights (venue_id, business_date, started_at) values ($1, $2, $3)
      on conflict (venue_id, business_date) do nothing`,
@@ -80,7 +85,7 @@ async function lockNight(c: Queryable, venueId: string, date: string, now: Tempo
   ).rows[0]!.id;
 }
 
-async function updated(c: Queryable, venueId: string, nightId: string) {
+export async function updated(c: Queryable, venueId: string, nightId: string) {
   await emitEvent(c, { venueId, type: "song_queue.updated", entityId: nightId });
 }
 
@@ -372,7 +377,7 @@ export async function songMoves(c: Queryable, venueId: string, queueId: string) 
 
 // ── Singers ─────────────────────────────────────────────────────────────────────────────────────
 
-async function lockSinger(c: Queryable, venueId: string, singerId: string) {
+export async function lockSinger(c: Queryable, venueId: string, singerId: string) {
   const s = (
     await c.query<{ id: string; check_id: string | null; confirmed: boolean }>(
       `select id, check_id, phone_verified_at is not null as confirmed from singers
@@ -550,7 +555,7 @@ async function linkTab(
 
 // ── Credits ─────────────────────────────────────────────────────────────────────────────────────
 
-async function freeCredit(c: Queryable, venueId: string, singerId: string) {
+export async function freeCredit(c: Queryable, venueId: string, singerId: string) {
   return (
     (
       await c.query<{ id: string }>(
@@ -562,7 +567,7 @@ async function freeCredit(c: Queryable, venueId: string, singerId: string) {
   );
 }
 
-async function holdCredit(c: Queryable, venueId: string, creditId: string, queueId: string) {
+export async function holdCredit(c: Queryable, venueId: string, creditId: string, queueId: string) {
   await c.query("update song_credits set used_by_queue_id = $3 where venue_id = $1 and id = $2", [
     venueId,
     creditId,
@@ -579,7 +584,11 @@ async function holdCredit(c: Queryable, venueId: string, creditId: string, queue
  * A singer's free credits go to their queued songs still without one, first song first: a flagged
  * "Needs a drink credit" song can start once they've bought a drink.
  */
-async function holdFreeCredits(c: Queryable, venueId: string, singerId: string): Promise<number> {
+export async function holdFreeCredits(
+  c: Queryable,
+  venueId: string,
+  singerId: string,
+): Promise<number> {
   const waiting = await c.query<{ id: string }>(
     `select id from song_queue where venue_id = $1 and singer_id = $2 and status = 'queued' and pay_with = 'credit'
        and credit_id is null order by business_date, round, position`,

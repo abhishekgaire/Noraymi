@@ -161,6 +161,40 @@ export async function redeemPrepaid(
   return paymentId;
 }
 
+/**
+ * Value spent with no check to pay (M6-19): a singer with no tab starting a song on prepaid song credit.
+ * The ledger takes the value out as redeemed (the sale M7's journal records), with no payment and no check.
+ */
+export async function spendPrepaid(
+  c: Queryable,
+  venueId: string,
+  input: {
+    accountId: string;
+    amountCents: number;
+    by: string | null;
+    at: string;
+    businessDate: string;
+  },
+): Promise<void> {
+  const a = await locked(c, venueId, input.accountId);
+  if (a.status !== "active") throw new ApiError("invalid_request", "this account is closed");
+  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0)
+    throw new ApiError("invalid_request", "redeem a positive amount");
+  const balance = await prepaidBalance(c, venueId, input.accountId);
+  if (input.amountCents > balance)
+    throw new ApiError("invalid_request", "more than the balance", {
+      details: { balance_cents: balance },
+    });
+  await post(c, venueId, {
+    accountId: input.accountId,
+    kind: "redeemed",
+    amountCents: -input.amountCents,
+    by: input.by,
+    at: input.at,
+    businessDate: input.businessDate,
+  });
+}
+
 /** Expire what's left (or part of it), as the venue's terms allow. */
 export async function expirePrepaid(
   c: Queryable,

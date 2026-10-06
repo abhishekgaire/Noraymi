@@ -284,7 +284,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       onlineBookingRoutes(scope, { pool: gatePoolRef!, clock });
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
-      songRoutes(scope, { clock });
+      songRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       disputeRoutes(scope, {
         pool: gatePoolRef!,

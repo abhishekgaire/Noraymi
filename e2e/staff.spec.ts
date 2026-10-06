@@ -5823,6 +5823,72 @@ test("Song queue · 6 on the bar POS, and picking Kira on a drink bought at the 
 });
 
 /**
+ * Started and Skip (M6-19): Maya taps Started on Jess P.'s song (Luis M. is sung), which puts a $0.00
+ * "Dancing Queen · ABBA" line on her tab and writes the play log, and skips Kira's, free; the bar POS's
+ * "Song queue" count follows each change (a browser has no event socket with a bearer token, so it reloads).
+ */
+test("Started and Skip: Jess P.'s $0.00 song line and the play log, Kira skipped, the count follows", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await expect(page.getByText("Song queue · 6")).toBeVisible();
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const song = async (slug: string) =>
+      (
+        await db.query<{ id: string }>(
+          "select row_id as id from seed_ids where venue_id = $1 and slug = $2",
+          [v, slug],
+        )
+      ).rows[0]!.id;
+    // What the KJ screen's Started and Skip will send (M6-22), from the signed-in bar screen.
+    const tap = (path: string, key: string) =>
+      page.evaluate(
+        async ([p, k]) => {
+          const token = sessionStorage.getItem("west4.staff.token");
+          const r = await fetch(p!, {
+            method: "POST",
+            headers: {
+              "idempotency-key": k!,
+              ...(token ? { authorization: `Bearer ${token}` } : {}),
+            },
+          });
+          return { status: r.status, body: await r.text() };
+        },
+        [path, key],
+      );
+    const started = await tap(
+      `/v1/venues/${v}/song-queue/${await song("song_sg_jess")}/start`,
+      `e2e-start-jess-${Date.now()}`,
+    );
+    expect(started.status, started.body).toBe(200);
+    await page.reload();
+    await expect(page.getByText("Song queue · 5")).toBeVisible();
+    const line = await db.query<{ amount_cents: string; tax_category: string }>(
+      `select l.amount_cents, l.tax_category from check_lines l join tabs t on t.check_id = l.check_id
+        where t.name = 'Jess P.' and l.description = 'Dancing Queen · ABBA'`,
+    );
+    expect(line.rows).toEqual([{ amount_cents: "0", tax_category: "song" }]);
+    const plays = await db.query<{ title: string }>(
+      "select title from song_plays where business_date = '2026-09-25' order by started_at",
+    );
+    expect(plays.rows.map((r) => r.title)).toEqual(["Mr. Brightside", "Dancing Queen"]);
+    const skipped = await tap(
+      `/v1/venues/${v}/song-queue/${await song("song_sg_kira")}/skip`,
+      `e2e-skip-kira-${Date.now()}`,
+    );
+    expect(skipped.status, skipped.body).toBe(200);
+    await page.reload();
+    await expect(page.getByText("Song queue · 4")).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * New tab, card first (M6-06): a tapped phone opens in four taps (New tab, Read to guest ✓, a
  * label, Open) in under 20 seconds with the consent line on screen, as a $50.00 authorization with
  * incremental support; Jess P.'s Visa ··4417 at New tab opens her tab with no second hold; and with
