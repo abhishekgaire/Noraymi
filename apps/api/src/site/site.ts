@@ -16,6 +16,7 @@ import {
   type SiteContent,
   type SiteSection,
 } from "@west4/shared";
+import { hasCatalog } from "../songs/songbook.js";
 import { ApiError } from "../http/errors.js";
 import { downloadLink } from "../files/storage.js";
 import type { S3Settings } from "../s3.js";
@@ -234,7 +235,11 @@ export async function siteView(
     tax_pct: taxRatePct,
     menu: ranges,
     packages,
-    songs: { count: content.songbook.songCount, search: false },
+    // The search box shows once a songbook is loaded (M6-23) and bar mode, where it's searched, isn't off.
+    songs: {
+      count: content.songbook.songCount,
+      search: (states.bar_mode ?? "off") !== "off" && (await hasCatalog(c, venueId)),
+    },
     modules: {
       booking: on("online_booking"),
       waitlist: on("waitlist"),

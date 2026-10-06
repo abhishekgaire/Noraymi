@@ -34,6 +34,7 @@ const ADMIN_SECTIONS = [
   "/admin/website",
   "/admin/deposits",
   "/admin/bar-pos",
+  "/admin/bar-mode",
 ];
 const SCREENS = ["/tonight", "/bar", "/song-queue", "/runs", "/setup", "/admin", "/sign-in"];
 
@@ -6631,6 +6632,104 @@ test("The KJ song queue and the Up next TV: Started on Jess P. reaches the TV an
     expect(moved.rows[0]?.reason).toBe("Her friends are leaving");
     expect(await tv.locator("body").innerText()).not.toMatch(phoneNumber);
     await tvContext.close();
+    await ben.close();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The songbook (M6-23; screens N34, N9, Main note 5): Andy uploads a CSV in Admin → Bar mode. A file
+ * with a missing title on line 12 loads nothing and reports line 12; a good file loads, and Ben T.
+ * finds "Mr. Brightside · The Killers" by searching "brightside" on his queue page and queues it;
+ * the website's song section now shows its search box.
+ */
+test("The songbook: a CSV loads in Admin → Bar mode, line 12's missing title is reported, and Ben T. finds Mr. Brightside", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/bar-mode");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Bar mode");
+    await expect(page.getByText("No songbook yet. Singers type a title and artist.")).toBeVisible();
+
+    const bad = ["title,artist,code"];
+    for (let i = 2; i <= 11; i++) bad.push(`Song ${i},Artist ${i},WK-${i}`);
+    bad.push(",The Killers,WK-12");
+    await page.getByLabel("Songbook CSV file").setInputFiles({
+      name: "songbook.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(bad.join("\n")),
+    });
+    await page.getByRole("button", { name: "Upload the songbook" }).click();
+    await expect(page.getByText("Line 12: the title is missing")).toBeVisible();
+    await expect(page.getByText("No songbook yet. Singers type a title and artist.")).toBeVisible();
+
+    const good = [
+      "Title,Artist,Code",
+      "Mr. Brightside,The Killers,WK-1001",
+      "Valerie,Amy Winehouse,WK-1002",
+      "Dancing Queen,ABBA,WK-1003",
+      "\"Don't Stop Believin'\",Journey,WK-1004",
+    ].join("\n");
+    await page.getByLabel("Songbook CSV file").setInputFiles({
+      name: "songbook.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(good),
+    });
+    await page.getByRole("button", { name: "Upload the songbook" }).click();
+    await expect(page.getByRole("status")).toHaveText("Songbook loaded: 4 songs.");
+    await expect(page.getByText(/^4 songs in the songbook · loaded /)).toBeVisible();
+
+    // Ben T. on his queue page searches the songbook.
+    const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const phone = await ben.newPage();
+    await phone.goto("http://localhost:3001/v/west4karaoke/sing");
+    await phone.getByLabel("Your name on the TV").fill("Ben");
+    await phone.getByLabel("Mobile number").fill("(646) 555-0163");
+    await phone.getByRole("button", { name: "Text me a code" }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query("select 1 from jobs where kind = 'text.send' and payload->>'to' = $1", [
+              "+16465550163",
+            ])
+          ).rowCount,
+      )
+      .toBeGreaterThan(0);
+    const code = (
+      await db.query<{ code: string }>(
+        `select payload->'data'->>'code' as code from jobs where kind = 'text.send'
+           and payload->>'to' = '+16465550163' order by created_at desc limit 1`,
+      )
+    ).rows[0]!.code;
+    await phone.getByLabel("The code we texted you").fill(code);
+    await phone.getByRole("button", { name: "Confirm" }).click();
+    await expect(phone.getByRole("status")).toHaveText("2 singers before you");
+    await phone.getByLabel("Search the songbook").fill("brightside");
+    await phone.getByRole("button", { name: "Mr. Brightside · The Killers" }).click();
+    await expect(phone.getByLabel("Song title")).toHaveValue("Mr. Brightside");
+    await phone.getByRole("button", { name: "Add to the queue" }).click();
+    await expect(
+      phone.locator(".my-songs").getByText("Mr. Brightside · The Killers"),
+    ).toBeVisible();
+    // Picked from the songbook: the song in the queue points at its songbook row.
+    const queued = await db.query(
+      "select count(*)::int as n from song_queue where title = 'Mr. Brightside' and catalog_id is not null",
+    );
+    expect(queued.rows).toEqual([{ n: 1 }]);
+
+    // The website's song section now has its search box.
+    const site = await ben.newPage();
+    await site.goto("http://localhost:3001/v/west4karaoke");
+    await site.getByLabel("Search the songbook").fill("killers");
+    await expect(site.getByText("Mr. Brightside · The Killers")).toBeVisible();
     await ben.close();
   } finally {
     await db.end();

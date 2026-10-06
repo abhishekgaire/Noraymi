@@ -261,6 +261,17 @@ export async function queueSong(
     throw new ApiError("invalid_request", "the singer's number isn't confirmed yet", {
       details: { reason: "phone_not_confirmed" },
     });
+  // A songbook pick (M6-23) must be a current song of this venue's songbook.
+  if (
+    input.catalogId &&
+    !(
+      await c.query(
+        "select 1 from song_catalog where venue_id = $1 and id = $2 and replaced_at is null",
+        [venueId, input.catalogId],
+      )
+    ).rowCount
+  )
+    throw new ApiError("not_found", "that song isn't in the songbook any more");
   const settings = await barMode(c, venueId, date);
   const songs = await songsOf(c, venueId, date.toString());
   const place = placeNewSong(songs.map(asQueued), input.singerId, settings.songsPerRound);

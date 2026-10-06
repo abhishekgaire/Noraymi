@@ -290,7 +290,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       onlineBookingRoutes(scope, { pool: gatePoolRef!, clock });
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
-      songRoutes(scope, { clock, pool: gatePoolRef!, stripe });
+      songRoutes(scope, { clock, pool: gatePoolRef!, stripe, s3: () => (s3 ??= makeS3()) });
       publicSongRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
       nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       disputeRoutes(scope, {

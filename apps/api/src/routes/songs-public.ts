@@ -16,6 +16,7 @@ import {
   verifySingerCode,
 } from "../songs/public.js";
 import { planSingerAlerts, saveSingerSubscription } from "../songs/alerts.js";
+import { catalogSong, hasCatalog, searchSongs } from "../songs/songbook.js";
 
 /**
  * Bar mode's public routes (M6-20; API · Bar mode), for the singer's queue page:
@@ -26,7 +27,8 @@ import { planSingerAlerts, saveSingerSubscription } from "../songs/alerts.js";
  *   GET  /v1/public/venues/{slug}/queue           who's singing, the next names; with the cookie, the
  *                                                 singer's own songs, place and credits
  *   POST /v1/public/venues/{slug}/queue           { title, artist? } as the singer: a song into the rotation
- *   GET  /v1/public/venues/{slug}/songs?q=        the songbook search: empty until a songbook loads (M6-23)
+ *   GET  /v1/public/venues/{slug}/songs?q=        the songbook search on title and artist (M6-23); { catalog: false }
+ *                                                 until a songbook loads
  *   POST /v1/public/venues/{slug}/alerts          { endpoint, keys } as the singer: the phone's push
  *                                                 subscription for the singer alerts (M6-21)
  * The live channel takes the same cookie: a singer follows `song_queue.updated` on /v1/venues/{v}/events.
@@ -200,6 +202,7 @@ export function publicSongRoutes(
     .object({
       title: z.string().trim().min(1).max(120),
       artist: z.string().trim().max(120).nullable().optional(),
+      catalog_id: z.string().uuid().nullable().optional(),
     })
     .strict();
   app.post<{ Params: { slug: string }; Body: unknown }>(
@@ -211,10 +214,17 @@ export function publicSongRoutes(
       const song = await inVenue(request, true, async (c, venueId) => {
         const singerId = singerOf(request, venueId);
         if (!singerId) throw new ApiError("forbidden", "join the queue first");
+        // A song picked from the songbook goes in as the songbook has it (M6-23).
+        const picked = parsed.data.catalog_id
+          ? await catalogSong(c, venueId, parsed.data.catalog_id)
+          : undefined;
+        if (parsed.data.catalog_id && !picked)
+          throw new ApiError("not_found", "that song isn't in the songbook any more");
         return queueOwnSong(c, venueId, {
           singerId,
-          title: parsed.data.title,
-          artist: parsed.data.artist || null,
+          title: picked?.title ?? parsed.data.title,
+          artist: picked ? picked.artist : parsed.data.artist || null,
+          catalogId: parsed.data.catalog_id ?? null,
           now: options.clock.now(),
         });
       });
@@ -222,13 +232,17 @@ export function publicSongRoutes(
     },
   );
 
-  // The songbook search. `song_catalog` and its trigram search arrive with the songbook upload (M6-23);
-  // until a catalog exists the answer is empty and the page has the singer type a title and artist.
+  // The songbook search (M6-23): title and artist through the trigram index on `song_catalog`. Until a
+  // catalog exists the answer is { catalog: false } and the page has the singer type a title and artist.
   app.get<{ Params: { slug: string }; Querystring: { q?: string } }>(
     "/v1/public/venues/:slug/songs",
     { config: open },
     async (request) =>
-      inVenue(request, false, async () => ({ catalog: false, songs: [] as never[] })),
+      inVenue(request, false, async (c, venueId) => {
+        const q = typeof request.query.q === "string" ? request.query.q : "";
+        const catalog = await hasCatalog(c, venueId);
+        return { catalog, songs: catalog ? await searchSongs(c, venueId, q) : [] };
+      }),
   );
 
   // The singer's phone allows alerts (M6-21): its push subscription is kept for the singer, and the

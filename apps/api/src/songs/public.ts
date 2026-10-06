@@ -208,13 +208,19 @@ export async function queuePage(
 export async function queueOwnSong(
   c: Queryable,
   venueId: string,
-  input: { singerId: string; title: string; artist: string | null; now: Temporal.Instant },
+  input: {
+    singerId: string;
+    title: string;
+    artist: string | null;
+    catalogId?: string | null;
+    now: Temporal.Instant;
+  },
 ) {
   return queueSong(c, venueId, {
     singerId: input.singerId,
     title: input.title,
     artist: input.artist,
-    catalogId: null,
+    catalogId: input.catalogId ?? null,
     userId: null,
     now: input.now,
   });

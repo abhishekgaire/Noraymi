@@ -15,6 +15,8 @@ import {
   verifySinger,
 } from "../songs/queue.js";
 import { upNextDisplay } from "../songs/public.js";
+import { loadSongbook, songbookSummary } from "../songs/songbook.js";
+import type { S3Settings } from "../s3.js";
 import { skipSong, startSong, type StartAnswer } from "../songs/start.js";
 import { runNow, type PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
@@ -38,6 +40,9 @@ import type { StripeClient } from "../stripe/client.js";
  *   POST /v1/venues/{v}/singers/{s}/credits        { check_id }: the singer picked on a paid quick sale earns its
  *                                                  drinks' credits; or { prepaid: { count, tendered_cents } }: song
  *                                                  credit bought in cash at the song price (refused with none set)
+ *   GET  /v1/venues/{v}/songbook                   Admin → Bar mode (M6-23): the current songbook's song count and file
+ *   POST /v1/venues/{v}/songbook/uploads           { file_id }: a songbook CSV from POST /files, every row checked;
+ *                                                  all pass → it replaces the last upload, else the failing lines
  * Every change emits song_queue.updated. No answer carries a singer's phone number.
  */
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,7 +51,7 @@ const staff = { principals: ["owner_manager", "staff"] as const, module: "bar_mo
 
 export function songRoutes(
   app: FastifyInstance,
-  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient },
+  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient; s3: () => S3Settings },
 ): void {
   const deps = (): PaymentDeps => ({
     pool: options.pool,
@@ -70,6 +75,41 @@ export function songRoutes(
     { config: route({ principals: ["up_next_display"], module: "bar_mode" }) },
     async (request) =>
       request.inVenue((c) => upNextDisplay(c, request.venueId!, options.clock.now())),
+  );
+
+  // The songbook (M6-23): Admin's, the owner's or a manager's.
+  const admin = route({
+    principals: ["owner_manager"],
+    module: "bar_mode",
+    action: "admin.access",
+  });
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/songbook",
+    { config: admin },
+    async (request) => request.inVenue((c) => songbookSummary(c, request.venueId!)),
+  );
+  const uploadBody = z.object({ file_id: id }).strict();
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/songbook/uploads",
+    {
+      config: route({
+        principals: ["owner_manager"],
+        module: "bar_mode",
+        action: "admin.access",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = uploadBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { file_id }");
+      const loaded = await loadSongbook(options.pool, options.s3(), {
+        venueId: request.venueId!,
+        fileId: parsed.data.file_id,
+        now: options.clock.now(),
+        requestId: request.requestId,
+      });
+      return reply.code(201).send(loaded);
+    },
   );
 
   const queueBody = z

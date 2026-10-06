@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { t, type MessageKey } from "@west4/shared";
 import { clockWords, hhmmWords, money, phoneLabel, type SiteView } from "./data";
+import { SongSearch } from "./song-search";
 
 /**
  * The venue's home page (M5-01; screens Main and Rooms): the hero, the
@@ -228,6 +229,7 @@ export function Home({ site, base, path }: { site: SiteView; base: string; path:
                 })}
               </p>
             )}
+            {site.songs.search && <SongSearch slug={site.venue.slug} />}
           </section>
         )}
 

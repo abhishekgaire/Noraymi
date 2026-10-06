@@ -623,7 +623,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-23 · Upload the songbook CSV and search it
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-20; M2 (`POST /files`)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) (Songbook); [Data model](../spec/04-data-model.md) (`song_catalog`); [API](../spec/08-api.md) (`POST /songbook/uploads`, `GET /v1/public/venues/{slug}/songs?q=`, Files); [screens: N34](../screens.md#n34-admin--bar-mode); [decisions](../decisions.md) (D63)
@@ -632,12 +632,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - `GET /v1/public/venues/{slug}/songs?q=` searches title and artist through a trigram index, for the queue page and the website's song section.
   - West 4's Playbox catalog comes only from Playbox or from West 4, and nothing is ever scraped.
 - **Acceptance:**
-  - [ ] A songbook CSV loads, and searching "brightside" on the queue page finds "Mr. Brightside · The Killers".
-  - [ ] A second upload replaces the first.
-  - [ ] A file with a missing title on line 12 reports line 12.
-  - [ ] Once a catalog exists, the website's song section shows its search box (M5-01).
+  - [x] A songbook CSV loads, and searching "brightside" on the queue page finds "Mr. Brightside · The Killers".
+  - [x] A second upload replaces the first.
+  - [x] A file with a missing title on line 12 reports line 12.
+  - [x] Once a catalog exists, the website's song section shows its search box (M5-01).
 - **Tests:** parser unit tests; integration; end-to-end.
 - **Notes:** A vendor's own catalog file needs its written agreement first; phase 1 runs every song system as `none`.
+  - **Built (M6-23):** migration 0090 `song_catalog` (vendor `songbook`, `vendor_code` from the code, `source_file_id`, `loaded_at`, `replaced_at`; forced row-level security, venue walls, in the seed wipe list) with `pg_trgm` and a GIN trigram index on one lower-cased text of title and artist. app_rw never deletes, so a new upload marks the songs it replaces (`replaced_at`) and everything reads only the current ones. The CSV parser (`apps/api/src/songs/songbook-csv.ts`): a header line naming title, artist and code (any order and case, other columns ignored), quoted commas, doubled quotes and line breaks, a byte-order mark, blank lines; each failing row reported by the line its record starts on (missing title, title or artist over 120 characters, code over 40, an unclosed quote), and the file as a whole when it isn't UTF-8, has no header, no songs or more than 100,000.
+  - Routes: `POST /v1/venues/{v}/songbook/uploads` { file_id } and `GET /v1/venues/{v}/songbook` (the song count and when it loaded; added to the API spec for Admin), the owner's or a manager's (`admin.access`, module `bar_mode`). The file (kind `songbook`, from `POST /files`) is read from storage outside any transaction, then one transaction (an advisory lock per venue) marks the last upload replaced, inserts the songs and attaches the file. `GET /v1/public/venues/{slug}/songs?q=` now answers `{ catalog, songs: [{ id, title, artist }] }`: a part of the title or artist first, then near spellings (`word_similarity`), 20 at most, 2 characters or more. A song picked on the queue page goes in with its `catalog_id` (title and artist as the songbook has them); `queueSong` refuses a `catalog_id` that isn't a current songbook song, on the staff route too.
+  - Screens: Admin → Bar mode (`/admin/bar-mode`, `apps/staff/src/screens/admin/BarMode.tsx`, a new shipped section after Bar POS) with only the songbook upload for now: the current count and date or "No songbook yet. Singers type a title and artist.", the file picker, the loaded count, or "Nothing was loaded, and the last songbook stays…" with each "Line 12: the title is missing" (100 lines shown, then "And n more lines."). M6-26 adds the `barMode` editor to the same section. The queue page's search now shows "No songs match…" and sends the pick's `catalog_id`; the website's song section shows a search box (`apps/guest/app/site/song-search.tsx`) once `site.songs.search` is true. English and Spanish strings.
+  - Defaults flagged: a file with any failing row loads nothing and keeps the last songbook (the ticket says "checks every row… rows that fail are listed"; loading half a file would silently drop songs); artist and code may be empty on a row, the title may not. The browser sends a `.csv` as `text/csv` whatever type the computer gives it (Windows often says `application/vnd.ms-excel`), since the server checks every row anyway. The website's search box needs bar mode not off as well as a catalog, because the search route is bar mode's (with bar mode off the site keeps the heading and count). Replaced songs stay in the table marked; nothing prunes them yet.
+  - Tests: `apps/api/src/songs/songbook-csv.test.ts` (header order and case, quoting, BOM, blank lines, line 12, line numbers past a quoted line break, no header, no songs, unclosed quote, not UTF-8); `apps/api/src/routes/songbook.int.test.ts` (through the local S3 store: before an upload no catalog and no site search; a CSV loads and "brightside" finds Mr. Brightside · The Killers, by artist and a near spelling; the site's search turns on; a second upload replaces the first; line 12 reported and the last upload kept; a photo's id or a file never sent refused; short and `%` searches); e2e "The songbook: a CSV loads in Admin → Bar mode, line 12's missing title is reported, and Ben T. finds Mr. Brightside" (the upload screen, Ben T. searching and queuing the pick, the website's search box); `/admin/bar-mode` joins the Spanish Admin check.
 
 ### M6-24 · Send the singer a drink as a checked gift order
 

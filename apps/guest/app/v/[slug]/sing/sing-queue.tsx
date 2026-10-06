@@ -416,12 +416,16 @@ function AddSong({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [found, setFound] = useState<readonly { title: string; artist: string | null }[]>([]);
+  const [found, setFound] = useState<
+    readonly { id: string; title: string; artist: string | null }[] | null
+  >(null);
+  // The songbook song picked, while its title and artist are left as the songbook has them.
+  const [picked, setPicked] = useState<{ id: string; title: string; artist: string } | null>(null);
 
   const search = async (text: string) => {
     setQ(text);
     if (text.trim().length < 2) {
-      setFound([]);
+      setFound(null);
       return;
     }
     const r = await fetch(`${api}/songs?q=${encodeURIComponent(text.trim())}`, {
@@ -437,7 +441,13 @@ function AddSong({
     const r = await fetch(`${api}/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: title.trim(), artist: artist.trim() || null }),
+      body: JSON.stringify({
+        title: title.trim(),
+        artist: artist.trim() || null,
+        ...(picked && picked.title === title && picked.artist === artist
+          ? { catalog_id: picked.id }
+          : {}),
+      }),
     }).catch(() => null);
     setBusy(false);
     if (!r?.ok) {
@@ -446,6 +456,9 @@ function AddSong({
     }
     setTitle("");
     setArtist("");
+    setPicked(null);
+    setQ("");
+    setFound(null);
     onAdded();
   };
 
@@ -459,16 +472,18 @@ function AddSong({
               {t("en", "guestSing.search")}
               <input type="search" value={q} onChange={(e) => void search(e.target.value)} />
             </label>
-            {found.length > 0 && (
+            {found?.length === 0 && <p className="muted">{t("en", "guestSing.noMatch")}</p>}
+            {found && found.length > 0 && (
               <ul className="found">
                 {found.map((s) => (
-                  <li key={`${s.title}|${s.artist ?? ""}`}>
+                  <li key={s.id}>
                     <button
                       type="button"
                       className="secondary"
                       onClick={() => {
                         setTitle(s.title);
                         setArtist(s.artist ?? "");
+                        setPicked({ id: s.id, title: s.title, artist: s.artist ?? "" });
                       }}
                     >
                       {songLine(s.title, s.artist)}

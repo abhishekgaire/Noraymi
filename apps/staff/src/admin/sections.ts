@@ -139,6 +139,14 @@ export const adminSections: readonly AdminSection[] = [
     shipped: true,
   },
   {
+    id: "barMode",
+    path: "/admin/bar-mode",
+    labelKey: "admin.section.barMode",
+    hintKey: "admin.hint.barMode",
+    action: "admin.access",
+    shipped: true,
+  },
+  {
     id: "deposits",
     path: "/admin/deposits",
     labelKey: "admin.section.deposits",

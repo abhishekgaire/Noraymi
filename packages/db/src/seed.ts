@@ -953,6 +953,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "tab_cut_off_runs",
       // Bar mode (M6-18): credits point at songs, lines and payments; songs at singers and the night.
       "singer_push_subscriptions",
+      "song_catalog",
       "song_plays",
       "song_queue_moves",
       "song_credits",
