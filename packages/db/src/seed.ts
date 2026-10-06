@@ -1001,6 +1001,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "tip_pool_occupations",
       "tip_pools",
       "tip_ledger",
+      // Payouts (M7-16) name the payments they paid out, so they go before the payments.
+      "payout_lines",
+      "payouts",
       "refunds",
       "receipts",
       "pay_links",
@@ -1018,6 +1021,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "files",
       "shifts",
       "time_punches",
+      // The night's accounting journal (M7-15), one per night: left from the last run's close, it would
+      // make tonight's close fail as a duplicate.
+      "exports",
       "night_closes",
       "venue_counters",
       "session_segments",
