@@ -33,8 +33,12 @@ test("the site: open until 4 AM, the prices, the rooms picker and the songbook",
   await expect(page.getByRole("heading", { name: "113,000 songs." })).toBeVisible();
   await expect(page.getByText("113,000 songs in the rooms")).toBeVisible();
   await expect(page.getByRole("searchbox")).toHaveCount(0);
-  // Sing at the bar waits behind its flag until the singer's queue page ships (M6).
-  await expect(page.getByRole("heading", { name: "Sing at the bar." })).toHaveCount(0);
+  // Sing at the bar opens the singer's queue page (M6-20).
+  await expect(page.getByRole("heading", { name: "Sing at the bar." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Join the queue" })).toHaveAttribute(
+    "href",
+    "/v/west4karaoke/sing",
+  );
 
   // The picker: 3 guests on a Friday fit a small room billed for 4.
   await rooms.getByRole("link", { name: "One fewer" }).click();
@@ -123,10 +127,93 @@ test("the door QR on a phone: a party of 4 joins fourth, 3 parties ahead, then l
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("West 4 Boho Karaoke");
     await expect(page.getByRole("status")).toHaveText("3 parties ahead");
     await expect(page.getByText("Jordan L. · party of 4")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Sing at the bar while you wait" }),
+    ).toHaveAttribute("href", `/v/${slug}/sing`);
     const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scroll).toBeLessThanOrEqual(390);
     await page.getByRole("button", { name: "Leave the waitlist" }).click();
     await expect(page.getByRole("status")).toHaveText("You've left the waitlist.");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The singer's queue page on a phone (M6-20; screens N9): Ben T. signs in on his number with a code
+ * and reads "2 singers before you"; Sofia R.'s song needs a drink credit; a new singer joins with a
+ * code and queues "Valerie" typed by hand, with no songbook loaded. No page shows a phone number but
+ * the singer's own (and the page never prints even that).
+ */
+test("the singer's queue page: Ben T. 2 singers before you, Sofia R. needs a drink credit, a new singer queues Valerie", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const codeFor = async (phone: string) => {
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query("select 1 from jobs where kind = 'text.send' and payload->>'to' = $1", [
+              phone,
+            ])
+          ).rowCount,
+      )
+      .toBeGreaterThan(0);
+    return (
+      await db.query<{ code: string }>(
+        `select payload->'data'->>'code' as code from jobs where kind = 'text.send'
+           and payload->>'to' = $1 order by created_at desc limit 1`,
+        [phone],
+      )
+    ).rows[0]!.code;
+  };
+  const join = async (name: string, typed: string, e164: string) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    await page.goto("/v/west4karaoke/sing");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sing at the bar");
+    await expect(page.getByRole("heading", { name: "Join the queue" })).toBeVisible();
+    await page.getByLabel("Your name on the TV").fill(name);
+    await page.getByLabel("Mobile number").fill(typed);
+    await page.getByRole("button", { name: "Text me a code" }).click();
+    await page.getByLabel("The code we texted you").fill(await codeFor(e164));
+    await page.getByRole("button", { name: "Confirm" }).click();
+    return { context, page };
+  };
+  try {
+    // Ben T. is the seed's phone demo: place 3, with Jess P. and Kira before him.
+    const ben = await join("Ben", "(646) 555-0163", "+16465550163");
+    await expect(ben.page.getByRole("status")).toHaveText("2 singers before you");
+    await expect(ben.page.getByRole("heading", { name: "Ben T." })).toBeVisible();
+    await expect(ben.page.getByText("Livin' on a Prayer · Bon Jovi")).toBeVisible();
+    await expect(ben.page.locator(".credits dd")).toHaveText("1");
+    await expect(ben.page.getByText("Luis M.")).toBeVisible();
+    expect(await ben.page.locator("body").innerText()).not.toMatch(/555|\+1\d{10}/);
+    const scroll = await ben.page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scroll).toBeLessThanOrEqual(390);
+    await ben.context.close();
+
+    const sofia = await join("Sofia R.", "347-555-0195", "+13475550195");
+    await expect(sofia.page.getByRole("status")).toHaveText("5 singers before you");
+    await expect(sofia.page.getByText("Needs a drink credit")).toBeVisible();
+    await sofia.context.close();
+
+    // A new singer, with no songbook: they type the title and artist.
+    const priya = await join("Priya", "(646) 555-0177", "+16465550177");
+    await expect(priya.page.getByRole("status")).toHaveText("Add a song to get in line.");
+    await expect(priya.page.getByRole("searchbox")).toHaveCount(0);
+    await priya.page.getByLabel("Song title").fill("Valerie");
+    await priya.page.getByLabel("Artist (optional)").fill("Amy Winehouse");
+    await priya.page.getByRole("button", { name: "Add to the queue" }).click();
+    await expect(priya.page.getByText("Valerie · Amy Winehouse")).toBeVisible();
+    await expect(priya.page.getByRole("status")).toHaveText("6 singers before you");
+    expect(await priya.page.locator("body").innerText()).not.toMatch(/555|\+1\d{10}/);
+    await priya.context.close();
   } finally {
     await db.end();
   }

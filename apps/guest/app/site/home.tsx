@@ -4,7 +4,7 @@ import { clockWords, hhmmWords, money, phoneLabel, type SiteView } from "./data"
 
 /**
  * The venue's home page (M5-01; screens Main and Rooms): the hero, the
- * numbers, the songbook, "Sing at the bar" (behind its flag), the bar's
+ * numbers, the songbook, "Sing at the bar" (behind its flag, linking to the queue page), the bar's
  * prices, house rules, the rooms and their picker, hours and address. Every
  * live fact comes from the API; the words from the published site version;
  * sections follow the modules. Server-rendered, so it reads with JavaScript off.
@@ -236,6 +236,10 @@ export function Home({ site, base, path }: { site: SiteView; base: string; path:
             <p className="kicker">{t("en", "site.bar")}</p>
             <h2 id="bar-h">{c.singAtTheBar.heading}</h2>
             <p>{c.singAtTheBar.lead}</p>
+            {/* The singer's queue page (M6-20), the same page the Up next TV's QR code opens. */}
+            <a className="button" href={`/v/${site.venue.slug}/sing`}>
+              {t("en", "site.bar.join")}
+            </a>
           </section>
         )}
 

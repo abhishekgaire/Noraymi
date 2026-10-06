@@ -44,7 +44,7 @@ export const SINGER_CODE_MINUTES = 10;
 export const SINGER_CODE_MAX_TRIES = 5;
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
-const codeHash = (singerId: string, code: string) => sha256(`${singerId}:${code}`);
+export const codeHash = (singerId: string, code: string) => sha256(`${singerId}:${code}`);
 
 export async function nightOf(c: Queryable, venueId: string, now: Temporal.Instant) {
   const v = await venueClock(c, venueId);
@@ -452,7 +452,7 @@ export async function addSinger(
   return { id, confirmed: false, code_sent: true };
 }
 
-async function sendCode(
+export async function sendCode(
   c: Queryable,
   venueId: string,
   singerId: string,
@@ -483,11 +483,15 @@ async function sendCode(
   });
 }
 
-/** The code texted to the singer's number: right once, then the number is confirmed for good. */
+/**
+ * The code texted to the singer's number: right once, then the number is confirmed for good. `again`
+ * (the queue page, M6-20) checks a new code on a number already confirmed, to sign that singer in on
+ * another phone.
+ */
 export async function verifySinger(
   c: Queryable,
   venueId: string,
-  input: { singerId: string; code: string; now: Temporal.Instant },
+  input: { singerId: string; code: string; now: Temporal.Instant; again?: boolean },
 ): Promise<{ confirmed: true } | { wrong: true; tries_left: number }> {
   const s = (
     await c.query<{
@@ -504,7 +508,7 @@ export async function verifySinger(
     )
   ).rows[0];
   if (!s) throw new ApiError("not_found", "no such singer");
-  if (s.confirmed) return { confirmed: true };
+  if (s.confirmed && !input.again) return { confirmed: true };
   const expired = !s.code_hash || !s.live;
   if (expired || s.code_attempts >= SINGER_CODE_MAX_TRIES)
     throw new ApiError("invalid_request", "ask for a new code", {
@@ -516,6 +520,13 @@ export async function verifySinger(
       [venueId, input.singerId],
     );
     return { wrong: true, tries_left: SINGER_CODE_MAX_TRIES - s.code_attempts - 1 };
+  }
+  if (s.confirmed) {
+    await c.query(
+      "update singers set code_hash = null, code_expires_at = null where venue_id = $1 and id = $2",
+      [venueId, input.singerId],
+    );
+    return { confirmed: true };
   }
   const taken = await c.query(
     "select 1 from singers where venue_id = $1 and phone_e164 = $2 and phone_verified_at is not null",

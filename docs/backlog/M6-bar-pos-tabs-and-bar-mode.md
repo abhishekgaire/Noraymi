@@ -552,7 +552,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-20 · Build the singer's queue page
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-18, M6-19; M5-01 (the site's "Sing at the bar"); M2 (the CAPTCHA on phone codes, the waitlist page)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) (Joining, Screens, Songbook); [API](../spec/08-api.md) (the Bar mode public routes); [Tenancy and access](../spec/02-tenancy-access.md) (Singer in the bar queue); [screens: N9](../screens.md#n9-the-singers-queue-page), [Main note 1](../screens.md#main), [Waitlist note 5](../screens.md#waitlist)
@@ -563,13 +563,19 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - My songs, their place ("2 singers before you"), their credits, and "Needs a drink credit" when they have none and no song price is set.
   - `GET` and `POST /v1/public/venues/{slug}/queue`; the page follows `song_queue.updated` and never shows another singer's phone number.
 - **Acceptance:**
-  - [ ] Ben T.'s page reads "2 singers before you" at 10:41 PM.
-  - [ ] Sofia R.'s page shows "Needs a drink credit".
-  - [ ] A new singer joins with a code and queues "Valerie" by typing it, with no catalog loaded.
-  - [ ] No page shows any phone number but the singer's own.
-  - [ ] The page passes the WCAG 2.2 AA checks.
+  - [x] Ben T.'s page reads "2 singers before you" at 10:41 PM.
+  - [x] Sofia R.'s page shows "Needs a drink credit".
+  - [x] A new singer joins with a code and queues "Valerie" by typing it, with no catalog loaded.
+  - [x] No page shows any phone number but the singer's own.
+  - [x] The page passes the WCAG 2.2 AA checks.
 - **Tests:** end-to-end; principal suite (the singer's token); accessibility checks in CI.
 - **Notes:** The planned SingQueue board was never drawn ([N9](../screens.md#n9-the-singers-queue-page)). The spec doesn't say which page starts "Send the singer a drink", so the queue page doesn't offer it (see M6-24).
+  - **Built (M6-20):** the queue page at `/v/{slug}/sing` (`apps/guest/app/v/[slug]/sing/`): who's singing and the next 5 names (as the Up next TV), Join (a display name and a mobile, then the texted code, "Send a new code"), then the singer's place ("2 singers before you", "1 singer before you", "You're up next at the bar · come to the stage", "You're singing now", "Add a song to get in line."), Drink credits, My songs with "Needs a drink credit" on a song that has none, and Add a song (typed title and artist; the songbook search box shows only once `GET …/songs` says a catalog exists). It follows `song_queue.updated` on the live channel and refreshes every 15 s; loading, can't-reach and bar-mode-off states. Linked from the site's "Sing at the bar" ("Join the queue"; the seed's `singAtTheBar.live` is now true) and from the waitlist page ("Sing at the bar while you wait", while bar mode is on; `guestView` gains `sing_at_the_bar`). `live.ts` holds the events origin the room page used, now shared.
+  - Routes (`apps/api/src/routes/songs-public.ts`, `apps/api/src/songs/public.ts`): `POST /v1/public/venues/{slug}/singers` (always 202, so it never says whether a number is known), `/singers/verify` ({ phone_e164, code }; a wrong code is counted and committed), `GET` and `POST /v1/public/venues/{slug}/queue`, `GET /v1/public/venues/{slug}/songs?q=`. The right code sets an HttpOnly `west4_singer` cookie: 128 random bits, only its SHA-256 in `singers.token_hash`. `singerAuthenticator` turns the cookie into the `singer` principal on these routes and on `/v1/venues/{v}/events` (no staff session or room cookie on the request), in the issuing venue only; `POST …/queue` is declared for `singer` alone, so the principal suite checks every other caller is refused. Joining and queuing need bar mode on; reading needs it not off. No migration (M6-18's `singers.token_hash`).
+  - Defaults flagged: a number already confirmed at the venue signs that singer in again with a fresh code (Ben T. joins as himself; the name typed is ignored), and a new sign-in replaces the singer's last token, so one phone holds the page at a time. The cookie lasts 30 days. `verifySinger` gains `again` for that sign-in. The page offers no tab view: "their tab once they owe something" is the token's reach, but the spec gives the queue page no tab screen.
+  - Not built (blocked with M2-27 and M5-05 on the founder's CAPTCHA provider and limit numbers): the server-checked CAPTCHA and the daily limits on phone codes. The code-request route runs as the waitlist's door route does today, with the spot marked in the handler and the join form; M2-27's Notes point here.
+  - The songbook search answers `{ catalog: false, songs: [] }` until M6-23 adds `song_catalog` and its trigram search; the page already searches once a catalog exists.
+  - Tests: `apps/api/src/routes/songs-public.int.test.ts` (the public queue, Ben T. signing in again, Sofia R.'s flag, a new singer with a wrong then right code queuing Valerie, the live channel with the cookie and a made-up one refused, no cookie refused, bar mode off), `site.int.test.ts` (Sing at the bar live), `e2e/guest.spec.ts` (the queue page on a phone: Ben T., Sofia R., a new singer queuing Valerie, no phone numbers; the site and waitlist links), `e2e/a11y-guest.spec.ts` (join, wrong code, a singer's page, light and dark).
 
 ### M6-21 · Alert singers by push and text
 

@@ -90,10 +90,10 @@ describe("the guest site", () => {
     });
   });
 
-  it("with no song catalog, the songbook has its count and no search; Sing at the bar waits behind its flag", async () => {
+  it("with no song catalog, the songbook has its count and no search; Sing at the bar is live with the queue page (M6-20)", async () => {
     const s = (await site()).json();
     expect(s.songs).toEqual({ count: 113000, search: false });
-    expect(s.content.singAtTheBar).toBeNull();
+    expect(s.content.singAtTheBar).toMatchObject({ heading: "Sing at the bar.", live: true });
     expect(s.menu.find((m: { name: string }) => m.name === "Beer")).toMatchObject({
       fromCents: 800,
     });

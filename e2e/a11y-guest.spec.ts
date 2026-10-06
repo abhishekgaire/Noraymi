@@ -292,3 +292,44 @@ test("the Book page and a held booking pass", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("A small room held for you");
   expect(await violations(page)).toEqual([]);
 });
+
+/** The singer's queue page (M6-20): the join step, the code step with a wrong code, and Sofia R.'s page, light and dark. */
+test("the singer's queue page passes: joining, a wrong code and a singer's own page", async ({
+  page,
+}) => {
+  const c = db();
+  await c.connect();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/v/west4karaoke/sing");
+    await expect(page.getByRole("heading", { name: "Join the queue" })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+    await page.getByLabel("Your name on the TV").fill("Sofia R.");
+    await page.getByLabel("Mobile number").fill("(347) 555-0195");
+    await page.getByRole("button", { name: "Text me a code" }).click();
+    await page.getByLabel("The code we texted you").fill("000000");
+    const code = async () =>
+      (
+        await c.query<{ code: string }>(
+          `select payload->'data'->>'code' as code from jobs where kind = 'text.send'
+             and payload->>'to' = '+13475550195' order by created_at desc limit 1`,
+        )
+      ).rows[0]?.code;
+    await expect.poll(code).toBeTruthy();
+    const right = (await code())!;
+    if (right !== "000000") {
+      await page.getByRole("button", { name: "Confirm" }).click();
+      await expect(page.getByText("That code isn't right.")).toBeVisible();
+      expect(await violations(page)).toEqual([]);
+    }
+    await page.getByLabel("The code we texted you").fill(right);
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByText("Needs a drink credit")).toBeVisible();
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      expect(await violations(page)).toEqual([]);
+    }
+  } finally {
+    await c.end();
+  }
+});

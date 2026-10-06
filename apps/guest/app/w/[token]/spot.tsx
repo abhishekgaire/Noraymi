@@ -5,6 +5,7 @@ import { t } from "@west4/shared";
 
 interface SpotView {
   readonly venue_name: string;
+  readonly sing_at_the_bar: string | null;
   readonly name: string;
   readonly party_size: number;
   readonly bills_as: number;
@@ -119,6 +120,11 @@ export function Spot({ token }: { token: string }) {
           <button type="button" disabled={busy} onClick={() => void act("leave")}>
             {t("en", "guestWait.leave")}
           </button>
+          {spot.sing_at_the_bar && (
+            <p>
+              <a href={`/v/${spot.sing_at_the_bar}/sing`}>{t("en", "guestWait.sing")}</a>
+            </p>
+          )}
         </>
       )}
       {spot.status === "offered" && spot.offer && (

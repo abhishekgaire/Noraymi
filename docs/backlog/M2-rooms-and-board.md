@@ -650,6 +650,7 @@ Definition of done: see CLAUDE.md.
 - **Tests:** integration tests with the provider's test keys.
 - **Notes:** The spec names no CAPTCHA provider and no limit numbers; the founder picks the provider and sets the numbers (flagged). Booking and enquiries get the same checks in M5.
   - Blocked on the founder (asked): which CAPTCHA provider (for example Cloudflare Turnstile or hCaptcha, both with server-side checks and test keys), and the daily limits per phone number, IP address and device. Nothing is invented meanwhile; the waitlist page and phone codes run without them until then.
+  - The singer's phone-code request (`POST /v1/public/venues/{slug}/singers`, M6-20) is the M6 send this ticket covers: its handler in `apps/api/src/routes/songs-public.ts` marks where the check goes, and the queue page's join form (`apps/guest/app/v/[slug]/sing/sing-queue.tsx`) where the CAPTCHA's answer joins the request.
 
 
 ### M2-28 · Count the headcount with the door counter, and build Admin → Safety

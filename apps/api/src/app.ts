@@ -20,6 +20,7 @@ import { onlineBookingRoutes } from "./routes/online-bookings.js";
 import { posLayoutRoutes } from "./routes/pos-layouts.js";
 import { tabRoutes } from "./routes/tabs.js";
 import { songRoutes } from "./routes/songs.js";
+import { publicSongRoutes, singerAuthenticator } from "./routes/songs-public.js";
 import { nightRoutes } from "./routes/nights.js";
 import Fastify, { type FastifyInstance } from "fastify";
 import pg from "pg";
@@ -157,7 +158,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     authenticators: [
       // A room cookie answers only on the guest room routes, so it goes first (M3-08).
       ...(gate && config
-        ? [roomGuestAuthenticator(gatePoolRef!), printerAuthenticator(gatePoolRef!)]
+        ? [
+            roomGuestAuthenticator(gatePoolRef!),
+            printerAuthenticator(gatePoolRef!),
+            // A singer cookie answers only on the queue page's routes and the live channel (M6-20).
+            singerAuthenticator(gatePoolRef!),
+          ]
         : []),
       ...(options.authenticators ?? []),
       ...(gate && config
@@ -285,6 +291,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
       songRoutes(scope, { clock, pool: gatePoolRef!, stripe });
+      publicSongRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
       nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       disputeRoutes(scope, {
         pool: gatePoolRef!,

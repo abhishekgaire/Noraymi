@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EventClient, guestOrderWords, t, type MessageKey } from "@west4/shared";
 import { YourBill, type GuestBill, type ShareAnswer } from "../bill/your-bill";
+import { eventsOrigin } from "../live";
 
 /**
  * The room page on a joined guest's phone (M3-08, M3-09; screens Order notes
@@ -112,20 +113,6 @@ interface GuestOrder {
 
 const REFRESH_MS = 10_000;
 
-/**
- * Where the live channel connects. The page's /v1 calls go through Next's rewrite, which doesn't
- * carry a WebSocket upgrade, so NEXT_PUBLIC_EVENTS_ORIGIN names the API's origin when it's on
- * another host; locally the API is on port 3000 beside the guest web's 3001. The room cookie
- * belongs to the host name, so it reaches either port.
- */
-function eventsOrigin(): string {
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  const configured = process.env["NEXT_PUBLIC_EVENTS_ORIGIN"];
-  if (configured) return configured.replace(/\/+$/, "");
-  return location.port === "3001"
-    ? `${scheme}://${location.hostname}:3000`
-    : `${scheme}://${location.host}`;
-}
 const money = (c: number) => `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
 const newOrderId = () => `room-${crypto.randomUUID()}`;
 /** A choice the bar can't guess: required, with no default. */

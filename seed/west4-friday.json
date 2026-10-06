@@ -4620,7 +4620,7 @@
    "singAtTheBar": {
     "heading": "Sing at the bar.",
     "lead": "Buy a drink, get a song. The bar mic runs every night until 4 AM, and it is the fastest way to make thirty new friends.",
-    "live": false
+    "live": true
    },
    "houseRules": [
     "Walk-ins welcome. Bar first, room when one opens.",

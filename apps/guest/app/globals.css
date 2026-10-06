@@ -396,3 +396,42 @@ body {
   font-size: 1.25em;
   font-variant-numeric: tabular-nums;
 }
+/* The singer's queue page (M6-20). */
+.sing-page .venue {
+  margin: 0;
+  opacity: 0.8;
+}
+.sing-page section {
+  margin-top: 24px;
+}
+.sing-page ul,
+.sing-page ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+.sing-page .credits {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.sing-page .credits dt::after {
+  content: ":";
+}
+.sing-page .credits dd {
+  margin: 0;
+  font-weight: 700;
+}
+.sing-page .flag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-left: 4px solid #d97706;
+  font-weight: 600;
+}
+.guest button.secondary {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--line);
+}

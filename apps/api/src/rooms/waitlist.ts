@@ -13,6 +13,7 @@ import {
   releaseBlock,
   RoomNotFree,
   waitlistEntry,
+  venueModules,
   withVenue,
   type Queryable,
   type Sweep,
@@ -161,12 +162,17 @@ export async function guestView(c: Queryable, venueId: string, id: string, now: 
   const entry = await waitlistEntry(c, venueId, id);
   if (!entry) throw new ApiError("not_found", "no such waitlist spot");
   const venue = (
-    await c.query<{ name: string }>("select name from venues where id = $1", [venueId])
+    await c.query<{ name: string; slug: string }>("select name, slug from venues where id = $1", [
+      venueId,
+    ])
   ).rows[0]!;
   const b = await billing(c, venueId, entry.party_size, now);
   const live = entry.status === "waiting" || entry.status === "offered";
+  const barMode = (await venueModules(c, venueId)).find((m) => m.module_id === "bar_mode");
   return {
     venue_name: venue.name,
+    /** "Sing at the bar while you wait" (M6-20): the venue's slug for the queue page, while bar mode is on. */
+    sing_at_the_bar: barMode?.state === "on" ? venue.slug : null,
     name: entry.name,
     party_size: entry.party_size,
     bills_as: b.billsAs,
