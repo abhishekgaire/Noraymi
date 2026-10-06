@@ -1,4 +1,4 @@
-import { amountDue, createPayLink, withVenue, type Queryable } from "@west4/db";
+import { checkDue, createPayLink, withVenue, type Queryable } from "@west4/db";
 import { ApiError } from "../http/errors.js";
 import { guestBill } from "../rooms/guest-bill.js";
 import { cancelPayment, type PaymentDeps } from "./run.js";
@@ -36,7 +36,7 @@ export async function payAnotherWay(
   for (const paymentId of earlier) await cancelPayment(deps, venueId, paymentId, "api");
   const now = deps.clock.now();
   return inVenue(async (c) => {
-    const due = await amountDue(c, checkId);
+    const due = await checkDue(c, venueId, checkId);
     if (due <= 0) throw new ApiError("invalid_request", "nothing is due on this check");
     const link = await createPayLink(c, venueId, {
       checkId,

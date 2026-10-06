@@ -1,6 +1,7 @@
 import type pg from "pg";
 import {
   amountDue,
+  amountDueBesideHolds,
   checkById,
   depositsOn,
   emitEvent,
@@ -18,6 +19,7 @@ import { sessionViews } from "./sessions.js";
 import { workOut } from "./finalize.js";
 import { savedCardFor } from "../payments/card-on-file.js";
 import { checkPayments } from "./guest-bill.js";
+import { movableLines, movedHolds } from "../tabs/move.js";
 
 /**
  * Room checks (M2-08; spec 04 · the money core). Opening one takes its number
@@ -104,7 +106,29 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
   }
   // What's paid and what's left (M4-09): the deposits on it, and the amount due.
   const deposits = await depositsOn(c, venueId, id);
-  const due = await amountDue(c, id);
+  // The holds of tabs moved into a room (M6-13) are its guarantee, shown with each tab's name, and left
+  // out of what's due, since paying the room replaces them (Money rules 12).
+  const holds = await movedHolds(c, venueId, id);
+  const due = holds.length ? await amountDueBesideHolds(c, id) : await amountDue(c, id);
+  // Moved lines name the check on the other side: "Moved from Jess P.'s bar tab", "Moved to Room 9".
+  // Which lines are alcohol, for the fix panel's Move to grey out cut-off tabs (M6-13).
+  const alcohol = new Set(
+    (await movableLines(c, venueId, id)).filter((l) => l.alcohol).map((l) => l.id),
+  );
+  const moved = new Map(
+    (
+      await c.query<{ id: string; tab: string | null; room: string | null }>(
+        `select l.id, t.name as tab, r.name as room
+           from check_lines l
+           left join tabs t on t.venue_id = l.venue_id and t.check_id = l.moved_check_id
+           left join checks k on k.venue_id = l.venue_id and k.id = l.moved_check_id
+           left join room_sessions s on s.venue_id = k.venue_id and s.id = k.room_session_id
+           left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+          where l.venue_id = $1 and l.check_id = $2 and l.moved_check_id is not null`,
+        [venueId, id],
+      )
+    ).rows.map((r) => [Number(r.id), { tab: r.tab, room: r.room }]),
+  );
   // Card on file (M4-17): the deposit's card, and a charge waiting for the guest or a manager, if any.
   const saved = await savedCardFor(c, venueId, id);
   const waiting = saved
@@ -138,7 +162,20 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
       opened_label: formatCheckTime(found.check.opened_at, (await venueClock(c, venueId)).timeZone),
     },
     totals,
-    lines: found.lines,
+    lines: found.lines.map((l) => {
+      const m = moved.get(l.id);
+      return m
+        ? {
+            ...l,
+            alcohol: alcohol.has(l.id),
+            moved:
+              l.kind === "transfer_in"
+                ? { from_tab: m.tab, from_room: m.room }
+                : { to_tab: m.tab, to_room: m.room },
+          }
+        : { ...l, alcohol: alcohol.has(l.id) };
+    }),
+    holds: holds.map((h) => ({ tab_id: h.tab_id, name: h.name, cents: h.hold_cents })),
     pending_fixes: pending.rows.map((p) => ({
       line_id: Number(p.line_id),
       kind: p.kind,

@@ -76,6 +76,19 @@ export function tabConsentLine(tabs: { openingHoldCents: number; cutOffAt: strin
 }
 
 /**
+ * The consent line read out before a card is tapped for a room (M6-13; Payment flows · Moving a tab into
+ * a room): the reader saves the card without charging it. The spec gives no words for it, so this is the
+ * cautious default, flagged for the owner's advisers: what's saved, that nothing is charged now, and when
+ * it would be.
+ */
+export function roomCardConsentLine(): string {
+  return (
+    "We'll save this card for your room's bill. Nothing is charged now. " +
+    "We charge it only for what's left unpaid when you leave."
+  );
+}
+
+/**
  * The tab's name from the cardholder's name a dip or swipe brings: "JESS PARKER" or
  * "PARKER/JESS" → "Jess P.". Null when there's no usable name (a tap or a phone).
  */

@@ -62,7 +62,7 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
         `select s.check_id, s.min_spend_cents as min,
                 coalesce((select sum(l.amount_cents) from check_lines l
                            where l.venue_id = s.venue_id and l.check_id = s.check_id
-                             and l.kind in ('item', 'song', 'comp', 'void')), 0)::int as spend
+                             and l.kind in ('item', 'song', 'comp', 'void', 'transfer_in', 'transfer_out')), 0)::int as spend
            from room_sessions s
           where s.venue_id = $1 and s.check_id = any($2::uuid[]) and s.min_spend_cents is not null`,
         [venueId, checkIds],

@@ -28,13 +28,17 @@ export interface Refused {
 }
 
 export class AlcoholRefused extends ApiError {
-  constructor(readonly refused: Refused) {
+  /** `extra` adds to the details: a move names the cut-off's reason (M6-13). */
+  constructor(
+    readonly refused: Refused,
+    extra: Record<string, unknown> = {},
+  ) {
     super(
       refused.reason === "cut_off" ? "cut_off" : "alcohol_closed",
       refused.reason === "cut_off"
         ? "alcohol is paused for this room"
         : "the bar has stopped serving alcohol",
-      { details: { reason: refused.reason, items: refused.items } },
+      { details: { reason: refused.reason, items: refused.items, ...extra } },
     );
   }
 }

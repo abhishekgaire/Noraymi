@@ -5560,6 +5560,50 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
   }
 });
 
+/**
+ * Moves on the bar POS (M6-13; Rail notes 7 and 8): the fix panel's Move greys out Hana K.'s cut-off tab
+ * for 2 × Modelo, with the reason; Move tab to a room puts Jess P.'s drinks on Room 9's check as "Moved
+ * from Jess P.'s bar tab" and her tab reads "Moved to Room 9" in Closed tonight.
+ */
+test("the bar POS: Move greys out Hana K.'s cut-off tab, and Jess P.'s tab moves into Room 9", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await expect(panel).toContainText("$32.66");
+
+    await panel.getByRole("button", { name: "Fix · Modelo" }).click();
+    await panel.getByLabel("MOVE · onto another tab").check();
+    await expect(panel.getByRole("radio", { name: /Hana K\./ })).toBeDisabled();
+    await expect(panel).toContainText("Cut off by Andy · alcohol can't move here");
+    await expect(panel.getByRole("radio", { name: /Luis M\./ })).toBeEnabled();
+
+    await panel.getByRole("button", { name: "Move tab to a room" }).click();
+    await panel.getByRole("button", { name: /Room 9/ }).click();
+    // The rail picks Room 9, with Jess P.'s drinks on its check.
+    await expect(panel.getByRole("status").first()).toContainText("Moved to Room 9");
+    await expect(page.getByRole("list", { name: "Bar tabs" })).not.toContainText("Jess P.");
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+      "Moved from Jess P.'s bar tab",
+    );
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText("2 × Modelo");
+    await page.getByText(/^Closed tonight/).click();
+    await expect(page.locator(".closed-tab", { hasText: "Jess P." })).toContainText(
+      "Moved to Room 9",
+    );
+  } finally {
+    await db.end();
+  }
+});
+
 /** The desktop app's bridge as the bar computer has it, with a badge reader the test taps (M6-04). */
 const desktopBridge = () => {
   const tokenKey = "west4.test.token";

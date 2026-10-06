@@ -100,6 +100,37 @@ export async function amountDue(
 }
 
 /**
+ * What the check owes beside the tab holds on it (M6-13; Money rules 12): a bar tab's own hold, or the
+ * holds of tabs moved into a room, are guarantees following the lines, so they're left out. Locks the row.
+ */
+export async function amountDueBesideHolds(c: Queryable, checkId: string): Promise<number> {
+  const r = await c.query<{ due: string }>("select amount_due_beside_holds($1) as due", [checkId]);
+  return Number(r.rows[0]!.due);
+}
+
+/** What a check owes: beside the holds of tabs moved into it, when it's a room holding some (M6-13). */
+export async function checkDue(c: Queryable, venueId: string, checkId: string): Promise<number> {
+  return (await hasMovedHolds(c, venueId, checkId))
+    ? amountDueBesideHolds(c, checkId)
+    : amountDue(c, checkId);
+}
+
+/** Whether a room's check holds the hold of a tab moved into it (M6-13; Money rules 12). */
+export async function hasMovedHolds(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+): Promise<boolean> {
+  const r = await c.query(
+    `select 1 from payment_allocations a join tabs t on t.venue_id = a.venue_id and t.payment_id = a.payment_id
+      where a.venue_id = $1 and a.check_id = $2 and a.state = 'in_progress' and a.follows_lines
+        and t.check_id <> a.check_id limit 1`,
+    [venueId, checkId],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/**
  * Puts some of a payment on a check. A payment allocation may not be more
  * than the amount due (tips are never allocated, so they're aside); a
  * deposit or a tab hold follows the lines instead and is never refused.
@@ -117,11 +148,17 @@ export async function allocate(
     roomGuestId?: string | null;
     /** A payment whose allocation doesn't count against what's due (a bar tab's hold while a split share is paid, M6-10). */
     leaveOut?: string | null;
+    /** Every tab hold on the check is left out; by default, when it's a room holding moved holds (M6-13). */
+    besideHolds?: boolean;
   },
 ): Promise<string> {
   if (!Number.isInteger(a.amountCents) || a.amountCents <= 0)
     throw new Error("an allocation is a positive whole number of cents");
-  const due = await amountDue(c, a.checkId, a.leaveOut ?? null);
+  // A room holding a moved tab's hold (M6-13): paying it replaces the hold, so the hold is left out.
+  const beside = a.besideHolds ?? (!a.leaveOut && (await hasMovedHolds(c, venueId, a.checkId)));
+  const due = beside
+    ? await amountDueBesideHolds(c, a.checkId)
+    : await amountDue(c, a.checkId, a.leaveOut ?? null);
   if (!a.followsLines && a.amountCents > due) throw new OverAmountDue(due, a.amountCents);
   const r = await c.query<{ id: string }>(
     `insert into payment_allocations (venue_id, payment_id, check_id, amount_cents, kind, state, follows_lines,

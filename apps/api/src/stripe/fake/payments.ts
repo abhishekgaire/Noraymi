@@ -817,6 +817,101 @@ fakeRouteSets.push((fake) => {
   });
 
   // Stripe's test helper: a card tapped on a simulated reader.
+  /**
+   * SetupIntents for a card tapped for a room (M6-13), as Stripe runs them on a reader: created
+   * `requires_payment_method`; `process_setup_intent` puts the reader to work (it needs
+   * `allow_redisplay`); a tap succeeds it with a `card_present` PaymentMethod and a SetupAttempt whose
+   * `generated_card` is the reusable card on the Customer; nothing is charged.
+   */
+  fake.route("POST", "/v1/setup_intents", (req) => {
+    const account = needAccount(req.account);
+    return {
+      body: fake.put({
+        id: fakeId("seti"),
+        object: "setup_intent",
+        _account: account,
+        status: "requires_payment_method",
+        customer: req.body["customer"] ?? null,
+        payment_method_types: req.body["payment_method_types"] ?? ["card"],
+        usage: req.body["usage"] ?? "off_session",
+        payment_method: null,
+        latest_attempt: null,
+        last_setup_error: null,
+        metadata: req.body["metadata"] ?? {},
+        created: Math.floor(Date.now() / 1000),
+      }),
+    };
+  });
+  fake.route("GET", "/v1/setup_intents/:id", (req) => {
+    const si = fake.get(req.params["id"]!, needAccount(req.account), "setup_intent");
+    const expand = req.query["expand"];
+    const wanted = Array.isArray(expand)
+      ? expand.map(String)
+      : expand
+        ? Object.values(expand as object).map(String)
+        : [];
+    const attempt = si["latest_attempt"];
+    return {
+      body:
+        typeof attempt === "string" && wanted.includes("latest_attempt")
+          ? { ...si, latest_attempt: fake.objects.get(attempt) ?? attempt }
+          : si,
+    };
+  });
+  fake.route("POST", "/v1/setup_intents/:id/cancel", (req) => {
+    const si = fake.get(req.params["id"]!, needAccount(req.account), "setup_intent");
+    if (si["status"] === "succeeded")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "setup_intent_unexpected_state",
+        "You cannot cancel this SetupIntent because it has a status of succeeded.",
+      );
+    si["status"] = "canceled";
+    return { body: si };
+  });
+  fake.route("POST", "/v1/terminal/readers/:id/process_setup_intent", (req) => {
+    const account = needAccount(req.account);
+    const reader = fake.get(req.params["id"]!, account, "terminal.reader");
+    if (reader["status"] !== "online")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_offline",
+        "Reader is currently offline.",
+      );
+    const action = reader["action"] as { status?: string } | null;
+    if (action?.status === "in_progress")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_busy",
+        "Reader is currently busy.",
+      );
+    if (!req.body["allow_redisplay"])
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "parameter_missing",
+        "Missing required param: allow_redisplay.",
+      );
+    const si = fake.get(String(req.body["setup_intent"]), account, "setup_intent");
+    if (si["status"] !== "requires_payment_method")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "setup_intent_unexpected_state",
+        `SetupIntent is ${String(si["status"])}`,
+      );
+    reader["action"] = {
+      type: "process_setup_intent",
+      status: "in_progress",
+      failure_code: null,
+      process_setup_intent: { setup_intent: si["id"], generated_card: null },
+    };
+    return { body: reader };
+  });
+
   fake.route("POST", "/v1/test_helpers/terminal/readers/:id/present_payment_method", (req) => {
     const account = needAccount(req.account);
     const reader = fake.get(req.params["id"]!, account, "terminal.reader");
@@ -828,6 +923,70 @@ fakeRouteSets.push((fake) => {
         "terminal_reader_action_not_in_progress",
         "No action in progress.",
       );
+    // A card tapped to be saved for a room (M6-13): the SetupIntent succeeds, nothing is charged.
+    if (action["type"] === "process_setup_intent") {
+      const process = action["process_setup_intent"] as Record<string, unknown>;
+      const si = fake.get(String(process["setup_intent"]), account, "setup_intent");
+      const number = String(
+        (req.body["card_present"] as { number?: string } | undefined)?.number ?? "4242424242424242",
+      );
+      if (number === DECLINE) {
+        si["last_setup_error"] = {
+          code: "card_declined",
+          decline_code: "generic_decline",
+          message: "Your card was declined.",
+        };
+        action["status"] = "failed";
+        action["failure_code"] = "card_declined";
+        fake.emit("readers", "terminal.reader.action_failed", reader, account);
+        fake.emit("connect", "setup_intent.setup_failed", si, account);
+        return { body: reader };
+      }
+      const present = fake.put({
+        id: fakeId("pm"),
+        object: "payment_method",
+        _account: account,
+        type: "card_present",
+        card_present: {
+          brand: brandOf(number),
+          last4: number.slice(-4),
+          fingerprint: fakeFingerprint(number),
+        },
+      });
+      const generated = fake.put({
+        id: fakeId("pm"),
+        object: "payment_method",
+        _account: account,
+        type: "card",
+        card: { brand: brandOf(number), last4: number.slice(-4) },
+        customer: si["customer"] ?? null,
+      });
+      const attempt = fake.put({
+        id: fakeId("setatt"),
+        object: "setup_attempt",
+        _account: account,
+        setup_intent: si["id"],
+        status: "succeeded",
+        payment_method: present["id"],
+        payment_method_details: {
+          type: "card_present",
+          card_present: {
+            brand: brandOf(number),
+            last4: number.slice(-4),
+            generated_card: generated["id"],
+          },
+        },
+      });
+      si["status"] = "succeeded";
+      si["payment_method"] = present["id"];
+      si["latest_attempt"] = attempt["id"];
+      si["last_setup_error"] = null;
+      process["generated_card"] = generated["id"];
+      action["status"] = "succeeded";
+      fake.emit("readers", "terminal.reader.action_succeeded", reader, account);
+      fake.emit("connect", "setup_intent.succeeded", si, account);
+      return { body: reader };
+    }
     const piId = (
       (action["process_payment_intent"] ?? action["collect_payment_method"]) as {
         payment_intent: string;

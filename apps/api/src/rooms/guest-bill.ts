@@ -1,4 +1,4 @@
-import { amountDue, checkById, latestRevision, type Queryable } from "@west4/db";
+import { checkDue, checkById, latestRevision, type Queryable } from "@west4/db";
 import { payShareOn } from "../payments/pay-my-share.js";
 
 /**
@@ -139,7 +139,7 @@ export async function guestBill(
     deposit_cents: sum(deposits),
     // What's left to pay, counting only money that landed: an amount held while a guest confirms
     // (card on file) or a payment page is open still shows as due.
-    amount_due_cents: (await amountDue(c, checkId)) + held,
+    amount_due_cents: (await checkDue(c, venueId, checkId)) + held,
     payments: paid.map(paymentLine),
     card_on_file: onFile ? { brand: onFile.card_brand!, last4: onFile.card_last4! } : null,
     pay_share: shareOn ? { shares } : null,

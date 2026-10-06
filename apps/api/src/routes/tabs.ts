@@ -20,6 +20,8 @@ import {
   enqueueRun,
   quiet,
   runNow,
+  NoSuchReader,
+  ReaderQuiet,
   type PaymentDeps,
 } from "../payments/run.js";
 import { confirmCollected } from "../payments/surcharge.js";
@@ -39,6 +41,15 @@ import { enterSlipTip } from "../tabs/tip.js";
 import { splitTab } from "../tabs/split.js";
 import { declinedOnTab } from "../tabs/pay.js";
 import { reopenTab } from "../tabs/saved-card.js";
+import { moveLine, moveTabToRoom, type MoveLineAnswer } from "../tabs/move.js";
+import {
+  cancelRoomCard,
+  cardView,
+  checkRoomCard,
+  driveRoomCard,
+  roomCardConsent,
+  startRoomCard,
+} from "../rooms/room-card.js";
 import { screenState } from "../payments/machine.js";
 import {
   nameOpening,
@@ -666,4 +677,172 @@ export function tabRoutes(
       });
     },
   );
+
+  // Move tab to a room (M6-13): every line moves as a transfer, the tab closes as "Moved to Room 9", and
+  // its hold is canceled once the room has a payment method. Alcohol can't move onto a cut-off room.
+  const moveBody = z.object({ session_id: z.string().uuid() }).strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/move-to-room",
+    { config: closeRoute },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const parsed = moveBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { session_id }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return inVenueRefusing(request, async (c) => {
+        const moved = await moveTabToRoom(c, venueId, {
+          tabId,
+          sessionId: parsed.data.session_id,
+          userId: p.userId,
+          now,
+        });
+        const tab = (await listTabs(c, venueId, now, { membershipId: null })).find(
+          (x) => x.id === tabId,
+        );
+        return { ...moved, tab: tab ?? null };
+      });
+    },
+  );
+
+  // The fix panel's Move (M6-13): a sent line onto another open tab, no approval, logged on both tabs;
+  // alcohol can't move onto a cut-off tab, and the receiving tab's hold is checked like a send.
+  const lineMoveBody = z
+    .object({ tab_id: z.string().uuid(), qty: z.number().int().min(1).max(100).optional() })
+    .strict();
+  app.post<{ Params: { venueId: string; checkId: string; lineId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/lines/:lineId/move",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = lineMoveBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { tab_id, qty? }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const lineId = Number(request.params.lineId);
+      if (!Number.isSafeInteger(lineId) || lineId <= 0 || !uuid.test(request.params.checkId))
+        throw new ApiError("not_found", "no such line on this check");
+      const venueId = request.venueId!;
+      const input = {
+        checkId: request.params.checkId,
+        lineId,
+        toTabId: parsed.data.tab_id,
+        qty: parsed.data.qty ?? null,
+        userId: p.userId,
+        deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+      };
+      let answer: MoveLineAnswer = await inVenueRefusing(request, (c) =>
+        moveLine(c, venueId, { ...input, now: options.clock.now() }),
+      );
+      if (answer.kind === "raise") {
+        await runNow(deps(), venueId, answer.paymentId, answer.attemptNo);
+        answer = await inVenueRefusing(request, (c) =>
+          moveLine(c, venueId, { ...input, now: options.clock.now(), raised: true }),
+        );
+      }
+      if (answer.kind === "approval") return reply.code(202).send(answer.pending);
+      if (answer.kind === "checking" || answer.kind === "raise")
+        throw new ApiError("payment_unknown", "Checking with Stripe · don't retry", {
+          details: { reason: "hold_checking", payment_id: answer.paymentId },
+        });
+      return reply.code(201).send({ status: "moved", line_id: answer.lineId });
+    },
+  );
+
+  // A card tapped for a room (M6-13): saved on the reader without charging (process_setup_intent),
+  // after the consent line is read out; it lets the holds of tabs moved into the room go.
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/room-card-consent",
+    { config: route({ principals: ["owner_manager", "staff"], module: "core" }) },
+    async (request) =>
+      request.inVenue((c) => roomCardConsent(c, request.venueId!, options.clock.now())),
+  );
+  const tapRoute = route({
+    principals: ["owner_manager", "staff"],
+    module: "core",
+    action: "payments.take",
+    idempotency: "required",
+  });
+  const tapBody = z
+    .object({ reader_id: z.string().uuid(), consent_text_version: z.string().uuid() })
+    .strict();
+  const checkParam = (k: string) => {
+    if (!uuid.test(k)) throw new ApiError("not_found", "no such check");
+    return k;
+  };
+  const latestTap = (request: FastifyRequest, checkId: string) =>
+    request.inVenue(async (c) => {
+      const r = await c.query<{ id: string }>(
+        `select id from check_cards where venue_id = $1 and check_id = $2
+          order by started_at desc, id desc limit 1`,
+        [request.venueId, checkId],
+      );
+      if (!r.rows[0]) throw new ApiError("not_found", "no card tap for this check");
+      return r.rows[0].id;
+    });
+  app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/card-tap",
+    { config: tapRoute },
+    async (request, reply) => {
+      const checkId = checkParam(request.params.checkId);
+      const parsed = tapBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { reader_id, consent_text_version }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const venueId = request.venueId!;
+      let row;
+      try {
+        row = await request.inVenue((c) =>
+          startRoomCard(c, venueId, {
+            checkId,
+            readerDeviceId: parsed.data.reader_id,
+            consentVersionId: parsed.data.consent_text_version,
+            userId: p.userId,
+            now: options.clock.now(),
+          }),
+        );
+      } catch (e) {
+        if (e instanceof NoSuchReader) throw new ApiError("not_found", "no such reader");
+        if (e instanceof ReaderQuiet)
+          throw new ApiError("reader_offline", "the reader is offline: use the other reader", {
+            details: { reader_id: parsed.data.reader_id },
+          });
+        throw e;
+      }
+      const driven = await driveRoomCard(deps(), venueId, row.id);
+      return reply.code(201).send(cardView(driven ?? row));
+    },
+  );
+  for (const step of ["check-status", "cancel"] as const)
+    app.post<{ Params: { venueId: string; checkId: string } }>(
+      `/v1/venues/:venueId/checks/:checkId/card-tap/${step}`,
+      {
+        config: route({
+          principals: ["owner_manager", "staff"],
+          module: "core",
+          action: "payments.take",
+          idempotency: "optional",
+        }),
+      },
+      async (request) => {
+        const checkId = checkParam(request.params.checkId);
+        const venueId = request.venueId!;
+        const id = await latestTap(request, checkId);
+        const row =
+          step === "cancel"
+            ? await cancelRoomCard(deps(), venueId, id)
+            : await checkRoomCard(deps(), venueId, id);
+        if (!row) throw new ApiError("not_found", "no card tap for this check");
+        return cardView(row);
+      },
+    );
 }

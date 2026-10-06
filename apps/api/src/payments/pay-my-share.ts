@@ -1,6 +1,6 @@
 import {
   allocate,
-  amountDue,
+  checkDue,
   insertPayment,
   openSplit,
   readSetting,
@@ -191,7 +191,7 @@ export async function startMyShare(
       };
   }
   // Never more than what's still due: if others paid more meanwhile, this share is what's left.
-  const amount = Math.min(base.share_cents, await amountDue(c, input.checkId));
+  const amount = Math.min(base.share_cents, await checkDue(c, venueId, input.checkId));
   if (amount <= 0) return { ...base, amount_cents: 0, state: "open", payment_id: null };
   const paymentId = await insertPayment(c, venueId, {
     method: "card_online",

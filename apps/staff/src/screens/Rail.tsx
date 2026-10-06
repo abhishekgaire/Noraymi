@@ -21,6 +21,8 @@ import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { TapPayment } from "./TapPayment.js";
 import { CashPanel } from "./CashPanel.js";
 import { RefundSheet } from "./RefundSheet.js";
+import { FixPanel, type PendingFix } from "./FixPanel.js";
+import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -98,6 +100,8 @@ interface Tab {
   } | null;
   /** Closed tonight, and can be reopened until the night closes. */
   readonly reopenable: boolean;
+  /** Moved into a room (M6-13): "Moved to Room 9". */
+  readonly moved_to: { readonly room: string } | null;
 }
 interface RoomTile {
   readonly room_id: string;
@@ -135,6 +139,20 @@ interface CheckLine {
   readonly qty: number;
   readonly description: string;
   readonly amount_cents: number;
+  readonly reverses_id: number | null;
+  readonly alcohol?: boolean;
+  /** A moved line names the other side (M6-13): "Moved from Jess P.'s bar tab", "Moved to Room 9". */
+  readonly moved?: {
+    readonly from_tab?: string | null;
+    readonly from_room?: string | null;
+    readonly to_tab?: string | null;
+    readonly to_room?: string | null;
+  };
+}
+interface MovedHold {
+  readonly tab_id: string;
+  readonly name: string;
+  readonly cents: number;
 }
 type Picked = { kind: "tab"; id: string } | { kind: "room"; id: string } | { kind: "quick" } | null;
 
@@ -177,12 +195,15 @@ export function Rail() {
   const [share, setShare] = useState<Share | null>(null);
   /** Refund from check (M4-22) for a tab closed tonight: its check (M6-12). */
   const [refunding, setRefunding] = useState<string | null>(null);
+  const [movingTab, setMovingTab] = useState<string | null>(null);
+  const [holds, setHolds] = useState<readonly MovedHold[]>([]);
+  const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
   // The drinks panel goes away while a tab is closed, split or refunded, and comes back fresh: the last tap
   // on the grid must not ring again when it does (M6-12).
-  useEffect(() => setRingRequest(null), [closingTab, splitting, refunding]);
+  useEffect(() => setRingRequest(null), [closingTab, splitting, refunding, movingTab]);
   const [draftRefresh, setDraftRefresh] = useState(0);
   const [leftOut, setLeftOut] = useState<string | null>(null);
   const [eightySix, setEightySix] = useState(false);
@@ -306,12 +327,22 @@ export function Rail() {
         ? rooms.find((r) => r.room_id === picked.id)?.session?.check_id
         : undefined;
   const loadLines = useCallback(async () => {
-    if (!checkId) return setLines([]);
+    if (!checkId) {
+      setHolds([]);
+      return setLines([]);
+    }
     try {
-      const v = await api<{ lines: CheckLine[] }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
+      const v = await api<{
+        lines: CheckLine[];
+        holds?: MovedHold[];
+        pending_fixes?: PendingFix[];
+      }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
       setLines(v.lines);
+      setHolds(v.holds ?? []);
+      setPendingFixes(v.pending_fixes ?? []);
     } catch {
       setLines([]);
+      setHolds([]);
     }
   }, [venueId, checkId]);
   useEffect(() => void loadLines(), [loadLines, tabs, rooms]);
@@ -360,6 +391,7 @@ export function Rail() {
     setSplitting(null);
     setShare(null);
     setRefunding(null);
+    setMovingTab(null);
     setPicked(next);
   };
   /** Reopen (M6-12): a tab closed tonight comes back, with what was paid kept as paid. */
@@ -708,6 +740,11 @@ export function Rail() {
                         {x.name}
                       </span>
                       <span className="amount">{money((x.totals?.total_cents ?? 0) as never)}</span>
+                      {x.moved_to && (
+                        <span className="small muted">
+                          {t("moveTab.moved", { room: x.moved_to.room })}
+                        </span>
+                      )}
                       {/* Closed tonight (M6-12): Reopen, and managers refund (Refund from check). */}
                       {x.reopenable && (
                         <span className="actions">
@@ -932,6 +969,13 @@ export function Rail() {
                       {t("rail.ids", { n: room.session.ids_checked, of: room.session.party_size })}
                     </span>
                   )}
+                  {/* A bar tab moved in with no card on the room yet (M6-13): its hold, with its name. */}
+                  {room &&
+                    holds.map((h) => (
+                      <span key={h.tab_id} className="chip">
+                        {t("moveTab.roomHold", { amount: money(h.cents as never), name: h.name })}
+                      </span>
+                    ))}
                   {(tab?.cut_off || room?.session?.cut_off) && (
                     <span className="chip warn">{t("rail.badge.cutOff")}</span>
                   )}
@@ -947,6 +991,17 @@ export function Rail() {
                       <span data-guest-text>
                         {l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}
                       </span>
+                      {l.moved && (
+                        <span className="small muted moved">
+                          {l.moved.from_tab
+                            ? t("moveTab.movedFrom", { name: l.moved.from_tab })
+                            : l.moved.to_room
+                              ? t("moveTab.moved", { room: l.moved.to_room })
+                              : l.moved.to_tab
+                                ? t("moveTab.movedToTab", { name: l.moved.to_tab })
+                                : null}
+                        </span>
+                      )}
                       <span>{money(l.amount_cents as never)}</span>
                     </li>
                   ))}
@@ -983,6 +1038,19 @@ export function Rail() {
                       void load();
                     }}
                     onChanged={() => void load()}
+                  />
+                ) : tab && movingTab === tab.id ? (
+                  <MoveToRoom
+                    venueId={venueId}
+                    tabId={tab.id}
+                    rooms={rooms}
+                    onClose={() => setMovingTab(null)}
+                    onMoved={(message, roomId) => {
+                      // The room it moved into, with the moved drinks on its check.
+                      pick({ kind: "room", id: roomId });
+                      setNotice(message);
+                      void load();
+                    }}
                   />
                 ) : tab && (tab.split || splitting === tab.id) && tab.state === "open" ? (
                   <>
@@ -1058,6 +1126,15 @@ export function Rail() {
                           {t("split.title")}
                         </button>
                       )}
+                      {tab.state === "open" && !tab.split && tab.paid_cents === 0 && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setMovingTab(tab.id)}
+                        >
+                          {t("moveTab.button")}
+                        </button>
+                      )}
                       {/* A reopened tab with no hold (M6-12): pay buttons only while something is due. */}
                       {((tab.hold && (tab.state === "open" || tab.state === "tipping")) ||
                         (tab.no_hold &&
@@ -1078,6 +1155,34 @@ export function Rail() {
                   <p className="small" role="status">
                     {leftOut}
                   </p>
+                )}
+                {/* Tap a sent drink for Void, Comp or Move (M6-13: Move onto another open tab). */}
+                {tab &&
+                  tab.state === "open" &&
+                  closingTab !== tab.id &&
+                  movingTab !== tab.id &&
+                  !tab.split &&
+                  splitting !== tab.id && (
+                    <FixPanel
+                      key={`fix-${tab.check_id}`}
+                      venueId={venueId}
+                      checkId={tab.check_id}
+                      lines={lines}
+                      pending={pendingFixes}
+                      moveTabs={openTabs
+                        .filter((x) => x.id !== tab.id && x.state === "open")
+                        .map((x) => ({ id: x.id, name: x.name, cut_off: x.cut_off }))}
+                      onDone={() => void load()}
+                    />
+                  )}
+                {room?.session?.check_id && holds.length > 0 && (
+                  <RoomCardTap
+                    key={`card-${room.session.check_id}`}
+                    venueId={venueId}
+                    checkId={room.session.check_id}
+                    room={room.name}
+                    onSaved={() => void load()}
+                  />
                 )}
                 {checkId && closingTab !== tab?.id && !tab?.split && splitting !== tab?.id && (
                   <AddDrinks

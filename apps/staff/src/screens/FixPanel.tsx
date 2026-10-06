@@ -18,6 +18,14 @@ export interface FixLine {
   readonly qty: number;
   readonly amount_cents: number;
   readonly reverses_id?: number | null;
+  /** Whether it's alcohol, so Move greys out cut-off tabs for it (M6-13). */
+  readonly alcohol?: boolean;
+}
+/** Another open tab a line can move onto (the bar POS, M6-13). */
+export interface MoveTarget {
+  readonly id: string;
+  readonly name: string;
+  readonly cut_off: { readonly by: string | null } | null;
 }
 export interface PendingFix {
   readonly line_id: number;
@@ -25,20 +33,23 @@ export interface PendingFix {
   readonly waiting_for: string;
 }
 
-const FIXABLE = new Set(["item", "song", "damage", "fee"]);
+const FIXABLE = new Set(["item", "song", "damage", "fee", "transfer_in"]);
 
 export function FixPanel(props: {
   venueId: string;
   checkId: string;
   lines: readonly FixLine[];
   pending: readonly PendingFix[];
+  /** The bar POS: Move a line onto another open tab, no approval (M6-13). */
+  moveTabs?: readonly MoveTarget[];
   onDone: () => void;
 }) {
   const { t, money } = useT();
   const { subscribe } = useEvents();
   const [leftCents, setLeftCents] = useState<number | null>(null);
   const [open, setOpen] = useState<FixLine | null>(null);
-  const [kind, setKind] = useState<"comp" | "void">("comp");
+  const [kind, setKind] = useState<"comp" | "void" | "move">("comp");
+  const [target, setTarget] = useState<string | null>(null);
   const [made, setMade] = useState(true);
   const [qty, setQty] = useState(1);
   const [reason, setReason] = useState("");
@@ -78,6 +89,7 @@ export function FixPanel(props: {
     e.preventDefault();
     if (!open) return;
     setError(null);
+    if (kind === "move") return move();
     try {
       const answer = await api<{ status: string; waiting_for?: { name: string } }>(
         "POST",
@@ -92,6 +104,29 @@ export function FixPanel(props: {
       setOpen(null);
       setReason("");
       await loadLeft();
+      props.onDone();
+    } catch (err) {
+      setError((err as ApiCallError)?.message ?? t("fix.failed"));
+    }
+  };
+
+  // Move (M6-13): onto another open tab, no approval; both tabs log it.
+  const move = async () => {
+    if (!open || !target) return;
+    const to = props.moveTabs?.find((x) => x.id === target);
+    try {
+      const answer = await api<{ status: string; waiting_for?: { name: string } }>(
+        "POST",
+        `/v1/venues/${props.venueId}/checks/${props.checkId}/lines/${open.id}/move`,
+        { tab_id: target, ...(open.qty > 1 ? { qty } : {}) },
+      );
+      setMessage(
+        answer.status === "moved"
+          ? t("moveTab.movedToTab", { name: to?.name ?? "" })
+          : t("fix.waiting", { name: answer.waiting_for?.name ?? "" }),
+      );
+      setOpen(null);
+      setTarget(null);
       props.onDone();
     } catch (err) {
       setError((err as ApiCallError)?.message ?? t("fix.failed"));
@@ -127,6 +162,7 @@ export function FixPanel(props: {
                   onClick={() => {
                     setOpen(open?.id === l.id ? null : l);
                     setKind("comp");
+                    setTarget(null);
                     setMade(true);
                     setQty(l.qty - reversed(l.id));
                     setReason("");
@@ -161,18 +197,65 @@ export function FixPanel(props: {
               />
               <span>{t("fix.void")}</span>
             </label>
+            {props.moveTabs && (
+              <label className="switch-line">
+                <input
+                  type="radio"
+                  name="fix-kind"
+                  checked={kind === "move"}
+                  onChange={() => setKind("move")}
+                />
+                <span>{t("fix.move")}</span>
+              </label>
+            )}
           </fieldset>
-          <fieldset className="day-picks">
-            <legend>{t("fix.made")}</legend>
-            <label className="switch-line">
-              <input type="radio" name="fix-made" checked={made} onChange={() => setMade(true)} />
-              <span>{t("fix.made.yes")}</span>
-            </label>
-            <label className="switch-line">
-              <input type="radio" name="fix-made" checked={!made} onChange={() => setMade(false)} />
-              <span>{t("fix.made.no")}</span>
-            </label>
-          </fieldset>
+          {kind === "move" && props.moveTabs && (
+            <fieldset className="day-picks move-targets">
+              <legend>{t("fix.move.to")}</legend>
+              {props.moveTabs.length === 0 && <p className="muted">{t("fix.move.none")}</p>}
+              {props.moveTabs.map((x) => {
+                // A cut-off tab is greyed out for alcohol, with the reason (Rail note 8).
+                const refused = !!(open.alcohol && x.cut_off);
+                return (
+                  <label key={x.id} className={refused ? "switch-line muted" : "switch-line"}>
+                    <input
+                      type="radio"
+                      name="fix-target"
+                      disabled={refused}
+                      checked={target === x.id}
+                      onChange={() => setTarget(x.id)}
+                    />
+                    <span data-guest-text>{x.name}</span>
+                    {refused && (
+                      <span className="small">
+                        {x.cut_off?.by
+                          ? t("fix.move.cutOff", { name: x.cut_off.by })
+                          : t("fix.move.cutOffNoName")}
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+            </fieldset>
+          )}
+          {kind !== "move" && (
+            <fieldset className="day-picks">
+              <legend>{t("fix.made")}</legend>
+              <label className="switch-line">
+                <input type="radio" name="fix-made" checked={made} onChange={() => setMade(true)} />
+                <span>{t("fix.made.yes")}</span>
+              </label>
+              <label className="switch-line">
+                <input
+                  type="radio"
+                  name="fix-made"
+                  checked={!made}
+                  onChange={() => setMade(false)}
+                />
+                <span>{t("fix.made.no")}</span>
+              </label>
+            </fieldset>
+          )}
           <div className="invite-fields">
             {open.qty > 1 && (
               <label>
@@ -186,23 +269,33 @@ export function FixPanel(props: {
                 />
               </label>
             )}
-            <label>
-              <span>{t("fix.reason")}</span>
-              <input
-                value={reason}
-                required
-                maxLength={300}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </label>
+            {kind !== "move" && (
+              <label>
+                <span>{t("fix.reason")}</span>
+                <input
+                  value={reason}
+                  required
+                  maxLength={300}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
+            )}
           </div>
           {error && (
             <p className="error" role="alert">
               {error}
             </p>
           )}
-          <button type="submit" className="primary" disabled={!reason.trim()}>
-            {kind === "void" ? t("fix.void.send") : t("fix.comp.send")}
+          <button
+            type="submit"
+            className="primary"
+            disabled={kind === "move" ? !target : !reason.trim()}
+          >
+            {kind === "move"
+              ? t("fix.move.send")
+              : kind === "void"
+                ? t("fix.void.send")
+                : t("fix.comp.send")}
           </button>
         </form>
       )}

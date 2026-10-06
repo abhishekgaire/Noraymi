@@ -81,6 +81,8 @@ export interface LineInput {
   readonly sourceId?: string | null;
   /** The photo a damage line needs (M2-21). */
   readonly fileId?: string | null;
+  /** A moved line (M6-13): the check on the other side of the move. */
+  readonly movedCheckId?: string | null;
 }
 
 /** Adds a line; the check's version goes up with it. Returns the line's id. */
@@ -92,8 +94,8 @@ export async function addCheckLine(
 ): Promise<number> {
   const r = await c.query<{ id: string }>(
     `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-       business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by, file_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16, $17)
+       business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by, file_id, moved_check_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16, $17, $18)
      returning id`,
     [
       venueId,
@@ -113,6 +115,7 @@ export async function addCheckLine(
       line.sourceId ?? null,
       line.approvedBy ?? null,
       line.fileId ?? null,
+      line.movedCheckId ?? null,
     ],
   );
   await c.query("update checks set version = version + 1 where venue_id = $1 and id = $2", [

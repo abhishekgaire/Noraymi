@@ -4,6 +4,7 @@ import { checkNow } from "./run.js";
 import { confirmCollected } from "./surcharge.js";
 import { checkClose } from "../tabs/close.js";
 import { checkSavedCard, confirmOfStep } from "../tabs/saved-card.js";
+import { checkRoomCard } from "../rooms/room-card.js";
 
 /**
  * Payment events (M4-05; Stripe setup 6): each finds our payment by the
@@ -39,6 +40,25 @@ const handlePayment: StripeEventHandler = async (ctx) => {
   const data = ctx.event.payload["data"] as { object?: Record<string, unknown> } | undefined;
   const piId = intentOf(data?.object, ctx.event.type);
   if (!piId) {
+    // A card tapped for a room (M6-13): the SetupIntent is read again through its tap.
+    const setupIntent = (
+      data?.object?.["action"] as { process_setup_intent?: { setup_intent?: string } } | undefined
+    )?.process_setup_intent?.setup_intent;
+    if (setupIntent) {
+      const tap = await ctx.inVenue((c) =>
+        c.query<{ id: string }>(
+          "select id from check_cards where venue_id = $1 and stripe_setup_intent_id = $2",
+          [ctx.venueId, setupIntent],
+        ),
+      );
+      if (tap.rows[0])
+        await checkRoomCard(
+          { pool: ctx.pool, stripe: ctx.stripe, clock: { now: () => ctx.now } },
+          ctx.venueId,
+          tap.rows[0].id,
+        );
+      return;
+    }
     // A question on the bar reader at a tab's close (M6-08): its answer is read through the closing.
     const step = (
       data?.object?.["action"] as

@@ -110,8 +110,10 @@ export async function reopenTab(
     card_fingerprint: string | null;
     business_date: string;
     hold_status: string | null;
+    moved: boolean;
   }>(
-    `select t.state, t.check_id, t.card_fingerprint, k.business_date::text, p.status as hold_status
+    `select t.state, t.check_id, t.card_fingerprint, k.business_date::text, p.status as hold_status,
+            t.moved_to_check_id is not null as moved
        from tabs t join checks k on k.venue_id = t.venue_id and k.id = t.check_id
        left join payments p on p.venue_id = t.venue_id and p.id = t.payment_id
       where t.venue_id = $1 and t.id = $2 for update of t`,
@@ -122,6 +124,11 @@ export async function reopenTab(
   if (!["captured", "walkout_captured", "closed"].includes(tab.state))
     throw new ApiError("invalid_request", `a ${tab.state} tab isn't reopened`, {
       details: { reason: "tab_state", state: tab.state },
+    });
+  // A tab moved into a room has nothing left on it (M6-13): its drinks are the room's now.
+  if (tab.moved)
+    throw new ApiError("invalid_request", "this tab moved into a room", {
+      details: { reason: "moved_to_room" },
     });
   // Until the night closes: only tonight's tabs come back.
   const venue = await venueClock(c, venueId);

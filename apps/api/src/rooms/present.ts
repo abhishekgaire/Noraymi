@@ -1,5 +1,6 @@
 import { tabHoldOf } from "../payments/splits.js";
-import { amountDue, emitEvent, insertCheck, type Queryable } from "@west4/db";
+import { amountDue, amountDueBesideHolds, emitEvent, insertCheck, type Queryable } from "@west4/db";
+import { movedHolds, releaseMovedHolds } from "../tabs/move.js";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { finalizeCheck } from "./finalize.js";
@@ -156,11 +157,11 @@ export async function settleCheck(
   const check = await lockedCheck(c, venueId, checkId);
   // A bar tab's standing hold only guarantees what's left (M6-10): a split share paid beside it leaves the
   // check partly paid until the hold is captured.
-  const due = await amountDue(
-    c,
-    checkId,
-    (await tabHoldOf(c, venueId, checkId))?.paymentId ?? null,
-  );
+  // A room holding the holds of tabs moved into it (M6-13) counts what's paid beside them.
+  const moved = (await movedHolds(c, venueId, checkId)).length > 0;
+  const due = moved
+    ? await amountDueBesideHolds(c, checkId)
+    : await amountDue(c, checkId, (await tabHoldOf(c, venueId, checkId))?.paymentId ?? null);
   if (!["finalized", "partly_paid", "reopened", "open"].includes(check.status))
     return { status: check.status, due_cents: due, room: null };
   const status = due === 0 ? "paid" : "partly_paid";
@@ -170,6 +171,8 @@ export async function settleCheck(
         where venue_id = $1 and id = $2`,
       [venueId, checkId, status, now.toString()],
     );
+  // Settled another way, the moved holds are canceled (Money rules 12).
+  if (status === "paid" && moved) await releaseMovedHolds(c, venueId, checkId, now);
   await announce(c, venueId, checkId, check.room_session_id);
   if (status !== "paid" || !check.room_session_id) return { status, due_cents: due, room: null };
   return {

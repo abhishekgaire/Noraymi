@@ -342,3 +342,42 @@ describe("minimum spend (M4-27)", () => {
     ).toBe(50000);
   });
 });
+
+describe("moved lines (M6-13; Money rules 9 and 12)", () => {
+  const nyTax = salesTaxRule(newYorkCountyTaxed);
+  const room9 = [
+    { kind: "room_time", taxCategory: "room_time" as const, cents: 32200 },
+    { kind: "item", taxCategory: "drink" as const, cents: 15800 },
+  ];
+  const jess = [
+    { kind: "transfer_in", taxCategory: "drink" as const, cents: 1800 },
+    { kind: "transfer_in", taxCategory: "drink" as const, cents: 1200 },
+  ];
+  it("drinks moved in from Jess P.'s tab are Room 9's items: taxed and carrying its 20% gratuity", () => {
+    const t = checkTotals([...room9, ...jess], {
+      tax: nyTax,
+      gratuityPct: 20,
+      depositCents: 12000,
+    });
+    expect(t).toMatchObject({
+      subtotalCents: 51000,
+      taxCents: 4526,
+      gratuityBaseCents: 51000,
+      gratuityCents: 10200,
+      totalCents: 65726,
+      leftToPayCents: 53726,
+    });
+  });
+  it("the tab they left nets to $0.00: no tax, and no gratuity on a bar tab", () => {
+    const t = checkTotals(
+      [
+        { kind: "item", taxCategory: "drink", cents: 1800 },
+        { kind: "item", taxCategory: "drink", cents: 1200 },
+        { kind: "transfer_out", taxCategory: "drink", cents: -1800 },
+        { kind: "transfer_out", taxCategory: "drink", cents: -1200 },
+      ],
+      { tax: nyTax, gratuityPct: null },
+    );
+    expect(t).toMatchObject({ subtotalCents: 0, taxCents: 0, gratuityCents: 0, totalCents: 0 });
+  });
+});

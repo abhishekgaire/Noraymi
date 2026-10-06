@@ -29,6 +29,7 @@ import { checkView } from "../rooms/checks.js";
 import type { IntentObservation } from "../stripe/payments.js";
 import { openAttempt } from "../payments/state.js";
 import { enqueueRun } from "../payments/run.js";
+import { approvedLineMove } from "./move.js";
 
 /**
  * A bar tab's growing hold (M6-07; Payment flows · Bar tab with a growing
@@ -200,16 +201,13 @@ export async function sendRound(
         },
       };
   }
-  // A raise still being checked with Stripe: nothing more is sent until it's known.
-  const last = await latestAttempt(c, venueId, tab.payment_id!);
-  if (last?.action === "increment" && openAttempt(last.state))
-    return { kind: "checking", paymentId: tab.payment_id! };
-
-  await c.query("savepoint hold_check");
-  const order = await placeStaffOrder(c, venueId, { ...input, keepDraft: true });
-  if (tab.hold_declined_at) {
+  const step = await withinHold(c, venueId, tab, card, input, () =>
+    placeStaffOrder(c, venueId, { ...input, keepDraft: true }),
+  );
+  if (step.kind === "raise" || step.kind === "checking") return step;
+  const order = step.value;
+  if (step.kind === "declined") {
     // Hold raise declined: the round waits for a manager's OK, and leaves the draft with the request.
-    await c.query("rollback to savepoint hold_check");
     const pending = await requestApproval(c, venueId, {
       kind: "over_hold",
       targetKind: "tab",
@@ -249,14 +247,53 @@ export async function sendRound(
     await emitEvent(c, { venueId, type: "tab.updated", entityId: tab.tab_id });
     return { kind: "approval", pending };
   }
+  // The round is placed: the draft empties as any send does.
+  await clearSent(c, venueId, input);
+  await flagIfOver(c, venueId, tab, input.now);
+  return { kind: "placed", order };
+}
+
+export type HoldStep<T> =
+  | { readonly kind: "fits"; readonly value: T }
+  | { readonly kind: "declined"; readonly value: T }
+  | { readonly kind: "raise"; readonly paymentId: string; readonly attemptNo: number }
+  | { readonly kind: "checking"; readonly paymentId: string };
+
+/**
+ * The hold check every change that adds to a tab runs (a round sent, M6-07; a line moved onto it, M6-13;
+ * Money rules 12): the change is made inside a savepoint to see what the tab would need held afterwards.
+ *  - it fits: it stays (`fits`);
+ *  - the tab's raise was declined: it's rolled back (`declined`, with what it would have been), for the
+ *    caller to send to a manager;
+ *  - the card can grow: it's rolled back and an `increment` attempt is written (`raise`), run by the
+ *    caller outside the transaction before trying again with `raised`;
+ *  - a raise is still being checked with Stripe: nothing is tried (`checking`);
+ *  - the card can't grow: `hold_cap`; a second raise in one go: `hold_not_raised`.
+ */
+export async function withinHold<T>(
+  c: Queryable,
+  venueId: string,
+  tab: TabHold,
+  card: HoldCard,
+  input: { readonly now: Temporal.Instant; readonly raised?: boolean },
+  apply: () => Promise<T>,
+): Promise<HoldStep<T>> {
+  // A raise still being checked with Stripe: nothing more is added until it's known.
+  const last = await latestAttempt(c, venueId, tab.payment_id!);
+  if (last?.action === "increment" && openAttempt(last.state))
+    return { kind: "checking", paymentId: tab.payment_id! };
+
+  await c.query("savepoint hold_check");
+  const value = await apply();
+  if (tab.hold_declined_at) {
+    await c.query("rollback to savepoint hold_check");
+    return { kind: "declined", value };
+  }
   const need = await tabNeed(c, venueId, tab, input.now);
   const decision = holdDecision(card, need.needCents);
   if (decision.kind === "fits") {
     await c.query("release savepoint hold_check");
-    // The round is placed: the draft empties as any send does.
-    await clearSent(c, venueId, input);
-    await flagIfOver(c, venueId, tab, input.now);
-    return { kind: "placed", order };
+    return { kind: "fits", value };
   }
   await c.query("rollback to savepoint hold_check");
   if (decision.kind === "capped")
@@ -421,6 +458,22 @@ executors.set("over_hold", async (c, venueId, approval, ctx) => {
   };
   const tab = await tabOfCheck(c, venueId, p.check_id, true);
   if (!tab || tab.state !== "open") throw new TargetGone();
+  // A line moved onto the tab (M6-13): checked again, then moved as the person who asked.
+  const move = (approval.payload as { move?: Parameters<typeof approvedLineMove>[2] }).move;
+  if (move) {
+    try {
+      await approvedLineMove(c, venueId, move, {
+        requestedBy: approval.requested_by,
+        approvedBy: ctx.approverId,
+        at: ctx.at,
+      });
+    } catch (e) {
+      if (e instanceof ApiError) throw new TargetGone();
+      throw e;
+    }
+    await flagIfOver(c, venueId, tab, ctx.at);
+    return;
+  }
   try {
     await placeStaffOrder(c, venueId, {
       checkId: p.check_id,

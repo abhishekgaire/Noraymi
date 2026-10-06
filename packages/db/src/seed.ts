@@ -900,6 +900,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "print_jobs",
+      // A card tapped for a room names its reader and its consent (M6-13).
+      "check_cards",
       // A saved-card question names its reader (M6-12).
       "tab_card_confirms",
       // A tab's close names its reader (M6-08).

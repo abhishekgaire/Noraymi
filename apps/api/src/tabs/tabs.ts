@@ -37,6 +37,7 @@ interface TabRow {
   closed_at: string | null;
   reopened_at: string | null;
   business_date: string;
+  moved_to: string | null;
 }
 
 export async function listTabs(
@@ -54,7 +55,11 @@ export async function listTabs(
               t.owner_id, split_part(o.name, ' ', 1) as owner_name, to_json(t.opened_at) #>> '{}' as opened_at,
               to_json(t.cut_off_at) #>> '{}' as cut_off_at, split_part(cb.name, ' ', 1) as cut_off_by_name,
               t.cut_off_reason, to_json(t.closed_at) #>> '{}' as closed_at,
-              to_json(t.reopened_at) #>> '{}' as reopened_at, k.business_date::text
+              to_json(t.reopened_at) #>> '{}' as reopened_at, k.business_date::text,
+              (select r.name from checks mk
+                 join room_sessions ms on ms.venue_id = mk.venue_id and ms.id = mk.room_session_id
+                 join rooms r on r.venue_id = ms.venue_id and r.id = ms.room_id
+                where mk.venue_id = t.venue_id and mk.id = t.moved_to_check_id) as moved_to
          from tabs t join checks k on k.venue_id = t.venue_id and k.id = t.check_id
          left join users o on o.id = t.owner_id
          left join users cb on cb.id = t.cut_off_by
@@ -154,8 +159,10 @@ export async function listTabs(
         saved_card: saved
           ? { brand: saved.brand, last4: saved.last4, payment_id: savedPayment }
           : null,
-        // Closed tonight comes back with Reopen (captured, walkout_captured or closed).
-        reopenable: TAB_SETTLED.includes(t.state as never),
+        // Closed tonight comes back with Reopen (captured, walkout_captured or closed), but a tab moved
+        // into a room has nothing left on it (M6-13): it reads "Moved to Room 9".
+        reopenable: TAB_SETTLED.includes(t.state as never) && !t.moved_to,
+        moved_to: t.moved_to ? { room: t.moved_to } : null,
         totals: view.totals,
         amount_due_cents: view.amount_due_cents,
         // A split kept on the server: its shares and their states, and "Partly paid · $16.33 of $32.66".

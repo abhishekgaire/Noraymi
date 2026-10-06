@@ -110,6 +110,9 @@ export function RoomScreen() {
   const [room, setRoom] = useState<BoardRoom | null>(null);
   const [lines, setLines] = useState<readonly Line[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
+  const [holds, setHolds] = useState<readonly { tab_id: string; name: string; cents: number }[]>(
+    [],
+  );
   const [checkStatus, setCheckStatus] = useState<string | null>(null);
   const [dueCents, setDueCents] = useState(0);
   const [cashTaken, setCashTaken] = useState<Taken | null>(null);
@@ -149,6 +152,7 @@ export function RoomScreen() {
             ? api<{
                 lines: Line[];
                 pending_fixes: PendingFix[];
+                holds?: { tab_id: string; name: string; cents: number }[];
                 amount_due_cents?: number;
                 split?: Split | null;
                 on_file?: OnFile | null;
@@ -167,6 +171,7 @@ export function RoomScreen() {
         setStartedAt(session.session.started_at);
         setLines(check.lines);
         setPendingFixes(check.pending_fixes ?? []);
+        setHolds(("holds" in check ? check.holds : null) ?? []);
         setCheckStatus(check.check?.status ?? null);
         setDueCents(check.amount_due_cents ?? 0);
         setSplit(("split" in check ? check.split : null) ?? null);
@@ -304,7 +309,10 @@ export function RoomScreen() {
     );
 
   const s = room.session;
-  const drinks = lines.filter((l) => l.kind === "item").reduce((sum, l) => sum + l.amount_cents, 0);
+  // Drinks moved in from a bar tab are the room's items too (M6-13).
+  const drinks = lines
+    .filter((l) => l.kind === "item" || l.kind === "transfer_in")
+    .reduce((sum, l) => sum + l.amount_cents, 0);
   const faultTarget: FaultTarget = { roomId: room.room_id, roomName: room.name, hasSession: !!s };
 
   return (
@@ -419,6 +427,12 @@ export function RoomScreen() {
                 {t("room.deposit", { amount: money(s.deposit_cents as never) })}
               </p>
             )}
+            {/* A bar tab moved in while the room has no card (M6-13): its hold, with its name. */}
+            {holds.map((h) => (
+              <p key={h.tab_id} className="small">
+                {t("moveTab.roomHold", { amount: money(h.cents as never), name: h.name })}
+              </p>
+            ))}
           </section>
           {presented && (
             <section className="presented" aria-label={presented.label}>

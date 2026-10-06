@@ -119,6 +119,7 @@ export {
   canMoveTab,
   isTabState,
   tabConsentLine,
+  roomCardConsentLine,
   tabNameFromCard,
 } from "./tabs.js";
 export type { TabState } from "./tabs.js";

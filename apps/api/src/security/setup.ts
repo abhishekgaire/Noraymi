@@ -290,6 +290,16 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/sessions/:sessionId/guests/:g/cut-off": { reason: "x" },
       "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/comp": { reason: "x", made: true },
       "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/void": { reason: "x", made: false },
+      "POST /v1/venues/:venueId/checks/:checkId/lines/:lineId/move": {
+        tab_id: "00000000-0000-4000-8000-000000000045",
+      },
+      "POST /v1/venues/:venueId/tabs/:t/move-to-room": {
+        session_id: "00000000-0000-4000-8000-000000000046",
+      },
+      "POST /v1/venues/:venueId/checks/:checkId/card-tap": {
+        reader_id: "00000000-0000-4000-8000-000000000044",
+        consent_text_version: "00000000-0000-4000-8000-000000000047",
+      },
       "POST /v1/venues/:venueId/print-host/jobs/:jobId": {
         printer_id: deviceB.rows[0]!.id,
         printed: true,

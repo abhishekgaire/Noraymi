@@ -4,6 +4,7 @@ import {
   TAB_STATES,
   canMoveTab,
   tabConsentLine,
+  roomCardConsentLine,
   tabNameFromCard,
   type TabState,
 } from "./tabs.js";
@@ -110,5 +111,13 @@ describe("the tab's name from a dip or swipe", () => {
     expect(tabNameFromCard(null)).toBeNull();
     expect(tabNameFromCard("  ")).toBeNull();
     expect(tabNameFromCard("/")).toBeNull();
+  });
+});
+
+describe("the room card consent line (M6-13)", () => {
+  it("says the card is saved, nothing is charged now, and when it would be", () => {
+    expect(roomCardConsentLine()).toBe(
+      "We'll save this card for your room's bill. Nothing is charged now. We charge it only for what's left unpaid when you leave.",
+    );
   });
 });
