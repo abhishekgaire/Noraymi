@@ -105,6 +105,24 @@ fakeRouteSets.push((fake) => {
     };
   });
 
+  /**
+   * A card a reader saved from a tap (`generated_card`, M6-12), charged later off-session: it belongs to
+   * the Customer it was saved on, as on Stripe, and charging it for another Customer is refused.
+   */
+  const savedCard = (pm: string, account: string, customer: unknown) => {
+    const found = fake.objects.get(pm);
+    if (!found || found["_account"] !== account || found["object"] !== "payment_method")
+      return undefined;
+    if (found["customer"] !== customer)
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_method_customer_mismatch",
+        `The provided PaymentMethod does not belong to the Customer.`,
+      );
+    return found["card"] as { brand: string; last4: string };
+  };
+
   fake.route("POST", "/v1/payment_intents", (req) => {
     const account = needAccount(req.account);
     const amount = Number(req.body["amount"]);
@@ -118,7 +136,7 @@ fakeRouteSets.push((fake) => {
     const pm = req.body["payment_method"];
     // Stripe's test payment methods, confirmed at once: the deposit a guest paid online.
     if (typeof pm === "string" && req.body["confirm"] === "true") {
-      const card = TEST_CARDS[pm];
+      const card = TEST_CARDS[pm] ?? savedCard(pm, account, req.body["customer"]);
       if (!card)
         throw new FakeError(
           400,

@@ -4,6 +4,7 @@ import { useT } from "../i18n.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
 import { TapPayment } from "./TapPayment.js";
+import { SavedCard } from "./SavedCard.js";
 
 /**
  * Close a tab to its held card (M6-08; Staff screens and the bar POS · Paying
@@ -56,6 +57,8 @@ export function CloseTab({
   card,
   totalCents,
   resume,
+  noHold = false,
+  savedCard = null,
   onClose,
   onChanged,
 }: {
@@ -66,6 +69,10 @@ export function CloseTab({
   totalCents: number;
   /** The tab is already closing (`tipping`): pick up where it is. */
   resume: boolean;
+  /** A reopened tab whose hold was captured (M6-12): no "Close to the card". */
+  noHold?: boolean;
+  /** The card saved from its first tap, and a charge on it already waiting. */
+  savedCard?: { card: string; paymentId: string | null } | null;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -75,9 +82,11 @@ export function CloseTab({
   const [slipped, setSlipped] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
-  // Another card or cash (M6-11), and what it paid.
-  const [other, setOther] = useState<"card" | "cash" | null>(null);
-  const [paidOther, setPaidOther] = useState<Taken | "card" | null>(null);
+  // Another card or cash (M6-11), or the saved card on a reopened tab (M6-12), and what it paid.
+  const [other, setOther] = useState<"card" | "cash" | "saved" | null>(
+    savedCard?.paymentId ? "saved" : null,
+  );
+  const [paidOther, setPaidOther] = useState<Taken | "card" | "saved" | null>(null);
   const payUrl = `/v1/venues/${venueId}/tabs/${tabId}/pay`;
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const base = `/v1/venues/${venueId}/tabs/${tabId}/close`;
@@ -181,8 +190,10 @@ export function CloseTab({
 
       {paidOther && (
         <>
-          {paidOther !== "card" && <CashResult venueId={venueId} taken={paidOther} />}
-          <p role="status">{t("closeTab.released")}</p>
+          {paidOther !== "card" && paidOther !== "saved" && (
+            <CashResult venueId={venueId} taken={paidOther} />
+          )}
+          <p role="status">{noHold ? t("pay.paid") : t("closeTab.released")}</p>
           <ReceiptStep
             venueId={venueId}
             checkId={checkId}
@@ -196,7 +207,17 @@ export function CloseTab({
       )}
       {other && !paidOther && (
         <>
-          {other === "card" ? (
+          {other === "saved" && savedCard ? (
+            <SavedCard
+              venueId={venueId}
+              tabId={tabId}
+              card={savedCard.card}
+              dueCents={totalCents}
+              paymentId={savedCard.paymentId}
+              onPaid={() => setPaidOther("saved")}
+              onChanged={onChanged}
+            />
+          ) : other === "card" ? (
             <TapPayment
               venueId={venueId}
               checkId={checkId}
@@ -227,15 +248,29 @@ export function CloseTab({
       )}
       {!closing && !slipped && !other && (
         <div className="actions">
-          <button type="button" className="primary" disabled={busy} onClick={() => void toCard()}>
-            {t("closeTab.toCard")}
-            {card ? (
-              <>
-                {" · "}
-                <span data-guest-text>{card}</span>
-              </>
-            ) : null}
-          </button>
+          {!noHold && (
+            <button type="button" className="primary" disabled={busy} onClick={() => void toCard()}>
+              {t("closeTab.toCard")}
+              {card ? (
+                <>
+                  {" · "}
+                  <span data-guest-text>{card}</span>
+                </>
+              ) : null}
+            </button>
+          )}
+          {noHold && savedCard && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => setOther("saved")}
+            >
+              {t("savedCard.title")}
+              {" · "}
+              <span data-guest-text>{savedCard.card}</span>
+            </button>
+          )}
           <button
             type="button"
             className="secondary"

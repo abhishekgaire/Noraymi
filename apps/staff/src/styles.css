@@ -1306,6 +1306,23 @@ button.danger {
 .rail-row.on {
   outline: 3px solid currentColor;
 }
+/* Closed tonight (M6-12): the name and total, then Reopen and Refund. */
+.closed-tab {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px 8px;
+}
+.closed-tab .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+.closed-tab .actions button {
+  min-height: 44px;
+}
 .rail-row .badge {
   font-size: 0.85em;
   font-weight: 600;

@@ -38,6 +38,7 @@ import { latestAttempt, paymentById } from "@west4/db";
 import { enterSlipTip } from "../tabs/tip.js";
 import { splitTab } from "../tabs/split.js";
 import { declinedOnTab } from "../tabs/pay.js";
+import { reopenTab } from "../tabs/saved-card.js";
 import { screenState } from "../payments/machine.js";
 import {
   nameOpening,
@@ -636,6 +637,33 @@ export function tabRoutes(
       if (entered.kind === "approval") return reply.code(202).send(entered.pending);
       await driveClose(deps(), venueId, entered.paymentId);
       return closed(request, tabId);
+    },
+  );
+
+  // Reopen (M6-12): a tab settled tonight comes back with what was paid kept as paid, and no hold.
+  app.post<{ Params: { venueId: string; t: string } }>(
+    "/v1/venues/:venueId/tabs/:t/reopen",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        await reopenTab(c, venueId, tabId, { now });
+        const tab = (await listTabs(c, venueId, now, { membershipId: null })).find(
+          (x) => x.id === tabId,
+        );
+        return { tab: tab ?? null };
+      });
     },
   );
 }

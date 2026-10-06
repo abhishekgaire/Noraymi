@@ -159,8 +159,8 @@ export async function takeOverHold(
  * nothing else in flight, takes drinks again (its check reopened), and its hold still guarantees it.
  */
 export async function afterTabPaymentEnded(c: Queryable, venueId: string, checkId: string) {
-  const r = await c.query<{ id: string; status: string }>(
-    `select t.id, k.status from tabs t join checks k on k.venue_id = t.venue_id and k.id = t.check_id
+  const r = await c.query<{ id: string; status: string; reopened: boolean }>(
+    `select t.id, k.status, t.reopened_at is not null as reopened from tabs t join checks k on k.venue_id = t.venue_id and k.id = t.check_id
       where t.venue_id = $1 and t.check_id = $2 and t.state = 'open'`,
     [venueId, checkId],
   );
@@ -170,8 +170,9 @@ export async function afterTabPaymentEnded(c: Queryable, venueId: string, checkI
   const hold = await tabHoldOf(c, venueId, checkId);
   const inFlight = await c.query(
     `select 1 from payment_allocations where venue_id = $1 and check_id = $2 and state in ('in_progress', 'captured')
-        and payment_id is distinct from $3`,
-    [venueId, checkId, hold?.paymentId ?? null],
+        and (state = 'in_progress' or not $4) and payment_id is distinct from $3`,
+    // A reopened tab (M6-12) keeps what was paid before as paid: only a payment under way holds it.
+    [venueId, checkId, hold?.paymentId ?? null, tab.reopened],
   );
   if (inFlight.rowCount) return;
   await reopenCheck(c, venueId, checkId);

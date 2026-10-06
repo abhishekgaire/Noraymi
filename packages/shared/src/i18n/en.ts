@@ -1951,4 +1951,12 @@ export const en = {
   "closeTab.released": "Paid · the hold on the tab's card is released",
   "closeTab.closed": "Tab closed",
   "closeTab.slipPrinted": "Slip printed · enter the tip from Tips to enter",
+  "rail.reopen": "Reopen",
+  "rail.noHold": "Paid {amount} · no hold",
+  "savedCard.title": "Charge the saved card",
+  "savedCard.askReader": "Ask the guest on the bar reader",
+  "savedCard.waiting": "Waiting for the guest's Yes on the bar reader",
+  "savedCard.offline": "The bar reader couldn't ask · ask a manager",
+  "savedCard.goAhead": "Waiting for the guest or a manager",
+  "savedCard.no": "The guest said No · nothing was charged",
 } as const;

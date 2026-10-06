@@ -28,9 +28,10 @@ export function Keypad({
         ))}
       </div>
       <div className="keys">
-        {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0"].map((d, i) =>
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0"].map((d) =>
           d === "" ? (
-            <span key={i} />
+            // The blank under 7 gets its own key: index 9 would clash with the "9" key (React duplicate key).
+            <span key="blank" />
           ) : (
             <button
               key={d}

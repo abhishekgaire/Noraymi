@@ -20,6 +20,7 @@ import { clockWords } from "../texts/triggers.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { cancelPayment, claimAndRun, enqueueRun, runNow, type PaymentDeps } from "./run.js";
 import { sendReceipt, type ReceiptDeps } from "../receipts/send.js";
+import { afterTabPaymentEnded } from "../tabs/pay.js";
 
 /**
  * Card on file (M4-17; Payment flows · Room close-out; screens N8): the card
@@ -116,7 +117,7 @@ export async function waitingOnFile(
 }
 
 /** The go-ahead (the guest's tap, or a manager's approval): the charge's attempt and its job. */
-async function goAhead(
+export async function goAhead(
   c: Queryable,
   venueId: string,
   w: Waiting,
@@ -194,6 +195,8 @@ declineHandlers.set("card_on_file", async (c, venueId, approval) => {
   if (!w) return;
   await setPaymentStatus(c, venueId, w.paymentId, "canceled", "api");
   await setAllocationState(c, venueId, w.paymentId, "in_progress", "released");
+  // A reopened bar tab (M6-12) takes drinks again.
+  await afterTabPaymentEnded(c, venueId, w.checkId);
 });
 
 /** "Fri Sep 25", as the texts write a date. */

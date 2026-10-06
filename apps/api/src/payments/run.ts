@@ -54,6 +54,12 @@ import {
   incrementHold,
 } from "../stripe/tabs.js";
 import { TAB_CLOSE_CHECK_KIND, closeCheckJob } from "../tabs/close.js";
+import {
+  TAB_CARD_CONFIRM_KIND,
+  confirmCheckJob,
+  tabCardForCharge,
+  tabSavedCard,
+} from "../tabs/saved-card.js";
 import { TAB_RELEASE_KIND, openingOfPayment } from "../tabs/open.js";
 import { TAB_CANCEL_HOLD_KIND, holdsToCancel } from "../tabs/pay.js";
 
@@ -302,8 +308,17 @@ export async function runAttempt(
     const card = attempt.check_id
       ? await inVenue((c) => savedCardFor(c, venueId, attempt.check_id!))
       : null;
+    // A reopened bar tab (M6-12): the card saved from the tab's first tap, on the hold's Customer.
+    const tabCard =
+      !card && attempt.check_id
+        ? await inVenue((c) => tabSavedCard(c, venueId, attempt.check_id!))
+        : null;
     try {
-      const saved = card ? await savedCardOf(deps.stripe, account, card.deposit_pi_id) : null;
+      const saved = card
+        ? await savedCardOf(deps.stripe, account, card.deposit_pi_id)
+        : tabCard
+          ? await tabCardForCharge(deps.stripe, account, tabCard)
+          : null;
       if (!saved) return record({ attempt: { state: "failed", code: "no_saved_card" } });
       const pi = await createOffSessionIntent(
         deps.stripe,
@@ -771,6 +786,10 @@ export function makePaymentHandlers(deps: PaymentDeps): Record<string, JobHandle
     // Closing a bar tab (M6-08): the reader's tip screen, read every 2 seconds while it asks.
     [TAB_CLOSE_CHECK_KIND]: async (job) => {
       await closeCheckJob(deps, job.job.venue_id, job.job.payload as never);
+    },
+    // Charge the saved card on a reopened tab (M6-12): the guest's Yes or No on the bar reader.
+    [TAB_CARD_CONFIRM_KIND]: async (job) => {
+      await confirmCheckJob(deps, job.job.venue_id, job.job.payload as never);
     },
     // A declined card on file (M4-17): cancel it, and text the guest a pay link for the balance.
     [ON_FILE_DECLINED_KIND]: async (job) => {

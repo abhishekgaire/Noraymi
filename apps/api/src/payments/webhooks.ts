@@ -3,6 +3,7 @@ import { stripeEventHandlers, type StripeEventHandler } from "../stripe/webhooks
 import { checkNow } from "./run.js";
 import { confirmCollected } from "./surcharge.js";
 import { checkClose } from "../tabs/close.js";
+import { checkSavedCard, confirmOfStep } from "../tabs/saved-card.js";
 
 /**
  * Payment events (M4-05; Stripe setup 6): each finds our payment by the
@@ -43,6 +44,16 @@ const handlePayment: StripeEventHandler = async (ctx) => {
       data?.object?.["action"] as
         { collect_inputs?: { metadata?: Record<string, string> } } | undefined
     )?.collect_inputs?.metadata?.["step"];
+    // Charge the saved card on a reopened tab (M6-12): the guest's Yes or No.
+    const confirmId = confirmOfStep(step);
+    if (confirmId) {
+      await checkSavedCard(
+        { pool: ctx.pool, stripe: ctx.stripe, clock: { now: () => ctx.now } },
+        ctx.venueId,
+        confirmId,
+      );
+      return;
+    }
     const closingId = step?.split(":")[0];
     if (closingId && /^[0-9a-f-]{36}$/.test(closingId))
       await checkClose(

@@ -17,12 +17,21 @@ import {
   cancelPayment,
   cancelReplacedHold,
   checkNow,
+  quiet,
   runNow,
   writeRetap,
   writeTap,
   type PaymentDeps,
 } from "../payments/run.js";
 import { askGuest, askManager, savedCardFor } from "../payments/card-on-file.js";
+import {
+  askSavedCard,
+  startSavedCharge,
+  checkSavedCardOfPayment,
+  confirmOfPayment,
+  tabSavedCard,
+  takeDownQuestion,
+} from "../tabs/saved-card.js";
 
 /**
  * Payments (M4-05; spec 08 · Payments; Payment flows · What staff see):
@@ -77,6 +86,7 @@ export function paymentView(
     reader?: { id: string; label: string; station: string } | null;
     on_file?: { brand: string; last4: string; guest_name: string | null } | null;
     approval?: { id: string; status: string; waiting_for: string } | null;
+    reader_confirm?: { state: string } | null;
   },
 ) {
   const { payment, attempt } = a;
@@ -100,7 +110,11 @@ export function paymentView(
       : null,
     reader: a.reader ?? null,
     ...(payment.method === "card_on_file"
-      ? { on_file: a.on_file ?? null, approval: a.approval ?? null }
+      ? {
+          on_file: a.on_file ?? null,
+          approval: a.approval ?? null,
+          reader_confirm: a.reader_confirm ?? null,
+        }
       : {}),
   };
 }
@@ -114,6 +128,9 @@ async function onFileDetails(c: Queryable, venueId: string, paymentId: string) {
     )
   ).rows[0];
   const card = check ? await savedCardFor(c, venueId, check.check_id) : null;
+  // A reopened bar tab's saved card (M6-12), and the question on the bar reader.
+  const tabCard = check && !card ? await tabSavedCard(c, venueId, check.check_id) : null;
+  const confirm = await confirmOfPayment(c, venueId, paymentId);
   const approval = (
     await c.query<{ id: string; status: string; waiting_for: string }>(
       `select a.id, a.status, u.name as waiting_for from approvals a join users u on u.id = a.routed_to
@@ -125,7 +142,10 @@ async function onFileDetails(c: Queryable, venueId: string, paymentId: string) {
   return {
     on_file: card
       ? { brand: card.brand, last4: card.last4, guest_name: card.guest_first_name }
-      : null,
+      : tabCard
+        ? { brand: tabCard.brand ?? "", last4: tabCard.last4 ?? "", guest_name: tabCard.name }
+        : null,
+    reader_confirm: confirm ? { state: confirm.state } : null,
     approval: approval ?? null,
   };
 }
@@ -424,6 +444,68 @@ export function paymentRoutes(
     },
   );
 
+  // Charge the saved card on a reopened tab (M6-12): the guest says Yes on the bar reader, or a manager
+  // approves (202, kind card_on_file). Nothing is charged before the go-ahead.
+  const savedBody = z.union([
+    z.object({ amount_cents: z.number().int().positive(), reader_id: z.string().uuid() }).strict(),
+    z
+      .object({
+        amount_cents: z.number().int().positive(),
+        reason: z.string().trim().min(1).max(500),
+      })
+      .strict(),
+  ]);
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/charge-saved-card",
+    { config: tabPay },
+    async (request, reply) => {
+      if (!uuid.safeParse(request.params.t).success) throw new ApiError("not_found", "no such tab");
+      const tabId = request.params.t;
+      const venueId = request.venueId!;
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "taking payment is a person's work");
+      const parsed = savedBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "send { amount_cents, reader_id } or { amount_cents, reason }",
+        );
+      const body = parsed.data;
+      const readerId = "reader_id" in body ? body.reader_id : null;
+      const reason = "reason" in body ? body.reason : null;
+      const deviceId = request.signedDevice?.deviceId ?? request.session?.deviceId ?? null;
+      const now = options.clock.now();
+      // A new card that was declined is set aside first (outside any transaction): nothing was charged.
+      const declined = await request.inVenue((c) => declinedOnTab(c, venueId, tabId));
+      for (const id of declined) await cancelPayment(deps(), venueId, id, "api");
+      const started = await request.inVenue(async (c) => {
+        const s = await startSavedCharge(c, venueId, tabId, {
+          userId: p.userId,
+          amountCents: body.amount_cents,
+          readerDeviceId: readerId,
+          now,
+          readerQuiet: quiet,
+        });
+        const pending = reason
+          ? await askManager(c, venueId, {
+              paymentId: s.paymentId,
+              reason,
+              userId: p.userId,
+              deviceId,
+              now,
+            })
+          : null;
+        return { ...s, pending };
+      });
+      if (started.pending)
+        return reply.code(202).send({ ...started.pending, payment_id: started.paymentId });
+      // The question goes on the bar reader outside any transaction; if it can't, staff ask a manager.
+      if (started.confirmId) await askSavedCard(deps(), venueId, started.confirmId);
+      reply.code(201);
+      return paymentView(await current(request, started.paymentId));
+    },
+  );
+
   app.post<{ Params: { venueId: string; paymentId: string }; Body: unknown }>(
     "/v1/venues/:venueId/payments/:paymentId/tap",
     { config: take },
@@ -517,6 +599,8 @@ export function paymentRoutes(
     async (request) => {
       const paymentId = paymentParam(request);
       await current(request, paymentId);
+      // A saved-card charge on a reopened tab (M6-12): the guest's answer on the bar reader, read now.
+      await checkSavedCardOfPayment(deps(), request.venueId!, paymentId);
       await checkNow(deps(), request.venueId!, paymentId, "api");
       return paymentView(await current(request, paymentId));
     },
@@ -528,6 +612,7 @@ export function paymentRoutes(
     async (request) => {
       const paymentId = paymentParam(request);
       await current(request, paymentId);
+      await takeDownQuestion(deps(), request.venueId!, paymentId);
       await cancelPayment(deps(), request.venueId!, paymentId, "api");
       return paymentView(await current(request, paymentId));
     },

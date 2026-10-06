@@ -1984,4 +1984,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "closeTab.released": "Pagado · se liberó la retención en la tarjeta de la cuenta",
   "closeTab.closed": "Cuenta cerrada",
   "closeTab.slipPrinted": "Comprobante impreso · anota la propina en Propinas por anotar",
+  "rail.reopen": "Reabrir",
+  "rail.noHold": "Pagado {amount} · sin retención",
+  "savedCard.title": "Cobrar la tarjeta guardada",
+  "savedCard.askReader": "Preguntar al cliente en el lector de la barra",
+  "savedCard.waiting": "Esperando el Sí del cliente en el lector de la barra",
+  "savedCard.offline": "El lector de la barra no pudo preguntar · pide a un gerente",
+  "savedCard.goAhead": "Esperando al cliente o a un gerente",
+  "savedCard.no": "El cliente dijo que No · no se cobró nada",
 };

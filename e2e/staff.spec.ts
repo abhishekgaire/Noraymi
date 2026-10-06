@@ -4280,6 +4280,130 @@ test("Pay a tab another way: a declined new card keeps the hold, then cash close
     await db.end();
   }
 });
+/**
+ * Reopen a settled tab (M6-12): a $272.19 tab (Moët & Chandon · bottle and Large bucket · 10 beers) closed
+ * to its card with No tip is in Closed tonight; Reopen brings it back as "Paid $272.19 · no hold" with no
+ * pay buttons. A new Modelo makes $9.80 due, Close tab offers no "Close to the card", and Charge the saved
+ * card goes through once the guest taps Yes on the bar reader.
+ */
+test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card after the guest's Yes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+    const ids = (
+      await db.query<{ reader: string; account: string }>(
+        `select d.stripe_reader_id as reader, o.stripe_account_id as account
+           from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+          where d.name = 'Bar S710'`,
+      )
+    ).rows[0]!;
+    const headers = {
+      authorization: "Bearer rk_test_fake_payments",
+      "stripe-account": ids.account,
+    };
+    const readerAction = async () => {
+      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+        headers,
+      });
+      const a = ((await r.json()) as { action?: { type?: string; status?: string } }).action;
+      return a ? `${a.type}:${a.status}` : "";
+    };
+    const guestPicks = async (selection: string) => {
+      const r = await request.post(
+        `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+        {
+          headers: { ...headers, "idempotency-key": `e2e-pick-${Date.now()}-${Math.random()}` },
+          form: { selection },
+        },
+      );
+      expect(r.ok(), await r.text()).toBe(true);
+    };
+    const tabState = async () =>
+      (await db.query<{ state: string }>("select state from tabs where name = 'Seat 7'")).rows[0]
+        ?.state;
+
+    // A tab card first, then the $272.19 round.
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect.poll(readerAction).toBe("collect_payment_method:in_progress");
+    const tapped = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
+        form: { "card_present[number]": "4242424242424242" },
+      },
+    );
+    expect(tapped.ok(), await tapped.text()).toBe(true);
+    await panel.getByRole("button", { name: "Seat 7" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 7");
+    const search = page.getByRole("searchbox", { name: "Search the menu" });
+    await search.fill("Moët");
+    await page.getByRole("button", { name: /^Moët & Chandon · bottle · \$/ }).click();
+    await search.fill("Large bucket");
+    await page.getByRole("button", { name: /^Large bucket · 10 beers · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 2 to the bar" }).click();
+    await expect(panel.locator(".total").first()).toContainText("$272.19");
+
+    // Closed to the card with No tip on the reader.
+    await panel.getByRole("button", { name: "Close tab" }).click();
+    await panel.getByRole("button", { name: /^Close to the card/ }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    await expect.poll(readerAction).toBe("collect_inputs:in_progress");
+    await guestPicks("none");
+    await expect(closing).toContainText("Paid $272.19 with a tip of $0.00");
+    await closing.getByRole("button", { name: "No receipt" }).click();
+    await closing.getByRole("button", { name: "Done" }).click();
+    expect(await tabState()).toBe("captured");
+
+    // Closed tonight, then Reopen: "Paid $272.19 · no hold", no Close to card, nothing to pay.
+    const nav = page.getByRole("navigation");
+    await nav.getByText(/^Closed tonight · \d+$/).click();
+    const row = nav.locator("li.closed-tab", { hasText: "Seat 7" });
+    await expect(row.getByRole("button", { name: "Refund" })).toHaveCount(0);
+    await row.getByRole("button", { name: "Reopen" }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 7");
+    await expect(panel.locator(".chips")).toContainText("Paid $272.19 · no hold");
+    await expect(panel.getByRole("button", { name: "Close tab" })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Split" })).toHaveCount(0);
+    expect(await tabState()).toBe("open");
+
+    // A Modelo: $9.80 due; Close tab offers the saved card, never Close to the card.
+    await search.fill("Modelo");
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await expect(panel.locator(".total").first()).toContainText("$281.99");
+    await panel.getByRole("button", { name: "Close tab" }).click();
+    await expect(closing.getByRole("button", { name: /^Close to the card/ })).toHaveCount(0);
+    await closing.getByRole("button", { name: "Charge the saved card · Visa ··4242" }).click();
+    const saved = closing.getByRole("region", { name: "Charge the saved card" });
+    await saved.getByRole("button", { name: "Ask the guest on the bar reader" }).click();
+    await expect(saved).toContainText("Waiting for the guest's Yes on the bar reader");
+    await expect.poll(readerAction).toBe("collect_inputs:in_progress");
+    expect(await clippedText(page)).toEqual([]);
+    await guestPicks("yes");
+    await expect(closing).toContainText("Paid");
+    await expect(closing.getByRole("region", { name: "Receipt" })).toBeVisible();
+    await expect.poll(tabState).toBe("closed");
+    const charged = (
+      await db.query<{ amount: number; method: string; status: string }>(
+        `select p.amount_cents::int as amount, p.method, p.status from payments p
+           join payment_allocations a on a.payment_id = p.id join tabs t on t.check_id = a.check_id
+          where t.name = 'Seat 7' and p.method = 'card_on_file'`,
+      )
+    ).rows;
+    expect(charged).toEqual([{ amount: 980, method: "card_on_file", status: "captured" }]);
+    await closing.getByRole("button", { name: "Done" }).click();
+  } finally {
+    await db.end();
+  }
+});
 const presentCard = async (
   request: APIRequestContext,
   db: pg.Client,

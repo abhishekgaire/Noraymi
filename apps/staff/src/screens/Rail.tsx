@@ -20,6 +20,7 @@ import { CloseTab } from "./CloseTab.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { TapPayment } from "./TapPayment.js";
 import { CashPanel } from "./CashPanel.js";
+import { RefundSheet } from "./RefundSheet.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -87,6 +88,16 @@ interface Tab {
   readonly split: Split | null;
   readonly paid_cents: number;
   readonly rest_cents: number;
+  /** Reopened after its hold was captured (M6-12): "Paid $272.19 · no hold", never Close to card. */
+  readonly no_hold: boolean;
+  /** The card saved from the first tap (none after a wallet tap), and a charge on it waiting. */
+  readonly saved_card: {
+    readonly brand: string | null;
+    readonly last4: string | null;
+    readonly payment_id: string | null;
+  } | null;
+  /** Closed tonight, and can be reopened until the night closes. */
+  readonly reopenable: boolean;
 }
 interface RoomTile {
   readonly room_id: string;
@@ -164,9 +175,14 @@ export function Rail() {
   const [closingTab, setClosingTab] = useState<string | null>(null);
   const [splitting, setSplitting] = useState<string | null>(null);
   const [share, setShare] = useState<Share | null>(null);
+  /** Refund from check (M4-22) for a tab closed tonight: its check (M6-12). */
+  const [refunding, setRefunding] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
+  // The drinks panel goes away while a tab is closed, split or refunded, and comes back fresh: the last tap
+  // on the grid must not ring again when it does (M6-12).
+  useEffect(() => setRingRequest(null), [closingTab, splitting, refunding]);
   const [draftRefresh, setDraftRefresh] = useState(0);
   const [leftOut, setLeftOut] = useState<string | null>(null);
   const [eightySix, setEightySix] = useState(false);
@@ -343,8 +359,21 @@ export function Rail() {
     setClosingTab(null);
     setSplitting(null);
     setShare(null);
+    setRefunding(null);
     setPicked(next);
   };
+  /** Reopen (M6-12): a tab closed tonight comes back, with what was paid kept as paid. */
+  const reopen = async (tabId: string) => {
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/tabs/${tabId}/reopen`);
+      await load();
+      pick({ kind: "tab", id: tabId });
+    } catch {
+      setError(t("barOrders.failed"));
+    }
+  };
+  const canRefund = signedIn?.membership.permissions.includes("refunds.request") ?? false;
   /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
   const repeat = async (tabId: string) => {
     setError(null);
@@ -441,14 +470,16 @@ export function Rail() {
     ...(x.hold?.checking ? [t("pay.unknown")] : []),
     ...(x.waiting_for ? [t("rail.badge.waiting", { name: x.waiting_for })] : []),
     ...(x.unsent > 0 ? [t("rail.badge.unsent", { n: x.unsent })] : []),
-    ...(x.open && x.paid_cents > 0
-      ? [
-          t("rail.badge.partlyPaid", {
-            paid: money(x.paid_cents as never),
-            total: money((x.totals?.total_cents ?? 0) as never),
-          }),
-        ]
-      : []),
+    ...(x.open && x.no_hold
+      ? [t("rail.noHold", { amount: money(x.paid_cents as never) })]
+      : x.open && x.paid_cents > 0
+        ? [
+            t("rail.badge.partlyPaid", {
+              paid: money(x.paid_cents as never),
+              total: money((x.totals?.total_cents ?? 0) as never),
+            }),
+          ]
+        : []),
   ];
 
   return (
@@ -672,8 +703,35 @@ export function Rail() {
                 <summary>{t("rail.closed", { n: closed.length })}</summary>
                 <ul className="rail-list">
                   {closed.map((x) => (
-                    <li key={x.id} className="small" data-guest-text>
-                      {x.name}
+                    <li key={x.id} className="small closed-tab">
+                      <span className="name" data-guest-text>
+                        {x.name}
+                      </span>
+                      <span className="amount">{money((x.totals?.total_cents ?? 0) as never)}</span>
+                      {/* Closed tonight (M6-12): Reopen, and managers refund (Refund from check). */}
+                      {x.reopenable && (
+                        <span className="actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => void reopen(x.id)}
+                          >
+                            {t("rail.reopen")}
+                          </button>
+                          {canRefund && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => {
+                                pick(null);
+                                setRefunding(x.check_id);
+                              }}
+                            >
+                              {t("refund.button")}
+                            </button>
+                          )}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -809,7 +867,17 @@ export function Rail() {
                 {notice}
               </p>
             )}
-            {newTab ? (
+            {refunding ? (
+              <RefundSheet
+                key={refunding}
+                venueId={venueId}
+                checkId={refunding}
+                onClose={() => {
+                  setRefunding(null);
+                  void load();
+                }}
+              />
+            ) : newTab ? (
               <NewTab
                 venueId={venueId}
                 takenLabels={openTabs.flatMap((x) => (x.label ? [x.label] : []))}
@@ -839,11 +907,17 @@ export function Rail() {
                       {tab.card.brand} ··{tab.card.last4}
                     </span>
                   )}
-                  {tab && (
-                    <span className="chip">
-                      {t("rail.hold", { amount: money(tab.hold_cents as never) })}
-                    </span>
-                  )}
+                  {tab &&
+                    (tab.no_hold ? (
+                      // A reopened tab whose hold was captured (M6-12): no hold chip, what was paid.
+                      <span className="chip">
+                        {t("rail.noHold", { amount: money(tab.paid_cents as never) })}
+                      </span>
+                    ) : (
+                      <span className="chip">
+                        {t("rail.hold", { amount: money(tab.hold_cents as never) })}
+                      </span>
+                    ))}
                   {tab?.hold && !tab.hold.declined && (
                     <span className={tab.hold.can_grow ? "chip" : "chip warn"}>
                       {t("rail.hold.left", { amount: money(tab.hold.left_cents as never) })}
@@ -895,6 +969,15 @@ export function Rail() {
                     card={tab.card ? `${tab.card.brand ?? ""} ··${tab.card.last4}`.trim() : null}
                     totalCents={tab.rest_cents}
                     resume={tab.state === "tipping"}
+                    noHold={tab.no_hold}
+                    savedCard={
+                      tab.no_hold && tab.saved_card
+                        ? {
+                            card: `${tab.card?.brand ?? tab.saved_card.brand ?? ""} ··${tab.saved_card.last4 ?? ""}`.trim(),
+                            paymentId: tab.saved_card.payment_id,
+                          }
+                        : null
+                    }
                     onClose={() => {
                       setClosingTab(null);
                       void load();
@@ -966,7 +1049,7 @@ export function Rail() {
                       >
                         {t("rail.repeat")}
                       </button>
-                      {tab.state === "open" && tab.rest_cents > 0 && (
+                      {tab.state === "open" && tab.rest_cents > 0 && !tab.no_hold && (
                         <button
                           type="button"
                           className="secondary"
@@ -975,7 +1058,11 @@ export function Rail() {
                           {t("split.title")}
                         </button>
                       )}
-                      {tab.hold && (tab.state === "open" || tab.state === "tipping") && (
+                      {/* A reopened tab with no hold (M6-12): pay buttons only while something is due. */}
+                      {((tab.hold && (tab.state === "open" || tab.state === "tipping")) ||
+                        (tab.no_hold &&
+                          tab.state === "open" &&
+                          (tab.rest_cents > 0 || tab.saved_card?.payment_id))) && (
                         <button
                           type="button"
                           className="primary"
