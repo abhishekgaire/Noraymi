@@ -7,7 +7,9 @@ import { StripeClient, StripeError } from "./client.js";
 import { retrieveAccount } from "./accounts.js";
 import { createAccountFor } from "./create-account.js";
 import { loadStripeSettings } from "./settings.js";
-import { registerPayDomain } from "./payments.js";
+import { observeIntent, registerPayDomain, retrieveIntent } from "./payments.js";
+import { confirmOnReader } from "./surcharge.js";
+import { collectForTab, createTabCustomer, createTabIntent } from "./tabs.js";
 import { hasCellular, listReaders, readerModel, registerReader } from "./terminal.js";
 import { ensureTerminal } from "./terminal-setup.js";
 
@@ -23,9 +25,22 @@ import { ensureTerminal } from "./terminal-setup.js";
  *  - every deposit backed by a real PaymentIntent: a Customer and Stripe's
  *    test card of the seed's brand, confirmed, the card saved for later
  *    charges, so refunds and card on file work. Our rows keep the seed's
- *    brand and last four for display (Stripe's test Amex ends in 0005).
+ *    brand and last four for display (Stripe's test Amex ends in 0005);
+ *  - every held bar tab without a PaymentIntent (the paper slips', M6-09)
+ *    backed by a real hold: a manual-capture PaymentIntent asking for
+ *    incremental authorization, its card tapped on the simulated bar reader
+ *    (Stripe's test card of the brand) and confirmed, so entering the tip
+ *    captures on it.
  * Nothing runs in live mode, and nothing runs inside a transaction.
  */
+/** Stripe's test card numbers a simulated reader takes, by brand. */
+const TEST_CARD: Record<string, string> = {
+  amex: "378282246310005",
+  visa: "4242424242424242",
+  mastercard: "5555555555554444",
+  discover: "6011111111111117",
+};
+
 const TEST_PM: Record<string, string> = {
   amex: "pm_card_amex",
   visa: "pm_card_visa",
@@ -37,7 +52,7 @@ export async function seedStripe(
   owner: pg.Pool,
   stripe: StripeClient,
   log: (line: string) => void = (l) => console.warn(l),
-): Promise<{ account: string; readers: number; deposits: number }> {
+): Promise<{ account: string; readers: number; deposits: number; holds: number }> {
   if (stripe.livemode) throw new Error("stripe:seed never runs against live Stripe");
   const venue = (
     await owner.query<{
@@ -162,6 +177,71 @@ export async function seedStripe(
       throw new Error(`deposit ${d.id}: PaymentIntent ${pi.id} is ${pi.status}`);
     await inVenue((c) => setPaymentIntent(c, d.id, pi.id));
   }
+  // The held bar tabs (the paper slips waiting for their tips): a hold tapped on the simulated bar reader.
+  const holds = await owner.query<{
+    id: string;
+    authorized_cents: number;
+    card_brand: string | null;
+  }>(
+    `select p.id, p.authorized_cents::int as authorized_cents, p.card_brand
+       from payments p join tabs t on t.venue_id = p.venue_id and t.payment_id = p.id
+      where p.venue_id = $1 and p.method = 'card_present' and p.status = 'authorized' and p.stripe_pi_id is null
+      order by t.opened_at, p.id`,
+    [venue.id],
+  );
+  const bar = (await inVenue((c) => venueReaders(c, venue.id))).find(
+    (r) => r.name === "Bar S710" && r.stripe_reader_id,
+  );
+  if (holds.rows.length > 0 && !bar) throw new Error("no Bar S710 to tap the tabs' cards on");
+  for (const h of holds.rows) {
+    const readerId = bar!.stripe_reader_id!;
+    const customer = await createTabCustomer(stripe, terminal.account, h.id);
+    const pi = await createTabIntent(stripe, terminal.account, {
+      amountCents: h.authorized_cents,
+      paymentId: h.id,
+      customer: customer.id,
+    });
+    await collectForTab(
+      stripe,
+      terminal.account,
+      { readerId, piId: pi.id },
+      `${h.id}:seed:collect`,
+    );
+    await stripe.call(
+      "payments",
+      "POST",
+      `/v1/test_helpers/terminal/readers/${encodeURIComponent(readerId)}/present_payment_method`,
+      {
+        account: terminal.account,
+        idempotencyKey: `${h.id}:seed:present`,
+        params: {
+          card_present: { number: TEST_CARD[h.card_brand ?? "visa"] ?? TEST_CARD["visa"] },
+        },
+      },
+    );
+    await confirmOnReader(
+      stripe,
+      terminal.account,
+      { readerId, piId: pi.id },
+      `${h.id}:seed:confirm`,
+    );
+    const held = observeIntent(await retrieveIntent(stripe, terminal.account, pi.id));
+    if (held.status !== "requires_capture")
+      throw new Error(`tab hold ${h.id}: PaymentIntent ${pi.id} is ${held.status}`);
+    await inVenue(async (c) => {
+      await setPaymentIntent(c, h.id, pi.id);
+      await c.query(
+        `update payments set incremental_supported = $2, overcapture_supported = $3, capture_before = $4
+          where id = $1`,
+        [
+          h.id,
+          held.hold?.incrementalSupported ?? null,
+          held.hold?.overcaptureSupported ?? null,
+          held.hold?.captureBefore ?? null,
+        ],
+      );
+    });
+  }
   // The payment page's own hostname, for Apple Pay and Google Pay (M4-15). Local hosts can't be registered.
   const payDomain = process.env["PAY_DOMAIN"];
   if (payDomain && !/localhost$/.test(payDomain)) {
@@ -169,9 +249,9 @@ export async function seedStripe(
     log(`stripe: ${payDomain} registered for wallets`);
   }
   log(
-    `stripe: account ${account}, ${readers} readers, ${deposits.rows.length} deposits backed by PaymentIntents`,
+    `stripe: account ${account}, ${readers} readers, ${deposits.rows.length} deposits and ${holds.rows.length} tab holds backed by PaymentIntents`,
   );
-  return { account, readers, deposits: deposits.rows.length };
+  return { account, readers, deposits: deposits.rows.length, holds: holds.rows.length };
 }
 
 async function main(): Promise<void> {

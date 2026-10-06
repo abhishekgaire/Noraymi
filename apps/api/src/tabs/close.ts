@@ -32,6 +32,7 @@ import { retrieveReader } from "../stripe/terminal.js";
 import { sendReceipt, type ReceiptDeps } from "../receipts/send.js";
 import { TAB_HOLD_COLS, holdCardOf, tabNeed, type TabHold } from "./hold.js";
 import { moveTab } from "./state.js";
+import { printSlip } from "./slip.js";
 import { enqueueRun, runNow, type PaymentDeps } from "../payments/run.js";
 
 /**
@@ -50,8 +51,11 @@ import { enqueueRun, runNow, type PaymentDeps } from "../payments/run.js";
  *    hold is raised first; a hold that can't cover it leaves the tab
  *    `capture_failed` for a manager;
  *  - Cancel on the reader (or on the screen) puts the tab back to `open`; a
- *    tip screen left untouched for 2 minutes is canceled too, and the slip is
- *    offered (M6-09 moves it to the slip by itself);
+ *    tip screen left untouched for 2 minutes is taken down and the paper slip
+ *    prints, the tab `awaiting_tip` with its hold standing (M6-09);
+ *  - the paper slip (a reader that's offline, a guest who asks, or a venue
+ *    whose bar tabs tip on paper, `pos.barTabTip`) leaves the Close in state
+ *    `slip` until the tip is typed in from Tips to enter (tabs/tip.ts);
  *  - what the guest picked (the choice, its amount, when and on which reader)
  *    stays in `tab_closings` with the payment, as dispute evidence.
  * Every reader and Stripe call is outside a transaction, with its own key.
@@ -61,7 +65,15 @@ export const TIP_SCREEN_S = 120;
 const POLL_S = 2;
 
 export type ClosingState =
-  "asking" | "custom" | "raising" | "capturing" | "captured" | "canceled" | "timed_out" | "failed";
+  | "asking"
+  | "custom"
+  | "raising"
+  | "capturing"
+  | "captured"
+  | "canceled"
+  | "timed_out"
+  | "failed"
+  | "slip";
 const ACTIVE: readonly ClosingState[] = ["asking", "custom", "raising", "capturing"];
 
 export interface ClosingRow {
@@ -69,7 +81,7 @@ export interface ClosingRow {
   tab_id: string;
   check_id: string;
   payment_id: string;
-  path: "reader" | "none";
+  path: "reader" | "none" | "slip";
   reader_device_id: string | null;
   stripe_reader_id: string | null;
   state: ClosingState;
@@ -88,12 +100,19 @@ export interface ClosingRow {
   receipt_step_no: number | null;
   receipt_sent_at: string | null;
   closed_by: string;
+  slip_printed_at: string | null;
+  slip_photo_file_id: string | null;
+  tip_entered_by: string | null;
+  tip_entered_at: string | null;
+  tip_approval_id: string | null;
 }
 
 const CLOSING_COLS = `id, tab_id, check_id, payment_id, path, reader_device_id, stripe_reader_id, state, step_no,
   to_json(step_started_at) #>> '{}' as step_started_at, balance_cents, drinks_cents, gratuity_cents, tip_kind,
   choices_cents, tip_choice, tip_cents, to_json(tip_picked_at) #>> '{}' as tip_picked_at, capture_cents,
-  receipt, receipt_step_no, to_json(receipt_sent_at) #>> '{}' as receipt_sent_at, closed_by`;
+  receipt, receipt_step_no, to_json(receipt_sent_at) #>> '{}' as receipt_sent_at, closed_by,
+  to_json(slip_printed_at) #>> '{}' as slip_printed_at, slip_photo_file_id, tip_entered_by,
+  to_json(tip_entered_at) #>> '{}' as tip_entered_at, tip_approval_id`;
 
 export async function closingById(c: Queryable, venueId: string, id: string, lock = false) {
   const r = await c.query<ClosingRow>(
@@ -216,6 +235,11 @@ export async function startClose(
       details: { reason: "hold_checking", payment_id: tab.payment_id },
     });
   const payment = (await paymentById(c, venueId, tab.payment_id))!;
+  // A venue whose bar tabs tip on paper prints the slip first; the slip is the fallback either way.
+  const venue = await venueClock(c, venueId);
+  const today = businessDate(input.now, venue.timeZone, venue.dayCutover).businessDate;
+  const tipPath = (await readSetting(c, venueId, "pos", today))?.value.barTabTip ?? "reader";
+  if (input.path === "reader" && tipPath === "slip") input = { ...input, path: "slip" };
   // With the card fee on, a surcharge can't follow a growing hold: such a venue closes with a fresh tap.
   if (input.path !== "slip" && (await surchargeFor(c, venueId, payment.business_date)) !== null)
     throw new ApiError("invalid_request", "with the card fee on, close with a new tap", {
@@ -244,16 +268,36 @@ export async function startClose(
     throw new ApiError("invalid_request", "nothing is due on this tab", {
       details: { reason: "nothing_due" },
     });
-  if (input.path === "slip") {
-    // The paper slip (M6-09 prints it and takes the tip from Tips to enter): the hold stays.
-    await moveTab(c, venueId, tabId, "awaiting_tip");
-    await emitEvent(c, { venueId, type: "tab.updated", entityId: tabId });
-    return { kind: "slip" };
-  }
   const drinks = view.lines
     .filter((l) => ["item", "comp", "void", "discount"].includes(l.kind))
     .reduce((sum, l) => sum + l.amount_cents, 0);
   const gratuity = view.totals?.gratuity_cents ?? 0;
+  if (input.path === "slip") {
+    // The paper slip: it prints at the bar, the hold stays, and the tip goes in from Tips to enter.
+    await c.query(
+      `insert into tab_closings (venue_id, tab_id, check_id, payment_id, path, state, balance_cents, drinks_cents,
+         gratuity_cents, closed_by, created_at, slip_printed_at)
+       values ($1, $2, $3, $4, 'slip', 'slip', $5, $6, $7, $8, $9, $9)`,
+      [
+        venueId,
+        tabId,
+        tab.check_id,
+        tab.payment_id,
+        need.balanceCents,
+        drinks,
+        gratuity,
+        input.userId,
+        input.now.toString(),
+      ],
+    );
+    await printSlip(c, venueId, {
+      tabId,
+      checkId: tab.check_id,
+      totalCents: need.balanceCents,
+      now: input.now,
+    });
+    return { kind: "slip" };
+  }
   const screen = await tipScreen(c, venueId, input.now);
   // A gratuity on the tab: the reader skips the tip, and the receipt reads "Gratuity included".
   const path = input.path === "reader" && gratuity === 0 ? "reader" : "none";
@@ -317,7 +361,7 @@ async function enqueueCloseCheck(
  * The tip is known: it's recorded with set_tip() and kept as evidence, and the total plus the tip is
  * captured in one call, or the hold raised first, or the tab left for a manager when nothing covers it.
  */
-async function planCapture(
+export async function planCapture(
   c: Queryable,
   venueId: string,
   closing: ClosingRow,
@@ -429,6 +473,23 @@ async function backToOpen(
   await moveTab(c, venueId, closing.tab_id, "open");
   await reopenCheck(c, venueId, closing.check_id);
   await emitEvent(c, { venueId, type: "tab.updated", entityId: closing.tab_id });
+}
+
+/**
+ * A tip screen nobody answered (2 minutes, or the reader's own timeout): the question is down, the paper
+ * slip prints at the bar, and the tab waits as `awaiting_tip` with its hold standing (M6-09).
+ */
+async function toSlip(c: Queryable, venueId: string, closing: ClosingRow, now: Temporal.Instant) {
+  await c.query(
+    `update tab_closings set state = 'slip', slip_printed_at = $3 where venue_id = $1 and id = $2`,
+    [venueId, closing.id, now.toString()],
+  );
+  await printSlip(c, venueId, {
+    tabId: closing.tab_id,
+    checkId: closing.check_id,
+    totalCents: closing.balance_cents,
+    now,
+  });
 }
 
 /**
@@ -595,7 +656,7 @@ export async function checkClose(
   const untouched = now.epochMilliseconds - started >= TIP_SCREEN_S * 1000;
   if (!mine || answer!.status === "in_progress") {
     if (!untouched) return;
-    // No answer in 2 minutes: the tip screen is taken down, and the slip is offered.
+    // No answer in 2 minutes: the tip screen is taken down, and the paper slip prints.
     await cancelReaderAction(
       deps.stripe,
       first.account,
@@ -605,7 +666,7 @@ export async function checkClose(
     await inVenue(async (c) => {
       const locked = (await closingById(c, venueId, closingId, true))!;
       if (locked.state === "asking" || locked.state === "custom")
-        await backToOpen(c, venueId, locked, "timed_out");
+        await toSlip(c, venueId, locked, now);
     });
     return;
   }
@@ -614,12 +675,9 @@ export async function checkClose(
     if (locked.step_no !== closing.step_no || !["asking", "custom"].includes(locked.state))
       return "stale" as const;
     if (answer!.status === "failed") {
-      await backToOpen(
-        c,
-        venueId,
-        locked,
-        answer!.failureCode === "terminal_reader_timeout" ? "timed_out" : "canceled",
-      );
+      // The reader's own timeout is a tip screen nobody touched: the slip prints. Cancel is back to open.
+      if (answer!.failureCode === "terminal_reader_timeout") await toSlip(c, venueId, locked, now);
+      else await backToOpen(c, venueId, locked, "canceled");
       return "back" as const;
     }
     const tip = tipOf(locked, answer!.value);
@@ -811,5 +869,6 @@ export async function closeView(c: Queryable, venueId: string, closing: ClosingR
     },
     receipt: closing.receipt,
     receipt_sent: closing.receipt_sent_at !== null,
+    slip_printed_at: closing.slip_printed_at,
   };
 }

@@ -67,6 +67,29 @@ export function Approvals() {
     }
   };
 
+  // A slip's tip (M6-09): its reasons in this phone's language, from the venue's own limits.
+  const reasonOf = (a: Approval) => {
+    const { reasons, limits } = a.payload;
+    if (a.kind !== "tip_review" || !reasons || !limits) return a.reason;
+    return reasons
+      .map((r) =>
+        r === "over_pct"
+          ? t("approvals.tipReason.over_pct", { pct: limits.over_pct })
+          : r === "over_cents"
+            ? t("approvals.tipReason.over_cents", { amount: money(limits.over_cents as never) })
+            : t("approvals.tipReason.late", { hours: limits.late_hours }),
+      )
+      .join(" · ");
+  };
+  const seeSlip = async (fileId: string) => {
+    try {
+      const r = await api<{ url: string }>("GET", `/v1/venues/${venueId}/files/${fileId}`);
+      window.open(r.url, "_blank", "noopener");
+    } catch {
+      setError(t("approvals.failed"));
+    }
+  };
+
   if (list === null && !error)
     return (
       <section className="screen">
@@ -93,7 +116,16 @@ export function Approvals() {
               </strong>
               {a.amount_cents !== null && <span>{money(a.amount_cents as never)}</span>}
             </div>
-            <p>{t("approvals.reason", { reason: a.reason })}</p>
+            <p>{t("approvals.reason", { reason: reasonOf(a) })}</p>
+            {a.payload.photo_file_id && (
+              <button
+                type="button"
+                className="link"
+                onClick={() => void seeSlip(a.payload.photo_file_id!)}
+              >
+                {t("approvals.seeSlip")}
+              </button>
+            )}
             <p className="muted">
               {t("approvals.asked", {
                 name: a.requested_by_name,

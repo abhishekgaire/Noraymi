@@ -4,14 +4,19 @@ import type { Temporal } from "@west4/shared";
 import { checkView } from "../rooms/checks.js";
 import { venueClock } from "../rooms/assignment.js";
 import { holdView, tabOfCheck } from "./hold.js";
+import { slipView } from "./tip.js";
 
 /**
  * Bar tabs as the bar POS lists them (M6-02; API · Bar tabs; Staff screens and
  * the bar POS · The bar POS screen): open tabs in the order opened, each with
  * its card, hold, total and the badges that need attention (a cut-off, a fix
- * waiting for a manager, unsent drinks), and tonight's closed ones.
+ * waiting for a manager, unsent drinks), and tonight's closed ones. A tab
+ * waiting for the tip from its paper slip carries the slip (M6-09: Tips to
+ * enter): its total, when it printed, its photo, and a tip_review it waits on.
  */
-const OPEN = ["open", "tipping", "awaiting_tip", "capture_failed"];
+// A tab waiting for the tip from its signed paper slip is done at the bar: it leaves the open tabs for Tips
+// to enter (M6-09), and lists with tonight's closed ones.
+const OPEN = ["open", "tipping", "capture_failed"];
 
 interface TabRow {
   id: string;
@@ -81,8 +86,12 @@ export async function listTabs(
           [venueId, t.id],
         )
       ).rows[0]?.name;
+      const slip = t.state === "awaiting_tip" ? await slipView(c, venueId, t.id) : null;
       const waiting =
-        view.pending_fixes.find((f) => f.waiting_for)?.waiting_for ?? overHold ?? null;
+        view.pending_fixes.find((f) => f.waiting_for)?.waiting_for ??
+        overHold ??
+        slip?.waiting_for ??
+        null;
       const held = await tabOfCheck(c, venueId, t.check_id);
       return {
         id: t.id,
@@ -106,6 +115,7 @@ export async function listTabs(
           : null,
         waiting_for: waiting,
         unsent: unsent.get(t.check_id) ?? 0,
+        slip,
       };
     }),
   );

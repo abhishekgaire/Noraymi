@@ -33,6 +33,7 @@ import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
 import { SignIn } from "./screens/SignIn.js";
 import { Approvals } from "./screens/Approvals.js";
+import { TipsToEnter } from "./screens/TipsToEnter.js";
 import { Calls } from "./screens/Calls.js";
 import { Messages } from "./screens/Messages.js";
 import { Waitlist } from "./screens/Waitlist.js";
@@ -112,6 +113,7 @@ export function StaffRoutes() {
         <Route path={runs.path} element={<Runs />} />
         <Route path="/setup" element={<Setup />} />
         <Route path="/approvals" element={<Approvals />} />
+        <Route path="/tips" element={<TipsToEnter />} />
         <Route path="/calls" element={<Calls />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/waitlist" element={<Waitlist />} />

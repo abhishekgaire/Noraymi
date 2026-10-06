@@ -35,6 +35,7 @@ import {
   startClose,
 } from "../tabs/close.js";
 import { latestAttempt, paymentById } from "@west4/db";
+import { enterSlipTip } from "../tabs/tip.js";
 import { screenState } from "../payments/machine.js";
 import {
   nameOpening,
@@ -59,12 +60,16 @@ import {
  *   POST /v1/venues/{v}/tabs/openings/{o}/name           Open: { name, label } typed or tapped while the guest taps
  *   POST /v1/venues/{v}/tabs/openings/{o}/cancel         the card never came: nothing held, nothing opened
  *   POST /v1/venues/{v}/tabs/{t}/close            { tip: reader | slip | none, reader_id? }: Close (M6-08); the reader
- *                                                asks for the tip, or the hold is captured at once (slip: M6-09)
+ *                                                asks for the tip, or the hold is captured at once, or the
+ *                                                paper slip prints and the tab is awaiting_tip (M6-09)
  *   GET  /v1/venues/{v}/tabs/{t}/close            the tab's latest Close: the tip asked or picked, the capture
  *   POST /v1/venues/{v}/tabs/{t}/close/check-status   read the reader and Stripe now
  *   POST /v1/venues/{v}/tabs/{t}/close/cancel     Cancel while the reader asks: the tab is open again
  *   POST /v1/venues/{v}/tabs/{t}/close/receipt    { choice: text | print | none }: text asks the guest's number
  *                                                on the reader
+ *   POST /v1/venues/{v}/tabs/{t}/tip              { tip_cents, photo_file_id? }: the tip from the signed paper
+ *                                                slip, with its photo (M6-09); captured now, or 202
+ *                                                approval_pending (tip_review) over 25%, over $50 or 2 h late
  */
 const STATES =
   /^(open|tipping|awaiting_tip|captured|walkout_captured|capture_failed|closed)(,(open|tipping|awaiting_tip|captured|walkout_captured|capture_failed|closed))*$/;
@@ -459,14 +464,8 @@ export function tabRoutes(
           readerQuiet: quiet,
         }),
       );
-      if (started.kind === "slip")
-        return request.inVenue(async (c) => {
-          const t = await c.query<{ state: string }>(
-            "select state from tabs where venue_id = $1 and id = $2",
-            [venueId, tabId],
-          );
-          return { tab_id: tabId, tab_state: t.rows[0]!.state, state: "slip" };
-        });
+      // The paper slip printed: the Close waits as `slip`, the tab as awaiting_tip (M6-09).
+      if (started.kind === "slip") return closed(request, tabId);
       if (started.kind === "run") await driveClose(payments, venueId, started.paymentId);
       else {
         // The reader asks outside any transaction; one that can't puts the tab back to open.
@@ -562,6 +561,38 @@ export function tabRoutes(
         if (asked === "busy")
           throw new ApiError("reader_busy", "another payment is on the bar reader");
       }
+      return closed(request, tabId);
+    },
+  );
+  // Tips to enter (M6-09): the tip from the signed paper slip, with its photo.
+  const tipBody = z
+    .object({
+      tip_cents: z.number().int().min(0).max(99_999),
+      photo_file_id: id.nullable().optional(),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/tip",
+    { config: closeRoute },
+    async (request, reply) => {
+      const tabId = tabParam(request.params.t);
+      const parsed = tipBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { tip_cents, photo_file_id }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const venueId = request.venueId!;
+      const entered = await request.inVenue((c) =>
+        enterSlipTip(c, venueId, tabId, {
+          tipCents: parsed.data.tip_cents,
+          photoFileId: parsed.data.photo_file_id ?? null,
+          userId: p.userId,
+          deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          now: options.clock.now(),
+        }),
+      );
+      if (entered.kind === "approval") return reply.code(202).send(entered.pending);
+      await driveClose(deps(), venueId, entered.paymentId);
       return closed(request, tabId);
     },
   );

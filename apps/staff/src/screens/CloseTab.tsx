@@ -9,8 +9,9 @@ import { useT } from "../i18n.js";
  * (the venue's three choices, Custom and No tip); the capture includes it.
  * Every card state shows in words: waiting on the bar reader (Cancel),
  * "Checking with Stripe · don't retry", "Reader offline", "Reader busy". An
- * offline reader, or a tip screen nobody touched for 2 minutes, offers the
- * slip. Paid, the receipt: Text (the guest types their number on the reader),
+ * offline reader offers the slip; a tip screen nobody touched for 2 minutes,
+ * or a venue whose bar tabs tip on paper, prints it (M6-09), and the tip is
+ * entered later from Tips to enter. Paid, the receipt: Text (the guest types their number on the reader),
  * Print or No receipt.
  */
 interface Reader {
@@ -28,7 +29,8 @@ interface Closing {
     | "captured"
     | "canceled"
     | "timed_out"
-    | "failed";
+    | "failed"
+    | "slip";
   readonly tab_state: string;
   readonly balance_cents: number;
   readonly gratuity_cents: number;
@@ -136,9 +138,9 @@ export function CloseTab({
     );
   const slip = () =>
     run(async () => {
-      await api("POST", base, { tip: "slip" }, { idempotencyKey: newKey() });
+      const c = await api<Closing>("POST", base, { tip: "slip" }, { idempotencyKey: newKey() });
       setSlipped(true);
-      return null;
+      return c;
     });
   const cancel = () =>
     run(() => api<Closing>("POST", `${base}/cancel`, undefined, { idempotencyKey: newKey() }));
@@ -270,9 +272,9 @@ export function CloseTab({
         </div>
       )}
 
-      {slipped && (
+      {(slipped || state === "slip") && (
         <div role="status">
-          <p>{t("closeTab.slipped")}</p>
+          <p>{t("closeTab.slipPrinted")}</p>
           <button type="button" className="primary" onClick={onClose}>
             {t("closeTab.done")}
           </button>

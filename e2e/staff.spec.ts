@@ -5543,3 +5543,51 @@ test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, no
     await db.end();
   }
 });
+
+/**
+ * Tips to enter on Andy's phone (M6-09; screens N26): the seed's three signed slips, each with its photo
+ * and never Jess P.'s Visa ··4417; Ana R.'s $12.00 tip on $62.50 captures $74.50 on her held card; a
+ * $20.00 tip on Dev S.'s $48.00 is over 25%, and since Andy typed it in himself it goes to Abhishek.
+ */
+test("Tips to enter on Andy's phone: Ana R.'s $12.00 captures $74.50; his own $20.00 on Dev S. goes to Abhishek", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.locator(".tabs").getByRole("link", { name: "Tips to enter" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tips to enter");
+    const slips = page.locator(".tips-to-enter .cards > li");
+    await expect(slips).toHaveCount(3);
+    await expect(slips.locator("strong")).toHaveText(["Dev S.", "Tom W.", "Ana R."]);
+    await expect(slips.nth(0)).toContainText("Visa ··3318");
+    await expect(slips.nth(1)).toContainText("Mastercard ··0457");
+    await expect(slips.nth(2)).toContainText("Amex ··2204");
+    for (let i = 0; i < 3; i++) await expect(slips.nth(i)).toContainText("Photo saved");
+    await expect(page.locator(".tips-to-enter")).not.toContainText("4417");
+
+    // Ana R.: the photo is already with the slip; $12.00 on $62.50 needs no approval.
+    await slips.nth(2).getByRole("button").click();
+    await page.getByLabel("Tip from the slip ($)").fill("12");
+    await page.getByRole("button", { name: "Enter tip" }).click();
+    await expect(page.getByRole("status")).toContainText("Paid $74.50 with a tip of $12.00");
+    await expect(slips.locator("strong")).toHaveText(["Dev S.", "Tom W."]);
+
+    // Dev S.: $20.00 on $48.00 is over 25%; Andy typed it, so it waits for Abhishek.
+    await slips.nth(0).getByRole("button").click();
+    await page.getByLabel("Tip from the slip ($)").fill("20.00");
+    await page.getByRole("button", { name: "Enter tip" }).click();
+    await expect(page.getByRole("status")).toContainText("Sent to Abhishek G. to approve");
+    await expect(slips.nth(0)).toContainText("Waiting for Abhishek G.");
+    // Nothing clipped at the phone's width.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      390,
+    );
+  } finally {
+    await db.end();
+  }
+});

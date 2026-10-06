@@ -114,7 +114,8 @@ describe("checks", () => {
         }),
       ),
     );
-    expect(opened.map((o) => o.number).sort()).toEqual([1074, 1075]);
+    // After the seed's 13 checks, its three paper slips' (#1054 to #1056, M6-09) and the ones above.
+    expect(opened.map((o) => o.number).sort()).toEqual([1077, 1078]);
     // The database refuses a number used twice.
     await expect(
       withVenue(pool, { venueId }, (c) =>

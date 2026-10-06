@@ -38,7 +38,7 @@ afterAll(async () => {
 describe("stripe:seed", () => {
   it("backs every deposit with a succeeded PaymentIntent and attaches both readers by label", async () => {
     const done = await seedStripe(owner, stripe, () => undefined);
-    expect(done).toMatchObject({ readers: 2, deposits: 11 });
+    expect(done).toMatchObject({ readers: 2, deposits: 11, holds: 3 });
     const marcus = (
       await owner.query<{ pi: string; brand: string; last4: string }>(
         `select p.stripe_pi_id as pi, p.card_brand as brand, p.card_last4 as last4 from payments p
@@ -64,12 +64,25 @@ describe("stripe:seed", () => {
       { name: "Bar S710", registered: true },
       { name: "Front desk S710", registered: true },
     ]);
+    // The paper slips' holds (M6-09): tapped on the bar reader, held for the opening $50.00, able to grow.
+    const ana = (
+      await owner.query<{ pi: string; over: boolean }>(
+        `select p.stripe_pi_id as pi, p.overcapture_supported as over from payments p
+          where p.id = (select row_id from seed_ids where slug = 'pay_slip_3')`,
+      )
+    ).rows[0]!;
+    expect(fake.objects.get(ana.pi)).toMatchObject({
+      status: "requires_capture",
+      amount_capturable: 5000,
+      capture_method: "manual",
+    });
+    expect(ana.over).toBe(true);
   });
 
   it("does nothing new on a second run: no new PaymentIntents, the same readers", async () => {
     const before = fake.list("payment_intent", null).length;
     const again = await seedStripe(owner, stripe, () => undefined);
-    expect(again).toMatchObject({ readers: 2, deposits: 0 });
+    expect(again).toMatchObject({ readers: 2, deposits: 0, holds: 0 });
     expect(fake.list("payment_intent", null)).toHaveLength(before);
     expect(fake.list("terminal.reader", null)).toHaveLength(2);
   });

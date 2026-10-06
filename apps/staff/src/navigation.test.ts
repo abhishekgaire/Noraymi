@@ -95,7 +95,7 @@ describe("the staff phone's tabs (M2-32)", () => {
   const tabsFor = (role: Role, modules: ModuleStates = everythingOn) =>
     phoneTabs({ role, modules, permissions: allowedFor(role) }).map((t) => t.id);
 
-  it("a manager's phone: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Alerts and Admin", () => {
+  it("a manager's phone: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Tips to enter, Alerts and Admin", () => {
     expect(tabsFor("manager")).toEqual([
       "tonight",
       "rooms",
@@ -103,9 +103,16 @@ describe("the staff phone's tabs (M2-32)", () => {
       "waitlist",
       "messages",
       "approvals",
+      "tips",
       "alerts",
       "admin",
     ]);
+  });
+
+  it("Tips to enter (M6-09) is on the phones that use the bar POS, while bar tabs are on", () => {
+    expect(tabsFor("bartender")).toContain("tips");
+    expect(tabsFor("staff")).not.toContain("tips");
+    expect(tabsFor("manager", { ...everythingOn, bar_tabs: "off" })).not.toContain("tips");
   });
 
   it("a runner's phone: Runs, check-in and the waitlist, and Calls; no Approvals, no Rooms", () => {

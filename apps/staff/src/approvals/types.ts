@@ -4,7 +4,17 @@ export interface Approval {
   readonly kind: string;
   readonly amount_cents: number | null;
   readonly reason: string;
-  readonly payload: { readonly description?: string };
+  readonly payload: {
+    readonly description?: string;
+    /** A tip from a paper slip (M6-09): why it needs approval, the venue's limits, and the slip's photo. */
+    readonly reasons?: readonly ("over_pct" | "over_cents" | "late")[];
+    readonly limits?: {
+      readonly over_pct: number;
+      readonly over_cents: number;
+      readonly late_hours: number;
+    };
+    readonly photo_file_id?: string;
+  };
   readonly requested_by: string;
   readonly requested_by_name: string;
   readonly requested_at: string;

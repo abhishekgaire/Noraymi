@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { LOCAL_DEV_AUTH_KEY, encryptSecret, parseAuthSecretKey, recoveryCodeHash } from "./auth.js";
 import { pinVerifier } from "./pins.js";
 import { badgeUidHash } from "./badges.js";
@@ -96,7 +96,20 @@ export interface SeedFile {
   readonly approvals: readonly SeedApproval[];
   readonly reason_only_used_tonight: readonly { readonly person: string; readonly cents: number }[];
   readonly bar_tabs: readonly SeedTab[];
+  readonly tip_slips: readonly SeedTipSlip[];
   readonly drawers: readonly SeedDrawer[];
+}
+
+/** A signed paper tip slip waiting in Tips to enter (M6-09): a bar tab awaiting its tip, its photo kept. */
+export interface SeedTipSlip {
+  readonly id: string;
+  readonly name: string;
+  readonly card_brand: string;
+  readonly card_last4: string;
+  readonly tab_total_cents: number;
+  readonly signed_at: string;
+  readonly photo_saved: boolean;
+  readonly tip_entered_cents: number | null;
 }
 
 /** A house drawer and its open session (M4-10): $300.00 starting bank, the manager on duty answering for it. */
@@ -872,6 +885,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     );
     await client.query("update devices set cash_drawer_id = null where venue_id = $1", [venueId]);
     for (const table of [
+      // Queued and finished jobs (M6-09): the seed's ids are the same on every load, so a job left from the
+      // last night (a payment run keyed by its payment and attempt) would swallow tonight's as a duplicate.
+      "jobs",
       "drawer_moves",
       "staff_banks",
       "drawer_sessions",
@@ -939,6 +955,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "check_lines",
       "tabs",
       "checks",
+      // Photos (the slips' since M6-09); after every row that points at one.
+      "files",
       "time_punches",
       "venue_counters",
       "session_segments",
@@ -1489,8 +1507,10 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     await client.query(
       `insert into venue_counters (venue_id, name, next) values ($1, 'check', $2)`,
-      [venueId, base + opened.length],
+      // The paper slips' bar checks (M6-09) take the next numbers.
+      [venueId, base + opened.length + seed.tip_slips.length],
     );
+    const slipBase = base + opened.length;
     log(`checks: ${opened.length}, from #${base} to #${base + opened.length - 1}`);
 
     // The bar tabs (M6-02), on their bar checks. Their cards and holds go on Stripe with M6-06.
@@ -1517,6 +1537,100 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       );
     }
     log(`tabs: ${seed.bar_tabs.length}`);
+
+    // The paper tip slips (M6-09; screens N26): three bar tabs whose slips printed and were signed, waiting
+    // as awaiting_tip with their holds standing, each with the photo of its signed slip. The brief gives each
+    // tab's total, not its drinks, and none of the totals can be reached by drinks plus 8.875% tax, so each
+    // check carries its total as one "Bar tab" line with no tax category (flagged for M6-27). The hold is the
+    // venue's opening hold; its PaymentIntent on Stripe comes from `stripe:seed`, as the deposits' do.
+    const openingHold = Number((seed.settings["tabs"] ?? {})["openingHoldCents"] ?? 0);
+    for (const [i, slip] of seed.tip_slips.entries()) {
+      const name = slip.name.replace(/^Bar tab · /, "");
+      const checkId = remember(`chk_${slip.id}`, "checks");
+      await client.query(
+        `insert into checks (id, venue_id, number, kind, business_date, status, opened_by, opened_at)
+           values ($1, $2, $3, 'bar', $4, 'finalized', $5, $6)`,
+        [checkId, venueId, slipBase + i, seed.meta.business_date, id("maya"), slip.signed_at],
+      );
+      await client.query(
+        `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
+           business_date, added_by, added_at)
+         values ($1, $2, 'item', 'Bar tab', 1, $3, $3, null, $4, $5, $6)`,
+        [
+          venueId,
+          checkId,
+          slip.tab_total_cents,
+          seed.meta.business_date,
+          id("maya"),
+          slip.signed_at,
+        ],
+      );
+      // A fresh id on every load: Stripe keys are built from the payment's id (its capture's, for one), and
+      // a reload against the same Stripe must never reuse last load's keys for a new hold.
+      const paymentId = randomUUID();
+      ids[`pay_${slip.id}`] = paymentId;
+      seedRows.push({ slug: `pay_${slip.id}`, entity: "payments", id: paymentId });
+      await client.query(
+        `insert into payments (id, venue_id, method, status, amount_cents, authorized_cents, card_brand, card_last4,
+           card_funding, business_date, incremental_supported, overcapture_supported)
+         values ($1, $2, 'card_present', 'authorized', 0, $3, $4, $5, 'credit', $6, true, true)`,
+        [
+          paymentId,
+          venueId,
+          openingHold,
+          slip.card_brand.toLowerCase(),
+          slip.card_last4,
+          seed.meta.business_date,
+        ],
+      );
+      await client.query(
+        "insert into payment_events (venue_id, payment_id, from_status, to_status, source) values ($1, $2, null, 'authorized', 'api')",
+        [venueId, paymentId],
+      );
+      const tabId = remember(slip.id, "tabs");
+      await client.query(
+        `insert into tabs (id, venue_id, check_id, payment_id, state, name, card_brand, card_last4, hold_cents,
+           owner_id, opened_by, opened_at)
+         values ($1, $2, $3, $4, 'awaiting_tip', $5, $6, $7, $8, $9, $9, $10)`,
+        [
+          tabId,
+          venueId,
+          checkId,
+          paymentId,
+          name,
+          slip.card_brand,
+          slip.card_last4,
+          openingHold,
+          id("maya"),
+          slip.signed_at,
+        ],
+      );
+      // The photo's row only: the image itself isn't in local storage (the staging seed brings it, M6-27).
+      const photoId = slip.photo_saved ? remember(`${slip.id}.photo`, "files") : null;
+      if (photoId)
+        await client.query(
+          `insert into files (id, venue_id, kind, storage_key, content_type, bytes, uploaded_by, uploaded_at,
+             attached_at)
+           values ($1, $2, 'slip_photo', $5, 'image/jpeg', 1, $3, $4, $4)`,
+          [photoId, venueId, id("maya"), slip.signed_at, `${venueId}/slip_photo/${photoId}`],
+        );
+      await client.query(
+        `insert into tab_closings (venue_id, tab_id, check_id, payment_id, path, state, balance_cents, drinks_cents,
+           closed_by, created_at, slip_printed_at, slip_photo_file_id)
+         values ($1, $2, $3, $4, 'slip', 'slip', $5, $5, $6, $7, $7, $8)`,
+        [
+          venueId,
+          tabId,
+          checkId,
+          paymentId,
+          slip.tab_total_cents,
+          id("maya"),
+          slip.signed_at,
+          photoId,
+        ],
+      );
+    }
+    log(`paper tip slips: ${seed.tip_slips.length}`);
 
     // Deposits (M4-10; Money rules 11): each booking's captured deposit is a card_online payment, with the
     // card the brief names for display. A seated party's deposit is allocated to its check, following the

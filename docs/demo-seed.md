@@ -425,7 +425,8 @@ Staging is seeded from [`seed/west4-friday.json`](../seed/west4-friday.json) ([T
 | Menu and room orders | `menu`, `orders`, `order_drafts`, `approvals`, `reason_only_used_tonight` | M3 |
 | Checks and paying | `checks` (tab so far from M2; close-out and payments in M4), `drawers` | M2, M4 |
 | Bar tabs and bar mode | `bar_tabs`, `singers`, `song_queue`, `up_next_tv` | M6 |
-| Close the night | `tip_slips`, `later_tonight` | M7 |
+| Paper tip slips (Tips to enter) | `tip_slips` | M6 |
+| Close the night | `later_tonight` | M7 |
 | Scripts and counts | `scenarios`, `counts` | each scenario runs in the milestone that builds what it touches |
 
 Tests that change state (accept o1, approve the void, check Sam O. in) start from a fresh load, so the next test still sees 10:41 PM.

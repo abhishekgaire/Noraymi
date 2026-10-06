@@ -79,7 +79,10 @@ afterAll(async () => {
 describe("the bar tabs list", () => {
   it("lists the five tabs in the order opened, with the seed's totals and badges", async () => {
     as("maya", "bartender");
-    const tabs = (await call("GET", "/tabs")).json().tabs as TabView[];
+    // The paper slips waiting for their tips (M6-09) list with tonight's closed tabs.
+    const tabs = (
+      (await call("GET", "/tabs")).json().tabs as (TabView & { open: boolean })[]
+    ).filter((x) => x.open);
     expect(tabs.map((x) => x.name)).toEqual([
       "Hana K.",
       "Jess P.",

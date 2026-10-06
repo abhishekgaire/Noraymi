@@ -565,13 +565,13 @@ describe("back to open, and the slip", () => {
     expect(await payment(tab.paymentId)).toMatchObject({ status: "authorized" });
   });
 
-  it("a tip screen left untouched for 2 minutes comes down, and the tab is open", async () => {
+  it("a tip screen left untouched for 2 minutes comes down, and the paper slip prints (M6-09)", async () => {
     const tab = await openTab("Jess P.", "3056930009020004");
     const rung = await send(tab.check_id, jessRound());
     expect(rung.statusCode, rung.body).toBe(201);
     expect((await close(tab.id)).statusCode).toBe(200);
     clock.advance({ seconds: 121 });
-    expect(await closeStatus(tab.id)).toMatchObject({ state: "timed_out", tab_state: "open" });
+    expect(await closeStatus(tab.id)).toMatchObject({ state: "slip", tab_state: "awaiting_tip" });
     expect(await readerAction()).toMatchObject({ status: "failed" });
   });
 

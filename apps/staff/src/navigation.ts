@@ -173,6 +173,9 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
     tabs.push({ id: "messages", labelKey: "menu.messages", path: "/messages" });
   if (can("approvals.decide"))
     tabs.push({ id: "approvals", labelKey: "menu.approvals", path: "/approvals" });
+  // Tips to enter (M6-09; screens N26): the signed paper slips waiting for their tips.
+  if (can("pos.use") && context.modules.bar_tabs !== "off")
+    tabs.push({ id: "tips", labelKey: "tips.title", path: "/tips" });
   tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
   if (can("admin.access")) tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;
