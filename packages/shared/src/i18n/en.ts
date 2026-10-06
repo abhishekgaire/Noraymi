@@ -2138,4 +2138,10 @@ export const en = {
   "site.songbook.search": "Search the songbook",
   "site.songbook.noMatch": "No songs match.",
   "guestSing.noMatch": "No songs match. Type the title and artist below.",
+  // Send the singer a drink (M6-24).
+  "gift.label": "Send the singer a drink",
+  "gift.none": "No · it's for this tab",
+  "gift.send": "Send {count} to {name}",
+  "gift.sent": "Sent · {name}'s drink is on this tab · check their ID at hand-off",
+  "gift.cutOff": "No alcohol for {name}",
 } as const;

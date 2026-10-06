@@ -13,7 +13,7 @@ import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { stepOrder } from "./pipeline.js";
-import { alcoholBlock, checkAlcohol } from "./alcohol.js";
+import { alcoholBlock, checkAlcohol, checkGiftAlcohol } from "./alcohol.js";
 
 /**
  * A staff order (M3-07; spec 10 · Adding drinks to a room from a staff
@@ -32,6 +32,11 @@ export interface StaffLine {
   readonly notes?: string | null | undefined;
 }
 
+export interface GiftFor {
+  readonly singerId: string;
+  readonly checkId: string | null;
+}
+
 export async function placeStaffOrder(
   c: Queryable,
   venueId: string,
@@ -45,6 +50,8 @@ export async function placeStaffOrder(
     now: Temporal.Instant;
     /** A round a manager OKs later (M6-07, over_hold) left the draft when it was asked for. */
     keepDraft?: boolean;
+    /** A gift order (M6-24): the singer it's for and their check, whose cut-off it checks. */
+    gift?: GiftFor | null;
   },
 ): Promise<OrderRow> {
   // A retried send with the same client_order_id answers the order it made the first time.
@@ -67,9 +74,19 @@ export async function placeStaffOrder(
   if (input.lines.length === 0) throw new ApiError("invalid_request", "nothing to send");
 
   const items = await orderItemsFor(c, venueId, input.lines, input.now);
+  const alcoholItems = items.map((i) => ({ name: i.name, alcohol: i.alcohol }));
+  // A gift is checked first against the singer it's for (M6-24): the window, then their tab's or
+  // room's cut-off, so the refusal is logged on the check it's about.
+  if (input.gift)
+    await checkGiftAlcohol(c, venueId, {
+      items: alcoholItems,
+      giftCheckId: input.gift.checkId,
+      refusedBy: input.userId,
+      now: input.now,
+    });
   // The alcohol window and the room's cut-off (M3-20).
   await checkAlcohol(c, venueId, {
-    items: items.map((i) => ({ name: i.name, alcohol: i.alcohol })),
+    items: alcoholItems,
     sessionId: ch.room_session_id,
     checkId: input.checkId,
     roomGuestId: null,
@@ -81,7 +98,9 @@ export async function placeStaffOrder(
   const orderId = await insertOrder(c, venueId, {
     checkId: input.checkId,
     sessionId: ch.room_session_id,
-    source: "staff",
+    source: input.gift ? "gift" : "staff",
+    giftForSingerId: input.gift?.singerId ?? null,
+    giftForCheckId: input.gift?.checkId ?? null,
     placedBy: input.userId,
     placedAt: input.now.toString(),
     businessDate: businessDate(input.now, clock.timeZone, clock.dayCutover).businessDate.toString(),

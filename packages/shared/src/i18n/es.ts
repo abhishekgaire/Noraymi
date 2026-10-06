@@ -2178,4 +2178,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.songbook.search": "Busca en el cancionero",
   "site.songbook.noMatch": "Ninguna canción coincide.",
   "guestSing.noMatch": "Ninguna canción coincide. Escribe el título y el artista abajo.",
+  // Send the singer a drink (M6-24).
+  "gift.label": "Enviar una bebida al cantante",
+  "gift.none": "No · es para esta cuenta",
+  "gift.send": "Enviar {count} a {name}",
+  "gift.sent": "Enviado · la bebida de {name} va en esta cuenta · revisa su ID al entregarla",
+  "gift.cutOff": "Sin alcohol para {name}",
 };

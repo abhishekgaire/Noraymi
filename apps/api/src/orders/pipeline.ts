@@ -32,7 +32,7 @@ import {
 } from "../approvals/service.js";
 import { venueClock } from "../rooms/assignment.js";
 import { writeFixLine, type FixPayload } from "../rooms/fix.js";
-import { alcoholNow, checkAlcohol } from "./alcohol.js";
+import { alcoholNow, checkAlcohol, checkGiftAlcohol } from "./alcohol.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -112,6 +112,8 @@ async function ticket(
         accepted_by: order.accepted_by_name,
         accepted_at: order.accepted_at,
         ids,
+        // A gift (M6-24) names the singer it's for; the bartender checks their ID at hand-off.
+        ...(order.source === "gift" ? { gift_for: order.gift_for_name } : {}),
         lines: order.items
           .filter((i) => i.station === station)
           .map((i) => ({
@@ -233,6 +235,15 @@ export async function stepOrder(
         refusedBy: by,
         now: input.now,
       });
+      // A gift (M6-24) is checked again against the singer it's for.
+      if (order.source === "gift")
+        await checkGiftAlcohol(c, venueId, {
+          items: order.items.map((i) => ({ name: lineName(i), alcohol: i.alcohol })),
+          giftCheckId: order.gift_for_check_id,
+          orderId: order.id,
+          refusedBy: by,
+          now: input.now,
+        });
       const moved = await move({ accepted_by: by, accepted_at: now });
       // After the room's check is paid, an accepted order opens a new check on the session (M4-08).
       const target = await checkForAccept(c, venueId, {

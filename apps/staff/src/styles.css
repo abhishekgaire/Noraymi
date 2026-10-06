@@ -1045,6 +1045,15 @@ button.danger {
   min-height: 44px;
   max-width: 100%;
 }
+/* Send the singer a drink (M6-24): who this round is for, above Send. */
+.unsent .gift-for {
+  margin: 8px 0 0;
+}
+.unsent .gift-for select {
+  min-height: 44px;
+  width: 100%;
+  max-width: 100%;
+}
 .unsent .send {
   margin-top: 8px;
   min-height: 44px;

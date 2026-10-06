@@ -141,6 +141,73 @@ export async function checkAlcohol(
   });
 }
 
+/**
+ * A gift order's check (M6-24; spec 11 · Send the singer a drink; D64): the alcohol window, and the
+ * receiving singer's check (their bar tab's cut-off, or their room's), so a gift can't get around a
+ * cut-off. A cut-off refusal names who cut them off, when and why ("Cut off by Andy at 10:30 PM").
+ */
+export async function checkGiftAlcohol(
+  c: Queryable,
+  venueId: string,
+  input: {
+    items: readonly { name: string; alcohol: boolean }[];
+    giftCheckId: string | null;
+    orderId?: string | null;
+    refusedBy: string | null;
+    now: Temporal.Instant;
+  },
+): Promise<void> {
+  const alcohol = input.items.filter((i) => i.alcohol);
+  if (alcohol.length === 0) return;
+  const to = input.giftCheckId
+    ? (
+        await c.query<{ room_session_id: string | null }>(
+          "select room_session_id from checks where venue_id = $1 and id = $2",
+          [venueId, input.giftCheckId],
+        )
+      ).rows[0]
+    : undefined;
+  const sessionId = to?.room_session_id ?? null;
+  const block = await alcoholBlock(
+    c,
+    venueId,
+    { sessionId, roomGuestId: null, checkId: input.giftCheckId },
+    input.now,
+  );
+  if (!block) return;
+  let cutOff: { at: string; by: string | null; reason: string | null } | null = null;
+  if (block === "cut_off")
+    cutOff =
+      (
+        await c.query<{ at: string; by: string | null; reason: string | null }>(
+          `select to_json(t.cut_off_at) #>> '{}' as at, split_part(u.name, ' ', 1) as by, t.cut_off_reason as reason
+             from tabs t left join users u on u.id = t.cut_off_by
+            where t.venue_id = $1 and t.check_id = $2 and t.cut_off_at is not null
+           union all
+           select to_json(s.alcohol_cut_off_at) #>> '{}', split_part(u.name, ' ', 1), s.alcohol_cut_off_reason
+             from room_sessions s left join users u on u.id = s.alcohol_cut_off_by
+            where s.venue_id = $1 and s.id = $3 and s.alcohol_cut_off_at is not null
+           limit 1`,
+          [venueId, input.giftCheckId, sessionId],
+        )
+      ).rows[0] ?? null;
+  const v = await venueClock(c, venueId);
+  throw new AlcoholRefused(
+    {
+      reason: block,
+      sessionId,
+      checkId: input.giftCheckId,
+      roomGuestId: null,
+      orderId: input.orderId ?? null,
+      refusedBy: input.refusedBy,
+      items: alcohol.map((i) => i.name),
+      at: input.now.toString(),
+      businessDate: businessDate(input.now, v.timeZone, v.dayCutover).businessDate.toString(),
+    },
+    cutOff ? { cut_off: cutOff, gift: true } : { gift: true },
+  );
+}
+
 async function logRefused(c: Queryable, venueId: string, r: Refused) {
   for (const item of r.items)
     await c.query(

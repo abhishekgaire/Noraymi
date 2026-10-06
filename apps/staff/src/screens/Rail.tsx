@@ -1299,6 +1299,7 @@ export function Rail() {
                     sessionId={room?.session?.id ?? null}
                     search={false}
                     ringRequest={ringRequest}
+                    gift={tab?.state === "open" ? { tabId: tab.id, timeZone } : undefined}
                     onSent={() => void load()}
                   />
                 )}

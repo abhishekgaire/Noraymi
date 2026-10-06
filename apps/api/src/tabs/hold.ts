@@ -22,7 +22,7 @@ import { cents, formatMoney, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { TargetGone, executors, managerOnDutyAt, requestApproval } from "../approvals/service.js";
 import type { PendingAnswer } from "../approvals/service.js";
-import { placeStaffOrder, type StaffLine } from "../orders/place.js";
+import { placeStaffOrder, type GiftFor, type StaffLine } from "../orders/place.js";
 import { enqueuePush } from "../push/send-push.js";
 import { venueClock } from "../rooms/assignment.js";
 import { checkView } from "../rooms/checks.js";
@@ -159,6 +159,8 @@ export interface SendInput {
   readonly now: Temporal.Instant;
   /** After one raise, a second one isn't asked for in the same send. */
   readonly raised?: boolean;
+  /** A gift order for a singer (M6-24): charged here, checked against the singer's check. */
+  readonly gift?: GiftFor | null;
 }
 
 /**
@@ -220,6 +222,7 @@ export async function sendRound(
         lines: input.lines,
         membership_id: input.membershipId,
         device_id: input.deviceId,
+        ...(input.gift ? { gift: input.gift } : {}),
         description: `${tab.name} · ${order.items
           .map((i) => (i.qty > 1 ? `${i.qty} × ${i.name_snapshot}` : i.name_snapshot))
           .join(", ")}`,
@@ -455,6 +458,7 @@ executors.set("over_hold", async (c, venueId, approval, ctx) => {
     lines: StaffLine[];
     membership_id: string;
     device_id: string | null;
+    gift?: GiftFor;
   };
   const tab = await tabOfCheck(c, venueId, p.check_id, true);
   if (!tab || tab.state !== "open") throw new TargetGone();
@@ -484,6 +488,7 @@ executors.set("over_hold", async (c, venueId, approval, ctx) => {
       deviceId: p.device_id,
       now: ctx.at,
       keepDraft: true,
+      gift: p.gift ?? null,
     });
   } catch (e) {
     if (e instanceof ApiError) throw new TargetGone();

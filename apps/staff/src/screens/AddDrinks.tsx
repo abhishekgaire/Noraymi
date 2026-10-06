@@ -3,6 +3,7 @@ import { staffOrderWordsKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
+import { useCutOffWords } from "./CutOff.js";
 
 /**
  * Adding drinks to a room from DeskRoom and the Room phone (M3-07; spec 10 ·
@@ -77,6 +78,8 @@ export function AddDrinks(props: {
   refresh?: number;
   /** Quick sale (M6-05): Pay makes the sale from the lines instead of sending them to a check. */
   onPay?: (lines: readonly DraftLine[]) => Promise<void>;
+  /** A bar tab (M6-24): Send the singer a drink sends the round as a gift to a singer in the queue. */
+  gift?: { readonly tabId: string; readonly timeZone: string } | undefined;
 }) {
   const { t, money } = useT();
   const { subscribe } = useEvents();
@@ -92,6 +95,27 @@ export function AddDrinks(props: {
   // A tab's hold (M6-07): a round waiting for a manager, or a raise being checked with Stripe.
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Send the singer a drink (M6-24): the singers in tonight's queue, and the one this round is for.
+  const [singers, setSingers] = useState<readonly { id: string; display_name: string }[]>([]);
+  const [giftFor, setGiftFor] = useState("");
+  const cutOffWords = useCutOffWords(props.gift?.timeZone ?? "America/New_York");
+  const giftTabId = props.gift?.tabId;
+  useEffect(() => {
+    if (!giftTabId) return;
+    let live = true;
+    // Bar mode off, or the queue unreachable: no singers to send to, and the picker stays hidden.
+    api<{ singers: { id: string; display_name: string }[] }>(
+      "GET",
+      `/v1/venues/${venueId}/song-queue`,
+    ).then(
+      (q) => live && setSingers(q.singers ?? []),
+      () => live && setSingers([]),
+    );
+    return () => {
+      live = false;
+    };
+  }, [venueId, giftTabId]);
+  const giftName = singers.find((x) => x.id === giftFor)?.display_name ?? null;
   const version = useRef(0);
   // Undo, step by step, on unsent drinks (M6-03): each change keeps what was there before.
   const history = useRef<(readonly DraftLine[])[]>([]);
@@ -263,10 +287,15 @@ export function AddDrinks(props: {
           status?: string;
           waiting_for?: { name: string };
           error?: { code?: string };
-        }>("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
-          client_order_id: crypto.randomUUID(),
-          lines,
-        });
+        }>(
+          "POST",
+          giftTabId && giftName
+            ? `/v1/venues/${venueId}/tabs/${giftTabId}/gift-order`
+            : `/v1/venues/${venueId}/checks/${checkId}/orders`,
+          giftTabId && giftName
+            ? { client_order_id: crypto.randomUUID(), singer_id: giftFor, lines }
+            : { client_order_id: crypto.randomUUID(), lines },
+        );
         // The raise is being checked with Stripe: the round stays here, unsent.
         if (answer.error?.code === "payment_unknown") {
           setNotice(t("rail.holdChecking"));
@@ -275,7 +304,9 @@ export function AddDrinks(props: {
         }
         if (answer.status === "approval_pending")
           setNotice(t("rail.holdDeclined.waiting", { name: answer.waiting_for?.name ?? "" }));
+        else if (giftName) setNotice(t("gift.sent", { name: giftName }));
       }
+      setGiftFor("");
       setLines([]);
       history.current = [];
       setSent(true);
@@ -283,10 +314,15 @@ export function AddDrinks(props: {
       props.onSent();
     } catch (e) {
       const err = e as ApiCallError;
+      const cut = err?.details?.["cut_off"] as { at: string; by: string | null } | undefined;
       setError(
         err?.details?.["reason"] === "hold_cap"
           ? t("rail.holdCapped")
-          : (err?.message ?? t("drinks.failed")),
+          : giftName && err?.code === "cut_off"
+            ? `${t("gift.cutOff", { name: giftName })}${cut ? ` · ${cutOffWords(cut)}` : ""}`
+            : giftName && err?.code === "alcohol_closed"
+              ? t("drinks.alcohol.closed")
+              : (err?.message ?? t("drinks.failed")),
       );
     } finally {
       setSending(false);
@@ -431,6 +467,19 @@ export function AddDrinks(props: {
               );
             })}
           </ul>
+          {giftTabId && singers.length > 0 && (
+            <label className="gift-for">
+              <span>{t("gift.label")}</span>
+              <select value={giftFor} onChange={(e) => setGiftFor(e.target.value)}>
+                <option value="">{t("gift.none")}</option>
+                {singers.map((x) => (
+                  <option key={x.id} value={x.id} data-guest-text>
+                    {x.display_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="actions">
             {history.current.length > 0 && (
               <button type="button" className="secondary" disabled={sending} onClick={undo}>
@@ -450,7 +499,9 @@ export function AddDrinks(props: {
                   ? t("drinks.sendMissing", missing)
                   : props.onPay
                     ? t("drinks.pay", { count })
-                    : t("drinks.send", { count })}
+                    : giftName
+                      ? t("gift.send", { count, name: giftName })
+                      : t("drinks.send", { count })}
             </button>
           </div>
         </div>

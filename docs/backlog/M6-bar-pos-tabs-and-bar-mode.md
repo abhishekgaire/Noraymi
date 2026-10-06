@@ -646,7 +646,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-24 · Send the singer a drink as a checked gift order
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6-18, M6-07; M3 (orders, the alcohol check)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) (Send the singer a drink); [Data model](../spec/04-data-model.md) (`orders.gift_for_singer_id`, `gift_for_check_id`, Room orders); [API](../spec/08-api.md) (`POST /tabs/{t}/gift-order`); [Money rules](../spec/05-money-rules.md) rule 5; [decisions](../decisions.md) (D64)
@@ -655,10 +655,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The alcohol check runs against the receiving tab and the window: a cut-off receiving tab, or a time outside the window, answers `409 cut_off` or `409 alcohol_closed` with the reason, logged in `alcohol_refusals`.
   - The ticket names the singer and tells the bartender to check ID at hand-off.
 - **Acceptance:**
-  - [ ] Tariq A. sends Jess P. a Modelo: it rings the bar, goes on Tariq's tab, and the ticket names Jess.
-  - [ ] A gift of alcohol to Hana K. (cut off) is refused with "Cut off by Andy at 10:30 PM" and logged, and a gift at 4:02 AM is refused with the 4 AM reason.
+  - [x] Tariq A. sends Jess P. a Modelo: it rings the bar, goes on Tariq's tab, and the ticket names Jess.
+  - [x] A gift of alcohol to Hana K. (cut off) is refused with "Cut off by Andy at 10:30 PM" and logged, and a gift at 4:02 AM is refused with the 4 AM reason.
 - **Tests:** integration; clock tests.
 - **Notes:** Closes GA-M11's "gift orders checked for cut-offs". The spec doesn't say which page a guest starts a gift from, so M6 builds it for staff on the bar POS and leaves guest pages without it; flagged.
+  - **Built (M6-24):** migration 0091 gives `orders.gift_for_singer_id` and `gift_for_check_id` their keys (to `singers` and `checks`, per venue) and a check that a `gift` order names its singer; `singers` moves after `orders` in the seed wipe list. `insertOrder` writes the gift columns and every order read carries `gift_for_singer_id`, `gift_for_check_id` and `gift_for_name` (the singer's display name).
+  - Route: `POST /v1/venues/{v}/tabs/{t}/gift-order` { singer_id, lines, client_order_id? } (`pos.use`, module `bar_tabs`; `apps/api/src/tabs/gift.ts`). The sender's tab must be open and the singer exist (404 otherwise); the receiving check is the singer's `check_id` (their bar tab, or none). It goes through `sendRound`, so the hold check runs as for any round: 201 with the order, a raise run outside the transaction then tried once more, 202 `approval_pending` when the raise was declined (the `over_hold` approval carries the gift and replays it as one), or `payment_unknown` "Checking with Stripe · don't retry". `placeStaffOrder` takes an optional `gift`: source `gift`, accepted as it's placed, its lines on the sender's check. A retried `client_order_id` answers the same order.
+  - The alcohol check: `checkGiftAlcohol` (`apps/api/src/orders/alcohol.ts`) runs the window and the receiving check's cut-off (the singer's tab, or the room session behind their check) through `alcoholBlock`, before the sender's own check, so a refusal is logged on the singer's check in `alcohol_refusals`. A cut-off answers `409 cut_off` with `details.cut_off` { at, by, reason } (Andy, 10:30 PM for Hana K.) and `details.gift: true`; a closed window `409 alcohol_closed`. Accept runs it again for a gift order (`pipeline.ts`).
+  - The ticket: the bar ticket's payload carries `gift_for` (the singer's name); `ticketLines` prints "GIFT FOR JESS P." and "CHECK ID AT HAND-OFF" (bold on ESC/POS) under the accepted-by line. Printed tickets stay English like the rest of the ticket.
+  - Screen: on the bar POS, a tab's unsent drinks get a "Send the singer a drink" picker (tonight's singers from `GET /song-queue`; hidden when bar mode is off or nobody has joined). With a singer picked, Send reads "Send 1 to Jess P.", posts the gift, and says "Sent · Jess P.'s drink is on this tab · check their ID at hand-off"; a refusal reads "No alcohol for Hana K. · Cut off by Andy at 10:30 PM", or "No alcohol now · the window has closed". English and Spanish strings.
+  - Defaults flagged: the sender's tab's own cut-off and the window are checked too (a cut-off guest's tab takes no alcohol line, even one for someone else); the spec names only the receiving tab. A singer with no tab (Ben T.) can be sent a drink: only the window is checked for them. A gift to the sender's own singer isn't refused. Guest pages don't offer it (as above).
+  - Tests: `apps/api/src/routes/gift-order.int.test.ts` (Tariq A. sends Jess P. a Modelo: 201, source gift, on Tariq's check, ticket text names Jess with the ID line, a retry answers the same order; Hana K. refused with Andy at 10:30 PM and logged, a Red Bull goes; Ben T. with no tab; an unknown singer 404; 4:02 AM refused and logged as `window_closed`; at 3:59:59 AM a gift goes and at 4:00:00 AM it's refused on Sep 26 2026, Nov 1 2026 and Mar 14 2027); e2e "the bar POS: Tariq A. sends Jess P. a Modelo, and Hana K.'s cut-off refuses one".
 
 ### M6-25 · Build Admin → Bar POS
 

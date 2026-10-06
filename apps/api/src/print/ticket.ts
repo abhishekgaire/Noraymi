@@ -12,6 +12,8 @@ export interface TicketPayload {
   readonly accepted_by?: string | null;
   readonly accepted_at?: string | null;
   readonly ids?: { checked: number; party: number } | null;
+  /** A gift order's singer (M6-24): named on the ticket, with the ID check at hand-off. */
+  readonly gift_for?: string | null;
   readonly lines?: readonly {
     qty: number;
     name: string;
@@ -54,6 +56,10 @@ export function ticketLines(
     out.push(
       `ID ${p.ids.checked >= p.ids.party ? "OK" : "CHECK"} ${p.ids.checked} of ${p.ids.party}`,
     );
+  if (p.gift_for !== undefined) {
+    out.push(`GIFT FOR ${(p.gift_for ?? "a singer").toUpperCase()}`);
+    out.push("CHECK ID AT HAND-OFF");
+  }
   out.push(rule);
   for (const l of p.lines ?? []) {
     out.push(`${l.qty} x ${l.name}`);
@@ -104,7 +110,7 @@ export function ticketEscPos(
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^\x20-\x7e]/g, "?");
   for (const line of ticketLines(p, opts)) {
-    const bold = /^(REPRINT \d+|REMAKE|TEST TICKET)$/.test(line);
+    const bold = /^(REPRINT \d+|REMAKE|TEST TICKET|GIFT FOR .*|CHECK ID AT HAND-OFF)$/.test(line);
     if (bold) bytes.push(ESC, 0x45, 1);
     for (const ch of ascii(line)) bytes.push(ch.charCodeAt(0));
     bytes.push(0x0a);

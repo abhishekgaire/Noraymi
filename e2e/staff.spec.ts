@@ -5568,6 +5568,46 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
 });
 
 /**
+ * Send the singer a drink (M6-24; D64): from Tariq A.'s tab, a Modelo for Jess P. rings the bar on
+ * Tariq's tab with the ID reminder; one for Hana K. is refused with her cut-off in words.
+ */
+test("the bar POS: Tariq A. sends Jess P. a Modelo, and Hana K.'s cut-off refuses one", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Tariq A\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByLabel("Send the singer a drink").selectOption({ label: "Jess P." });
+    await panel.getByRole("button", { name: "Send 1 to Jess P." }).click();
+    await expect(panel.getByRole("status")).toContainText(
+      "Sent · Jess P.'s drink is on this tab · check their ID at hand-off",
+    );
+    const gifts = await db.query(
+      `select o.id from orders o join tabs t on t.check_id = o.check_id
+        where o.source = 'gift' and t.name = 'Tariq A.'`,
+    );
+    expect(gifts.rowCount).toBe(1);
+
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByLabel("Send the singer a drink").selectOption({ label: "Hana K." });
+    await panel.getByRole("button", { name: "Send 1 to Hana K." }).click();
+    await expect(panel.getByRole("alert")).toContainText(
+      "No alcohol for Hana K. · Cut off by Andy at 10:30 PM",
+    );
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * Moves on the bar POS (M6-13; Rail notes 7 and 8): the fix panel's Move greys out Hana K.'s cut-off tab
  * for 2 × Modelo, with the reason; Move tab to a room puts Jess P.'s drinks on Room 9's check as "Moved
  * from Jess P.'s bar tab" and her tab reads "Moved to Room 9" in Closed tonight.

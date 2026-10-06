@@ -6,6 +6,8 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { listTabs } from "../tabs/tabs.js";
 import { repeatRound } from "../tabs/repeat.js";
+import { giftOrder } from "../tabs/gift.js";
+import type { SendAnswer } from "../tabs/hold.js";
 import { cutOffTab } from "../tabs/cut-off.js";
 import {
   backToTheSale,
@@ -65,6 +67,9 @@ import {
  *   GET /v1/venues/{v}/tabs?state=   open tabs in the order opened and tonight's closed ones;
  *                                    ?state=awaiting_tip (and other states, comma-separated) filters
  *   POST /v1/venues/{v}/tabs/{t}/repeat-round   the last round into the caller's unsent drinks (M6-03)
+ *   POST /v1/venues/{v}/tabs/{t}/gift-order     { singer_id, lines, client_order_id? }: send the singer a drink
+ *                                                (M6-24): a gift order on the tab, checked against the singer's
+ *                                                tab and the window (409 cut_off / alcohol_closed, logged)
  *   POST /v1/venues/{v}/quick-sales             { client_order_id, lines }: a quick check with the round, ready to pay (M6-05)
  *   GET  /v1/venues/{v}/quick-sales/{c}         the sale and the reader's tip choices
  *   POST /v1/venues/{v}/quick-sales/{c}/void    Back to the sale: voided, number kept, drinks back in the round
@@ -215,6 +220,61 @@ export function tabRoutes(
         .max(50),
     })
     .strict();
+  // Send the singer a drink (M6-24; D64): a gift order on the sender's tab, through the hold check.
+  const giftBody = z
+    .object({
+      client_order_id: z.string().min(8).max(64).optional(),
+      singer_id: id,
+      lines: quickBody.shape.lines.min(1),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/gift-order",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      if (!uuid.test(request.params.t)) throw new ApiError("not_found", "no such tab");
+      const parsed = giftBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { singer_id, lines } with at least one drink");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const m = p.memberships.find((x) => x.venueId === request.venueId);
+      if (!m) throw new ApiError("forbidden", "not a member of this venue");
+      const venueId = request.venueId!;
+      const input = {
+        tabId: request.params.t,
+        singerId: parsed.data.singer_id,
+        lines: parsed.data.lines,
+        clientOrderId: parsed.data.client_order_id ?? null,
+        userId: p.userId,
+        membershipId: m.membershipId,
+        deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+      };
+      let answer: SendAnswer = await inVenueRefusing(request, (c) =>
+        giftOrder(c, venueId, { ...input, now: options.clock.now() }),
+      );
+      if (answer.kind === "raise") {
+        await runNow(deps(), venueId, answer.paymentId, answer.attemptNo);
+        answer = await inVenueRefusing(request, (c) =>
+          giftOrder(c, venueId, { ...input, now: options.clock.now(), raised: true }),
+        );
+      }
+      if (answer.kind === "approval") return reply.code(202).send(answer.pending);
+      if (answer.kind === "checking" || answer.kind === "raise")
+        throw new ApiError("payment_unknown", "Checking with Stripe · don't retry", {
+          details: { reason: "hold_checking", payment_id: answer.paymentId },
+        });
+      return reply.code(201).send({ order: answer.order });
+    },
+  );
+
   const sell = route({
     principals: ["owner_manager", "staff"],
     module: "bar_tabs",

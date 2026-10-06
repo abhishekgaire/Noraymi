@@ -959,9 +959,10 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "song_credits",
       "song_queue",
       "song_nights",
-      "singers",
       "order_items",
+      // A gift order names its singer (M6-24): orders go before singers.
       "orders",
+      "singers",
       "room_guests",
       "menu_options",
       "modifier_groups",

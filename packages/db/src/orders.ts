@@ -35,6 +35,10 @@ export interface OrderRow {
   readonly placed_at: string;
   readonly business_date: string;
   readonly same_again_of: string | null;
+  /** A gift order (M6-24): the singer it's for, their tab, and the singer's name for the ticket. */
+  readonly gift_for_singer_id: string | null;
+  readonly gift_for_check_id: string | null;
+  readonly gift_for_name: string | null;
   readonly held_by: string | null;
   readonly held_at: string | null;
   readonly accepted_by: string | null;
@@ -89,6 +93,9 @@ const ORDER_COLS = [
   ts("placed_at"),
   "o.business_date::text as business_date",
   "o.same_again_of",
+  "o.gift_for_singer_id",
+  "o.gift_for_check_id",
+  "(select g.display_name from singers g where g.venue_id = o.venue_id and g.id = o.gift_for_singer_id) as gift_for_name",
   "o.held_by",
   ts("held_at"),
   "o.accepted_by",
@@ -207,6 +214,8 @@ export interface NewOrder {
   readonly businessDate: string;
   readonly clientOrderId?: string | null;
   readonly sameAgainOf?: string | null;
+  readonly giftForSingerId?: string | null;
+  readonly giftForCheckId?: string | null;
   readonly items: readonly {
     readonly id?: string;
     readonly variantId: string | null;
@@ -226,8 +235,8 @@ export interface NewOrder {
 export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): Promise<string> {
   const r = await c.query<{ id: string }>(
     `insert into orders (id, venue_id, check_id, session_id, room_guest_id, source, placed_by, placed_at,
-       business_date, client_order_id, same_again_of)
-     values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
+       business_date, client_order_id, same_again_of, gift_for_singer_id, gift_for_check_id)
+     values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
     [
       o.id ?? null,
       venueId,
@@ -240,6 +249,8 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
       o.businessDate,
       o.clientOrderId ?? null,
       o.sameAgainOf ?? null,
+      o.giftForSingerId ?? null,
+      o.giftForCheckId ?? null,
     ],
   );
   const orderId = r.rows[0]!.id;
