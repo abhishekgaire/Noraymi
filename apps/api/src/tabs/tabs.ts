@@ -64,7 +64,9 @@ export async function listTabs(
          left join users o on o.id = t.owner_id
          left join users cb on cb.id = t.cut_off_by
         where t.venue_id = $1 and ($2::text[] is not null and t.state = any($2) or $2::text[] is null and
-              (t.state = any($3) or k.business_date = $4::date))
+              (t.state = any($3) or k.business_date = $4::date
+               -- Closed tonight ends with the night's close (M7-12): its settled tabs no longer reopen.
+               and not exists (select 1 from night_closes n where n.venue_id = t.venue_id and n.business_date = k.business_date)))
         order by t.opened_at, t.id`,
       [venueId, states, OPEN, today],
     )

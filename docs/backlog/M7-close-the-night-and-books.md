@@ -358,7 +358,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-12 · Build Close the night: the checks before closing and the close
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** M7-01, M7-02, M7-05, M7-07, M7-09, M7-11; M3-23 (the clear-out check); M6 (Charge the remaining tabs, the 4:30 AM tab cut-off, Tips to enter, `capture_failed` tabs); M2-25 (waitlist), M2-19 (cleaning), M2-15 (approvals)
 - **Spec:** [API](../spec/08-api.md) · Night close; [Money rules](../spec/05-money-rules.md) 5 (clear-out check) and 16; [Payment flows](../spec/07-payment-flows.md) · Bar tab with a growing hold 6 and 7; [Data model](../spec/04-data-model.md) · `night_closes`, `clear_out_checks`, Tabs at the cut-off and at close, `order_drafts`, `menu_items.out_until`; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Charging the remaining tabs, rule 5; [decisions](../decisions.md) D75, D77; screens [Night](../screens.md#night), [N17](../screens.md#n17-clear-out-check), [N26](../screens.md#n26-tips-to-enter); [demo seed](../demo-seed.md#later-tonight)
@@ -369,19 +369,24 @@ Definition of done: see CLAUDE.md.
   - Nothing reopens a closed night (M7-02's guard).
   - With Team, time clock & tips off, the clock check drops out.
 - **Acceptance:**
-  - [ ] At Sat 4:12 AM (business date Fri Sep 25), Night lists the nine checks of the seed plus open rooms and tabs, each linking to its fix: "Pending approvals · 1" opens Diego's void in Andy's inbox, and "Staff still on the clock" opens each clock-out.
-  - [ ] "3 slips not entered · tips post to Sat Sep 26" shows for Dev S., Tom W. and Ana R. and doesn't block the close.
-  - [ ] The clear-out check is due at 4:30 AM, [Done] records "Clear-out check · Andy · 4:31 AM", and the close is refused until then.
-  - [ ] While anything blocking is open, the close is refused with each failing check named; once all are fixed it succeeds and Night reads "Night closed · 4:48 AM".
-  - [ ] "Print X report (running)" shows until the close, and "Print Z report" only after it.
-  - [ ] After the close, Hoegaarden, Casamigos Blanco and Casamigos · bottle are no longer 86'd and Closed tonight is empty.
-  - [ ] A `capture_failed` tab doesn't block the close and stays on the manager's list with its balance until it's settled.
-  - [ ] Rooms and bar tabs are counted apart.
+  - [x] At Sat 4:12 AM (business date Fri Sep 25), Night lists the nine checks of the seed plus open rooms and tabs, each linking to its fix: "Pending approvals · 1" opens Diego's void in Andy's inbox, and "Staff still on the clock" opens each clock-out.
+  - [x] "3 slips not entered · tips post to Sat Sep 26" shows for Dev S., Tom W. and Ana R. and doesn't block the close.
+  - [x] The clear-out check is due at 4:30 AM, [Done] records "Clear-out check · Andy · 4:31 AM", and the close is refused until then.
+  - [x] While anything blocking is open, the close is refused with each failing check named; once all are fixed it succeeds and Night reads "Night closed · 4:48 AM".
+  - [x] "Print X report (running)" shows until the close, and "Print Z report" only after it.
+  - [x] After the close, Hoegaarden, Casamigos Blanco and Casamigos · bottle are no longer 86'd and Closed tonight is empty.
+  - [x] A `capture_failed` tab doesn't block the close and stays on the manager's list with its balance until it's settled.
+  - [x] Rooms and bar tabs are counted apart.
 - **Tests:** integration tests for each check; the seed's `night_close` scenario as a Playwright test on desktop size, driving the seed from 10:41 PM to Sat 4:48 AM on the simulated clock (every room paid, the tabs charged, Diego's void decided, the three slips left waiting, everyone clocked out, both drawers counted blind, the clear-out done by Andy at 4:31); clock tests on a normal night and both daylight-saving nights; a race test where two managers close at once and one wins; the language test.
 - **Notes:**
   - Canvas: Night checks only rooms, tabs and the drawer and says no slips are waiting (note 1), offers "Print Z report" before the close and counts bar tabs as rooms (note 3), runs to about 1:20 AM (note 4), says "Last call" (note 5), has no clear-out check (note 6) and no capture-failed list (note 12), all in [Night](../screens.md#night).
   - Spec gaps: whether the closing manager must be clocked out first ("no staff on the clock"); cautious default: the manager closing the night is exempt, and the close clocks them out at the close time. Whether the close asks for the PIN again; cautious default: yes, like cash counts. `night.closed` isn't in the event table; add it. The API's close conditions leave out unsent drinks, while Night's checks list them and the data model clears drafts at the close; cautious default: unsent drinks block until each is sent or discarded, and the close clears any left.
   - Open question: drinking-up time sets the 4:30 AM clear-out (lawyer, gate); it's M3's setting, read here.
+  - Built (M7-12): `apps/api/src/nights/checks.ts` works out the checks before closing (open rooms, open or tipping tabs, staff on the clock, waitlist, ringing or held orders, pending approvals, rooms cleaning, unsent drinks, the clear-out check with its due time, every drawer session counted including pulled trays; and, not blocking, slips not entered and capture-failed tabs), each with the names and the screen that fixes it; `GET /nights/{date}` returns them as `checks`. `POST /nights/{date}/close` (owners and managers; the PIN again in a PIN or badge session, the cautious default) locks the night, runs every check again, refuses with `409 night_open` naming each failing one, clocks the closing manager out at the close (the cautious default: they're exempt from "still on the clock"), closes the tip pool (M7-09), writes `night_closes` with Z 1 and rooms and bar tabs counted apart, clears unsent drafts and tonight's 86s (items, variants and options), and sends `menu.changed` and `night.closed` (added to spec 08's event table). Closed tonight no longer lists a closed night's settled tabs, so they can't be reopened. A second close at the same moment waits on the lock and finds the night closed.
+  - The clear-out Done route raises the check first when it's due but the sweep hasn't run yet.
+  - Night (`NightChecks`): the checks with Fix links, the clear-out prompt and Done, "Print X report (running)" until the close and "Print Z report" after it (they link to the report M7-13 builds), and Close the night after one confirmation, then "Night closed · 4:48 AM". English and Spanish.
+  - Still to come: the journal posting at the close is M7-15's; the Unmatched payments link is M7-14's; M8's "Review after outage" has no place yet. The daylight-saving nights rely on M7-02's posting date, whose tests cover both.
+  - Tests: integration `apps/api/src/routes/night-close.int.test.ts` (at Sat 4:12 AM the checks with names and links, slips not blocking; the close refused naming the failing checks; each fixed, the clear-out at 4:31, two closes at once with one winning, Z 1, a capture-failed tab still listed, Andy clocked out, the three 86s cleared, Closed tonight empty, the pool closed); e2e "Close the night: the checks, the clear-out at 4:31 AM and Night closed · 4:48 AM" at desktop size. The e2e makes the fixes in the database instead of driving every screen from 10:41 PM (rooms paid, tabs charged), which the earlier tickets' tests already drive one by one.
 
 ### M7-13 · Print the running X report and the Z report
 

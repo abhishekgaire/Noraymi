@@ -2,10 +2,20 @@ import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
 import type { Clock } from "@west4/shared";
-import { latePostsTo, nightClose, postingDate, type Queryable } from "@west4/db";
+import {
+  emitEvent,
+  latePostsTo,
+  nightClose,
+  postingDate,
+  recordNightClose,
+  recordPunch,
+  type Queryable,
+} from "@west4/db";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { nightTips } from "../tips/pool.js";
+import { closePool, nightTips, poolOf } from "../tips/pool.js";
+import { nightChecks } from "../nights/checks.js";
+import { venueClock } from "../rooms/assignment.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
 import { listTabs } from "../tabs/tabs.js";
@@ -132,6 +142,129 @@ export function nightRoutes(
           tab_cut_off_at: cutOff?.toString() ?? null,
           // Tabs whose capture failed, from any night, until a manager settles them (M6-17).
           capture_failed: await failedTabs(c, venueId),
+          // The checks before closing (M7-12), each with its fix; the person asking is exempt from the clock.
+          checks: await nightChecks(
+            c,
+            venueId,
+            night.toString(),
+            now,
+            request.principal.kind === "user" ? request.principal.userId : null,
+          ),
+        };
+      });
+    },
+  );
+
+  /**
+   * Close the night (M7-12): an owner or manager, after one confirmation and their PIN again in a
+   * PIN or badge session. Every check runs again in one transaction; then the next Z number and
+   * `night_closes` with the Z totals, the tip pool closed, unsent drafts and 86s cleared, the closing
+   * manager clocked out, and `night.closed`. Two managers closing at once: one wins.
+   */
+  const closeBody = z
+    .object({
+      pin: z
+        .string()
+        .regex(/^\d{4,6}$/)
+        .optional(),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; date: string }; Body: unknown }>(
+    "/v1/venues/:venueId/nights/:date/close",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        action: "night.close",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!DATE.test(request.params.date)) throw new ApiError("not_found", "no such night");
+      const parsed = closeBody.safeParse(request.body ?? {});
+      if (!parsed.success) throw new ApiError("invalid_request", "send { pin? }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "a person closes the night");
+      const m = p.memberships.find((x) => x.venueId === request.venueId);
+      if (m?.role !== "owner" && m?.role !== "manager")
+        throw new ApiError("forbidden", "an owner or a manager closes the night");
+      if (p.session === "pin" || p.session === "badge") {
+        if (!parsed.data.pin)
+          throw new ApiError("invalid_request", "closing the night asks for your PIN again", {
+            details: { reason: "pin" },
+          });
+        await request.server.checkPinAgain(request, parsed.data.pin);
+      }
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        const date = (await nightOf(c, venueId, request.params.date, now)).toString();
+        if (date !== (await postingDate(c, venueId, now)))
+          throw new ApiError("invalid_request", "only tonight's business date closes");
+        await c.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [
+          `night-close:${venueId}:${date}`,
+        ]);
+        if (await nightClose(c, venueId, date))
+          throw new ApiError("version_conflict", "this night is already closed");
+        const failing = (await nightChecks(c, venueId, date, now, p.userId)).filter(
+          (x) => x.blocking,
+        );
+        if (failing.length > 0)
+          throw new ApiError("night_open", "the night can't close yet", {
+            details: { checks: failing.map((x) => ({ id: x.id, count: x.count, names: x.names })) },
+          });
+        // The closing manager clocks out at the close.
+        const own = await c.query<{ id: string }>(
+          "select id from memberships where venue_id = $1 and user_id = $2",
+          [venueId, p.userId],
+        );
+        const open = await c.query(
+          "select 1 from shifts where venue_id = $1 and membership_id = $2 and ended_at is null",
+          [venueId, own.rows[0]!.id],
+        );
+        if ((open.rowCount ?? 0) > 0)
+          await recordPunch(c, {
+            venueId,
+            membershipId: own.rows[0]!.id,
+            kind: "clock_out",
+            at: now,
+            venue: await venueClock(c, venueId),
+          });
+        // The tip pool closes with the night: its shares are written once (M7-09).
+        await poolOf(c, venueId, date);
+        await closePool(c, venueId, date, now);
+        // Rooms and bar tabs counted apart.
+        const counts = (
+          await c.query<{ rooms: number; bar_tabs: number }>(
+            `select count(*) filter (where kind = 'room')::int as rooms, count(*) filter (where kind = 'bar')::int as bar_tabs
+               from checks where venue_id = $1 and business_date = $2::date and not training and status <> 'void'`,
+            [venueId, date],
+          )
+        ).rows[0]!;
+        const closed = await recordNightClose(c, venueId, {
+          businessDate: date,
+          closedAt: now.toString(),
+          closedBy: p.userId,
+          totals: { checks: counts },
+        });
+        // Unsent drinks left are cleared, and tonight's 86s end.
+        await c.query(
+          "update order_drafts set lines = '[]', version = version + 1, updated_at = $2 where venue_id = $1 and jsonb_array_length(lines) > 0",
+          [venueId, now.toString()],
+        );
+        for (const table of ["menu_items", "menu_variants", "menu_options"])
+          await c.query(
+            `update ${table} set out_until = null where venue_id = $1 and out_until > $2`,
+            [venueId, now.toString()],
+          );
+        await emitEvent(c, { venueId, type: "menu.changed", entityId: venueId });
+        await emitEvent(c, { venueId, type: "night.closed", entityId: venueId });
+        return {
+          business_date: date,
+          z_number: closed.z_number,
+          closed_at: closed.closed_at,
+          closed_by: closed.closed_by,
+          checks: counts,
         };
       });
     },

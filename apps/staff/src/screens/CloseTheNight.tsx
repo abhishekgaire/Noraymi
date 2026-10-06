@@ -6,6 +6,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CashPanel } from "./CashPanel.js";
 import { DrawerPanel } from "./DrawerPanel.js";
+import { NightChecks, type Check } from "./NightChecks.js";
 import { TipsPanel } from "./TipsPanel.js";
 import { TapPayment } from "./TapPayment.js";
 
@@ -42,6 +43,9 @@ interface Night {
   readonly bar_tabs: readonly NightTab[];
   readonly charge_remaining: { readonly count: number; readonly total_cents: number };
   readonly tab_cut_off_at: string | null;
+  readonly checks: readonly Check[];
+  readonly closed: { readonly closed_at: string; readonly z_number: number } | null;
+  readonly late_money_posts_to: string | null;
 }
 
 export function CloseTheNight() {
@@ -123,6 +127,17 @@ export function CloseTheNight() {
   return (
     <section className="screen close-night" aria-labelledby="night-title">
       <h1 id="night-title">{t("menu.closeNight")}</h1>
+      {night && venueId && date && (
+        <NightChecks
+          venueId={venueId}
+          date={date}
+          timeZone={timeZone}
+          checks={night.checks}
+          closed={night.closed}
+          postsTo={night.late_money_posts_to}
+          onChanged={() => void load()}
+        />
+      )}
       {error && (
         <p role="alert" className="error">
           {error}

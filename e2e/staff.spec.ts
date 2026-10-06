@@ -7811,3 +7811,88 @@ test("My tips on a phone: Andy's Manager shift, and managers don't share", async
     await db.end();
   }
 });
+
+/**
+ * Close the night (M7-12; the seed's night_close at desktop size): at Sat 4:12 AM Night lists the checks with
+ * a link to each fix and "3 slips not entered · tips post to Sat Sep 26"; once the rooms, tabs, staff, waitlist,
+ * orders, approval, drafts and drawers are dealt with, Andy does the clear-out at 4:31 and closes at 4:48.
+ */
+test("Close the night: the checks, the clear-out at 4:31 AM and Night closed · 4:48 AM", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    // Sat 4:12 AM first: a session idle 30 minutes locks, so Andy signs in then.
+    await setClock(request, "2026-09-26T08:12:00Z");
+    await signInAndy(page, request, db);
+    await page.goto("/close-the-night");
+    const checks = page.getByRole("region", { name: "Before closing" });
+    await expect(checks).toContainText("3 slips not entered · tips post to Sat, Sep 26");
+    await expect(
+      checks
+        .getByRole("listitem")
+        .filter({ hasText: "Pending approvals · 1" })
+        .getByRole("link", { name: "Fix" }),
+    ).toHaveAttribute("href", "/approvals");
+    await expect(checks).toContainText("Staff still on the clock · 2");
+    await expect(checks.getByRole("button", { name: "Close the night" })).toBeDisabled();
+    await expect(checks.getByRole("link", { name: "Print X report (running)" })).toBeVisible();
+
+    // The fixes, as each screen would make them.
+    const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    await db.query(
+      "update room_sessions set ended_at = now() where venue_id = $1 and ended_at is null",
+      [v],
+    );
+    await db.query(
+      "update tabs set state = 'captured' where venue_id = $1 and state in ('open', 'tipping')",
+      [v],
+    );
+    await db.query(
+      "update shifts set ended_at = now() where venue_id = $1 and ended_at is null and membership_id not in (select m.id from memberships m join users u on u.id = m.user_id where u.name like 'Andy%')",
+      [v],
+    );
+    await db.query(
+      "update waitlist_entries set status = 'left' where venue_id = $1 and status in ('waiting', 'offered')",
+      [v],
+    );
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'staff' where venue_id = $1 and status in ('ringing', 'held')",
+      [v],
+    );
+    await db.query(
+      "update approvals set status = 'declined' where venue_id = $1 and status = 'pending'",
+      [v],
+    );
+    await db.query(
+      "update room_states set state = 'available' where venue_id = $1 and state = 'cleaning'",
+      [v],
+    );
+    await db.query("update order_drafts set lines = '[]' where venue_id = $1", [v]);
+    await db.query(
+      "update drawer_sessions set state = 'counted', counted_cents = opening_cents, expected_cents = opening_cents, over_short_cents = 0 where venue_id = $1 and state = 'open'",
+      [v],
+    );
+    // 4:31 AM: the clear-out check is due (4:30) and Andy walks the rooms.
+    await setClock(request, "2026-09-26T08:31:00Z");
+    await page.reload();
+    await expect(checks).toContainText("Walk every room and the bar · no drinks left out");
+    await checks.getByRole("button", { name: "Done" }).click();
+    await expect(checks).toContainText("Clear-out check · Andy · 4:31 AM");
+    // 4:48 AM: the close, after one confirmation.
+    await setClock(request, "2026-09-26T08:48:00Z");
+    await page.reload();
+    await checks.getByRole("button", { name: "Close the night" }).click();
+    await checks
+      .getByRole("group", { name: "Close the night" })
+      .getByRole("button", { name: "Close the night" })
+      .click();
+    await expect(checks).toContainText("Night closed · 4:48 AM");
+    await expect(checks.getByRole("link", { name: "Print Z report" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});

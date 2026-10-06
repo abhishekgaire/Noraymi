@@ -3,7 +3,7 @@ import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { markClearOut } from "../rooms/clear-out.js";
+import { markClearOut, raiseClearOut } from "../rooms/clear-out.js";
 
 /**
  * The clear-out check (M3-23; spec 08 · Night close):
@@ -29,14 +29,16 @@ export function clearOutRoutes(app: FastifyInstance, options: { clock: Clock }):
       if (!parsed.success) throw new ApiError("invalid_request", "send { note? }");
       const p = request.principal;
       if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
-      return request.inVenue((c) =>
-        markClearOut(c, request.venueId!, {
+      return request.inVenue(async (c) => {
+        // Due but not raised yet (the sweep runs every few minutes): raise it now (M7-12).
+        await raiseClearOut(c, request.venueId!, options.clock.now());
+        return markClearOut(c, request.venueId!, {
           date: request.params.date,
           userId: p.userId,
           note: parsed.data.note ?? null,
           now: options.clock.now(),
-        }),
-      );
+        });
+      });
     },
   );
 }
