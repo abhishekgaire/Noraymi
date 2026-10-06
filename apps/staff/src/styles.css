@@ -1777,3 +1777,8 @@ a.song-count {
 .count-form select {
   min-height: 44px;
 }
+.drawer-log {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+}

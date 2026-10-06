@@ -470,6 +470,8 @@ export {
   recordDrawerCount,
   drawerSessionsOfDate,
   pendingDrawerHandover,
+  drawerLogOfDate,
+  staffBankOf,
 } from "./cash.js";
 export type { DrawerRow, DrawerSessionRow, DrawerPanelRow, DrawerHandoverRow } from "./cash.js";
 export {

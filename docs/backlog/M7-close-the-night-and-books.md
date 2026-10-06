@@ -198,7 +198,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-06 · Take drops, paid-outs, no-sales and tip-outs at the drawer
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7-05; M4-13 (staff banks from cash taken on a phone, cash refunds as drawer moves, the drawer kick); M2-15 (approvals and `202 approval_pending`), M2-13 (`POST /files`)
 - **Spec:** [Money rules](../spec/05-money-rules.md) 14 and 15; [Data model](../spec/04-data-model.md) · `drawer_moves`, `staff_banks`, `approvals` (`paid_out`), `files`; [API](../spec/08-api.md) · Drawer, Files; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Cash drawer; [Tenancy and access](../spec/02-tenancy-access.md) · Approvals, Badges; [glossary](../glossary.md#money-cards-and-cash) · Drop, paid-out and no-sale; screens [N21](../screens.md#n21-close-out-steps-and-card-states) (cash on a phone)
@@ -209,13 +209,20 @@ Definition of done: see CLAUDE.md.
   - Tip-out: a manager records cash paid from a drawer to a named person as tips (PIN again), so the drawer's expected cash and that person's My tips agree (see Notes).
   - The drawer opens only for a cash payment, an approved paid-out or a no-sale, and every opening is logged against the open session and the person. Never in training (M7-03).
 - **Acceptance:**
-  - [ ] Cash Diego took on his phone at a room close-out sits in his staff bank; he drops it at the front desk, the front-desk drawer shows the drop "Logged to Diego · front-desk drawer", and his bank reads $0.00.
-  - [ ] Andy's $42.00 ice-run paid-out with a photo of the receipt goes to Abhishek's phone (Andy's own requests go to the owner), and the drawer opens only after Abhishek approves.
-  - [ ] No-sale asks for the PIN again after a badge tap, then opens the drawer and logs it.
-  - [ ] A drawer kick with no cash payment, approved paid-out or no-sale behind it is refused.
-  - [ ] Each move shows on Night's drawer panel and moves the drawer's expected cash by its amount.
+  - [x] Cash Diego took on his phone at a room close-out sits in his staff bank; he drops it at the front desk, the front-desk drawer shows the drop "Logged to Diego · front-desk drawer", and his bank reads $0.00.
+  - [x] Andy's $42.00 ice-run paid-out with a photo of the receipt goes to Abhishek's phone (Andy's own requests go to the owner), and the drawer opens only after Abhishek approves.
+  - [x] No-sale asks for the PIN again after a badge tap, then opens the drawer and logs it.
+  - [x] A drawer kick with no cash payment, approved paid-out or no-sale behind it is refused.
+  - [x] Each move shows on Night's drawer panel and moves the drawer's expected cash by its amount.
 - **Tests:** integration tests for each move and its approval (never decided by the requester or on their device); kick tests through a network printer and a USB printer on the desktop app's print host; money-cases group `approvals`; Playwright for the paid-out photo step.
 - **Notes:** Spec gaps: [Devices](../spec/09-devices-printing-offline.md) says the drawer opens for "an approved no sale", the milestone says "no-sale with the PIN", and `approvals` has no no-sale kind; build the PIN again and a reason, with no manager approval, and flag it. Tip-out is a move kind the spec never describes, and `drawer_moves` has no column for the person paid: add a nullable `paid_to` (an expand-only migration). Whether West 4 pays tips in cash at all, or only through payroll, is the founder's call; the build supports both.
+- **Built (M7-06):**
+  - Routes in `apps/api/src/routes/drawer-moves.ts`: `/drop` (the person's whole staff bank for the session's business date, which then reads $0.00), `/paid-out` (reason and a `paid_out_photo` upload required; over `drawer.paidOutApprovalCents` it answers `202` with an approval of kind `paid_out`, and the executor writes the move and opens the drawer only once approved; a session closed by then expires it), `/no-sale` (PIN again in a PIN or badge session, and a reason) and `/tip-out` (owners and managers, PIN again, `paid_to`). Each happens only at the drawer's own screen (the device paired to it), writes one move naming who and where, opens the drawer through its printer, and sends `drawer.updated`. None runs in training.
+  - Migration `0097_drawer_moves.sql`: `drawer_moves.paid_to` (expand-only) and a trigger on `print_jobs` that refuses a drawer kick unless a cash payment or a drop, paid-out, no-sale or tip-out move of that venue is behind it, and refuses any reprint of one (`W4K01`).
+  - `GET /drawers` adds the log of every move but sales (so the panel stays blind), `here` for the drawer this screen is paired to, and the caller's staff bank. The panel shows Drop my cash, Paid-out (with the receipt's photo), No sale and Tip-out at the drawer's own screen, and "Waiting for Andy C." after a paid-out over the limit. English and Spanish.
+- **Decisions and defaults:** D89: a no-sale asks for the PIN again and a reason with no approval (as this ticket says), and drops and tip-outs also open the drawer, since cash goes in and out; spec 09 · Cash drawer updated. Who may take a paid-out or a no-sale: the people who may count that drawer (D21). A drop always hands in the whole bank. With West 4's paid-out limit at the cautious $0.00 (M7-05), every paid-out waits for approval.
+- **Tests:** integration `apps/api/src/routes/drawer-moves.int.test.ts` (Diego's phone cash, his drop at the front desk and not on his phone; Andy's $42.00 paid-out to Abhishek, refused on Andy's phone and on the bar computer, the drawer opening only after approval; the no-sale's PIN after a badge tap; Andy's tip-out to Maya, refused for Maya; expected cash after each move; the kick with nothing behind it and the reprint refused in the database); the wall suite's bodies for the new routes; e2e "a paid-out with a photo of the receipt waits for Andy". The kick's transport (a network printer's CloudPRNT job, a USB printer through the desktop print host) is M4-13's and unchanged; its tests still pass. Training is refused through `request.training` (M7-03); no test drives a training device through these routes yet.
+- **Founder's call:** whether West 4 pays tips in cash from a drawer at all, or only through payroll. The build supports both; nobody has to use Tip-out.
 
 ### M7-07 · Run a drawer per person with trays
 

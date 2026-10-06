@@ -3,6 +3,8 @@ import type pg from "pg";
 import type { FastifyRequest } from "fastify";
 import {
   approvalPeople,
+  drawerLogOfDate,
+  drawerOfDevice,
   drawerSessionById,
   drawerSessionMoves,
   drawerSessionsOfDate,
@@ -312,6 +314,18 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
               drawerTotals(s.opening_cents, await drawerSessionMoves(c, venueId, s.id)),
             );
         const people = (await approvalPeople(c, venueId)).filter((x) => x.role !== "staff");
+        // Night's drawer log (M7-06): every move but sales, so the panel stays blind.
+        const log = await drawerLogOfDate(c, venueId, date);
+        // The drawer this screen is paired to, and the caller's staff bank, for Drop and the move buttons.
+        const deviceId = request.signedDevice?.deviceId ?? request.session?.deviceId ?? null;
+        const hereId = deviceId ? ((await drawerOfDevice(c, venueId, deviceId))?.id ?? null) : null;
+        const bank =
+          p.kind === "user"
+            ? await c.query<{ cash_cents: number }>(
+                "select cash_cents::int as cash_cents from staff_banks where venue_id = $1 and user_id = $2 and business_date = $3::date",
+                [venueId, p.userId, date],
+              )
+            : null;
         return {
           business_date: date,
           // Who may count or take the drawers, for the second-counter and incoming-manager pickers.
@@ -320,6 +334,8 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
             user_id: p.kind === "user" ? p.userId : null,
             // A PIN or badge session gives the PIN again to count (spec 02 · Badges).
             pin_again: p.kind === "user" && (p.session === "pin" || p.session === "badge"),
+            bank_cents: bank?.rows[0]?.cash_cents ?? 0,
+            role: role ?? null,
           },
           handover: handover
             ? {
@@ -336,10 +352,24 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
             opening_cents: d.opening_cents,
             can_count:
               role !== undefined && mayCount(role, d.station as "bar" | "front_desk" | null),
+            here: d.id === hereId,
             sessions: sessions
               .filter((s) => s.drawer_id === d.id)
               .map((s) => {
-                const view = panelSession(s, handover?.to_name ?? null);
+                const view = {
+                  ...panelSession(s, handover?.to_name ?? null),
+                  moves: log
+                    .filter((m) => m.drawer_session_id === s.id)
+                    .map((m) => ({
+                      id: m.id,
+                      kind: m.kind,
+                      amount_cents: m.amount_cents,
+                      by: m.taken_by_name,
+                      paid_to: m.paid_to_name,
+                      reason: m.reason,
+                      at: m.at,
+                    })),
+                };
                 const t = breakdown.get(s.id);
                 return t
                   ? {

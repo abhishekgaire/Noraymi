@@ -7656,3 +7656,43 @@ test("Close the night: both drawers counted blind, the bar drawer $10.00 short",
     await db.end();
   }
 });
+
+/**
+ * A paid-out at the bar (M7-06): Maya, signed in at the bar computer, opens Cash drawers on the board, takes
+ * $42.00 out for an ice run with a photo of the receipt, and the screen says it waits for Andy.
+ */
+test("a paid-out with a photo of the receipt waits for Andy", async ({ page, request }) => {
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    // The screen just paired is the bar drawer's own screen.
+    await db.query(
+      `update devices set cash_drawer_id = (select id from cash_drawers where name = 'Bar drawer')
+        where id = (select id from devices where kind = 'bar_computer' order by created_at desc limit 1)`,
+    );
+    await page.goto("/tonight");
+    await page.getByRole("button", { name: "Cash drawers" }).click();
+    const bar = page.getByRole("article", { name: "Bar drawer" });
+    await bar.getByRole("button", { name: "Paid-out" }).click();
+    const form = bar.getByRole("form", { name: "Paid-out" });
+    await form.getByLabel("Amount, $").fill("42");
+    await form.getByLabel("Reason").fill("Ice run");
+    await expect(form.getByRole("button", { name: "Open the drawer" })).toBeDisabled();
+    await form.getByLabel("Photo of the receipt").setInputFiles({
+      name: "receipt.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+    });
+    await form.getByRole("button", { name: "Open the drawer" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Waiting for Andy C." })).toBeVisible();
+    const asked = await db.query<{ amount_cents: string; reason: string }>(
+      "select amount_cents::text, reason from approvals where kind = 'paid_out' and status = 'pending'",
+    );
+    expect(asked.rows).toEqual([{ amount_cents: "4200", reason: "Ice run" }]);
+  } finally {
+    await db.end();
+  }
+});

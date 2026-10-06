@@ -119,13 +119,19 @@ export async function insertDrawerMove(
     takenBy: string;
     deviceId?: string | null;
     reason?: string | null;
+    /** A paid-out over the limit: who approved it (M7-06). */
+    approvedBy?: string | null;
+    /** A paid-out's receipt photo (M7-06). */
+    photoFileId?: string | null;
+    /** A tip-out: the person paid (M7-06). */
+    paidTo?: string | null;
     at: string;
   },
 ): Promise<string> {
   const r = await c.query<{ id: string }>(
     `insert into drawer_moves (venue_id, drawer_session_id, staff_bank_id, kind, amount_cents, payment_id, taken_by,
-       device_id, reason, at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+       device_id, reason, at, approved_by, photo_file_id, paid_to)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
     [
       venueId,
       m.drawerSessionId ?? null,
@@ -137,9 +143,57 @@ export async function insertDrawerMove(
       m.deviceId ?? null,
       m.reason ?? null,
       m.at,
+      m.approvedBy ?? null,
+      m.photoFileId ?? null,
+      m.paidTo ?? null,
     ],
   );
   return r.rows[0]!.id;
+}
+
+/** A session's moves other than sales, for Night's drawer log (M7-06): who, where, and why. */
+export interface DrawerLogRow {
+  readonly id: string;
+  readonly drawer_session_id: string;
+  readonly kind: "refund" | "paid_out" | "drop" | "no_sale" | "tip_out";
+  readonly amount_cents: number;
+  readonly taken_by_name: string;
+  readonly paid_to_name: string | null;
+  readonly reason: string | null;
+  readonly at: string;
+}
+
+export async function drawerLogOfDate(
+  c: Queryable,
+  venueId: string,
+  businessDate: string,
+): Promise<DrawerLogRow[]> {
+  const r = await c.query<DrawerLogRow>(
+    `select m.id, m.drawer_session_id, m.kind, m.amount_cents::int as amount_cents, t.name as taken_by_name,
+            p.name as paid_to_name, m.reason, to_json(m.at) #>> '{}' as at
+       from drawer_moves m join drawer_sessions s on s.venue_id = m.venue_id and s.id = m.drawer_session_id
+       join users t on t.id = m.taken_by
+       left join users p on p.id = m.paid_to
+      where m.venue_id = $1 and s.business_date = $2::date and m.kind <> 'sale'
+      order by m.at, m.id`,
+    [venueId, businessDate],
+  );
+  return r.rows;
+}
+
+/** A person's staff bank for a business date: the cash they hold outside a drawer. */
+export async function staffBankOf(
+  c: Queryable,
+  venueId: string,
+  userId: string,
+  businessDate: string,
+): Promise<{ id: string; cash_cents: number } | null> {
+  const r = await c.query<{ id: string; cash_cents: number }>(
+    `select id, cash_cents::int as cash_cents from staff_banks
+      where venue_id = $1 and user_id = $2 and business_date = $3::date for update`,
+    [venueId, userId, businessDate],
+  );
+  return r.rows[0] ?? null;
 }
 
 /** What a drawer session should hold: its starting bank and its moves (sales in, refunds and paid-outs out). */

@@ -287,6 +287,16 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
       "POST /v1/venues/:venueId/drawer-sessions/:s/count": { counted_cents: 0 },
+      "POST /v1/venues/:venueId/drawer-sessions/:s/paid-out": {
+        amount_cents: 100,
+        reason: "B",
+        photo_file_id: "00000000-0000-4000-8000-000000000001",
+      },
+      "POST /v1/venues/:venueId/drawer-sessions/:s/no-sale": { reason: "B" },
+      "POST /v1/venues/:venueId/drawer-sessions/:s/tip-out": {
+        paid_to: "00000000-0000-4000-8000-000000000001",
+        amount_cents: 100,
+      },
       "POST /v1/venues/:venueId/drawers/:d/handover": {
         incoming: "00000000-0000-4000-8000-000000000001",
         counted_cents: 0,

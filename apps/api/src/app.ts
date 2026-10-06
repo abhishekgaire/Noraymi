@@ -5,6 +5,7 @@ import { readerRoutes } from "./routes/readers.js";
 import { stripeHookRoutes } from "./routes/stripe-hooks.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { drawerRoutes } from "./routes/drawers.js";
+import { drawerMoveRoutes } from "./routes/drawer-moves.js";
 import { splitRoutes } from "./routes/splits.js";
 import { payRoutes } from "./routes/pay.js";
 import { billRoutes } from "./routes/bill.js";
@@ -280,6 +281,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         texts: loadVenueTextSettings(config.env),
       });
       drawerRoutes(scope, { clock });
+      drawerMoveRoutes(scope, { clock });
       splitRoutes(scope, { clock });
       payRoutes(scope, { pool: gatePoolRef!, clock, stripe });
       receiptRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });

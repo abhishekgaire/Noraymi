@@ -3,6 +3,7 @@ import type { Cents } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
+import { uploadPhoto } from "../upload.js";
 
 /**
  * The cash drawers (M7-05; Money rules 15; screens Night note 7, Board note
@@ -12,6 +13,12 @@ import { useT } from "../i18n.js";
  * should hold shows in the answer. The manager on duty hands both drawers to
  * the next manager with a blind count each, and the screen shows "Waiting for
  * Abhishek" until he accepts on his own phone.
+ *
+ * At the drawer's own screen (M7-06): Drop my cash hands the person's staff
+ * bank in, Paid-out takes cash out with a reason and the receipt's photo (over
+ * the limit it waits for an approval), No sale opens the drawer with a reason,
+ * and a manager's Tip-out pays a named person. Each shows in the drawer's log,
+ * which leaves sales out so the panel stays blind.
  */
 interface Count {
   readonly counted_cents: number;
@@ -33,11 +40,22 @@ interface Session {
   readonly drops_cents?: number;
   readonly refunds_cents?: number;
   readonly tip_outs_cents?: number;
+  readonly moves: readonly Move[];
+}
+interface Move {
+  readonly id: string;
+  readonly kind: "refund" | "paid_out" | "drop" | "no_sale" | "tip_out";
+  readonly amount_cents: number;
+  readonly by: string;
+  readonly paid_to: string | null;
+  readonly reason: string | null;
 }
 interface Drawer {
   readonly id: string;
   readonly name: string;
   readonly can_count: boolean;
+  /** This screen is paired to the drawer: moves happen here. */
+  readonly here: boolean;
   readonly sessions: readonly Session[];
 }
 interface Person {
@@ -48,7 +66,12 @@ interface Person {
 interface Drawers {
   readonly drawers: readonly Drawer[];
   readonly people: readonly Person[];
-  readonly me: { readonly user_id: string | null; readonly pin_again: boolean };
+  readonly me: {
+    readonly user_id: string | null;
+    readonly pin_again: boolean;
+    readonly bank_cents: number;
+    readonly role: string | null;
+  };
   readonly handover: { readonly waiting_for: { readonly name: string } } | null;
 }
 interface Answer {
@@ -68,10 +91,18 @@ export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHand
   const { subscribe } = useEvents();
   const [data, setData] = useState<Drawers | null>(null);
   const [failed, setFailed] = useState(false);
-  // The form open now: one drawer's count, or the handover of every open drawer.
-  const [form, setForm] = useState<{ kind: "count"; drawer: Drawer } | { kind: "handover" } | null>(
-    null,
-  );
+  // The form open now: one drawer's count or move, or the handover of every open drawer.
+  const [form, setForm] = useState<
+    | { kind: "count" | "paid_out" | "no_sale" | "tip_out"; drawer: Drawer }
+    | { kind: "handover" }
+    | null
+  >(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const done = (message?: string) => {
+    setForm(null);
+    setNotice(message ?? null);
+    void load();
+  };
 
   const load = useCallback(async () => {
     try {
@@ -112,6 +143,11 @@ export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHand
           </button>
         )}
       </div>
+      {notice && (
+        <p role="status" className="notice">
+          {notice}
+        </p>
+      )}
       {data.handover && (
         <p role="status" className="notice">
           {t("drawer.waitingFor", { name: data.handover.waiting_for.name })}
@@ -140,6 +176,18 @@ export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHand
               {t("drawer.count")}
             </button>
           )}
+          {d.here && form === null && d.sessions.some((s) => s.state === "open") && (
+            <MoveButtons
+              venueId={venueId}
+              data={data}
+              drawer={d}
+              onOpen={(kind) => setForm({ kind, drawer: d })}
+              onDone={done}
+            />
+          )}
+          {form && form.kind !== "handover" && form.kind !== "count" && form.drawer.id === d.id && (
+            <MoveForm kind={form.kind} venueId={venueId} data={data} drawer={d} onDone={done} />
+          )}
           {form?.kind === "count" && form.drawer.id === d.id && (
             <CountForm
               venueId={venueId}
@@ -165,6 +213,23 @@ function overShort(t: T, money: Money, cents: number): string {
   return cents > 0
     ? t("drawer.over", { amount: money(cents as Cents) })
     : t("drawer.short", { amount: money(-cents as Cents) });
+}
+
+function moveLine(t: T, money: Money, m: Move): string {
+  const amount = money(m.amount_cents as Cents);
+  const what =
+    m.kind === "drop"
+      ? t("drawer.move.drop", { amount })
+      : m.kind === "paid_out"
+        ? t("drawer.move.paid_out", { amount })
+        : m.kind === "tip_out"
+          ? t("drawer.move.tip_out", { amount })
+          : m.kind === "refund"
+            ? t("drawer.move.refund", { amount })
+            : t("drawer.move.no_sale");
+  return [what, m.paid_to ? t("drawer.move.to", { name: m.paid_to }) : null, m.by, m.reason]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function SessionView({ session: s, t, money }: { session: Session; t: T; money: Money }) {
@@ -209,7 +274,245 @@ function SessionView({ session: s, t, money }: { session: Session; t: T; money: 
           </p>
         </>
       )}
+      {s.moves.length > 0 && (
+        <ul className="drawer-log">
+          {s.moves.map((m) => (
+            <li key={m.id} className="small">
+              {moveLine(t, money, m)}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
+  );
+}
+
+/** At the drawer's own screen: Drop my cash at once; Paid-out, No sale and Tip-out open their form. */
+function MoveButtons({
+  venueId,
+  data,
+  drawer,
+  onOpen,
+  onDone,
+}: {
+  venueId: string;
+  data: Drawers;
+  drawer: Drawer;
+  onOpen: (kind: "paid_out" | "no_sale" | "tip_out") => void;
+  onDone: (message?: string) => void;
+}) {
+  const { t, money } = useT();
+  const [error, setError] = useState(false);
+  const session = drawer.sessions.find((s) => s.state === "open")!;
+  const manager = data.me.role === "owner" || data.me.role === "manager";
+  const drop = async () => {
+    setError(false);
+    try {
+      const r = await api<{ amount_cents: number; logged_to: { name: string; drawer: string } }>(
+        "POST",
+        `/v1/venues/${venueId}/drawer-sessions/${session.id}/drop`,
+        undefined,
+        { idempotencyKey: `drop-${session.id}-${Date.now()}` },
+      );
+      onDone(
+        `${t("drawer.move.drop", { amount: money(r.amount_cents as Cents) })} · ${t("cash.logged", {
+          name: r.logged_to.name,
+          drawer: r.logged_to.drawer,
+        })}`,
+      );
+    } catch {
+      setError(true);
+    }
+  };
+  return (
+    <div className="actions">
+      {data.me.bank_cents > 0 && (
+        <button type="button" onClick={() => void drop()}>
+          {t("drawer.dropMine", { amount: money(data.me.bank_cents as Cents) })}
+        </button>
+      )}
+      {drawer.can_count && (
+        <>
+          <button type="button" className="secondary" onClick={() => onOpen("paid_out")}>
+            {t("drawer.paidOut")}
+          </button>
+          <button type="button" className="secondary" onClick={() => onOpen("no_sale")}>
+            {t("drawer.noSale")}
+          </button>
+        </>
+      )}
+      {manager && (
+        <button type="button" className="secondary" onClick={() => onOpen("tip_out")}>
+          {t("drawer.tipOut")}
+        </button>
+      )}
+      {error && (
+        <p role="alert" className="error">
+          {t("drawer.moveFailed")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A paid-out (amount, reason, the receipt's photo), a no-sale (a reason) or a tip-out (who, how much). */
+function MoveForm({
+  kind,
+  venueId,
+  data,
+  drawer,
+  onDone,
+}: {
+  kind: "paid_out" | "no_sale" | "tip_out";
+  venueId: string;
+  data: Drawers;
+  drawer: Drawer;
+  onDone: (message?: string) => void;
+}) {
+  const { t } = useT();
+  const session = drawer.sessions.find((s) => s.state === "open")!;
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [paidTo, setPaidTo] = useState("");
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cents = toCents(amount);
+  const ready =
+    kind === "paid_out"
+      ? cents !== null && cents > 0 && reason.trim() !== "" && photo !== null
+      : kind === "no_sale"
+        ? reason.trim() !== ""
+        : cents !== null && cents > 0 && paidTo !== "";
+  const pinAsked = data.me.pin_again && kind !== "paid_out";
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const path = `/v1/venues/${venueId}/drawer-sessions/${session.id}/${kind.replace("_", "-")}`;
+      const body =
+        kind === "paid_out"
+          ? {
+              amount_cents: cents,
+              reason: reason.trim(),
+              photo_file_id: await uploadPhoto(venueId, "paid_out_photo", photo!),
+            }
+          : kind === "no_sale"
+            ? { reason: reason.trim(), ...(pinAsked ? { pin } : {}) }
+            : { paid_to: paidTo, amount_cents: cents, ...(pinAsked ? { pin } : {}) };
+      const r = await api<{ status?: string; waiting_for?: { name: string } }>("POST", path, body, {
+        idempotencyKey: `${kind}-${session.id}-${Date.now()}`,
+      });
+      onDone(
+        r.status === "approval_pending" && r.waiting_for
+          ? t("drawer.waitingFor", { name: r.waiting_for.name })
+          : undefined,
+      );
+    } catch (e) {
+      setError(
+        e instanceof ApiCallError && e.status === 401
+          ? t("drawer.wrongPin")
+          : t("drawer.moveFailed"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const title =
+    kind === "paid_out"
+      ? t("drawer.paidOut")
+      : kind === "no_sale"
+        ? t("drawer.noSale")
+        : t("drawer.tipOut");
+  return (
+    <form
+      className="invite-fields count-form"
+      aria-label={title}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <h4>{title}</h4>
+      {kind === "tip_out" && (
+        <label>
+          <span>{t("drawer.paidTo")}</span>
+          <select
+            aria-label={t("drawer.paidTo")}
+            value={paidTo}
+            onChange={(e) => setPaidTo(e.target.value)}
+          >
+            <option value="">{t("drawer.pick")}</option>
+            {data.people.map((p) => (
+              <option key={p.user_id} value={p.user_id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {kind !== "no_sale" && (
+        <label>
+          <span>{t("drawer.amountOut")}</span>
+          <input
+            inputMode="decimal"
+            aria-label={t("drawer.amountOut")}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </label>
+      )}
+      {kind !== "tip_out" && (
+        <label>
+          <span>{t("drawer.reason")}</span>
+          <input
+            aria-label={t("drawer.reason")}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+      )}
+      {kind === "paid_out" && (
+        <label>
+          <span>{t("drawer.receipt")}</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/heic"
+            capture="environment"
+            aria-label={t("drawer.receipt")}
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          />
+        </label>
+      )}
+      {pinAsked && (
+        <label>
+          <span>{t("drawer.pin")}</span>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={t("drawer.pin")}
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+          />
+        </label>
+      )}
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <div className="actions">
+        <button type="submit" disabled={busy || !ready}>
+          {t("drawer.openIt")}
+        </button>
+        <button type="button" className="link" onClick={() => onDone()}>
+          {t("drawer.cancel")}
+        </button>
+      </div>
+    </form>
   );
 }
 
