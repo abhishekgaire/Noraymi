@@ -172,7 +172,14 @@ describe("jobs", () => {
     expect(await one.tryLead()).toBe(true);
     expect(await two.tryLead()).toBe(false);
     await one.crash();
-    expect(await two.tryLead()).toBe(true);
+    // The server notices the dead connection, and drops its lock, a moment later: the next
+    // scheduler tick tries again, so the test does too, for up to two seconds.
+    let led = false;
+    for (let i = 0; i < 40 && !led; i++) {
+      led = await two.tryLead();
+      if (!led) await new Promise((done) => setTimeout(done, 50));
+    }
+    expect(led).toBe(true);
     await two.stop();
   });
 
