@@ -519,3 +519,5 @@ export {
 } from "./nights.js";
 export { trainingOf } from "./training.js";
 export { reasonOnlyUsed } from "./reports/reason-only.js";
+export { RETENTION } from "./retention.js";
+export type { Retention } from "./retention.js";

@@ -570,7 +570,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-20 · Close GA-M2 and GA-M4, and sign off M7
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M7-01 to M7-19
 - **Spec:** [milestones](../milestones.md#must-fix-items-and-where-they-close) · GA-M2 and GA-M4; [Security and data retention](../spec/12-security-retention.md) 4 and How long we keep things; [Data model](../spec/04-data-model.md) · the money core grants
@@ -580,10 +580,25 @@ Definition of done: see CLAUDE.md.
   - A walk through each M7 done-when line in staging, with its evidence (test runs, screenshots, M7-19's reports) linked here.
 - **Acceptance:**
   - [ ] Each M7 done-when line has a passing test or a recorded staging walk.
-  - [ ] The grants test shows `app_rw` can't update, delete or truncate any money, tip, drawer or night row.
+  - [x] The grants test shows `app_rw` can't update, delete or truncate any money, tip, drawer or night row.
   - [ ] GA-M2 and GA-M4 are marked closed in M9-14's must-fix tracker.
 - **Tests:** the grants test and the string-catalog check in CI.
-- **Notes:** —
+- **Notes:**
+  - **The grants test** (`packages/db/src/grants.int.test.ts`, in CI's integration suite): `app_rw` has no DELETE or TRUNCATE on any of the 22 money, tip, drawer and night tables; the insert-only ones (check lines and revisions, payment events, night closes, drawer moves, the tip ledger, pool occupations, shares, payouts and their lines) have no UPDATE on any column; and the rest can't change a written amount (a payment's amount, method and practice flag; an allocation's or a refund's amount; a session's opening float; an export's journals and file). One designed exception, recorded in the test: a payment's `business_date` stays updatable, because late money posts to the current night (M7-02).
+  - **The one label** (`packages/shared/src/i18n/gratuity-label.test.ts`, in CI's unit suite): no English or Spanish string calls the gratuity a service charge, service fee or auto-grat, and the rule pack's `gratuity.label`, which receipts, reports and exports print, is "Gratuity".
+  - **6-year records:** `packages/db/src/retention.ts` (`RETENTION`) lists every table's minimum keep for M8's retention job: the tip ledger, pools, occupations, shares, punches, shifts and audit log 6 years; checks, lines, payments, refunds, night closes, drawers, payouts and exports at least 3 (Security and data retention · How long we keep things).
+  - **Evidence for each M7 done-when line:**
+
+    | Done when | Evidence |
+    | --- | --- |
+    | Two weeks of staging nights reconcile to the cent | Waiting on staging (M7-19 is blocked). Today: `apps/api/src/reconcile/night-run.int.test.ts` plays and reconciles the seed's Friday on every merge. |
+    | "3 slips not entered · tips post to Sat Sep 26"; won't close until every check passes; "Print Z report" only after the close | `apps/api/src/routes/night-close.int.test.ts`, `e2e/staff.spec.ts` (Night) |
+    | The Z report's gratuity is 20% of room checks only | `packages/rules/src/night-report.test.ts`, `apps/api/src/routes/night-report.int.test.ts` |
+    | A late tip posts to the current business date and points at its night; a closed night never reopens | `apps/api/src/routes/tip-pool.int.test.ts`, `night-report.int.test.ts`, `refunds.int.test.ts`, `tab-slip.int.test.ts`, the closed-night guard test |
+    | A training check is numbered T-…, calls only the sandbox, shows the band, is absent from the Z report and exports | `apps/api/src/print/training.test.ts`, `packages/rules/src/z-report.test.ts`, `apps/api/src/routes/training.int.test.ts`, `training-stripe.int.test.ts`, `e2e/staff.spec.ts` |
+    | The journal balances for every night and payout; payroll splits gratuity from tips | `packages/rules/src/journal.test.ts`, `payroll.test.ts`, `apps/api/src/routes/exports.int.test.ts`; and the reconcile script's `journals` rule |
+
+  - **Blocked:** the staging walk of these lines (with screenshots and M7-19's 14 nightly reconcile reports linked here) waits for staging, M1-02. The must-fix tracker `docs/gate/must-fix.md` doesn't exist yet; M9-14 builds it and should mark GA-M2 and GA-M4 closed by M7 with this table as their evidence.
 
 ## Coverage
 
