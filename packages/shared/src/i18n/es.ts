@@ -1249,12 +1249,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "fix.made.no": "No preparada",
   "fix.qty": "Cuántas",
   "fix.reason": "Motivo",
-  "fix.comp.send": "Dar cortesía",
-  "fix.void.send": "Anular",
   "fix.comped": "Cortesía: {line}",
   "fix.voided": "Anulada: {line}",
   "fix.waiting": "Esperando a {name}",
   "fix.failed": "No se pudo. Inténtalo de nuevo.",
+  "fix.reasons": "Un motivo",
+  "fix.reason.rang": "Lo marqué mal",
+  "fix.reason.changed": "El cliente cambió de idea",
+  "fix.reason.spilled": "Se derramó o se cayó",
   // Alcohol refused on the screens (M3-20).
   "drinks.alcohol.closed": "Sin alcohol ahora · terminó el horario",
   "drinks.alcohol.cutOff": "Sin alcohol · esta sala tiene corte",
@@ -2020,5 +2022,6 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "fix.move.send": "Moverla",
   "fix.move.cutOff": "Cortado por {name} · el alcohol no se puede mover aquí",
   "fix.move.cutOffNoName": "Cortado · el alcohol no se puede mover aquí",
+  "fix.move.back": "Atrás",
   "fix.move.none": "No hay otra cuenta abierta.",
 };

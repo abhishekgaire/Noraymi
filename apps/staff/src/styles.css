@@ -1397,6 +1397,38 @@ button.danger {
   justify-content: space-between;
   gap: 8px;
 }
+/* A sent drink on the tab is the tap that opens the fix panel (M6-15). */
+.rail-right .on-tab button.tab-line {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  padding: 4px 6px;
+}
+.rail-right .on-tab button.tab-line[aria-expanded="true"] {
+  border-color: currentColor;
+}
+.fix-panel .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.fix-panel .chips button,
+.fix-panel .actions button {
+  min-height: 44px;
+}
+.fix-panel .chips button[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+}
 .rail-right .send,
 .rail-right button.primary {
   min-height: 56px;

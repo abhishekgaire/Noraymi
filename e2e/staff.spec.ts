@@ -3385,8 +3385,8 @@ test("the fix panel: $63.00 left on both screens, a $13.00 comp with a reason, t
 
     await fix.getByRole("button", { name: "Fix · Margarita · Peach" }).click();
     await fix.getByLabel("How many").fill("1");
-    await fix.getByLabel("Reason").fill("Spilled on the way");
-    await fix.getByRole("button", { name: "Comp it" }).click();
+    await fix.getByLabel("Reason", { exact: true }).fill("Spilled on the way");
+    await fix.getByRole("button", { name: "COMP · the house pays for it" }).click();
     await expect(fix.getByRole("status")).toHaveText("Comped: Margarita · Peach");
     await expect(fix).toContainText("$50.00 left this shift");
     await expect(page.getByRole("region", { name: "Running tab" })).toContainText(
@@ -5581,7 +5581,7 @@ test("the bar POS: Move greys out Hana K.'s cut-off tab, and Jess P.'s tab moves
     await expect(panel).toContainText("$32.66");
 
     await panel.getByRole("button", { name: "Fix · Modelo" }).click();
-    await panel.getByLabel("MOVE · onto another tab").check();
+    await panel.getByRole("button", { name: "MOVE · onto another tab" }).click();
     await expect(panel.getByRole("radio", { name: /Hana K\./ })).toBeDisabled();
     await expect(panel).toContainText("Cut off by Andy · alcohol can't move here");
     await expect(panel.getByRole("radio", { name: /Luis M\./ })).toBeEnabled();
@@ -6031,6 +6031,144 @@ test("the bar POS at 4:02 AM: alcohol greyed with the reason, no Decline, Cancel
     await expect(orders.locator(".rail-order", { hasText: "Room 9" })).toContainText(
       "Cancelled at 4:00 AM",
     );
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Fix a sent drink on the bar POS (M6-15; spec 10 · Changing a sent drink; Rail note 4): Maya's panel
+ * shows "$63 left this shift"; a $13.00 comp of Room 9's Margarita leaves $50; voiding Jess P.'s Jäger
+ * Bomb rung by mistake takes 4 taps (the line, Not made, a reason, VOID) in under 6 seconds.
+ */
+test("the bar POS: Maya's fix panel, $63 then $50 left, and a void in 4 taps under 6 s", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Room orders waiting" })
+      .getByRole("listitem", { name: "Room 9" })
+      .getByRole("button", { name: "Accept · print ticket" })
+      .click();
+    const panel = page.getByRole("complementary");
+    const fix = panel.getByRole("region", { name: "Fix a sent drink" });
+
+    await page
+      .getByRole("list", { name: "Rooms" })
+      .getByRole("button", { name: /Room 9/ })
+      .click();
+    await expect(fix).toContainText("$63.00 left this shift");
+    await panel.getByRole("button", { name: "Fix · Margarita · Peach" }).click();
+    await fix.getByLabel("How many").fill("1");
+    await fix.getByRole("button", { name: "Spilled or dropped" }).click();
+    await fix.getByRole("button", { name: "COMP · the house pays for it" }).click();
+    await expect(fix.getByRole("status")).toHaveText("Comped: Margarita · Peach");
+    await expect(fix).toContainText("$50.00 left this shift");
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+      "COMP · Margarita · Peach",
+    );
+
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await expect(panel).toContainText("$32.66");
+    const started = Date.now();
+    await panel.getByRole("button", { name: "Fix · Jäger Bomb" }).click();
+    await fix.getByLabel("Not made").check();
+    await fix.getByRole("button", { name: "Rang it wrong" }).click();
+    await fix.getByRole("button", { name: "VOID · take the sale back" }).click();
+    await expect(fix.getByRole("status")).toHaveText("Voided: Jäger Bomb");
+    expect(Date.now() - started).toBeLessThan(6000);
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+      "VOID · Jäger Bomb",
+    );
+    await expect(panel.locator(".total")).toContainText("$19.60");
+    await expect(fix).toContainText("$38.00 left this shift");
+    const reason = await db.query<{ reason: string; made: boolean }>(
+      "select reason, made from check_lines where kind = 'void' and description = 'VOID · Jäger Bomb'",
+    );
+    expect(reason.rows).toEqual([{ reason: "Rang it wrong", made: false }]);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Diego's void of the Large bucket ($70.00) on Tariq A.'s tab is over the $25 limit (M6-15; Rail note
+ * 4): the line and the tab row read "Waiting for Andy" until Andy approves on his own phone, and the bar
+ * POS follows on its own: $9.00 of drinks, $0.80 tax, $9.80.
+ */
+test("the bar POS: Tariq A.'s void waits for Andy on the line and the tab row, then reads $9.80", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const tabs = page.getByRole("list", { name: "Bar tabs" });
+    const row = tabs.locator("li", { hasText: "Tariq A." });
+    await expect(row).toContainText("Waiting for Andy");
+    await tabs.getByRole("button", { name: /Tariq A\./ }).click();
+    const panel = page.getByRole("complementary");
+    const onTab = panel.getByRole("list", { name: "On the tab" });
+    await expect(onTab.locator("li", { hasText: "Large bucket" })).toContainText(
+      "Waiting for Andy",
+    );
+    await expect(panel.getByRole("button", { name: "Fix · Large bucket · 10 beers" })).toHaveCount(
+      0,
+    );
+    await expect(panel.locator(".total")).toContainText("$86.01");
+
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+      const andy = await phone.newPage();
+      // Andy's own phone: a staff phone with alerts on, so Approve is signed with its key.
+      await andy.addInitScript(() => {
+        const fake = {
+          endpoint: "https://push.example.test/send/andy-tab-void",
+          toJSON: () => ({
+            endpoint: "https://push.example.test/send/andy-tab-void",
+            keys: { p256dh: "fake-p256dh", auth: "fake-auth" },
+          }),
+          unsubscribe: async () => true,
+        };
+        let subscribed = false;
+        PushManager.prototype.subscribe = async () => {
+          subscribed = true;
+          return fake as unknown as PushSubscription;
+        };
+        PushManager.prototype.getSubscription = async () =>
+          (subscribed ? fake : null) as unknown as PushSubscription;
+        Object.defineProperty(Notification, "permission", { get: () => "default" });
+        Notification.requestPermission = async () => "granted";
+      });
+      await signInAndy(andy, phone.request, db);
+      await andy.goto("/setup");
+      await andy.getByRole("button", { name: "Turn on alerts" }).click();
+      await expect(andy.getByRole("status")).toHaveText("Alerts are on");
+      await andy.goto("/tonight");
+      await andy.getByRole("link", { name: "Approvals" }).last().click();
+      await expect(andy.getByRole("heading", { level: 1 })).toHaveText("Approvals · 1");
+      await andy.getByRole("button", { name: "Approve" }).click();
+      await expect(andy.getByRole("heading", { level: 1 })).toHaveText("Approvals · 0");
+    } finally {
+      await phone.close();
+    }
+
+    // A shared screen in a plain browser has no event socket (only the desktop app does, M1-28): reload.
+    await page.reload();
+    await tabs.getByRole("button", { name: /Tariq A\./ }).click();
+    await expect(panel.locator(".total")).toContainText("$9.80");
+    await expect(onTab).toContainText("VOID · Large bucket · 10 beers");
+    await expect(row).not.toContainText("Waiting for Andy");
   } finally {
     await db.end();
   }

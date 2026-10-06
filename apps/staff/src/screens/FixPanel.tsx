@@ -10,6 +10,11 @@ import { useT } from "../i18n.js";
  * this shift" counted across every screen. Within the reason-only limit the
  * COMP or VOID line goes on at once; over it, the line reads "Waiting for
  * Andy" until he decides on his own phone.
+ *
+ * Void a drink rung by mistake in 4 taps (spec 10, timed tasks): the line, Not
+ * made, a reason, VOID. The reason chips fill the reason in one tap; the
+ * buttons are labelled VOID and COMP. On the bar POS (M6-15) the tab's own
+ * lines are the taps: `pick`/`onPick` open the panel for a line from outside.
  */
 export interface FixLine {
   readonly id: number;
@@ -34,6 +39,13 @@ export interface PendingFix {
 }
 
 const FIXABLE = new Set(["item", "song", "damage", "fee", "transfer_in"]);
+const REASONS = ["fix.reason.rang", "fix.reason.changed", "fix.reason.spilled"] as const;
+
+/** Whether a sent line can still be comped, voided or moved: some of it isn't reversed yet. */
+export function isFixable(line: FixLine, lines: readonly FixLine[]): boolean {
+  const reversed = lines.filter((l) => l.reverses_id === line.id).reduce((n, l) => n + l.qty, 0);
+  return FIXABLE.has(line.kind) && line.amount_cents > 0 && reversed < line.qty;
+}
 
 export function FixPanel(props: {
   venueId: string;
@@ -42,13 +54,22 @@ export function FixPanel(props: {
   pending: readonly PendingFix[];
   /** The bar POS: Move a line onto another open tab, no approval (M6-13). */
   moveTabs?: readonly MoveTarget[];
+  /** The bar POS lists the tab's lines itself: the line tapped there, and how to pick another. */
+  pick?: number | null;
+  onPick?: (lineId: number | null) => void;
   onDone: () => void;
 }) {
   const { t, money } = useT();
   const { subscribe } = useEvents();
   const [leftCents, setLeftCents] = useState<number | null>(null);
-  const [open, setOpen] = useState<FixLine | null>(null);
-  const [kind, setKind] = useState<"comp" | "void" | "move">("comp");
+  const [ownOpen, setOwnOpen] = useState<FixLine | null>(null);
+  const controlled = props.onPick !== undefined;
+  const open = controlled
+    ? (props.lines.find((l) => l.id === props.pick && isFixable(l, props.lines)) ?? null)
+    : ownOpen;
+  const setOpen = (l: FixLine | null) =>
+    controlled ? props.onPick!(l ? l.id : null) : setOwnOpen(l);
+  const [moving, setMoving] = useState(false);
   const [target, setTarget] = useState<string | null>(null);
   const [made, setMade] = useState(true);
   const [qty, setQty] = useState(1);
@@ -81,15 +102,31 @@ export function FixPanel(props: {
 
   const reversed = (id: number) =>
     props.lines.filter((l) => l.reverses_id === id).reduce((n, l) => n + l.qty, 0);
-  const fixable = props.lines.filter(
-    (l) => FIXABLE.has(l.kind) && l.amount_cents > 0 && reversed(l.id) < l.qty,
-  );
+  const fixable = props.lines.filter((l) => isFixable(l, props.lines));
+  // A line picked from outside starts fresh: made, the whole of what's left, no reason.
+  const openId = open?.id ?? null;
+  // Reset while rendering (not in an effect), so nothing typed right after the tap is overwritten.
+  const [seen, setSeen] = useState<number | null>(null);
+  if (openId !== seen) {
+    setSeen(openId);
+    if (openId !== null) {
+      const l = props.lines.find((x) => x.id === openId);
+      setMoving(false);
+      setTarget(null);
+      setMade(true);
+      setQty(l ? l.qty - reversed(l.id) : 1);
+      setReason("");
+      setError(null);
+    }
+  }
 
-  const submit = async (e: FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!open) return;
+    if (moving) void move();
+  };
+  const fix = async (kind: "comp" | "void") => {
+    if (!open || !reason.trim()) return;
     setError(null);
-    if (kind === "move") return move();
     try {
       const answer = await api<{ status: string; waiting_for?: { name: string } }>(
         "POST",
@@ -144,72 +181,40 @@ export function FixPanel(props: {
           {message}
         </p>
       )}
-      <ul className="fix-lines">
-        {fixable.map((l) => {
-          const waiting = props.pending.find((p) => p.line_id === l.id);
-          return (
-            <li key={l.id}>
-              <span data-guest-text>
-                {l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}
-              </span>{" "}
-              {waiting ? (
-                <span className="muted">{t("fix.waiting", { name: waiting.waiting_for })}</span>
-              ) : (
-                <button
-                  type="button"
-                  className="secondary"
-                  aria-label={`${t("fix.open")} · ${l.description}`}
-                  onClick={() => {
-                    setOpen(open?.id === l.id ? null : l);
-                    setKind("comp");
-                    setTarget(null);
-                    setMade(true);
-                    setQty(l.qty - reversed(l.id));
-                    setReason("");
-                  }}
-                >
-                  {t("fix.open")}
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {!controlled && (
+        <ul className="fix-lines">
+          {fixable.map((l) => {
+            const waiting = props.pending.find((p) => p.line_id === l.id);
+            return (
+              <li key={l.id}>
+                <span data-guest-text>
+                  {l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}
+                </span>{" "}
+                {waiting ? (
+                  <span className="muted">{t("fix.waiting", { name: waiting.waiting_for })}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-label={`${t("fix.open")} · ${l.description}`}
+                    onClick={() => setOpen(open?.id === l.id ? null : l)}
+                  >
+                    {t("fix.open")}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
       {open && (
         <form className="invite-form" onSubmit={(e) => void submit(e)}>
-          <fieldset className="day-picks">
-            <legend>{open.description}</legend>
-            <label className="switch-line">
-              <input
-                type="radio"
-                name="fix-kind"
-                checked={kind === "comp"}
-                onChange={() => setKind("comp")}
-              />
-              <span>{t("fix.comp")}</span>
-            </label>
-            <label className="switch-line">
-              <input
-                type="radio"
-                name="fix-kind"
-                checked={kind === "void"}
-                onChange={() => setKind("void")}
-              />
-              <span>{t("fix.void")}</span>
-            </label>
-            {props.moveTabs && (
-              <label className="switch-line">
-                <input
-                  type="radio"
-                  name="fix-kind"
-                  checked={kind === "move"}
-                  onChange={() => setKind("move")}
-                />
-                <span>{t("fix.move")}</span>
-              </label>
-            )}
-          </fieldset>
-          {kind === "move" && props.moveTabs && (
+          <p className="fix-line">
+            <strong data-guest-text>
+              {open.qty > 1 ? `${open.qty} × ${open.description}` : open.description}
+            </strong>
+          </p>
+          {moving && props.moveTabs && (
             <fieldset className="day-picks move-targets">
               <legend>{t("fix.move.to")}</legend>
               {props.moveTabs.length === 0 && <p className="muted">{t("fix.move.none")}</p>}
@@ -238,7 +243,7 @@ export function FixPanel(props: {
               })}
             </fieldset>
           )}
-          {kind !== "move" && (
+          {!moving && (
             <fieldset className="day-picks">
               <legend>{t("fix.made")}</legend>
               <label className="switch-line">
@@ -269,7 +274,7 @@ export function FixPanel(props: {
                 />
               </label>
             )}
-            {kind !== "move" && (
+            {!moving && (
               <label>
                 <span>{t("fix.reason")}</span>
                 <input
@@ -281,22 +286,60 @@ export function FixPanel(props: {
               </label>
             )}
           </div>
+          {!moving && (
+            <div className="chips" role="group" aria-label={t("fix.reasons")}>
+              {REASONS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  className="secondary"
+                  aria-pressed={reason === t(k)}
+                  onClick={() => setReason(t(k))}
+                >
+                  {t(k)}
+                </button>
+              ))}
+            </div>
+          )}
           {error && (
             <p className="error" role="alert">
               {error}
             </p>
           )}
-          <button
-            type="submit"
-            className="primary"
-            disabled={kind === "move" ? !target : !reason.trim()}
-          >
-            {kind === "move"
-              ? t("fix.move.send")
-              : kind === "void"
-                ? t("fix.void.send")
-                : t("fix.comp.send")}
-          </button>
+          {moving ? (
+            <div className="actions">
+              <button type="submit" className="primary" disabled={!target}>
+                {t("fix.move.send")}
+              </button>
+              <button type="button" className="secondary" onClick={() => setMoving(false)}>
+                {t("fix.move.back")}
+              </button>
+            </div>
+          ) : (
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={!reason.trim()}
+                onClick={() => void fix("void")}
+              >
+                {t("fix.void")}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={!reason.trim()}
+                onClick={() => void fix("comp")}
+              >
+                {t("fix.comp")}
+              </button>
+              {props.moveTabs && (
+                <button type="button" className="secondary" onClick={() => setMoving(true)}>
+                  {t("fix.move")}
+                </button>
+              )}
+            </div>
+          )}
         </form>
       )}
     </section>

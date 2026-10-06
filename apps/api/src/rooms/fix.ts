@@ -2,7 +2,12 @@ import { addCheckLine, emitEvent, readSetting, reasonOnlyUsed, type Queryable } 
 import { businessDate, reasonOnly } from "@west4/rules";
 import { cents, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
-import { requestApproval, TargetGone, type PendingAnswer } from "../approvals/service.js";
+import {
+  declineHandlers,
+  requestApproval,
+  TargetGone,
+  type PendingAnswer,
+} from "../approvals/service.js";
 import { venueClock } from "./assignment.js";
 
 /**
@@ -134,8 +139,8 @@ export async function fixLine(
     made: input.made,
     qty,
   };
-  if (reasonOnly(cents(used), cents(-amount), limits).needsApproval)
-    return requestApproval(c, venueId, {
+  if (reasonOnly(cents(used), cents(-amount), limits).needsApproval) {
+    const asked = await requestApproval(c, venueId, {
       kind: input.kind,
       targetKind: "check",
       targetId: input.checkId,
@@ -146,6 +151,15 @@ export async function fixLine(
       requestedDeviceId: input.deviceId,
       now: input.now,
     });
+    // Every screen showing the check (the bar POS's tab row too) reads "Waiting for Andy" at once.
+    await emitEvent(c, {
+      venueId,
+      type: "check.updated",
+      entityId: input.checkId,
+      entityVersion: 0,
+    });
+    return asked;
+  }
   const id = await writeFixLine(c, venueId, payload, {
     reason,
     addedBy: input.userId,
@@ -154,3 +168,14 @@ export async function fixLine(
   });
   return { status: "added", line_id: id };
 }
+
+/**
+ * A comp or void of a sent line that a manager declines changes nothing on the
+ * check, but every screen showing it drops "Waiting for Andy" (M6-15).
+ */
+for (const kind of ["comp", "void"])
+  declineHandlers.set(kind, async (c, venueId, approval) => {
+    const p = approval.payload as { line_id?: number; check_id?: string };
+    if (p.line_id === undefined || !p.check_id) return;
+    await emitEvent(c, { venueId, type: "check.updated", entityId: p.check_id, entityVersion: 0 });
+  });

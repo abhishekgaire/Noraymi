@@ -22,7 +22,7 @@ import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { TapPayment } from "./TapPayment.js";
 import { CashPanel } from "./CashPanel.js";
 import { RefundSheet } from "./RefundSheet.js";
-import { FixPanel, type PendingFix } from "./FixPanel.js";
+import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
 
 /**
@@ -207,6 +207,8 @@ export function Rail() {
   const [movingTab, setMovingTab] = useState<string | null>(null);
   const [holds, setHolds] = useState<readonly MovedHold[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
+  /** The sent drink tapped on the tab, for Void, Comp or Move (M6-15). */
+  const [fixing, setFixing] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
@@ -340,7 +342,9 @@ export function Rail() {
               e.type === "menu.changed" ||
               e.type === "session.updated" ||
               e.type === "settings.changed" ||
-              e.type === "draft.updated",
+              e.type === "draft.updated" ||
+              // A decision on a comp or void over the limit ("Waiting for Andy", M6-15).
+              e.type === "approval.decided",
           )
         )
           void load();
@@ -354,6 +358,8 @@ export function Rail() {
       : picked?.kind === "room"
         ? rooms.find((r) => r.room_id === picked.id)?.session?.check_id
         : undefined;
+  // Another tab or room starts with no drink being fixed.
+  useEffect(() => setFixing(null), [checkId]);
   const loadLines = useCallback(async () => {
     if (!checkId) {
       setHolds([]);
@@ -517,6 +523,14 @@ export function Rail() {
   const tab = picked?.kind === "tab" ? tabs.find((x) => x.id === picked.id) : undefined;
   const room = picked?.kind === "room" ? rooms.find((r) => r.room_id === picked.id) : undefined;
   // What's on it: the drinks, songs and fixes, not the computed room time, tax and gratuity.
+  // A sent drink can be fixed on an open tab nobody is closing, moving or splitting, or on a room in use.
+  const fixOpen = tab
+    ? tab.state === "open" &&
+      closingTab !== tab.id &&
+      movingTab !== tab.id &&
+      !tab.split &&
+      splitting !== tab.id
+    : !!room?.session?.check_id;
   const drinks = lines.filter(
     (l) => !["room_time", "tax", "gratuity", "card_surcharge", "cash_discount"].includes(l.kind),
   );
@@ -1046,25 +1060,54 @@ export function Rail() {
                   />
                 )}
                 <ul className="on-tab" aria-label={t("rail.onTab")}>
-                  {drinks.map((l) => (
-                    <li key={String(l.id)}>
-                      <span data-guest-text>
-                        {l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}
-                      </span>
-                      {l.moved && (
-                        <span className="small muted moved">
-                          {l.moved.from_tab
-                            ? t("moveTab.movedFrom", { name: l.moved.from_tab })
-                            : l.moved.to_room
-                              ? t("moveTab.moved", { room: l.moved.to_room })
-                              : l.moved.to_tab
-                                ? t("moveTab.movedToTab", { name: l.moved.to_tab })
-                                : null}
+                  {drinks.map((l) => {
+                    const body = (
+                      <>
+                        <span data-guest-text>
+                          {l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}
                         </span>
-                      )}
-                      <span>{money(l.amount_cents as never)}</span>
-                    </li>
-                  ))}
+                        {l.moved && (
+                          <span className="small muted moved">
+                            {l.moved.from_tab
+                              ? t("moveTab.movedFrom", { name: l.moved.from_tab })
+                              : l.moved.to_room
+                                ? t("moveTab.moved", { room: l.moved.to_room })
+                                : l.moved.to_tab
+                                  ? t("moveTab.movedToTab", { name: l.moved.to_tab })
+                                  : null}
+                          </span>
+                        )}
+                        <span>{money(l.amount_cents as never)}</span>
+                      </>
+                    );
+                    // Over the reason-only limit the line reads "Waiting for Andy" until he decides.
+                    const waiting = pendingFixes.find((p) => p.line_id === l.id);
+                    return (
+                      <li key={String(l.id)}>
+                        {waiting ? (
+                          <>
+                            {body}
+                            <span className="small waiting">
+                              {t("fix.waiting", { name: waiting.waiting_for })}
+                            </span>
+                          </>
+                        ) : fixOpen && isFixable(l, lines) ? (
+                          // Tap a sent drink for Void, Comp or Move (spec 10 · Changing a sent drink).
+                          <button
+                            type="button"
+                            className="tab-line"
+                            aria-expanded={fixing === l.id}
+                            aria-label={`${t("fix.open")} · ${l.description}`}
+                            onClick={() => setFixing(fixing === l.id ? null : l.id)}
+                          >
+                            {body}
+                          </button>
+                        ) : (
+                          body
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
                 <p className="total">
                   {t("rail.total")}{" "}
@@ -1216,25 +1259,26 @@ export function Rail() {
                     {leftOut}
                   </p>
                 )}
-                {/* Tap a sent drink for Void, Comp or Move (M6-13: Move onto another open tab). */}
-                {tab &&
-                  tab.state === "open" &&
-                  closingTab !== tab.id &&
-                  movingTab !== tab.id &&
-                  !tab.split &&
-                  splitting !== tab.id && (
-                    <FixPanel
-                      key={`fix-${tab.check_id}`}
-                      venueId={venueId}
-                      checkId={tab.check_id}
-                      lines={lines}
-                      pending={pendingFixes}
-                      moveTabs={openTabs
-                        .filter((x) => x.id !== tab.id && x.state === "open")
-                        .map((x) => ({ id: x.id, name: x.name, cut_off: x.cut_off }))}
-                      onDone={() => void load()}
-                    />
-                  )}
+                {/* Tap a sent drink for Void, Comp or Move (M6-13: Move onto another open tab; M6-15). */}
+                {fixOpen && checkId && (
+                  <FixPanel
+                    key={`fix-${checkId}`}
+                    venueId={venueId}
+                    checkId={checkId}
+                    lines={lines}
+                    pending={pendingFixes}
+                    pick={fixing}
+                    onPick={setFixing}
+                    {...(tab
+                      ? {
+                          moveTabs: openTabs
+                            .filter((x) => x.id !== tab.id && x.state === "open")
+                            .map((x) => ({ id: x.id, name: x.name, cut_off: x.cut_off })),
+                        }
+                      : {})}
+                    onDone={() => void load()}
+                  />
+                )}
                 {room?.session?.check_id && holds.length > 0 && (
                   <RoomCardTap
                     key={`card-${room.session.check_id}`}

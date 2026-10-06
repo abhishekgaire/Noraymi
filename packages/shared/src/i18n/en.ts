@@ -1227,12 +1227,14 @@ export const en = {
   "fix.made.no": "Not made",
   "fix.qty": "How many",
   "fix.reason": "Reason",
-  "fix.comp.send": "Comp it",
-  "fix.void.send": "Void it",
   "fix.comped": "Comped: {line}",
   "fix.voided": "Voided: {line}",
   "fix.waiting": "Waiting for {name}",
   "fix.failed": "That didn't go through. Try again.",
+  "fix.reasons": "A reason",
+  "fix.reason.rang": "Rang it wrong",
+  "fix.reason.changed": "Guest changed their mind",
+  "fix.reason.spilled": "Spilled or dropped",
   // Alcohol refused on the screens (M3-20).
   "drinks.alcohol.closed": "No alcohol now · the window has closed",
   "drinks.alcohol.cutOff": "No alcohol · this room is cut off",
@@ -1984,5 +1986,6 @@ export const en = {
   "fix.move.send": "Move it",
   "fix.move.cutOff": "Cut off by {name} · alcohol can't move here",
   "fix.move.cutOffNoName": "Cut off · alcohol can't move here",
+  "fix.move.back": "Back",
   "fix.move.none": "No other tab is open.",
 } as const;

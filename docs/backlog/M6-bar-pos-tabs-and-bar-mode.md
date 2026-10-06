@@ -420,7 +420,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-15 · Fix a sent drink on the bar POS and show who it's waiting for
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6-02; M3 (the fix panel, reason-only limits, void approvals)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Changing a sent drink, rule 6); [Money rules](../spec/05-money-rules.md) rule 7; [Tenancy and access](../spec/02-tenancy-access.md) (The reason-only limit, Approvals); [screens: Rail note 4](../screens.md#rail), [N18](../screens.md#n18-approvals-inbox)
@@ -428,11 +428,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Tap a sent drink on the tab for Void, Comp or Move: M3's fix panel (made or not made, a reason, "$X left this shift", labeled VOID or COMP). Within the limit a reason is enough; over it the line shows "Waiting for Andy", the tab row carries the badge, the approver decides on their own phone, and the tab updates when `approval.decided` arrives.
   - "Charge the remaining tabs" skips a tab waiting on an approval (M6-16).
 - **Acceptance:**
-  - [ ] Diego's void of 1 × Large bucket · 10 beers ($70.00) on Tariq A.'s tab shows "Waiting for Andy" on the line and on the tab row until Andy decides; once he approves, Tariq's tab reads $9.00 of drinks, $0.80 tax and $9.80.
-  - [ ] Maya's panel shows "$63 left this shift", and a $13.00 comp leaves "$50 left this shift".
-  - [ ] Voiding a drink rung by mistake takes 4 taps (the line, Not made, a reason, Void) and under 6 seconds.
+  - [x] Diego's void of 1 × Large bucket · 10 beers ($70.00) on Tariq A.'s tab shows "Waiting for Andy" on the line and on the tab row until Andy decides; once he approves, Tariq's tab reads $9.00 of drinks, $0.80 tax and $9.80.
+  - [x] Maya's panel shows "$63 left this shift", and a $13.00 comp leaves "$50 left this shift".
+  - [x] Voiding a drink rung by mistake takes 4 taps (the line, Not made, a reason, Void) and under 6 seconds.
 - **Tests:** the money-cases groups `reason_only_limits` and `approvals`, and `bar_tab_t5_after_void_approved`; a timed end-to-end.
 - **Notes:** The Rail's fix panel is the model for every screen ([Rail note 4](../screens.md#rail)).
+  - Built: no new route or migration; the comp/void routes, reason-only limits and approvals are M3-19's (`POST /checks/{c}/lines/{l}/comp|void`, `GET /reason-only`) and Move is M6-13's. On the bar POS the tab's own lines are the taps: each sent drink on the tab (a room's check too, picked on the rail) is a button ("Fix · Jäger Bomb") that opens the fix panel for it; a line waiting for a manager reads "Waiting for Andy C." on the line itself, and the tab row carries the same badge (M6-02's `waiting_for`). The panel always shows "$X left this shift". The fix panel (FixPanel.tsx, shared with DeskRoom and the room phone) is now: Made / Not made, How many, one-tap reasons ("Rang it wrong", "Guest changed their mind", "Spilled or dropped") beside the typed reason, then the buttons VOID · take the sale back, COMP · the house pays for it and, on a tab, MOVE · onto another tab (which then lists the tabs, with Back). So a void rung by mistake is 4 taps: the line, Not made, a reason, VOID. `isFixable` is exported for the rail.
+  - Live updates: asking for a fix over the limit now emits `check.updated` (every screen shows the badge at once), a declined comp/void of a line emits it too (new `declineHandlers` for `comp` and `void` in rooms/fix.ts, so the badge goes), and an approved one already did through `writeFixLine`. The bar POS also reloads on `approval.decided`.
+  - Read as (cautious defaults, flagged): the spec gives no list of reasons, so the three one-tap reasons are placeholders worded by us (the typed reason stays) until the owner gives the venue's own; the name on the badge is the approver's name as stored ("Andy C."), as every other "Waiting for" in the app.
+  - Deferred: "Charge the remaining tabs" skipping a tab waiting on an approval is M6-16's.
+  - Tests: apps/api/src/routes/tab-fix.int.test.ts (the seeded void reads Waiting for Andy on the line and Tariq A.'s row at $86.01; Andy declines: nothing changes, the badge goes, `check.updated`; Diego asks again: $70.00 over $25 waits for Andy with `check.updated`, a second ask makes no second approval; Andy approves: $9.00, $0.80, $9.80 (`bar_tab_t5_after_void_approved`) and Diego's limit untouched; Maya's $12.00 void of Jess P.'s Jäger Bomb with a reason alone, $63 then $51 left, $19.60); M3-19's rooms/fix.int.test.ts; packages/rules' `reason_only_limits`, `approvals` and `bar_tabs` groups (already in place); e2e "the bar POS: Maya's fix panel, $63 then $50 left, and a void in 4 taps under 6 s" and "the bar POS: Tariq A.'s void waits for Andy on the line and the tab row, then reads $9.80" (Andy approves on his own phone in a second browser; the bar computer in a plain browser has no event socket, only the desktop app has, so the test reloads it).
 
 ### M6-16 · Charge the remaining tabs, and run the 4:30 AM tab cut-off
 
