@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { StripeClient } from "../stripe/client.js";
 import { pushTipScreen } from "../stripe/terminal-setup.js";
+import { tabConsent } from "../tabs/open.js";
 import {
   publishPolicy,
   readSetting,
@@ -100,7 +101,7 @@ export function settingsRoutes(
     }
     try {
       const savedBy = request.principal.kind === "user" ? request.principal.userId : undefined;
-      const { saved, policy } = await request.inVenue(async (c) => {
+      const { saved, policy, consent } = await request.inVenue(async (c) => {
         const saved = await saveSettings(c, {
           venueId: request.venueId!,
           values,
@@ -122,7 +123,13 @@ export function settingsRoutes(
               })
             ).version.version;
         }
-        return { saved, policy };
+        // The consent line read at New tab follows the tab settings (M6-25): a new version when its
+        // words change. Tabs already open keep the version that was read to them.
+        const consent =
+          "tabs" in values
+            ? (await tabConsent(c, request.venueId!, options.clock.now())).version
+            : undefined;
+        return { saved, policy, consent };
       });
       // A new pay.tipScreen goes to the readers' Terminal Configuration (M4-02), after the commit.
       let readers: "updating" | "failed" | undefined;
@@ -141,6 +148,7 @@ export function settingsRoutes(
         business_date: today.toString(),
         saved,
         ...(policy !== undefined ? { policy_version: policy } : {}),
+        ...(consent !== undefined ? { consent_version: consent } : {}),
         ...(readers ? { readers } : {}),
       };
     } catch (error) {

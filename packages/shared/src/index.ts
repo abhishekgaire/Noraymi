@@ -44,6 +44,7 @@ export {
   isSettingsKey,
   parseSetting,
   startsNextBusinessDate,
+  withLaterPart,
 } from "./settings.js";
 export type {
   SettingsKey,

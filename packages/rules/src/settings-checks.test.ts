@@ -5,7 +5,9 @@ import {
   checkHours,
   checkLanguages,
   checkPay,
+  checkPos,
   checkSafety,
+  checkTabs,
   checkSetting,
 } from "./settings-checks.js";
 
@@ -108,5 +110,45 @@ describe("the deposit checks (M5-06)", () => {
       "The first-hour and card-hold deposits take no amount.",
     ]);
     expect(checkDeposit({ ...west4, refundHours: 1.5 })).toHaveLength(1);
+  });
+});
+
+describe("the bar POS and tab checks (M6-25)", () => {
+  const pos = {
+    layouts: { bar: 1 },
+    reasonOnly: { eachCents: 2500, perShiftCents: 7500 },
+    idleLockMin: 3,
+    wipeLockSec: 10,
+    barTabTip: "reader" as const,
+    orderAging: { phonesSec: 30, amberSec: 120, pinkSec: 240, callSec: 360 },
+    chime: true,
+    muteSec: 60,
+  };
+  const tabs = { openingHoldCents: 5000, flagOverCents: 60000, cutOffAt: "04:30" };
+
+  it("West 4's values pass, and so does a reason-only limit of $0", () => {
+    expect(checkPos(pos)).toEqual([]);
+    expect(checkPos({ ...pos, reasonOnly: { eachCents: 0, perShiftCents: 0 } })).toEqual([]);
+    expect(checkTabs(tabs)).toEqual([]);
+    expect(checkTabs({ ...tabs, openingHoldCents: 6000 })).toEqual([]);
+    expect(checkSetting("pos", pos, ctx)).toEqual([]);
+  });
+
+  it("refuses aging out of order, and locks or Mute of nothing", () => {
+    expect(checkPos({ ...pos, orderAging: { ...pos.orderAging, amberSec: 240 } })).toEqual([
+      "Order aging runs in order: bar phones, then amber, then pink, then a text or call, each later than the one before.",
+    ]);
+    expect(checkPos({ ...pos, orderAging: { ...pos.orderAging, phonesSec: 0 } })).toHaveLength(1);
+    expect(checkPos({ ...pos, idleLockMin: 0, wipeLockSec: 0.5, muteSec: 0 })).toHaveLength(3);
+  });
+
+  it("refuses an opening hold of $0, and a flag at or under the hold", () => {
+    expect(checkTabs({ ...tabs, openingHoldCents: 0 })).toContain(
+      "The opening hold is $1.00 or more.",
+    );
+    expect(checkTabs({ ...tabs, flagOverCents: 5000 })).toEqual([
+      "The amount that flags a tab is more than the opening hold.",
+    ]);
+    expect(checkSetting("tabs", { ...tabs, flagOverCents: 0 }, ctx)).toHaveLength(1);
   });
 });

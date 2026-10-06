@@ -5416,6 +5416,65 @@ test("Admin → Bar POS: add Nütrl to Favorites' first open slot, publish, star
   }
 });
 
+/**
+ * Admin → Bar POS · the settings (M6-25): West 4's limits, locks, tip path,
+ * aging read back as the escalation sentence, and the tabs. A $60 opening
+ * hold changes the consent line once saved; a new amber time shows on the
+ * bar orders screen at once.
+ */
+test("Admin → Bar POS: West 4's settings, a $60 opening hold and a new amber time", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInAndy(page, request, db);
+    await page.goto("/admin/bar-pos");
+    await expect(page.getByLabel("Reason-only limit, each comp or void")).toHaveValue("25.00");
+    await expect(page.getByLabel("Reason-only limit, a shift per person")).toHaveValue("75.00");
+    await expect(page.getByLabel("Idle lock, in minutes")).toHaveValue("3");
+    await expect(page.getByLabel("Wipe screen, in seconds")).toHaveValue("10");
+    await expect(page.getByLabel("Bar tabs tip")).toHaveValue("reader");
+    await expect(page.getByLabel("Bar phones, in seconds")).toHaveValue("30");
+    await expect(page.getByLabel("Amber and the Board alert, in minutes")).toHaveValue("2");
+    await expect(page.getByLabel("Pink and the manager on duty, in minutes")).toHaveValue("4");
+    await expect(page.getByLabel("A text or call, in minutes")).toHaveValue("6");
+    await expect(page.getByLabel("Chime as backup")).toBeChecked();
+    await expect(page.getByLabel("Mute lasts, in seconds")).toHaveValue("60");
+    await expect(
+      page.getByText(
+        "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByLabel("Flag a tab to the manager over")).toHaveValue("600.00");
+    await expect(page.getByLabel("Tab cut-off")).toHaveValue("04:30");
+    await expect(page.getByText("Ring the bar until someone accepts")).toHaveCount(0);
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.getByLabel("Opening hold").fill("60");
+    await expect(
+      page.getByText("We'll hold $60 on this card and add to it as you order.", { exact: false }),
+    ).toBeVisible();
+    await page.getByLabel("Amber and the Board alert, in minutes").fill("3");
+    await expect(
+      page.getByText("Ages on screen: amber at 3 min, pink at 4", { exact: false }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const consent = await db.query<{ text: string }>(
+      "select text from policy_versions where kind = 'tab_consent' order by version desc limit 1",
+    );
+    expect(consent.rows[0]!.text).toMatch(/^We'll hold \$60 on this card/);
+
+    await page.goto("/bar-orders");
+    await expect(
+      page.getByText("Ages on screen: amber at 3 min, pink at 4", { exact: false }),
+    ).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
 /** Maya signs in by name and PIN on the paired bar computer (the Rail's home). */
 async function signInMayaAtTheBar(page: Page, request: APIRequestContext, db: pg.Client) {
   await db.query("update memberships set locale = 'en'");

@@ -10,6 +10,7 @@ import {
 import { api, ApiCallError } from "../api.js";
 import { useClock, useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
+import { agingTone, WEST4_AGING, type Aging } from "../aging.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
@@ -158,9 +159,6 @@ interface MovedHold {
 }
 type Picked = { kind: "tab"; id: string } | { kind: "room"; id: string } | { kind: "quick" } | null;
 
-const AMBER_S = 120;
-const PINK_S = 240;
-
 export function Rail() {
   const { t, money, time } = useT();
   const { state, lock, signInWithBadge } = useSession();
@@ -185,6 +183,7 @@ export function Rail() {
   const [tabs, setTabs] = useState<readonly Tab[]>([]);
   const [rooms, setRooms] = useState<readonly RoomTile[]>([]);
   const [waiting, setWaiting] = useState<readonly WaitingOrder[]>([]);
+  const [aging, setAging] = useState<Aging>(WEST4_AGING);
   // After the alcohol window closes, the alcohol orders nobody accepted are cancelled at 4:00 AM
   // (M3-22); the room-order cards list them as "Cancelled at 4:00 AM", with no Decline (M6-14).
   const [stopped, setStopped] = useState<readonly WaitingOrder[]>([]);
@@ -239,7 +238,10 @@ export function Rail() {
         ),
         api<{ tabs: Tab[] }>("GET", `/v1/venues/${venueId}/tabs`),
         api<{ rooms: RoomTile[] }>("GET", `/v1/venues/${venueId}/board`),
-        api<{ orders: WaitingOrder[] }>("GET", `/v1/venues/${venueId}/orders?status=ringing,held`),
+        api<{ orders: WaitingOrder[]; aging: Aging }>(
+          "GET",
+          `/v1/venues/${venueId}/orders?status=ringing,held`,
+        ),
         api<{ idle_lock_min: number; wipe_lock_sec: number; on_break: boolean }>(
           "GET",
           `/v1/venues/${venueId}/pos/terminal`,
@@ -252,6 +254,7 @@ export function Rail() {
       setTabs(tabList.tabs);
       setRooms(board.rooms.filter((r) => r.session?.check_id));
       setWaiting(orders.orders);
+      setAging(orders.aging);
       setFailed(false);
       setLoaded(true);
     } catch {
@@ -577,7 +580,7 @@ export function Rail() {
         <ul className="rail-orders" aria-label={t("rail.roomOrders")}>
           {waiting.map((o) => {
             const age = ageS(o.placed_at);
-            const tone = age >= PINK_S ? "pink" : age >= AMBER_S ? "amber" : "new";
+            const tone = agingTone(age, aging) ?? "new";
             const alcohol = o.items.some((i) => i.alcohol);
             return (
               <li key={o.id} className={`rail-order ${tone}`} aria-label={o.room_name ?? ""}>

@@ -18,7 +18,7 @@ import { venueClock } from "../rooms/assignment.js";
  * the list, which stops the rest. The sweep runs every 5 seconds.
  */
 export const ESCALATION_EVERY_MS = 5_000;
-const DEFAULT_AGING = { phonesSec: 30, amberSec: 120, pinkSec: 240, callSec: 360 };
+export const DEFAULT_AGING = { phonesSec: 30, amberSec: 120, pinkSec: 240, callSec: 360 };
 
 export interface Aging {
   readonly phonesSec: number;

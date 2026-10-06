@@ -318,3 +318,17 @@ export function startsNextBusinessDate(
     );
   return false;
 }
+
+/**
+ * `value` with the parts that wait for the next business date taken from
+ * `from` (M6-25): the whole drawer model, the pay key's tip-pool method and
+ * the pos key's layouts. A save splits on it, so a change saved together with
+ * a layout is still live at once, and a save tonight carries a layout that's
+ * already waiting for tomorrow instead of replacing it.
+ */
+export function withLaterPart(key: SettingsKey, value: unknown, from: unknown): unknown {
+  if (key === "drawer") return from;
+  if (key === "pay") return { ...(value as PaySettings), pool: (from as PaySettings).pool };
+  if (key === "pos") return { ...(value as PosSettings), layouts: (from as PosSettings).layouts };
+  return value;
+}

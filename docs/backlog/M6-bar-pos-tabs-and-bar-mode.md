@@ -669,7 +669,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-25 · Build Admin → Bar POS
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-01, M6-06; M1 (Admin)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Admin → Bar POS); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`PosSettings`, `TabSettings`, When a change starts); [screens: N33](../screens.md#n33-admin--bar-pos), [AdminDesk notes 1, 2 and 12](../screens.md#admindesk); [glossary](../glossary.md#the-escalation-sentence)
@@ -680,11 +680,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Changes are live at once, except a layout, which starts at the next business date.
   - No "Ring the bar until someone accepts" toggle.
 - **Acceptance:**
-  - [ ] West 4 shows the values above; setting the opening hold to $60 changes the consent line to "We'll hold $60 on this card…" for new tabs only.
-  - [ ] A per-shift limit of 0 sends every comp and void for approval.
-  - [ ] A new amber time changes the Board's and the bar screens' aging at once.
+  - [x] West 4 shows the values above; setting the opening hold to $60 changes the consent line to "We'll hold $60 on this card…" for new tabs only.
+  - [x] A per-shift limit of 0 sends every comp and void for approval.
+  - [x] A new amber time changes the Board's and the bar screens' aging at once.
 - **Tests:** settings validation; end-to-end.
 - **Notes:** Whether the front desk can use the bar POS when covering the bar is a role permission in Admin → Team (M1), not here. M3's aging ran on West 4's defaults until this section.
+  - Built: Admin → Bar POS (`/admin/bar-pos`) now has, below the Layout, Limits, Locks, Tip path, Order aging and Tabs (`BarPosSettings.tsx`), saved through Save and publish and live at once. Order aging reads back as the glossary's escalation sentence, built from the times (`barOrders.footer`, with `{amber}`, `{pink}`, `{phones}`, `{call}`; West 4's values give the exact glossary words, and with the chime off the sentence ends without "chime as backup"). The tab settings show the consent line as it will be read. No "Ring the bar until someone accepts" toggle.
+  - Consent line: `PUT /settings` with `tabs` writes the consent line's new `policy_versions` row in the same transaction when its words change, and answers `consent_version`; tabs already open keep `tabs.consent_text_version`.
+  - Aging at once: `GET /orders` now answers `aging` (phones, amber, pink, call, chime, mute_sec) from today's `pos`; the bar POS's room-order strip and the bar orders screen color by it (they had 2 and 4 minutes built in), reload on `settings.changed`, and Mute lasts `pos.muteSec`. The desktop chime loop follows `pos.chime` and the amber time. The Board already read `pos.orderAging`.
+  - When a change starts: `saveSettings` now splits a save. The parts that wait (pos layouts, the pay pool, the drawer model; `withLaterPart` in packages/shared) start at the next business date and everything else in the same key starts tonight, and a save tonight carries forward a version already waiting for tomorrow. Before this, saving any pos change after a layout publish replaced the waiting layout, and saving limits with a layout made the limits wait too.
+  - Validation (cautious defaults, the spec gives no ranges): the idle lock, Wipe screen and Mute are whole and 1 or more; the aging times are whole seconds in the sentence's order, bar phones < amber < pink < a text or call; the opening hold is $1.00 or more and the flag is above it. A reason-only limit of $0 is allowed. In Admin, amber, pink and the text or call are entered in whole minutes, the rest in seconds.
+  - The consent line's last sentence stays "Add your tip on the reader." when the tip path is the slip: the spec gives only that wording; flagged for the owner.
+  - Tests: rules unit tests (`checkPos`, `checkTabs`), `withLaterPart`, staff `aging.test.ts`; integration `bar-pos-settings.int.test.ts` (West 4's values, a per-shift limit of 0 sends Maya's $12 void for approval, $60 hold → new consent version and Jess P. keeps hers, a new amber time in the orders list at once, refusals, a waiting layout survives tonight's saves); e2e "Admin → Bar POS: West 4's settings, a $60 opening hold and a new amber time".
 
 ### M6-26 · Build Admin → Bar mode
 

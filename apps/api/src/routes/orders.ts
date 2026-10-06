@@ -1,12 +1,14 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { listOrders } from "@west4/db";
-import { ORDER_STATUSES } from "@west4/rules";
+import { listOrders, readSetting } from "@west4/db";
+import { businessDate, ORDER_STATUSES } from "@west4/rules";
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { stepOrder, type StepInput } from "../orders/pipeline.js";
 import { inVenueRefusing } from "../orders/alcohol.js";
+import { DEFAULT_AGING } from "../orders/escalation.js";
+import { venueClock } from "../rooms/assignment.js";
 
 /**
  * Orders (M3-06; spec 08 · Orders):
@@ -77,11 +79,29 @@ export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       const date = request.query.business_date;
       if (date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(date))
         throw new ApiError("invalid_request", "business_date is YYYY-MM-DD");
-      return {
-        orders: await request.inVenue((c) =>
-          listOrders(c, request.venueId!, statuses, { sessionId, businessDate: date }),
-        ),
-      };
+      return request.inVenue(async (c) => {
+        const orders = await listOrders(c, request.venueId!, statuses, {
+          sessionId,
+          businessDate: date,
+        });
+        // The bar screens color and chime by the venue's aging, so a change in Admin → Bar POS shows at once (M6-25).
+        const now = options.clock.now();
+        const clock = await venueClock(c, request.venueId!);
+        const today = businessDate(now, clock.timeZone, clock.dayCutover).businessDate;
+        const pos = (await readSetting(c, request.venueId!, "pos", today))?.value;
+        const a = pos?.orderAging ?? DEFAULT_AGING;
+        return {
+          orders,
+          aging: {
+            phones_sec: a.phonesSec,
+            amber_sec: a.amberSec,
+            pink_sec: a.pinkSec,
+            call_sec: a.callSec,
+            chime: pos?.chime ?? true,
+            mute_sec: pos?.muteSec ?? 60,
+          },
+        };
+      });
     },
   );
 

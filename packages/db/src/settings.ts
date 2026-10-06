@@ -1,8 +1,9 @@
-import type { Temporal } from "@west4/shared";
 import {
+  Temporal,
   isSettingsKey,
   parseSetting,
   startsNextBusinessDate,
+  withLaterPart,
   type SettingsKey,
   type SettingsValue,
 } from "@west4/shared";
@@ -113,11 +114,7 @@ export async function saveSettings(
   if (parsed.length === 0) throw new SettingsRefused(["nothing to save"]);
 
   const saved: SettingVersion[] = [];
-  for (const { key, value } of parsed) {
-    const inForce = await readSetting(client, args.venueId, key, args.today);
-    const startsOn = startsNextBusinessDate(key, inForce?.value, value)
-      ? args.today.add({ days: 1 })
-      : args.today;
+  const write = async (key: SettingsKey, value: unknown, startsOn: Temporal.PlainDate) => {
     const r = await client.query<Row>(
       `insert into venue_settings (venue_id, key, version, value, saved_by, starts_on)
        select $1, $2, coalesce(max(version), 0) + 1, $3, $4, $5 from venue_settings where venue_id = $1 and key = $2
@@ -125,6 +122,32 @@ export async function saveSettings(
       [args.venueId, key, JSON.stringify(value), args.savedBy ?? null, startsOn.toString()],
     );
     saved.push(toVersion(r.rows[0]!));
+  };
+  for (const { key, value } of parsed) {
+    const inForce = await readSetting(client, args.venueId, key, args.today);
+    // A version saved earlier that starts at a later business date (a layout published tonight).
+    const waiting = (
+      await client.query<Row>(
+        `select key, version, value, starts_on::text, saved_at, saved_by from venue_settings
+          where venue_id = $1 and key = $2 and starts_on > $3::date order by version desc limit 1`,
+        [args.venueId, key, args.today.toString()],
+      )
+    ).rows[0];
+    if (startsNextBusinessDate(key, inForce?.value, value)) {
+      // The parts that are live at once still start tonight (M6-25); the rest waits.
+      const tonight = withLaterPart(key, value, inForce!.value);
+      if (canonical(tonight) !== canonical(inForce!.value)) await write(key, tonight, args.today);
+      await write(key, value, args.today.add({ days: 1 }));
+    } else {
+      await write(key, value, args.today);
+      // Keep what was already waiting for its date, with tonight's change in it too.
+      if (waiting && waiting.version > (inForce?.version ?? 0))
+        await write(
+          key,
+          withLaterPart(key, value, waiting.value),
+          Temporal.PlainDate.from(waiting.starts_on),
+        );
+    }
   }
   await emitEvent(client, {
     venueId: args.venueId,
@@ -133,4 +156,14 @@ export async function saveSettings(
     entityVersion: Math.max(...saved.map((s) => s.version)),
   });
   return saved;
+}
+
+/** JSON with its keys sorted: a jsonb value read back compares equal to the one that was sent. */
+function canonical(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v ?? null);
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  return `{${Object.keys(v)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`)
+    .join(",")}}`;
 }

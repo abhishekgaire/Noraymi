@@ -3,6 +3,7 @@ import { POS_SECTIONS, addToSection, type PosLayoutSections, type PosSection } f
 import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { BarPosSettings } from "./BarPosSettings.js";
 
 /**
  * Admin → Bar POS · Layout (M6-01; screens N33; Staff screens and the bar POS
@@ -10,6 +11,8 @@ import { useSession } from "../../session.js";
  * its button name. Adding an item takes the first empty slot and nothing
  * else moves; a slot can be emptied. Save keeps a draft; Publish starts it at
  * the next business date ("Starts Sat Sep 26"), and tonight keeps its buttons.
+ * The rest of the section (limits, locks, tip path, order aging, tabs) is
+ * BarPosSettings (M6-25), saved through Save and publish.
  */
 interface Layouts {
   readonly station: string;
@@ -201,6 +204,7 @@ export function BarPos() {
           <p className="small muted">{t("barPos.hint")}</p>
         </>
       )}
+      {venueId && <BarPosSettings venueId={venueId} />}
     </section>
   );
 }

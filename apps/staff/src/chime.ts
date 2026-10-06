@@ -7,7 +7,7 @@ import { readDevice, signedApi, type StoredDevice } from "./device.js";
  * phones. On a paired bar or front-desk computer, signed in or locked, it
  * checks for ringing and asked-to-wait orders every 5 seconds and chimes for
  * each new one, and again every minute while any has waited past 2 minutes.
- * Mute silences it for 60 seconds (`pos.muteSec`); the colors keep changing.
+ * Mute silences it for `pos.muteSec` (60 s at West 4); the colors keep changing.
  * The desktop app never throttles its window, so it chimes behind other
  * windows too.
  */
@@ -89,12 +89,13 @@ export function chimeDecision(
 }
 
 async function check(device: StoredDevice, state: { heard: Set<string>; lastRepeat: number }) {
-  const r = await signedApi<{ orders: { id: string; placed_at: string }[] }>(
-    device,
-    "GET",
-    `/v1/venues/${device.venueId}/orders?status=ringing,held`,
-  ).catch(() => null);
-  if (r && chimeDecision(r.orders, state, Date.now())) playChime();
+  const r = await signedApi<{
+    orders: { id: string; placed_at: string }[];
+    aging?: { amber_sec: number; chime: boolean };
+  }>(device, "GET", `/v1/venues/${device.venueId}/orders?status=ringing,held`).catch(() => null);
+  // The venue's chime switch and amber time (Admin → Bar POS, M6-25); the colors keep changing either way.
+  if (!r || r.aging?.chime === false) return;
+  if (chimeDecision(r.orders, state, Date.now(), (r.aging?.amber_sec ?? 120) * 1000)) playChime();
 }
 
 /** Runs on paired bar and front-desk computers inside the desktop app, for as long as the app runs. */

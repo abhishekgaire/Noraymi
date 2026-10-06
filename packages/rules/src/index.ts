@@ -9,6 +9,8 @@ export {
   checkLanguages,
   checkSafety,
   checkDeposit,
+  checkPos,
+  checkTabs,
   IN_PERSON_CARD_COST_PCT,
 } from "./settings-checks.js";
 export type { CheckContext } from "./settings-checks.js";

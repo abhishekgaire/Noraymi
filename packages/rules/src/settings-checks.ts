@@ -48,6 +48,10 @@ export function checkSetting<K extends SettingsKey>(
       return checkSafety(value as SettingsValue<"safety">);
     case "deposit":
       return checkDeposit(value as SettingsValue<"deposit">);
+    case "pos":
+      return checkPos(value as SettingsValue<"pos">);
+    case "tabs":
+      return checkTabs(value as SettingsValue<"tabs">);
     default:
       return [];
   }
@@ -140,5 +144,38 @@ export function checkSafety(safety: SettingsValue<"safety">): string[] {
       "The occupancy limit is the posted whole number from the certificate of occupancy, or left empty.",
     );
   }
+  return reasons;
+}
+
+/**
+ * Admin → Bar POS (M6-25): the locks and Mute are whole and more than nothing,
+ * and an order's aging steps come in the order the escalation sentence reads
+ * them (bar phones, then amber, then pink, then a text or call), each later
+ * than the one before. A reason-only limit of $0 is allowed: it sends every
+ * comp and void for approval.
+ */
+export function checkPos(pos: SettingsValue<"pos">): string[] {
+  const reasons: string[] = [];
+  const whole = (n: number) => Number.isInteger(n) && n >= 1;
+  if (!whole(pos.idleLockMin))
+    reasons.push("The idle lock is a whole number of minutes, 1 or more.");
+  if (!whole(pos.wipeLockSec)) reasons.push("Wipe screen is a whole number of seconds, 1 or more.");
+  if (!whole(pos.muteSec)) reasons.push("Mute lasts a whole number of seconds, 1 or more.");
+  const a = pos.orderAging;
+  if (![a.phonesSec, a.amberSec, a.pinkSec, a.callSec].every(whole))
+    reasons.push("Each order-aging time is a whole number of seconds, 1 or more.");
+  else if (!(a.phonesSec < a.amberSec && a.amberSec < a.pinkSec && a.pinkSec < a.callSec))
+    reasons.push(
+      "Order aging runs in order: bar phones, then amber, then pink, then a text or call, each later than the one before.",
+    );
+  return reasons;
+}
+
+/** Admin → Bar POS · Tabs (M6-25): the opening hold is more than $0, and a tab is flagged above it. */
+export function checkTabs(tabs: SettingsValue<"tabs">): string[] {
+  const reasons: string[] = [];
+  if (tabs.openingHoldCents < 100) reasons.push("The opening hold is $1.00 or more.");
+  if (tabs.flagOverCents <= tabs.openingHoldCents)
+    reasons.push("The amount that flags a tab is more than the opening hold.");
   return reasons;
 }

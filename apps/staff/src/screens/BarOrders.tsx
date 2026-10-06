@@ -9,6 +9,7 @@ import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { muteChime, useChimeMute } from "../chime.js";
+import { agingFromWire, agingSentence, agingTone, WEST4_AGING, type Aging } from "../aging.js";
 
 /**
  * The bar orders screen (M3-15; screens Bar notes 1–6, 8 and 9; spec 10 ·
@@ -61,8 +62,6 @@ interface MenuItem {
 const ALL = "ringing,held,accepted,ready,on_the_way,delivered,returned,cancelled";
 const CHECK_MS = 15_000;
 const NEW_S = 60;
-const AMBER_S = 120;
-const PINK_S = 240;
 
 export function BarOrders() {
   const { t, money } = useT();
@@ -74,6 +73,7 @@ export function BarOrders() {
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const cutover = signedIn?.membership.venue.day_cutover ?? "06:00";
   const [orders, setOrders] = useState<readonly Order[] | null>(null);
+  const [aging, setAging] = useState<Aging>(WEST4_AGING);
   const [failedJobs, setFailedJobs] = useState<ReadonlySet<string>>(new Set());
   const [items, setItems] = useState<readonly MenuItem[]>([]);
   // After the alcohol window closes there's no Decline: alcohol nobody accepted cancels itself (M3-22).
@@ -90,7 +90,7 @@ export function BarOrders() {
     if (!venueId) return;
     try {
       const [o, f, m] = await Promise.all([
-        api<{ orders: Order[] }>(
+        api<{ orders: Order[]; aging: Aging }>(
           "GET",
           `/v1/venues/${venueId}/orders?status=${ALL}${night ? `&business_date=${night}` : ""}`,
         ),
@@ -101,6 +101,7 @@ export function BarOrders() {
         ),
       ]);
       setOrders(o.orders);
+      setAging(o.aging);
       setFailedJobs(new Set(f.jobs.map((j) => j.id)));
       setItems(m.categories.flatMap((c) => c.items));
       setWindowClosed(m.alcohol.state === "closed");
@@ -124,7 +125,8 @@ export function BarOrders() {
             (e) =>
               e.type.startsWith("order.") ||
               e.type.startsWith("print_job.") ||
-              e.type === "menu.changed",
+              e.type === "menu.changed" ||
+              e.type === "settings.changed",
           )
         )
           void load();
@@ -232,6 +234,7 @@ export function BarOrders() {
       {ticketLine(o)}
     </li>
   );
+  const sentence = agingSentence(agingFromWire(aging));
 
   return (
     <section className="bar-orders">
@@ -259,8 +262,7 @@ export function BarOrders() {
             <ul>
               {waiting.map((o) => {
                 const age = ageS(o.placed_at);
-                const tone =
-                  age >= PINK_S ? "pink" : age >= AMBER_S ? "amber" : age < NEW_S ? "new" : "";
+                const tone = agingTone(age, aging) ?? (age < NEW_S ? "new" : "");
                 return card(
                   o,
                   <>
@@ -496,14 +498,16 @@ export function BarOrders() {
       </section>
 
       <p className="small muted footer-line">
-        {t("barOrders.footer")}{" "}
+        {t(sentence.key, sentence.params)}{" "}
         <button
           type="button"
           className="secondary"
           disabled={muteLeft > 0}
-          onClick={() => muteChime(60)}
+          onClick={() => muteChime(aging.mute_sec)}
         >
-          {muteLeft > 0 ? t("barOrders.muted", { s: muteLeft }) : t("barOrders.mute")}
+          {muteLeft > 0
+            ? t("barOrders.muted", { s: muteLeft })
+            : t("barOrders.mute", { s: aging.mute_sec })}
         </button>
       </p>
     </section>
