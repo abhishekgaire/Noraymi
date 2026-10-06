@@ -562,8 +562,8 @@ export const SEED_SETTING_DEFAULTS = {
   booking: { minHours: 1, maxHours: 12, startSlots: [] as string[] },
   depositLate: "keep",
   depositNoShow: "keep",
-  drawerSecondCounter: "never",
-  drawerPaidOutApprovalCents: 2500,
+  drawerSecondCounter: "whenOff",
+  drawerPaidOutApprovalCents: 0,
   roomsCleaningMin: 0,
 } as const;
 
@@ -926,6 +926,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "drawer_moves",
       "staff_banks",
       "drawer_sessions",
+      "drawer_handovers",
       "cash_drawers",
       "order_drafts",
       "pin_lockouts",

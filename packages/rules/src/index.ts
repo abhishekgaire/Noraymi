@@ -74,3 +74,11 @@ export { shiftMinutes, splitShifts, dutiesFor, DUTIES, PUNCH_KINDS } from "./shi
 export type { Duty, Punch, PunchKind, ShiftMinutes } from "./shifts.js";
 export { zReportGratuity } from "./z-report.js";
 export type { ZCheck, ZGratuity } from "./z-report.js";
+export { checkCount, drawerTotals, moveSign } from "./drawer.js";
+export type {
+  CountCheck,
+  DrawerMove,
+  DrawerMoveKind,
+  DrawerTotals,
+  SecondCounter,
+} from "./drawer.js";

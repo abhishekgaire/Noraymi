@@ -286,6 +286,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
+      "POST /v1/venues/:venueId/drawer-sessions/:s/count": { counted_cents: 0 },
+      "POST /v1/venues/:venueId/drawers/:d/handover": {
+        incoming: "00000000-0000-4000-8000-000000000001",
+        counted_cents: 0,
+      },
       "POST /v1/venues/:venueId/team/:m/badges/keys": { uid: "04AABBCCDDEEFF" },
       "POST /v1/venues/:venueId/tabs/openings/:o/name": { name: "B", label: null },
       "POST /v1/venues/:venueId/song-queue": { singer_id: singerB.rows[0]!.id, title: "B" },

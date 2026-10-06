@@ -27,6 +27,7 @@ import { CardFee } from "./screens/admin/CardFee.js";
 import { Connections } from "./screens/admin/Connections.js";
 import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
+import { CashDrawers } from "./screens/admin/CashDrawers.js";
 import { AlertsRules } from "./screens/admin/AlertsRules.js";
 import { Team } from "./screens/admin/Team.js";
 import { Tonight } from "./screens/Tonight.js";
@@ -133,6 +134,7 @@ export function StaffRoutes() {
           <Route path="features" element={<Features />} />
           <Route path="hours" element={<Hours />} />
           <Route path="devices" element={<Devices />} />
+          <Route path="cash-drawers" element={<CashDrawers />} />
           <Route path="rooms" element={<Rooms />} />
           <Route path="menu" element={<Menu />} />
           <Route path="phone" element={<Phone />} />

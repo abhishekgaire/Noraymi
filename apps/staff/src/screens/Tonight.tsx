@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
+import { DrawerPanel } from "./DrawerPanel.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
@@ -144,6 +145,9 @@ export function Tonight() {
   const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
   const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
   const [drawer, setDrawer] = useState(false);
+  // The cash drawers (M7-05; screens Board note 18): both house drawers and the handover.
+  const [cash, setCash] = useState(false);
+  const managing = signedIn?.membership.role === "owner" || signedIn?.membership.role === "manager";
   const waitlistOn = signedIn?.membership.modules.waitlist !== "off";
   const waitlist = useWaitlistCount(venueId, waitlistOn);
   const waiting = waitlist.count;
@@ -388,7 +392,28 @@ export function Tonight() {
             {t("waitlist.button", { count: waiting })}
           </button>
         )}
+        {signedIn?.membership.permissions.includes("drawer.count") && (
+          <button
+            type="button"
+            className="secondary"
+            aria-expanded={cash}
+            onClick={() => setCash((open) => !open)}
+          >
+            {t("drawers.title")}
+          </button>
+        )}
       </div>
+      {cash && venueId && (
+        <aside className="drawer" aria-label={t("drawers.title")}>
+          <div className="room-clock-head">
+            <span />
+            <button type="button" className="link" onClick={() => setCash(false)}>
+              {t("waitlist.close")}
+            </button>
+          </div>
+          <DrawerPanel venueId={venueId} canHandOver={managing} />
+        </aside>
+      )}
       {venueId && (
         <Headcount
           venueId={venueId}

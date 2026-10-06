@@ -278,11 +278,47 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
     }) as FastifyRequest;
     await tryPin(shaped, { venueId: membership.venueId, deviceId: session.deviceId, member });
   });
+
+  /**
+   * A second person's PIN on this request's device (M7-05: the second counter
+   * of a drawer count signs in on their own PIN), with the same ladder.
+   */
+  app.decorate(
+    "checkPinOf",
+    async (
+      request: FastifyRequest,
+      venueId: string,
+      userId: string,
+      pin: string,
+    ): Promise<void> => {
+      const deviceId = request.session?.deviceId ?? request.signedDevice?.deviceId;
+      if (!deviceId) throw new ApiError("forbidden", "a second person's PIN needs a device");
+      const member = await withVenue(pool, { venueId, requestId: request.requestId }, (c) =>
+        pinMembership(c, venueId, { userId }),
+      );
+      if (!member) throw signInFailed();
+      const shaped = Object.assign(
+        Object.create(Object.getPrototypeOf(request) as object),
+        request,
+        {
+          body: { pin },
+        },
+      ) as FastifyRequest;
+      await tryPin(shaped, { venueId, deviceId, member });
+    },
+  );
 }
 
 declare module "fastify" {
   interface FastifyInstance {
     /** Verify the signed-in person's PIN again on their session's device (M1-24); throws when it fails. */
     checkPinAgain: (request: FastifyRequest, pin: string) => Promise<void>;
+    /** Verify another active member's PIN on this request's device (M7-05); throws when it fails. */
+    checkPinOf: (
+      request: FastifyRequest,
+      venueId: string,
+      userId: string,
+      pin: string,
+    ) => Promise<void>;
   }
 }

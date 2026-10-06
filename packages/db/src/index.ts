@@ -465,8 +465,13 @@ export {
   addToStaffBank,
   insertDrawerMove,
   expectedInDrawer,
+  drawerSessionById,
+  drawerSessionMoves,
+  recordDrawerCount,
+  drawerSessionsOfDate,
+  pendingDrawerHandover,
 } from "./cash.js";
-export type { DrawerRow } from "./cash.js";
+export type { DrawerRow, DrawerSessionRow, DrawerPanelRow, DrawerHandoverRow } from "./cash.js";
 export {
   openSplit,
   insertSplit,

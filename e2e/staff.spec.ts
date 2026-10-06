@@ -7619,3 +7619,40 @@ test("training mode: a trainee's tap runs on a simulated reader, declined then p
     await db.end();
   }
 });
+
+/**
+ * Night's drawer panel (M7-05; screens Night note 7): both house drawers open with $300.00, each answered
+ * for by Andy and blind; his count of the bar drawer shows what it should have held only after he saves it.
+ */
+test("Close the night: both drawers counted blind, the bar drawer $10.00 short", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/close-the-night");
+    const drawers = page.getByRole("region", { name: "Cash drawers" });
+    const bar = drawers.getByRole("article", { name: "Bar drawer" });
+    const front = drawers.getByRole("article", { name: "Front-desk drawer" });
+    for (const d of [bar, front]) {
+      await expect(d).toContainText("Blind count · open · Andy C. answers for it");
+      await expect(d).toContainText("Opened with$300.00");
+      await expect(d).not.toContainText("Should be in the drawer");
+    }
+    await bar.getByRole("button", { name: "Count the drawer" }).click();
+    await expect(bar).toContainText(
+      "Count first. What the drawer should hold shows after you enter the count.",
+    );
+    await bar.getByLabel("What you counted, $").fill("290");
+    await bar.getByRole("button", { name: "Save the count" }).click();
+    await expect(bar).toContainText("Should be in the drawer$300.00");
+    await expect(bar).toContainText("Counted$290.00");
+    await expect(bar).toContainText("Short $10.00");
+    await expect(bar).toContainText("Counted by Andy C.");
+    await expect(front).not.toContainText("Should be in the drawer");
+  } finally {
+    await db.end();
+  }
+});

@@ -5,6 +5,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CashPanel } from "./CashPanel.js";
+import { DrawerPanel } from "./DrawerPanel.js";
 import { TapPayment } from "./TapPayment.js";
 
 /**
@@ -219,6 +220,16 @@ export function CloseTheNight() {
             ))}
           </ul>
         </section>
+      )}
+      {venueId && (
+        <div className="card">
+          <DrawerPanel
+            venueId={venueId}
+            canHandOver={
+              signedIn?.membership.role === "owner" || signedIn?.membership.role === "manager"
+            }
+          />
+        </div>
       )}
     </section>
   );
