@@ -119,6 +119,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into song_nights (venue_id, business_date, started_at) values ($1, '2026-09-25', now())",
     [v.venueB],
   );
+  // A night's export at venue B (M7-15: POST /exports/{e}/email).
+  const exportB = await owner.query<{ id: string }>(
+    "insert into exports (venue_id, kind, business_date, journals, file) values ($1, 'accounting', '2026-09-20', '[]', 'x') returning id",
+    [v.venueB],
+  );
   // A punch on venue B's time clock (M7-11: PATCH /punches/{p}).
   const punchB = await owner.query<{ id: string }>(
     "insert into time_punches (venue_id, membership_id, kind, duty, at) values ($1, $2, 'clock_in', 'bar', now()) returning id",
@@ -289,6 +294,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       q: songB.rows[0]!.id,
       s: singerB.rows[0]!.id,
       p: punchB.rows[0]!.id,
+      e: exportB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

@@ -55,6 +55,14 @@ export const emailJobPayload = z.discriminatedUnion("template", [
       data: templateSchemas.owner_recovery_notice,
     })
     .strict(),
+  z
+    .object({
+      template: z.literal("accounting_export"),
+      to: z.string().email(),
+      locale: localeSchema,
+      data: templateSchemas.accounting_export,
+    })
+    .strict(),
 ]);
 export type EmailJobPayload = z.infer<typeof emailJobPayload>;
 
@@ -124,7 +132,15 @@ export function makeSendEmailHandler(
               contentType: "application/pdf",
             },
           ]
-        : undefined;
+        : payload.template === "accounting_export"
+          ? [
+              {
+                filename: `west4-${payload.data.date}.csv`,
+                content: new TextEncoder().encode(payload.data.file),
+                contentType: "text/csv",
+              },
+            ]
+          : undefined;
     await mailer.send({
       to: payload.to,
       from: settings.from,

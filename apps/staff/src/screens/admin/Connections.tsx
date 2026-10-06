@@ -3,6 +3,7 @@ import type { MessageKey } from "@west4/shared";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { QuickBooksExport } from "./QuickBooksExport.js";
 
 /**
  * Admin → Connections (M4-01; screens AdminDesk note 21): Stripe, Twilio and
@@ -50,6 +51,7 @@ export function Connections() {
           ))}
         </ul>
       )}
+      {venueId && <QuickBooksExport venueId={venueId} />}
     </section>
   );
 }

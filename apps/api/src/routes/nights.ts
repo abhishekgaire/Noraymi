@@ -17,6 +17,7 @@ import { ApiError } from "../http/errors.js";
 import { closePool, nightTips, poolOf } from "../tips/pool.js";
 import { nightChecks } from "../nights/checks.js";
 import { computeReport, nightReport, reportPrintLines } from "../nights/report.js";
+import { postNightExport } from "../nights/journal.js";
 import { venueClock } from "../rooms/assignment.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
@@ -314,10 +315,13 @@ export function nightRoutes(
           (await c.query<{ name: string }>("select name from users where id = $1", [p.userId]))
             .rows[0]?.name ?? null;
         const z = await computeReport(c, venueId, date, now, "z");
+        // The night's accounting journal, posted from the same lines (M7-15), and its file.
+        const exportId = await postNightExport(c, venueId, { date, report: z, userId: p.userId });
         const closed = await recordNightClose(c, venueId, {
           businessDate: date,
           closedAt: now.toString(),
           closedBy: p.userId,
+          exportId,
           totals: {
             checks: counts,
             report: { ...z, closed: { z_number: 0, closed_at: now.toString(), closed_by: closer } },

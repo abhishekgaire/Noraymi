@@ -98,15 +98,13 @@ export async function nightReport(
   return computeReport(c, venueId, date, now, "x");
 }
 
-export async function computeReport(
+/** The night's check lines from the live views, dated to it (late lines for earlier nights left out). */
+export async function nightLines(
   c: Queryable,
   venueId: string,
   date: string,
-  now: Temporal.Instant,
-  kind: "x" | "z",
-): Promise<NightReport> {
-  const { timeZone } = await venueClock(c, venueId);
-  const lines = (
+): Promise<ReportLine[]> {
+  return (
     await c.query<ReportLine & { amount_cents: string; taxable_base_cents: string | null }>(
       `select l.check_id, k.kind as check_kind, l.kind, l.amount_cents::text, l.tax_category, l.jurisdiction_code,
               l.tax_rate::text, l.taxable_base_cents::text, l.description,
@@ -120,6 +118,17 @@ export async function computeReport(
     amount_cents: n(l.amount_cents),
     taxable_base_cents: l.taxable_base_cents === null ? null : n(l.taxable_base_cents),
   }));
+}
+
+export async function computeReport(
+  c: Queryable,
+  venueId: string,
+  date: string,
+  now: Temporal.Instant,
+  kind: "x" | "z",
+): Promise<NightReport> {
+  const { timeZone } = await venueClock(c, venueId);
+  const lines = await nightLines(c, venueId, date);
   const sales = salesReport(lines);
 
   const pay = (

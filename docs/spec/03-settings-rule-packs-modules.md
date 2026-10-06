@@ -96,6 +96,8 @@ type PaySettings = {
                                                       // until the lawyer answers) is one pool split by minutes
   refundedGratuity?: "house" | "nextPool";             // gratuity refunded after its night closed: the house absorbs it
                                                       // (the cautious default) or it comes off the next pool
+  accounting?: { accounts?: Record<string, string>;  // Export for QuickBooks (M7-15): each named account's name in
+                 emailTo?: string[] };                // the venue's chart of accounts, and where the nightly file goes
   roomHold: { on: boolean; cents: number };   // a card hold at room check-in, for venues without deposits; off at West 4
   payShare: { on: boolean };                  // Pay my share, on at West 4: from the room page a guest pays "My items" or
                                               // "An even share (1 of N)", with their share of tax and gratuity, by Apple Pay,

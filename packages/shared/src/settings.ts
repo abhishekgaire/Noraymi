@@ -161,6 +161,14 @@ export const paySchema = z
       .optional(),
     // M7-09: gratuity refunded after its pool closed; the cautious default is the house absorbs it.
     refundedGratuity: z.enum(["house", "nextPool"]).optional(),
+    // M7-15: Export for QuickBooks: each named account's name in the venue's chart, and where the nightly file goes.
+    accounting: z
+      .object({
+        accounts: z.record(z.string(), z.string().min(1).max(100)).optional(),
+        emailTo: z.array(z.string().email()).max(5).optional(),
+      })
+      .strict()
+      .optional(),
     roomHold: z.object({ on: z.boolean(), cents }).strict(),
     payShare: z.object({ on: z.boolean() }).strict(),
   })

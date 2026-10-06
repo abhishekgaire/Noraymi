@@ -456,7 +456,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-15 · Write the nightly accounting journal and Export for QuickBooks
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** M7-12, M7-13, M7-14; M4-24 (dispute funds kept for the journal), M4-28 (the prepaid-value ledger's kinds)
 - **Spec:** [Money rules](../spec/05-money-rules.md) 11 and 16; [Stripe setup](../spec/06-stripe-setup.md) 8 and 9; [API](../spec/08-api.md) · Reports and exports; [Tenancy and access](../spec/02-tenancy-access.md) · Who can call what (exports ask for the passkey again); [blueprint](../blueprint.md) · Integrations (Accounting); screens [AdminDesk](../screens.md#admindesk) note 21, [N38](../screens.md#n38-reports-and-exports)
@@ -467,15 +467,20 @@ Definition of done: see CLAUDE.md.
   - Admin → Connections: "Export for QuickBooks" (not "Connect"), where the owner maps each named account to West 4's chart of accounts and sets where the nightly file is emailed. No live QuickBooks connection.
 - **Acceptance:**
   - [ ] Every night of M7-19's run and every payout has a journal whose debits equal its credits.
-  - [ ] Room 9's close-out posts debits of $120.00 to customer deposits and $498.60 to Stripe clearing, and credits of $322.00 room time, $158.00 drinks, $42.60 sales tax payable and $96.00 gratuity payable.
-  - [ ] Jae & co.'s $50.00 deposit, paid Wed Sep 23, sits in customer deposits until it's allocated at check-in.
-  - [ ] A $5.00 short drawer posts to cash over and short.
-  - [ ] The export is refused from a PIN session and downloads, then emails, with a passkey.
+  - [x] Room 9's close-out posts debits of $120.00 to customer deposits and $498.60 to Stripe clearing, and credits of $322.00 room time, $158.00 drinks, $42.60 sales tax payable and $96.00 gratuity payable.
+  - [x] Jae & co.'s $50.00 deposit, paid Wed Sep 23, sits in customer deposits until it's allocated at check-in.
+  - [x] A $5.00 short drawer posts to cash over and short.
+  - [x] The export is refused from a PIN session and downloads, then emails, with a passkey.
   - [ ] The file imports into a QuickBooks test company without errors.
 - **Tests:** unit tests that every Z figure maps to exactly one account and every journal balances; a golden-file test for the export; money-cases groups `room9_close_out`, `deposits`, `refunds` and `z_report`; the principal suite for exports.
 - **Notes:**
   - Canvas: Connections shows a QuickBooks "Connect"; build "Export for QuickBooks" ([AdminDesk](../screens.md#admindesk) note 21). Yelp and Homebase stay out.
   - Spec gaps for the accountant: no named account for money waiting in Unmatched payments (cautious default: a suspense liability until it's matched), for dispute withdrawals and fees (cautious default: a disputes account), or for voids (cautious default: voids net against their category's sales; comps post to comps). The file format is only "a file for QuickBooks" (cautious default: QuickBooks Online's journal-entry CSV import layout).
+  - Built (M7-15): `packages/rules/src/journal.ts`: `nightJournal` (sales by category with voids netted against their category, comps and discounts to comps, refunds to refunds and a refund's gratuity share back off gratuity payable, sales tax payable by jurisdiction, gratuity payable, tips payable; the money that paid the night's checks from customer deposits, Stripe clearing, cash or prepaid value; deposits taken for later bookings into customer deposits; Unmatched payments in a suspense liability; the drawers' over or short against cash; late money for earlier nights with a memo naming its night; whatever the night's checks still owe in "due from guests"), `payoutJournal` (bank by the net, Stripe's fees, Stripe clearing by the gross; dispute lines to a disputes account), `isBalanced` and `journalCsv` (QuickBooks Online's journal-entry import layout, the cautious default).
+  - The close (M7-12's route) posts the night's journal from the same lines as the Z report and stores it with its file in `exports` (migration `0104_exports.sql`, with the closed-night guard), and `night_closes.export_id` points at it. `GET /exports/accounting?date=` (owners and managers, passkey session, and the step-up token checked on this read too, since exports ask for the passkey again) returns the night's journal and the payouts that arrived that day; `POST /exports/{e}/email` sends it as a CSV attachment (a new `accounting_export` email) to `pay.accounting.emailTo`. Admin → Connections · Export for QuickBooks: the account names, where the file goes, and Download (with the passkey). English and Spanish.
+  - Cautious defaults (for the accountant): suspense liability for Unmatched payments, a disputes account, voids netted against their category, comps and discounts to comps, the QuickBooks Online CSV layout. The account mapping and email live in the `pay` key (`accounting`) rather than a new settings key.
+  - Open lines: "every night of M7-19's run" is checked by M7-19's reconcile script; "imports into a QuickBooks test company" needs a QuickBooks test company (the founder's or the accountant's); the golden-file test pins the layout until then.
+  - Tests: unit `packages/rules/src/journal.test.ts` (Room 9's close-out exactly: $120.00 from customer deposits and $498.60 to Stripe clearing against $322.00, $158.00, $42.60 and $96.00; Jae & co.'s $50.00 held until check-in; a $5.00 short drawer; every Z figure to exactly one account; the property test that every journal balances; a payout's journal; the golden QuickBooks file); integration `apps/api/src/routes/exports.int.test.ts` (the journal posted at the close, balanced, kept by `export_id`, Room 9's deposit and Friday's deposits as they stand, the $5.00 short in cash over and short, practice money left out; the export refused from a PIN session and without the passkey again, downloaded, refused to email with no address, emailed once set, and the owner's account names in the file); the principal and wall suites cover both routes.
 
 ### M7-16 · Export payroll with gratuity split from tips
 
