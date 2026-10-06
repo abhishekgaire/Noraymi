@@ -40,6 +40,8 @@ export function QuickBooksExport({ venueId }: { venueId: string }) {
   const draft = useAdminDraft();
   const [saved, setSaved] = useState<PaySettings | null>(null);
   const [date, setDate] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const load = useCallback(async () => {
     setSaved(
@@ -55,12 +57,12 @@ export function QuickBooksExport({ venueId }: { venueId: string }) {
   const set = (next: NonNullable<PaySettings["accounting"]>) =>
     draft.set("pay", { ...current, accounting: { ...accounting, ...next } });
 
-  const download = async () => {
+  const download = async (path: string) => {
     setNotice(null);
     try {
       const r = await api<{ file: string; filename: string }>(
         "GET",
-        `/v1/venues/${venueId}/exports/accounting?date=${date}`,
+        `/v1/venues/${venueId}${path}`,
         undefined,
         { stepUp: await stepUpToken() },
       );
@@ -122,7 +124,35 @@ export function QuickBooksExport({ venueId }: { venueId: string }) {
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
-        <button type="button" disabled={!date} onClick={() => void download()}>
+        <button
+          type="button"
+          disabled={!date}
+          onClick={() => void download(`/exports/accounting?date=${date}`)}
+        >
+          {t("qb.download")}
+        </button>
+      </div>
+      {/* Payroll (M7-16): gratuity in a wages column, tips apart; the pools in it lock. */}
+      <h3>{t("payroll.title")}</h3>
+      <p className="small muted">{t("payroll.hint")}</p>
+      <div className="actions">
+        <input
+          type="date"
+          aria-label={t("payroll.from")}
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+        />
+        <input
+          type="date"
+          aria-label={t("payroll.to")}
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+        />
+        <button
+          type="button"
+          disabled={!from || !to}
+          onClick={() => void download(`/exports/payroll?from=${from}&to=${to}`)}
+        >
           {t("qb.download")}
         </button>
       </div>

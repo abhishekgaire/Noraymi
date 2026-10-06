@@ -2473,4 +2473,12 @@ export const en = {
   "qb.account.bank": "Bank",
   "qb.account.stripe_fees": "Stripe fees",
   "qb.account.disputes": "Disputes",
+  "email.payroll.subject": "{venue} · payroll for {date}",
+  "email.payroll.body":
+    "The hours, gratuity (paid as wages) and tips for {date} are attached, ready for payroll.",
+  "payroll.title": "Export payroll",
+  "payroll.hint":
+    "Hours by shift, each night's gratuity share as wages, and card and cash tips apart. The closed nights in it lock.",
+  "payroll.from": "From",
+  "payroll.to": "To",
 } as const;

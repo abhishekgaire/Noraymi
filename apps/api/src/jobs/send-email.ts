@@ -135,7 +135,7 @@ export function makeSendEmailHandler(
         : payload.template === "accounting_export"
           ? [
               {
-                filename: `west4-${payload.data.date}.csv`,
+                filename: `west4-${payload.data.kind === "payroll" ? "payroll-" : ""}${payload.data.date}.csv`,
                 content: new TextEncoder().encode(payload.data.file),
                 contentType: "text/csv",
               },

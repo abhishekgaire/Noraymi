@@ -127,6 +127,12 @@ describe("the nightly journal and Export for QuickBooks", () => {
          and membership_id <> $2`,
       [venueId, ids["andy.membership"]],
     );
+    // Friday's tips, for the pool and the payroll file.
+    await owner.query(
+      `insert into tip_ledger (venue_id, business_date, source, amount_cents)
+       values ($1, $2, 'gratuity', 10001), ($1, $2, 'card_tip', 3000), ($1, $2, 'cash_tip', 500)`,
+      [venueId, FRI],
+    );
     await sweepClearOut(owner, Temporal.Instant.from("2026-09-26T04:31:00-04:00"));
     expect((await as("andy", "POST", `/nights/${FRI}/clear-out`, {})).statusCode).toBe(200);
     const closed = await as("andy", "POST", `/nights/${FRI}/close`, {});
@@ -209,5 +215,53 @@ describe("the nightly journal and Export for QuickBooks", () => {
     expect((await as("abhishek", "GET", `/exports/accounting?date=${FRI}`)).json().file).toContain(
       "Undeposited Funds",
     );
+  });
+
+  it("exports payroll for Fri Sep 25: gratuity in wages, tips apart, managers with hours and no share; the pool locks", async () => {
+    expect(
+      (
+        await as("andy", "GET", `/exports/payroll?from=${FRI}&to=${FRI}`, undefined, {
+          stepUp: false,
+        })
+      ).statusCode,
+    ).toBe(403);
+    const r = await as("andy", "GET", `/exports/payroll?from=${FRI}&to=${FRI}`);
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().pools_exported).toBe(1);
+    const rows = (r.json().file as string)
+      .trim()
+      .split("\n")
+      .map((l) => l.split(","));
+    const of = (name: string) => rows.filter((x) => x[0] === name);
+    for (const name of ["Maya S.", "Diego R."]) expect(Number(of(name)[0]![8])).toBeGreaterThan(0);
+    for (const name of ["Andy C."]) {
+      expect(of(name)[0]![7]).not.toBe("0.00");
+      expect(of(name)[0]!.slice(8, 11)).toEqual(["0.00", "0.00", "0.00"]);
+    }
+    const total = rows.at(-1)!;
+    const pool = (
+      await owner.query<{ g: string; c: string; k: string }>(
+        `select sum(t.gratuity_cents)::text as g, sum(t.card_tip_cents)::text as c, sum(t.cash_tip_cents)::text as k
+           from tip_shares t join tip_pools p on p.id = t.pool_id where p.business_date = $1`,
+        [FRI],
+      )
+    ).rows[0]!;
+    expect(total.slice(8, 11)).toEqual(
+      [pool.g, pool.c, pool.k].map((x) => (Number(x) / 100).toFixed(2)),
+    );
+    expect(Number(pool.g)).toBe(10001);
+    // Exported: Friday's pool never changes.
+    const status = await owner.query<{ status: string }>(
+      "select status from tip_pools where business_date = $1",
+      [FRI],
+    );
+    expect(status.rows).toEqual([{ status: "exported" }]);
+    await expect(
+      owner.query(
+        `insert into tip_shares (venue_id, pool_id, for_business_date, user_id, duty, minutes, gratuity_cents, card_tip_cents, cash_tip_cents)
+         select venue_id, id, business_date, $2, 'bar', 1, 1, 0, 0 from tip_pools where business_date = $1`,
+        [FRI, ids["maya"]],
+      ),
+    ).rejects.toMatchObject({ code: "W4P01" });
   });
 });

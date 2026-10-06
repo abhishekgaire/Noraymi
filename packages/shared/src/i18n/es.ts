@@ -2520,4 +2520,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "qb.account.bank": "Banco",
   "qb.account.stripe_fees": "Comisiones de Stripe",
   "qb.account.disputes": "Disputas",
+  "email.payroll.subject": "{venue} · nómina del {date}",
+  "email.payroll.body":
+    "Adjuntamos las horas, el servicio (que se paga como salario) y las propinas del {date}, listos para la nómina.",
+  "payroll.title": "Exportar la nómina",
+  "payroll.hint":
+    "Horas por turno, la parte del servicio de cada noche como salario, y las propinas con tarjeta y en efectivo aparte. Las noches cerradas incluidas quedan bloqueadas.",
+  "payroll.from": "Desde",
+  "payroll.to": "Hasta",
 };

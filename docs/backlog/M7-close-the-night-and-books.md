@@ -484,17 +484,20 @@ Definition of done: see CLAUDE.md.
 
 ### M7-16 · Export payroll with gratuity split from tips
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7-01, M7-09
 - **Spec:** [API](../spec/08-api.md) · Reports and exports (`GET /exports/payroll?from=&to=`); [Data model](../spec/04-data-model.md) · `tip_shares` (gratuity is paid as wages; tips are tips), `tip_pools`, `shifts`; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · the rule pack's `wages`; [blueprint](../blueprint.md) · Integrations (Payroll); [Open technical questions](../spec/14-open-questions.md); screens [N38](../screens.md#n38-reports-and-exports)
 - **Build:** a CSV for a date range: per person and shift, the name, role, duty, business date, clock-in and out, break minutes and hours; per person and night, the gratuity share in a wages column and card and cash tips in tips columns; totals. It asks for the passkey again, leaves practice out, can be emailed, and marks each included pool `exported` (locked).
 - **Acceptance:**
-  - [ ] The export for Fri Sep 25 puts Maya's and Diego's gratuity shares in the wages column and their card and cash tips in the tips columns; Andy and Abhishek have hours and no shares.
-  - [ ] Once exported, Fri Sep 25's pool can't change, and a late tip shows on the next pool.
-  - [ ] The wages and tips columns add up to the pools for every night.
+  - [x] The export for Fri Sep 25 puts Maya's and Diego's gratuity shares in the wages column and their card and cash tips in the tips columns; Andy and Abhishek have hours and no shares.
+  - [x] Once exported, Fri Sep 25's pool can't change, and a late tip shows on the next pool.
+  - [x] The wages and tips columns add up to the pools for every night.
 - **Tests:** a golden-file test; a property test that shares add up; the principal suite (owners and managers, passkey).
 - **Notes:** Open question (lawyer, gate): is checking tip-credit coverage our report's job or payroll's? Cautious default: the export marks any shift whose tips per hour fall under the rule pack's `wages.tipCreditCents` ($5.65) as "check tip credit with payroll", a flag only, with no wage math.
+  - Built (M7-16): `packages/rules/src/payroll.ts` (`payrollRows`, `payrollCsv`: each shift's hours, the night's share on the person's first shift that night so it counts once, gratuity in "Wages (gratuity)", card and cash tips apart, totals, and the tip-credit flag only, from the rule pack's `wages.tipCreditCents`); `GET /exports/payroll?from=&to=` and `POST /exports/payroll/email` in `routes/exports.ts` (passkey again, closed pools only, each marked `exported` with `exported_at`, a row for a share on a night the person didn't clock in); the email reuses the export email with `kind: "payroll"`; "Export payroll" in Admin → Connections beside Export for QuickBooks (Reports links to it in M7-18). English and Spanish.
+  - Practice stays out: practice tips never reach the ledger or a pool. Shifts are real hours whoever works them, so a person in training still has their hours.
+  - Tests: unit `packages/rules/src/payroll.test.ts` (the golden file with Maya, Diego and Andy, the flag on Diego's $10.00 over 9 hours; the property test that the columns add up to the shares); integration in `apps/api/src/routes/exports.int.test.ts` (refused without the passkey again; Maya's and Diego's gratuity in wages and Andy with hours and no share; the totals equal Friday's pool; the pool exported and refusing a new share); the principal and wall suites cover the routes.
 
 ### M7-17 · Report the sales-tax quarter
 

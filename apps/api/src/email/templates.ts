@@ -59,6 +59,8 @@ export const accountingExportData = z
     venueName: z.string().min(1),
     date: z.string().min(1),
     file: z.string().min(1).max(2_000_000),
+    /** M7-16: the payroll file goes the same way. */
+    kind: z.enum(["accounting", "payroll"]).optional(),
   })
   .strict();
 
@@ -169,9 +171,13 @@ export function render<N extends TemplateName>(
       const d = data as TemplateData<"accounting_export">;
       const values = { venue: d.venueName, date: d.date };
       const line = (key: MessageKey) => fill(t(locale, key), values);
-      const paragraphs = [line("email.accounting.body"), line("email.footer")];
+      const payroll = d.kind === "payroll";
+      const paragraphs = [
+        line(payroll ? "email.payroll.body" : "email.accounting.body"),
+        line("email.footer"),
+      ];
       return {
-        subject: line("email.accounting.subject"),
+        subject: line(payroll ? "email.payroll.subject" : "email.accounting.subject"),
         text: paragraphs.join("\n\n"),
         html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
       };
