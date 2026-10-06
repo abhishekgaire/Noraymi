@@ -129,8 +129,9 @@ export async function writeTap(
   if (!reader) throw new NoSuchReader();
   if (await quiet(c, venueId, input.readerDeviceId, input.now)) throw new ReaderQuiet();
   // A split's share (M4-14): this check's, open, and paid in its own amount.
-  if (input.shareId)
-    await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paying");
+  const claimed = input.shareId
+    ? await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paying")
+    : null;
   const paymentId = await insertPayment(c, venueId, {
     method: "card_present",
     status: "pending",
@@ -144,6 +145,7 @@ export async function writeTap(
     amountCents: input.amountCents,
     state: "in_progress",
     shareId: input.shareId ?? null,
+    leaveOut: claimed?.leaveOut ?? null,
   });
   const { attemptNo } = await startAttempt(c, venueId, {
     paymentId,

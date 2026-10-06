@@ -71,8 +71,9 @@ export async function takeCash(
     });
   const at = input.now.toString();
   // A split's share (M4-14): cash pays it at once.
-  if (input.shareId)
-    await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paid");
+  const claimed = input.shareId
+    ? await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paid")
+    : null;
   const drawer = input.deviceId ? await drawerOfDevice(c, venueId, input.deviceId) : null;
   const inDrawer = drawer?.session_id ? drawer : null;
   const bankId = inDrawer ? null : await staffBank(c, venueId, input.userId, input.businessDate);
@@ -94,6 +95,7 @@ export async function takeCash(
     amountCents: input.amountCents,
     state: "captured",
     shareId: input.shareId ?? null,
+    leaveOut: claimed?.leaveOut ?? null,
   });
   // The cash that stays: the amount and the tip (the change went back to the guest).
   await insertDrawerMove(c, venueId, {

@@ -36,6 +36,7 @@ import {
 } from "../tabs/close.js";
 import { latestAttempt, paymentById } from "@west4/db";
 import { enterSlipTip } from "../tabs/tip.js";
+import { splitTab } from "../tabs/split.js";
 import { screenState } from "../payments/machine.js";
 import {
   nameOpening,
@@ -62,6 +63,9 @@ import {
  *   POST /v1/venues/{v}/tabs/{t}/close            { tip: reader | slip | none, reader_id? }: Close (M6-08); the reader
  *                                                asks for the tip, or the hold is captured at once, or the
  *                                                paper slip prints and the tab is awaiting_tip (M6-09)
+ *   POST /v1/venues/{v}/tabs/{t}/split            { shares: 2-4 }: split evenly, kept on the server (M6-10); each
+ *                                                share pays by a new tap or cash (POST /checks/{c}/payments with
+ *                                                share_id), the held card's last, by Close to the card
  *   GET  /v1/venues/{v}/tabs/{t}/close            the tab's latest Close: the tip asked or picked, the capture
  *   POST /v1/venues/{v}/tabs/{t}/close/check-status   read the reader and Stripe now
  *   POST /v1/venues/{v}/tabs/{t}/close/cancel     Cancel while the reader asks: the tab is open again
@@ -482,6 +486,36 @@ export function tabRoutes(
           throw new ApiError("reader_busy", "another payment is on the bar reader");
       }
       return closed(request, tabId);
+    },
+  );
+
+  // Split (M6-10): evenly 2, 3 or 4 ways, kept on the server; each share pays through
+  // POST /checks/{c}/payments with its share_id, and the held card's share by Close to the card, last.
+  const splitBody = z.object({ shares: z.number().int().min(2).max(4) }).strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/split",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const tabId = tabParam(request.params.t);
+      const parsed = splitBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { shares: 2, 3 or 4 }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "splitting is a person's work");
+      const split = await request.inVenue((c) =>
+        splitTab(c, request.venueId!, tabId, parsed.data.shares, {
+          userId: p.userId,
+          now: options.clock.now(),
+        }),
+      );
+      reply.code(201);
+      return { split };
     },
   );
 

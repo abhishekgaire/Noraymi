@@ -8,6 +8,11 @@ import { useT } from "../i18n.js";
  * the server, each share with its own way to pay and state, and "Stop
  * splitting · charge the rest to …". Splitting by item is the same API; its
  * line picker comes with the close-out screen (M4-20).
+ *
+ * On a bar tab (M6-10): 2, 3 or 4 ways; the first share is the held card's,
+ * charged last by Close to the card, and the last share left always goes on
+ * it; "Stop splitting · charge the rest to Visa ··4417" ends the split and
+ * closes to the card.
  */
 export interface Share {
   readonly id: string;
@@ -28,6 +33,7 @@ export function SplitPanel({
   picked,
   onPick,
   onChanged,
+  tab,
 }: {
   venueId: string;
   checkId: string;
@@ -35,6 +41,12 @@ export function SplitPanel({
   picked: string | null;
   onPick: (share: Share | null) => void;
   onChanged: () => void;
+  /** A bar tab's split (M6-10): how it starts, and the held card that takes the last share. */
+  tab?: {
+    readonly start: (shares: number) => Promise<unknown>;
+    readonly card: string | null;
+    readonly toCard: () => void;
+  };
 }) {
   const { t, money } = useT();
   const [ways, setWays] = useState("2");
@@ -54,10 +66,28 @@ export function SplitPanel({
     }
   };
 
+  // On a held tab, the last share to pay (none being paid) goes on the held card.
+  const unpaid = split?.shares.filter((s) => s.state !== "paid") ?? [];
+  const last = unpaid.length === 1 && unpaid[0]!.state === "open" ? unpaid[0]! : null;
+
   return (
     <section className="split" aria-label={t("split.title")}>
       <h3>{t("split.title")}</h3>
-      {!split ? (
+      {!split && tab ? (
+        <div className="team-actions">
+          {[2, 3, 4].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => void act(() => tab.start(n))}
+            >
+              {t("split.waysN", { n })}
+            </button>
+          ))}
+        </div>
+      ) : !split ? (
         <div className="team-actions">
           <label>
             <span>{t("split.ways")}</span>
@@ -99,7 +129,14 @@ export function SplitPanel({
                 <span className={s.state === "paid" ? "ok" : "muted"}>
                   {t(`split.state.${s.state}` as MessageKey)}
                 </span>
-                {s.state === "open" && (
+                {tab?.card && s.state === "open" && last && s.id === last.id ? (
+                  <button type="button" className="primary" onClick={tab.toCard}>
+                    {t("split.chargeHeld", { card: tab.card })}
+                  </button>
+                ) : tab?.card && s.state === "open" && s.share_no === 1 ? (
+                  <span className="small">{t("split.heldShare", { card: tab.card })}</span>
+                ) : null}
+                {s.state === "open" && !(tab?.card && last && s.id === last.id) && (
                   <button
                     type="button"
                     className={picked === s.id ? "primary" : "secondary"}
@@ -119,10 +156,11 @@ export function SplitPanel({
               void act(async () => {
                 onPick(null);
                 await api("POST", `/v1/venues/${venueId}/splits/${split.id}/stop`);
+                if (tab?.card) tab.toCard();
               })
             }
           >
-            {t("split.stop")}
+            {tab?.card ? t("split.stopTo", { card: tab.card }) : t("split.stop")}
           </button>
         </>
       )}

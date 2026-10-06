@@ -93,6 +93,17 @@ export async function listTabs(
         slip?.waiting_for ??
         null;
       const held = await tabOfCheck(c, venueId, t.check_id);
+      // Paid beside the hold (M6-10): split shares by a new tap or in cash, captured or being charged.
+      const beside = (
+        await c.query<{ captured: number; charging: number }>(
+          `select coalesce(sum(a.amount_cents) filter (where a.state = 'captured'), 0)::int as captured,
+                  coalesce(sum(a.amount_cents) filter (where a.state = 'in_progress'), 0)::int as charging
+             from payment_allocations a join tabs t on t.venue_id = a.venue_id and t.check_id = a.check_id
+            where a.venue_id = $1 and a.check_id = $2 and a.payment_id is distinct from t.payment_id`,
+          [venueId, t.check_id],
+        )
+      ).rows[0]!;
+      const total = view.totals?.total_cents ?? 0;
       return {
         id: t.id,
         check_id: t.check_id,
@@ -110,6 +121,22 @@ export async function listTabs(
         closed_at: t.closed_at,
         totals: view.totals,
         amount_due_cents: view.amount_due_cents,
+        // A split kept on the server: its shares and their states, and "Partly paid · $16.33 of $32.66".
+        split: view.split
+          ? {
+              id: view.split.id,
+              share_count: view.split.share_count,
+              shares: view.split.shares.map((x) => ({
+                id: x.id,
+                share_no: x.share_no,
+                amount_cents: x.amount_cents,
+                state: x.state,
+              })),
+            }
+          : null,
+        paid_cents: beside.captured,
+        // What the next charge is: always the rest.
+        rest_cents: Math.max(0, total - beside.captured - beside.charging),
         cut_off: t.cut_off_at
           ? { at: t.cut_off_at, by: t.cut_off_by_name, reason: t.cut_off_reason }
           : null,

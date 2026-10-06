@@ -115,11 +115,13 @@ export async function allocate(
     followsLines?: boolean;
     shareId?: string | null;
     roomGuestId?: string | null;
+    /** A payment whose allocation doesn't count against what's due (a bar tab's hold while a split share is paid, M6-10). */
+    leaveOut?: string | null;
   },
 ): Promise<string> {
   if (!Number.isInteger(a.amountCents) || a.amountCents <= 0)
     throw new Error("an allocation is a positive whole number of cents");
-  const due = await amountDue(c, a.checkId);
+  const due = await amountDue(c, a.checkId, a.leaveOut ?? null);
   if (!a.followsLines && a.amountCents > due) throw new OverAmountDue(due, a.amountCents);
   const r = await c.query<{ id: string }>(
     `insert into payment_allocations (venue_id, payment_id, check_id, amount_cents, kind, state, follows_lines,

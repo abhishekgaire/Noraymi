@@ -55,8 +55,13 @@ export async function startSplit(
     throw new ApiError("in_progress", "this check is split already", {
       details: { split_id: existing.id },
     });
-  // What was left to pay when the split started: for a room, the presented check less what's paid.
-  const base = await amountDue(c, checkId);
+  // What was left to pay when the split started: for a room, the presented check less what's paid; for a
+  // bar tab, its total less what's paid, since its hold is only a guarantee (M6-10).
+  const base = await amountDue(
+    c,
+    checkId,
+    (await tabHoldOf(c, venueId, checkId))?.paymentId ?? null,
+  );
   const rev = await latestRevision(c, venueId, checkId);
   if (!rev) throw new ApiError("invalid_request", "present the check before splitting it");
   const count = input.kind === "even" ? input.shares : input.people;
@@ -176,8 +181,29 @@ export async function stopSplit(
 }
 
 /**
+ * A bar tab's hold standing on this check (M6-10): an authorized card that guarantees what's left. Its
+ * allocation follows the lines, so it's left out of what a split's shares owe.
+ */
+export async function tabHoldOf(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+): Promise<{ tabId: string; paymentId: string } | null> {
+  const r = await c.query<{ tab_id: string; payment_id: string }>(
+    `select t.id as tab_id, t.payment_id from tabs t
+       join payments p on p.venue_id = t.venue_id and p.id = t.payment_id
+      where t.venue_id = $1 and t.check_id = $2 and p.status = 'authorized'`,
+    [venueId, checkId],
+  );
+  const row = r.rows[0];
+  return row ? { tabId: row.tab_id, paymentId: row.payment_id } : null;
+}
+
+/**
  * Before a payment takes a share: it must be a share of this check's open split, not paid or being
- * paid, and the amount is the share's.
+ * paid, and the amount is the share's. On a bar tab with a hold, the held card's share is captured last
+ * (M6-10), so the last share left is never paid another way while the hold stands; the payment's
+ * allocation leaves the hold out of what's due (the answer).
  */
 export async function claimShare(
   c: Queryable,
@@ -186,7 +212,7 @@ export async function claimShare(
   shareId: string,
   amountCents: number,
   state: "paying" | "paid",
-): Promise<void> {
+): Promise<{ leaveOut: string | null }> {
   const share = await shareOf(c, venueId, checkId, shareId);
   if (!share) throw new ApiError("not_found", "no such share on this check's split");
   if (share.state !== "open")
@@ -198,7 +224,19 @@ export async function claimShare(
     throw new ApiError("invalid_request", "a share pays its own amount", {
       details: { amount_cents: share.amount_cents },
     });
+  const hold = await tabHoldOf(c, venueId, checkId);
+  if (hold) {
+    const others = await c.query(
+      "select 1 from split_shares where venue_id = $1 and split_id = $2 and id <> $3 and state = 'open'",
+      [venueId, share.split_id, shareId],
+    );
+    if (!others.rowCount)
+      throw new ApiError("invalid_request", "the last share goes on the held card", {
+        details: { reason: "held_card_last" },
+      });
+  }
   await setShareState(c, venueId, shareId, state);
+  return { leaveOut: hold?.paymentId ?? null };
 }
 
 /** After a payment moves: its shares are paid, or open again when it's canceled or failed. */

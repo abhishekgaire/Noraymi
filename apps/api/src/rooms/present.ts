@@ -1,3 +1,4 @@
+import { tabHoldOf } from "../payments/splits.js";
 import { amountDue, emitEvent, insertCheck, type Queryable } from "@west4/db";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
@@ -153,7 +154,13 @@ export async function settleCheck(
   now: Temporal.Instant,
 ): Promise<Settled> {
   const check = await lockedCheck(c, venueId, checkId);
-  const due = await amountDue(c, checkId);
+  // A bar tab's standing hold only guarantees what's left (M6-10): a split share paid beside it leaves the
+  // check partly paid until the hold is captured.
+  const due = await amountDue(
+    c,
+    checkId,
+    (await tabHoldOf(c, venueId, checkId))?.paymentId ?? null,
+  );
   if (!["finalized", "partly_paid", "reopened", "open"].includes(check.status))
     return { status: check.status, due_cents: due, room: null };
   const status = due === 0 ? "paid" : "partly_paid";

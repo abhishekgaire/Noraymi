@@ -17,6 +17,9 @@ import { AddDrinks } from "./AddDrinks.js";
 import { QuickSale } from "./QuickSale.js";
 import { NewTab } from "./NewTab.js";
 import { CloseTab } from "./CloseTab.js";
+import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
+import { TapPayment } from "./TapPayment.js";
+import { CashPanel } from "./CashPanel.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -80,6 +83,10 @@ interface Tab {
   readonly cut_off: { readonly at: string; readonly by: string | null } | null;
   readonly waiting_for: string | null;
   readonly unsent: number;
+  /** A split kept on the server (M6-10), what its paid shares came to, and the rest (the next charge). */
+  readonly split: Split | null;
+  readonly paid_cents: number;
+  readonly rest_cents: number;
 }
 interface RoomTile {
   readonly room_id: string;
@@ -155,6 +162,8 @@ export function Rail() {
   const [newTab, setNewTab] = useState(false);
   /** Close tab (M6-08): the picked tab's close panel is open. */
   const [closingTab, setClosingTab] = useState<string | null>(null);
+  const [splitting, setSplitting] = useState<string | null>(null);
+  const [share, setShare] = useState<Share | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
@@ -332,6 +341,8 @@ export function Rail() {
     setNotice(null);
     setNewTab(false);
     setClosingTab(null);
+    setSplitting(null);
+    setShare(null);
     setPicked(next);
   };
   /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
@@ -430,6 +441,14 @@ export function Rail() {
     ...(x.hold?.checking ? [t("pay.unknown")] : []),
     ...(x.waiting_for ? [t("rail.badge.waiting", { name: x.waiting_for })] : []),
     ...(x.unsent > 0 ? [t("rail.badge.unsent", { n: x.unsent })] : []),
+    ...(x.open && x.paid_cents > 0
+      ? [
+          t("rail.badge.partlyPaid", {
+            paid: money(x.paid_cents as never),
+            total: money((x.totals?.total_cents ?? 0) as never),
+          }),
+        ]
+      : []),
   ];
 
   return (
@@ -873,7 +892,7 @@ export function Rail() {
                     venueId={venueId}
                     tabId={tab.id}
                     card={tab.card ? `${tab.card.brand ?? ""} ··${tab.card.last4}`.trim() : null}
-                    totalCents={tab.totals?.total_cents ?? 0}
+                    totalCents={tab.rest_cents}
                     resume={tab.state === "tipping"}
                     onClose={() => {
                       setClosingTab(null);
@@ -881,6 +900,61 @@ export function Rail() {
                     }}
                     onChanged={() => void load()}
                   />
+                ) : tab && (tab.split || splitting === tab.id) && tab.state === "open" ? (
+                  <>
+                    {/* Split (M6-10): kept on the server, so it's here again after switching tabs. */}
+                    <SplitPanel
+                      venueId={venueId}
+                      checkId={tab.check_id}
+                      split={tab.split}
+                      picked={share?.id ?? null}
+                      onPick={setShare}
+                      onChanged={() => void load()}
+                      tab={{
+                        start: (n) =>
+                          api("POST", `/v1/venues/${venueId}/tabs/${tab.id}/split`, { shares: n }),
+                        card:
+                          tab.hold && tab.card
+                            ? `${tab.card.brand ?? ""} ··${tab.card.last4}`.trim()
+                            : null,
+                        toCard: () => {
+                          setShare(null);
+                          setClosingTab(tab.id);
+                        },
+                      }}
+                    />
+                    {share && (
+                      <>
+                        <TapPayment
+                          key={`tap-${share.id}`}
+                          venueId={venueId}
+                          checkId={tab.check_id}
+                          dueCents={share.amount_cents}
+                          shareId={share.id}
+                          onDone={() => {
+                            setShare(null);
+                            void load();
+                          }}
+                        />
+                        <CashPanel
+                          key={`cash-${share.id}`}
+                          venueId={venueId}
+                          checkId={tab.check_id}
+                          dueCents={share.amount_cents}
+                          shareId={share.id}
+                          onTaken={() => {
+                            setShare(null);
+                            void load();
+                          }}
+                        />
+                      </>
+                    )}
+                    {!tab.split && (
+                      <button type="button" className="link" onClick={() => setSplitting(null)}>
+                        {t("closeTab.back")}
+                      </button>
+                    )}
+                  </>
                 ) : (
                   tab && (
                     <div className="actions">
@@ -891,6 +965,15 @@ export function Rail() {
                       >
                         {t("rail.repeat")}
                       </button>
+                      {tab.state === "open" && tab.rest_cents > 0 && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setSplitting(tab.id)}
+                        >
+                          {t("split.title")}
+                        </button>
+                      )}
                       {tab.hold && (tab.state === "open" || tab.state === "tipping") && (
                         <button
                           type="button"
@@ -908,7 +991,7 @@ export function Rail() {
                     {leftOut}
                   </p>
                 )}
-                {checkId && closingTab !== tab?.id && (
+                {checkId && closingTab !== tab?.id && !tab?.split && splitting !== tab?.id && (
                   <AddDrinks
                     refresh={draftRefresh}
                     key={checkId}

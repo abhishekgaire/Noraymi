@@ -33,6 +33,7 @@ import { sendReceipt, type ReceiptDeps } from "../receipts/send.js";
 import { TAB_HOLD_COLS, holdCardOf, tabNeed, type TabHold } from "./hold.js";
 import { moveTab } from "./state.js";
 import { printSlip } from "./slip.js";
+import { hasOpenSplit, settleHeldShare, splitAtClose } from "./split.js";
 import { enqueueRun, runNow, type PaymentDeps } from "../payments/run.js";
 
 /**
@@ -257,20 +258,34 @@ export async function startClose(
       });
   }
 
+  // A split tab (M6-10): the held card's share is the last one, or a charge with no tip ends the split.
+  await splitAtClose(c, venueId, tab.check_id, input.path, {
+    userId: input.userId,
+    now: input.now,
+  });
   await finalizeCheck(c, venueId, tab.check_id, { userId: input.userId, now: input.now });
-  await c.query("update checks set status = 'finalized' where venue_id = $1 and id = $2", [
-    venueId,
-    tab.check_id,
-  ]);
+  // A check with shares already paid beside the hold stays partly paid.
+  await c.query(
+    `update checks k set status = case when exists (
+         select 1 from payment_allocations a where a.venue_id = k.venue_id and a.check_id = k.id
+            and a.state = 'captured' and a.payment_id is distinct from $3) then 'partly_paid' else 'finalized' end
+      where k.venue_id = $1 and k.id = $2`,
+    [venueId, tab.check_id, tab.payment_id],
+  );
   const view = await checkView(c, venueId, tab.check_id, input.now);
   const need = await tabNeed(c, venueId, tab, input.now);
   if (need.balanceCents <= 0)
     throw new ApiError("invalid_request", "nothing is due on this tab", {
       details: { reason: "nothing_due" },
     });
-  const drinks = view.lines
+  const allDrinks = view.lines
     .filter((l) => ["item", "comp", "void", "discount"].includes(l.kind))
     .reduce((sum, l) => sum + l.amount_cents, 0);
+  // What's left after paid split shares tips on its own part of the drinks, rounded half up (M6-10).
+  const drinks =
+    need.balanceCents < need.totalCents && need.totalCents > 0
+      ? Math.floor((2 * allDrinks * need.balanceCents + need.totalCents) / (2 * need.totalCents))
+      : allDrinks;
   const gratuity = view.totals?.gratuity_cents ?? 0;
   if (input.path === "slip") {
     // The paper slip: it prints at the bar, the hold stays, and the tip goes in from Tips to enter.
@@ -451,6 +466,7 @@ async function failClose(
   now: Temporal.Instant,
 ) {
   await setState(c, venueId, closing.id, "failed");
+  await settleHeldShare(c, venueId, closing.check_id, "open");
   await setAllocationState(c, venueId, closing.payment_id, "in_progress", "released");
   await setTip(c, closing.payment_id, 0);
   await moveTab(c, venueId, closing.tab_id, "capture_failed");
@@ -471,7 +487,10 @@ async function backToOpen(
 ) {
   await setState(c, venueId, closing.id, state);
   await moveTab(c, venueId, closing.tab_id, "open");
-  await reopenCheck(c, venueId, closing.check_id);
+  // A split tab stays split, its check finalized, and the held card's share is to pay again (M6-10).
+  if (await hasOpenSplit(c, venueId, closing.check_id))
+    await settleHeldShare(c, venueId, closing.check_id, "open");
+  else await reopenCheck(c, venueId, closing.check_id);
   await emitEvent(c, { venueId, type: "tab.updated", entityId: closing.tab_id });
 }
 
@@ -520,6 +539,7 @@ export async function settleClose(
   if (closing.state !== "capturing" || attempt.action !== "capture") return false;
   if (payment.status === "captured") {
     await setState(c, venueId, closing.id, "captured");
+    await settleHeldShare(c, venueId, closing.check_id, "paid");
     await moveTab(c, venueId, closing.tab_id, "captured");
     await c.query(
       "update tabs set closed_at = $3, closed_by = $4 where venue_id = $1 and id = $2",

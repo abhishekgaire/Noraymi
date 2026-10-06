@@ -298,7 +298,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-10 · Split a tab and keep its paid shares
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-08; M4-14
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#bar-tab-with-a-growing-hold) step 8; [Money rules](../spec/05-money-rules.md) rules 1 and 13; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Paying at the bar: Split); [screens: Rail note 2](../screens.md#rail)
@@ -308,12 +308,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The tab stays `open`, and its check `partly_paid`, until the last share is paid.
   - The held card's share is captured last, with its tip asked on the reader when its turn comes, so the hold keeps guaranteeing the rest until the other shares are paid.
 - **Acceptance:**
-  - [ ] Jess P.'s $32.66 splits into $16.33 + $16.33; after one share is paid in cash, leaving the pay panel and coming back still shows "Partly paid · $16.33 of $32.66".
-  - [ ] $32.67 splits into $16.34 + $16.33, and Luis M.'s $63.15 in four is $15.79, $15.79, $15.79 and $15.78.
-  - [ ] "Stop splitting · charge the rest to Visa ··4417" after one paid share captures the rest on her held card.
-  - [ ] A guest who walks out mid-split still leaves the hold to charge the rest at 4:30 AM.
+  - [x] Jess P.'s $32.66 splits into $16.33 + $16.33; after one share is paid in cash, leaving the pay panel and coming back still shows "Partly paid · $16.33 of $32.66".
+  - [x] $32.67 splits into $16.34 + $16.33, and Luis M.'s $63.15 in four is $15.79, $15.79, $15.79 and $15.78.
+  - [x] "Stop splitting · charge the rest to Visa ··4417" after one paid share captures the rest on her held card.
+  - [x] A guest who walks out mid-split still leaves the hold to charge the rest at 4:30 AM.
 - **Tests:** the money-cases group `splits`; sandbox integration; end-to-end (leave the panel, switch tabs, come back).
 - **Notes:** The canvas forgets a paid share and splits $32.66 into $16.32 and $16.34 ([Rail note 2](../screens.md#rail)). The spec doesn't order the shares; capturing the held card's share last is our reading of "no hold canceled until its replacement has succeeded" ([Payment flows](../spec/07-payment-flows.md)); flagged.
+  - Built: `POST /tabs/{t}/split { shares: 2-4 }` (apps/api/src/tabs/split.ts) finalizes the tab's check (no more drinks while split; the tab stays `open`) and starts M4-14's even split (`startSplit`, `check_splits`/`split_shares`, no new table or migration), leftover cents to the first shares. Shares other than the held card's pay by a new tap or in cash through the existing `POST /checks/{c}/payments` with `share_id`; the check goes `partly_paid`. The hold's allocation follows the lines, so `startSplit`, the share's allocation and `settleCheck` now leave a standing tab hold out of what's due (`tabHoldOf`, `allocate({ leaveOut })`); room checks are unchanged.
+  - The held card's share is captured last: while the hold stands, the last unpaid share can't be paid another way (`400 held_card_last`), and Close (`POST /tabs/{t}/close`) on a split tab is refused until one share is left (`split_shares_left`), marks it `paying`, asks the tip on the reader on that share's part of the drinks (the drinks prorated to the rest, rounded half up: Jess P.'s $16.33 offers $2.70, $3.00, $3.30) and captures the rest plus the tip; the capture marks the share paid, and Cancel, a timeout or a failed capture puts it back to pay with the split and the partly paid check kept (no reopen). "Stop splitting · charge the rest to Visa ··4417" is `POST /splits/{s}/stop` then Close to the card for the rest. A Close with no tip (`tip: none`, the path Charge the remaining tabs and the cut-off will take) ends an open split, keeping the paid shares, and captures the rest from the hold.
+  - `GET /tabs` gives each tab its `split` (shares and states), `paid_cents` (paid beside the hold) and `rest_cents` (the next charge). The bar POS: Split on the tab, "Split 2 ways" / 3 / 4, each share with "Pay this share" (TapPayment and CashPanel, as on a room), "On Visa ··4417 · charged last" on share 1, "Charge Visa ··4417" on the last share (opens Close tab for the rest), "Stop splitting · charge the rest to Visa ··4417", and the tab row's "Partly paid · $16.33 of $32.66" (SplitPanel reused with a `tab` mode; English and Spanish). API spec lists `/split` under Bar tabs.
+  - Flagged (cautious defaults): the last share left never goes in cash or on another card while the hold stands, since closing a tab paid another way (cancelling the hold) is M6-11; once M6-11 lands it can lift this. The 4:30 AM walkout job is M6-16/M6-17; this ticket proves the hold still stands mid-split and that the no-tip charge takes the rest. The $32.67 case is the rules' `splits` group (no seed tab totals $32.67). Splitting by item on a tab isn't in the ticket. Sandbox runs on simulated readers wait for staging (M6-27).
+  - Tests: apps/api/src/routes/tab-split.int.test.ts (Jess P.'s $16.33 + $16.33 with a cash share kept, no drinks or Close while split, `held_card_last`, her share's tip choices and a $19.33 capture; Luis M.'s $63.15 in four with a new card, two cash shares and $15.79 on his hold; Stop splitting after one of three shares capturing $21.77; Cancel keeping the split; the walkout's no-tip charge of the rest); packages/rules `splits` group (already from M4-14); e2e "Split a $32.66 tab: a cash share survives switching tabs, and Visa ··4417 pays the rest".
 
 ### M6-11 · Pay a tab with another card or cash
 

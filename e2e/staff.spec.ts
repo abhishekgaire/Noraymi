@@ -4089,6 +4089,114 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
     await db.end();
   }
 });
+/**
+ * Split a tab (M6-10): Jess P.'s $32.66 in two is $16.33 + $16.33, kept on the server, so a share paid in
+ * cash is still paid after switching tabs and reloading ("Partly paid · $16.33 of $32.66"), and the last
+ * share goes on her held Visa ··4417, with the tip on the reader.
+ */
+test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··4417 pays the rest", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const tabs = page.getByRole("list", { name: "Bar tabs" });
+    const panel = page.getByRole("complementary");
+    const ids = (
+      await db.query<{ reader: string; account: string }>(
+        `select d.stripe_reader_id as reader, o.stripe_account_id as account
+           from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+          where d.name = 'Bar S710'`,
+      )
+    ).rows[0]!;
+    const headers = {
+      authorization: "Bearer rk_test_fake_payments",
+      "stripe-account": ids.account,
+    };
+    const readerAction = async () => {
+      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+        headers,
+      });
+      return ((await r.json()) as { action?: { type?: string } }).action?.type ?? "";
+    };
+    // A tab opened card first on a Visa ··4417, with Jess P.'s round: 2 × Modelo and a Jäger Bomb.
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect.poll(readerAction).toBe("collect_payment_method");
+    const tapped = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
+        form: { "card_present[number]": "4000000000004417" },
+      },
+    );
+    expect(tapped.ok(), await tapped.text()).toBe(true);
+    await panel.getByRole("button", { name: "Seat 7" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 7");
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("tab", { name: "Shots" }).click();
+    await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await expect(panel.locator(".total").first()).toContainText("$32.66");
+
+    await panel.getByRole("button", { name: "Split", exact: true }).click();
+    await panel.getByRole("button", { name: "Split 2 ways" }).click();
+    const split = panel.getByRole("region", { name: "Split" });
+    await expect(split.getByRole("listitem")).toHaveText([
+      /Share 1 of 2 · \$16\.33.*On Visa ··4417 · charged last/,
+      /Share 2 of 2 · \$16\.33/,
+    ]);
+    await split
+      .getByRole("listitem", { name: "Share 2 of 2" })
+      .getByRole("button", { name: "Pay this share" })
+      .click();
+    await panel.getByRole("button", { name: "Exact $16.33" }).click();
+    await panel.getByRole("button", { name: "Take $16.33 in cash" }).click();
+    await expect(split.getByRole("listitem", { name: "Share 2 of 2" })).toContainText("Paid");
+
+    // Another tab, then back, then a reload: the paid share is still paid.
+    await tabs.getByRole("button", { name: /Jess P\./ }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Jess P.");
+    await expect(tabs.getByRole("button", { name: /Seat 7/ })).toContainText(
+      "Partly paid · $16.33 of $32.66",
+    );
+    await page.reload();
+    await tabs.getByRole("button", { name: /Seat 7/ }).click();
+    await expect(split.getByRole("listitem", { name: "Share 2 of 2" })).toContainText("Paid");
+
+    // The last share on her held card, with the tip on the reader.
+    await split.getByRole("button", { name: "Charge Visa ··4417" }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    await expect(closing).toContainText("$16.33");
+    await closing.getByRole("button", { name: /^Close to the card/ }).click();
+    await expect(closing).toContainText("Waiting for the tip on the bar reader");
+    await expect.poll(readerAction).toBe("collect_inputs");
+    const picked = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-tip-${Date.now()}-${Math.random()}` },
+        form: { selection: "none" },
+      },
+    );
+    expect(picked.ok(), await picked.text()).toBe(true);
+    await expect(closing).toContainText("Paid $16.33");
+    const states = (
+      await db.query<{ state: string }>(
+        `select s.state from split_shares s join check_splits k on k.id = s.split_id
+           join tabs t on t.check_id = k.check_id where t.name = 'Seat 7' order by s.share_no`,
+      )
+    ).rows.map((r) => r.state);
+    expect(states).toEqual(["paid", "paid"]);
+  } finally {
+    await db.end();
+  }
+});
 const presentCard = async (
   request: APIRequestContext,
   db: pg.Client,
