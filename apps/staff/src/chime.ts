@@ -1,4 +1,6 @@
 import { createElement, useEffect, useState } from "react";
+import { staffOrderWordsKey } from "@west4/shared";
+import { useClock } from "./clock.js";
 import { useT } from "./i18n.js";
 import { readDevice, signedApi, type StoredDevice } from "./device.js";
 
@@ -123,29 +125,58 @@ export function ChimeLoop() {
 /**
  * On a locked bar or front-desk screen (M3-16): the orders waiting at the bar,
  * so a new one still shows there while nobody is signed in. The chime loop
- * chimes for it at the same time.
+ * chimes for it at the same time. Each one ages on screen without a PIN, and
+ * offline (M8-03) the desktop app's cache keeps them here, still aging.
  */
+interface LockedOrder {
+  readonly id: string;
+  readonly room_name: string | null;
+  readonly status: string;
+  readonly cancel_reason: string | null;
+  readonly placed_at: string;
+}
+
 export function WaitingWhileLocked({ device }: { device: StoredDevice }) {
   const { t } = useT();
-  const [waiting, setWaiting] = useState(0);
+  const { now } = useClock();
+  const [waiting, setWaiting] = useState<readonly LockedOrder[]>([]);
   useEffect(() => {
     if (device.kind !== "bar_computer" && device.kind !== "front_desk") return;
     const check = () =>
-      void signedApi<{ orders: unknown[] }>(
+      void signedApi<{ orders: LockedOrder[] }>(
         device,
         "GET",
         `/v1/venues/${device.venueId}/orders?status=ringing,held`,
       )
-        .then((r) => setWaiting(r.orders.length))
+        .then((r) => setWaiting(r.orders))
         .catch(() => undefined);
     check();
     const timer = setInterval(check, CHIME_CHECK_MS);
     return () => clearInterval(timer);
   }, [device]);
-  if (waiting === 0) return null;
+  if (waiting.length === 0) return null;
+  const nowMs = now?.epochMilliseconds ?? Date.now();
+  const mmss = (iso: string) => {
+    const s = Math.max(0, Math.floor((nowMs - Date.parse(iso)) / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
   return createElement(
-    "p",
-    { className: "notice waiting-orders", "aria-live": "polite" },
-    t("signIn.ordersWaiting", { n: waiting }),
+    "div",
+    { className: "notice waiting-orders", "data-testid": "waiting-orders" },
+    createElement("p", { "aria-live": "polite" }, t("signIn.ordersWaiting", { n: waiting.length })),
+    createElement(
+      "ul",
+      null,
+      ...waiting.map((o) =>
+        createElement(
+          "li",
+          { key: o.id },
+          t("signIn.orderWaiting", {
+            room: o.room_name ?? "",
+            words: t(staffOrderWordsKey(o), { age: mmss(o.placed_at) }),
+          }),
+        ),
+      ),
+    ),
   );
 }

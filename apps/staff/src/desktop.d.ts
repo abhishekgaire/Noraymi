@@ -29,6 +29,11 @@ interface West4Desktop {
     cancelPair(): Promise<void>;
     fakeTap(uid: string): Promise<void>;
   };
+  /** The read-only offline view (M8-03): a listed read's answer kept in the encrypted cache. */
+  readonly offline?: {
+    save(path: string, json: string): Promise<boolean>;
+    read(path: string): Promise<{ synced_at: string; body: unknown } | null>;
+  };
   readonly venue: {
     configure(clock: {
       time_zone: string;

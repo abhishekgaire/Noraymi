@@ -503,6 +503,7 @@ export function BarOrders() {
           type="button"
           className="secondary"
           disabled={muteLeft > 0}
+          data-view
           onClick={() => muteChime(aging.mute_sec)}
         >
           {muteLeft > 0

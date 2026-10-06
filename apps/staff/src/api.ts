@@ -1,4 +1,12 @@
-import type { Action, Locale, ModuleStates, Role } from "@west4/shared";
+import {
+  isOfflineRead,
+  type Action,
+  type Locale,
+  type ModuleStates,
+  type Role,
+} from "@west4/shared";
+import { unreachableStatus } from "./connection-state.js";
+import { noteKept, noteLive, offlineStore } from "./offline.js";
 
 /** The API said no: its error code and message (apps/api http/errors.ts). */
 export class ApiCallError extends Error {
@@ -96,11 +104,50 @@ export async function stepUpToken(): Promise<string> {
   return finish.step_up_token;
 }
 
+/**
+ * A read on the desktop app's offline list (M8-03): each live answer is kept
+ * in the encrypted cache, and when our API doesn't answer (no network, or a
+ * gateway's 502, 503 or 504) the kept one comes back instead. A refusal is
+ * still an answer and is never covered up. Writes never come here.
+ */
+export async function withOfflineRead<T>(
+  method: string,
+  path: string,
+  live: () => Promise<T>,
+): Promise<T> {
+  const store = method === "GET" && isOfflineRead(path) ? offlineStore() : null;
+  if (!store) return live();
+  try {
+    const answer = await live();
+    noteLive();
+    void store.save(path, JSON.stringify(answer)).catch(() => false);
+    return answer;
+  } catch (error) {
+    const unreachable =
+      error instanceof NetworkError ||
+      (error instanceof ApiCallError && unreachableStatus(error.status));
+    if (!unreachable) throw error;
+    const kept = await store.read(path).catch(() => null);
+    if (!kept) throw error;
+    noteKept(kept.synced_at);
+    return kept.body as T;
+  }
+}
+
 export async function api<T>(
-  method: "GET" | "POST" | "PATCH" | "PUT",
+  method: "GET" | "PATCH" | "POST" | "PUT",
   path: string,
   body?: unknown,
   options: { stepUp?: string; idempotencyKey?: string } = {},
+): Promise<T> {
+  return withOfflineRead(method, path, () => liveApi<T>(method, path, body, options));
+}
+
+async function liveApi<T>(
+  method: "GET" | "POST" | "PATCH" | "PUT",
+  path: string,
+  body: unknown,
+  options: { stepUp?: string; idempotencyKey?: string },
 ): Promise<T> {
   let response: Response;
   try {

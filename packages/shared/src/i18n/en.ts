@@ -2553,5 +2553,12 @@ export const en = {
   "connection.ago.seconds": "{n} s ago",
   "connection.ago.minutes": "{n} min ago",
   "connection.ago.hours": "{n} h ago",
+  // The read-only offline view on the desktop app (M8-03).
+  "offline.readOnly.note":
+    "Read-only while offline · changes wait for the connection · totals as of the last sync",
+  "offline.readOnly.asOf":
+    "Read-only while offline · changes wait for the connection · totals as of the last sync, {time}",
+  "offline.readOnly.control": "Offline · read-only: this needs the connection",
+  "signIn.orderWaiting": "{room} · {words}",
   "connection.footer.label": "Connection",
 } as const;

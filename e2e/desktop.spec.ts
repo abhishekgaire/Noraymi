@@ -255,3 +255,150 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
     await app.close();
   }
 });
+
+/**
+ * The read-only offline view (M8-03): with our API blocked at 10:41 PM, the
+ * bar computer still shows the board's counts, the five bar tabs at their
+ * totals and the menu with Hoegaarden 86'd, every write control disabled with
+ * the reason, under the pink banner. Locked, o1 and o2 keep aging and the
+ * chime keeps going. The cache file on disk holds none of it in plain text.
+ */
+test("offline, the bar computer shows the board, open tabs and the menu read-only, and the locked screen keeps ringing", async () => {
+  test.setTimeout(240_000);
+  const { execSync } = await import("node:child_process");
+  execSync("pnpm seed", { stdio: "ignore" });
+  const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
+  const app = await launch(userData);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    const page = await app.firstWindow();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const code = randomBytes(4).toString("hex").toUpperCase();
+    await db.query(
+      "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, 'bar_computer', 'Bar computer', now() + interval '1 hour')",
+      [venueId, createHash("sha256").update(code).digest("hex")],
+    );
+    expect(
+      (
+        await page.request.post("http://localhost:5173/v1/ops/clock", {
+          data: { server_time: "2026-09-26T02:41:00Z" },
+        })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page.getByLabel("Pairing code from Admin → Devices").fill(code);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    // The chime loop starts with the app on a paired screen, as it does every time the bar opens.
+    await page.reload();
+    await page.getByRole("button", { name: /Diego R\./ }).click();
+    for (const digit of "6358")
+      await page.locator(".keypad").getByRole("button", { name: digit, exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByLabel("Room counts")).toHaveText(
+      "8 in use · 3 open · 2 cleaning · 1 out of service",
+    );
+
+    // The desktop app has kept the night's reads, each open check's lines among them.
+    const v = `/v1/venues/${venueId}`;
+    const jess = (
+      await db.query<{ check_id: string }>(
+        "select t.check_id from tabs t where t.name = 'Jess P.' and t.state = 'open'",
+      )
+    ).rows[0]!.check_id;
+    for (const p of [`${v}/board`, `${v}/tabs`, `${v}/menu`, `${v}/checks/${jess}`])
+      await expect
+        .poll(() => page.evaluate((x) => window.west4!.offline!.read(x).then(Boolean), p), {
+          timeout: 20_000,
+        })
+        .toBe(true);
+
+    // Our API stops answering: the line and LTE are down, or our cloud is.
+    await app.evaluate(({ session }) => {
+      session.defaultSession.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (d, done) =>
+        done({ cancel: d.url.includes("/v1/") }),
+      );
+    });
+    await expect(page.getByTestId("banner-offline")).toHaveText(
+      "Offline · read-only · orders queue with an offline code",
+      { timeout: 20_000 },
+    );
+    await expect(page.getByTestId("read-only-note")).toContainText(
+      "Read-only while offline · changes wait for the connection · totals as of the last sync",
+    );
+    await expect(page.getByLabel("Room counts")).toHaveText(
+      "8 in use · 3 open · 2 cleaning · 1 out of service",
+    );
+
+    // The bar POS from the cache: the five tabs at their totals, the menu with Hoegaarden 86'd.
+    await page.getByRole("link", { name: "Bar POS" }).first().click();
+    await expect(page.getByTestId("banner-offline")).toBeVisible();
+    const tabs = page.getByRole("list", { name: "Bar tabs" });
+    await expect(tabs.locator(".name")).toHaveCount(5);
+    await expect(tabs.getByRole("button", { name: /Jess P\./ })).toContainText("$32.66");
+    await expect(tabs.getByRole("button", { name: /Luis M\./ })).toContainText("$63.15");
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await expect(page.getByRole("button", { name: "Hoegaarden · 86'd tonight" })).toBeDisabled();
+    const bud = page.getByRole("button", { name: /^Bud Light · \$/ }).first();
+    await expect(bud).toBeDisabled();
+    await expect(bud).toHaveAttribute("title", "Offline · read-only: this needs the connection");
+    await expect(page.getByRole("button", { name: "86", exact: true })).toBeDisabled();
+    const orders = page.getByRole("list", { name: "Room orders waiting" }).getByRole("listitem");
+    await expect(orders).toHaveCount(2);
+    await expect(
+      orders.nth(0).getByRole("button", { name: "Accept · print ticket" }),
+    ).toBeDisabled();
+    // Picking a tab only changes what's shown, so it still works: Jess P.'s lines, as of the last sync.
+    await tabs.getByRole("button", { name: /Jess P\./ }).click();
+    await expect(page.getByRole("complementary")).toContainText("Jess P.");
+    await expect(page.getByTestId("read-only-note")).toContainText(/last sync, \d+:\d\d/);
+
+    // Locked: no PIN, and o1 and o2 keep aging, and chiming.
+    await page.evaluate(() => {
+      const w = window as unknown as { chimes: number };
+      w.chimes = 0;
+      const make = AudioContext.prototype.createOscillator;
+      AudioContext.prototype.createOscillator = function (this: AudioContext) {
+        w.chimes++;
+        return make.call(this);
+      };
+    });
+    await page.getByRole("button", { name: "Lock" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    const waiting = page.getByTestId("waiting-orders");
+    await expect(waiting).toContainText("Bar orders · 2 waiting");
+    const room9 = waiting.getByRole("listitem").filter({ hasText: "Room 9" });
+    await expect(room9).toHaveText(/^Room 9 · Ringing · \d+:\d\d$/);
+    await expect(waiting.getByRole("listitem").filter({ hasText: "Room 5" })).toHaveText(
+      /^Room 5 · Ringing · \d+:\d\d$/,
+    );
+    const seconds = async () => {
+      const [, m, s] = /(\d+):(\d\d)$/.exec((await room9.textContent()) ?? "")!;
+      return Number(m) * 60 + Number(s);
+    };
+    const first = await seconds();
+    expect(first).toBeGreaterThanOrEqual(43);
+    await expect.poll(seconds, { timeout: 10_000 }).toBeGreaterThan(first);
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { chimes: number }).chimes), {
+        timeout: 75_000,
+        intervals: [5_000],
+      })
+      .toBeGreaterThan(0);
+
+    // On disk the cache is SQLCipher: none of the night reads in plain text.
+    const cache = readFileSync(path.join(userData, "cache.sqlite"), "latin1");
+    expect(cache).not.toContain("Jess P.");
+    expect(cache).not.toContain("Hoegaarden");
+    expect(cache.startsWith("SQLite format 3")).toBe(false);
+  } finally {
+    await db.end();
+    await app.close();
+  }
+});

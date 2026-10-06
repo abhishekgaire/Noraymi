@@ -126,3 +126,9 @@ export {
 } from "./tabs.js";
 export type { TabState } from "./tabs.js";
 export { checkNumberLabel, trainingNumber } from "./check-number.js";
+export {
+  isOfflineRead,
+  offlinePrefetchPaths,
+  OFFLINE_MAX_BYTES,
+  type OfflineSnapshot,
+} from "./offline-view.js";

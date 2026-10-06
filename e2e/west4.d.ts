@@ -22,6 +22,10 @@ interface Window {
       cancelPair(): Promise<void>;
       fakeTap(uid: string): Promise<void>;
     };
+    readonly offline?: {
+      save(path: string, json: string): Promise<boolean>;
+      read(path: string): Promise<{ synced_at: string; body: unknown } | null>;
+    };
     readonly venue: {
       configure(clock: {
         time_zone: string;

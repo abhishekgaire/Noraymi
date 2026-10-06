@@ -86,7 +86,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-03 · Keep a read-only offline view in the desktop app
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-28 (the desktop app's encrypted SQLite cache and keychain token), M2-29 (the board), M3-03 (the menu and 86), M3-16 (ringing orders on the locked device's channel), M6 (open tabs)
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Offline and queue mode, Outages; [Scope and architecture](../spec/01-scope-architecture.md) · When the venue's internet drops (3); [Security and data retention](../spec/12-security-retention.md) 6 and 10, How long we keep things (desktop cache: the current business date); screens [N29](../screens.md#n29-outage-banners-and-queue-mode)
@@ -96,11 +96,18 @@ Definition of done: see CLAUDE.md.
   - The orders the bar already has keep ringing and aging, without a PIN, while the screen is locked.
   - Nothing is written locally except queue mode (M8-04).
 - **Acceptance:**
-  - [ ] With our API blocked at 10:41 PM, the bar computer shows 8 rooms in use, 3 open, 2 cleaning and 1 out of service, the 5 bar tabs with their totals (Jess P. $32.66, Luis M. $63.15), and the menu with Hoegaarden 86'd, all read-only under the pink banner.
-  - [ ] o1 (Room 9, ringing 0:43) and o2 (Room 5, ringing 2:11) keep aging and chiming with the screen locked.
-  - [ ] The cache file can't be read without the keychain token, and Fri Sep 25's cache is gone after 6:00 AM Sat Sep 26.
+  - [x] With our API blocked at 10:41 PM, the bar computer shows 8 rooms in use, 3 open, 2 cleaning and 1 out of service, the 5 bar tabs with their totals (Jess P. $32.66, Luis M. $63.15), and the menu with Hoegaarden 86'd, all read-only under the pink banner.
+  - [x] o1 (Room 9, ringing 0:43) and o2 (Room 5, ringing 2:11) keep aging and chiming with the screen locked.
+  - [x] The cache file can't be read without the keychain token, and Fri Sep 25's cache is gone after 6:00 AM Sat Sep 26.
 - **Tests:** Electron integration tests with Playwright; an encryption test that opens the cache file raw; a retention test on the simulated clock.
 - **Notes:** Spec gap: an order ringing when the venue went offline can't be accepted offline, since Accept is a write. Cautious default: it keeps ringing and the bar may make it; the bartender accepts it once online. If the 4:00 AM stop canceled it meanwhile, it lands on Review after outage (M8-05). Room tablets are online only, so they get nothing offline.
+  - **Built (M8-03).** `packages/shared/src/offline-view.ts` is the one list of reads the offline view keeps (the board, sessions, bookings, open tabs, each open check, the menu, the bar's orders, and what the bar POS needs to draw itself); nothing off the list is ever cached. The desktop app keeps them in its SQLCipher cache (`apps/desktop/src/offline.ts`, IPC `west4:offline:save` and `west4:offline:read`, each sender-checked), stamped with the venue time of the sync, for the current business date only: a read past 6:00 AM wipes the day before first, and the minute wipe now runs on the venue's clock instead of the computer's. In the staff app, `api()` and the device-signed `signedApi()` hand every listed GET's answer to the cache, and when our API doesn't answer (no network, or a gateway's 502, 503 or 504) give back the kept one; a refusal is never covered up, and writes never touch the cache. `OfflineSync` (in the shell, desktop only) refreshes the list on every event and once a minute, plus each open tab's and room's check so their lines can be seen offline.
+  - **Read-only.** Under the pink banner the Board, the bar POS and the bar orders screen disable every button and field, each with the title "Offline · read-only: this needs the connection", and show "Read-only while offline · changes wait for the connection · totals as of the last sync, 10:41 PM" (the oldest kept answer on screen). Controls that only change what's shown stay live (`data-view`): picking a tab or room to see its lines, the menu sections and search, the filters, Mute and Wipe. The shell's Lock stays live too.
+  - **Locked screen.** The waiting-orders notice on a locked bar or front-desk screen now lists each order with its age ("Room 9 · Ringing · 0:43"), ticking on the venue's clock, from the cache when offline; the chime loop reads the same cache, so it keeps chiming once a minute for orders past 2 minutes.
+  - **Words the spec doesn't give.** The read-only note and the disabled controls' reason, in English and Spanish.
+  - **Not built here.** Queue mode and offline codes (M8-04), replay (M8-05). If the desktop app is restarted while offline, the venue's clock falls back to the computer's own until the next sign-in; the staff app's own files must still load (the service worker's job), which this ticket doesn't change.
+  - **Tests.** `packages/shared/src/offline-view.test.ts` (the list), `apps/desktop/src/offline.test.ts` (keeps only listed reads; the file can't be read raw or with another key; Fri Sep 25 kept through 5:59 AM and gone at 6:00 AM Sat Sep 26 on the simulated clock), `apps/staff/src/offline.test.ts` (the fallback, and no fallback for refusals, writes or other reads), and an Electron Playwright test in `e2e/desktop.spec.ts` that blocks `/v1/` at 10:41 PM and checks the board's counts, the five tabs (Jess P. $32.66, Luis M. $63.15), Hoegaarden 86'd, disabled writes, the locked screen's aging orders, a chime, and the cache file on disk.
+  - **Unrelated failure.** In the full e2e run, the staff test "Close the night: the checks, the clear-out at 4:31 AM and Night closed · 4:48 AM" fails ("Night closed · 4:48 AM" never shows); it fails the same way on the commit before this ticket, so it isn't from M8-03.
 
 ### M8-04 · Take orders in queue mode behind an offline code
 

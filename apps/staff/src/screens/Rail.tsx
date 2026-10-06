@@ -681,6 +681,7 @@ export function Rail() {
         <button
           type="button"
           className="secondary"
+          data-view
           onClick={() => setWipeLeft(terminal.wipe_lock_sec)}
         >
           {t("rail.wipe")}
@@ -735,13 +736,14 @@ export function Rail() {
             <label>
               <input
                 type="search"
+                data-view
                 value={find}
                 placeholder={t("rail.find")}
                 aria-label={t("rail.find")}
                 onChange={(e) => setFind(e.target.value)}
               />
             </label>
-            <div className="rail-filters" role="group" aria-label={t("rail.filter")}>
+            <div className="rail-filters" data-view role="group" aria-label={t("rail.filter")}>
               {(["all", "mine", "rooms"] as const).map((x) => (
                 <button
                   key={x}
@@ -756,13 +758,14 @@ export function Rail() {
             </div>
             <button
               type="button"
+              data-view
               className={picked?.kind === "quick" ? "rail-row quick on" : "rail-row quick"}
               aria-pressed={picked?.kind === "quick"}
               onClick={() => pick({ kind: "quick" })}
             >
               <span className="name">{t("rail.quickSale")}</span>
             </button>
-            <ul className="rail-list" aria-label={t("rail.barTabs")}>
+            <ul className="rail-list" data-view aria-label={t("rail.barTabs")}>
               {shownTabs.map((x) => (
                 <li key={x.id}>
                   <button
@@ -786,7 +789,7 @@ export function Rail() {
                 </li>
               ))}
             </ul>
-            <ul className="rail-list" aria-label={t("rail.rooms")}>
+            <ul className="rail-list" data-view aria-label={t("rail.rooms")}>
               {shownRooms.map((r) => (
                 <li key={r.room_id}>
                   <button
@@ -861,7 +864,12 @@ export function Rail() {
           </nav>
 
           <div className="rail-center">
-            <div className="rail-sections" role="tablist" aria-label={t("barPos.sections")}>
+            <div
+              className="rail-sections"
+              data-view
+              role="tablist"
+              aria-label={t("barPos.sections")}
+            >
               {POS_SECTIONS.map((s) => (
                 <button
                   key={s}
@@ -881,6 +889,7 @@ export function Rail() {
             <div className="rail-tools">
               <input
                 type="search"
+                data-view
                 value={query}
                 aria-label={t("rail.search")}
                 placeholder={t("rail.search")}

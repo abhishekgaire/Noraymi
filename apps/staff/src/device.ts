@@ -1,5 +1,12 @@
 import { makeDeviceKey, signDeviceRequest } from "@west4/shared";
-import { ApiCallError, NetworkError, api, sessionHeaders, setSessionToken } from "./api.js";
+import {
+  ApiCallError,
+  NetworkError,
+  api,
+  sessionHeaders,
+  setSessionToken,
+  withOfflineRead,
+} from "./api.js";
 import { syncServerTime } from "./clock.js";
 
 /**
@@ -128,6 +135,16 @@ export async function claimDevice(code: string): Promise<StoredDevice> {
 
 /** A call the device signs: the API answers as the device, or as the person on it. */
 export async function signedApi<T>(
+  device: StoredDevice,
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  // The bar's orders keep ringing and aging on a locked screen while offline (M8-03).
+  return withOfflineRead(method, path, () => liveSignedApi<T>(device, method, path, body));
+}
+
+async function liveSignedApi<T>(
   device: StoredDevice,
   method: "GET" | "POST",
   path: string,

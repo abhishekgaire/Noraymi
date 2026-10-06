@@ -2602,5 +2602,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "connection.ago.seconds": "hace {n} s",
   "connection.ago.minutes": "hace {n} min",
   "connection.ago.hours": "hace {n} h",
+  // La vista sin conexión, solo lectura, en la app de escritorio (M8-03).
+  "offline.readOnly.note":
+    "Solo lectura sin conexión · los cambios esperan a la conexión · totales de la última sincronización",
+  "offline.readOnly.asOf":
+    "Solo lectura sin conexión · los cambios esperan a la conexión · totales de la última sincronización, {time}",
+  "offline.readOnly.control": "Sin conexión · solo lectura: esto necesita la conexión",
+  "signIn.orderWaiting": "{room} · {words}",
   "connection.footer.label": "Conexión",
 };

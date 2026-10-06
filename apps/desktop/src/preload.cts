@@ -43,6 +43,13 @@ contextBridge.exposeInMainWorld("west4", {
     ipcRenderer.invoke("west4:print", serial, base64),
   fakePlug: (plugged: boolean): Promise<void> =>
     ipcRenderer.invoke("west4:printer:fake-plug", plugged),
+  /** The read-only offline view (M8-03): keep a listed read's answer, or read it back. */
+  offline: {
+    save: (path: string, json: string): Promise<boolean> =>
+      ipcRenderer.invoke("west4:offline:save", path, json),
+    read: (path: string): Promise<{ synced_at: string; body: unknown } | null> =>
+      ipcRenderer.invoke("west4:offline:read", path),
+  },
   venue: {
     configure: (clock: {
       time_zone: string;

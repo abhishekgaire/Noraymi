@@ -1840,3 +1840,17 @@ a.song-count {
   opacity: 0.35;
   border-radius: 3px;
 }
+
+/* The read-only offline view (M8-03): the reason in words above the screen, and every write control greyed. */
+.read-only-note {
+  border-left: 4px solid #e0287d;
+  margin: 0 0 12px;
+}
+.read-only-offline [data-offline-read-only] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.waiting-orders ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

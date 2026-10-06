@@ -17,6 +17,7 @@ import {
 } from "electron";
 import { Temporal } from "@west4/shared";
 import { DesktopCache } from "./cache.js";
+import { readOfflineRead, saveOfflineRead } from "./offline.js";
 import { SealedStore, type Sealer } from "./keychain.js";
 import {
   allowedOriginsFrom,
@@ -211,6 +212,26 @@ function registerIpc(): void {
       }
     }),
   );
+  // The read-only offline view (M8-03): the staff app hands over each listed read as it arrives,
+  // and reads it back when our API doesn't answer. Only the shared list's reads; nothing else.
+  ipcMain.handle(
+    "west4:offline:save",
+    guarded((p: unknown, json: unknown) => {
+      const now = venueNow();
+      const opened = openCache();
+      if (!now || !opened) return false;
+      return saveOfflineRead(opened, now, p, json);
+    }),
+  );
+  ipcMain.handle(
+    "west4:offline:read",
+    guarded((p: unknown) => {
+      const opened = openCache();
+      if (!opened) return null;
+      // Restarted while offline, the venue's clock is this computer's own.
+      return readOfflineRead(opened, venueNow() ?? Temporal.Now.instant(), p);
+    }),
+  );
 }
 
 function createWindow(): BrowserWindow {
@@ -286,7 +307,7 @@ void app.whenReady().then(() => {
   registerIpc();
   createWindow();
   // Each minute: past the cutover, the day before leaves the cache.
-  setInterval(() => cache?.wipeIfPastCutover(Temporal.Now.instant()), 60_000).unref();
+  setInterval(() => cache?.wipeIfPastCutover(venueNow() ?? Temporal.Now.instant()), 60_000).unref();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
