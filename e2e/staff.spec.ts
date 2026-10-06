@@ -6,6 +6,7 @@ import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
 import { fakeFingerprint } from "../apps/api/src/stripe/fake/payments.js";
 import { catalogs, Temporal } from "@west4/shared";
+import { sweepRouters } from "../apps/api/src/jobs/router-watch.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 
 /**
@@ -3852,6 +3853,42 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
     );
     await expect(page.getByRole("listitem", { name: "Twilio · texts" })).toBeVisible();
     await expect(page.getByRole("listitem", { name: "Email" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The router on Admin → Printers & devices (M8-02): at 10:41 PM the seed's
+ * router reads "Backup internet · on" on the wired line, the Board shows no
+ * banner, and the monthly failover test is due until a result is kept.
+ */
+test("Admin → Printers & devices: the router's backup internet and its monthly failover test", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByTestId("banner-backup")).toHaveCount(0);
+    await page.goto("/admin/devices");
+    const router = page.getByRole("region", { name: "Router" });
+    await expect(router).toContainText("Backup internet · on · On the wired line");
+    await expect(router).toContainText("Failover test due");
+    await expect(router).toContainText("Never tested");
+    await router.getByLabel("Seconds to switch").fill("42");
+    await router.getByRole("button", { name: "Keep the result" }).click();
+    await expect(router).toContainText("Sep 25, 2026 · Passed · switched in 42 s");
+    await expect(router).toContainText("Next test due Oct 25, 2026");
+    await expect(router).not.toContainText("Failover test due");
+    expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.end();
   }
@@ -7974,12 +8011,35 @@ const forceVendorErrors = (
      on conflict (venue_id, vendor, minute) do update set calls = excluded.calls, errors = excluded.errors`,
     [vendor, NIGHT.toString(), calls, errors],
   );
-const routerOnLte = (db: pg.Client, on: boolean) =>
-  db.query(
-    `update device_heartbeats h set network = jsonb_set(coalesce(h.network, '{}'), '{on_backup_now}', $1::jsonb)
-       from devices d where d.id = h.device_id and d.kind = 'router'`,
-    [on ? "true" : "false"],
+/**
+ * The router (M8-02): linked to its maker's API, and the router sweep run as
+ * the worker runs it, with the maker answering that the wired line is
+ * unplugged (on LTE) or plugged back in.
+ */
+const routerOnLte = async (db: pg.Client, on: boolean) => {
+  await db.query(
+    `insert into router_links (device_id, venue_id, maker, maker_org_id, maker_device_id)
+     select id, venue_id, 'peplink', 'org-e2e', 'router-e2e' from devices where kind = 'router'
+     on conflict (device_id) do nothing`,
   );
+  const pool = new pg.Pool({
+    connectionString:
+      process.env["APP_DATABASE_URL"] ?? "postgres://app_rw:app_rw@localhost:5432/west4",
+    max: 2,
+  });
+  try {
+    await sweepRouters(
+      pool,
+      {
+        adapter: { read: async () => ({ backupReady: true, onBackupNow: on }) },
+        ipOwner: async () => null,
+      },
+      NIGHT,
+    );
+  } finally {
+    await pool.end();
+  }
+};
 const AMBER = "On backup internet · card readers may take up to 2 min to switch";
 const PINK = "Offline · read-only · orders queue with an offline code";
 const STRIPE_TROUBLE = "Stripe is having trouble · card payments may fail";

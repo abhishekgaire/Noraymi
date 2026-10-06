@@ -1,0 +1,38 @@
+{
+  "objectClassName": "ip network",
+  "handle": "NET-203-0-113-0-1",
+  "startAddress": "203.0.113.0",
+  "endAddress": "203.0.113.255",
+  "ipVersion": "v4",
+  "name": "EXAMPLE-FIBER-NYC",
+  "type": "DIRECT ALLOCATION",
+  "entities": [
+    {
+      "objectClassName": "entity",
+      "handle": "EF-1",
+      "vcardArray": [
+        "vcard",
+        [
+          ["version", {}, "text", "4.0"],
+          ["fn", {}, "text", "Example Fiber Inc."],
+          ["kind", {}, "text", "org"]
+        ]
+      ],
+      "roles": ["registrant"],
+      "entities": [
+        {
+          "objectClassName": "entity",
+          "handle": "NOC-1",
+          "vcardArray": [
+            "vcard",
+            [
+              ["version", {}, "text", "4.0"],
+              ["fn", {}, "text", "Network Operations"]
+            ]
+          ],
+          "roles": ["noc"]
+        }
+      ]
+    }
+  ]
+}

@@ -272,6 +272,18 @@ describe("heartbeats", () => {
     expect(await auditCount()).toBe(await auditCount());
   });
 
+  it("the bar computer's heartbeat carries the venue's public IP for the router's fallback (M8-02); a tablet's doesn't", async () => {
+    expect((await beat(bar)).statusCode).toBe(200);
+    expect((await beat(tablet)).statusCode).toBe(200);
+    const r = await owner.query<{ id: string; ip: string | null }>(
+      "select device_id as id, network ->> 'public_ip' as ip from device_heartbeats where device_id = any($1::uuid[])",
+      [[bar.id, tablet.id]],
+    );
+    const ip = Object.fromEntries(r.rows.map((row) => [row.id, row.ip]));
+    expect(ip[bar.id]).toBe("127.0.0.1");
+    expect(ip[tablet.id]).toBeNull();
+  });
+
   it("a device that stops at 4:30 AM, after the close, raises nothing", async () => {
     at("2026-09-26T08:30:00Z"); // Sat 4:30 AM New York
     await beatAll();

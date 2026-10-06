@@ -7,6 +7,7 @@ import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { readerHealthSweep } from "./reader-health.js";
+import { routerWatchSweep } from "./router-watch.js";
 import { drawerSweep } from "../routes/drawers.js";
 import { STRIPE_EVENT_KIND, makeStripeEventHandler } from "../stripe/webhooks.js";
 import { makePaymentHandlers } from "../payments/run.js";
@@ -156,6 +157,8 @@ export function makeSweeps(
     deviceWatchSweep(pool, log),
     // Stripe and Twilio health for the staff banners (M8-01).
     vendorHealthSweep(pool, log),
+    // The router, on the line or on LTE, and its monthly failover test (M8-02).
+    routerWatchSweep(pool, log),
     // Each drawer's session opens as the business date starts (M4-13).
     drawerSweep(pool),
     // Card readers' status from Stripe every 30 seconds (M4-02).

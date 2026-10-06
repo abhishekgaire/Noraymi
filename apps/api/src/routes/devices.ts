@@ -16,6 +16,7 @@ import { Temporal, type Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
 
 export interface DevicesOptions {
   /** The venue's clock: what last_seen_at is stamped with. */
@@ -78,6 +79,7 @@ const heartbeatBody = z
  */
 export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): void {
   const realNow = options.realNow ?? Date.now;
+  const proxyHops = loadTrustedProxyHops();
   const admin = route({
     principals: ["owner_manager"],
     module: "core",
@@ -175,21 +177,29 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
       const result = await withVenue(
         app.db.pool,
         { venueId: device.venueId, requestId: request.requestId },
-        (c) =>
-          recordHeartbeat(c, {
+        async (c) => {
+          const bar = await isBarComputer(c, device.venueId, device.deviceId);
+          // The router's fallback (M8-02): the bar computer's heartbeat carries the
+          // venue's public IP, the address it reached us from.
+          const network = bar
+            ? {
+                ...(parsed.data.network ?? {}),
+                public_ip: publicIpOf(request.ip, request.headers["x-forwarded-for"], proxyHops),
+              }
+            : (parsed.data.network ?? null);
+          const r = await recordHeartbeat(c, {
             venueId: device.venueId,
             deviceId: device.deviceId,
             now: options.clock.now(),
             appVersion: parsed.data.app_version ?? null,
-            network: parsed.data.network ?? null,
+            network,
             clockSkewMs,
             attached: parsed.data.attached ?? [],
-          }).then(async (r) => {
-            // A bar computer heard from again clears "no bar device connected" (M3-17).
-            if (await isBarComputer(c, device.venueId, device.deviceId))
-              await barConnected(c, device.venueId);
-            return r;
-          }),
+          });
+          // A bar computer heard from again clears "no bar device connected" (M3-17).
+          if (bar) await barConnected(c, device.venueId);
+          return r;
+        },
       );
       return {
         device_id: device.deviceId,

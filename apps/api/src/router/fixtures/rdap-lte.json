@@ -1,0 +1,24 @@
+{
+  "objectClassName": "ip network",
+  "handle": "NET-198-51-100-0-1",
+  "startAddress": "198.51.100.0",
+  "endAddress": "198.51.100.255",
+  "ipVersion": "v4",
+  "name": "EXWL-BLK",
+  "type": "DIRECT ALLOCATION",
+  "entities": [
+    {
+      "objectClassName": "entity",
+      "handle": "EW-9",
+      "vcardArray": [
+        "vcard",
+        [
+          ["version", {}, "text", "4.0"],
+          ["fn", {}, "text", "Example Wireless LLC"],
+          ["kind", {}, "text", "org"]
+        ]
+      ],
+      "roles": ["registrant"]
+    }
+  ]
+}

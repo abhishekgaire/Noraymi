@@ -1,0 +1,37 @@
+{
+  "resp_code": "SUCCESS",
+  "caller_ref": "",
+  "server_ref": "",
+  "message": "",
+  "data": {
+    "id": 101,
+    "name": "West 4 router",
+    "status": "online",
+    "interfaces": [
+      {
+        "id": 1,
+        "type": "ethernet",
+        "name": "WAN 1",
+        "status": "Connected",
+        "status_led": "green",
+        "is_overall_up": 1,
+        "is_backup": 0,
+        "is_quota_exceed": 0,
+        "is_manual_disconnect": 0,
+        "group": 1
+      },
+      {
+        "id": 2,
+        "type": "gobi",
+        "name": "Cellular",
+        "status": "No SIM Card Detected",
+        "status_led": "red",
+        "is_overall_up": 0,
+        "is_backup": 1,
+        "is_quota_exceed": 0,
+        "is_manual_disconnect": 0,
+        "group": 2
+      }
+    ]
+  }
+}

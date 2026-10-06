@@ -1,0 +1,43 @@
+{
+  "resp_code": "SUCCESS",
+  "caller_ref": "",
+  "server_ref": "",
+  "message": "",
+  "data": {
+    "id": 101,
+    "name": "West 4 router",
+    "status": "online",
+    "interfaces": [
+      {
+        "id": 1,
+        "type": "ethernet",
+        "name": "WAN 1",
+        "status": "No Cable Detected",
+        "status_led": "red",
+        "conn_mode": 1,
+        "connection_state": 0,
+        "physical_state": 0,
+        "is_overall_up": 0,
+        "is_backup": 0,
+        "is_quota_exceed": 0,
+        "is_manual_disconnect": 0,
+        "group": 1
+      },
+      {
+        "id": 2,
+        "type": "gobi",
+        "name": "Cellular",
+        "status": "Connected",
+        "status_led": "green",
+        "conn_mode": 1,
+        "connection_state": 1,
+        "physical_state": 1,
+        "is_overall_up": 1,
+        "is_backup": 1,
+        "is_quota_exceed": 0,
+        "is_manual_disconnect": 0,
+        "group": 2
+      }
+    ]
+  }
+}

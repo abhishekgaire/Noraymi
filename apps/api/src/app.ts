@@ -74,6 +74,7 @@ import { conversationRoutes } from "./routes/conversations.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { headcountRoutes } from "./routes/headcount.js";
 import { connectionRoutes } from "./routes/connection.js";
+import { routerRoutes } from "./routes/router.js";
 import { boardRoutes } from "./routes/board.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { menuRoutes } from "./routes/menu.js";
@@ -350,6 +351,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       modulesRoutes(scope, { gate: gate! });
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock });
+      routerRoutes(scope, { clock });
       attachedRoutes(scope);
       pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
       teamRoutes(scope, {

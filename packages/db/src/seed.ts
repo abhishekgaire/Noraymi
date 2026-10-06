@@ -934,6 +934,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "invites",
       "phone_codes",
       "device_pairing_codes",
+      "router_failover_tests",
+      "router_links",
       "device_heartbeats",
       "vendor_calls",
       "vendor_health",

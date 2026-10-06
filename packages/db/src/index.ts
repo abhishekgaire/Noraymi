@@ -536,3 +536,20 @@ export type {
   VendorHealthRow,
   VendorTroubleSource,
 } from "./vendor-health.js";
+export {
+  ROUTER_MAKERS,
+  venueRouters,
+  setRouterLink,
+  recordRouterReading,
+  barComputerPublicIp,
+  routerFailoverTests,
+  recordFailoverTest,
+} from "./router.js";
+export type {
+  RouterMaker,
+  RouterSource,
+  RouterLink,
+  RouterRow,
+  RouterReading,
+  FailoverTest,
+} from "./router.js";

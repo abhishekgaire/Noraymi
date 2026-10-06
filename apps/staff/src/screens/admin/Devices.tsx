@@ -276,6 +276,7 @@ export function Devices() {
       />
       <Readers venueId={venueId} />
       <Drawers venueId={venueId} />
+      <Routers venueId={venueId} />
     </section>
   );
 }
@@ -651,5 +652,282 @@ function Drawers({ venueId }: { venueId: string }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * The router's device page (M8-02; spec 09 · Router; AdminDesk note 9):
+ * "Backup internet · on" while the LTE backup is ready, whether the venue
+ * runs on the line or on LTE now, how the server reads it (the maker's
+ * documented cloud API, or the network owner behind the bar computer's
+ * public IP), and the monthly failover test with its results.
+ */
+interface RouterLinkForm {
+  maker: "peplink" | null;
+  maker_org_id: string | null;
+  maker_device_id: string | null;
+  api_on: boolean;
+  wired_owner: string | null;
+  lte_owner: string | null;
+}
+
+interface RouterInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly online: boolean;
+  readonly backup_internet: "on" | "off" | null;
+  readonly on_backup_now: boolean;
+  readonly source: "maker_api" | "public_ip" | null;
+  readonly link: RouterLinkForm;
+  readonly failover: {
+    readonly due: boolean;
+    readonly dueOn: string | null;
+    readonly tests: readonly {
+      id: string;
+      tested_on: string;
+      passed: boolean;
+      switch_seconds: number | null;
+    }[];
+  };
+}
+
+function Routers({ venueId }: { venueId: string }) {
+  const { t } = useT();
+  const [routers, setRouters] = useState<readonly RouterInfo[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const load = useCallback(async () => {
+    setRouters(
+      (await api<{ routers: RouterInfo[] }>("GET", `/v1/venues/${venueId}/routers`)).routers,
+    );
+  }, [venueId]);
+  useEffect(() => {
+    if (venueId) load().catch(() => setFailed(true));
+  }, [venueId, load]);
+  return (
+    <section className="routers" aria-labelledby="routers-h">
+      <h3 id="routers-h">{t("router.title")}</h3>
+      {failed && (
+        <p className="error" role="alert">
+          {t("shell.error.cantReach")}
+        </p>
+      )}
+      {routers === null ? (
+        !failed && <p role="status">{t("shell.loading")}</p>
+      ) : routers.length === 0 ? (
+        <p className="empty">{t("router.empty")}</p>
+      ) : (
+        routers.map((r) => <RouterCard key={r.id} venueId={venueId} router={r} onSaved={load} />)
+      )}
+    </section>
+  );
+}
+
+function RouterCard({
+  venueId,
+  router,
+  onSaved,
+}: {
+  venueId: string;
+  router: RouterInfo;
+  onSaved: () => Promise<void>;
+}) {
+  const { t, locale } = useT();
+  const [link, setLink] = useState<RouterLinkForm>(router.link);
+  const [passed, setPassed] = useState(true);
+  const [seconds, setSeconds] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const day = (d: string) =>
+    new Intl.DateTimeFormat(locale === "es" ? "es-US" : "en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(`${d}T00:00:00Z`));
+  const field = (key: keyof RouterLinkForm, value: string) =>
+    setLink((l) => ({ ...l, [key]: value }));
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api("PUT", `/v1/venues/${venueId}/routers/${router.id}/link`, link);
+      setMessage(t("router.link.saved"));
+      await onSaved();
+    } catch {
+      setError(t("router.failed"));
+    }
+  };
+  const record = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/routers/${router.id}/failover-tests`, {
+        passed,
+        switch_seconds: seconds.trim() === "" ? null : Number(seconds),
+      });
+      setSeconds("");
+      setMessage(t("router.link.saved"));
+      await onSaved();
+    } catch {
+      setError(t("router.failed"));
+    }
+  };
+
+  return (
+    <div className="router-card" aria-label={router.name}>
+      <p>
+        <strong>{router.name}</strong>{" "}
+        <span className={router.online ? "state-online" : "muted"}>
+          {router.online ? t("devices.online") : t("devices.offline")}
+        </span>
+      </p>
+      <p>
+        {router.backup_internet === "on"
+          ? t("devices.backupInternet.on")
+          : router.backup_internet === "off"
+            ? t("devices.backupInternet.off")
+            : t("router.backupUnknown")}
+        {" · "}
+        {router.on_backup_now ? t("router.onBackupNow") : t("router.onLine")}
+      </p>
+      <p className="small muted">{t(`router.source.${router.source ?? "none"}` as MessageKey)}</p>
+
+      <h4>{t("router.failover.title")}</h4>
+      {router.failover.due ? (
+        <p className="notice" role="status">
+          {t("router.failover.due")}
+        </p>
+      ) : (
+        router.failover.dueOn && (
+          <p className="small muted">
+            {t("router.failover.nextOn", { date: day(router.failover.dueOn) })}
+          </p>
+        )
+      )}
+      {router.failover.tests.length === 0 ? (
+        <p className="small muted">{t("router.failover.never")}</p>
+      ) : (
+        <ul className="list">
+          {router.failover.tests.map((f) => {
+            const result = f.passed ? t("router.failover.passed") : t("router.failover.failed");
+            return (
+              <li key={f.id}>
+                {f.switch_seconds === null
+                  ? t("router.failover.row", { date: day(f.tested_on), result })
+                  : t("router.failover.rowSeconds", {
+                      date: day(f.tested_on),
+                      result,
+                      seconds: f.switch_seconds,
+                    })}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <form className="invite-form" onSubmit={(e) => void record(e)}>
+        <p className="small muted">{t("router.failover.how")}</p>
+        <div className="invite-fields">
+          <label>
+            <span>{t("router.failover.title")}</span>
+            <select
+              aria-label={t("router.failover.title")}
+              value={passed ? "passed" : "failed"}
+              onChange={(e) => setPassed(e.target.value === "passed")}
+            >
+              <option value="passed">{t("router.failover.passed")}</option>
+              <option value="failed">{t("router.failover.failed")}</option>
+            </select>
+          </label>
+          <label>
+            <span>{t("router.failover.seconds")}</span>
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={seconds}
+              onChange={(e) => setSeconds(e.target.value)}
+            />
+          </label>
+        </div>
+        <button type="submit" className="primary">
+          {t("router.failover.record")}
+        </button>
+      </form>
+
+      <form className="invite-form" onSubmit={(e) => void save(e)}>
+        <h4>{t("router.link.title")}</h4>
+        <div className="invite-fields">
+          <label>
+            <span>{t("router.link.maker")}</span>
+            <select
+              aria-label={t("router.link.maker")}
+              value={link.maker ?? ""}
+              onChange={(e) =>
+                setLink((l) => ({ ...l, maker: e.target.value === "peplink" ? "peplink" : null }))
+              }
+            >
+              <option value="">{t("router.link.maker.none")}</option>
+              <option value="peplink">{t("router.link.maker.peplink")}</option>
+            </select>
+          </label>
+          <label>
+            <span>{t("router.link.orgId")}</span>
+            <input
+              value={link.maker_org_id ?? ""}
+              maxLength={100}
+              onChange={(e) => field("maker_org_id", e.target.value)}
+            />
+          </label>
+          <label>
+            <span>{t("router.link.deviceId")}</span>
+            <input
+              value={link.maker_device_id ?? ""}
+              maxLength={100}
+              onChange={(e) => field("maker_device_id", e.target.value)}
+            />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={link.api_on}
+              onChange={(e) => setLink((l) => ({ ...l, api_on: e.target.checked }))}
+            />
+            <span>{t("router.link.apiOn")}</span>
+          </label>
+          <label>
+            <span>{t("router.link.wiredOwner")}</span>
+            <input
+              value={link.wired_owner ?? ""}
+              maxLength={100}
+              placeholder={t("router.link.ownerHint")}
+              onChange={(e) => field("wired_owner", e.target.value)}
+            />
+          </label>
+          <label>
+            <span>{t("router.link.lteOwner")}</span>
+            <input
+              value={link.lte_owner ?? ""}
+              maxLength={100}
+              placeholder={t("router.link.ownerHint")}
+              onChange={(e) => field("lte_owner", e.target.value)}
+            />
+          </label>
+        </div>
+        <p className="small muted">{t("router.link.ownerHint")}</p>
+        <button type="submit" className="primary">
+          {t("router.link.save")}
+        </button>
+      </form>
+      {message && (
+        <p className="small" role="status">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

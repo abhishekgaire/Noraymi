@@ -1,0 +1,7 @@
+{
+  "resp_code": "SUCCESS",
+  "caller_ref": "",
+  "server_ref": "",
+  "message": "",
+  "data": { "id": 101, "name": "West 4 router", "status": "offline", "interfaces": [] }
+}
