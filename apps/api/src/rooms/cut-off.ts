@@ -21,7 +21,7 @@ import { venueClock } from "./assignment.js";
 export async function cancelAlcohol(
   c: Queryable,
   venueId: string,
-  where: { sessionId: string | null; roomGuestId: string | null },
+  where: { sessionId: string | null; roomGuestId: string | null; checkId?: string | null },
   userId: string | null,
   now: Temporal.Instant,
   reason: "cut_off" | "alcohol_closed" = "cut_off",
@@ -30,8 +30,9 @@ export async function cancelAlcohol(
     `select o.id from orders o
       where o.venue_id = $1 and ($2::uuid is null or o.session_id = $2) and o.status in ('ringing', 'held')
         and ($3::uuid is null or o.room_guest_id = $3)
+        and ($4::uuid is null or o.check_id = $4 or o.gift_for_check_id = $4)
         and exists (select 1 from order_items i where i.venue_id = o.venue_id and i.order_id = o.id and i.alcohol)`,
-    [venueId, where.sessionId, where.roomGuestId],
+    [venueId, where.sessionId, where.roomGuestId, where.checkId ?? null],
   );
   for (const { id } of open.rows) {
     const o = (await orderById(c, venueId, id))!;

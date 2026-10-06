@@ -342,14 +342,18 @@ export function menuRoutes(
   }
 
   // Staff menus leave hidden items out; Admin → Menu asks for them with ?include_hidden=true.
-  // With ?session_id= it also says whether alcohol is refused for that room right now (M3-20).
+  // With ?session_id= it also says whether alcohol is refused for that room right now (M3-20), and with
+  // ?check_id= for that check, a bar tab's cut-off included (M6-14).
   app.get<{
     Params: { venueId: string };
-    Querystring: { include_hidden?: string; session_id?: string };
+    Querystring: { include_hidden?: string; session_id?: string; check_id?: string };
   }>("/v1/venues/:venueId/menu", { config: read("core") }, async (request) => {
     const sessionId = request.query.session_id;
     if (sessionId !== undefined && !id.safeParse(sessionId).success)
       throw new ApiError("invalid_request", "session_id must be an id");
+    const checkId = request.query.check_id;
+    if (checkId !== undefined && !id.safeParse(checkId).success)
+      throw new ApiError("invalid_request", "check_id must be an id");
     return request.inVenue(async (c) => {
       const now = options.clock.now();
       return {
@@ -358,9 +362,15 @@ export function menuRoutes(
         }),
         alcohol: {
           ...(await alcoholNow(c, request.venueId!, now)),
-          blocked: sessionId
-            ? await alcoholBlock(c, request.venueId!, { sessionId, roomGuestId: null }, now)
-            : null,
+          blocked:
+            sessionId || checkId
+              ? await alcoholBlock(
+                  c,
+                  request.venueId!,
+                  { sessionId: sessionId ?? null, roomGuestId: null, checkId: checkId ?? null },
+                  now,
+                )
+              : null,
         },
       };
     });

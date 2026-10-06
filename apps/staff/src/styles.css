@@ -1253,6 +1253,10 @@ button.danger {
 .rail-order.pink {
   border-color: #d0457a;
 }
+.rail-order.stopped {
+  border-style: dashed;
+  color: var(--muted);
+}
 .rail-order .actions button {
   min-height: 52px;
 }

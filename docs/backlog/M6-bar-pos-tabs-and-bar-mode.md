@@ -398,7 +398,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-14 · Cut off a tab, and gray out alcohol on the bar POS
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6-02; M3 (the alcohol check, room and guest cut-offs, the 4 AM stop)
 - **Spec:** [Money rules](../spec/05-money-rules.md) rule 5; [Data model](../spec/04-data-model.md) (`tabs.cut_off_at`, `alcohol_refusals`); [API](../spec/08-api.md) (`POST /tabs/{t}/cut-off`); [Tenancy and access](../spec/02-tenancy-access.md) (Roles); [screens: N16](../screens.md#n16-no-more-alcohol-cut-off), [Rail note 9](../screens.md#rail); [milestones: GA-M7](../milestones.md#must-fix-items-and-where-they-close)
@@ -407,11 +407,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Outside the alcohol window (4:00 to 8:00 AM at West 4), every alcohol button on the bar POS grays out with the reason in words; after 4 AM the room-order cards offer no Decline and list "Cancelled at 4:00 AM".
   - Owners, managers, bartenders and the front desk can cut off; a runner can't.
 - **Acceptance:**
-  - [ ] Hana K.'s tab shows "Cut off by Andy at 10:30 PM" on the bar POS and on every screen for it; her alcohol is grayed out; her song (position 5) still starts.
-  - [ ] At 4:02 AM (simulated), every alcohol button on the bar POS is grayed out with the reason, and no room-order card offers Decline.
-  - [ ] A runner's cut-off is refused.
+  - [x] Hana K.'s tab shows "Cut off by Andy at 10:30 PM" on the bar POS and on every screen for it; her alcohol is grayed out; her song (position 5) still starts. (The singer queue isn't built yet, M6-18 onward; a tab's cut-off never touches it.)
+  - [x] At 4:02 AM (simulated), every alcohol button on the bar POS is grayed out with the reason, and no room-order card offers Decline.
+  - [x] A runner's cut-off is refused.
 - **Tests:** clock tests at 4:00:00 AM on a normal night and both daylight-saving nights; role tests; the end-to-end scenarios `cut_off_hana` and `alcohol_stop`.
 - **Notes:** Closes GA-M7, with M3's room and guest cut-offs.
+  - Built: `POST /tabs/{t}/cut-off { reason }` (apps/api/src/tabs/cut-off.ts `cutOffTab`, routes/tabs.ts; `cutoff.apply`, so owners, managers, bartenders and the front desk, and a runner gets 403): an open, tipping or awaiting-tip tab records `cut_off_at/by/reason`, logs an `alcohol_refusals` row (`check_id`, `cut_off`), cancels any alcohol order for its check still ringing or held, a gift for it included (`cancelAlcohol` now takes a `checkId`), and emits `tab.updated`; a second cut-off or a settled tab answers `409 version_conflict`. The one alcohol check (`alcoholBlock`) now reads a tab's cut-off by the check, so sends, Accept, and later gift orders onto a cut-off tab answer `409 cut_off` and are logged (repeat rounds and moves already did, M6-03 and M6-13). `GET /menu?check_id=` says `blocked` for a tab, like `?session_id=` for a room. No migration: the columns came with M6-02.
+  - The bar POS: a picked tab shows "Cut off by Andy at 10:30 PM" (closed tabs too) and, for someone who may cut off, "No more alcohol on this tab" with "Why is this tab cut off?" and Cut off. The grid's alcohol buttons grey out with the reason in words ("No alcohol · this tab is cut off", "No alcohol · this room is cut off", or "No alcohol now · the window has closed" outside the window, for every tab and quick sale); 86 mode still reaches them. After the window closes the room-order cards keep offering no Decline and now also list tonight's alcohol orders the 4 AM stop cancelled, "Cancelled at 4:00 AM". The drinks panel on a tab or quick sale greys alcohol the same way. English and Spanish.
+  - Read as (cautious defaults, flagged): a tab's cut-off isn't lifted, like a room's (the spec has none); a tab already being closed (tipping, awaiting tip) can still be cut off.
+  - Deferred: Hana K.'s song still starting waits for the singer queue (M6-18 onward); the cut-off doesn't touch it. The gift-order route itself is a later ticket; it gets the tab check through `checkAlcohol`'s `checkId`.
+  - Tests: apps/api/src/routes/tab-cut-off.int.test.ts (Hana K. at 10:30 PM by Andy, her menu blocked, a Modelo refused and logged, a Red Bull goes on; a runner refused; Maya cuts off Luis M. with who, when, why, a refusal, alcohol refused, not twice; the owner, Andy and Diego (front desk) can; 4:00:00 AM closes the window on Sep 26, Nov 1, 2026 and Mar 14, 2027 and not at 3:59:59; at 4:02 AM a send answers `alcohol_closed`); the principal and wall suites; e2e `cut_off_hana` "the bar POS: Hana K.'s cut-off tab greys alcohol, and Maya cuts off Luis M." and `alcohol_stop` "the bar POS at 4:02 AM: alcohol greyed with the reason, no Decline, Cancelled at 4:00 AM".
 
 ### M6-15 · Fix a sent drink on the bar POS and show who it's waiting for
 

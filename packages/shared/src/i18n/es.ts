@@ -1268,6 +1268,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cutOff.confirm": "Cortar",
   "cutOff.host": "El anfitrión",
   "cutOff.guest": "Cliente {n}",
+  "cutOff.tab": "No más alcohol en esta cuenta",
+  "cutOff.why.tab": "¿Por qué se corta esta cuenta?",
+  "drinks.alcohol.cutOffTab": "Sin alcohol · esta cuenta tiene corte",
   "cutOff.failed": "No se pudo. Inténtalo de nuevo.",
   // The clear-out check (M3-23).
   "clearOut.push": "Revisión de cierre: recorre cada sala y la barra · que no quede ninguna bebida",

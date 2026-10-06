@@ -1246,6 +1246,9 @@ export const en = {
   "cutOff.confirm": "Cut off",
   "cutOff.host": "The host",
   "cutOff.guest": "Guest {n}",
+  "cutOff.tab": "No more alcohol on this tab",
+  "cutOff.why.tab": "Why is this tab cut off?",
+  "drinks.alcohol.cutOffTab": "No alcohol · this tab is cut off",
   "cutOff.failed": "That didn't go through. Try again.",
   // The clear-out check (M3-23).
   "clearOut.push": "Clear-out check: walk every room and the bar · no drinks left out",

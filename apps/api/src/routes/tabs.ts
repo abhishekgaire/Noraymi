@@ -6,6 +6,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { listTabs } from "../tabs/tabs.js";
 import { repeatRound } from "../tabs/repeat.js";
+import { cutOffTab } from "../tabs/cut-off.js";
 import {
   backToTheSale,
   quickSaleNumber,
@@ -162,6 +163,36 @@ export function tabRoutes(
           },
           options.clock.now(),
         ),
+      );
+    },
+  );
+
+  // Cut off a tab (M6-14; screens N16): no more alcohol on it, with who, when and why. Needs
+  // `cutoff.apply`: owners, managers, bartenders and the front desk; a runner can't (403).
+  const cutOffBody = z.object({ reason: z.string().trim().min(1).max(300) }).strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/cut-off",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "cutoff.apply",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!uuid.test(request.params.t)) throw new ApiError("not_found", "no such tab");
+      const parsed = cutOffBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "a cut-off needs a reason");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      return request.inVenue((c) =>
+        cutOffTab(c, request.venueId!, {
+          tabId: request.params.t,
+          userId: p.userId,
+          reason: parsed.data.reason,
+          now: options.clock.now(),
+        }),
       );
     },
   );

@@ -36,7 +36,7 @@ export class AlcoholRefused extends ApiError {
     super(
       refused.reason === "cut_off" ? "cut_off" : "alcohol_closed",
       refused.reason === "cut_off"
-        ? "alcohol is paused for this room"
+        ? "alcohol is paused for this room or tab"
         : "the bar has stopped serving alcohol",
       { details: { reason: refused.reason, items: refused.items, ...extra } },
     );
@@ -80,10 +80,18 @@ export async function alcoholNow(c: Queryable, venueId: string, now: Temporal.In
 export async function alcoholBlock(
   c: Queryable,
   venueId: string,
-  who: { sessionId: string | null; roomGuestId: string | null },
+  who: { sessionId: string | null; roomGuestId: string | null; checkId?: string | null },
   now: Temporal.Instant,
 ): Promise<"window_closed" | "cut_off" | null> {
   if ((await alcoholNow(c, venueId, now)).state === "closed") return "window_closed";
+  // A bar tab's cut-off (M6-14): its check takes no alcohol, sends, repeat rounds, moves and gifts alike.
+  if (who.checkId) {
+    const t = await c.query<{ cut: boolean }>(
+      "select true as cut from tabs where venue_id = $1 and check_id = $2 and cut_off_at is not null",
+      [venueId, who.checkId],
+    );
+    if (t.rows[0]?.cut) return "cut_off";
+  }
   if (who.sessionId) {
     const s = await c.query<{ cut: boolean }>(
       "select alcohol_cut_off_at is not null as cut from room_sessions where venue_id = $1 and id = $2",

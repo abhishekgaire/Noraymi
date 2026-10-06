@@ -175,3 +175,79 @@ export function CutOffRoom(props: {
     </div>
   );
 }
+
+/**
+ * No more alcohol on a bar tab (M6-14; screens N16): a reason, then every screen for the tab reads
+ * "Cut off by Andy at 10:30 PM" and its alcohol greys out. Only people who may cut off see the
+ * button (a runner can't, and the server refuses them too).
+ */
+export function CutOffTab(props: {
+  venueId: string;
+  tabId: string;
+  timeZone: string;
+  cutOff: CutOffState | null;
+  canCutOff: boolean;
+  onDone: () => void;
+}) {
+  const { t } = useT();
+  const words = useCutOffWords(props.timeZone);
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${props.venueId}/tabs/${props.tabId}/cut-off`, {
+        reason: reason.trim(),
+      });
+      setAsking(false);
+      setReason("");
+      props.onDone();
+    } catch (err) {
+      setError((err as ApiCallError)?.message ?? t("cutOff.failed"));
+    }
+  };
+
+  if (props.cutOff)
+    return (
+      <p className="notice cut-off-line" role="status">
+        {words(props.cutOff)}
+      </p>
+    );
+  if (!props.canCutOff) return null;
+  return (
+    <div className="cut-off">
+      {!asking && (
+        <button type="button" className="secondary danger" onClick={() => setAsking(true)}>
+          {t("cutOff.tab")}
+        </button>
+      )}
+      {asking && (
+        <form className="invite-fields" aria-label={t("cutOff.tab")} onSubmit={(e) => void send(e)}>
+          <label>
+            <span>{t("cutOff.why.tab")}</span>
+            <input
+              value={reason}
+              required
+              maxLength={300}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+          <button type="submit" className="primary danger" disabled={!reason.trim()}>
+            {t("cutOff.confirm")}
+          </button>
+          <button type="button" className="secondary" onClick={() => setAsking(false)}>
+            {t("team.badge.cancel")}
+          </button>
+        </form>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}

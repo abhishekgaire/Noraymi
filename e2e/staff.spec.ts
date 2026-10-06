@@ -5950,3 +5950,88 @@ test("Tips to enter on Andy's phone: Ana R.'s $12.00 captures $74.50; his own $2
     await db.end();
   }
 });
+
+/**
+ * cut_off_hana (M6-14; screens N16, Rail note 9): Hana K.'s tab reads "Cut off by Andy at 10:30 PM" on
+ * the bar POS and its alcohol greys out with the reason; Maya cuts off Luis M.'s tab with a reason and it
+ * reads "Cut off by Maya at 10:41 PM".
+ */
+test("the bar POS: Hana K.'s cut-off tab greys alcohol, and Maya cuts off Luis M.", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const tabs = page.getByRole("list", { name: "Bar tabs" });
+    await tabs.getByRole("button", { name: /Hana K\./ }).click();
+    const panel = page.getByRole("complementary");
+    await expect(panel).toContainText("Cut off by Andy at 10:30 PM");
+    await expect(
+      page.getByRole("button", { name: "Modelo · No alcohol · this tab is cut off" }),
+    ).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "No more alcohol on this tab" })).toHaveCount(0);
+
+    await tabs.getByRole("button", { name: /Luis M\./ }).click();
+    await expect(page.getByRole("button", { name: /^Modelo · \$/ })).toBeEnabled();
+    await panel.getByRole("button", { name: "No more alcohol on this tab" }).click();
+    await panel.getByLabel("Why is this tab cut off?").fill("Too drunk");
+    await panel.getByRole("button", { name: "Cut off", exact: true }).click();
+    await expect(panel).toContainText("Cut off by Maya at 10:4");
+    await expect(
+      page.getByRole("button", { name: "Modelo · No alcohol · this tab is cut off" }),
+    ).toBeDisabled();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * alcohol_stop (M6-14; Rail note 9): at 4:02 AM every alcohol button on the bar POS greys out with the
+ * reason in words, a Red Bull doesn't, and the room-order cards offer no Decline and list "Cancelled at
+ * 4:00 AM".
+ */
+test("the bar POS at 4:02 AM: alcohol greyed with the reason, no Decline, Cancelled at 4:00 AM", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    // Signed in at 4:02 AM itself: moving the clock five hours on would end a session as idle.
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    await setClock(request, "2026-09-26T08:02:00Z");
+    // The stop has cancelled o1 (the worker's sweep, which the smoke run doesn't start); o2 still waits.
+    await db.query(
+      `update orders set status = 'cancelled', cancel_reason = 'alcohol_closed', cancelled_at = '2026-09-26T04:00:00-04:00'
+        where id = (select row_id from seed_ids where slug = 'order_o1')`,
+    );
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    await expect(
+      page.getByRole("button", { name: "Modelo · No alcohol now · the window has closed" }),
+    ).toBeDisabled();
+    const grid = page.getByRole("list", { name: "Beer" });
+    for (const label of await grid
+      .getByRole("button")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? "")))
+      expect(label).toMatch(/No alcohol now · the window has closed$/);
+    const orders = page.getByRole("list", { name: "Room orders waiting" });
+    await expect(orders.getByRole("button", { name: "Decline…" })).toHaveCount(0);
+    await expect(orders.locator(".rail-order", { hasText: "Room 9" })).toContainText(
+      "Cancelled at 4:00 AM",
+    );
+  } finally {
+    await db.end();
+  }
+});

@@ -8,12 +8,13 @@ import {
   type PosSection,
 } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
-import { useClock } from "../clock.js";
+import { useClock, useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
 import { NewTab } from "./NewTab.js";
 import { CloseTab } from "./CloseTab.js";
@@ -183,6 +184,14 @@ export function Rail() {
   const [tabs, setTabs] = useState<readonly Tab[]>([]);
   const [rooms, setRooms] = useState<readonly RoomTile[]>([]);
   const [waiting, setWaiting] = useState<readonly WaitingOrder[]>([]);
+  // After the alcohol window closes, the alcohol orders nobody accepted are cancelled at 4:00 AM
+  // (M3-22); the room-order cards list them as "Cancelled at 4:00 AM", with no Decline (M6-14).
+  const [stopped, setStopped] = useState<readonly WaitingOrder[]>([]);
+  const night = useVenueTime(
+    timeZone,
+    signedIn?.membership.venue.day_cutover ?? "06:00",
+  )?.businessDate.toString();
+
   const [section, setSection] = useState<PosSection>("favorites");
   const [query, setQuery] = useState("");
   const [find, setFind] = useState("");
@@ -249,6 +258,25 @@ export function Rail() {
     // Whoever is signed in: a badge takeover reloads everything as the new person.
   }, [venueId, meId]);
   useEffect(() => void load(), [load]);
+  // `waiting` changes with every order event, so the cancelled cards follow the same reloads.
+  useEffect(() => {
+    if (!venueId || !windowClosed || !night) {
+      setStopped([]);
+      return;
+    }
+    let live = true;
+    api<{ orders: WaitingOrder[] }>(
+      "GET",
+      `/v1/venues/${venueId}/orders?status=cancelled&business_date=${night}`,
+    )
+      .then((r) => {
+        if (live) setStopped(r.orders.filter((o) => o.cancel_reason === "alcohol_closed"));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [venueId, windowClosed, night, waiting]);
   useEffect(() => setPicked({ kind: "quick" }), [meId]);
 
   const lockNow = useCallback(async () => {
@@ -493,6 +521,17 @@ export function Rail() {
     (l) => !["room_time", "tax", "gratuity", "card_surcharge", "cash_discount"].includes(l.kind),
   );
 
+  // Alcohol greys out on the grid, with the reason in words (M6-14; Rail note 9): outside the
+  // alcohol window, or on a cut-off tab or room. The server refuses it anyway.
+  const noAlcohol = windowClosed
+    ? t("drinks.alcohol.closed")
+    : tab?.cut_off
+      ? t("drinks.alcohol.cutOffTab")
+      : room?.session?.cut_off
+        ? t("drinks.alcohol.cutOff")
+        : null;
+  const canCutOff = signedIn?.membership.permissions.includes("cutoff.apply") ?? false;
+
   const badges = (x: Tab) => [
     ...(x.cut_off ? [t("rail.badge.cutOff")] : []),
     ...(x.hold?.declined ? [t("rail.badge.holdDeclined")] : []),
@@ -592,6 +631,15 @@ export function Rail() {
               </li>
             );
           })}
+          {stopped.map((o) => (
+            <li key={o.id} className="rail-order stopped" aria-label={o.room_name ?? ""}>
+              <strong>{o.room_name}</strong>{" "}
+              <span className="small">{t(staffOrderWordsKey(o as never), { age: "" })}</span>
+              <div className="small" data-guest-text>
+                {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
+              </div>
+            </li>
+          ))}
         </ul>
         <span className="clock">{now ? time(now.toString(), timeZone) : ""}</span>
         <button
@@ -826,21 +874,22 @@ export function Rail() {
               {slots.map((item, i) => {
                 if (!item)
                   return <li key={`empty-${i}`} className="slot empty" aria-hidden="true" />;
-                const out = item.out_tonight || item.variants.every((v) => v.out_tonight);
+                const refused = item.alcohol && noAlcohol !== null && !eightySix;
+                const out =
+                  item.out_tonight || item.variants.every((v) => v.out_tonight) || refused;
+                const why = refused ? noAlcohol : t("drinks.out");
                 const name = item.button_name ?? item.name;
                 const price = item.variants[0]?.price_cents ?? 0;
                 return (
                   <li key={item.id} className={out ? "slot out" : "slot"}>
                     <button
                       type="button"
-                      disabled={out && !eightySix}
-                      aria-label={
-                        out ? `${name} · ${t("drinks.out")}` : `${name} · ${money(price as never)}`
-                      }
+                      disabled={(out && !eightySix) || refused}
+                      aria-label={out ? `${name} · ${why}` : `${name} · ${money(price as never)}`}
                       onClick={() => tapItem(item)}
                     >
                       <span data-guest-text>{name}</span>
-                      <span className="small">{out ? t("drinks.out") : money(price as never)}</span>
+                      <span className="small">{out ? why : money(price as never)}</span>
                     </button>
                   </li>
                 );
@@ -976,7 +1025,7 @@ export function Rail() {
                         {t("moveTab.roomHold", { amount: money(h.cents as never), name: h.name })}
                       </span>
                     ))}
-                  {(tab?.cut_off || room?.session?.cut_off) && (
+                  {room?.session?.cut_off && (
                     <span className="chip warn">{t("rail.badge.cutOff")}</span>
                   )}
                   {tab?.waiting_for && (
@@ -985,6 +1034,17 @@ export function Rail() {
                     </span>
                   )}
                 </div>
+                {tab && (tab.open || tab.cut_off) && (
+                  <CutOffTab
+                    key={`cut-${tab.id}`}
+                    venueId={venueId}
+                    tabId={tab.id}
+                    timeZone={timeZone}
+                    cutOff={tab.cut_off}
+                    canCutOff={canCutOff && ["open", "tipping", "awaiting_tip"].includes(tab.state)}
+                    onDone={() => void load()}
+                  />
+                )}
                 <ul className="on-tab" aria-label={t("rail.onTab")}>
                   {drinks.map((l) => (
                     <li key={String(l.id)}>

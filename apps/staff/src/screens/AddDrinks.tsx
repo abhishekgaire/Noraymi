@@ -102,11 +102,12 @@ export function AddDrinks(props: {
       alcohol: { state: string; closes_at: string; blocked: "window_closed" | "cut_off" | null };
     }>(
       "GET",
-      `/v1/venues/${venueId}/menu${props.sessionId ? `?session_id=${props.sessionId}` : ""}`,
+      // A room asks for its session; a bar tab for its check, so its cut-off greys alcohol (M6-14).
+      `/v1/venues/${venueId}/menu${props.sessionId ? `?session_id=${props.sessionId}` : `?check_id=${checkId}`}`,
     );
     setItems(tree.categories.flatMap((c) => c.items));
     setAlcoholBlock(tree.alcohol.blocked);
-  }, [venueId, props.sessionId]);
+  }, [venueId, props.sessionId, checkId]);
   const loadDraft = useCallback(async () => {
     const d = await api<{ lines: DraftLine[]; version: number }>(
       "GET",
@@ -134,7 +135,10 @@ export function AddDrinks(props: {
       subscribe((events) => {
         if (
           events.length === 0 ||
-          events.some((e) => e.type === "menu.changed" || e.type === "session.updated")
+          events.some(
+            (e) =>
+              e.type === "menu.changed" || e.type === "session.updated" || e.type === "tab.updated",
+          )
         )
           void loadMenu();
         if (events.length === 0 || events.some((e) => e.type === "draft.updated")) void loadDraft();
@@ -324,7 +328,13 @@ export function AddDrinks(props: {
               const refused = item.alcohol && alcoholBlock !== null;
               const out = item.out_tonight || v.out_tonight || refused;
               const why = refused
-                ? t(alcoholBlock === "cut_off" ? "drinks.alcohol.cutOff" : "drinks.alcohol.closed")
+                ? t(
+                    alcoholBlock === "window_closed"
+                      ? "drinks.alcohol.closed"
+                      : props.sessionId
+                        ? "drinks.alcohol.cutOff"
+                        : "drinks.alcohol.cutOffTab",
+                  )
                 : t("drinks.out");
               const label = item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
               return (
