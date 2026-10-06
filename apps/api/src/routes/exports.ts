@@ -31,7 +31,7 @@ export function exportRoutes(
 ): void {
   const config = route({
     principals: ["owner_manager"],
-    module: "core",
+    module: "reports",
     action: "admin.access",
     assurance: "passkey",
     stepUp: true,

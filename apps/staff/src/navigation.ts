@@ -73,7 +73,7 @@ export const menu: readonly MenuEntry[] = [
     path: "/reports",
     screen: "reports",
     action: "reports.view",
-    shipped: false,
+    shipped: true,
   },
   {
     id: "closeNight",
@@ -183,6 +183,9 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   // My tips (M7-10), with the time clock under Team, time clock & tips.
   if (context.modules.team !== "off")
     tabs.push({ id: "mytips", labelKey: "tabs.myTips", path: "/my-tips" });
+  // Reports (M7-18), for owners and managers while Reports & accounting is on.
+  if (can("reports.view") && context.modules.reports !== "off")
+    tabs.push({ id: "reports", labelKey: "tabs.reports", path: "/reports" });
   tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
   if (can("admin.access")) tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;

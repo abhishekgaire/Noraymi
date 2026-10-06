@@ -214,7 +214,7 @@ function csv(r: TaxQuarterReport): string {
 export function taxQuarterRoutes(app: FastifyInstance, options: { clock: Clock }): void {
   app.get<{ Params: { venueId: string }; Querystring: { date?: string; format?: string } }>(
     "/v1/venues/:venueId/reports/tax-quarter",
-    { config: route({ principals: ["owner_manager"], module: "core", action: "admin.access" }) },
+    { config: route({ principals: ["owner_manager"], module: "reports", action: "admin.access" }) },
     async (request) => {
       const venueId = request.venueId!;
       if (request.query.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(request.query.date))

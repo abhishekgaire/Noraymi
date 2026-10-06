@@ -146,7 +146,7 @@ export function unmatchedRoutes(
 
   app.get<{ Params: { venueId: string }; Querystring: { scope?: string } }>(
     "/v1/venues/:venueId/reports/payouts",
-    { config: route({ principals: ["owner_manager"], module: "core", action: "admin.access" }) },
+    { config: route({ principals: ["owner_manager"], module: "reports", action: "admin.access" }) },
     async (request) => {
       const p = request.principal;
       const m =

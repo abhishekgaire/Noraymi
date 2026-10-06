@@ -106,6 +106,7 @@ describe("the staff phone's tabs (M2-32)", () => {
       "tips",
       "clock",
       "mytips",
+      "reports",
       "alerts",
       "admin",
     ]);

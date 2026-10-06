@@ -45,6 +45,7 @@ const SCREENS = [
   "/setup",
   "/clock",
   "/my-tips",
+  "/reports",
   "/admin",
   "/sign-in",
 ];
@@ -7905,3 +7906,39 @@ test("Close the night: the checks, the clear-out at 4:31 AM and Night closed · 
     await db.end();
   }
 });
+
+/**
+ * Reports (M7-18; screens DeskReports and Reports): at desktop and phone sizes, tonight's running X report
+ * linked to Close the night, this week and the 8-week trend, "Reviews from the morning text · Off", and
+ * tonight's exceptions with Maya's comp and Diego's void waiting for Andy.
+ */
+for (const size of [
+  { name: "desktop", width: 1280, height: 800 },
+  { name: "phone", width: 390, height: 844 },
+]) {
+  test(`Reports (${size.name}): tonight's X report, this week, the trend and the exceptions`, async ({
+    page,
+    request,
+  }) => {
+    const db = await dbClient();
+    try {
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await signInAndy(page, request, db);
+      await page.goto("/reports");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Reports");
+      const tonight = page.getByRole("region", { name: "X report (running)" });
+      await expect(tonight.getByRole("link", { name: "Close the night" })).toBeVisible();
+      await expect(page.getByText("Reviews from the morning text · Off")).toBeVisible();
+      await expect(
+        page.getByRole("region", { name: "Trends · 8 weeks" }).locator("li"),
+      ).toHaveCount(8);
+      const exceptions = page.getByRole("region", { name: "Comps, voids and refunds tonight" });
+      await expect(exceptions).toContainText("Comp · Luis M. · Maya S.");
+      await expect(exceptions).toContainText("Void · Tariq A. · Diego R. · Waiting for Andy C.");
+      if (size.width < 600)
+        await expect(page.locator(".tabs").getByRole("link", { name: "Reports" })).toBeVisible();
+    } finally {
+      await db.end();
+    }
+  });
+}

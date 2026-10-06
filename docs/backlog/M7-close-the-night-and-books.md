@@ -518,7 +518,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-18 · Build Reports and the report routes
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** M7-13, M7-14, M7-16, M7-17
 - **Spec:** [API](../spec/08-api.md) · Reports and exports, Conventions (reports on a read replica with a 5-second limit); [Tenancy and access](../spec/02-tenancy-access.md) · The database walls (owner reports), Approvals (the nightly exceptions report); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · What each module hides (Reports & accounting); [Testing and operations](../spec/13-testing-operations.md) · Capacity; screens [DeskReports](../screens.md#deskreports), [Reports](../screens.md#reports), [N38](../screens.md#n38-reports-and-exports)
@@ -531,15 +531,19 @@ Definition of done: see CLAUDE.md.
 - **Acceptance:**
   - [ ] DeskReports shows this week and 8-week trends from M7-19's nights and "Reviews from the morning text · Off".
   - [ ] "Email CSV" asks for the passkey again on the shared computer.
-  - [ ] The phone's Reports shows Fri Sep 25 as the running X report linked to Close the night, and the Z report once closed.
-  - [ ] The exceptions report for Fri Sep 25 lists Maya's $12.00 COMP on Luis M.'s tab and Diego's $70.00 VOID on Tariq A.'s tab, with who asked and who approved.
-  - [ ] Payouts answers `403` for Andy and works for Abhishek.
+  - [x] The phone's Reports shows Fri Sep 25 as the running X report linked to Close the night, and the Z report once closed.
+  - [x] The exceptions report for Fri Sep 25 lists Maya's $12.00 COMP on Luis M.'s tab and Diego's $70.00 VOID on Tariq A.'s tab, with who asked and who approved.
+  - [x] Payouts answers `403` for Andy and works for Abhishek.
   - [ ] Each report answers within 5 seconds on the replica with 8 weeks of nights.
-  - [ ] With Reports & accounting off, the report routes answer `404 module_off` and Night still prints the Z report.
+  - [x] With Reports & accounting off, the report routes answer `404 module_off` and Night still prints the Z report.
 - **Tests:** the principal suite and the module test over every report route; Playwright at phone and desktop sizes; the language test at the longest translation.
 - **Notes:**
   - Canvas: DeskReports emails a CSV without a passkey (note 1), counts 19 reviews from a text that's off (note 2) and has no tax-quarter, payroll or accounting screens (note 3) ([DeskReports](../screens.md#deskreports)); Reports says tonight's report "closed out at 4 AM" ([Reports](../screens.md#reports) note 3).
   - Spec gap: what the staff-actions report holds; cautious default: per person and date, their comps, voids, refunds asked and approved, cut-offs, no-sales, paid-outs, drawer over or short and punch edits, with counts and amounts. The phone canvas's "Birthday list" is guest CRM (phase 2); leave it out. Revenue per room-hour, ticket times and labor share are phase 2.
+  - Built (M7-18): `apps/api/src/routes/reports.ts`: `/reports/sales` (nights' sales before tax and gratuity, rooms and bar apart, weeks Fri to Thu, 8 weeks, the weekday average, the week's best sellers for rooms and the bar, legacy nights from `legacy_nightly_totals` where there are no live lines, and whether the Review ask text is on), `/occupancy` (rooms in use by hour of the business day, of the venue's rooms), `/bookings` (by week: online, walk-ins seated, parties of 20 or more, stayed past booked time, no-shows with their deposits kept, the no-show rate), `/staff-actions` (the ticket's cautious default: per person, comps, voids, refunds asked and approved, cut-offs, no-sales, paid-outs, drawer over or short and punch edits, with counts and amounts), `/exceptions` (comps and voids done, with the approval behind any over the limit; comps, voids and refunds waiting or declined, with whom they wait for; refunds). Each runs with `statement_timeout` 5 seconds. The payouts report, the tax quarter and the exports moved under the `reports` module, so with Reports & accounting off they all answer `404 module_off` while Night's report stays. Migration `0105_legacy_nightly_totals.sql` (read-only to the app; M9 loads it).
+  - The Reports screen (`screens/Reports.tsx`, desktop and phone, now shipped in the menu, and a Reports phone tab for owners and managers): tonight's X report (or Z report) linked to Close the night, this week by night and its total, Trends · 8 weeks, "Reviews from the morning text · Off" while the text is off, tonight's exceptions, the tax quarter with its CSV, and the exports (Books for QuickBooks, Email CSV, payroll), each asking for the passkey again. English and Spanish.
+  - Not ticked yet: "this week and 8-week trends from M7-19's nights" waits for M7-19's staging nights; "Email CSV asks for the passkey again on the shared computer" is enforced by the API (integration-tested in M7-15) but the Playwright walk through a real passkey ceremony isn't written; "within 5 seconds on the replica with 8 weeks of nights" needs staging's replica and M8's load data (the statement limit is in place).
+  - Tests: integration `apps/api/src/routes/reports.int.test.ts` (the exceptions with Maya's $12.00 comp and Diego's $70.00 void waiting for Andy; sales with 8 weeks and a legacy night, reviews off; occupancy of 14 rooms, bookings by week, Maya's comp in staff actions; payouts 403 for Andy and 200 for Abhishek; every report and export 404 module_off with the module off and Night's report still answering); the principal and wall suites; unit `navigation.test.ts`; e2e "Reports (desktop / phone)" and `/reports` in the Spanish fit check.
 
 ### M7-19 · Reconcile two weeks of staging nights to the cent
 
