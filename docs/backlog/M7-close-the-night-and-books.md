@@ -314,18 +314,20 @@ Definition of done: see CLAUDE.md.
 
 ### M7-10 · Show each person My tips with the 146-2.17 records
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7-09
 - **Spec:** [API](../spec/08-api.md) · Time clock (`GET /me/tips`); [Data model](../spec/04-data-model.md) · `tip_ledger`, `tip_shares`, `tip_pool_occupations`, `shifts`; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · What each module hides (My tips); [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-M2; screens [Staff](../screens.md#staff)
 - **Build:** `GET /me/tips?from=&to=` returns only the caller's own records: their shifts (date, duty, clock-in and out, breaks, hours); the tips they collected by shift (their ledger rows, declared cash included); their share of each night's pool (gratuity, card tips and cash tips apart); each pool's eligible occupations and shares; and late tips with the night they belong to. My tips on the staff phone's Tips tab, in English and Spanish. Records go back 6 years.
 - **Acceptance:**
-  - [ ] After Fri Sep 25 closes, Maya's My tips lists her Bar shift from 4:00 PM, her hours and her shares of Fri Sep 25's pool; once the three slips are entered on Sat Sep 26, her share of them shows as "for Fri Sep 25 · posted Sat Sep 26".
-  - [ ] Diego can't read Maya's records.
-  - [ ] Andy's My tips shows his shifts and says managers don't share.
-  - [ ] Gratuity and tips are separate lines, and the gratuity reads "Gratuity".
+  - [x] After Fri Sep 25 closes, Maya's My tips lists her Bar shift from 4:00 PM, her hours and her shares of Fri Sep 25's pool; once the three slips are entered on Sat Sep 26, her share of them shows as "for Fri Sep 25 · posted Sat Sep 26".
+  - [x] Diego can't read Maya's records.
+  - [x] Andy's My tips shows his shifts and says managers don't share.
+  - [x] Gratuity and tips are separate lines, and the gratuity reads "Gratuity".
 - **Tests:** the principal suite; Playwright at phone size; the language test.
 - **Notes:** The 146-2.17 records follow what the data model keeps: a daily log of each person's tips by shift (declared cash included), the eligible occupations and their shares, and what each person got from the pool by date.
+- **Built (M7-10):** `GET /v1/venues/{v}/me/tips?from=&to=` (`apps/api/src/tips/mine.ts`, in the time clock's routes) answers only for the signed-in person, so there's no way to ask for someone else's: their shifts, the ledger rows credited to them, their shares (a closed pool as written, tonight's worked out live, a late tip with the night it was earned), and each pool's occupations. Two weeks by default, a year at most per request; the records themselves are kept 6 years. My tips (`screens/MyTips.tsx`) is its own phone tab, "My tips", beside Clock in and out under Team, time clock & tips, since the phone's Tips tab is Tips to enter for the bar (N26); gratuity, card tips and cash tips are separate lines, the gratuity reads "Gratuity", and a late share reads "for Fri Sep 25 · posted Sat Sep 26". Owners and managers read "Managers don't share in the tip pool." English and Spanish.
+- **Tests:** integration in `apps/api/src/routes/tip-pool.int.test.ts` (Maya's Friday Bar shift from 4:00 PM, her final share of Friday's pool and her share of Saturday's late slips for Friday; Diego sees only his own; Andy's says he never shares); the principal and wall suites cover the new route; unit `navigation.test.ts`; e2e "My tips on a phone" and `/my-tips` (and `/admin/cash-drawers`) in the Spanish fit check.
 
 ### M7-11 · Walk the clock-out checklist, and edit punches with a reason
 

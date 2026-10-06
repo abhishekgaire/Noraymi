@@ -31,6 +31,7 @@ const ADMIN_SECTIONS = [
   "/admin/payments",
   "/admin/disputes",
   "/admin/card-fee",
+  "/admin/cash-drawers",
   "/admin/website",
   "/admin/deposits",
   "/admin/bar-pos",
@@ -43,6 +44,7 @@ const SCREENS = [
   "/runs",
   "/setup",
   "/clock",
+  "/my-tips",
   "/admin",
   "/sign-in",
 ];
@@ -7765,6 +7767,29 @@ test("Close the night: the tips panel shares between Maya and Diego, never Andy"
     await expect(tips.locator("li").nth(1)).toContainText("Diego R.");
     await expect(tips).toContainText("Not in the pool: Andy C., manager.");
     await expect(tips).not.toContainText("Abhishek");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * My tips (M7-10) on Andy's phone: his Manager shift from 6:00 PM, and that managers don't share; gratuity
+ * and tips read on their own lines when there are shares.
+ */
+test("My tips on a phone: Andy's Manager shift, and managers don't share", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.locator(".tabs").getByRole("link", { name: "My tips" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("My tips");
+    await expect(
+      page.getByText("Managers don't share in the tip pool. Your shifts are below."),
+    ).toBeVisible();
+    await expect(page.getByRole("article").first()).toContainText("Manager · 6:00 PM – on shift");
   } finally {
     await db.end();
   }

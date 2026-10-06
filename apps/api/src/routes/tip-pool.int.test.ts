@@ -257,6 +257,49 @@ describe("the tip pool", () => {
     ).rejects.toMatchObject({ code: "W4P01" });
   });
 
+  it("shows Maya her own records: her Friday Bar shift, her shares of Friday's pool, and her share of the late slips posted Saturday (M7-10)", async () => {
+    const mine = async (slug: string, role: "bartender" | "front_desk" | "manager") => {
+      as(slug, role, "pin", "dev_bar_computer");
+      const r = await api.inject({
+        method: "GET",
+        url: `/v1/venues/${venueId}/me/tips?from=${FRI}&to=${SAT}`,
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      return r.json() as {
+        never_shares: boolean;
+        shifts: { business_date: string; duty: string; started_at: string }[];
+        shares: {
+          posted_on: string;
+          for_business_date: string;
+          gratuity_cents: number;
+          card_tip_cents: number;
+          final: boolean;
+        }[];
+      };
+    };
+    const maya = await mine("maya", "bartender");
+    expect(maya.never_shares).toBe(false);
+    expect(maya.shifts.map((x) => [x.business_date, x.duty])).toEqual([[FRI, "bar"]]);
+    // From 4:00 PM.
+    expect(Temporal.Instant.from(maya.shifts[0]!.started_at).toString()).toBe(
+      "2026-09-25T20:00:00Z",
+    );
+    expect(maya.shares.map((s) => [s.posted_on, s.for_business_date, s.final])).toEqual([
+      [FRI, FRI, true],
+      [SAT, FRI, false],
+    ]);
+    expect(maya.shares[0]!.gratuity_cents).toBeGreaterThan(0);
+    expect(maya.shares[1]!.card_tip_cents).toBeGreaterThan(0);
+    // Diego reads only his own; Andy's says managers don't share.
+    const diego = await mine("diego", "front_desk");
+    expect(diego.shifts.every((s) => s.duty === "front_desk")).toBe(true);
+    expect(diego.shares).toHaveLength(2);
+    const andy = await mine("andy", "manager");
+    expect(andy.never_shares).toBe(true);
+    expect(andy.shares).toEqual([]);
+    expect(andy.shifts.map((s) => s.duty)).toEqual(["manager"]);
+  });
+
   it("passes the money cases through the pool: Maya 560 min and Diego 330 min split $1,000.01 as $629.22 and $370.79", async () => {
     const SUN = "2026-09-27";
     const shift = async (slug: string, duty: string, from: string, to: string) => {

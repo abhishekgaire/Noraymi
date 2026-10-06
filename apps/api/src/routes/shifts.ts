@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { openShifts, recordPunch, ShiftError, type Queryable, type ShiftRow } from "@west4/db";
-import { DUTIES, dutiesFor, type Duty, type PunchKind } from "@west4/rules";
-import type { Clock } from "@west4/shared";
+import { DUTIES, businessDate, dutiesFor, type Duty, type PunchKind } from "@west4/rules";
+import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
+import { myTips } from "../tips/mine.js";
 
 /**
  * The time clock (M7-01; spec 08 · Time clock). Staff clock in with a duty,
@@ -103,6 +104,42 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       return { shift: shiftView(shift) };
     });
   };
+
+  // My tips (M7-10): the caller's own 146-2.17 records, never anyone else's. Two weeks by default;
+  // records go back 6 years, a year at most per request.
+  app.get<{ Params: { venueId: string }; Querystring: { from?: string; to?: string } }>(
+    "/v1/venues/:venueId/me/tips",
+    { config: staff },
+    async (request) => {
+      const m = me(request);
+      const p = request.principal as Extract<typeof request.principal, { kind: "user" }>;
+      const DATE = /^\d{4}-\d{2}-\d{2}$/;
+      for (const d of [request.query.from, request.query.to])
+        if (d !== undefined && !DATE.test(d))
+          throw new ApiError("invalid_request", "dates are YYYY-MM-DD");
+      return request.inVenue(async (c) => {
+        const venue = await venueClock(c, request.venueId!);
+        const today = businessDate(
+          options.clock.now(),
+          venue.timeZone,
+          venue.dayCutover,
+        ).businessDate;
+        const to = request.query.to ? Temporal.PlainDate.from(request.query.to) : today;
+        const from = request.query.from
+          ? Temporal.PlainDate.from(request.query.from)
+          : to.subtract({ days: 13 });
+        if (Temporal.PlainDate.compare(from, to) > 0 || from.until(to).days > 366)
+          throw new ApiError("invalid_request", "ask for a year at most, from before to");
+        return myTips(c, request.venueId!, {
+          userId: p.userId,
+          role: m.role,
+          from: from.toString(),
+          to: to.toString(),
+          now: options.clock.now(),
+        });
+      });
+    },
+  );
 
   // Who's on the clock, and the signed-in person's own shift and duties.
   app.get<{ Params: { venueId: string } }>(

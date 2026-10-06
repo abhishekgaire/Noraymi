@@ -105,15 +105,18 @@ describe("the staff phone's tabs (M2-32)", () => {
       "approvals",
       "tips",
       "clock",
+      "mytips",
       "alerts",
       "admin",
     ]);
   });
 
-  it("Clock in and out (M7-01) leaves every phone with Team, time clock & tips off", () => {
+  it("Clock in and out (M7-01) and My tips (M7-10) leave every phone with Team, time clock & tips off", () => {
     for (const role of roles) {
       expect(tabsFor(role)).toContain("clock");
+      expect(tabsFor(role)).toContain("mytips");
       expect(tabsFor(role, { ...everythingOn, team: "off" })).not.toContain("clock");
+      expect(tabsFor(role, { ...everythingOn, team: "off" })).not.toContain("mytips");
     }
   });
 
@@ -124,7 +127,15 @@ describe("the staff phone's tabs (M2-32)", () => {
   });
 
   it("a runner's phone: Runs, check-in and the waitlist, and Calls; no Approvals, no Rooms", () => {
-    expect(tabsFor("staff")).toEqual(["home", "tonight", "calls", "waitlist", "clock", "alerts"]);
+    expect(tabsFor("staff")).toEqual([
+      "home",
+      "tonight",
+      "calls",
+      "waitlist",
+      "clock",
+      "mytips",
+      "alerts",
+    ]);
   });
 
   it("every staff phone gets Calls; only managers and owners get Approvals", () => {
