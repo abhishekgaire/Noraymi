@@ -79,6 +79,7 @@ export type ClosingState =
 const ACTIVE: readonly ClosingState[] = ["asking", "custom", "raising", "capturing"];
 
 export interface ClosingRow extends WalkoutRow {
+  swept_at: string | null;
   id: string;
   tab_id: string;
   check_id: string;
@@ -115,7 +116,8 @@ const CLOSING_COLS = `id, tab_id, check_id, payment_id, path, reader_device_id, 
   choices_cents, tip_choice, tip_cents, to_json(tip_picked_at) #>> '{}' as tip_picked_at, capture_cents,
   receipt, receipt_step_no, to_json(receipt_sent_at) #>> '{}' as receipt_sent_at, closed_by,
   to_json(slip_printed_at) #>> '{}' as slip_printed_at, slip_photo_file_id, tip_entered_by,
-  to_json(tip_entered_at) #>> '{}' as tip_entered_at, tip_approval_id, walkout, rest_cents, rest_payment_id`;
+  to_json(tip_entered_at) #>> '{}' as tip_entered_at, tip_approval_id, walkout, rest_cents, rest_payment_id,
+  to_json(swept_at) #>> '{}' as swept_at`;
 
 export async function closingById(c: Queryable, venueId: string, id: string, lock = false) {
   const r = await c.query<ClosingRow>(
@@ -895,5 +897,7 @@ export async function closeView(c: Queryable, venueId: string, closing: ClosingR
     receipt: closing.receipt,
     receipt_sent: closing.receipt_sent_at !== null,
     slip_printed_at: closing.slip_printed_at,
+    // Captured by the sweeper at a tip of 0, its hold about to run out (M6-17): the flag.
+    swept_at: closing.swept_at,
   };
 }

@@ -331,6 +331,9 @@ export async function settleWalkout(
       return true;
     }
     if (attempt.state === "failed" || attempt.state === "canceled") {
+      // Never retried: what it would have paid is owed again at once, for a manager to settle (M6-17),
+      // without waiting for the decline's follow-up to cancel the payment.
+      await setAllocationState(c, venueId, payment.id, "in_progress", "released");
       await failWalkout(c, venueId, closing, now, closing.rest_cents ?? 0);
       return true;
     }

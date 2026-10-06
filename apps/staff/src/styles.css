@@ -1546,3 +1546,19 @@ button.danger {
 .night-tab .badge-text {
   flex-basis: 100%;
 }
+/* Tabs whose capture failed (M6-17): what each owes, and the ways to settle it. */
+.night-failed {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.night-failed .night-tab {
+  border-bottom: 0;
+}
+.night-failed .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.night-failed button {
+  min-height: 44px;
+}

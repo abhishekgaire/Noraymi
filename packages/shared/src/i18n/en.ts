@@ -1914,6 +1914,8 @@ export const en = {
     "Growing the hold · Checking with Stripe · don't retry. The round isn't sent yet.",
   "tabs.push.over": "{name}'s bar tab passed {limit}: it's at {total}",
   "tabs.push.captureFailed": "{name}'s bar tab couldn't be charged: {amount} still owed",
+  "tabs.push.holdExpiring":
+    "{name}'s bar tab hold runs out within 12 hours: close the tab before then",
   "closeTab.waiting": "Waiting for the tip on the bar reader",
   "closeTab.title": "Close tab",
   "closeTab.toCard": "Close to the card",
@@ -2006,4 +2008,10 @@ export const en = {
   "night.charged": "Charging {count} tabs · {total}",
   "night.changed": "The open tabs changed. Nothing was charged: check them and confirm again.",
   "night.chargeFailed": "The tabs couldn't be charged. Try again.",
+  "night.failedTabs": "Couldn't be charged",
+  "night.failedHint": "Each tab stays here until it's settled. They don't hold up the close.",
+  "night.owes": "Still owes {amount} · from {date}",
+  "night.settled": "Settled · the tab is closed",
+  "night.savedDeclined": "The saved card was declined. Settle it another way.",
+  "night.settleBack": "Back to the list",
 } as const;

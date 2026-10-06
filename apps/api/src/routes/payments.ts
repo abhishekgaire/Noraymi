@@ -10,6 +10,7 @@ import type { StripeClient } from "../stripe/client.js";
 import "../payments/webhooks.js";
 import { fixChange, takeCash } from "../payments/cash.js";
 import { declinedOnTab, startTabPayment } from "../tabs/pay.js";
+import { postLate, settleToSavedCard, startSettle } from "../tabs/settle.js";
 import { screenState, type Applied } from "../payments/machine.js";
 import {
   NoSuchReader,
@@ -46,6 +47,8 @@ import {
  * M4-13. Card on file (M4-17): `{ method: "card_on_file", amount_cents }` waits
  * for the guest; `POST /payments/{p}/approval { reason }` asks a manager
  * instead (202 approval_pending).
+ *   POST /v1/venues/{v}/tabs/{t}/settle        { method: cash | tap | saved_card, amount_cents, … }: a manager
+ *                                              settles a capture_failed tab (M6-17), which then closes
  */
 const tapBody = z
   .object({
@@ -441,6 +444,110 @@ export function paymentRoutes(
       const view = paymentView(await current(request, written.paymentId));
       reply.code(201);
       return answer(view);
+    },
+  );
+
+  // Settle a tab whose capture failed (M6-17): a manager collects what it owes by another card, cash or
+  // the saved card. Once the money lands the tab is closed; collected after its night, it posts to today
+  // with adjusts_business_date pointing at that night.
+  const settle = route({
+    principals: ["owner_manager", "staff"],
+    module: "bar_tabs",
+    action: "night.close",
+    idempotency: "required",
+  });
+  const savedSettleBody = z
+    .object({ method: z.literal("saved_card"), amount_cents: z.number().int().positive() })
+    .strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/settle",
+    { config: settle },
+    async (request, reply) => {
+      if (!uuid.safeParse(request.params.t).success) throw new ApiError("not_found", "no such tab");
+      const tabId = request.params.t;
+      const venueId = request.venueId!;
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "settling a tab is a person's work");
+      const cash = tabCashBody.safeParse(request.body);
+      const tap = tabTapBody.safeParse(request.body);
+      const saved = savedSettleBody.safeParse(request.body);
+      if (!cash.success && !tap.success && !saved.success)
+        throw new ApiError(
+          "invalid_request",
+          'send { method: "cash", amount_cents, tendered_cents, tip_cents? }, { method: "tap", amount_cents, reader_id } or { method: "saved_card", amount_cents }',
+        );
+      const declined = await request.inVenue((c) => declinedOnTab(c, venueId, tabId));
+      for (const id of declined) await cancelPayment(deps(), venueId, id, "api");
+      const now = options.clock.now();
+      const amountCents = (cash.data ?? tap.data ?? saved.data)!.amount_cents;
+      if (cash.success) {
+        const deviceId = request.signedDevice?.deviceId ?? request.session?.deviceId ?? null;
+        const taken = await request.inVenue(async (c) => {
+          const started = await startSettle(c, venueId, tabId, {
+            userId: p.userId,
+            amountCents,
+            now,
+          });
+          const t = await takeCash(c, venueId, {
+            checkId: started.checkId,
+            amountCents: started.balanceCents,
+            tenderedCents: cash.data.tendered_cents,
+            tipCents: cash.data.tip_cents ?? 0,
+            leaveOut: started.holdId,
+            userId: p.userId,
+            deviceId,
+            businessDate: started.today,
+            now,
+          });
+          await postLate(c, venueId, t.paymentId, started.checkId);
+          return t;
+        });
+        if (taken.replaced?.holdId)
+          await cancelReplacedHold(deps(), venueId, taken.replaced.holdId, "api").catch(
+            () => undefined,
+          );
+        reply.code(201);
+        return {
+          ...paymentView(await current(request, taken.paymentId)),
+          change_cents: taken.changeCents,
+          logged_to: taken.loggedTo,
+          check_status: taken.settled.status,
+          tab_state: taken.replaced ? "closed" : "capture_failed",
+        };
+      }
+      let written: { paymentId: string; attemptNo: number };
+      try {
+        written = await request.inVenue(async (c) => {
+          const started = await startSettle(c, venueId, tabId, {
+            userId: p.userId,
+            amountCents,
+            now,
+          });
+          if (saved.success) return settleToSavedCard(c, venueId, started, now);
+          const w = await writeTap(c, venueId, {
+            checkId: started.checkId,
+            amountCents: started.balanceCents,
+            readerDeviceId: tap.data!.reader_id,
+            leaveOut: started.holdId,
+            businessDate: started.today,
+            now,
+          });
+          await postLate(c, venueId, w.paymentId, started.checkId);
+          return w;
+        });
+      } catch (e) {
+        if (e instanceof NoSuchReader) throw new ApiError("not_found", "no such reader");
+        if (e instanceof ReaderQuiet)
+          throw new ApiError(
+            "reader_offline",
+            "the reader is offline: use the other reader, or take cash",
+            { details: { reader_id: tap.data?.reader_id } },
+          );
+        throw e;
+      }
+      await runNow(deps(), venueId, written.paymentId, written.attemptNo);
+      reply.code(201);
+      return answer(paymentView(await current(request, written.paymentId)));
     },
   );
 

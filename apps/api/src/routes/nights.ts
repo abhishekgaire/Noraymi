@@ -11,6 +11,7 @@ import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
 import { listTabs } from "../tabs/tabs.js";
 import { chargeTabs, cutOffDue, driveWalkout } from "../tabs/walkout.js";
+import { failedTabs } from "../tabs/settle.js";
 import { Temporal } from "@west4/shared";
 
 /**
@@ -98,6 +99,8 @@ export function nightRoutes(
             total_cents: remaining.reduce((s, t) => s + t.rest_cents, 0),
           },
           tab_cut_off_at: cutOff?.toString() ?? null,
+          // Tabs whose capture failed, from any night, until a manager settles them (M6-17).
+          capture_failed: await failedTabs(c, venueId),
         };
       });
     },

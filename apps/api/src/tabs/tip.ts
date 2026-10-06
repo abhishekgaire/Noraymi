@@ -173,11 +173,12 @@ export async function enterSlipTip(
  * The tip is in: who typed it and when, the business date it posts to, and the capture of the total plus
  * the tip (or the raise before it), as on the reader.
  */
-async function captureSlip(
+export async function captureSlip(
   c: Queryable,
   venueId: string,
   closing: ClosingRow,
-  input: { tipCents: number; userId: string; now: Temporal.Instant },
+  /** No person for the sweeper (M6-17), which captures an untouched slip at a tip of 0. */
+  input: { tipCents: number; userId: string | null; now: Temporal.Instant },
 ) {
   const payment = (await paymentById(c, venueId, closing.payment_id))!;
   const venue = await venueClock(c, venueId);
@@ -195,10 +196,11 @@ async function captureSlip(
         where venue_id = $1 and id = $2`,
       [venueId, payment.id, posting.businessDate, posting.adjustsBusinessDate],
     );
-  await c.query(
-    `update tab_closings set tip_entered_by = $3, tip_entered_at = $4 where venue_id = $1 and id = $2`,
-    [venueId, closing.id, input.userId, input.now.toString()],
-  );
+  if (input.userId)
+    await c.query(
+      `update tab_closings set tip_entered_by = $3, tip_entered_at = $4 where venue_id = $1 and id = $2`,
+      [venueId, closing.id, input.userId, input.now.toString()],
+    );
   await planCapture(c, venueId, closing, { tipCents: input.tipCents, choice: "slip" }, input.now);
   await emitEvent(c, { venueId, type: "tab.updated", entityId: closing.tab_id });
 }

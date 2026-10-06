@@ -468,7 +468,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-17 · Sweep awaiting-tip tabs, watch hold expiry, and settle failed captures
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-09, M6-16
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#bar-tab-with-a-growing-hold) steps 6 and 7; [Data model](../spec/04-data-model.md) (Tabs at the cut-off and at close); [Money rules](../spec/05-money-rules.md) rule 16; [screens: Night note 12](../screens.md#night)
@@ -477,11 +477,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Any hold within 12 hours of expiring raises an alert (an in-person hold lasts at least two days, and 5 days for Visa).
   - `capture_failed` tabs stay on the manager's list with their balance until settled (another card, cash or the saved card), which moves them to `closed`. Money collected later posts to the current business date with `adjusts_business_date`, and these tabs don't hold up the night close.
 - **Acceptance:**
-  - [ ] Dev S.'s slip, never entered, is captured at its $48.00 total with a $0 tip 12 hours before its hold expires, and flagged.
-  - [ ] A hold 11 hours from expiring alerts the manager on duty.
-  - [ ] A `capture_failed` tab settled in cash the next day posts to that day, with `adjusts_business_date` Fri Sep 25.
+  - [x] Dev S.'s slip, never entered, is captured at its $48.00 total with a $0 tip 12 hours before its hold expires, and flagged.
+  - [x] A hold 11 hours from expiring alerts the manager on duty.
+  - [x] A `capture_failed` tab settled in cash the next day posts to that day, with `adjusts_business_date` Fri Sep 25.
 - **Tests:** clock tests; sandbox integration (`capture_before` as Stripe reports it); end-to-end.
 - **Notes:** M7's Close the night lists these tabs ([Night note 12](../screens.md#night)).
+  - Built: the hold watch (apps/api/src/tabs/expiry.ts, sweep `tabs.hold-watch`, every minute, venue by venue). A tab still `awaiting_tip` with its slip untouched is captured 12 real hours before its hold's `capture_before` at its total with a $0 tip (the slip path's own capture, `captureSlip`, with no person: `tip_entered_by` stays empty) and flagged with `tab_closings.swept_at` (shown as `swept_at` on `GET /tabs/{t}/close`); a tip waiting on a manager's OK is overtaken. Any other hold still standing (`open`, `tipping`, `capture_failed`, or a slip that couldn't be swept) within 12 hours of running out pushes the manager on duty once ("{name}'s bar tab hold runs out within 12 hours: close the tab before then", `tabs.push.holdExpiring`), recorded in `tabs.hold_expiry_alerted_at`. The times are a pure rule (packages/rules · hold-expiry.ts: `holdExpiresAt`, `holdWatchAt`, `holdRunningOut`) counted in real hours, so both daylight-saving nights are right. Migration 0086 adds the two columns; data model updated.
+  - Settling: `POST /tabs/{t}/settle` (`night.close`, so owners and managers; idempotency key required) takes `{ method: cash, amount_cents, tendered_cents, tip_cents? }`, `{ method: tap, amount_cents, reader_id }` or `{ method: saved_card, amount_cents }` for exactly what the tab still owes (its standing hold left out; `amount_changed` otherwise). Once the money lands, the tab moves `capture_failed` → `closed` through M6-11's `takeOverHold`, which also cancels a hold still standing; `closed_by` is the manager who settled it. The payment posts to today's business date, with `adjusts_business_date` = the tab's night when that's earlier (`postLate`). `GET /nights/{date}` now lists `capture_failed` (every such tab, whatever its night, with `owed_cents`, its card, its night and whether a saved card exists); API spec updated.
+  - Staff app: Close the night shows "Couldn't be charged" under the bar tabs when there are any: each tab with "Still owes $3.07 · from Fri, Sep 25", and Charge the saved card / Another card / Cash (M4's tap and cash panels pointed at the settle route). English and Spanish.
+  - Fixes found on the way: a walkout's declined saved-card charge now frees its amount at once (before, the tab showed $0.00 owed until the decline's follow-up job cancelled the payment), and a declined saved-card charge on a tab is set aside before paying another way, as a declined tap already was.
+  - Read as (cautious defaults, flagged): until Stripe reports `capture_before` (seeded holds before `stripe:seed`, or a reader that didn't say), a hold is taken to run out two days after the tab opened, the shortest an in-person hold lasts. A manager's settle to the saved card is the go-ahead (the consent line covers charging the tab at close, as the cut-off does), so no guest Yes or approval is asked; ask the founder if a second person should OK it. The sweeper's late capture posts like a late slip tip (today, `adjusts_business_date` the night), as M6-09's `tipPosting` does until M7's Z report says when a night is closed.
+  - Deferred: the sandbox check of `capture_before` as Stripe reports it on a simulated reader waits for staging (M6-27), like M6-16's captures; the fake Stripe stamps `capture_before` two days from the real clock, so the demo night never sweeps on its own. The rest of Close the night (and that these tabs don't block the close) is M7.
+  - Tests: packages/rules/src/hold-expiry.test.ts (capture_before used, the two-day fallback, 10:11:59 vs 10:12 for Dev S., real hours on Nov 1, 2026 and Mar 14, 2027); apps/api/src/routes/tab-hold-watch.int.test.ts (Dev S.'s slip untouched at 10:11:59 AM Sun, captured at $48.00 with a $0 tip at 10:12, flagged, posted Sun Sep 27 adjusting Fri Sep 25, captured once on Stripe; Jess P.'s hold 11 hours out alerts Andy once and Hana K.'s at 13 hours only an hour later; Seat 6 left capture_failed by the cut-off stays on Saturday's list owing $3.07, Maya refused, a stale amount refused, a declined saved card leaves it owing, cash on Sat posts to Sep 26 with `adjusts_business_date` 2026-09-25 and closes it); e2e "Close the night: a tab that couldn't be charged is settled in cash".
 
 ### M6-18 · Keep the song queue: singers, credits and the rotation
 

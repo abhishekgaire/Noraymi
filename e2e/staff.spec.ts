@@ -6232,3 +6232,46 @@ for (const size of [
     }
   });
 }
+
+/**
+ * Tabs whose capture failed (M6-17; screens Night note 12): Seat 6's hold is $10.00 with no overcapture and
+ * its saved card declines, so Charge the remaining tabs leaves it capture_failed owing $3.07. It shows under
+ * "Couldn't be charged" with what it owes, and taking the exact cash settles it: the tab is closed and the
+ * list is empty.
+ */
+test("Close the night: a tab that couldn't be charged is settled in cash", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await db.query("update tabs set hold_cents = 1000 where name = 'Seat 6 · blue jacket'");
+    await db.query(
+      `update payments p set overcapture_supported = false, generated_card_pm = 'pm_card_chargeCustomerFail'
+         from tabs t where t.payment_id = p.id and t.name = 'Seat 6 · blue jacket'`,
+    );
+    await signInAndy(page, request, db);
+    await page.goto("/close-the-night");
+    await page.getByRole("button", { name: "Charge the remaining tabs" }).click();
+    await page
+      .getByRole("group", { name: "Charge the remaining tabs" })
+      .getByRole("button", { name: "Charge them" })
+      .click();
+    const failed = page.locator(".night-failed-tabs");
+    await expect(page.getByRole("heading", { name: "Couldn't be charged" })).toBeVisible();
+    await expect(failed.locator("li")).toHaveCount(1);
+    await expect(failed).toContainText("Seat 6 · blue jacket");
+    await expect(failed).toContainText("Still owes $3.07 · from");
+    await failed.getByRole("button", { name: "Cash", exact: true }).click();
+    await failed.getByRole("button", { name: "Exact $3.07" }).click();
+    await expect(page.getByRole("heading", { name: "Couldn't be charged" })).toHaveCount(0);
+    const tab = await db.query<{ state: string }>(
+      "select state from tabs where name = 'Seat 6 · blue jacket'",
+    );
+    expect(tab.rows[0]!.state).toBe("closed");
+  } finally {
+    await db.end();
+  }
+});

@@ -1947,6 +1947,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Aumentando la retención · Consultando con Stripe · no lo intentes de nuevo. La ronda aún no se envió.",
   "tabs.push.over": "La cuenta de barra de {name} pasó de {limit}: va en {total}",
   "tabs.push.captureFailed": "No se pudo cobrar la cuenta de barra de {name}: faltan {amount}",
+  "tabs.push.holdExpiring":
+    "La retención de la cuenta de barra de {name} vence en menos de 12 horas: cierra la cuenta antes",
   "closeTab.waiting": "Esperando la propina en el lector de la barra",
   "closeTab.title": "Cerrar cuenta",
   "closeTab.toCard": "Cerrar con la tarjeta",
@@ -2043,4 +2045,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "night.changed":
     "Las cuentas abiertas cambiaron. No se cobró nada: revísalas y confirma de nuevo.",
   "night.chargeFailed": "No se pudieron cobrar las cuentas. Inténtalo de nuevo.",
+  "night.failedTabs": "No se pudieron cobrar",
+  "night.failedHint": "Cada cuenta queda aquí hasta que se cobre. No impiden cerrar la noche.",
+  "night.owes": "Aún debe {amount} · del {date}",
+  "night.settled": "Cobrada · la cuenta está cerrada",
+  "night.savedDeclined": "Se rechazó la tarjeta guardada. Cóbrala de otra forma.",
+  "night.settleBack": "Volver a la lista",
 };

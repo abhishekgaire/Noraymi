@@ -32,6 +32,7 @@ import { printWatchSweep } from "../routes/print.js";
 import { escalationSweep } from "../orders/escalation.js";
 import { alcoholStopSweep } from "../orders/four-am.js";
 import { clearOutSweep } from "../rooms/clear-out.js";
+import { holdWatchSweep } from "../tabs/expiry.js";
 import { tabCutOffSweep } from "../tabs/walkout.js";
 import {
   EVENTS_CLEANUP_KIND,
@@ -163,6 +164,8 @@ export function makeSweeps(
     clearOutSweep(pool),
     // The tab cut-off (M6-16): every tab still open is charged as a walkout at 4:30 AM, once a night.
     tabCutOffSweep(pool),
+    // The hold watch (M6-17): untouched paper slips captured at a $0 tip, and holds about to run out.
+    holdWatchSweep(pool),
     holdSweep(pool),
     wrapUpSweep(pool),
     // The automatic texts on their triggers (M2-24).

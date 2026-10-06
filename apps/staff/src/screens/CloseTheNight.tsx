@@ -4,6 +4,8 @@ import { useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
+import { CashPanel } from "./CashPanel.js";
+import { TapPayment } from "./TapPayment.js";
 
 /**
  * Close the night, its open bar tabs (M6-16; Staff screens and the bar POS · Charging the remaining tabs;
@@ -22,8 +24,19 @@ interface NightTab {
   readonly waiting_for: string | null;
   readonly chargeable: boolean;
 }
+/** A tab whose capture failed (M6-17; screens Night note 12): on this list until a manager settles it. */
+interface FailedTab {
+  readonly id: string;
+  readonly name: string;
+  readonly check_id: string;
+  readonly card: { readonly brand: string; readonly last4: string } | null;
+  readonly business_date: string;
+  readonly owed_cents: number;
+  readonly saved_card: boolean;
+}
 interface Night {
   readonly business_date: string;
+  readonly capture_failed: readonly FailedTab[];
   readonly bar_tabs: readonly NightTab[];
   readonly charge_remaining: { readonly count: number; readonly total_cents: number };
   readonly tab_cut_off_at: string | null;
@@ -196,6 +209,146 @@ export function CloseTheNight() {
           </div>
         )}
       </section>
+      {night && night.capture_failed.length > 0 && (
+        <section className="card" aria-labelledby="night-failed">
+          <h2 id="night-failed">{t("night.failedTabs")}</h2>
+          <p className="small">{t("night.failedHint")}</p>
+          <ul className="night-tabs night-failed-tabs">
+            {night.capture_failed.map((tab) => (
+              <FailedTabRow key={tab.id} venueId={venueId} tab={tab} onChanged={load} />
+            ))}
+          </ul>
+        </section>
+      )}
     </section>
+  );
+}
+
+/** One tab whose capture failed: what it owes, settled by the saved card, another card or cash. */
+function FailedTabRow({
+  venueId,
+  tab,
+  onChanged,
+}: {
+  venueId: string;
+  tab: FailedTab;
+  onChanged: () => void;
+}) {
+  const { t, money, date } = useT();
+  const [way, setWay] = useState<"card" | "cash" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const settleUrl = `/v1/venues/${venueId}/tabs/${tab.id}/settle`;
+  const savedCard = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await api<{ status: string }>(
+        "POST",
+        settleUrl,
+        { method: "saved_card", amount_cents: tab.owed_cents },
+        { idempotencyKey: `settle-${tab.id}-${Date.now()}` },
+      );
+      setNote(
+        r.status === "captured"
+          ? t("night.settled")
+          : r.status === "failed" || r.status === "canceled"
+            ? t("night.savedDeclined")
+            : t("pay.unknown"),
+      );
+    } catch (e) {
+      setNote(
+        e instanceof ApiCallError && e.code === "payment_unknown"
+          ? t("pay.unknown")
+          : t("night.savedDeclined"),
+      );
+    } finally {
+      setBusy(false);
+      onChanged();
+    }
+  };
+  return (
+    <li className="night-failed">
+      <div className="row night-tab">
+        <span>
+          <strong data-guest-text>{tab.name}</strong>
+          {tab.card && (
+            <span className="small" data-guest-text>
+              {` · ${tab.card.brand} ··${tab.card.last4}`}
+            </span>
+          )}
+        </span>
+        <span>
+          {t("night.owes", {
+            amount: money(tab.owed_cents as never),
+            date: date(tab.business_date),
+          })}
+        </span>
+      </div>
+      {note && (
+        <p role="status" className="notice">
+          {note}
+        </p>
+      )}
+      {way === "card" ? (
+        <TapPayment
+          venueId={venueId}
+          checkId={tab.check_id}
+          dueCents={tab.owed_cents}
+          payUrl={settleUrl}
+          onDone={() => {
+            setWay(null);
+            onChanged();
+          }}
+        />
+      ) : way === "cash" ? (
+        <CashPanel
+          venueId={venueId}
+          checkId={tab.check_id}
+          dueCents={tab.owed_cents}
+          payUrl={settleUrl}
+          oneTap
+          onTaken={() => {
+            setWay(null);
+            setNote(t("night.settled"));
+            onChanged();
+          }}
+        />
+      ) : (
+        <div className="actions">
+          {tab.saved_card && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => void savedCard()}
+            >
+              {t("savedCard.title")}
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() => setWay("card")}
+          >
+            {t("closeTab.anotherCard")}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={() => setWay("cash")}
+          >
+            {t("cash.title")}
+          </button>
+        </div>
+      )}
+      {way && (
+        <button type="button" className="link" onClick={() => setWay(null)}>
+          {t("night.settleBack")}
+        </button>
+      )}
+    </li>
   );
 }

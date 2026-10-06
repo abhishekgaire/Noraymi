@@ -110,7 +110,8 @@ export async function takeOverHold(
     [venueId, checkId],
   );
   const tab = r.rows[0];
-  if (!tab || tab.state !== "open") return null;
+  // A capture_failed tab settled by a manager (M6-17) closes the same way.
+  if (!tab || (tab.state !== "open" && tab.state !== "capture_failed")) return null;
   const hold = await tabHoldOf(c, venueId, checkId);
   const inFlight = await c.query(
     `select 1 from payment_allocations where venue_id = $1 and check_id = $2 and state = 'in_progress'
@@ -143,12 +144,14 @@ export async function takeOverHold(
     tab.id,
   ]);
   await moveTab(c, venueId, tab.id, "closed");
-  // Closed by whoever finalized it to be paid (the person who took the cash or started the tap).
+  // Closed by whoever finalized it to be paid (the person who took the cash or started the tap); a
+  // capture_failed tab by the manager who settled it (tabs/settle.ts · startSettle wrote them).
   await c.query(
-    `update tabs t set closed_at = $3, closed_by = (select r.finalized_by from check_revisions r
-        where r.venue_id = t.venue_id and r.check_id = t.check_id order by r.rev desc limit 1)
+    `update tabs t set closed_at = $3, closed_by = case when $4 then t.closed_by else
+        (select r.finalized_by from check_revisions r
+          where r.venue_id = t.venue_id and r.check_id = t.check_id order by r.rev desc limit 1) end
       where t.venue_id = $1 and t.id = $2`,
-    [venueId, tab.id, now.toString()],
+    [venueId, tab.id, now.toString(), tab.state === "capture_failed"],
   );
   await emitEvent(c, { venueId, type: "tab.updated", entityId: tab.id });
   return { tabId: tab.id, holdId: hold?.paymentId ?? null };
@@ -191,7 +194,10 @@ export async function holdsToCancel(c: Queryable, venueId: string): Promise<stri
   return r.rows.map((x) => x.id);
 }
 
-/** A replacing card still pending on the tab whose tap was declined: set aside before paying another way. */
+/**
+ * A replacing card still pending on the tab whose tap (or saved-card charge, M6-17) was declined: set aside
+ * before paying another way.
+ */
 export async function declinedOnTab(
   c: Queryable,
   venueId: string,
@@ -204,7 +210,7 @@ export async function declinedOnTab(
        join payment_allocations a on a.venue_id = t.venue_id and a.check_id = t.check_id and a.state = 'in_progress'
        join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
       where t.venue_id = $1 and t.id = $2 and a.share_id is null and p.status = 'pending'
-        and p.method = 'card_present' and p.id is distinct from t.payment_id`,
+        and p.method in ('card_present', 'card_on_file') and p.id is distinct from t.payment_id`,
     [venueId, tabId],
   );
   return r.rows.filter((x) => x.state === "failed" || x.state === "canceled").map((x) => x.id);
