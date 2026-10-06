@@ -7839,7 +7839,12 @@ test("Close the night: the checks, the clear-out at 4:31 AM and Night closed · 
     ).toHaveAttribute("href", "/approvals");
     await expect(checks).toContainText("Staff still on the clock · 2");
     await expect(checks.getByRole("button", { name: "Close the night" })).toBeDisabled();
-    await expect(checks.getByRole("link", { name: "Print X report (running)" })).toBeVisible();
+    // The report panel (M7-13): the running X report, rooms and bar tabs counted apart.
+    const report = page.getByRole("region", { name: "X report (running)" });
+    await expect(report).toContainText("Drinks · room checks");
+    await expect(report).toContainText("Drinks · bar tabs");
+    await expect(report).toContainText("Bar tabs 8");
+    await expect(report.getByRole("button", { name: "Print X report (running)" })).toBeVisible();
 
     // The fixes, as each screen would make them.
     const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
@@ -7891,7 +7896,9 @@ test("Close the night: the checks, the clear-out at 4:31 AM and Night closed · 
       .getByRole("button", { name: "Close the night" })
       .click();
     await expect(checks).toContainText("Night closed · 4:48 AM");
-    await expect(checks.getByRole("link", { name: "Print Z report" })).toBeVisible();
+    const z = page.getByRole("region", { name: "Z report 1" });
+    await z.getByRole("button", { name: "Print Z report" }).click();
+    await expect(z).toContainText("Sent to the front-desk printer");
   } finally {
     await db.end();
   }

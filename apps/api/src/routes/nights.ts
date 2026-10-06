@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Clock } from "@west4/shared";
 import {
   emitEvent,
+  insertPrintJob,
   latePostsTo,
   nightClose,
   postingDate,
@@ -15,6 +16,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { closePool, nightTips, poolOf } from "../tips/pool.js";
 import { nightChecks } from "../nights/checks.js";
+import { computeReport, nightReport, reportPrintLines } from "../nights/report.js";
 import { venueClock } from "../rooms/assignment.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
@@ -84,6 +86,72 @@ export function nightRoutes(
     stripe: options.stripe(),
     clock: options.clock,
   });
+
+  // The night's report (M7-13): the running X report until the close, then the Z report as written then.
+  app.get<{ Params: { venueId: string; date: string } }>(
+    "/v1/venues/:venueId/nights/:date/report",
+    { config: route({ principals: ["owner_manager"], module: "core", action: "night.close" }) },
+    async (request) => {
+      if (!DATE.test(request.params.date)) throw new ApiError("not_found", "no such night");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        await nightOf(c, venueId, request.params.date, now);
+        return nightReport(c, venueId, request.params.date, now);
+      });
+    },
+  );
+
+  // Print the X report (running) or the Z report (only after the close) on the front-desk receipt printer.
+  const printBody = z.object({ kind: z.enum(["x", "z"]) }).strict();
+  app.post<{ Params: { venueId: string; date: string }; Body: unknown }>(
+    "/v1/venues/:venueId/nights/:date/report/print",
+    {
+      config: route({
+        principals: ["owner_manager"],
+        module: "core",
+        action: "night.close",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!DATE.test(request.params.date)) throw new ApiError("not_found", "no such night");
+      const parsed = printBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { kind: 'x' | 'z' }");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        await nightOf(c, venueId, request.params.date, now);
+        const report = await nightReport(c, venueId, request.params.date, now);
+        if (parsed.data.kind === "z" && report.kind !== "z")
+          throw new ApiError("invalid_request", "the Z report prints only after the night closes", {
+            details: { reason: "not_closed" },
+          });
+        if (parsed.data.kind === "x" && report.kind === "z")
+          throw new ApiError("invalid_request", "this night is closed: print its Z report", {
+            details: { reason: "closed" },
+          });
+        // The front-desk receipt printer: the one the front-desk drawer kicks through.
+        const printer = (
+          await c.query<{ id: string }>(
+            "select printer_device_id as id from cash_drawers where venue_id = $1 and station = 'front_desk' and printer_device_id is not null",
+            [venueId],
+          )
+        ).rows[0];
+        if (!printer) throw new ApiError("invalid_request", "there's no front-desk printer paired");
+        const money = (cents: number) =>
+          `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const job = await insertPrintJob(c, venueId, {
+          kind: parsed.data.kind === "z" ? "z_report" : "x_report",
+          station: "front_desk",
+          deviceId: printer.id,
+          payload: { lines: reportPrintLines(report, money) },
+          createdAt: now.toString(),
+        });
+        return { print_job_id: job, kind: parsed.data.kind };
+      });
+    },
+  );
 
   // The night's tips (M7-09): gratuity, card tips and cash tips, each person's share, who's left out.
   app.get<{ Params: { venueId: string; date: string } }>(
@@ -241,11 +309,19 @@ export function nightRoutes(
             [venueId, date],
           )
         ).rows[0]!;
+        // The Z report (M7-13), worked out once now and stored with the close: never recomputed.
+        const closer =
+          (await c.query<{ name: string }>("select name from users where id = $1", [p.userId]))
+            .rows[0]?.name ?? null;
+        const z = await computeReport(c, venueId, date, now, "z");
         const closed = await recordNightClose(c, venueId, {
           businessDate: date,
           closedAt: now.toString(),
           closedBy: p.userId,
-          totals: { checks: counts },
+          totals: {
+            checks: counts,
+            report: { ...z, closed: { z_number: 0, closed_at: now.toString(), closed_by: closer } },
+          },
         });
         // Unsent drinks left are cleared, and tonight's 86s end.
         await c.query(

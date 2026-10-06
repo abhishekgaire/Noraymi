@@ -7,6 +7,7 @@ import { useSession } from "../session.js";
 import { CashPanel } from "./CashPanel.js";
 import { DrawerPanel } from "./DrawerPanel.js";
 import { NightChecks, type Check } from "./NightChecks.js";
+import { ReportPanel } from "./ReportPanel.js";
 import { TipsPanel } from "./TipsPanel.js";
 import { TapPayment } from "./TapPayment.js";
 
@@ -137,6 +138,9 @@ export function CloseTheNight() {
           postsTo={night.late_money_posts_to}
           onChanged={() => void load()}
         />
+      )}
+      {venueId && date && (
+        <ReportPanel key={night?.closed ? "z" : "x"} venueId={venueId} date={date} />
       )}
       {error && (
         <p role="alert" className="error">

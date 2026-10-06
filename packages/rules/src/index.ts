@@ -91,3 +91,5 @@ export type {
   PoolShare,
   PoolWorker,
 } from "./tip-pool.js";
+export { salesReport } from "./night-report.js";
+export type { ReportLine, SalesReport } from "./night-report.js";

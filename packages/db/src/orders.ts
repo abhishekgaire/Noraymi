@@ -307,7 +307,7 @@ export async function insertPrintJob(
   job: {
     orderId?: string | null;
     checkId?: string | null;
-    kind: "ticket" | "receipt" | "check" | "drawer";
+    kind: "ticket" | "receipt" | "check" | "drawer" | "x_report" | "z_report";
     station: string;
     payload: unknown;
     deviceId?: string | null;

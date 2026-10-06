@@ -142,12 +142,6 @@ export function NightChecks({
           </button>
         </div>
       )}
-      <div className="actions">
-        {/* The report (M7-13): a running X report until the close, the Z report after it. */}
-        <Link to={`/close-the-night/report?date=${night}`} className="link">
-          {closed ? t("nightCheck.printZ") : t("nightCheck.printX")}
-        </Link>
-      </div>
       {!closed &&
         (confirming ? (
           <div className="actions" role="group" aria-label={t("nightCheck.closeIt")}>

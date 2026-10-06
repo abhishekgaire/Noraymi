@@ -117,6 +117,9 @@ export async function sweepPrintJobs(pool: pg.Pool, now: Temporal.Instant): Prom
   return failed;
 }
 
+/** Laid out like a receipt: receipts, and the X and Z reports (M7-13). */
+const RECEIPT_KINDS = new Set(["receipt", "x_report", "z_report"]);
+
 export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; clock: Clock }): void {
   const printer = route({
     principals: ["printer"],
@@ -189,7 +192,7 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         const job = await printerJob(c, me(request).venueId, me(request).deviceId, token);
         if (!job) throw new ApiError("not_found", "no such job");
         if (job.kind === "drawer") return { kick: true, body: DRAWER_MARKUP };
-        if (job.kind === "receipt")
+        if (RECEIPT_KINDS.has(job.kind))
           return {
             kick: false,
             body: receiptPrintText(job.payload as unknown as ReceiptPayload, {
@@ -253,7 +256,7 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const xmlBody = await inPrinterVenue(request, async (c) =>
         job.kind === "drawer"
           ? drawerKickEpos(job.id)
-          : job.kind === "receipt"
+          : RECEIPT_KINDS.has(job.kind)
             ? receiptEpos(job.payload as unknown as ReceiptPayload, {
                 reprintN: job.reprint_n,
                 jobId: job.id,
@@ -433,7 +436,7 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         const bytes =
           job.kind === "drawer"
             ? drawerKickEscPos()
-            : job.kind === "receipt"
+            : RECEIPT_KINDS.has(job.kind)
               ? receiptEscPos(job.payload as unknown as ReceiptPayload, { reprintN: job.reprint_n })
               : ticketEscPos(job.payload as TicketPayload, {
                   timeZone: await venueZone(c, request.venueId!),

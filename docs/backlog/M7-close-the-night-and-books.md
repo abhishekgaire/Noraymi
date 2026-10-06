@@ -390,7 +390,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-13 · Print the running X report and the Z report
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** M7-12, M7-05, M7-09, M7-03; M4-07 (check revisions, tax and gratuity lines), M4-09 (deposits and forfeit lines), M4-21 (refunds); M6 (tabs)
 - **Spec:** [Money rules](../spec/05-money-rules.md) 8, 9, 11, 15 and 16; [API](../spec/08-api.md) · Night close (`GET /nights/{date}/report`); [Data model](../spec/04-data-model.md) · the money core, `night_closes`, `drawer_sessions`, `print_jobs`; [decisions](../decisions.md) D76, D77; screens [Night](../screens.md#night) notes 2, 3, 10 and 11; [demo seed](../demo-seed.md#later-tonight); [money cases](../../seed/money-cases.json)
@@ -407,20 +407,25 @@ Definition of done: see CLAUDE.md.
   - `GET /nights/{date}/report` runs on the replica as the running X report until the close, then returns the Z report from `night_closes.totals`, never recomputed.
   - "Print X report (running)" and "Print Z report" print on the front-desk receipt printer as print jobs of kind `x_report` and `z_report`, headed with the Z number, the date and who closed it; the PDF job makes the Z report's PDF for exports and email.
 - **Acceptance:**
-  - [ ] With the 8 occupied rooms and 5 bar tabs as if closed at 10:41 PM (money case `z_gratuity_room_checks_only`), the Z gratuity is $510.57, drinks read Room checks $1,031.00 and Bar tabs $219.00, and it is never $554.37 (20% of all sales).
-  - [ ] Rooms 3 and 12 give $96.26 of gratuity, the sum of their lines, not $96.27 (`z_gratuity_sum_of_lines_vs_aggregate`).
-  - [ ] Room 9 with one Jäger Bomb comped gives $93.60 of gratuity (`z_gratuity_comp_lowers_base`).
-  - [ ] T-0012 is absent from every figure (`z_report_training_checks_left_out`).
-  - [ ] The Z report's totals equal the night's check lines by category, the drawer sessions and the tip pool to the cent.
-  - [ ] Slip tips entered on Sat Sep 26 show under Adjustments on Sat Sep 26's report, pointing at Fri Sep 25, and Fri Sep 25's Z report never changes.
-  - [ ] The fall-back night's report shows EDT before 2 AM and EST after.
-  - [ ] Printing a Z report before the close is refused.
+  - [x] With the 8 occupied rooms and 5 bar tabs as if closed at 10:41 PM (money case `z_gratuity_room_checks_only`), the Z gratuity is $510.57, drinks read Room checks $1,031.00 and Bar tabs $219.00, and it is never $554.37 (20% of all sales).
+  - [x] Rooms 3 and 12 give $96.26 of gratuity, the sum of their lines, not $96.27 (`z_gratuity_sum_of_lines_vs_aggregate`).
+  - [x] Room 9 with one Jäger Bomb comped gives $93.60 of gratuity (`z_gratuity_comp_lowers_base`).
+  - [x] T-0012 is absent from every figure (`z_report_training_checks_left_out`).
+  - [x] The Z report's totals equal the night's check lines by category, the drawer sessions and the tip pool to the cent.
+  - [x] Slip tips entered on Sat Sep 26 show under Adjustments on Sat Sep 26's report, pointing at Fri Sep 25, and Fri Sep 25's Z report never changes.
+  - [x] The fall-back night's report shows EDT before 2 AM and EST after.
+  - [x] Printing a Z report before the close is refused.
 - **Tests:** money-cases groups `z_report` (all four cases) and `tax_and_gratuity` through the report function; integration tests for the X-to-Z switch and for the snapshot never changing; print payload tests; the daylight-saving report test; Playwright for Night's report panel.
 - **Notes:**
   - Canvas: Night's gratuity is 20% of every sale and its Z figures come from an older night ([Night](../screens.md#night) note 2); compute from the checks. The seed has no whole-night Z totals.
   - The done-when's "20% of room checks only: room time + room drinks + packages sold to rooms − room comps and refunds" describes the base; the figure is the sum of each room check's rounded gratuity line (money-cases ambiguity A1).
   - Spec gap: which printer prints the Z report and in what form; cautious default: the front-desk receipt printer, plus a PDF.
   - Open question: how room time, damage fees, kept deposits and no-show charges are taxed (accountant, gate); M4 built the cautious default and the report reads the tax lines as written.
+  - Built (M7-13): `packages/rules/src/night-report.ts` (`salesReport`: room time, drinks split into room checks and bar tabs, packages, songs, damage, kept deposits and no-show fees, minimum spend, surcharge, comps, voids, discounts, refunds and net; tax grouped by jurisdiction and rate with its base; gratuity as the sum of the gratuity lines, a refund's gratuity share counted against it; rooms and bar tabs counted apart). `apps/api/src/nights/report.ts` reads the live views for the business date and adds payments by way (tap, card on file, online, cash, prepaid, card and cash tips, refunds, deposits taken and allocated), each drawer session, the tip pool, every comp, void and refund (time with EDT or EST, room or tab, what, why, who asked, who approved a refund), late money posted here for earlier nights, and the night's log (sessions starting and ending, rooms out of service).
+  - `GET /nights/{date}/report`: the running X report until the close; the close (M7-12's route) now works the Z report out once and stores it in `night_closes.totals.report`, and GET returns that, never recomputed (Friday's Z stays the same when Saturday's late slip tips arrive, which show under Saturday's adjustments). `POST /nights/{date}/report/print { kind }` prints on the front-desk receipt printer (the one the front-desk drawer kicks through, the cautious default) as `x_report` or `z_report` print jobs laid out like receipts (migration `0102_report_prints.sql`); a Z report before the close is refused, and so is an X report after it.
+  - Night's report panel (`ReportPanel`): "X report (running)" or "Z report 1", rooms and bar tabs, the main figures, adjustments for earlier nights, and Print. English and Spanish.
+  - Not done here: the Z report's PDF for exports and email (the PDF job renders menus today); M7-15's export can render it from the stored snapshot. Who approved a comp or void over the reason-only limit isn't on the line, so the exceptions list shows who asked; refunds show both. The night's log is built from room sessions and room states rather than every audit row.
+  - Tests: unit `packages/rules/src/night-report.test.ts` (the four `z_report` money cases through the report function, with each room check's gratuity line written as finalizing writes it: $510.57 and never $554.37, $96.26 not $96.27, $93.60 with the comp, T-0012 left out; tax by rate and a refund's gratuity share), `apps/api/src/nights/report.test.ts` (EDT and EST on both daylight-saving nights; the printed Z report's head and amounts); integration `apps/api/src/routes/night-report.int.test.ts` (the X report equal to the night's lines and unmoved by a practice check, 7 rooms and 8 bar tabs, the X print and the Z print refused before the close, the Z snapshot never changing, Saturday's adjustments, the Z print after the close); e2e Night's report panel in "Close the night: the checks, the clear-out at 4:31 AM and Night closed · 4:48 AM". The `tax_and_gratuity` group runs through `checkTotals`, which writes the lines this report sums.
 
 ### M7-14 · Match payouts and work through Unmatched payments
 
