@@ -46,7 +46,12 @@ import type { VenueTextSettings } from "../texts/venue.js";
 import { REFUND_RUN_KIND, runRefund } from "./refunds.js";
 import { confirmCollected, surchargeFor } from "./surcharge.js";
 import { collectOnReader } from "../stripe/surcharge.js";
-import { collectForTab, createTabCustomer, createTabIntent } from "../stripe/tabs.js";
+import {
+  collectForTab,
+  createTabCustomer,
+  createTabIntent,
+  incrementHold,
+} from "../stripe/tabs.js";
 import { TAB_RELEASE_KIND, openingOfPayment } from "../tabs/open.js";
 
 /**
@@ -337,6 +342,43 @@ export async function runAttempt(
       return applied;
     }
   }
+  if (attempt.action === "increment") {
+    // A bar tab's raise (M6-07): one call, keyed with its target; the old hold stays good whatever happens.
+    try {
+      const pi = await incrementHold(
+        deps.stripe,
+        account,
+        { piId: payment.stripe_pi_id!, targetCents: attempt.amount_cents },
+        attempt.idem_key,
+      );
+      return record({ intent: observeIntent(pi) });
+    } catch (e) {
+      if (e instanceof StripeError)
+        return record({
+          attempt: {
+            state: "failed",
+            code:
+              e.code === "card_declined" || e.type === "card_error"
+                ? "card_declined"
+                : (e.code ?? e.type),
+          },
+        });
+      if (!(e instanceof StripeUnknownResult)) throw e;
+      const applied = await record({ attempt: { state: "unknown" } });
+      await inVenue((c) =>
+        enqueueCheck(
+          c,
+          venueId,
+          paymentId,
+          attemptNo,
+          now.add({ seconds: POLL_EVERY_S }),
+          1,
+          now.toString(),
+        ),
+      );
+      return applied;
+    }
+  }
   try {
     let piId = payment.stripe_pi_id;
     if (!piId) {
@@ -496,6 +538,25 @@ export async function cancelPayment(
   const ctx = await context(inVenue, venueId, paymentId);
   if (!ctx) return null;
   const { payment, attempt, account } = ctx;
+  // A tab's raise (M6-07) never cancels the hold it was growing: read Stripe once more, and a raise
+  // still unclear ends as not raised, with the old hold standing.
+  if (attempt?.action === "increment") {
+    if (!openAttempt(attempt.state)) return { changed: false, payment, attempt };
+    const read = await checkNow(deps, venueId, paymentId, source);
+    if (read?.attempt && openAttempt(read.attempt.state))
+      return inVenue((c) =>
+        applyObservation(
+          c,
+          venueId,
+          paymentId,
+          { attempt: { state: "canceled", code: "not_raised" } },
+          source,
+          null,
+          deps.clock.now(),
+        ),
+      );
+    return read;
+  }
   if (["captured", "partly_refunded", "refunded", "canceled", "failed"].includes(payment.status))
     return { changed: false, payment, attempt };
   if (account && attempt?.reader_id && openAttempt(attempt.state))
@@ -566,7 +627,9 @@ export async function pollAttempt(
   const applied = await checkNow(deps, venueId, payload.payment_id, "api");
   if (!applied?.attempt || applied.attempt.attempt_no !== payload.attempt_no) return;
   const { attempt, payment } = applied;
-  if (!openAttempt(attempt.state) || payment.status !== "pending") return;
+  // A tab's raise (M6-07) polls on a hold that's already placed.
+  const raising = attempt.action === "increment" && payment.status === "authorized";
+  if (!openAttempt(attempt.state) || (payment.status !== "pending" && !raising)) return;
   const inVenue = venueTx(deps, venueId, `payment:${payment.id}:poll`);
   const now = deps.clock.now();
   let unknownSince = payload.unknown_since;

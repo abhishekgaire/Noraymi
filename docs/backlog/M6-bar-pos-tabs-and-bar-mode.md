@@ -208,7 +208,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-07 · Grow the hold, and handle a declined raise
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-03, M6-06; M4-05; M2 (approvals)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#bar-tab-with-a-growing-hold) steps 3 and 4; [Money rules](../spec/05-money-rules.md) rule 12; [Stripe setup](../spec/06-stripe-setup.md) step 5; [Data model](../spec/04-data-model.md) (`approvals` kind `over_hold`, `payments.increments_used`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`tabs.flagOverCents`)
@@ -219,13 +219,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The check shows the headroom in dollars; a tab over `tabs.flagOverCents` ($600) shows on the manager on duty's phone.
   - A timed-out raise is an unknown attempt, handled as M4's unknown rules say.
 - **Acceptance:**
-  - [ ] Luis M.'s hold grows from $50.00 to $80.00 as his rounds are sent, with `increments_used` at 1.
-  - [ ] A declined raise on Jess P.'s tab shows "Hold raise declined"; her next round waits for Andy ("Waiting for Andy"), and her $50.00 hold still stands.
-  - [ ] A raise that times out shows "Checking with Stripe · don't retry" and ends in one known state, with nothing sent twice.
-  - [ ] A card without incremental support caps the tab, and the chip shows what's left on the hold.
-  - [ ] A tab passing $600.00 shows on Andy's phone.
+  - [x] Luis M.'s hold grows from $50.00 to $80.00 as his rounds are sent, with `increments_used` at 1.
+  - [x] A declined raise on Jess P.'s tab shows "Hold raise declined"; her next round waits for Andy ("Waiting for Andy"), and her $50.00 hold still stands.
+  - [x] A raise that times out shows "Checking with Stripe · don't retry" and ends in one known state, with nothing sent twice.
+  - [x] A card without incremental support caps the tab, and the chip shows what's left on the hold.
+  - [x] A tab passing $600.00 shows on Andy's phone.
 - **Tests:** sandbox integration on simulated readers with incremental support; a declined increment through the fault-injection client; unit tests for step sizing (never past 8 of 10 before close).
 - **Notes:** Spec gaps: what "near the hold" is, and how steps are sized, aren't set. Cautious default: raise when the tab's balance after the send, plus a 25% tip reserve on its drinks, would pass the hold, to the larger of that amount and 1.5 × the current hold, rounded up to the next $10. That reproduces Luis M.'s $50.00 → $80.00. Flagged for the founder.
+  - Built: `packages/rules/src/hold.ts` (the 25% tip reserve, the step to max(need, 1.5 × hold) up to the next $10, the cap at the hold plus the overcapture allowance of 50% or $50, and the budget of 8 of Stripe's 10 attempts), with unit tests that grow tabs by every round size and never pass 8. Migration 0080 adds `tabs.hold_declined_at` and `tabs.flagged_over_at` (added to the data model).
+  - A send onto an open tab with a placed hold (`sendRound`, apps/api/src/tabs/hold.ts) places the round inside a savepoint to see what the tab would need. If it fits, it stays; if the card can grow, it's rolled back, an `increment` attempt is written (key `<payment_id>:increment:<attempt_no>:<target>`, `increments_used` + 1 for every attempt, declines and unclear ones included), the payment run calls `increment_authorization` outside any transaction, and the send is tried once more. Luis M.'s first round (a small bucket) takes $50.00 to $80.00; his shots then fit, `increments_used` 1.
+  - A declined raise (`card_declined`) keeps the old hold, sets the tab's "Hold raise declined", and every round on it (even one that fits) answers `202 approval_pending` (kind `over_hold`, routed to the manager on duty, "Waiting for Andy" on the tab row); the drinks leave the draft with the request, and Andy's OK places them as the person who rang them, with the alcohol checks run again (a closed tab or a refused round expires the request). Clearing the mark when another card is added comes with M6-11's card change.
+  - A card that can't grow (or has used its 8 attempts) is capped: a round past the cap is refused (`hold_cap`, "This card's hold can't grow…"), and the tab row shows "Hold · $6 left". The check shows "Hold · $X left" for every held tab.
+  - An unclear raise is an unknown attempt: the send answers `202 payment_unknown` ("Checking with Stripe · don't retry") and the round stays unsent; another Send asks nothing of Stripe. The poller and the reconciler read the PaymentIntent: a hold at the target settles it, and one still unclear after 2 minutes ends as `not_raised` with the old hold standing. A raise never cancels the hold (`cancelPayment` and the poller now know increments).
+  - A tab whose total passes `tabs.flagOverCents` is pushed once to the manager on duty ("Tariq A.'s bar tab passed $600.00: it's at …", opening Tonight).
+  - Fake Stripe: `increment_authorization` as Stripe runs it (held PaymentIntents whose card allows it, a higher amount, 10 at most), and a fake-only `card_present[incremental]=false` for a card that can't grow. Declines and timeouts come through the fault-injection client.
+  - Read as: the round that triggers a declined raise itself goes to the manager; a non-decline failure of a raise answers `stripe_error` ("hold_not_raised") with the round left unsent. A refused round at approval time isn't logged in `alcohol_refusals` (it expires). Moves onto a tab (M6-13) and song lines (M6-19) should call `sendRound`'s hold check when they're built. The seed's five tabs have no hold payments yet, so they send as before (M6-27).
 
 ### M6-08 · Close a tab with the tip on the reader
 

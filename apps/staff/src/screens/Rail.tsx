@@ -65,6 +65,13 @@ interface Tab {
   readonly label: string | null;
   readonly card: { readonly brand: string | null; readonly last4: string } | null;
   readonly hold_cents: number;
+  /** The hold's headroom, and whether it can grow, was declined or is being checked (M6-07). */
+  readonly hold: {
+    readonly left_cents: number;
+    readonly can_grow: boolean;
+    readonly declined: boolean;
+    readonly checking: boolean;
+  } | null;
   readonly owner: { readonly id: string; readonly name: string | null } | null;
   readonly opened_at: string;
   readonly totals: { readonly total_cents: number } | null;
@@ -411,6 +418,11 @@ export function Rail() {
 
   const badges = (x: Tab) => [
     ...(x.cut_off ? [t("rail.badge.cutOff")] : []),
+    ...(x.hold?.declined ? [t("rail.badge.holdDeclined")] : []),
+    ...(x.hold && !x.hold.can_grow && !x.hold.declined
+      ? [t("rail.hold.left", { amount: money(x.hold.left_cents as never) })]
+      : []),
+    ...(x.hold?.checking ? [t("pay.unknown")] : []),
     ...(x.waiting_for ? [t("rail.badge.waiting", { name: x.waiting_for })] : []),
     ...(x.unsent > 0 ? [t("rail.badge.unsent", { n: x.unsent })] : []),
   ];
@@ -808,6 +820,15 @@ export function Rail() {
                       {t("rail.hold", { amount: money(tab.hold_cents as never) })}
                     </span>
                   )}
+                  {tab?.hold && !tab.hold.declined && (
+                    <span className={tab.hold.can_grow ? "chip" : "chip warn"}>
+                      {t("rail.hold.left", { amount: money(tab.hold.left_cents as never) })}
+                    </span>
+                  )}
+                  {tab?.hold?.declined && (
+                    <span className="chip warn">{t("rail.badge.holdDeclined")}</span>
+                  )}
+                  {tab?.hold?.checking && <span className="chip warn">{t("pay.unknown")}</span>}
                   {room?.session && (
                     <span className="chip">
                       {t("rail.ids", { n: room.session.ids_checked, of: room.session.party_size })}

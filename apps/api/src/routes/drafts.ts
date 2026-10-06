@@ -4,7 +4,10 @@ import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { placeStaffOrder } from "../orders/place.js";
+import type pg from "pg";
+import { sendRound, type SendAnswer } from "../tabs/hold.js";
+import { runNow } from "../payments/run.js";
+import type { StripeClient } from "../stripe/client.js";
 import { inVenueRefusing } from "../orders/alcohol.js";
 
 /**
@@ -54,7 +57,10 @@ const checkOf = (key: string) => {
   return key;
 };
 
-export function draftRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+export function draftRoutes(
+  app: FastifyInstance,
+  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient },
+): void {
   app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
     "/v1/venues/:venueId/checks/:checkId/orders",
     {
@@ -75,16 +81,30 @@ export function draftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       if (!id.safeParse(request.params.checkId).success)
         throw new ApiError("not_found", "no such check");
       const me = person(request);
-      const order = await inVenueRefusing(request, (c) =>
-        placeStaffOrder(c, request.venueId!, {
-          checkId: request.params.checkId,
-          lines: parsed.data.lines,
-          clientOrderId: parsed.data.client_order_id ?? null,
-          ...me,
-          now: options.clock.now(),
-        }),
+      const venueId = request.venueId!;
+      const input = {
+        checkId: request.params.checkId,
+        lines: parsed.data.lines,
+        clientOrderId: parsed.data.client_order_id ?? null,
+        ...me,
+      };
+      // A round on a tab with a hold (M6-07): the hold grows first when the round would pass it.
+      let answer: SendAnswer = await inVenueRefusing(request, (c) =>
+        sendRound(c, venueId, { ...input, now: options.clock.now() }),
       );
-      return reply.code(201).send({ order });
+      if (answer.kind === "raise") {
+        const deps = { pool: options.pool, stripe: options.stripe(), clock: options.clock };
+        await runNow(deps, venueId, answer.paymentId, answer.attemptNo);
+        answer = await inVenueRefusing(request, (c) =>
+          sendRound(c, venueId, { ...input, now: options.clock.now(), raised: true }),
+        );
+      }
+      if (answer.kind === "approval") return reply.code(202).send(answer.pending);
+      if (answer.kind === "checking" || answer.kind === "raise")
+        throw new ApiError("payment_unknown", "Checking with Stripe · don't retry", {
+          details: { reason: "hold_checking", payment_id: answer.paymentId },
+        });
+      return reply.code(201).send({ order: answer.order });
     },
   );
 

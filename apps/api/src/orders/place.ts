@@ -43,6 +43,8 @@ export async function placeStaffOrder(
     membershipId: string;
     deviceId: string | null;
     now: Temporal.Instant;
+    /** A round a manager OKs later (M6-07, over_hold) left the draft when it was asked for. */
+    keepDraft?: boolean;
   },
 ): Promise<OrderRow> {
   // A retried send with the same client_order_id answers the order it made the first time.
@@ -93,6 +95,7 @@ export async function placeStaffOrder(
     now: input.now,
   });
   if (accepted.status !== "done") throw new ApiError("internal", "a staff order wasn't accepted");
+  if (input.keepDraft) return accepted.order;
   const version = await clearDraft(
     c,
     venueId,

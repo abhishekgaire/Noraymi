@@ -112,3 +112,22 @@ export async function retrieveCollectedCard(
     cardholderName: card?.cardholder_name ?? null,
   };
 }
+
+/**
+ * Grows a bar tab's hold (M6-07; Payment flows · Bar tab with a growing hold, step 3): `amount` is the
+ * new total. The key is the attempt's, `<payment_id>:increment:<attempt_no>:<target>`, so a retried
+ * call can only ever ask for the same amount. A decline is a 402 `card_declined`; the old hold stays.
+ */
+export async function incrementHold(
+  stripe: StripeClient,
+  account: string,
+  input: { piId: string; targetCents: number },
+  idempotencyKey: string,
+): Promise<StripeIntent> {
+  return stripe.call(
+    "payments",
+    "POST",
+    `/v1/payment_intents/${encodeURIComponent(input.piId)}/increment_authorization`,
+    { account, idempotencyKey, params: { amount: input.targetCents } },
+  );
+}

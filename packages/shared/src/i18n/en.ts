@@ -1895,4 +1895,12 @@ export const en = {
     "{name}'s tab is already open on this card. One card, one open tab, so nothing new was held on it.",
   "newTab.readerOffline": "The bar reader is offline: no new tabs until it's back.",
   "newTab.noReader": "No bar reader is set up. Add one in Admin → Devices.",
+  "rail.hold.left": "Hold · {amount} left",
+  "rail.badge.holdDeclined": "Hold raise declined",
+  "rail.holdCapped":
+    "This card's hold can't grow, and that round doesn't fit on it. Pay for it another way.",
+  "rail.holdDeclined.waiting": "Hold raise declined: the round waits for {name}.",
+  "rail.holdChecking":
+    "Growing the hold · Checking with Stripe · don't retry. The round isn't sent yet.",
+  "tabs.push.over": "{name}'s bar tab passed {limit}: it's at {total}",
 } as const;

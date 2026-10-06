@@ -1928,4 +1928,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "newTab.readerOffline":
     "El lector de la barra está sin conexión: no se abren cuentas nuevas hasta que vuelva.",
   "newTab.noReader": "No hay lector en la barra. Agregue uno en Admin → Dispositivos.",
+  "rail.hold.left": "Retención · quedan {amount}",
+  "rail.badge.holdDeclined": "Aumento de retención rechazado",
+  "rail.holdCapped":
+    "La retención de esta tarjeta no puede crecer y esa ronda no cabe. Cóbrela de otra forma.",
+  "rail.holdDeclined.waiting": "Aumento de retención rechazado: la ronda espera a {name}.",
+  "rail.holdChecking":
+    "Aumentando la retención · Consultando con Stripe · no lo intentes de nuevo. La ronda aún no se envió.",
+  "tabs.push.over": "La cuenta de barra de {name} pasó de {limit}: va en {total}",
 };

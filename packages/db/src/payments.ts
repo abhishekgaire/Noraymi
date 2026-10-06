@@ -163,9 +163,14 @@ export interface NewAttempt {
   readonly amountCents: number;
   /** The venue's clock when it starts (the simulated one in demos and tests), never the database's. */
   readonly startedAt?: string;
+  /** Named in the key after the attempt number: an increment's target amount (Stripe setup 5, M6-07). */
+  readonly keySuffix?: string;
 }
 
-/** A new attempt, numbered after the payment's last; its key is `<payment_id>:<action>:<attempt_no>`. */
+/**
+ * A new attempt, numbered after the payment's last; its key is `<payment_id>:<action>:<attempt_no>`,
+ * and an increment's also names its target amount (`<payment_id>:increment:<attempt_no>:<cents>`).
+ */
 export async function startAttempt(
   c: Queryable,
   venueId: string,
@@ -176,7 +181,7 @@ export async function startAttempt(
     [venueId, a.paymentId],
   );
   const attemptNo = n.rows[0]!.n;
-  const idemKey = `${a.paymentId}:${a.action}:${attemptNo}`;
+  const idemKey = `${a.paymentId}:${a.action}:${attemptNo}${a.keySuffix ? `:${a.keySuffix}` : ""}`;
   try {
     await c.query("savepoint one_open_attempt");
     await c.query(

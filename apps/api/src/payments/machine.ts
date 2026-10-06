@@ -28,6 +28,7 @@ import {
 import { roomOfCheck } from "../rooms/guest-bill.js";
 import { recordSurcharge } from "./surcharge.js";
 import { settleTabOpening } from "../tabs/open.js";
+import { settleIncrement } from "../tabs/hold.js";
 
 /**
  * The one function that records what Stripe says about a payment (M4-05):
@@ -139,6 +140,13 @@ export async function applyObservation(
   }
 
   if (obs.attempt) await moveAttempt(obs.attempt.state, obs.attempt.code ?? null);
+
+  // A bar tab's raise (M6-07): the hold grows once Stripe holds the target, or the tab shows the decline.
+  if (
+    attempt?.action === "increment" &&
+    (await settleIncrement(c, venueId, paymentId, intent ?? null, now ?? Temporal.Now.instant()))
+  )
+    changed = true;
 
   const payment = (await paymentById(c, venueId, paymentId))!;
   // A bar tab's opening hold (M6-06): the tab opens once the hold is placed, or nothing does.

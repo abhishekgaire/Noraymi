@@ -3934,6 +3934,68 @@ const stripeSeed = () =>
       DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
     },
   });
+test("the hold grows: a round past the $50.00 hold raises it to $80.00, and the chip shows what's left", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const ids = (
+      await db.query<{ reader: string; account: string }>(
+        `select d.stripe_reader_id as reader, o.stripe_account_id as account
+           from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+          where d.name = 'Bar S710'`,
+      )
+    ).rows[0]!;
+    const headers = {
+      authorization: "Bearer rk_test_fake_payments",
+      "stripe-account": ids.account,
+    };
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect
+      .poll(async () => {
+        const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+          headers,
+        });
+        return ((await r.json()) as { action?: { status?: string } }).action?.status;
+      })
+      .toBe("in_progress");
+    const r = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
+        form: { "card_present[number]": "5555555555552281" },
+      },
+    );
+    expect(r.ok(), await r.text()).toBe(true);
+    await panel.getByRole("button", { name: "Seat 4" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 4");
+    await expect(panel).toContainText("Hold $50.00");
+    await expect(panel).toContainText("Hold · $50.00 left");
+
+    // A small bucket: $43.55 and $10.00 reserved for the tip pass $50.00, so the hold grows first.
+    await page.getByRole("tab", { name: "Buckets" }).click();
+    await page.getByRole("button", { name: /^Small bucket · 6 beers · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await expect(panel).toContainText("Hold $80.00");
+    await expect(panel).toContainText("Hold · $26.45 left");
+    const pay = (
+      await db.query<{ used: number; authorized: number }>(
+        `select p.increments_used as used, p.authorized_cents::int as authorized
+           from tabs t join payments p on p.id = t.payment_id where t.name = 'Seat 4'`,
+      )
+    ).rows[0]!;
+    expect(pay).toEqual({ used: 1, authorized: 8000 });
+  } finally {
+    await db.end();
+  }
+});
 const presentCard = async (
   request: APIRequestContext,
   db: pg.Client,

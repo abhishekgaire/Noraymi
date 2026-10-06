@@ -89,6 +89,8 @@ export function AddDrinks(props: {
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  // A tab's hold (M6-07): a round waiting for a manager, or a raise being checked with Stripe.
+  const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const version = useRef(0);
   // Undo, step by step, on unsent drinks (M6-03): each change keeps what was there before.
@@ -249,19 +251,38 @@ export function AddDrinks(props: {
     setSending(true);
     try {
       await saving.current;
+      setNotice(null);
       if (props.onPay) await props.onPay(lines);
-      else
-        await api("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
+      else {
+        const answer = await api<{
+          status?: string;
+          waiting_for?: { name: string };
+          error?: { code?: string };
+        }>("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
           client_order_id: crypto.randomUUID(),
           lines,
         });
+        // The raise is being checked with Stripe: the round stays here, unsent.
+        if (answer.error?.code === "payment_unknown") {
+          setNotice(t("rail.holdChecking"));
+          props.onSent();
+          return;
+        }
+        if (answer.status === "approval_pending")
+          setNotice(t("rail.holdDeclined.waiting", { name: answer.waiting_for?.name ?? "" }));
+      }
       setLines([]);
       history.current = [];
       setSent(true);
       await Promise.all([loadDraft(), loadOrders()]);
       props.onSent();
     } catch (e) {
-      setError((e as ApiCallError)?.message ?? t("drinks.failed"));
+      const err = e as ApiCallError;
+      setError(
+        err?.details?.["reason"] === "hold_cap"
+          ? t("rail.holdCapped")
+          : (err?.message ?? t("drinks.failed")),
+      );
     } finally {
       setSending(false);
     }
@@ -423,10 +444,16 @@ export function AddDrinks(props: {
           </div>
         </div>
       )}
-      {sent && (
-        <p className="small" role="status">
-          {t("drinks.sent")}
+      {notice ? (
+        <p className="small warn" role="status">
+          {notice}
         </p>
+      ) : (
+        sent && (
+          <p className="small" role="status">
+            {t("drinks.sent")}
+          </p>
+        )
       )}
 
       {orders.length > 0 && (

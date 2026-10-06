@@ -297,7 +297,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         texts: loadVenueTextSettings(config.env),
       });
       orderRoutes(scope, { clock });
-      draftRoutes(scope, { clock });
+      draftRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       filesRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       menuRoutes(scope, { clock, pool: gatePoolRef!, s3: () => (s3 ??= makeS3()) });
       checkInRoutes(scope, {

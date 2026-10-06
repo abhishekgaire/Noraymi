@@ -435,6 +435,52 @@ fakeRouteSets.push((fake) => {
     return { body: pi };
   });
 
+  // A bar tab's hold grows (M6-07; Stripe · incremental authorizations): `amount` is the new total,
+  // above the current one, on a held PaymentIntent whose card allows it. Stripe allows 10 per hold.
+  fake.route("POST", "/v1/payment_intents/:id/increment_authorization", (req) => {
+    const account = needAccount(req.account);
+    const pi = fake.get(req.params["id"]!, account, "payment_intent");
+    if (pi["status"] !== "requires_capture")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_intent_unexpected_state",
+        `This PaymentIntent's status is ${String(pi["status"])}; only a requires_capture PaymentIntent can be incremented.`,
+      );
+    const charge = fake.objects.get(String(pi["latest_charge"])) as
+      { payment_method_details: { card_present: Record<string, unknown> } } | undefined;
+    const present = charge?.payment_method_details.card_present;
+    if (!present?.["incremental_authorization_supported"])
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        null,
+        "This PaymentIntent doesn't support incremental authorizations.",
+      );
+    const amount = Number(req.body["amount"]);
+    if (!Number.isInteger(amount) || amount <= Number(pi["amount"]))
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "parameter_invalid_integer",
+        "The amount must be greater than the PaymentIntent's current amount.",
+      );
+    const used = Number(pi["_increments"] ?? 0);
+    if (used >= 10)
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        null,
+        "This PaymentIntent has reached the maximum number of incremental authorizations.",
+      );
+    pi["_increments"] = used + 1;
+    pi["amount"] = amount;
+    pi["amount_capturable"] = amount;
+    present["amount_authorized"] = amount;
+    fake.emit("connect", "payment_intent.amount_capturable_updated", pi, account);
+    return { body: pi };
+  });
+
   fake.route("POST", "/v1/terminal/readers/:id/process_payment_intent", (req) => {
     const account = needAccount(req.account);
     const reader = fake.get(req.params["id"]!, account, "terminal.reader");
@@ -533,13 +579,15 @@ fakeRouteSets.push((fake) => {
       tip: number;
       cardholderName: string | null;
       wallet: boolean;
+      noIncrements?: boolean;
     };
     // A bar tab's hold (M6-06): incremental and overcapture support, when it must be captured,
     // and the card saved from the tap (a phone's wallet saves none).
     const manual = pi["capture_method"] === "manual";
     const incremental =
       (pi["payment_method_options"] as { card_present?: Record<string, unknown> } | undefined)
-        ?.card_present?.["request_incremental_authorization_support"] === "true";
+        ?.card_present?.["request_incremental_authorization_support"] === "true" &&
+      !collected.noIncrements;
     const charge = fake.put({
       id: fakeId("ch"),
       object: "charge",
@@ -662,7 +710,13 @@ fakeRouteSets.push((fake) => {
     if (action["type"] === "collect_payment_method") {
       // A dip or swipe brings the cardholder's name; a tap or a phone doesn't (M6-06).
       const present = req.body["card_present"] as
-        { cardholder_name?: string; wallet?: string; fingerprint_on_confirm?: string } | undefined;
+        | {
+            cardholder_name?: string;
+            wallet?: string;
+            fingerprint_on_confirm?: string;
+            incremental?: string;
+          }
+        | undefined;
       // Whether a collected card carries its fingerprint before confirm is an open question
       // (M6-06): this fake-only switch reads it only once the hold is placed.
       const laterFingerprint = present?.fingerprint_on_confirm === "true";
@@ -684,7 +738,10 @@ fakeRouteSets.push((fake) => {
           ...(wallet ? { wallet: { type: "apple_pay" } } : {}),
         },
       })["id"];
-      pi["_collected"] = { number, funding, tip, cardholderName, wallet };
+      // Which cards' holds can grow is the issuer's call (M6-07): this fake-only switch reads a card
+      // whose hold can't (`card_present[incremental]=false`).
+      const noIncrements = present?.incremental === "false";
+      pi["_collected"] = { number, funding, tip, cardholderName, wallet, noIncrements };
       action["status"] = "succeeded";
       (action["collect_payment_method"] as Record<string, unknown>)["payment_method"] =
         pi["payment_method"];

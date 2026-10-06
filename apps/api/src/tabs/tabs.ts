@@ -3,6 +3,7 @@ import { businessDate } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { checkView } from "../rooms/checks.js";
 import { venueClock } from "../rooms/assignment.js";
+import { holdView, tabOfCheck } from "./hold.js";
 
 /**
  * Bar tabs as the bar POS lists them (M6-02; API · Bar tabs; Staff screens and
@@ -71,7 +72,18 @@ export async function listTabs(
   return Promise.all(
     rows.map(async (t) => {
       const view = await checkView(c, venueId, t.check_id, now);
-      const waiting = view.pending_fixes.find((f) => f.waiting_for)?.waiting_for ?? null;
+      // A round waiting for a manager after a declined hold raise (M6-07) also reads "Waiting for Andy".
+      const overHold = (
+        await c.query<{ name: string }>(
+          `select u.name from approvals a join users u on u.id = a.routed_to
+            where a.venue_id = $1 and a.kind = 'over_hold' and a.target_id = $2 and a.status = 'pending'
+            order by a.requested_at limit 1`,
+          [venueId, t.id],
+        )
+      ).rows[0]?.name;
+      const waiting =
+        view.pending_fixes.find((f) => f.waiting_for)?.waiting_for ?? overHold ?? null;
+      const held = await tabOfCheck(c, venueId, t.check_id);
       return {
         id: t.id,
         check_id: t.check_id,
@@ -82,6 +94,8 @@ export async function listTabs(
         label: t.label,
         card: t.card_last4 ? { brand: t.card_brand, last4: t.card_last4 } : null,
         hold_cents: t.hold_cents,
+        // The hold's headroom, a card that can't grow, a declined or unclear raise (M6-07).
+        hold: held ? await holdView(c, venueId, held, now) : null,
         owner: t.owner_id ? { id: t.owner_id, name: t.owner_name } : null,
         opened_at: t.opened_at,
         closed_at: t.closed_at,
