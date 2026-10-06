@@ -2,6 +2,7 @@ import { paymentByIntent } from "@west4/db";
 import { stripeEventHandlers, type StripeEventHandler } from "../stripe/webhooks.js";
 import { checkNow } from "./run.js";
 import { confirmCollected } from "./surcharge.js";
+import { checkClose } from "../tabs/close.js";
 
 /**
  * Payment events (M4-05; Stripe setup 6): each finds our payment by the
@@ -36,7 +37,21 @@ const intentOf = (object: Record<string, unknown> | undefined, type: string): st
 const handlePayment: StripeEventHandler = async (ctx) => {
   const data = ctx.event.payload["data"] as { object?: Record<string, unknown> } | undefined;
   const piId = intentOf(data?.object, ctx.event.type);
-  if (!piId) return;
+  if (!piId) {
+    // A question on the bar reader at a tab's close (M6-08): its answer is read through the closing.
+    const step = (
+      data?.object?.["action"] as
+        { collect_inputs?: { metadata?: Record<string, string> } } | undefined
+    )?.collect_inputs?.metadata?.["step"];
+    const closingId = step?.split(":")[0];
+    if (closingId && /^[0-9a-f-]{36}$/.test(closingId))
+      await checkClose(
+        { pool: ctx.pool, stripe: ctx.stripe, clock: { now: () => ctx.now } },
+        ctx.venueId,
+        closingId,
+      );
+    return;
+  }
   const payment = await ctx.inVenue((c) => paymentByIntent(c, ctx.venueId, piId));
   if (!payment) return;
   // A card collected on the surcharge path (M4-25): the fee, then confirm.

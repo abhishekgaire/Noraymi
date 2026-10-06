@@ -16,6 +16,7 @@ import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { QuickSale } from "./QuickSale.js";
 import { NewTab } from "./NewTab.js";
+import { CloseTab } from "./CloseTab.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -28,8 +29,9 @@ import { NewTab } from "./NewTab.js";
  * and 86. Right, the tab or room picked: its card and chips, what's on it,
  * and the round being rung, sent as a staff order accepted as it's placed.
  * New tab opens a tab card first, with the consent line read out (M6-06), and
- * is greyed out with the reason while the bar computer is offline. Close and
- * Move come with M6-07 to M6-13.
+ * is greyed out with the reason while the bar computer is offline. Close tab
+ * then Close to the card puts the tip on the bar reader (M6-08); Move comes
+ * with M6-13.
  */
 interface Variant {
   readonly id: string;
@@ -151,6 +153,8 @@ export function Rail() {
   const [filter, setFilter] = useState<"all" | "mine" | "rooms">("all");
   const [picked, setPicked] = useState<Picked>({ kind: "quick" });
   const [newTab, setNewTab] = useState(false);
+  /** Close tab (M6-08): the picked tab's close panel is open. */
+  const [closingTab, setClosingTab] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
   const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
@@ -327,6 +331,7 @@ export function Rail() {
     setLeftOut(null);
     setNotice(null);
     setNewTab(false);
+    setClosingTab(null);
     setPicked(next);
   };
   /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
@@ -862,21 +867,48 @@ export function Rail() {
                     )}
                   </strong>
                 </p>
-                {tab && (
-                  <button
-                    type="button"
-                    className="secondary repeat"
-                    onClick={() => void repeat(tab.id)}
-                  >
-                    {t("rail.repeat")}
-                  </button>
+                {tab && closingTab === tab.id ? (
+                  <CloseTab
+                    key={tab.id}
+                    venueId={venueId}
+                    tabId={tab.id}
+                    card={tab.card ? `${tab.card.brand ?? ""} ··${tab.card.last4}`.trim() : null}
+                    totalCents={tab.totals?.total_cents ?? 0}
+                    resume={tab.state === "tipping"}
+                    onClose={() => {
+                      setClosingTab(null);
+                      void load();
+                    }}
+                    onChanged={() => void load()}
+                  />
+                ) : (
+                  tab && (
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="secondary repeat"
+                        onClick={() => void repeat(tab.id)}
+                      >
+                        {t("rail.repeat")}
+                      </button>
+                      {tab.hold && (tab.state === "open" || tab.state === "tipping") && (
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => setClosingTab(tab.id)}
+                        >
+                          {t("closeTab.title")}
+                        </button>
+                      )}
+                    </div>
+                  )
                 )}
                 {leftOut && (
                   <p className="small" role="status">
                     {leftOut}
                   </p>
                 )}
-                {checkId && (
+                {checkId && closingTab !== tab?.id && (
                   <AddDrinks
                     refresh={draftRefresh}
                     key={checkId}

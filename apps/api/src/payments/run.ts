@@ -50,8 +50,10 @@ import {
   collectForTab,
   createTabCustomer,
   createTabIntent,
+  captureHold,
   incrementHold,
 } from "../stripe/tabs.js";
+import { TAB_CLOSE_CHECK_KIND, closeCheckJob } from "../tabs/close.js";
 import { TAB_RELEASE_KIND, openingOfPayment } from "../tabs/open.js";
 
 /**
@@ -379,6 +381,36 @@ export async function runAttempt(
       return applied;
     }
   }
+  if (attempt.action === "capture") {
+    // Closing a bar tab (M6-08): the total plus the tip in one call, keyed with the amount.
+    try {
+      const pi = await captureHold(
+        deps.stripe,
+        account,
+        { piId: payment.stripe_pi_id!, amountCents: attempt.amount_cents },
+        attempt.idem_key,
+      );
+      await deps.stripe.step("after-capture");
+      return record({ intent: observeIntent(pi) });
+    } catch (e) {
+      if (e instanceof StripeError)
+        return record({ attempt: { state: "failed", code: e.code ?? e.type } });
+      if (!(e instanceof StripeUnknownResult)) throw e;
+      const applied = await record({ attempt: { state: "unknown" } });
+      await inVenue((c) =>
+        enqueueCheck(
+          c,
+          venueId,
+          paymentId,
+          attemptNo,
+          now.add({ seconds: POLL_EVERY_S }),
+          1,
+          now.toString(),
+        ),
+      );
+      return applied;
+    }
+  }
   try {
     let piId = payment.stripe_pi_id;
     if (!piId) {
@@ -540,7 +572,9 @@ export async function cancelPayment(
   const { payment, attempt, account } = ctx;
   // A tab's raise (M6-07) never cancels the hold it was growing: read Stripe once more, and a raise
   // still unclear ends as not raised, with the old hold standing.
-  if (attempt?.action === "increment") {
+  // A tab's capture (M6-08) never cancels the hold either: still unclear after the read, it wasn't
+  // captured, and the tab waits for a manager; it's never sent again.
+  if (attempt?.action === "increment" || attempt?.action === "capture") {
     if (!openAttempt(attempt.state)) return { changed: false, payment, attempt };
     const read = await checkNow(deps, venueId, paymentId, source);
     if (read?.attempt && openAttempt(read.attempt.state))
@@ -549,7 +583,12 @@ export async function cancelPayment(
           c,
           venueId,
           paymentId,
-          { attempt: { state: "canceled", code: "not_raised" } },
+          {
+            attempt: {
+              state: "canceled",
+              code: attempt.action === "capture" ? "not_captured" : "not_raised",
+            },
+          },
           source,
           null,
           deps.clock.now(),
@@ -628,7 +667,9 @@ export async function pollAttempt(
   if (!applied?.attempt || applied.attempt.attempt_no !== payload.attempt_no) return;
   const { attempt, payment } = applied;
   // A tab's raise (M6-07) polls on a hold that's already placed.
-  const raising = attempt.action === "increment" && payment.status === "authorized";
+  const raising =
+    (attempt.action === "increment" || attempt.action === "capture") &&
+    payment.status === "authorized";
   if (!openAttempt(attempt.state) || (payment.status !== "pending" && !raising)) return;
   const inVenue = venueTx(deps, venueId, `payment:${payment.id}:poll`);
   const now = deps.clock.now();
@@ -677,6 +718,10 @@ export function makePaymentHandlers(deps: PaymentDeps): Record<string, JobHandle
     [TAB_RELEASE_KIND]: async (job) => {
       const p = job.job.payload as { payment_id: string };
       await cancelPayment(deps, job.job.venue_id, p.payment_id, "api");
+    },
+    // Closing a bar tab (M6-08): the reader's tip screen, read every 2 seconds while it asks.
+    [TAB_CLOSE_CHECK_KIND]: async (job) => {
+      await closeCheckJob(deps, job.job.venue_id, job.job.payload as never);
     },
     // A declined card on file (M4-17): cancel it, and text the guest a pay link for the balance.
     [ON_FILE_DECLINED_KIND]: async (job) => {

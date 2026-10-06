@@ -237,7 +237,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-08 · Close a tab with the tip on the reader
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6-07; M4-07, M4-19
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#bar-tab-with-a-growing-hold) step 5; [Stripe setup](../spec/06-stripe-setup.md) step 4 (`collect_inputs`); [Money rules](../spec/05-money-rules.md) rules 9 and 10; [API](../spec/08-api.md) (`POST /tabs/{t}/close`); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Close to the held card, Receipt); [milestones: GA-M11](../milestones.md#must-fix-items-and-where-they-close)
@@ -250,14 +250,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The tip the guest picked on the reader (the choice, amount, time and reader) is kept with the payment as dispute evidence.
   - With the card fee on, a surcharge can't rise with a growing hold, so such a venue closes its tabs with a fresh tap (M4-25's surcharge path).
 - **Acceptance:**
-  - [ ] Closing Jess P.'s $32.66 to her card offers $5.40, $6.00 and $6.60, Custom and No tip; picking $6.00 captures $38.66 in one call, and the tab is `captured`.
-  - [ ] Closing a tab with a tip takes 2 taps on the tab (Close tab, Close to the card) and under 20 seconds with the guest.
-  - [ ] Luis M.'s $63.15 with a 22% tip ($12.76) captures $75.91 on his $80.00 hold with no raise; a total over $130.00 (his hold plus $50) raises first.
-  - [ ] A capture that times out ends as one capture after the reconciler, never two.
-  - [ ] Tariq A.'s tab after Andy approves the void ($9.80) offers $1, $2 and $3.
-  - [ ] With the reader offline at close, the slip is offered.
+  - [x] Closing Jess P.'s $32.66 to her card offers $5.40, $6.00 and $6.60, Custom and No tip; picking $6.00 captures $38.66 in one call, and the tab is `captured`.
+  - [x] Closing a tab with a tip takes 2 taps on the tab (Close tab, Close to the card) and under 20 seconds with the guest.
+  - [x] Luis M.'s $63.15 with a 22% tip ($12.76) captures $75.91 on his $80.00 hold with no raise; a total over $130.00 (his hold plus $50) raises first.
+  - [x] A capture that times out ends as one capture after the reconciler, never two.
+  - [x] Tariq A.'s tab after Andy approves the void ($9.80) offers $1, $2 and $3.
+  - [x] With the reader offline at close, the slip is offered.
 - **Tests:** the money-cases groups `tips` (`tip_choices_t1` to `tip_choices_t5`, `tip_choices_t5_after_void`, `tip_choices_999_fixed`, `tip_choices_1001_percent`) and `bar_tabs`; sandbox captures with overcapture on simulated readers; chaos (killed between the capture's success and our record).
 - **Notes:** Open question: does a tip picked through `collect_inputs`, with no signed slip, hold up in a dispute like a signed receipt (Stripe, M6)? Cautious default: keep the reader's answer as evidence, and keep the slip path one setting away (`pos.barTabTip`). A tab of exactly $10.00 follows Stripe's smart tip threshold (money-cases ambiguity A3). Whether a surcharge can follow a growing hold is open with Stripe (not the gate; the fee is off at West 4).
+  - Built: `POST /tabs/{t}/close { tip: reader | slip | none, reader_id }` (apps/api/src/tabs/close.ts) finalizes the check, moves the tab to `tipping` and writes a `tab_closings` row (migration 0081, added to the data model): the bar reader gets `collect_inputs` with the venue's three choices of the drinks before tax, each with its amount ("$6.00 (20%)", or $1, $2 and $3 under $10, via `tipChoices`), then Custom and No tip. Custom asks a number on the reader. The answer is read every 2 s by the `tab.close_check` job, by `/close/check-status` (the screen polls each second) and by the reader's webhook; it's matched to its question by a step tag in the action's metadata.
+  - The tip is recorded with set_tip() and the total plus the tip captured in one call (`amount_to_capture`, keyed `<payment_id>:capture:<attempt_no>:<amount>`), a new `capture` action in the payment run. `closePlan` (packages/rules/src/hold.ts) captures up to the hold plus the overcapture allowance; above it the hold is raised to the amount first (closing may use the 2 attempts the growing hold keeps back), then captured. The guest's choice, amount, time and reader stay in `tab_closings` as dispute evidence. A capture whose answer is lost is "Checking with Stripe · don't retry" and is read by the poller and the reconciler, never sent again; a capture still unclear after 2 minutes ends `not_captured` and never cancels the hold.
+  - Cancel on the reader (or on the screen, `/close/cancel`) puts the tab back to `open` and its check takes drinks again; while the reader asks, the check is finalized, so nothing more goes on the tab. No answer in 2 minutes: the question is taken down and the tab is `open` again with "Print the slip" offered (cautious default until M6-09 moves it to the slip by itself). An offline reader answers `503 reader_offline` with `slip: true`, and the bar POS offers "Print the slip".
+  - Receipt (`/close/receipt`): Text puts a phone question on the reader and texts the M4-19 receipt to it; Print prints at the bar; No receipt. A gratuity on the tab (only where the venue adds one to bar tabs) skips the tip screen, and the receipt already reads "Gratuity included". With the card fee on, Close to the card answers `card_fee_fresh_tap` (close with a new tap, M4-25's path).
+  - The bar POS: Close tab, then "Close to the card · Visa ··4417" (2 taps), the reader's choices shown while it waits, Cancel, "Checking with Stripe · don't retry", Paid with the tip, then Text, Print or No receipt (CloseTab.tsx, English and Spanish).
+  - Fake Stripe: `capture` with overcapture (50% or $50), `collect_inputs`, and the test helpers `succeed_input_collection` (fake-only `selection` and `value` pick the guest's answer) and `timeout_input_collection`.
+  - Flagged (cautious defaults): a custom tip is typed in whole dollars, since the reader's numeric input takes digits only; a tab that a raise can't cover becomes `capture_failed` with nothing captured and the hold standing, and putting the rest on the saved card comes with M6-16/M6-17 (as do the manager's list and alert); the slip path only moves the tab to `awaiting_tip` here, and printing it, `tab.awaiting_tip` and Tips to enter are M6-09; the no-tip path (`tip: none`) also passes through `tipping`, since the diagram has no open → captured move. Tariq A.'s $9.80 is tested by voiding the Large bucket on a fresh tab with Andy's approval; the card-fee refusal isn't covered by a test (the fee is off at West 4). Sandbox captures on simulated readers wait for staging (M6-27).
+  - Tests: apps/api/src/routes/tab-close.int.test.ts (Jess P.'s choices and $38.66 in one capture, the evidence, Print and Text receipts, Luis M.'s $75.91 with no raise and a $133.15 close that raises first, Tariq A.'s $1/$2/$3, Cancel, the 2-minute timeout, the offline reader and slip, a lost answer and a crash after Stripe captured, each ending as one capture); packages/rules hold.test.ts (`closePlan`) and tips.test.ts (the `tips` group); e2e "Close tab: Close to the card…" (2 taps, under 20 s).
 
 ### M6-09 · Fall back to the paper slip, and enter tips from Tips to enter
 

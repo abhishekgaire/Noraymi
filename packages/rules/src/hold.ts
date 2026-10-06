@@ -82,3 +82,24 @@ export function holdLeftCents(card: HoldCard, neededCents: number): Cents {
   const limit = canGrow(card) ? card.holdCents : capCents(card);
   return cents(Math.max(0, limit - neededCents));
 }
+
+/**
+ * Closing a tab on its hold (M6-08; Payment flows step 5): the total plus the tip is captured in one call
+ * when it's within what Stripe lets a bar capture, the hold plus the overcapture allowance (50% or $50
+ * more, whichever is greater). Above that, a hold that can still grow is raised to the amount first;
+ * one that can't leaves the tab for a manager (`capture_failed`).
+ */
+export type ClosePlan =
+  | { readonly kind: "capture"; readonly captureCents: Cents }
+  | { readonly kind: "raise"; readonly targetCents: Cents; readonly captureCents: Cents }
+  | { readonly kind: "over"; readonly captureCents: Cents; readonly overCents: Cents };
+
+export function closePlan(card: HoldCard, captureCents: number): ClosePlan {
+  const amount = cents(captureCents);
+  const cap = capCents(card);
+  if (amount <= cap) return { kind: "capture", captureCents: amount };
+  // Closing may use the 2 attempts the growing hold keeps back (Stripe allows 10).
+  if (card.incrementalSupported && card.incrementsUsed < STRIPE_INCREMENT_LIMIT)
+    return { kind: "raise", targetCents: amount, captureCents: amount };
+  return { kind: "over", captureCents: amount, overCents: cents(amount - cap) };
+}

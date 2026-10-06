@@ -1419,3 +1419,26 @@ button.danger {
 .new-tab .labels > span {
   flex-basis: 100%;
 }
+
+/* Close tab (M6-08): the tip choices the bar reader shows, and the receipt step. */
+.close-tab .tip-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.close-tab .tip-choices li {
+  border: 1px solid var(--line, #ccc);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.close-tab .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.close-tab .actions button {
+  min-height: 44px;
+}

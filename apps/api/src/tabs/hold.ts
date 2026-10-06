@@ -64,7 +64,7 @@ export interface TabHold {
   readonly flagged_over_at: string | null;
 }
 
-const TAB_HOLD_COLS = `t.id as tab_id, t.check_id, t.name, t.state, t.hold_cents, t.payment_id,
+export const TAB_HOLD_COLS = `t.id as tab_id, t.check_id, t.name, t.state, t.hold_cents, t.payment_id,
   p.status as payment_status, p.incremental_supported, p.overcapture_supported,
   coalesce(p.increments_used, 0)::int as increments_used,
   to_json(t.hold_declined_at) #>> '{}' as hold_declined_at,

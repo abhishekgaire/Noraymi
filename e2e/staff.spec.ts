@@ -3996,6 +3996,99 @@ test("the hold grows: a round past the $50.00 hold raises it to $80.00, and the 
     await db.end();
   }
 });
+test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.66 in 2 taps under 20 s", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const ids = (
+      await db.query<{ reader: string; account: string }>(
+        `select d.stripe_reader_id as reader, o.stripe_account_id as account
+           from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+          where d.name = 'Bar S710'`,
+      )
+    ).rows[0]!;
+    const headers = {
+      authorization: "Bearer rk_test_fake_payments",
+      "stripe-account": ids.account,
+    };
+    const readerAction = async () => {
+      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+        headers,
+      });
+      const action = ((await r.json()) as { action?: { type?: string; status?: string } }).action;
+      return `${action?.type ?? ""}:${action?.status ?? ""}`;
+    };
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect.poll(readerAction).toBe("collect_payment_method:in_progress");
+    const tapped = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
+        form: { "card_present[number]": "4000003800000008" },
+      },
+    );
+    expect(tapped.ok(), await tapped.text()).toBe(true);
+    await panel.getByRole("button", { name: "Seat 7" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 7");
+
+    // Jess P.'s round: 2 × Modelo and a Jäger Bomb, $32.66.
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("tab", { name: "Shots" }).click();
+    await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await expect(panel.locator(".total").first()).toContainText("$32.66");
+
+    // Two taps on the tab, then the guest tips on the reader.
+    const started = Date.now();
+    await panel.getByRole("button", { name: "Close tab" }).click();
+    await panel.getByRole("button", { name: /^Close to the card/ }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    await expect(closing).toContainText("Waiting for the tip on the bar reader");
+    const choices = closing.getByRole("list", { name: "Tip choices on the reader" });
+    await expect(choices.getByRole("listitem")).toHaveText([
+      "$5.40",
+      "$6.00",
+      "$6.60",
+      "Custom",
+      "No tip",
+    ]);
+    await expect.poll(readerAction).toBe("collect_inputs:in_progress");
+    const picked = await request.post(
+      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-tip-${Date.now()}-${Math.random()}` },
+        form: { selection: "tip_1" },
+      },
+    );
+    expect(picked.ok(), await picked.text()).toBe(true);
+    await expect(closing).toContainText("Paid $38.66 with a tip of $6.00");
+    expect(Date.now() - started).toBeLessThan(20_000);
+    const pay = (
+      await db.query<{ status: string; amount: number; tip: number; tab: string }>(
+        `select p.status, p.amount_cents::int as amount, p.tip_cents::int as tip, t.state as tab
+           from tabs t join payments p on p.id = t.payment_id where t.name = 'Seat 7'`,
+      )
+    ).rows[0]!;
+    expect(pay).toEqual({ status: "captured", amount: 3266, tip: 600, tab: "captured" });
+
+    // The receipt: Print, then Done; the tab is in Closed tonight.
+    await closing.getByRole("button", { name: "Print" }).click();
+    await closing.getByRole("button", { name: "Done" }).click();
+    await expect(panel.getByRole("button", { name: "Close tab" })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});
 const presentCard = async (
   request: APIRequestContext,
   db: pg.Client,

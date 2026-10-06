@@ -29,6 +29,7 @@ import { roomOfCheck } from "../rooms/guest-bill.js";
 import { recordSurcharge } from "./surcharge.js";
 import { settleTabOpening } from "../tabs/open.js";
 import { settleIncrement } from "../tabs/hold.js";
+import { settleClose } from "../tabs/close.js";
 
 /**
  * The one function that records what Stripe says about a payment (M4-05):
@@ -147,6 +148,24 @@ export async function applyObservation(
     (await settleIncrement(c, venueId, paymentId, intent ?? null, now ?? Temporal.Now.instant()))
   )
     changed = true;
+
+  // Closing a bar tab (M6-08): a raise that reached the total writes the capture; a capture that went
+  // through closes the tab, and one that failed leaves it for a manager.
+  if (attempt?.action === "increment" || attempt?.action === "capture") {
+    const latest = await latestAttempt(c, venueId, paymentId);
+    if (
+      latest &&
+      latest.attempt_no === attempt.attempt_no &&
+      (await settleClose(
+        c,
+        venueId,
+        (await paymentById(c, venueId, paymentId))!,
+        latest,
+        now ?? Temporal.Now.instant(),
+      ))
+    )
+      changed = true;
+  }
 
   const payment = (await paymentById(c, venueId, paymentId))!;
   // A bar tab's opening hold (M6-06): the tab opens once the hold is placed, or nothing does.

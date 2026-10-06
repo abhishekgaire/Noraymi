@@ -481,6 +481,132 @@ fakeRouteSets.push((fake) => {
     return { body: pi };
   });
 
+  // Closing a bar tab (M6-08; Stripe · place a hold, overcapture): `amount_to_capture` may pass the hold
+  // on a card whose charge allows overcapture, by 50% of the hold or $50, whichever is greater.
+  fake.route("POST", "/v1/payment_intents/:id/capture", (req) => {
+    const account = needAccount(req.account);
+    const pi = fake.get(req.params["id"]!, account, "payment_intent");
+    if (pi["status"] !== "requires_capture")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_intent_unexpected_state",
+        `This PaymentIntent could not be captured because it has a status of ${String(pi["status"])}. Only a PaymentIntent with one of the following statuses may be captured: requires_capture.`,
+      );
+    const capturable = Number(pi["amount_capturable"] ?? pi["amount"]);
+    const amount =
+      req.body["amount_to_capture"] === undefined
+        ? capturable
+        : Number(req.body["amount_to_capture"]);
+    const charge = fake.objects.get(String(pi["latest_charge"])) as
+      | {
+          amount: number;
+          amount_captured?: number;
+          captured?: boolean;
+          payment_method_details: { card_present: Record<string, unknown> };
+        }
+      | undefined;
+    const over = charge?.payment_method_details.card_present["overcapture_supported"] === true;
+    const limit = over ? capturable + Math.max(Math.floor((capturable + 1) / 2), 5000) : capturable;
+    if (!Number.isInteger(amount) || amount <= 0 || amount > limit)
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "amount_too_large",
+        "The amount to capture is more than this PaymentIntent can capture.",
+      );
+    pi["status"] = "succeeded";
+    pi["amount_received"] = amount;
+    pi["amount_capturable"] = 0;
+    pi["_captures"] = Number(pi["_captures"] ?? 0) + 1;
+    if (charge) {
+      charge.amount_captured = amount;
+      charge.captured = true;
+    }
+    fake.emit("connect", "payment_intent.succeeded", pi, account);
+    return { body: pi };
+  });
+
+  // Questions on the reader's screen (M6-08; Stripe · collect inputs, server-driven): a selection, a
+  // number or a phone number; the answer comes back on the reader's action.
+  fake.route("POST", "/v1/terminal/readers/:id/collect_inputs", (req) => {
+    const account = needAccount(req.account);
+    const reader = fake.get(req.params["id"]!, account, "terminal.reader");
+    if (reader["status"] !== "online")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_offline",
+        "Reader is currently offline.",
+      );
+    const action = reader["action"] as { status?: string } | null;
+    if (action?.status === "in_progress")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_busy",
+        "Reader is currently busy.",
+      );
+    const inputs = req.body["inputs"];
+    if (!Array.isArray(inputs) || inputs.length === 0)
+      throw new FakeError(400, "invalid_request_error", "parameter_missing", "Missing inputs.");
+    reader["action"] = {
+      type: "collect_inputs",
+      status: "in_progress",
+      failure_code: null,
+      collect_inputs: { inputs, metadata: req.body["metadata"] ?? {} },
+    };
+    return { body: reader };
+  });
+
+  // Stripe's test helper for a simulated reader's inputs. Which choice the guest taps, or what they
+  // type, is fake-only (`selection`, `value`); without them the first choice is taken.
+  fake.route("POST", "/v1/test_helpers/terminal/readers/:id/succeed_input_collection", (req) => {
+    const account = needAccount(req.account);
+    const reader = fake.get(req.params["id"]!, account, "terminal.reader");
+    const action = reader["action"] as Record<string, unknown> | null;
+    if (!action || action["type"] !== "collect_inputs" || action["status"] !== "in_progress")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_action_not_in_progress",
+        "No input collection in progress.",
+      );
+    const collect = action["collect_inputs"] as { inputs: Record<string, unknown>[] };
+    collect.inputs = collect.inputs.map((input) => {
+      if (input["type"] === "selection") {
+        const choices = (input["selection"] as { choices: { id: string; text: string }[] }).choices;
+        const picked = choices.find((x) => x.id === req.body["selection"]) ?? choices[0]!;
+        return {
+          ...input,
+          skipped: false,
+          selection: { choices, id: picked.id, text: picked.text },
+        };
+      }
+      const type = String(input["type"]);
+      return { ...input, skipped: false, [type]: { value: String(req.body["value"] ?? "") } };
+    });
+    action["status"] = "succeeded";
+    fake.emit("readers", "terminal.reader.action_succeeded", reader, account);
+    return { body: reader };
+  });
+  fake.route("POST", "/v1/test_helpers/terminal/readers/:id/timeout_input_collection", (req) => {
+    const account = needAccount(req.account);
+    const reader = fake.get(req.params["id"]!, account, "terminal.reader");
+    const action = reader["action"] as Record<string, unknown> | null;
+    if (!action || action["status"] !== "in_progress")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "terminal_reader_action_not_in_progress",
+        "No action in progress.",
+      );
+    action["status"] = "failed";
+    action["failure_code"] = "terminal_reader_timeout";
+    fake.emit("readers", "terminal.reader.action_failed", reader, account);
+    return { body: reader };
+  });
+
   fake.route("POST", "/v1/terminal/readers/:id/process_payment_intent", (req) => {
     const account = needAccount(req.account);
     const reader = fake.get(req.params["id"]!, account, "terminal.reader");

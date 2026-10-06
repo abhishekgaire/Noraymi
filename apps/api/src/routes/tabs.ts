@@ -23,6 +23,17 @@ import {
   type PaymentDeps,
 } from "../payments/run.js";
 import { confirmCollected } from "../payments/surcharge.js";
+import type { ReceiptDeps } from "../receipts/send.js";
+import {
+  askReader,
+  cancelClose,
+  checkClose,
+  chooseReceipt,
+  closeView,
+  driveClose,
+  latestClosing,
+  startClose,
+} from "../tabs/close.js";
 import { latestAttempt, paymentById } from "@west4/db";
 import { screenState } from "../payments/machine.js";
 import {
@@ -47,7 +58,13 @@ import {
  *   POST /v1/venues/{v}/tabs/openings/{o}/check-status   read Stripe now: the card checked, the hold confirmed
  *   POST /v1/venues/{v}/tabs/openings/{o}/name           Open: { name, label } typed or tapped while the guest taps
  *   POST /v1/venues/{v}/tabs/openings/{o}/cancel         the card never came: nothing held, nothing opened
- * Closing and the rest of the tab routes come with M6-07 onwards.
+ *   POST /v1/venues/{v}/tabs/{t}/close            { tip: reader | slip | none, reader_id? }: Close (M6-08); the reader
+ *                                                asks for the tip, or the hold is captured at once (slip: M6-09)
+ *   GET  /v1/venues/{v}/tabs/{t}/close            the tab's latest Close: the tip asked or picked, the capture
+ *   POST /v1/venues/{v}/tabs/{t}/close/check-status   read the reader and Stripe now
+ *   POST /v1/venues/{v}/tabs/{t}/close/cancel     Cancel while the reader asks: the tab is open again
+ *   POST /v1/venues/{v}/tabs/{t}/close/receipt    { choice: text | print | none }: text asks the guest's number
+ *                                                on the reader
  */
 const STATES =
   /^(open|tipping|awaiting_tip|captured|walkout_captured|capture_failed|closed)(,(open|tipping|awaiting_tip|captured|walkout_captured|capture_failed|closed))*$/;
@@ -56,7 +73,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function tabRoutes(
   app: FastifyInstance,
-  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient },
+  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient; receipts?: ReceiptDeps },
 ): void {
   const deps = (): PaymentDeps => ({
     pool: options.pool,
@@ -386,6 +403,166 @@ export function tabRoutes(
         }),
       );
       return view(request, o);
+    },
+  );
+
+  // Close (M6-08): the tip on the reader, then the hold captured with it in one call.
+  const tabParam = (t: string) => {
+    if (!uuid.test(t)) throw new ApiError("not_found", "no such tab");
+    return t;
+  };
+  const closing = async (request: FastifyRequest, tabId: string) =>
+    request.inVenue(async (c) => {
+      const k = await c.query("select 1 from tabs where venue_id = $1 and id = $2", [
+        request.venueId,
+        tabId,
+      ]);
+      if (k.rowCount === 0) throw new ApiError("not_found", "no such tab");
+      const found = await latestClosing(c, request.venueId!, tabId);
+      if (!found) throw new ApiError("not_found", "this tab hasn't been closed");
+      return found;
+    });
+  const closed = async (request: FastifyRequest, tabId: string) =>
+    request.inVenue(async (c) => {
+      const found = await latestClosing(c, request.venueId!, tabId);
+      if (!found) throw new ApiError("not_found", "this tab hasn't been closed");
+      return closeView(c, request.venueId!, found);
+    });
+  const closeBody = z
+    .object({ tip: z.enum(["reader", "slip", "none"]), reader_id: id.nullable().optional() })
+    .strict();
+  const closeRoute = route({
+    principals: ["owner_manager", "staff"],
+    module: "bar_tabs",
+    action: "pos.use",
+    idempotency: "required",
+  });
+
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/close",
+    { config: closeRoute },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const parsed = closeBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { tip: reader | slip | none, reader_id }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const venueId = request.venueId!;
+      const payments = deps();
+      const started = await request.inVenue((c) =>
+        startClose(c, venueId, tabId, {
+          path: parsed.data.tip,
+          readerDeviceId: parsed.data.reader_id ?? null,
+          userId: p.userId,
+          now: options.clock.now(),
+          readerQuiet: quiet,
+        }),
+      );
+      if (started.kind === "slip")
+        return request.inVenue(async (c) => {
+          const t = await c.query<{ state: string }>(
+            "select state from tabs where venue_id = $1 and id = $2",
+            [venueId, tabId],
+          );
+          return { tab_id: tabId, tab_state: t.rows[0]!.state, state: "slip" };
+        });
+      if (started.kind === "run") await driveClose(payments, venueId, started.paymentId);
+      else {
+        // The reader asks outside any transaction; one that can't puts the tab back to open.
+        const asked = await askReader(payments, venueId, started.closingId);
+        if (asked === "offline")
+          throw new ApiError(
+            "reader_offline",
+            "the bar reader is offline: print the slip instead",
+            {
+              details: { reader_id: parsed.data.reader_id, slip: true },
+            },
+          );
+        if (asked === "busy")
+          throw new ApiError("reader_busy", "another payment is on the bar reader");
+      }
+      return closed(request, tabId);
+    },
+  );
+
+  app.get<{ Params: { venueId: string; t: string } }>(
+    "/v1/venues/:venueId/tabs/:t/close",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+      }),
+    },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      await closing(request, tabId);
+      return closed(request, tabId);
+    },
+  );
+
+  const closeStep = route({
+    principals: ["owner_manager", "staff"],
+    module: "bar_tabs",
+    action: "pos.use",
+    idempotency: "optional",
+  });
+  app.post<{ Params: { venueId: string; t: string } }>(
+    "/v1/venues/:venueId/tabs/:t/close/check-status",
+    { config: closeStep },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const found = await closing(request, tabId);
+      const venueId = request.venueId!;
+      await checkClose({ ...deps(), receipts: options.receipts ?? null }, venueId, found.id);
+      // A capture or raise that's unclear is read from Stripe too.
+      await checkNow(deps(), venueId, found.payment_id, "api").catch(() => undefined);
+      return closed(request, tabId);
+    },
+  );
+
+  app.post<{ Params: { venueId: string; t: string } }>(
+    "/v1/venues/:venueId/tabs/:t/close/cancel",
+    { config: closeStep },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const found = await closing(request, tabId);
+      await cancelClose(deps(), request.venueId!, found.id);
+      return closed(request, tabId);
+    },
+  );
+
+  const receiptBody = z.object({ choice: z.enum(["text", "print", "none"]) }).strict();
+  app.post<{ Params: { venueId: string; t: string }; Body: unknown }>(
+    "/v1/venues/:venueId/tabs/:t/close/receipt",
+    { config: closeStep },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const parsed = receiptBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { choice: text | print | none }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      if (!options.receipts) throw new ApiError("internal", "receipts aren't set up here");
+      const found = await closing(request, tabId);
+      const venueId = request.venueId!;
+      await request.inVenue((c) =>
+        chooseReceipt(c, venueId, found.id, {
+          choice: parsed.data.choice,
+          receipts: options.receipts!,
+          userId: p.userId,
+          now: options.clock.now(),
+        }),
+      );
+      if (parsed.data.choice === "text") {
+        const asked = await askReader(deps(), venueId, found.id);
+        if (asked === "offline")
+          throw new ApiError("reader_offline", "the bar reader is offline: print it instead");
+        if (asked === "busy")
+          throw new ApiError("reader_busy", "another payment is on the bar reader");
+      }
+      return closed(request, tabId);
     },
   );
 }

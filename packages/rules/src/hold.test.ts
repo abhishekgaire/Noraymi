@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INCREMENT_BUDGET,
   capCents,
+  closePlan,
   holdDecision,
   holdLeftCents,
   holdNeededCents,
@@ -94,5 +95,41 @@ describe("the growing hold", () => {
       capped: true,
     });
     expect(holdDecision(card({ incrementsUsed: 7 }), 6000).kind).toBe("raise");
+  });
+});
+
+describe("closePlan · closing on the hold (M6-08)", () => {
+  it("Luis M.: $63.15 with a 22% tip ($12.76) captures $75.91 on his $80.00 hold with no raise", () => {
+    expect(closePlan(card({ holdCents: 8000, incrementsUsed: 1 }), 6315 + 1276)).toEqual({
+      kind: "capture",
+      captureCents: 7591,
+    });
+  });
+  it("up to his hold plus $50 ($130.00) is captured without a raise; a cent over raises first", () => {
+    const luis = card({ holdCents: 8000, incrementsUsed: 1 });
+    expect(closePlan(luis, 13000).kind).toBe("capture");
+    expect(closePlan(luis, 13001)).toEqual({
+      kind: "raise",
+      targetCents: 13001,
+      captureCents: 13001,
+    });
+  });
+  it("50% is the allowance on a hold over $100", () => {
+    expect(closePlan(card({ holdCents: 20000 }), 30000).kind).toBe("capture");
+    expect(closePlan(card({ holdCents: 20000 }), 30001).kind).toBe("raise");
+  });
+  it("closing may use the two attempts kept back, but never Stripe's eleventh", () => {
+    expect(closePlan(card({ incrementsUsed: INCREMENT_BUDGET + 1 }), 20000).kind).toBe("raise");
+    expect(closePlan(card({ incrementsUsed: 10 }), 20000)).toEqual({
+      kind: "over",
+      captureCents: 20000,
+      overCents: 10000,
+    });
+  });
+  it("a card that can't grow and is past its cap is over", () => {
+    expect(closePlan(card({ incrementalSupported: false }), 10001)).toMatchObject({
+      kind: "over",
+      overCents: 1,
+    });
   });
 });

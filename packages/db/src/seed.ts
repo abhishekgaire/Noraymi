@@ -884,6 +884,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "device_heartbeats",
       "print_jobs",
+      // A tab's close names its reader (M6-08).
+      "tab_closings",
       "devices",
       "closures",
       "door_counts",

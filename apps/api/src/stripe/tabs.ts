@@ -131,3 +131,124 @@ export async function incrementHold(
     { account, idempotencyKey, params: { amount: input.targetCents } },
   );
 }
+
+/**
+ * Closes a tab on its hold (M6-08; Payment flows step 5): the total plus the tip in one call. The key is
+ * the attempt's, `<payment_id>:capture:<attempt_no>:<amount>`, so a retried call can only ever capture
+ * the same amount.
+ */
+export async function captureHold(
+  stripe: StripeClient,
+  account: string,
+  input: { piId: string; amountCents: number },
+  idempotencyKey: string,
+): Promise<StripeIntent> {
+  return stripe.call(
+    "payments",
+    "POST",
+    `/v1/payment_intents/${encodeURIComponent(input.piId)}/capture`,
+    {
+      account,
+      idempotencyKey,
+      params: { amount_to_capture: input.amountCents, expand: ["latest_charge"] },
+    },
+  );
+}
+
+/** One question on the reader's screen (Stripe · collect inputs): a selection, a number or a phone. */
+export type ReaderInput =
+  | {
+      readonly type: "selection";
+      readonly title: string;
+      readonly choices: readonly { readonly id: string; readonly text: string }[];
+    }
+  | { readonly type: "numeric" | "phone"; readonly title: string; readonly description?: string };
+
+/** What the reader's collect_inputs action answered, once it's done. */
+export interface InputsAnswer {
+  readonly status: "in_progress" | "succeeded" | "failed";
+  readonly failureCode: string | null;
+  /** Our own tag on the question (metadata), so an answer is matched to the step that asked it. */
+  readonly step: string | null;
+  /** The choice's id, or the number or phone typed. */
+  readonly value: string | null;
+}
+
+export async function collectInputs(
+  stripe: StripeClient,
+  account: string,
+  input: { readerId: string; question: ReaderInput; step: string },
+  idempotencyKey: string,
+): Promise<unknown> {
+  const q = input.question;
+  return stripe.call(
+    "payments",
+    "POST",
+    `/v1/terminal/readers/${encodeURIComponent(input.readerId)}/collect_inputs`,
+    {
+      account,
+      idempotencyKey,
+      params: {
+        inputs: [
+          q.type === "selection"
+            ? {
+                type: "selection",
+                required: true,
+                custom_text: { title: q.title },
+                selection: {
+                  choices: q.choices.map((x, i) => ({
+                    id: x.id,
+                    text: x.text,
+                    style: i < q.choices.length - 2 ? "primary" : "secondary",
+                  })),
+                },
+              }
+            : {
+                type: q.type,
+                required: true,
+                custom_text: {
+                  title: q.title,
+                  ...(q.description ? { description: q.description } : {}),
+                },
+              },
+        ],
+        metadata: { step: input.step },
+      },
+    },
+  );
+}
+
+/** Reads a reader's collect_inputs action: null when the reader is on something else. */
+export function inputsAnswerOf(reader: { action?: unknown }): InputsAnswer | null {
+  const action = reader.action as
+    | {
+        type?: string;
+        status?: InputsAnswer["status"];
+        failure_code?: string | null;
+        collect_inputs?: {
+          inputs?: {
+            type?: string;
+            selection?: { id?: string; value?: string } | null;
+            numeric?: { value?: string } | null;
+            phone?: { value?: string } | null;
+          }[];
+          metadata?: Record<string, string>;
+        };
+      }
+    | null
+    | undefined;
+  if (!action || action.type !== "collect_inputs" || !action.collect_inputs) return null;
+  const first = action.collect_inputs.inputs?.[0];
+  const value =
+    first?.selection?.id ??
+    first?.selection?.value ??
+    first?.numeric?.value ??
+    first?.phone?.value ??
+    null;
+  return {
+    status: action.status ?? "in_progress",
+    failureCode: action.failure_code ?? null,
+    step: action.collect_inputs.metadata?.["step"] ?? null,
+    value: value === "" ? null : value,
+  };
+}
