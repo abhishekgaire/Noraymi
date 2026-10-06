@@ -1782,3 +1782,12 @@ a.song-count {
   margin: 4px 0 8px;
   padding: 0;
 }
+.tips-shares {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.tips-shares li {
+  justify-content: space-between;
+  padding: 8px 0;
+}

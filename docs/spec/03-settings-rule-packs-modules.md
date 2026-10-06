@@ -91,6 +91,11 @@ type PaySettings = {
   };                                                 // room checks carry the gratuity, so the reader skips its tip screen there
   tipReview: { overPct: number; overCents: number; lateHours: number };   // 25%, $50 and 2 hours at West 4
   pool: "hours" | "even" | "roomServer";             // a change starts with the next business date
+  occupations?: { code: string; sharePct: number }[]; // each eligible occupation's share of the pool, copied into
+                                                      // tip_pool_occupations each night; empty (the cautious default
+                                                      // until the lawyer answers) is one pool split by minutes
+  refundedGratuity?: "house" | "nextPool";             // gratuity refunded after its night closed: the house absorbs it
+                                                      // (the cautious default) or it comes off the next pool
   roomHold: { on: boolean; cents: number };   // a card hold at room check-in, for venues without deposits; off at West 4
   payShare: { on: boolean };                  // Pay my share, on at West 4: from the room page a guest pays "My items" or
                                               // "An even share (1 of N)", with their share of tax and gratuity, by Apple Pay,

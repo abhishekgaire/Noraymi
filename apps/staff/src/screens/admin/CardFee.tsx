@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { SettingsValue } from "@west4/shared";
+import { Temporal, type SettingsValue } from "@west4/shared";
 import { cardFee } from "@west4/rules";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api } from "../../api.js";
@@ -29,20 +29,22 @@ function pctOf(rate: number): string {
 }
 
 export function CardFee() {
-  const { t, money } = useT();
+  const { t, money, date } = useT();
   const { state } = useSession();
   const draft = useAdminDraft();
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const [saved, setSaved] = useState<Pay | null>(null);
+  const [today, setToday] = useState<string | null>(null);
   const [pack, setPack] = useState<Pack | null>(null);
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     const [p, r] = await Promise.all([
-      api<{ value: Pay }>("GET", `/v1/venues/${venueId}/settings/pay`),
+      api<{ value: Pay; business_date: string }>("GET", `/v1/venues/${venueId}/settings/pay`),
       api<Pack>("GET", `/v1/venues/${venueId}/rule-pack`),
     ]);
     setSaved(p.value);
+    setToday(p.business_date);
     setPack(r);
   }, [venueId]);
   useEffect(() => {
@@ -259,6 +261,52 @@ export function CardFee() {
             />
             <span>{t("cardFeeAdmin.payShare")}</span>
           </label>
+
+          {/* Who gets tips and gratuity (M7-09): the pool method starts the next business date. */}
+          <fieldset>
+            <legend>{t("pool.title")}</legend>
+            <label>
+              <span>{t("pool.method")}</span>
+              <select
+                aria-label={t("pool.method")}
+                value={current.pool}
+                onChange={(e) => set({ ...current, pool: e.target.value as Pay["pool"] })}
+              >
+                <option value="hours">{t("pool.method.hours")}</option>
+                <option value="even">{t("pool.method.even")}</option>
+                <option value="roomServer">{t("pool.method.roomServer")}</option>
+              </select>
+            </label>
+            {saved && today && current.pool !== saved.pool && (
+              <p role="status" className="notice">
+                {t("cashAdmin.startsOn", {
+                  date: date(Temporal.PlainDate.from(today).add({ days: 1 })),
+                })}
+              </p>
+            )}
+            <p className="small muted">
+              {(current.occupations ?? []).length === 0
+                ? t("pool.occupations.none")
+                : (current.occupations ?? []).map((o) => `${o.code} ${o.sharePct}%`).join(" · ")}
+            </p>
+            <label>
+              <span>{t("pool.refunded")}</span>
+              <select
+                aria-label={t("pool.refunded")}
+                value={current.refundedGratuity ?? "house"}
+                onChange={(e) =>
+                  set({
+                    ...current,
+                    refundedGratuity: e.target.value as NonNullable<Pay["refundedGratuity"]>,
+                  })
+                }
+              >
+                <option value="house">{t("pool.refunded.house")}</option>
+                <option value="nextPool">{t("pool.refunded.nextPool")}</option>
+              </select>
+            </label>
+            <p className="small muted">{t("pool.managers")}</p>
+          </fieldset>
         </>
       )}
     </section>

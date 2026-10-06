@@ -327,6 +327,30 @@ describe("Admin → Team's list and PATCH /team/{m}", () => {
     expect(json(off)["training"]).toBe(false);
   });
 
+  it("refuses making a manager tip eligible, with the reason, and records who set eligibility (M7-09)", async () => {
+    const refused = await call(
+      "PATCH",
+      `/v1/venues/${v.venueA}/team/${andy}`,
+      { tip_eligible: true },
+      await stepUp(ownerCookie, ownerKey),
+    );
+    expect(refused.statusCode).toBe(400);
+    expect(json(refused)).toMatchObject({ error: { details: { reason: "managers_share" } } });
+    const off = await call(
+      "PATCH",
+      `/v1/venues/${v.venueA}/team/${andy}`,
+      { tip_eligible: false, occupation_code: "manager" },
+      await stepUp(ownerCookie, ownerKey),
+    );
+    expect(off.statusCode, off.body).toBe(200);
+    expect(json(off)).toMatchObject({ tip_eligible: false, occupation_code: "manager" });
+    const row = await owner.query<{ by: boolean; at: boolean }>(
+      "select eligibility_set_by is not null as by, eligibility_set_at is not null as at from memberships where id = $1",
+      [andy],
+    );
+    expect(row.rows[0]).toEqual({ by: true, at: true });
+  });
+
   it("refuses an empty change, an unknown field, your own role, and a deactivated person", async () => {
     const headers = await stepUp(ownerCookie, ownerKey);
     expect(

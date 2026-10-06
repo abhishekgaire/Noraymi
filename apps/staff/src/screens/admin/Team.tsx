@@ -12,6 +12,7 @@ import { api, stepUpToken, type ApiCallError } from "../../api.js";
 import { readDevice } from "../../device.js";
 import { roleKey, useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { useVenueTime } from "../../clock.js";
 
 /**
  * Admin → Team (M1-31, owner only; spec 02 · Roles, Languages, Offboarding;
@@ -38,6 +39,9 @@ interface Person {
   readonly status: "invited" | "active" | "deactivated";
   readonly locale: Locale;
   readonly training: boolean;
+  /** Tip eligibility and occupation (M7-09): a change starts the next business date. */
+  readonly tip_eligible: boolean;
+  readonly occupation_code: string | null;
   readonly has_pin: boolean;
   readonly invite_expires_at: string | null;
   readonly badges: readonly Badge[];
@@ -66,10 +70,14 @@ type Note = ({ readonly membershipId: string } & Message) | null;
 const FRONT_DESK_BAR_ACTIONS = ["pos.use", "orders.accept"] as const;
 
 export function Team() {
-  const { t, time } = useT();
+  const { t, time, date } = useT();
   const { state } = useSession();
   const signedIn = state.status === "signedIn" ? state : null;
   const venueId = signedIn?.membership.venue_id ?? "";
+  const venueTime = useVenueTime(
+    signedIn?.membership.venue.time_zone ?? "America/New_York",
+    signedIn?.membership.venue.day_cutover ?? "06:00",
+  );
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const myMembership = signedIn?.membership.membership_id ?? "";
   const allowed = signedIn?.membership.permissions.includes("admin.team") ?? false;
@@ -174,6 +182,23 @@ export function Team() {
         { stepUp },
       );
       return null;
+    });
+
+  // Tip eligibility (M7-09): owners and managers never share; a change starts the next business date.
+  const setTips = (
+    person: Person,
+    change_: { tip_eligible?: boolean; occupation_code?: string | null },
+  ) =>
+    change(person.membership_id, async (stepUp) => {
+      await api("PATCH", `/v1/venues/${venueId}/team/${person.membership_id}`, change_, {
+        stepUp,
+      });
+      return venueTime
+        ? {
+            key: "team.tips.starts",
+            params: { date: date(venueTime.businessDate.add({ days: 1 })) },
+          }
+        : null;
     });
 
   const setDeviceTraining = async (device: TrainingDevice, training: boolean) => {
@@ -319,6 +344,7 @@ export function Team() {
               <th>{t("team.status")}</th>
               <th>{t("team.language")}</th>
               <th>{t("team.training")}</th>
+              <th>{t("team.tips")}</th>
               <th>{t("team.badges")}</th>
               <th>{t("team.actions")}</th>
             </tr>
@@ -375,6 +401,39 @@ export function Team() {
                       />
                       <span>{person.training ? t("training.mark") : t("team.training.off")}</span>
                     </label>
+                  </td>
+                  <td>
+                    {person.role === "owner" || person.role === "manager" ? (
+                      <span className="small muted">{t("team.tips.never")}</span>
+                    ) : (
+                      <>
+                        <label className="switch-line">
+                          <input
+                            type="checkbox"
+                            aria-label={t("team.tips.for", { name: person.name })}
+                            checked={person.tip_eligible}
+                            disabled={gone || working}
+                            onChange={(e) =>
+                              void setTips(person, { tip_eligible: e.target.checked })
+                            }
+                          />
+                          <span>
+                            {person.tip_eligible ? t("team.tips.shares") : t("team.tips.off")}
+                          </span>
+                        </label>
+                        <input
+                          aria-label={t("team.tips.occupation", { name: person.name })}
+                          placeholder={t("team.tips.occupationHint")}
+                          defaultValue={person.occupation_code ?? ""}
+                          disabled={gone || working}
+                          onBlur={(e) => {
+                            const v = e.target.value.trim() || null;
+                            if (v !== person.occupation_code)
+                              void setTips(person, { occupation_code: v });
+                          }}
+                        />
+                      </>
+                    )}
                   </td>
                   <td>
                     <ul className="badge-list">

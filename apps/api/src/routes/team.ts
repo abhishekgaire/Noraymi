@@ -6,11 +6,14 @@ import {
   createInvite,
   emitEvent,
   offboardMembership,
+  rulePackFor,
   setPinVerifier,
   sha256Hex,
   type Queryable,
 } from "@west4/db";
 import type { Clock } from "@west4/shared";
+import { businessDate } from "@west4/rules";
+import { venueClock } from "../rooms/assignment.js";
 import type { EmailSettings } from "../email/settings.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -42,6 +45,9 @@ const patchBody = z
     role: z.enum(["owner", "manager", "bartender", "front_desk", "staff"]).optional(),
     locale: z.enum(["en", "es"]).optional(),
     training: z.boolean().optional(),
+    // M7-09: tip eligibility and the occupation the pool reads, from the next business date.
+    tip_eligible: z.boolean().optional(),
+    occupation_code: z.string().trim().min(1).max(40).nullable().optional(),
   })
   .strict();
 
@@ -53,6 +59,8 @@ interface TeamRow {
   readonly status: "invited" | "active" | "deactivated";
   readonly locale: "en" | "es";
   readonly training: boolean;
+  readonly tip_eligible: boolean;
+  readonly occupation_code: string | null;
   readonly has_pin: boolean;
   readonly deactivated_at: string | null;
   readonly invite_expires_at: string | null;
@@ -263,7 +271,7 @@ export function teamRoutes(
       return request.inVenue(async (c) => {
         const people = await c.query<TeamRow>(
           `select m.id as membership_id, u.name, u.email, m.role, m.status, m.locale, m.training,
-                  m.pin_verifier is not null as has_pin, m.deactivated_at::text,
+                  m.tip_eligible, m.occupation_code, m.pin_verifier is not null as has_pin, m.deactivated_at::text,
                   (select max(i.expires_at)::text from invites i
                     where i.venue_id = m.venue_id and i.membership_id = m.id and i.used_at is null
                       and i.expires_at > $2) as invite_expires_at
@@ -318,7 +326,13 @@ export function teamRoutes(
           details: { issues: parsed.error.issues.map((i) => i.message) },
         });
       const body = parsed.data;
-      if (body.role === undefined && body.locale === undefined && body.training === undefined)
+      if (
+        body.role === undefined &&
+        body.locale === undefined &&
+        body.training === undefined &&
+        body.tip_eligible === undefined &&
+        body.occupation_code === undefined
+      )
         throw new ApiError("invalid_request", "nothing to change");
       const venueId = request.venueId!;
       const here = p.memberships.find((m) => m.venueId === venueId);
@@ -330,8 +344,10 @@ export function teamRoutes(
           locale: string;
           status: string;
           training: boolean;
+          tip_eligible: boolean;
+          occupation_code: string | null;
         }>(
-          `select role, locale, status, training from memberships
+          `select role, locale, status, training, tip_eligible, occupation_code from memberships
             where venue_id = $1 and id = $2 and status <> 'deactivated' for update`,
           [venueId, request.params.m],
         );
@@ -340,6 +356,37 @@ export function teamRoutes(
         const role = body.role ?? row.role;
         const locale = body.locale ?? row.locale;
         const training = body.training ?? row.training;
+        // Tip eligibility (M7-09): owners and managers never share when the rule pack says so.
+        const eligible = body.tip_eligible ?? row.tip_eligible;
+        const occupation =
+          body.occupation_code === undefined ? row.occupation_code : body.occupation_code;
+        if (body.tip_eligible === true && (role === "owner" || role === "manager")) {
+          const venue = await venueClock(c, venueId);
+          const date = businessDate(
+            options.clock.now(),
+            venue.timeZone,
+            venue.dayCutover,
+          ).businessDate;
+          const rv = await c.query<{ rule_pack_id: string | null }>(
+            "select rule_pack_id from venues where id = $1",
+            [venueId],
+          );
+          const pack = await rulePackFor(
+            c,
+            rv.rows[0]?.rule_pack_id ?? "us-ny-new-york-county",
+            date,
+          );
+          if (!(pack?.pack.gratuity.managersShare ?? false))
+            throw new ApiError(
+              "invalid_request",
+              "owners and managers never share tips or gratuity here",
+              {
+                details: { reason: "managers_share" },
+              },
+            );
+        }
+        const eligibilityChanged =
+          eligible !== row.tip_eligible || occupation !== row.occupation_code;
         const digitsChange =
           body.role !== undefined && pinDigitsFor(body.role) !== pinDigitsFor(row.role);
         await c.query(
@@ -347,6 +394,20 @@ export function teamRoutes(
             where venue_id = $1 and id = $2`,
           [venueId, request.params.m, role, locale, pinDigitsFor(role), training],
         );
+        if (eligibilityChanged)
+          await c.query(
+            `update memberships set tip_eligible = $3, occupation_code = $4, eligibility_set_by = $5,
+                    eligibility_set_at = $6
+              where venue_id = $1 and id = $2`,
+            [
+              venueId,
+              request.params.m,
+              eligible,
+              occupation,
+              p.userId,
+              options.clock.now().toString(),
+            ],
+          );
         let pinResetSentBy: "text" | "email" | null = null;
         if (digitsChange && row.status === "active") {
           pinResetSentBy = await sendPinLink(
@@ -364,13 +425,15 @@ export function teamRoutes(
           entityId: request.params.m,
           entityVersion: 0,
         });
-        return { role, locale, training, pinResetSentBy };
+        return { role, locale, training, eligible, occupation, pinResetSentBy };
       });
       return reply.code(200).send({
         membership_id: request.params.m,
         role: result.role,
         locale: result.locale,
         training: result.training,
+        tip_eligible: result.eligible,
+        occupation_code: result.occupation,
         pin_reset_sent_by: result.pinResetSentBy,
       });
     },

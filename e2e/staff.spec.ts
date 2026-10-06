@@ -7744,3 +7744,28 @@ test("a drawer per person: Maya counts in $300.00 and pulls her tray", async ({
     await db.end();
   }
 });
+
+/**
+ * Night's tips panel (M7-09; screens Night notes 1 and 2): Maya and Diego share by their minutes, and Andy
+ * is "Not in the pool: Andy C., manager."
+ */
+test("Close the night: the tips panel shares between Maya and Diego, never Andy", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/close-the-night");
+    const tips = page.getByRole("region", { name: "Tips" });
+    await expect(tips).toContainText("Gratuity from room checks");
+    await expect(tips).toContainText("The pool to share");
+    await expect(tips.locator("li").first()).toContainText("Maya S.");
+    await expect(tips.locator("li").nth(1)).toContainText("Diego R.");
+    await expect(tips).toContainText("Not in the pool: Andy C., manager.");
+    await expect(tips).not.toContainText("Abhishek");
+  } finally {
+    await db.end();
+  }
+});

@@ -5,6 +5,7 @@ import type { Clock } from "@west4/shared";
 import { latePostsTo, nightClose, postingDate, type Queryable } from "@west4/db";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { nightTips } from "../tips/pool.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
 import { listTabs } from "../tabs/tabs.js";
@@ -73,6 +74,25 @@ export function nightRoutes(
     stripe: options.stripe(),
     clock: options.clock,
   });
+
+  // The night's tips (M7-09): gratuity, card tips and cash tips, each person's share, who's left out.
+  app.get<{ Params: { venueId: string; date: string } }>(
+    "/v1/venues/:venueId/nights/:date/tips",
+    {
+      config: route({
+        principals: ["owner_manager"],
+        module: "core",
+        action: "night.close",
+      }),
+    },
+    async (request) => {
+      if (!DATE.test(request.params.date)) throw new ApiError("not_found", "no such night");
+      const venueId = request.venueId!;
+      return request.inVenue((c) =>
+        nightTips(c, venueId, request.params.date, options.clock.now()),
+      );
+    },
+  );
 
   app.get<{ Params: { venueId: string; date: string } }>(
     "/v1/venues/:venueId/nights/:date",

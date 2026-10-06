@@ -6,6 +6,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CashPanel } from "./CashPanel.js";
 import { DrawerPanel } from "./DrawerPanel.js";
+import { TipsPanel } from "./TipsPanel.js";
 import { TapPayment } from "./TapPayment.js";
 
 /**
@@ -220,6 +221,11 @@ export function CloseTheNight() {
             ))}
           </ul>
         </section>
+      )}
+      {venueId && date && (
+        <div className="card">
+          <TipsPanel venueId={venueId} date={date} />
+        </div>
       )}
       {venueId && (
         <div className="card">

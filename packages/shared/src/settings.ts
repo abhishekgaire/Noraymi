@@ -150,6 +150,17 @@ export const paySchema = z
       })
       .strict(),
     pool: z.enum(["hours", "even", "roomServer"]),
+    // M7-09: each eligible occupation's share of the pool; empty is one pool split by minutes.
+    occupations: z
+      .array(
+        z
+          .object({ code: z.string().min(1).max(40), sharePct: z.number().min(0).max(100) })
+          .strict(),
+      )
+      .max(20)
+      .optional(),
+    // M7-09: gratuity refunded after its pool closed; the cautious default is the house absorbs it.
+    refundedGratuity: z.enum(["house", "nextPool"]).optional(),
     roomHold: z.object({ on: z.boolean(), cents }).strict(),
     payShare: z.object({ on: z.boolean() }).strict(),
   })

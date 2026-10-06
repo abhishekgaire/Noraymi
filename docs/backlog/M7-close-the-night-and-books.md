@@ -276,7 +276,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-09 · Pool tips by hours with eligibility and shares by occupation
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7-01, M7-08; M1-31 (Admin → Team), M1-11 (settings versions)
 - **Spec:** [Money rules](../spec/05-money-rules.md) 1 and 9; [Data model](../spec/04-data-model.md) · `memberships` (`tip_eligible`, `occupation_code`, `eligibility_set_by`, `eligibility_set_at`), `tip_pools`, `tip_pool_occupations`, `tip_shares`; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · `pay.pool`, the rule pack's `gratuity` (`staffOnly`, `managersShare: false`, `eligibility: "dutiesWorked"`), When a change starts; [Tenancy and access](../spec/02-tenancy-access.md) · Roles (shares tips and gratuity); [decisions](../decisions.md) D8 and D22; [Open technical questions](../spec/14-open-questions.md); screens [Night](../screens.md#night) notes 1 and 2, [AdminDesk](../screens.md#admindesk)
@@ -290,20 +290,27 @@ Definition of done: see CLAUDE.md.
   - Night's tips panel: gratuity from room checks, card tips and cash tips, the pool to share, and each person's hours and share, with "Not in the pool: Andy C., manager."
   - Gratuity refunded after its pool closed: a `pay` setting whose cautious default takes nothing from staff; the house absorbs it and Night lists it (see Notes).
 - **Acceptance:**
-  - [ ] On the seed night Maya and Diego share, and Andy and Abhishek never do; Night reads "Not in the pool: Andy C., manager."
-  - [ ] Making Andy eligible in Admin → Team is refused with the reason.
-  - [ ] Money cases `tip_pool_by_hours_largest_remainder` (Maya 560 min and Diego 330 min split $1,000.01 as $629.22 and $370.79) and `tip_pool_three_equal_shares` pass through the pool code, not only `packages/rules`.
-  - [ ] Switching to `even` on Fri Sep 25 shows "Starts Sat Sep 26", and Fri's pool still splits by hours.
-  - [ ] For every pool and every source, the shares add up to the cent.
-  - [ ] On the fall-back night, a 4:00 PM to 4:30 AM shift counts 810 minutes in the pool.
-  - [ ] A practice tip never reaches a pool.
-  - [ ] The three slip tips entered on Sat Sep 26 go to Fri Sep 25's staff by Fri's minutes, recorded in Sat Sep 26's pool, and Fri Sep 25's pool is unchanged.
+  - [x] On the seed night Maya and Diego share, and Andy and Abhishek never do; Night reads "Not in the pool: Andy C., manager."
+  - [x] Making Andy eligible in Admin → Team is refused with the reason.
+  - [x] Money cases `tip_pool_by_hours_largest_remainder` (Maya 560 min and Diego 330 min split $1,000.01 as $629.22 and $370.79) and `tip_pool_three_equal_shares` pass through the pool code, not only `packages/rules`.
+  - [x] Switching to `even` on Fri Sep 25 shows "Starts Sat Sep 26", and Fri's pool still splits by hours.
+  - [x] For every pool and every source, the shares add up to the cent.
+  - [x] On the fall-back night, a 4:00 PM to 4:30 AM shift counts 810 minutes in the pool.
+  - [x] A practice tip never reaches a pool.
+  - [x] The three slip tips entered on Sat Sep 26 go to Fri Sep 25's staff by Fri's minutes, recorded in Sat Sep 26's pool, and Fri Sep 25's pool is unchanged.
 - **Tests:** unit tests for each method, occupation shares and largest remainder; property tests that shares always add up and equal minutes never differ by more than a cent; integration tests for eligibility as of the business date's start and for refusing managers; money-cases group `tips`.
 - **Notes:**
   - Open questions for the lawyer, all gate items ([Open technical questions](../spec/14-open-questions.md)): which occupations share at West 4 and in what shares; whether the room gratuity may be pooled by hours given 146-2.18; whether gratuity refunded after a pool was paid comes off the next pool. Cautious defaults as settings: `pay.pool: "hours"` (the seed's value) with no occupation weights, and the new refunded-gratuity setting defaulting to the house absorbing it. Name the new key in Settings, rule packs and modules in the same change.
   - Spec gap: late tips post to the next business date, but the spec doesn't say whose pool they join, and shared among the next night's staff they could miss the people who earned them. Cautious default above; put it to the lawyer with the refunded-gratuity question.
   - `roomServer` needs `room_sessions.server_user_id`, which no phase 1 screen sets, so it falls back to hours for a session with no server.
   - Canvas: Night pools a gratuity taken on every sale and says no slips are waiting ([Night](../screens.md#night) notes 1 and 2). [Admin by milestone](../milestones.md#admin-by-milestone) gives `pay.pool` no Admin home; the canvas puts "Who gets tips and gratuity" in Card fee & gratuity, so it goes there.
+- **Built (M7-09):**
+  - Rules `packages/rules/src/tip-pool.ts`: `poolShares` (hours with optional occupation shares, even, roomServer; each source split on its own by largest remainder, a negative source by its size with the sign kept; owners, managers and Manager-duty shifts left out) and `poolMinutes` (real minutes, so the fall-back night's 4:00 PM to 4:30 AM is 810).
+  - Migration `0100_tip_pools.sql`: `tip_pools` (one per business date), `tip_pool_occupations`, `tip_shares` (insert-only, refused once the pool isn't open, with `for_business_date`). App code never deletes, so an open pool is worked out live and its shares are written once by `closePool` (`apps/api/src/tips/pool.ts`), which M7-12's close will call.
+  - `GET /nights/{date}/tips` (owners and managers): the sources, each person's minutes and share, "Not in the pool", and gratuity the house absorbed. Each person counts with their eligibility and occupation as they stood when the date started (later changes are walked back through the audit rows). Late tips posted to a date and pointing at an earlier night are split by that night's people, minutes and method, and recorded in this date's pool; the closed night's stored shares never change.
+  - Admin → Team: a Tips column (owner only, through the passkey step-up): eligible or not and the occupation, with "Saved. It starts Sat Sep 26."; owners and managers read "Never shares", and the API refuses making one eligible (`reason: "managers_share"`, from the rule pack's `gratuity.managersShare`). Admin → Card fee & gratuity: "Who gets tips and gratuity", the pool method (with "Starts Sat Sep 26" for a change) and the refunded-gratuity setting. Night's tips panel (`TipsPanel`). English and Spanish.
+- **Cautious defaults (the lawyer's open questions):** `pay.occupations` (new, empty: one pool by minutes) and `pay.refundedGratuity` (new, "house": a gratuity refunded after its night closed comes off nobody's share and Night lists it), both named in spec 03. The occupation shares have no editor yet; Admin shows them, and they're set in the `pay` key until the lawyer says which occupations share. `roomServer` gives a room's gratuity to its session's `server_user_id`, which no phase 1 screen sets, so in practice it falls to hours; the pool code passes no room servers yet.
+- **Tests:** unit `packages/rules/src/tip-pool.test.ts` (both money cases, managers left out, occupation shares, even and roomServer, a negative source, the property test that every source adds up and equal minutes never differ by more than a cent, 810 minutes on the fall-back night); integration `apps/api/src/routes/tip-pool.int.test.ts` (Maya and Diego share Friday by minutes and Andy is "manager"; a practice tip stays out; `even` saved on Friday starts Saturday and Friday splits by hours; late slip tips on Saturday split by Friday's people in Saturday's pool while Friday's closed pool is unchanged and refuses a new share; the money case through the pool, 560 and 330 minutes splitting $1,000.01 as $629.22 and $370.79) and `team-admin.int.test.ts` (a manager refused with the reason; who set eligibility recorded); e2e "Close the night: the tips panel shares between Maya and Diego, never Andy".
 
 ### M7-10 · Show each person My tips with the 146-2.17 records
 

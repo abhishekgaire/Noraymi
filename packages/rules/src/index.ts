@@ -82,3 +82,12 @@ export type {
   DrawerTotals,
   SecondCounter,
 } from "./drawer.js";
+export { poolMinutes, poolShares } from "./tip-pool.js";
+export type {
+  LeftOut,
+  PoolInput,
+  PoolMethod,
+  PoolResult,
+  PoolShare,
+  PoolWorker,
+} from "./tip-pool.js";
