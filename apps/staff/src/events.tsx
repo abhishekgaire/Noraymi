@@ -28,6 +28,9 @@ interface EventsApi {
 
 const EventsContext = createContext<EventsApi>({ connected: true, subscribe: () => () => {} });
 
+/** How often a shared screen with no event socket refetches (as the bar orders screen polls). */
+export const SHARED_SCREEN_REFETCH_MS = 15_000;
+
 export function EventsProvider({ children }: { children: ReactNode }) {
   const { state } = useSession();
   const { sync } = useClock();
@@ -51,8 +54,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!venueId) return;
-    // A browser can't put a bearer token on a WebSocket; the desktop app (M1-28) can. Until then a shared screen in a browser polls nothing.
-    if (sessionToken()) return;
+    // A shared screen signs in with a bearer token, which a WebSocket can't carry (the browser's or
+    // the desktop app's). Until it can, the screen refetches what it shows every so often, so a change
+    // made elsewhere (Andy's decision, a raise the reconciler settled, a room order) reaches it (M6-28).
+    if (sessionToken()) {
+      const timer = setInterval(() => {
+        for (const listener of listeners.current) listener([]);
+      }, SHARED_SCREEN_REFETCH_MS);
+      return () => clearInterval(timer);
+    }
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const client = new EventClient({
       url: `${scheme}://${location.host}/v1/venues/${venueId}/events`,

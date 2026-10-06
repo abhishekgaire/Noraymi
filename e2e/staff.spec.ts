@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page, type APIRequestContext } from "@playwright/test";
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
@@ -2624,6 +2624,17 @@ async function signInAndy(page: Page, request: APIRequestContext, db: pg.Client)
   await page.getByRole("button", { name: "Continue with a passkey" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
 }
+/**
+ * A timed staff task (M6-28; spec 10 · How we'll know it works): its taps and seconds are recorded on
+ * the test as a "timed task" annotation (the JSON reporter keeps them), then checked against the target.
+ */
+const timedTask = (task: string, taps: number, ms: number, targetMs: number) => {
+  test.info().annotations.push({
+    type: "timed task",
+    description: `${task} · ${taps} ${taps === 1 ? "tap" : "taps"} · ${(ms / 1000).toFixed(2)} s · target under ${targetMs / 1000} s`,
+  });
+  expect(ms, `${task}: under ${targetMs / 1000} s`).toBeLessThan(targetMs);
+};
 const setClock = async (request: APIRequestContext, iso: string) =>
   expect((await request.post("/v1/ops/clock", { data: { server_time: iso } })).ok()).toBe(true);
 const dbClient = async () => {
@@ -4079,7 +4090,7 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
     );
     expect(picked.ok(), await picked.text()).toBe(true);
     await expect(closing).toContainText("Paid $38.66 with a tip of $6.00");
-    expect(Date.now() - started).toBeLessThan(20_000);
+    timedTask("Close a tab with a tip", 2, Date.now() - started, 20_000);
     const pay = (
       await db.query<{ status: string; amount: number; tip: number; tab: string }>(
         `select p.status, p.amount_cents::int as amount, p.tip_cents::int as tip, t.state as tab
@@ -5319,7 +5330,8 @@ test("a party enquiry for 22 lands in Messages unread; a reply with a link point
       .getByRole("link", { name: /Messages/ })
       .first()
       .click();
-    const priya = page.getByRole("button", { name: "Priya" });
+    // Exact: Room 3's "Text Priya R.: please wrap up" alert can be on screen too.
+    const priya = page.getByRole("button", { name: "Priya", exact: true });
     await expect(priya).toContainText("Party enquiry");
     await expect(priya).toContainText("1 unread");
     await priya.click();
@@ -5685,7 +5697,7 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
     await panel.getByRole("button", { name: "Repeat round" }).click();
     await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
     await expect(panel.locator(".total")).toContainText("$65.33");
-    expect(Date.now() - started).toBeLessThan(3000);
+    timedTask("Another round on a tab", 2, Date.now() - started, 3000);
 
     // A margarita has no usual flavor: Send waits and says what's missing.
     await page.getByRole("tab", { name: "Cocktails" }).click();
@@ -5878,7 +5890,7 @@ test("sharing the bar computer: Maya's badge takes over from Diego, on break, Wi
       for (const listener of [...taps]) listener({ url, reader: "test" });
     }, `https://w4.example/t?e=${tap.picc_data}&c=${tap.cmac}`);
     await expect(page.locator(".rail-top .who")).toHaveText("Maya · on break");
-    expect(Date.now() - started).toBeLessThan(2000);
+    timedTask("Take over the terminal", 1, Date.now() - started, 2000);
     await page.getByRole("button", { name: "Mine", exact: true }).click();
     await expect(page.getByRole("list", { name: "Bar tabs" }).locator(".name")).toHaveText([
       "Hana K.",
@@ -5952,7 +5964,7 @@ test("Quick sale: a walk-up Bud Light in cash in three taps, logged to Maya · b
       .getByRole("button", { name: "$10.00" })
       .click();
     await expect(panel).toContainText("Logged to Maya · bar drawer");
-    expect(Date.now() - started).toBeLessThan(8000);
+    timedTask("A walk-up beer, paid in cash", 3, Date.now() - started, 8000);
     await expect(panel.getByRole("button", { name: "Text" })).toBeVisible();
 
     // The next drink starts the next sale: a $9.00 Modelo, whose reader offers $1, $2 and $3.
@@ -6253,7 +6265,7 @@ test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, no
     await panel.getByRole("button", { name: "Seat 2" }).click();
     await panel.getByRole("button", { name: "Open", exact: true }).click();
     await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 2");
-    expect(Date.now() - started).toBeLessThan(20_000);
+    timedTask("Open a tab for a tapped phone", 4, Date.now() - started, 20_000);
     await expect(panel).toContainText("Visa ··4242");
     await expect(panel).toContainText("Hold $50.00");
     await expect(page.getByRole("list", { name: "Bar tabs" }).locator(".name")).toContainText([
@@ -6492,7 +6504,7 @@ test("the bar POS: Maya's fix panel, $63 then $50 left, and a void in 4 taps und
     await fix.getByRole("button", { name: "Rang it wrong" }).click();
     await fix.getByRole("button", { name: "VOID · take the sale back" }).click();
     await expect(fix.getByRole("status")).toHaveText("Voided: Jäger Bomb");
-    expect(Date.now() - started).toBeLessThan(6000);
+    timedTask("Void a drink rung by mistake", 4, Date.now() - started, 6000);
     await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
       "VOID · Jäger Bomb",
     );
@@ -6572,7 +6584,7 @@ test("the bar POS: Tariq A.'s void waits for Andy on the line and the tab row, t
       await phone.close();
     }
 
-    // A shared screen in a plain browser has no event socket (only the desktop app does, M1-28): reload.
+    // A shared screen has no event socket and refetches every 15 s (M6-28); reload rather than wait.
     await page.reload();
     await tabs.getByRole("button", { name: /Tariq A\./ }).click();
     await expect(panel.locator(".total")).toContainText("$9.80");
@@ -6952,4 +6964,367 @@ test("Admin → Bar mode: West 4's settings, a free drink with a song refused, 2
   } finally {
     await db.end();
   }
+});
+
+/*
+ * M6 · Done when (M6-28): the paths the earlier tests didn't walk on screen. Each starts from a fresh
+ * seed load with the night's Stripe side on the fake (stripe:seed). The fake answers a raise as Stripe
+ * would; a declined raise and a lost answer are queued with the fake-only next_increment helper, since
+ * Stripe's sandbox has no test card or amount for either. Jobs (the reconciler, the hold cancel, the 4:30
+ * AM cut-off) run in a real worker the test starts, as they would in staging.
+ */
+const FAKE_STRIPE = "http://127.0.0.1:12111";
+const fakeStripe = async (db: pg.Client) => {
+  const account = (
+    await db.query<{ account: string }>(
+      `select o.stripe_account_id as account
+         from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+        where d.name = 'Bar S710'`,
+    )
+  ).rows[0]!.account;
+  return { authorization: "Bearer rk_test_fake_payments", "stripe-account": account };
+};
+const tabIntent = async (db: pg.Client, name: string) =>
+  (
+    await db.query<{ pi: string; payment: string }>(
+      `select p.stripe_pi_id as pi, p.id as payment
+         from tabs t join payments p on p.id = t.payment_id where t.name = $1`,
+      [name],
+    )
+  ).rows[0]!;
+/** Queues what the next raise of a tab's hold does on the fake: the issuer declines it, or its answer is lost. */
+const nextRaise = async (
+  request: APIRequestContext,
+  db: pg.Client,
+  name: string,
+  outcome: "decline" | "drop",
+) => {
+  const { pi } = await tabIntent(db, name);
+  const r = await request.post(
+    `${FAKE_STRIPE}/v1/test_helpers/fake/payment_intents/${pi}/next_increment`,
+    { headers: await fakeStripe(db), form: { outcome } },
+  );
+  expect(r.ok(), await r.text()).toBe(true);
+};
+const intentOnFake = async (request: APIRequestContext, db: pg.Client, pi: string) =>
+  (await (
+    await request.get(`${FAKE_STRIPE}/v1/payment_intents/${pi}`, { headers: await fakeStripe(db) })
+  ).json()) as { status: string; amount: number; amount_received?: number };
+/** The job worker, which the smoke run doesn't start: started for a test that needs its jobs, stopped after. */
+const startWorker = () => {
+  const child = spawn("pnpm", ["exec", "tsx", "src/worker.ts"], {
+    cwd: "apps/api",
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      ALLOW_STAGING_FEATURES: "true",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      APP_DATABASE_URL:
+        process.env["APP_DATABASE_URL"] ?? "postgres://app_rw:app_rw@localhost:5432/west4",
+    },
+  });
+  return () => {
+    try {
+      process.kill(-child.pid!, "SIGTERM");
+    } catch {
+      // Already gone.
+    }
+  };
+};
+const raises = async (db: pg.Client, payment: string) =>
+  (
+    await db.query<{ state: string; decline_code: string | null }>(
+      "select state, decline_code from payment_attempts where payment_id = $1 and action = 'increment' order by attempt_no",
+      [payment],
+    )
+  ).rows;
+
+test.describe("M6 done when", () => {
+  test("a declined raise: Jess P.'s round past her hold waits for Andy, and her row reads Hold raise declined", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      stripeSeed();
+      await signInMayaAtTheBar(page, request, db);
+      const { pi, payment } = await tabIntent(db, "Jess P.");
+      await nextRaise(request, db, "Jess P.", "decline");
+      const row = page
+        .getByRole("list", { name: "Bar tabs" })
+        .getByRole("button", { name: /Jess P\./ });
+      await row.click();
+      const panel = page.getByRole("complementary");
+      await expect(panel).toContainText("$32.66");
+      await page.getByRole("tab", { name: "Buckets" }).click();
+      await page.getByRole("button", { name: /^Large bucket · 10 beers · \$/ }).click();
+      await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+      await expect(panel.getByRole("status").first()).toContainText(
+        "Hold raise declined: the round waits for Andy C.",
+      );
+      await expect(panel).toContainText("Hold raise declined");
+      await expect(page.getByRole("list", { name: "Bar tabs" })).toContainText("Waiting for Andy");
+      // The hold stands at $50.00 on Stripe; the round isn't on her tab.
+      expect(await raises(db, payment)).toEqual([
+        { state: "failed", decline_code: "card_declined" },
+      ]);
+      expect((await intentOnFake(request, db, pi)).amount).toBe(5000);
+      await expect(row).toContainText("$32.66");
+    } finally {
+      await db.end();
+    }
+  });
+
+  test("a timeout: Luis M.'s raise reads Checking with Stripe, the reconciler settles it, and the round goes on with no second raise", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(180_000);
+    const db = await dbClient();
+    let stop: (() => void) | undefined;
+    try {
+      stripeSeed();
+      await signInMayaAtTheBar(page, request, db);
+      const { pi, payment } = await tabIntent(db, "Luis M.");
+      const before = await raises(db, payment);
+      await nextRaise(request, db, "Luis M.", "drop");
+      await page
+        .getByRole("list", { name: "Bar tabs" })
+        .getByRole("button", { name: /Luis M\./ })
+        .click();
+      const panel = page.getByRole("complementary");
+      await expect(panel).toContainText("$63.15");
+      await page.getByRole("tab", { name: "Buckets" }).click();
+      await page.getByRole("button", { name: /^Large bucket · 10 beers · \$/ }).click();
+      await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+      await expect(panel.getByRole("status").first()).toContainText(
+        "Growing the hold · Checking with Stripe · don't retry. The round isn't sent yet.",
+      );
+      await expect(panel).toContainText("Checking with Stripe · don't retry");
+      // Stripe did raise it; our side doesn't know yet, and nothing is asked twice.
+      const raised = (await intentOnFake(request, db, pi)).amount;
+      expect(raised).toBeGreaterThan(8000);
+      expect(await raises(db, payment)).toHaveLength(before.length + 1);
+
+      stop = startWorker();
+      await expect
+        .poll(async () => (await raises(db, payment)).at(-1)?.state, { timeout: 60_000 })
+        .toBe("succeeded");
+      // No reload: the bar computer refetches by itself (it has no event socket, M6-28).
+      const chip = panel.getByText("Checking with Stripe · don't retry", { exact: true });
+      await expect(chip).toHaveCount(0, { timeout: 25_000 });
+      await expect(panel).toContainText(`Hold $${(raised / 100).toFixed(2)}`);
+      // The round still waiting on the screen goes on now, with no second raise.
+      await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+      await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+        "Large bucket · 10 beers",
+      );
+      expect(await raises(db, payment)).toHaveLength(before.length + 1);
+      expect((await intentOnFake(request, db, pi)).amount).toBe(raised);
+      // A worker started at 10:41 PM runs on the simulated night from its first sweep: it never
+      // mistook the real date for 4:30 AM and charged the open tabs as walkouts (M6-28's bug).
+      const open = await db.query<{ state: string }>(
+        "select state from tabs where name in ('Luis M.', 'Jess P.', 'Hana K.', 'Tariq A.')",
+      );
+      expect(open.rows.map((r) => r.state)).toEqual(["open", "open", "open", "open"]);
+    } finally {
+      stop?.();
+      await db.end();
+    }
+  });
+
+  test("Jess P.'s tab into Room 9 releases her hold on Stripe, and a cut-off Room 9 refuses Luis M.'s drinks with the reason", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    let stop: (() => void) | undefined;
+    try {
+      stripeSeed();
+      await signInMayaAtTheBar(page, request, db);
+      const tabs = page.getByRole("list", { name: "Bar tabs" });
+      const panel = page.getByRole("complementary");
+      const jess = await tabIntent(db, "Jess P.");
+      await tabs.getByRole("button", { name: /Jess P\./ }).click();
+      await panel.getByRole("button", { name: "Move tab to a room" }).click();
+      await panel.getByRole("button", { name: /Room 9/ }).click();
+      await expect(panel.getByRole("status").first()).toContainText("Moved to Room 9");
+      await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+        "Moved from Jess P.'s bar tab",
+      );
+      // Room 9 has Marcus's card from his deposit, so her hold guarantees nothing: a job cancels it.
+      stop = startWorker();
+      await expect
+        .poll(async () => (await intentOnFake(request, db, jess.pi)).status, { timeout: 60_000 })
+        .toBe("canceled");
+      expect(
+        (
+          await db.query<{ status: string }>("select status from payments where id = $1", [
+            jess.payment,
+          ])
+        ).rows[0]!.status,
+      ).toBe("canceled");
+
+      // Andy cuts off Room 9; Luis M.'s drinks can't move in.
+      await db.query(
+        `update room_sessions set alcohol_cut_off_at = now(), alcohol_cut_off_reason = 'Too drunk',
+                alcohol_cut_off_by = (select row_id from seed_ids where slug = 'andy')
+          where id = (select row_id from seed_ids where slug = 'sess_room9')`,
+      );
+      await page.reload();
+      await tabs.getByRole("button", { name: /Luis M\./ }).click();
+      await expect(panel).toContainText("$63.15");
+      await panel.getByRole("button", { name: "Move tab to a room" }).click();
+      await panel.getByRole("button", { name: /Room 9/ }).click();
+      await expect(panel.getByRole("alert")).toContainText(
+        "Alcohol can't move onto Room 9: it's cut off. Reason: Too drunk",
+      );
+      await expect(tabs).toContainText("Luis M.");
+      const refused = await db.query(
+        `select 1 from alcohol_refusals
+          where check_id = (select row_id from seed_ids where slug = 'chk_room9') and reason = 'cut_off'`,
+      );
+      expect(refused.rowCount).toBeGreaterThan(0);
+    } finally {
+      stop?.();
+      await db.end();
+    }
+  });
+
+  test("a walkout at 4:30 AM: the cut-off charges every open tab at its balance, Jess P.'s $32.66 on her hold", async ({
+    request,
+  }) => {
+    test.setTimeout(180_000);
+    const db = await dbClient();
+    let stop: (() => void) | undefined;
+    try {
+      stripeSeed();
+      const jess = await tabIntent(db, "Jess P.");
+      await setClock(request, "2026-09-26T08:29:45Z");
+      stop = startWorker();
+      const states = async () =>
+        Object.fromEntries(
+          (
+            await db.query<{ name: string; state: string }>(
+              `select name, state from tabs
+                where name in ('Hana K.', 'Jess P.', 'Luis M.', 'Seat 6 · blue jacket', 'Tariq A.')`,
+            )
+          ).rows.map((r) => [r.name, r.state]),
+        );
+      // Not a second early.
+      expect((await states())["Jess P."]).toBe("open");
+      await expect
+        .poll(async () => (await states())["Jess P."], { timeout: 90_000, intervals: [2000] })
+        .toBe("walkout_captured");
+      await expect
+        .poll(async () => Object.values(await states()), { timeout: 30_000 })
+        .toEqual(Array(5).fill("walkout_captured"));
+      const captured = await intentOnFake(request, db, jess.pi);
+      expect(captured.status).toBe("succeeded");
+      expect(captured.amount_received).toBe(3266);
+      // Every open tab at its balance with no tip, as the integration test has it (tab-walkout).
+      const walkouts = await db.query<{ name: string; pi: string }>(
+        `select t.name, p.stripe_pi_id as pi from tabs t join payments p on p.id = t.payment_id
+          where t.state = 'walkout_captured' order by t.name`,
+      );
+      const charged: [string, number | undefined][] = [];
+      for (const w of walkouts.rows)
+        charged.push([w.name, (await intentOnFake(request, db, w.pi)).amount_received]);
+      expect(charged).toEqual([
+        ["Hana K.", 4355],
+        ["Jess P.", 3266],
+        ["Luis M.", 6315],
+        ["Seat 6 · blue jacket", 1307],
+        ["Tariq A.", 8601],
+      ]);
+    } finally {
+      stop?.();
+      await db.end();
+    }
+  });
+
+  test("a gift after 4 AM: alcohol greyed with the reason on the bar POS, and the route refuses it with the 4 AM reason", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const db = await dbClient();
+    try {
+      await db.query("update memberships set locale = 'en'");
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto("/sign-in");
+      await page.getByRole("button", { name: "Pair this screen" }).click();
+      await page
+        .getByLabel("Pairing code from Admin → Devices")
+        .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+      await setClock(request, "2026-09-26T08:02:00Z");
+      await page.getByRole("button", { name: "Pair", exact: true }).click();
+      await page.getByRole("button", { name: /Maya S\./ }).click();
+      await typePin(page, "4071");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+      await page
+        .getByRole("list", { name: "Bar tabs" })
+        .getByRole("button", { name: /Tariq A\./ })
+        .click();
+      await expect(
+        page.getByRole("button", { name: "Modelo · No alcohol now · the window has closed" }),
+      ).toBeDisabled();
+      const ids = Object.fromEntries(
+        (
+          await db.query<{ slug: string; id: string }>(
+            "select slug, row_id as id from seed_ids where slug in ('sg_jess', 'menu_modelo_regular')",
+          )
+        ).rows.map((r) => [r.slug, r.id]),
+      );
+      const tariq = (
+        await db.query<{ id: string; check: string; venue: string }>(
+          "select id, check_id as check, venue_id as venue from tabs where name = 'Tariq A.'",
+        )
+      ).rows[0]!;
+      const venue = tariq.venue;
+      // The refusal is logged on the singer's check: it's Jess P. who can't be served.
+      const jess = (
+        await db.query<{ check: string }>(
+          "select check_id as check from tabs where name = 'Jess P.'",
+        )
+      ).rows[0]!.check;
+      const before = (await db.query("select 1 from alcohol_refusals where check_id = $1", [jess]))
+        .rowCount!;
+      const r = await page.evaluate(
+        async ([path, body]) => {
+          const token = sessionStorage.getItem("west4.staff.token");
+          const res = await fetch(path!, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              ...(token ? { authorization: `Bearer ${token}` } : {}),
+            },
+            body: body!,
+          });
+          return { status: res.status, body: await res.text() };
+        },
+        [
+          `/v1/venues/${venue}/tabs/${tariq.id}/gift-order`,
+          JSON.stringify({
+            client_order_id: crypto.randomUUID(),
+            singer_id: ids["sg_jess"],
+            lines: [{ variant_id: ids["menu_modelo_regular"], qty: 1 }],
+          }),
+        ],
+      );
+      expect(r.status, r.body).toBe(409);
+      const error = (JSON.parse(r.body) as { error: { code: string; details: { reason: string } } })
+        .error;
+      expect(error).toMatchObject({ code: "alcohol_closed", details: { reason: "window_closed" } });
+      expect(
+        (await db.query("select 1 from alcohol_refusals where check_id = $1", [jess])).rowCount,
+      ).toBe(before + 1);
+    } finally {
+      await db.end();
+    }
+  });
 });

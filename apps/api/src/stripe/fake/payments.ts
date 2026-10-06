@@ -493,11 +493,49 @@ fakeRouteSets.push((fake) => {
         null,
         "This PaymentIntent has reached the maximum number of incremental authorizations.",
       );
+    // The issuer said no (queued by the fake-only helper below): Stripe answers card_declined and the
+    // hold stays at what it was.
+    if (pi["_declineNextIncrement"]) {
+      delete pi["_declineNextIncrement"];
+      throw new FakeError(
+        402,
+        "card_error",
+        "card_declined",
+        "Your card was declined.",
+        "generic_decline",
+      );
+    }
     pi["_increments"] = used + 1;
     pi["amount"] = amount;
     pi["amount_capturable"] = amount;
     present["amount_authorized"] = amount;
     fake.emit("connect", "payment_intent.amount_capturable_updated", pi, account);
+    return { body: pi };
+  });
+
+  // Fake-only, for the end-to-end tests (M6-28): what the next raise of this hold does. Stripe's
+  // sandbox has no test card or amount that declines a raise or loses its answer (Stripe · incremental
+  // authorizations), so these two paths are proved here, not on the connected sandbox.
+  //   outcome=decline  the issuer declines it (402 card_declined, the hold stands)
+  //   outcome=drop     Stripe raises it, and the answer never arrives (the call looks like a timeout)
+  fake.route("POST", "/v1/test_helpers/fake/payment_intents/:id/next_increment", (req) => {
+    const account = needAccount(req.account);
+    const pi = fake.get(req.params["id"]!, account, "payment_intent");
+    const outcome = req.body["outcome"];
+    if (outcome === "decline") pi["_declineNextIncrement"] = true;
+    else if (outcome === "drop")
+      fake.dropNext.push({
+        method: "POST",
+        path: new RegExp(`^/v1/payment_intents/${String(pi["id"])}/increment_authorization$`),
+        afterHandling: true,
+      });
+    else
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "parameter_invalid",
+        "outcome must be decline or drop.",
+      );
     return { body: pi };
   });
 

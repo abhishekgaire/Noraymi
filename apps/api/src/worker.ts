@@ -76,6 +76,10 @@ const scheduler = new Scheduler(pool, {
   log,
 });
 
+// Read the stored clock before anything runs (M6-28). Until its first read the stored clock answers
+// the real time, so a worker starting on staging's simulated night would otherwise run its first
+// sweeps days later than the night: the 4:30 AM tab cut-off charging every open tab, the 4 AM stop.
+await clock.refresh?.();
 for (const worker of workers) worker.start();
 scheduler.start();
 log(`worker up · env ${config.env} · pools critical, normal, bulk · scheduler polling`);

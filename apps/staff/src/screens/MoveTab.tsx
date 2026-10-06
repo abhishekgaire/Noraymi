@@ -98,8 +98,7 @@ export function MoveToRoom(props: {
           {reason && (
             <>
               {" "}
-              {t("moveTab.reason")}
-              <span data-guest-text>{reason}</span>
+              {t("moveTab.reason")} <span data-guest-text>{reason}</span>
             </>
           )}
         </p>

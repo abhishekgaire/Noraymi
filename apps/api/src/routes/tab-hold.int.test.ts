@@ -397,6 +397,53 @@ describe("a raise that times out (Payment flows · unknown results)", () => {
   });
 });
 
+describe("the fake's next-raise helper the end-to-end tests use (M6-28)", () => {
+  const nextRaise = async (paymentId: string, outcome: string) =>
+    fetch(
+      `${fakeBase}/v1/test_helpers/fake/payment_intents/${String((await intentOf(paymentId))["id"])}/next_increment`,
+      {
+        method: "POST",
+        headers: {
+          authorization: "Bearer rk_test_fake_payments",
+          "stripe-account": account,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: `outcome=${outcome}`,
+      },
+    );
+
+  it("decline: Stripe answers card_declined once, the hold stands, and the round waits for Andy", async () => {
+    const tab = await openTab("Seat 7", "4012888888881881");
+    expect((await nextRaise(tab.paymentId, "sideways")).status).toBe(400);
+    expect((await nextRaise(tab.paymentId, "decline")).ok).toBe(true);
+    const r = await send(tab.check_id, [{ variant_id: v("bucket_s"), qty: 1 }]);
+    expect(r.statusCode, r.body).toBe(202);
+    expect(r.json()).toMatchObject({
+      status: "approval_pending",
+      waiting_for: { name: "Andy C." },
+    });
+    expect((await increments(tab.paymentId))[0]).toMatchObject({
+      state: "failed",
+      decline_code: "card_declined",
+    });
+    expect(await payment(tab.paymentId)).toMatchObject({ authorized: 5000, status: "authorized" });
+    expect((await intentOf(tab.paymentId))["amount"]).toBe(5000);
+  });
+
+  it("drop: Stripe raises it but the answer never arrives, so it reads Checking with Stripe until the worker reads it back", async () => {
+    const tab = await openTab("Seat 8", "2223003122003222");
+    expect((await nextRaise(tab.paymentId, "drop")).ok).toBe(true);
+    const r = await send(tab.check_id, [{ variant_id: v("bucket_s"), qty: 1 }], "kira-round-1");
+    expect(r.statusCode, r.body).toBe(202);
+    expect(r.json().error).toMatchObject({ code: "payment_unknown" });
+    expect((await intentOf(tab.paymentId))["amount"]).toBe(8000);
+    clock.advance({ seconds: 3 });
+    await drain();
+    expect(await payment(tab.paymentId)).toMatchObject({ authorized: 8000, status: "authorized" });
+    expect((await increments(tab.paymentId))[0]!.state).toBe("succeeded");
+  });
+});
+
 describe("a card that can't grow (step 2)", () => {
   it("is capped at the hold plus the overcapture allowance, less the tip reserve", async () => {
     const tab = await openTab("Seat 6", "4111111111111111", "&card_present[incremental]=false");
