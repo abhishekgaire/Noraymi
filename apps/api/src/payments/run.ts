@@ -1,5 +1,6 @@
 import type pg from "pg";
 import {
+  checkIsTraining,
   allocate,
   amountDue,
   complete,
@@ -146,7 +147,8 @@ export async function writeTap(
     status: "pending",
     businessDate: input.businessDate,
     tipCents: input.tipCents ?? 0,
-    training: input.training ?? false,
+    // A practice check's card goes to Stripe's sandbox only (M7-03, M7-04).
+    training: input.training || (await checkIsTraining(c, venueId, input.checkId)),
   });
   await allocate(c, venueId, {
     paymentId,

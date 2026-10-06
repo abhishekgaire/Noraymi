@@ -1469,6 +1469,7 @@ export const en = {
   "payShare.paid": "Your share is paid",
   "payShare.failed": "Couldn't start your share. Try again.",
   "receipt.number": "Check #{number}",
+  "receipt.numberTraining": "Check {number}",
   "receipt.roomTime": "Room time · {min} min at {rate} an hour",
   "receipt.roomTimeOnly": "Room time · {min} min",
   "receipt.comp": "COMP · {item}",
@@ -2224,4 +2225,13 @@ export const en = {
   "clock.refused": "That didn't go through · the clock changed on another screen",
   "clock.clockedOut": "Clocked out · see you next shift",
   "tabs.clock": "Clock in and out",
+  "training.band": "TRAINING · not real money",
+  "training.mark": "TRAINING",
+  "team.training": "Training mode",
+  "team.training.for": "Training mode for {name}",
+  "team.training.off": "Off",
+  "team.training.devices": "Training mode on a device",
+  "team.training.devicesHint":
+    "For a new hire's first shifts: everything rung on the device is practice, whoever signs in. Practice checks are numbered T-… and stay out of every total.",
+  "team.training.noDevices": "No phones or shared screens are paired yet",
 } as const;

@@ -291,6 +291,42 @@ describe("Admin → Team's list and PATCH /team/{m}", () => {
     ).not.toBe(200);
   });
 
+  it("turns training mode on and off for a person, with the passkey asked again (M7-03)", async () => {
+    const on = await call(
+      "PATCH",
+      `/v1/venues/${v.venueA}/team/${diego}`,
+      { training: true },
+      await stepUp(ownerCookie, ownerKey),
+    );
+    expect(on.statusCode, on.body).toBe(200);
+    expect(json(on)["training"]).toBe(true);
+    const list = json(
+      await call("GET", `/v1/venues/${v.venueA}/team`, undefined, { cookie: ownerCookie }),
+    );
+    const row = (list["people"] as { membership_id: string; training: boolean }[]).find(
+      (p) => p.membership_id === diego,
+    );
+    expect(row?.training).toBe(true);
+    // Without the passkey asked again, nothing changes.
+    expect(
+      (
+        await call(
+          "PATCH",
+          `/v1/venues/${v.venueA}/team/${diego}`,
+          { training: false },
+          { cookie: ownerCookie },
+        )
+      ).statusCode,
+    ).not.toBe(200);
+    const off = await call(
+      "PATCH",
+      `/v1/venues/${v.venueA}/team/${diego}`,
+      { training: false },
+      await stepUp(ownerCookie, ownerKey),
+    );
+    expect(json(off)["training"]).toBe(false);
+  });
+
   it("refuses an empty change, an unknown field, your own role, and a deactivated person", async () => {
     const headers = await stepUp(ownerCookie, ownerKey);
     expect(
@@ -301,7 +337,7 @@ describe("Admin → Team's list and PATCH /team/{m}", () => {
         await call(
           "PATCH",
           `/v1/venues/${v.venueA}/team/${diego}`,
-          { training: true },
+          { tip_eligible: true },
           await stepUp(ownerCookie, ownerKey),
         )
       ).statusCode,

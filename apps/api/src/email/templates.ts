@@ -48,6 +48,8 @@ export const receiptData = z
     number: z.string().min(1),
     lines: z.array(z.string().max(200)).min(1).max(300),
     link: z.string().url(),
+    /** A practice check's receipt (training mode, M7-03): the email job refuses it. */
+    training: z.boolean().optional(),
   })
   .strict();
 

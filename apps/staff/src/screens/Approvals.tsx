@@ -109,6 +109,8 @@ export function Approvals() {
       <ul className="cards">
         {list?.map((a) => (
           <li key={a.id} className="card">
+            {/* From a practice check (training mode, M7-03): it never counts anywhere. */}
+            {a.training && <span className="chip training">{t("training.mark")}</span>}
             <div className="row">
               <strong>
                 {t(kindKey(a.kind))}

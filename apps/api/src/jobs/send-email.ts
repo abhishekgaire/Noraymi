@@ -3,6 +3,7 @@ import { enqueue, type JobHandler, type Queryable } from "@west4/db";
 import type { Temporal } from "@west4/shared";
 import type { Mailer } from "../email/mailer.js";
 import { assertAllowed } from "../email/policy.js";
+import { ApiError } from "../http/errors.js";
 import type { EmailSettings } from "../email/settings.js";
 import {
   localeSchema,
@@ -77,6 +78,7 @@ export async function enqueueEmail<N extends TemplateName>(
   options: EnqueueEmailOptions<N>,
 ): Promise<string | null> {
   assertAllowed(settings.allowList, options.to);
+  refusePractice(options.template, options.data);
   const payload = emailJobPayload.parse({
     template: options.template,
     to: options.to,
@@ -93,6 +95,14 @@ export async function enqueueEmail<N extends TemplateName>(
   });
 }
 
+/** Practice never emails a guest (training mode, M7-03): a practice receipt is refused here and at send time. */
+function refusePractice(template: string, data: unknown) {
+  if (template === "receipt" && (data as { training?: boolean }).training === true)
+    throw new ApiError("forbidden", "practice never emails a guest", {
+      details: { reason: "training" },
+    });
+}
+
 export function makeSendEmailHandler(
   mailer: Mailer,
   settings: EmailSettings,
@@ -103,6 +113,7 @@ export function makeSendEmailHandler(
     const payload = emailJobPayload.parse(job.payload);
     // Checked again at send time: the list may have changed since the job was queued.
     assertAllowed(settings.allowList, payload.to);
+    refusePractice(payload.template, payload.data);
     const rendered = render(payload.template, payload.locale, payload.data);
     const attachments =
       payload.template === "receipt"

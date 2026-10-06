@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Queryable, RequestContext } from "@west4/db";
 import { formatInZone, type Clock } from "@west4/shared";
 import { ApiError } from "./errors.js";
+import { guardTraining, markTraining } from "./training.js";
 import {
   claimKey,
   finishKey,
@@ -71,6 +72,7 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   app.decorateRequest("requestId", "");
   app.decorateRequest("forbidden", false);
   app.decorateRequest("venueId", undefined);
+  app.decorateRequest("training", false);
   app.decorateRequest("signedDevice", undefined);
   app.decorateRequest("session", undefined);
   app.decorateRequest("sessionProblem", undefined);
@@ -168,6 +170,14 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
       if (!options.db) throw new Error("no database in this app");
       return app.db.withVenue(context, work);
     };
+    // Training mode (M7-03): marked once, then the wall between practice and live work.
+    request.training = false;
+    if (options.db && venueId !== undefined) {
+      await app.db.withVenue(context, async (c) => {
+        request.training = await markTraining(request, c, venueId);
+        await guardTraining(request, c, venueId);
+      });
+    }
 
     // Before every write, the caller's role is checked against role_permissions for the route's action (M1-14).
     const isWrite =

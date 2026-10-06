@@ -112,8 +112,8 @@ export async function tabConsent(c: Queryable, venueId: string, now: Temporal.In
   };
 }
 
-export async function reserveTabCheckNumber(pool: pg.Pool, venueId: string) {
-  return nextCheckNumber(pool, venueId);
+export async function reserveTabCheckNumber(pool: pg.Pool, venueId: string, training = false) {
+  return nextCheckNumber(pool, venueId, { training });
 }
 
 export interface OpenTabInput {
@@ -125,6 +125,8 @@ export interface OpenTabInput {
   readonly checkNumber: number;
   readonly userId: string;
   readonly membershipId: string;
+  /** Training mode (M7-03): the hold is practice, and so is the tab it opens. */
+  readonly training?: boolean;
   readonly now: Temporal.Instant;
 }
 
@@ -169,6 +171,7 @@ export async function writeTabOpening(
     method: "card_present",
     status: "pending",
     businessDate: consent.business_date,
+    training: input.training ?? false,
   });
   const { attemptNo } = await startAttempt(c, venueId, {
     paymentId,
@@ -431,6 +434,7 @@ export async function settleTabOpening(
     businessDate: date,
     openedBy: o.opened_by,
     openedAt: now.toString(),
+    training: payment.training,
   });
   const brand = o.card_brand ?? brandName(intent?.card?.brand ?? payment.card_brand);
   const last4 = o.card_last4 ?? intent?.card?.last4 ?? payment.card_last4;

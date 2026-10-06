@@ -109,6 +109,11 @@ export async function sendReceipt(
 ): Promise<{ model: ReceiptModel; link: string | null }> {
   const model = await receiptModel(c, venueId, input.checkId);
   if (!model) throw new ApiError("not_found", "no such check");
+  // A practice receipt prints TRAINING and is never texted or emailed (M7-03).
+  if (model.training && input.to.channel !== "print")
+    throw new ApiError("forbidden", "a practice receipt is never texted or emailed", {
+      details: { reason: "training" },
+    });
   const token = await newReceipt(c, venueId, deps, {
     checkId: input.checkId,
     channel: input.to.channel,
@@ -139,6 +144,7 @@ export async function sendReceipt(
         context: null,
         sentBy: input.sentBy,
         now: input.now,
+        training: model.training,
       },
       deps.texts,
     );
@@ -149,7 +155,7 @@ export async function sendReceipt(
       to: input.to.to,
       locale: "en",
       template: "receipt",
-      data: { venueName: model.venue, number: model.number, lines, link },
+      data: { venueName: model.venue, number: model.number, lines, link, training: model.training },
       runAt: input.now,
     });
   }

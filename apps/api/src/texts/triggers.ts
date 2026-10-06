@@ -98,7 +98,7 @@ export async function planTextTriggers(
        join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
        join bookings b on b.venue_id = s.venue_id and b.id = s.booking_id
        join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
-      where s.venue_id = $1 and s.ended_at is null and s.booked_end_at is not null and g.phone_e164 is not null
+      where s.venue_id = $1 and s.ended_at is null and not s.training and s.booked_end_at is not null and g.phone_e164 is not null
         and s.booked_end_at > $2::timestamptz and s.booked_end_at <= $2::timestamptz + make_interval(mins => $3)`,
     [venueId, now.toString(), noticeMin],
   );

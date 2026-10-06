@@ -44,6 +44,8 @@ const patchBody = z
     room_id: z.string().uuid().nullable().optional(),
     /** The drawer a shared screen rings cash into (M4-13). */
     cash_drawer_id: z.string().uuid().nullable().optional(),
+    /** Training mode for this device, such as a new hire's phone (M7-03): everything rung on it is practice. */
+    training: z.boolean().optional(),
   })
   .strict();
 const isInstant = (s: string): boolean => {
@@ -213,12 +215,24 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
     async (request) => {
       const parsed = patchBody.safeParse(request.body);
       if (!parsed.success)
-        throw new ApiError("invalid_request", "send { name?, room_id?, cash_drawer_id? }");
+        throw new ApiError(
+          "invalid_request",
+          "send { name?, room_id?, cash_drawer_id?, training? }",
+        );
       const updated = await request.inVenue(async (c) => {
         const row = await updateDevice(c, request.venueId!, request.params.d, {
           name: parsed.data.name,
           roomId: parsed.data.room_id,
+          training: parsed.data.training,
         });
+        // Its screens show or hide the training band at once (M7-03).
+        if (row && parsed.data.training !== undefined)
+          await emitEvent(c, {
+            venueId: request.venueId!,
+            type: "device.updated",
+            entityId: row.id,
+            entityVersion: 0,
+          });
         if (row && parsed.data.cash_drawer_id !== undefined) {
           if (parsed.data.cash_drawer_id) {
             const drawer = await c.query(

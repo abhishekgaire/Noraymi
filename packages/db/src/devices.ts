@@ -168,12 +168,24 @@ export async function updateDevice(
   client: Queryable,
   venueId: string,
   deviceId: string,
-  patch: { name?: string | undefined; roomId?: string | null | undefined },
+  patch: {
+    name?: string | undefined;
+    roomId?: string | null | undefined;
+    training?: boolean | undefined;
+  },
 ): Promise<DeviceRow | null> {
   const r = await client.query<DeviceRow>(
-    `update devices set name = coalesce($3, name), room_id = case when $4::boolean then $5::uuid else room_id end
+    `update devices set name = coalesce($3, name), room_id = case when $4::boolean then $5::uuid else room_id end,
+            training = coalesce($6, training)
       where venue_id = $1 and id = $2 and revoked_at is null returning ${COLS}`,
-    [venueId, deviceId, patch.name ?? null, patch.roomId !== undefined, patch.roomId ?? null],
+    [
+      venueId,
+      deviceId,
+      patch.name ?? null,
+      patch.roomId !== undefined,
+      patch.roomId ?? null,
+      patch.training ?? null,
+    ],
   );
   return r.rows[0] ?? null;
 }

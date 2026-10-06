@@ -177,7 +177,7 @@ export async function openSessionInRoom(
     wrong_codes: number;
   }>(
     `select id, room_code_hash, token_version, wrong_codes from room_sessions
-      where venue_id = $1 and room_id = $2 and ended_at is null order by started_at desc limit 1`,
+      where venue_id = $1 and room_id = $2 and ended_at is null and not training order by started_at desc limit 1`,
     [venueId, roomId],
   );
   return r.rows[0] ?? null;

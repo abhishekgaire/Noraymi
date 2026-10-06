@@ -1,5 +1,5 @@
 import { checkById, depositsOn, latestRevision, type Queryable } from "@west4/db";
-import { Temporal, cents, formatMoney, t, type MessageKey } from "@west4/shared";
+import { Temporal, cents, formatMoney, t, trainingNumber, type MessageKey } from "@west4/shared";
 import { checkPayments } from "../rooms/guest-bill.js";
 
 /**
@@ -23,6 +23,8 @@ export interface ReceiptModel {
   readonly venue: string;
   readonly address: string | null;
   readonly number: string;
+  /** A practice check (training mode, M7-03): the receipt says TRAINING. */
+  readonly training: boolean;
   readonly room: string | null;
   readonly opened: string;
   readonly paid: string | null;
@@ -238,7 +240,10 @@ export async function receiptModel(
   return {
     venue: v.name,
     address: v.address ? [v.address["line1"], v.address["city"]].filter(Boolean).join(", ") : null,
-    number: t("en", "receipt.number", { number: String(found.check.number) }),
+    number: found.check.training
+      ? t("en", "receipt.numberTraining", { number: trainingNumber(found.check.number) })
+      : t("en", "receipt.number", { number: String(found.check.number) }),
+    training: found.check.training,
     room: v.room,
     opened: receiptTime(v.opened_at, v.time_zone),
     paid: v.paid_at ? receiptTime(v.paid_at, v.time_zone) : null,
@@ -259,6 +264,7 @@ export async function receiptModel(
 export function receiptText(m: ReceiptModel): string[] {
   const row = (l: ReceiptLine) => `${l.label}  ${money(l.amount_cents)}`;
   return [
+    ...(m.training ? [t("en", "training.band")] : []),
     m.venue,
     ...(m.address ? [m.address] : []),
     m.room ? `${m.number} · ${m.room}` : m.number,

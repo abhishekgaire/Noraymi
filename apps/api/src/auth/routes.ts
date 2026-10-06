@@ -47,6 +47,7 @@ import {
   type Queryable,
   type RecoveryContact,
   type SessionAssurance,
+  trainingOf,
 } from "@west4/db";
 import { Temporal, actions, moduleIds, permissionFor, stateOf, type Clock } from "@west4/shared";
 import { businessDate } from "@west4/rules";
@@ -780,6 +781,11 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         async (c) => ({
           overrides: await permissionOverrides(c, m.venueId),
           states: statesOf(await venueModules(c, m.venueId)),
+          // Training mode (M7-03): the person's, or the device this session runs on.
+          training: await trainingOf(c, m.venueId, {
+            membershipId: m.membershipId,
+            deviceIds: [session.deviceId, request.signedDevice?.deviceId],
+          }),
         }),
       );
       memberships.push({
@@ -795,6 +801,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         },
         modules: Object.fromEntries(moduleIds.map((id) => [id, stateOf(venue.states, id)])),
         permissions: actions.filter((a) => permissionFor(venue.overrides, m.role, a).allowed),
+        training: venue.training,
       });
     }
     return reply.code(200).send({

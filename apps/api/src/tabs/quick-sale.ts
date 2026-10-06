@@ -26,8 +26,8 @@ import { venueClock } from "../rooms/assignment.js";
  * takes a tap or cash. The number comes from the venue's counter first, in
  * its own short transaction, so a failed tap later keeps it.
  */
-export async function quickSaleNumber(pool: pg.Pool, venueId: string) {
-  return nextCheckNumber(pool, venueId);
+export async function quickSaleNumber(pool: pg.Pool, venueId: string, training = false) {
+  return nextCheckNumber(pool, venueId, { training });
 }
 
 export async function startQuickSale(
@@ -40,6 +40,8 @@ export async function startQuickSale(
     userId: string;
     membershipId: string;
     deviceId: string | null;
+    /** Training mode (M7-03): a practice check, numbered T-… from its own counter. */
+    training?: boolean;
     now: Temporal.Instant;
   },
 ) {
@@ -63,6 +65,7 @@ export async function startQuickSale(
     businessDate: date,
     openedBy: input.userId,
     openedAt: input.now.toString(),
+    training: input.training ?? false,
   });
   await placeStaffOrder(c, venueId, {
     checkId,

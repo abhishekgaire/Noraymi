@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { MessageKey } from "@west4/shared";
+import { checkNumberLabel, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 
@@ -24,6 +24,14 @@ interface Preview {
 interface Room {
   readonly room_id: string;
   readonly name: string;
+}
+
+interface Seated {
+  readonly room_name: string;
+  readonly room_code: string;
+  readonly check_number: number;
+  readonly training?: boolean;
+  readonly text: string;
 }
 
 export type SheetTarget =
@@ -91,7 +99,7 @@ export function CheckInSheet({
     try {
       const seated =
         target.kind === "booking"
-          ? await api<{ room_name: string; room_code: string; check_number: number; text: string }>(
+          ? await api<Seated>(
               "POST",
               `/v1/venues/${venueId}/bookings/${target.bookingId}/check-in`,
               {
@@ -101,23 +109,20 @@ export function CheckInSheet({
                 start_at: startBooked ? "booked" : "now",
               },
             )
-          : await api<{ room_name: string; room_code: string; check_number: number; text: string }>(
-              "POST",
-              `/v1/venues/${venueId}/rooms/${roomId}/sessions`,
-              {
-                party_size: party,
-                ids_checked: ids,
-                minutes,
-                ...(name.trim()
-                  ? { guest: { name: name.trim(), phone_e164: phone.trim() || null } }
-                  : {}),
-              },
-            );
+          : await api<Seated>("POST", `/v1/venues/${venueId}/rooms/${roomId}/sessions`, {
+              party_size: party,
+              ids_checked: ids,
+              minutes,
+              ...(name.trim()
+                ? { guest: { name: name.trim(), phone_e164: phone.trim() || null } }
+                : {}),
+            });
       onDone(
         t("checkIn.done", {
           room: seated.room_name,
           code: seated.room_code,
-          number: String(seated.check_number),
+          // A practice check (training mode, M7-03) shows as T-0012.
+          number: checkNumberLabel(seated.check_number, seated.training === true),
         }) + (seated.text === "not_sent" ? ` · ${t("checkIn.textNotSent")}` : ""),
       );
     } catch (err) {

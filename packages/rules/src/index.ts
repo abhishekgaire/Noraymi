@@ -72,3 +72,5 @@ export * from "./hold.js";
 export * from "./song-queue.js";
 export { shiftMinutes, splitShifts, dutiesFor, DUTIES, PUNCH_KINDS } from "./shifts.js";
 export type { Duty, Punch, PunchKind, ShiftMinutes } from "./shifts.js";
+export { zReportGratuity } from "./z-report.js";
+export type { ZCheck, ZGratuity } from "./z-report.js";

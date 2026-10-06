@@ -7472,3 +7472,54 @@ test("Andy's Clock in and out tab lists who's on the clock, at phone size", asyn
     await db.end();
   }
 });
+
+/**
+ * Training mode (M7-03): with Maya in training, every staff route shows the
+ * band "TRAINING · not real money" on the bar computer and on a phone, and
+ * nothing closes it; when she leaves training the band goes. The walk fails
+ * if any route renders without it: Board, Rail, Bar, DeskRoom, Room, Staff, Night.
+ */
+test("training mode: the band on every staff route, at 1440 and 390, that can't be closed", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const room9 = (
+      await db.query<{ id: string }>("select row_id as id from seed_ids where slug = 'room_9'")
+    ).rows[0]!.id;
+    const band = page.getByTestId("training-band");
+    await expect(band).toHaveCount(0);
+    await db.query(
+      "update memberships set training = true where user_id = (select id from users where name = 'Maya S.')",
+    );
+    const routes = [
+      "/tonight",
+      "/bar",
+      "/bar-orders",
+      `/room/${room9}`,
+      "/today",
+      "/close-the-night",
+    ];
+    for (const size of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(size);
+      for (const route of routes) {
+        await page.goto(route);
+        await expect(band, `${route} at ${size.width}`).toHaveText("TRAINING · not real money");
+        await expect(band.getByRole("button")).toHaveCount(0);
+        expect(await clippedText(page), `${route} at ${size.width}`).toEqual([]);
+      }
+    }
+    await db.query("update memberships set training = false");
+    await page.goto("/bar");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    await expect(band).toHaveCount(0);
+  } finally {
+    await db.query("update memberships set training = false");
+    await db.end();
+  }
+});

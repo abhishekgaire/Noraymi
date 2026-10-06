@@ -26,6 +26,8 @@ export const RESUME_WITHIN_MIN = 10;
 
 interface SessionRow {
   id: string;
+  /** A practice session (training mode, M7-03): it blocks nothing and only screens in training see it. */
+  training: boolean;
   room_id: string;
   room_name: string;
   booking_id: string | null;
@@ -69,7 +71,7 @@ const SESSION_COLS = `s.id, s.room_id, r.name as room_name, s.booking_id, s.chec
     (select g.name from guests g where g.venue_id = s.venue_id and g.id = s.guest_id)) as guest_name,
   ${iso("s.alcohol_cut_off_at")} as alcohol_cut_off_at,
   (select split_part(u.name, ' ', 1) from users u where u.id = s.alcohol_cut_off_by) as alcohol_cut_off_by_name,
-  s.alcohol_cut_off_reason`;
+  s.alcohol_cut_off_reason, s.training`;
 const SEGMENT_COLS = `id, session_id, ${iso("started_at")} as started_at, ${iso("ended_at")} as ended_at,
   billable_guests, rate_kind, hourly_cents, band_id, increment_min, rounding, paused`;
 
@@ -104,10 +106,12 @@ export async function sessionViews(
   venueId: string,
   now: Temporal.Instant,
   only?: string,
+  /** The open sessions a screen in training sees: the live ones and the practice ones. */
+  training = false,
 ): Promise<SessionView[]> {
   const sessions = only
     ? await sessionRows(c, venueId, "s.id = $2", [only])
-    : await sessionRows(c, venueId, "s.ended_at is null", []);
+    : await sessionRows(c, venueId, "s.ended_at is null and (not s.training or $2)", [training]);
   if (sessions.length === 0) return [];
   const venue = await venueClock(c, venueId);
   const night = await nightOf(c, venueId, venue, now);
@@ -210,6 +214,11 @@ export async function endSession(
     "update session_segments set ended_at = $3 where venue_id = $1 and session_id = $2 and ended_at is null",
     [venueId, id, now.toString()],
   );
+  // A practice session writes no blocks and no room states (M7-03): the room was never taken.
+  if (s.training) {
+    await emitEvent(c, { venueId, type: "room.updated", entityId: s.room_id, entityVersion: 0 });
+    return;
+  }
   const block = await sessionBlock(c, venueId, id);
   if (block) await setBlockEnd(c, venueId, block.id, now);
   await sendToCleaning(c, venueId, s.room_id, { now, userId });
@@ -235,14 +244,19 @@ export async function resumeSession(
       "invalid_request",
       `a session resumes only within ${RESUME_WITHIN_MIN} minutes of its end`,
     );
-  const open = await sessionRows(c, venueId, "s.room_id = $2 and s.ended_at is null", [s.room_id]);
+  const open = await sessionRows(
+    c,
+    venueId,
+    "s.room_id = $2 and s.ended_at is null and s.training = $3",
+    [s.room_id, s.training],
+  );
   if (open.length > 0) throw new ApiError("room_not_free", "another party is in that room now");
   // The cleaning block the end wrote goes; the session's block runs on again.
   const cleaning = await c.query<{ id: string }>(
     "select id from room_blocks where venue_id = $1 and room_id = $2 and kind = 'cleaning' and lower(period) = $3::timestamptz",
     [venueId, s.room_id, ended.toString()],
   );
-  for (const row of cleaning.rows) await releaseBlock(c, row.id);
+  if (!s.training) for (const row of cleaning.rows) await releaseBlock(c, row.id);
   const block = await sessionBlock(c, venueId, id);
   const planned = s.booked_end_at ? Temporal.Instant.from(s.booked_end_at) : ended;
   let until = Temporal.Instant.compare(planned, now) > 0 ? planned : ended;
@@ -262,7 +276,12 @@ export async function resumeSession(
     "update session_segments set ended_at = null where venue_id = $1 and session_id = $2 and ended_at = $3::timestamptz",
     [venueId, id, ended.toString()],
   );
-  await setRoomState(c, venueId, s.room_id, { state: "in_use", setBy: userId, at: now.toString() });
+  if (!s.training)
+    await setRoomState(c, venueId, s.room_id, {
+      state: "in_use",
+      setBy: userId,
+      at: now.toString(),
+    });
   await emitEvent(c, { venueId, type: "room.updated", entityId: s.room_id, entityVersion: 0 });
 }
 

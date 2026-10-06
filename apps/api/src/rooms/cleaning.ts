@@ -75,7 +75,7 @@ export async function markClean(
   if (!room) throw new ApiError("not_found", "no such room");
   if (room.state !== "cleaning") throw new ApiError("invalid_request", "the room isn't cleaning");
   const open = await c.query(
-    "select 1 from room_sessions where venue_id = $1 and room_id = $2 and ended_at is null",
+    "select 1 from room_sessions where venue_id = $1 and room_id = $2 and ended_at is null and not training",
     [venueId, roomId],
   );
   await setRoomState(c, venueId, roomId, {

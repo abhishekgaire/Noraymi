@@ -99,6 +99,13 @@ async function ticket(
     if (party.rows[0])
       ids = { checked: counts.get(order.session_id) ?? 0, party: party.rows[0].party_size };
   }
+  // A practice order's ticket prints TRAINING (M7-03).
+  const training = (
+    await c.query<{ training: boolean }>(
+      "select training from checks where venue_id = $1 and id = $2",
+      [venueId, order.check_id],
+    )
+  ).rows[0]?.training;
   for (const station of stations) {
     await insertPrintJob(c, venueId, {
       orderId: order.id,
@@ -114,6 +121,7 @@ async function ticket(
         ids,
         // A gift (M6-24) names the singer it's for; the bartender checks their ID at hand-off.
         ...(order.source === "gift" ? { gift_for: order.gift_for_name } : {}),
+        ...(training ? { training: true } : {}),
         lines: order.items
           .filter((i) => i.station === station)
           .map((i) => ({

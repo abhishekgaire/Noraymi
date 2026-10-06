@@ -8,6 +8,7 @@ export function boardRoutes(app: FastifyInstance, options: { clock: Clock }): vo
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/board",
     { config: route({ principals: ["owner_manager", "staff", "shared_device"], module: "rooms" }) },
-    async (request) => request.inVenue((c) => board(c, request.venueId!, options.clock.now())),
+    async (request) =>
+      request.inVenue((c) => board(c, request.venueId!, options.clock.now(), request.training)),
   );
 }

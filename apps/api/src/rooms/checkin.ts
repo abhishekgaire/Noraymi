@@ -151,6 +151,12 @@ interface SeatInput {
   readonly bookingBlockId: string | null;
   readonly guest: { id: string | null; phone: string | null };
   readonly userId: string;
+  /**
+   * A practice session (training mode, M7-03; cautious default in the ticket's notes): on a free
+   * room, it writes no room_blocks and no room_states, texts nobody, and only screens in training
+   * see it. Its check is numbered T-… from its own counter.
+   */
+  readonly training?: boolean;
 }
 
 /**
@@ -161,7 +167,8 @@ interface SeatInput {
  * or isn't free answers 409 room_not_free.
  */
 async function seat(ctx: Context, input: SeatInput) {
-  const number = await nextCheckNumber(ctx.pool, input.venueId);
+  const training = input.training ?? false;
+  const number = await nextCheckNumber(ctx.pool, input.venueId, { training });
   return withVenue(ctx.pool, { venueId: input.venueId, userId: input.userId }, async (c) => {
     const rooms = await listRooms(c, input.venueId);
     const room = rooms.find((r) => r.id === input.roomId);
@@ -172,9 +179,15 @@ async function seat(ctx: Context, input: SeatInput) {
       throw new ApiError("room_not_free", `${room.name} holds ${room.capacity_max}`, {
         details: { reason: "too_small" },
       });
+    // A practice session takes only a free room, and never stops a live party taking it.
+    if (training && room.state !== "available")
+      throw new ApiError("room_not_free", "practice on a free room", {
+        details: { reason: "in_use" },
+      });
     const open = await c.query(
-      "select 1 from room_sessions where venue_id = $1 and room_id = $2 and ended_at is null",
-      [input.venueId, room.id],
+      `select 1 from room_sessions where venue_id = $1 and room_id = $2 and ended_at is null
+          and (training = $3 or not training)`,
+      [input.venueId, room.id, training],
     );
     if (open.rowCount)
       throw new ApiError("room_not_free", "another party is in that room", {
@@ -204,8 +217,9 @@ async function seat(ctx: Context, input: SeatInput) {
     const sessionId = (
       await c.query<{ id: string }>(
         `insert into room_sessions (venue_id, room_id, booking_id, party_size, started_at, booked_end_at, business_date,
-           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc, host_lock, min_spend_cents)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13, $14) returning id`,
+           server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc, host_lock, min_spend_cents,
+           training)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13, $14, $15) returning id`,
         [
           input.venueId,
           room.id,
@@ -223,6 +237,7 @@ async function seat(ctx: Context, input: SeatInput) {
           (await readSetting(c, input.venueId, "ordering", priced.date))?.value.hostLockDefault ??
             false,
           minSpend,
+          training,
         ],
       )
     ).rows[0]!.id;
@@ -255,28 +270,30 @@ async function seat(ctx: Context, input: SeatInput) {
     const cleaning =
       (await readSetting(c, input.venueId, "rooms", priced.date))?.value.cleaningMin ?? 0;
     const blockEnd = input.plannedEnd.add({ minutes: room.cleaning_min ?? cleaning });
-    try {
-      if (input.bookingBlockId) await releaseBlock(c, input.bookingBlockId);
-      await addBlock(c, {
-        venueId: input.venueId,
-        roomId: room.id,
-        kind: "session",
-        from: input.start,
-        to: blockEnd,
-        refId: sessionId,
-      });
-    } catch (e) {
-      if (e instanceof RoomNotFree)
-        throw new ApiError("room_not_free", `${room.name} isn't free for that time`, {
-          details: { reason: "taken" },
+    if (!training)
+      try {
+        if (input.bookingBlockId) await releaseBlock(c, input.bookingBlockId);
+        await addBlock(c, {
+          venueId: input.venueId,
+          roomId: room.id,
+          kind: "session",
+          from: input.start,
+          to: blockEnd,
+          refId: sessionId,
         });
-      throw e;
-    }
-    await setRoomState(c, input.venueId, room.id, {
-      state: "in_use",
-      setBy: input.userId,
-      at: input.start.toString(),
-    });
+      } catch (e) {
+        if (e instanceof RoomNotFree)
+          throw new ApiError("room_not_free", `${room.name} isn't free for that time`, {
+            details: { reason: "taken" },
+          });
+        throw e;
+      }
+    if (!training)
+      await setRoomState(c, input.venueId, room.id, {
+        state: "in_use",
+        setBy: input.userId,
+        at: input.start.toString(),
+      });
 
     const checkId = await insertCheck(c, {
       venueId: input.venueId,
@@ -287,6 +304,7 @@ async function seat(ctx: Context, input: SeatInput) {
       bookingId: input.bookingId,
       openedBy: input.userId,
       openedAt: input.start.toString(),
+      training,
     });
     await c.query("update room_sessions set check_id = $3 where venue_id = $1 and id = $2", [
       input.venueId,
@@ -300,7 +318,7 @@ async function seat(ctx: Context, input: SeatInput) {
 
     // The Room code text, to the host, with the join link that carries the host token.
     let texted: "queued" | "no_phone" | "not_sent" = "no_phone";
-    if (input.guest.phone) {
+    if (input.guest.phone && !training) {
       if (!ctx.settings.guestAppUrl) texted = "not_sent";
       else {
         try {
@@ -342,6 +360,8 @@ async function seat(ctx: Context, input: SeatInput) {
       session_id: sessionId,
       check_id: checkId,
       check_number: number,
+      /** A practice session's check (M7-03): shown as T-0012. */
+      training,
       room_id: room.id,
       room_name: room.name,
       room_code: code,
@@ -435,19 +455,22 @@ export async function seatWalkIn(
     holdBlockId?: string | null;
   },
   userId: string,
+  training = false,
 ) {
   const now = ctx.clock.now().round({ smallestUnit: "minute", roundingMode: "floor" });
   if (body.ids_checked > body.party_size)
     throw new ApiError("invalid_request", "more IDs checked than guests");
-  const guest = body.guest
-    ? await withVenue(ctx.pool, { venueId }, async (c) => ({
-        id: await findOrCreateGuest(c, venueId, {
-          name: body.guest!.name,
-          phoneE164: body.guest!.phone_e164 ?? null,
-        }),
-        phone: body.guest!.phone_e164 ?? null,
-      }))
-    : { id: null, phone: null };
+  // A practice walk-in writes no guest record: practice never reaches a real guest.
+  const guest =
+    body.guest && !training
+      ? await withVenue(ctx.pool, { venueId }, async (c) => ({
+          id: await findOrCreateGuest(c, venueId, {
+            name: body.guest!.name,
+            phoneE164: body.guest!.phone_e164 ?? null,
+          }),
+          phone: body.guest!.phone_e164 ?? null,
+        }))
+      : { id: null, phone: null };
   return seat(ctx, {
     venueId,
     roomId,
@@ -456,9 +479,10 @@ export async function seatWalkIn(
     start: now,
     plannedEnd: now.add({ minutes: body.minutes }),
     bookingId: null,
-    bookingBlockId: body.holdBlockId ?? null,
+    bookingBlockId: training ? null : (body.holdBlockId ?? null),
     guest,
     userId,
+    training,
   });
 }
 

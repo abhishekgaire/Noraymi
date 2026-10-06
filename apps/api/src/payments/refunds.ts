@@ -442,16 +442,18 @@ executors.set("refund", async (c, venueId, approval, ctx) => {
           [venueId, payment.id],
         )
       ).rows[0]!;
-      await insertDrawerMove(c, venueId, {
-        drawerSessionId: held.drawer_session_id,
-        staffBankId: held.staff_bank_id,
-        kind: "refund",
-        amountCents: -refund.amount_cents,
-        paymentId: payment.id,
-        takenBy: ctx.approverId,
-        reason: refund.reason,
-        at,
-      });
+      // Practice cash (training mode, M7-03) never went into a drawer, so none goes out.
+      if (!payment.training)
+        await insertDrawerMove(c, venueId, {
+          drawerSessionId: held.drawer_session_id,
+          staffBankId: held.staff_bank_id,
+          kind: "refund",
+          amountCents: -refund.amount_cents,
+          paymentId: payment.id,
+          takenBy: ctx.approverId,
+          reason: refund.reason,
+          at,
+        });
       await setRefundStatus(c, venueId, refund.id, { status: "succeeded", at });
       await landRefund(c, venueId, { ...refund, status: "succeeded" }, at);
     } else {

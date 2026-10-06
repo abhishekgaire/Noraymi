@@ -275,8 +275,8 @@ export {
   addCheckLine,
   checkById,
   insertCheck,
+  checkIsTraining,
   nextCheckNumber,
-  reasonOnlyUsed,
   type CheckKind,
   type CheckLineRow,
   type CheckRow,
@@ -507,3 +507,5 @@ export {
   recordNightClose,
   type NightClose,
 } from "./nights.js";
+export { trainingOf } from "./training.js";
+export { reasonOnlyUsed } from "./reports/reason-only.js";

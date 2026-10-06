@@ -29,7 +29,7 @@ import { depositPolicyText, type Duty } from "@west4/rules";
 import { publishPolicy } from "./policies.js";
 import { WEST4_POS_LAYOUT } from "./seed-pos-layout.js";
 import type { DeviceKind } from "./devices.js";
-import { reasonOnlyUsed } from "./checks.js";
+import { reasonOnlyUsed } from "./reports/reason-only.js";
 import { recordPunch } from "./shifts.js";
 
 /**

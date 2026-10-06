@@ -29,6 +29,19 @@ export async function nextCheckNumber(
   });
 }
 
+/** Is this a practice check (training mode, M7-03)? An unknown check is not. */
+export async function checkIsTraining(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+): Promise<boolean> {
+  const r = await c.query<{ training: boolean }>(
+    "select training from checks where venue_id = $1 and id = $2",
+    [venueId, checkId],
+  );
+  return r.rows[0]?.training ?? false;
+}
+
 export async function insertCheck(
   c: Queryable,
   input: {
@@ -196,32 +209,4 @@ export async function checkById(c: Queryable, venueId: string, id: string) {
       reverses_id: l.reverses_id === null ? null : Number(l.reverses_id),
     })),
   };
-}
-
-/**
- * A person's reason-only comps and voids so far (M2-14; spec 02): their comp
- * and void lines with a reason and no approver, from every screen, on live
- * checks only (practice checks are training checks, M7). Since M7-01 the
- * window is their open shift; with no open shift it's the business date,
- * which can only make the limit stricter.
- */
-export async function reasonOnlyUsed(
-  c: Queryable,
-  venueId: string,
-  userId: string,
-  businessDate: string,
-): Promise<number> {
-  const r = await c.query<{ used: string }>(
-    `with shift as (
-       select s.started_at from shifts s join memberships m on m.venue_id = s.venue_id and m.id = s.membership_id
-        where s.venue_id = $1 and m.user_id = $2 and s.ended_at is null)
-     select coalesce(sum(abs(l.amount_cents)), 0)::text as used
-       from check_lines l join checks k on k.venue_id = l.venue_id and k.id = l.check_id
-      where l.venue_id = $1 and l.added_by = $2
-        and l.kind in ('comp', 'void') and l.approved_by is null and not k.training
-        and case when exists (select 1 from shift) then l.added_at >= (select started_at from shift)
-                 else l.business_date = $3 end`,
-    [venueId, userId, businessDate],
-  );
-  return Number(r.rows[0]!.used);
 }

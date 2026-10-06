@@ -3,6 +3,7 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 import west4 from "./eslint-rules/no-jsx-literals.js";
+import liveViews from "./eslint-rules/live-views-only.js";
 
 export default tseslint.config(
   {
@@ -63,6 +64,15 @@ export default tseslint.config(
     files: ["apps/staff/src/**/*.tsx"],
     plugins: { west4 },
     rules: { "west4/no-jsx-literals": "error" },
+  },
+  {
+    // Training mode (M7-03): every Z, tax, tip, export, report and reason-only query reads the
+    // live views, so practice checks stay out of every total. Report code lives in a reports or
+    // exports folder.
+    files: ["{apps,packages}/*/src/{reports,exports}/**/*.ts"],
+    ignores: ["**/*.test.ts"],
+    plugins: { "west4-live": liveViews },
+    rules: { "west4-live/live-views-only": "error" },
   },
   {
     // Stripe (M4-01): only apps/api/src/stripe talks to Stripe, through its one client with the pinned

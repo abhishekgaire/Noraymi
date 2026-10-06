@@ -139,6 +139,7 @@ export function checkInRoutes(
         request.params.r,
         parsed.data,
         userOf(request.principal as never),
+        request.training,
       );
       return reply.code(201).send(seated);
     },

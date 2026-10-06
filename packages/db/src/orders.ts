@@ -185,12 +185,15 @@ export async function listOrders(
     sessionId?: string | undefined;
     businessDate?: string | undefined;
     limit?: number;
+    /** Practice orders ring only screens in training, and live ones only live screens (M7-03). */
+    training?: boolean;
   } = {},
 ): Promise<OrderRow[]> {
   const r = await c.query<Omit<OrderRow, "items" | "amount_cents">>(
     `select ${ORDER_COLS} from ${FROM}
       where o.venue_id = $1 and o.status = any($2::text[]) and ($3::uuid is null or o.session_id = $3)
         and ($5::date is null or o.business_date = $5::date)
+        and (select k.training from checks k where k.venue_id = o.venue_id and k.id = o.check_id) = $6
       order by o.placed_at, o.id limit $4`,
     [
       venueId,
@@ -198,6 +201,7 @@ export async function listOrders(
       options.sessionId ?? null,
       options.limit ?? 200,
       options.businessDate ?? null,
+      options.training ?? false,
     ],
   );
   return withItems(c, venueId, r.rows);

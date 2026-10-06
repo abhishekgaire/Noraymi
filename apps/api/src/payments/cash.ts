@@ -1,4 +1,5 @@
 import {
+  checkIsTraining,
   addToStaffBank,
   allocate,
   drawerOfDevice,
@@ -79,9 +80,14 @@ export async function takeCash(
   const claimed = input.shareId
     ? await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paid")
     : null;
-  const drawer = input.deviceId ? await drawerOfDevice(c, venueId, input.deviceId) : null;
+  // Practice cash (training mode, M7-03) never opens a drawer and writes no drawer move: the
+  // panel still shows the change, and the payment is the check's own, outside every total.
+  const training = input.training || (await checkIsTraining(c, venueId, input.checkId));
+  const drawer =
+    input.deviceId && !training ? await drawerOfDevice(c, venueId, input.deviceId) : null;
   const inDrawer = drawer?.session_id ? drawer : null;
-  const bankId = inDrawer ? null : await staffBank(c, venueId, input.userId, input.businessDate);
+  const bankId =
+    inDrawer || training ? null : await staffBank(c, venueId, input.userId, input.businessDate);
   const paymentId = await insertPayment(c, venueId, {
     method: "cash",
     status: "captured",
@@ -92,7 +98,7 @@ export async function takeCash(
     changeCents: change,
     drawerSessionId: inDrawer?.session_id ?? null,
     staffBankId: bankId,
-    training: input.training ?? false,
+    training,
   });
   await allocate(c, venueId, {
     paymentId,
@@ -103,17 +109,18 @@ export async function takeCash(
     leaveOut: claimed?.leaveOut ?? input.leaveOut ?? null,
   });
   // The cash that stays: the amount and the tip (the change went back to the guest).
-  await insertDrawerMove(c, venueId, {
-    drawerSessionId: inDrawer?.session_id ?? null,
-    staffBankId: bankId,
-    kind: "sale",
-    amountCents: input.amountCents + input.tipCents,
-    paymentId,
-    takenBy: input.userId,
-    deviceId: input.deviceId,
-    at,
-  });
-  if (inDrawer && !input.training && inDrawer.printer_device_id)
+  if (!training)
+    await insertDrawerMove(c, venueId, {
+      drawerSessionId: inDrawer?.session_id ?? null,
+      staffBankId: bankId,
+      kind: "sale",
+      amountCents: input.amountCents + input.tipCents,
+      paymentId,
+      takenBy: input.userId,
+      deviceId: input.deviceId,
+      at,
+    });
+  if (inDrawer && !training && inDrawer.printer_device_id)
     // The kick through the receipt printer's port: a network printer's job carries it; a USB printer's
     // goes through the desktop app's print host.
     await insertPrintJob(c, venueId, {

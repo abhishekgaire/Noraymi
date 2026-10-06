@@ -32,12 +32,18 @@ export type TileWords =
   | { kind: "open" }
   | { kind: "out_of_service" };
 
-export async function board(c: Queryable, venueId: string, now: Temporal.Instant) {
+export async function board(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+  /** A screen in training also sees practice sessions (M7-03); a live screen never does. */
+  training = false,
+) {
   const venue = await venueClock(c, venueId);
   const date = businessDate(now, venue.timeZone, venue.dayCutover).businessDate;
   const [avail, sessions, notes, calls, count, alertSettings] = await Promise.all([
     availability(c, venueId, now),
-    sessionViews(c, venueId, now),
+    sessionViews(c, venueId, now, undefined, training),
     roomNotes(c, venueId),
     openCalls(c, venueId),
     headcount(c, venueId, now),
@@ -103,7 +109,9 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
     ).rows.map((b) => [b.room_id, { name: b.name, party_size: b.party_size, at: b.starts_at }]),
   );
   const rooms = avail.rooms.map((r) => {
-    const s = sessions.find((x) => x.room_id === r.room_id);
+    const s =
+      sessions.find((x) => x.room_id === r.room_id && !x.training) ??
+      sessions.find((x) => x.room_id === r.room_id);
     const booking = s?.booking_id ? bookings.get(s.booking_id) : undefined;
     let words: TileWords;
     let tone: "amber" | "red" | null = null;
@@ -143,6 +151,8 @@ export async function board(c: Queryable, venueId: string, now: Temporal.Instant
         ? {
             id: s.id,
             check_id: s.check_id,
+            /** A practice session (M7-03): only a screen in training gets one. */
+            training: s.training,
             started_at: s.started_at,
             guest_name: s.guest_name,
             party_size: s.party_size,

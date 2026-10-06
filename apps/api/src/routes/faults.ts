@@ -86,7 +86,7 @@ export function faultRoutes(app: FastifyInstance, options: { clock: Clock }): vo
         if (!room || room.archived_at) throw new ApiError("not_found", "no such room");
         const session = (
           await c.query<{ id: string }>(
-            "select id from room_sessions where venue_id = $1 and room_id = $2 and ended_at is null",
+            "select id from room_sessions where venue_id = $1 and room_id = $2 and ended_at is null and not training",
             [venueId, room.id],
           )
         ).rows[0];

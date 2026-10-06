@@ -1,5 +1,5 @@
-import { emitEvent, insertPrintJob, type Queryable } from "@west4/db";
-import { cents, formatMoney, type Temporal } from "@west4/shared";
+import { checkIsTraining, emitEvent, insertPrintJob, type Queryable } from "@west4/db";
+import { cents, formatMoney, t, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { checkView } from "../rooms/checks.js";
 import { moveTab } from "./state.js";
@@ -86,7 +86,12 @@ export async function printSlip(
     checkId: input.checkId,
     kind: "receipt",
     station: "bar",
-    payload: { lines: slip.lines },
+    // A practice tab's slip says TRAINING too (M7-03).
+    payload: {
+      lines: (await checkIsTraining(c, venueId, input.checkId))
+        ? [t("en", "training.band"), ...slip.lines]
+        : slip.lines,
+    },
     createdAt: input.now.toString(),
   });
   await emitEvent(c, { venueId, type: "tab.updated", entityId: input.tabId });

@@ -15,7 +15,7 @@ export async function headcount(c: Queryable, venueId: string, now: Temporal.Ins
   const counts = (
     await c.query<{ rooms: number; waiting: number; door: number }>(
       `select
-         (select coalesce(sum(party_size), 0)::int from room_sessions where venue_id = $1 and ended_at is null) as rooms,
+         (select coalesce(sum(party_size), 0)::int from room_sessions where venue_id = $1 and ended_at is null and not training) as rooms,
          (select coalesce(sum(party_size), 0)::int from waitlist_entries
            where venue_id = $1 and status in ('waiting', 'offered')) as waiting,
          (select coalesce(sum(delta), 0)::int from door_counts where venue_id = $1 and business_date = $2) as door`,

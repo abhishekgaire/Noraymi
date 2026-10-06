@@ -125,3 +125,4 @@ export {
   tabNameFromCard,
 } from "./tabs.js";
 export type { TabState } from "./tabs.js";
+export { checkNumberLabel, trainingNumber } from "./check-number.js";

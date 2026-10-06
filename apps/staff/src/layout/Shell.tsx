@@ -87,7 +87,13 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   useEffect(
     () =>
       subscribe((events) => {
-        if (events.some((e) => e.type === "settings.changed")) void refresh();
+        // Training mode switched in Admin → Team (M7-03) shows or hides the band at once.
+        if (
+          events.some((e) =>
+            ["settings.changed", "membership.changed", "device.updated"].includes(e.type),
+          )
+        )
+          void refresh();
       }),
     [subscribe, refresh],
   );
@@ -101,9 +107,19 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
       <a className="skip" href="#main">
         {t("shell.skipToContent")}
       </a>
-      {!connected && (
-        <div className="band offline" role="status">
-          {t("shell.offline")}
+      {(!connected || membership.training) && (
+        <div className="bands">
+          {!connected && (
+            <div className="band offline" role="status">
+              {t("shell.offline")}
+            </div>
+          )}
+          {/* Training mode (M7-03): permanent while the person or this screen is in training; no close. */}
+          {membership.training && (
+            <div className="band training" role="status" data-testid="training-band">
+              {t("training.band")}
+            </div>
+          )}
         </div>
       )}
       <header className="topbar">

@@ -59,7 +59,9 @@ export function sessionsRoutes(app: FastifyInstance, options: { clock: Clock }):
     { config: read },
     async (request) => ({
       sessions: (
-        await request.inVenue((c) => sessionViews(c, request.venueId!, options.clock.now()))
+        await request.inVenue((c) =>
+          sessionViews(c, request.venueId!, options.clock.now(), undefined, request.training),
+        )
       ).map(view),
     }),
   );

@@ -83,6 +83,7 @@ export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): vo
         const orders = await listOrders(c, request.venueId!, statuses, {
           sessionId,
           businessDate: date,
+          training: request.training,
         });
         // The bar screens color and chime by the venue's aging, so a change in Admin → Bar POS shows at once (M6-25).
         const now = options.clock.now();

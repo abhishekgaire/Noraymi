@@ -292,7 +292,7 @@ export function tabRoutes(
       if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
       const m = p.memberships.find((x) => x.venueId === request.venueId);
       if (!m) throw new ApiError("forbidden", "not a member of this venue");
-      const number = await quickSaleNumber(options.pool, request.venueId!);
+      const number = await quickSaleNumber(options.pool, request.venueId!, request.training);
       const sale = await inVenueRefusing(request, (c) =>
         startQuickSale(c, request.venueId!, {
           number,
@@ -301,6 +301,7 @@ export function tabRoutes(
           userId: p.userId,
           membershipId: m.membershipId,
           deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          training: request.training,
           now: options.clock.now(),
         }),
       );
@@ -415,7 +416,7 @@ export function tabRoutes(
       if (!m) throw new ApiError("forbidden", "not a member of this venue");
       const venueId = request.venueId!;
       const payments = deps();
-      const number = await reserveTabCheckNumber(options.pool, venueId);
+      const number = await reserveTabCheckNumber(options.pool, venueId, request.training);
       const written = await request.inVenue((c) =>
         writeTabOpening(
           c,
@@ -429,6 +430,7 @@ export function tabRoutes(
             checkNumber: number,
             userId: p.userId,
             membershipId: m.membershipId,
+            training: request.training,
             now: options.clock.now(),
           },
           { readerQuiet: quiet, enqueueRun },

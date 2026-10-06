@@ -47,11 +47,13 @@ export interface ApprovalRow {
   readonly routed_to_name: string;
   readonly status: "pending" | "approved" | "declined" | "expired";
   readonly decided_at: string | null;
+  /** From a practice check (training mode, M7-03): marked TRAINING in the inbox, and never counted. */
+  readonly training: boolean;
 }
 
 const COLS = `a.id, a.kind, a.target_kind, a.target_id, a.amount_cents::int as amount_cents, a.reason, a.payload,
   a.requested_by, rq.name as requested_by_name, a.requested_device_id, to_json(a.requested_at) #>> '{}' as requested_at,
-  a.routed_to, rt.name as routed_to_name, a.status, to_json(a.decided_at) #>> '{}' as decided_at`;
+  a.routed_to, rt.name as routed_to_name, a.status, to_json(a.decided_at) #>> '{}' as decided_at, a.training`;
 const FROM = `from approvals a join users rq on rq.id = a.requested_by join users rt on rt.id = a.routed_to`;
 
 export async function insertApproval(

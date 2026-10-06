@@ -151,6 +151,8 @@ export interface Membership {
   };
   readonly modules: ModuleStates;
   readonly permissions: readonly Action[];
+  /** Training mode (M7-03): the person or this device; the shell shows the band. */
+  readonly training?: boolean;
 }
 
 export interface Me {

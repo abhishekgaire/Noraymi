@@ -1495,6 +1495,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "payShare.paid": "Tu parte está pagada",
   "payShare.failed": "No se pudo iniciar tu parte. Inténtalo de nuevo.",
   "receipt.number": "Cuenta #{number}",
+  "receipt.numberTraining": "Cuenta {number}",
   "receipt.roomTime": "Tiempo de sala · {min} min a {rate} la hora",
   "receipt.roomTimeOnly": "Tiempo de sala · {min} min",
   "receipt.comp": "COMP · {item}",
@@ -2266,4 +2267,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "clock.refused": "No se pudo · el reloj cambió en otra pantalla",
   "clock.clockedOut": "Salida marcada · hasta el próximo turno",
   "tabs.clock": "Entrada y salida",
+  "training.band": "ENTRENAMIENTO · no es dinero real",
+  "training.mark": "ENTRENAMIENTO",
+  "team.training": "Modo entrenamiento",
+  "team.training.for": "Modo entrenamiento para {name}",
+  "team.training.off": "Apagado",
+  "team.training.devices": "Modo entrenamiento en un dispositivo",
+  "team.training.devicesHint":
+    "Para los primeros turnos de alguien nuevo: todo lo que se cobre en el dispositivo es de práctica, sin importar quién inicie sesión. Las cuentas de práctica llevan el número T-… y quedan fuera de todos los totales.",
+  "team.training.noDevices": "Todavía no hay teléfonos ni pantallas compartidas vinculados",
 };

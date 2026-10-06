@@ -37,9 +37,18 @@ export async function openRoomCheck(
     now: Temporal.Instant;
   },
 ): Promise<{ id: string; number: number }> {
-  const number = await nextCheckNumber(pool, input.venueId);
+  // A practice session's check is practice too (M7-03).
+  const training = await withVenue(pool, { venueId: input.venueId }, async (c) => {
+    const r = await c.query<{ training: boolean }>(
+      "select training from room_sessions where venue_id = $1 and id = $2",
+      [input.venueId, input.sessionId],
+    );
+    return r.rows[0]?.training ?? false;
+  });
+  const number = await nextCheckNumber(pool, input.venueId, { training });
   return withVenue(pool, { venueId: input.venueId, userId: input.openedBy }, async (c) => {
     const id = await insertCheck(c, {
+      training,
       venueId: input.venueId,
       number,
       kind: "room",

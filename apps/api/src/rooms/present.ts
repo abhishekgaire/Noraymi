@@ -219,8 +219,9 @@ export async function checkForAccept(
     room_session_id: string | null;
     booking_id: string | null;
     business_date: string;
+    training: boolean;
   }>(
-    "select status, room_session_id, booking_id, business_date::text from checks where venue_id = $1 and id = $2",
+    "select status, room_session_id, booking_id, business_date::text, training from checks where venue_id = $1 and id = $2",
     [venueId, input.checkId],
   );
   const check = r.rows[0];
@@ -232,11 +233,12 @@ export async function checkForAccept(
   if (existing.rows[0]) return existing.rows[0].id;
   // No Stripe call happens in this transaction, so the number is taken here.
   const n = await c.query<{ number: string }>(
-    "update venue_counters set next = next + 1 where venue_id = $1 and name = 'check' returning next - 1 as number",
-    [venueId],
+    "update venue_counters set next = next + 1 where venue_id = $1 and name = $2 returning next - 1 as number",
+    [venueId, check.training ? "check_training" : "check"],
   );
   const id = await insertCheck(c, {
     venueId,
+    training: check.training,
     number: Number(n.rows[0]!.number),
     kind: "room",
     businessDate: check.business_date,

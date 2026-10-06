@@ -42,9 +42,24 @@ export async function queueText(
     context: { kind: "booking" | "waitlist" | "session"; id: string } | null;
     sentBy: string | null;
     now: Temporal.Instant;
+    /** A practice check's text (training mode, M7-03): refused, since practice never texts a guest. */
+    training?: boolean;
   },
   settings: Pick<VenueTextSettings, "allowList">,
 ): Promise<{ messageId: string }> {
+  const practice =
+    input.training === true ||
+    (input.context?.kind === "session" &&
+      (
+        await c.query("select 1 from room_sessions where venue_id = $1 and id = $2 and training", [
+          venueId,
+          input.context.id,
+        ])
+      ).rowCount === 1);
+  if (practice)
+    throw new ApiError("forbidden", "practice never texts a guest", {
+      details: { reason: "training" },
+    });
   const template = await templateByKey(c, venueId, input.templateKey);
   if (!template) throw new ApiError("not_found", `no text "${input.templateKey}"`);
   if (template.category === "marketing")

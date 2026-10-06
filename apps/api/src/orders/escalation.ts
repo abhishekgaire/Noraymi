@@ -66,7 +66,8 @@ export async function escalateOrders(
        from orders o
        left join room_sessions s on s.venue_id = o.venue_id and s.id = o.session_id
        left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
-      where o.venue_id = $1 and o.status in ('ringing', 'held') and o.escalation_level < 4`,
+      where o.venue_id = $1 and o.status in ('ringing', 'held') and o.escalation_level < 4
+        and not exists (select 1 from checks k where k.venue_id = o.venue_id and k.id = o.check_id and k.training)`,
     [venueId],
   );
   let moved = 0;

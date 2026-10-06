@@ -129,6 +129,12 @@ form {
   background: var(--danger);
   color: var(--accent-text);
 }
+/* Training mode (M7-03): the permanent "TRAINING · not real money" band. */
+.band.training {
+  background: var(--accent);
+  color: var(--accent-text);
+  letter-spacing: 0.04em;
+}
 .sign-in,
 .centered {
   padding: 24px 16px;
@@ -387,7 +393,7 @@ form {
       "top top"
       "side content";
   }
-  .shell > .band {
+  .shell > .bands {
     grid-column: 1 / -1;
   }
   .topbar {
@@ -515,6 +521,14 @@ button.danger {
   width: 24px;
   height: 24px;
   min-height: 0;
+}
+.team-table .switch-line {
+  margin-top: 0;
+}
+.training-devices {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 .invite-form {
   margin-top: 24px;
@@ -1711,4 +1725,13 @@ a.song-count {
 .rail-top .on-break {
   color: var(--warn, #ffb13d);
   font-weight: 600;
+}
+.chip.training {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85em;
+  background: var(--accent);
+  color: var(--accent-text);
 }

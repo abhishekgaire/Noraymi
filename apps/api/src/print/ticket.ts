@@ -22,9 +22,13 @@ export interface TicketPayload {
   }[];
   /** A test ticket from Admin → Printers & devices. */
   readonly test?: { printer: string };
+  /** A practice order (training mode, M7-03): the ticket says TRAINING at the top and the foot. */
+  readonly training?: boolean;
 }
 
 const WIDTH = 32;
+/** What a practice ticket prints (Security and data retention 15); receipt printers' code pages are ASCII. */
+export const TRAINING = "TRAINING - NOT REAL MONEY";
 
 function clock(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -47,6 +51,7 @@ export function ticketLines(
     out.push("TEST TICKET", p.test.printer, rule);
     return out;
   }
+  if (p.training) out.push(TRAINING);
   if (p.remake) out.push("REMAKE");
   const time = p.accepted_at ? clock(p.accepted_at, opts.timeZone) : "";
   const room = (p.room ?? "").toUpperCase();
@@ -67,6 +72,7 @@ export function ticketLines(
     if (l.notes) out.push(`    "${l.notes}"`);
   }
   out.push(rule);
+  if (p.training) out.push(TRAINING);
   return out;
 }
 

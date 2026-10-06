@@ -22,6 +22,8 @@ export interface Approval {
   readonly routed_to_name: string;
   readonly status: "pending" | "approved" | "declined" | "expired";
   readonly decided_at: string | null;
+  /** From a practice check (training mode, M7-03). */
+  readonly training?: boolean;
 }
 
 export interface ApprovalLists {

@@ -32,15 +32,21 @@ async function sessionForMove(c: Queryable, venueId: string, sessionId: string) 
       party_size: number;
       booked_end_at: string | null;
       ended_at: string | null;
+      training: boolean;
     }>(
       `select id, room_id, party_size, to_json(booked_end_at) #>> '{}' as booked_end_at,
-              to_json(ended_at) #>> '{}' as ended_at
+              to_json(ended_at) #>> '{}' as ended_at, training
          from room_sessions where venue_id = $1 and id = $2 for update`,
       [venueId, sessionId],
     )
   ).rows[0];
   if (!s) throw new ApiError("not_found", "no such session");
   if (s.ended_at) throw new ApiError("invalid_request", "the session has ended");
+  // A practice session blocks nothing, so it never moves a live room (M7-03).
+  if (s.training)
+    throw new ApiError("invalid_request", "a practice session stays in its room", {
+      details: { reason: "training" },
+    });
   return s;
 }
 

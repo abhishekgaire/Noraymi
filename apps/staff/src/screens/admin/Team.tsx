@@ -20,7 +20,9 @@ import { useSession } from "../../session.js";
  * the front desk using the bar POS when covering the bar. Role and language
  * changes go through `PATCH /team/{m}`, which asks for the passkey again.
  * Badges (M1-30) pair on the bar or front-desk computer's USB reader.
- * Tip eligibility and training mode come in M7.
+ * Training mode (M7-03): per person here, and per device for a new hire's
+ * first shifts (`PATCH /devices/{d}`), with the screens it applies to showing
+ * the band at once. Tip eligibility comes in M7.
  */
 interface Badge {
   readonly id: string;
@@ -35,10 +37,21 @@ interface Person {
   readonly role: Role;
   readonly status: "invited" | "active" | "deactivated";
   readonly locale: Locale;
+  readonly training: boolean;
   readonly has_pin: boolean;
   readonly invite_expires_at: string | null;
   readonly badges: readonly Badge[];
 }
+
+/** A phone or shared screen that can be put in training (M7-03). */
+interface TrainingDevice {
+  readonly id: string;
+  readonly kind: string;
+  readonly name: string;
+  readonly training: boolean;
+  readonly revoked_at: string | null;
+}
+const TRAINING_KINDS = new Set(["bar_computer", "front_desk", "staff_phone"]);
 
 interface PermissionRow {
   readonly action: string;
@@ -62,6 +75,7 @@ export function Team() {
   const allowed = signedIn?.membership.permissions.includes("admin.team") ?? false;
 
   const [people, setPeople] = useState<Person[] | null>(null);
+  const [devices, setDevices] = useState<TrainingDevice[] | null>(null);
   const [frontDeskBar, setFrontDeskBar] = useState<boolean | null>(null);
   const [readers, setReaders] = useState<string[]>([]);
   const [pairing, setPairing] = useState<Pairing>(null);
@@ -73,11 +87,13 @@ export function Team() {
   const device = useDeviceKind();
 
   const load = useCallback(async () => {
-    const [team, permissions] = await Promise.all([
+    const [team, permissions, paired] = await Promise.all([
       api<{ people: Person[] }>("GET", `/v1/venues/${venueId}/team`),
       api<{ rows: PermissionRow[] }>("GET", `/v1/venues/${venueId}/permissions`),
+      api<{ devices: TrainingDevice[] }>("GET", `/v1/venues/${venueId}/devices`),
     ]);
     setPeople(team.people);
+    setDevices(paired.devices.filter((d) => TRAINING_KINDS.has(d.kind) && !d.revoked_at));
     setFrontDeskBar(permissions.rows.find((r) => r.action === "pos.use")?.front_desk ?? true);
   }, [venueId]);
 
@@ -148,6 +164,30 @@ export function Team() {
       );
       return null;
     });
+
+  const setTraining = (person: Person, training: boolean) =>
+    change(person.membership_id, async (stepUp) => {
+      await api(
+        "PATCH",
+        `/v1/venues/${venueId}/team/${person.membership_id}`,
+        { training },
+        { stepUp },
+      );
+      return null;
+    });
+
+  const setDeviceTraining = async (device: TrainingDevice, training: boolean) => {
+    setError(null);
+    setBusy(device.id);
+    try {
+      await api("PATCH", `/v1/venues/${venueId}/devices/${device.id}`, { training });
+      await load();
+    } catch (e) {
+      setError((e as ApiCallError)?.message ?? t("shell.error.title"));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const resetPin = (person: Person) =>
     change(person.membership_id, async (stepUp) => {
@@ -278,6 +318,7 @@ export function Team() {
               <th>{t("team.role")}</th>
               <th>{t("team.status")}</th>
               <th>{t("team.language")}</th>
+              <th>{t("team.training")}</th>
               <th>{t("team.badges")}</th>
               <th>{t("team.actions")}</th>
             </tr>
@@ -322,6 +363,18 @@ export function Team() {
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    <label className="switch-line">
+                      <input
+                        type="checkbox"
+                        aria-label={t("team.training.for", { name: person.name })}
+                        checked={person.training}
+                        disabled={gone || working}
+                        onChange={(e) => void setTraining(person, e.target.checked)}
+                      />
+                      <span>{person.training ? t("training.mark") : t("team.training.off")}</span>
+                    </label>
                   </td>
                   <td>
                     <ul className="badge-list">
@@ -432,6 +485,27 @@ export function Team() {
           />
           <span>{t("team.frontDeskPos")}</span>
         </label>
+      )}
+      <h3>{t("team.training.devices")}</h3>
+      <p className="muted small">{t("team.training.devicesHint")}</p>
+      {devices === null ? null : devices.length === 0 ? (
+        <p className="empty">{t("team.training.noDevices")}</p>
+      ) : (
+        <ul className="training-devices">
+          {devices.map((d) => (
+            <li key={d.id}>
+              <label className="switch-line">
+                <input
+                  type="checkbox"
+                  checked={d.training}
+                  disabled={busy === d.id}
+                  onChange={(e) => void setDeviceTraining(d, e.target.checked)}
+                />
+                <span data-guest-text>{d.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
       )}
       <InviteForm venueId={venueId} onSent={load} />
     </section>
