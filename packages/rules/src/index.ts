@@ -68,3 +68,5 @@ export * from "./tips.js";
 export * from "./hold-expiry.js";
 export * from "./hold.js";
 export * from "./song-queue.js";
+export { shiftMinutes, splitShifts, dutiesFor, DUTIES, PUNCH_KINDS } from "./shifts.js";
+export type { Duty, Punch, PunchKind, ShiftMinutes } from "./shifts.js";

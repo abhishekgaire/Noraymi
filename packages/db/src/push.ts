@@ -1,3 +1,4 @@
+import { defaultPermissions } from "@west4/shared";
 import type { Queryable } from "./tenancy.js";
 
 /** One browser's push subscription on a paired staff phone (M1-22). */
@@ -43,7 +44,13 @@ export type PushAudience =
   | { readonly kind: "person"; readonly userId: string }
   | { readonly kind: "role"; readonly role: string }
   /** Every staff phone at the venue (room calls, M2-20). */
-  | { readonly kind: "everyone" };
+  | { readonly kind: "everyone" }
+  /**
+   * The bar-role people on the clock (M7-01): bartenders, and the front desk
+   * while Admin lets it cover the bar (its pos.use switch). Phones of people
+   * not clocked in stay quiet.
+   */
+  | { readonly kind: "bar_on_clock" };
 
 /** Live subscriptions on live, paired staff phones for the audience. A revoked device's subscription is never returned. */
 export async function activePushSubscriptions(
@@ -59,6 +66,23 @@ export async function activePushSubscriptions(
        and d.kind = 'staff_phone' and d.revoked_at is null and d.disabled_at is null`;
   if (audience.kind === "everyone")
     return (await client.query<PushTargetRow>(`${base} order by s.created_at`, [venueId])).rows;
+  if (audience.kind === "bar_on_clock") {
+    const override = await client.query<{ allowed: boolean }>(
+      "select allowed from role_permissions where venue_id = $1 and role = 'front_desk' and action = 'pos.use'",
+      [venueId],
+    );
+    const covers = override.rows[0]?.allowed ?? defaultPermissions["pos.use"].front_desk;
+    const roles = covers ? ["bartender", "front_desk"] : ["bartender"];
+    return (
+      await client.query<PushTargetRow>(
+        `${base} and m.role = any($2::text[])
+           and exists (select 1 from shifts sh where sh.venue_id = m.venue_id and sh.membership_id = m.id
+                         and sh.ended_at is null)
+         order by s.created_at`,
+        [venueId, roles],
+      )
+    ).rows;
+  }
   const r =
     audience.kind === "person"
       ? await client.query<PushTargetRow>(`${base} and d.user_id = $2 order by s.created_at`, [

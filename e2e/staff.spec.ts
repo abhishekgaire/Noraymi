@@ -36,7 +36,16 @@ const ADMIN_SECTIONS = [
   "/admin/bar-pos",
   "/admin/bar-mode",
 ];
-const SCREENS = ["/tonight", "/bar", "/song-queue", "/runs", "/setup", "/admin", "/sign-in"];
+const SCREENS = [
+  "/tonight",
+  "/bar",
+  "/song-queue",
+  "/runs",
+  "/setup",
+  "/clock",
+  "/admin",
+  "/sign-in",
+];
 
 /**
  * Every test starts from a fresh load of the demo seed at 10:41 PM, whatever
@@ -7327,4 +7336,139 @@ test.describe("M6 done when", () => {
       await db.end();
     }
   });
+});
+
+/**
+ * The time clock (M7-01; Pin note 2 and 3, N24): at 10:41 PM the bar
+ * computer's tiles read who's on since when; Abhishek, not on shift, gets the
+ * duty picker with Manager and Diego gets it without; Maya's break reads
+ * "Maya · on break" on the bar POS whoever is signed in, until she ends it.
+ * Then Andy's phone-size Clock in and out tab lists the team.
+ */
+for (const width of [1280, 390]) {
+  test(`the time clock at ${width}px: who's on since when, the duty picker, and Maya's break on the bar POS`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(150_000);
+    const db = await dbClient();
+    try {
+      await db.query("update memberships set locale = 'en'");
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/sign-in");
+      await page.getByRole("button", { name: "Pair this screen" }).click();
+      await page
+        .getByLabel("Pairing code from Admin → Devices")
+        .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+      expect(
+        (
+          await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+        ).ok(),
+      ).toBe(true);
+      await page.getByRole("button", { name: "Pair", exact: true }).click();
+      const tile = (name: RegExp) => page.getByRole("button", { name });
+      const lockScreen = async () => {
+        if (width === 390) await page.getByRole("button", { name: "Open the menu" }).click();
+        await page.getByRole("button", { name: "Lock", exact: true }).click();
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+      };
+      await expect(tile(/Maya S\./).locator(".tile-shift")).toHaveText("On since 4:00 PM (6h 41m)");
+      await expect(tile(/Andy C\./).locator(".tile-shift")).toHaveText("On since 6:00 PM (4h 41m)");
+      await expect(tile(/Diego R\./).locator(".tile-shift")).toHaveText(
+        "On since 7:00 PM (3h 41m)",
+      );
+      await expect(tile(/Abhishek G\./).locator(".tile-shift")).toHaveText("Not on shift");
+      expect(await clippedText(page)).toEqual([]);
+
+      // Abhishek isn't on the clock: after his PIN, the duty picker, Manager included; no duty, no clock-in.
+      await tile(/Abhishek G\./).click();
+      await typePin(page, "915204");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Time clock");
+      const duties = page.locator(".duties").getByRole("button");
+      await expect(duties).toHaveText(["Bar", "Front desk", "Runner", "Manager"]);
+      await expect(page.getByRole("button", { name: "Clock in" })).toBeDisabled();
+      expect(await clippedText(page)).toEqual([]);
+      await page.getByRole("button", { name: "Not now" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+      await lockScreen();
+      await expect(page.getByRole("status")).toHaveText("Locked · sign in to continue");
+
+      // Maya asks for the time clock and starts a break.
+      await page.getByRole("button", { name: "Time clock" }).click();
+      await tile(/Maya S\./).click();
+      await typePin(page, "4071");
+      await expect(page.locator(".clock-status")).toHaveText("On since 4:00 PM (6h 41m)");
+      await page.getByRole("button", { name: "Start break" }).click();
+      await expect(page.locator(".clock-status")).toHaveText("On break since 10:41 PM");
+      await page.getByRole("button", { name: "Done" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+      await expect(page.locator(".rail-top .who")).toHaveText("Maya · on break");
+      await lockScreen();
+
+      // Diego on the bar POS sees it too.
+      await tile(/Diego R\./).click();
+      await typePin(page, "6358");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+      await page.goto("/bar");
+      await expect(page.locator(".rail-top .who")).toHaveText("Diego R.");
+      await expect(page.locator(".rail-top .on-break")).toHaveText("Maya · on break");
+      // Diego clocks out and back in: his duty picker has no Manager.
+      await lockScreen();
+      await page.getByRole("button", { name: "Time clock" }).click();
+      await tile(/Diego R\./).click();
+      await typePin(page, "6358");
+      await page.getByRole("button", { name: "Clock out" }).click();
+      await expect(page.locator(".clock-status")).toHaveText("Not on shift");
+      await expect(page.locator(".duties").getByRole("button")).toHaveText([
+        "Bar",
+        "Front desk",
+        "Runner",
+      ]);
+      await page.getByRole("button", { name: "Front desk" }).click();
+      await page.getByRole("button", { name: "Clock in" }).click();
+      await expect(page.locator(".clock-status")).toHaveText("On since 10:41 PM (0h 0m)");
+      await page.getByRole("button", { name: "Done" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+      await lockScreen();
+
+      // Maya ends her break: the top bar is hers again.
+      await page.getByRole("button", { name: "Time clock" }).click();
+      await tile(/Maya S\./).click();
+      await typePin(page, "4071");
+      await page.getByRole("button", { name: "End break" }).click();
+      await expect(page.locator(".clock-status")).toHaveText(/^On since 4:00 PM/);
+      await page.getByRole("button", { name: "Done" }).click();
+      await expect(page.locator(".rail-top .who")).toHaveText("Maya S.");
+      await expect(page.locator(".rail-top .on-break")).toHaveCount(0);
+      const breaks = await db.query<{ break_minutes: number }>(
+        "select s.break_minutes from shifts s join memberships m on m.id = s.membership_id join users u on u.id = m.user_id where u.name = 'Maya S.' and s.ended_at is null",
+      );
+      expect(breaks.rows).toHaveLength(1);
+    } finally {
+      await db.end();
+    }
+  });
+}
+
+test("Andy's Clock in and out tab lists who's on the clock, at phone size", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.goto("/clock");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Time clock");
+    await expect(page.locator(".time-clock .clock-status")).toHaveText("On since 6:00 PM (4h 41m)");
+    await expect(page.getByRole("list", { name: "Who's on the clock" }).locator("li")).toHaveText([
+      "Abhishek G. · not on shift",
+      "Andy C. · on since 6:00 PM (4h 41m)",
+      "Maya S. · on since 4:00 PM (6h 41m)",
+      "Diego R. · on since 7:00 PM (3h 41m)",
+    ]);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
 });

@@ -34,6 +34,7 @@ export const pushJobPayload = z
       z.object({ kind: z.literal("person"), user_id: z.string().uuid() }).strict(),
       z.object({ kind: z.literal("role"), role: z.string().min(1) }).strict(),
       z.object({ kind: z.literal("everyone") }).strict(),
+      z.object({ kind: z.literal("bar_on_clock") }).strict(),
     ]),
     message: z
       .object({
@@ -64,8 +65,8 @@ export async function enqueuePush(
     audience:
       args.audience.kind === "person"
         ? { kind: "person", user_id: args.audience.userId }
-        : args.audience.kind === "everyone"
-          ? { kind: "everyone" }
+        : args.audience.kind === "everyone" || args.audience.kind === "bar_on_clock"
+          ? { kind: args.audience.kind }
           : { kind: "role", role: args.audience.role },
     message: args.message,
   };
@@ -100,8 +101,8 @@ export function makePushSendHandler(sender: PushSender): JobHandler {
     const audience: PushAudience =
       payload.audience.kind === "person"
         ? { kind: "person", userId: payload.audience.user_id }
-        : payload.audience.kind === "everyone"
-          ? { kind: "everyone" }
+        : payload.audience.kind === "everyone" || payload.audience.kind === "bar_on_clock"
+          ? { kind: payload.audience.kind }
           : { kind: "role", role: payload.audience.role };
     const { venueName, targets } = await step(async (c) => {
       const venue = await c.query<{ name: string }>("select name from venues where id = $1", [

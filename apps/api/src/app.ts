@@ -58,6 +58,7 @@ import { checkInRoutes } from "./routes/checkin.js";
 import { idCheckRoutes } from "./routes/id-checks.js";
 import { filesRoutes } from "./routes/files.js";
 import { reasonOnlyRoutes } from "./routes/reason-only.js";
+import { shiftRoutes } from "./routes/shifts.js";
 import { faultRoutes } from "./routes/faults.js";
 import { partySizeRoutes } from "./routes/party-size.js";
 import { moveRoutes } from "./routes/move.js";
@@ -250,6 +251,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       clearOutRoutes(scope, { clock });
       printRoutes(scope, { pool: gatePoolRef!, clock });
       reasonOnlyRoutes(scope, { clock });
+      shiftRoutes(scope, { clock });
       faultRoutes(scope, { clock });
       partySizeRoutes(scope, { clock });
       moveRoutes(scope, { clock });

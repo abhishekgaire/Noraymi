@@ -147,8 +147,8 @@ export function homeFor(role: Role): string {
 /**
  * A phone opens the portal of the person who signed in, with that role's
  * tabs only (Pin note 4): the role's home, Alerts on this phone, and Admin's
- * stub for owners and managers. Later milestones add the phone tabs modules
- * hide (runs, messages, my tips, clock in and out).
+ * stub for owners and managers, and the tabs modules hide (messages, the
+ * waitlist, Clock in and out; My tips arrives in M7-10).
  */
 export interface PhoneTab {
   readonly id: string;
@@ -177,6 +177,9 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   // Tips to enter (M6-09; screens N26): the signed paper slips waiting for their tips.
   if (can("pos.use") && context.modules.bar_tabs !== "off")
     tabs.push({ id: "tips", labelKey: "tips.title", path: "/tips" });
+  // Clock in and out (M7-01; screens N24), while Team, time clock & tips is on.
+  if (context.modules.team !== "off")
+    tabs.push({ id: "clock", labelKey: "tabs.clock", path: "/clock" });
   tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
   if (can("admin.access")) tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;

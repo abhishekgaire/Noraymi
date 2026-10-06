@@ -1674,3 +1674,41 @@ a.song-count {
     grid-column: 1 / -1;
   }
 }
+
+/* The time clock (M7-01): Pin's tiles, the panel after sign-in and the phone's tab. */
+.tile-shift {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.time-clock {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+.time-clock .clock-status {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+.time-clock .duties {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.time-clock .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.time-clock button {
+  min-height: 44px;
+}
+.time-clock .chips button[aria-pressed="true"] {
+  outline: 2px solid currentColor;
+}
+.rail-top .on-break {
+  color: var(--warn, #ffb13d);
+  font-weight: 600;
+}

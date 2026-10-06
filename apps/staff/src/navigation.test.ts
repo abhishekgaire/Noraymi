@@ -95,7 +95,7 @@ describe("the staff phone's tabs (M2-32)", () => {
   const tabsFor = (role: Role, modules: ModuleStates = everythingOn) =>
     phoneTabs({ role, modules, permissions: allowedFor(role) }).map((t) => t.id);
 
-  it("a manager's phone: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Tips to enter, Alerts and Admin", () => {
+  it("a manager's phone: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Tips to enter, Clock in and out, Alerts and Admin", () => {
     expect(tabsFor("manager")).toEqual([
       "tonight",
       "rooms",
@@ -104,9 +104,17 @@ describe("the staff phone's tabs (M2-32)", () => {
       "messages",
       "approvals",
       "tips",
+      "clock",
       "alerts",
       "admin",
     ]);
+  });
+
+  it("Clock in and out (M7-01) leaves every phone with Team, time clock & tips off", () => {
+    for (const role of roles) {
+      expect(tabsFor(role)).toContain("clock");
+      expect(tabsFor(role, { ...everythingOn, team: "off" })).not.toContain("clock");
+    }
   });
 
   it("Tips to enter (M6-09) is on the phones that use the bar POS, while bar tabs are on", () => {
@@ -116,7 +124,7 @@ describe("the staff phone's tabs (M2-32)", () => {
   });
 
   it("a runner's phone: Runs, check-in and the waitlist, and Calls; no Approvals, no Rooms", () => {
-    expect(tabsFor("staff")).toEqual(["home", "tonight", "calls", "waitlist", "alerts"]);
+    expect(tabsFor("staff")).toEqual(["home", "tonight", "calls", "waitlist", "clock", "alerts"]);
   });
 
   it("every staff phone gets Calls; only managers and owners get Approvals", () => {

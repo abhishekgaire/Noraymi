@@ -31,7 +31,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-01 · Clock in with a duty, take breaks and build shifts
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-24 and M1-25 (name and PIN, badges), M1-07 (audit triggers), M1-21 (string catalogs), M2-14 (the reason-only total), M2-15 (`manager_on_duty()` and its `duty_managers` stand-in), M6 (the bar POS top bar)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Shifts; [Data model](../spec/04-data-model.md) · `time_punches`, `shifts`; [API](../spec/08-api.md) · Time clock; [Tenancy and access](../spec/02-tenancy-access.md) · The reason-only limit; [Money rules](../spec/05-money-rules.md) 2; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · What each module hides (Team, time clock & tips); screens [Pin](../screens.md#pin), [Staff](../screens.md#staff), [N24](../screens.md#n24-clock-in-duty-and-clock-out-checklist)
@@ -46,18 +46,27 @@ Definition of done: see CLAUDE.md.
   - Seed loader: punches from the seed's `team[].shift`: Maya clocked in 4:00 PM on Bar, Andy 6:00 PM on Manager, Diego 7:00 PM on Front desk; Abhishek not on shift.
   - With Team, time clock & tips off, the time clock routes answer `404 module_off` and the clock leaves the menus and phone tabs.
 - **Acceptance:**
-  - [ ] At 10:41 PM on the seed, Pin and the staff phone show Maya on since 4:00 PM (6h 41m), Andy since 6:00 PM (4h 41m) and Diego since 7:00 PM (3h 41m), and Abhishek not on shift.
-  - [ ] Clock-in is refused without a duty, and offers Manager only to Andy and Abhishek.
-  - [ ] Maya starts a break: every bar screen's top bar reads "Maya · on break" until she ends it, and her shift's `break_minutes` grows by the break.
-  - [ ] A second clock-in while a shift is open is refused.
-  - [ ] Maya's fix panel shows "$63 left this shift" from her open shift, and a new shift starts her at $75.
-  - [ ] With the stand-in gone, Andy's open Manager shift makes him the manager on duty, and Diego's void still reads "Waiting for Andy".
-  - [ ] A shift from 4:00 PM Sat Oct 31, 2026 to 4:30 AM Sun Nov 1 counts 810 minutes, and one from 4:00 PM Sat Mar 13, 2027 to 4:30 AM Sun Mar 14 counts 690; both belong to the Saturday's business date.
-  - [ ] With Team, time clock & tips off, every time clock route answers `404 module_off`.
+  - [x] At 10:41 PM on the seed, Pin and the staff phone show Maya on since 4:00 PM (6h 41m), Andy since 6:00 PM (4h 41m) and Diego since 7:00 PM (3h 41m), and Abhishek not on shift.
+  - [x] Clock-in is refused without a duty, and offers Manager only to Andy and Abhishek.
+  - [x] Maya starts a break: every bar screen's top bar reads "Maya · on break" until she ends it, and her shift's `break_minutes` grows by the break.
+  - [x] A second clock-in while a shift is open is refused.
+  - [x] Maya's fix panel shows "$63 left this shift" from her open shift, and a new shift starts her at $75.
+  - [x] With the stand-in gone, Andy's open Manager shift makes him the manager on duty, and Diego's void still reads "Waiting for Andy".
+  - [x] A shift from 4:00 PM Sat Oct 31, 2026 to 4:30 AM Sun Nov 1 counts 810 minutes, and one from 4:00 PM Sat Mar 13, 2027 to 4:30 AM Sun Mar 14 counts 690; both belong to the Saturday's business date.
+  - [x] With Team, time clock & tips off, every time clock route answers `404 module_off`.
 - **Tests:** unit tests for `shiftMinutes()` (breaks, the 6:00 AM cutover, both daylight-saving nights); the principal and venue-wall suites over the new routes; money-cases group `reason_only_limits` with the shift as the basis; Playwright on phone and desktop sizes for the duty picker and "Maya · on break"; the language test.
 - **Notes:**
   - Canvas: Pin never asks for a duty and shows 7:00 PM with "3h 00m so far" ([Pin](../screens.md#pin) notes 2 and 3).
   - Spec gaps: which roles may pick which duty isn't said; cautious default: the Manager duty only for owners and managers, any other duty for anyone. The API's event table has no shift event; write `shift.updated` so Night's "staff still on the clock" stays live, and add it to the table. Two managers on the clock at once isn't covered; the cautious default is above. M1-14 and M1-26 leave "when covering the bar" to the duty, but [Tenancy and access](../spec/02-tenancy-access.md) says permissions come from the role and the duty only feeds the tip pool; keep Admin's switch as the only gate for the front desk on the bar POS, and flag it.
+  - Built (M7-01): migration `0092_shifts.sql` adds `shifts` (venue-named foreign keys to `memberships` and to the clock-in punch, `clock_in_punch_id` unique, partial unique index `shifts_one_open` so a person has one open shift, row-level security, audit trigger), a check that every clock-in punch carries its duty, and drops `duty_managers`. `time_punches` (0078) stays as it was. `packages/db/src/shifts.ts`: `recordPunch()` takes a per-person advisory lock, refuses a second clock-in, a break or clock-out off the clock and a break inside a break, writes the punch (a clock-out during a break ends the break first, same instant), rebuilds the shift from its punches in the same transaction and emits `shift.updated`; `openShifts()`, `rebuildShift()` (M7-11's punch edits call it). Punches at the same instant keep their written order through `created_at = clock_timestamp()`.
+  - `packages/rules/src/shifts.ts`: `shiftMinutes()` (elapsed minus breaks, whole minutes, an open break counted to now; 810 and 690 minutes on the two daylight-saving nights), `splitShifts()`, `dutiesFor()`.
+  - Routes (module `team`, principals owner_manager and staff): `GET /v1/venues/{v}/shifts` (who's on the clock, the signed-in person's shift and duties), `POST /shifts/clock-in {duty}` (201; 400 without a duty, 403 for Manager unless owner or manager), `POST /shifts/break {action: "start" | "end"}`, `POST /shifts/clock-out`; refusals are `409 version_conflict` with `details.refusal` (`already_on`, `not_on`, `on_break`, `not_on_break`). The punching person is the signed-in session, which came from a badge tap or name and PIN on a shared screen or their own PIN on their phone; the shared screen's device id is stamped when the request is signed. `GET /team/tiles` now carries each tile's open shift, and `GET /pos/terminal` adds `breaks` (everyone whose last punch is a break start), both only while Team, time clock & tips is on. `GET /shifts` and `shift.updated` are added to spec 08.
+  - `reasonOnlyUsed()` now totals over the person's open shift (lines added since its clock-in); with no open shift it falls back to the business date, which can only be stricter. `managerOnDuty()` is the open Manager-duty shift of an active owner or manager; `managerOnDutyAt()` keeps its signature for its callers.
+  - Bar-phone buzzes: M3-16's 30-second buzz and M3-17's no-bar-device buzz go to a new push audience `bar_on_clock` (bartenders, plus the front desk while its `pos.use` switch is on, each with an open shift), one job instead of one per role.
+  - Seed: Maya (Bar, 4:00 PM), Andy (Manager, 6:00 PM) and Diego (Front desk, 7:00 PM) clock in through `recordPunch()` from `team[].shift`; `shifts` joins the wipe list.
+  - Staff app: `TimeClock.tsx` (the panel and the phone's `/clock` tab, "Clock in and out", hidden with the module off). Pin's tiles read "On since 4:00 PM (6h 41m)" or "Not on shift"; a "Time clock" button on the shared Pin sends the next badge or name and PIN to the clock panel instead of home, and anyone not on the clock gets the panel with the duty picker after signing in ("Not now" goes home). Clocking out from the shared screen's clock panel locks the screen on Done. The bar POS top bar shows "Maya · on break" for everyone on break, whoever is signed in. Strings in English and Spanish.
+  - Flagged defaults: Manager duty only for owners and managers (no spec rule). With two managers on Manager duty, the one who clocked in first stays manager on duty until M7-05's handover decides. Admin's front-desk `pos.use` switch stays the only gate for the front desk on the bar POS and for its buzzes (spec 02 says the duty only feeds the tip pool); a front-desk person on Runner duty still buzzes. The bar POS shows everyone on break, not only Bar duty, since the spec says "while someone is on break".
+  - Tests: unit `packages/rules/src/shifts.test.ts`; integration `apps/api/src/routes/shifts.int.test.ts` (every acceptance line at the API), push resolution in `push.int.test.ts`, escalation and bar-presence tests updated to the one `bar_on_clock` buzz, `pin.int.test.ts` clocks Andy in instead of the stand-in; e2e "the time clock at 1280px / 390px" and "Andy's Clock in and out tab", `/clock` added to the Spanish fit check. Staging checks wait for M1-02.
 
 ### M7-02 · Guard closed nights and post late money to the next open night
 

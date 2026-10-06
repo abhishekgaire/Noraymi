@@ -125,10 +125,8 @@ describe("escalating an order nobody accepts", () => {
 
     clock.set(at("22:41:30"));
     await sweepEscalations(pool, clock.now());
-    expect((await pushes("orders.push.ringing")).map((a) => a.role).sort()).toEqual([
-      "bartender",
-      "front_desk",
-    ]);
+    // One buzz to the bar-role people on the clock (M7-01).
+    expect(await pushes("orders.push.ringing")).toEqual([{ kind: "bar_on_clock" }]);
     expect(await orderAlert(order)).toBeUndefined();
 
     clock.set(at("22:43:00"));
@@ -153,7 +151,7 @@ describe("escalating an order nobody accepts", () => {
     // Each step happens once.
     await sweepEscalations(pool, clock.now());
     expect(await texts()).toHaveLength(1);
-    expect(await pushes("orders.push.ringing")).toHaveLength(2);
+    expect(await pushes("orders.push.ringing")).toHaveLength(1);
   });
 
   it("an asked-to-wait order keeps escalating, and Accept stops everything", async () => {

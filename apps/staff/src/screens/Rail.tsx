@@ -170,11 +170,17 @@ export function Rail() {
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const me = signedIn?.me.user;
   const meId = me?.id ?? "";
-  // Sharing the terminal (M6-04): the locks, and whether the person signed in is on a break.
-  const [terminal, setTerminal] = useState({
+  // Sharing the terminal (M6-04): the locks, and who's on a break (M7-01: "Maya · on break" on every bar screen).
+  const [terminal, setTerminal] = useState<{
+    idle_lock_min: number;
+    wipe_lock_sec: number;
+    on_break: boolean;
+    breaks: readonly { membership_id: string; name: string }[];
+  }>({
     idle_lock_min: 3,
     wipe_lock_sec: 10,
     on_break: false,
+    breaks: [],
   });
   const [wipeLeft, setWipeLeft] = useState(0);
   const [sections, setSections] = useState<PosLayoutSections | null>(null);
@@ -242,10 +248,12 @@ export function Rail() {
           "GET",
           `/v1/venues/${venueId}/orders?status=ringing,held`,
         ),
-        api<{ idle_lock_min: number; wipe_lock_sec: number; on_break: boolean }>(
-          "GET",
-          `/v1/venues/${venueId}/pos/terminal`,
-        ),
+        api<{
+          idle_lock_min: number;
+          wipe_lock_sec: number;
+          on_break: boolean;
+          breaks: { membership_id: string; name: string }[];
+        }>("GET", `/v1/venues/${venueId}/pos/terminal`),
       ]);
       setTerminal(term);
       setSections(layouts.tonight?.sections ?? null);
@@ -346,6 +354,8 @@ export function Rail() {
               e.type === "session.updated" ||
               e.type === "settings.changed" ||
               e.type === "draft.updated" ||
+              // A break starting or ending anywhere (M7-01).
+              e.type === "shift.updated" ||
               // A decision on a comp or void over the limit ("Waiting for Andy", M6-15).
               e.type === "approval.decided",
           )
@@ -577,6 +587,13 @@ export function Rail() {
         <span className="who">
           {terminal.on_break && me ? t("rail.onBreak", { name: me.name.split(" ")[0]! }) : me?.name}
         </span>
+        {terminal.breaks
+          .filter((b) => !(terminal.on_break && b.name === me?.name))
+          .map((b) => (
+            <span key={b.membership_id} className="on-break">
+              {t("rail.onBreak", { name: b.name.split(" ")[0]! })}
+            </span>
+          ))}
         <ul className="rail-orders" aria-label={t("rail.roomOrders")}>
           {waiting.map((o) => {
             const age = ageS(o.placed_at);

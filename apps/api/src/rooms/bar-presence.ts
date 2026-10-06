@@ -65,13 +65,13 @@ export async function barLost(
     [venueId, now.toString()],
   );
   if ((r.rowCount ?? 0) === 0) return false;
-  for (const role of ["bartender", "front_desk"] as const)
-    await enqueuePush(c, {
-      venueId,
-      audience: { kind: "role", role },
-      message: { key: "bar.lost.push", params: {}, url: "/tonight", tag: "no-bar-device" },
-      runAt: now,
-    });
+  // The bar-role people on the clock (M7-01).
+  await enqueuePush(c, {
+    venueId,
+    audience: { kind: "bar_on_clock" },
+    message: { key: "bar.lost.push", params: {}, url: "/tonight", tag: "no-bar-device" },
+    runAt: now,
+  });
   await emitEvent(c, { venueId, type: "bar.disconnected", entityId: venueId, entityVersion: 0 });
   return true;
 }

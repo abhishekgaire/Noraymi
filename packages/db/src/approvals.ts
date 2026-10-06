@@ -2,18 +2,18 @@ import type { Queryable } from "./tenancy.js";
 
 /**
  * Approvals (M2-15). Inside a venue transaction. `managerOnDuty` is the one
- * place every caller asks who the manager on duty is (approvals now, room-order
- * escalation in M3, alerts); its source becomes the time clock in M7.
+ * place every caller asks who the manager on duty is (approvals, room-order
+ * escalation, alerts). Since M7-01 it's the person on an open Manager-duty
+ * shift. With two managers on the clock, the handover (M7-05) will decide;
+ * until it lands, the cautious default keeps the one who clocked in first.
  */
-export async function managerOnDuty(
-  c: Queryable,
-  venueId: string,
-  businessDate: string,
-): Promise<string | null> {
+export async function managerOnDuty(c: Queryable, venueId: string): Promise<string | null> {
   const r = await c.query<{ user_id: string }>(
-    `select m.user_id from duty_managers d join memberships m on m.venue_id = d.venue_id and m.id = d.membership_id
-      where d.venue_id = $1 and d.business_date = $2 and m.status = 'active'`,
-    [venueId, businessDate],
+    `select m.user_id from shifts s join memberships m on m.venue_id = s.venue_id and m.id = s.membership_id
+      where s.venue_id = $1 and s.ended_at is null and s.duty = 'manager'
+        and m.status = 'active' and m.role in ('owner', 'manager')
+      order by s.started_at, s.id limit 1`,
+    [venueId],
   );
   return r.rows[0]?.user_id ?? null;
 }

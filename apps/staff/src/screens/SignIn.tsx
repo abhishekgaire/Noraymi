@@ -18,6 +18,7 @@ import { WaitingWhileLocked } from "../chime.js";
 import { useSession } from "../session.js";
 import { LanguageSwitch } from "../layout/LanguageSwitch.js";
 import { Keypad } from "./Keypad.js";
+import { ClockPanel, soFar, type ClockAnswer, type ShiftView } from "./TimeClock.js";
 
 /**
  * The Pin screen (M1-26): on a paired bar or front-desk computer, a badge
@@ -33,6 +34,8 @@ interface Tile {
   readonly role: Role;
   readonly locale: "en" | "es";
   readonly has_pin: boolean;
+  /** Their open shift (M7-01); absent while Team, time clock & tips is off. */
+  readonly shift?: ShiftView | null;
 }
 
 interface TilesAnswer {
@@ -62,7 +65,7 @@ const pinDigits = (role: Role): 4 | 6 => (role === "owner" || role === "manager"
 
 export function SignIn() {
   const { t, time, locale } = useT();
-  const { state, refresh, setLocale, signInWithPin, signInWithBadge } = useSession();
+  const { state, refresh, lock, setLocale, signInWithPin, signInWithBadge } = useSession();
   const clock = useClock();
   const navigate = useNavigate();
   const [device, setDevice] = useState<StoredDevice | null | undefined>(undefined);
@@ -80,6 +83,9 @@ export function SignIn() {
   const [wallTime, setWallTime] = useState<string | null>(null);
   const [statusLine, setStatusLine] = useState<string | null>(null);
   const [ownerForm, setOwnerForm] = useState(false);
+  // The time clock (M7-01): asked for on a shared screen, or shown after sign-in to someone not on the clock.
+  const [clockMode, setClockMode] = useState(false);
+  const [clockPanel, setClockPanel] = useState<"asked" | "offShift" | null>(null);
 
   // What this screen is, and the venue's clock for it.
   useEffect(() => {
@@ -123,7 +129,30 @@ export function SignIn() {
 
   const finish = async () => {
     await refresh();
+    // The time clock after a badge or name and PIN: when asked for, or when the person isn't on the clock yet.
+    const venueId = device?.venueId ?? null;
+    if (venueId) {
+      try {
+        const answer = await api<ClockAnswer>("GET", `/v1/venues/${venueId}/shifts`);
+        if (clockMode || answer.me.shift === null) {
+          setChosen(null);
+          setPin("");
+          setClockPanel(clockMode ? "asked" : "offShift");
+          return;
+        }
+      } catch {
+        // Team, time clock & tips is off (module_off), or the clock can't be read: straight home.
+      }
+    }
     navigate("/", { replace: true });
+  };
+
+  const leaveClock = (onTheClock: boolean) => {
+    setClockPanel(null);
+    setClockMode(false);
+    // Clocked out on a shared screen: the screen goes back to sign-in for the next person.
+    if (!onTheClock && isShared(device ?? null) && clockPanel === "asked") void lock();
+    else navigate("/", { replace: true });
   };
 
   const failPin = (e: unknown) => {
@@ -195,8 +224,8 @@ export function SignIn() {
           setStatusLine(null);
         });
     });
-    // The subscription lives as long as the paired screen is on the sign-in page.
-  }, [device, signInWithBadge, t]);
+    // The subscription lives as long as the paired screen is on the sign-in page; Time clock changes where it leads.
+  }, [device, signInWithBadge, t, clockMode]);
 
   const choose = (tile: Tile) => {
     setChosen(tile);
@@ -324,6 +353,20 @@ export function SignIn() {
     );
   }
 
+  // --- The time clock after sign-in (M7-01; Pin note 2, N24).
+  if (clockPanel && state.status === "signedIn") {
+    return (
+      <main className={isShared(device) ? "sign-in shared" : "sign-in phone"} id="main">
+        <h1>{t("clock.title")}</h1>
+        <p className="pin-for">{state.me.user.name}</p>
+        <ClockPanel
+          onDone={leaveClock}
+          doneLabel={clockPanel === "asked" ? "clock.done" : "clock.notNow"}
+        />
+      </main>
+    );
+  }
+
   // --- A paired bar or front-desk computer: badge, or a name tile then the PIN pad.
   // An owner or manager opens Admin here with the passkey form below instead.
   if (isShared(device) && !ownerForm) {
@@ -355,7 +398,7 @@ export function SignIn() {
         {!chosen && (
           <>
             <p className="badge-line">{t("signIn.tapBadge")}</p>
-            <p className="muted">{t("signIn.noBadge")}</p>
+            <p className="muted">{clockMode ? t("clock.modeHint") : t("signIn.noBadge")}</p>
             <ul className="tiles" aria-label={t("signIn.noBadge")}>
               {(tiles?.tiles ?? [])
                 .filter((tile) => tile.has_pin)
@@ -364,6 +407,20 @@ export function SignIn() {
                     <button type="button" className="tile" onClick={() => choose(tile)}>
                       <span className="tile-name">{tile.name}</span>
                       <span className="tile-role">{t(roleKey[tile.role])}</span>
+                      {tile.shift !== undefined && (
+                        <span className="tile-shift">
+                          {tile.shift === null
+                            ? t("clock.notOnShift")
+                            : tile.shift.break_started_at
+                              ? t("clock.onBreakSince", {
+                                  time: time(tile.shift.break_started_at, tiles!.venue.time_zone),
+                                })
+                              : t("clock.onSince", {
+                                  time: time(tile.shift.started_at, tiles!.venue.time_zone),
+                                  ...soFar(tile.shift, clock.now ?? tiles!.server_time),
+                                })}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -381,6 +438,16 @@ export function SignIn() {
         )}
         <footer className="sign-in-foot">
           <p className="muted small">{t("signIn.pinAgainRule")}</p>
+          {tiles?.tiles.some((tile) => tile.shift !== undefined) && (
+            <button
+              type="button"
+              className="secondary"
+              aria-pressed={clockMode}
+              onClick={() => setClockMode((on) => !on)}
+            >
+              {t("clock.title")}
+            </button>
+          )}
           <button type="button" className="secondary" onClick={() => setOwnerForm(true)}>
             {t("signIn.ownerWeb")}
           </button>

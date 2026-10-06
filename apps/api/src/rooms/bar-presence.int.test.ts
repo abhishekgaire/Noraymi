@@ -22,7 +22,7 @@ const clock = new SimulatedClock(SEED_NOW);
 const barPushes = async () =>
   (
     await raw.query<{ role: string }>(
-      "select payload->'audience'->>'role' as role from jobs where kind = 'push.send' and payload->'message'->>'key' = 'bar.lost.push'",
+      "select payload->'audience'->>'kind' as role from jobs where kind = 'push.send' and payload->'message'->>'key' = 'bar.lost.push'",
     )
   ).rows.map((r) => r.role);
 const noBarAlert = async () =>
@@ -73,11 +73,12 @@ describe("no bar device connected", () => {
     expect(await noBarAlert()).toBeUndefined();
     const raised = await withVenue(pool, { venueId }, (c) => barLost(c, venueId, SEED_NOW));
     expect(raised).toBe(true);
-    expect((await barPushes()).sort()).toEqual(["bartender", "front_desk"]);
+    // One buzz to the bar-role people on the clock (M7-01).
+    expect(await barPushes()).toEqual(["bar_on_clock"]);
     expect(await noBarAlert()).toMatchObject({ color: "pink" });
     // Once per outage.
     expect(await withVenue(pool, { venueId }, (c) => barLost(c, venueId, SEED_NOW))).toBe(false);
-    expect(await barPushes()).toHaveLength(2);
+    expect(await barPushes()).toHaveLength(1);
   });
 
   it("reconnecting clears the alert everywhere", async () => {

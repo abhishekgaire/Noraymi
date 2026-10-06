@@ -8,6 +8,9 @@ import {
   endSessionsOnDevice,
   nameTiles,
   openSession,
+  openShifts,
+  statesOf,
+  venueModules,
   pinLockout,
   pinMembership,
   recordDevicePinFailure,
@@ -16,13 +19,14 @@ import {
   withVenue,
   type PinMembership,
 } from "@west4/db";
-import { Temporal, type Clock } from "@west4/shared";
+import { Temporal, stateOf, type Clock } from "@west4/shared";
 import type { AuthConfig } from "../config.js";
 import { SESSION_MAX_HOURS, setSessionCookie } from "../auth/session-auth.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { managerOnDutyAt } from "../approvals/service.js";
 import { enqueuePush } from "../push/send-push.js";
+import { shiftView } from "./shifts.js";
 
 /**
  * Name and PIN on shared screens and phones (M1-24, spec 02 · PINs). The
@@ -58,8 +62,13 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
     "/v1/venues/:venueId/team/tiles",
     { config: route({ principals: ["shared_device", "owner_manager"], module: "core" }) },
     async (request) => {
-      const { tiles, venue } = await request.inVenue(async (c) => ({
+      const { tiles, venue, shifts } = await request.inVenue(async (c) => ({
         tiles: await nameTiles(c, request.venueId!),
+        // Who's on the clock (M7-01), while Team, time clock & tips is on.
+        shifts:
+          stateOf(statesOf(await venueModules(c, request.venueId!)), "team") === "off"
+            ? null
+            : new Map((await openShifts(c, request.venueId!)).map((s) => [s.membership_id, s])),
         venue: (
           await c.query<{ name: string; time_zone: string; day_cutover: string }>(
             "select name, time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
@@ -74,6 +83,11 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
           role: t.role,
           locale: t.locale,
           has_pin: t.hasPin,
+          ...(shifts
+            ? {
+                shift: shifts.has(t.membershipId) ? shiftView(shifts.get(t.membershipId)!) : null,
+              }
+            : {}),
         })),
         venue: { id: request.venueId, ...venue },
         server_time: now().toString(),

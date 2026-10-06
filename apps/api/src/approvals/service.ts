@@ -8,11 +8,10 @@ import {
   type ApprovalRow,
   type Queryable,
 } from "@west4/db";
-import { businessDate, routeApproval } from "@west4/rules";
+import { routeApproval } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { enqueuePush } from "../push/send-push.js";
-import { venueClock } from "../rooms/assignment.js";
 
 /**
  * Approvals (M2-15; spec 02 · Approvals; spec 08 · Conventions). A write that
@@ -39,17 +38,15 @@ export const declineHandlers = new Map<string, Executor>();
 
 /**
  * The manager on duty at an instant (spec 02 · Approvals): the one function
- * approvals, room-order escalation and alerts all ask. Until M7's time clock,
- * it reads the night's `duty_managers` row.
+ * approvals, room-order escalation and alerts all ask. Since M7-01 it's the
+ * open Manager-duty shift on the time clock.
  */
 export async function managerOnDutyAt(
   c: Queryable,
   venueId: string,
-  at: Temporal.Instant,
+  _at: Temporal.Instant,
 ): Promise<string | null> {
-  const venue = await venueClock(c, venueId);
-  const date = businessDate(at, venue.timeZone, venue.dayCutover).businessDate.toString();
-  return managerOnDuty(c, venueId, date);
+  return managerOnDuty(c, venueId);
 }
 
 export interface PendingAnswer {

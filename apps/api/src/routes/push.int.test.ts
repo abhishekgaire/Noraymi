@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { Worker } from "@west4/db";
+import { Worker, recordPunch } from "@west4/db";
 import {
   createTestDatabase,
   seedTwoVenues,
@@ -181,6 +181,37 @@ describe("a staff phone subscribes to push", () => {
     expect(sender.sent).toHaveLength(2);
     expect(JSON.parse(sender.sent[1]!.payload).body).toMatch(/^Alerta de prueba/);
     expect(renderPush("West 4", "es", { key: "push.test.body" })).toContain('"title":"West 4"');
+  });
+
+  it("the bar buzz reaches bar-role phones only while their person is on the clock (M7-01)", async () => {
+    const buzz = JSON.stringify({
+      audience: { kind: "bar_on_clock" },
+      message: { key: "push.test.body" },
+    });
+    const queue = () =>
+      owner.query(
+        "insert into jobs (venue_id, kind, pool, payload, run_at) values ($1, $2, 'normal', $3, $4)",
+        [v.venueA, PUSH_SEND_KIND, buzz, SEED_NOW.toString()],
+      );
+    const before = sender.sent.length;
+    await queue();
+    expect(await worker().tick()).toBe(1);
+    expect(sender.sent).toHaveLength(before);
+    const m = await owner.query<{ id: string }>(
+      "select id from memberships where venue_id = $1 and user_id = $2",
+      [v.venueA, v.bartenderA],
+    );
+    await recordPunch(owner, {
+      venueId: v.venueA,
+      membershipId: m.rows[0]!.id,
+      kind: "clock_in",
+      duty: "bar",
+      at: SEED_NOW,
+      venue: { timeZone: "America/New_York", dayCutover: "06:00" },
+    });
+    await queue();
+    expect(await worker().tick()).toBe(1);
+    expect(sender.sent).toHaveLength(before + 1);
   });
 
   it("an endpoint the push service says is gone is revoked", async () => {

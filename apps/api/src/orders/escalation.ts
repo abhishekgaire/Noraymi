@@ -76,20 +76,20 @@ export async function escalateOrders(
     if (target <= o.escalation_level) continue;
     const room = o.room_name ?? "";
     for (let level = o.escalation_level + 1; level <= target; level++) {
+      // The 30-second buzz goes to the bar-role people on the clock (M7-01).
       if (level === 1)
-        for (const role of ["bartender", "front_desk"] as const)
-          await enqueuePush(c, {
-            venueId,
-            audience: { kind: "role", role },
-            message: {
-              key: "orders.push.ringing",
-              params: { room, items: o.items ?? "" },
-              url: "/bar-orders",
-              tag: `order-${o.id}`,
-            },
-            runAt: now,
-            dedupeKey: `order-ring:${o.id}:${role}`,
-          });
+        await enqueuePush(c, {
+          venueId,
+          audience: { kind: "bar_on_clock" },
+          message: {
+            key: "orders.push.ringing",
+            params: { room, items: o.items ?? "" },
+            url: "/bar-orders",
+            tag: `order-${o.id}`,
+          },
+          runAt: now,
+          dedupeKey: `order-ring:${o.id}`,
+        });
       if (level === 3 || level === 4) {
         const manager = await managerOnDutyAt(c, venueId, now);
         if (!manager) continue;

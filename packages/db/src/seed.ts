@@ -25,11 +25,12 @@ import {
   type DepositRule,
   type PaySettings,
 } from "@west4/shared";
-import { depositPolicyText } from "@west4/rules";
+import { depositPolicyText, type Duty } from "@west4/rules";
 import { publishPolicy } from "./policies.js";
 import { WEST4_POS_LAYOUT } from "./seed-pos-layout.js";
 import type { DeviceKind } from "./devices.js";
 import { reasonOnlyUsed } from "./checks.js";
+import { recordPunch } from "./shifts.js";
 
 /**
  * The demo seed loader (docs/demo-seed.md · Loading the seed; M1-17). It
@@ -264,6 +265,8 @@ export interface SeedPerson {
   readonly demo_totp_secret?: string;
   /** DEMO ONLY (M1-20): fixed recovery codes for the demo owner, stored hashed like real ones. */
   readonly demo_recovery_codes?: readonly string[];
+  /** On the clock at "now" (M7-01): the duty and the clock-in, or null when not on shift. */
+  readonly shift?: { readonly duty: Duty; readonly clock_in: string } | null;
 }
 
 export interface SeedRoom {
@@ -973,7 +976,6 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "price_rules",
       "room_blocks",
       "approvals",
-      "duty_managers",
       "id_checks",
       "id_scan_keys",
       "enquiries",
@@ -1005,6 +1007,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "checks",
       // Photos (the slips' since M6-09); after every row that points at one.
       "files",
+      "shifts",
       "time_punches",
       "venue_counters",
       "session_segments",
@@ -1243,12 +1246,19 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     }
     log(`guests: ${seed.guests.length}, bookings: ${seed.bookings.length}`);
 
-    // The manager on duty tonight (M2-15): Andy, in the stand-in table until the time clock lands (M7).
-    await client.query(
-      `insert into duty_managers (venue_id, business_date, membership_id)
-         select $1, $2, id from memberships where venue_id = $1 and user_id = $3`,
-      [venueId, "2026-09-25", id("andy")],
-    );
+    // Who's on the clock at 10:41 PM (M7-01): Maya on Bar since 4:00 PM, Andy on Manager since 6:00 PM,
+    // Diego on Front desk since 7:00 PM; Abhishek not on shift. Andy's open Manager shift makes him the manager on duty.
+    for (const person of seed.team) {
+      if (!person.shift) continue;
+      await recordPunch(client, {
+        venueId,
+        membershipId: id(`${person.id}.membership`),
+        kind: "clock_in",
+        duty: person.shift.duty,
+        at: Temporal.Instant.from(person.shift.clock_in),
+        venue: { timeZone: seed.venue.time_zone, dayCutover },
+      });
+    }
 
     // The 14 texts (M2-09), in the spec's order; marketing ones off.
     for (const text of seed.texts) {

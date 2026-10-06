@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { readSetting } from "@west4/db";
+import { readSetting, statesOf, venueModules } from "@west4/db";
 import { businessDate } from "@west4/rules";
-import type { Clock } from "@west4/shared";
+import { stateOf, type Clock } from "@west4/shared";
 import { venueClock } from "../rooms/assignment.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -42,7 +42,7 @@ export function posLayoutRoutes(app: FastifyInstance, options: { clock: Clock })
     },
   );
 
-  // The bar POS terminal (M6-04): its locks, and whether the person signed in is on a break.
+  // The bar POS terminal (M6-04): its locks, and who is on a break (M7-01).
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/pos/terminal",
     { config: read },
@@ -60,20 +60,26 @@ export function posLayoutRoutes(app: FastifyInstance, options: { clock: Clock })
           p.kind === "user"
             ? (p.memberships.find((m) => m.venueId === request.venueId)?.membershipId ?? null)
             : null;
-        // On a break: her last punch is a break that hasn't ended.
-        const last = membershipId
+        // On a break (M7-01): everyone on the clock whose break hasn't ended, for every bar screen's top bar.
+        const teamOn = stateOf(statesOf(await venueModules(c, request.venueId!)), "team") !== "off";
+        const breaks = teamOn
           ? (
-              await c.query<{ kind: string }>(
-                `select kind from time_punches where venue_id = $1 and membership_id = $2
-                  order by at desc, created_at desc limit 1`,
-                [request.venueId, membershipId],
+              await c.query<{ membership_id: string; name: string }>(
+                `select m.id as membership_id, u.name
+                   from memberships m join users u on u.id = m.user_id
+                  where m.venue_id = $1 and m.status = 'active'
+                    and (select p.kind from time_punches p where p.venue_id = m.venue_id and p.membership_id = m.id
+                          order by p.at desc, p.created_at desc limit 1) = 'break_start'
+                  order by u.name`,
+                [request.venueId],
               )
-            ).rows[0]
-          : undefined;
+            ).rows
+          : [];
         return {
           idle_lock_min: pos?.value.idleLockMin ?? 3,
           wipe_lock_sec: pos?.value.wipeLockSec ?? 10,
-          on_break: last?.kind === "break_start",
+          on_break: breaks.some((b) => b.membership_id === membershipId),
+          breaks,
         };
       }),
   );

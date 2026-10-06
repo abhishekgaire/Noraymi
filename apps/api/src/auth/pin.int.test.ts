@@ -2,14 +2,20 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import WebSocket from "ws";
 import pg from "pg";
-import { Worker, parseAuthSecretKey, pinVerifier } from "@west4/db";
+import { Worker, parseAuthSecretKey, pinVerifier, recordPunch } from "@west4/db";
 import {
   createTestDatabase,
   seedTwoVenues,
   type TestDatabase,
   type TwoVenues,
 } from "@west4/db/test-helpers";
-import { SEED_NOW, SimulatedClock, makeDeviceKey, signDeviceRequest } from "@west4/shared";
+import {
+  SEED_NOW,
+  SimulatedClock,
+  Temporal,
+  makeDeviceKey,
+  signDeviceRequest,
+} from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import { route } from "../http/conventions.js";
@@ -153,10 +159,15 @@ beforeAll(async () => {
   maya = await person("Maya S.", "bartender", "4071");
   diego = await person("Diego R.", "front_desk", "6358");
   andy = await person("Andy C.", "manager", "730915");
-  await owner.query(
-    "insert into duty_managers (venue_id, business_date, membership_id) values ($1, '2026-09-25', $2)",
-    [v.venueA, andy],
-  );
+  // Andy on the clock on Manager duty: the manager on duty (M7-01).
+  await recordPunch(owner, {
+    venueId: v.venueA,
+    membershipId: andy,
+    kind: "clock_in",
+    duty: "manager",
+    at: Temporal.Instant.from("2026-09-25T22:00:00Z"),
+    venue: { timeZone: "America/New_York", dayCutover: "06:00" },
+  });
   bar = await sharedDevice("bar_computer", "Bar computer");
   desk = await sharedDevice("front_desk", "Front desk");
   // Andy's phone, subscribed to push (M1-22).
