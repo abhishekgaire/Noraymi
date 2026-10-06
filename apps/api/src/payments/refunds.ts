@@ -7,6 +7,8 @@ import {
   latestRevision,
   paymentById,
   refundById,
+  postingDate,
+  isNightClosed,
   refundByStripeId,
   refundedOf,
   refundsOfApproval,
@@ -17,7 +19,7 @@ import {
   type Queryable,
   type RefundRow,
 } from "@west4/db";
-import { refundCap } from "@west4/rules";
+import { latePosting, refundCap } from "@west4/rules";
 import { Temporal, cents, formatMoney } from "@west4/shared";
 import type pg from "pg";
 import {
@@ -315,6 +317,16 @@ export async function askRefund(
     requestedDeviceId: input.deviceId,
     now: input.now,
   });
+  // The night a refund belongs to (M7-02): its check's, or for a deposit refunded before check-in, its
+  // payment's. Refunded on a later posting date, it points back at that night.
+  const checkNight = input.checkId
+    ? (
+        await c.query<{ d: string }>(
+          "select business_date::text as d from checks where venue_id = $1 and id = $2",
+          [venueId, input.checkId],
+        )
+      ).rows[0]?.d
+    : undefined;
   for (const [i, part] of input.parts.entries())
     await insertRefund(c, venueId, {
       id: ids[i]!,
@@ -326,8 +338,8 @@ export async function askRefund(
       requestedBy: input.userId,
       approvalId: pending.approval_id,
       businessDate: input.businessDate,
-      adjustsBusinessDate:
-        payments[i]!.business_date !== input.businessDate ? payments[i]!.business_date : null,
+      adjustsBusinessDate: latePosting(checkNight ?? payments[i]!.business_date, input.businessDate)
+        .adjustsBusinessDate,
       requestedAt: input.now.toString(),
     });
   return { ...pending, refund_ids: ids };
@@ -382,13 +394,26 @@ executors.set("refund", async (c, venueId, approval, ctx) => {
   if (refunds.length === 0) throw new TargetGone();
   const payload = approval.payload as { plan?: PlannedLine[]; check_id?: string | null };
   const at = ctx.at.toString();
-  const businessDate = refunds[0]!.business_date;
+  // Asked before its night closed and approved after (M7-02): the refund moves to where money posts now,
+  // pointing back at the night it was asked on. The database refuses a row on a closed night.
+  const posting = await postingDate(c, venueId, ctx.at);
+  for (const refund of refunds)
+    if (refund.business_date < posting && (await isNightClosed(c, venueId, refund.business_date)))
+      await c.query(
+        `update refunds set business_date = $3, adjusts_business_date = coalesce(adjusts_business_date, business_date)
+          where venue_id = $1 and id = $2`,
+        [venueId, refund.id, posting],
+      );
+  const businessDate = (await refundById(c, venueId, refunds[0]!.id))!.business_date;
+  // The reversing lines post with the refund, pointing at their check's night when that's earlier.
   if (payload.check_id)
     for (const l of payload.plan ?? [])
       await c.query(
         `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-           reverses_id, business_date, added_by, added_at, reason)
-         values ($1, $2, 'refund', $3, 1, $4, $4, $5, $6, $7, $8, $9, $10)`,
+           reverses_id, business_date, adjusts_business_date, added_by, added_at, reason)
+         select $1, $2, 'refund', $3, 1, $4, $4, $5, $6, $7::date,
+                case when k.business_date < $7::date then k.business_date end, $8, $9, $10
+           from checks k where k.venue_id = $1 and k.id = $2`,
         [
           venueId,
           payload.check_id,

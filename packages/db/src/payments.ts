@@ -60,9 +60,11 @@ export interface NewPayment {
 
 export async function insertPayment(c: Queryable, venueId: string, p: NewPayment): Promise<string> {
   const r = await c.query<{ id: string }>(
-    `insert into payments (id, venue_id, method, status, business_date, amount_cents, tip_cents, booking_id,
-       stripe_pi_id, tendered_cents, change_cents, drawer_session_id, staff_bank_id, mit_reason, training)
-     values (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    `insert into payments (id, venue_id, method, status, business_date, adjusts_business_date, amount_cents,
+       tip_cents, booking_id, stripe_pi_id, tendered_cents, change_cents, drawer_session_id, staff_bank_id,
+       mit_reason, training)
+     values (coalesce($1, gen_random_uuid()), $2, $3, $4, open_business_date($2, $5::date),
+       nullif($5::date, open_business_date($2, $5::date)), $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      returning id`,
     [
       p.id ?? null,

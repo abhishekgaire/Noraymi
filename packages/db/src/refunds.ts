@@ -44,7 +44,8 @@ export async function insertRefund(
        approval_id, business_date, adjusts_business_date, requested_at)
      values ($1, $2, $3, $4, $5, $6, $7,
        (select coalesce(max(n), 0) + 1 from refunds where venue_id = $2 and payment_id = $3),
-       $8, $9, $10, $11, $12)`,
+       $8, $9, open_business_date($2, $10::date),
+       coalesce($11::date, nullif($10::date, open_business_date($2, $10::date))), $12)`,
     [
       r.id,
       venueId,

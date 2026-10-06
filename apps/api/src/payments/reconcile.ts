@@ -169,8 +169,9 @@ async function recordUnmatched(
     const date = businessDate(now, v.time_zone, v.day_cutover).businessDate.toString();
     const r = await c.query<{ id: string }>(
       `insert into payments (venue_id, method, status, stripe_pi_id, amount_cents, card_brand, card_last4, card_funding,
-         business_date)
-       values ($1, 'external', 'captured', $2, $3, $4, $5, $6, $7)
+         business_date, adjusts_business_date)
+       values ($1, 'external', 'captured', $2, $3, $4, $5, $6, open_business_date($1, $7::date),
+         nullif($7::date, open_business_date($1, $7::date)))
        on conflict (stripe_pi_id) do nothing returning id`,
       [
         venueId,

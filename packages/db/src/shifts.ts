@@ -104,28 +104,43 @@ export async function rebuildShift(
   });
   const minutes = shiftMinutes(mine);
   const date = businessDate(clockIn.at, venue.timeZone, venue.dayCutover).businessDate.toString();
-  const r = await c.query<{ id: string }>(
-    `insert into shifts (venue_id, membership_id, clock_in_punch_id, business_date, duty, started_at, ended_at, break_minutes)
-     values ($1, $2, $3, $4, $5, $6, $7, $8)
-     on conflict (venue_id, clock_in_punch_id) do update
-       set business_date = excluded.business_date, duty = excluded.duty, started_at = excluded.started_at,
-           ended_at = excluded.ended_at, break_minutes = excluded.break_minutes, updated_at = now()
-     returning id`,
-    [
-      venueId,
-      clockIn.membership_id,
-      clockInPunchId,
-      date,
-      clockIn.duty ?? "bar",
-      clockIn.at,
-      minutes.endedAt?.toString() ?? null,
-      minutes.closedBreakMinutes,
-    ],
+  // Stamped through the posting date (M7-02): a clock-in after its night closed belongs to the next open
+  // one. A shift already on a closed night stays there; the database refuses moving or adding one onto it.
+  const params = [
+    venueId,
+    clockIn.membership_id,
+    clockInPunchId,
+    date,
+    clockIn.duty ?? "bar",
+    clockIn.at,
+    minutes.endedAt?.toString() ?? null,
+    minutes.closedBreakMinutes,
+  ];
+  const updated = await c.query<{ id: string; business_date: string }>(
+    `update shifts s
+        set business_date = case
+              when exists (select 1 from night_closes n
+                            where n.venue_id = s.venue_id and n.business_date = s.business_date)
+                then s.business_date
+              else open_business_date($1, $4::date) end,
+            duty = $5, started_at = $6, ended_at = $7, break_minutes = $8, updated_at = now()
+      where s.venue_id = $1 and s.clock_in_punch_id = $3 and s.membership_id = $2
+      returning s.id, s.business_date::text`,
+    params,
   );
+  const r =
+    updated.rows[0] !== undefined
+      ? updated
+      : await c.query<{ id: string; business_date: string }>(
+          `insert into shifts (venue_id, membership_id, clock_in_punch_id, business_date, duty, started_at, ended_at, break_minutes)
+           values ($1, $2, $3, open_business_date($1, $4::date), $5, $6, $7, $8)
+           returning id, business_date::text`,
+          params,
+        );
   return {
     id: r.rows[0]!.id,
     membership_id: clockIn.membership_id,
-    business_date: date,
+    business_date: r.rows[0]!.business_date,
     duty: clockIn.duty ?? "bar",
     started_at: iso(clockIn.at),
     ended_at: minutes.endedAt?.toString() ?? null,

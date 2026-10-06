@@ -1,11 +1,16 @@
-import { allocate, amountDue, insertPayment, latestAttempt, type Queryable } from "@west4/db";
-import { businessDate } from "@west4/rules";
+import {
+  allocate,
+  amountDue,
+  insertPayment,
+  latestAttempt,
+  postingDate,
+  type Queryable,
+} from "@west4/db";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { tabHoldOf } from "../payments/splits.js";
 import { openAttempt } from "../payments/state.js";
 import { goAhead } from "../payments/card-on-file.js";
-import { venueClock } from "../rooms/assignment.js";
 import { tabSavedCard } from "./saved-card.js";
 
 /**
@@ -23,7 +28,7 @@ export interface SettleStart {
   /** A hold still standing on the tab: left out of what's due, canceled once the tab is paid. */
   readonly holdId: string | null;
   readonly balanceCents: number;
-  /** Today's business date: where the money posts. */
+  /** The posting date (M7-02): where the money posts. */
   readonly today: string;
 }
 
@@ -77,13 +82,13 @@ export async function startSettle(
     tabId,
     input.userId,
   ]);
-  const venue = await venueClock(c, venueId);
   return {
     tabId,
     checkId: tab.check_id,
     holdId: hold?.paymentId ?? null,
     balanceCents: balance,
-    today: businessDate(input.now, venue.timeZone, venue.dayCutover).businessDate.toString(),
+    // The posting date (M7-02): tonight, or the next open night once tonight has closed.
+    today: await postingDate(c, venueId, input.now),
   };
 }
 

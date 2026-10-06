@@ -1009,6 +1009,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "files",
       "shifts",
       "time_punches",
+      "night_closes",
       "venue_counters",
       "session_segments",
       "room_sessions",

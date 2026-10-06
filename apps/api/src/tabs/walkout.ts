@@ -12,6 +12,7 @@ import {
   type AttemptRow,
   type PaymentRow,
   type Queryable,
+  isNightClosed,
 } from "@west4/db";
 import { businessDate, capCents, wallClock } from "@west4/rules";
 import { cents, formatMoney, Temporal } from "@west4/shared";
@@ -437,6 +438,8 @@ export async function runTabCutOff(
     for (const date of [today.subtract({ days: 1 }), today]) {
       const at = await cutOffDue(c, venueId, date);
       if (!at || Temporal.Instant.compare(now, at) < 0) continue;
+      // A closed night is finished for good (M7-02): the database refuses any row dated to it.
+      if (await isNightClosed(c, venueId, date.toString())) continue;
       await c.query(
         `insert into tab_cut_off_runs (venue_id, business_date, due_at, started_at) values ($1, $2, $3, $4)
          on conflict (venue_id, business_date) do nothing`,

@@ -1,4 +1,4 @@
-import { AttemptOpen, OverAmountDue } from "@west4/db";
+import { AttemptOpen, NIGHT_CLOSED_SQLSTATE, OverAmountDue } from "@west4/db";
 import { randomUUID } from "node:crypto";
 import fp from "fastify-plugin";
 import rateLimit from "@fastify/rate-limit";
@@ -260,6 +260,13 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     }
     if (error instanceof AttemptOpen) {
       const e = new ApiError("in_progress", "another payment for this is still going");
+      return reply.code(e.status).send(e.toBody());
+    }
+    // A row dated to a closed night, refused by the database whatever wrote it (M7-02).
+    if ((error as { code?: string }).code === NIGHT_CLOSED_SQLSTATE) {
+      const e = new ApiError("version_conflict", "that night is closed", {
+        details: { reason: "night_closed" },
+      });
       return reply.code(e.status).send(e.toBody());
     }
     const status = (error as { statusCode?: number }).statusCode;

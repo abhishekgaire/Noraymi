@@ -497,3 +497,13 @@ export type { RefundRow, RefundStatus } from "./refunds.js";
 export { currentPolicy, policyHash, publishPolicy, type PolicyVersion } from "./policies.js";
 export { openShiftOf, openShifts, rebuildShift, recordPunch, ShiftError } from "./shifts.js";
 export type { ShiftPunch, ShiftRefusal, ShiftRow, VenueTime as ShiftVenueTime } from "./shifts.js";
+export {
+  NIGHT_CLOSED_SQLSTATE,
+  postingDate,
+  latePostingAt,
+  latePostsTo,
+  nightClose,
+  isNightClosed,
+  recordNightClose,
+  type NightClose,
+} from "./nights.js";

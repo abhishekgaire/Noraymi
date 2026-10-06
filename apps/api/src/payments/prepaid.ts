@@ -53,7 +53,7 @@ async function post(
 ) {
   await c.query(
     `insert into prepaid_ledger (venue_id, account_id, kind, amount_cents, payment_id, check_id, by_user, at, business_date)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, open_business_date($1, $9::date))`,
     [
       venueId,
       row.accountId,

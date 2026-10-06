@@ -1,5 +1,5 @@
 import type pg from "pg";
-import { emitEvent, withVenue, type Queryable, type Sweep } from "@west4/db";
+import { emitEvent, isNightClosed, withVenue, type Queryable, type Sweep } from "@west4/db";
 import { businessDate, clearOutDue } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
@@ -26,6 +26,8 @@ export async function raiseClearOut(
   const date = businessDate(now, venue.timeZone, venue.dayCutover).businessDate;
   const due = clearOutDue(venue, date);
   if (now.epochMilliseconds < due.epochMilliseconds) return false;
+  // A night closed before its check was raised (M7-02) takes no more rows.
+  if (await isNightClosed(c, venueId, date.toString())) return false;
   const r = await c.query(
     `insert into clear_out_checks (venue_id, business_date, due_at) values ($1, $2, $3)
      on conflict (venue_id, business_date) do nothing returning id`,

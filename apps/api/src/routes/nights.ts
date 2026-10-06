@@ -1,12 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
-import { businessDate } from "@west4/rules";
 import type { Clock } from "@west4/shared";
-import type { Queryable } from "@west4/db";
+import { latePostsTo, nightClose, postingDate, type Queryable } from "@west4/db";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { venueClock } from "../rooms/assignment.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
 import { listTabs } from "../tabs/tabs.js";
@@ -17,7 +15,9 @@ import { Temporal } from "@west4/shared";
 /**
  * Close the night's bar tabs (M6-16; API · Night close; Staff screens · Charging the remaining tabs;
  * screens Night note 5). M7 builds the rest of the night's checks on the same GET.
- *   GET  /v1/venues/{v}/nights/{date}                          the open bar tabs with their totals and cards,
+ *   GET  /v1/venues/{v}/nights/{date}                          whether the night is closed (its Z number) and
+ *                                                              where its late money posts (M7-02); the open bar
+ *                                                              tabs with their totals and cards,
  *                                                              which of them Charge the remaining tabs takes
  *                                                              (how many cards and the total), and the cut-off
  *   POST /v1/venues/{v}/nights/{date}/charge-remaining-tabs    { count, total_cents }: the confirmation as the
@@ -56,8 +56,8 @@ async function barTabs(c: Queryable, venueId: string, now: Temporal.Instant) {
 }
 
 async function nightOf(c: Queryable, venueId: string, date: string, now: Temporal.Instant) {
-  const venue = await venueClock(c, venueId);
-  const today = businessDate(now, venue.timeZone, venue.dayCutover).businessDate;
+  // Tonight is the posting date (M7-02): once a night closes before the cutover, the next one has begun.
+  const today = Temporal.PlainDate.from(await postingDate(c, venueId, now));
   const night = Temporal.PlainDate.from(date);
   if (Temporal.PlainDate.compare(night, today) > 0)
     throw new ApiError("not_found", "that night hasn't started");
@@ -91,8 +91,19 @@ export function nightRoutes(
         const night = await nightOf(c, venueId, request.params.date, now);
         const { tabs, remaining } = await barTabs(c, venueId, now);
         const cutOff = await cutOffDue(c, venueId, night);
+        const closed = await nightClose(c, venueId, night.toString());
         return {
           business_date: night.toString(),
+          // Closed nights never reopen (M7-02): the close, and where late money for this night posts
+          // ("3 slips not entered · tips post to Sat Sep 26").
+          closed: closed
+            ? {
+                z_number: closed.z_number,
+                closed_at: closed.closed_at,
+                closed_by: closed.closed_by,
+              }
+            : null,
+          late_money_posts_to: await latePostsTo(c, venueId, night.toString(), now),
           bar_tabs: tabs,
           charge_remaining: {
             count: remaining.length,

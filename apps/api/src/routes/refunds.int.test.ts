@@ -2,9 +2,15 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { generateSigningKey, loadDemoSeed, publishRulePack, withVenue } from "@west4/db";
+import {
+  generateSigningKey,
+  loadDemoSeed,
+  publishRulePack,
+  recordNightClose,
+  withVenue,
+} from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
-import { FrozenClock, SEED_NOW, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
+import { FrozenClock, SEED_NOW, Temporal, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import { decide } from "../approvals/service.js";
@@ -354,5 +360,74 @@ describe("a refund Stripe fails", () => {
       (await w.owner.query("select status from payments where id = $1", [w.deposit])).rows[0]
         .status,
     ).toBe("captured");
+  });
+});
+
+describe("refunds after Friday closes (M7-02)", () => {
+  let w: World;
+  beforeAll(async () => {
+    clock.set(SEED_NOW);
+    w = await world("pm_card_amex");
+  });
+  afterAll(async () => {
+    clock.set(SEED_NOW);
+    await drop(w);
+  });
+  const ask = (cents: number) =>
+    as(w, "andy", "POST", `/checks/${w.ids["chk_room9"]}/refunds`, {
+      parts: [{ payment_id: w.deposit, amount_cents: cents }],
+      reason: "Room 9's mic was out for an hour",
+    });
+  const dates = async (refundId: string) => ({
+    refund: (
+      await w.owner.query(
+        `select business_date::text as on, adjusts_business_date::text as adjusts from refunds where id = $1`,
+        [refundId],
+      )
+    ).rows[0],
+    lines: (
+      await w.owner.query(
+        `select l.business_date::text as on, l.adjusts_business_date::text as adjusts
+           from check_lines l where l.check_id = $1 and l.kind = 'refund' and l.added_at = $2`,
+        [w.ids["chk_room9"], clock.now().toString()],
+      )
+    ).rows,
+  });
+  const approve = async (approvalId: string, refundId: string) => {
+    await decideAs(w, "abhishek", approvalId, "approve");
+    await runRefund(deps(w), w.venueId, refundId);
+  };
+
+  it("asked at 4:12 AM, Friday closed at 4:48 AM, approved at 5:10 AM: posts to Saturday, pointing at Friday", async () => {
+    clock.set(Temporal.Instant.from("2026-09-26T04:12:00-04:00"));
+    const r = await ask(2000);
+    expect(r.statusCode, r.body).toBe(202);
+    const refundId = r.json().refund_ids[0] as string;
+    expect((await dates(refundId)).refund).toEqual({ on: "2026-09-25", adjusts: null });
+    clock.set(Temporal.Instant.from("2026-09-26T04:48:00-04:00"));
+    await withVenue(w.app, { venueId: w.venueId }, (c) =>
+      recordNightClose(c, w.venueId, {
+        businessDate: "2026-09-25",
+        closedAt: clock.now().toString(),
+        closedBy: w.ids["andy"]!,
+      }),
+    );
+    clock.set(Temporal.Instant.from("2026-09-26T05:10:00-04:00"));
+    await approve(r.json().approval_id, refundId);
+    const d = await dates(refundId);
+    expect(d.refund).toEqual({ on: "2026-09-26", adjusts: "2026-09-25" });
+    expect(d.lines.length).toBeGreaterThan(0);
+    for (const l of d.lines) expect(l).toEqual({ on: "2026-09-26", adjusts: "2026-09-25" });
+  });
+
+  it("approved on Sat Sep 26 against Room 9's paid check #1042: posts to Sat Sep 26 and points at Fri Sep 25", async () => {
+    clock.set(Temporal.Instant.from("2026-09-26T14:00:00-04:00"));
+    const r = await ask(3000);
+    expect(r.statusCode, r.body).toBe(202);
+    const refundId = r.json().refund_ids[0] as string;
+    await approve(r.json().approval_id, refundId);
+    const d = await dates(refundId);
+    expect(d.refund).toEqual({ on: "2026-09-26", adjusts: "2026-09-25" });
+    for (const l of d.lines) expect(l).toEqual({ on: "2026-09-26", adjusts: "2026-09-25" });
   });
 });

@@ -88,9 +88,10 @@ export async function insertComputedLine(
 ): Promise<number> {
   const r = await c.query<{ id: string }>(
     `insert into check_lines (venue_id, check_id, kind, revision, description, qty, unit_cents, amount_cents,
-       tax_category, tax_rate, jurisdiction_code, taxable_base_cents, reverses_id, business_date, rule_pack_version,
-       added_by, added_at)
-     values ($1, $2, $3, $4, $5, 1, $6, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) returning id`,
+       tax_category, tax_rate, jurisdiction_code, taxable_base_cents, reverses_id, business_date, adjusts_business_date,
+       rule_pack_version, added_by, added_at)
+     values ($1, $2, $3, $4, $5, 1, $6, $6, $7, $8, $9, $10, $11, open_business_date($1, $12::date),
+       nullif($12::date, open_business_date($1, $12::date)), $13, $14, $15) returning id`,
     [
       venueId,
       checkId,

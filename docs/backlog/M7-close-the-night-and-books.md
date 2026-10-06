@@ -70,7 +70,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-02 · Guard closed nights and post late money to the next open night
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-04 (business-date helpers), M1-07 (audit), M4-07 (`venue_counters`, including `z_report`), M4-21 (refunds with `adjusts_business_date`)
 - **Spec:** [Money rules](../spec/05-money-rules.md) 2 and 16; [Data model](../spec/04-data-model.md) · `night_closes`, `venue_counters`, the money core; [Payment flows](../spec/07-payment-flows.md) · Bar tab with a growing hold 7, Refunds; screens [Night](../screens.md#night) note 1
@@ -81,13 +81,21 @@ Definition of done: see CLAUDE.md.
   - A trigger on every table with `business_date` that refuses an insert dated to a closed night, so no route or job can reopen one.
   - `GET /nights/{date}` returns the date late money will post to, for "tips post to Sat Sep 26".
 - **Acceptance:**
-  - [ ] At Sat 4:12 AM, before the close, Night computes "tips post to Sat Sep 26" for the three slips.
-  - [ ] After Fri Sep 25 closes at 4:48 AM, Dev S.'s slip tip entered at 5:10 AM waits for approval (entered more than 2 hours after signing) and, once approved, posts to Sat Sep 26 with `adjusts_business_date` Fri Sep 25.
-  - [ ] After the close, any insert dated Fri Sep 25 fails in the database, whatever route or job tries it.
-  - [ ] A refund approved on Sat Sep 26 against Room 9's paid check #1042 posts to Sat Sep 26 and points at Fri Sep 25.
-  - [ ] Tests that try to update or delete a `night_closes` row as `app_rw` fail.
+  - [x] At Sat 4:12 AM, before the close, Night computes "tips post to Sat Sep 26" for the three slips.
+  - [x] After Fri Sep 25 closes at 4:48 AM, Dev S.'s slip tip entered at 5:10 AM waits for approval (entered more than 2 hours after signing) and, once approved, posts to Sat Sep 26 with `adjusts_business_date` Fri Sep 25.
+  - [x] After the close, any insert dated Fri Sep 25 fails in the database, whatever route or job tries it.
+  - [x] A refund approved on Sat Sep 26 against Room 9's paid check #1042 posts to Sat Sep 26 and points at Fri Sep 25.
+  - [x] Tests that try to update or delete a `night_closes` row as `app_rw` fail.
 - **Tests:** unit tests for the posting date across the cutover, on both daylight-saving nights, with zero, one and two closed nights in a row; database tests for the trigger on each table and for the grants; money-cases group `business_date`.
-- **Notes:** Spec gap: Money rules 16 says late money posts to "the current business date" and Payment flows says "the next business date"; between the close and the 6:00 AM cutover they differ. Build the reading that keeps closed nights closed and matches the screen's words: the next open business date.
+- **Notes:** Spec gap: Money rules 16 says late money posts to "the current business date" and Payment flows says "the next business date"; between the close and the 6:00 AM cutover they differ. Build the reading that keeps closed nights closed and matches the screen's words: the next open business date. Recorded as [D88](../decisions.md); Money rules 16, Payment flows · Refunds and API · Night close now say so.
+  - Built (M7-02): migration `0093_night_closes.sql` adds `night_closes` (unique per venue and date and per venue and Z number, row-level security, audit trigger; `app_rw` gets select and insert only), `open_business_date(venue, date)` (the date, or the first after it that isn't closed), `posting_business_date(venue, at)` (local time minus the cutover, moved past closed nights), and the trigger `closed_night_guard` on all 19 tables with `business_date`: an insert dated to a closed night, or an update moving a row onto one, fails with SQLSTATE `W4N01`, which the API answers `409 version_conflict` with `details.reason: "night_closed"`. Rows already on a closed night can still change other columns (a refund's Stripe status, a shift's clock-out). It also grants `app_rw` update of a refund's two date columns.
+  - `packages/rules/src/posting.ts`: `openBusinessDate()`, `postingBusinessDate()`, `latePosting()` (replaces M6-09's `tipPosting`). `packages/db/src/nights.ts`: `postingDate()`, `latePostingAt()`, `latePostsTo()`, `nightClose()`, `isNightClosed()`, `recordNightClose()` (takes the next `z_report` number and writes the row in the caller's transaction; M7-12's close calls it).
+  - Stamping: the shared inserts stamp `business_date` through `open_business_date()` in SQL (payments, checks, check lines, computed lines, refunds, drawer sessions, staff banks, prepaid ledger, card-fee lines, the reconciler's external payments, shifts); where the table has `adjusts_business_date` and the date moved, it points at the closed night. Callers keep passing the business date of now, so this is `posting_business_date(venue, now)`.
+  - Late money: a slip tip (M6-09) and the sweeper's captures (M6-17) post through `latePostingAt()`; settling a `capture_failed` tab posts to `postingDate()`; a refund posts to the posting date and points at its check's night (a deposit refunded before check-in, at its payment's); one asked before the close and approved after moves to the posting date, and its reversing lines carry `adjusts_business_date` too. Reopen (M6-12) is refused once the tab's night is closed, even before the cutover.
+  - `GET /nights/{date}` adds `closed` (Z number, closed at, closed by) and `late_money_posts_to` (the first open date after the night, or today's posting date if later); "tonight" for it is the posting date, so after Friday closes at 4:48 AM, Saturday's night answers. The Night screen's "3 slips not entered · tips post to Sat Sep 26" line is M7-12's.
+  - Jobs: the tab cut-off sweep and the clear-out check skip a closed night, so they never trip the guard after the close; `rebuildShift()` updates an existing shift instead of upserting (the insert trigger fires before `on conflict`), keeping a shift on its closed night, and stamps a new one through the posting date. `night_closes` joins the seed's wipe list.
+  - Flagged: a new table with `business_date` (the tip ledger in M7-08, drawer moves if they get one) needs the trigger too; the integration test fails until it has it. `export_id` has no foreign key yet (exports arrive in M7-15) and, the row being insert-only, must be known at the close.
+  - Tests: unit `packages/rules/src/posting.test.ts` (money-cases group `business_date`, the cutover, both daylight-saving nights, zero, one and two closed nights, `latePosting`); integration `apps/api/src/routes/night-closes.int.test.ts` (every acceptance line but the refund, Maya's clock-out after the close, the clear-out sweep, the trigger on each of the 19 tables as `app_rw` or the owner, update and delete and truncate refused, a second night in a row), `refunds.int.test.ts` (asked before the close and approved after; approved on Saturday), `tab-reopen.int.test.ts` (no reopen after the close). Staging checks wait for M1-02.
 
 ### M7-03 · Turn on training mode per person or per device
 

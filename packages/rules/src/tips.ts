@@ -1,4 +1,4 @@
-import { Temporal, cents, type Cents, type PaySettings } from "@west4/shared";
+import { cents, type Cents, type PaySettings } from "@west4/shared";
 import { percent } from "./check-totals.js";
 
 /**
@@ -40,24 +40,4 @@ export function tipReview(input: {
   if (input.tipCents > input.review.overCents) reasons.push("over_cents");
   if (input.enteredAfterMinutes > input.review.lateHours * 60) reasons.push("late");
   return { needsApproval: reasons.length > 0, reasons };
-}
-
-/**
- * Where a tip from a paper slip posts (M6-09; Money rules 16): on its own
- * night while that night is open; after the night's Z report, on the next
- * business date (or today's, if later), with `adjusts_business_date` pointing
- * at the night it belongs to. Dates are ISO `YYYY-MM-DD`.
- */
-export function tipPosting(input: {
-  readonly night: string;
-  readonly today: string;
-  readonly nightClosed: boolean;
-}): { businessDate: string; adjustsBusinessDate: string | null } {
-  const night = Temporal.PlainDate.from(input.night);
-  const today = Temporal.PlainDate.from(input.today);
-  const late = input.nightClosed || Temporal.PlainDate.compare(today, night) > 0;
-  if (!late) return { businessDate: input.night, adjustsBusinessDate: null };
-  const next = night.add({ days: 1 });
-  const date = Temporal.PlainDate.compare(today, next) > 0 ? today : next;
-  return { businessDate: date.toString(), adjustsBusinessDate: input.night };
 }

@@ -3,6 +3,7 @@ import {
   emitEvent,
   enqueue,
   insertPayment,
+  isNightClosed,
   readerOfVenue,
   stripeAccountOf,
   withVenue,
@@ -130,10 +131,11 @@ export async function reopenTab(
     throw new ApiError("invalid_request", "this tab moved into a room", {
       details: { reason: "moved_to_room" },
     });
-  // Until the night closes: only tonight's tabs come back.
+  // Until the night closes (M7-02's closed-night guard): only tonight's tabs come back, and never one whose
+  // night has closed, even before the 6:00 AM cutover.
   const venue = await venueClock(c, venueId);
   const tonight = businessDate(input.now, venue.timeZone, venue.dayCutover).businessDate.toString();
-  if (tab.business_date !== tonight)
+  if (tab.business_date !== tonight || (await isNightClosed(c, venueId, tab.business_date)))
     throw new ApiError("invalid_request", "that tab is from an earlier night", {
       details: { reason: "night_closed" },
     });

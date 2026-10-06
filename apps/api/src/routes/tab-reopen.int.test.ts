@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Worker, generateSigningKey, loadDemoSeed, publishRulePack } from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
-import { FrozenClock, SEED_NOW, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
+import { FrozenClock, SEED_NOW, Temporal, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
@@ -11,7 +11,7 @@ import { makePaymentHandlers } from "../payments/run.js";
 import { StripeClient } from "../stripe/client.js";
 import { FakeStripe } from "../stripe/fake/index.js";
 import { fakeStripeSettings } from "../stripe/settings.js";
-import { withVenue } from "@west4/db";
+import { recordNightClose, withVenue } from "@west4/db";
 import { decide } from "../approvals/service.js";
 import { askRefund } from "../payments/refunds.js";
 
@@ -479,5 +479,21 @@ describe("Reopen a settled tab and charge the saved card", () => {
       status: "approval_pending",
       waiting_for: { name: expect.stringMatching(/^Abhishek/) },
     });
+  });
+
+  it("once Friday closes at 4:48 AM, a Friday tab never reopens, even before the 6:00 AM cutover (M7-02)", async () => {
+    const tab = await settledAt27219("Kim L.", "5200828282828210");
+    clock.set(Temporal.Instant.from("2026-09-26T04:48:00-04:00"));
+    await withVenue(workerPool, { venueId }, (c) =>
+      recordNightClose(c, venueId, {
+        businessDate: "2026-09-25",
+        closedAt: clock.now().toString(),
+        closedBy: ids["andy"]!,
+      }),
+    );
+    clock.set(Temporal.Instant.from("2026-09-26T05:00:00-04:00"));
+    const r = await reopen(tab.id);
+    expect(r.statusCode).toBe(400);
+    expect(r.json().error.details).toMatchObject({ reason: "night_closed" });
   });
 });

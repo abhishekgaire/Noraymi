@@ -46,7 +46,7 @@ export async function insertCheck(
 ): Promise<string> {
   const r = await c.query<{ id: string }>(
     `insert into checks (id, venue_id, number, kind, business_date, room_session_id, booking_id, opened_by, opened_at, training)
-       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, coalesce($9::timestamptz, now()), $10)
+       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, open_business_date($2, $5::date), $6, $7, $8, coalesce($9::timestamptz, now()), $10)
        returning id`,
     [
       input.id ?? null,
@@ -94,8 +94,9 @@ export async function addCheckLine(
 ): Promise<number> {
   const r = await c.query<{ id: string }>(
     `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-       business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by, file_id, moved_check_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16, $17, $18)
+       business_date, adjusts_business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by,
+       file_id, moved_check_id)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, open_business_date($1, $9::date), nullif($9::date, open_business_date($1, $9::date)), $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16, $17, $18)
      returning id`,
     [
       venueId,

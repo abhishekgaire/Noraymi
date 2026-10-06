@@ -1,5 +1,5 @@
-import { emitEvent, paymentById, readSetting, type Queryable } from "@west4/db";
-import { businessDate, tipPosting, tipReview, type TipReviewReason } from "@west4/rules";
+import { emitEvent, latePostingAt, paymentById, readSetting, type Queryable } from "@west4/db";
+import { businessDate, tipReview, type TipReviewReason } from "@west4/rules";
 import { Temporal, cents, formatMoney, type PaySettings } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { attachFile } from "../files/storage.js";
@@ -24,8 +24,9 @@ import { closingById, latestClosing, planCapture, type ClosingRow } from "./clos
  *    (kind tip_review), routed to the manager on duty, or past them when they
  *    typed it in themselves (Andy's go to Abhishek). Nothing is captured until
  *    the approver OKs it on their own phone; a decline leaves the slip to enter.
- *  - A tip typed in after its night's Z report posts to the next business date,
- *    with `adjusts_business_date` pointing at the night (Money rules 16).
+ *  - A tip typed in after its night closed posts to the next open business date
+ *    (M7-02's posting date), with `adjusts_business_date` pointing at the night
+ *    (Money rules 16); the database refuses anything dated to the closed night.
  */
 export type EnteredTip =
   | { readonly kind: "run"; readonly paymentId: string }
@@ -181,15 +182,9 @@ export async function captureSlip(
   input: { tipCents: number; userId: string | null; now: Temporal.Instant },
 ) {
   const payment = (await paymentById(c, venueId, closing.payment_id))!;
-  const venue = await venueClock(c, venueId);
-  const today = businessDate(input.now, venue.timeZone, venue.dayCutover).businessDate.toString();
-  const posting = tipPosting({
-    night: payment.business_date,
-    today,
-    // Whether the night's Z report has posted comes with Close the night (M7); until then a night is closed
-    // only once its business date has passed.
-    nightClosed: false,
-  });
+  // Where the tip posts (M7-02): its own night while money still posts there; after that night closes, or
+  // once its business date has passed, the posting date, pointing back at the night (Money rules 16).
+  const posting = await latePostingAt(c, venueId, payment.business_date, input.now);
   if (posting.adjustsBusinessDate)
     await c.query(
       `update payments set business_date = $3, adjusts_business_date = $4

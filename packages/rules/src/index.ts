@@ -2,6 +2,8 @@
 export { Temporal } from "@west4/shared";
 export { businessDate, nextBusinessDate, wallClock, parseCutover } from "./time.js";
 export type { BusinessDateResult } from "./time.js";
+export { openBusinessDate, postingBusinessDate, latePosting } from "./posting.js";
+export type { LatePosting } from "./posting.js";
 export {
   checkSetting,
   checkHours,

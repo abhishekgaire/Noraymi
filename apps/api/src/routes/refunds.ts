@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Clock } from "@west4/shared";
-import { businessDate } from "@west4/rules";
+import { postingDate } from "@west4/db";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -38,16 +38,9 @@ export function refundRoutes(app: FastifyInstance, options: { clock: Clock }): v
     idempotency: "optional",
     stepUp: true,
   });
+  // Where a refund posts: tonight, or the next open night once tonight has closed (M7-02).
   const night = async (request: FastifyRequest) =>
-    request.inVenue(async (c) => {
-      const v = (
-        await c.query<{ time_zone: string; day_cutover: string }>(
-          "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
-          [request.venueId],
-        )
-      ).rows[0]!;
-      return businessDate(options.clock.now(), v.time_zone, v.day_cutover).businessDate.toString();
-    });
+    request.inVenue((c) => postingDate(c, request.venueId!, options.clock.now()));
   const who = (request: FastifyRequest) => {
     const p = request.principal;
     if (p.kind !== "user") throw new ApiError("forbidden", "asking for a refund is a person's");

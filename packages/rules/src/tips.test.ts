@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { tipChoices, tipPosting, tipReview } from "./tips.js";
+import { tipChoices, tipReview } from "./tips.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cases = (
@@ -87,27 +87,4 @@ describe("tipReview · the seed's tip_review cases", () => {
     expect(
       tipReview({ tabTotalCents: 10000, tipCents: 6000, enteredAfterMinutes: 121, review }).reasons,
     ).toEqual(["over_pct", "over_cents", "late"]));
-});
-
-describe("tipPosting · a tip after the night closes (Money rules 16)", () => {
-  it("posts to its own night while that night is open", () =>
-    expect(tipPosting({ night: "2026-09-25", today: "2026-09-25", nightClosed: false })).toEqual({
-      businessDate: "2026-09-25",
-      adjustsBusinessDate: null,
-    }));
-  it("after the Z report, before the 6 AM cutover: the next business date, adjusting Friday", () =>
-    expect(tipPosting({ night: "2026-09-25", today: "2026-09-25", nightClosed: true })).toEqual({
-      businessDate: "2026-09-26",
-      adjustsBusinessDate: "2026-09-25",
-    }));
-  it("days later: today's business date, adjusting its night", () =>
-    expect(tipPosting({ night: "2026-09-25", today: "2026-09-28", nightClosed: false })).toEqual({
-      businessDate: "2026-09-28",
-      adjustsBusinessDate: "2026-09-25",
-    }));
-  it("across the fall-back night, the next date is the calendar's next date", () =>
-    expect(tipPosting({ night: "2026-10-31", today: "2026-10-31", nightClosed: true })).toEqual({
-      businessDate: "2026-11-01",
-      adjustsBusinessDate: "2026-10-31",
-    }));
 });

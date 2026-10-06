@@ -163,8 +163,9 @@ export async function recordSurcharge(
   ) =>
     c.query(
       `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-         tax_rate, taxable_base_cents, business_date, added_at, reason)
-       values ($1, $2, $3, $4, 1, $5, $5, $6, $7, $8, $9, $10, $11)`,
+         tax_rate, taxable_base_cents, business_date, adjusts_business_date, added_at, reason)
+       values ($1, $2, $3, $4, 1, $5, $5, $6, $7, $8, open_business_date($1, $9::date),
+         nullif($9::date, open_business_date($1, $9::date)), $10, $11)`,
       [
         venueId,
         a.check_id,
@@ -233,8 +234,9 @@ export async function applyCashDiscount(
   const line = (kind: string, description: string, cents: number, taxRate: string | null) =>
     c.query(
       `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
-         tax_rate, business_date, added_at)
-       values ($1, $2, $3, $4, 1, $5, $5, $6, $7, $8, $9)`,
+         tax_rate, business_date, adjusts_business_date, added_at)
+       values ($1, $2, $3, $4, 1, $5, $5, $6, $7, open_business_date($1, $8::date),
+         nullif($8::date, open_business_date($1, $8::date)), $9)`,
       [
         venueId,
         input.checkId,

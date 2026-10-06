@@ -65,7 +65,7 @@ export async function openDrawerSession(
   if (open.rows[0]) return { id: open.rows[0].id, opened: false };
   const r = await c.query<{ id: string }>(
     `insert into drawer_sessions (venue_id, drawer_id, model, responsible_id, state, business_date, opened_at, opening_cents)
-     values ($1, $2, $3, $4, 'open', $5, $6, $7) returning id`,
+     values ($1, $2, $3, $4, 'open', open_business_date($1, $5::date), $6, $7) returning id`,
     [
       venueId,
       input.drawerId,
@@ -87,7 +87,7 @@ export async function staffBank(
   businessDate: string,
 ): Promise<string> {
   const r = await c.query<{ id: string }>(
-    `insert into staff_banks (venue_id, user_id, business_date) values ($1, $2, $3)
+    `insert into staff_banks (venue_id, user_id, business_date) values ($1, $2, open_business_date($1, $3::date))
      on conflict (venue_id, user_id, business_date) do update set cash_cents = staff_banks.cash_cents
      returning id`,
     [venueId, userId, businessDate],
