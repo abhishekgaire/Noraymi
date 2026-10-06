@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { shiftMinutes, type Duty, type Punch } from "@west4/rules";
-import type { Temporal } from "@west4/shared";
+import type { Cents, Temporal } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
@@ -33,6 +33,7 @@ export interface ClockAnswer {
   };
   readonly team: readonly {
     readonly membership_id: string;
+    readonly user_id: string;
     readonly name: string;
     readonly role: string;
     readonly shift: ShiftView | null;
@@ -88,6 +89,8 @@ export function ClockPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // The clock-out checklist (M7-11): what's left, shown when clock-out is refused.
+  const [checklist, setChecklist] = useState<readonly ChecklistItem[] | null>(null);
 
   const load = useCallback(async () => {
     if (!venueId) return;
@@ -116,15 +119,21 @@ export function ClockPanel({
     setNotice(null);
     try {
       await api("POST", `/v1/venues/${venueId}/shifts/${path}`, body);
-      if (path === "clock-out") setNotice(t("clock.clockedOut"));
+      if (path === "clock-out") {
+        setNotice(t("clock.clockedOut"));
+        setChecklist(null);
+      }
       setDuty(null);
       await load();
     } catch (e) {
-      setError(
-        e instanceof ApiCallError && e.status === 409
-          ? t("clock.refused")
-          : t("shell.error.cantReach"),
-      );
+      if (e instanceof ApiCallError && e.code === "checklist_open")
+        setChecklist(e.details["items"] as ChecklistItem[]);
+      else
+        setError(
+          e instanceof ApiCallError && e.status === 409
+            ? t("clock.refused")
+            : t("shell.error.cantReach"),
+        );
       await load();
     } finally {
       setBusy(false);
@@ -158,6 +167,16 @@ export function ClockPanel({
                 })}
           </p>
           <p className="muted small">{t("clock.duty", { duty: t(`clock.duty.${shift.duty}`) })}</p>
+          {checklist && (
+            <Checklist
+              venueId={venueId}
+              items={checklist}
+              onTheClock={answer.team.filter(
+                (p) => p.shift !== null && p.membership_id !== answer.me.membership_id,
+              )}
+              onChanged={setChecklist}
+            />
+          )}
           <div className="actions">
             {shift.break_started_at ? (
               <button
@@ -266,6 +285,141 @@ export function TimeClock() {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  );
+}
+
+/** One line of the clock-out checklist (M7-11), as the API answers it. */
+type ChecklistItem =
+  | { readonly kind: "open_tab"; readonly tab_id: string; readonly name: string }
+  | { readonly kind: "unsent"; readonly tab_name: string | null; readonly drinks: number }
+  | { readonly kind: "staff_bank"; readonly cash_cents: number }
+  | { readonly kind: "own_drawer"; readonly drawer: string }
+  | { readonly kind: "declare_tips" }
+  | { readonly kind: "drawer_handover" };
+
+/**
+ * The clock-out checklist (M7-11; screens N24): each line with its fix. Open
+ * tabs go to someone still on the clock here; cash tips are declared here
+ * (any amount, $0.00 included); unsent drinks go with their tab; a staff bank
+ * is dropped, and an own drawer counted or pulled, at the drawer's screen;
+ * the manager on duty hands the drawers over first.
+ */
+function Checklist({
+  venueId,
+  items,
+  onTheClock,
+  onChanged,
+}: {
+  venueId: string;
+  items: readonly ChecklistItem[];
+  onTheClock: readonly { readonly user_id: string; readonly name: string }[];
+  onChanged: (items: readonly ChecklistItem[]) => void;
+}) {
+  const { t, money } = useT();
+  const [to, setTo] = useState<Record<string, string>>({});
+  const [tips, setTips] = useState("");
+  const [failed, setFailed] = useState(false);
+  const refresh = async () =>
+    onChanged(
+      (await api<{ items: ChecklistItem[] }>("GET", `/v1/venues/${venueId}/shifts/checklist`))
+        .items,
+    );
+  const run = async (call: () => Promise<unknown>) => {
+    setFailed(false);
+    try {
+      await call();
+      await refresh();
+    } catch {
+      setFailed(true);
+    }
+  };
+  const cents = /^\s*(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(tips);
+  const tipCents = cents ? Number(cents[1]) * 100 + Number((cents[2] ?? "").padEnd(2, "0")) : null;
+  return (
+    <section className="checklist" aria-label={t("checklist.title")}>
+      <h3>{items.length === 0 ? t("checklist.clear") : t("checklist.title")}</h3>
+      <ul>
+        {items.map((item, i) => (
+          <li key={i}>
+            {item.kind === "open_tab" && (
+              <>
+                <span>{t("checklist.openTab", { name: item.name })}</span>
+                <select
+                  aria-label={t("checklist.handTo", { name: item.name })}
+                  value={to[item.tab_id] ?? ""}
+                  onChange={(e) => setTo({ ...to, [item.tab_id]: e.target.value })}
+                >
+                  <option value="">{t("drawer.pick")}</option>
+                  {onTheClock.map((p) => (
+                    <option key={p.user_id} value={p.user_id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!to[item.tab_id]}
+                  onClick={() =>
+                    void run(() =>
+                      api("POST", `/v1/venues/${venueId}/tabs/${item.tab_id}/hand-over`, {
+                        to: to[item.tab_id],
+                      }),
+                    )
+                  }
+                >
+                  {t("checklist.handOver")}
+                </button>
+              </>
+            )}
+            {item.kind === "unsent" && (
+              <span>
+                {item.tab_name
+                  ? t("checklist.unsentTab", { count: item.drinks, name: item.tab_name })
+                  : t("checklist.unsent", { count: item.drinks })}
+              </span>
+            )}
+            {item.kind === "staff_bank" && (
+              <span>{t("checklist.bank", { amount: money(item.cash_cents as Cents) })}</span>
+            )}
+            {item.kind === "own_drawer" && (
+              <span>{t("checklist.ownDrawer", { drawer: item.drawer })}</span>
+            )}
+            {item.kind === "drawer_handover" && <span>{t("checklist.handover")}</span>}
+            {item.kind === "declare_tips" && (
+              <>
+                <label>
+                  <span>{t("checklist.declare")}</span>
+                  <input
+                    inputMode="decimal"
+                    aria-label={t("checklist.declare")}
+                    value={tips}
+                    onChange={(e) => setTips(e.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={tipCents === null}
+                  onClick={() =>
+                    void run(() =>
+                      api("POST", `/v1/venues/${venueId}/shifts/declare-tips`, {
+                        cash_tips_cents: tipCents,
+                      }),
+                    )
+                  }
+                >
+                  {t("checklist.declareIt")}
+                </button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      {failed && (
+        <p role="alert" className="error">
+          {t("drawer.moveFailed")}
+        </p>
       )}
     </section>
   );

@@ -1,12 +1,21 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { openShifts, recordPunch, ShiftError, type Queryable, type ShiftRow } from "@west4/db";
+import {
+  emitEvent,
+  openShifts,
+  rebuildShift,
+  recordPunch,
+  ShiftError,
+  type Queryable,
+  type ShiftRow,
+} from "@west4/db";
 import { DUTIES, businessDate, dutiesFor, type Duty, type PunchKind } from "@west4/rules";
 import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { myTips } from "../tips/mine.js";
+import { clockOutChecklist } from "../timeclock/checklist.js";
 
 /**
  * The time clock (M7-01; spec 08 · Time clock). Staff clock in with a duty,
@@ -42,9 +51,16 @@ export function shiftView(s: ShiftRow): ShiftView {
 export async function teamOnTheClock(
   c: Queryable,
   venueId: string,
-): Promise<{ membership_id: string; name: string; role: string; shift: ShiftView | null }[]> {
-  const people = await c.query<{ membership_id: string; name: string; role: string }>(
-    `select m.id as membership_id, u.name, m.role from memberships m join users u on u.id = m.user_id
+): Promise<
+  { membership_id: string; user_id: string; name: string; role: string; shift: ShiftView | null }[]
+> {
+  const people = await c.query<{
+    membership_id: string;
+    user_id: string;
+    name: string;
+    role: string;
+  }>(
+    `select m.id as membership_id, m.user_id, u.name, m.role from memberships m join users u on u.id = m.user_id
       where m.venue_id = $1 and m.status = 'active'
       order by array_position(array['owner','manager','bartender','front_desk','staff'], m.role), u.name`,
     [venueId],
@@ -197,6 +213,190 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
   app.post<{ Params: { venueId: string }; Body: unknown }>(
     "/v1/venues/:venueId/shifts/clock-out",
     { config: write },
-    async (request) => punch(request, "clock_out"),
+    async (request) => {
+      // The checklist (M7-11): clock-out finishes only once it's clear.
+      const m = me(request);
+      const p = request.principal as Extract<typeof request.principal, { kind: "user" }>;
+      const items = await request.inVenue((c) =>
+        clockOutChecklist(c, request.venueId!, {
+          userId: p.userId,
+          membershipId: m.membershipId,
+          role: m.role,
+        }),
+      );
+      if (items.length > 0)
+        throw new ApiError("checklist_open", "there's still something to do before you clock out", {
+          details: { items },
+        });
+      return punch(request, "clock_out");
+    },
+  );
+
+  // What's left before clock-out, each line with its fix (M7-11; screens N24).
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/shifts/checklist",
+    { config: staff },
+    async (request) => {
+      const m = me(request);
+      const p = request.principal as Extract<typeof request.principal, { kind: "user" }>;
+      return {
+        items: await request.inVenue((c) =>
+          clockOutChecklist(c, request.venueId!, {
+            userId: p.userId,
+            membershipId: m.membershipId,
+            role: m.role,
+          }),
+        ),
+      };
+    },
+  );
+
+  // Declare cash tips at clock-out (M7-11): any amount, $0.00 included; over zero it's a cash_tip ledger row.
+  const declareBody = z
+    .object({ cash_tips_cents: z.number().int().min(0).max(10_000_000) })
+    .strict();
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/shifts/declare-tips",
+    { config: write },
+    async (request) => {
+      const parsed = declareBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { cash_tips_cents }");
+      const m = me(request);
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        const shift = (
+          await c.query<{ id: string; business_date: string; declared: boolean }>(
+            `select id, business_date::text, cash_tips_declared_at is not null as declared from shifts
+              where venue_id = $1 and membership_id = $2 and ended_at is null for update`,
+            [venueId, m.membershipId],
+          )
+        ).rows[0];
+        if (!shift) throw new ApiError("invalid_request", "you're not on the clock");
+        if (shift.declared)
+          throw new ApiError("version_conflict", "your cash tips are already declared");
+        await c.query(
+          "update shifts set cash_tips_declared_cents = $3, cash_tips_declared_at = $4 where venue_id = $1 and id = $2",
+          [venueId, shift.id, parsed.data.cash_tips_cents, options.clock.now().toString()],
+        );
+        if (parsed.data.cash_tips_cents > 0)
+          await c.query("select tip_ledger_write($1, 'cash_tip', $2, $3::date, null, null, null)", [
+            venueId,
+            parsed.data.cash_tips_cents,
+            shift.business_date,
+          ]);
+        await emitEvent(c, { venueId, type: "shift.updated", entityId: shift.id });
+        return { shift_id: shift.id, cash_tips_cents: parsed.data.cash_tips_cents };
+      });
+    },
+  );
+
+  // Tonight's punches, for Admin → Team's "Time clock · tonight" (owners and managers).
+  const managers = route({ principals: ["owner_manager"], module: "team" });
+  app.get<{ Params: { venueId: string }; Querystring: { date?: string } }>(
+    "/v1/venues/:venueId/punches",
+    { config: managers },
+    async (request) => {
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        const venue = await venueClock(c, venueId);
+        const date =
+          request.query.date && /^\d{4}-\d{2}-\d{2}$/.test(request.query.date)
+            ? request.query.date
+            : businessDate(
+                options.clock.now(),
+                venue.timeZone,
+                venue.dayCutover,
+              ).businessDate.toString();
+        const r = await c.query<{
+          id: string;
+          name: string;
+          user_id: string;
+          kind: string;
+          duty: string | null;
+          at: string;
+          reason: string | null;
+        }>(
+          `select p.id, u.name, m.user_id, p.kind, p.duty, to_json(p.at) #>> '{}' as at, p.reason
+             from time_punches p join memberships m on m.venue_id = p.venue_id and m.id = p.membership_id
+             join users u on u.id = m.user_id
+             join shifts s on s.venue_id = p.venue_id and s.membership_id = p.membership_id
+              and p.at >= s.started_at and (s.ended_at is null or p.at <= s.ended_at)
+            where p.venue_id = $1 and s.business_date = $2::date
+            order by p.at, p.id`,
+          [venueId, date],
+        );
+        return { business_date: date, punches: r.rows };
+      });
+    },
+  );
+
+  // Edit a punch (M7-11): owners and managers, in a passkey session, with a reason, never their own;
+  // the old time stays in the audit log and the shift is rebuilt.
+  const editBody = z
+    .object({
+      at: z.string().datetime({ offset: true }),
+      reason: z.string().trim().min(1).max(300),
+    })
+    .strict();
+  app.patch<{ Params: { venueId: string; p: string }; Body: unknown }>(
+    "/v1/venues/:venueId/punches/:p",
+    { config: route({ principals: ["owner_manager"], module: "team", idempotency: "optional" }) },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.p).success)
+        throw new ApiError("not_found", "no such punch");
+      const parsed = editBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { at, reason }: an edit needs a reason", {
+          details: { reason: "reason" },
+        });
+      const m = me(request);
+      const p = request.principal as Extract<typeof request.principal, { kind: "user" }>;
+      if (m.role !== "owner" && m.role !== "manager")
+        throw new ApiError("forbidden", "owners and managers edit punches");
+      if (request.session?.assurance !== "passkey")
+        throw new ApiError("forbidden", "editing a punch needs your passkey session, not a PIN");
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        const punchRow = (
+          await c.query<{ membership_id: string; user_id: string; kind: string }>(
+            `select p.membership_id, m.user_id, p.kind from time_punches p
+               join memberships m on m.venue_id = p.venue_id and m.id = p.membership_id
+              where p.venue_id = $1 and p.id = $2 for update of p`,
+            [venueId, request.params.p],
+          )
+        ).rows[0];
+        if (!punchRow) throw new ApiError("not_found", "no such punch");
+        if (punchRow.user_id === p.userId)
+          throw new ApiError("forbidden", "your own punches are edited by someone else");
+        // The shift the punch belongs to: its own clock-in, or the latest clock-in before it.
+        const clockIn = (
+          await c.query<{ id: string }>(
+            `select id from time_punches where venue_id = $1 and membership_id = $2 and kind = 'clock_in'
+               and at <= (select at from time_punches where venue_id = $1 and id = $3)
+             order by at desc limit 1`,
+            [venueId, punchRow.membership_id, request.params.p],
+          )
+        ).rows[0];
+        await c.query(
+          "update time_punches set at = $3, edited_by = $4, reason = $5 where venue_id = $1 and id = $2",
+          [venueId, request.params.p, parsed.data.at, p.userId, parsed.data.reason],
+        );
+        const venue = await venueClock(c, venueId);
+        const shift = clockIn
+          ? await rebuildShift(
+              c,
+              venueId,
+              punchRow.kind === "clock_in" ? request.params.p : clockIn.id,
+              venue,
+            )
+          : null;
+        if (shift) await emitEvent(c, { venueId, type: "shift.updated", entityId: shift.id });
+        return {
+          punch_id: request.params.p,
+          at: parsed.data.at,
+          shift: shift ? shiftView(shift) : null,
+        };
+      });
+    },
   );
 }

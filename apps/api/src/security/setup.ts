@@ -119,6 +119,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into song_nights (venue_id, business_date, started_at) values ($1, '2026-09-25', now())",
     [v.venueB],
   );
+  // A punch on venue B's time clock (M7-11: PATCH /punches/{p}).
+  const punchB = await owner.query<{ id: string }>(
+    "insert into time_punches (venue_id, membership_id, kind, duty, at) values ($1, $2, 'clock_in', 'bar', now()) returning id",
+    [v.venueB, staffB.membershipId],
+  );
   const singerB = await owner.query<{ id: string }>(
     `insert into singers (venue_id, display_name, phone_e164, phone_verified_at, joined_at)
        values ($1, 'B singer', '+12125550100', now(), now()) returning id`,
@@ -283,11 +288,13 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       o: openingB.rows[0]!.id,
       q: songB.rows[0]!.id,
       s: singerB.rows[0]!.id,
+      p: punchB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
       "POST /v1/venues/:venueId/drawer-sessions/:s/count": { counted_cents: 0 },
       "POST /v1/venues/:venueId/drawers/:d/swap": { counted_cents: 0 },
+      "PATCH /v1/venues/:venueId/punches/:p": { at: "2026-09-25T19:00:00-04:00", reason: "B" },
       "POST /v1/venues/:venueId/drawer-sessions/:s/paid-out": {
         amount_cents: 100,
         reason: "B",

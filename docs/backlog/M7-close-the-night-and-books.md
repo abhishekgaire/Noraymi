@@ -331,7 +331,7 @@ Definition of done: see CLAUDE.md.
 
 ### M7-11 · Walk the clock-out checklist, and edit punches with a reason
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7-01, M7-05 (the handover), M7-06 (drops), M7-07 (count your own drawer), M7-08 (declared cash tips); M6 (`tabs.owner_id`, `order_drafts`, `POST /tabs/{t}/hand-over`)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · Shifts; [API](../spec/08-api.md) · Time clock, Bar tabs (hand-over); [Data model](../spec/04-data-model.md) · `time_punches`, `tabs`, `order_drafts`, `staff_banks`; [decisions](../decisions.md) D68; screens [N24](../screens.md#n24-clock-in-duty-and-clock-out-checklist), [Pin](../screens.md#pin) note 2, [AdminDesk](../screens.md#admindesk)
@@ -340,15 +340,21 @@ Definition of done: see CLAUDE.md.
   - `PATCH /punches/{p}`: owners and managers change a punch's time with a reason, in a passkey session; the old time stays in the audit log and the shift is rebuilt.
   - Admin → Team gains "Time clock · tonight": the night's punches with Edit.
 - **Acceptance:**
-  - [ ] Maya's clock-out lists her 3 open tabs (Hana K., Jess P. and Luis M.) and won't finish until each goes to someone still on, such as Diego.
-  - [ ] Diego's clock-out lists Tariq A.'s and Seat 6's tabs and his unsent 1 × Red Bull on Tariq A.'s tab.
-  - [ ] Cash in a staff bank must be dropped into a drawer before the clock-out finishes.
-  - [ ] Declaring $0.00 is recorded; declaring $15.00 writes a cash tip row on Maya's shift.
-  - [ ] Andy moves Diego's clock-in from 7:00 PM to 6:55 PM with a reason: Diego's hours change and the audit log keeps 7:00 PM. An edit without a reason, or from a PIN session, is refused.
+  - [x] Maya's clock-out lists her 3 open tabs (Hana K., Jess P. and Luis M.) and won't finish until each goes to someone still on, such as Diego.
+  - [x] Diego's clock-out lists Tariq A.'s and Seat 6's tabs and his unsent 1 × Red Bull on Tariq A.'s tab.
+  - [x] Cash in a staff bank must be dropped into a drawer before the clock-out finishes.
+  - [x] Declaring $0.00 is recorded; declaring $15.00 writes a cash tip row on Maya's shift.
+  - [x] Andy moves Diego's clock-in from 7:00 PM to 6:55 PM with a reason: Diego's hours change and the audit log keeps 7:00 PM. An edit without a reason, or from a PIN session, is refused.
 - **Tests:** integration tests for each checklist line and its fix; the principal suite for punch edits; Playwright on phone and desktop sizes; the language test.
 - **Notes:**
   - Canvas: Maya clocks out with 3 open tabs on the canvas ([Pin](../screens.md#pin) note 2).
   - Spec gaps: how unsent drinks are handed over (cautious default: each draft moves to the person taking its tab and is never sent by itself); who may edit whose punches (cautious default: owners and managers, never their own, so a manager's own go to the owner).
+  - Built (M7-11): `apps/api/src/timeclock/checklist.ts` works out what's left: the person's open tabs, unsent drinks (with the tab they're on), cash in their staff bank, their own per-person drawer, cash tips to declare (not for owners and managers, who don't share), and for the manager on duty with another manager on the clock and house drawers in their name, the drawer handover. `POST /shifts/clock-out` refuses with `409 checklist_open` and the lines (a new error code, in spec 08's list); `GET /shifts/checklist` reads them. `POST /shifts/declare-tips` records any amount on the shift (migration `0101_clock_out.sql`: `cash_tips_declared_cents`, `cash_tips_declared_at`), and over zero writes a `cash_tip` ledger row on that shift.
+  - `POST /tabs/{t}/hand-over { to }` (`routes/tab-hand-over.ts`; M6 hadn't built it): the tab's owner, or an owner or manager, gives an open tab to someone still on the clock; the owner's unsent drinks on it go to the new owner's own drafts for that tab (the cautious default), never sent by themselves.
+  - `PATCH /punches/{p} { at, reason }`: owners and managers, only in a passkey session, never their own punches (the cautious default: a manager's own go to the owner); the old time stays in the audit log and the shift is rebuilt. `GET /punches` lists tonight's punches for Admin → Team's "Time clock · tonight" (`PunchesTonight`), with Edit, a new time and a reason.
+  - The time clock screen shows the checklist when clock-out is refused: Hand it over (to someone on the clock) for each tab, the unsent drinks going with their tab, the staff bank and own drawer pointing at the drawer's screen, Declare for cash tips, and "All clear: you can clock out". English and Spanish. `GET /shifts` now gives each person's `user_id` for the hand-over.
+  - Older tests that clocked people out now clear their checklist first (`shifts.int.test.ts`: Andy, with Abhishek on as manager, is asked for the drawer handover; `night-closes.int.test.ts`).
+  - Tests: integration `apps/api/src/routes/clock-out.int.test.ts` (Diego's two tabs and his unsent Red Bull on Tariq A.'s; Maya refused with her three tabs, a $20.00 staff bank and her tips, the hand-over refused to Abhishek off the clock, then each tab to Diego, the drop, $15.00 declared as a cash tip on her shift, and the clock-out; Diego's $0.00 recorded with no ledger row; Andy's 6:55 PM edit with a reason, refused without one and from a PIN session, the audit log keeping 7:00 PM, and his own punch refused); the principal and wall suites (a venue B punch); e2e "the time clock at 1280px / 390px" now walks Diego's checklist.
 
 ### M7-12 · Build Close the night: the checks before closing and the close
 

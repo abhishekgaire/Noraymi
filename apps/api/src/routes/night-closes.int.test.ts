@@ -219,6 +219,16 @@ describe("Friday, before and after its close", () => {
   it("Maya clocks out at 5:15 AM: her shift stays Friday's", async () => {
     clock.set(at("2026-09-26T05:15:00-04:00"));
     as("maya", "bartender");
+    // Her clock-out checklist (M7-11) cleared: her tabs to Diego, her cash tips declared.
+    await owner.query("update tabs set owner_id = $1 where owner_id = $2", [
+      ids["diego"],
+      ids["maya"],
+    ]);
+    await owner.query(
+      `update shifts set cash_tips_declared_cents = 0, cash_tips_declared_at = now()
+        where ended_at is null and membership_id = (select id from memberships where user_id = $1)`,
+      [ids["maya"]],
+    );
     const r = await inject("POST", "/shifts/clock-out");
     expect(r.statusCode, r.body).toBeLessThan(300);
     const shift = (

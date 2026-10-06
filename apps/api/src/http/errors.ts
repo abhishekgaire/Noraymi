@@ -17,6 +17,8 @@ export const ERROR_STATUS = {
   cut_off: 409,
   ordering_closed: 409,
   orders_open: 409,
+  /** Clock-out with its checklist not clear yet (M7-11): the details list what's left. */
+  checklist_open: 409,
   room_not_free: 409,
   over_amount_due: 422,
   over_refundable: 422,

@@ -13,6 +13,7 @@ import { readDevice } from "../../device.js";
 import { roleKey, useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { useVenueTime } from "../../clock.js";
+import { PunchesTonight } from "./PunchesTonight.js";
 
 /**
  * Admin → Team (M1-31, owner only; spec 02 · Roles, Languages, Offboarding;
@@ -567,6 +568,12 @@ export function Team() {
         </ul>
       )}
       <InviteForm venueId={venueId} onSent={load} />
+      {venueId && (
+        <PunchesTonight
+          venueId={venueId}
+          timeZone={signedIn?.membership.venue.time_zone ?? "America/New_York"}
+        />
+      )}
     </section>
   );
 }

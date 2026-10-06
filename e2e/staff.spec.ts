@@ -7427,6 +7427,23 @@ for (const width of [1280, 390]) {
       await tile(/Diego R\./).click();
       await typePin(page, "6358");
       await page.getByRole("button", { name: "Clock out" }).click();
+      // His clock-out checklist (M7-11): two open tabs, his unsent Red Bull, and his cash tips.
+      const list = page.getByRole("region", { name: "Before you clock out" });
+      await expect(list).toContainText("Tariq A.'s tab is still open");
+      await expect(list).toContainText("1 unsent on Tariq A.'s tab: they go with the tab");
+      for (const name of ["Tariq A.", "Seat 6 · blue jacket"]) {
+        await list.getByLabel(`Hand ${name}'s tab to`).selectOption({ label: "Maya S." });
+        await list
+          .getByRole("listitem")
+          .filter({ hasText: `${name}'s tab is still open` })
+          .getByRole("button", { name: "Hand it over" })
+          .click();
+        await expect(list).not.toContainText(`${name}'s tab is still open`);
+      }
+      await list.getByLabel("Cash tips you got tonight, $").fill("0");
+      await list.getByRole("button", { name: "Declare" }).click();
+      await expect(list).toContainText("All clear: you can clock out");
+      await page.getByRole("button", { name: "Clock out" }).click();
       await expect(page.locator(".clock-status")).toHaveText("Not on shift");
       await expect(page.locator(".duties").getByRole("button")).toHaveText([
         "Bar",

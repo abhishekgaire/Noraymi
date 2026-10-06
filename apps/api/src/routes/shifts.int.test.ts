@@ -156,6 +156,15 @@ describe("the time clock (M7-01)", () => {
 
   it("Maya's fix panel reads $63 left this shift; a new shift starts her at $75", async () => {
     expect((await call("GET", "/reason-only")).json()).toMatchObject({ left_cents: 6300 });
+    // Her clock-out checklist (M7-11) cleared: her tabs to Diego, her cash tips declared.
+    await raw.query("update tabs set owner_id = $1 where owner_id = $2", [
+      ids["diego"],
+      ids["maya"],
+    ]);
+    await raw.query(
+      "update shifts set cash_tips_declared_cents = 0, cash_tips_declared_at = now() where membership_id = $1 and ended_at is null",
+      [ids["maya.membership"]],
+    );
     const out = await call("POST", "/shifts/clock-out");
     expect(out.statusCode).toBe(200);
     expect(out.json().shift.business_date).toBe("2026-09-25");
@@ -183,6 +192,13 @@ describe("the time clock (M7-01)", () => {
     expect((await call("POST", "/shifts/clock-in", { duty: "manager" })).statusCode).toBe(201);
     expect(await onDuty()).toBe(ids["andy"]);
     who = as("andy", "manager");
+    // With another manager on, Andy's checklist asks him to hand the drawers over first (M7-11).
+    const asked = await call("POST", "/shifts/clock-out");
+    expect(asked.statusCode).toBe(409);
+    expect(asked.json().error.details.items).toEqual([{ kind: "drawer_handover" }]);
+    await raw.query("update drawer_sessions set responsible_id = $1 where state = 'open'", [
+      ids["abhishek"],
+    ]);
     expect((await call("POST", "/shifts/clock-out")).statusCode).toBe(200);
     expect(await onDuty()).toBe(ids["abhishek"]);
     who = as("abhishek", "owner");
