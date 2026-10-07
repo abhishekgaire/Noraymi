@@ -8476,3 +8476,78 @@ test("Close the night: the break-glass card names Andy and Abhishek as ready and
     await db.end();
   }
 });
+
+/**
+ * The private help alert and the incident log (M8-08; screens N20; Board note 10): a guest in Room 9
+ * asks for a manager privately from their own phone and sees "Sent to the managers" with "In an
+ * emergency, call 911"; the Board shows "Manager needed · 1", with no room and no reason, at phone and
+ * desktop sizes; Andy's Incidents tab shows Room 9, the time and the kind; he taps I'm on it, adds a
+ * note and closes it, and the pin clears.
+ */
+test("Help alert: Room 9 asks privately, the Board pins Manager needed · 1, Andy takes it, notes it and closes it", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("delete from incident_notes");
+    await db.query("delete from incidents");
+    const hostToken = createHash("sha256")
+      .update("host-token:sess_room9")
+      .digest("base64url")
+      .slice(0, 32);
+    const guest = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await guest.goto(`http://localhost:3001/r/${hostToken}`);
+    await guest.getByRole("button", { name: "Need a manager, privately?" }).click();
+    const sheet = guest.getByRole("dialog", { name: "Get help privately" });
+    await expect(sheet).toContainText("Only the managers see what you send.");
+    await sheet.getByRole("button", { name: "I feel unsafe" }).click();
+    const sent = guest.getByRole("dialog", { name: "Sent to the managers" });
+    await expect(sent.getByRole("status")).toHaveText(
+      "A manager is coming to find you. Stay wherever you feel comfortable, or come to the front desk.",
+    );
+    await expect(sent.getByRole("link", { name: "In an emergency, call 911" })).toHaveAttribute(
+      "href",
+      "tel:911",
+    );
+    await guest.context().close();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    const pin = page.locator(".manager-needed");
+    await expect(pin).toHaveText("Manager needed · 1");
+    expect((await pin.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(pin).toHaveText("Manager needed · 1");
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.getByRole("link", { name: "Incidents" }).first().click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Incidents");
+    const card = page.getByRole("listitem", { name: "Room 9 · A guest feels unsafe" });
+    await expect(card).toContainText(/From the room page · \d+:\d\d [AP]M/);
+    await expect(card).toContainText("Open");
+    await card.getByRole("button", { name: "I’m on it" }).click();
+    await expect(card).toContainText("Andy C. is on it");
+    await card.getByLabel("Note for the incident log").fill("Walked her to a cab with her friend.");
+    await card.getByRole("button", { name: "Add to the log" }).click();
+    await expect(card).toContainText("Walked her to a cab with her friend.");
+    await card.getByRole("button", { name: "Close" }).click();
+    const log = page.getByRole("region", { name: "Incident log" });
+    const closed = log.getByRole("listitem", { name: "Room 9 · A guest feels unsafe" });
+    await expect(closed).toContainText(/Closed by Andy C\./);
+    await expect(closed).toContainText(/Kept until Sep 2[56], 2029/);
+    await expect(log).toContainText("Each incident is kept 3 years after it’s closed.");
+
+    await page.getByRole("link", { name: "Rooms" }).first().click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.locator(".manager-needed")).toHaveCount(0);
+  } finally {
+    await db.query("delete from incident_notes");
+    await db.query("delete from incidents");
+    await db.end();
+  }
+});

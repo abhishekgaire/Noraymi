@@ -435,6 +435,22 @@ body {
   color: inherit;
   border: 1px solid var(--line);
 }
+/* The private help link (M8-08; screens N20): discreet, but still a 44 px target. */
+.guest button.link {
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  text-decoration: underline;
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+.guest .sheet a[href^="tel:"] {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
 
 /* The Up next TV (M6-22; screens N28): read across a bar, names only. */
 .tv {

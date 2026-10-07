@@ -362,7 +362,8 @@ form {
   justify-content: center;
   color: var(--muted);
   text-decoration: none;
-  padding: 0 8px;
+  /* 4 px, not 8: a manager's phone fits one more tab (Incidents, M8-08) at 390 px. */
+  padding: 0 4px;
   text-align: center;
 }
 .tab.active {
@@ -1913,4 +1914,37 @@ a.song-count {
 .offline-codes .printed-codes {
   font-variant-numeric: tabular-nums;
   columns: 2;
+}
+
+/* The "Manager needed" pin (M8-08; Board note 10): a count only, no room and no reason. */
+.manager-needed {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #e0287d;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+/* The incident log (M8-08; screens N20): notes are added, never edited. */
+.incident-notes {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0 0 0 10px;
+  border-left: 2px solid #8a8494;
+}
+.incident-notes li + li {
+  margin-top: 6px;
+}
+.incident-note label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.incident-note textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
 }

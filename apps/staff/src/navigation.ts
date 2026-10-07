@@ -174,6 +174,10 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
     tabs.push({ id: "messages", labelKey: "menu.messages", path: "/messages" });
   if (can("approvals.decide"))
     tabs.push({ id: "approvals", labelKey: "menu.approvals", path: "/approvals" });
+  // Incidents (M8-08; Staff note 19): the help alert and the incident log, on managers' and owners'
+  // phones only, while Safety & ID records is on.
+  if ((context.role === "owner" || context.role === "manager") && context.modules.safety !== "off")
+    tabs.push({ id: "incidents", labelKey: "tabs.incidents", path: "/incidents" });
   // Tips to enter (M6-09; screens N26): the signed paper slips waiting for their tips.
   if (can("pos.use") && context.modules.bar_tabs !== "off")
     tabs.push({ id: "tips", labelKey: "tips.title", path: "/tips" });

@@ -103,6 +103,7 @@ describe("the staff phone's tabs (M2-32)", () => {
       "waitlist",
       "messages",
       "approvals",
+      "incidents",
       "tips",
       "clock",
       "mytips",
@@ -116,6 +117,13 @@ describe("the staff phone's tabs (M2-32)", () => {
   it("Offline codes (M8-04) are on managers' and owners' phones only", () => {
     for (const role of roles)
       expect(tabsFor(role).includes("offlineCodes")).toBe(role === "owner" || role === "manager");
+  });
+
+  it("Incidents (M8-08) are on managers' and owners' phones only, and leave with Safety & ID records off", () => {
+    for (const role of roles) {
+      expect(tabsFor(role).includes("incidents")).toBe(role === "owner" || role === "manager");
+      expect(tabsFor(role, { ...everythingOn, safety: "off" })).not.toContain("incidents");
+    }
   });
 
   it("Clock in and out (M7-01) and My tips (M7-10) leave every phone with Team, time clock & tips off", () => {

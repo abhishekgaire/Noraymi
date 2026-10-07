@@ -28,6 +28,8 @@ interface RoomSession {
   readonly available?: boolean;
   /** The check is presented (M4-08): the bill is ready and ordering is closed. */
   readonly ordering_locked?: boolean;
+  /** The private help link (M8-08): a guest's own phone only, while Safety & ID records is on. */
+  readonly help_link?: boolean;
 }
 interface Bill {
   readonly minutes: number;
@@ -46,6 +48,7 @@ interface Bill {
   readonly presented?: GuestBill | null;
 }
 const CALLS = ["mic", "tv", "check", "other"] as const;
+const HELP_KINDS = ["unsafe", "someone_needs_help", "other"] as const;
 interface Round {
   readonly order_id: string;
   readonly lines: readonly { qty: number; name: string; options: readonly string[] }[];
@@ -141,6 +144,8 @@ export function RoomPage({
   const [bill, setBill] = useState<Bill | null>(null);
   const [rounds, setRounds] = useState<readonly Round[]>([]);
   const [called, setCalled] = useState(false);
+  // The private help sheet (M8-08; screens N20): closed, asking, sent, or failed.
+  const [help, setHelp] = useState<"closed" | "asking" | "sent" | "failed">("closed");
   const [cart, setCart] = useState<readonly CartLine[]>([]);
   const [choosing, setChoosing] = useState<{
     item: Item;
@@ -321,6 +326,13 @@ export function RoomPage({
       body: JSON.stringify({ kind }),
     }).catch(() => null);
     setCalled(r?.ok === true);
+  };
+  const askForHelp = async (kind: (typeof HELP_KINDS)[number]) => {
+    const r = await api("/v1/public/room-session/help", {
+      method: "POST",
+      body: JSON.stringify({ kind }),
+    }).catch(() => null);
+    setHelp(r?.ok ? "sent" : "failed");
   };
   const lock = async (on: boolean) => {
     await api("/v1/public/room-session/lock", {
@@ -608,7 +620,55 @@ export function RoomPage({
           ))}
         </div>
         {called && <p role="status">{t("en", "guestRoom.call.sent")}</p>}
+        {!tablet && room.help_link && (
+          <p className="help-link">
+            <button type="button" className="link" onClick={() => setHelp("asking")}>
+              {t("en", "guestRoom.help.link")}
+            </button>
+          </p>
+        )}
       </section>
+
+      {!tablet && room.help_link && help !== "closed" && (
+        <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="help-h">
+          {help === "asking" ? (
+            <>
+              <h2 id="help-h">{t("en", "guestRoom.help.title")}</h2>
+              <p>{t("en", "guestRoom.help.intro")}</p>
+              {HELP_KINDS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  className="secondary"
+                  onClick={() => void askForHelp(k)}
+                >
+                  {t("en", `guestRoom.help.kind.${k}` as MessageKey)}
+                </button>
+              ))}
+              <button type="button" className="secondary" onClick={() => setHelp("closed")}>
+                {t("en", "guestRoom.help.never")}
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 id="help-h">
+                {help === "sent" ? t("en", "guestRoom.help.sent") : t("en", "guestRoom.help.title")}
+              </h2>
+              <p role={help === "sent" ? "status" : "alert"}>
+                {help === "sent"
+                  ? t("en", "guestRoom.help.coming")
+                  : t("en", "guestRoom.help.failed")}
+              </p>
+              <p>
+                <a href="tel:911">{t("en", "guestRoom.help.call911")}</a>
+              </p>
+              <button type="button" className="secondary" onClick={() => setHelp("closed")}>
+                {t("en", "guestRoom.help.close")}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <section aria-labelledby="menu-h">
         <h2 id="menu-h">{t("en", "guestRoom.menu")}</h2>

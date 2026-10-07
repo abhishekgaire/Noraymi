@@ -954,6 +954,9 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "closures",
       "door_counts",
       "waitlist_entries",
+      // Incidents (M8-08): the notes before the incident, both before the room sessions.
+      "incident_notes",
+      "incidents",
       "room_calls",
       "room_faults",
       "room_notes",

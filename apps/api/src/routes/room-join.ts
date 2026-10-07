@@ -23,6 +23,7 @@ import { hashRoomCode } from "../rooms/checkin.js";
 import { openRoomCode, rotateForWrongCodes, WRONG_CODES_TO_ROTATE } from "../rooms/room-code.js";
 import { RoomAvailable, roomGuestOf } from "../rooms/room-guest.js";
 import { alcoholBlock } from "../orders/alcohol.js";
+import { safetyOn } from "../rooms/incidents.js";
 
 /**
  * Joining a room (M3-08; screens N3; spec 09 · Joining a room; spec 02 · Guest
@@ -327,6 +328,10 @@ export function roomJoinRoutes(
         alcoholBlock(c, venueId, { sessionId: g.session_id, roomGuestId: g.id }, now),
       ),
       ordering_locked: g.session.ordering_locked,
+      // The private help link (M8-08): on a guest's own phone only, never a room tablet, and only
+      // while Safety & ID records is on.
+      help_link:
+        !g.tablet && (await withVenue(options.pool, { venueId }, (c) => safetyOn(c, venueId))),
       rotated,
       moved,
     };

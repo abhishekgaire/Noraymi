@@ -71,6 +71,7 @@ import { partySizeRoutes } from "./routes/party-size.js";
 import { moveRoutes } from "./routes/move.js";
 import { roomCareRoutes } from "./routes/room-care.js";
 import { callRoutes } from "./routes/calls.js";
+import { incidentRoutes } from "./routes/incidents.js";
 import { conversationRoutes } from "./routes/conversations.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { headcountRoutes } from "./routes/headcount.js";
@@ -269,6 +270,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       moveRoutes(scope, { clock });
       roomCareRoutes(scope, { clock });
       callRoutes(scope, { clock });
+      incidentRoutes(scope, { pool: gatePoolRef!, clock });
       headcountRoutes(scope, { clock });
       connectionRoutes(scope, { clock });
       boardRoutes(scope, { clock });

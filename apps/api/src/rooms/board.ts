@@ -9,6 +9,7 @@ import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
 import { openCalls } from "./calls.js";
 import { headcount } from "./headcount.js";
+import { openIncidentCount, safetyOn } from "./incidents.js";
 import { offerSuggestion, staffWaitlist } from "./waitlist.js";
 import { sessionViews } from "./sessions.js";
 
@@ -213,6 +214,9 @@ export async function board(
     rooms,
     counts: { ...counts, tablets_online: tablets.online, tablets: tablets.total },
     headcount: count,
+    // The "Manager needed" pin (M8-08; Board note 10): how many incidents are open, never a room or
+    // a reason; null while Safety & ID records is off, so the pin hides.
+    manager_needed: (await safetyOn(c, venueId)) ? await openIncidentCount(c, venueId) : null,
     alerts,
     // The alcohol window now and when it next changes, so every screen greys alcohol together (M3-20).
     alcohol: await alcoholNow(c, venueId, now),

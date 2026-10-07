@@ -40,6 +40,7 @@ import { Approvals } from "./screens/Approvals.js";
 import { TipsToEnter } from "./screens/TipsToEnter.js";
 import { CloseTheNight } from "./screens/CloseTheNight.js";
 import { Calls } from "./screens/Calls.js";
+import { Incidents } from "./screens/Incidents.js";
 import { Messages } from "./screens/Messages.js";
 import { Waitlist } from "./screens/Waitlist.js";
 import { RoomScreen } from "./screens/RoomScreen.js";
@@ -128,6 +129,7 @@ export function StaffRoutes() {
         <Route path="/tips" element={<TipsToEnter />} />
         <Route path="/close-the-night" element={<CloseTheNight />} />
         <Route path="/calls" element={<Calls />} />
+        <Route path="/incidents" element={<Incidents />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/waitlist" element={<Waitlist />} />
         <Route path="/room/:roomId" element={<RoomScreen />} />

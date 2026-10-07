@@ -84,6 +84,8 @@ interface BoardRoom {
 
 interface Board {
   readonly rooms: readonly BoardRoom[];
+  /** Open incidents (M8-08): a count only, never a room or a reason; null with Safety off. */
+  readonly manager_needed?: number | null;
   readonly alerts: readonly Alert[];
   readonly counts: {
     readonly in_use: number;
@@ -142,6 +144,7 @@ export function Tonight() {
   const [boardRooms, setBoardRooms] = useState<readonly BoardRoom[]>([]);
   const [counts, setCounts] = useState<Board["counts"] | null>(null);
   const [alerts, setAlerts] = useState<readonly Alert[]>([]);
+  const [managerNeeded, setManagerNeeded] = useState(0);
   const [faultSheet, setFaultSheet] = useState<FaultTarget | null>(null);
   const [moving, setMoving] = useState<{ sessionId: string; roomName: string } | null>(null);
   const [damage, setDamage] = useState<{ checkId: string; roomName: string } | null>(null);
@@ -191,6 +194,7 @@ export function Tonight() {
       setBoardRooms(tiles);
       setCounts(rooms?.counts ?? null);
       setAlerts(rooms?.alerts ?? []);
+      setManagerNeeded(rooms?.manager_needed ?? 0);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -214,6 +218,7 @@ export function Tonight() {
               "room.updated",
               "booking.updated",
               "room.call",
+              "incident.count",
               "waitlist.updated",
               "message.received",
               "print_job.failed",
@@ -383,6 +388,16 @@ export function Tonight() {
     <section className="screen">
       <div className="screen-head">
         <h1>{t("menu.tonight")}</h1>
+        {managerNeeded > 0 &&
+          (managing ? (
+            <Link className="manager-needed" role="status" to="/incidents">
+              {t("board.managerNeeded", { count: managerNeeded })}
+            </Link>
+          ) : (
+            <span className="manager-needed" role="status">
+              {t("board.managerNeeded", { count: managerNeeded })}
+            </span>
+          ))}
         {waitlistOn && (
           <button
             type="button"

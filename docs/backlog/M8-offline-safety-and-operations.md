@@ -216,7 +216,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-08 · Send the private help alert and keep the incident log
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3-09 (the room page), M1-22 (staff phones with push), M2-28 (Admin → Safety)
 - **Spec:** [API](../spec/08-api.md) · Guest room (`/help`), Safety (incidents), Live events (`incident.opened`, `incident.updated`); [Data model](../spec/04-data-model.md) · `incidents`, `incident_notes`; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Safety; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · The board and staff phones (Help alert); [Security and data retention](../spec/12-security-retention.md) · How long we keep things (incidents 3 years); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · What each module hides (Safety & ID records); [decisions](../decisions.md) D58; screens [N20](../screens.md#n20-help-alert-manager-needed-pin-and-incident-log), [N36](../screens.md#n36-admin--safety), [Board](../screens.md#board) note 10, [Staff](../screens.md#staff) notes 10 and 19
@@ -228,12 +228,17 @@ Definition of done: see CLAUDE.md.
   - Admin → Safety gains the help alert (who gets it: every manager and owner) and the incident log.
   - With Safety & ID records off, the help link, the pin and the log hide, and their routes answer `404 module_off`.
 - **Acceptance:**
-  - [ ] A guest in Room 9 taps "Need a manager, privately?": Andy's and Abhishek's phones get Room 9, the time and the kind; Maya's and Diego's phones get nothing; Room 9's tablet shows nothing.
-  - [ ] The Board shows "Manager needed · 1" with no room and no reason; Andy taps [I'm on it] and adds a note; closing it clears the pin.
-  - [ ] A bartender's or front-desk session can't read any incident.
-  - [ ] A closed incident is kept for 3 years.
+  - [x] A guest in Room 9 taps "Need a manager, privately?": Andy's and Abhishek's phones get Room 9, the time and the kind; Maya's and Diego's phones get nothing; Room 9's tablet shows nothing.
+  - [x] The Board shows "Manager needed · 1" with no room and no reason; Andy taps [I'm on it] and adds a note; closing it clears the pin.
+  - [x] A bartender's or front-desk session can't read any incident.
+  - [x] A closed incident is kept for 3 years.
 - **Tests:** the principal and venue-wall suites over the incident routes and events, including a check that the Board's channel never carries a room or reason; Playwright at phone and desktop sizes; the language test.
 - **Notes:** Spec gaps: `incidents` has `reported_by` and `reported_via`, but the API lists no route to log an incident by hand (build `POST /incidents` for managers and owners, and add it to the API's table); the guest's confirmation after tapping the link has no wording; [N36](../screens.md#n36-admin--safety)'s "help alert and incident log settings" aren't settings keys (cautious default: no new keys; the module switch turns it on or off).
+  - **Built (M8-08):** migration `0111_incidents.sql` (`incidents`, `incident_notes`; row-level security forced; the app can insert and read, update only the status columns, never delete; notes are insert-only). `apps/api/src/rooms/incidents.ts` and `routes/incidents.ts`: `POST /v1/public/room-session/help` (guest phones only; a room tablet is refused), `GET`/`POST /incidents`, `/ack`, `/notes`, `/close`, all behind Safety & ID records (the token route checks the module itself, since it has no venue in its path). Pushes go to every manager's and owner's phone ("Manager needed · Room 9 · 10:41 PM · A guest feels unsafe"). `GET /board` gains `manager_needed` (a count, null with Safety off); `GET /room-session` gains `help_link`. Staff: the Incidents tab on managers' and owners' phones (`screens/Incidents.tsx`), the "Manager needed · n" pin on the Board, the help alert and the log in Admin → Safety. Guest: the discreet link and its sheet on the room page.
+  - **Events:** `incident.opened`/`incident.updated` go to the managers' audience with no room on them; the board's count rides a new `incident.count` event (the venue as its id, the open count as its version) on the staff audience, added to spec 08's Live events row. `POST /incidents` added to spec 08's Safety row.
+  - **Cautious defaults:** the kinds are the canvas's three (`unsafe`, `someone_needs_help`, `other`); the guest's confirmation uses the canvas wording ("Sent to the managers", "A manager is coming to find you…", "In an emergency, call 911"), but the intro says "Only the managers see…" rather than the canvas's "tonight's managers", because every manager and owner gets it. A second tap from the same guest while their alert is open answers the same incident with no second push. `keep_until` is set at close: the close plus the rule pack's `incidentsYears` (3) in venue time; open incidents have none and are kept. No new settings keys (the module switch turns it all on or off). The pin stays until the incident is closed (I'm on it doesn't clear it).
+  - **Later:** the nightly retention job (spec 12) must delete incidents past `keep_until`; none exists yet. The generic wall and principal suites see these routes as module-off at their test venues, so `incidents.int.test.ts` covers the role refusals, other-venue ids and the board's channel directly.
+  - **Phone tabs and checks.** With Incidents a manager's phone has 15 tabs; at 390 px the bar overflowed the page, so a tab's side padding went from 8 px to 4 px (`styles.css`), and every phone screen fits again in English and Spanish. `pnpm check` passed whole; in `pnpm check --e2e`, 150 passed and the phone tests failed on that overflow; after the fix the 23 that failed (including the api clock test and the desktop replay, which failed only in the full run) pass when run again.
 
 ### M8-09 · Keep the license register with renewal reminders
 
