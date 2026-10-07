@@ -10,6 +10,7 @@ import { NightChecks, type Check } from "./NightChecks.js";
 import { ReportPanel } from "./ReportPanel.js";
 import { UnmatchedPayments } from "./UnmatchedPayments.js";
 import { ReviewAfterOutage } from "./ReviewAfterOutage.js";
+import { BreakGlassCard } from "./BreakGlassCard.js";
 import { TipsPanel } from "./TipsPanel.js";
 import { TapPayment } from "./TapPayment.js";
 
@@ -146,6 +147,7 @@ export function CloseTheNight() {
       )}
       {venueId && date && <ReviewAfterOutage venueId={venueId} date={date} timeZone={timeZone} />}
       {venueId && <UnmatchedPayments venueId={venueId} timeZone={timeZone} />}
+      {venueId && <BreakGlassCard venueId={venueId} />}
       {error && (
         <p role="alert" className="error">
           {error}

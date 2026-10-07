@@ -171,7 +171,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-06 · Print the break-glass card
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7-14 (Unmatched payments); M4-29 (the go-live checklist of managers' Stripe Dashboard logins and Tap to Pay phones); M3-05 (the PDF job)
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Break-glass card; [Stripe setup](../spec/06-stripe-setup.md) 11; [Scope and architecture](../spec/01-scope-architecture.md) · When our cloud is down; [decisions](../decisions.md) D54; screens [N29](../screens.md#n29-outage-banners-and-queue-mode)
@@ -180,11 +180,15 @@ Definition of done: see CLAUDE.md.
   - What it says: when our cloud is down, take cards with Tap to Pay in Stripe's Dashboard app on a manager's phone signed in to West 4's Stripe account; note the room or tab and the time of each payment; if Stripe is down too, take cash; afterwards, match the payments in Unmatched payments and work through Review after outage.
   - Which managers are ready: each with a Dashboard login and a supported phone, from the go-live checklist.
 - **Acceptance:**
-  - [ ] Night prints the card, and it names Andy and Abhishek as ready for Tap to Pay.
-  - [ ] It says to take cash if Stripe is down too.
-  - [ ] A Tap to Pay payment taken by following it lands in Unmatched payments.
+  - [x] Night prints the card, and it names Andy and Abhishek as ready for Tap to Pay.
+  - [x] It says to take cash if Stripe is down too.
+  - [x] A Tap to Pay payment taken by following it lands in Unmatched payments. (Simulated: M7-14's test of a Dashboard Tap to Pay payment with no row of ours, `apps/api/src/routes/payouts.int.test.ts`; the live one on a manager's phone is M8-07's drill.)
 - **Tests:** a golden PDF test; the drill in M8-07.
 - **Notes:** Spec gap: West 4's desks have only receipt printers; cautious default: a letter-size PDF to print ahead of time, plus a short version for the receipt printer.
+  - **Built (M8-06).** `apps/api/src/payments/break-glass.ts`: the card's facts (the venue, who's ready for Tap to Pay: an owner or manager with both go-live checks confirmed, M4-29's `setup_checks`; who isn't yet), the letter-size HTML (one page in English, then one in Spanish: when our cloud is down, Tap to Pay in Stripe's Dashboard app on a manager's phone signed in to the venue's Stripe account, note the room or tab, amount and time; if Stripe is down too, take cash; afterwards Unmatched payments then Review after outage; who's ready; a blank log of payments taken; when it was printed) and the short version wrapped to the receipt printer's 32 columns. Routes `GET /break-glass-card`, `GET /break-glass-card/pdf` (`{ pdf, filename }`, printed by the menu PDF job's Chromium renderer, tagged, outside any transaction) and `POST /break-glass-card/print` (print job `break_glass` on the front-desk printer, laid out like a receipt; migration `0110_break_glass_print.sql`), owners and managers only (added to [API](../spec/08-api.md)). Close the night has a Break-glass card panel: who's ready (or "No manager is ready for Tap to Pay yet" pointing at Admin → Payments), "Print break-glass card" (saves `break-glass-card.pdf`) and "Print the short version on the receipt printer"; loading and error states; English and Spanish (`breakGlass.*`). Tests: `break-glass.test.ts` (unit), `routes/break-glass.int.test.ts` (the golden PDF test: the real PDF read back with pdf.js against `payments/fixtures/break-glass-card.golden.txt`, words only so fonts can't move it; `UPDATE_GOLDEN=1` rewrites it), and the e2e "Close the night: the break-glass card…".
+  - **Cautious defaults.** The ticket's: a letter-size PDF to print ahead of time plus a short receipt version. Both languages print together (English page, Spanish page; English then Spanish on the receipt), so every desk's copy serves every staff member. The card is generated on demand, so it always names who's ready now; it isn't stored. Ligatures are off in the PDF so its text reads back exactly. No phone numbers or other venue facts are printed; none were given.
+  - **Checks.** `pnpm check --e2e`: everything passed except, in the full run only, `chaos.int.test.ts` (a 60 s hook timeout while the e2e servers ran) and three e2e tests (desktop replay of three rounds, the bar POS void in 4 taps under 6 s, the M2 phone scenario with Room 7 to cleaning); each passes run alone, and none touches this ticket's code.
+  - **For M8-07.** Print the card for the drill and follow it on each manager's phone; record whether the payments land in Unmatched payments.
 
 ### M8-07 · Run the four outage drills at West 4
 

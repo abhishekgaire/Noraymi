@@ -8433,3 +8433,46 @@ test("Confirm replayed orders (3) on the bar POS and bar orders, and Review afte
     await db.end();
   }
 });
+
+/**
+ * The break-glass card (M8-06; spec 09 · Break-glass card): with Andy's and Abhishek's Dashboard
+ * logins and Tap to Pay phones confirmed on the go-live checklist, Close the night names them as
+ * ready, saves the letter-size card as a PDF, and sends the short version to the front-desk printer.
+ */
+test("Close the night: the break-glass card names Andy and Abhishek as ready and prints", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    await db.query(
+      `insert into setup_checks (venue_id, key, status, confirmed_by, confirmed_at)
+       select $1, c.k || ':' || s.row_id, 'passed', o.row_id, '2026-09-20T16:00:00Z'
+         from seed_ids s cross join (values ('dashboard_login'), ('tap_to_pay')) c(k)
+         cross join (select row_id from seed_ids where venue_id = $1 and slug = 'abhishek') o
+        where s.venue_id = $1 and s.slug in ('abhishek', 'andy')
+       on conflict (venue_id, key) do update set status = 'passed'`,
+      [venueId],
+    );
+    await signInAndy(page, request, db);
+    await page.goto("/close-the-night");
+    const card = page.getByRole("region", { name: "Break-glass card" });
+    await expect(card).toContainText("Ready for Tap to Pay: Abhishek G., Andy C.");
+    const download = page.waitForEvent("download");
+    await card.getByRole("button", { name: "Print break-glass card" }).click();
+    expect((await download).suggestedFilename()).toBe("break-glass-card.pdf");
+    await card
+      .getByRole("button", { name: "Print the short version on the receipt printer" })
+      .click();
+    await expect(card.getByRole("status")).toHaveText("Sent to the front-desk printer");
+    const box = await card.getByRole("button", { name: "Print break-glass card" }).boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  } finally {
+    await db.query(
+      "delete from setup_checks where key like 'dashboard_login:%' or key like 'tap_to_pay:%'",
+    );
+    await db.end();
+  }
+});

@@ -2635,4 +2635,39 @@ export const en = {
   "review.cash.posted": "Cash posted · {amount} · {name}",
   "review.unmatched": "Break-glass card payments waiting in Unmatched payments: {count}",
   "review.unmatchedHint": "Match each one to its check in Unmatched payments.",
+  "breakGlass.title": "Break-glass card",
+  "breakGlass.hint":
+    "Print it ahead of time and keep a copy at each desk: what to do when our cloud is down.",
+  "breakGlass.printLetter": "Print break-glass card",
+  "breakGlass.printShort": "Print the short version on the receipt printer",
+  "breakGlass.opening": "Making the card…",
+  "breakGlass.openFailed": "Couldn't make the card. Try again.",
+  "breakGlass.noneReady":
+    "No manager is ready for Tap to Pay yet. Confirm Dashboard logins and phones in Admin → Payments.",
+  "breakGlass.ready": "Ready for Tap to Pay: {names}",
+  "breakGlass.card.title": "Break-glass card · {venue}",
+  "breakGlass.card.keep":
+    "Keep this at the desk. Use it only when the staff app shows Offline and card readers can't take payments.",
+  "breakGlass.card.cloudDown": "When our cloud is down",
+  "breakGlass.card.step1":
+    "Take cards with Tap to Pay in Stripe's Dashboard app on a manager's phone, signed in to {venue}'s Stripe account.",
+  "breakGlass.card.step2": "For each payment, write down the room or tab, the amount and the time.",
+  "breakGlass.card.stripeDown": "If Stripe is down too",
+  "breakGlass.card.cash": "Take cash. Write down the room or tab, the amount and the time.",
+  "breakGlass.card.afterwards": "Afterwards",
+  "breakGlass.card.match":
+    "A manager matches each card payment in Unmatched payments on Close the night, then works through Review after outage.",
+  "breakGlass.card.readyTitle": "Ready for Tap to Pay",
+  "breakGlass.card.readyNone":
+    "No manager is ready yet. Confirm each manager's Dashboard login and phone in Admin → Payments, then print this card again.",
+  "breakGlass.card.notReady": "Not ready yet: {names}",
+  "breakGlass.card.log": "Payments taken",
+  "breakGlass.card.colWhere": "Room or tab",
+  "breakGlass.card.colAmount": "Amount",
+  "breakGlass.card.colTime": "Time",
+  "breakGlass.card.colHow": "Card or cash",
+  "breakGlass.card.printed": "Printed {date}",
+  "breakGlass.loading": "Loading the break-glass card…",
+  "breakGlass.error": "Couldn't load the break-glass card.",
+  "breakGlass.saved": "Saved break-glass-card.pdf · print it and keep a copy at each desk",
 } as const;

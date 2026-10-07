@@ -2687,4 +2687,42 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "review.cash.posted": "Efectivo registrado · {amount} · {name}",
   "review.unmatched": "Pagos con tarjeta de emergencia esperando en Pagos sin asignar: {count}",
   "review.unmatchedHint": "Asigna cada uno a su cuenta en Pagos sin asignar.",
+  "breakGlass.title": "Tarjeta de emergencia",
+  "breakGlass.hint":
+    "Imprímela con tiempo y deja una copia en cada mostrador: qué hacer cuando nuestra nube no responde.",
+  "breakGlass.printLetter": "Imprimir tarjeta de emergencia",
+  "breakGlass.printShort": "Imprimir la versión corta en la impresora de recibos",
+  "breakGlass.opening": "Preparando la tarjeta…",
+  "breakGlass.openFailed": "No se pudo preparar la tarjeta. Inténtalo de nuevo.",
+  "breakGlass.noneReady":
+    "Ningún gerente está listo para Tap to Pay todavía. Confirma los accesos al Dashboard y los teléfonos en Admin → Pagos.",
+  "breakGlass.ready": "Listos para Tap to Pay: {names}",
+  "breakGlass.card.title": "Tarjeta de emergencia · {venue}",
+  "breakGlass.card.keep":
+    "Guárdala en el mostrador. Úsala solo cuando la app del personal diga Sin conexión y los lectores no puedan cobrar.",
+  "breakGlass.card.cloudDown": "Cuando nuestra nube no responde",
+  "breakGlass.card.step1":
+    "Cobra con Tap to Pay en la app Dashboard de Stripe en el teléfono de un gerente, con la sesión iniciada en la cuenta de Stripe de {venue}.",
+  "breakGlass.card.step2":
+    "Por cada pago, anota la sala o la cuenta del bar, el importe y la hora.",
+  "breakGlass.card.stripeDown": "Si Stripe tampoco funciona",
+  "breakGlass.card.cash":
+    "Cobra en efectivo. Anota la sala o la cuenta del bar, el importe y la hora.",
+  "breakGlass.card.afterwards": "Después",
+  "breakGlass.card.match":
+    "Un gerente asigna cada pago con tarjeta en Pagos sin asignar, en Cerrar la noche, y luego repasa la Revisión tras el corte.",
+  "breakGlass.card.readyTitle": "Listos para Tap to Pay",
+  "breakGlass.card.readyNone":
+    "Ningún gerente está listo todavía. Confirma el acceso al Dashboard y el teléfono de cada gerente en Admin → Pagos y vuelve a imprimir esta tarjeta.",
+  "breakGlass.card.notReady": "Aún no listos: {names}",
+  "breakGlass.card.log": "Pagos cobrados",
+  "breakGlass.card.colWhere": "Sala o cuenta",
+  "breakGlass.card.colAmount": "Importe",
+  "breakGlass.card.colTime": "Hora",
+  "breakGlass.card.colHow": "Tarjeta o efectivo",
+  "breakGlass.card.printed": "Impresa el {date}",
+  "breakGlass.loading": "Cargando la tarjeta de emergencia…",
+  "breakGlass.error": "No se pudo cargar la tarjeta de emergencia.",
+  "breakGlass.saved":
+    "Se guardó break-glass-card.pdf · imprímela y deja una copia en cada mostrador",
 };

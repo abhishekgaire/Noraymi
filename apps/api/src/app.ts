@@ -13,6 +13,7 @@ import { receiptRoutes } from "./routes/receipts.js";
 import { refundRoutes } from "./routes/refunds.js";
 import { disputeRoutes } from "./routes/disputes.js";
 import { goLiveRoutes } from "./routes/go-live.js";
+import { breakGlassRoutes } from "./routes/break-glass.js";
 import { siteRoutes } from "./routes/site.js";
 import { siteVersionsRoutes } from "./routes/site-versions.js";
 import { enquiriesRoutes } from "./routes/enquiries.js";
@@ -297,6 +298,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       receiptRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });
       refundRoutes(scope, { clock });
       goLiveRoutes(scope, { pool: gatePoolRef!, clock, stripe });
+      breakGlassRoutes(scope, { clock });
       let s3: S3Settings | null = null;
       siteRoutes(scope, { pool: gatePoolRef!, clock, s3: () => (s3 ??= makeS3()) });
       siteVersionsRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
