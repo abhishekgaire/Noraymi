@@ -7,7 +7,13 @@ import { api } from "./api.js";
  */
 export async function uploadPhoto(
   venueId: string,
-  kind: "lost_item_photo" | "damage_photo" | "site_photo" | "slip_photo" | "paid_out_photo",
+  kind:
+    | "lost_item_photo"
+    | "damage_photo"
+    | "site_photo"
+    | "slip_photo"
+    | "paid_out_photo"
+    | "license_copy",
   file: File,
 ): Promise<string> {
   const presigned = await api<{

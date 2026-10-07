@@ -1024,6 +1024,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "check_lines",
       "tabs",
       "checks",
+      // The license register (M8-09) points at its copies: before the files. The seed has none.
+      "licenses",
       // Photos (the slips' since M6-09); after every row that points at one.
       "files",
       "shifts",

@@ -1948,3 +1948,53 @@ a.song-count {
   box-sizing: border-box;
   min-height: 44px;
 }
+
+/* Admin → Licenses (M8-09): the register, one card per license, and its form. */
+.licenses .license-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.licenses .license-list > li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.licenses dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 8px 0;
+}
+.licenses dt {
+  font-weight: 600;
+}
+.licenses dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.licenses dd.warn {
+  color: var(--notice);
+}
+.licenses .license-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.licenses .license-form {
+  display: grid;
+  gap: 8px;
+  max-width: 560px;
+  margin-top: 12px;
+}
+.licenses .license-form label {
+  display: grid;
+  gap: 4px;
+}
+.licenses .license-form select,
+.licenses .license-form textarea {
+  font: inherit;
+  min-height: 44px;
+}

@@ -70,7 +70,7 @@ describe("the venue wall", () => {
       push,
     });
     expect(findings, findings.map((f) => `${f.where}: ${f.why}`).join("\n")).toEqual([]);
-    expect(rows.length).toBe(10);
+    expect(rows.length).toBe(11); // M8-09 added the license reminders
     expect(venueClient.sent).toEqual([]);
   });
 });

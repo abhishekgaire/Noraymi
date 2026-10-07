@@ -64,12 +64,26 @@ export const accountingExportData = z
   })
   .strict();
 
+/** A license's renewal reminder to an owner or manager (M8-09): which license, and when it expires. */
+export const licenseReminderData = z
+  .object({
+    venueName: z.string().min(1),
+    kind: z.enum(["liquor", "ascap", "bmi", "sesac", "gmr", "local", "health", "other"]),
+    /** The license's number as entered; empty when the owner hasn't entered it. */
+    number: z.string().max(100),
+    /** YYYY-MM-DD, the venue's date. */
+    expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    daysLeft: z.number().int().min(0),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
   sign_in_code: signInCodeData,
   owner_recovery_notice: ownerRecoveryNoticeData,
   receipt: receiptData,
   accounting_export: accountingExportData,
+  license_reminder: licenseReminderData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -178,6 +192,31 @@ export function render<N extends TemplateName>(
       ];
       return {
         subject: line(payroll ? "email.payroll.subject" : "email.accounting.subject"),
+        text: paragraphs.join("\n\n"),
+        html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
+      };
+    }
+    case "license_reminder": {
+      const d = data as TemplateData<"license_reminder">;
+      const values = {
+        venue: d.venueName,
+        kind: t(locale, `licenses.kind.${d.kind}` as MessageKey),
+        number: d.number,
+        date: new Intl.DateTimeFormat(locale === "es" ? "es-US" : "en-US", {
+          dateStyle: "long",
+          timeZone: "UTC",
+        }).format(new Date(`${d.expiresOn}T00:00:00Z`)),
+        days: d.daysLeft,
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line(d.number ? "email.license.body" : "email.license.bodyNoNumber"),
+        line("email.license.daysLeft"),
+        line("email.license.renew"),
+        line("email.footer"),
+      ];
+      return {
+        subject: line("email.license.subject"),
         text: paragraphs.join("\n\n"),
         html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
       };

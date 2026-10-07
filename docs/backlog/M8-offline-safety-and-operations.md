@@ -242,7 +242,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-09 · Keep the license register with renewal reminders
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M2-13 (`POST /files`), M1-31 (Admin), M1-06 (jobs), M1-18 (email), M1-22 (push)
 - **Spec:** [Data model](../spec/04-data-model.md) · `licenses`, `files`; [API](../spec/08-api.md) · Safety (licenses), Files (license copies: PDF, JPEG or PNG up to 20 MB); [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-M10, GA-S8; [blueprint](../blueprint.md) · Start now (performance licenses); screens [N35](../screens.md#n35-admin--licenses), [AdminDesk](../screens.md#admindesk) note 20
@@ -251,11 +251,16 @@ Definition of done: see CLAUDE.md.
   - Admin → Licenses, a new section (passkey; owner and managers): the register, each license with its number, holder, expiry, fee, conditions and a copy.
   - A daily job reminds the owner and managers 60, 30 and 7 days before `expires_on`, by email and push, each reminder once.
 - **Acceptance:**
-  - [ ] Admin → Licenses holds West 4's ASCAP, BMI, SESAC, GMR and liquor licenses, each with its number, holder, expiry, fee, conditions and a PDF copy.
-  - [ ] On the simulated clock, a license 30 days from expiry sends the reminder once to Abhishek and Andy, and the 7-day reminder later.
-  - [ ] A 25 MB upload or a Word file is refused by storage.
+  - [ ] Admin → Licenses holds West 4's ASCAP, BMI, SESAC, GMR and liquor licenses, each with its number, holder, expiry, fee, conditions and a PDF copy. *Blocked on the owner: the register is built and tested with test fixtures (`licenses.int.test.ts`, the e2e), but West 4's real numbers, holders, dates, fees, conditions and copies come from the paper licenses and are never made up; until they're entered the screen says "Not on file yet: ASCAP, BMI, SESAC, GMR, Liquor".*
+  - [x] On the simulated clock, a license 30 days from expiry sends the reminder once to Abhishek and Andy, and the 7-day reminder later.
+  - [x] A 25 MB upload or a Word file is refused by storage.
 - **Tests:** clock tests for the reminder windows; file-limit tests; the principal suite.
 - **Notes:** Spec gap: [N35](../screens.md#n35-admin--licenses) says the reminder "texts or emails" and the data model says it "reminds the owner and managers"; cautious default: email and push, since the venue's texting number is for guests.
+  - Built: migration `0112_licenses.sql` (`licenses`, forced row-level security, audited; the seed loads none and wipes it before `files`); `apps/api/src/licenses/licenses.ts` (register, reminder windows, the daily job `licenses.remind` at 10:00 AM on each venue's clock, bulk pool); `apps/api/src/routes/licenses.ts` (`GET`/`POST /v1/venues/{v}/licenses`, `PATCH /v1/venues/{v}/licenses/{l}`: owners and managers, action `admin.access`, so a passkey session only); the `license_reminder` email; push keys `licenses.push.<kind>`; Admin → Licenses (`apps/staff/src/screens/admin/Licenses.tsx`), after Safety.
+  - Cautious defaults: reminders by email and push (as the ticket says), to every active owner and manager, each in their own language. One reminder per window: `reminded_days` (added beside `reminded_at`; spec 04 updated) holds the narrowest window sent, so a license entered 20 days out gets only the 30-day reminder, an already-expired one gets the 7-day reminder once, and a new `expires_on` (a renewal) starts them over. A day the job misses is caught up the next morning. On staging, an address outside the email allow-list is skipped rather than failing the run. Every field but the kind may be empty; the screen shows "Not entered".
+  - The license copy rules (PDF, JPEG or PNG up to 20 MB) were already in `FILE_RULES` from M2-13; this ticket adds the tests (`files.int.test.ts`) and checks a copy is a `license_copy` upload before attaching it.
+  - The wall suite's job count is now 11 (the reminder job carries venue B's id in its payload and finds nothing).
+  - `pnpm check --e2e`: everything passed but three older tests that only failed in the 17-minute full run and pass alone (the api project's "after a fresh seed" clock check, which drifted past 10:4x, and the desktop queue-mode and replay tests).
 
 ### M8-10 · Let the owner approve support grants, and enforce them
 

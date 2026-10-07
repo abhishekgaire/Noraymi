@@ -39,6 +39,11 @@ import { holdWatchSweep } from "../tabs/expiry.js";
 import { tabCutOffSweep } from "../tabs/walkout.js";
 import { vendorHealthSweep } from "./vendor-health.js";
 import {
+  LICENSE_REMINDER_KIND,
+  licenseReminderSchedule,
+  makeLicenseReminderHandler,
+} from "../licenses/licenses.js";
+import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
   eventsCleanupSchedule,
@@ -135,6 +140,8 @@ export function makeHandlers({
       [MENU_PDF_KIND]: makeMenuPdfHandler(s3.client, s3.bucketFiles),
       [IDEMPOTENCY_CLEANUP_KIND]: idempotencyCleanupHandler,
       [EVENTS_CLEANUP_KIND]: eventsCleanupHandler,
+      // License renewal reminders (M8-09), every morning on each venue's clock.
+      [LICENSE_REMINDER_KIND]: makeLicenseReminderHandler(email),
     },
   };
 }
@@ -143,6 +150,7 @@ export const schedules: Schedule[] = [
   auditExportSchedule,
   idempotencyCleanupSchedule,
   eventsCleanupSchedule,
+  licenseReminderSchedule,
 ];
 
 /** What the scheduler's leader checks between ticks (M1-16: quiet devices). */

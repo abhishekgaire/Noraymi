@@ -202,6 +202,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into room_calls (venue_id, session_id, kind, created_at) values ($1, $2, 'tv', now()) returning id",
     [v.venueB, sessionB.rows[0]!.id],
   );
+  const licenseB = await owner.query<{ id: string }>(
+    `insert into licenses (venue_id, kind, holder, expires_on, created_at, updated_at)
+       values ($1, 'ascap', 'B', '2026-10-25', now(), now()) returning id`,
+    [v.venueB],
+  );
   const incidentB = await owner.query<{ id: string }>(
     `insert into incidents (venue_id, kind, room_id, reported_via, reported_by, at)
        values ($1, 'other', $2, 'staff_phone', $3, now()) returning id`,
@@ -285,6 +290,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       itemId: itemB.rows[0]!.id,
       callId: callB.rows[0]!.id,
       incidentId: incidentB.rows[0]!.id,
+      licenseId: licenseB.rows[0]!.id,
       conversationId: conversationB.rows[0]!.id,
       messageId: messageB.rows[0]!.id,
       w: waitB.rows[0]!.id,
@@ -367,6 +373,8 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/faults/:f": { fixed: true },
       "POST /v1/venues/:venueId/rooms/:r/notes": { text: "x" },
       "POST /v1/venues/:venueId/incidents/:incidentId/notes": { text: "x" },
+      "PATCH /v1/venues/:venueId/licenses/:licenseId": { holder: "x" },
+      "POST /v1/venues/:venueId/licenses": { kind: "bmi", file_id: fileB.rows[0]!.id },
       "PATCH /v1/venues/:venueId/room-notes/:noteId": { cleared: true },
       "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
       "POST /v1/venues/:venueId/door-counts": { delta: 1 },

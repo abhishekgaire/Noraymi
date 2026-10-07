@@ -30,6 +30,7 @@ const ADMIN_SECTIONS = [
   "/admin/rooms",
   "/admin/menu",
   "/admin/safety",
+  "/admin/licenses",
   "/admin/connections",
   "/admin/payments",
   "/admin/disputes",
@@ -8548,6 +8549,67 @@ test("Help alert: Room 9 asks privately, the Board pins Manager needed · 1, And
   } finally {
     await db.query("delete from incident_notes");
     await db.query("delete from incidents");
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Licenses (M8-09; screens N35): the register starts empty on the demo
+ * seed and names the music and liquor licenses not on file yet. Andy adds a
+ * test ASCAP license (fixture values, not West 4's) with its number, holder,
+ * expiry, fee, conditions and a PDF copy; a Word file is refused.
+ */
+test("Admin → Licenses: empty with a hint on the seed; Andy adds a license with a PDF copy, and a Word file is refused", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/licenses");
+    const register = page.getByRole("region", { name: "Licenses" });
+    await expect(register.getByTestId("licenses-missing")).toHaveText(
+      "Not on file yet: ASCAP, BMI, SESAC, GMR, Liquor. Add each one from the license itself.",
+    );
+    await expect(register.getByText("No licenses yet.")).toBeVisible();
+
+    await register.getByRole("button", { name: "Add a license" }).click();
+    await register.getByLabel("Kind").selectOption("ascap");
+    await register.getByLabel("Number").fill("E2E-ASCAP-1");
+    await register.getByLabel("Holder").fill("E2E Holder LLC");
+    await register.getByLabel("Expires").fill("2026-10-25");
+    await register.getByLabel("Fee").fill("100.00");
+    await register.getByLabel("Conditions").fill("E2E conditions");
+    const copy = register.getByLabel("Copy (PDF, JPEG or PNG, up to 20 MB)");
+    await copy.setInputFiles({
+      name: "license.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("not a pdf"),
+    });
+    await register.getByRole("button", { name: "Save" }).click();
+    await expect(register.getByRole("alert")).toHaveText(
+      "A copy must be a PDF, JPEG or PNG, up to 20 MB.",
+    );
+    await copy.setInputFiles({
+      name: "license.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n%e2e\n"),
+    });
+    await register.getByRole("button", { name: "Save" }).click();
+
+    const item = register.getByRole("listitem", { name: "ASCAP" });
+    await expect(item).toContainText("E2E-ASCAP-1");
+    await expect(item).toContainText("E2E Holder LLC");
+    await expect(item).toContainText("in 30 days");
+    await expect(item).toContainText("$100.00");
+    await expect(item).toContainText("E2E conditions");
+    await expect(item.getByRole("button", { name: "View copy" })).toBeVisible();
+    await expect(register.getByTestId("licenses-missing")).toHaveText(
+      "Not on file yet: BMI, SESAC, GMR, Liquor. Add each one from the license itself.",
+    );
+  } finally {
     await db.end();
   }
 });

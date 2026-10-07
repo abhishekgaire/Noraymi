@@ -109,6 +109,24 @@ describe("files", () => {
     expect((await upload(again, MB, "application/pdf")).status).toBeGreaterThanOrEqual(400);
   });
 
+  it("a license copy: a 20 MB PDF is asked for, but a 25 MB one or a Word file is refused, by the API and by storage (M8-09)", async () => {
+    expect((await ask("license_copy", "application/pdf", 20 * MB)).statusCode).toBe(201);
+    expect((await ask("license_copy", "image/png", 5 * MB)).statusCode).toBe(201);
+    expect((await ask("license_copy", "application/pdf", 25 * MB)).statusCode).toBe(400);
+    const word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    expect((await ask("license_copy", word, MB)).statusCode).toBe(400);
+    expect((await ask("license_copy", "application/msword", MB)).statusCode).toBe(400);
+    // Storage's own conditions stop a client that asks small and sends 25 MB, or sends a Word file.
+    const small = (await ask("license_copy", "application/pdf", MB)).json() as {
+      upload: { url: string; fields: Record<string, string> };
+    };
+    expect((await upload(small, 25 * MB, "application/pdf")).status).toBeGreaterThanOrEqual(400);
+    const again = (await ask("license_copy", "application/pdf", MB)).json() as {
+      upload: { url: string; fields: Record<string, string> };
+    };
+    expect((await upload(again, MB, word)).status).toBeGreaterThanOrEqual(400);
+  });
+
   it("an upload nothing attaches is gone 24 hours later on the simulated clock; an attached one stays", async () => {
     const kept = (await ask("lost_item_photo", "image/png", MB)).json() as {
       file_id: string;

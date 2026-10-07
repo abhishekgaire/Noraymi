@@ -7,6 +7,7 @@ import type { Clock } from "@west4/shared";
 import type { RegisteredRoute } from "../http/registry.js";
 import type { Principal } from "../http/principal.js";
 import { AUDIT_EXPORT_KIND } from "../jobs/audit-export.js";
+import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
 import { EVENTS_CLEANUP_KIND } from "../jobs/events-cleanup.js";
 import { IDEMPOTENCY_CLEANUP_KIND } from "../jobs/idempotency-cleanup.js";
 import { EMAIL_SEND_KIND } from "../jobs/send-email.js";
@@ -288,6 +289,17 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the audit export didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  [LICENSE_REMINDER_KIND]: {
+    carries: "venue B's ids",
+    pool: "bulk",
+    payload: (c) => ({ venue_id: c.venueB }),
+    // The venue comes from the job row: venue B's id in the payload changes nothing, and its
+    // license (expiring within 30 days of the seed's date) is never reminded from venue A.
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the license reminders didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [MESSAGE_SEND_KIND]: {
     carries: "venue B's ids",
