@@ -19,6 +19,8 @@ const OFFLINE_READS: readonly RegExp[] = [
     `^${VENUE}orders\\?status=${ORDER_STATUSES}(,${ORDER_STATUSES}){0,7}(&business_date=\\d{4}-\\d{2}-\\d{2})?$`,
   ),
   new RegExp(`^${VENUE}checks/${ID}$`),
+  // The team's names and roles (no PIN hashes): queue mode's "who's ringing it" (M8-04).
+  new RegExp(`^${VENUE}team/tiles$`),
 ];
 
 /** The longest answer kept for one read (the board of a large venue stays well under it). */

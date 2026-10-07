@@ -2610,4 +2610,48 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "offline.readOnly.control": "Sin conexión · solo lectura: esto necesita la conexión",
   "signIn.orderWaiting": "{room} · {words}",
   "connection.footer.label": "Conexión",
+  "queue.code.label": "Código sin conexión",
+  "queue.code.hint":
+    "Un gerente lo lee en su teléfono (Códigos sin conexión) o en la tarjeta sellada.",
+  "queue.code.open": "Abrir modo cola",
+  "queue.code.wrong":
+    "Ese código no abre esta computadora. Comprueba que sea para esta computadora y esta noche.",
+  "queue.code.used": "Ese código impreso ya se usó.",
+  "queue.code.notSetUp":
+    "Esta computadora aún no tiene códigos sin conexión: los prepara la próxima vez que esté en línea.",
+  "queue.banner": "Modo cola · hasta las {time} · las rondas quedan en cola, sin cobrar",
+  "queue.locked.control":
+    "Modo cola: anulaciones, reembolsos, la caja y Nueva cuenta esperan a la conexión",
+  "queue.note":
+    "Modo cola · las rondas de cuentas abiertas quedan en cola aquí y se revisan de nuevo cuando vuelva la conexión",
+  "queue.round.title": "Poner una ronda en cola para {name}",
+  "queue.round.who": "Quién la marca",
+  "queue.round.pickWho": "Elige tu nombre",
+  "queue.round.empty": "Toca bebidas a la izquierda para añadirlas.",
+  "queue.round.send": "Poner ronda en cola",
+  "queue.round.remove": "Quitar {name}",
+  "queue.round.cash": "Efectivo cobrado sin conexión (opcional)",
+  "queue.round.cashHint":
+    "Monto y quién lo cobró. Un gerente lo registra en Revisión tras el corte.",
+  "queue.round.tabsOnly": "El modo cola solo acepta rondas en cuentas de barra abiertas.",
+  "queue.round.failed": "Esa ronda no quedó en cola. Inténtalo de nuevo.",
+  "queue.queued": "en cola · sin cobrar",
+  "queue.queuedBy": "{lines} · en cola · sin cobrar · {name}",
+  "queue.list": "Rondas en cola",
+  "offlineCodes.title": "Códigos sin conexión",
+  "offlineCodes.intro":
+    "Cuando el local esté sin conexión, lee en voz alta el código de la computadora al bartender. Este teléfono guarda 12 horas de códigos, así que funcionan aunque nuestra nube no responda.",
+  "offlineCodes.now": "{name} · código ahora",
+  "offlineCodes.until": "Cambia a las {time}",
+  "offlineCodes.none":
+    "Ninguna computadora ha preparado códigos sin conexión todavía. Cada una lo hace la próxima vez que esté en línea.",
+  "offlineCodes.kept": "Guardados en este teléfono · obtenidos a las {time}",
+  "offlineCodes.stale":
+    "Estos códigos ya vencieron. Abre esta pantalla con conexión para obtener nuevos.",
+  "offlineCodes.print": "Imprimir los códigos de un solo uso de esta noche",
+  "offlineCodes.printed": "{name} · códigos de un solo uso para {date}",
+  "offlineCodes.printedHint":
+    "Cada uno funciona una vez, en esta computadora y solo en esta fecha de operación. Guarda la tarjeta sellada.",
+  "offlineCodes.failed":
+    "No se pudieron obtener los códigos. Los guardados en este teléfono siguen funcionando.",
 };

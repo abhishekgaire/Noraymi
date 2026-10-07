@@ -15,6 +15,10 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { alcoholStateAt } from "@west4/rules";
+import { useConnection } from "../connection.js";
+import { useQueue } from "../queue.js";
+import { OfflineCodeForm, QueuedRounds, QueuePanel, type QueueLineSource } from "./QueuePanel.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
@@ -185,7 +189,17 @@ export function Rail() {
   const [wipeLeft, setWipeLeft] = useState(0);
   const [sections, setSections] = useState<PosLayoutSections | null>(null);
   const [items, setItems] = useState<readonly Item[]>([]);
-  const [windowClosed, setWindowClosed] = useState(false);
+  // The alcohol window as the menu last said it; moved on by the clock, so it greys out at 4:00 AM
+  // offline too, from the kept menu (M8-04).
+  const [alcoholHeard, setAlcoholHeard] = useState<{ state: string; changes_at?: string | null }>({
+    state: "open",
+  });
+  const windowClosed = now
+    ? alcoholStateAt(alcoholHeard, now) === "closed"
+    : alcoholHeard.state !== "open";
+  const queue = useQueue();
+  const connection = useConnection();
+  const queueOpen = queue.state.open;
   const [tabs, setTabs] = useState<readonly Tab[]>([]);
   const [rooms, setRooms] = useState<readonly RoomTile[]>([]);
   const [waiting, setWaiting] = useState<readonly WaitingOrder[]>([]);
@@ -238,10 +252,10 @@ export function Rail() {
           "GET",
           `/v1/venues/${venueId}/pos/layouts?station=bar`,
         ),
-        api<{ categories: { items: Item[] }[]; alcohol: { state: string } }>(
-          "GET",
-          `/v1/venues/${venueId}/menu`,
-        ),
+        api<{
+          categories: { items: Item[] }[];
+          alcohol: { state: string; changes_at?: string | null };
+        }>("GET", `/v1/venues/${venueId}/menu`),
         api<{ tabs: Tab[] }>("GET", `/v1/venues/${venueId}/tabs`),
         api<{ rooms: RoomTile[] }>("GET", `/v1/venues/${venueId}/board`),
         api<{ orders: WaitingOrder[]; aging: Aging }>(
@@ -258,7 +272,7 @@ export function Rail() {
       setTerminal(term);
       setSections(layouts.tonight?.sections ?? null);
       setItems(menu.categories.flatMap((c) => c.items));
-      setWindowClosed(menu.alcohol.state !== "open");
+      setAlcoholHeard(menu.alcohol);
       setTabs(tabList.tabs);
       setRooms(board.rooms.filter((r) => r.session?.check_id));
       setWaiting(orders.orders);
@@ -395,6 +409,23 @@ export function Rail() {
   useEffect(() => void loadLines(), [loadLines, tabs, rooms]);
 
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  // Queue mode (M8-04): a tapped variant, as the queued round records it.
+  const queueLookup = useCallback(
+    (variantId: string): QueueLineSource | null => {
+      for (const item of items) {
+        const v = item.variants.find((x) => x.id === variantId);
+        if (v)
+          return {
+            variant_id: v.id,
+            name: item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name,
+            unit_cents: v.price_cents,
+            alcohol: item.alcohol,
+          };
+      }
+      return null;
+    },
+    [items],
+  );
   const nowMs = now?.epochMilliseconds ?? Date.now();
   const ageS = (iso: string) =>
     Math.max(0, Math.floor((nowMs - Temporal.Instant.from(iso).epochMilliseconds) / 1000));
@@ -488,6 +519,14 @@ export function Rail() {
     }
     if (!checkId && picked?.kind !== "quick") {
       setError(t("rail.pickFirst"));
+      return;
+    }
+    // Queue mode takes rounds on open bar tabs only.
+    if (
+      queueOpen &&
+      !(picked?.kind === "tab" && tabs.find((x) => x.id === picked.id)?.state === "open")
+    ) {
+      setError(t("queue.round.tabsOnly"));
       return;
     }
     if (item.variants.length > 1) {
@@ -701,6 +740,13 @@ export function Rail() {
         </div>
       )}
 
+      {queueOpen && queue.state.ends_at ? (
+        <div className="band connection-queue" role="status" data-testid="banner-queue">
+          {t("queue.banner", { time: time(queue.state.ends_at, timeZone) })}
+        </div>
+      ) : (
+        queue.available && connection.kind === "offline" && <OfflineCodeForm />
+      )}
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}
@@ -719,7 +765,7 @@ export function Rail() {
             <button
               type="button"
               className="primary new-tab-button"
-              disabled={!connected}
+              disabled={!connected || connection.kind === "offline"}
               aria-pressed={newTab}
               onClick={() => {
                 setNotice(null);
@@ -728,7 +774,7 @@ export function Rail() {
             >
               {t("newTab.button")}
             </button>
-            {!connected && (
+            {(!connected || connection.kind === "offline") && (
               <p className="small muted" role="status">
                 {t("newTab.offline")}
               </p>
@@ -929,6 +975,7 @@ export function Rail() {
                   <li key={item.id} className={out ? "slot out" : "slot"}>
                     <button
                       type="button"
+                      data-queue={queueOpen ? "" : undefined}
                       disabled={(out && !eightySix) || refused}
                       aria-label={out ? `${name} · ${why}` : `${name} · ${money(price as never)}`}
                       onClick={() => tapItem(item)}
@@ -958,6 +1005,7 @@ export function Rail() {
                       key={v.id}
                       type="button"
                       className="secondary"
+                      data-queue={queueOpen ? "" : undefined}
                       disabled={!eightySix && v.out_tonight}
                       onClick={() => {
                         if (eightySix) void markOut(choosing, { variant_id: v.id }, !v.out_tonight);
@@ -985,7 +1033,12 @@ export function Rail() {
                       </button>
                     )),
                   )}
-                <button type="button" className="link" onClick={() => setChoosing(null)}>
+                <button
+                  type="button"
+                  className="link"
+                  data-queue={queueOpen ? "" : undefined}
+                  onClick={() => setChoosing(null)}
+                >
                   {t("rail.backToSale")}
                 </button>
               </div>
@@ -1319,18 +1372,36 @@ export function Rail() {
                     onSaved={() => void load()}
                   />
                 )}
-                {checkId && closingTab !== tab?.id && !tab?.split && splitting !== tab?.id && (
-                  <AddDrinks
-                    refresh={draftRefresh}
-                    key={checkId}
-                    venueId={venueId}
-                    checkId={checkId}
-                    sessionId={room?.session?.id ?? null}
-                    search={false}
-                    ringRequest={ringRequest}
-                    gift={tab?.state === "open" ? { tabId: tab.id, timeZone } : undefined}
-                    onSent={() => void load()}
-                  />
+                {tab && <QueuedRounds tabId={tab.id} />}
+                {queueOpen ? (
+                  tab?.state === "open" ? (
+                    <QueuePanel
+                      key={`queue-${tab.id}`}
+                      venueId={venueId}
+                      tab={tab}
+                      ringRequest={ringRequest}
+                      lookup={queueLookup}
+                    />
+                  ) : (
+                    <p className="small muted">{t("queue.round.tabsOnly")}</p>
+                  )
+                ) : (
+                  checkId &&
+                  closingTab !== tab?.id &&
+                  !tab?.split &&
+                  splitting !== tab?.id && (
+                    <AddDrinks
+                      refresh={draftRefresh}
+                      key={checkId}
+                      venueId={venueId}
+                      checkId={checkId}
+                      sessionId={room?.session?.id ?? null}
+                      search={false}
+                      ringRequest={ringRequest}
+                      gift={tab?.state === "open" ? { tabId: tab.id, timeZone } : undefined}
+                      onSent={() => void load()}
+                    />
+                  )
                 )}
               </>
             )}

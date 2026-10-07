@@ -86,6 +86,7 @@ import { cutOffRoutes } from "./routes/cut-off.js";
 import { clearOutRoutes } from "./routes/clear-out.js";
 import { printerAuthenticator, printRoutes } from "./routes/print.js";
 import { setRoomCodeKey } from "./rooms/room-code.js";
+import { offlineCodeRoutes, setOfflineCodeKey } from "./routes/offline-codes.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
@@ -352,6 +353,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock });
       routerRoutes(scope, { clock });
+      setOfflineCodeKey(config.auth.secretKey);
+      offlineCodeRoutes(scope, { clock });
       attachedRoutes(scope);
       pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
       teamRoutes(scope, {

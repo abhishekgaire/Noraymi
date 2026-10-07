@@ -186,6 +186,9 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   // Reports (M7-18), for owners and managers while Reports & accounting is on.
   if (can("reports.view") && context.modules.reports !== "off")
     tabs.push({ id: "reports", labelKey: "tabs.reports", path: "/reports" });
+  // Offline codes (M8-04): managers' and owners' phones only keep each computer's codes.
+  if (context.role === "owner" || context.role === "manager")
+    tabs.push({ id: "offlineCodes", labelKey: "offlineCodes.title", path: "/offline-codes" });
   tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
   if (can("admin.access")) tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;

@@ -26,6 +26,12 @@ interface Window {
       save(path: string, json: string): Promise<boolean>;
       read(path: string): Promise<{ synced_at: string; body: unknown } | null>;
     };
+    /** Queue mode (M8-04). */
+    readonly queue?: {
+      state(): Promise<unknown>;
+      unlock(code: string): Promise<unknown>;
+      list(): Promise<unknown[]>;
+    };
     readonly venue: {
       configure(clock: {
         time_zone: string;

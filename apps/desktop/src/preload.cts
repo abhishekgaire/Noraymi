@@ -57,4 +57,19 @@ contextBridge.exposeInMainWorld("west4", {
       server_time: string;
     }): Promise<void> => ipcRenderer.invoke("west4:venue", clock),
   },
+  /**
+   * Queue mode (M8-04): the offline code is checked here, on this computer; queued rounds
+   * wait in the encrypted cache for the replay. The secret goes in once and never comes back.
+   */
+  queue: {
+    fingerprint: (deviceId: string): Promise<string | null> =>
+      ipcRenderer.invoke("west4:queue:fingerprint", deviceId),
+    setSecret: (deviceId: string, secret: string): Promise<void> =>
+      ipcRenderer.invoke("west4:queue:set-secret", deviceId, secret),
+    state: (): Promise<unknown> => ipcRenderer.invoke("west4:queue:state"),
+    unlock: (code: string): Promise<unknown> => ipcRenderer.invoke("west4:queue:unlock", code),
+    end: (): Promise<void> => ipcRenderer.invoke("west4:queue:end"),
+    add: (order: unknown): Promise<unknown> => ipcRenderer.invoke("west4:queue:add", order),
+    list: (): Promise<unknown[]> => ipcRenderer.invoke("west4:queue:list"),
+  },
 });

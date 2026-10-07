@@ -144,11 +144,25 @@ export async function signedApi<T>(
   return withOfflineRead(method, path, () => liveSignedApi<T>(device, method, path, body));
 }
 
+/**
+ * A call as the computer alone, without the signed-in person's session: for what belongs to the device,
+ * such as its offline-code secret (M8-04), whoever happens to be signed in.
+ */
+export function deviceOnlyApi<T>(
+  device: StoredDevice,
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  return withOfflineRead(method, path, () => liveSignedApi<T>(device, method, path, body, false));
+}
+
 async function liveSignedApi<T>(
   device: StoredDevice,
   method: "GET" | "POST",
   path: string,
   body?: unknown,
+  withSession = true,
 ): Promise<T> {
   const payload = body === undefined ? "" : JSON.stringify(body);
   // The signature carries the device's real clock (the API checks it against its own real clock, ±5 minutes,
@@ -164,10 +178,10 @@ async function liveSignedApi<T>(
   try {
     response = await fetch(path, {
       method,
-      credentials: "same-origin",
+      credentials: withSession ? "same-origin" : "omit",
       headers: {
         ...headers,
-        ...sessionHeaders(),
+        ...(withSession ? sessionHeaders() : {}),
         ...(body === undefined ? {} : { "content-type": "application/json" }),
       },
       ...(body === undefined ? {} : { body: payload }),

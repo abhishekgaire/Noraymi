@@ -936,6 +936,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_pairing_codes",
       "router_failover_tests",
       "router_links",
+      // A computer's offline-code secret (M8-04) names the computer.
+      "device_offline_secrets",
       "device_heartbeats",
       "vendor_calls",
       "vendor_health",

@@ -1854,3 +1854,63 @@ a.song-count {
   margin: 4px 0 0;
   padding-left: 18px;
 }
+
+/* Queue mode (M8-04): the code form under the pink banner, the band while it's open, and queued rounds. */
+.band.connection-queue {
+  background: #9d174d;
+  color: #fff;
+}
+.queue-code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.queue-code input {
+  min-height: 44px;
+  font-size: 1.25rem;
+  letter-spacing: 0.15em;
+  width: 10ch;
+}
+.queue-code button,
+.queue-panel button,
+.queue-panel select,
+.queue-panel input {
+  min-height: 44px;
+}
+.queue-code .small,
+.queue-code .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.queue-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.queue-lines {
+  margin: 0;
+  padding-left: 18px;
+}
+.queue-lines button {
+  min-width: 44px;
+}
+.queued-rounds {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.queued-rounds .queued {
+  color: #f9a8d4;
+  font-weight: 600;
+}
+.offline-codes .code-now {
+  font-size: 2.25rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.15em;
+  margin: 4px 0;
+}
+.offline-codes .printed-codes {
+  font-variant-numeric: tabular-nums;
+  columns: 2;
+}

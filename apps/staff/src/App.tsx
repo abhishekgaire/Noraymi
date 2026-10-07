@@ -47,6 +47,7 @@ import { PhoneTonight } from "./screens/PhoneTonight.js";
 import { Calendar } from "./screens/Calendar.js";
 import { MyTips } from "./screens/MyTips.js";
 import { Reports } from "./screens/Reports.js";
+import { OfflineCodes } from "./screens/OfflineCodes.js";
 import { TimeClock } from "./screens/TimeClock.js";
 import { SessionProvider, useSession, type SessionState } from "./session.js";
 import { isShared, readDevice } from "./device.js";
@@ -135,6 +136,7 @@ export function StaffRoutes() {
         <Route path="/clock" element={<TimeClock />} />
         <Route path="/my-tips" element={<MyTips />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/offline-codes" element={<OfflineCodes />} />
         <Route path="/admin" element={<Admin />}>
           <Route index element={<AdminIndex />} />
           <Route path="team" element={<Team />} />

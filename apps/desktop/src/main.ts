@@ -18,6 +18,7 @@ import {
 import { Temporal } from "@west4/shared";
 import { DesktopCache } from "./cache.js";
 import { readOfflineRead, saveOfflineRead } from "./offline.js";
+import { QueueMode } from "./queue.js";
 import { SealedStore, type Sealer } from "./keychain.js";
 import {
   allowedOriginsFrom,
@@ -49,6 +50,7 @@ const sealer: Sealer = {
 
 let tokens: SealedStore;
 let cacheKey: SealedStore;
+let queue: QueueMode;
 let cache: DesktopCache | null = null;
 const updates = new UpdateGate(null);
 const readers = new ReaderHub();
@@ -67,11 +69,24 @@ const toPage = (channel: string, payload: unknown): void => {
 };
 let venueNowOffsetMs: number | null = null;
 
-/** The venue's clock as the server last said it, moved on by the computer's own clock. */
-const venueNow = (): Temporal.Instant | null =>
-  venueNowOffsetMs === null
+/**
+ * The venue's clock as the server last said it, moved on by the computer's own clock. The offset is kept
+ * in the cache (M8-04), so a restart in the middle of an outage keeps the same clock for queue mode.
+ */
+const venueNow = (): Temporal.Instant | null => {
+  if (venueNowOffsetMs === null) {
+    const kept = cache?.metaRead("venue_offset_ms");
+    if (kept && /^-?\d+$/.test(kept)) venueNowOffsetMs = Number(kept);
+  }
+  return venueNowOffsetMs === null
     ? null
     : Temporal.Instant.fromEpochMilliseconds(Date.now() + venueNowOffsetMs);
+};
+/** For queue mode: the venue's clock, or this computer's own before the first sync ever. */
+const queueNow = (): Temporal.Instant => {
+  openCache();
+  return venueNow() ?? Temporal.Now.instant();
+};
 
 /** Started by the operating system at login (M1-29): nobody is signed in, the device is still paired. */
 const openedAtLogin = (): boolean =>
@@ -208,6 +223,7 @@ function registerIpc(): void {
       updates.setClock({ timeZone: c.time_zone, dayCutover: c.day_cutover });
       if (typeof c.server_time === "string") {
         venueNowOffsetMs = Temporal.Instant.from(c.server_time).epochMilliseconds - Date.now();
+        opened.metaWrite("venue_offset_ms", String(venueNowOffsetMs));
         opened.wipeIfPastCutover(c.server_time);
       }
     }),
@@ -228,11 +244,43 @@ function registerIpc(): void {
     guarded((p: unknown) => {
       const opened = openCache();
       if (!opened) return null;
-      // Restarted while offline, the venue's clock is this computer's own.
+      // Restarted while offline, the venue's clock is the last one kept, else this computer's own.
       return readOfflineRead(opened, venueNow() ?? Temporal.Now.instant(), p);
     }),
   );
+  // Queue mode (M8-04): the code is checked here, and queued rounds are kept in the encrypted cache.
+  ipcMain.handle(
+    "west4:queue:fingerprint",
+    guarded((deviceId: unknown) => queue.fingerprint(deviceId)),
+  );
+  ipcMain.handle(
+    "west4:queue:set-secret",
+    guarded((deviceId: unknown, secret: unknown) => queue.setSecret(deviceId, secret)),
+  );
+  ipcMain.handle(
+    "west4:queue:state",
+    guarded(() => queue.state(queueNow())),
+  );
+  ipcMain.handle(
+    "west4:queue:unlock",
+    guarded((code: unknown) => queue.unlock(queueNow(), code)),
+  );
+  ipcMain.handle(
+    "west4:queue:end",
+    guarded(() => queue.end()),
+  );
+  ipcMain.handle(
+    "west4:queue:add",
+    guarded((order: unknown) => queue.add(queueNow(), order)),
+  );
+  ipcMain.handle(
+    "west4:queue:list",
+    guarded(() => queue.list()),
+  );
 }
+
+/** How long the first load of the staff app may take before it's asked for again. */
+const LOAD_RETRY_MS = 10_000;
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -248,6 +296,17 @@ function createWindow(): BrowserWindow {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   void window.loadURL(staffUrl);
+  // Opened again after being killed (a crash, or the watchdog's relaunch), the first load can stall on the
+  // service worker the killed app left behind (M8-04's kill test): it's asked for again until it lands.
+  let loaded = false;
+  window.webContents.once("did-finish-load", () => (loaded = true));
+  const retry = (left: number) =>
+    setTimeout(() => {
+      if (loaded || window.isDestroyed()) return;
+      void window.loadURL(staffUrl).catch(() => undefined);
+      if (left > 1) retry(left - 1);
+    }, LOAD_RETRY_MS).unref();
+  retry(3);
   mainWindow = window;
   return window;
 }
@@ -276,6 +335,12 @@ void app.whenReady().then(() => {
   const userData = app.getPath("userData");
   tokens = new SealedStore(path.join(userData, "session.token"), sealer);
   cacheKey = new SealedStore(path.join(userData, "cache.key"), sealer);
+  // The offline-code secret (M8-04): sealed by the keychain, like the token and the cache's key.
+  queue = new QueueMode(
+    new SealedStore(path.join(userData, "offline.secret"), sealer),
+    openCache,
+    () => openCache()?.venueClock() ?? null,
+  );
   // At login nobody is signed in: the last person's token goes; the device key (in the page's own storage) stays.
   if (openedAtLogin()) tokens.clear();
   // Start at login, and keep the computer and its screen awake while the app runs.

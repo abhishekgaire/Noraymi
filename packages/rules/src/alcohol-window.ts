@@ -71,3 +71,19 @@ export function clearOutDue(
 ): Temporal.Instant {
   return windowClose(venue, date).add({ minutes: venue.alcohol.drinkingUpMin });
 }
+
+/**
+ * The alcohol window as a screen last heard it ({ state, changes_at }, the
+ * menu's answer), moved on to `at`: once the change it named has passed, the
+ * state has flipped. Offline (M8-04) the bar POS greys alcohol out at 4:00 AM
+ * from the kept menu exactly as it does online; the server checks again.
+ */
+export function alcoholStateAt(
+  heard: { readonly state: string; readonly changes_at?: string | null },
+  at: Temporal.Instant,
+): "open" | "closed" {
+  const state = heard.state === "open" ? "open" : "closed";
+  if (!heard.changes_at) return state;
+  if (Temporal.Instant.compare(at, Temporal.Instant.from(heard.changes_at)) < 0) return state;
+  return state === "open" ? "closed" : "open";
+}

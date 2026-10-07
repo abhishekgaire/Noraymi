@@ -107,9 +107,15 @@ describe("the staff phone's tabs (M2-32)", () => {
       "clock",
       "mytips",
       "reports",
+      "offlineCodes",
       "alerts",
       "admin",
     ]);
+  });
+
+  it("Offline codes (M8-04) are on managers' and owners' phones only", () => {
+    for (const role of roles)
+      expect(tabsFor(role).includes("offlineCodes")).toBe(role === "owner" || role === "manager");
   });
 
   it("Clock in and out (M7-01) and My tips (M7-10) leave every phone with Team, time clock & tips off", () => {

@@ -12,6 +12,8 @@ import { useSession } from "../session.js";
 import { WaitingStrip } from "../approvals/WaitingStrip.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
 import { OfflineSync, ReadOnlyWhileOffline } from "./ReadOnly.js";
+import { QueueProvider } from "../queue.js";
+import { OfflineCodesSync } from "../screens/OfflineCodes.js";
 import { useUnreadTexts, useWaitingOrders } from "./unread.js";
 
 /**
@@ -185,17 +187,23 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
       </nav>
       <main id="main" className="content">
         <WaitingStrip venueId={membership.venue_id} />
+        {/* Offline codes (M8-04): kept on managers' and owners' phones, never on a shared computer. */}
+        {(membership.role === "owner" || membership.role === "manager") &&
+          typeof window !== "undefined" &&
+          !window.west4 && <OfflineCodesSync venueId={membership.venue_id} />}
         <OfflineSync
           venueId={membership.venue_id}
           timeZone={membership.venue.time_zone}
           cutover={membership.venue.day_cutover}
         />
-        <ReadOnlyWhileOffline
-          active={outageScreen && connection.kind === "offline"}
-          timeZone={membership.venue.time_zone}
-        >
-          <Outlet />
-        </ReadOnlyWhileOffline>
+        <QueueProvider>
+          <ReadOnlyWhileOffline
+            active={outageScreen && connection.kind === "offline"}
+            timeZone={membership.venue.time_zone}
+          >
+            <Outlet />
+          </ReadOnlyWhileOffline>
+        </QueueProvider>
       </main>
       <nav className="tabs" aria-label={t("menu.title")}>
         {tabs.map((tab) => (

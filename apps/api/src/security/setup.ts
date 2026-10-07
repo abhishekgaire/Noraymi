@@ -335,6 +335,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
         lte_owner: null,
       },
       "POST /v1/venues/:venueId/routers/:d/failover-tests": { passed: true },
+      "POST /v1/venues/:venueId/devices/offline-secret": { fingerprint: null },
       "PATCH /v1/venues/:venueId/modules/:id": { state: "off" },
       "PUT /v1/venues/:venueId/settings/:key": { value: { weekly: [], lastCall: null } },
       "PATCH /v1/venues/:venueId/permissions/:role/:action": { allowed: true },

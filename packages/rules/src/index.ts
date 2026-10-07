@@ -49,7 +49,7 @@ export type { ReasonOnlyAnswer, ReasonOnlyLimits } from "./reason-only.js";
 export { routeApproval } from "./approvals.js";
 export type { Person as ApprovalPerson } from "./approvals.js";
 export { smsKeyword } from "./sms-keywords.js";
-export { alcoholWindow, clearOutDue, windowClose } from "./alcohol-window.js";
+export { alcoholStateAt, alcoholWindow, clearOutDue, windowClose } from "./alcohol-window.js";
 export type { AlcoholVenue, AlcoholWindow } from "./alcohol-window.js";
 export { promotionChecks } from "./promotions.js";
 export type {
@@ -99,3 +99,20 @@ export { payrollCsv, payrollRows } from "./payroll.js";
 export type { PayrollRow, PayrollShift } from "./payroll.js";
 export { taxQuarterOf } from "./tax-quarter.js";
 export type { TaxQuarter } from "./tax-quarter.js";
+export {
+  checkOfflineCode,
+  normalizeOfflineCode,
+  offlineCodeAt,
+  offlineSecretFingerprint,
+  printedOfflineCodes,
+  queueModeEndsAt,
+  upcomingOfflineCodes,
+  OFFLINE_CODE_DIGITS,
+  OFFLINE_CODE_SKEW_STEPS,
+  OFFLINE_CODE_STEP_SECONDS,
+  OFFLINE_CODES_AHEAD_HOURS,
+  PRINTED_CODE_DIGITS,
+  PRINTED_CODES_PER_NIGHT,
+  QUEUE_MODE_HOURS,
+} from "./offline-codes.js";
+export type { Hmac, OfflineCodeCheck, OfflineCodeScope, UpcomingCode } from "./offline-codes.js";

@@ -31,6 +31,9 @@ export interface VenueClock {
   readonly dayCutover: string;
 }
 
+/** The one kind of row the cutover keeps: rounds queued offline that haven't replayed yet. */
+const KEPT_PAST_CUTOVER = "queued";
+
 export class DesktopCache {
   private constructor(
     private readonly db: Database,
@@ -66,6 +69,11 @@ export class DesktopCache {
     this.metaSet("clock", JSON.stringify(clock));
   }
 
+  /** The venue's clock as last configured, kept across restarts. */
+  venueClock(): VenueClock | null {
+    return this.clock;
+  }
+
   /** The business date the rows belong to, or null when the cache is empty. */
   businessDate(): string | null {
     return this.metaGet("business_date");
@@ -81,7 +89,8 @@ export class DesktopCache {
     const today = this.today(now);
     const stored = this.businessDate();
     if (!today || !stored || stored === today) return false;
-    this.db.exec("delete from rows");
+    // Queued rounds (M8-04) wait for the replay whatever the date: the server checks their date then.
+    this.db.prepare("delete from rows where kind <> ?").run(KEPT_PAST_CUTOVER);
     this.metaSet("business_date", today);
     return true;
   }
@@ -115,6 +124,19 @@ export class DesktopCache {
 
   close(): void {
     this.db.close();
+  }
+
+  /** A small value of the desktop app's own (queue mode, the venue clock's offset). */
+  metaRead(k: string): string | null {
+    return this.metaGet(k);
+  }
+
+  metaWrite(k: string, v: string): void {
+    this.metaSet(k, v);
+  }
+
+  metaDelete(k: string): void {
+    this.db.prepare("delete from meta where k = ?").run(k);
   }
 
   private metaGet(k: string): string | null {

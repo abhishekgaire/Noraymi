@@ -1,10 +1,12 @@
 import { offlinePrefetchPaths } from "@west4/shared";
 import { useEffect, useRef, type ReactNode } from "react";
 import { api } from "../api.js";
+import { deviceOnlyApi, isShared, readDevice } from "../device.js";
 import { useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { offlineStore, useKeptAt } from "../offline.js";
+import { useQueue } from "../queue.js";
 
 /**
  * Under the pink banner (M8-03; spec 09 · Offline and queue mode) the board,
@@ -28,7 +30,11 @@ export function ReadOnlyWhileOffline({
   const { t, time } = useT();
   const keptAt = useKeptAt();
   const ref = useRef<HTMLDivElement>(null);
-  const reason = t("offline.readOnly.control");
+  // Queue mode (M8-04): rounds on open tabs queue on this computer (`data-queue` controls); the rest
+  // (voids, refunds, the drawer, New tab) stays locked, saying why.
+  const queueing = useQueue().state.open;
+  const reason = queueing ? t("queue.locked.control") : t("offline.readOnly.control");
+  const live = queueing ? "[data-view], [data-queue]" : "[data-view]";
   useEffect(() => {
     const root = ref.current;
     if (!active || !root) return;
@@ -36,7 +42,7 @@ export function ReadOnlyWhileOffline({
     const touched = new Map<HTMLButtonElement, string | null>();
     const apply = () => {
       for (const el of root.querySelectorAll<HTMLButtonElement>(CONTROLS)) {
-        if (el.disabled || el.closest("[data-view]")) continue;
+        if (el.disabled || el.closest(live)) continue;
         touched.set(el, el.getAttribute("title"));
         el.disabled = true;
         el.setAttribute("title", reason);
@@ -60,14 +66,16 @@ export function ReadOnlyWhileOffline({
         delete el.dataset["offlineReadOnly"];
       }
     };
-  }, [active, reason]);
+  }, [active, reason, live]);
   return (
     <div ref={ref} className={active ? "read-only-offline" : undefined}>
       {active && (
         <p className="notice read-only-note" role="note" data-testid="read-only-note">
-          {keptAt
-            ? t("offline.readOnly.asOf", { time: time(keptAt, timeZone) })
-            : t("offline.readOnly.note")}
+          {queueing
+            ? t("queue.note")
+            : keptAt
+              ? t("offline.readOnly.asOf", { time: time(keptAt, timeZone) })
+              : t("offline.readOnly.note")}
         </p>
       )}
       {children}
@@ -124,6 +132,12 @@ export function OfflineSync({
           api<unknown>("GET", `/v1/venues/${venueId}/checks/${id}`).catch(() => null),
         ),
       );
+      // The team's name tiles, signed by the computer (M8-04): queue mode's "who's ringing it".
+      const device = await readDevice().catch(() => null);
+      if (device && device.venueId === venueId && isShared(device))
+        await deviceOnlyApi<unknown>(device, "GET", `/v1/venues/${venueId}/team/tiles`).catch(
+          () => null,
+        );
     };
     void sync();
     const timer = setInterval(() => void sync(), OFFLINE_SYNC_MS);

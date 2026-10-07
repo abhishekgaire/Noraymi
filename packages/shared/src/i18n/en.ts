@@ -2561,4 +2561,45 @@ export const en = {
   "offline.readOnly.control": "Offline · read-only: this needs the connection",
   "signIn.orderWaiting": "{room} · {words}",
   "connection.footer.label": "Connection",
+  "queue.code.label": "Offline code",
+  "queue.code.hint": "A manager reads it from their phone (Offline codes) or the sealed card.",
+  "queue.code.open": "Open queue mode",
+  "queue.code.wrong":
+    "That code doesn't open this computer. Check it's for this computer and tonight.",
+  "queue.code.used": "That printed code was already used.",
+  "queue.code.notSetUp":
+    "This computer has no offline codes yet: it sets them up the next time it's online.",
+  "queue.banner": "Queue mode · until {time} · rounds are queued, not charged",
+  "queue.locked.control":
+    "Queue mode: voids, refunds, the drawer and New tab wait for the connection",
+  "queue.note":
+    "Queue mode · rounds on open tabs queue here and are checked again when the connection returns",
+  "queue.round.title": "Queue a round on {name}",
+  "queue.round.who": "Who's ringing it",
+  "queue.round.pickWho": "Pick your name",
+  "queue.round.empty": "Tap drinks on the left to add them.",
+  "queue.round.send": "Queue round",
+  "queue.round.remove": "Remove {name}",
+  "queue.round.cash": "Cash taken offline (optional)",
+  "queue.round.cashHint": "Amount and who took it. A manager posts it on Review after outage.",
+  "queue.round.tabsOnly": "Queue mode takes rounds on open bar tabs only.",
+  "queue.round.failed": "That round wasn't queued. Try again.",
+  "queue.queued": "queued · not charged",
+  "queue.queuedBy": "{lines} · queued · not charged · {name}",
+  "queue.list": "Queued rounds",
+  "offlineCodes.title": "Offline codes",
+  "offlineCodes.intro":
+    "When the venue is offline, read the computer's code out to the bartender. This phone keeps 12 hours of codes, so they work even when our cloud is down.",
+  "offlineCodes.now": "{name} · code now",
+  "offlineCodes.until": "Changes at {time}",
+  "offlineCodes.none":
+    "No computer has set up offline codes yet. Each one does when it's next online.",
+  "offlineCodes.kept": "Kept on this phone · fetched at {time}",
+  "offlineCodes.stale":
+    "These codes have run out. Open this screen while online to fetch new ones.",
+  "offlineCodes.print": "Print tonight's one-time codes",
+  "offlineCodes.printed": "{name} · one-time codes for {date}",
+  "offlineCodes.printedHint":
+    "Each works once, on this computer, on this business date only. Keep the card sealed.",
+  "offlineCodes.failed": "Couldn't fetch the codes. The ones kept on this phone still work.",
 } as const;

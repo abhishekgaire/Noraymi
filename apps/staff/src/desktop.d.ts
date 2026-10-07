@@ -34,6 +34,16 @@ interface West4Desktop {
     save(path: string, json: string): Promise<boolean>;
     read(path: string): Promise<{ synced_at: string; body: unknown } | null>;
   };
+  /** Queue mode (M8-04): the offline code is checked on the computer; queued rounds wait in its cache. */
+  readonly queue?: {
+    fingerprint(deviceId: string): Promise<string | null>;
+    setSecret(deviceId: string, secret: string): Promise<void>;
+    state(): Promise<unknown>;
+    unlock(code: string): Promise<unknown>;
+    end(): Promise<void>;
+    add(order: unknown): Promise<unknown>;
+    list(): Promise<unknown[]>;
+  };
   readonly venue: {
     configure(clock: {
       time_zone: string;

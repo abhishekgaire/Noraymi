@@ -1,10 +1,14 @@
 import path from "node:path";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { _electron as electron, expect, test, type ElectronApplication } from "@playwright/test";
 import pg from "pg";
+import { offlineCodeAt } from "@west4/rules";
+import { Temporal } from "@west4/shared";
+import { loadConfig } from "../apps/api/src/config.js";
+import { decryptSecret } from "../packages/db/src/auth.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const desktopDir = path.resolve(here, "..", "apps", "desktop");
@@ -398,6 +402,227 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
     expect(cache).not.toContain("Hoegaarden");
     expect(cache.startsWith("SQLite format 3")).toBe(false);
   } finally {
+    await db.end();
+    await app.close();
+  }
+});
+
+/**
+ * Queue mode on the bar computer (M8-04), from a fresh seed at the given venue time: the bar computer is
+ * paired and sets up its offline-code secret, Maya signs in to the bar POS, and the code Andy's phone
+ * shows for the bar computer right now is read. Returns the code.
+ */
+async function queueNight(serverTime: string) {
+  const { execSync } = await import("node:child_process");
+  execSync("pnpm seed", { stdio: "ignore" });
+  const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
+  const app = await launch(userData);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const page = await app.firstWindow();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
+  await db.query("update memberships set locale = 'en'");
+  const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+  const pairing = randomBytes(4).toString("hex").toUpperCase();
+  await db.query(
+    "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, 'bar_computer', 'Bar computer', now() + interval '1 hour')",
+    [venueId, createHash("sha256").update(pairing).digest("hex")],
+  );
+  expect(
+    (
+      await page.request.post("http://localhost:5173/v1/ops/clock", {
+        data: { server_time: serverTime },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Pair this screen" }).click();
+  await page.getByLabel("Pairing code from Admin → Devices").fill(pairing);
+  await page.getByRole("button", { name: "Pair", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+  const signIn = async (name: RegExp, pin: string) => {
+    await page.getByRole("button", { name }).click();
+    for (const digit of pin)
+      await page.locator(".keypad").getByRole("button", { name: digit, exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Staff sign-in");
+  };
+  // Maya signs in. Online, the bar computer sets up its offline-code secret with the server.
+  await signIn(/Maya S\./, "4071");
+  await page.getByRole("link", { name: "Bar POS" }).first().click();
+  await expect(page.getByRole("list", { name: "Bar tabs" })).toBeVisible();
+  // The desktop app has kept what queue mode needs: the tabs, the menu and the team's names.
+  const v = `/v1/venues/${venueId}`;
+  for (const p of [`${v}/tabs`, `${v}/menu`, `${v}/team/tiles`])
+    await expect
+      .poll(() => page.evaluate((x) => window.west4!.offline!.read(x).then(Boolean), p), {
+        timeout: 20_000,
+      })
+      .toBe(true);
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.query<{ n: number }>(
+            "select count(*)::int as n from device_offline_secrets where venue_id = $1",
+            [venueId],
+          )
+        ).rows[0]!.n,
+      { timeout: 20_000 },
+    )
+    .toBe(1);
+  // The code Andy's phone shows right now: the server's copy of the bar computer's secret, through
+  // the same rule as GET /offline-codes (the staff test "Offline codes: Andy's phone …" shows it there).
+  const code = async () => {
+    const row = (
+      await db.query<{ device_id: string; secret_enc: string }>(
+        "select device_id, secret_enc from device_offline_secrets where venue_id = $1",
+        [venueId],
+      )
+    ).rows[0]!;
+    const config = loadConfig({
+      WEST4_ENV: "local",
+      DATABASE_URL: "postgres://unused",
+      APP_DATABASE_URL: "postgres://unused",
+    });
+    const secret = decryptSecret(config.auth.secretKey, row.secret_enc);
+    const health = (await (await page.request.get("http://localhost:5173/v1/health")).json()) as {
+      server_time: string;
+    };
+    return offlineCodeAt(
+      (k, m) => createHmac("sha256", Buffer.from(k, "hex")).update(m).digest(),
+      secret,
+      { deviceId: row.device_id, timeZone: "America/New_York", dayCutover: "06:00" },
+      Temporal.Instant.from(health.server_time),
+    );
+  };
+  const goOffline = () =>
+    app.evaluate(({ session }) => {
+      session.defaultSession.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (d, done) =>
+        done({ cancel: d.url.includes("/v1/") }),
+      );
+    });
+  // Read now, while our API still answers (the venue's clock).
+  const now = await code();
+  return { app, db, page, code: now, userData, venueId, goOffline };
+}
+
+test("queue mode: Andy's code opens it, Maya queues 1 × Jäger Bomb on Luis M.'s tab, the rest stays locked, and a kill loses nothing", async () => {
+  test.setTimeout(240_000);
+  const { app, db, page, code, userData, goOffline } = await queueNight("2026-09-26T02:41:00Z");
+  let relaunched: ElectronApplication | null = null;
+  try {
+    await goOffline();
+    await expect(page.getByTestId("banner-offline")).toHaveText(
+      "Offline · read-only · orders queue with an offline code",
+      { timeout: 20_000 },
+    );
+    // A wrong code opens nothing.
+    const field = page.getByLabel("Offline code");
+    await field.fill(code === "000000" ? "000001" : "000000");
+    await page.getByRole("button", { name: "Open queue mode" }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "That code doesn't open this computer. Check it's for this computer and tonight.",
+    );
+    await expect(page.getByTestId("banner-queue")).toHaveCount(0);
+    // Andy reads out the bar computer's code: queue mode, for 4 hours.
+    await field.fill(code);
+    await page.getByRole("button", { name: "Open queue mode" }).click();
+    await expect(page.getByTestId("banner-queue")).toHaveText(
+      /^Queue mode · until [2-3]:\d\d AM · rounds are queued, not charged$/,
+    );
+    await expect(page.getByTestId("read-only-note")).toContainText(
+      "Queue mode · rounds on open tabs",
+    );
+
+    // New tab, and fixing (Void) a sent drink, stay locked, saying why.
+    await expect(page.getByRole("button", { name: "New tab" })).toBeDisabled();
+    await expect(page.getByText("No new tabs while the bar computer is offline.")).toBeVisible();
+    const tabs = page.getByRole("list", { name: "Bar tabs" });
+    await tabs.getByRole("button", { name: /Luis M\./ }).click();
+    const fix = page.getByRole("button", { name: /^Fix · / }).first();
+    await expect(fix).toBeDisabled();
+    await expect(fix).toHaveAttribute(
+      "title",
+      "Queue mode: voids, refunds, the drawer and New tab wait for the connection",
+    );
+    const close = page.getByRole("button", { name: "Close tab" });
+    if (await close.count()) await expect(close).toBeDisabled();
+
+    // Maya queues 1 × Jäger Bomb on Luis M.'s tab, under her own name.
+    await expect(page.getByRole("heading", { name: "Queue a round on Luis M." })).toBeVisible();
+    await page.getByLabel("Search the menu").fill("Jäger");
+    await page.getByRole("button", { name: /^Jäger Bomb · \$12\.00$/ }).click();
+    await expect(page.locator(".queue-lines")).toHaveText(/1 × Jäger Bomb/);
+    await page.getByLabel("Who's ringing it").selectOption({ label: "Maya S." });
+    await page.getByRole("button", { name: "Queue round" }).click();
+    const queued = page.getByRole("list", { name: "Queued rounds" });
+    await expect(queued).toHaveText("1 × Jäger Bomb · queued · not charged · Maya S.");
+    const ids = await page.evaluate(() =>
+      window.west4!.queue!.list().then((l) => l.map((o) => (o as { order_id: string }).order_id)),
+    );
+    expect(ids).toHaveLength(1);
+
+    // Killed mid-outage: the queued round is still there when the app opens again.
+    const exited = new Promise((r) => app.process().once("exit", r));
+    app.process().kill("SIGKILL");
+    await exited;
+    // Its helper processes go with it; the profile lock they held goes stale.
+    await new Promise((r) => setTimeout(r, 3_000));
+    relaunched = await launch(userData);
+    const again = await relaunched.firstWindow({ timeout: 60_000 });
+    await expect
+      .poll(
+        () =>
+          again.evaluate(() =>
+            window.west4!.queue!.list().then((l) =>
+              l.map((o) => {
+                const x = o as { order_id: string; tab_name: string; staff: { name: string } };
+                return `${x.order_id} ${x.tab_name} ${x.staff.name}`;
+              }),
+            ),
+          ),
+        { timeout: 20_000 },
+      )
+      .toEqual([`${ids[0]} Luis M. Maya S.`]);
+    const cache = readFileSync(path.join(userData, "cache.sqlite"), "latin1");
+    expect(cache).not.toContain("Luis M.");
+  } finally {
+    await db.end();
+    await relaunched?.close();
+    await app.close().catch(() => undefined);
+  }
+});
+
+test("queue mode: past 4:00 AM on the simulated clock, alcohol greys out from the kept menu as online", async () => {
+  test.setTimeout(240_000);
+  // 3:58:45 AM: the menu kept before the outage still says the alcohol window is open.
+  const { app, db, page, code, venueId, goOffline } = await queueNight("2026-09-26T07:58:45Z");
+  try {
+    const menu = await page.evaluate(
+      (p) => window.west4!.offline!.read(p),
+      `/v1/venues/${venueId}/menu`,
+    );
+    expect((menu!.body as { alcohol: { state: string } }).alcohol.state).toBe("open");
+    await goOffline();
+    await page.getByLabel("Offline code").fill(code);
+    await page.getByRole("button", { name: "Open queue mode" }).click();
+    await expect(page.getByTestId("banner-queue")).toBeVisible();
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Luis M\./ })
+      .click();
+    await page.getByLabel("Search the menu").fill("Jäger");
+    // At 4:00 AM, with no connection, the Jäger Bomb greys out with the reason, as it does online.
+    await expect(
+      page.getByRole("button", { name: "Jäger Bomb · No alcohol now · the window has closed" }),
+    ).toBeDisabled({ timeout: 90_000 });
+  } finally {
+    // Back to the seed's 10:41 PM for the specs that run after this one.
+    await page.request
+      .post("http://localhost:5173/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      .catch(() => undefined);
     await db.end();
     await app.close();
   }

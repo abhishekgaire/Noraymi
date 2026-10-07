@@ -33,6 +33,7 @@
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.4",
     "@types/pg": "8.23.1",
+    "@west4/rules": "workspace:*",
     "@west4/shared": "workspace:*",
     "eslint": "10.11.0",
     "eslint-config-prettier": "10.1.8",

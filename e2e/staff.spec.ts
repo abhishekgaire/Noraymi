@@ -1,11 +1,12 @@
 import { expect, test, type Browser, type Page, type APIRequestContext } from "@playwright/test";
 import { execSync, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
 import { fakeFingerprint } from "../apps/api/src/stripe/fake/payments.js";
-import { catalogs, Temporal } from "@west4/shared";
+import { catalogs, makeDeviceKey, signDeviceRequest, Temporal } from "@west4/shared";
+import { offlineCodeAt } from "@west4/rules";
 import { sweepRouters } from "../apps/api/src/jobs/router-watch.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 
@@ -8202,6 +8203,78 @@ test("Twilio trouble: Texts are delayed, Text still works, and Amara B.'s failed
     await expect(page.getByTestId("banner-twilio")).toHaveText("Texts are delayed");
     await page.getByRole("button", { name: /^Waitlist · \d$/ }).click();
     await expect(amara).toContainText("Not delivered · Call (347) 555-0177");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Offline codes on Andy's phone (M8-04; screens N29): the bar computer has set up its secret while
+ * online; Andy's phone fetches and keeps its codes, and with our API unreachable still shows the bar
+ * computer's code right now, the one the bar computer itself accepts.
+ */
+test("Offline codes: Andy's phone keeps the bar computer's codes and shows them with our API down", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    // The bar computer, with a key this test holds, sets up its offline-code secret.
+    const key = await makeDeviceKey();
+    const bar = (
+      await db.query<{ id: string }>(
+        "update devices set public_key = $2 where venue_id = $1 and kind = 'bar_computer' returning id",
+        [venueId, JSON.stringify(key.publicJwk)],
+      )
+    ).rows[0]!.id;
+    const path = `/v1/venues/${venueId}/devices/offline-secret`;
+    const body = JSON.stringify({ fingerprint: null });
+    const signed = await signDeviceRequest({
+      deviceId: bar,
+      privateKey: key.privateKey,
+      method: "POST",
+      path,
+      body,
+    });
+    const setup = await request.post(path, {
+      headers: { ...signed, "content-type": "application/json" },
+      data: body,
+    });
+    expect(setup.status(), await setup.text()).toBe(200);
+    const secret = ((await setup.json()) as { secret: string }).secret;
+    const hmac = (k: string, m: string) =>
+      createHmac("sha256", Buffer.from(k, "hex")).update(m).digest();
+    const expected = async () => {
+      const now = ((await (await request.get("/v1/health")).json()) as { server_time: string })
+        .server_time;
+      const code = offlineCodeAt(
+        hmac,
+        secret,
+        { deviceId: bar, timeZone: "America/New_York", dayCutover: "06:00" },
+        Temporal.Instant.from(now),
+      );
+      return `${code.slice(0, 3)} ${code.slice(3)}`;
+    };
+
+    await signInAndy(page, request, db);
+    await page.getByRole("link", { name: "Offline codes" }).click();
+    const card = page.getByRole("listitem", { name: "Bar computer" });
+    await expect(card.getByRole("heading")).toHaveText("Bar computer · code now");
+    await expect(card.getByTestId("code-bar_computer")).toHaveText(await expected());
+    await expect(card).toContainText(/Changes at \d+:\d\d [AP]M/);
+    await expect(page.getByText(/Kept on this phone · fetched at/)).toBeVisible();
+
+    // Our API stops answering: the phone still shows the code it kept.
+    await page.route("**/v1/**", (route) => route.abort());
+    await page.getByRole("link", { name: "Calls" }).click();
+    await page.getByRole("link", { name: "Offline codes" }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "Couldn't fetch the codes. The ones kept on this phone still work.",
+    );
+    await expect(card.getByTestId("code-bar_computer")).toHaveText(await expected());
   } finally {
     await db.end();
   }

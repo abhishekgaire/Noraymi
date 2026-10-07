@@ -9,6 +9,8 @@ describe("the offline view's reads (M8-03)", () => {
       expect(isOfflineRead(p), p).toBe(true);
     expect(isOfflineRead(`${V}/checks/5d1e2c1a-0000-4000-8000-000000000009`)).toBe(true);
     expect(isOfflineRead(`${V}/orders?status=cancelled&business_date=2026-09-25`)).toBe(true);
+    // Queue mode's "who's ringing it" (M8-04): names and roles only.
+    expect(isOfflineRead(`${V}/team/tiles`)).toBe(true);
   });
 
   it("keeps nothing else: no sign-in, no writes' routes, no other venue-free path", () => {
@@ -20,6 +22,7 @@ describe("the offline view's reads (M8-03)", () => {
       `${V}/orders?status=ringing;drop`,
       `${V}/checks/../auth`,
       `${V}/board?x=1`,
+      `${V}/team/abc/reset-pin`,
       "/v1/venues/../board",
     ])
       expect(isOfflineRead(p), p).toBe(false);
