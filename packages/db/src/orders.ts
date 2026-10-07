@@ -73,6 +73,10 @@ export interface OrderRow {
   readonly ticket_status: string | null;
   /** The approver a pending void of this returned order waits for (M3-25). */
   readonly approval_waiting_for: string | null;
+  /** A bar tab's name, for an order on a tab (no room). */
+  readonly tab_name: string | null;
+  /** A replayed offline order (M8-05): who queued it at the bar computer. */
+  readonly queued_by: string | null;
   readonly amount_cents: number;
   readonly items: OrderItemRow[];
 }
@@ -127,6 +131,8 @@ const ORDER_COLS = [
   "(select j.id from print_jobs j where j.venue_id = o.venue_id and j.order_id = o.id order by j.created_at desc, j.reprint_n desc limit 1) as ticket_job_id",
   "(select j.status from print_jobs j where j.venue_id = o.venue_id and j.order_id = o.id order by j.created_at desc, j.reprint_n desc limit 1) as ticket_status",
   "(select u.name from approvals a join users u on u.id = a.routed_to where a.venue_id = o.venue_id and a.target_kind = 'order' and a.target_id = o.id and a.status = 'pending' limit 1) as approval_waiting_for",
+  "(select t.name from tabs t where t.venue_id = o.venue_id and t.check_id = o.check_id limit 1) as tab_name",
+  "(select x.staff_name from offline_replays x where x.venue_id = o.venue_id and x.order_id = o.id) as queued_by",
 ].join(", ");
 
 const FROM = `orders o

@@ -146,6 +146,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   s: uuid(54),
   p: uuid(55),
   e: uuid(56),
+  replayId: uuid(57),
 };
 
 export function fillUrl(

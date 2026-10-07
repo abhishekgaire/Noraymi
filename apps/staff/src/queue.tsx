@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -88,6 +89,32 @@ export async function ensureOfflineSecret(): Promise<void> {
   if (answer.secret) await q.setSecret(answer.device_id, answer.secret);
 }
 
+/** How many rounds go up in one replay request. */
+const REPLAY_BATCH = 100;
+
+/**
+ * The replay (M8-05; spec 09 · Replay): upload every queued round, signed as this computer.
+ * The server checks each again and answers it as asked to wait or on Review after outage;
+ * only the answered rounds leave the queue, so a lost answer just sends them again, and the
+ * server's order id lands each one once.
+ */
+export async function replayQueue(rounds: readonly QueuedRound[]): Promise<number> {
+  const q = bridge();
+  const device = await readDevice();
+  if (!q || !device || rounds.length === 0) return 0;
+  let settled = 0;
+  for (let i = 0; i < rounds.length; i += REPLAY_BATCH) {
+    const answer = await deviceOnlyApi<{ results: { order_id: string }[] }>(
+      device,
+      "POST",
+      `/v1/venues/${device.venueId}/offline-orders/replay`,
+      { orders: rounds.slice(i, i + REPLAY_BATCH) },
+    );
+    settled += await q.settle(answer.results.map((r) => r.order_id));
+  }
+  return settled;
+}
+
 export function QueueProvider({ children }: { children: ReactNode }) {
   const q = bridge();
   const connection = useConnection();
@@ -121,6 +148,19 @@ export function QueueProvider({ children }: { children: ReactNode }) {
   }, [q, back, refresh]);
 
   // Online, the computer sets up its secret (or confirms it), so managers' phones can show its codes.
+  // Back online with rounds waiting: replay them once at a time, again on the next poll if it fails.
+  const replaying = useRef(false);
+  useEffect(() => {
+    if (!q || !back || rounds.length === 0 || replaying.current) return;
+    replaying.current = true;
+    void replayQueue(rounds)
+      .catch(() => undefined)
+      .finally(() => {
+        replaying.current = false;
+        void refresh();
+      });
+  }, [q, back, rounds, refresh]);
+
   useEffect(() => {
     if (!q || !back) return;
     const check = () => void ensureOfflineSecret().catch(() => undefined);

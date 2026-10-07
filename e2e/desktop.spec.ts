@@ -505,7 +505,11 @@ async function queueNight(serverTime: string) {
     });
   // Read now, while our API still answers (the venue's clock).
   const now = await code();
-  return { app, db, page, code: now, userData, venueId, goOffline };
+  const goOnline = () =>
+    app.evaluate(({ session }) => {
+      session.defaultSession.webRequest.onBeforeRequest(null);
+    });
+  return { app, db, page, code: now, userData, venueId, goOffline, goOnline };
 }
 
 test("queue mode: Andy's code opens it, Maya queues 1 × Jäger Bomb on Luis M.'s tab, the rest stays locked, and a kill loses nothing", async () => {
@@ -591,6 +595,74 @@ test("queue mode: Andy's code opens it, Maya queues 1 × Jäger Bomb on Luis M.'
   } finally {
     await db.end();
     await relaunched?.close();
+    await app.close().catch(() => undefined);
+  }
+});
+
+test("replay: three rounds queued in the outage show Confirm replayed orders (3) after reconnect, each asked to wait and off the tab until accepted", async () => {
+  test.setTimeout(240_000);
+  const { app, db, page, code, goOffline, goOnline } = await queueNight("2026-09-26T02:41:00Z");
+  try {
+    await goOffline();
+    await expect(page.getByTestId("banner-offline")).toBeVisible({ timeout: 20_000 });
+    await page.getByLabel("Offline code").fill(code);
+    await page.getByRole("button", { name: "Open queue mode" }).click();
+    await expect(page.getByTestId("banner-queue")).toBeVisible();
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Luis M\./ })
+      .click();
+    for (let n = 1; n <= 3; n += 1) {
+      await page.getByRole("searchbox", { name: "Search the menu" }).fill("Jäger");
+      await page.getByRole("button", { name: /^Jäger Bomb · \$12\.00$/ }).click();
+      await page.getByLabel("Who's ringing it").selectOption({ label: "Maya S." });
+      await page.getByRole("button", { name: "Queue round" }).click();
+      await expect(
+        page.getByRole("list", { name: "Queued rounds" }).getByRole("listitem"),
+      ).toHaveCount(n);
+    }
+    const check = (
+      await db.query<{ check_id: string }>("select check_id from tabs where name = 'Luis M.'")
+    ).rows[0]!.check_id;
+    const lines = async () =>
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int as n from check_lines where check_id = $1 and kind = 'item'",
+          [check],
+        )
+      ).rows[0]!.n;
+    const before = await lines();
+
+    // The connection returns: the computer replays its queue, once.
+    await goOnline();
+    await expect(page.getByTestId("banner-replayed")).toHaveText("Confirm replayed orders (3)", {
+      timeout: 40_000,
+    });
+    const list = page.getByRole("region", { name: "Confirm replayed orders (3)" });
+    await expect(list.getByTestId("replayed-order")).toHaveCount(3);
+    await expect
+      .poll(() => page.evaluate(() => window.west4!.queue!.list().then((l) => l.length)), {
+        timeout: 20_000,
+      })
+      .toBe(0);
+    const held = await db.query<{ status: string }>(
+      "select status from orders where source = 'offline' and check_id = $1",
+      [check],
+    );
+    expect(held.rows.map((r) => r.status)).toEqual(["held", "held", "held"]);
+    expect(await lines()).toBe(before);
+    // Accept is the sale: the round joins the tab.
+    await list
+      .getByTestId("replayed-order")
+      .first()
+      .getByRole("button", { name: "Accept · print ticket" })
+      .click();
+    await expect(page.getByTestId("banner-replayed")).toHaveText("Confirm replayed orders (2)", {
+      timeout: 20_000,
+    });
+    expect(await lines()).toBe(before + 1);
+  } finally {
+    await db.end();
     await app.close().catch(() => undefined);
   }
 });

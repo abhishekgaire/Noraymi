@@ -122,6 +122,11 @@ export class DesktopCache {
     ).map((r) => JSON.parse(r.body) as T);
   }
 
+  /** Drop one row (a queued round the server has answered, M8-05). */
+  remove(kind: string, id: string): void {
+    this.db.prepare("delete from rows where kind = ? and id = ?").run(kind, id);
+  }
+
   close(): void {
     this.db.close();
   }

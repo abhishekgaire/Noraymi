@@ -8279,3 +8279,157 @@ test("Offline codes: Andy's phone keeps the bar computer's codes and shows them 
     await db.end();
   }
 });
+
+/**
+ * The replay (M8-05): the bar computer uploads four rounds it queued in the outage, signed as
+ * itself. Three on Luis M.'s tab land as asked to wait under "Confirm replayed orders (3)" on the
+ * bar POS and the bar orders screen, off the tab until accepted; the fourth, queued on Thursday's
+ * night, goes to Review after outage on Close the night, first, with its reason, and Andy posts
+ * its offline cash on the tab.
+ */
+test("Confirm replayed orders (3) on the bar POS and bar orders, and Review after outage on Close the night", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const luis = (
+      await db.query<{ id: string; check_id: string }>(
+        "select id, check_id from tabs where venue_id = $1 and name = 'Luis M.'",
+        [venueId],
+      )
+    ).rows[0]!;
+    const jager = (
+      await db.query<{ id: string }>(
+        `select v.id from menu_variants v join menu_items i on i.id = v.item_id
+          where i.venue_id = $1 and i.name = 'Jäger Bomb' limit 1`,
+        [venueId],
+      )
+    ).rows[0]!.id;
+    const maya = (
+      await db.query<{ id: string }>(
+        "select m.id from memberships m join users u on u.id = m.user_id where m.venue_id = $1 and u.name = 'Maya S.'",
+        [venueId],
+      )
+    ).rows[0]!.id;
+    const key = await makeDeviceKey();
+    const deviceId = (
+      await db.query<{ id: string }>(
+        "insert into devices (venue_id, kind, name, public_key) values ($1, 'bar_computer', 'Bar computer 2', $2) returning id",
+        [venueId, JSON.stringify(key.publicJwk)],
+      )
+    ).rows[0]!.id;
+    const round = (queuedAt: string, cash: string | null) => ({
+      order_id: crypto.randomUUID(),
+      queued_at: queuedAt,
+      tab_id: luis.id,
+      check_id: luis.check_id,
+      tab_name: "Luis M.",
+      staff: { membership_id: maya, name: "Maya S." },
+      lines: [{ variant_id: jager, name: "Jäger Bomb", qty: 1, unit_cents: 1200, alcohol: true }],
+      cash_note: cash,
+    });
+    const path = `/v1/venues/${venueId}/offline-orders/replay`;
+    const body = JSON.stringify({
+      orders: [
+        round("2026-09-26T02:20:00Z", null),
+        round("2026-09-26T02:25:00Z", null),
+        round("2026-09-26T02:30:00Z", null),
+        round("2026-09-25T02:30:00Z", "$12 cash · Maya"),
+      ],
+    });
+    const replayed = await request.post(path, {
+      headers: {
+        ...(await signDeviceRequest({
+          deviceId,
+          privateKey: key.privateKey,
+          method: "POST",
+          path,
+          body,
+        })),
+        "content-type": "application/json",
+      },
+      data: body,
+    });
+    expect(replayed.ok()).toBe(true);
+    expect(
+      ((await replayed.json()) as { results: { outcome: string }[] }).results.map((r) => r.outcome),
+    ).toEqual(["held", "held", "held", "failed"]);
+
+    // Andy on Close the night: the failed replay first, with its reason; he posts its cash.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/close-the-night");
+    const review = page.getByRole("region", { name: "Review after outage" });
+    const rows = review.getByTestId("review-row");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.first()).toContainText("Failed replay · queued on an earlier night");
+    await expect(rows.first()).toContainText("Offline cash to post: $12 cash · Maya");
+    await expect(rows.nth(1)).toContainText("Replayed · asked to wait");
+    await rows.first().getByLabel("Cash amount").fill("12.00");
+    await rows.first().getByRole("button", { name: "Post cash" }).click();
+    await expect(rows.first()).toContainText("Cash posted · $12.00 · Andy C.");
+
+    // Maya at the bar: the banner and the list, each asked to wait.
+    const bar = await browser.newContext({ baseURL: "http://localhost:5173" });
+    const barPage = await bar.newPage();
+    try {
+      await signInMayaAtTheBar(barPage, request, db);
+      await expect(barPage.getByTestId("banner-replayed")).toHaveText(
+        "Confirm replayed orders (3)",
+        { timeout: 20_000 },
+      );
+      const list = barPage.getByRole("region", { name: "Confirm replayed orders (3)" });
+      await expect(list.getByTestId("replayed-order")).toHaveCount(3);
+      await expect(list.getByTestId("replayed-order").first()).toContainText(
+        "Luis M. · 1 × Jäger Bomb · $12.00",
+      );
+      await expect(list.getByTestId("replayed-order").first()).toContainText(
+        /Asked to wait · queued by Maya S\. at 10:20/,
+      );
+      const lines = async () =>
+        (
+          await db.query<{ n: number }>(
+            "select count(*)::int as n from check_lines where check_id = $1 and kind = 'item' and description = 'Jäger Bomb'",
+            [luis.check_id],
+          )
+        ).rows[0]!.n;
+      const before = await lines();
+      // One also rung online during the outage: cancel the copy. Another is accepted: the sale.
+      await list
+        .getByTestId("replayed-order")
+        .first()
+        .getByRole("button", { name: "Cancel copy" })
+        .click();
+      await barPage
+        .getByRole("region", { name: "Confirm replayed orders (2)" })
+        .getByTestId("replayed-order")
+        .first()
+        .getByRole("button", { name: "Accept · print ticket" })
+        .click();
+      await expect(
+        barPage.getByRole("region", { name: "Confirm replayed orders (1)" }),
+      ).toBeVisible();
+      expect(await lines()).toBe(before + 1);
+      // The bar orders screen lists the one still waiting, and not in its Waiting column too.
+      await barPage.goto("/bar-orders");
+      await expect(
+        barPage
+          .getByRole("region", { name: "Confirm replayed orders (1)" })
+          .getByTestId("replayed-order"),
+      ).toHaveCount(1);
+      await expect(barPage.getByTestId("banner-replayed")).toHaveText(
+        "Confirm replayed orders (1)",
+        { timeout: 20_000 },
+      );
+    } finally {
+      await bar.close();
+    }
+  } finally {
+    await db.end();
+  }
+});

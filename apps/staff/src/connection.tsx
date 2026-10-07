@@ -58,6 +58,10 @@ const initial: ConnectionApi = {
 const ConnectionContext = createContext<ConnectionApi>(initial);
 
 const REFETCH_ON = new Set([
+  // Replayed offline orders (M8-05): the "Confirm replayed orders (N)" count follows each one.
+  "order.held",
+  "order.accepted",
+  "order.cancelled",
   "vendor.health",
   "venue.backup_internet",
   "venue.offline",

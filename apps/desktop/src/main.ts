@@ -277,6 +277,10 @@ function registerIpc(): void {
     "west4:queue:list",
     guarded(() => queue.list()),
   );
+  ipcMain.handle(
+    "west4:queue:settle",
+    guarded((orderIds: unknown) => queue.settle(orderIds)),
+  );
 }
 
 /** How long the first load of the staff app may take before it's asked for again. */

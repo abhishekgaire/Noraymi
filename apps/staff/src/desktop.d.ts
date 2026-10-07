@@ -43,6 +43,8 @@ interface West4Desktop {
     end(): Promise<void>;
     add(order: unknown): Promise<unknown>;
     list(): Promise<unknown[]>;
+    /** Drop the rounds the server answered on replay (M8-05). */
+    settle(orderIds: string[]): Promise<number>;
   };
   readonly venue: {
     configure(clock: {

@@ -920,6 +920,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     );
     await client.query("update devices set cash_drawer_id = null where venue_id = $1", [venueId]);
     for (const table of [
+      // Replayed offline orders (M8-05) name their orders and posted cash.
+      "offline_replays",
       // Queued and finished jobs (M6-09): the seed's ids are the same on every load, so a job left from the
       // last night (a payment run keyed by its payment and attempt) would swallow tonight's as a duplicate.
       "jobs",

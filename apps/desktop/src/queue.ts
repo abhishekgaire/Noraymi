@@ -151,6 +151,23 @@ export class QueueMode {
     return order;
   }
 
+  /**
+   * The server answered these rounds (M8-05): each landed as asked to wait, or on Review after
+   * outage. Only answered ids leave the queue; anything not answered stays for the next upload.
+   */
+  settle(orderIds: unknown): number {
+    const cache = this.cache();
+    if (!cache || !Array.isArray(orderIds)) return 0;
+    let n = 0;
+    for (const id of orderIds) {
+      if (typeof id !== "string" || !UUID.test(id)) continue;
+      if (!cache.get(QUEUED_KIND, id.toLowerCase())) continue;
+      cache.remove(QUEUED_KIND, id.toLowerCase());
+      n += 1;
+    }
+    return n;
+  }
+
   list(): QueuedOrder[] {
     return (this.cache()?.list<QueuedOrder>(QUEUED_KIND) ?? []).sort((a, b) =>
       a.queued_at.localeCompare(b.queued_at),

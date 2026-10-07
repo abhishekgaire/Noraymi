@@ -5,7 +5,8 @@ import { route } from "../http/conventions.js";
 
 /**
  * The venue's connection (M8-01; spec 09 · Outages):
- *   GET /v1/venues/{v}/connection   backup internet, and Stripe's and Twilio's health
+ *   GET /v1/venues/{v}/connection   backup internet, Stripe's and Twilio's health, and the
+ *                                   replayed offline orders waiting for Accept (M8-05)
  *
  * Every staff screen polls it: an answer is the last sync the Board's footer
  * shows ("Online · synced 4 s ago"), and no answer is the pink "Offline"
@@ -22,6 +23,15 @@ export function connectionRoutes(app: FastifyInstance, options: { clock: Clock }
         return {
           server_time: options.clock.now().toString(),
           backup_internet: await venueOnBackupInternet(c, venueId),
+          // Replayed offline orders asked to wait for a bartender's Accept (M8-05).
+          replayed_waiting: (
+            await c.query<{ n: number }>(
+              `select count(*)::int as n from orders o
+                where o.venue_id = $1 and o.source = 'offline' and o.status = 'held'
+                  and (select k.training from checks k where k.venue_id = o.venue_id and k.id = o.check_id) = $2`,
+              [venueId, request.training],
+            )
+          ).rows[0]!.n,
           vendors: {
             stripe: vendors.stripe.trouble ? "trouble" : "ok",
             twilio: vendors.twilio.trouble ? "trouble" : "ok",

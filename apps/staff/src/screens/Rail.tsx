@@ -19,6 +19,7 @@ import { alcoholStateAt } from "@west4/rules";
 import { useConnection } from "../connection.js";
 import { useQueue } from "../queue.js";
 import { OfflineCodeForm, QueuedRounds, QueuePanel, type QueueLineSource } from "./QueuePanel.js";
+import { ReplayedOrders } from "./ReplayedOrders.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
@@ -129,6 +130,7 @@ interface RoomTile {
 }
 interface WaitingOrder {
   readonly id: string;
+  readonly source: string;
   readonly room_name: string | null;
   readonly status: string;
   readonly placed_at: string;
@@ -275,7 +277,8 @@ export function Rail() {
       setAlcoholHeard(menu.alcohol);
       setTabs(tabList.tabs);
       setRooms(board.rooms.filter((r) => r.session?.check_id));
-      setWaiting(orders.orders);
+      // Replayed offline rounds wait under "Confirm replayed orders" instead (M8-05).
+      setWaiting(orders.orders.filter((o) => o.source !== "offline"));
       setAging(orders.aging);
       setFailed(false);
       setLoaded(true);
@@ -746,6 +749,9 @@ export function Rail() {
         </div>
       ) : (
         queue.available && connection.kind === "offline" && <OfflineCodeForm />
+      )}
+      {connection.kind !== "offline" && venueId && (
+        <ReplayedOrders venueId={venueId} timeZone={timeZone} />
       )}
       {failed && (
         <p className="error" role="alert">

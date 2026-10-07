@@ -139,4 +139,17 @@ describe("queue mode", () => {
     first.cache.close();
     again.cache.close();
   });
+  it("drops only the rounds the server answered on replay (M8-05)", () => {
+    const { cache, queue } = boot();
+    queue.setSecret(BAR, SECRET);
+    queue.unlock(AT, offlineCodeAt(hmac, SECRET, scope, AT));
+    const a = queue.add(AT, round());
+    const b = queue.add(AT, round());
+    expect(queue.settle([a.order_id.toUpperCase(), "not-a-uuid", randomUUID()])).toBe(1);
+    expect(queue.list().map((o) => o.order_id)).toEqual([b.order_id]);
+    expect(queue.settle("nope")).toBe(0);
+    expect(queue.settle([b.order_id])).toBe(1);
+    expect(queue.list()).toEqual([]);
+    cache.close();
+  });
 });

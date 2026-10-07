@@ -8,6 +8,7 @@ import { hiddenScreens } from "../navigation.js";
 import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
 import { SongQueueLink } from "./SongQueue.js";
+import { ReplayedOrders } from "./ReplayedOrders.js";
 import { muteChime, useChimeMute } from "../chime.js";
 import { agingFromWire, agingSentence, agingTone, WEST4_AGING, type Aging } from "../aging.js";
 
@@ -23,6 +24,7 @@ import { agingFromWire, agingSentence, agingTone, WEST4_AGING, type Aging } from
  */
 interface Order {
   readonly id: string;
+  readonly source: string;
   readonly room_name: string | null;
   readonly guest_name: string | null;
   readonly party_size: number | null;
@@ -181,7 +183,10 @@ export function BarOrders() {
   };
 
   const list = orders ?? [];
-  const waiting = list.filter((o) => o.status === "ringing" || o.status === "held");
+  // Replayed offline rounds wait under "Confirm replayed orders" instead (M8-05).
+  const waiting = list.filter(
+    (o) => (o.status === "ringing" || o.status === "held") && o.source !== "offline",
+  );
   const making = list.filter((o) => o.status === "accepted");
   const ready = list.filter((o) => o.status === "ready" || o.status === "on_the_way");
   const delivered = list.filter((o) => o.status === "delivered").reverse();
@@ -252,6 +257,7 @@ export function BarOrders() {
           {error}
         </p>
       )}
+      {venueId && <ReplayedOrders venueId={venueId} timeZone={timeZone} />}
       {orders === null ? (
         <p role="status">{t("shell.loading")}</p>
       ) : (

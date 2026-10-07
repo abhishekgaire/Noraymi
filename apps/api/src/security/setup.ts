@@ -224,6 +224,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     `insert into print_jobs (venue_id, order_id, kind, station, payload) values ($1, $2, 'ticket', 'bar', '{}') returning id`,
     [v.venueB, orderB.rows[0]!.id],
   );
+  // A replayed offline order at venue B (M8-05: POST /offline-orders/{replayId}/cash).
+  const replayB = await owner.query<{ id: string }>(
+    `insert into offline_replays (venue_id, client_order_id, queued_on, replayed_on, queued_at, replayed_at,
+       check_id, tab_name, staff_name, lines, total_cents, cash_note, outcome, reason)
+     values ($1, 'b-offline-0001', '2026-09-25', '2026-09-25', now(), now(), $2, 'B', 'B', '[]', 0, 'B', 'failed', 'tab_closed')
+     returning id`,
+    [v.venueB, checkB.rows[0]!.id],
+  );
   const lineB = await owner.query<{ id: string }>(
     `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category, business_date)
        values ($1, $2, 'item', 'B''s beer', 1, 800, 800, 'drink', '2026-09-25') returning id::text`,
@@ -295,6 +303,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       s: singerB.rows[0]!.id,
       p: punchB.rows[0]!.id,
       e: exportB.rows[0]!.id,
+      replayId: replayB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },
@@ -336,6 +345,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       },
       "POST /v1/venues/:venueId/routers/:d/failover-tests": { passed: true },
       "POST /v1/venues/:venueId/devices/offline-secret": { fingerprint: null },
+      "POST /v1/venues/:venueId/offline-orders/:replayId/cash": { amount_cents: 100 },
       "PATCH /v1/venues/:venueId/modules/:id": { state: "off" },
       "PUT /v1/venues/:venueId/settings/:key": { value: { weekly: [], lastCall: null } },
       "PATCH /v1/venues/:venueId/permissions/:role/:action": { allowed: true },

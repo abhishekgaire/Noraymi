@@ -71,5 +71,7 @@ contextBridge.exposeInMainWorld("west4", {
     end: (): Promise<void> => ipcRenderer.invoke("west4:queue:end"),
     add: (order: unknown): Promise<unknown> => ipcRenderer.invoke("west4:queue:add", order),
     list: (): Promise<unknown[]> => ipcRenderer.invoke("west4:queue:list"),
+    settle: (orderIds: string[]): Promise<number> =>
+      ipcRenderer.invoke("west4:queue:settle", orderIds),
   },
 });
