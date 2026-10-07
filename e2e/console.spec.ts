@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
+import { setClock } from "./night.js";
+
+// Put the shared clock back for whatever spec runs next, in this project or another.
+test.afterEach(async () => {
+  await setClock();
+});
 
 /**
  * The Console (M1-35). Our staff member signs in locally by email, then with a

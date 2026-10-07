@@ -1,4 +1,6 @@
+import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import { SEED_COMMAND } from "./night.js";
 
 test("the API answers /v1/health", async ({ request }) => {
   const response = await request.get("/v1/health");
@@ -11,9 +13,17 @@ test("the API answers /v1/health", async ({ request }) => {
 test("after a fresh seed load, server_time is Fri Sep 25, 2026, 10:41 PM in New York", async ({
   request,
 }) => {
-  const body = (await (await request.get("/v1/health")).json()) as { server_time: string };
+  // Its own fresh load, so it doesn't depend on how long ago (or in what order) the run began.
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
+  // The API rereads the stored clock at most every 2 seconds; the seed's 10:41 PM shows by then.
   // The simulated clock ticks on from 10:41:00 PM, so the minutes may have moved a little.
-  expect(body.server_time).toMatch(/^2026-09-25T22:4\d:\d{2}-04:00$/);
+  await expect
+    .poll(
+      async () =>
+        ((await (await request.get("/v1/health")).json()) as { server_time: string }).server_time,
+      { timeout: 10_000 },
+    )
+    .toMatch(/^2026-09-25T22:4\d:\d{2}-04:00$/);
 });
 
 /**

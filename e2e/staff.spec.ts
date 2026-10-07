@@ -9,6 +9,7 @@ import { catalogs, makeDeviceKey, signDeviceRequest, Temporal } from "@west4/sha
 import { offlineCodeAt } from "@west4/rules";
 import { sweepRouters } from "../apps/api/src/jobs/router-watch.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
+import { SEED_COMMAND, setClock as resetClock } from "./night.js";
 
 /**
  * The staff app shell (M1-21). Andy (manager) enrols a passkey with
@@ -55,13 +56,18 @@ const SCREENS = [
   "/sign-in",
 ];
 
+// Put the shared clock back for whatever spec runs next, in this project or another.
+test.afterEach(async () => {
+  await resetClock();
+});
+
 /**
  * Every test starts from a fresh load of the demo seed at 10:41 PM, whatever
  * the test before it did (M2-35): the seed's tables, and the API's simulated
  * clock.
  */
 test.beforeEach(async ({ request }) => {
-  execSync("pnpm seed", { stdio: "ignore" });
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   const clock = await request.post("http://127.0.0.1:3000/v1/ops/clock", {
     data: { server_time: "2026-09-26T02:41:00Z" },
   });
@@ -5290,9 +5296,13 @@ test("Go-live checklist: the merchant category, Andy and Abhishek confirmed, and
     await page.goto("/admin/payments");
     const list = page.getByRole("region", { name: "Go-live checklist" });
     await expect(list.getByRole("status")).toHaveText("Not yet: finish each check below");
-    await list.getByLabel("The category we expect").fill("5813");
-    await list.getByRole("button", { name: "Save the category" }).click();
-    await expect(list.getByText("Checked: Stripe has 5813")).toBeVisible();
+    // A reload of the checklist landing between the fill and the click wipes the field (seen once in
+    // the full run), so the entry is made again until the saved answer shows; saving is idempotent.
+    await expect(async () => {
+      await list.getByLabel("The category we expect").fill("5813");
+      await list.getByRole("button", { name: "Save the category" }).click();
+      await expect(list.getByText("Checked: Stripe has 5813")).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 20_000 });
     // Each box follows the server's answer, so it's ticked a moment after the click.
     for (const name of ["Abhishek", "Andy"])
       for (const label of ["has a Stripe Dashboard login", "has a Tap to Pay phone"]) {

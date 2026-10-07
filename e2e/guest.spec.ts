@@ -2,6 +2,12 @@ import { createHash, randomBytes } from "node:crypto";
 import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
+import { SEED_COMMAND, setClock } from "./night.js";
+
+// Put the shared clock back for whatever spec runs next, in this project or another.
+test.afterEach(async () => {
+  await setClock();
+});
 
 /**
  * Every test starts from a fresh load of the demo seed at 10:41 PM, whatever
@@ -9,7 +15,7 @@ import pg from "pg";
  * clock.
  */
 test.beforeEach(async ({ request }) => {
-  execSync("pnpm seed", { stdio: "ignore" });
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   const clock = await request.post("http://127.0.0.1:3000/v1/ops/clock", {
     data: { server_time: "2026-09-26T02:41:00Z" },
   });

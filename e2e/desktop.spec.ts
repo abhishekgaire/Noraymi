@@ -9,6 +9,7 @@ import { offlineCodeAt } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { loadConfig } from "../apps/api/src/config.js";
 import { decryptSecret } from "../packages/db/src/auth.js";
+import { freshNight, setClock } from "./night.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const desktopDir = path.resolve(here, "..", "apps", "desktop");
@@ -40,6 +41,11 @@ function filesUnder(dir: string): { file: string; text: string }[] {
   walk(dir);
   return out;
 }
+
+// Whatever a test did to the shared clock, the next one starts at the seed's 10:41 PM.
+test.afterEach(async () => {
+  await setClock();
+});
 
 test("the desktop app opens the staff app, with no Node.js in the page", async () => {
   const app = await launch(mkdtempSync(path.join(tmpdir(), "west4-desktop-")));
@@ -269,8 +275,7 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
  */
 test("offline, the bar computer shows the board, open tabs and the menu read-only, and the locked screen keeps ringing", async () => {
   test.setTimeout(240_000);
-  const { execSync } = await import("node:child_process");
-  execSync("pnpm seed", { stdio: "ignore" });
+  await freshNight();
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
   const app = await launch(userData);
   const db = new pg.Client({
@@ -413,8 +418,7 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
  * shows for the bar computer right now is read. Returns the code.
  */
 async function queueNight(serverTime: string) {
-  const { execSync } = await import("node:child_process");
-  execSync("pnpm seed", { stdio: "ignore" });
+  await freshNight();
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
   const app = await launch(userData);
   const db = new pg.Client({
@@ -639,7 +643,8 @@ test("replay: three rounds queued in the outage show Confirm replayed orders (3)
       timeout: 40_000,
     });
     const list = page.getByRole("region", { name: "Confirm replayed orders (3)" });
-    await expect(list.getByTestId("replayed-order")).toHaveCount(3);
+    // The list reloads on the next order event or its 15-second check, after the banner.
+    await expect(list.getByTestId("replayed-order")).toHaveCount(3, { timeout: 20_000 });
     await expect
       .poll(() => page.evaluate(() => window.west4!.queue!.list().then((l) => l.length)), {
         timeout: 20_000,

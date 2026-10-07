@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
+import { SEED_COMMAND, setClock } from "./night.js";
 
 /**
  * Accessibility checks for the guest web (M3-24; spec 12 · 14): WCAG 2.2 AA,
@@ -26,8 +27,13 @@ const db = () =>
     connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
   });
 
+// Put the shared clock back for whatever spec runs next, in this project or another.
+test.afterEach(async () => {
+  await setClock();
+});
+
 test.beforeEach(async ({ request }) => {
-  execSync("pnpm seed", { stdio: "ignore" });
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   expect(
     (
       await request.post(`${API}/v1/ops/clock`, { data: { server_time: "2026-09-26T02:41:00Z" } })
