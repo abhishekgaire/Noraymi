@@ -192,7 +192,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-07 · Run the four outage drills at West 4
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M8-01 to M8-06; the router and both S710s installed at West 4, ahead of the full install
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Tests (Outage drills); [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Outages; [Scope and architecture](../spec/01-scope-architecture.md) · When the venue's internet drops, When our cloud is down; [Open technical questions](../spec/14-open-questions.md); [milestones](../milestones.md#the-go-live-gate) · the go-live gate, item 4
@@ -202,13 +202,17 @@ Definition of done: see CLAUDE.md.
   3. **The router's LTE off too:** expect the pink banner on the bar computer, queue mode behind a code, taps on the readers driven from a staff phone on cellular, and replay as asked to wait after reconnect.
   4. **Our cloud down:** block our API's hostnames at the router and on the staff phones while Stripe stays reachable. Expect the pink banner and queue mode, a break-glass Tap to Pay on each manager's phone, and afterwards every one in Unmatched payments, matched, and every offline order on Confirm replayed orders or Review after outage.
 - **Acceptance:**
-  - [ ] Each drill shows its banner: amber, the banners of the devices that lost Wi-Fi, pink, pink.
-  - [ ] Queue mode takes orders behind a code, and replay lands them as asked to wait, with nothing charged twice.
-  - [ ] Anything that fails the checks is on Review after outage.
-  - [ ] A break-glass tap on Andy's phone and one on Abhishek's land in Unmatched payments and are matched.
-  - [ ] The report records what the readers did in drill 1, which answers the open Stripe question.
+  - [ ] Each drill shows its banner: amber, the banners of the devices that lost Wi-Fi, pink, pink. *(not yet: on site: needs the router and both S710s at West 4; the banners themselves pass the smoke tests (M8-01))*
+  - [ ] Queue mode takes orders behind a code, and replay lands them as asked to wait, with nothing charged twice. *(not yet: on site; rehearsed locally in `outage-drill.int.test.ts` (the same queue twice lands once) and the M8-04/M8-05 smoke tests)*
+  - [ ] Anything that fails the checks is on Review after outage. *(not yet: on site; rehearsed locally (a round for a paid check lands on Review after outage))*
+  - [ ] A break-glass tap on Andy's phone and one on Abhishek's land in Unmatched payments and are matched. *(not yet: on site: needs real Tap to Pay on both managers' phones on West 4's live Stripe account; rehearsed locally with recorded taps)*
+  - [ ] The report records what the readers did in drill 1, which answers the open Stripe question. *(not yet: on site: only the real readers can answer it)*
 - **Tests:** the drills themselves, timed, with screenshots kept in the report.
 - **Notes:** Open question (Stripe): does a reader switch to cellular when the Wi-Fi stays up but the internet behind it is down? Drill 1 answers it; record the answer for the founder to close in [Open technical questions](../spec/14-open-questions.md). The router's own failover is also tested monthly (M8-02). Pull the router and reader part of M9-07's install forward for these drills.
+  - **Built (M8-07, locally).** The runbook `docs/runbooks/outage-drill.md`: what must be ready first, the four drills step by step with what to expect and what to record, and the afterwards (refunds, Stripe check, the report). The report script `pnpm --filter @west4/api outage:record -- --date <date>` (`apps/api/src/ops/outage-record.ts`, the evidence in `apps/api/src/ops/outage-drill.ts`, read-only as the table owner): a table per drill for people to fill in (times, banners, each reader's behaviour, screenshots, the open Stripe question), then what the system recorded that night (connection events from `venue_events`: backup internet, venue and device offline/online, vendor health, replay failures, unmatched payments; the offline queue and how replay landed it; the break-glass payments with the check each was matched to). Findings, which make it exit non-zero: an offline order that landed more than once, one still waiting on Confirm replayed orders, offline cash not posted, a break-glass payment still unmatched. `docs/drills/README.md` says where reports go (`docs/drills/<date>-outage.md`, screenshots beside it). The local rehearsal `apps/api/src/ops/outage-drill.int.test.ts` runs the drills' software side on the demo seed: the simulated router onto LTE and back, a queue replayed twice (lands once), a round for a paid check on Review after outage, two break-glass taps in Unmatched payments, then accept/cancel and match, and the report has no findings. Screens are already covered by the M8-01 to M8-06 smoke tests; no screen changed.
+  - **Cautious defaults.** Break-glass payments are found as external payments on the night's business date (or adjusting it); the report can't tell whose phone took each, so it leaves a column to fill in. Drill 4 blocks our hostnames with the router's own domain block list and keeps staff phones on the venue Wi-Fi with cellular data off, since the spec doesn't say how to block them.
+  - **Left for on site (the founder and Andy, closed hours, about two hours).** (1) Install the router and both S710s at West 4 (M9-07's router and reader part, pulled forward), with cellular on in West 4's Terminal Configuration. (2) Finish the runbook's "Before you start": the router's monthly failover test passed, both managers ready for Tap to Pay on the go-live checklist, the offline codes cached on both phones, the break-glass card printed, the bar computer in device training. (3) Run the four drills as `docs/runbooks/outage-drill.md` says, with screenshots. (4) Refund every live drill payment, run `outage:record` until it has no findings, commit the report and screenshots, then tick the Acceptance lines and set this ticket done. (5) Drill 1's answer closes the Stripe question in [Open technical questions](../spec/14-open-questions.md): the founder records it there.
+
 
 ### M8-08 · Send the private help alert and keep the incident log
 

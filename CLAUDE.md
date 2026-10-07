@@ -130,6 +130,7 @@ pnpm --filter @west4/api stripe:fake   # the fake Stripe on 127.0.0.1:12111: eve
 pnpm --filter @west4/api stripe:seed   # after pnpm seed: the night's Stripe side on the fake or the sandbox (deposits as PaymentIntents, both readers, and training mode's sandbox account with two simulated readers); demo-local.sh runs it
 pnpm --filter @west4/api seed:files   # after pnpm seed: the paper slips' photos in the object store (local RustFS or the staging bucket); demo-local.sh runs it
 pnpm --filter @west4/api reconcile -- --date <YYYY-MM-DD> [--venue <id>] [--out evidence/reconcile]   # after a close or a payout: the night checked to the cent (Z, drawers, tip ledger and pool, payouts, journals, practice); writes the evidence JSON, exits non-zero naming the night and rule
+pnpm --filter @west4/api outage:record -- --date <YYYY-MM-DD> [--venue <slug>]   # after the outage drills: the drill report as Markdown (tables to fill in, then the night's connection events, offline replays and break-glass matches); exits non-zero while anything is open (docs/runbooks/outage-drill.md)
 pnpm --filter @west4/api stripe:create-account -- --org <id> [--email <contact>] [--sandbox]   # ops, audited: make an organization's Stripe account (Accounts v2) and store its id; --sandbox makes training mode's sandbox account
 pnpm format             # Prettier --write
 pnpm --filter @west4/api twilio:subaccount -- --venue <slug> --number <+1…>   # one-time: a venue's own Twilio subaccount with a number we already own (needs our platform TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
