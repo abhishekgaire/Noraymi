@@ -9,6 +9,7 @@ import type { Principal } from "../http/principal.js";
 import { AUDIT_EXPORT_KIND } from "../jobs/audit-export.js";
 import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
 import { RETENTION_KIND } from "../jobs/retention.js";
+import { ERASE_KIND } from "../jobs/erase.js";
 import { EVENTS_CLEANUP_KIND } from "../jobs/events-cleanup.js";
 import { IDEMPOTENCY_CLEANUP_KIND } from "../jobs/idempotency-cleanup.js";
 import { EMAIL_SEND_KIND } from "../jobs/send-email.js";
@@ -352,6 +353,16 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the retention job didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  [ERASE_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({ erasure_id: (c as unknown as { erasureB: string }).erasureB }),
+    // Venue B's erasure isn't venue A's: no card is detached, no body redacted, and the job finishes.
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the erase job didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },

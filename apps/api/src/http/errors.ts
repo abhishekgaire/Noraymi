@@ -23,6 +23,7 @@ export const ERROR_STATUS = {
   night_open: 409,
   room_not_free: 409,
   over_amount_due: 422,
+  balance_owed: 409,
   over_refundable: 422,
   key_reused: 422,
   approval_pending: 202,

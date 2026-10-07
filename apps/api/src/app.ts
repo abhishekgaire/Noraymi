@@ -73,6 +73,7 @@ import { roomCareRoutes } from "./routes/room-care.js";
 import { callRoutes } from "./routes/calls.js";
 import { incidentRoutes } from "./routes/incidents.js";
 import { licenseRoutes } from "./routes/licenses.js";
+import { erasureRoutes } from "./routes/erasures.js";
 import { supportGrantRoutes } from "./routes/support-grants.js";
 import { emergencyConsoleRoutes, emergencyVenueRoutes } from "./console/emergency.js";
 import { conversationRoutes } from "./routes/conversations.js";
@@ -275,6 +276,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       callRoutes(scope, { clock });
       incidentRoutes(scope, { pool: gatePoolRef!, clock });
       licenseRoutes(scope, { clock });
+      erasureRoutes(scope, { clock });
       supportGrantRoutes(scope, { pool: gatePoolRef!, clock });
       // Admin → Console's emergency actions (M8-11), read by the owner.
       emergencyVenueRoutes(scope, { clock });

@@ -260,8 +260,30 @@ export async function suiteWorld(): Promise<SuiteWorld> {
        values ($1, $2, $3, md5(random()::text), 1, now()) returning id`,
     [v.venueB, sessionB.rows[0]!.id, roomB.rows[0]!.id],
   );
+  // Venue B's guest, erased with a card and a text still to clear (M8-13).
+  const erasureB = await owner.query<{ id: string }>(
+    `insert into erasures (venue_id, subject, subject_id, requested_at, pending)
+       values ($1, 'guest', $2, now(), $3) returning id`,
+    [
+      v.venueB,
+      guestB.rows[0]!.id,
+      JSON.stringify({
+        cards: [
+          {
+            source: "booking",
+            source_id: bookingB.rows[0]!.id,
+            payment_method: "pm_wall_b",
+            deposit_pi: null,
+            training: false,
+          },
+        ],
+        messages: [{ id: messageB.rows[0]!.id, provider_sid: "SMwallb" }],
+      }),
+    ],
+  );
   const cast: Cast & {
     ownerB: string;
+    erasureB: string;
     messageB: string;
     guestB: string;
     sessionB: string;
@@ -276,6 +298,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     bartenderA,
     frontDeskA,
     ownerB: v.ownerB,
+    erasureB: erasureB.rows[0]!.id,
     messageB: messageB.rows[0]!.id,
     guestB: guestB.rows[0]!.id,
     sessionB: sessionB.rows[0]!.id,
@@ -309,6 +332,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       jobId: jobB.rows[0]!.id,
       lineId: lineB.rows[0]!.id,
       g: guestRowB.rows[0]!.id,
+      guestId: guestB.rows[0]!.id,
       readerId: readerB.rows[0]!.id,
       paymentId: paymentB.rows[0]!.id,
       splitId: splitB.rows[0]!.id,

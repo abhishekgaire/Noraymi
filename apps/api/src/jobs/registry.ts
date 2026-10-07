@@ -44,6 +44,7 @@ import {
   makeLicenseReminderHandler,
 } from "../licenses/licenses.js";
 import { RETENTION_KIND, makeRetentionHandler, retentionSchedule } from "./retention.js";
+import { ERASE_KIND, makeEraseHandler } from "./erase.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -135,6 +136,13 @@ export function makeHandlers({
             [TEXT_TRIGGER_KIND]: makeTextTriggerHandler(venueTexts.settings),
           }
         : {}),
+      // Erasing a guest or a singer on request (M8-13): cards at Stripe, bodies at Twilio.
+      [ERASE_KIND]: makeEraseHandler({
+        ...(stripe ? { stripe: stripe.client } : {}),
+        ...(venueTexts
+          ? { texts: { client: venueTexts.client, secretKey: venueTexts.secretKey } }
+          : {}),
+      }),
     },
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),

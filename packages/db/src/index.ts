@@ -534,6 +534,22 @@ export {
   markTwilioBodyPurged,
   recordRetentionRun,
 } from "./retention.js";
+export {
+  erasureOf,
+  erasureById,
+  startErasure,
+  eraseGuest,
+  eraseSinger,
+  singerOwes,
+  closeErasure,
+} from "./erasure.js";
+export type {
+  Erasure,
+  ErasureSubject,
+  ErasurePending,
+  ErasedNow,
+  PendingMessage,
+} from "./erasure.js";
 export type {
   Retention,
   RetentionRule,

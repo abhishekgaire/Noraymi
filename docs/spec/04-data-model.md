@@ -133,6 +133,7 @@ Phase 1 needs about 100 tables. Money is stored in integer cents and every times
 | `opt_out_hashes` | phone_hash, revoked_at | An opt-out from texts kept after its consent row is gone (M8-12): a keyed hash (HMAC-SHA256 with the venue's own random key in `venue_hash_keys`, readable only by `opt_out_hash()`), so an erased number is never texted again |
 | `card_detaches` | source (booking, tab, check_card), source_id, stripe_payment_method_id, training, outcome, detached_at | Each saved card the retention job detached at Stripe, once |
 | `retention_runs` | ran_at, removed, skipped | The nightly retention job's log: counts per kind, and what it couldn't do; never the data |
+| `erasures` | subject (guest, singer), subject_id, requested_by, requested_at, state (pending, done), pending, removed, held_messages, done_at | The erasure log (M8-13): one row per guest or singer erased on request, which M8-20 re-applies after a restore; `pending` lists the saved cards and Twilio message ids still to clear, never contact details ([D92](../decisions.md)) |
 | `legacy_nightly_totals` | business_date, totals | History imported from the old system, for trends |
 
 **Phase 2, not in these tables** (as the blueprint plans): room welfare timers (`room_sessions.welfare_check_every_min`), the signed cleaning checklist (`cleaning_checks`), allergen fields (`menu_items.allergens`), package headcount tiers (`packages.tiers`), the volume-cap log (`volume_cap_log`), minimum spend credited against the room fee, and holiday or dated closes in the rule pack.

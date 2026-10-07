@@ -70,7 +70,7 @@ describe("the venue wall", () => {
       push,
     });
     expect(findings, findings.map((f) => `${f.where}: ${f.why}`).join("\n")).toEqual([]);
-    expect(rows.length).toBe(12); // M8-09 added the license reminders, M8-12 the retention job
+    expect(rows.length).toBe(13); // M8-09 added the license reminders, M8-12 the retention job, M8-13 the erase job
     expect(venueClient.sent).toEqual([]);
   });
 });

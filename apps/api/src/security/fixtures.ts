@@ -151,6 +151,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   licenseId: uuid(59),
   grantId: uuid(60),
   emergencyId: uuid(61),
+  guestId: uuid(62),
 };
 
 export function fillUrl(
