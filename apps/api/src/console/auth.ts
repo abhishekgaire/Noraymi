@@ -10,6 +10,7 @@ import {
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import {
+  resolveSupportGrant,
   addConsoleKey,
   bumpConsoleKeyCounter,
   consoleKeys,
@@ -29,6 +30,7 @@ import type { Clock } from "@west4/shared";
 import type { Config, ConsoleConfig } from "../config.js";
 import { route, type Authenticator } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import type { Principal } from "../http/principal.js";
 
 /**
  * Console sign-in (M1-35; spec 12 · 7): single sign-on, then a FIDO2 security
@@ -110,6 +112,8 @@ export function consoleAuthenticator(pool: pg.Pool, clock: Clock): Authenticator
     if (!resolved) return undefined;
     (request as FastifyRequest & { consoleSessionId?: string }).consoleSessionId =
       resolved.sessionId;
+    const asSupport = await supportPrincipal(pool, clock, request, resolved.staff.id);
+    if (asSupport) return asSupport;
     return {
       kind: "console",
       staffId: resolved.staff.id,
@@ -117,6 +121,32 @@ export function consoleAuthenticator(pool: pg.Pool, clock: Clock): Authenticator
       email: resolved.staff.email,
     };
   };
+}
+
+/** The header a Console session sends to work under a support grant (M8-10). */
+export const SUPPORT_GRANT_HEADER = "x-support-grant";
+
+/**
+ * A Console session that names an open support grant on a venue route acts as
+ * the support principal there (spec 02 · Support access): our staff member,
+ * the grant and the grant's venue. A grant that isn't open (waiting, declined,
+ * ended, revoked, or someone else's) leaves the caller a plain Console session,
+ * which no venue route declares.
+ */
+export async function supportPrincipal(
+  pool: pg.Pool,
+  clock: Clock,
+  request: FastifyRequest,
+  staffId: string,
+): Promise<Principal | undefined> {
+  const grantId = request.headers[SUPPORT_GRANT_HEADER];
+  if (typeof grantId !== "string" || !request.url.startsWith("/v1/venues/")) return undefined;
+  const venueId = await resolveSupportGrant(pool, {
+    grantId,
+    staffId,
+    at: clock.now().toString(),
+  });
+  return venueId ? { kind: "support", staffId, grantId, venueId } : undefined;
 }
 
 interface Discovery {

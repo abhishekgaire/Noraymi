@@ -40,6 +40,7 @@ const ADMIN_SECTIONS = [
   "/admin/deposits",
   "/admin/bar-pos",
   "/admin/bar-mode",
+  "/admin/console",
 ];
 const SCREENS = [
   "/tonight",
@@ -8610,6 +8611,70 @@ test("Admin → Licenses: empty with a hint on the seed; Andy adds a license wit
       "Not on file yet: BMI, SESAC, GMR, Liquor. Add each one from the license itself.",
     );
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Console (M8-10; screens N39): a request from our support staff waits
+ * for Abhishek, the owner, who approves it in Admin; a banner shows across
+ * Admin while it's open, and End now ends it at once. Andy, a manager, has no
+ * Console section.
+ */
+test("Admin → Console: Abhishek approves a support request, the banner shows, End now ends it; Andy has no Console", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("delete from support_grants where reason like 'E2E %'");
+    await db.query(
+      `insert into support_grants (venue_id, staff_id, requested_by, reason, scope, minutes, requested_at)
+       select v.id, s.id, s.id, 'E2E checking a stuck ticket', 'read', 30, now()
+         from venues v, console_staff s where v.slug = 'west4karaoke' and s.email = 'support@demo.west4.local'`,
+    );
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/console");
+    const section = page.getByRole("region", { name: "Console" });
+    const item = section.getByRole("listitem", { name: "From Noraymi support" }).first();
+    await expect(item).toContainText("Waiting for you");
+    await expect(item).toContainText("Reason: E2E checking a stuck ticket");
+    await expect(item).toContainText("Read only · 30 min");
+    await item.getByRole("button", { name: "Approve" }).click();
+    await expect(item).toContainText("Open · 30 min left");
+    await page.reload();
+    await expect(page.getByTestId("support-banner")).toContainText(
+      "Support access is open · Noraymi support · 30 min left",
+    );
+    await item.getByRole("button", { name: "End now" }).click();
+    await expect(item).toContainText("Ended early");
+    await page.reload();
+    await expect(section.getByRole("listitem").first()).toContainText("Ended early");
+    await expect(page.getByTestId("support-banner")).toHaveCount(0);
+    const row = await db.query<{ status: string; revoked_side: string }>(
+      "select status, revoked_side from support_grants where reason = 'E2E checking a stuck ticket'",
+    );
+    expect(row.rows[0]).toEqual({ status: "revoked", revoked_side: "venue" });
+
+    // Andy's Admin has no Console section.
+    const andy = await browser.newContext({ baseURL: "http://localhost:5173" });
+    const andyPage = await andy.newPage();
+    await andyPage.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(andyPage, andy.request, db);
+    await andyPage.goto("/admin/features");
+    await expect(andyPage.getByRole("link", { name: /^Features/ })).toBeVisible();
+    await expect(andyPage.getByRole("link", { name: /^Console/ })).toHaveCount(0);
+    await andy.close();
+  } finally {
+    await db.query("delete from support_grants where reason like 'E2E %'");
     await db.end();
   }
 });

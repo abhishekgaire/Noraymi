@@ -13,11 +13,15 @@ export async function api<T>(
   method: "GET" | "POST" | "PATCH" | "PUT",
   path: string,
   body?: unknown,
+  extraHeaders: Record<string, string> = {},
 ): Promise<T> {
   const response = await fetch(path, {
     method,
     credentials: "same-origin",
-    headers: body === undefined ? {} : { "content-type": "application/json" },
+    headers: {
+      ...extraHeaders,
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (response.status === 204) return undefined as T;

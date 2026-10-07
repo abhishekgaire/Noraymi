@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { t, type Locale, type MessageKey } from "@west4/shared";
+import { SupportAccess } from "./SupportAccess.js";
 import { api, ConsoleApiError } from "./api.js";
 
 /**
@@ -450,6 +451,7 @@ function Venues({
                 Turn on
               </button>
             </form>
+            <SupportAccess key={open.venue.id} venue={open.venue} />
           </section>
         )}
       </div>

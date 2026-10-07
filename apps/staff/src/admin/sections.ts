@@ -184,7 +184,7 @@ export const adminSections: readonly AdminSection[] = [
     labelKey: "admin.section.console",
     hintKey: "admin.hint.console",
     action: "admin.console",
-    shipped: false,
+    shipped: true,
   },
 ];
 

@@ -1998,3 +1998,43 @@ a.song-count {
   font: inherit;
   min-height: 44px;
 }
+
+/* Admin → Console (M8-10): support requests, each with its answer buttons, and the banner. */
+.support-access .support-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.support-access .support-list > li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.support-access .support-list > li > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.support-access p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.support-access .warn {
+  color: var(--notice);
+}
+.support-access .support-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.support-access .support-actions button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.support-banner a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

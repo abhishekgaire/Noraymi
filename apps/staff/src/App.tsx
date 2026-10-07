@@ -29,6 +29,7 @@ import { Connections } from "./screens/admin/Connections.js";
 import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
 import { Licenses } from "./screens/admin/Licenses.js";
+import { SupportAccess } from "./screens/admin/SupportAccess.js";
 import { CashDrawers } from "./screens/admin/CashDrawers.js";
 import { AlertsRules } from "./screens/admin/AlertsRules.js";
 import { Team } from "./screens/admin/Team.js";
@@ -157,6 +158,7 @@ export function StaffRoutes() {
           <Route path="texts" element={<Texts />} />
           <Route path="safety" element={<Safety />} />
           <Route path="licenses" element={<Licenses />} />
+          <Route path="console" element={<SupportAccess />} />
           <Route path="alerts" element={<AlertsRules />} />
           <Route path="payments" element={<Payments />} />
           <Route path="disputes" element={<DisputesScreen />} />

@@ -9,6 +9,10 @@ import {
   emitEvent,
   listDevices,
   publishRulePackDraft,
+  requestSupportGrant,
+  revokeSupportGrant,
+  supportGrant,
+  supportGrants,
   rulePackDraft,
   rulePackDrafts,
   rulePackIds,
@@ -20,11 +24,22 @@ import {
   type ConsoleVenue,
   type DeviceListRow,
 } from "@west4/db";
-import { isModuleId, moduleDef, rulePackChanges, type Clock, type RulePack } from "@west4/shared";
+import {
+  isModuleId,
+  isSupportAction,
+  moduleDef,
+  rulePackChanges,
+  SUPPORT_ACTIONS,
+  SUPPORT_GRANT_MAX_MINUTES,
+  type Clock,
+  type RulePack,
+} from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import { goLive } from "../payments/go-live.js";
+import { enqueuePush } from "../push/send-push.js";
+import { grantOut } from "../routes/support-grants.js";
 
 /**
  * The minimal Console (M1-35; screens.md · Console notes 1, 2, 4, 5): a
@@ -32,7 +47,7 @@ import { goLive } from "../payments/go-live.js";
  * Printers & devices, each venue's module allow-list (`venue_modules.allowed`)
  * and its venue flags. Every write runs as the staff member, so the venue
  * tables' audit triggers record them as the actor. Support grants and the
- * emergency actions come in M8; plans, billing and tickets wait for phase 2.
+ * emergency actions come in M8 (support grants below, M8-10); plans, billing and tickets wait for phase 2.
  */
 type VenueRow = ConsoleVenue;
 
@@ -188,6 +203,117 @@ export function consoleRoutes(
         return venueFlags(c, venue.id);
       });
       return { venue_id: venue.id, flags };
+    },
+  );
+
+  /**
+   * Support grants (M8-10; spec 02 · Support access): our staff member asks
+   * with a reason, a scope (read, or write for one named action) and a length
+   * up to 60 minutes; the venue's owner gets a push and answers in Admin →
+   * Console. The Console shows "Waiting for … to approve", then the open grant
+   * with its time left and [End now].
+   */
+  app.get<{ Params: { v: string } }>(
+    "/v1/console/venues/:v/support-grants",
+    { config: read },
+    async (request) => {
+      const staff = staffOf(request);
+      const venue = await venueOrThrow(request.params.v);
+      const rows = await app.db.withVenue(
+        { venueId: venue.id, userId: staff.id, requestId: request.requestId },
+        (c) => supportGrants(c, venue.id),
+      );
+      const at = options.clock.now().epochMilliseconds;
+      return { venue, support_grants: rows.map((g) => grantOut(g, at)) };
+    },
+  );
+
+  app.post<{
+    Params: { v: string };
+    Body: { reason?: unknown; scope?: unknown; action?: unknown; minutes?: unknown };
+  }>("/v1/console/venues/:v/support-grants", { config: write }, async (request) => {
+    const staff = staffOf(request);
+    const venue = await venueOrThrow(request.params.v);
+    const body = request.body ?? {};
+    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+    if (reason.length < 3 || reason.length > 500)
+      throw new ApiError("invalid_request", "give a reason (3 to 500 characters)");
+    const scope = body.scope;
+    if (scope !== "read" && scope !== "write")
+      throw new ApiError("invalid_request", "scope is read or write");
+    const action = scope === "write" ? body.action : null;
+    if (scope === "write" && !isSupportAction(action))
+      throw new ApiError(
+        "invalid_request",
+        `a write grant names one action: ${SUPPORT_ACTIONS.join(", ")}`,
+      );
+    const minutes = body.minutes;
+    if (
+      typeof minutes !== "number" ||
+      !Number.isInteger(minutes) ||
+      minutes < 1 ||
+      minutes > SUPPORT_GRANT_MAX_MINUTES
+    )
+      throw new ApiError(
+        "invalid_request",
+        `a grant lasts 1 to ${SUPPORT_GRANT_MAX_MINUTES} minutes`,
+      );
+    const now = options.clock.now();
+    const grant = await app.db.withVenue(
+      { venueId: venue.id, userId: staff.id, requestId: request.requestId },
+      async (c) => {
+        const g = await requestSupportGrant(c, {
+          venueId: venue.id,
+          staffId: staff.id,
+          reason,
+          scope,
+          action: (action as string | null) ?? null,
+          minutes,
+          at: now.toString(),
+        });
+        await enqueuePush(c, {
+          venueId: venue.id,
+          audience: { kind: "role", role: "owner" },
+          message: {
+            key: "support.push.request",
+            params: {},
+            url: "/admin/console",
+            tag: `support-${g.id}`,
+          },
+          runAt: now,
+          dedupeKey: `support-request:${g.id}`,
+        });
+        return g;
+      },
+    );
+    return { support_grant: grantOut(grant, now.epochMilliseconds) };
+  });
+
+  app.post<{ Params: { v: string; grantId: string } }>(
+    "/v1/console/venues/:v/support-grants/:grantId/end",
+    { config: write },
+    async (request) => {
+      const staff = staffOf(request);
+      const venue = await venueOrThrow(request.params.v);
+      const id = request.params.grantId;
+      if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ApiError("not_found", "no such support grant");
+      const now = options.clock.now();
+      const out = await app.db.withVenue(
+        { venueId: venue.id, userId: staff.id, requestId: request.requestId },
+        async (c) => {
+          const before = await supportGrant(c, venue.id, id);
+          if (!before) throw new ApiError("not_found", "no such support grant");
+          const after = await revokeSupportGrant(c, {
+            venueId: venue.id,
+            id,
+            by: staff.id,
+            side: "support",
+            at: now.toString(),
+          });
+          return after ?? before;
+        },
+      );
+      return { support_grant: grantOut(out, now.epochMilliseconds) };
     },
   );
 

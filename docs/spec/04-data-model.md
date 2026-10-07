@@ -20,7 +20,7 @@ Phase 1 needs about 100 tables. Money is stored in integer cents and every times
 | `venue_settings` / `venue_modules` / `venue_flags` | See [Settings, rule packs and modules](03-settings-rule-packs-modules.md) | Versioned; modules have a state |
 | `venue_subscriptions` | plan, stripe_subscription_id, room_quantity, status | Our plan billing |
 | `integrations` | kind, status, external_id, config, connected_at | Twilio, Google, QuickBooks, email, song system |
-| `support_grants` | staff_id, requested_by, reason, scope, status, approved_by, second_approver, starts_at, ends_at, revoked_at | Support access the venue approved |
+| `support_grants` | staff_id, requested_by, reason, scope, action, minutes, status, approved_by, second_approver, requested_at, decided_at, starts_at, ends_at, revoked_at, revoked_by, revoked_side, action_used_at | Support access the venue approved; a write grant's one named action, spent once |
 | `audit_log` | actor, approver, support_grant_id, action, target, changed_fields, old_values, new_values, request_id, at, prev_hash, hash | Written only by triggers |
 | `venue_events` | seq, type, entity_id, entity_version, at | Live events, kept 72 hours |
 | `jobs` | kind, dedupe_key (unique), priority, run_at, attempts, max_attempts, locked_until, last_error, status | Claimed with SKIP LOCKED |

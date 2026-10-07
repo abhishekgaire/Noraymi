@@ -119,6 +119,14 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into song_nights (venue_id, business_date, started_at) values ($1, '2026-09-25', now())",
     [v.venueB],
   );
+  // A support grant waiting at venue B (M8-10: POST /support-grants/{g}/approve and the rest).
+  const supportStaff = await owner.query<{ id: string }>(
+    "insert into console_staff (name, email) values ('Wall suite', 'walls@noraymi.test') returning id",
+  );
+  const grantB = await owner.query<{ id: string }>(
+    "insert into support_grants (venue_id, staff_id, requested_by, reason, scope, minutes, requested_at) values ($1, $2, $2, 'wall suite', 'read', 30, now()) returning id",
+    [v.venueB, supportStaff.rows[0]!.id],
+  );
   // A night's export at venue B (M7-15: POST /exports/{e}/email).
   const exportB = await owner.query<{ id: string }>(
     "insert into exports (venue_id, kind, business_date, journals, file) values ($1, 'accounting', '2026-09-20', '[]', 'x') returning id",
@@ -316,6 +324,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       p: punchB.rows[0]!.id,
       e: exportB.rows[0]!.id,
       replayId: replayB.rows[0]!.id,
+      grantId: grantB.rows[0]!.id,
     },
     bodies: {
       "PATCH /v1/venues/:venueId/team/:m": { locale: "es" },

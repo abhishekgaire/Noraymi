@@ -264,7 +264,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-10 · Let the owner approve support grants, and enforce them
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** M1-35 (Console sign-in with FIDO2 keys), M1-05 (row-level security), M1-07 (audit triggers), M1-19 (owner passkey sessions)
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Support access, The database walls; [Security and data retention](../spec/12-security-retention.md) 7; [API](../spec/08-api.md) · Support access; [Data model](../spec/04-data-model.md) · `support_grants`, `audit_log` (`support_grant_id`); [Testing and operations](../spec/13-testing-operations.md) · On call; screens [N39](../screens.md#n39-admin--console), [Console](../screens.md#console) notes 2 and 3
@@ -275,13 +275,20 @@ Definition of done: see CLAUDE.md.
   - The support session carries its `support_grant_id`, and every transaction runs `SET TRANSACTION READ ONLY` on masked views (no ID scans, no guest phone numbers). An approved write allows only its one named action, once; the rest stays read-only. Every audit row records both identities. The session ends at `ends_at` or on revoke.
   - The principal and venue-wall suites run as a support principal too.
 - **Acceptance:**
-  - [ ] A read grant for West 4 opens only after Abhishek approves it in Admin → Console, and Andy's Admin has no Console section.
-  - [ ] During the grant, guests show masked phone numbers and no ID scans, and every write fails as read-only.
-  - [ ] A write grant for one named action allows it once; a second try, and any other write, fail.
-  - [ ] The session ends by itself at 60 minutes, and Abhishek's End now ends it at once.
-  - [ ] Every audit row written during the grant names our staff member and the grant.
+  - [x] A read grant for West 4 opens only after Abhishek approves it in Admin → Console, and Andy's Admin has no Console section.
+  - [x] During the grant, guests show masked phone numbers and no ID scans, and every write fails as read-only.
+  - [x] A write grant for one named action allows it once; a second try, and any other write, fail.
+  - [x] The session ends by itself at 60 minutes, and Abhishek's End now ends it at once.
+  - [x] Every audit row written during the grant names our staff member and the grant.
 - **Tests:** row-level security and masked-view tests as a support principal; a time-box test on the simulated clock; the principal suite.
 - **Notes:** The Console canvas and the API's table say the owner "or a manager" approves; build owner only, as [Tenancy and access](../spec/02-tenancy-access.md), the milestone and [Console](../screens.md#console) note 3 say.
+  - **Built (Oct 7, 2026).** Migration `0113_support_grants.sql`: `support_grants` (forced row-level security, audited, plus `action`, `minutes`, `requested_at`, `decided_at`, `revoked_by`, `revoked_side` and `action_used_at` beyond the spec's list; spec 04 updated), the definer door `resolve_support_grant()`, two new roles, and the masked views `support_guests` (phone as `••• ••• 42`, email only as "on file"), `support_checks` and `support_print_jobs`. The views belong to `app_masked`, which reads those three tables behind the venue wall; `app_support` may read the views and nothing else (no `guests`, no `id_checks`). `audit_row()` now fills `audit_log.support_grant_id` from `app.support_grant_id`, and the hash covers it when set (`verify_audit_chain` matches), so older rows verify as before.
+  - **Enforced.** `packages/db/src/support-grants.ts`: `withSupport` opens `SET TRANSACTION READ ONLY`, checks the grant open on the server's clock, then `SET LOCAL ROLE app_support`; `withSupportAction` spends a write grant's named action once (`action_used_at`) in the same transaction as the action. The Console session becomes the `support` principal only on venue routes, with an `x-support-grant` header naming an open grant (`apps/api/src/console/auth.ts`); a waiting, declined, ended or revoked grant leaves a plain Console session, which no venue route takes.
+  - **API.** `apps/api/src/routes/support-grants.ts`: `GET /support-grants`, `POST /support-grants/{grantId}/approve`, `/decline`, `/revoke` (owner only, passkey, `admin.console`); `GET /support/view` and `POST /support/actions/{action}` as the support principal. Console: `GET`/`POST /v1/console/venues/{v}/support-grants` and `POST …/{grantId}/end`; a request pushes the owner ("Our support staff ask to see the venue · answer in Admin → Console").
+  - **Screens.** Staff: Admin → Console (`screens/admin/SupportAccess.tsx`, English and Spanish), the open-grant banner across Admin, the section now shipped. Console: a Support access panel on the venue (reason, scope, action, minutes; "Waiting for West 4 Boho Karaoke to approve"; the open grant with time left, [End now] and the masked view).
+  - **Tests.** `packages/db/src/support-grants.int.test.ts` (masked views, read-only, no `guests`/`id_checks`, venue wall, time box, spend-once, audit and chain), `apps/api/src/routes/support-grants.int.test.ts` (each Acceptance line on the demo seed and the simulated clock, through the real Console cookie), the principal and wall suites (a venue B grant added to the wall fixtures, `grantId` sampled), and e2e in `staff.spec.ts` and `console.spec.ts`.
+  - **Cautious defaults, flagged.** The write grant's named actions are a list in `packages/shared/src/support.ts` with one entry, `requeue_print` (a reprint, from the spec's support actions); M8-11 adds the emergency path and its own. The banner and the push go to the owner only, since the section is the owner's. A waiting request doesn't expire; the owner's approval starts its minutes. Spec 08's "or a manager" is changed to owner only, as spec 02 already said (no decision changed).
+  - **Checks.** `pnpm check` passes. In `pnpm check --e2e`, 174 tests passed and the api smoke test "after a fresh seed load … 10:41 PM in New York" failed only in the 17-minute full run (the seed clock had moved on); it passes alone (`pnpm e2e --project=api`), like the seed-clock specs flagged before.
 
 ### M8-11 · Run the Console's emergency actions with a second approver
 

@@ -6,6 +6,7 @@ import { api } from "../api.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession, type SessionState } from "../session.js";
+import { SupportBanner } from "./admin/SupportAccess.js";
 
 /**
  * The AdminDesk shell (M1-31; screens.md · AdminDesk). Admin opens only in a
@@ -43,6 +44,9 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   return (
     <div className="admin">
       <RulePackNotice venueId={state.membership.venue_id} />
+      {state.membership.permissions.includes("admin.console") && (
+        <SupportBanner venueId={state.membership.venue_id} />
+      )}
       <nav className="admin-nav" aria-label={t("admin.sections")}>
         <ul>
           {sections.map((s) => (
