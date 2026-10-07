@@ -519,8 +519,28 @@ export {
 } from "./nights.js";
 export { trainingOf } from "./training.js";
 export { reasonOnlyUsed } from "./reports/reason-only.js";
-export { RETENTION } from "./retention.js";
-export type { Retention } from "./retention.js";
+export {
+  RETENTION,
+  RETENTION_POLICY,
+  retentionCutoffs,
+  asRetention,
+  hashOptOuts,
+  pseudonymize,
+  removeTexts,
+  removeExpired,
+  dueCards,
+  recordCardDetach,
+  dueTwilioBodies,
+  markTwilioBodyPurged,
+  recordRetentionRun,
+} from "./retention.js";
+export type {
+  Retention,
+  RetentionRule,
+  RetentionAction,
+  RetentionCounts,
+  DueCard,
+} from "./retention.js";
 export {
   VENDORS,
   recordVendorCall,

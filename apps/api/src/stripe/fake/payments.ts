@@ -123,6 +123,32 @@ fakeRouteSets.push((fake) => {
     return found["card"] as { brand: string; last4: string };
   };
 
+  /**
+   * Detaching a saved card (M8-12): it leaves its Customer, as on Stripe; one not attached is refused
+   * with Stripe's wording, and an unknown id is missing. A test card name (pm_card_visa) answers as detached.
+   */
+  fake.route("POST", "/v1/payment_methods/:id/detach", (req) => {
+    const id = req.params["id"]!;
+    const found = fake.objects.get(id);
+    if (!found || found["object"] !== "payment_method" || found["_account"] !== req.account) {
+      if (id in TEST_CARDS) return { body: { id, object: "payment_method", customer: null } };
+      throw new FakeError(
+        404,
+        "invalid_request_error",
+        "resource_missing",
+        `No such PaymentMethod: '${id}'`,
+      );
+    }
+    if (!found["customer"])
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        "payment_method_unexpected_state",
+        "The payment method you provided is not attached to a customer so detachment is impossible.",
+      );
+    return { body: fake.put({ ...found, customer: null }) };
+  });
+
   fake.route("POST", "/v1/payment_intents", (req) => {
     const account = needAccount(req.account);
     const amount = Number(req.body["amount"]);

@@ -369,6 +369,9 @@ export async function optedOut(c: Queryable, venueId: string, phone: string): Pr
     `select 1 from consents k left join guests g on g.venue_id = k.venue_id and g.id = k.guest_id
       where k.venue_id = $1 and k.channel = 'sms' and k.kind = 'texts' and k.revoked_at is not null
         and coalesce(k.phone_e164, g.phone_e164) = $2
+     union all
+     -- An opt-out the retention job (M8-12) kept as a keyed hash after the consent row went.
+     select 1 from opt_out_hashes h where h.venue_id = $1 and h.phone_hash = opt_out_hash($2)
       limit 1`,
     [venueId, phone],
   );

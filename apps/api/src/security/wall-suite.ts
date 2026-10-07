@@ -8,6 +8,7 @@ import type { RegisteredRoute } from "../http/registry.js";
 import type { Principal } from "../http/principal.js";
 import { AUDIT_EXPORT_KIND } from "../jobs/audit-export.js";
 import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
+import { RETENTION_KIND } from "../jobs/retention.js";
 import { EVENTS_CLEANUP_KIND } from "../jobs/events-cleanup.js";
 import { IDEMPOTENCY_CLEANUP_KIND } from "../jobs/idempotency-cleanup.js";
 import { EMAIL_SEND_KIND } from "../jobs/send-email.js";
@@ -340,6 +341,17 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
         : push.sent.length > 0
           ? "a singer alert went to venue B's singer from venue A"
           : null,
+  },
+  [RETENTION_KIND]: {
+    carries: "venue B's ids",
+    pool: "bulk",
+    payload: (c) => ({ venue_id: c.venueB }),
+    // The venue comes from the job row and every step runs as app_retention behind venue A's wall:
+    // venue B's id in the payload changes nothing (retention.int.test.ts checks B's rows stay).
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the retention job didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },

@@ -43,6 +43,7 @@ import {
   licenseReminderSchedule,
   makeLicenseReminderHandler,
 } from "../licenses/licenses.js";
+import { RETENTION_KIND, makeRetentionHandler, retentionSchedule } from "./retention.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -142,6 +143,13 @@ export function makeHandlers({
       [EVENTS_CLEANUP_KIND]: eventsCleanupHandler,
       // License renewal reminders (M8-09), every morning on each venue's clock.
       [LICENSE_REMINDER_KIND]: makeLicenseReminderHandler(email),
+      // The nightly retention job (M8-12), per venue, under its own role.
+      [RETENTION_KIND]: makeRetentionHandler({
+        ...(stripe ? { stripe: stripe.client } : {}),
+        ...(venueTexts
+          ? { texts: { client: venueTexts.client, secretKey: venueTexts.secretKey } }
+          : {}),
+      }),
     },
   };
 }
@@ -151,6 +159,7 @@ export const schedules: Schedule[] = [
   idempotencyCleanupSchedule,
   eventsCleanupSchedule,
   licenseReminderSchedule,
+  retentionSchedule,
 ];
 
 /** What the scheduler's leader checks between ticks (M1-16: quiet devices). */

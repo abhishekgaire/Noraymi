@@ -310,7 +310,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-12 · Run the nightly retention job and detach saved cards on schedule
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** M1-06 (jobs), M1-05 (roles), M2-06 (guests and bookings), M2-22 (messages), M2-23 (consents), M2-25 (waitlist), M2-13 (files), M5-09 (cards saved at booking), M6 (singers, cards saved on bar tabs)
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) · How long we keep things; [Data model](../spec/04-data-model.md); [Stripe setup](../spec/06-stripe-setup.md) 10; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · the rule pack's `retention`
@@ -323,13 +323,17 @@ Definition of done: see CLAUDE.md.
   - Keep checks, lines, payments, refunds and night closes at least 3 years; time punches, tip pools, shares and the tip ledger 6 years; the audit log 6 years; incidents 3 years.
   - Drop expired monthly partitions, and log what it removed as counts per kind, never the data.
 - **Acceptance:**
-  - [ ] On the simulated clock, a guest last seen 24 months and a day ago is pseudonymized, and one seen yesterday isn't.
-  - [ ] A print payload from 31 days ago is gone, and one from 29 days ago stays.
-  - [ ] The card saved on a bar tab closed 8 days ago is detached on the sandbox, and one closed 6 days ago isn't.
-  - [ ] A singer 31 days past their last song who still owes money isn't deleted.
-  - [ ] Each run's log lists what it removed, by kind and count.
+  - [x] On the simulated clock, a guest last seen 24 months and a day ago is pseudonymized, and one seen yesterday isn't.
+  - [x] A print payload from 31 days ago is gone, and one from 29 days ago stays.
+  - [x] The card saved on a bar tab closed 8 days ago is detached on the sandbox, and one closed 6 days ago isn't. (On the fake Stripe, which stands in for the sandbox in tests; the live sandbox run happens with M8-07's on-site checks.)
+  - [x] A singer 31 days past their last song who still owes money isn't deleted.
+  - [x] Each run's log lists what it removed, by kind and count.
 - **Tests:** a clock test for each kind; Stripe sandbox detach tests; Twilio test credentials; a rerun test (a second run removes nothing new); the venue-wall suite over the job.
 - **Notes:** Backups keep 35 days of point-in-time restore, so pseudonymized rows live on in backups that long; M8-20 re-applies erasures after a restore. Spec gap: the job "drops expired monthly partitions", but no table is named as partitioned; cautious default: delete by rows, and partition a table only when its size needs it.
+  - **Built (M8-12).** Migration `0115_retention.sql`: the role `app_retention` (granted to `app_rw` only so the job can `set local role`; noinherit, so app_rw gains nothing), a `retention_wall` policy for it on every table it reads or changes, column-only update grants for pseudonymizing, and delete only on conversations, messages, consents, idempotency keys, venue events, singers, their push subscriptions, incidents and incident notes (the one narrow path that deletes incidents; the app still can't). New columns: `pseudonymized_at` on bookings, waitlist entries and enquiries; `payload_purged_at` on print jobs and webhook events; `messages.provider_body_purged_at`; `singers.erased_at` (and `phone_e164` nullable). New tables: `opt_out_hashes`, `venue_hash_keys` (per-venue random key, read only by the definer `opt_out_hash()`), `card_detaches`, `retention_runs`. `audit_row()` writes field names without old values while the role is `app_retention`, so deleting a message or pseudonymizing a guest never copies the data into the 6-year audit log. `packages/db/src/retention.ts`: the policy table `RETENTION_POLICY`, `retentionCutoffs()` (calendar months and years on the venue's clock, real hours for events), and the SQL for each kind. `apps/api/src/jobs/retention.ts`: the job `retention.nightly` per venue at 5:15 AM (bulk pool): hashes opt-outs first, redacts bodies at Twilio (`TwilioVenueClient.redact`, an empty Body with `I-Twilio-Idempotency-Token`), detaches cards (`stripe/cards.ts`, `POST /v1/payment_methods/{pm}/detach` keyed `retention:detach:<source>:<id>`, the sandbox for practice payments), then pseudonymizes and deletes, and records the run. `optedOut()` also matches the hash. The fake Stripe gained the detach route. Tests: `retention.test.ts` (each kind's cutoff, daylight saving), `retention.int.test.ts` (every acceptance line, the opt-out hash, Twilio, incidents, the audit trail without values, another venue untouched, a rerun removing nothing), and the job's case in the venue-wall suite.
+  - **Cautious defaults and readings** ([D91](../decisions.md)). No table is partitioned, so it deletes by rows (the ticket's default). A guest with a booking made or due, or a waitlist entry, inside the 24 months is kept. A booking "closes" when completed, a no-show or cancelled and every check on it is paid or void, at the later of its end and its last payment. Cards saved on a room check (`check_cards`) follow the bar tab's 7 days. "Owes money" means the singer's check isn't paid or void; a singer whose songs, credits, plays, gifts or prepaid codes explain a check is pseudonymized instead of deleted, so money rows stay whole. A message whose body is still at Twilio waits until Twilio blanks it. A card or body Stripe or Twilio didn't answer for is tried again the next night with the same key, and the run notes it under `skipped`. Logs: CloudWatch keeps 30 days (`infra/staging/ecs.tf`); we have no error reporter yet. Unattached uploads are still removed by the files sweep (M2-13); the run counts those removed in its 24 hours. The platform sweeps `events.clear_old` and `idempotency.clear_old` stay as a backstop (they also clear the platform venue's rows).
+  - **For later tickets.** M8-13 reuses `opt_out_hash()`, `detachCard()` and `redact()` for erasure on request. M8-20 must re-apply pseudonymizations after a restore. The booking-card detach is exercised against the fake through the SQL path only; a staging run on Stripe's sandbox with a real deposit should confirm it (M8-07).
+
 
 ### M8-13 · Erase a guest on request
 

@@ -22,6 +22,15 @@ export interface VenueText {
 
 export interface VenueTextClient {
   send(account: TwilioAccount, text: VenueText): Promise<{ sid: string }>;
+  /**
+   * Blank a message's body at Twilio (M8-12: message bodies are kept there 30 days). "gone" when
+   * Twilio no longer has the message. Optional so a test double that only sends still fits.
+   */
+  redact?(
+    account: TwilioAccount,
+    sid: string,
+    idempotencyKey: string,
+  ): Promise<"redacted" | "gone">;
 }
 
 export class TwilioVenueClient implements VenueTextClient {
@@ -59,11 +68,51 @@ export class TwilioVenueClient implements VenueTextClient {
     if (!sid) throw new Error("Twilio answered without a message SID");
     return { sid };
   }
+
+  /**
+   * Twilio redacts a body when the message is updated with an empty one; the idempotency token makes
+   * a rerun the same request. A 404 means Twilio no longer has the message.
+   */
+  async redact(
+    account: TwilioAccount,
+    sid: string,
+    idempotencyKey: string,
+  ): Promise<"redacted" | "gone"> {
+    assertOutsideTransaction("text");
+    let response: Response;
+    try {
+      response = await this.fetchImpl(
+        `${this.baseUrl}/2010-04-01/Accounts/${encodeURIComponent(account.accountSid)}/Messages/${encodeURIComponent(sid)}.json`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Basic ${Buffer.from(`${account.accountSid}:${account.authToken}`).toString("base64")}`,
+            "content-type": "application/x-www-form-urlencoded",
+            "i-twilio-idempotency-token": idempotencyKey,
+          },
+          body: new URLSearchParams({ Body: "" }).toString(),
+        },
+      );
+    } catch (error) {
+      noteVendorCall("twilio", account.accountSid, true);
+      throw error;
+    }
+    noteVendorCall("twilio", account.accountSid, response.status >= 500 || response.status === 429);
+    if (response.status === 404) return "gone";
+    if (!response.ok)
+      throw new Error(`Twilio answered ${response.status} redacting a message body`);
+    return "redacted";
+  }
 }
 
 /** Records what would go out; local development and tests. */
 export class FakeVenueClient implements VenueTextClient {
   readonly sent: { account: string; text: VenueText; sid: string }[] = [];
+  readonly redacted: { account: string; sid: string; key: string }[] = [];
+  async redact(account: TwilioAccount, sid: string, key: string): Promise<"redacted" | "gone"> {
+    this.redacted.push({ account: account.accountSid, sid, key });
+    return "redacted";
+  }
   async send(account: TwilioAccount, text: VenueText): Promise<{ sid: string }> {
     const sid = `SM${randomUUID().replace(/-/g, "")}`;
     this.sent.push({ account: account.accountSid, text, sid });
