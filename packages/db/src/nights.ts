@@ -15,7 +15,9 @@ export interface NightClose {
   readonly business_date: string;
   readonly z_number: number;
   readonly closed_at: string;
-  readonly closed_by: string;
+  /** The owner or manager who closed it; null when our staff closed it on the emergency path (M8-11). */
+  readonly closed_by: string | null;
+  readonly closed_by_support: string | null;
   readonly totals: Record<string, unknown>;
   readonly export_id: string | null;
 }
@@ -57,7 +59,7 @@ export async function nightClose(
 ): Promise<NightClose | null> {
   const r = await c.query<NightClose>(
     `select id, business_date::text, z_number::int as z_number,
-            to_json(closed_at) #>> '{}' as closed_at, closed_by, totals, export_id
+            to_json(closed_at) #>> '{}' as closed_at, closed_by, closed_by_support, totals, export_id
        from night_closes where venue_id = $1 and business_date = $2`,
     [venueId, businessDate],
   );
@@ -103,7 +105,9 @@ export async function recordNightClose(
   input: {
     businessDate: string;
     closedAt: string;
-    closedBy: string;
+    closedBy: string | null;
+    /** Our staff member, when the night closes on the emergency path (M8-11). */
+    closedBySupport?: string | null;
     totals?: Record<string, unknown>;
     exportId?: string | null;
   },
@@ -123,8 +127,8 @@ export async function recordNightClose(
     [venueId],
   );
   await c.query(
-    `insert into night_closes (venue_id, business_date, z_number, closed_at, closed_by, totals, export_id)
-     values ($1, $2, $3, $4, $5, $6, $7)`,
+    `insert into night_closes (venue_id, business_date, z_number, closed_at, closed_by, totals, export_id, closed_by_support)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       venueId,
       input.businessDate,
@@ -133,6 +137,7 @@ export async function recordNightClose(
       input.closedBy,
       JSON.stringify(input.totals ?? {}),
       input.exportId ?? null,
+      input.closedBySupport ?? null,
     ],
   );
   return (await nightClose(c, venueId, input.businessDate))!;

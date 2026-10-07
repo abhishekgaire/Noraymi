@@ -2,23 +2,13 @@ import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
 import type { Clock } from "@west4/shared";
-import {
-  emitEvent,
-  insertPrintJob,
-  latePostsTo,
-  nightClose,
-  postingDate,
-  recordNightClose,
-  recordPunch,
-  type Queryable,
-} from "@west4/db";
+import { insertPrintJob, latePostsTo, nightClose, postingDate, type Queryable } from "@west4/db";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { closePool, nightTips, poolOf } from "../tips/pool.js";
+import { nightTips } from "../tips/pool.js";
 import { nightChecks } from "../nights/checks.js";
-import { computeReport, nightReport, reportPrintLines } from "../nights/report.js";
-import { postNightExport } from "../nights/journal.js";
-import { venueClock } from "../rooms/assignment.js";
+import { closeNight } from "../nights/close.js";
+import { nightReport, reportPrintLines } from "../nights/report.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
 import { listTabs } from "../tabs/tabs.js";
@@ -268,84 +258,7 @@ export function nightRoutes(
       const now = options.clock.now();
       return request.inVenue(async (c) => {
         const date = (await nightOf(c, venueId, request.params.date, now)).toString();
-        if (date !== (await postingDate(c, venueId, now)))
-          throw new ApiError("invalid_request", "only tonight's business date closes");
-        await c.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [
-          `night-close:${venueId}:${date}`,
-        ]);
-        if (await nightClose(c, venueId, date))
-          throw new ApiError("version_conflict", "this night is already closed");
-        const failing = (await nightChecks(c, venueId, date, now, p.userId)).filter(
-          (x) => x.blocking,
-        );
-        if (failing.length > 0)
-          throw new ApiError("night_open", "the night can't close yet", {
-            details: { checks: failing.map((x) => ({ id: x.id, count: x.count, names: x.names })) },
-          });
-        // The closing manager clocks out at the close.
-        const own = await c.query<{ id: string }>(
-          "select id from memberships where venue_id = $1 and user_id = $2",
-          [venueId, p.userId],
-        );
-        const open = await c.query(
-          "select 1 from shifts where venue_id = $1 and membership_id = $2 and ended_at is null",
-          [venueId, own.rows[0]!.id],
-        );
-        if ((open.rowCount ?? 0) > 0)
-          await recordPunch(c, {
-            venueId,
-            membershipId: own.rows[0]!.id,
-            kind: "clock_out",
-            at: now,
-            venue: await venueClock(c, venueId),
-          });
-        // The tip pool closes with the night: its shares are written once (M7-09).
-        await poolOf(c, venueId, date);
-        await closePool(c, venueId, date, now);
-        // Rooms and bar tabs counted apart.
-        const counts = (
-          await c.query<{ rooms: number; bar_tabs: number }>(
-            `select count(*) filter (where kind = 'room')::int as rooms, count(*) filter (where kind = 'bar')::int as bar_tabs
-               from checks where venue_id = $1 and business_date = $2::date and not training and status <> 'void'`,
-            [venueId, date],
-          )
-        ).rows[0]!;
-        // The Z report (M7-13), worked out once now and stored with the close: never recomputed.
-        const closer =
-          (await c.query<{ name: string }>("select name from users where id = $1", [p.userId]))
-            .rows[0]?.name ?? null;
-        const z = await computeReport(c, venueId, date, now, "z");
-        // The night's accounting journal, posted from the same lines (M7-15), and its file.
-        const exportId = await postNightExport(c, venueId, { date, report: z, userId: p.userId });
-        const closed = await recordNightClose(c, venueId, {
-          businessDate: date,
-          closedAt: now.toString(),
-          closedBy: p.userId,
-          exportId,
-          totals: {
-            checks: counts,
-            report: { ...z, closed: { z_number: 0, closed_at: now.toString(), closed_by: closer } },
-          },
-        });
-        // Unsent drinks left are cleared, and tonight's 86s end.
-        await c.query(
-          "update order_drafts set lines = '[]', version = version + 1, updated_at = $2 where venue_id = $1 and jsonb_array_length(lines) > 0",
-          [venueId, now.toString()],
-        );
-        for (const table of ["menu_items", "menu_variants", "menu_options"])
-          await c.query(
-            `update ${table} set out_until = null where venue_id = $1 and out_until > $2`,
-            [venueId, now.toString()],
-          );
-        await emitEvent(c, { venueId, type: "menu.changed", entityId: venueId });
-        await emitEvent(c, { venueId, type: "night.closed", entityId: venueId });
-        return {
-          business_date: date,
-          z_number: closed.z_number,
-          closed_at: closed.closed_at,
-          closed_by: closed.closed_by,
-          checks: counts,
-        };
+        return closeNight(c, { venueId, date, now, by: { kind: "user", userId: p.userId } });
       });
     },
   );

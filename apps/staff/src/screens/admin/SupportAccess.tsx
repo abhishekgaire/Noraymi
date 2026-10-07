@@ -11,7 +11,7 @@ import { useSession } from "../../session.js";
  * API refuses them too. Each request shows who asked, the reason, the scope
  * (read, or read plus one named action once) and the length up to 60 minutes,
  * with [Approve] and [Decline]; an open grant shows its time left and [End now].
- * The emergency actions come with M8-11.
+ * The emergency actions (M8-11) show below, in EmergencyActions.
  */
 export interface SupportGrant {
   readonly id: string;

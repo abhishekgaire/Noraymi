@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { t, type Locale, type MessageKey } from "@west4/shared";
 import { SupportAccess } from "./SupportAccess.js";
+import { EmergencyActions } from "./EmergencyActions.js";
 import { api, ConsoleApiError } from "./api.js";
 
 /**
@@ -452,6 +453,11 @@ function Venues({
               </button>
             </form>
             <SupportAccess key={open.venue.id} venue={open.venue} />
+            <EmergencyActions
+              key={`emergency-${open.venue.id}`}
+              venue={open.venue}
+              staffId={screen.staff.id}
+            />
           </section>
         )}
       </div>

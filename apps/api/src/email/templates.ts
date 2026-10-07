@@ -77,6 +77,19 @@ export const licenseReminderData = z
   })
   .strict();
 
+/** An emergency action on our side (M8-11), to the venue's owner: opened, then ran or didn't finish. */
+export const emergencyActionData = z
+  .object({
+    venueName: z.string().min(1),
+    stage: z.enum(["opened", "done", "failed"]),
+    action: z.enum(["resync_payment", "cancel_reader_action", "requeue_print", "close_night"]),
+    requestedBy: z.string().max(200),
+    /** Empty until a second person on our side approves it. */
+    approvedBy: z.string().max(200),
+    reason: z.string().min(3).max(500),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
   sign_in_code: signInCodeData,
@@ -84,6 +97,7 @@ export const templateSchemas = {
   receipt: receiptData,
   accounting_export: accountingExportData,
   license_reminder: licenseReminderData,
+  emergency_action: emergencyActionData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -217,6 +231,28 @@ export function render<N extends TemplateName>(
       ];
       return {
         subject: line("email.license.subject"),
+        text: paragraphs.join("\n\n"),
+        html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
+      };
+    }
+    case "emergency_action": {
+      const d = data as TemplateData<"emergency_action">;
+      const values = {
+        venue: d.venueName,
+        action: t(locale, `emergency.action.${d.action}` as MessageKey),
+        name: d.requestedBy,
+        approver: d.approvedBy,
+        reason: d.reason,
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line(`email.emergency.body.${d.stage}` as MessageKey),
+        line("email.emergency.reason"),
+        line("email.emergency.review"),
+        line("email.footer"),
+      ];
+      return {
+        subject: line(`email.emergency.subject.${d.stage}` as MessageKey),
         text: paragraphs.join("\n\n"),
         html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
       };

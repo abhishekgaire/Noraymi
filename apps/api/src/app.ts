@@ -74,6 +74,7 @@ import { callRoutes } from "./routes/calls.js";
 import { incidentRoutes } from "./routes/incidents.js";
 import { licenseRoutes } from "./routes/licenses.js";
 import { supportGrantRoutes } from "./routes/support-grants.js";
+import { emergencyConsoleRoutes, emergencyVenueRoutes } from "./console/emergency.js";
 import { conversationRoutes } from "./routes/conversations.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { headcountRoutes } from "./routes/headcount.js";
@@ -275,6 +276,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       incidentRoutes(scope, { pool: gatePoolRef!, clock });
       licenseRoutes(scope, { clock });
       supportGrantRoutes(scope, { pool: gatePoolRef!, clock });
+      // Admin → Console's emergency actions (M8-11), read by the owner.
+      emergencyVenueRoutes(scope, { clock });
       headcountRoutes(scope, { clock });
       connectionRoutes(scope, { clock });
       boardRoutes(scope, { clock });
@@ -383,6 +386,13 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
           gate: gate!,
           clock,
           rulePackSigningKey: config.rulePackSigningKey,
+        });
+        // The emergency path (M8-11): four actions, a second approver on our side, the owner told.
+        emergencyConsoleRoutes(scope, {
+          pool: gatePoolRef!,
+          clock,
+          stripe,
+          email: options.email ?? { allowList: null },
         });
       }
     }

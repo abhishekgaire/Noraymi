@@ -8674,6 +8674,27 @@ test("Admin → Console: Abhishek approves a support request, the banner shows, 
     );
     expect(row.rows[0]).toEqual({ status: "revoked", revoked_side: "venue" });
 
+    // Emergency actions (M8-11): what our side ran, who asked, who approved, and why; read-only here.
+    await db.query(
+      `insert into console_staff (name, email) values ('Ben on call', 'oncall@demo.west4.local')
+         on conflict ((lower(email))) do update set active = true`,
+    );
+    await db.query(
+      `insert into emergency_actions (venue_id, action, target, reason, requested_by, requested_at, expires_at,
+                                      status, decided_by, decided_at, done_at, result)
+       select v.id, 'requeue_print', gen_random_uuid()::text, 'E2E bar ticket lost at 2:50 AM', a.id, now(),
+              now() + interval '15 minutes', 'done', b.id, now(), now(), '{}'
+         from venues v, console_staff a, console_staff b
+        where v.slug = 'west4karaoke' and a.email = 'support@demo.west4.local' and b.email = 'oncall@demo.west4.local'`,
+    );
+    await page.reload();
+    const emergency = page.getByRole("region", { name: "Emergency actions" });
+    const ran = emergency.getByRole("listitem", { name: "Requeue a print" }).first();
+    await expect(ran).toContainText("Done");
+    await expect(ran).toContainText("Reason: E2E bar ticket lost at 2:50 AM");
+    await expect(ran).toContainText("Asked by Noraymi support · Approved by Ben on call");
+    await expect(ran.getByRole("button")).toHaveCount(0);
+
     // Andy's Admin has no Console section.
     const andy = await browser.newContext({ baseURL: "http://localhost:5173" });
     const andyPage = await andy.newPage();
@@ -8685,6 +8706,7 @@ test("Admin → Console: Abhishek approves a support request, the banner shows, 
     await andy.close();
   } finally {
     await db.query("delete from support_grants where reason like 'E2E %'");
+    await db.query("delete from emergency_actions where reason like 'E2E %'");
     await db.end();
   }
 });

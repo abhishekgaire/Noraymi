@@ -1026,6 +1026,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "checks",
       // The license register (M8-09) points at its copies: before the files. The seed has none.
       "licenses",
+      // The Console's emergency actions (M8-11): a fresh night starts with none.
+      "emergency_actions",
       // Photos (the slips' since M6-09); after every row that points at one.
       "files",
       "shifts",

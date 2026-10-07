@@ -19,6 +19,7 @@ import {
   type PaymentRow,
   type PaymentSource,
   type Queryable,
+  type RequestContext,
 } from "@west4/db";
 import { Temporal, type Clock } from "@west4/shared";
 import { StripeError, StripeUnknownResult, type StripeClient } from "../stripe/client.js";
@@ -90,13 +91,15 @@ export interface PaymentDeps {
   /** For the pay link texted after a declined card on file (M4-17); the worker sets them. */
   readonly payAppUrl?: string | null;
   readonly texts?: Pick<VenueTextSettings, "allowList">;
+  /** Who the audit rows name (M8-11's emergency path: our staff member and the second approver). */
+  readonly context?: Pick<RequestContext, "userId" | "emergency">;
 }
 
 type InVenue = <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
 const venueTx =
   (deps: PaymentDeps, venueId: string, requestId: string): InVenue =>
   (work) =>
-    withVenue(deps.pool, { venueId, requestId }, work);
+    withVenue(deps.pool, { ...deps.context, venueId, requestId }, work);
 
 /** The reader isn't ours (404, nothing sent to Stripe). */
 export class NoSuchReader extends Error {}

@@ -2857,4 +2857,37 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "support.banner": "Acceso de soporte abierto · {name} · quedan {minutes} min",
   "support.banner.open": "Abrir Consola",
   "support.error.answered": "Ya se respondió o terminó. La lista está al día.",
+  "emergency.title": "Acciones de emergencia",
+  "emergency.intro":
+    "Nuestro equipo puede arreglar cuatro cosas a las 3 AM: volver a sincronizar un pago, cancelar una acción del lector, reenviar una impresión o cerrar una noche atascada. Cada una necesita un motivo y una segunda persona de nuestro equipo, y se te avisa al momento.",
+  "emergency.empty": "No hay acciones de emergencia.",
+  "emergency.action.resync_payment": "Volver a sincronizar un pago",
+  "emergency.action.cancel_reader_action": "Cancelar una acción del lector",
+  "emergency.action.requeue_print": "Reenviar una impresión",
+  "emergency.action.close_night": "Cerrar una noche atascada",
+  "emergency.askedBy": "Pedida por {name}",
+  "emergency.approvedBy": "Aprobada por {name}",
+  "emergency.reason": "Motivo: {reason}",
+  "emergency.state.requested": "Esperando una segunda aprobación",
+  "emergency.state.expired": "Vencida",
+  "emergency.state.declined": "Rechazada",
+  "emergency.state.withdrawn": "Retirada",
+  "emergency.state.approved": "En curso",
+  "emergency.state.done": "Hecha",
+  "emergency.state.failed": "No terminó",
+  "emergency.push.opened": "Acción de emergencia abierta por {name} · {reason}",
+  "emergency.push.done": "Acción de emergencia hecha · {name} y {approver} · {reason}",
+  "emergency.push.failed": "La acción de emergencia no terminó · {name} y {approver} · {reason}",
+  "email.emergency.subject.opened": "Acción de emergencia abierta en {venue}: {action}",
+  "email.emergency.subject.done": "Acción de emergencia hecha en {venue}: {action}",
+  "email.emergency.subject.failed": "La acción de emergencia no terminó en {venue}: {action}",
+  "email.emergency.body.opened":
+    "{name}, de nuestro equipo de soporte, abrió una acción de emergencia en {venue}: {action}. Solo se ejecuta cuando otra persona de nuestro equipo la aprueba.",
+  "email.emergency.body.done":
+    "{name} la pidió y {approver} la aprobó. Se hizo en {venue}: {action}.",
+  "email.emergency.body.failed":
+    "{name} la pidió y {approver} la aprobó, pero no terminó en {venue}: {action}.",
+  "email.emergency.reason": "Motivo: {reason}",
+  "email.emergency.review":
+    "Cada paso queda en el registro de auditoría. Míralo en Admin → Consola.",
 };

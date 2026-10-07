@@ -150,6 +150,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   incidentId: uuid(58),
   licenseId: uuid(59),
   grantId: uuid(60),
+  emergencyId: uuid(61),
 };
 
 export function fillUrl(

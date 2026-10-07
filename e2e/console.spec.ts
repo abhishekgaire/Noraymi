@@ -106,3 +106,103 @@ test("our staff sign in with a security key and read West 4's health, modules an
     await db.end();
   }
 });
+
+/**
+ * The emergency path (M8-11). Our support account asks to requeue a bar ticket that never
+ * printed; it waits, and the one who asked sees only Withdraw. A second person on our side
+ * (Ben, in his own Console session with his own security key) approves it, it runs, the ticket
+ * comes back as REPRINT 2, and Abhishek has a push and an email naming both and the reason.
+ */
+test("an emergency requeue waits for a second person on our side, then prints REPRINT 2", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const clean = async () => {
+    await db.query("delete from console_sessions");
+    await db.query("delete from console_challenges");
+    await db.query("delete from console_credentials");
+    await db.query("delete from emergency_actions where reason like 'E2E %'");
+  };
+  const signIn = async (email: string) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2",
+        transport: "usb",
+        hasResidentKey: false,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    await page.goto("http://localhost:5174/");
+    await page.getByLabel("Work email").fill(email);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Use your security key" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Venues" })).toBeVisible();
+    await page.getByRole("button", { name: /West 4 Boho Karaoke/ }).click();
+    return { context, page, region: page.getByRole("region", { name: "Emergency actions" }) };
+  };
+  try {
+    await clean();
+    await db.query(
+      `insert into console_staff (name, email) values ('Ben on call', 'oncall@demo.west4.local')
+         on conflict ((lower(email))) do update set active = true`,
+    );
+    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const job = (
+      await db.query<{ id: string }>(
+        `insert into print_jobs (venue_id, kind, station, payload, status, failed_at)
+         values ($1, 'ticket', 'bar', '{"room":"Room 5","lines":[{"qty":4,"name":"Bud Light","options":[]}]}', 'failed', now())
+         returning id`,
+        [venueId],
+      )
+    ).rows[0]!.id;
+
+    const ana = await signIn("support@demo.west4.local");
+    await ana.region
+      .getByRole("combobox", { name: "Action", exact: true })
+      .selectOption("requeue_print");
+    await ana.region.getByLabel("Print job id").fill(job);
+    await ana.region.getByLabel("Why").fill("E2E bar printer jammed, Room 5's ticket lost");
+    await ana.region.getByRole("button", { name: "Ask for a second approver" }).click();
+    const asked = ana.region.getByRole("listitem").filter({ hasText: "E2E bar printer jammed" });
+    await expect(asked).toContainText("Waiting for a second approver");
+    await expect(asked.getByRole("button", { name: "Withdraw" })).toBeVisible();
+    await expect(asked.getByRole("button", { name: "Approve and run" })).toHaveCount(0);
+    expect((await db.query("select 1 from print_jobs where reprint_of = $1", [job])).rowCount).toBe(
+      0,
+    );
+
+    const ben = await signIn("oncall@demo.west4.local");
+    const waiting = ben.region.getByRole("listitem").filter({ hasText: "E2E bar printer jammed" });
+    await waiting.getByRole("button", { name: "Approve and run" }).click();
+    await expect(waiting).toContainText("Done");
+    await expect(waiting).toContainText("Ben on call");
+    const reprint = await db.query<{ reprint_n: number }>(
+      "select reprint_n from print_jobs where reprint_of = $1",
+      [job],
+    );
+    expect(reprint.rows.map((r) => r.reprint_n)).toEqual([2]);
+    const told = await db.query<{ kind: string }>(
+      `select j.kind from jobs j join emergency_actions e on j.dedupe_key like 'emergency:' || e.id || ':done:%'
+        where e.reason like 'E2E %' order by j.kind`,
+    );
+    expect(told.rows.map((r) => r.kind)).toEqual(["email.send", "push.send"]);
+    await ana.context.close();
+    await ben.context.close();
+  } finally {
+    await clean();
+    await db
+      .query("delete from console_staff where email = 'oncall@demo.west4.local'")
+      .catch(() => {});
+    await db.end();
+  }
+});

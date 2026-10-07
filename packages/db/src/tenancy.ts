@@ -11,6 +11,8 @@ export interface RequestContext {
   readonly venueId: string;
   readonly userId?: string | undefined;
   readonly requestId?: string | undefined;
+  /** An emergency action (M8-11): every audit row names it and its second approver on our side. */
+  readonly emergency?: { readonly actionId: string; readonly approverId: string } | undefined;
 }
 
 export type Queryable = Pick<pg.PoolClient, "query">;
@@ -66,4 +68,12 @@ export async function setContext(client: Queryable, context: RequestContext): Pr
   await client.query("select set_config('app.venue_id', $1, true)", [context.venueId]);
   await client.query("select set_config('app.user_id', $1, true)", [context.userId ?? ""]);
   await client.query("select set_config('app.request_id', $1, true)", [context.requestId ?? ""]);
+  if (context.emergency) {
+    await client.query("select set_config('app.emergency_action_id', $1, true)", [
+      context.emergency.actionId,
+    ]);
+    await client.query("select set_config('app.approver_id', $1, true)", [
+      context.emergency.approverId,
+    ]);
+  }
 }
