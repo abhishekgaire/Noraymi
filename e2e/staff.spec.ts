@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page, type APIRequestContext } from "@playwright/test";
 import { execSync, spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
@@ -202,6 +202,8 @@ async function clippedText(page: Page): Promise<string[]> {
       if (text === "") continue;
       const style = getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden") continue;
+      // A strip meant to scroll sideways (the phone's tab bar) isn't cut-off text.
+      if (el.dataset["scroll"] === "x") continue;
       const hides = style.overflowX !== "visible" || style.textOverflow === "ellipsis";
       if (hides && el.scrollWidth > el.clientWidth + 1) {
         clipped.push(`${el.tagName.toLowerCase()}.${el.className}: "${text.slice(0, 40)}"`);
@@ -8853,6 +8855,128 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
       baseVersion,
     ]);
     await owner.end();
+    await db.end();
+  }
+});
+
+/**
+ * The Spanish review (M9-12; spec 13 · Language tests): every staff route in Spanish, at phone
+ * and desktop sizes, as Andy (a manager) on the night's seed. Each is screenshotted for the
+ * fluent reviewer into spanish-review/ with an index.md to sign off, and none may cut off text
+ * or scroll sideways at its longest translation.
+ */
+const REVIEW_ROUTES = [
+  "/tonight",
+  "/today",
+  "/bar",
+  "/bar-orders",
+  "/song-queue",
+  "/runs",
+  "/waitlist",
+  "/calendar",
+  "/messages",
+  "/calls",
+  "/incidents",
+  "/approvals",
+  "/close-the-night",
+  "/clock",
+  "/my-tips",
+  "/tips",
+  "/reports",
+  "/offline-codes",
+  "/setup",
+  "/admin",
+  ...[
+    "team",
+    "features",
+    "hours",
+    "devices",
+    "cash-drawers",
+    "rooms",
+    "menu",
+    "phone",
+    "website",
+    "deposits",
+    "bar-pos",
+    "bar-mode",
+    "texts",
+    "safety",
+    "licenses",
+    "console",
+    "alerts",
+    "payments",
+    "disputes",
+    "card-fee",
+    "connections",
+  ].map((s) => `/admin/${s}`),
+];
+
+test("the Spanish review: every staff route in Spanish at 390 and 1440, screenshotted, nothing cut off", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(600_000);
+  const db = await dbClient();
+  const out = "spanish-review";
+  mkdirSync(out, { recursive: true });
+  try {
+    await signInAndy(page, request, db);
+    await db.query(
+      "update memberships set locale = 'es' where user_id = (select id from users where name = 'Andy C.')",
+    );
+    const room9 = (
+      await db.query<{ id: string }>("select row_id as id from seed_ids where slug = 'room_9'")
+    ).rows[0]!.id;
+    const routes = [...REVIEW_ROUTES, `/room/${room9}`];
+    const index: string[] = [
+      "# Spanish review · every staff screen",
+      "",
+      "The fluent reviewer checks each screenshot and writes OK or the fix in the last column.",
+      "",
+      "| Screen | Size | Screenshot | OK or fix |",
+      "| --- | --- | --- | --- |",
+    ];
+    const clipped: string[] = [];
+    for (const size of [
+      { name: "phone", width: 390, height: 844 },
+      { name: "desktop", width: 1440, height: 900 },
+    ]) {
+      await page.setViewportSize(size);
+      for (const route of routes) {
+        await setClock(request, "2026-09-26T02:41:00Z");
+        await page.goto(route);
+        await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+        await page.waitForLoadState("networkidle").catch(() => undefined);
+        const name = `${route
+          .replace(/\/[0-9a-f-]{36}$/, "/room-9")
+          .replace(/^\//, "")
+          .replace(/\//g, "-")}-${size.name}.png`;
+        for (const c of await clippedText(page)) {
+          // Name what pushes the page sideways, deepest first.
+          const wide =
+            c === "page scrolls sideways"
+              ? await page.evaluate(() =>
+                  Array.from(document.querySelectorAll<HTMLElement>("body *"))
+                    .filter(
+                      (el) =>
+                        el.getBoundingClientRect().right > window.innerWidth + 1 &&
+                        !el.closest("[data-scroll]"),
+                    )
+                    .slice(-3)
+                    .map((el) => `${el.tagName.toLowerCase()}.${el.className}`)
+                    .join(", "),
+                )
+              : "";
+          clipped.push(`${route} at ${size.width}: ${c}${wide ? ` (${wide})` : ""}`);
+        }
+        await page.screenshot({ path: `${out}/${name}`, fullPage: true });
+        index.push(`| ${route.replace(room9, "room-9")} | ${size.name} | [${name}](${name}) | |`);
+      }
+    }
+    writeFileSync(`${out}/index.md`, index.join("\n") + "\n");
+    expect(clipped).toEqual([]);
+  } finally {
+    await db.query("update memberships set locale = 'en'");
     await db.end();
   }
 });

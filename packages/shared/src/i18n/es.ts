@@ -1364,7 +1364,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   // Cutting off a room or one guest (M3-21).
   "cutOff.room": "No más alcohol para esta sala",
   "cutOff.guestButton": "No más alcohol para este cliente",
-  "cutOff.by": "Corte de {name} a las {time}",
+  "cutOff.by": "Cortado por {name} a las {time}",
   "cutOff.why.room": "¿Por qué se corta {room}?",
   "cutOff.why.guest": "¿Por qué se corta a este cliente?",
   "cutOff.confirm": "Cortar",
@@ -2536,7 +2536,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "nightCheck.drawersCounted": "Los dos cajones contados",
   "nightCheck.slips": "{count} recibos sin registrar · las propinas van al {date}",
   "nightCheck.fix": "Resolver",
-  "nightCheck.clearOutPrompt": "Recorre todas las salas y el bar · ninguna bebida a la vista",
+  "nightCheck.clearOutPrompt": "Recorre cada sala y la barra · que no quede ninguna bebida",
   "nightCheck.clearOutDo": "Hecho",
   "nightCheck.printX": "Imprimir informe X (en curso)",
   "nightCheck.printZ": "Imprimir informe Z",

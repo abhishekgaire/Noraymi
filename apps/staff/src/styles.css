@@ -176,7 +176,8 @@ form {
 }
 .shell {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, …): nothing inside widens the phone's page past the screen (M9-12). */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto 1fr;
   min-height: 100vh;
 }
@@ -353,9 +354,16 @@ form {
   background: var(--panel);
   position: sticky;
   bottom: 0;
+  /* Spanish words are longer (M9-12): a word is never broken, and a full bar scrolls sideways. */
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Its tabs never widen the page around it. */
+  contain: inline-size;
 }
 .tab {
-  flex: 1;
+  flex: 1 0 auto;
+  overflow-wrap: normal;
+  word-break: normal;
   min-height: 56px;
   display: flex;
   align-items: center;
@@ -575,6 +583,18 @@ button.danger {
 .invite-fields label {
   display: grid;
   gap: 4px;
+  /* A long Spanish option never widens the grid (M9-12). */
+  min-width: 0;
+}
+.invite-fields select {
+  width: 100%;
+}
+/* A fieldset's default min-width is its content's; a long option made phones scroll sideways (M9-12). */
+fieldset {
+  min-width: 0;
+}
+main select {
+  max-width: 100%;
 }
 
 /* Admin → Features (M1-32). */
@@ -1297,7 +1317,8 @@ button.danger {
   flex: 1;
 }
 .rail-order {
-  min-width: 260px;
+  /* Two orders fit beside the sale in Spanish at 1440 too (M9-12). */
+  min-width: 240px;
   border: 2px solid var(--line, #ccc);
   border-radius: 8px;
   padding: 8px;

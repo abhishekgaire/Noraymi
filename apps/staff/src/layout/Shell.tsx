@@ -211,7 +211,7 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
           </ReadOnlyWhileOffline>
         </QueueProvider>
       </main>
-      <nav className="tabs" aria-label={t("menu.title")}>
+      <nav className="tabs" aria-label={t("menu.title")} data-scroll="x">
         {tabs.map((tab) => (
           <NavLink key={tab.id} to={tab.path} className="tab">
             {t(tab.labelKey)} {badge(tab.id)}

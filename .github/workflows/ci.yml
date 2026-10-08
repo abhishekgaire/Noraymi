@@ -232,6 +232,13 @@ jobs:
           name: playwright-${{ matrix.app }}
           path: playwright-report
           retention-days: 7
+      # The Spanish review's screenshots and sign-off index (M9-12), for the fluent reviewer.
+      - uses: actions/upload-artifact@v7
+        if: always() && matrix.app == 'staff'
+        with:
+          name: spanish-review
+          path: spanish-review
+          retention-days: 30
 
   dependencies:
     name: Dependency scan

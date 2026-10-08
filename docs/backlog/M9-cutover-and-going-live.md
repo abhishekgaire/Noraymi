@@ -246,17 +246,17 @@ Definition of done: see CLAUDE.md.
 
 ### M9-12 · Review every staff screen in Spanish
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** the staff screens of M1 to M8
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Languages; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rules 11 and 12; [Testing and operations](../spec/13-testing-operations.md) · Tests (Language tests); [glossary](../glossary.md#other-exact-sentences)
 - **Build:** a Playwright run that screenshots every staff screen and state in Spanish at phone and desktop sizes; a fluent Spanish speaker checks each one, and a Spanish list of the glossary's fixed sentences is kept beside the string catalog so each is said one way everywhere; fixes are merged, and the language test passes.
 - **Acceptance:**
-  - [ ] The reviewer signs off every staff screen.
-  - [ ] No staff string is missing in Spanish, and no Spanish text is cut off at its longest.
-  - [ ] Each fixed sentence, such as "Ask the room to wait" and "Charge the remaining tabs", reads the same in Spanish on every screen.
+  - [ ] The reviewer signs off every staff screen. Waiting on a fluent Spanish speaker; the pack and sign-off table are in `docs/gate/spanish-review.md`.
+  - [x] No staff string is missing in Spanish, and no Spanish text is cut off at its longest. `pnpm i18n:check`, and the staff smoke test "the Spanish review" over every staff route at 390 and 1440.
+  - [x] Each fixed sentence, such as "Ask the room to wait" and "Charge the remaining tabs", reads the same in Spanish on every screen. `fixed-sentences.test.ts` over the catalog.
 - **Tests:** the screenshot run and the language test in CI.
-- **Notes:** Menu items keep their menu names.
+- **Notes:** Built: the screenshot run (the staff smoke test "the Spanish review" in `e2e/staff.spec.ts`: 42 routes, Admin's sections and Room 9 included, as Andy at 390 and 1440, into `spanish-review/` with an `index.md` to sign off; CI uploads it as the `spanish-review` artifact); the Spanish list of the glossary's fixed sentences in `packages/shared/src/i18n/fixed-sentences.ts` with its test; the review pack and sign-off table in `docs/gate/spanish-review.md`. Fixed from the first run: the phone tab bar broke Spanish words letter by letter (words now stay whole and the bar scrolls sideways, `data-scroll="x"`, which the cut-off check skips); long Spanish options widened Admin → Cash drawers and Card fee and tip (fieldsets and selects shrink; the shell's column is `minmax(0, 1fr)`); two room orders didn't fit in the bar POS at 1440 (order cards 240 px, were 260); two Spanish wordings each for the clear-out check and "Cut off by …", now one. `pnpm i18n:check` found no missing string. States: the run covers each route in the demo night's state; loading, empty, error and offline states keep their existing tests. Menu items keep their menu names.
 
 ### M9-13 · Collect the gate sign-offs and apply them
 
