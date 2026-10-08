@@ -214,17 +214,17 @@ Definition of done: see CLAUDE.md.
 
 ### M9-10 · Train the team in training mode
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M7-03, M7-04, M9-08
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Training mode; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · How we'll know it works; [Security and data retention](../spec/12-security-retention.md) 15
 - **Build:** a practice checklist per role in `docs/trial/training-checklists.md`, each person in training mode on the real screens until theirs is done: bartenders the timed tasks (a walk-up beer in cash, a tab for a tapped phone with the consent line, another round, a close with a tip, taking over the terminal, accepting a room order, a void); the front desk check-in, a walk-in, a waitlist offer and a room close-out; managers approvals, drawer counts, Charge the remaining tabs and Close the night. New hires' phones use device training for their first shifts. Training is off for everyone before the first live night.
 - **Acceptance:**
-  - [ ] Each person's checklist is done.
-  - [ ] Nobody is in training on the first live night, except a new hire's phone put in device training on purpose.
-  - [ ] The first live night's Z report shows no practice check.
+  - [ ] Each person's checklist is done. In person at the venue, after M9-08's PINs and badges; the sign-off table is in `docs/trial/training-checklists.md`.
+  - [ ] Nobody is in training on the first live night, except a new hire's phone put in device training on purpose. `training:check` proves it (tested on the seed); run it before the first live night.
+  - [ ] The first live night's Z report shows no practice check. The reconcile command's practice rule checks it; run after the first live night.
 - **Tests:** none of its own; M7-03's tests cover the mode.
-- **Notes:** —
+- **Notes:** Built: the per-role practice checklists and sign-off table in `docs/trial/training-checklists.md`, with the screens' own words; `pnpm --filter @west4/api training:check -- --venue <slug> [--allow-device "<name>"]` (`apps/api/src/ops/training-check.ts`, tested in `training-check.int.test.ts`), which names every person and device still in training mode and exits non-zero while any is, except devices named on purpose. Training mode itself is M7-03 and M7-04's; nothing in it changed. Waiting on the team's training sessions in the venue.
 
 ### M9-11 · Run the timed staff trial
 
