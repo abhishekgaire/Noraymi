@@ -1,17 +1,18 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-// Needs Postgres, the local S3 store and the mail catcher: `docker compose up -d`.
-// The settings default to docker-compose.yml's; CI sets the same ones explicitly.
+// The Friday-night load test (M8-21) alone: `pnpm test:load`. It is timing-bound
+// (the bar alarm within 3 s), so it never shares the machine with the
+// integration suite. Needs Postgres: `docker compose up -d`.
 export default defineConfig({
+  root: fileURLToPath(new URL(".", import.meta.url)),
   test: {
-    name: "api:integration",
-    include: ["src/**/*.int.test.ts"],
-    // The Friday-night load test (M8-21) is timing-bound: it runs on its own
-    // (`pnpm test:load`, vitest.load.config.ts), never beside the other suites.
-    exclude: ["src/load/**"],
+    name: "api:load",
+    include: ["src/load/**/*.int.test.ts"],
     fileParallelism: false,
-    testTimeout: 60_000,
-    hookTimeout: 60_000,
+    testTimeout: 300_000,
+    hookTimeout: 120_000,
+    // The same local services as the integration suite (docker-compose.yml's defaults).
     env: {
       S3_ENDPOINT: process.env["S3_ENDPOINT"] ?? "http://localhost:9000",
       S3_REGION: process.env["S3_REGION"] ?? "us-east-1",

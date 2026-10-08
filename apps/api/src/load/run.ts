@@ -565,17 +565,42 @@ class VenueRun {
     present?: () => Promise<void>,
   ): Promise<void> {
     const v = this.v.venueId;
-    if (present) {
+    // The reader's action is sent after the request's transaction commits (never inside it), so
+    // it can land a moment after the response: a card presented before then finds "No action in
+    // progress". A guest holds the card out until the reader asks for it, so the harness waits
+    // for the action (up to 10 s) rather than counting that as a failure. Nothing is charged twice:
+    // presenting a card to an idle reader does nothing.
+    const presentOnce = present
+      ? async () => {
+          try {
+            await present();
+          } catch (e) {
+            throw new StepFailed(
+              step,
+              `presenting the card: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          }
+        }
+      : async () => {
+          await this.call(
+            step,
+            "staff",
+            "POST",
+            `/v1/venues/${v}/readers/${readerId}/test-card`,
+            {},
+          );
+        };
+    const presentBy = Date.now() + 10_000;
+    for (;;) {
       try {
-        await present();
+        await presentOnce();
+        break;
       } catch (e) {
-        throw new StepFailed(
-          step,
-          `presenting the card: ${e instanceof Error ? e.message : String(e)}`,
-        );
+        const idle = e instanceof Error && e.message.includes("No action in progress");
+        if (!idle || Date.now() >= presentBy) throw e;
+        await sleep(200);
       }
-    } else
-      await this.call(step, "staff", "POST", `/v1/venues/${v}/readers/${readerId}/test-card`, {});
+    }
     const deadline = Date.now() + 25_000;
     for (;;) {
       const state = await poll();

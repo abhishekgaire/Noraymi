@@ -101,6 +101,58 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:integration
 
+  load:
+    name: Friday-night load test (on its own, M8-21)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.15
+        env:
+          POSTGRES_USER: west4
+          POSTGRES_PASSWORD: west4
+          POSTGRES_DB: west4
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U west4 -d west4"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      s3:
+        image: rustfs/rustfs:1.0.1-preview.11
+        env:
+          RUSTFS_ACCESS_KEY: west4
+          RUSTFS_SECRET_KEY: west4secret
+        ports: ["9000:9000"]
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+    env:
+      DATABASE_URL: postgres://west4:west4@localhost:5432/west4
+      SMTP_URL: smtp://localhost:1025
+      MAILPIT_URL: http://localhost:8025
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: west4
+      S3_SECRET_ACCESS_KEY: west4secret
+      S3_BUCKET_FILES: west4-files
+      S3_BUCKET_AUDIT: west4-audit
+      S3_BUCKET_ID_KEYS: west4-id-keys
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Create the local buckets (the audit bucket with Object Lock)
+        env:
+          AWS_ACCESS_KEY_ID: west4
+          AWS_SECRET_ACCESS_KEY: west4secret
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ENDPOINT_URL: http://localhost:9000
+        run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/health && break; sleep 2; done
+          aws s3api create-bucket --bucket west4-files
+          aws s3api create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
+          aws s3api create-bucket --bucket west4-id-keys
+      - run: pnpm db:migrate
+      # Timing-bound (the bar alarm within 3 s), so never beside the integration suite.
+      - run: pnpm test:load
+
   principals:
     name: Principal suite (every route as every principal)
     runs-on: ubuntu-24.04

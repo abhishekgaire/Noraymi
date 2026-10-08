@@ -21,6 +21,7 @@
     "test:integration": "tsc -b && vitest run --config vitest.integration.config.ts",
     "test:principals": "tsc -b && vitest run --config vitest.integration.config.ts --project api:integration apps/api/src/security/principals apps/api/src/security/planted-leak",
     "test:walls": "tsc -b && vitest run --config vitest.integration.config.ts --project api:integration apps/api/src/security/walls apps/api/src/security/planted-leak",
+    "test:load": "tsc -b && vitest run --config apps/api/vitest.load.config.ts",
     "e2e": "tsc -b && playwright test",
     "db:migrate": "tsc -b packages/db && node packages/db/dist/cli.js migrate",
     "db:reset": "tsc -b packages/db && node packages/db/dist/cli.js reset",

@@ -181,6 +181,19 @@ describe("the Friday-night load test (M8-21)", () => {
 
   it("rings the bar within 3 s for 95% of orders through the storm and the reports, with no failures", async () => {
     const before = await west4Rows();
+    // The reports read through their own pool: the replica's (spec 13 · Capacity). Watched while
+    // the run goes, since an idle pool lets its connections go after 10 s.
+    let replicaSeen = false;
+    const watch = setInterval(() => {
+      void owner
+        .query(
+          "select 1 from pg_stat_activity where datname = current_database() and application_name = 'west4-api-reports'",
+        )
+        .then((r) => {
+          if ((r.rowCount ?? 0) > 0) replicaSeen = true;
+        })
+        .catch(() => undefined);
+    }, 500);
     const report = await runFridayPeak(cfg, {
       peakMs: 9_000,
       roomsPerVenue: 3,
@@ -191,18 +204,15 @@ describe("the Friday-night load test (M8-21)", () => {
       stormAtMs: 4_000,
       socketsPerVenue: 4,
       presentCard: cardPresenter(stripe),
-    });
+    }).finally(() => clearInterval(watch));
+    if (report.failures.length) console.error("FAILURES", JSON.stringify(report.failures));
     expect(report.failures).toEqual([]);
     expect(report.alarm.count).toBeGreaterThan(5);
     expect(report.alarm.p95).toBeLessThan(3_000);
     expect(report.alarmInStorm.count).toBeGreaterThan(0);
     expect(report.counts.reconnects).toBe(8);
     expect(report.counts.reports).toBeGreaterThan(0);
-    // The reports read through their own pool: the replica's (spec 13 · Capacity).
-    const replica = await owner.query(
-      "select 1 from pg_stat_activity where datname = current_database() and application_name = 'west4-api-reports'",
-    );
-    expect(replica.rowCount).toBeGreaterThan(0);
+    expect(replicaSeen).toBe(true);
     expect(report.counts.tabs).toBe(4);
     // Every room paid by card, and every tab closed to its card.
     expect(report.counts.payments).toBe(2 * 3 + 4);

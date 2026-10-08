@@ -124,6 +124,7 @@ pnpm test:unit          # Vitest, no database needed
 pnpm test:integration   # Vitest against Postgres and the local S3 store (docker compose up -d first)
 pnpm test:principals    # the principal suite: every route as every principal, plus the planted-leak test (Postgres only; also inside test:integration)
 pnpm test:walls         # the venue-wall suite: every route, job kind and webhook as venue A with venue B's ids (Postgres only; also inside test:integration)
+pnpm test:load          # the Friday-night load test (M8-21) alone: 20 venues peaking, the bar alarm within 3 s (Postgres only; kept out of test:integration and pnpm check because it is timing-bound; `pnpm check load` runs it too)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
 pnpm --filter @west4/api dev:test   # the API without .env (what the smoke tests start, so real credentials never load)
 pnpm --filter @west4/api stripe:fake   # the fake Stripe on 127.0.0.1:12111: every Stripe call goes here while no real keys are set (the smoke tests and demo-start run it)
