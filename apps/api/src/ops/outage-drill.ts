@@ -91,7 +91,8 @@ export async function outageEvidence(
               where a.venue_id = p.venue_id and a.payment_id = p.id) as matched_to,
             exists (select 1 from refunds r where r.venue_id = p.venue_id and r.payment_id = p.id) as refunded
        from payments p join venues v on v.id = p.venue_id
-      where p.venue_id = $1 and p.method = 'external' and p.status in ('captured', 'refunded', 'partly_refunded')
+      where p.venue_id = $1 and p.method = 'external' and p.booking_id is null
+        and p.status in ('captured', 'refunded', 'partly_refunded')
         and (p.business_date = $2::date or p.adjusts_business_date = $2::date)
       order by p.created_at, p.id`,
     [venueId, date],

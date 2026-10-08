@@ -168,7 +168,7 @@ export function offlineOrderRoutes(app: FastifyInstance, options: { clock: Clock
           `select p.id, p.amount_cents::int as amount_cents, p.card_brand, p.card_last4,
                   to_json(p.created_at) #>> '{}' as at
              from live_payments p
-            where p.venue_id = $1 and p.method = 'external' and p.status = 'captured'
+            where p.venue_id = $1 and p.method = 'external' and p.status = 'captured' and p.booking_id is null
               and not exists (select 1 from payment_allocations a where a.venue_id = p.venue_id and a.payment_id = p.id)
             order by p.created_at`,
           [venueId],

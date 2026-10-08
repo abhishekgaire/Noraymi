@@ -664,3 +664,14 @@ export {
   venueRowHashes,
 } from "./restore.js";
 export type { ApplyOptions, RestoreCounts, RestoreTable, RestoreRow } from "./restore.js";
+// The import tool (M9): the CLI's own pieces, for the API's tests of what an import leaves behind.
+export { checkMapping, type Mapping } from "./import/mapping.js";
+export { prepareImport, ImportRefused } from "./import/prepare.js";
+export {
+  formatReport,
+  ImportInvalid,
+  resolveVenue,
+  runImport,
+  type ImportReport,
+  type ImportResult,
+} from "./import/load.js";

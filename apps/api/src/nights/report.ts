@@ -143,7 +143,7 @@ export async function computeReport(
          coalesce(sum(tip_cents) filter (where method = 'cash'), 0)::text as cash_tips,
          coalesce(sum(amount_cents + tip_cents + surcharge_cents)
            filter (where method in ('card_present', 'card_on_file', 'card_online')), 0)::text as card_total,
-         coalesce(sum(amount_cents) filter (where booking_id is not null), 0)::text as deposits_taken
+         coalesce(sum(amount_cents) filter (where booking_id is not null and method <> 'external'), 0)::text as deposits_taken
        from live_payments
       where venue_id = $1 and business_date = $2::date and adjusts_business_date is null
         and status in ('captured', 'partly_refunded', 'refunded')`,

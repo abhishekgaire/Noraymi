@@ -2537,6 +2537,7 @@ export const en = {
   "qb.account.gratuity_payable": "Gratuity payable",
   "qb.account.tips_payable": "Tips payable",
   "qb.account.customer_deposits": "Customer deposits",
+  "qb.account.legacy_deposits": "Deposits held by the old system",
   "qb.account.prepaid_value": "Prepaid value",
   "qb.account.stripe_clearing": "Stripe clearing",
   "qb.account.cash": "Cash",

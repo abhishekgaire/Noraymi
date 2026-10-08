@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
-import { businessDate } from "@west4/rules";
+import { businessDate, isBalanced, openingJournal, type Journal } from "@west4/rules";
+import { Temporal } from "@west4/shared";
+import {
+  insertLegacyDeposit,
+  LIVE_STATUSES,
+  manageToken,
+  placeBooking,
+  refundCutoff,
+  sha256,
+} from "./bookings.js";
 import type { Kind } from "./mapping.js";
 import type { Prepared, Problem } from "./prepare.js";
 
@@ -23,7 +32,14 @@ export interface Venue {
 }
 
 type RefKind =
-  "guest" | "person" | "menu_category" | "menu_item" | "booking" | "consent" | "nightly_total";
+  | "guest"
+  | "person"
+  | "menu_category"
+  | "menu_item"
+  | "policy"
+  | "booking"
+  | "consent"
+  | "nightly_total";
 
 export interface KindTally {
   in_files: number;
@@ -48,6 +64,20 @@ export interface ImportReport {
   readonly kinds: Partial<Record<Kind, KindTally>>;
   /** Changed records: in an earlier run with different values. Listed for a manager, never applied. */
   readonly changed: readonly { kind: Kind; file: string; line: number; legacy_ref: string }[];
+  /**
+   * The deposits of the bookings still to come that this run loaded (M9-02): held for the guests
+   * as `external` payments, or with the booking on the manager's list; the opening journal puts
+   * all of them in customer deposits on the cutover date.
+   */
+  readonly deposits: {
+    readonly cutover_date: string;
+    readonly held_cents: number;
+    readonly payments_cents: number;
+    readonly on_list_cents: number;
+  };
+  readonly opening_journal: Journal;
+  /** Bookings still to come that fit no room: on the manager's list, never dropped. */
+  readonly no_room: readonly { legacy_ref: string; file: string; line: number }[];
   /** True when every kind's records and cents in the files are in the database. */
   readonly reconciles: boolean;
 }
@@ -126,6 +156,13 @@ async function preflight(c: pg.ClientBase, p: Prepared): Promise<Problem[]> {
         message: `guest "${b.guestRef}" isn't in the guests file`,
       });
     }
+    if (b.policyRef !== null && !p.policies.some((x) => x.legacyRef === b.policyRef)) {
+      problems.push({
+        file: b.file,
+        line: b.line,
+        message: `terms "${b.policyRef}" aren't in the policies file`,
+      });
+    }
   }
   for (const x of p.consents) {
     if (!guestRefs.has(x.guestRef)) {
@@ -183,6 +220,7 @@ const KIND_OF: Record<Kind, RefKind> = {
   guests: "guest",
   people: "person",
   menu: "menu_item",
+  policies: "policy",
   bookings: "booking",
   consents: "consent",
   nightly_totals: "nightly_total",
@@ -195,13 +233,28 @@ export interface RunOptions {
   readonly dryRun: boolean;
   readonly batchSize?: number;
   readonly log?: (line: string) => void;
+  /** The cutover's business date: imported deposits are recorded and journaled on it. Defaults to today's. */
+  readonly cutoverDate?: string;
+}
+
+/** A live run's result: the report, and each imported booking's manage link token (never stored or logged). */
+export interface ImportResult extends ImportReport {
+  readonly manage_links: readonly { legacy_ref: string; token: string }[];
 }
 
 /** Validates against the venue, loads (or rehearses) the records, and returns the reconciliation report. */
-export async function runImport(o: RunOptions): Promise<ImportReport> {
+export async function runImport(o: RunOptions): Promise<ImportResult> {
   const { pool, venue, prepared: p } = o;
   const log = o.log ?? (() => {});
   const runId = randomUUID();
+  const cutoverDate =
+    o.cutoverDate ??
+    businessDate(Temporal.Now.instant(), venue.timeZone, venue.cutover).businessDate.toString();
+  const deposits = { held_cents: 0, payments_cents: 0, on_list_cents: 0 };
+  const noRoom: { legacy_ref: string; file: string; line: number }[] = [];
+  const links: { legacy_ref: string; token: string }[] = [];
+  const placed: Record<string, number> = {};
+  const policyById = new Map(p.policies.map((x) => [x.legacyRef, x]));
   const problems = [
     ...p.problems,
     ...(await asImport(pool, venue.id, runId, (c) => preflight(c, p), { rollback: true })),
@@ -358,23 +411,63 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
       },
     },
     {
+      kind: "policies",
+      rows: p.policies,
+      load: async (c, rows) => {
+        for (const x of rows as Prepared["policies"][number][]) {
+          // The words each guest accepted on the old site, kept as they were (kind imported_terms):
+          // never the venue's own deposit policy, which only the owner publishes.
+          const id = randomUUID();
+          const s = await claim(
+            c,
+            venue.id,
+            runId,
+            "policy",
+            x.legacyRef,
+            "policy_versions",
+            id,
+            x.hash,
+          );
+          if (s === "new") {
+            await c.query(
+              `insert into policy_versions (id, venue_id, kind, version, text, hash, published_at)
+               select $1, $2, 'imported_terms', coalesce(max(version), 0) + 1, $3, $4, coalesce($5::timestamptz, now())
+                 from policy_versions where venue_id = $2 and kind = 'imported_terms'`,
+              [id, venue.id, x.text, sha256(x.text), x.publishedAt],
+            );
+          }
+          count("policies", x, s);
+        }
+      },
+    },
+    {
       kind: "bookings",
       rows: p.bookings,
       load: async (c, rows) => {
         for (const b of rows as Prepared["bookings"][number][]) {
+          const earlier = await c.query<{ row_hash: string }>(
+            "select row_hash from import_refs where kind = 'booking' and legacy_ref = $1",
+            [b.legacyRef],
+          );
+          if (earlier.rows[0]) {
+            count("bookings", b, earlier.rows[0].row_hash === b.hash ? "already" : "changed");
+            continue;
+          }
           const id = randomUUID();
-          const s = await claim(c, venue.id, runId, "booking", b.legacyRef, "bookings", id, b.hash);
-          if (s === "new") {
-            const guestId = await refId(c, "guest", b.guestRef);
+          const guestId = await refId(c, "guest", b.guestRef);
+          const date = businessDate(
+            b.startsAt,
+            venue.timeZone,
+            venue.cutover,
+          ).businessDate.toString();
+          const live = LIVE_STATUSES.has(b.status);
+          if (!live) {
+            // History (seated, finished, cancelled or a no-show in the old system): kept as it was, in
+            // the room it named, with no block, no payment and no link.
             const room = await c.query<{ id: string; size_tier: string }>(
               "select id, size_tier from rooms where lower(name) = lower($1) and archived_at is null",
               [b.room],
             );
-            const date = businessDate(
-              b.startsAt,
-              venue.timeZone,
-              venue.cutover,
-            ).businessDate.toString();
             await c.query(
               `insert into bookings (id, venue_id, guest_id, room_id, size_tier, party_size, starts_at, ends_at,
                  business_date, status, source, legacy_ref, deposit_legacy_cents)
@@ -394,8 +487,86 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
                 b.depositCents,
               ],
             );
+            await claim(c, venue.id, runId, "booking", b.legacyRef, "bookings", id, b.hash);
+            placed["history"] = (placed["history"] ?? 0) + 1;
+            count("bookings", b, "new");
+            continue;
           }
-          count("bookings", b, s);
+          const room = await placeBooking(c, venue.id, {
+            id,
+            party: b.partySize,
+            from: Temporal.Instant.from(b.startsAt),
+            to: Temporal.Instant.from(b.endsAt),
+            roomName: b.room,
+            businessDate: date,
+          });
+          deposits.held_cents += b.depositCents;
+          if (!room) {
+            await c.query(
+              `insert into import_unplaced (id, venue_id, run_id, legacy_ref, guest_id, room_named, party_size,
+                 starts_at, ends_at, business_date, deposit_legacy_cents, reason)
+               values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'no_room')`,
+              [
+                id,
+                venue.id,
+                runId,
+                b.legacyRef,
+                guestId,
+                b.room,
+                b.partySize,
+                b.startsAt,
+                b.endsAt,
+                date,
+                b.depositCents,
+              ],
+            );
+            await claim(c, venue.id, runId, "booking", b.legacyRef, "import_unplaced", id, b.hash);
+            deposits.on_list_cents += b.depositCents;
+            noRoom.push({ legacy_ref: b.legacyRef, file: b.file, line: b.line });
+            placed["no_room"] = (placed["no_room"] ?? 0) + 1;
+            count("bookings", b, "new");
+            continue;
+          }
+          const policy = b.policyRef === null ? undefined : policyById.get(b.policyRef);
+          const policyId = policy ? await refId(c, "policy", policy.legacyRef) : null;
+          const link = manageToken();
+          await c.query(
+            `insert into bookings (id, venue_id, guest_id, room_id, size_tier, party_size, starts_at, ends_at,
+               business_date, status, source, legacy_ref, deposit_cents, deposit_legacy_cents, policy_version_id,
+               accepted_at, refund_cutoff_at, manage_token_hash)
+             values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'import', $11, $12, $12, $13, $14, $15, $16)`,
+            [
+              id,
+              venue.id,
+              guestId,
+              room.roomId,
+              room.sizeTier,
+              b.partySize,
+              b.startsAt,
+              b.endsAt,
+              date,
+              b.status,
+              b.legacyRef,
+              b.depositCents,
+              policyId,
+              b.acceptedAt,
+              policy && b.depositCents > 0 ? refundCutoff(b.startsAt, policy.refundHours) : null,
+              link.hash,
+            ],
+          );
+          if (b.depositCents > 0) {
+            await insertLegacyDeposit(c, venue.id, {
+              bookingId: id,
+              amountCents: b.depositCents,
+              businessDate: cutoverDate,
+            });
+            deposits.payments_cents += b.depositCents;
+          }
+          await claim(c, venue.id, runId, "booking", b.legacyRef, "bookings", id, b.hash);
+          links.push({ legacy_ref: b.legacyRef, token: link.token });
+          const how = room.moved ? "another_room" : "named_room";
+          placed[how] = (placed[how] ?? 0) + 1;
+          count("bookings", b, "new");
         }
       },
     },
@@ -474,8 +645,13 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
           "select count(*)::int as n, 0::bigint as cents, x.role as by from memberships x where x.id::text = r.target_id group by x.role",
         menu: `select count(*)::int as n, coalesce(sum(v.price_cents), 0)::bigint as cents, null::text as by
                  from menu_items x join menu_variants v on v.item_id = x.id where x.id::text = r.target_id`,
-        bookings:
-          "select count(*)::int as n, coalesce(sum(x.deposit_legacy_cents), 0)::bigint as cents, null::text as by from bookings x where x.id::text = r.target_id",
+        policies:
+          "select count(*)::int as n, 0::bigint as cents, null::text as by from policy_versions x where x.id::text = r.target_id",
+        // A booking that fit no room is on the manager's list (import_unplaced), with its deposit.
+        bookings: `select count(*)::int as n, coalesce(sum(x.cents), 0)::bigint as cents, null::text as by
+                     from (select deposit_legacy_cents as cents from bookings where id::text = r.target_id
+                           union all
+                           select deposit_legacy_cents from import_unplaced where id::text = r.target_id) x`,
         consents: `select count(*)::int as n, 0::bigint as cents,
                      x.kind || ' ' || x.channel || case when x.revoked_at is null then ' given' else ' revoked' end as by
                    from consents x where x.id::text = r.target_id group by 3`,
@@ -490,6 +666,7 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
         [kind, refs],
       );
       t.in_db = r.rows.reduce((a, x) => a + x.n, 0);
+      if (f.kind === "bookings") t.by = { ...placed };
       if (f.kind === "people" || f.kind === "consents") {
         t.by = Object.fromEntries(r.rows.filter((x) => x.by).map((x) => [x.by!, x.n]));
       }
@@ -505,18 +682,37 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
     }
   };
 
-  const report = (): ImportReport => ({
-    run_id: runId,
-    mode: o.dryRun ? "dry_run" : "live",
-    venue_id: venue.id,
-    mapping: { source: p.mapping.source, version: p.mapping.mapping_version },
-    files: p.files,
-    kinds: tallies,
-    changed,
-    reconciles: Object.values(tallies).every(
-      (t) => t.changed === 0 && t.in_db === t.in_files && t.cents_in_db === t.cents_in_files,
-    ),
-  });
+  const report = (): ImportReport => {
+    const journal = openingJournal({
+      date: cutoverDate,
+      ref: `Opening deposits · import ${runId}`,
+      deposits_cents: deposits.held_cents,
+    });
+    return {
+      run_id: runId,
+      mode: o.dryRun ? "dry_run" : "live",
+      venue_id: venue.id,
+      mapping: { source: p.mapping.source, version: p.mapping.mapping_version },
+      files: p.files,
+      kinds: tallies,
+      changed,
+      deposits: { cutover_date: cutoverDate, ...deposits },
+      opening_journal: journal,
+      no_room: noRoom,
+      reconciles:
+        Object.values(tallies).every(
+          (t) => t.changed === 0 && t.in_db === t.in_files && t.cents_in_db === t.cents_in_files,
+        ) &&
+        deposits.payments_cents + deposits.on_list_cents === deposits.held_cents &&
+        isBalanced(journal),
+    };
+  };
+  const finish = (c: pg.ClientBase, r: ImportReport) =>
+    c.query(
+      `update import_runs set state = 'done', report = $2, cutover_date = $3, opening_journal = $4,
+              finished_at = now() where id = $1`,
+      [runId, JSON.stringify(r), r.deposits.cutover_date, JSON.stringify(r.opening_journal)],
+    );
 
   if (o.dryRun) {
     // Everything in one transaction that is rolled back: the venue is left as it was.
@@ -534,13 +730,11 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
     );
     await asImport(pool, venue.id, runId, async (c) => {
       await insertRun(c, "dry_run");
-      await c.query(
-        "update import_runs set state = 'done', report = $2, finished_at = now() where id = $1",
-        [runId, JSON.stringify(out)],
-      );
+      await finish(c, out);
     });
     log(`dry run ${runId}: rolled back, report kept`);
-    return out;
+    // A dry run's links were rolled back with everything else: none to hand out.
+    return { ...out, manage_links: [] };
   }
 
   await asImport(pool, venue.id, runId, (c) => insertRun(c, "live"));
@@ -555,13 +749,10 @@ export async function runImport(o: RunOptions): Promise<ImportReport> {
     const out = await asImport(pool, venue.id, runId, async (c) => {
       await tallyDb(c);
       const r = report();
-      await c.query(
-        "update import_runs set state = 'done', report = $2, finished_at = now() where id = $1",
-        [runId, JSON.stringify(r)],
-      );
+      await finish(c, r);
       return r;
     });
-    return out;
+    return { ...out, manage_links: links };
   } catch (e) {
     await asImport(pool, venue.id, runId, (c) =>
       c.query(
@@ -588,6 +779,7 @@ export function formatReport(r: ImportReport): string[] {
     guests: "guests",
     people: "people",
     menu: "menu lines",
+    policies: "terms",
     bookings: "bookings",
     consents: "consents",
     nightly_totals: "nightly totals",
@@ -613,6 +805,15 @@ export function formatReport(r: ImportReport): string[] {
         .join(", ")}`;
     }
     lines.push(line);
+  }
+  if (r.kinds.bookings) {
+    lines.push(
+      `Deposits of bookings still to come: ${dollars(r.deposits.held_cents)} into customer deposits on ${r.deposits.cutover_date} ` +
+        `(${dollars(r.deposits.payments_cents)} held as old-system payments, ${dollars(r.deposits.on_list_cents)} with bookings on the manager's list)`,
+    );
+  }
+  for (const x of r.no_room) {
+    lines.push(`fits no room, on the manager's list: ${x.file}:${x.line} ${x.legacy_ref}`);
   }
   for (const ch of r.changed) {
     lines.push(

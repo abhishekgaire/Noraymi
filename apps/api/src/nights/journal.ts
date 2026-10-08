@@ -36,6 +36,7 @@ export const ACCOUNT_NAMES: Readonly<Record<Account, string>> = {
   gratuity_payable: "Gratuity payable",
   tips_payable: "Tips payable",
   customer_deposits: "Customer deposits",
+  legacy_deposits: "Deposits held by the old system",
   prepaid_value: "Prepaid value",
   stripe_clearing: "Stripe clearing",
   cash: "Cash",
@@ -77,14 +78,17 @@ export async function buildNightJournal(
     amount_cents: Number(m.amount),
     tip_cents: m.deposit ? 0 : Number(m.tip),
   }));
+  // An `external` payment with a booking is a deposit imported from the old system (M9-02): it
+  // entered customer deposits in the import's opening journal, so it's neither taken tonight nor unmatched.
   const sums = (
     await c.query<{ taken: string; unmatched: string; over_short: string }>(
       `select
          (select coalesce(sum(amount_cents), 0) from live_payments
-           where venue_id = $1 and business_date = $2::date and booking_id is not null
+           where venue_id = $1 and business_date = $2::date and booking_id is not null and method <> 'external'
              and status in ('captured', 'partly_refunded', 'refunded'))::text as taken,
          (select coalesce(sum(p.amount_cents), 0) from live_payments p
            where p.venue_id = $1 and p.business_date = $2::date and p.method = 'external' and p.status = 'captured'
+             and p.booking_id is null
              and not exists (select 1 from payment_allocations a where a.venue_id = p.venue_id and a.payment_id = p.id))::text as unmatched,
          (select coalesce(sum(over_short_cents), 0) from drawer_sessions
            where venue_id = $1 and business_date = $2::date and over_short_cents is not null)::text as over_short`,

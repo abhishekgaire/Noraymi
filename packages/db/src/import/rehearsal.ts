@@ -78,6 +78,10 @@ export const REHEARSAL_MAPPING: Mapping = {
       },
       defaults: { tax_category: "drink" },
     },
+    policies: {
+      file: "terms.csv",
+      columns: { legacy_ref: "Terms ID", text: "Terms", refund_hours: "Refund Window (hours)" },
+    },
     bookings: {
       file: "reservations.csv",
       columns: {
@@ -89,6 +93,7 @@ export const REHEARSAL_MAPPING: Mapping = {
         ends_at: "End",
         deposit: "Deposit Paid",
         status: "Status",
+        policy_ref: "Terms ID",
       },
       values: {
         status: {
@@ -107,6 +112,7 @@ export const REHEARSAL_MAPPING: Mapping = {
 export function buildRehearsalExport(seed: SeedFile): Record<string, string> {
   const roomName = new Map(seed.rooms.map((r) => [r.id, r.name]));
   const ref = (id: string) => id.toUpperCase().replace(/[^A-Z0-9]+/g, "-");
+  const refundHours = Number(seed.settings["deposit"]?.["refundHours"]);
   return {
     "mapping.json": JSON.stringify(REHEARSAL_MAPPING, null, 2) + "\n",
     "customers.csv": toCsv([
@@ -127,6 +133,15 @@ export function buildRehearsalExport(seed: SeedFile): Record<string, string> {
         i.alcohol ? "Y" : "N",
       ]),
     ]),
+    // The terms the guests accepted (M9-02): made-up words for the rehearsal, with the seed's refund window.
+    "terms.csv": toCsv([
+      ["Terms ID", "Terms", "Refund Window (hours)"],
+      [
+        "TERMS-1",
+        `Rehearsal terms (made up): your deposit comes off your bill. Cancel up to ${refundHours} hours before your start time for a refund.`,
+        String(refundHours),
+      ],
+    ]),
     "reservations.csv": toCsv([
       [
         "Reservation #",
@@ -137,6 +152,7 @@ export function buildRehearsalExport(seed: SeedFile): Record<string, string> {
         "End",
         "Deposit Paid",
         "Status",
+        "Terms ID",
       ],
       ...seed.bookings.map((b) => [
         ref(b.id),
@@ -147,6 +163,7 @@ export function buildRehearsalExport(seed: SeedFile): Record<string, string> {
         local(b.ends_at),
         dollars(b.deposit_cents),
         STATUS_WORD[b.status] ?? b.status,
+        b.deposit_cents > 0 ? "TERMS-1" : "",
       ]),
     ]),
   };

@@ -43,6 +43,14 @@
         "tax_category": "drink"
       }
     },
+    "policies": {
+      "file": "terms.csv",
+      "columns": {
+        "legacy_ref": "Terms ID",
+        "text": "Terms",
+        "refund_hours": "Refund Window (hours)"
+      }
+    },
     "bookings": {
       "file": "reservations.csv",
       "columns": {
@@ -53,7 +61,8 @@
         "starts_at": "Start",
         "ends_at": "End",
         "deposit": "Deposit Paid",
-        "status": "Status"
+        "status": "Status",
+        "policy_ref": "Terms ID"
       },
       "values": {
         "status": {

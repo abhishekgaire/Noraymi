@@ -27,6 +27,7 @@ export const ACCOUNTS = [
   "gratuity_payable",
   "tips_payable",
   "customer_deposits",
+  "legacy_deposits",
   "prepaid_value",
   "stripe_clearing",
   "cash",
@@ -49,7 +50,7 @@ export interface JournalLine {
 }
 
 export interface Journal {
-  readonly kind: "night" | "payout";
+  readonly kind: "night" | "payout" | "opening";
   readonly date: string;
   readonly ref: string;
   readonly lines: readonly JournalLine[];
@@ -253,6 +254,25 @@ export function payoutJournal(input: {
     }
   }
   return { kind: "payout", date: input.date, ref: `Payout ${input.payout_id}`, lines: j.lines() };
+}
+
+/**
+ * The opening entry at cutover (M9-02): the deposits guests paid through the
+ * old system for bookings still to come become customer deposits, against
+ * the money the old system's processor still holds for the venue. Each
+ * deposit then leaves customer deposits at check-in, like any other.
+ * Cautious default the accountant confirms: the debit side is one
+ * "deposits held by the old system" account.
+ */
+export function openingJournal(input: {
+  readonly date: string;
+  readonly ref: string;
+  readonly deposits_cents: number;
+}): Journal {
+  const j = new Builder();
+  j.debit("legacy_deposits", input.deposits_cents);
+  j.credit("customer_deposits", input.deposits_cents);
+  return { kind: "opening", date: input.date, ref: input.ref, lines: j.lines() };
 }
 
 export function isBalanced(j: Journal): boolean {

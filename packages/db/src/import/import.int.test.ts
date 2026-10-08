@@ -111,7 +111,7 @@ describe("the rehearsal import from the demo seed", () => {
     });
     expect(report.reconciles).toBe(true);
     expect(formatReport(report)).toContain(
-      "11 bookings with $990.00 of deposits (in files 11, $990.00; new 11, already 0, changed 0)",
+      "11 bookings with $990.00 of deposits (in files 11, $990.00; new 11, already 0, changed 0) · history 7, named_room 4",
     );
     expect(await snapshot(v.venueA)).toBe(before);
     const run = await owner.query("select mode, state, report from import_runs where id = $1", [
@@ -170,7 +170,7 @@ describe("the rehearsal import from the demo seed", () => {
     );
     expect(missing.rows).toEqual([]);
     expect(await count("select count(*) from import_refs where run_id = $1", [liveRun])).toBe(
-      17 + 4 + 127 + 9 + 11,
+      17 + 4 + 127 + 9 + 1 + 11,
     );
     // The variants and new users too: each insert of the run is audited under it, in the venue's chain.
     expect(
@@ -221,7 +221,7 @@ describe("the rehearsal import from the demo seed", () => {
       f !== "reservations.csv"
         ? text
         : text.replace("$120.00,Arrived", "$150.00,Arrived") +
-          "BK-NEW,G-TANYA,Room 2,4,2026-10-02 21:00,2026-10-02 23:00,$40.00,Confirmed\n",
+          "BK-NEW,G-TANYA,Room 2,4,2026-10-02 21:00,2026-10-02 23:00,$40.00,Confirmed,TERMS-1\n",
     );
     const report = await runImport({ pool, venue: venueA, prepared: delta, dryRun: false });
     expect(report.kinds.bookings).toMatchObject({

@@ -24,6 +24,7 @@ const ACCOUNTS = [
   "gratuity_payable",
   "tips_payable",
   "customer_deposits",
+  "legacy_deposits",
   "prepaid_value",
   "stripe_clearing",
   "cash",

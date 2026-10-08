@@ -66,7 +66,7 @@ export function unmatchedRoutes(
             `select p.id, p.amount_cents::int as amount_cents, p.card_brand, p.card_last4,
                     to_json(p.created_at) #>> '{}' as at, p.business_date::text
                from live_payments p
-              where p.venue_id = $1 and p.method = 'external' and p.status = 'captured'
+              where p.venue_id = $1 and p.method = 'external' and p.status = 'captured' and p.booking_id is null
                 and not exists (select 1 from payment_allocations a where a.venue_id = p.venue_id and a.payment_id = p.id)
               order by p.created_at`,
             [request.venueId],
@@ -96,7 +96,7 @@ export function unmatchedRoutes(
         const payment = (
           await c.query<{ amount_cents: number; business_date: string }>(
             `select amount_cents::int as amount_cents, business_date::text from live_payments
-              where venue_id = $1 and id = $2 and method = 'external' and status = 'captured' for update`,
+              where venue_id = $1 and id = $2 and method = 'external' and status = 'captured' and booking_id is null for update`,
             [venueId, request.params.p],
           )
         ).rows[0];

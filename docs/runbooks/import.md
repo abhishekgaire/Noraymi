@@ -10,7 +10,8 @@ The import tool loads the files a venue exports from its old system into our rec
 
 ```
 pnpm db:import -- --venue <slug|id> --mapping <dir>/mapping.json --dry-run --out evidence/import
-pnpm db:import -- --venue <slug|id> --mapping <dir>/mapping.json --out evidence/import
+pnpm db:import -- --venue <slug|id> --mapping <dir>/mapping.json --out evidence/import \
+  --cutover-date <YYYY-MM-DD> --links-out <private dir>/manage-links.csv --link-base https://west4karaoke.com
 ```
 
 - The export files sit next to the mapping file. `DATABASE_URL` names the database (a staging copy for a rehearsal).
@@ -18,6 +19,23 @@ pnpm db:import -- --venue <slug|id> --mapping <dir>/mapping.json --out evidence/
 - A live run loads in batches (`--batch`, 500 by default), each its own short transaction as the audited migration role (`app_migrator`), walled to the one venue. Every row is audited under `import:<run id>`.
 - Running the same files again changes nothing: each record's reference in the old system is kept in `import_refs`, and a record already imported is skipped. The cutover delta is just a re-run with the newer files. A record whose values changed in the old system since the last run is listed under "changed … not applied" for a manager to fix by hand; the run then doesn't reconcile.
 - The command exits non-zero when a file is refused, a row has a problem, or the result doesn't reconcile.
+- `--cutover-date` is the business date the imported deposits are recorded and journaled on (today's by default).
+- `--links-out` writes each imported booking's manage link (`legacy_ref,link`) to a file only you can read, for the cutover texts. The links are secrets: they're printed nowhere and stored only as hashes, so without this file a manager reissues a guest's link instead. Delete the file once the texts are out.
+
+## Bookings still to come and their deposits (M9-02)
+
+A booking whose status is `pending` or `confirmed` is one still to come. It gets:
+
+1. **A real room.** The room the old system named when it's free and fits the party; otherwise the smallest free room that fits, as staff assignment would. Its block covers the booked time plus the room's cleaning minutes. A booking that fits no room isn't dropped: it goes on the manager's list (`GET /v1/venues/{v}/bookings/no-room`, managers and the owner) with its deposit, and the report names it (`fits no room, on the manager's list: file:line ref`). Seat it by hand with a staff booking, and settle its deposit as below.
+2. **Its terms.** The `policies` file holds the words each guest accepted on the old site; each becomes a `policy_versions` row of kind `imported_terms` (text and hash), never the venue's own deposit policy. A booking names its terms (`policy_ref`) and when the guest accepted them (`accepted_at`); its refund cut-off is its start minus the terms' `refund_hours`. Terms that name no refund window give no cut-off.
+3. **Its deposit**, in `deposit_cents` (what the Calendar and the board show) and `deposit_legacy_cents`, and as an `external` payment of the booking, captured, recorded on the cutover date. It never goes near Stripe: the money is on the old system's processor. Check-in applies it like any deposit. It's never an Unmatched payment and never counts as a deposit taken on the cutover night.
+4. **A manage link** (see `--links-out`).
+
+Other statuses (seated, finished, cancelled, no-show) are kept as history: the booking in the room it named, with no block, no payment and no link.
+
+**The opening journal.** The deposits of the bookings still to come that a run loaded (placed or on the manager's list) go into customer deposits on the cutover date, against "Deposits held by the old system": debit that, credit customer deposits, the same cents. It's kept on the run (`import_runs.opening_journal`) and, with `--out`, written as `opening-journal-<run>.csv` in QuickBooks' journal format for the accountant. A cutover delta's new deposits get their own entry. The report's deposits line shows the total, the part held as old-system payments, and the part with bookings on the manager's list; the run reconciles only when those add up and the journal balances.
+
+**Refunding or keeping an old deposit** (cautious default until the founder confirms where the old deposits are held): refund it in the old system, then record it here as a refund of the `external` payment with the old system's reference; a kept one becomes the usual `fee` check with a `forfeit` line. The old site's manage links can't carry over; M9-09 redirects them.
 
 ## What stops an import before anything loads
 
@@ -60,11 +78,12 @@ One mapping per source system and export layout. When the venue's export changes
 | `guests` | legacy_ref, name | phone, email, locale |
 | `people` | legacy_ref, name, role (owner, manager, bartender, front_desk, staff) | email, phone, locale |
 | `menu` | legacy_ref, name, category, price, alcohol | button_name, tax_category (default `drink`), variant (default `Regular`), sort |
-| `bookings` | legacy_ref, guest_ref, room (a room name), party_size, starts_at, ends_at | deposit, status (default `confirmed`) |
+| `policies` | legacy_ref, text | refund_hours, published_at |
+| `bookings` | legacy_ref, guest_ref, room (a room name), party_size, starts_at, ends_at | deposit, status (default `confirmed`), policy_ref, accepted_at |
 | `consents` | guest_ref, channel (sms, email), kind (texts, marketing) | legacy_ref, given_at, revoked_at, revoked_via (keyword, staff, guest_page), source, text_version |
 | `nightly_totals` | business_date, net_sales | rooms, bar |
 
-What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a category, an item and one priced variant; a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents`; a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-02 to M9-05 add the rest (room blocks and payments for deposits, consent proof, the menu's checks, invites).
+What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a category, an item and one priced variant; a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-03 to M9-05 add the rest (consent proof, the menu's checks, invites).
 
 ## West 4
 

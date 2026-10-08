@@ -65,7 +65,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-02 · Import West 4's future bookings with their deposits
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M9-01; M5-06 (policy versions), M5-11 (manage links), M5-12 (refund cut-offs); M4-04 (payments and allocations), M4-09 (deposits applied at check-in); M2-05 (room assignment)
 - **Spec:** [Data model](../spec/04-data-model.md) · `bookings`, Room assignment, `policy_versions`, the money core (`payments` method `external`, `payment_allocations`); [Money rules](../spec/05-money-rules.md) 11 and 16 (customer deposits); [Payment flows](../spec/07-payment-flows.md) · Deposit when booking online (4 and 5)
@@ -76,12 +76,18 @@ Definition of done: see CLAUDE.md.
   - An opening journal entry on the cutover date that puts the imported deposits in customer deposits.
   - A manage link for each imported booking.
 - **Acceptance:**
-  - [ ] Each imported booking shows on the Calendar, and on its night on the board, with its deposit.
-  - [ ] A rehearsal copy of Marcus T.'s booking with its $120.00 deposit, checked in and closed out as in the worked example, shows −$120.00 and $498.60 to pay.
-  - [ ] A booking that fits no room is on the manager's list, never dropped.
-  - [ ] The opening journal entry puts the imported deposits in customer deposits, and it balances.
+  - [x] Each imported booking shows on the Calendar, and on its night on the board, with its deposit.
+  - [x] A rehearsal copy of Marcus T.'s booking with its $120.00 deposit, checked in and closed out as in the worked example, shows −$120.00 and $498.60 to pay.
+  - [x] A booking that fits no room is on the manager's list, never dropped.
+  - [x] The opening journal entry puts the imported deposits in customer deposits, and it balances.
+  - [ ] Works on West 4's real export files. Blocked: West 4's old system and its export files haven't been received; map its bookings, terms and deposits and dry-run them when they arrive (M9-06).
 - **Tests:** the rehearsal on the seed's 11 bookings; money-cases groups `deposits` and `room9_close_out`.
 - **Notes:** Spec gap: legacy deposits sit on the old system's processor, so refunding or keeping one can't go through West 4's new Stripe account. Cautious default: a manager refunds it in the old system and records it here as a refund of the `external` payment with the old system's reference; a kept one becomes the usual `fee` check with a `forfeit` line. Confirm with the founder where the old deposits are held. The old site's manage links can't carry over; M9-09 redirects them.
+  - **Built (Oct 8, 2026):** in the import tool (`packages/db/src/import/bookings.ts`, the bookings and new `policies` steps in `load.ts`, `import-cli.ts`), migration `0126_import_bookings.sql`. A booking whose status is `pending` or `confirmed` is one still to come: it gets a room block in the room the export named when that's free and fits, otherwise the assignment rules' smallest free room that fits (`roomOrder`, using `freeRoomsFor` from `@west4/rules` and the exclusion constraint); its old terms as a `policy_versions` row of the new kind `imported_terms` (text and hash; never the venue's own deposit policy), `accepted_at`, and `refund_cutoff_at` = start − the terms' `refund_hours`; `deposit_cents` and `deposit_legacy_cents`; an `external` payment, captured, on the cutover date (`payment_events` source `import`, no Stripe id, never a Stripe call); and a manage link (hash stored; the token goes only to the `--links-out` file). A booking that fits no room goes to `import_unplaced`, shown to managers at `GET /v1/venues/{v}/bookings/no-room` and named in the report. Each live run keeps an opening journal (`openingJournal` in `@west4/rules`: debit the new account "Deposits held by the old system" (`legacy_deposits`), credit customer deposits) on `import_runs.opening_journal`, written as a QuickBooks CSV with `--out`; the run reconciles only when the payments plus the listed deposits equal the deposits held and the journal balances. The rehearsal export now has a `terms.csv`.
+  - **Kept out of the night's money:** an `external` payment with a booking is an imported deposit, so the night journal's deposits taken, the Z report's deposits taken, Unmatched payments (list, match, the offline-orders view and the outage drill) all leave it out; it enters the night's money only when check-in applies it (from customer deposits, as any deposit).
+  - **Tests:** `packages/db/src/import/bookings.int.test.ts` (the rehearsal's 11 as bookings still to come plus one moved and one with no room: rooms, payments, terms and cut-offs, links, opening journal, re-run and delta, venue wall); `apps/api/src/routes/imported-bookings.int.test.ts` (Calendar, board, check-in applies the $120.00, Room 9's check with the imported deposit at −$120.00 and $498.60, the manager's list, tonight's deposits taken and Unmatched payments unchanged); the money-cases groups `deposits` and `room9_close_out` pass in the unit suite (an imported deposit keeps the old system's cents; nothing is recomputed). The Marcus case swaps the imported deposit onto the worked example's check with `applyDeposits` (the step check-in runs), because Room 9 is occupied on the demo night; a real check-in of an imported booking is tested separately on Oct 2.
+  - **Cautious defaults:** statuses other than pending and confirmed are history (no block, payment or link). The debit side of the opening journal is one "Deposits held by the old system" account until the accountant names it. The opening journal lives on the import run and its CSV, not in `exports` (one accounting export per night); M9-06 or the accountant decides whether it joins the QuickBooks export screen. Terms with no refund window give no cut-off. A booking past the night's close is still placed (the old system already promised it).
+  - **Left for later:** seating a listed booking with its deposit carried over (today a manager reads the list and books by hand; the deposit stays in the opening journal, not as a payment), recording an old-system refund against the `external` payment (the ticket's cautious default; the refund screens don't take an external payment yet), and a staff screen for the list. Founder: confirm where the old deposits are held.
 
 ### M9-03 · Import guests with their consent evidence
 

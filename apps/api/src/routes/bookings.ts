@@ -28,6 +28,7 @@ import { noShowFrom } from "../rooms/checkin.js";
  *   GET   /v1/venues/{v}/bookings/grid?business_date= start times, both 1:00 AMs on the fall-back night
  *   POST  /v1/venues/{v}/bookings                    a staff booking: a real room, the deposit, pending or confirmed
  *   PATCH /v1/venues/{v}/bookings/{b}                reassign the room, change the party, or cancel
+ *   GET   /v1/venues/{v}/bookings/no-room             managers: imported bookings that fit no room (M9-02)
  * Every booking gets a real room; guests see only its size tier. A booking
  * that owes a deposit saves as pending with a hold block until M5's payment
  * link collects it; with deposits off it confirms at once.
@@ -113,6 +114,35 @@ export function bookingsRoutes(app: FastifyInstance, options: { clock: Clock }):
     const v = await venueClock(c, venueId);
     return businessDate(options.clock.now(), v.timeZone, v.dayCutover).businessDate;
   };
+
+  /**
+   * The manager's list of imported bookings that fit no room (M9-02): each with its guest, time,
+   * party, the room the old system named and the deposit paid there. Kept until a manager seats it.
+   */
+  app.get<{ Params: VenueParams }>(
+    "/v1/venues/:venueId/bookings/no-room",
+    {
+      config: route({
+        principals: ["owner_manager"],
+        module: "rooms",
+        action: "bookings.manage",
+      }),
+    },
+    async (request) =>
+      request.inVenue(async (c) => ({
+        bookings: (
+          await c.query(
+            `select u.id, u.legacy_ref, g.name as guest_name, g.phone_e164, u.party_size,
+                    to_json(u.starts_at) #>> '{}' as starts_at, to_json(u.ends_at) #>> '{}' as ends_at,
+                    u.business_date::text, u.room_named, u.deposit_legacy_cents as deposit_cents, u.reason
+               from import_unplaced u join guests g on g.venue_id = u.venue_id and g.id = u.guest_id
+              where u.venue_id = $1
+              order by u.starts_at, u.legacy_ref`,
+            [request.venueId],
+          )
+        ).rows,
+      })),
+  );
 
   /** The days ahead with their bookings (M2-33: the Calendar), from tonight on the venue's clock. */
   app.get<{ Params: VenueParams; Querystring: { days?: string } }>(

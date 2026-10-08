@@ -2585,6 +2585,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "qb.account.gratuity_payable": "Servicio por pagar",
   "qb.account.tips_payable": "Propinas por pagar",
   "qb.account.customer_deposits": "Depósitos de clientes",
+  "qb.account.legacy_deposits": "Depósitos en el sistema anterior",
   "qb.account.prepaid_value": "Saldo prepagado",
   "qb.account.stripe_clearing": "Cuenta puente de Stripe",
   "qb.account.cash": "Efectivo",

@@ -989,6 +989,7 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "incident_notes",
       // Imports (M9-01): their refs name rows this wipe removes, so a re-import after a reseed starts clean.
       "import_refs",
+      "import_unplaced",
       "import_runs",
       "incidents",
       "room_calls",

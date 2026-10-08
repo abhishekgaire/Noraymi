@@ -19,6 +19,7 @@ export const KINDS = [
   "guests",
   "people",
   "menu",
+  "policies",
   "bookings",
   "consents",
   "nightly_totals",
@@ -33,9 +34,11 @@ export const FIELDS: Record<Kind, { required: readonly string[]; optional: reado
     required: ["legacy_ref", "name", "category", "price", "alcohol"],
     optional: ["button_name", "tax_category", "variant", "sort"],
   },
+  /** The terms guests accepted on the old site (M9-02): their words, and the refund window they set. */
+  policies: { required: ["legacy_ref", "text"], optional: ["refund_hours", "published_at"] },
   bookings: {
     required: ["legacy_ref", "guest_ref", "room", "party_size", "starts_at", "ends_at"],
-    optional: ["deposit", "status"],
+    optional: ["deposit", "status", "policy_ref", "accepted_at"],
   },
   consents: {
     required: ["guest_ref", "channel", "kind"],

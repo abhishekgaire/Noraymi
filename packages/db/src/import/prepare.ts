@@ -78,6 +78,12 @@ export interface MenuRecord extends Base {
   readonly variant: string;
   readonly sort: number;
 }
+export interface PolicyRecord extends Base {
+  readonly text: string;
+  /** Hours before the start a guest may cancel for a refund, as the old terms said; null when they don't say. */
+  readonly refundHours: number | null;
+  readonly publishedAt: string | null;
+}
 export interface BookingRecord extends Base {
   readonly guestRef: string;
   readonly room: string;
@@ -86,6 +92,8 @@ export interface BookingRecord extends Base {
   readonly endsAt: string;
   readonly depositCents: number;
   readonly status: string;
+  readonly policyRef: string | null;
+  readonly acceptedAt: string | null;
 }
 export interface ConsentRecord extends Base {
   readonly guestRef: string;
@@ -110,6 +118,7 @@ export interface Prepared {
   readonly guests: readonly GuestRecord[];
   readonly people: readonly PersonRecord[];
   readonly menu: readonly MenuRecord[];
+  readonly policies: readonly PolicyRecord[];
   readonly bookings: readonly BookingRecord[];
   readonly consents: readonly ConsentRecord[];
   readonly nightlyTotals: readonly NightlyTotalRecord[];
@@ -236,6 +245,7 @@ export function prepareImport(
     guests: [] as GuestRecord[],
     people: [] as PersonRecord[],
     menu: [] as MenuRecord[],
+    policies: [] as PolicyRecord[],
     bookings: [] as BookingRecord[],
     consents: [] as ConsentRecord[],
     nightlyTotals: [] as NightlyTotalRecord[],
@@ -345,6 +355,13 @@ export function prepareImport(
           variant: text("variant", 60) ?? "Regular",
           sort: opt("sort", (s) => parseWholeNumber(s, 0, 100000)) ?? row.line,
         };
+      } else if (kind === "policies") {
+        ref = text("legacy_ref");
+        record = {
+          text: text("text", 5000),
+          refundHours: opt("refund_hours", (s) => parseWholeNumber(s, 0, 24 * 365)),
+          publishedAt: opt("published_at", at)?.toString() ?? null,
+        };
       } else if (kind === "bookings") {
         ref = text("legacy_ref");
         const startsAt = req("starts_at", at);
@@ -362,6 +379,8 @@ export function prepareImport(
           endsAt: endsAt?.toString(),
           depositCents,
           status: oneOf("status", BOOKING_STATUSES) ?? "confirmed",
+          policyRef: text("policy_ref") ?? null,
+          acceptedAt: opt("accepted_at", at)?.toString() ?? null,
         };
       } else if (kind === "consents") {
         const channel = oneOf("channel", new Set(["sms", "email"]));

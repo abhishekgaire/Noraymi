@@ -109,7 +109,7 @@ describe("the mapping file", () => {
     expect(r.problems).toEqual([
       "files.guests.columns.pin: not a field of guests",
       "files.guests: legacy_ref needs a column or a default",
-      "files.tables: not a kind we import (guests, people, menu, bookings, consents, nightly_totals)",
+      "files.tables: not a kind we import (guests, people, menu, policies, bookings, consents, nightly_totals)",
     ]);
   });
 });
