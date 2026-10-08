@@ -199,6 +199,55 @@ describe("Admin → Team's list and PATCH /team/{m}", () => {
       authorization: `Bearer ${json(pinIn)["token"] as string}`,
     });
     expect(asDiego.statusCode).toBe(403);
+  });
+
+  it("shows who's waiting and for what: no badge once the venue has a reader, alerts off, until each is done (M9-08)", async () => {
+    const diegoOf = async () => {
+      const r = await call("GET", `/v1/venues/${v.venueA}/team`, undefined, {
+        cookie: ownerCookie,
+      });
+      const body = json(r) as { people: Record<string, unknown>[]; waiting_count: number };
+      expect(body.waiting_count).toBe(
+        body.people.filter((p) => (p["waiting"] as string[]).length > 0).length,
+      );
+      return body.people.find((p) => p["membership_id"] === diego)!["waiting"];
+    };
+    // His PIN is set; no badge reader in the venue yet, so no badge is asked for; alerts are off.
+    expect(await diegoOf()).toEqual(["push"]);
+    const reader = await owner.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name) values ($1, 'nfc_reader', 'Front-desk badge reader (USB)') returning id",
+      [v.venueA],
+    );
+    expect(await diegoOf()).toEqual(["badge", "push"]);
+    const user = (
+      await owner.query<{ user_id: string }>("select user_id from memberships where id = $1", [
+        diego,
+      ])
+    ).rows[0]!.user_id;
+    const phone = await owner.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name, user_id) values ($1, 'staff_phone', 'Diego''s phone', $2) returning id",
+      [v.venueA, user],
+    );
+    await owner.query(
+      `insert into push_subscriptions (venue_id, device_id, endpoint, keys)
+       values ($1, $2, 'https://push.example.com/diego', '{"p256dh":"x","auth":"y"}')`,
+      [v.venueA, phone.rows[0]!.id],
+    );
+    expect(await diegoOf()).toEqual(["badge"]);
+    const badge = await owner.query<{ id: string }>(
+      "insert into staff_badges (venue_id, membership_id, uid_hash, label) values ($1, $2, 'm9-08-test', 'Diego') returning id",
+      [v.venueA, diego],
+    );
+    expect(await diegoOf()).toEqual([]);
+    // A switched-off badge doesn't count; leave the venue as it was for the tests below.
+    await owner.query("update staff_badges set disabled_at = now() where id = $1", [
+      badge.rows[0]!.id,
+    ]);
+    expect(await diegoOf()).toEqual(["badge"]);
+    await owner.query("delete from staff_badges where id = $1", [badge.rows[0]!.id]);
+    await owner.query("update devices set revoked_at = now() where id = any($1::uuid[])", [
+      [reader.rows[0]!.id, phone.rows[0]!.id],
+    ]);
     // Venue B's team is behind the wall even for venue A's owner.
     expect(
       (await call("GET", `/v1/venues/${v.venueB}/team`, undefined, { cookie: ownerCookie }))

@@ -46,7 +46,17 @@ interface Person {
   readonly has_pin: boolean;
   readonly invite_expires_at: string | null;
   readonly badges: readonly Badge[];
+  /** What the person still has to do on their own phone or at a reader (M9-08). */
+  readonly waiting: readonly Waiting[];
 }
+
+type Waiting = "invite" | "pin" | "badge" | "push";
+const waitingKey: Record<Waiting, MessageKey> = {
+  invite: "team.waiting.invite",
+  pin: "team.waiting.pin",
+  badge: "team.waiting.badge",
+  push: "team.waiting.push",
+};
 
 /** A phone or shared screen that can be put in training (M7-03). */
 interface TrainingDevice {
@@ -334,6 +344,16 @@ export function Team() {
       ) : (
         <p className="muted small">{t("team.readers", { list: readers.join(", ") || "—" })}</p>
       )}
+      {people !== null && (
+        <p className="small" data-testid="team-waiting" role="status">
+          {(() => {
+            const n = people.filter(
+              (p) => p.status !== "deactivated" && p.waiting.length > 0,
+            ).length;
+            return n === 0 ? t("team.waiting.nobody") : t("team.waiting.count", { count: n });
+          })()}
+        </p>
+      )}
       {people === null ? (
         <p role="status">{t("shell.loading")}</p>
       ) : (
@@ -343,6 +363,7 @@ export function Team() {
               <th>{t("team.person")}</th>
               <th>{t("team.role")}</th>
               <th>{t("team.status")}</th>
+              <th>{t("team.waiting")}</th>
               <th>{t("team.language")}</th>
               <th>{t("team.training")}</th>
               <th>{t("team.tips")}</th>
@@ -377,6 +398,13 @@ export function Team() {
                     </select>
                   </td>
                   <td>{statusOf(person)}</td>
+                  <td data-testid="waiting">
+                    {gone
+                      ? "—"
+                      : person.waiting.length === 0
+                        ? t("team.waiting.ready")
+                        : person.waiting.map((w) => t(waitingKey[w])).join(" · ")}
+                  </td>
                   <td>
                     <select
                       aria-label={t("team.language")}

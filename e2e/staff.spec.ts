@@ -635,6 +635,16 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     ).toBeVisible();
     const diegoRow = page.getByRole("row", { name: /Diego R\./ });
     await expect(diegoRow).toContainText("Active");
+    // Who's waiting and for what (M9-08): Diego has his PIN and badge; alerts depend on his phone.
+    const diegoPush = (
+      await db.query<{ on: boolean }>(
+        `select exists (select 1 from push_subscriptions s join devices d on d.id = s.device_id
+            where s.revoked_at is null and d.revoked_at is null and d.kind = 'staff_phone'
+              and d.user_id = (select id from users where name = 'Diego R.')) as on`,
+      )
+    ).rows[0]!.on;
+    await expect(diegoRow.getByTestId("waiting")).toHaveText(diegoPush ? "Ready" : "Alerts off");
+    await expect(page.getByTestId("team-waiting")).toHaveText(/^(Waiting: [1-4]|Nobody waiting)$/);
     expect(await clippedText(page)).toEqual([]);
 
     // Language: Diego to Español (the passkey is asked again; the virtual authenticator answers).

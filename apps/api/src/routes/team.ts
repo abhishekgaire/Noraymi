@@ -66,6 +66,28 @@ interface TeamRow {
   readonly has_pin: boolean;
   readonly deactivated_at: string | null;
   readonly invite_expires_at: string | null;
+  /** Alerts on: a live push subscription on one of the person's own staff phones (M1-22). */
+  readonly push_on: boolean;
+}
+
+/**
+ * What a person still has to do before a live night (M9-08; screens N25): accept the
+ * invite, set a PIN, pair a badge (only where the venue has a badge reader), turn
+ * alerts on. A deactivated person waits for nothing.
+ */
+export type Waiting = "invite" | "pin" | "badge" | "push";
+export function waitingFor(
+  row: Pick<TeamRow, "status" | "has_pin" | "push_on">,
+  liveBadges: number,
+  venueHasBadgeReader: boolean,
+): Waiting[] {
+  if (row.status === "deactivated") return [];
+  const w: Waiting[] = [];
+  if (row.status === "invited") w.push("invite");
+  if (!row.has_pin) w.push("pin");
+  if (venueHasBadgeReader && liveBadges === 0) w.push("badge");
+  if (!row.push_on) w.push("push");
+  return w;
 }
 
 /** The PIN's length a role sets; shared with the team import (M9-05). */
@@ -276,7 +298,12 @@ export function teamRoutes(
                   m.tip_eligible, m.occupation_code, m.pin_verifier is not null as has_pin, m.deactivated_at::text,
                   (select max(i.expires_at)::text from invites i
                     where i.venue_id = m.venue_id and i.membership_id = m.id and i.used_at is null
-                      and i.expires_at > $2) as invite_expires_at
+                      and i.expires_at > $2) as invite_expires_at,
+                  exists (select 1 from push_subscriptions s
+                            join devices d on d.venue_id = s.venue_id and d.id = s.device_id
+                           where s.venue_id = m.venue_id and s.revoked_at is null
+                             and d.kind = 'staff_phone' and d.revoked_at is null
+                             and d.user_id = m.user_id) as push_on
              from memberships m join users u on u.id = m.user_id
             where m.venue_id = $1
             order by case m.status when 'active' then 0 when 'invited' then 1 else 2 end,
@@ -294,13 +321,23 @@ export function teamRoutes(
              from staff_badges where venue_id = $1 order by paired_at`,
           [venueId],
         );
-        return {
-          people: people.rows.map((row) => ({
+        const readers = await c.query(
+          "select 1 from devices where venue_id = $1 and kind = 'nfc_reader' and revoked_at is null limit 1",
+          [venueId],
+        );
+        const hasReader = (readers.rowCount ?? 0) > 0;
+        const out = people.rows.map((row) => {
+          const mine = badges.rows.filter((b) => b.membership_id === row.membership_id);
+          return {
             ...row,
-            badges: badges.rows
-              .filter((b) => b.membership_id === row.membership_id)
-              .map(({ id, label, disabled_at }) => ({ id, label, disabled_at })),
-          })),
+            badges: mine.map(({ id, label, disabled_at }) => ({ id, label, disabled_at })),
+            waiting: waitingFor(row, mine.filter((b) => b.disabled_at === null).length, hasReader),
+          };
+        });
+        return {
+          people: out,
+          // Before the first live night this is 0 (M9-08).
+          waiting_count: out.filter((p) => p.waiting.length > 0).length,
         };
       });
     },

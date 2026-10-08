@@ -180,18 +180,18 @@ Definition of done: see CLAUDE.md.
 
 ### M9-08 · Get everyone their own PIN and badge
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M9-05, M9-07 (badge readers installed); M1-23 (invites and Set your PIN), M1-30 (badge pairing), M1-22 (push)
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · PINs, Badges; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Staff phones; screens [N25](../screens.md#n25-set-your-pin), [Pin](../screens.md#pin) note 8, [AdminDesk](../screens.md#admindesk) notes 4 and 8; [demo seed](../demo-seed.md#the-team-tonight)
 - **Build:** an invite to each person's own phone, where they confirm their number once, set a new PIN (4 digits, 6 for managers and owners) and pick their language; installing the staff app to the home screen with push (the iPhone walkthrough); pairing a badge by tapping it on the bar or front-desk reader in Admin → Team. Admin → Team shows who's waiting and for what: invite not accepted, no PIN, no badge, push off. A production check that no PIN verifies against the seed's demo PINs (915204, 730915, 4071, 6358), and that every PIN was set by its own person through an invite or a reset (audit rows).
 - **Acceptance:**
-  - [ ] Before the first live night, Admin → Team shows nobody waiting.
-  - [ ] No imported PIN exists anywhere: every PIN's audit row shows its own person set it.
-  - [ ] None of the demo PINs verifies for anyone in production.
-  - [ ] Each person's badge tap takes over the bar computer in under 2 seconds.
+  - [ ] Before the first live night, Admin → Team shows nobody waiting. (Built and tested: `team-admin.int.test.ts`, `e2e/staff.spec.ts`; waits on West 4's team doing it on their own phones.)
+  - [ ] No imported PIN exists anywhere: every PIN's audit row shows its own person set it. (`pins:check` built and tested on the seed, `apps/api/src/ops/pins-check.int.test.ts`; run against production after setup.)
+  - [ ] None of the demo PINs verifies for anyone in production. (Same check; run in production, and again the day before the first live night.)
+  - [ ] Each person's badge tap takes over the bar computer in under 2 seconds. (Software proven with the emulated reader, `e2e/desktop.spec.ts`, `badge.int.test.ts`; on real hardware once M9-07 installs the readers.)
 - **Tests:** the production PIN check, run again the day before the first live night.
-- **Notes:** A PIN is never texted, emailed or shown to anyone, a manager included.
+- **Notes:** A PIN is never texted, emailed or shown to anyone, a manager included. Already built in M1: invites with the number confirmed once, Set your PIN (4 or 6 digits by role, blocklist) and the language pick (M1-23), PIN reset links, badge pairing in Admin → Team (M1-30), push and the iPhone walkthrough (M1-22). Built here: `GET /team` gives each person `push_on` and `waiting` (invite, pin, badge, push) plus `waiting_count`; Admin → Team shows "Nobody waiting" or "Waiting: N" and a "Waiting for" column (English and Spanish). `pnpm --filter @west4/api pins:check` (`apps/api/src/ops/pins-check.ts`) fails when a demo PIN verifies for anyone or when a PIN's newest audit row isn't an update by its own person (a seed, import or someone else wrote it), names people only, never a PIN. Runbook: `docs/runbooks/pins-and-badges.md`. Cautious default: "No badge" counts only once the venue has a USB badge reader paired, so a venue without readers isn't stuck waiting. Blocked on West 4's team setting up on their own phones and on the readers M9-07 installs.
 
 ### M9-09 · Move west4karaoke.com with a redirect from every old page
 
