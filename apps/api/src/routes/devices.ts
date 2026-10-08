@@ -15,6 +15,7 @@ import {
 } from "@west4/db";
 import { Temporal, type Clock } from "@west4/shared";
 import { z } from "zod";
+import { micCommandFor, signedMicCommand, type MicSigner } from "../devices/mic-outlet.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
@@ -24,6 +25,8 @@ export interface DevicesOptions {
   readonly clock: Clock;
   /** The server's real clock, which the device's own reading is compared to. Tests may pin it. */
   readonly realNow?: () => number;
+  /** Signs the mic power trial's commands (M8-23); without it, a mic outlet gets no command. */
+  readonly micSigner?: MicSigner;
 }
 
 interface VenueParams {
@@ -211,6 +214,47 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
       };
     },
   );
+
+  // The mic power trial (M8-23): only a signed mic_outlet asks, and it gets a
+  // short-lived command signed with our key. It switches only the mic
+  // receiver's outlet; nothing on our side can switch the song player.
+  const micRoute = route({
+    principals: ["public"],
+    module: "core",
+    idempotency: "none",
+    rateLimit: { max: 120, windowMs: 60_000 },
+  });
+  const micDevice = (request: {
+    signedDevice?: { deviceId: string; venueId: string; kind: string } | undefined;
+  }) => {
+    const device = request.signedDevice;
+    if (!device || device.kind !== "mic_outlet")
+      throw new ApiError("forbidden", "only a paired mic outlet asks for its command");
+    if (!options.micSigner) throw new ApiError("not_found", "mic commands aren't set up here");
+    return { device, signer: options.micSigner };
+  };
+  app.get("/v1/devices/mic-outlet/key", { config: micRoute }, async (request) => {
+    const { signer } = micDevice(request);
+    return { algorithm: "Ed25519", public_key: signer.publicKeyPem };
+  });
+  app.post("/v1/devices/mic-outlet/command", { config: micRoute }, async (request) => {
+    const { device, signer } = micDevice(request);
+    const now = options.clock.now();
+    const answer = await withVenue(
+      app.db.pool,
+      { venueId: device.venueId, requestId: request.requestId },
+      (c) => micCommandFor(c, device.venueId, device.deviceId, now),
+    );
+    const command = signedMicCommand(signer, device.deviceId, answer.state, now);
+    return {
+      device_id: command.deviceId,
+      state: command.state,
+      issued_at_ms: command.issuedAtMs,
+      ttl_ms: command.ttlMs,
+      signature: command.signature,
+      reason: answer.reason,
+    };
+  });
 
   app.get<{ Params: VenueParams }>(
     "/v1/venues/:venueId/devices",

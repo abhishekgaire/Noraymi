@@ -575,7 +575,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-23 · Run the one-room mic power trial (K1)
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** West 4's written approval; Playbox's answer on the equipment warranty; M1-15 and M1-16 (devices and heartbeats), M2-11 (check-in), M2-19 (cleaning), M4-20 (close-out)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Mic power trial; [Data model](../spec/04-data-model.md) · `devices` (`mic_outlet`); [decisions](../decisions.md) D83; [blueprint](../blueprint.md) · Open decisions (Mic-receiver outlet trial); [Open technical questions](../spec/14-open-questions.md); screens [AdminDesk](../screens.md#admindesk) note 10
@@ -584,12 +584,16 @@ Definition of done: see CLAUDE.md.
   - On at check-in; off at close-out or cleaning; left on whenever our server can't be reached. The outlet switches off only on a fresh, signed command from us and back on when it loses contact, so an outage never silences a room.
   - Behind a venue flag for the one room, and a trial log of each switch.
 - **Acceptance:**
-  - [ ] With the flag on for one room, check-in turns the mic receiver on and close-out turns it off.
-  - [ ] Blocking our server turns the outlet back on.
-  - [ ] Nothing ever changes the song player's power.
-  - [ ] The trial isn't part of the gate, and M8-24 doesn't wait for it.
+  - [x] With the flag on for one room, check-in turns the mic receiver on and close-out turns it off. (`apps/api/src/devices/mic-outlet.int.test.ts`, with an emulated outlet; on real hardware it waits on the two approvals.)
+  - [x] Blocking our server turns the outlet back on. (The firmware rule in `packages/rules/src/mic-outlet.test.ts` and the emulated outlet; the real outlet is checked by the runbook.)
+  - [x] Nothing ever changes the song player's power. (The only power command is for a `mic_outlet` device; a test checks no other route switches power.)
+  - [x] The trial isn't part of the gate, and M8-24 doesn't wait for it. (Off by default; nothing in M8-24 depends on it.)
 - **Tests:** device tests with a lost connection and a stale command; the principal suite over the outlet's device key.
 - **Notes:** Open question (Playbox): does the outlet affect the equipment warranty? The trial starts only after that answer and West 4's written approval. Pick an outlet whose firmware turns on when it loses contact and accepts only signed commands; only our own hardware, and nothing that touches Playbox's player.
+  - **Built (M8-23):** `rooms.micPowerTrialRoomId` (absent or null: trial off) is the venue flag. A signed `mic_outlet` device asks `POST /v1/devices/mic-outlet/command` and gets a 60-second command signed with our Ed25519 key (derived from the API's secret key; the outlet pins it from `GET /v1/devices/mic-outlet/key`): on while its room has an open session, off otherwise, on whenever the flag is off or names another room. Each change is logged in `mic_outlet_switches` (migration 0124, venue wall and restore wall). The firmware rule (power off only on a fresh, signed, newer command for this outlet; on otherwise) is `packages/rules/src/mic-outlet.ts`. Runbook: `docs/runbooks/mic-power-trial.md`.
+  - **Cautious defaults:** command life 60 s and polling every 15 s (so a lost server brings the mics back within a minute); a training session counts as a session (mics on). No Admin screen for the flag; it's set through the settings API, since D83 adds no screen. The outlet lists in Admin → Printers & devices as "Mic power outlet" like any device.
+  - **Waiting on (blocked):** West 4's written approval naming the room; Playbox's answer on the equipment warranty; then the founder choosing an outlet whose firmware meets the runbook's list (none is chosen or invented here) and running the first-night checks.
+
 
 ### M8-24 · Close GA-M3, GA-M8, GA-M9 and GA-M10, and sign off M8
 

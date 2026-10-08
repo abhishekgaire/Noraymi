@@ -224,6 +224,12 @@ export const roomsSchema = z
     cleaningEnds: z.enum(["staff", "timer"]),
     cleaningFlagMin: z.number().int().nonnegative(),
     stayOnWhenFree: z.boolean(),
+    /**
+     * The mic power trial's one room (M8-23; spec 11 · Mic power trial): its
+     * mic outlet turns off between sessions. Absent or null: the trial is off,
+     * as it stays until West 4 approves in writing and Playbox answers.
+     */
+    micPowerTrialRoomId: z.string().uuid().nullable().optional(),
   })
   .strict();
 

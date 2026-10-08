@@ -125,3 +125,18 @@ export {
   recipientZones,
 } from "./marketing-window.js";
 export type { MarketingWindowCheck } from "./marketing-window.js";
+export {
+  MIC_COMMAND_TTL_MS,
+  MIC_POLL_MS,
+  acceptMicCommand,
+  micCommandSigningString,
+  micDesired,
+  outletPower,
+} from "./mic-outlet.js";
+export type {
+  CommandRejection,
+  MicCommand,
+  MicPower,
+  MicReason,
+  OutletMemory,
+} from "./mic-outlet.js";

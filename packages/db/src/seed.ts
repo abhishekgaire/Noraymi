@@ -968,6 +968,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       // A computer's offline-code secret (M8-04) names the computer.
       "device_offline_secrets",
       "device_heartbeats",
+      // The mic power trial's log (M8-23) names its outlet.
+      "mic_outlet_switches",
       "vendor_calls",
       "vendor_health",
       // Our plan (M8-15): no subscription on the demo night; a test that makes one starts clean.
