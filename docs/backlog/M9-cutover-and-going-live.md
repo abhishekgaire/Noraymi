@@ -280,16 +280,19 @@ Definition of done: see CLAUDE.md.
 
 ### M9-14 · Prove every must-fix item closed
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M7-20, M8-24, and the sign-off tickets of M1 to M6
 - **Spec:** [milestones](../milestones.md#must-fix-items-and-where-they-close) · Must-fix items and where they close; [milestones](../milestones.md#the-go-live-gate) · the go-live gate, items 1 and 4
 - **Build:** a must-fix tracker in `docs/gate/must-fix.md`: GA-M1 to GA-M11, each with the milestone that closes it, the evidence that milestone passed its done-when (tests, drill reports, sign-off tickets) and the date. M7-20 and M8-24 fill their rows. M8-07's outage drill report is linked for gate item 4.
 - **Acceptance:**
-  - [ ] Every row from GA-M1 to GA-M11 is closed, with its evidence linked.
-  - [ ] Gate items 1 and 4 are marked met.
+  - [ ] Every row from GA-M1 to GA-M11 is closed, with its evidence linked. (Every row has its local evidence linked and the link check passes; none is closed, because no closing milestone has passed its done-when: M3-25's mock Friday, M4-30, M5-17, M6-28, M7-20 and M8-24 are open.)
+  - [ ] Gate items 1 and 4 are marked met. (Both read not met; item 4 waits on M8-07's drills at West 4.)
 - **Tests:** a link check over the tracker's evidence links.
-- **Notes:** —
+- **Notes:**
+  - Built (M9-14): `docs/gate/must-fix.md`, one section per item (GA-M1 to GA-M11): the milestone and sign-off ticket that close it with that ticket's status, the tests that prove it locally (linked), what it's waiting on, its status and the date it closed. Gate items 1 and 4 sit at the top, both not met. The link check and the closing rules are in `apps/api/src/ops/gate-docs.test.ts`: every link resolves to a file, a row is closed only with a date and nothing waiting, gate item 1 reads met only when all eleven are closed, and gate item 4 only with a `docs/drills/<date>-outage.md` report linked.
+  - Found: M5-08 to M5-17 are still `todo` (M5-05 `blocked`), so the booking flow GA-M5 needs, and the guest's unticked marketing opt-in GA-M3 needs, aren't built yet. M8-24's Notes count the M5 opt-in as proven; it isn't, and the tracker says so. These are code tickets, not outside waits.
+  - Blocked: every row stays open until its milestone's sign-off ticket is `done` (staging M1-02, the connected sandbox, the drills at West 4, the advisers' answers in M9-13, and M5's tickets).
 
 ### M9-15 · Check every live night for money errors
 

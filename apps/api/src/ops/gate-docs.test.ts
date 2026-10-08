@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -80,5 +80,51 @@ describe("gate item 2: the advisers' sign-offs register (M9-13)", () => {
   it("every question has a request ready to send", () => {
     const requests = read("docs/gate/sign-off-requests.md");
     for (const r of rows) expect(requests, r[0]).toContain(`**${r[0]}.**`);
+  });
+});
+
+describe("gate items 1 and 4: the must-fix tracker (M9-14)", () => {
+  const tracker = read("docs/gate/must-fix.md");
+  const sections = tracker.split(/\n(?=## GA-M\d+ )/).slice(1);
+  const field = (s: string, name: string): string =>
+    (new RegExp(`- \\*\\*${name}:\\*\\* (.*)`).exec(s)?.[1] ?? "").trim();
+
+  it("has GA-M1 to GA-M11 in order, each with its milestone, status and evidence", () => {
+    expect(sections.map((s) => /^## (GA-M\d+)/.exec(s)?.[1])).toEqual(
+      Array.from({ length: 11 }, (_, i) => `GA-M${i + 1}`),
+    );
+    for (const s of sections) {
+      expect(field(s, "Closed by"), s.slice(0, 12)).toMatch(/^M\d/);
+      expect(["open", "closed"]).toContain(field(s, "Status"));
+      expect(field(s, "Proven locally"), s.slice(0, 12)).toMatch(/\]\(/);
+    }
+  });
+
+  it("every evidence link resolves to a file in the repo", () => {
+    const links = [...tracker.matchAll(/\]\(([^)#\s]+)(#[^)]*)?\)/g)].map((m) => m[1]!);
+    expect(links.length).toBeGreaterThan(30);
+    for (const link of links) {
+      if (/^https?:/.test(link)) continue;
+      expect(existsSync(join(ROOT, "docs/gate", link)), link).toBe(true);
+    }
+  });
+
+  it("a row is closed only with a date and nothing left waiting", () => {
+    for (const s of sections) {
+      const closed = field(s, "Status") === "closed";
+      expect(/^\d{4}-\d{2}-\d{2}$/.test(field(s, "Closed on")), s.slice(0, 12)).toBe(closed);
+      if (closed) expect(field(s, "Waiting on"), s.slice(0, 12)).toBe("nothing");
+    }
+  });
+
+  it("gate item 1 is met only when all eleven are closed", () => {
+    const met = /\*\*Gate item 1 \([^)]*\):\*\* met/.test(tracker);
+    expect(met).toBe(sections.every((s) => field(s, "Status") === "closed"));
+  });
+
+  it("gate item 4 is met only with M8-07's drill report linked", () => {
+    const met = /\*\*Gate item 4 \([^)]*\):\*\* met/.test(tracker);
+    const report = /\]\((\.\.\/drills\/\d{4}-\d{2}-\d{2}-outage\.md)\)/.exec(tracker);
+    expect(met).toBe(report !== null);
   });
 });
