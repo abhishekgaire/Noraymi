@@ -852,7 +852,29 @@ export interface SeedLoadResult {
 }
 
 /** Load the M1 part of the demo seed. Wipes the venue's M1 rows first, so a second load gives the same rows and ids. */
+/**
+ * Loads the demo seed. The API's workers keep writing the night while it reloads (the job worker, the
+ * sweeps, a screen's request), and a reload deletes most of the venue's rows in one transaction, so
+ * Postgres can pick the reload as a deadlock's victim. The transaction is all or nothing, so the
+ * reload simply starts again (up to three tries); two reloads never run at once (an advisory lock).
+ */
 export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadResult> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await loadDemoSeedOnce(options);
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      if (attempt >= 3 || (code !== "40P01" && code !== "40001")) throw error;
+      (options.log ?? (() => {}))(`seed: ${code === "40P01" ? "deadlock" : "conflict"}, retrying`);
+    }
+  }
+}
+
+/** The advisory lock that serializes every reload of the demo seed ("WES4"). */
+export const SEED_LOCK_KEY = 0x5745_5334;
+
+/** One reload, in one transaction. */
+async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResult> {
   const env = options.env ?? process.env;
   const log = options.log ?? (() => {});
   assertSeedAllowed(options.databaseUrl, env);
@@ -878,6 +900,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
   await client.connect();
   try {
     await client.query("begin");
+    await client.query("select pg_advisory_xact_lock($1)", [SEED_LOCK_KEY]);
 
     // The organization and the venue: West 4 Inc. (the founder's, Oct 2), or the venue's name if a seed has none.
     const orgId = remember("org_west4", "organizations");
@@ -913,6 +936,10 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
     );
 
     // A fresh Friday: everything this load owns goes first, children before parents.
+    // Our pages (M8-17) are about the night being thrown away (its payment failures, its readers, its
+    // synthetic orders), so a reload starts with none; the seed never runs in production.
+    await client.query("delete from page_notifications");
+    await client.query("delete from pages");
     await client.query("delete from push_subscriptions where venue_id = $1", [venueId]);
     await client.query(
       "delete from device_nonces where device_id in (select id from devices where venue_id = $1)",

@@ -46,7 +46,7 @@ export function unmatchedRoutes(
             `select k.id, coalesce((select r.name from room_sessions rs join rooms r on r.venue_id = rs.venue_id and r.id = rs.room_id
                                      where rs.venue_id = k.venue_id and rs.id = k.room_session_id),
                                    (select t.name from tabs t where t.venue_id = k.venue_id and t.check_id = k.id), '#' || k.number) as label,
-                    k.business_date::text, amount_due(k.id)::int as amount_due_cents
+                    k.business_date::text, amount_due_read(k.id)::int as amount_due_cents
                from live_checks k
               where k.venue_id = $1 and k.status in ('finalized', 'partly_paid', 'open', 'reopened')
                 and k.business_date >= (select max(business_date) from live_checks where venue_id = $1) - 1

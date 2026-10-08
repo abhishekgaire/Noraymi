@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
-import { setClock } from "./night.js";
+import { freshNight, setClock } from "./night.js";
 
 // Put the shared clock back for whatever spec runs next, in this project or another.
 test.afterEach(async () => {
@@ -29,7 +29,9 @@ test("our staff sign in with a security key and read West 4's health, modules an
     await db.query("delete from support_grants where reason like 'E2E %'");
   };
   try {
-    // A fresh start: the seed keeps our staff's enrolled keys, so an earlier run's key would be asked for.
+    // A fresh night (no pages left by earlier specs' failed payments; the reload clears them), and a
+    // fresh start: the seed keeps our staff's enrolled keys, so an earlier run's key would be asked for.
+    await freshNight();
     await clean();
     await page.setViewportSize({ width: 1280, height: 800 });
     const cdp = await page.context().newCDPSession(page);

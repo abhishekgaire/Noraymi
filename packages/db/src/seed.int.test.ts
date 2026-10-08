@@ -264,3 +264,19 @@ describe("the M4 part of the demo seed", () => {
     ]);
   });
 });
+
+describe("reloading while the night runs", () => {
+  it("clears our pages, and two reloads at once both finish (one waits for the other)", async () => {
+    await owner.query(
+      `insert into pages (rule, key, severity, summary, runbook, opened_at)
+       values ('payment-failures', 'payment-failures', 'page', 'Card payments failing', 'docs/runbooks/payment-failures.md', now())`,
+    );
+    const both = await Promise.all([
+      loadDemoSeed({ databaseUrl: db.url, env: { WEST4_ENV: "local" } }),
+      loadDemoSeed({ databaseUrl: db.url, env: { WEST4_ENV: "local" } }),
+    ]);
+    expect(both[0].venueId).toBe(both[1].venueId);
+    const r = await owner.query<{ n: number }>("select count(*)::int as n from pages");
+    expect(r.rows[0]?.n).toBe(0);
+  });
+});
