@@ -20,8 +20,23 @@ export interface VenueText {
   readonly statusCallback: string | null;
 }
 
+/** One message from Twilio's list, as the pull after a restore reads it (M8-20). */
+export interface TwilioMessage {
+  readonly sid: string;
+  readonly direction: string;
+  readonly status: string;
+  readonly from: string;
+  readonly to: string;
+  readonly body: string;
+  /** When Twilio made it, as an ISO instant. */
+  readonly createdAt: string;
+  readonly errorCode: string | null;
+}
+
 export interface VenueTextClient {
   send(account: TwilioAccount, text: VenueText): Promise<{ sid: string }>;
+  /** The account's messages made since `since` (M8-20's pull after a restore). */
+  list?(account: TwilioAccount, since: string): Promise<TwilioMessage[]>;
   /**
    * Blank a message's body at Twilio (M8-12: message bodies are kept there 30 days). "gone" when
    * Twilio no longer has the message. Optional so a test double that only sends still fits.
@@ -73,6 +88,61 @@ export class TwilioVenueClient implements VenueTextClient {
    * Twilio redacts a body when the message is updated with an empty one; the idempotency token makes
    * a rerun the same request. A 404 means Twilio no longer has the message.
    */
+  async list(account: TwilioAccount, since: string): Promise<TwilioMessage[]> {
+    assertOutsideTransaction("text");
+    const out: TwilioMessage[] = [];
+    const auth = `Basic ${Buffer.from(`${account.accountSid}:${account.authToken}`).toString("base64")}`;
+    let next: string | null =
+      `/2010-04-01/Accounts/${encodeURIComponent(account.accountSid)}/Messages.json?` +
+      new URLSearchParams({ "DateSent>": since.slice(0, 10), PageSize: "1000" }).toString();
+    while (next) {
+      let response: Response;
+      try {
+        response = await this.fetchImpl(`${this.baseUrl}${next}`, {
+          headers: { authorization: auth },
+        });
+      } catch (error) {
+        noteVendorCall("twilio", account.accountSid, true);
+        throw error;
+      }
+      noteVendorCall(
+        "twilio",
+        account.accountSid,
+        response.status >= 500 || response.status === 429,
+      );
+      if (!response.ok) throw new Error(`Twilio answered ${response.status} listing messages`);
+      const page = (await response.json()) as {
+        messages?: {
+          sid: string;
+          direction: string;
+          status: string;
+          from: string;
+          to: string;
+          body: string | null;
+          date_created: string;
+          error_code: number | null;
+        }[];
+        next_page_uri?: string | null;
+      };
+      for (const m of page.messages ?? []) {
+        const createdAt = new Date(m.date_created).toISOString();
+        if (createdAt < since) continue;
+        out.push({
+          sid: m.sid,
+          direction: m.direction,
+          status: m.status,
+          from: m.from,
+          to: m.to,
+          body: m.body ?? "",
+          createdAt,
+          errorCode: m.error_code === null ? null : String(m.error_code),
+        });
+      }
+      next = page.next_page_uri ?? null;
+    }
+    return out;
+  }
+
   async redact(
     account: TwilioAccount,
     sid: string,
@@ -108,6 +178,13 @@ export class TwilioVenueClient implements VenueTextClient {
 /** Records what would go out; local development and tests. */
 export class FakeVenueClient implements VenueTextClient {
   readonly sent: { account: string; text: VenueText; sid: string }[] = [];
+  /** What Twilio's list answers, by account (the tests add to it). */
+  readonly listed: { account: string; message: TwilioMessage }[] = [];
+  async list(account: TwilioAccount, since: string): Promise<TwilioMessage[]> {
+    return this.listed
+      .filter((m) => m.account === account.accountSid && m.message.createdAt >= since)
+      .map((m) => m.message);
+  }
   readonly redacted: { account: string; sid: string; key: string }[] = [];
   async redact(account: TwilioAccount, sid: string, key: string): Promise<"redacted" | "gone"> {
     this.redacted.push({ account: account.accountSid, sid, key });

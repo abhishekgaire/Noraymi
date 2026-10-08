@@ -44,6 +44,15 @@ function setCard(
 
 fakeRouteSets.push((fake) => {
   fake.route("GET", "/fake/health", () => ({ body: { ok: true } }));
+  // The account's events, newest first, as Stripe lists them (M8-20's pull after a restore).
+  fake.route("GET", "/v1/events", (req) => {
+    const gte = Number((req.query["created"] as { gte?: string } | undefined)?.gte ?? 0);
+    const data = fake.events
+      .map((e) => e.event)
+      .filter((e) => (req.account === null || e.account === req.account) && e.created >= gte)
+      .reverse();
+    return { body: { object: "list", data, has_more: false } };
+  });
 
   fake.route("POST", "/v2/core/accounts", (req) => {
     const b = req.body as {

@@ -16,6 +16,7 @@
     "seed:files": "tsx --env-file-if-exists=../../.env src/files/seed-files.ts",
     "reconcile": "tsx --env-file-if-exists=../../.env src/reconcile/cli.ts",
     "drill:record": "tsx --env-file-if-exists=../../.env src/stripe/drill-record.ts",
+    "restore:venue": "tsx --env-file-if-exists=../../.env src/restore/cli.ts",
     "outage:record": "tsx --env-file-if-exists=../../.env src/ops/outage-record.ts",
     "status:set": "tsx --env-file-if-exists=../../.env src/telemetry/status-cli.ts",
     "oncall:set": "tsx --env-file-if-exists=../../.env src/ops/oncall-cli.ts",

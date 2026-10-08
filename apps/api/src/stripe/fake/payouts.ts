@@ -75,6 +75,7 @@ fakeRouteSets.push((fake: FakeStripe) => {
       const pi = fake.put({
         id: fakeId("pi"),
         object: "payment_intent",
+        created: Math.floor(Date.now() / 1000),
         _account: account,
         amount: tap,
         amount_received: tap,

@@ -28,3 +28,17 @@ provider "aws" {
     }
   }
 }
+
+# The second region (M8-20; spec 01 · Targets, spec 13 · Backups and restore): the database's
+# backups are copied here continuously, and the warm standby comes up here when a region is lost.
+provider "aws" {
+  alias  = "dr"
+  region = var.dr_region
+  default_tags {
+    tags = {
+      project     = "west4-karaoke"
+      environment = var.environment
+      managed_by  = "terraform"
+    }
+  }
+}

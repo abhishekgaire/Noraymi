@@ -552,6 +552,7 @@ export {
   erasureById,
   startErasure,
   eraseGuest,
+  reapplyErasures,
   eraseSinger,
   singerOwes,
   closeErasure,
@@ -646,3 +647,15 @@ export {
   venueSubscription,
 } from "./plan-billing.js";
 export type { PlanId, VenueSubscriptionRow } from "./plan-billing.js";
+export {
+  RESTORE_EXCLUDED,
+  RESTORE_MENU_TABLES,
+  applyVenueRestore,
+  asRestore,
+  restorePlan,
+  restorePreflight,
+  startRestoreRecord,
+  updateRestoreRecord,
+  venueRowHashes,
+} from "./restore.js";
+export type { ApplyOptions, RestoreCounts, RestoreTable, RestoreRow } from "./restore.js";

@@ -49,6 +49,7 @@ import {
 } from "../licenses/licenses.js";
 import { RETENTION_KIND, makeRetentionHandler, retentionSchedule } from "./retention.js";
 import { ERASE_KIND, makeEraseHandler } from "./erase.js";
+import { RESTORE_PULL_KIND, makeRestorePullHandler } from "../restore/restore.js";
 import {
   SYNTHETIC_KIND,
   makeSyntheticHandler,
@@ -176,6 +177,25 @@ export function makeHandlers({
           ? { texts: { client: venueTexts.client, secretKey: venueTexts.secretKey } }
           : {}),
       }),
+      // After a per-venue restore (M8-20): Stripe and Twilio since the restore point, then the erasure log.
+      ...(stripe
+        ? {
+            [RESTORE_PULL_KIND]: makeRestorePullHandler({
+              app: stripe.pool,
+              clock: stripe.clock,
+              stripe: stripe.client,
+              ...(venueTexts
+                ? {
+                    venueTexts: {
+                      client: venueTexts.client,
+                      secretKey: venueTexts.secretKey,
+                      settings: { allowList: venueTexts.settings.allowList },
+                    },
+                  }
+                : {}),
+            }),
+          }
+        : {}),
     },
     bulk: {
       [AUDIT_EXPORT_KIND]: makeAuditExportHandler(s3.client, s3.bucketAudit),

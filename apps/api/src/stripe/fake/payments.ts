@@ -181,6 +181,7 @@ fakeRouteSets.push((fake) => {
         const failed = fake.put({
           id: fakeId("pi"),
           object: "payment_intent",
+          created: Math.floor(Date.now() / 1000),
           _account: account,
           amount,
           currency: req.body["currency"] ?? "usd",
@@ -226,6 +227,7 @@ fakeRouteSets.push((fake) => {
       const succeeded = fake.put({
         id: fakeId("pi"),
         object: "payment_intent",
+        created: Math.floor(Date.now() / 1000),
         _account: account,
         amount,
         currency: req.body["currency"] ?? "usd",
@@ -251,6 +253,7 @@ fakeRouteSets.push((fake) => {
       body: fake.put({
         id: fakeId("pi"),
         object: "payment_intent",
+        created: Math.floor(Date.now() / 1000),
         _account: account,
         client_secret: `pi_secret_${fakeId("cs")}`,
         amount,

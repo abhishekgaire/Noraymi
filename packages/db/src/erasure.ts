@@ -234,6 +234,17 @@ export async function eraseGuest(
   erasureId: string,
   now: Temporal.Instant,
 ): Promise<ErasedNow> {
+  const done = await blankGuest(c, venueId, guestId, now.toString());
+  await finish(c, venueId, erasureId, done);
+  return done;
+}
+
+async function blankGuest(
+  c: Queryable,
+  venueId: string,
+  guestId: string,
+  at: string,
+): Promise<ErasedNow> {
   const guest = await c.query<{ phone_e164: string | null }>(
     "select phone_e164 from guests where venue_id = $1 and id = $2",
     [venueId, guestId],
@@ -243,17 +254,15 @@ export async function eraseGuest(
   const texts = await eraseTexts(c, venueId, { guestId, phone });
   const cards = await guestCards(c, venueId, guestId);
   const blanked = await c.query(
-    `update guests set name = '', phone_e164 = null, email = null, erased_at = $3
+    `update guests set name = '', phone_e164 = null, email = null, erased_at = coalesce(erased_at, $3)
       where venue_id = $1 and id = $2`,
-    [venueId, guestId, now.toString()],
+    [venueId, guestId, at],
   );
-  const done: ErasedNow = {
+  return {
     removed: { opt_out_hashes: hashed, guests: n(blanked), ...texts.removed },
     held: texts.held,
     pending: { cards, messages: texts.messages },
   };
-  await finish(c, venueId, erasureId, done);
-  return done;
 }
 
 /** Does the singer's tab still owe money (its check isn't paid or void)? */
@@ -284,6 +293,17 @@ export async function eraseSinger(
   erasureId: string,
   now: Temporal.Instant,
 ): Promise<ErasedNow> {
+  const done = await blankSinger(c, venueId, singerId, now.toString());
+  await finish(c, venueId, erasureId, done);
+  return done;
+}
+
+async function blankSinger(
+  c: Queryable,
+  venueId: string,
+  singerId: string,
+  at: string,
+): Promise<ErasedNow> {
   const singer = await c.query<{ phone_e164: string | null; check_id: string | null }>(
     "select phone_e164, check_id from singers where venue_id = $1 and id = $2",
     [venueId, singerId],
@@ -298,17 +318,51 @@ export async function eraseSinger(
   ]);
   const blanked = await c.query(
     `update singers set display_name = '—', phone_e164 = null, phone_verified_at = null, code_hash = null,
-            code_expires_at = null, token_hash = null, erased_at = $3
+            code_expires_at = null, token_hash = null, erased_at = coalesce(erased_at, $3)
       where venue_id = $1 and id = $2`,
-    [venueId, singerId, now.toString()],
+    [venueId, singerId, at],
   );
-  const done: ErasedNow = {
+  return {
     removed: { opt_out_hashes: hashed, singers: n(blanked), ...texts.removed },
     held: texts.held,
     pending: { cards, messages: texts.messages },
   };
-  await finish(c, venueId, erasureId, done);
-  return done;
+}
+
+export interface Reapplied {
+  readonly erasures: number;
+  /** Erasures that found cards or Twilio bodies again: the guests.erase job works them off. */
+  readonly reopened: string[];
+}
+
+/**
+ * After a restore (M8-20): every erasure in the log, applied again, so a
+ * guest or singer erased after the restore point stays erased. Runs as
+ * app_retention like the first time. An erasure that finds saved cards or
+ * message bodies again goes back to pending with that list, for the job.
+ */
+export async function reapplyErasures(c: Queryable, venueId: string): Promise<Reapplied> {
+  const log = await c.query<Erasure>(
+    `select ${ERASURE_COLUMNS} from erasures where venue_id = $1 order by requested_at, id`,
+    [venueId],
+  );
+  const reopened: string[] = [];
+  for (const e of log.rows) {
+    const at = new Date(e.done_at ?? e.requested_at).toISOString();
+    const again =
+      e.subject === "guest"
+        ? await blankGuest(c, venueId, e.subject_id, at)
+        : await blankSinger(c, venueId, e.subject_id, at);
+    if (again.pending.cards.length || again.pending.messages.length) {
+      await c.query(
+        `update erasures set state = 'pending', pending = $3, done_at = null
+          where venue_id = $1 and id = $2`,
+        [venueId, e.id, JSON.stringify(again.pending)],
+      );
+      reopened.push(e.id);
+    }
+  }
+  return { erasures: log.rows.length, reopened };
 }
 
 /** The job's last step: nothing left outside, the counts kept. */

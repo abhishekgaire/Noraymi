@@ -8,6 +8,7 @@ import type { Clock } from "@west4/shared";
 import type { RegisteredRoute } from "../http/registry.js";
 import type { Principal } from "../http/principal.js";
 import { AUDIT_EXPORT_KIND } from "../jobs/audit-export.js";
+import { RESTORE_PULL_KIND } from "../restore/restore.js";
 import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
 import { RETENTION_KIND } from "../jobs/retention.js";
 import { ERASE_KIND } from "../jobs/erase.js";
@@ -260,6 +261,16 @@ export type JobWallCase =
     };
 
 export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
+  // The pull after a restore (M8-20): it reads the restore from the job's own venue, so venue B's id finds nothing.
+  [RESTORE_PULL_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({ restore_id: c.venueB }),
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the restore pull didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
+  },
   [SYNTHETIC_KIND]: {
     carries: "no venue-owned ids",
     why: "an empty payload; it runs only at the configured test venue with its flag on, through the API as that venue's own device and people",

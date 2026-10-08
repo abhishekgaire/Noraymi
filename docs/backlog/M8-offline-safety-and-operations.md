@@ -492,7 +492,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-20 · Restore one venue from a scratch copy, and drill it monthly
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** L
 - **Depends on:** M1-05 (row-level security and the audited migration role), M1-07 (audit triggers), M4-04 (the money core), M8-13 (the erasure log)
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Backups and restore, Releases (the audited migration role); [Scope and architecture](../spec/01-scope-architecture.md) · Targets (data loss and recovery), When our cloud is down (a lost region); [Security and data retention](../spec/12-security-retention.md) · How long we keep things (backups)
@@ -501,13 +501,27 @@ Definition of done: see CLAUDE.md.
   - A per-venue restore tool: restore the cluster to a scratch copy at a point in time, read one venue's rows from it, and apply them to production without touching other venues. Settings and the menu come back as new versions; money rows are only inserted, never overwritten, each audited, as the audited migration role. Then a job pulls Stripe and Twilio activity since the restore point (payments, refunds, disputes, payouts and messages) through the usual state machines, and the erasure log is applied again.
   - The monthly drill runbook: timed, and checking that the row-level policies and roles are in place, the app boots on the restored data, and the counts match Stripe. The yearly region failover runbook (a scripted warm standby and a DNS cutover).
 - **Acceptance:**
-  - [ ] The drill restores our test venue from a scratch copy while another venue keeps working; the other venue's rows are unchanged, compared by hash.
-  - [ ] The restored venue's payments match Stripe's PaymentIntents for the window in count and amount.
-  - [ ] The drill's time is recorded against the recovery targets.
-  - [ ] A guest erased after the restore point stays erased after the restore.
+  - [ ] The drill restores our test venue from a scratch copy while another venue keeps working; the other venue's rows are unchanged, compared by hash. (Passes in the local rehearsal, `apps/api/src/restore/restore.int.test.ts`; open until the first drill on a real staging snapshot, after `terraform apply`.)
+  - [ ] The restored venue's payments match Stripe's PaymentIntents for the window in count and amount. (Passes against the fake Stripe in the rehearsal; open until the staging drill checks it against the sandbox.)
+  - [x] The drill's time is recorded against the recovery targets.
+  - [x] A guest erased after the restore point stays erased after the restore.
 - **Tests:** the drill itself, monthly; an integration test of the restore tool on staging.
 - **Notes:** Spec gap: a restore could bring back guests erased or pseudonymized after the restore point; cautious default: re-apply the erasure log after every restore.
-
+  - **Built.**
+    - Migration `0122_restores.sql`: a `restore_wall` policy for `app_migrator` on every venue table (both sides of a restore see only the venue in `app.venue_id`), `restoring()` (true only as `app_migrator` with `app.restore_id` set), the eight business-rule trigger functions (closed night, tip ledger, training, MFA, drawer kick, tip shares) re-created to step aside for a restore, the `restores` table (one row per restore or drill: counts, pull, Stripe check, time against the target) and `stripe_pis_elsewhere()` (which of the organization's shared PaymentIntents another venue recorded, naming no venue).
+    - `packages/db/src/restore.ts`: the preflight (same migrations, the copy isn't production, walls on every venue table, every trigger steps aside), the plan (venue tables parents first by foreign key), the apply (cursor reads from the copy, batches of 500 inserted `on conflict do nothing`, each batch its own transaction; a refused batch goes row by row, rows waiting on a parent are retried), and `venueRowHashes()`. `erasure.ts`: `reapplyErasures()` blanks every logged guest and singer again as `app_retention`, and sends an erasure back to the erase job when it finds cards or Twilio bodies again.
+    - `apps/api/src/restore/`: `restoreVenue()` and `finishRestore()` (the pull, the erasures, the retention run, the Stripe check, the time), `pull.ts` (Stripe events since the restore point stored and run like webhooks, the reconciler, unmatched payments; Twilio statuses and replies once each), the `restore.pull` job (registered with the worker, with a venue-wall case), and the CLI `restore:venue` (with `--finish` to rerun the pull). The fake Stripe now lists events and stamps PaymentIntents with `created`; `VenueTextClient.list()` reads Twilio's messages.
+    - Terraform (not applied): 35 days of point-in-time restore (`var.backup_retention_days`, was 7), continuous backup replication to the second region (`aws.dr`, `var.dr_region`, default `us-west-2`) with its own KMS key. The ID-scan key bucket stays out of every backup and replica; `apps/api/src/restore/backups.test.ts` checks both.
+    - Runbooks: `docs/runbooks/restore-drill.md` (the monthly drill, timed) and `docs/runbooks/region-failover.md` (the yearly warm standby and DNS cutover); `docs/drills/README.md` lists both records.
+  - **Cautious defaults.**
+    - Every table other than settings and the menu is insert-only too (never overwritten), so a restore repairs lost rows, not changed ones; a damaged money row is corrected by a compensating entry, as always.
+    - Never restored: `audit_log` (production's hash chain stays whole; the restore's own inserts are audited under `restore:<id>`), `venue_events` (old events would reach screens), `jobs` (old jobs would text or charge again) and `restores`.
+    - Settings: a key production lost comes back with its whole version history as it was (past nights still read the settings they ran on); a key whose current value differs from the copy's gets one new version, taking effect on today's business date.
+    - The recovery target a restore is held to is the spec's 2 hours for a lost region (the 5-minute zone target is Multi-AZ failover, not a restore); the whole time includes how long the cloud took to make the scratch copy (`--scratch-ready-s`).
+    - A PaymentIntent that succeeded after the restore point with no payment of ours comes back as an Unmatched payment (the reconciler's path), not as a guessed link to a check. Lost tab holds come back only through Stripe's events.
+    - The check against Stripe counts live PaymentIntents that succeeded or hold money, created in the window, against our live payments made in the window or naming one of them (received or held amount, tips and surcharges included).
+  - **Full browser run** (`pnpm check --e2e`, the first since M8-19's Next.js upgrade): 176 of 178 passed; the guest specs all pass on the upgraded Next.js. Two fail only in the full run and pass alone: the Help alert test (the seed reload hit a deadlock) and the console's sign-in test (a payment-failures page opened by earlier specs' simulated reader failures is still open when it looks for "No open pages."; `pages` is a platform table the seed doesn't reset). The run also found that the seed reload failed once a refund alert existed (M8-19's `owner_alerts` wasn't in the seed's wipe); fixed in its own commit.
+  - **For the founder (staging).** `terraform plan` then `apply` in `infra/staging` (the 35 days, the second region's key and the replication); then run the first monthly drill from `docs/runbooks/restore-drill.md` on a real snapshot and file `docs/drills/<date>-restore.md`. The integration test of the restore tool on staging is that drill. The yearly region drill comes later.
 ### M8-21 · Load-test a Friday night for 20 venues
 
 - **Status:** todo

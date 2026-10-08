@@ -35,7 +35,7 @@ resource "aws_db_instance" "main" {
   publicly_accessible    = false
   multi_az               = var.db_multi_az
 
-  backup_retention_period    = 7
+  backup_retention_period    = var.backup_retention_days
   backup_window              = "08:00-09:00" # 4–5 AM New York, after the 6 AM cutover's quiet hours start
   maintenance_window         = "wed:09:00-wed:10:00"
   auto_minor_version_upgrade = true
@@ -44,4 +44,30 @@ resource "aws_db_instance" "main" {
   final_snapshot_identifier  = "${var.name}-final"
   copy_tags_to_snapshot      = true
   apply_immediately          = true
+}
+
+# Backups and restore (M8-20; spec 13): continuous point-in-time backups for 35 days, copied
+# continuously to the second region, so a lost region costs at most 15 minutes of data. A
+# per-venue restore starts from a scratch copy restored from these (docs/runbooks/restore-drill.md);
+# a lost region from the copy in the second region (docs/runbooks/region-failover.md).
+# Only the database is backed up this way: the ID-scan key bucket (s3.tf, id_keys) is never
+# versioned, replicated or backed up, so destroying a night's key destroys every copy.
+resource "aws_kms_key" "dr" {
+  provider                = aws.dr
+  description             = "${var.name} data in the second region: the copied database backups"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+}
+
+resource "aws_kms_alias" "dr" {
+  provider      = aws.dr
+  name          = "alias/${var.name}-data-dr"
+  target_key_id = aws_kms_key.dr.key_id
+}
+
+resource "aws_db_instance_automated_backups_replication" "dr" {
+  provider               = aws.dr
+  source_db_instance_arn = aws_db_instance.main.arn
+  kms_key_id             = aws_kms_key.dr.arn
+  retention_period       = var.backup_retention_days
 }

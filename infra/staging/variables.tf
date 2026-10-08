@@ -3,6 +3,18 @@ variable "region" {
   default = "us-east-1"
 }
 
+variable "dr_region" {
+  description = "The second region: backups copied continuously, the warm standby (M8-20)."
+  type        = string
+  default     = "us-west-2"
+}
+
+variable "backup_retention_days" {
+  description = "Point-in-time restore window, in both regions (spec 12: 35 days)."
+  type        = number
+  default     = 35
+}
+
 variable "environment" {
   type    = string
   default = "staging"
