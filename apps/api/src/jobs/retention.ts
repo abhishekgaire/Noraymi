@@ -2,6 +2,8 @@ import {
   asRetention,
   decryptSecret,
   dueCards,
+  dueNightKeys,
+  markNightKeyDestroyed,
   dueTwilioBodies,
   hashOptOuts,
   markTwilioBodyPurged,
@@ -18,7 +20,9 @@ import {
   type RetentionCounts,
   type Schedule,
 } from "@west4/db";
+import type { IdKeyStore } from "../id-keys/store.js";
 import { venueClock } from "../rooms/assignment.js";
+import { builtInRulePacks } from "@west4/shared";
 import { detachCard } from "../stripe/cards.js";
 import type { StripeClient } from "../stripe/client.js";
 import { savedCardOf } from "../stripe/payments.js";
@@ -35,11 +39,16 @@ import type { VenueTextClient } from "../texts/venue.js";
  */
 export const RETENTION_KIND = "retention.nightly";
 
+/** A night's key that sealed no scan goes after the default `idScan.keepDays` (7, until the lawyer answers). */
+const ORPHAN_KEY_DAYS = builtInRulePacks[0]!.idScan.keepDays;
+
 /** 5:15 AM on the business date's morning: after the 4 AM close, before the 6 AM cutover. */
 export const retentionSchedule: Schedule = { kind: RETENTION_KIND, at: "05:15", pool: "bulk" };
 
 export interface RetentionDeps {
   readonly stripe?: StripeClient;
+  /** The ID-scan key store (M8-14). */
+  readonly idKeys?: IdKeyStore;
   readonly texts?: { readonly client: VenueTextClient; readonly secretKey: Buffer };
   readonly log?: (line: string) => void;
 }
@@ -145,6 +154,38 @@ export async function runRetention(
       if (unanswered > 0)
         skipped["message_bodies_at_twilio"] =
           `${unanswered} not answered by Twilio; tried again next run`;
+    }
+  }
+
+  // ID-scan keys (M8-14): each night's key is destroyed in the key store once every scan sealed with
+  // it is past its delete_after (the night plus `idScan.keepDays`), then its row is marked (an audit
+  // row each). The id_checks rows and their count stay.
+  removed["id_scan_keys"] = 0;
+  const today = now.toZonedDateTimeISO(timeZone).toPlainDate();
+  const keys = await step(async (c) => {
+    await asRetention(c);
+    return dueNightKeys(c, venueId, today.toString(), ORPHAN_KEY_DAYS);
+  });
+  if (keys.length > 0) {
+    if (!deps.idKeys) skipped["id_scan_keys"] = "no key store in this environment";
+    else {
+      let unanswered = 0;
+      for (const k of keys) {
+        try {
+          if (k.key_ref) await deps.idKeys.destroy(k.key_ref);
+          await step(async (c) => {
+            await asRetention(c);
+            await markNightKeyDestroyed(c, venueId, k.id, now.toString());
+          });
+          removed["id_scan_keys"] += 1;
+          deps.log?.(`retention ${venueId}: destroyed the ID-scan key for ${k.business_date}`);
+        } catch {
+          unanswered += 1; // tried again on the next run; the row stays until the key store answers
+        }
+      }
+      if (unanswered > 0)
+        skipped["id_scan_keys"] =
+          `${unanswered} not destroyed by the key store; tried again next run`;
     }
   }
 

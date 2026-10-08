@@ -1,9 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { addScanCheck, addVisualChecks, idCounts, rulePackFor, venueModules } from "@west4/db";
+import {
+  addScanCheck,
+  addVisualChecks,
+  encryptSecret,
+  idCounts,
+  rulePackFor,
+  venueModules,
+} from "@west4/db";
 import { onlyPackFields, Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { ensureNightKey, NightKeyDestroyedError, type IdKeyStore } from "../id-keys/store.js";
 
 /**
  * `POST /v1/venues/{v}/sessions/{s}/id-checks` (M2-12; spec 08 · Safety): a
@@ -26,7 +34,7 @@ const body = z.discriminatedUnion("method", [
 
 export function idCheckRoutes(
   app: FastifyInstance,
-  options: { clock: Clock; wrappingKey: Buffer },
+  options: { clock: Clock; wrappingKey: Buffer; idKeys: IdKeyStore },
 ): void {
   app.post<{ Params: { venueId: string; sessionId: string }; Body: unknown }>(
     "/v1/venues/:venueId/sessions/:sessionId/id-checks",
@@ -50,7 +58,7 @@ export function idCheckRoutes(
       const venueId = request.venueId!;
       const now = options.clock.now();
       // The reply goes out after the transaction commits, never from inside it.
-      const result = await request.inVenue(async (c) => {
+      const prepared = await request.inVenue(async (c) => {
         const session = (
           await c.query<{
             id: string;
@@ -82,7 +90,7 @@ export function idCheckRoutes(
             orderId,
           });
           return {
-            method: "visual",
+            method: "visual" as const,
             ids_checked: (await idCounts(c, venueId, [session.id])).get(session.id) ?? 0,
           };
         }
@@ -101,14 +109,40 @@ export function idCheckRoutes(
             "invalid_request",
             `a scan carries ${pack.pack.idScan.fields.join(", ")}`,
           );
+        return {
+          method: "scan" as const,
+          session,
+          fields,
+          keepDays: pack.pack.idScan.keepDays,
+        };
+      });
+      if (prepared.method === "visual") return reply.code(201).send(prepared);
+      // The night's key comes from the key store between transactions, never inside one (M8-14).
+      const { session, fields, keepDays } = prepared;
+      let key: { id: string; key: Buffer };
+      try {
+        key = await ensureNightKey(
+          (work) => request.inVenue(work),
+          options.idKeys,
+          options.wrappingKey,
+          venueId,
+          session.business_date,
+        );
+      } catch (e) {
+        if (e instanceof NightKeyDestroyedError)
+          throw new ApiError("invalid_request", "that night's ID key has been destroyed");
+        throw e;
+      }
+      const sealed = encryptSecret(key.key, JSON.stringify(fields));
+      const result = await request.inVenue(async (c) => {
         const scan = await addScanCheck(c, venueId, {
           sessionId: session.id,
-          fields,
+          sealed,
+          keyId: key.id,
           checkedBy: p.userId,
           at: now.toString(),
           businessDate: session.business_date,
-          keepDays: pack.pack.idScan.keepDays,
-          wrappingKey: options.wrappingKey,
+          keepDays,
         });
         return {
           method: "scan",

@@ -2,10 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
 import {
-  decryptSecret,
   generateSigningKey,
   loadDemoSeed,
-  nightKey,
   publishRulePack,
   setModuleState,
   withOrgScope,
@@ -14,6 +12,7 @@ import {
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { SEED_NOW, SimulatedClock, Temporal, builtInRulePacks } from "@west4/shared";
 import { buildApp } from "../app.js";
+import { memoryKeys, openScan } from "../id-keys/store.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
 
@@ -25,6 +24,7 @@ let app: FastifyInstance;
 let venueId = "";
 let ids: Record<string, string> = {};
 let wrappingKey: Buffer;
+const idKeys = memoryKeys();
 let ownerUser = "";
 const clock = new SimulatedClock(SEED_NOW);
 const at = (hhmm: string) => Temporal.Instant.from(`2026-09-25T${hhmm}:00-04:00`);
@@ -81,7 +81,13 @@ beforeAll(async () => {
   };
   const config = loadConfig({ WEST4_ENV: "local", DATABASE_URL: db.url, APP_DATABASE_URL: db.url });
   wrappingKey = config.auth.secretKey;
-  app = buildApp({ config, clock, authenticators: [async () => diego], moduleCacheMs: 0 });
+  app = buildApp({
+    config,
+    clock,
+    idKeys,
+    authenticators: [async () => diego],
+    moduleCacheMs: 0,
+  });
   await app.ready();
 });
 
@@ -147,11 +153,31 @@ describe("ID checks", () => {
     expect(row.scanned_fields.split(".")).toHaveLength(3);
     expect(row.scanned_fields).not.toContain("987654321");
     expect(row.scanned_fields).not.toContain("dateOfBirth");
-    const key = await withVenue(pool, { venueId }, (c) =>
-      nightKey(c, venueId, "2026-09-25", wrappingKey),
-    );
-    expect(key.id).toBe(row.key_id);
-    expect(JSON.parse(decryptSecret(key.key, row.scanned_fields))).toEqual({
+    // The night's key sits in the key store, not in the database (M8-14).
+    const keyRow = (
+      await raw.query<{ id: string; wrapped_key: string | null; key_ref: string }>(
+        "select id, wrapped_key, key_ref from id_scan_keys where venue_id = $1 and business_date = '2026-09-25'",
+        [venueId],
+      )
+    ).rows[0]!;
+    expect(keyRow.id).toBe(row.key_id);
+    expect(keyRow.wrapped_key).toBeNull();
+    expect(idKeys.size).toBe(1);
+    const scanId = (
+      await raw.query<{ id: string }>(
+        "select id from id_checks where session_id = $1 and method = 'scan'",
+        [ids["sess_room1"]],
+      )
+    ).rows[0]!.id;
+    expect(
+      await openScan(
+        (work) => withVenue(pool, { venueId }, work),
+        idKeys,
+        wrappingKey,
+        venueId,
+        scanId,
+      ),
+    ).toEqual({
       name: "Dana Kim",
       dateOfBirth: "1996-02-11",
       idNumber: "987654321",

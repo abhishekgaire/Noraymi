@@ -50,6 +50,7 @@ describe("the venue wall", () => {
         }),
         bucketFiles: "files",
         bucketAudit: "audit",
+        bucketIdKeys: "id-keys",
       },
       mailer: new FakeMailer(),
       email: {

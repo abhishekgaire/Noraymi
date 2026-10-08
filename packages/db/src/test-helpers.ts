@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import pg from "pg";
 import { createDatabase, dropDatabase } from "./admin.js";
-import { databaseUrl, migrationsDir, withDatabase } from "./config.js";
+import { databaseName, databaseUrl, migrationsDir, withDatabase } from "./config.js";
 import { migrate } from "./migrate.js";
 
 export interface TestDatabase {
@@ -24,6 +24,26 @@ export async function createTestDatabase(
     url,
     drop: () => dropDatabase(url),
   };
+}
+
+/**
+ * A whole-database copy of `source`, as a backup restored to a scratch
+ * database would be (M8-14). Every connection to `source` must be closed first.
+ */
+export async function copyTestDatabase(source: TestDatabase): Promise<TestDatabase> {
+  const name = `west4_test_${randomBytes(4).toString("hex")}`;
+  const url = withDatabase(databaseUrl(), name);
+  // Pools end their clients asynchronously: give them a moment before the copy.
+  for (let i = 0; ; i += 1) {
+    try {
+      await createDatabase(url, databaseName(source.url));
+      break;
+    } catch (e) {
+      if (i >= 80 || !String((e as Error).message).includes("being accessed")) throw e;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  return { url, drop: () => dropDatabase(url) };
 }
 
 /**

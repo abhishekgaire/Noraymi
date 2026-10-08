@@ -355,17 +355,20 @@ Definition of done: see CLAUDE.md.
 
 ### M8-14 · Destroy each night's ID-scan key after 7 days
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2-12 (`id_checks` with scan fields encrypted by a key per venue and business date)
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 6, How long we keep things (scanned ID fields); [Data model](../spec/04-data-model.md) · `id_checks`; [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-S7; [Open technical questions](../spec/14-open-questions.md)
 - **Build:** a daily job that destroys the key for each venue and business date 7 days after that date, in the key service, so no copy of that night's scan fields can be read, backups included. The count stays: `id_checks` rows keep who checked, when and how, and "ID ✓ 12 of 12" still shows. Each destruction is logged.
 - **Acceptance:**
-  - [ ] On the simulated clock, a scan from Fri Sep 25 decrypts before the job runs on Fri Oct 2 and fails after.
-  - [ ] Room 9's "ID ✓ 12 of 12" still shows after the key is gone.
-  - [ ] A backup restored to a scratch copy can't read that night's scan fields either.
+  - [x] On the simulated clock, a scan from Fri Sep 25 decrypts before the job runs on Fri Oct 2 and fails after.
+  - [x] Room 9's "ID ✓ 12 of 12" still shows after the key is gone.
+  - [x] A backup restored to a scratch copy can't read that night's scan fields either.
 - **Tests:** clock tests; a restore test against a scratch copy.
 - **Notes:** Open question (lawyer, gate): how long scanned ID fields may be kept. 7 days is the default until then, and it lives in the rule pack's `idScan.keepDays`.
+  - **Built (M8-14).** Migration `0117_id_scan_key_destroy.sql`: `id_scan_keys.key_ref`, the retention role's wall and grants on `id_scan_keys` and `id_checks` (read; update only `wrapped_key` and `destroyed_at`), and the audit trigger on `id_scan_keys` (`wrapped_key` redacted). The key store, `apps/api/src/id-keys/store.ts`: a random 32-byte key per venue and business date, kept as one object in its own bucket (`S3_BUCKET_ID_KEYS`, local `west4-id-keys` in Docker Compose and CI), sealed again with the server key; `destroy` deletes every version. `ensureNightKey` makes the night's key on its first scan and claims the night in `id_scan_keys` (a lost race drops its own key); `openScan` reads a scan's fields, or nothing once the key is gone (tests only: no route or export reads scans). `POST /sessions/{s}/id-checks` now reads the session in one transaction, gets the key and seals the fields between transactions, and inserts in a second (a destroyed night answers 400). The nightly retention job (M8-12, 5:15 AM) gained a step: `dueNightKeys` finds keys whose every scan is past its `delete_after`, the store destroys each, then `markNightKeyDestroyed` sets `destroyed_at` (one audit row each; counted as `id_scan_keys` in `retention_runs`; a key the store didn't answer for is retried next run). `id_checks` rows stay, so "ID ✓ 12 of 12" holds. Test: `apps/api/src/id-keys/id-scan-keys.int.test.ts` (a Room 9 scan reads on Thu Oct 1's run, not after Fri Oct 2's; a whole-database copy taken before, `copyTestDatabase`, can't read it either; another venue's key untouched).
+  - **Decisions and cautious defaults** ([D93](../decisions.md)). "The key service" is the key store above, not a KMS key per night (about $1 a month each and a 7-day minimum deletion wait). Due is decided by each scan's `delete_after`, written from `idScan.keepDays` when it was taken, so the job needs no rule pack; a key no scan used goes 7 days after its night. Keys made before M8-14 (sealed in the row by the server key) are destroyed by clearing `wrapped_key`, which old database backups still hold; staging has only demo scans from before.
+  - **For staging.** `terraform apply` in `infra/staging` makes the `id-keys` bucket (unversioned, SSE-KMS, public access blocked), its task-role permissions and `S3_BUCKET_ID_KEYS`; until then scans on staging fail. M8-20's backup plan must leave that bucket out, and its restore drill repeats the scratch-copy check on a real snapshot.
 
 ### M8-15 · Bill our plan on Stripe Billing
 

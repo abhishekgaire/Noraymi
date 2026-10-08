@@ -6,6 +6,7 @@ import { databaseVendorObserver, setVendorObserver } from "./vendors/outcomes.js
 import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
 import { stripeFromEnv } from "./stripe/client.js";
 import { makeS3 } from "./s3.js";
+import { idKeyStore } from "./id-keys/store.js";
 import { SmtpMailer } from "./email/mailer.js";
 import { loadEmailSettings } from "./email/settings.js";
 import { loadPushSettings } from "./push/settings.js";
@@ -51,6 +52,8 @@ const handlers = makeHandlers({
     secretKey: config.auth.secretKey,
   },
   s3: makeS3(),
+  // The ID-scan key store (M8-14), sealed with the server key.
+  idKeys: idKeyStore(config.auth.secretKey),
   mailer,
   email,
   push: new WebPushSender(loadPushSettings(config.env)),

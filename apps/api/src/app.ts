@@ -95,6 +95,7 @@ import { setRoomCodeKey } from "./rooms/room-code.js";
 import { offlineCodeRoutes, setOfflineCodeKey } from "./routes/offline-codes.js";
 import { offlineOrderRoutes } from "./routes/offline-orders.js";
 import { makeS3, type S3Settings } from "./s3.js";
+import { idKeyStore, type IdKeyStore } from "./id-keys/store.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
 import type { EmailSettings } from "./email/settings.js";
@@ -106,6 +107,8 @@ export interface AppOptions {
   readonly config?: Config;
   /** Tests pass a clock; otherwise it follows the config. */
   readonly clock?: Clock;
+  /** The ID-scan key store (M8-14); otherwise the object store's own bucket. */
+  readonly idKeys?: IdKeyStore;
   readonly authenticators?: readonly Authenticator[];
   readonly staffRateLimit?: { max: number; windowMs: number };
   /** The relay's and the tail's poll interval; tests use a short one. */
@@ -260,7 +263,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       sessionsRoutes(scope, { clock });
       checksRoutes(scope, { clock });
       messageTemplateRoutes(scope);
-      idCheckRoutes(scope, { clock, wrappingKey: config.auth.secretKey });
+      idCheckRoutes(scope, {
+        clock,
+        wrappingKey: config.auth.secretKey,
+        idKeys: options.idKeys ?? idKeyStore(config.auth.secretKey),
+      });
       setRoomCodeKey(config.auth.secretKey);
       roomJoinRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
       roomOrderRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });

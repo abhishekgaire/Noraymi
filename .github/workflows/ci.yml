@@ -79,6 +79,7 @@ jobs:
       S3_SECRET_ACCESS_KEY: west4secret
       S3_BUCKET_FILES: west4-files
       S3_BUCKET_AUDIT: west4-audit
+      S3_BUCKET_ID_KEYS: west4-id-keys
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -92,6 +93,7 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://localhost:9000/health && break; sleep 2; done
           aws s3api create-bucket --bucket west4-files
           aws s3api create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
+          aws s3api create-bucket --bucket west4-id-keys
       - run: pnpm db:migrate
       - name: A second run applies nothing
         run: pnpm db:migrate | tee /dev/stderr | grep -q "nothing to apply"

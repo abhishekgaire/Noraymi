@@ -22,6 +22,7 @@ locals {
     { name = "DB_USER", value = aws_db_instance.main.username },
     { name = "S3_BUCKET_FILES", value = aws_s3_bucket.files.bucket },
     { name = "S3_BUCKET_AUDIT", value = aws_s3_bucket.audit.bucket },
+    { name = "S3_BUCKET_ID_KEYS", value = aws_s3_bucket.id_keys.bucket },
     # Email (M1-18). Staging sends only to the allow-list; empty sends nothing.
     { name = "EMAIL_FROM", value = var.email_from },
     { name = "EMAIL_ALLOW_LIST", value = var.email_allow_list },

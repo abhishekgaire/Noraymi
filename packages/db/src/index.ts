@@ -310,7 +310,17 @@ export {
   recordOptOut,
   stopMessage,
 } from "./texts.js";
-export { addScanCheck, addVisualChecks, idCounts, nightKey } from "./id-checks.js";
+export {
+  addScanCheck,
+  addVisualChecks,
+  claimNightKey,
+  dueNightKeys,
+  idCounts,
+  markNightKeyDestroyed,
+  nightKeyRow,
+  scanKeyRow,
+  type NightKeyRow,
+} from "./id-checks.js";
 export {
   approvalById,
   approvalPeople,

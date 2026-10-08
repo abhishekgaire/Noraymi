@@ -1,13 +1,15 @@
 import pg from "pg";
 import { databaseName, withDatabase } from "./config.js";
 
-/** Create an empty database on DATABASE_URL's server. */
-export async function createDatabase(url: string): Promise<void> {
+/** Create an empty database on DATABASE_URL's server, or a copy of `template` (nobody connected to it). */
+export async function createDatabase(url: string, template?: string): Promise<void> {
   const name = databaseName(url);
   const client = new pg.Client({ connectionString: withDatabase(url, "postgres") });
   await client.connect();
   try {
-    await client.query(`create database ${quoteIdent(name)}`);
+    await client.query(
+      `create database ${quoteIdent(name)}${template ? ` template ${quoteIdent(template)}` : ""}`,
+    );
   } finally {
     await client.end();
   }

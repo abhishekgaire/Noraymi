@@ -48,6 +48,11 @@ data "aws_iam_policy_document" "task" {
     actions   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:GetObjectRetention", "s3:PutObjectRetention"]
     resources = [aws_s3_bucket.files.arn, "${aws_s3_bucket.files.arn}/*", aws_s3_bucket.audit.arn, "${aws_s3_bucket.audit.arn}/*"]
   }
+  # The ID-scan keys (M8-14): made at the first scan of a night, deleted (every version) after 7 days.
+  statement {
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:ListBucket", "s3:ListBucketVersions"]
+    resources = [aws_s3_bucket.id_keys.arn, "${aws_s3_bucket.id_keys.arn}/*"]
+  }
   statement {
     actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
     resources = [aws_kms_key.data.arn]

@@ -2,6 +2,7 @@ import type { Clock } from "@west4/shared";
 import type pg from "pg";
 import type { JobHandler, Schedule, Sweep } from "@west4/db";
 import type { S3Settings } from "../s3.js";
+import type { IdKeyStore } from "../id-keys/store.js";
 import type { Mailer } from "../email/mailer.js";
 import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
@@ -72,6 +73,8 @@ export interface HandlerDeps {
     readonly texts?: Pick<VenueTextSettings, "allowList">;
   };
   readonly s3: S3Settings;
+  /** The ID-scan key store (M8-14); without it the retention job destroys no keys. */
+  readonly idKeys?: IdKeyStore;
   readonly mailer: Mailer;
   readonly email: EmailSettings;
   readonly push: PushSender;
@@ -86,6 +89,7 @@ export interface HandlerDeps {
 
 export function makeHandlers({
   s3,
+  idKeys,
   mailer,
   email,
   push,
@@ -154,6 +158,7 @@ export function makeHandlers({
       // The nightly retention job (M8-12), per venue, under its own role.
       [RETENTION_KIND]: makeRetentionHandler({
         ...(stripe ? { stripe: stripe.client } : {}),
+        ...(idKeys ? { idKeys } : {}),
         ...(venueTexts
           ? { texts: { client: venueTexts.client, secretKey: venueTexts.secretKey } }
           : {}),

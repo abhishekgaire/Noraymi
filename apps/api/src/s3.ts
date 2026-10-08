@@ -4,6 +4,8 @@ export interface S3Settings {
   readonly client: S3Client;
   readonly bucketFiles: string;
   readonly bucketAudit: string;
+  /** The ID-scan keys (M8-14): unversioned, never backed up or replicated. */
+  readonly bucketIdKeys: string;
 }
 
 /**
@@ -23,5 +25,6 @@ export function makeS3(env: Record<string, string | undefined> = process.env): S
     client,
     bucketFiles: env["S3_BUCKET_FILES"] ?? "west4-files",
     bucketAudit: env["S3_BUCKET_AUDIT"] ?? "west4-audit",
+    bucketIdKeys: env["S3_BUCKET_ID_KEYS"] ?? "west4-id-keys",
   };
 }

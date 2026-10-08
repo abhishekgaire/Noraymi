@@ -88,3 +88,30 @@ resource "aws_s3_bucket_policy" "static" {
     }]
   })
 }
+
+# The ID-scan keys (M8-14; spec 12 · 6): one object per venue and business
+# date, deleted after 7 days by the retention job. Never versioned, replicated
+# or backed up, so deleting a key destroys every copy; database backups hold
+# only its name.
+resource "aws_s3_bucket" "id_keys" {
+  bucket = "${var.name}-id-keys-${local.account}"
+}
+
+resource "aws_s3_bucket_public_access_block" "id_keys" {
+  bucket                  = aws_s3_bucket.id_keys.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "id_keys" {
+  bucket = aws_s3_bucket.id_keys.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.data.arn
+    }
+    bucket_key_enabled = true
+  }
+}
