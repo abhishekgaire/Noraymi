@@ -976,6 +976,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "mic_outlet_switches",
       // The staff trial's capture (M9-11) names its device.
       "trial_events",
+      // The nightly money audit (M9-15) of a night the reload throws away.
+      "money_audits",
       "vendor_calls",
       "vendor_health",
       // Our plan (M8-15): no subscription on the demo night; a test that makes one starts clean.

@@ -55,6 +55,31 @@ describe("email templates", () => {
     },
   );
 
+  it.each(locales)(
+    "the morning money audit renders in %s, clean and with errors (M9-15)",
+    (locale) => {
+      const base = { venueName: "West 4 Boho Karaoke", night: "2026-09-25" };
+      const clean = render("money_audit", locale, { ...base, errorCount: 0, items: [] });
+      const errors = render("money_audit", locale, {
+        ...base,
+        errorCount: 3,
+        items: [
+          { kind: "tax", ref: "#1042", diffCents: 1 },
+          { kind: "charge", ref: "#1043", diffCents: -49860 },
+        ],
+      });
+      for (const mail of [clean, errors])
+        for (const part of [mail.subject, mail.text, mail.html]) {
+          expect(part).not.toMatch(/\{\w+\}/);
+          expect(part).toContain("West 4 Boho Karaoke");
+        }
+      expect(errors.subject).toContain("3");
+      expect(errors.text).toContain("#1042");
+      expect(errors.text).toContain("$498.60");
+      expect(errors.text).toContain(locale === "es" ? "1 más" : "1 more");
+    },
+  );
+
   it("no template takes a PIN, a password or a secret, and a payload that carries one is rejected", () => {
     for (const name of templateNames) {
       const keys = Object.keys(templateSchemas[name].shape);

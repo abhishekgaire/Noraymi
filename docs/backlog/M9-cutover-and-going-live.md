@@ -296,7 +296,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-15 · Check every live night for money errors
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M7-13, M7-14, M7-15, M7-19 (the reconcile script)
 - **Spec:** [milestones](../milestones.md#the-go-live-gate) · the go-live gate (a money error); [Money rules](../spec/05-money-rules.md); [money cases](../../seed/money-cases.json)
@@ -305,11 +305,16 @@ Definition of done: see CLAUDE.md.
   - A money-error log in `docs/gate/money-errors.md`: the night, what differed and by how much, the cause, the fix and who signed it off.
   - A morning summary to the founder and West 4's owner.
 - **Acceptance:**
-  - [ ] In staging, a tax line a cent off, a double charge, a refund over its cap and a drawer count that doesn't reconcile are each caught and logged as money errors.
-  - [ ] A clean night reports none.
-  - [ ] The audit covers every amount the definition names: charged, refunded, tipped, taxed, paid out and reported.
+  - [ ] In staging, a tax line a cent off, a double charge, a refund over its cap and a drawer count that doesn't reconcile are each caught and logged as money errors. (Proven locally against Postgres on the played demo night, `apps/api/src/reconcile/night-run.int.test.ts`; the staging run waits for staging, M1-02.)
+  - [x] A clean night reports none.
+  - [x] The audit covers every amount the definition names: charged, refunded, tipped, taxed, paid out and reported.
 - **Tests:** seeded-fault tests for each kind of money error; money-cases, every group, through the recompute.
-- **Notes:** —
+- **Notes:**
+  - Built (M9-15): `packages/rules/src/money-audit.ts` (pure: `auditCheck` works a check's tax and gratuity out again with `checkTotals` and compares them with its stored lines and revision, checks the card fee, and a paid check's payments against what it comes to, so a double or missed charge shows; `auditRefunds` each refund against `refundCap`; `auditSurcharge`; `auditParts`; `AUDIT_COVERS` maps the definition's six verbs to the kinds of error). `apps/api/src/reconcile/audit.ts` (`auditNight`): M7-19's `reconcileNight` plus every check of the night, every captured payment on a check or a booking, every refund under its cap, and no surcharge with the fee off. `apps/api/src/reconcile/audit-job.ts`: the `money.audit` job every morning at 8:00 on each venue's clock audits the night before (its close and the payouts that arrived on it), keeps the result in `money_audits` (migration 0129, row-level security and a venue-wall case), pages us on any error (rule `money-error`, `docs/runbooks/money-error.md`, through M8-17's paging) and emails the morning summary (template `money_audit`, English and Spanish) to the venue's owners and to `MONEY_AUDIT_TO`. A night with no close and no money (the venue shut) is skipped. `pnpm --filter @west4/api money-audit` runs it by hand; `--log` adds rows to `docs/gate/money-errors.md`, whose cause, fix and sign-off columns a person fills in.
+  - Tests: `packages/rules/src/money-audit.test.ts` runs every group of the money cases through the audit (the amount groups through its functions; minutes, billable guests, business dates, rates, approvals and the tip screen are inputs the audit meets already worked into the stored lines, and a test fails on any new group nobody placed) plus a seeded fault of each kind; the integration test plays the demo Friday, audits it clean, then seeds a tax line a cent off, a double charge, a refund over its cap and a drawer move behind the count, each caught; the morning job's record, page (once), emails and skip are tested there too.
+  - Found on the first run: the night runner (M7-19) paid the five open bar tabs through `POST /checks/{c}/payments`, which takes the open check's amount due before tax and marks it paid without ever working it out, so those tabs carried no tax. The runner now pays each tab through `POST /tabs/{t}/pay`, as the bar screen does, which finalizes first. The API route itself still accepts a payment that settles an open, never-worked-out check (many tests and the synthetic check pay open checks that way; the staff screens don't: rooms are presented first and tabs paid through the tab). Refusing it is a behaviour change for the founder to decide; until then the morning audit catches any check paid that way as a tax error.
+  - Cautious limits: "after each payout" is the next morning's audit of the payout's arrival date, not a run per payout; with the card fee on (never at West 4), the audit checks the surcharge lines' tax through the check but not each payment's surcharge against its rate (`auditSurcharge` is there for the ticket that turns the fee on).
+  - Blocked: the staging run of the four seeded faults, and the summary's real recipients (`MONEY_AUDIT_TO` with the founder's address, and West 4's owner signed in), wait for staging (M1-02) and the founder.
 
 ### M9-16 · Go live, with on-call covering every opening hour
 

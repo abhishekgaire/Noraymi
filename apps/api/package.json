@@ -16,6 +16,7 @@
     "stripe:seed": "tsx --env-file-if-exists=../../.env src/stripe/seed-stripe.ts",
     "seed:files": "tsx --env-file-if-exists=../../.env src/files/seed-files.ts",
     "reconcile": "tsx --env-file-if-exists=../../.env src/reconcile/cli.ts",
+    "money-audit": "tsx --env-file-if-exists=../../.env src/reconcile/audit-cli.ts",
     "drill:record": "tsx --env-file-if-exists=../../.env src/stripe/drill-record.ts",
     "restore:venue": "tsx --env-file-if-exists=../../.env src/restore/cli.ts",
     "outage:record": "tsx --env-file-if-exists=../../.env src/ops/outage-record.ts",

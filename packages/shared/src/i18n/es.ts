@@ -2866,6 +2866,27 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "email.license.body": "La licencia de {kind} {number} en {venue} vence el {date}.",
   "email.license.bodyNoNumber": "La licencia de {kind} en {venue} vence el {date}.",
   "email.license.daysLeft": "Días restantes: {days}.",
+  "email.moneyAudit.subjectClean": "Control de dinero · {venue} · {date}: sin errores de dinero",
+  "email.moneyAudit.subjectErrors":
+    "Control de dinero · {venue} · {date}: {count} errores de dinero",
+  "email.moneyAudit.bodyClean":
+    "Cada monto cobrado, reembolsado, de propina, de impuesto, depositado y reportado la noche del {date} en {venue} coincide al centavo con las reglas de dinero.",
+  "email.moneyAudit.bodyErrors":
+    "La noche del {date} en {venue} tiene {count} errores de dinero. Cada uno se corrige primero, se anota en el registro de errores de dinero y se aprueba, y las 4 semanas de noches en vivo vuelven a empezar.",
+  "email.moneyAudit.item": "{kind} · {ref} · diferencia de {amount}",
+  "email.moneyAudit.itemNoAmount": "{kind} · {ref}",
+  "email.moneyAudit.more": "Y {count} más.",
+  "moneyAudit.kind.charge": "Cobro",
+  "moneyAudit.kind.line": "Total de la cuenta",
+  "moneyAudit.kind.tax": "Impuesto",
+  "moneyAudit.kind.gratuity": "Propina",
+  "moneyAudit.kind.card_fee": "Cargo por tarjeta",
+  "moneyAudit.kind.refund": "Reembolso",
+  "moneyAudit.kind.tip": "Propinas",
+  "moneyAudit.kind.payout": "Depósito",
+  "moneyAudit.kind.report": "Informe Z",
+  "moneyAudit.kind.drawer": "Cajón de efectivo",
+  "moneyAudit.kind.journal": "Asiento contable",
   "email.license.renew":
     "Renuévala y luego abre Administración → Licencias e ingresa el nuevo vencimiento y una copia.",
   "licenses.kind.liquor": "Licor",

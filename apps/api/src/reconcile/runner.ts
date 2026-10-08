@@ -109,17 +109,27 @@ export async function playNight(client: NightClient, date: string): Promise<RunS
     }
   }
 
-  // Every bar tab paid in cash at the bar, at what it owes.
+  // Every bar tab paid in cash at the bar, at what it owes, through the tab's own Pay, which finalizes
+  // the check first (its tax, Money rules 8). The open check's amount due is before tax, so the first
+  // ask is answered with the tab's balance and asked again at it (M9-15: paying the open check directly
+  // left five tabs paid without tax, which the money audit caught).
   for (const t of tabs.tabs.filter((x) => x.state === "open")) {
     const check = (await must(`check ${t.check_id}`, MAYA_BAR, "GET", `/checks/${t.check_id}`)) as {
       amount_due_cents: number;
     };
-    if (check.amount_due_cents > 0)
-      await must(`pay tab ${t.id}`, MAYA_BAR, "POST", `/checks/${t.check_id}/payments`, {
+    if (check.amount_due_cents <= 0) continue;
+    const pay = (cents: number) =>
+      client.call(MAYA_BAR, "POST", `/tabs/${t.id}/pay`, {
         method: "cash",
-        amount_cents: check.amount_due_cents,
-        tendered_cents: check.amount_due_cents,
+        amount_cents: cents,
+        tendered_cents: cents,
       });
+    let r = await pay(check.amount_due_cents);
+    const details = (r.json["error"] as { details?: { amount_cents?: number } } | undefined)
+      ?.details;
+    if (r.status === 400 && details?.amount_cents) r = await pay(details.amount_cents);
+    steps.push({ step: `pay tab ${t.id}`, status: r.status });
+    if (r.status >= 300) throw new Error(`pay tab ${t.id}: ${r.status} ${JSON.stringify(r.json)}`);
   }
 
   // Every room: presented, paid in cash at the front desk, ended.

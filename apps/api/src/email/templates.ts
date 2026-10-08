@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { locales, t, type Locale, type MessageKey } from "@west4/shared";
+import { cents, formatMoney, locales, t, type Locale, type MessageKey } from "@west4/shared";
 
 /**
  * Every email is a named template with typed data (M1-18). The words come from
@@ -90,6 +90,40 @@ export const emergencyActionData = z
   })
   .strict();
 
+/** The morning money audit (M9-15) to the venue's owner and our founder: the night, and each money error. */
+export const moneyAuditData = z
+  .object({
+    venueName: z.string().min(1),
+    /** YYYY-MM-DD, the business date audited. */
+    night: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    errorCount: z.number().int().min(0),
+    /** The first errors: kind, the check number or an id, and the difference in cents (amounts only). */
+    items: z
+      .array(
+        z
+          .object({
+            kind: z.enum([
+              "charge",
+              "line",
+              "tax",
+              "gratuity",
+              "card_fee",
+              "refund",
+              "tip",
+              "payout",
+              "report",
+              "drawer",
+              "journal",
+            ]),
+            ref: z.string().max(80),
+            diffCents: z.number().int().nullable(),
+          })
+          .strict(),
+      )
+      .max(20),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
   sign_in_code: signInCodeData,
@@ -98,6 +132,7 @@ export const templateSchemas = {
   accounting_export: accountingExportData,
   license_reminder: licenseReminderData,
   emergency_action: emergencyActionData,
+  money_audit: moneyAuditData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -231,6 +266,46 @@ export function render<N extends TemplateName>(
       ];
       return {
         subject: line("email.license.subject"),
+        text: paragraphs.join("\n\n"),
+        html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
+      };
+    }
+    case "money_audit": {
+      const d = data as TemplateData<"money_audit">;
+      const values = {
+        venue: d.venueName,
+        date: new Intl.DateTimeFormat(locale === "es" ? "es-US" : "en-US", {
+          dateStyle: "long",
+          timeZone: "UTC",
+        }).format(new Date(`${d.night}T00:00:00Z`)),
+        count: d.errorCount,
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const clean = d.errorCount === 0;
+      const items = d.items.map((i) =>
+        fill(
+          t(
+            locale,
+            i.diffCents === null ? "email.moneyAudit.itemNoAmount" : "email.moneyAudit.item",
+          ),
+          {
+            kind: t(locale, `moneyAudit.kind.${i.kind}` as MessageKey),
+            ref: i.ref,
+            amount: i.diffCents === null ? "" : formatMoney(locale, cents(Math.abs(i.diffCents))),
+          },
+        ),
+      );
+      if (d.errorCount > d.items.length)
+        items.push(
+          fill(t(locale, "email.moneyAudit.more"), { count: d.errorCount - d.items.length }),
+        );
+      const paragraphs = [
+        line(clean ? "email.moneyAudit.bodyClean" : "email.moneyAudit.bodyErrors"),
+        ...items,
+        line("email.footer"),
+      ];
+      return {
+        subject: line(clean ? "email.moneyAudit.subjectClean" : "email.moneyAudit.subjectErrors"),
         text: paragraphs.join("\n\n"),
         html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
       };

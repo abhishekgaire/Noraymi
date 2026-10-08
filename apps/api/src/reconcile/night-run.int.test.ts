@@ -12,6 +12,9 @@ import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-h
 import { FrozenClock, SEED_NOW, Temporal, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { reconcileNight } from "./night.js";
+import { auditNight, type MoneyAudit } from "./audit.js";
+import { runMorningAudit } from "./audit-job.js";
+import { moneyErrorRows } from "./money-error-log.js";
 import { playNight, type NightClient } from "./runner.js";
 import { loadConfig } from "../config.js";
 import "../payments/webhooks.js";
@@ -155,6 +158,187 @@ describe("a night, played and reconciled", () => {
       "journals",
       "practice",
     ]);
+  });
+
+  it("the money audit (M9-15) finds the clean night clean, every amount covered", async () => {
+    const result = await withVenue(app, { venueId }, (c) =>
+      auditNight(c, venueId, "2026-09-25", clock.now()),
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.covered).toEqual(
+      expect.arrayContaining(["z_report", "drawers", "tip_ledger", "payouts", "journals"]),
+    );
+    expect(result.covered).toEqual(
+      expect.arrayContaining(["checks", "charges", "refunds", "card_fee (off)"]),
+    );
+  });
+
+  /** A fault written behind the app's back, audited in the same transaction, then rolled back. */
+  async function withFault(
+    fault: (c: pg.PoolClient, paid: { id: string; number: string }) => Promise<void>,
+  ): Promise<MoneyAudit> {
+    const c = await owner.connect();
+    try {
+      await c.query("begin");
+      // Past the closed-night guard, as a bug or a hand edit would be: triggers off for this transaction.
+      await c.query("set local session_replication_role = replica");
+      const paid = (
+        await c.query<{ id: string; number: string }>(
+          `select id, number::text from checks where venue_id = $1 and business_date = '2026-09-25'
+              and status = 'paid' and kind = 'room' and not training order by number limit 1`,
+          [venueId],
+        )
+      ).rows[0]!;
+      await fault(c, paid);
+      return await auditNight(c, venueId, "2026-09-25", clock.now());
+    } finally {
+      await c.query("rollback");
+      c.release();
+    }
+  }
+  const lineFault = (c: pg.PoolClient, checkId: string, kind: string, cents: number) =>
+    c.query(
+      `insert into check_lines (venue_id, check_id, kind, description, unit_cents, amount_cents, business_date)
+       values ($1, $2, $3, 'fault', $4, $4, '2026-09-25')`,
+      [venueId, checkId, kind, cents],
+    );
+
+  it("catches a tax line a cent off", async () => {
+    const r = await withFault((c, paid) => lineFault(c, paid.id, "tax", 1));
+    expect(r.ok).toBe(false);
+    expect(r.errors).toContainEqual(
+      expect.objectContaining({ kind: "tax", diffCents: 1, night: "2026-09-25" }),
+    );
+  });
+
+  it("catches a double charge", async () => {
+    let ref = "";
+    const r = await withFault(async (c, paid) => {
+      ref = `#${paid.number}`;
+      const p = (
+        await c.query<{ id: string }>(
+          `insert into payments (venue_id, method, status, amount_cents, business_date)
+           values ($1, 'external', 'captured', 5000, '2026-09-25') returning id`,
+          [venueId],
+        )
+      ).rows[0]!.id;
+      await c.query(
+        `insert into payment_allocations (venue_id, payment_id, check_id, amount_cents, kind, state)
+         values ($1, $2, $3, 5000, 'payment', 'captured')`,
+        [venueId, p, paid.id],
+      );
+    });
+    expect(r.errors).toContainEqual(
+      expect.objectContaining({ kind: "charge", ref, diffCents: 5000 }),
+    );
+  });
+
+  it("catches a refund over its cap", async () => {
+    const r = await withFault(async (c) => {
+      const p = (
+        await c.query<{ id: string; check_id: string; captured: string }>(
+          `select p.id, a.check_id, (p.amount_cents + p.tip_cents + p.surcharge_cents)::text as captured
+             from payments p join payment_allocations a on a.venue_id = p.venue_id and a.payment_id = p.id
+            where p.venue_id = $1 and p.business_date = '2026-09-25' and p.status = 'captured'
+              and not p.training and a.kind = 'payment' and a.state = 'captured'
+              and not exists (select 1 from refunds r where r.payment_id = p.id)
+            order by p.created_at limit 1`,
+          [venueId],
+        )
+      ).rows[0]!;
+      await c.query(
+        `insert into refunds (venue_id, payment_id, check_id, amount_cents, reason, status, n, requested_by,
+                              business_date, requested_at)
+         values ($1, $2, $3, $4, 'fault', 'succeeded', 1, $5, '2026-09-25', now())`,
+        [venueId, p.id, p.check_id, Number(p.captured) + 1, ids["andy"]],
+      );
+    });
+    expect(r.errors).toContainEqual(expect.objectContaining({ kind: "refund", diffCents: 1 }));
+  });
+
+  it("catches a drawer count that doesn't reconcile", async () => {
+    const r = await withFault(async (c) => {
+      const s = (
+        await c.query<{ id: string }>(
+          `select s.id from drawer_sessions s join cash_drawers d on d.id = s.drawer_id
+            where d.name = 'Bar drawer' and s.business_date = '2026-09-25' limit 1`,
+        )
+      ).rows[0]!.id;
+      await c.query(
+        "insert into drawer_moves (venue_id, drawer_session_id, kind, amount_cents, taken_by, at) values ($1, $2, 'paid_out', 1, $3, now())",
+        [venueId, s, ids["andy"]],
+      );
+    });
+    expect(r.errors).toContainEqual(expect.objectContaining({ kind: "drawer" }));
+  });
+
+  const morning = Temporal.Instant.from("2026-09-26T12:00:00Z"); // 8:00 AM in New York
+  const allowAll = { allowList: null };
+
+  it("the morning audit keeps a clean night's result, pages nobody and emails the owner the summary", async () => {
+    const r = await withVenue(app, { venueId }, (c) =>
+      runMorningAudit(c, venueId, morning, allowAll, ["founder@example.test"]),
+    );
+    expect(r).toMatchObject({ night: "2026-09-25", paged: false });
+    expect(r.audit?.ok).toBe(true);
+    const kept = await owner.query<{ ok: boolean; trigger: string; sent: boolean }>(
+      `select ok, trigger, summary_sent_at is not null as sent from money_audits
+        where venue_id = $1 and night = '2026-09-25'`,
+      [venueId],
+    );
+    expect(kept.rows).toEqual([{ ok: true, trigger: "morning", sent: true }]);
+    const mails = await owner.query<{ to: string; template: string; errors: number }>(
+      `select payload ->> 'to' as to, payload ->> 'template' as template,
+              (payload -> 'data' ->> 'errorCount')::int as errors
+         from jobs where kind = 'email.send' and payload ->> 'template' = 'money_audit'`,
+    );
+    expect(mails.rows.map((m) => m.to)).toContain("founder@example.test");
+    expect(mails.rows.length).toBe(r.emailed);
+    expect(mails.rows.length).toBeGreaterThanOrEqual(2); // the owner and the founder
+    for (const m of mails.rows) expect(m.errors).toBe(0);
+    const pages = await owner.query("select 1 from pages where rule = 'money-error'");
+    expect(pages.rowCount).toBe(0);
+  });
+
+  it("a money error pages us once, and its log rows name the night and the difference", async () => {
+    const c = await owner.connect();
+    try {
+      await c.query("begin");
+      await c.query("set local session_replication_role = replica");
+      const paid = (
+        await c.query<{ id: string }>(
+          `select id from checks where venue_id = $1 and business_date = '2026-09-25' and status = 'paid'
+              and kind = 'room' and not training order by number limit 1`,
+          [venueId],
+        )
+      ).rows[0]!;
+      await lineFault(c, paid.id, "tax", 1);
+      const r = await runMorningAudit(c, venueId, morning, allowAll, []);
+      expect(r.paged).toBe(true);
+      expect(r.audit?.ok).toBe(false);
+      const page = await c.query<{ summary: string; runbook: string }>(
+        "select summary, runbook from pages where rule = 'money-error'",
+      );
+      expect(page.rows).toEqual([
+        expect.objectContaining({ runbook: "docs/runbooks/money-error.md" }),
+      ]);
+      expect(page.rows[0]!.summary).toMatch(/money errors .* on the night of 2026-09-25/);
+      // A rerun the same morning doesn't page twice.
+      expect((await runMorningAudit(c, venueId, morning, allowAll, [])).paged).toBe(false);
+      const rows = moneyErrorRows(venueId, r.audit!);
+      expect(rows).toMatch(/^\| 2026-09-25 \| .* \| tax \| #\d+ \| .* \| 1 \| {2}\| {2}\| {2}\|$/m);
+    } finally {
+      await c.query("rollback");
+      c.release();
+    }
+  });
+
+  it("a night the venue was shut is skipped", async () => {
+    const r = await withVenue(app, { venueId }, (c) =>
+      runMorningAudit(c, venueId, Temporal.Instant.from("2026-09-20T12:00:00Z"), allowAll, []),
+    );
+    expect(r).toMatchObject({ night: "2026-09-19", audit: null, skipped: "no_night" });
   });
 
   it("names the night and the rule when a cent is off", async () => {

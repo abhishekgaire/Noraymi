@@ -11,6 +11,7 @@ import { AUDIT_EXPORT_KIND } from "../jobs/audit-export.js";
 import { RESTORE_PULL_KIND } from "../restore/restore.js";
 import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
 import { RETENTION_KIND } from "../jobs/retention.js";
+import { MONEY_AUDIT_KIND } from "../reconcile/audit-job.js";
 import { ERASE_KIND } from "../jobs/erase.js";
 import { SYNTHETIC_KIND } from "../ops/synthetic.js";
 import { EVENTS_CLEANUP_KIND } from "../jobs/events-cleanup.js";
@@ -359,6 +360,17 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
         : push.sent.length > 0
           ? "a singer alert went to venue B's singer from venue A"
           : null,
+  },
+  [MONEY_AUDIT_KIND]: {
+    carries: "venue B's ids",
+    pool: "bulk",
+    payload: (c) => ({ venue_id: c.venueB }),
+    // The venue comes from the job row: venue B's id in the payload changes nothing; the audit reads and
+    // writes only venue A's night behind its wall, and emails only venue A's owners.
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the money audit didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [RETENTION_KIND]: {
     carries: "venue B's ids",

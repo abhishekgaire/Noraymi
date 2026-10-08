@@ -48,6 +48,11 @@ import {
   makeLicenseReminderHandler,
 } from "../licenses/licenses.js";
 import { RETENTION_KIND, makeRetentionHandler, retentionSchedule } from "./retention.js";
+import {
+  MONEY_AUDIT_KIND,
+  makeMoneyAuditHandler,
+  moneyAuditSchedule,
+} from "../reconcile/audit-job.js";
 import { ERASE_KIND, makeEraseHandler } from "./erase.js";
 import { RESTORE_PULL_KIND, makeRestorePullHandler } from "../restore/restore.js";
 import {
@@ -204,6 +209,8 @@ export function makeHandlers({
       [EVENTS_CLEANUP_KIND]: eventsCleanupHandler,
       // License renewal reminders (M8-09), every morning on each venue's clock.
       [LICENSE_REMINDER_KIND]: makeLicenseReminderHandler(email),
+      // The morning money audit (M9-15), per venue: last night checked to the cent, paged and emailed.
+      [MONEY_AUDIT_KIND]: makeMoneyAuditHandler(email),
       // The nightly retention job (M8-12), per venue, under its own role.
       [RETENTION_KIND]: makeRetentionHandler({
         ...(stripe ? { stripe: stripe.client } : {}),
@@ -222,6 +229,7 @@ export const schedules: Schedule[] = [
   eventsCleanupSchedule,
   licenseReminderSchedule,
   retentionSchedule,
+  moneyAuditSchedule,
 ];
 
 /** What the scheduler's leader checks between ticks (M1-16: quiet devices). */

@@ -11,7 +11,8 @@
  * sign-in (M8-19), or a CI workflow publishing to the pages topic (M8-19: the payment page check).
  */
 export type AlertAudience = "us" | "manager";
-export type AlertSource = "sweep" | "cloudwatch" | "devices" | "synthetic" | "signin" | "ci";
+export type AlertSource =
+  "sweep" | "cloudwatch" | "devices" | "synthetic" | "signin" | "ci" | "audit";
 
 export interface AlertRule {
   readonly id: string;
@@ -132,6 +133,13 @@ export const ALERT_RULES = [
     audience: "manager",
     clears: "condition",
     sources: ["devices"],
+  }),
+  rule({
+    id: "money-error",
+    title: "The morning money audit found a money error (M9-15)",
+    audience: "us",
+    clears: "ack",
+    sources: ["audit"],
   }),
   rule({
     id: "test-page",
