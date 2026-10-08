@@ -86,7 +86,10 @@ export async function forgetTablet(dbName: DeviceDb = "west4-tablet"): Promise<v
 
 /** A room call signed by the tablet's key. */
 export function tabletApi(device: TabletDevice) {
-  return async (path: string, init?: { method?: string; body?: string }): Promise<Response> => {
+  return async (
+    path: string,
+    init?: { method?: string; body?: string; headers?: Record<string, string> },
+  ): Promise<Response> => {
     const method = init?.method ?? "GET";
     const headers = await signDeviceRequest({
       deviceId: device.deviceId,
@@ -98,7 +101,11 @@ export function tabletApi(device: TabletDevice) {
     return fetch(path, {
       method,
       cache: "no-store",
-      headers: { ...headers, ...(init?.body ? { "content-type": "application/json" } : {}) },
+      headers: {
+        ...init?.headers,
+        ...headers,
+        ...(init?.body ? { "content-type": "application/json" } : {}),
+      },
       ...(init?.body ? { body: init.body } : {}),
     });
   };

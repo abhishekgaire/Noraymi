@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EventClient, guestOrderWords, t, type MessageKey } from "@west4/shared";
+import { EventClient, guestOrderWords, newTraceparent, t, type MessageKey } from "@west4/shared";
+import { reporter } from "../telemetry";
 import { YourBill, type GuestBill, type ShareAnswer } from "../bill/your-bill";
 import { eventsOrigin } from "../live";
 
@@ -125,13 +126,14 @@ const mustChoose = (item: Item) =>
 /** How the page calls the room routes: a phone's plain fetch with its cookie, or a tablet's signed one. */
 export type RoomApi = (
   path: string,
-  init?: { method?: string; body?: string },
+  init?: { method?: string; body?: string; headers?: Record<string, string> },
 ) => Promise<Response>;
 const plainApi: RoomApi = (path, init) =>
   fetch(path, {
     cache: "no-store",
     method: init?.method ?? "GET",
-    ...(init?.body ? { body: init.body, headers: { "content-type": "application/json" } } : {}),
+    headers: { ...init?.headers, ...(init?.body ? { "content-type": "application/json" } : {}) },
+    ...(init?.body ? { body: init.body } : {}),
   });
 
 export function RoomPage({
@@ -278,8 +280,12 @@ export function RoomPage({
     setBusy(true);
     setError(null);
     try {
+      const traceparent = newTraceparent();
+      const started = performance.now();
       const r = await api("/v1/public/room-session/orders", {
         method: "POST",
+        // The order's trace starts here and runs to the bar's alarm (M8-16).
+        headers: { traceparent },
         body: JSON.stringify({
           client_order_id: clientOrderId.current,
           lines: cart.map((l) => ({
@@ -288,6 +294,12 @@ export function RoomPage({
             option_ids: l.option_ids,
           })),
         }),
+      });
+      reporter.span({
+        name: "room.order.send",
+        traceparent,
+        duration_ms: Math.round(performance.now() - started),
+        failed: !r.ok,
       });
       if (!r.ok) {
         const body = (await r.json().catch(() => ({}))) as {

@@ -133,3 +133,4 @@ export {
   type OfflineSnapshot,
 } from "./offline-view.js";
 export * from "./support.js";
+export * from "./telemetry/index.js";

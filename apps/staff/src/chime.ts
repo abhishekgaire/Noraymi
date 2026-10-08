@@ -2,7 +2,7 @@ import { createElement, useEffect, useState } from "react";
 import { staffOrderWordsKey } from "@west4/shared";
 import { useClock } from "./clock.js";
 import { useT } from "./i18n.js";
-import { readDevice, signedApi, type StoredDevice } from "./device.js";
+import { deviceOnlyApi, readDevice, signedApi, type StoredDevice } from "./device.js";
 
 /**
  * The bar's chime (M3-16; spec 10 rule 7): a backup to the colors and the
@@ -90,13 +90,26 @@ export function chimeDecision(
   return (fresh || repeat) && nowMs >= chimeMutedUntil();
 }
 
+/** The orders whose alarm this computer has reported (M8-16), once each. */
+const reported = new Set<string>();
+
 async function check(device: StoredDevice, state: { heard: Set<string>; lastRepeat: number }) {
   const r = await signedApi<{
     orders: { id: string; placed_at: string }[];
     aging?: { amber_sec: number; chime: boolean };
   }>(device, "GET", `/v1/venues/${device.venueId}/orders?status=ringing,held`).catch(() => null);
   // The venue's chime switch and amber time (Admin → Bar POS, M6-25); the colors keep changing either way.
-  if (!r || r.aging?.chime === false) return;
+  if (!r) return;
+  // The alarm closes each new order's trace (M8-16): the time from order to alarm is the target's
+  // number. Reported even with the chime switched off, since the screen still rings it.
+  for (const o of r.orders) {
+    if (reported.has(o.id)) continue;
+    reported.add(o.id);
+    void deviceOnlyApi(device, "POST", `/v1/venues/${device.venueId}/orders/${o.id}/rang`).catch(
+      () => {},
+    );
+  }
+  if (r.aging?.chime === false) return;
   if (chimeDecision(r.orders, state, Date.now(), (r.aging?.amber_sec ?? 120) * 1000)) playChime();
 }
 

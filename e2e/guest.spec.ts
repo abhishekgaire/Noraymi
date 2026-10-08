@@ -1007,3 +1007,42 @@ test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 
     "/v/west4karaoke/parties#enquire",
   );
 });
+
+/**
+ * The public status page (M8-16): each part Working, then an operator's post (a drill, M8-07)
+ * shows as Maintenance with its note on the next check, and clearing it puts Working back.
+ */
+test("the status page shows each part and follows an operator's post", async ({ page }) => {
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const clear = () =>
+    db.query(
+      "update status_parts set operator_state = null, operator_note = null, operator_since = null, auto_state = 'operational', auto_note = null",
+    );
+  try {
+    await clear();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/status");
+    await expect(page.getByRole("heading", { name: "Service status" })).toBeVisible();
+    for (const part of ["Ordering", "Payments", "Printing", "Texts"])
+      await expect(page.locator("li", { hasText: part })).toContainText("Working");
+
+    await db.query(
+      "update status_parts set operator_state = 'maintenance', operator_note = 'Outage drill at one venue', operator_since = now(), operator_by = 'e2e', updated_at = now() where part = 'ordering'",
+    );
+    await page.reload();
+    const ordering = page.locator('li[data-part="ordering"]');
+    await expect(ordering).toContainText("Maintenance");
+    await expect(ordering).toContainText("Outage drill at one venue");
+    await expect(page.locator('li[data-part="payments"]')).toContainText("Working");
+
+    await clear();
+    await page.reload();
+    await expect(ordering).toContainText("Working");
+  } finally {
+    await clear();
+    await db.end();
+  }
+});

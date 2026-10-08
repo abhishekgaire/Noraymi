@@ -2916,4 +2916,21 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "email.emergency.reason": "Motivo: {reason}",
   "email.emergency.review":
     "Cada paso queda en el registro de auditoría. Míralo en Admin → Consola.",
+  "status.title": "Estado del servicio",
+  "status.intro":
+    "Cómo funcionan ahora los pedidos, los pagos, la impresión y los mensajes de texto, en todos los locales.",
+  "status.part.ordering": "Pedidos",
+  "status.part.payments": "Pagos",
+  "status.part.printing": "Impresión",
+  "status.part.texts": "Mensajes de texto",
+  "status.state.operational": "Funciona",
+  "status.state.degraded": "Con problemas",
+  "status.state.outage": "Caído",
+  "status.state.maintenance": "Mantenimiento",
+  "status.since": "Desde {time}",
+  "status.updated": "Revisado {time}",
+  "status.loading": "Revisando…",
+  "status.unreachable":
+    "Ahora no podemos conectar con nuestro servicio. Los pedidos y los pagos pueden fallar; ya estamos en ello.",
+  "status.retry": "Revisar de nuevo",
 };

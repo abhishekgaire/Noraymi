@@ -15,7 +15,7 @@ import {
   session,
   type IpcMainInvokeEvent,
 } from "electron";
-import { Temporal } from "@west4/shared";
+import { Temporal, makeClientReporter } from "@west4/shared";
 import { DesktopCache } from "./cache.js";
 import { readOfflineRead, saveOfflineRead } from "./offline.js";
 import { QueueMode } from "./queue.js";
@@ -38,6 +38,20 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const staffUrl = process.env["STAFF_URL"] ?? "http://localhost:5173";
 const allowed = allowedOriginsFrom(process.env);
+
+// The main process's own crashes (M8-16), scrubbed of personal data, through the API like the
+// window's errors. A monitor only watches: Electron's own handling of the crash is unchanged.
+const reporter = makeClientReporter({
+  service: "desktop",
+  delayMs: 0,
+  post: (body) =>
+    fetch(new URL("/v1/public/telemetry", staffUrl), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+});
+process.on("uncaughtExceptionMonitor", (error) => reporter.error(error, { page: "main" }));
 
 if (process.env["WEST4_USER_DATA"]) app.setPath("userData", process.env["WEST4_USER_DATA"]);
 app.enableSandbox();

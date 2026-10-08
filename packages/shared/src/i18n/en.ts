@@ -2855,4 +2855,21 @@ export const en = {
     "{name} asked and {approver} approved, but it didn't finish at {venue}: {action}.",
   "email.emergency.reason": "Reason: {reason}",
   "email.emergency.review": "Every step is in the audit log. See it in Admin → Console.",
+  "status.title": "Service status",
+  "status.intro":
+    "How our ordering, payments, printing and texts are working right now, for every venue.",
+  "status.part.ordering": "Ordering",
+  "status.part.payments": "Payments",
+  "status.part.printing": "Printing",
+  "status.part.texts": "Texts",
+  "status.state.operational": "Working",
+  "status.state.degraded": "Having trouble",
+  "status.state.outage": "Down",
+  "status.state.maintenance": "Maintenance",
+  "status.since": "Since {time}",
+  "status.updated": "Checked {time}",
+  "status.loading": "Checking…",
+  "status.unreachable":
+    "We can't reach our service right now. Ordering and payments may be down; we're on it.",
+  "status.retry": "Check again",
 } as const;

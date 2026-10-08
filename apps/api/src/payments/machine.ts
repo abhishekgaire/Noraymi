@@ -14,7 +14,8 @@ import {
   type PaymentSource,
   type Queryable,
 } from "@west4/db";
-import { Temporal } from "@west4/shared";
+import { Temporal, cardOutcome } from "@west4/shared";
+import { telemetry } from "../telemetry/index.js";
 import { settleCheck } from "../rooms/present.js";
 import { afterTabPaymentEnded, takeOverHold } from "../tabs/pay.js";
 import { settleShares } from "./splits.js";
@@ -74,7 +75,11 @@ export async function applyObservation(
   let changed = false;
   const moveAttempt = async (to: AttemptRow["state"], code: string | null = null) => {
     if (!attempt || !canMoveAttempt(attempt.state, to)) return;
+    const from = attempt.state;
     await setAttemptState(c, venueId, paymentId, attempt.attempt_no, to, code);
+    // The 99.5% target (M8-16): each attempt counted once, a declined card never against us.
+    const outcome = from === "unknown" ? null : cardOutcome(to, code);
+    if (outcome) telemetry().count("payments.card.attempts", 1, { venue: venueId, outcome });
     attempt = { ...attempt, state: to, decline_code: code ?? attempt.decline_code };
     changed = true;
   };

@@ -14,6 +14,7 @@ import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { placeRoomOrder, sameAgainRounds } from "../orders/place.js";
+import { noteOrderTrace } from "../telemetry/order-trace.js";
 import { roomGuestOf } from "../rooms/room-guest.js";
 import { withVenueRefusing } from "../orders/alcohol.js";
 import { board } from "../rooms/board.js";
@@ -134,6 +135,10 @@ export function roomOrderRoutes(
             lines: parsed.data.lines,
             clientOrderId: parsed.data.client_order_id,
             now: options.clock.now(),
+          }).then(async (o) => {
+            // The room page's trace runs on to the bar's alarm (M8-16).
+            await noteOrderTrace(c, me.venueId, o, request.trace);
+            return o;
           }),
       );
       return reply.code(201).send({ order: guestView(order, me) });
@@ -353,6 +358,9 @@ export function roomOrderRoutes(
             clientOrderId: parsed.data.client_order_id,
             sameAgainOf: round.order_id,
             now,
+          }).then(async (o) => {
+            await noteOrderTrace(c, me.venueId, o, request.trace);
+            return o;
           });
         },
       );

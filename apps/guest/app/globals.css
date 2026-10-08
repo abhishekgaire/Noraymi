@@ -512,3 +512,50 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The public status page (M8-16). */
+.status-parts {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.status-parts li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+  border-radius: 8px;
+}
+.status-parts li[data-state="operational"] {
+  border-left-color: #1f8a4c;
+}
+.status-parts li[data-state="degraded"],
+.status-parts li[data-state="maintenance"] {
+  border-left-color: #b26a00;
+}
+.status-parts li[data-state="outage"] {
+  border-left-color: var(--accent);
+}
+.status-name {
+  font-weight: 600;
+}
+.status-note,
+.status-since {
+  grid-column: 1 / -1;
+  font-size: 14px;
+}
+.status-updated {
+  font-size: 14px;
+  opacity: 0.8;
+}
+.status-unreachable {
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}

@@ -11,6 +11,7 @@ import {
   type VendorTroubleSource,
 } from "@west4/db";
 import type { Temporal } from "@west4/shared";
+import { setAutoStatus } from "../telemetry/status.js";
 
 /**
  * Vendor-health checks (M8-01; spec 09 · Outages, spec 01 · When our cloud
@@ -105,6 +106,12 @@ export async function readStatusFeed(
   }
 }
 
+/** The status page's note while a vendor is in trouble (shown to the public, in English). */
+const STATUS_NOTES: Record<Vendor, string> = {
+  stripe: "Our card processor is having trouble · card payments may fail or be slow",
+  twilio: "Our text provider is having trouble · texts may be delayed",
+};
+
 export async function sweepVendorHealth(
   pool: pg.Pool,
   now: Temporal.Instant,
@@ -120,6 +127,25 @@ export async function sweepVendorHealth(
   }
   const since = now.subtract({ minutes: settings.windowMinutes }).toString();
   const overall = await overallVendorCalls(pool, since);
+  // The public status page (M8-16): payments follow Stripe, texts follow Twilio, from the feeds and
+  // every venue's calls together (never one venue's own).
+  for (const vendor of VENDORS) {
+    const verdict = vendorVerdict(
+      {
+        feedTrouble: feeds[vendor],
+        venue: { calls: 0, errors: 0 },
+        overall: overall.find((m) => m.vendor === vendor)!,
+      },
+      settings,
+    );
+    await setAutoStatus(
+      pool,
+      vendor === "stripe" ? "payments" : "texts",
+      verdict.trouble ? "degraded" : "operational",
+      verdict.trouble ? STATUS_NOTES[vendor] : null,
+      now.toString(),
+    );
+  }
   const venues = await pool.query<{ id: string }>("select id from venues_for_scheduler()");
   const out: { venueId: string; changed: Vendor[] }[] = [];
   for (const v of venues.rows) {

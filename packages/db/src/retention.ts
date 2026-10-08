@@ -96,6 +96,12 @@ export const RETENTION_POLICY: readonly RetentionRule[] = [
   { kind: "idempotency_keys", action: "delete", after: { days: 7 }, what: "7 days" },
   { kind: "venue_events", action: "delete", after: { hours: 72 }, what: "72 hours" },
   {
+    kind: "order_traces",
+    action: "delete",
+    after: { days: 30 },
+    what: "30 days, with the logs and traces they point at (M8-16)",
+  },
+  {
     kind: "unattached_uploads",
     action: "delete",
     after: { hours: 24 },
@@ -313,6 +319,10 @@ export async function removeExpired(
         and removed_at is not null and removed_at > $2 and removed_at <= $3`,
     [venueId, at(now.subtract({ hours: 24 })), at(now)],
   );
+  const traces = await c.query("delete from order_traces where venue_id = $1 and placed_at < $2", [
+    venueId,
+    at(cut["order_traces"]!),
+  ]);
   const singers = await removeSingers(c, venueId, cut, now);
   await c.query(
     `delete from incident_notes where venue_id = $1 and incident_id in
@@ -328,6 +338,7 @@ export async function removeExpired(
     webhook_payloads: n(webhooks),
     idempotency_keys: n(keys),
     venue_events: n(events),
+    order_traces: n(traces),
     unattached_uploads: Number(uploads.rows[0]?.n ?? 0),
     ...singers,
     incidents: n(incidents),

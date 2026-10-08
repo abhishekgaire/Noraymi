@@ -5,8 +5,12 @@ import { databaseVendorObserver, setVendorObserver } from "./vendors/outcomes.js
 import { loadConfig } from "./config.js";
 import { loadEmailSettings } from "./email/settings.js";
 import { loadPushSettings } from "./push/settings.js";
+import { setTelemetry, telemetryFromEnv } from "./telemetry/index.js";
 
 const config = loadConfig();
+// Traces, metrics and error reports (M8-16): where they go is OTEL_EXPORTER_OTLP_ENDPOINT's call.
+const tel = setTelemetry(telemetryFromEnv("west4-api"));
+process.on("SIGTERM", () => void tel.shutdown());
 // Our error rate on Stripe and Twilio, counted per venue for the vendor-health job (M8-01).
 const vendorPool = new pg.Pool({
   connectionString: config.databaseUrl,

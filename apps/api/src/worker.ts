@@ -1,6 +1,8 @@
 import pg from "pg";
 import { Scheduler, Worker } from "@west4/db";
 import { loadConfig } from "./config.js";
+import { setTelemetry, telemetryFromEnv } from "./telemetry/index.js";
+import { scrubbedLog, tracedHandlers } from "./telemetry/jobs.js";
 import { makeClock } from "./clock.js";
 import { databaseVendorObserver, setVendorObserver } from "./vendors/outcomes.js";
 import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
@@ -24,7 +26,10 @@ const pool = new pg.Pool({
   application_name: "west4-worker",
 });
 const clock = makeClock(config, pool);
-const log = (line: string) => process.stdout.write(`${line}\n`);
+// Every line is scrubbed of personal data (M8-16); traces, metrics and errors go where
+// OTEL_EXPORTER_OTLP_ENDPOINT says, or to the log as JSON lines on staging and production.
+const log = scrubbedLog((line) => process.stdout.write(`${line}\n`));
+const tel = setTelemetry(telemetryFromEnv("west4-worker"));
 // Our error rate on Stripe and Twilio, counted per venue for the vendor-health job (M8-01).
 setVendorObserver(databaseVendorObserver(pool, clock));
 const email = loadEmailSettings(config.env);
@@ -35,30 +40,32 @@ const textSender = () => {
 };
 const venueTextSettings = loadVenueTextSettings(config.env);
 const stripe = stripeFromEnv(config.env);
-const handlers = makeHandlers({
-  stripe: {
-    pool,
-    client: stripe,
-    clock,
-    payAppUrl: config.payAppUrl,
-    texts: { allowList: venueTextSettings.allowList },
-  },
-  venueTexts: {
-    client:
-      venueTextSettings.mode === "twilio"
-        ? new TwilioVenueClient(venueTextSettings.twilioBaseUrl)
-        : new FakeVenueClient(),
-    settings: venueTextSettings,
-    secretKey: config.auth.secretKey,
-  },
-  s3: makeS3(),
-  // The ID-scan key store (M8-14), sealed with the server key.
-  idKeys: idKeyStore(config.auth.secretKey),
-  mailer,
-  email,
-  push: new WebPushSender(loadPushSettings(config.env)),
-  texts: textSender(),
-});
+const handlers = tracedHandlers(
+  makeHandlers({
+    stripe: {
+      pool,
+      client: stripe,
+      clock,
+      payAppUrl: config.payAppUrl,
+      texts: { allowList: venueTextSettings.allowList },
+    },
+    venueTexts: {
+      client:
+        venueTextSettings.mode === "twilio"
+          ? new TwilioVenueClient(venueTextSettings.twilioBaseUrl)
+          : new FakeVenueClient(),
+      settings: venueTextSettings,
+      secretKey: config.auth.secretKey,
+    },
+    s3: makeS3(),
+    // The ID-scan key store (M8-14), sealed with the server key.
+    idKeys: idKeyStore(config.auth.secretKey),
+    mailer,
+    email,
+    push: new WebPushSender(loadPushSettings(config.env)),
+    texts: textSender(),
+  }),
+);
 if (
   email.env === "staging" &&
   email.allowList?.addresses.size === 0 &&
@@ -94,6 +101,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     clearInterval(refresh);
     void Promise.all([...workers.map((w) => w.stop()), scheduler.stop()]).then(async () => {
       mailer.close();
+      await tel.shutdown();
       await pool.end();
       process.exit(0);
     });

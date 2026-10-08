@@ -16,7 +16,8 @@
     "seed:files": "tsx --env-file-if-exists=../../.env src/files/seed-files.ts",
     "reconcile": "tsx --env-file-if-exists=../../.env src/reconcile/cli.ts",
     "drill:record": "tsx --env-file-if-exists=../../.env src/stripe/drill-record.ts",
-    "outage:record": "tsx --env-file-if-exists=../../.env src/ops/outage-record.ts"
+    "outage:record": "tsx --env-file-if-exists=../../.env src/ops/outage-record.ts",
+    "status:set": "tsx --env-file-if-exists=../../.env src/telemetry/status-cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1142.0",

@@ -76,6 +76,7 @@ import { callRoutes } from "./routes/calls.js";
 import { incidentRoutes } from "./routes/incidents.js";
 import { licenseRoutes } from "./routes/licenses.js";
 import { erasureRoutes } from "./routes/erasures.js";
+import { telemetryRoutes } from "./routes/telemetry.js";
 import { supportGrantRoutes } from "./routes/support-grants.js";
 import { emergencyConsoleRoutes, emergencyVenueRoutes } from "./console/emergency.js";
 import { conversationRoutes } from "./routes/conversations.js";
@@ -100,6 +101,7 @@ import { makeS3, type S3Settings } from "./s3.js";
 import { idKeyStore, type IdKeyStore } from "./id-keys/store.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
 import { authRoutes } from "./auth/routes.js";
+import { loggerOptions, telemetryPlugin } from "./telemetry/plugin.js";
 import type { EmailSettings } from "./email/settings.js";
 
 export interface AppOptions {
@@ -135,7 +137,16 @@ export const PLATFORM_TIME_ZONE = "America/New_York";
 export function buildApp(options: AppOptions = {}): FastifyInstance {
   // forceCloseConnections: the events plugin drains WebSockets slowly first;
   // whatever is left (for example a refused upgrade) is cut so close() returns.
-  const app = Fastify({ logger: options.logger ?? false, forceCloseConnections: true });
+  // Logs are scrubbed of personal data before they're written (M8-16).
+  const logger =
+    options.logger === true
+      ? loggerOptions()
+      : options.logger
+        ? loggerOptions(options.logger)
+        : false;
+  const app = Fastify({ logger, forceCloseConnections: true });
+  // A span per request and the targets' numbers (M8-16), before every other hook.
+  void app.register(telemetryPlugin);
   const config = options.config;
   let clock: Clock = options.clock ?? systemClock;
   let gate: ModuleGate | undefined;
@@ -287,6 +298,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       incidentRoutes(scope, { pool: gatePoolRef!, clock });
       licenseRoutes(scope, { clock });
       erasureRoutes(scope, { clock });
+      // Watching production (M8-16): the bar alarm closing an order's trace, the screens' errors, the status page.
+      telemetryRoutes(scope, { pool: gatePoolRef!, clock });
       supportGrantRoutes(scope, { pool: gatePoolRef!, clock });
       // Admin → Console's emergency actions (M8-11), read by the owner.
       emergencyVenueRoutes(scope, { clock });
