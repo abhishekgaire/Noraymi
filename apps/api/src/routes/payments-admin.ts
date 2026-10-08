@@ -24,7 +24,7 @@ import { syncAccount } from "../stripe/account-sync.js";
 const KINDS = ["stripe", "twilio", "email"] as const;
 
 /** The permission gate guards writes; Payments' reads are the owner's too (spec 02, as Team). */
-function ownerOnly(request: FastifyRequest): string {
+export function ownerOnly(request: FastifyRequest): string {
   const venueId = request.venueId!;
   const p = request.principal;
   const here = p.kind === "user" ? p.memberships.find((m) => m.venueId === venueId) : undefined;

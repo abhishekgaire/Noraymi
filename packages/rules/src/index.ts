@@ -116,3 +116,5 @@ export {
   QUEUE_MODE_HOURS,
 } from "./offline-codes.js";
 export type { Hmac, OfflineCodeCheck, OfflineCodeScope, UpcomingCode } from "./offline-codes.js";
+export { PLAN_GRACE_DAYS, adminReadOnlyFrom, planState } from "./plan-billing.js";
+export type { PlanState } from "./plan-billing.js";

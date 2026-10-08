@@ -1,3 +1,4 @@
+import { openWhileReadOnly } from "../http/plan-gate.js";
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
@@ -445,7 +446,7 @@ export function teamRoutes(
    */
   app.post<{ Params: VenueParams & { m: string } }>(
     "/v1/venues/:venueId/team/:m/deactivate",
-    { config: teamChange },
+    { config: openWhileReadOnly(teamChange) },
     async (request, reply) => {
       const p = request.principal;
       if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");

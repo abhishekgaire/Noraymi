@@ -1,3 +1,4 @@
+import { openWhileReadOnly } from "../http/plan-gate.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type pg from "pg";
 import {
@@ -93,7 +94,7 @@ export function supportGrantRoutes(
   for (const verb of ["approve", "decline", "revoke"] as const) {
     app.post<{ Params: { venueId: string; grantId: string } }>(
       `/v1/venues/:venueId/support-grants/:grantId/${verb}`,
-      { config: ownerWrite },
+      { config: verb === "approve" ? ownerWrite : openWhileReadOnly(ownerWrite) },
       async (request) => {
         const { venueId, userId } = ownerOnly(request);
         const id = request.params.grantId;

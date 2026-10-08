@@ -1,3 +1,4 @@
+import { openWhileReadOnly } from "../http/plan-gate.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Clock } from "@west4/shared";
 import {
@@ -41,12 +42,15 @@ const view = (e: Erasure) => ({
 });
 
 export function erasureRoutes(app: FastifyInstance, options: { clock: Clock }): void {
-  const write = route({
-    principals: ["owner_manager"],
-    module: "core",
-    action: "admin.access",
-    idempotency: "optional",
-  });
+  // Erasing on request stays open while Admin is read-only over our plan (M8-15).
+  const write = openWhileReadOnly(
+    route({
+      principals: ["owner_manager"],
+      module: "core",
+      action: "admin.access",
+      idempotency: "optional",
+    }),
+  );
 
   const erase = async (
     request: FastifyRequest,

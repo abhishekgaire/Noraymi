@@ -2038,3 +2038,18 @@ a.song-count {
   align-items: center;
   min-height: 44px;
 }
+
+/* Our plan (M8-15): the failed-payment banner in Admin, and read-only Admin. */
+.plan-banner {
+  padding: 8px 12px;
+  border-left: 4px solid #d97706;
+  background: var(--panel);
+}
+.plan-banner.read-only {
+  border-left-color: var(--danger);
+}
+.plan-banner a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

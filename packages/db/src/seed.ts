@@ -943,6 +943,8 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "device_heartbeats",
       "vendor_calls",
       "vendor_health",
+      // Our plan (M8-15): no subscription on the demo night; a test that makes one starts clean.
+      "venue_subscriptions",
       "print_jobs",
       // A card tapped for a room names its reader and its consent (M6-13).
       "check_cards",

@@ -35,6 +35,8 @@ import { StoredClock } from "@west4/db";
 import { Temporal, formatInZone, systemClock, type Clock } from "@west4/shared";
 import { dbPlugin } from "./db.js";
 import type { Config } from "./config.js";
+import { planBillingRoutes } from "./routes/plan-billing.js";
+import { PlanGate } from "./http/plan-gate.js";
 import { conventionsPlugin, route, type Authenticator } from "./http/conventions.js";
 import { eventsPlugin } from "./http/events.js";
 import { settingsRoutes } from "./routes/settings.js";
@@ -199,6 +201,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
     db: config !== undefined,
     ...(gate ? { moduleGate: gate } : {}),
     ...(permissions ? { permissionGate: permissions } : {}),
+    ...(gatePoolRef ? { planGate: new PlanGate(gatePoolRef, clock) } : {}),
   });
 
   // Live events need the database (M1-09).
@@ -300,6 +303,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         texts: loadVenueTextSettings(config.env),
       });
       paymentsAdminRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
+      planBillingRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
       readerRoutes(scope, { clock, stripe });
       stripeHookRoutes(scope, { pool: gatePoolRef!, clock, stripe });
       paymentRoutes(scope, {

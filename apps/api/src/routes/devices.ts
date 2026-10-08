@@ -1,3 +1,4 @@
+import { openWhileReadOnly } from "../http/plan-gate.js";
 import { barConnected, isBarComputer } from "../rooms/bar-presence.js";
 import type { FastifyInstance } from "fastify";
 import {
@@ -266,7 +267,7 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
 
   app.post<{ Params: VenueParams & { d: string } }>(
     "/v1/venues/:venueId/devices/:d/revoke",
-    { config: admin },
+    { config: openWhileReadOnly(admin) },
     async (request) => {
       const venueId = request.venueId!;
       const revoked = await request.inVenue(async (c) => {

@@ -8,6 +8,10 @@ import { fakeFingerprint } from "../apps/api/src/stripe/fake/payments.js";
 import { catalogs, makeDeviceKey, signDeviceRequest, Temporal } from "@west4/shared";
 import { offlineCodeAt } from "@west4/rules";
 import { sweepRouters } from "../apps/api/src/jobs/router-watch.js";
+import { subscribeVenue } from "../apps/api/src/billing/plan.js";
+import { StripeClient } from "../apps/api/src/stripe/client.js";
+import { PLAN_LOOKUP_KEYS, ROOM_LOOKUP_KEY } from "../apps/api/src/stripe/billing.js";
+import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 import { SEED_COMMAND, setClock as resetClock } from "./night.js";
 
@@ -8707,6 +8711,133 @@ test("Admin → Console: Abhishek approves a support request, the banner shows, 
   } finally {
     await db.query("delete from support_grants where reason like 'E2E %'");
     await db.query("delete from emergency_actions where reason like 'E2E %'");
+    await db.end();
+  }
+});
+
+/**
+ * Our plan (M8-15; spec 03 · Plan billing): West 4 on the Rooms plan on the
+ * fake Stripe, counting its 14 rooms. A failed plan payment (the billing
+ * event's effect, as plan-billing.int.test.ts applies it from Stripe) shows
+ * the banner in Admin; 14 days later on the simulated clock Admin refuses
+ * Save and publish with the reason, while the board and the bar POS keep
+ * working; paid, the banner goes and Admin saves again. The prices are the
+ * test's own made-up amounts on the fake, never our plan's.
+ */
+test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days later while the board and bar work, and paying clears it", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const owner = new pg.Pool({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    max: 2,
+  });
+  const stripe = new StripeClient(fakeStripeSettings());
+  const billing = <T>(path: string, params: Record<string, unknown>) =>
+    stripe.call<T>("billing", "POST", path, {
+      account: null,
+      params,
+      idempotencyKey: `e2e:${randomBytes(8).toString("hex")}`,
+    });
+  const baseVersion = (
+    await db.query<{ v: number }>(
+      "select coalesce(max(version), 0)::int as v from venue_settings where key = 'rooms'",
+    )
+  ).rows[0]!.v;
+  try {
+    await db.query("delete from venue_subscriptions");
+    await db.query("update organizations set billing_customer_id = null");
+    for (const key of [PLAN_LOOKUP_KEYS.rooms, ROOM_LOOKUP_KEY])
+      await billing("/v1/prices", { currency: "usd", unit_amount: 100, lookup_key: key });
+    const customer = (
+      await billing<{ id: string }>("/v1/customers", { name: "West 4 Boho Karaoke" })
+    ).id;
+    await billing(`/v1/customers/${customer}`, {
+      invoice_settings: { default_payment_method: "pm_card_visa" },
+    });
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      "update organizations set billing_customer_id = $1 where id = (select org_id from venues where id = $2)",
+      [customer, venueId],
+    );
+    const made = await subscribeVenue(owner, stripe, { venueId, plan: "rooms" });
+    expect(made.rooms).toBe(14);
+    // The plan payment fails at 10:41 PM.
+    await db.query(
+      "update venue_subscriptions set status = 'past_due', payment_failed_at = $1 where venue_id = $2",
+      ["2026-09-26T02:41:00Z", venueId],
+    );
+
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/payments");
+    const banner = page.getByTestId("plan-banner");
+    await expect(banner).toHaveText(
+      "Our plan's payment failed · Admin turns read-only on Sat, Oct 10 at 6:00 AM unless it's paid Pay it in Payments",
+    );
+    const plan = page.getByRole("region", { name: "Our plan" });
+    await expect(plan).toContainText("Rooms plan");
+    await expect(plan).toContainText("14 rooms counted · every room that isn't archived");
+    await expect(plan).toContainText("Paid with visa ending 4242");
+    await expect(plan.getByRole("button", { name: "Manage our plan" })).toBeVisible();
+    // Admin still saves until the 14 days are up.
+    await page.goto("/admin/rooms");
+    await page.getByLabel("Flag a room still cleaning after (minutes)").fill("10");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+
+    // 14 days later, at the 6:00 AM cutover: Admin is read-only.
+    await resetClock("2026-10-10T10:00:00Z");
+    // Two weeks on, the 12-hour sign-in is over: Abhishek signs in again.
+    await page.goto("/");
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/rooms");
+    await expect(banner).toHaveText(
+      "Admin is read-only · our plan's payment failed on Fri, Sep 25 · the board, rooms, bar and payments keep working Pay it in Payments",
+    );
+    await page.getByLabel("Flag a room still cleaning after (minutes)").fill("12");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(
+      page.getByText("Admin is read-only until our plan's invoice is paid"),
+    ).toBeVisible();
+    // The board, rooms and the bar POS keep working.
+    await page.goto("/tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
+    await page.goto("/bar");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    const tabs = await page.request.get(`http://localhost:3000/v1/venues/${venueId}/tabs`);
+    expect(tabs.status()).toBe(200);
+
+    // Paid: the banner goes and Admin saves again.
+    await db.query(
+      "update venue_subscriptions set status = 'active', payment_failed_at = null where venue_id = $1",
+      [venueId],
+    );
+    await page.goto("/admin/rooms");
+    await page.getByLabel("Flag a room still cleaning after (minutes)").fill("12");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    await expect(banner).toHaveCount(0);
+  } finally {
+    await resetClock();
+    await db.query("delete from venue_subscriptions");
+    await db.query("update organizations set billing_customer_id = null");
+    await db.query("delete from venue_settings where key = 'rooms' and version > $1", [
+      baseVersion,
+    ]);
+    await owner.end();
     await db.end();
   }
 });

@@ -1,3 +1,4 @@
+import { billingCustomer } from "./billing.js";
 import { FakeError, fakeId, fakeRouteSets, type FakeStripe } from "./server.js";
 
 /**
@@ -75,16 +76,21 @@ function withCharge(
 
 fakeRouteSets.push((fake) => {
   // Customers on the venue's account (deposits save the card for later charges).
-  fake.route("POST", "/v1/customers", (req) => ({
-    body: fake.put({
-      id: fakeId("cus"),
-      object: "customer",
-      _account: needAccount(req.account),
-      name: req.body["name"] ?? null,
-      email: req.body["email"] ?? null,
-      metadata: req.body["metadata"] ?? {},
-    }),
-  }));
+  fake.route("POST", "/v1/customers", (req) =>
+    // Our own account's customers (plan billing, M8-15) come with the billing key.
+    req.service === "billing"
+      ? billingCustomer(fake, req)
+      : {
+          body: fake.put({
+            id: fakeId("cus"),
+            object: "customer",
+            _account: needAccount(req.account),
+            name: req.body["name"] ?? null,
+            email: req.body["email"] ?? null,
+            metadata: req.body["metadata"] ?? {},
+          }),
+        },
+  );
 
   // The payment page's domain, registered for Apple Pay and Google Pay (M4-15).
   fake.route("POST", "/v1/payment_method_domains", (req) => {

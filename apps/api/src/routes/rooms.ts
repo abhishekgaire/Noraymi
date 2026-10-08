@@ -1,3 +1,4 @@
+import { queueRoomQuantity } from "../billing/plan.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
@@ -154,6 +155,8 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
           throw e;
         }
         await emitEvent(c, { venueId, type: "room.updated", entityId: id, entityVersion: 0 });
+        // Our plan counts every room that isn't archived (M8-15).
+        await queueRoomQuantity(c, venueId, options.clock.now());
         return roomById(c, venueId, id);
       });
       return reply.code(201).send({ room });
@@ -203,6 +206,8 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
           entityId: request.params.r,
           entityVersion: 0,
         });
+        if (b.archived !== undefined && b.archived !== (before.archived_at !== null))
+          await queueRoomQuantity(c, venueId, options.clock.now());
         const room = await roomById(c, venueId, request.params.r);
         // An archived room leaves the board and assignment; its future bookings move like a room switched off.
         const reassigned =

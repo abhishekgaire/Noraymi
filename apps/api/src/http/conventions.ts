@@ -25,6 +25,7 @@ import {
 import { installRegistry, type RegisteredRoute, type RouteSpec } from "./registry.js";
 import type { ModuleGate } from "./module-gate.js";
 import type { PermissionGate } from "./permission-gate.js";
+import { readOnlyApplies, type PlanGate } from "./plan-gate.js";
 import { isAction } from "@west4/shared";
 
 export type Authenticator = (request: FastifyRequest) => Promise<Principal | undefined>;
@@ -39,6 +40,8 @@ export interface ConventionsOptions {
   readonly staffRateLimit?: { max: number; windowMs: number };
   /** Whether the database is wired (tests of pure conventions may leave it out). */
   readonly db: boolean;
+  /** Read-only Admin over our unpaid plan (M8-15); absent without a database. */
+  readonly planGate?: PlanGate;
   /** The module gate; absent without a database. */
   readonly moduleGate?: ModuleGate;
   /** The role guard; absent without a database. */
@@ -200,6 +203,15 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
       ) {
         throw new ApiError("forbidden", "your role can't do this");
       }
+    }
+
+    // Our plan's payment failed 14 days ago (M8-15): Admin's writes are refused; nothing else reads this.
+    if (venueId !== undefined && options.planGate && readOnlyApplies(spec, request.method)) {
+      if (await options.planGate.readOnly(venueId))
+        throw new ApiError(
+          "admin_read_only",
+          "Admin is read-only until our plan's invoice is paid · the board, rooms, bar and payments keep working",
+        );
     }
 
     // Every route of a module that's off answers 404 module_off (M1-13).

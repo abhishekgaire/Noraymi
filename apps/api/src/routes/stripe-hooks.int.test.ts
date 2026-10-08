@@ -217,7 +217,7 @@ describe("Stripe's webhooks", () => {
     expect(job).toEqual({ venue_id: venueC });
   });
 
-  it("keep our own account's billing events, unprocessed, for M8", async () => {
+  it("keep a billing event from our own account that names no venue's subscription, unprocessed (M8-15)", async () => {
     const e = event({ type: "invoice.paid", account: undefined, data: { object: { id: "in_1" } } });
     delete (e as { account?: string }).account;
     expect((await post("platform", e, FAKE_WEBHOOK_SECRETS.platform)).statusCode).toBe(200);

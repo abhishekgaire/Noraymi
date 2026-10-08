@@ -1,3 +1,4 @@
+import { planEventHandlers } from "../billing/plan.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type pg from "pg";
 import {
@@ -118,6 +119,8 @@ export const stripeEventHandlers = new Map<string, StripeEventHandler>([
       await syncAccount(ctx.inVenue, ctx.stripe, ctx.venueId, ctx.now.toString());
     },
   ],
+  // Our plan billing (M8-15): our own account's subscription and invoice events.
+  ...planEventHandlers,
 ]);
 
 /** The `stripe.event` job: apply the stored event once, then mark it processed. */

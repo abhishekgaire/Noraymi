@@ -1,3 +1,4 @@
+import { openWhileReadOnly } from "../http/plan-gate.js";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
@@ -244,7 +245,7 @@ export function badgeRoutes(
   /** A lost badge is switched off here; it can be paired again to anyone later. */
   app.post<{ Params: { venueId: string; b: string } }>(
     "/v1/venues/:venueId/badges/:b/disable",
-    { config: teamChange },
+    { config: openWhileReadOnly(teamChange) },
     async (request, reply) => {
       const ok = await request.inVenue((c) => disableBadge(c, request.venueId!, request.params.b));
       if (!ok) throw new ApiError("not_found", "no such badge");

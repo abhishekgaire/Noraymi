@@ -61,8 +61,14 @@ export function AdminDraftProvider({
       setStatus("published");
       setVersion((n) => n + 1);
     } catch (e) {
+      const code = (e as ApiCallError)?.code;
+      // Read-only Admin over our unpaid plan (M8-15): the Save bar says why, in the venue's language.
       setError(
-        (e as ApiCallError)?.code === "invalid_request" ? (e as ApiCallError).message : null,
+        code === "admin_read_only"
+          ? "admin_read_only"
+          : code === "invalid_request"
+            ? (e as ApiCallError).message
+            : null,
       );
       setStatus("failed");
     } finally {

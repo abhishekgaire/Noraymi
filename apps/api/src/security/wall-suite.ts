@@ -1,3 +1,4 @@
+import { PLAN_ROOMS_KIND } from "../billing/plan.js";
 import { MENU_PDF_KIND } from "../jobs/menu-pdf.js";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
@@ -364,6 +365,10 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
         ? null
         : `the erase job didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
   },
+  [PLAN_ROOMS_KIND]: {
+    carries: "no venue-owned ids",
+    why: "an empty payload: the job counts and sends only its own venue's rooms (plan-billing.int.test.ts)",
+  },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
 };
@@ -434,9 +439,10 @@ export const webhookWallCases: Readonly<Record<string, string>> = {
   // organization's sandbox account (stripe_training_account_id); a live account's id there names no venue.
   "POST /v1/hooks/stripe/training":
     "training-stripe.int.test.ts · the sandbox's events land only at the training endpoint, and only on practice payments",
-  // Our own account's billing events carry no venue: stored with venue_id null, which no venue can read.
+  // Our own account's billing events (M8-15): the venue comes only from the subscription the event names, through
+  // ingest_stripe_event and venue_subscriptions; one naming no venue's subscription is kept with venue_id null.
   "POST /v1/hooks/stripe/platform":
-    "stripe-hooks.int.test.ts · keep our own account's billing events, unprocessed, for M8",
+    "plan-billing.int.test.ts · venue B's subscription event moves only venue B's plan, and an unknown one none",
 };
 
 export function checkWebhooks(routes: readonly RegisteredRoute[]): WallFinding[] {

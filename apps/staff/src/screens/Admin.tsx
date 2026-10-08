@@ -7,6 +7,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession, type SessionState } from "../session.js";
 import { SupportBanner } from "./admin/SupportAccess.js";
+import { PlanBanner } from "./admin/OurPlan.js";
 
 /**
  * The AdminDesk shell (M1-31; screens.md · AdminDesk). Admin opens only in a
@@ -44,6 +45,11 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   return (
     <div className="admin">
       <RulePackNotice venueId={state.membership.venue_id} />
+      <PlanBanner
+        venueId={state.membership.venue_id}
+        timeZone={state.membership.venue.time_zone}
+        owner={state.membership.permissions.includes("admin.payments")}
+      />
       {state.membership.permissions.includes("admin.console") && (
         <SupportBanner venueId={state.membership.venue_id} />
       )}
@@ -88,7 +94,11 @@ function SaveBar() {
   const failed = draft.status === "failed" && (
     <span className="error">
       {t("admin.publishFailed")}
-      {draft.error ? ` · ${draft.error}` : ""}
+      {draft.error === "admin_read_only"
+        ? ` · ${t("plan.refused")}`
+        : draft.error
+          ? ` · ${draft.error}`
+          : ""}
     </span>
   );
   return (

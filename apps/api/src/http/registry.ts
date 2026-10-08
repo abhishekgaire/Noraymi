@@ -33,6 +33,8 @@ export interface RouteSpec {
   readonly createsNewWork?: boolean;
   /** Keeps working whatever is off: guest routes for existing bookings, waitlist spots, receipts and payments. */
   readonly exemptWhenOff?: boolean;
+  /** An Admin write that stays open while Admin is read-only over our unpaid plan (M8-15): paying it. */
+  readonly openWhenReadOnly?: boolean;
 }
 
 export interface RegisteredRoute extends RouteSpec {

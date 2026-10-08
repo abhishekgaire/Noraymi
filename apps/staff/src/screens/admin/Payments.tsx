@@ -5,6 +5,7 @@ import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { GoLive } from "./GoLive.js";
+import { OurPlan } from "./OurPlan.js";
 
 /**
  * Admin → Payments (M4-01; screens N37; Stripe setup 1, 2 and 7), the
@@ -146,6 +147,14 @@ export function Payments() {
             </>
           )}
         </>
+      )}
+      {venueId && (
+        <OurPlan
+          venueId={venueId}
+          timeZone={
+            state.status === "signedIn" ? state.membership.venue.time_zone : "America/New_York"
+          }
+        />
       )}
       {account?.account_id && <GoLive venueId={venueId} />}
       {venueId && (

@@ -1,3 +1,4 @@
+import { PLAN_ROOMS_KIND, makePlanRoomsHandler } from "../billing/plan.js";
 import type { Clock } from "@west4/shared";
 import type pg from "pg";
 import type { JobHandler, Schedule, Sweep } from "@west4/db";
@@ -141,6 +142,8 @@ export function makeHandlers({
           }
         : {}),
       // Erasing a guest or a singer on request (M8-13): cards at Stripe, bodies at Twilio.
+      // Our plan's room count to Stripe after a room is added or archived (M8-15).
+      ...(stripe ? { [PLAN_ROOMS_KIND]: makePlanRoomsHandler(stripe.client) } : {}),
       [ERASE_KIND]: makeEraseHandler({
         ...(stripe ? { stripe: stripe.client } : {}),
         ...(venueTexts
