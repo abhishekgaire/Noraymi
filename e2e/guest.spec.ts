@@ -1065,6 +1065,58 @@ test("Book: Jae's details, the marketing box and the terms", async ({ page }) =>
   }
 });
 
+/**
+ * The deposit on the payment page (M5-09): from Terms to the payment origin, the policy above
+ * "Pay $50.00 deposit", a declined test card then a good one on the same PaymentIntent, and a second
+ * hold left to run out goes back to pick a time.
+ */
+test("Book: Jae pays the $50.00 deposit on the payment page", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
+    cwd: "apps/api",
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    },
+  });
+  const book = async (time: string) => {
+    await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=5&hours=2");
+    await page.getByRole("button", { name: `Hold ${time} EDT` }).click();
+    await page.getByLabel("Name").fill("Jae K.");
+    await page.getByLabel("Mobile number").fill("(212) 555-0188");
+    await page.getByLabel("Email").fill("jae@example.com");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
+    await page.waitForURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+  };
+  await book("11 PM");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your deposit · $50.00");
+  await expect(page.locator(".terms")).toContainText("A 20% gratuity is added to room tabs.");
+  await expect(page.getByText(/^(10:00|9:5\d) left to finish$/)).toBeVisible();
+  await page.getByRole("button", { name: "Try a declined test card" }).click();
+  await expect(page.locator("p[role=alert]")).toHaveText(
+    "Your card was declined · try another card",
+  );
+  await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
+  await expect(page.getByRole("status").first()).toContainText("$50.00");
+
+  // A second booking whose hold runs out on the payment page.
+  await book("9 PM");
+  const at = (iso: string) =>
+    request.post("http://127.0.0.1:3000/v1/ops/clock", { data: { server_time: iso } });
+  expect((await at("2026-09-26T03:05:00Z")).ok()).toBe(true);
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(
+    "Your hold ran out, and the room went back on sale.",
+  );
+  await expect(page.getByRole("link", { name: "Pick a time again" })).toHaveAttribute(
+    "href",
+    "http://localhost:3001/v/west4karaoke/book",
+  );
+});
+
 test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 AM EST", async ({
   page,
 }) => {

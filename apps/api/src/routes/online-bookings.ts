@@ -14,6 +14,7 @@ import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import {
+  depositPayLink,
   detailsBody,
   heldBooking,
   holdBooking,
@@ -30,6 +31,7 @@ import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
  *   GET  /v1/public/bookings/{token}/hold      the held booking, its countdown and its exact price
  *   POST /v1/public/bookings/{token}/more-time 10 more minutes, ten times
  *   POST /v1/public/bookings/{token}/details   { name, phone, email, marketing } (M5-08: the Details step)
+ *   POST /v1/public/bookings/{token}/pay       Terms → Payment: a pay link to the booking's one deposit payment (M5-09)
  * The CAPTCHA and daily limits join POST with M5-05 (blocked on M2-27). The hold and more-time
  * routes are the cautious default (the API table names only availability and POST bookings).
  */
@@ -49,11 +51,17 @@ const holdBody = z
 
 export function onlineBookingRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock },
+  options: { pool: pg.Pool; clock: Clock; payAppUrl: string | null },
 ) {
   const proxyHops = loadTrustedProxyHops();
   const publicRoute = route({ principals: ["public"], module: "core", idempotency: "none" });
   const holdRoute = route({ principals: ["public"], module: "core", idempotency: "optional" });
+  const payRoute = route({
+    principals: ["public"],
+    module: "core",
+    tokenRoute: true,
+    idempotency: "optional",
+  });
   const tokenRoute = route({
     principals: ["public"],
     module: "core",
@@ -178,6 +186,20 @@ export function onlineBookingRoutes(
         await saveDetails(c, venueId, hash, now, parsed.data, ip);
         return heldBooking(c, venueId, hash, now);
       });
+    },
+  );
+
+  app.post<{ Params: { token: string } }>(
+    "/v1/public/bookings/:token/pay",
+    { config: payRoute },
+    async (request) => {
+      const { venueId, hash } = await byToken(request.params.token);
+      if (!options.payAppUrl)
+        throw new ApiError("invalid_request", "the payment page isn't set up here (PAY_APP_URL)");
+      const payAppUrl = options.payAppUrl;
+      return withVenue(options.pool, { venueId, requestId: request.requestId }, (c) =>
+        depositPayLink(c, venueId, hash, options.clock.now(), payAppUrl),
+      );
     },
   );
 }

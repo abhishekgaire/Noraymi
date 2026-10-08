@@ -19,6 +19,8 @@ import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { StripeError, StripeUnknownResult } from "../stripe/client.js";
 import { createOnlineIntent, retrieveIntentSecret } from "../stripe/payments.js";
+import { createTabCustomer } from "../stripe/tabs.js";
+import { acceptTerms, depositBooking, moreTime } from "../bookings/online.js";
 import { checkNow, type PaymentDeps } from "./run.js";
 import { screenState } from "./machine.js";
 
@@ -30,7 +32,17 @@ import { screenState } from "./machine.js";
  * PaymentIntent's client secret. A wrong or expired token is not found.
  */
 export interface PayPage {
-  readonly status: "open" | "paid" | "checking" | "declined";
+  /** `lapsed`: a deposit's hold ran out before it was paid (M5-09), and the guest picks a time again. */
+  readonly status: "open" | "paid" | "checking" | "declined" | "lapsed";
+  readonly kind: "balance" | "deposit";
+  /** A booking's deposit (M5-09): the hold's countdown, the policy above the pay button, and where to pick again. */
+  readonly deposit: {
+    readonly seconds_left: number | null;
+    readonly more_time_left: number;
+    readonly cutoff_words: string | null;
+    readonly policy: { id: string; version: number; text: string; hash: string } | null;
+    readonly pick_again_url: string | null;
+  } | null;
   readonly amount_cents: number;
   readonly venue_name: string;
   readonly client_secret: string | null;
@@ -63,8 +75,10 @@ function statusOf(
   return "open";
 }
 
+export type PayLinkDeps = PaymentDeps & { readonly guestAppUrl?: string | null };
+
 export async function openPayLink(
-  deps: PaymentDeps,
+  deps: PayLinkDeps,
   token: string,
   /** A page load starts a new attempt after a decline; confirm's answer only reports what happened. */
   options: { retry?: boolean } = {},
@@ -86,7 +100,13 @@ export async function openPayLink(
     if (link.check_id && (await checkIsTraining(c, venueId, link.check_id))) throw notFound();
     const account = await stripeAccountOf(c, venueId);
     if (!account) throw new ApiError("invalid_request", "this venue can't take card payments yet");
+    const booking =
+      link.purpose === "deposit" && link.booking_id
+        ? await depositBooking(c, venueId, link.booking_id, now)
+        : null;
     let paymentId = link.payment_id;
+    // A deposit's payment is made when the guest leaves Terms (M5-09); a hold that ran out takes none.
+    if (!paymentId && booking) throw notFound();
     if (!paymentId) {
       paymentId = await insertPayment(c, venueId, {
         method: "card_online",
@@ -120,6 +140,7 @@ export async function openPayLink(
     // After a declined card the guest tries again on the same PaymentIntent: a new attempt.
     if (
       retry &&
+      !booking?.lapsed &&
       payment!.status === "pending" &&
       attempt &&
       (attempt.state === "failed" || attempt.state === "canceled")
@@ -128,14 +149,14 @@ export async function openPayLink(
         paymentId,
         checkId: link.check_id,
         bookingId: link.booking_id,
-        portionKey: `link:${link.id}`,
+        portionKey: booking ? "deposit" : `link:${link.id}`,
         action: "confirm",
         amountCents: link.amount_cents,
         startedAt: now.toString(),
       });
       attempt = await latestAttempt(c, venueId, paymentId);
     }
-    return { link, venue, account, payment: payment!, attempt };
+    return { link, venue, account, payment: payment!, attempt, booking };
   });
   const settings = deps.stripe.settings;
   const base = {
@@ -144,9 +165,24 @@ export async function openPayLink(
     publishable_key: settings.publishableKey,
     stripe_account: written.account,
     mode: settings.mode,
+    kind: written.booking ? ("deposit" as const) : ("balance" as const),
+    deposit: written.booking
+      ? {
+          seconds_left: written.booking.seconds_left,
+          more_time_left: written.booking.more_time_left,
+          cutoff_words: written.booking.cutoff_words,
+          policy: written.booking.policy,
+          pick_again_url: deps.guestAppUrl
+            ? `${deps.guestAppUrl}/v/${written.booking.slug}/book`
+            : null,
+        }
+      : null,
   };
   const status = statusOf(written.payment, written.attempt);
   if (status === "paid") return { ...base, status, client_secret: null };
+  // The hold ran out before the money went through: back to pick a time (no PaymentIntent is made).
+  if (written.booking?.lapsed && status !== "checking")
+    return { ...base, status: "lapsed", client_secret: null };
   // Its one PaymentIntent: made once, then the same one on every retry.
   try {
     const pi = written.payment.stripe_pi_id
@@ -155,6 +191,17 @@ export async function openPayLink(
           amountCents: written.link.amount_cents,
           paymentId: written.payment.id,
           checkId: written.link.check_id,
+          // A deposit saves the card, under a Customer on the venue's account (Payment flows step 2).
+          ...(written.booking
+            ? {
+                saveCard: true,
+                cardOnly: true,
+                bookingId: written.booking.id,
+                customer: (
+                  await createTabCustomer(deps.stripe, written.account, written.payment.id)
+                ).id,
+              }
+            : {}),
         });
     if (!written.payment.stripe_pi_id)
       await inVenue((c) => setPaymentIntent(c, written.payment.id, pi.id));
@@ -171,7 +218,7 @@ export async function openPayLink(
  * fake Stripe (local runs and tests), `testCard` confirms the PaymentIntent the way Stripe.js would.
  */
 export async function confirmPayLink(
-  deps: PaymentDeps,
+  deps: PayLinkDeps,
   token: string,
   testCard?: string,
 ): Promise<PayPage> {
@@ -199,5 +246,70 @@ export async function confirmPayLink(
       })
       .catch(() => undefined);
   await checkNow(deps, venueId, found.payment.id, "api");
+  return openPayLink(deps, token, { retry: false });
+}
+
+/**
+ * The guest presses Pay (M5-09; Payment flows step 2), before the Payment
+ * Element confirms: a deposit records the policy version they read, with the
+ * time, the IP address and the browser (M5-08's acceptTerms), and only while
+ * the hold stands. After a declined card, a new attempt starts on the same
+ * PaymentIntent.
+ */
+export async function startPayLink(
+  deps: PayLinkDeps,
+  token: string,
+  input: { policyVersionId: string | null; ip: string; userAgent: string },
+): Promise<PayPage> {
+  const { hash, venueId, inVenue } = await resolve(deps, token);
+  const now = deps.clock.now();
+  await inVenue(async (c) => {
+    const link = await payLinkByHash(c, venueId, hash, true);
+    if (!link?.payment_id) throw notFound();
+    const payment = (await paymentById(c, venueId, link.payment_id))!;
+    if (link.purpose === "deposit" && link.booking_id) {
+      const booking = await depositBooking(c, venueId, link.booking_id, now);
+      if (!booking || booking.lapsed || booking.status !== "pending")
+        throw new ApiError("invalid_request", "this hold has run out: pick a time again", {
+          details: { reason: "hold_over" },
+        });
+      if (!input.policyVersionId)
+        throw new ApiError("invalid_request", "send the policy version you read", {
+          details: { reason: "policy_changed" },
+        });
+      await acceptTerms(c, venueId, link.booking_id, {
+        policyVersionId: input.policyVersionId,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        at: now,
+      });
+    }
+    const attempt = await latestAttempt(c, venueId, link.payment_id);
+    if (
+      payment.status === "pending" &&
+      attempt &&
+      (attempt.state === "failed" || attempt.state === "canceled")
+    )
+      await startAttempt(c, venueId, {
+        paymentId: link.payment_id,
+        checkId: link.check_id,
+        bookingId: link.booking_id,
+        portionKey: link.purpose === "deposit" ? "deposit" : `link:${link.id}`,
+        action: "confirm",
+        amountCents: link.amount_cents,
+        startedAt: now.toString(),
+      });
+  });
+  return openPayLink(deps, token, { retry: false });
+}
+
+/** "More time" on the payment page (M5-07's 10 minutes, ten times), for a deposit's hold. */
+export async function payLinkMoreTime(deps: PayLinkDeps, token: string): Promise<PayPage> {
+  const { hash, venueId, inVenue } = await resolve(deps, token);
+  await inVenue(async (c) => {
+    const link = await payLinkByHash(c, venueId, hash);
+    if (!link?.booking_id || link.purpose !== "deposit") throw notFound();
+    await moreTime(c, venueId, link.booking_id, deps.clock.now());
+  });
   return openPayLink(deps, token, { retry: false });
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cents, formatMoney, t } from "@west4/shared";
+import { Countdown } from "../../site/countdown";
 
 /**
  * The pay step (M4-15): Stripe.js from js.stripe.com with our publishable key
@@ -11,7 +12,16 @@ import { cents, formatMoney, t } from "@west4/shared";
  * for the Payment Element.
  */
 export interface PayPage {
-  readonly status: "open" | "paid" | "checking" | "declined";
+  readonly status: "open" | "paid" | "checking" | "declined" | "lapsed";
+  readonly kind: "balance" | "deposit";
+  /** A booking's deposit (M5-09): the hold's countdown, the policy above the pay button, where to pick again. */
+  readonly deposit: {
+    readonly seconds_left: number | null;
+    readonly more_time_left: number;
+    readonly cutoff_words: string | null;
+    readonly policy: { id: string; version: number; text: string; hash: string } | null;
+    readonly pick_again_url: string | null;
+  } | null;
   readonly amount_cents: number;
   readonly venue_name: string;
   readonly client_secret: string | null;
@@ -69,6 +79,19 @@ export function PayForm({
   const confirm = async (testCard?: string) => {
     setBusy(true);
     setError(null);
+    // Pressing Pay: a deposit records the policy read above the button; a declined card starts a new try.
+    const started = await fetch(`/v1/public/pay/${encodeURIComponent(token)}/start`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        page.deposit?.policy ? { policy_version_id: page.deposit.policy.id } : {},
+      ),
+    });
+    if (!started.ok) {
+      // The hold ran out, or the policy changed: the page reloads to say so.
+      window.location.reload();
+      return;
+    }
     if (stripe.current) {
       const r = await stripe.current.client.confirmPayment({
         elements: stripe.current.elements,
@@ -88,13 +111,35 @@ export function PayForm({
   };
 
   const amount = formatMoney("en", cents(page.amount_cents));
+  const deposit = page.deposit;
+  const payLabel = t("en", deposit ? "payPage.payDeposit" : "payPage.pay", { amount });
   return (
     <main className="guest pay-page">
       <header>
         <p className="venue">{page.venue_name}</p>
-        <h1>{t("en", "payPage.title", { amount })}</h1>
+        <h1>{t("en", deposit ? "payPage.depositTitle" : "payPage.title", { amount })}</h1>
       </header>
-      {page.status === "paid" ? (
+      {deposit &&
+        page.status !== "paid" &&
+        page.status !== "lapsed" &&
+        deposit.seconds_left !== null && (
+          <Countdown
+            token={token}
+            secondsLeft={deposit.seconds_left}
+            moreTimeLeft={deposit.more_time_left}
+            moreTimeUrl={`/v1/public/pay/${encodeURIComponent(token)}/more-time`}
+          />
+        )}
+      {page.status === "lapsed" ? (
+        <section aria-labelledby="lapsed-h">
+          <h2 id="lapsed-h">{t("en", "site.book.lapsed")}</h2>
+          {deposit?.pick_again_url && (
+            <a className="button" href={deposit.pick_again_url}>
+              {t("en", "site.book.pickAgain")}
+            </a>
+          )}
+        </section>
+      ) : page.status === "paid" ? (
         <p role="status">{t("en", "payPage.paid", { amount })}</p>
       ) : page.status === "checking" ? (
         <p role="status">{t("en", "payPage.checking")}</p>
@@ -102,6 +147,25 @@ export function PayForm({
         <>
           {page.status === "declined" && <p role="alert">{t("en", "payPage.declined")}</p>}
           {error && <p role="alert">{error}</p>}
+          {deposit?.policy && (
+            <section aria-labelledby="terms-h" className="terms">
+              <h2 id="terms-h">{t("en", "site.book.terms")}</h2>
+              {deposit.cutoff_words && (
+                <p className="cutoff">
+                  {t("en", "site.book.cutoff", { cutoff: deposit.cutoff_words })}
+                </p>
+              )}
+              {deposit.policy.text
+                .split("\n")
+                .filter((line) => line.trim())
+                .map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              <p className="small">
+                {t("en", "site.book.policyVersion", { n: deposit.policy.version })}
+              </p>
+            </section>
+          )}
           {page.mode === "stripe" ? (
             <>
               <div ref={mount} className="payment-element" />
@@ -111,7 +175,7 @@ export function PayForm({
                 disabled={busy}
                 onClick={() => void confirm()}
               >
-                {t("en", "payPage.pay", { amount })}
+                {payLabel}
               </button>
             </>
           ) : (
@@ -123,7 +187,7 @@ export function PayForm({
                 disabled={busy}
                 onClick={() => void confirm("pm_card_visa")}
               >
-                {t("en", "payPage.pay", { amount })}
+                {payLabel}
               </button>
               <button
                 type="button"

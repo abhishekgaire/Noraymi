@@ -158,7 +158,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 - **Acceptance:**
   - [ ] A booking without a valid CAPTCHA token is refused by the server.
   - [ ] Past the daily limit for one phone number, IP address or device, a new booking is refused with the reason.
-  - [ ] Five payment retries on one booking leave one PaymentIntent in Stripe.
+  - [x] Five payment retries on one booking leave one PaymentIntent in Stripe. (Built and tested with M5-09: `booking-deposit.int.test.ts`.)
 - **Tests:** integration; a test that drives each limit to its edge.
 - **Notes:** Radar rules and our per-venue decline-rate alarm (Security 8) come with watching production in M8.
   - Blocked with M2-27 on the founder: which CAPTCHA provider, and the daily limits per phone number, IP address and device. Nothing is invented meanwhile. The other two lines don't wait: one PaymentIntent per booking is built with the deposit payment (M5-09), and booking takes +1 numbers only (M5-08), as enquiries already do (M5-04).
@@ -241,7 +241,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-09 · Pay the deposit on the payment page
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-08; M4-05, M4-15
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) steps 2 and 3, and Failures; [Stripe setup](../spec/06-stripe-setup.md) step 10; [Money rules](../spec/05-money-rules.md) rule 11; [API](../spec/08-api.md) (`POST /v1/public/pay/{token}`); [screens: N1](../screens.md#n1-booking-steps-after-the-price)
@@ -252,12 +252,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The payment row: method `card_online`, with `booking_id`, and attempts with `portion_key` 'deposit'; the saved card goes in `bookings.payment_method_id`.
   - Until check-in, the deposit is money held for the guest (customer deposits), not a sale.
 - **Acceptance:**
-  - [ ] Jae pays the $50.00 deposit on the sandbox payment origin with a test card, and Stripe shows one PaymentIntent with `setup_future_usage=off_session` and a Customer on West 4's account.
-  - [ ] A declined card, then a good one, leaves one PaymentIntent with two attempts.
-  - [ ] While Stripe's answer is pending, the page says it's still checking and shows no second pay button.
-  - [ ] Letting the hold run out before paying sends Jae back to pick a time.
+  - [x] Jae pays the $50.00 deposit on the sandbox payment origin with a test card, and Stripe shows one PaymentIntent with `setup_future_usage=off_session` and a Customer on West 4's account.
+  - [x] A declined card, then a good one, leaves one PaymentIntent with two attempts.
+  - [x] While Stripe's answer is pending, the page says it's still checking and shows no second pay button.
+  - [x] Letting the hold run out before paying sends Jae back to pick a time.
 - **Tests:** sandbox integration (a decline, then success); Playwright on the payment origin; chaos: killed after Stripe's success and before our record, the reconciler (M4-12) settles it.
 - **Notes:** The payment page's header and script checks run again here for the deposit flow (M5-17).
+  - Built: Terms' "Pay $50.00 deposit" calls `POST /v1/public/bookings/{token}/pay` (not in the API table, flagged), which makes the booking's one deposit payment (card_online, `booking_id`, first attempt with `portion_key` 'deposit') under the booking's row lock, then hands out a new pay link to that same payment on each call (`pay_links.purpose` 'deposit', lasting until the booked start). The browser goes to the payment origin with the booking's link in the URL fragment, which never reaches a server (M5-10 uses it to come back).
+  - The PaymentIntent: `payment_method_types[]=card` (Apple Pay and Google Pay arrive as cards), `setup_future_usage=off_session`, a Customer on West 4's account (key `<payment_id>:customer`), `booking_id` in its metadata, key `<payment_id>:create`. Every link and every reload answers the same one.
+  - The payment page for a deposit: "Your deposit · $50.00", the hold's countdown with More time (`POST /v1/public/pay/{token}/more-time`, since the pay host only serves `/v1/public/pay/`), the policy and the cut-off above "Pay $50.00 deposit". Pressing Pay first calls `POST /v1/public/pay/{token}/start` (new, flagged): it records the accepted policy version, time, IP address and browser (M5-08's `acceptTerms`), refuses a stale policy or a lapsed hold (the page reloads to say so), and starts a new attempt after a decline, so another card goes on the same PaymentIntent. A hold that ran out shows "Your hold ran out…" and "Pick a time again" (`status: lapsed`), and no PaymentIntent is made for it.
+  - On capture, the PaymentIntent's card goes in `bookings.payment_method_id` (the state machine now reads `payment_method`).
+  - The reconciler reads a deposit's attempt as before but never cancels it while the booking's hold stands (the guest may be typing a card for 10 minutes or more, past the reconciler's 2 minutes); once the hold has run out, an unpaid PaymentIntent is canceled. A payment Stripe took that we never recorded is captured by the reconciler (the chaos case).
+  - Customer deposits: a captured payment with a booking is already counted as deposits taken (customer deposits) in the night's journal and moves to the check at check-in (M7-15, M4), so no change was needed.
+  - Fixed on the way: `pnpm seed` didn't wipe `consents`, so a consent naming a guest made at runtime blocked the next seed; it now starts the night with none.
+  - Tests: `booking-deposit.int.test.ts` (the PaymentIntent's settings, the policy accepted, the saved card, five links and a decline then a good card leaving one PaymentIntent with two attempts, More time, the lapse, the reconciler leaving a live deposit alone, the chaos case); Playwright "Book: Jae pays the $50.00 deposit on the payment page". The real-sandbox run (Stripe test mode, not the fake) is part of M5-17's proof.
+
 
 ### M5-10 · Confirm the booking and send the confirmation
 

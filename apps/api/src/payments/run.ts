@@ -673,6 +673,7 @@ export async function cancelPayment(
         intent: {
           id: "",
           status: "canceled",
+          paymentMethod: null,
           amountReceived: 0,
           amountCapturable: 0,
           tipCents: 0,

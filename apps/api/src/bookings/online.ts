@@ -1,8 +1,12 @@
 import { randomBytes } from "node:crypto";
 import {
+  createPayLink,
   currentPolicy,
   emitEvent,
   findOrCreateGuest,
+  insertPayment,
+  setPayLinkPayment,
+  startAttempt,
   listRooms,
   payTokenHash,
   publishPolicy,
@@ -541,4 +545,117 @@ export async function acceptTerms(
   );
   if (r.rowCount === 0) throw refuse("details", "give your name and mobile number first");
   return { policy_version_id: current.id, hash: current.hash };
+}
+
+/**
+ * Terms → Payment (M5-09; Payment flows step 2; M5-05's one PaymentIntent per
+ * booking): the booking's one deposit payment (card_online, with its first
+ * attempt, portion `deposit`), made once under the booking's lock and shared
+ * by every pay link the guest opens, so every retry reaches the same
+ * PaymentIntent. Each call gives a new pay link to it, on the payment origin;
+ * the link lasts until the booked start, and the page itself says when the
+ * hold has run out.
+ */
+export async function depositPayLink(
+  c: Queryable,
+  venueId: string,
+  tokenHash: string,
+  now: Temporal.Instant,
+  payAppUrl: string,
+) {
+  const bookingId = await stillHeld(c, venueId, tokenHash, now);
+  const b = (
+    await c.query<{ guest_id: string | null; deposit_cents: number; starts_at: string }>(
+      `select guest_id, deposit_cents, to_json(starts_at) #>> '{}' as starts_at
+         from bookings where venue_id = $1 and id = $2`,
+      [venueId, bookingId],
+    )
+  ).rows[0]!;
+  if (!b.guest_id) throw refuse("details", "give your name and mobile number first");
+  if (b.deposit_cents <= 0) throw refuse("no_deposit", "this booking takes no deposit");
+  let paymentId = (
+    await c.query<{ id: string }>(
+      `select id from payments where venue_id = $1 and booking_id = $2 and method = 'card_online'
+          and status not in ('canceled', 'failed') order by created_at limit 1`,
+      [venueId, bookingId],
+    )
+  ).rows[0]?.id;
+  if (!paymentId) {
+    const venue = await venueClock(c, venueId);
+    paymentId = await insertPayment(c, venueId, {
+      method: "card_online",
+      status: "pending",
+      businessDate: businessDate(now, venue.timeZone, venue.dayCutover).businessDate.toString(),
+      bookingId,
+    });
+    await startAttempt(c, venueId, {
+      paymentId,
+      checkId: null,
+      bookingId,
+      portionKey: "deposit",
+      action: "confirm",
+      amountCents: b.deposit_cents,
+      startedAt: now.toString(),
+    });
+  }
+  const link = await createPayLink(c, venueId, {
+    bookingId,
+    amountCents: b.deposit_cents,
+    expiresAt: b.starts_at,
+    purpose: "deposit",
+  });
+  await setPayLinkPayment(c, venueId, link.id, paymentId);
+  return { pay_url: `${payAppUrl}/pay/${link.token}` };
+}
+
+/** The pay page's view of a deposit's booking (M5-09): the hold, the policy and the cut-off. */
+export async function depositBooking(
+  c: Queryable,
+  venueId: string,
+  bookingId: string,
+  now: Temporal.Instant,
+) {
+  const b = (
+    await c.query<{
+      status: string;
+      pending_until: string | null;
+      hold_extensions: number;
+      starts_at: string;
+      refund_cutoff_at: string | null;
+      slug: string;
+      time_zone: string;
+    }>(
+      `select b.status, to_json(b.pending_until) #>> '{}' as pending_until, b.hold_extensions,
+              to_json(b.starts_at) #>> '{}' as starts_at, to_json(b.refund_cutoff_at) #>> '{}' as refund_cutoff_at,
+              v.slug, v.time_zone
+         from bookings b join venues v on v.id = b.venue_id where b.venue_id = $1 and b.id = $2`,
+      [venueId, bookingId],
+    )
+  ).rows[0];
+  if (!b) return null;
+  const lapsed =
+    b.status === "cancelled" ||
+    (b.status === "pending" &&
+      (!b.pending_until ||
+        Temporal.Instant.compare(Temporal.Instant.from(b.pending_until), now) <= 0));
+  return {
+    id: bookingId,
+    status: b.status,
+    slug: b.slug,
+    lapsed,
+    seconds_left:
+      b.status === "pending" && b.pending_until && !lapsed
+        ? Math.max(0, Math.floor((Date.parse(b.pending_until) - now.epochMilliseconds) / 1000))
+        : null,
+    more_time_left: Math.max(0, MORE_TIME_TIMES - b.hold_extensions),
+    cutoff_words: b.refund_cutoff_at
+      ? cutoffWords(
+          Temporal.Instant.from(b.refund_cutoff_at),
+          Temporal.Instant.from(b.starts_at),
+          now,
+          b.time_zone,
+        )
+      : null,
+    policy: await policyJson(c, venueId),
+  };
 }

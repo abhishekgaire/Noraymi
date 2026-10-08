@@ -341,7 +341,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       drawerRoutes(scope, { clock });
       drawerMoveRoutes(scope, { clock });
       splitRoutes(scope, { clock });
-      payRoutes(scope, { pool: gatePoolRef!, clock, stripe });
+      payRoutes(scope, { pool: gatePoolRef!, clock, stripe, guestAppUrl: config.guestAppUrl });
       receiptRoutes(scope, { pool: gatePoolRef!, clock, receipts: receiptDeps });
       refundRoutes(scope, { clock });
       goLiveRoutes(scope, { pool: gatePoolRef!, clock, stripe });
@@ -351,7 +351,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       siteVersionsRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       enquiriesRoutes(scope, { pool: gatePoolRef!, clock });
       policyRoutes(scope, { pool: gatePoolRef! });
-      onlineBookingRoutes(scope, { pool: gatePoolRef!, clock });
+      onlineBookingRoutes(scope, { pool: gatePoolRef!, clock, payAppUrl: config.payAppUrl });
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
       tabHandOverRoutes(scope, { clock });

@@ -1,12 +1,13 @@
-import { t, type MessageKey } from "@west4/shared";
+import { cents, formatMoney, t, type MessageKey } from "@west4/shared";
 import { SiteFooter, SiteHeader } from "./home";
 import { clockWords, dateWords, type HeldBooking, type SiteView } from "./data";
 import { Countdown } from "./countdown";
 import { QuoteSummary } from "./quote";
 import { DetailsForm } from "./details-form";
+import { PayButton } from "./pay-button";
 
 /** The Terms step (M5-08): the deposit policy now in force, this booking's cut-off and the gratuity sentence. */
-export function Terms({ held }: { held: HeldBooking }) {
+export function Terms({ held, token }: { held: HeldBooking; token: string }) {
   if (!held.policy) return null;
   return (
     <section aria-labelledby="terms-h" className="terms">
@@ -21,6 +22,14 @@ export function Terms({ held }: { held: HeldBooking }) {
           <p key={i}>{line}</p>
         ))}
       <p className="small">{t("en", "site.book.policyVersion", { n: held.policy.version })}</p>
+      {held.quote.deposit_cents > 0 && (
+        <PayButton
+          token={token}
+          label={t("en", "payPage.payDeposit", {
+            amount: formatMoney("en", cents(held.quote.deposit_cents)),
+          })}
+        />
+      )}
     </section>
   );
 }
@@ -88,7 +97,7 @@ export function HeldPage({
             {held.status === "pending" && (
               <>
                 <DetailsForm token={token} initial={held.guest} marketingBox={held.marketing_box} />
-                {held.guest && <Terms held={held} />}
+                {held.guest && <Terms held={held} token={token} />}
               </>
             )}
           </>

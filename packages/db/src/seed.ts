@@ -1036,6 +1036,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "enquiries",
       "messages",
       "conversations",
+      // Opt-ins and opt-outs (M5-08's marketing box names its guest): a fresh night starts with none.
+      "consents",
       "message_templates",
       "webhook_events",
       "integrations",

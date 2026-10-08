@@ -103,6 +103,12 @@ export async function applyObservation(
         surchargeCents: surcharge,
       });
       if (intent.card) await setPaymentCard(c, venueId, paymentId, intent.card);
+      // A booking's deposit saved its card for the rest of the tab and a no-show charge (M5-09).
+      if (before.booking_id && before.method === "card_online" && intent.paymentMethod)
+        await c.query(
+          "update bookings set payment_method_id = $3 where venue_id = $1 and id = $2 and payment_method_id is null",
+          [venueId, before.booking_id, intent.paymentMethod],
+        );
       // What the check's allocation held, before it's captured: the card paid beyond it only the fee and its tax.
       const held = (
         await c.query<{ s: string }>(

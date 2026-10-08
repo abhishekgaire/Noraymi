@@ -9,6 +9,8 @@ export interface StripeIntent {
   readonly id: string;
   readonly status: string;
   readonly amount: number;
+  /** The card a guest paid with: an id, or the object when expanded (M5-09 keeps it for a deposit). */
+  readonly payment_method?: string | { readonly id: string } | null;
   readonly amount_received?: number;
   readonly amount_capturable?: number;
   readonly amount_details?: { readonly tip?: { readonly amount?: number } };
@@ -55,6 +57,8 @@ export interface ReaderAction {
 export interface IntentObservation {
   readonly id: string;
   readonly status: string;
+  /** The PaymentMethod that paid, saved for later charges when set up for off-session use (M5-09). */
+  readonly paymentMethod: string | null;
   readonly amountReceived: number;
   readonly amountCapturable: number;
   readonly tipCents: number;
@@ -92,6 +96,8 @@ export function observeIntent(pi: StripeIntent): IntentObservation {
   return {
     id: pi.id,
     status: pi.status,
+    paymentMethod:
+      typeof pi.payment_method === "string" ? pi.payment_method : (pi.payment_method?.id ?? null),
     amountReceived: pi.amount_received ?? 0,
     amountCapturable: pi.amount_capturable ?? 0,
     tipCents: pi.amount_details?.tip?.amount ?? 0,
@@ -232,6 +238,9 @@ export async function createOnlineIntent(
     checkId: string | null;
     saveCard?: boolean;
     customer?: string;
+    /** A booking's deposit (M5-09): `payment_method_types[]=card` (Apple Pay and Google Pay come as cards). */
+    cardOnly?: boolean;
+    bookingId?: string | null;
   },
 ): Promise<StripeIntent & { client_secret: string }> {
   return stripe.call("payments", "POST", "/v1/payment_intents", {
@@ -240,12 +249,15 @@ export async function createOnlineIntent(
     params: {
       amount: input.amountCents,
       currency: "usd",
-      automatic_payment_methods: { enabled: true },
+      ...(input.cardOnly
+        ? { payment_method_types: ["card"] }
+        : { automatic_payment_methods: { enabled: true } }),
       ...(input.saveCard ? { setup_future_usage: "off_session" } : {}),
       ...(input.customer ? { customer: input.customer } : {}),
       metadata: {
         payment_id: input.paymentId,
         ...(input.checkId ? { check_id: input.checkId } : {}),
+        ...(input.bookingId ? { booking_id: input.bookingId } : {}),
       },
     },
   });

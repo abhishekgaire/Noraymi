@@ -12,10 +12,13 @@ export function Countdown({
   token,
   secondsLeft,
   moreTimeLeft,
+  moreTimeUrl,
 }: {
   token: string;
   secondsLeft: number;
   moreTimeLeft: number;
+  /** The payment page extends the hold through its own pay link (M5-09). */
+  moreTimeUrl?: string;
 }) {
   const [left, setLeft] = useState(secondsLeft);
   const [more, setMore] = useState(moreTimeLeft);
@@ -36,13 +39,19 @@ export function Countdown({
   const extend = async () => {
     setBusy(true);
     try {
-      const r = await fetch(`/v1/public/bookings/${encodeURIComponent(token)}/more-time`, {
+      const url = moreTimeUrl ?? `/v1/public/bookings/${encodeURIComponent(token)}/more-time`;
+      const r = await fetch(url, {
         method: "POST",
       });
       if (r.ok) {
-        const b = (await r.json()) as { seconds_left: number; more_time_left: number };
-        setLeft(b.seconds_left);
-        setMore(b.more_time_left);
+        const body = (await r.json()) as {
+          seconds_left?: number | null;
+          more_time_left?: number;
+          deposit?: { seconds_left: number | null; more_time_left: number } | null;
+        };
+        const b = body.deposit ?? body;
+        setLeft(b.seconds_left ?? 0);
+        setMore(b.more_time_left ?? 0);
       }
     } finally {
       setBusy(false);

@@ -30,6 +30,7 @@ import { holdsToCancel } from "../tabs/pay.js";
  *     Tap to Pay payment from Stripe's Dashboard app) are recorded as
  *     unmatched: a `payments` row with method `external`, no allocation, and
  *     a reconciler event, for M7's Unmatched payments list;
+ *     A booking's deposit is never canceled while its hold stands (M5-09);
  *  4. a bar tab's hold still standing after another card or cash paid the tab
  *     (M6-11) is canceled, keyed <payment_id>:cancel (run before 3).
  * Nothing is ever matched by metadata. Every Stripe call is outside a transaction.
@@ -115,6 +116,20 @@ async function reconcilePass(
       out.recovered.push(row.payment_id);
     }
     const applied = await checkNow(deps, venueId, row.payment_id, "reconciler");
+    // A booking's deposit while its hold stands (M5-09): the guest is still on the payment page, so
+    // its PaymentIntent is read but never canceled; once the hold has run out, it is.
+    const guestPaying =
+      (
+        await inVenue((c) =>
+          c.query(
+            `select 1 from payments p join bookings b on b.venue_id = p.venue_id and b.id = p.booking_id
+              where p.venue_id = $1 and p.id = $2 and p.method = 'card_online'
+                and b.status = 'pending' and b.pending_until > $3`,
+            [venueId, row.payment_id, now.toString()],
+          ),
+        )
+      ).rowCount === 1;
+    if (guestPaying) continue;
     if (
       applied?.attempt &&
       (applied.attempt.state === "started" || applied.attempt.state === "unknown")
