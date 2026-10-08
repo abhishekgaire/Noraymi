@@ -1,0 +1,7 @@
+{
+  "note": "The gate's on-call rota (M9-16): every opening hour of the 4 weeks, through each night's close, with a first and a second responder (our Console staff by email). Empty until the founder names the first live night and the people. Check it with pnpm --filter @west4/api oncall:coverage -- --rota docs/gate/oncall-rota.json",
+  "venue": "west4karaoke",
+  "starts_on": null,
+  "weeks": 4,
+  "shifts": []
+}

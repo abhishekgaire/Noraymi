@@ -148,3 +148,4 @@ export type {
   OutletMemory,
 } from "./mic-outlet.js";
 export * from "./money-audit.js";
+export * from "./oncall-coverage.js";

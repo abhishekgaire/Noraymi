@@ -128,3 +128,33 @@ describe("gate items 1 and 4: the must-fix tracker (M9-14)", () => {
     expect(met).toBe(report !== null);
   });
 });
+
+describe("the go-live runbook (M9-16)", () => {
+  const book = read("docs/runbooks/go-live.md");
+
+  it("every link resolves, and every go or no-go line is still open until it's checked on the day", () => {
+    for (const m of book.matchAll(/\]\(([^)#\s]+)(#[^)]*)?\)/g)) {
+      if (/^https?:/.test(m[1]!)) continue;
+      expect(existsSync(join(ROOT, "docs/runbooks", m[1]!)), m[1]).toBe(true);
+    }
+    const lines = book.slice(book.indexOf("## Go or no-go"), book.indexOf("## Test pages"));
+    expect(lines.match(/^- \[ \]/gm)?.length).toBeGreaterThanOrEqual(11);
+    expect(/\*\*Status:\*\* not run/.test(book)).toBe(lines.includes("- [x]") === false);
+  });
+
+  it("names every prerequisite the ticket lists", () => {
+    for (const t of [
+      "M4-29",
+      "M9-07",
+      "M9-08",
+      "M8-22",
+      "M9-06",
+      "M9-11",
+      "M9-12",
+      "M9-13",
+      "M8-07",
+      "M9-09",
+    ])
+      expect(book, t).toContain(t);
+  });
+});

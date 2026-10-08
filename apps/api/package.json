@@ -27,6 +27,7 @@
     "trial:report": "tsx --env-file-if-exists=../../.env src/ops/trial-report-cli.ts",
     "status:set": "tsx --env-file-if-exists=../../.env src/telemetry/status-cli.ts",
     "oncall:set": "tsx --env-file-if-exists=../../.env src/ops/oncall-cli.ts",
+    "oncall:coverage": "tsx --env-file-if-exists=../../.env src/ops/oncall-coverage-cli.ts",
     "synthetic:setup": "tsx --env-file-if-exists=../../.env src/ops/synthetic-cli.ts",
     "load:friday": "tsx src/load/cli.ts"
   },

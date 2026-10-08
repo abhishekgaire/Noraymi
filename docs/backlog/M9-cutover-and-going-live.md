@@ -318,7 +318,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-16 · Go live, with on-call covering every opening hour
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M9-06 to M9-15; M8-17 (paging and the second responder); M8-22 (texts live)
 - **Spec:** [milestones](../milestones.md#m9--cutover-and-going-live) · M9 Ships (Live nights); [Testing and operations](../spec/13-testing-operations.md) · On call; [Scope and architecture](../spec/01-scope-architecture.md) · When our cloud is down (the go-live checklist); [Stripe setup](../spec/06-stripe-setup.md) 3 and 11
@@ -329,12 +329,15 @@ Definition of done: see CLAUDE.md.
   - An on-call rota covering every opening hour for the whole gate (4:00 PM to 4:00 AM on weekdays, 2:00 PM to 4:00 AM on weekends, through each night's close), each shift with a named first and second responder.
   - A rollback plan for the first nights.
 - **Acceptance:**
-  - [ ] The go or no-go checklist passes the day before the first live night.
-  - [ ] The first live night closes with a Z report that M9-15 finds clean.
-  - [ ] The rota covers every opening hour of the 4 weeks with a first and a second responder.
+  - [ ] The go or no-go checklist passes the day before the first live night. (`docs/runbooks/go-live.md` is ready; it runs the day before a first live night the founder hasn't set, and most of its lines wait on M9-06 to M9-13, M8-07 and M8-22.)
+  - [ ] The first live night closes with a Z report that M9-15 finds clean. (No live night yet; the morning audit runs on it at 8:00 AM.)
+  - [ ] The rota covers every opening hour of the 4 weeks with a first and a second responder. (The check is built and tested; `docs/gate/oncall-rota.json` is empty until the founder names the first live night and the responders, so it fails today.)
 - **Tests:** a test page to each responder at the start of the rota.
 - **Notes:** Spec gap: what happens to West 4's old point-of-sale system at cutover isn't said; cautious default: it takes no new sales from the first live night and stays read-only for lookups during the gate.
-
+  - Built (M9-16): `docs/runbooks/go-live.md`: the go or no-go checklist for the day before (M4-29's Stripe checklist, the hardware, everyone signed in, texts live, the signed dry run, the staff trial, the Spanish review, the sign-offs, the outage drill, the rota, the money audit's recipients, training mode off), each with its command or evidence; the test pages at the start of the rota; the cutover (the old booking form off, the final delta import, the domain move, the old system taking no new sales); the first live night; the rollback plan for the first nights; and a record table. `packages/rules/src/oncall-coverage.ts` (`coverageGaps`, `shiftAt`) and `apps/api/src/ops/oncall-coverage.ts` with `pnpm --filter @west4/api oncall:coverage`: the gate's rota in `docs/gate/oncall-rota.json` (shifts in the venue's wall clock, our Console staff by email) checked against the venue's own hours, night by night, so every opening hour has a first and a second responder, two different active staff; `--apply` puts the shift on now into the pager's slots at a handover.
+  - Cautious defaults: "through each night's close" is read as through the day cutover (6:00 AM), since when a close finishes isn't known in advance. The old point-of-sale system: as the Notes above say, no new sales from the first live night, read-only through the gate; the rollback plan lets it take the rest of a night only when the app can't, with those sales entered the next day as late money. Opening hours come from West 4's hours setting, which on the demo seed are the canvas's demo hours (4 PM weekdays, 2 PM weekends, to 4 AM, matching this ticket); production needs West 4's real hours entered in Admin.
+  - Tests: unit tests for the coverage rule (a full week, a missing hour, a missing second, the same person twice, overlapping handovers, the daylight-saving night); an integration test on the demo seed (West 4's 28 nights, a full rota passes, faults fail, the committed empty rota fails, `--apply` sets the slots); a link check over the runbook. The ticket's test, a test page to each responder at the start of the rota, is a step in the runbook: it needs the real responders.
+  - Blocked on the founder: the first live night's date, the responders for every shift of the 4 weeks (each with a Console account), `MONEY_AUDIT_TO`, West 4's real hours, and every go or no-go line's own ticket.
 ### M9-17 · Run 4 weeks of live nights without a money error
 
 - **Status:** todo
