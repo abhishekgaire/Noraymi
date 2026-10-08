@@ -13,7 +13,15 @@ import {
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { heldBooking, holdBooking, moreTime, onlineAvailability } from "../bookings/online.js";
+import {
+  detailsBody,
+  heldBooking,
+  holdBooking,
+  moreTime,
+  onlineAvailability,
+  saveDetails,
+} from "../bookings/online.js";
+import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
 
 /**
  * Online booking, the Pick step (M5-07; API · Bookings):
@@ -21,6 +29,7 @@ import { heldBooking, holdBooking, moreTime, onlineAvailability } from "../booki
  *   POST /v1/public/venues/{slug}/bookings     { business_date, time, offset?, hours, party_size } → a 10-minute hold and its link
  *   GET  /v1/public/bookings/{token}/hold      the held booking, its countdown and its exact price
  *   POST /v1/public/bookings/{token}/more-time 10 more minutes, ten times
+ *   POST /v1/public/bookings/{token}/details   { name, phone, email, marketing } (M5-08: the Details step)
  * The CAPTCHA and daily limits join POST with M5-05 (blocked on M2-27). The hold and more-time
  * routes are the cautious default (the API table names only availability and POST bookings).
  */
@@ -42,6 +51,7 @@ export function onlineBookingRoutes(
   app: FastifyInstance,
   options: { pool: pg.Pool; clock: Clock },
 ) {
+  const proxyHops = loadTrustedProxyHops();
   const publicRoute = route({ principals: ["public"], module: "core", idempotency: "none" });
   const holdRoute = route({ principals: ["public"], module: "core", idempotency: "optional" });
   const tokenRoute = route({
@@ -141,6 +151,31 @@ export function onlineBookingRoutes(
       return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
         const held = await heldBooking(c, venueId, hash, now);
         await moreTime(c, venueId, held.id, now);
+        return heldBooking(c, venueId, hash, now);
+      });
+    },
+  );
+
+  app.post<{ Params: { token: string }; Body: unknown }>(
+    "/v1/public/bookings/:token/details",
+    { config: tokenRoute },
+    async (request) => {
+      const parsed = detailsBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "send { name, phone, email, marketing }: a US mobile number (+1), and an email",
+          {
+            details: {
+              reason: parsed.error.issues.some((i) => i.path[0] === "phone") ? "phone" : "details",
+            },
+          },
+        );
+      const { venueId, hash } = await byToken(request.params.token);
+      const now = options.clock.now();
+      const ip = publicIpOf(request.ip, request.headers["x-forwarded-for"], proxyHops);
+      return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
+        await saveDetails(c, venueId, hash, now, parsed.data, ip);
         return heldBooking(c, venueId, hash, now);
       });
     },

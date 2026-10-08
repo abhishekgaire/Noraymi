@@ -1,21 +1,28 @@
 import { randomBytes } from "node:crypto";
 import {
+  currentPolicy,
   emitEvent,
+  findOrCreateGuest,
   listRooms,
   payTokenHash,
+  publishPolicy,
   readSetting,
   rulePackFor,
+  statesOf,
+  venueModules,
   type Queryable,
 } from "@west4/db";
 import {
   bookingGrid,
   bookingQuote,
   businessDate,
+  cutoffWords,
   minGuestsOn,
   resolveStart,
   type BookingQuote,
 } from "@west4/rules";
-import { Temporal, type DepositRule, type PriceSettings } from "@west4/shared";
+import { t, Temporal, type DepositRule, type PriceSettings } from "@west4/shared";
+import { z } from "zod";
 import { ApiError } from "../http/errors.js";
 import { assignBooking, freeSlots, nightHours, venueClock } from "../rooms/assignment.js";
 import { pctOf } from "../site/site.js";
@@ -299,11 +306,19 @@ export async function heldBooking(
       pending_until: string | null;
       hold_extensions: number;
       refund_cutoff_at: string | null;
+      guest_name: string | null;
+      guest_phone: string | null;
+      guest_email: string | null;
+      policy_version_id: string | null;
+      accepted_at: string | null;
     }>(
-      `select id, status, party_size, size_tier, room_id, to_json(starts_at) #>> '{}' as starts_at,
-              to_json(ends_at) #>> '{}' as ends_at, business_date::text, to_json(pending_until) #>> '{}' as pending_until,
-              hold_extensions, to_json(refund_cutoff_at) #>> '{}' as refund_cutoff_at
-         from bookings where venue_id = $1 and manage_token_hash = $2`,
+      `select b.id, b.status, b.party_size, b.size_tier, b.room_id, to_json(b.starts_at) #>> '{}' as starts_at,
+              to_json(b.ends_at) #>> '{}' as ends_at, b.business_date::text, to_json(b.pending_until) #>> '{}' as pending_until,
+              b.hold_extensions, to_json(b.refund_cutoff_at) #>> '{}' as refund_cutoff_at,
+              g.name as guest_name, g.phone_e164 as guest_phone, g.email as guest_email,
+              b.policy_version_id, to_json(b.accepted_at) #>> '{}' as accepted_at
+         from bookings b left join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+        where b.venue_id = $1 and b.manage_token_hash = $2`,
       [venueId, tokenHash],
     )
   ).rows[0];
@@ -342,6 +357,17 @@ export async function heldBooking(
       : null,
     more_time_left: Math.max(0, MORE_TIME_TIMES - b.hold_extensions),
     refund_cutoff_at: b.refund_cutoff_at,
+    // "Free to cancel until Thu 11:00 PM" (M5-08, M5-10), in the venue's time zone.
+    cutoff_words: b.refund_cutoff_at
+      ? cutoffWords(Temporal.Instant.from(b.refund_cutoff_at), start, now, venue.timeZone)
+      : null,
+    // The Details step (M5-08): who the booking is for, once given.
+    guest: b.guest_name ? { name: b.guest_name, phone: b.guest_phone, email: b.guest_email } : null,
+    // The Terms step: the deposit policy now in force, and the one this booking accepted, if any.
+    policy: await policyJson(c, venueId),
+    accepted: b.accepted_at ? { policy_version_id: b.policy_version_id, at: b.accepted_at } : null,
+    // The marketing box, with the wording its consent records; absent while Marketing texts is off.
+    marketing_box: b.status !== "pending" || lapsed ? null : await marketingBox(c, venueId, now),
     price_wording: n.wording,
     tax_pct: n.taxRatePct,
     gratuity_pct: n.gratuityPct,
@@ -386,4 +412,133 @@ export async function lapseHolds(c: Queryable, venueId: string, now: Temporal.In
   for (const row of r.rows)
     await emitEvent(c, { venueId, type: "booking.updated", entityId: row.id });
   return r.rows.length;
+}
+
+const policyJson = async (c: Queryable, venueId: string) => {
+  const p = await currentPolicy(c, venueId);
+  return p ? { id: p.id, version: p.version, text: p.text, hash: p.hash } : null;
+};
+
+/**
+ * The booking form's marketing box (M5-08; Song systems and texts · Consent
+ * and timing; Modules: Marketing texts hides it). Its words are kept as a
+ * policy version of kind `marketing_opt_in`, so a consent names the exact
+ * wording the guest ticked. Null while Marketing texts is off.
+ */
+export async function marketingBox(c: Queryable, venueId: string, now: Temporal.Instant) {
+  if (statesOf(await venueModules(c, venueId))["marketing_texts"] !== "on") return null;
+  const venue = (
+    await c.query<{ name: string }>("select name from venues where id = $1", [venueId])
+  ).rows[0]!;
+  const text = t("en", "site.book.marketingBox", { venue: venue.name });
+  // One writer at a time per venue, so two pages never publish the same version twice.
+  await c.query("select pg_advisory_xact_lock(hashtext('marketing_opt_in:' || $1::text))", [
+    venueId,
+  ]);
+  const { version } = await publishPolicy(c, venueId, {
+    text,
+    at: now.toString(),
+    by: null,
+    kind: "marketing_opt_in",
+  });
+  return { id: version.id, text: version.text };
+}
+
+/** The Details step's body: a +1 mobile only (Song systems and texts · Abuse). */
+export const detailsBody = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    phone: z.string().regex(/^\+1[2-9]\d{9}$/),
+    email: z.string().trim().max(254).email(),
+    marketing: z.boolean().default(false),
+  })
+  .strict();
+
+/** A web booking still held, locked, by its link; anything else is refused with `hold_over`. */
+async function stillHeld(c: Queryable, venueId: string, tokenHash: string, now: Temporal.Instant) {
+  const b = (
+    await c.query<{ id: string }>(
+      `select id from bookings where venue_id = $1 and manage_token_hash = $2 and source = 'web'
+          and status = 'pending' and pending_until > $3 for update`,
+      [venueId, tokenHash, now.toString()],
+    )
+  ).rows[0];
+  if (!b) throw refuse("hold_over", "this hold has run out: pick a time again");
+  return b.id;
+}
+
+/**
+ * Details (M5-08; Payment flows · the Details step): the guest for the venue,
+ * matched by phone within the venue (never across venues), on the booking. A
+ * ticked marketing box writes one `consents` row with its proof (the form, the
+ * wording's version, the IP address and the time); an unticked one writes
+ * nothing. Ticked while Marketing texts is off, it writes nothing either.
+ */
+export async function saveDetails(
+  c: Queryable,
+  venueId: string,
+  tokenHash: string,
+  now: Temporal.Instant,
+  input: z.infer<typeof detailsBody>,
+  ip: string,
+) {
+  const bookingId = await stillHeld(c, venueId, tokenHash, now);
+  const guestId = await findOrCreateGuest(c, venueId, {
+    name: input.name,
+    phoneE164: input.phone,
+    email: input.email,
+  });
+  // A returning guest keeps their name; an email they hadn't given is added.
+  await c.query("update guests set email = coalesce(email, $3) where venue_id = $1 and id = $2", [
+    venueId,
+    guestId,
+    input.email,
+  ]);
+  await c.query("update bookings set guest_id = $3 where venue_id = $1 and id = $2", [
+    venueId,
+    bookingId,
+    guestId,
+  ]);
+  if (input.marketing) {
+    const box = await marketingBox(c, venueId, now);
+    if (box) {
+      const already = await c.query(
+        `select 1 from consents where venue_id = $1 and phone_e164 = $2 and channel = 'sms' and kind = 'marketing'
+            and text_version = $3 and revoked_at is null`,
+        [venueId, input.phone, box.id],
+      );
+      if (already.rowCount === 0)
+        await c.query(
+          `insert into consents (venue_id, guest_id, phone_e164, channel, kind, given_at, source, text_version, ip)
+           values ($1, $2, $3, 'sms', 'marketing', $4, 'booking_form', $5, $6)`,
+          [venueId, guestId, input.phone, now.toString(), box.id, ip],
+        );
+    }
+  }
+  await emitEvent(c, { venueId, type: "booking.updated", entityId: bookingId });
+  return bookingId;
+}
+
+/**
+ * The guest accepts the deposit policy (M5-08; Payment flows step 2): the
+ * version they read, with the time, the IP address and the browser, on the
+ * booking. The payment page calls it as the guest pays (M5-09). A version
+ * that is no longer current is refused, so the guest reads the new words.
+ */
+export async function acceptTerms(
+  c: Queryable,
+  venueId: string,
+  bookingId: string,
+  input: { policyVersionId: string; ip: string; userAgent: string; at: Temporal.Instant },
+) {
+  const current = await currentPolicy(c, venueId);
+  if (!current || current.id !== input.policyVersionId)
+    throw refuse("policy_changed", "the deposit policy changed: read the new one");
+  const r = await c.query(
+    `update bookings set policy_version_id = $3, accepted_at = $4, accepted_ip = $5, accepted_ua = $6
+      where venue_id = $1 and id = $2 and status = 'pending' and guest_id is not null`,
+    [venueId, bookingId, current.id, input.at.toString(), input.ip, input.userAgent.slice(0, 500)],
+  );
+  if (r.rowCount === 0) throw refuse("details", "give your name and mobile number first");
+  return { policy_version_id: current.id, hash: current.hash };
 }

@@ -1016,6 +1016,55 @@ test("Book: 5 guests for 2 hours on a Friday at 11 PM, held for 10 minutes, More
   await expect(page.getByRole("link", { name: "Pick a time again" })).toBeVisible();
 });
 
+/**
+ * The Details and Terms steps (M5-08): a +44 number is refused; with Marketing texts on, the box
+ * starts unticked and, ticked, stores its proof; the terms show the policy and this booking's cut-off.
+ */
+test("Book: Jae's details, the marketing box and the terms", async ({ page }) => {
+  test.setTimeout(90_000);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query(
+      `update venue_modules set state = 'on'
+        where module_id = 'marketing_texts' and venue_id = (select id from venues where slug = 'west4karaoke')`,
+    );
+    await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=5&hours=2");
+    await page.getByRole("button", { name: "Hold 11 PM EDT" }).click();
+    await expect(page.getByRole("heading", { name: "Your details" })).toBeVisible();
+    await expect(
+      page.getByText("We text your confirmation and reminders to this number."),
+    ).toBeVisible();
+    const box = page.getByRole("checkbox", { name: /Also text me news and offers from West 4/ });
+    await expect(box).not.toBeChecked();
+    await page.getByLabel("Name").fill("Jae K.");
+    await page.getByLabel("Mobile number").fill("+44 20 7123 4567");
+    await page.getByLabel("Email").fill("jae@example.com");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.locator("p[role=alert]")).toHaveText(
+      "Check your name, your email and a US mobile number (+1).",
+    );
+    await page.getByLabel("Mobile number").fill("(212) 555-0188");
+    await box.check();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { name: "The deposit policy" })).toBeVisible();
+    await expect(page.locator(".terms")).toContainText("Free to cancel until Thu, Oct 1 11:00 PM");
+    await expect(page.locator(".terms")).toContainText("A 20% gratuity is added to room tabs.");
+    const proof = await db.query(
+      `select k.source, k.ip is not null as ip, k.given_at is not null as at, p.kind
+         from consents k join policy_versions p on p.id::text = k.text_version
+        where k.phone_e164 = '+12125550188' and k.kind = 'marketing'`,
+    );
+    expect(proof.rows).toEqual([
+      { source: "booking_form", ip: true, at: true, kind: "marketing_opt_in" },
+    ]);
+  } finally {
+    await db.end();
+  }
+});
+
 test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 AM EST", async ({
   page,
 }) => {

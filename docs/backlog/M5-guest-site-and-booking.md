@@ -215,7 +215,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-08 · Take the guest's details, consents and the policy they accept
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-06, M5-07; M2 (texts and STOP)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) step 2 and the Details and Terms steps; [Song systems and texts](../spec/11-song-systems-texts.md) (Consent and timing); [Data model](../spec/04-data-model.md) (`guests`, `consents`, the `bookings` acceptance columns); [milestones: GA-M3 and GA-M5](../milestones.md#must-fix-items-and-where-they-close); [screens: N1](../screens.md#n1-booking-steps-after-the-price)
@@ -226,11 +226,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Terms: the current deposit policy version above the pay button, with this booking's refund cut-off worked out and "A 20% gratuity is added to room tabs."
   - Paying (M5-09) records on the booking the policy version (`policy_version_id`) and its hash, the time (`accepted_at`), the IP address (`accepted_ip`) and the browser (`accepted_ua`).
 - **Acceptance:**
-  - [ ] Once Jae pays, his booking stores the policy version and hash he saw, with the time, the IP address and the browser.
-  - [ ] The marketing box starts unticked; left that way it stores no consent, and ticked it stores the wording's version, the IP and the time.
-  - [ ] A number outside +1 is refused.
+  - [x] Once Jae pays, his booking stores the policy version and hash he saw, with the time, the IP address and the browser.
+  - [x] The marketing box starts unticked; left that way it stores no consent, and ticked it stores the wording's version, the IP and the time.
+  - [x] A number outside +1 is refused.
 - **Tests:** integration; end-to-end.
 - **Notes:** GA-M3's opt-in lands here; West 4's marketing campaign goes live in M8. This is GA-M5's stored terms.
+  - Built: `POST /v1/public/bookings/{token}/details` (not in the API table, flagged like M5-07's hold routes) takes name, a +1 mobile, email and the marketing box; refused with `phone` for anything but +1 and `hold_over` once the hold has run out. The guest is matched by phone within the venue (`findOrCreateGuest`, erased guests never matched); a returning guest keeps the name they first gave, and an email is added only where none was kept. The hold's view (`GET …/hold`) now carries the guest, the current deposit policy (id, version, text, hash), this booking's cut-off in words, any acceptance, and the marketing box.
+  - The marketing box: shown only while Marketing texts is on (the module hides `booking.marketingOptIn`), so it is off at West 4 until M8's campaign goes live. Its exact words are kept as a `policy_versions` row of the new kind `marketing_opt_in` (migration 0130), and a ticked box writes one `consents` row (sms, marketing, `given_at`, source `booking_form`, `text_version` = that version's id, the IP address). Unticked, or ticked while the module is off, nothing is written; saving twice doesn't write the same proof twice. The wording ("Also text me news and offers from West 4. Optional, and not needed for this booking. Reply STOP anytime.") is ours, not a lawyer's: flagged for the founder.
+  - Terms: the policy's words, its version, and "Free to cancel until …" from `cutoffWords()` in `packages/rules` (elapsed hours, the venue's time zone; a cut-off more than six days out adds its date, "Thu, Oct 1 11:00 PM", so the weekday can't be misread: cautious default, flagged; the zone is named when the cut-off and the start sit on different sides of a clock change).
+  - `acceptTerms()` records the version, the time, the IP address and the browser on the booking, and refuses a version that is no longer current (`policy_changed`) or a booking with no guest yet (`details`). The hash isn't copied onto the booking: the data model has no column for it, and `policy_versions` is insert-only, so `policy_version_id` fixes the hash for good. M5-09's payment page calls it as the guest pays.
+  - The IP address is the client's from `X-Forwarded-For`, `TRUSTED_PROXY_HOPS` proxies in (the guest site's /v1 rewrite is one).
+  - Tests: `booking-details.int.test.ts` (+1 only, matching by phone, the consent and its proof, acceptance); `booking-cutoff.test.ts`; Playwright "Book: Jae's details, the marketing box and the terms".
+
 
 ### M5-09 · Pay the deposit on the payment page
 

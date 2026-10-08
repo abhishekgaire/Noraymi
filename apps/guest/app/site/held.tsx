@@ -3,12 +3,33 @@ import { SiteFooter, SiteHeader } from "./home";
 import { clockWords, dateWords, type HeldBooking, type SiteView } from "./data";
 import { Countdown } from "./countdown";
 import { QuoteSummary } from "./quote";
+import { DetailsForm } from "./details-form";
+
+/** The Terms step (M5-08): the deposit policy now in force, this booking's cut-off and the gratuity sentence. */
+export function Terms({ held }: { held: HeldBooking }) {
+  if (!held.policy) return null;
+  return (
+    <section aria-labelledby="terms-h" className="terms">
+      <h2 id="terms-h">{t("en", "site.book.terms")}</h2>
+      {held.cutoff_words && (
+        <p className="cutoff">{t("en", "site.book.cutoff", { cutoff: held.cutoff_words })}</p>
+      )}
+      {held.policy.text
+        .split("\n")
+        .filter((line) => line.trim())
+        .map((line, i) => (
+          <p key={i}>{line}</p>
+        ))}
+      <p className="small">{t("en", "site.book.policyVersion", { n: held.policy.version })}</p>
+    </section>
+  );
+}
 
 /**
  * The held booking (M5-07): the room size held, the date, time and length,
  * the full price and the deposit, and the hold's countdown with More time.
  * A hold that ran out says so and sends the guest back to pick a time. The
- * guest's details (M5-08) and the payment page (M5-09) follow from here.
+ * guest's details and the terms (M5-08) follow, then the payment page (M5-09).
  */
 export function HeldPage({
   site,
@@ -64,6 +85,12 @@ export function HeldPage({
               gratuityPct={held.gratuity_pct}
               wording={held.price_wording}
             />
+            {held.status === "pending" && (
+              <>
+                <DetailsForm token={token} initial={held.guest} marketingBox={held.marketing_box} />
+                {held.guest && <Terms held={held} />}
+              </>
+            )}
           </>
         )}
       </main>

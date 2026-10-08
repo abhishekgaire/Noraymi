@@ -247,6 +247,13 @@ export interface HeldBooking {
   readonly seconds_left: number | null;
   readonly more_time_left: number;
   readonly refund_cutoff_at: string | null;
+  /** "Thu 11:00 PM", the refund cut-off in the venue's time zone (M5-08). */
+  readonly cutoff_words: string | null;
+  readonly guest: { name: string; phone: string | null; email: string | null } | null;
+  readonly policy: { id: string; version: number; text: string; hash: string } | null;
+  readonly accepted: { policy_version_id: string; at: string } | null;
+  /** The marketing box's exact words; null while Marketing texts is off. */
+  readonly marketing_box: { id: string; text: string } | null;
   readonly price_wording: "plusTaxAndGratuity" | "allIn";
   readonly tax_pct: string;
   readonly gratuity_pct: number;

@@ -14,12 +14,15 @@ export interface PolicyVersion {
   readonly published_at: string;
 }
 
+/** The kinds the guest-facing pages publish here; the tab and room-card consents publish their own. */
+export type PolicyKind = "deposit" | "marketing_opt_in";
+
 export const policyHash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 
 export async function currentPolicy(
   c: Queryable,
   venueId: string,
-  kind: "deposit" = "deposit",
+  kind: PolicyKind = "deposit",
 ): Promise<PolicyVersion | null> {
   return (
     (
@@ -35,7 +38,7 @@ export async function currentPolicy(
 export async function publishPolicy(
   c: Queryable,
   venueId: string,
-  input: { text: string; at: string; by: string | null; kind?: "deposit" },
+  input: { text: string; at: string; by: string | null; kind?: PolicyKind },
 ): Promise<{ version: PolicyVersion; created: boolean }> {
   const kind = input.kind ?? "deposit";
   const current = await currentPolicy(c, venueId, kind);
