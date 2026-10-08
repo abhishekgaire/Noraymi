@@ -1729,6 +1729,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.nav.parties": "Fiestas privadas",
   "site.hero.book": "Reservar una sala",
   "site.hero.callToBook": "Llama para reservar",
+  "site.moved.title": "Este enlace es de nuestra web anterior",
+  "site.moved.body":
+    "Los enlaces de reserva de nuestra web anterior ya no funcionan. Para consultar, cambiar o cancelar tu reserva, llámanos.",
+  "site.moved.noPhone": "Para consultar, cambiar o cancelar tu reserva, pregúntanos en el local.",
   "site.open.now": "Abierto ahora · hasta las {time}",
   "site.open.later": "Abre esta noche a las {time}",
   "site.open.closedTonight": "Cerrado esta noche",

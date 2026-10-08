@@ -1702,6 +1702,10 @@ export const en = {
   "site.nav.parties": "Private parties",
   "site.hero.book": "Book a room",
   "site.hero.callToBook": "Call to book",
+  "site.moved.title": "This link is from our old website",
+  "site.moved.body":
+    "Booking links from our old website no longer work. To check, change or cancel your booking, call us.",
+  "site.moved.noPhone": "To check, change or cancel your booking, ask us at the venue.",
   "site.open.now": "Open now · until {time}",
   "site.open.later": "Opens tonight at {time}",
   "site.open.closedTonight": "Closed tonight",

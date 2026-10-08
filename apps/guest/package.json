@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start --port 3001",
     "typecheck": "next typegen && tsc --noEmit -p tsconfig.json",
-    "check:pay": "tsx scripts/check-pay-page.ts"
+    "check:pay": "tsx scripts/check-pay-page.ts",
+    "check:domain": "tsx scripts/check-domain.ts"
   },
   "dependencies": {
     "@west4/shared": "workspace:*",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0"
+    "@types/react-dom": "19.3.0",
+    "tsx": "4.23.15"
   }
 }

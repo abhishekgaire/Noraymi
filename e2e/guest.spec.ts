@@ -72,6 +72,30 @@ test("the site with JavaScript off still reads, and the parties page estimates a
   await page.context().close();
 });
 
+/**
+ * The domain move (M9-09): every page the old west4karaoke.com listed answers on
+ * the new site, the old booking page goes to Book, and an old manage link's page
+ * gives West 4's number.
+ */
+test("every old west4karaoke.com page answers, and the old booking page goes to Book", async ({
+  request,
+  page,
+}) => {
+  for (const url of ["/", "/menu", "/menu?menu=menu", "/room", "/reservation"]) {
+    const first = await request.get(url, { maxRedirects: 0 });
+    expect([200, 301, 302], url).toContain(first.status());
+    const final = await request.get(url);
+    expect(final.status(), url).toBe(200);
+  }
+  const old = await request.get("/reservation", { maxRedirects: 0 });
+  expect(old.status()).toBe(301);
+  expect(new URL(old.headers()["location"] ?? "", "http://x").pathname).toBe("/book");
+  await page.goto("/booking-moved");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "This link is from our old website",
+  );
+});
+
 test("all in, and booking off: every price line changes, and the hero reads Call to book", async ({
   page,
 }) => {

@@ -195,7 +195,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-09 · Move west4karaoke.com with a redirect from every old page
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M5-01 (the guest site), M9-06 (the cutover delta)
 - **Spec:** [milestones](../milestones.md#m9--cutover-and-going-live) · M9 Ships (the domain move), Done when; [Data model](../spec/04-data-model.md) · `domains`; [Song systems and texts](../spec/11-song-systems-texts.md) · The automatic texts (west4karaoke.com/b/… and /rc/… links); screens [SiteBuilder](../screens.md#sitebuilder) note 2
@@ -205,12 +205,12 @@ Definition of done: see CLAUDE.md.
   - The cutover runbook in `docs/runbooks/domain-move.md`: lower DNS TTLs a week ahead; keep West 4's email records (MX, SPF, DKIM, DMARC); issue TLS certificates before the switch; create West 4's `domains` row by the runbook (no Admin screen in phase 1); switch the old booking form off at the moment of the move; run the final delta import (M9-06) so bookings made on the old site before the move are on the board; a rollback plan.
   - Old manage-booking links redirect to a page with West 4's phone number, since their tokens can't carry over.
 - **Acceptance:**
-  - [ ] Every old west4karaoke.com page redirects, and no old URL answers 404.
-  - [ ] Bookings made on the old site before the move are on the board.
-  - [ ] West 4's email still arrives after the move.
-  - [ ] Booking confirmed and Receipt links sent after the move open on the new site.
+  - [ ] Every old west4karaoke.com page redirects, and no old URL answers 404. The five pages in the old site's sitemap pass (unit and e2e); waiting on the founder's list from Wix's page list, Search Console and analytics, and an old manage link's path.
+  - [ ] Bookings made on the old site before the move are on the board. On move day: the final delta import (runbook, The move 1).
+  - [ ] West 4's email still arrives after the move. On move day: `check:domain --expect` and a test email; the Google Workspace MX, SPF and DMARC records were saved on Oct 8.
+  - [ ] Booking confirmed and Receipt links sent after the move open on the new site. Needs production with `GUEST_APP_URL=https://west4karaoke.com` and the DNS switch, both the founder's.
 - **Tests:** a redirect test over every URL in the list; a DNS and TLS check before and after the switch.
-- **Notes:** Listing the old URLs from West 4's own accounts isn't scraping; don't crawl anyone else's site. Spec gap: what happens to the old site's manage links; cautious default above, with no new text sent, since the 14 texts are fixed. Styles, section order and self-serve domains stay in phase 2.
+- **Notes:** Built: `apps/guest/legacy-redirects.ts` (the old URLs from the old site's public sitemap, read Oct 8, 2026: `/`, `/menu`, `/menu?menu=menu`, `/room`, `/reservation`; `/reservation` 301s to `/book`; `www` 301s to the bare host when `SITE_HOST` is set; `LEGACY_MANAGE_PREFIXES`, empty until the founder reads the path off an old confirmation email), wired into `apps/guest/proxy.ts`; the page `/booking-moved` with West 4's number (English and Spanish strings `site.moved.*`); `pnpm --filter @west4/guest check:domain` (DNS, the email records saved and compared, the certificate, and every old URL), with `domain-check.ts`; the runbook `docs/runbooks/domain-move.md`; `tsx` added to the guest package, which `check:pay` also needed. Tests: `legacy-redirects.test.ts`, `domain-check.test.ts`, and the guest e2e "every old west4karaoke.com page answers". Cautious defaults: the old `/room` (the rooms page) collides with the new joined-guest room page, so without the room cookie it answers 302 to `/#rooms`, not 301, so no browser caches it. Gap: the data model's `domains` table is filled in phase 2 and doesn't exist, so there's no row to create; in phase 1 the domain is set by `SITE_VENUE`, `SITE_HOST` and `GUEST_APP_URL` (runbook). The old site is Wix with Google Workspace email; no DKIM record was found at the `google` selector. Listing the old URLs from West 4's own accounts isn't scraping; don't crawl anyone else's site. Spec gap: what happens to the old site's manage links; cautious default above, with no new text sent, since the 14 texts are fixed. Styles, section order and self-serve domains stay in phase 2.
 
 ### M9-10 · Train the team in training mode
 

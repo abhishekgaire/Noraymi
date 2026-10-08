@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PAY_HEADERS, payCsp } from "./pay-policy";
+import { ROOM_COOKIE, canonicalHost, legacyRedirect } from "./legacy-redirects";
 
 /**
  * The payment page lives only on the `pay.` hostname (M4-15; Security 1):
@@ -16,6 +17,14 @@ export function proxy(request: NextRequest) {
   const onPay = host === payHost;
   if (!onPay) {
     if (path.startsWith("/pay")) return new NextResponse(null, { status: 404 });
+    // The old west4karaoke.com lived on www and had its own page names (M9-09).
+    const bare = canonicalHost(host, process.env["SITE_HOST"]);
+    if (bare) {
+      const to = new URL(request.nextUrl.pathname + request.nextUrl.search, `https://${bare}`);
+      return NextResponse.redirect(to, 301);
+    }
+    const legacy = legacyRedirect(path, request.cookies.has(ROOM_COOKIE));
+    if (legacy) return NextResponse.redirect(new URL(legacy.to, request.url), legacy.status);
     return NextResponse.next();
   }
   // The pay host serves the payment page, its bundle and its API calls; nothing else.
