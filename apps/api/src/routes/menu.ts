@@ -8,17 +8,16 @@ import {
   menuTree,
   MenuRowMissing,
   patchMenuRow,
-  promoMenu,
+  menuPromotionRefusals,
   queueMenuPdf,
   currentMenuPdf,
   resolveVenueSlug,
-  rulePackFor,
   setOutTonight,
   withVenue,
   type MenuTable,
   type Queryable,
 } from "@west4/db";
-import { businessDate, promotionChecks, wallClock, type Promotable } from "@west4/rules";
+import { businessDate, wallClock, type Promotable } from "@west4/rules";
 import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
@@ -194,17 +193,17 @@ export function menuRoutes(
       venue.time_zone,
       venue.day_cutover,
     ).businessDate;
-    const packId = venue.rule_pack_id ?? "us-ny-new-york-county";
-    const pack = await rulePackFor(c, packId, today);
-    if (!pack)
-      throw new ApiError("internal", `no usable rule pack ${packId} for ${today.toString()}`);
-    const menu = await promoMenu(c, venueId);
-    const refusals = things.flatMap((t) => promotionChecks(t, menu, pack.pack));
-    if (refusals.length > 0)
-      throw new ApiError("invalid_request", refusals.map((r) => r.message).join(" "), {
-        details: { refusals },
+    let result: Awaited<ReturnType<typeof menuPromotionRefusals>>;
+    try {
+      result = await menuPromotionRefusals(c, venueId, things, today);
+    } catch (error) {
+      throw new ApiError("internal", error instanceof Error ? error.message : String(error));
+    }
+    if (result.refusals.length > 0)
+      throw new ApiError("invalid_request", result.refusals.map((r) => r.message).join(" "), {
+        details: { refusals: result.refusals },
       });
-    return pack.pack.version;
+    return result.packVersion;
   };
 
   /** The things a saved row asks the checks about. */

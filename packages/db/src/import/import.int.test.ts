@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { publishTestRulePack } from "./test-pack.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readSeedFile } from "../seed.js";
 import {
@@ -63,6 +64,8 @@ beforeAll(async () => {
   db = await createTestDatabase({ migrate: true });
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
+  // The menu goes in through the save path's promotion checks (M9-04): the venue's rule pack.
+  await publishTestRulePack(owner);
   pool = new pg.Pool({ connectionString: db.url, max: 3 });
   v = await seedTwoVenues(db.url);
   for (const r of readSeedFile().rooms) {
@@ -170,7 +173,7 @@ describe("the rehearsal import from the demo seed", () => {
     );
     expect(missing.rows).toEqual([]);
     expect(await count("select count(*) from import_refs where run_id = $1", [liveRun])).toBe(
-      17 + 4 + 127 + 9 + 1 + 11,
+      17 + 4 + 127 + 127 + 9 + 1 + 11,
     );
     // The variants and new users too: each insert of the run is audited under it, in the venue's chain.
     expect(

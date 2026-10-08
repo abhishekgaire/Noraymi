@@ -35,6 +35,18 @@ Other statuses (seated, finished, cancelled, no-show) are kept as history: the b
 
 **The opening journal.** The deposits of the bookings still to come that a run loaded (placed or on the manager's list) go into customer deposits on the cutover date, against "Deposits held by the old system": debit that, credit customer deposits, the same cents. It's kept on the run (`import_runs.opening_journal`) and, with `--out`, written as `opening-journal-<run>.csv` in QuickBooks' journal format for the accountant. A cutover delta's new deposits get their own entry. The report's deposits line shows the total, the part held as old-system payments, and the part with bookings on the manager's list; the run reconciles only when those add up and the journal balances.
 
+## The menu (M9-04)
+
+The menu goes in through the same save path as Admin → Menu, so the rule pack's promotion checks run on every item and package:
+
+- **`menu`**: one row per thing sold. Rows that share `item_ref` are one item's variants (a pint and a pitcher); without it, each row is its own item. The rows of one item must agree on its name, category, alcohol flag, button name, station and grid section, and the rows of one category on its tax category (`drink` or `food`; required, from the export or the mapping's `defaults`, never guessed). `button_name` is the short label on the bar POS grid (24 characters at most); `station` is `bar` by default.
+- **`modifiers`**: one row per choice in a modifier group of an item (`item_ref`, `group`, `name`, `price_delta`, `required`, `min_choices`, `max_choices`, `is_default`).
+- **`packages`**: `name`, `price`, `hourly`, `private_function_only`, `shown`, and `contents` as `ITEM:qty; ITEM` (no quantity means as many as the guests want).
+
+**Promotion checks first.** Before a live run commits anything, the whole menu is loaded and checked in a transaction that's rolled back. An item or package the checks refuse (free alcohol, an hourly package with alcohol, alcohol in a package without a fixed quantity, a private-function package the pack doesn't allow) stops the import with `file:line the rule pack's promotion checks refuse "<name>": <reason>`, and nothing loads. Fix it with the owner (a real price, a fixed quantity) and run again.
+
+**After it loads**, as after an Admin save: `menu.changed` goes out, the menu PDF renders again, and the bar's grid gets a new version starting at the next business date (nothing moves mid-shift). Buttons already on the grid stay where they are; each new bar item takes the first free slot of its section: the export's `pos_section`, or the section its category's name starts with (Beer, Soju, Cocktails, Shots, Spirits, Wine, Soft…, Bottles, Buckets). Favorites stay the owner's pick. An item with no section, or whose section is full, is listed (`not on the bar grid: …`) for the owner to place in Admin → Bar POS. If a draft layout is open in Admin → Bar POS, the import publishes nothing and says so; publish or discard the draft, then place the new items there.
+
 ## Guests and their consents (M9-03)
 
 Guests belong to the one venue they're imported into; nothing is shared across venues. A phone number must be a +1 number: another country's number is left out of the guest (the guest is still imported) and listed in the report (`imported, listed: file:line …`), since we text only +1 numbers. Service texts go to the number the guest gave.
@@ -90,13 +102,15 @@ One mapping per source system and export layout. When the venue's export changes
 | --- | --- | --- |
 | `guests` | legacy_ref, name | phone, email, locale |
 | `people` | legacy_ref, name, role (owner, manager, bartender, front_desk, staff) | email, phone, locale |
-| `menu` | legacy_ref, name, category, price, alcohol | button_name, tax_category (default `drink`), variant (default `Regular`), sort |
+| `menu` | legacy_ref, name, category, price, alcohol, tax_category (drink, food) | item_ref, station (default `bar`), pos_section, button_name, variant (default `Regular`), sort |
+| `modifiers` | legacy_ref, item_ref, group, name | price_delta, required, min_choices, max_choices, is_default, sort |
+| `packages` | legacy_ref, name, price | hourly, private_function_only, contents, shown |
 | `policies` | legacy_ref, text | refund_hours, published_at |
 | `bookings` | legacy_ref, guest_ref, room (a room name), party_size, starts_at, ends_at | deposit, status (default `confirmed`), policy_ref, accepted_at |
 | `consents` | guest_ref, channel (sms, email), kind (texts, marketing) | legacy_ref, given_at, ip, revoked_at, revoked_via (keyword, staff, guest_page), source (the form it was given on), text_version (its wording) |
 | `nightly_totals` | business_date, net_sales | rooms, bar |
 
-What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a category, an item and one priced variant; a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-04 and M9-05 add the rest (the menu's checks, invites).
+What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a priced variant of its item, in its category (above); a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-05 adds the invites.
 
 ## West 4
 

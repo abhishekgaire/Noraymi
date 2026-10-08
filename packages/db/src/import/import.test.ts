@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readSeedFile } from "../seed.js";
 import { parseCsv } from "./csv.js";
+import { emptyPosLayout } from "@west4/shared";
 import { consentOutcome, storedKind } from "./consents.js";
+import { placeItems, sectionFor } from "./layout.js";
 import { checkMapping, type Mapping } from "./mapping.js";
 import { ImportRefused, prepareImport } from "./prepare.js";
 import { buildRehearsalExport } from "./rehearsal.js";
@@ -110,7 +112,7 @@ describe("the mapping file", () => {
     expect(r.problems).toEqual([
       "files.guests.columns.pin: not a field of guests",
       "files.guests: legacy_ref needs a column or a default",
-      "files.tables: not a kind we import (guests, people, menu, policies, bookings, consents, nightly_totals)",
+      "files.tables: not a kind we import (guests, people, menu, modifiers, packages, policies, bookings, consents, nightly_totals)",
     ]);
   });
 });
@@ -274,5 +276,40 @@ describe("the consent proof check (M9-03)", () => {
     expect(consentOutcome({ ...proof, kind: "texts", form: null, ip: null }).outcome).toBe(
       "service",
     );
+  });
+});
+
+describe("the bar grid for an imported menu (M9-04)", () => {
+  it("finds an item's section from the export, or from its category's name", () => {
+    expect(sectionFor("beer", "Anything")).toBe("beer");
+    expect(sectionFor(null, "Soft drinks")).toBe("soft");
+    expect(sectionFor(null, "Cocktails")).toBe("cocktails");
+    expect(sectionFor(null, "Kitchen")).toBeNull();
+    // Favorites are the owner's pick, never filled by a category's name.
+    expect(sectionFor(null, "Favorites")).toBeNull();
+  });
+
+  it("fills free slots and never moves a button already on the grid", () => {
+    const base = emptyPosLayout();
+    base.beer[0] = "old-beer";
+    base.beer[2] = "old-beer-2";
+    const { sections, placed, notPlaced } = placeItems(base, [
+      { id: "old-beer", name: "Old", section: "beer" },
+      { id: "new-1", name: "New 1", section: "beer" },
+      { id: "new-2", name: "New 2", section: "beer" },
+      { id: "fries", name: "Fries", section: null },
+    ]);
+    expect(sections.beer.slice(0, 4)).toEqual(["old-beer", "new-1", "old-beer-2", "new-2"]);
+    expect(placed).toBe(2);
+    expect(notPlaced).toEqual([{ item: "Fries", why: "no bar grid section for its category" }]);
+    expect(base.beer[1]).toBeNull();
+  });
+
+  it("lists an item whose section is full", () => {
+    const base = emptyPosLayout();
+    base.wine.fill("x");
+    expect(placeItems(base, [{ id: "w", name: "Red", section: "wine" }]).notPlaced).toEqual([
+      { item: "Red", why: "the wine section is full" },
+    ]);
   });
 });

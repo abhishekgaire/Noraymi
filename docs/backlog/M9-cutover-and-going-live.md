@@ -109,18 +109,22 @@ Definition of done: see CLAUDE.md.
 
 ### M9-04 · Import the menu
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M9-01; M3-03 and M3-04 (the menu API and Admin → Menu), M3-02 (the promotion checks), M3-05 (the menu PDF job); M6 (`pos_layouts`)
 - **Spec:** [Data model](../spec/04-data-model.md) · the menu tables, `pos_layouts`; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Promotion checks; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 2 (nothing moves)
 - **Build:** West 4's menu through the same save path as Admin → Menu, so the promotion checks run: categories, items, variants, options and modifier groups, short button names, the alcohol flag, tax categories, stations and packages. The menu PDF job runs again. A `pos_layouts` version for the bar station is built from the imported items and published, starting the next business date.
 - **Acceptance:**
-  - [ ] The menu page, the PDF and the room page show the same items and prices.
-  - [ ] Every alcohol item carries the flag, and every item has a tax category.
-  - [ ] An item or package the promotion checks refuse stops the import with the reason.
-  - [ ] The bar POS grid shows each item's button name in a fixed slot.
+  - [x] The menu page, the PDF and the room page show the same items and prices.
+  - [x] Every alcohol item carries the flag, and every item has a tax category.
+  - [x] An item or package the promotion checks refuse stops the import with the reason.
+  - [x] The bar POS grid shows each item's button name in a fixed slot.
+  - [ ] Works on West 4's real menu export. Blocked: West 4's old system and its export files haven't been received; map its menu (variants, choices, packages, tax categories, grid sections) and dry-run it when it arrives (M9-06).
 - **Tests:** an integration test of a menu import through the save path; a test that a refused package stops the run.
 - **Notes:** The seed's 127-line menu comes from the canvas; West 4's real menu replaces it in production.
+  - **Built (Oct 8, 2026):** the import's `menu`, new `modifiers` and new `packages` steps in `packages/db/src/import/load.ts` now save through Admin → Menu's path: `insertMenuRow`/`patchMenuRow` and the promotion checks, which moved out of the menu route into `menuPromotionRefusals` in `packages/db/src/menu.ts` (the route now calls it; behaviour unchanged). Menu rows sharing `item_ref` are one item's variants; choices make modifier groups and options; packages are saved `unchecked`, checked, then stamped with the pack version, as in Admin. A live run first loads and checks the whole menu in a rolled-back transaction, so a refusal stops it before any batch commits (`file:line the rule pack's promotion checks refuse "<name>": <reason>`). After loading: `menu.changed`, the menu PDF job queued again, and a new bar grid version (`packages/db/src/import/layout.ts`) published through `publishPosLayout` (moved from the Bar POS route into `packages/db/src/pos-layouts.ts`, which the route now wraps) to start at the next business date. Migration `0127_import_menu.sql` (new ref kinds; `app_migrator` reads the rule packs and its own venue's `rule_pack_id`, and may publish a layout). Runbook: docs/runbooks/import.md · The menu.
+  - **Tests:** `apps/api/src/routes/imported-menu.int.test.ts` on the demo night with the fixture in `packages/db/test-fixtures/import/menu/` (refused package stops it with nothing loaded; variants, choices and the checked package; alcohol flags and tax categories; the public menu that the menu page and the room page read and the PDF's HTML (`menuHtml`, what the PDF job prints) show the same items and prices; grid version 2 from Sep 26 with each new item in its section and no old button moved; a re-run changes nothing); unit tests for `sectionFor` and `placeItems`; the rehearsal tests now count variant refs too.
+  - **Cautious defaults:** the tax category is required (the export's or the mapping's default, `drink` or `food`), never guessed; a category's rows must agree on it, since tax is per category (spec 04). An item's grid section is the export's `pos_section` or the section its category's name starts with; one with neither, or whose section is full, is left off the grid and listed for the owner. Buttons already on the grid never move; favorites stay empty for the owner to pick. If a draft layout is open in Admin → Bar POS, the import publishes no grid and says so. The PDF comparison uses the PDF's HTML rather than printing with Chromium (the e2e comparison test, M5-03, prints it). Item descriptions, price rules (happy hours) and per-item 86 state aren't imported: the export format is unknown; add them to the mapping when West 4's files show them.
 
 ### M9-05 · Import the team as people and roles only
 

@@ -1,0 +1,44 @@
+{
+  "mapping_version": 1,
+  "source": "menu-fixture",
+  "description": "Fake menu export for tests: variants, choices, a package, tax categories and bar grid sections. Made up; not West 4's menu.",
+  "files": {
+    "menu": {
+      "file": "items.csv",
+      "columns": {
+        "legacy_ref": "SKU",
+        "item_ref": "Item ID",
+        "name": "Name",
+        "category": "Category",
+        "variant": "Size",
+        "price": "Price",
+        "alcohol": "Alcohol",
+        "button_name": "Button",
+        "tax_category": "Tax",
+        "pos_section": "Grid"
+      }
+    },
+    "modifiers": {
+      "file": "choices.csv",
+      "columns": {
+        "legacy_ref": "Choice ID",
+        "item_ref": "Item ID",
+        "group": "Group",
+        "name": "Choice",
+        "price_delta": "Extra",
+        "required": "Required",
+        "is_default": "Default"
+      }
+    },
+    "packages": {
+      "file": "packages.csv",
+      "columns": {
+        "legacy_ref": "Package ID",
+        "name": "Name",
+        "price": "Price",
+        "hourly": "Hourly",
+        "contents": "Contents"
+      }
+    }
+  }
+}

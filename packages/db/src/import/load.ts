@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
-import { businessDate, isBalanced, openingJournal, type Journal } from "@west4/rules";
+import {
+  businessDate,
+  isBalanced,
+  openingJournal,
+  type Journal,
+  type Promotable,
+} from "@west4/rules";
+import { insertMenuRow, menuPromotionRefusals, patchMenuRow, queueMenuPdf } from "../menu.js";
+import { emitEvent } from "../events.js";
+import { publishBarLayout, type LayoutResult } from "./layout.js";
 import { Temporal } from "@west4/shared";
 import {
   insertLegacyDeposit,
@@ -37,6 +46,10 @@ type RefKind =
   | "person"
   | "menu_category"
   | "menu_item"
+  | "menu_variant"
+  | "modifier_group"
+  | "menu_option"
+  | "package"
   | "policy"
   | "booking"
   | "consent"
@@ -98,6 +111,8 @@ export interface ImportReport {
   };
   /** Imported with a value left out, for a manager to see (a phone number that isn't +1). */
   readonly listed: Prepared["listed"];
+  /** The bar grid version the menu import published (M9-04), or null when the menu didn't change. */
+  readonly layout: LayoutResult | null;
   /** True when every kind's records and cents in the files are in the database. */
   readonly reconciles: boolean;
 }
@@ -184,6 +199,58 @@ async function preflight(c: pg.ClientBase, p: Prepared): Promise<Problem[]> {
       });
     }
   }
+  // The menu (M9-04): one item's rows agree on the item, one category's on its tax category, and
+  // every choice and package names an item the import knows.
+  const items = new Map<string, Prepared["menu"][number]>();
+  const categories = new Map<string, string>();
+  for (const m of p.menu) {
+    const first = items.get(m.itemRef);
+    if (first && itemHash(first) !== itemHash(m))
+      problems.push({
+        file: m.file,
+        line: m.line,
+        message: `item "${m.itemRef}" differs from line ${first.line} (name, category, alcohol, button name, station or grid section)`,
+      });
+    else if (!first) items.set(m.itemRef, m);
+    const tax = categories.get(m.category.toLowerCase());
+    if (tax !== undefined && tax !== m.taxCategory)
+      problems.push({
+        file: m.file,
+        line: m.line,
+        message: `category "${m.category}" has tax category ${tax} on another line`,
+      });
+    else categories.set(m.category.toLowerCase(), m.taxCategory);
+  }
+  const earlierItems = await c.query<{ legacy_ref: string }>(
+    "select legacy_ref from import_refs where kind = 'menu_item'",
+  );
+  const itemRefs = new Set([...items.keys(), ...earlierItems.rows.map((r) => r.legacy_ref)]);
+  const groups = new Map<string, string>();
+  for (const x of p.modifiers) {
+    if (!itemRefs.has(x.itemRef))
+      problems.push({
+        file: x.file,
+        line: x.line,
+        message: `item "${x.itemRef}" isn't in the menu file`,
+      });
+    const key = `${x.itemRef}|${x.group.toLowerCase()}`;
+    const shape = [x.required, x.minChoices, x.maxChoices].join("|");
+    if (groups.has(key) && groups.get(key) !== shape)
+      problems.push({
+        file: x.file,
+        line: x.line,
+        message: `choice group "${x.group}" is required or counted differently on another line`,
+      });
+    else groups.set(key, shape);
+  }
+  for (const x of p.packages)
+    for (const k of x.contents)
+      if (!itemRefs.has(k.itemRef))
+        problems.push({
+          file: x.file,
+          line: x.line,
+          message: `item "${k.itemRef}" isn't in the menu file`,
+        });
   for (const x of p.consents) {
     if (!guestRefs.has(x.guestRef)) {
       problems.push({
@@ -236,10 +303,18 @@ function chunks<T>(list: readonly T[], size: number): T[][] {
   return out;
 }
 
+const MENU_KINDS: ReadonlySet<Kind> = new Set(["menu", "modifiers", "packages"]);
+
+/** An item's own values: rows of one item must agree on them, and a re-run compares them. */
+const itemHash = (m: Prepared["menu"][number]) =>
+  sha256(JSON.stringify([m.name, m.category, m.alcohol, m.buttonName, m.station, m.posSection]));
+
 const KIND_OF: Record<Kind, RefKind> = {
   guests: "guest",
   people: "person",
-  menu: "menu_item",
+  menu: "menu_variant",
+  modifiers: "menu_option",
+  packages: "package",
   policies: "policy",
   bookings: "booking",
   consents: "consent",
@@ -255,6 +330,8 @@ export interface RunOptions {
   readonly log?: (line: string) => void;
   /** The cutover's business date: imported deposits are recorded and journaled on it. Defaults to today's. */
   readonly cutoverDate?: string;
+  /** The time the import runs at (the clock in tests); the bar grid's new version starts the business date after it. */
+  readonly now?: Temporal.Instant;
 }
 
 /** A live run's result: the report, and each imported booking's manage link token (never stored or logged). */
@@ -283,14 +360,37 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
   const p: Prepared = { ...o.prepared, consents: kept };
   const log = o.log ?? (() => {});
   const runId = randomUUID();
+  const now = o.now ?? Temporal.Now.instant();
   const cutoverDate =
-    o.cutoverDate ??
-    businessDate(Temporal.Now.instant(), venue.timeZone, venue.cutover).businessDate.toString();
+    o.cutoverDate ?? businessDate(now, venue.timeZone, venue.cutover).businessDate.toString();
   const deposits = { held_cents: 0, payments_cents: 0, on_list_cents: 0 };
   const noRoom: { legacy_ref: string; file: string; line: number }[] = [];
   const links: { legacy_ref: string; token: string }[] = [];
   const placed: Record<string, number> = {};
   const policyById = new Map(p.policies.map((x) => [x.legacyRef, x]));
+  // The menu (M9-04): items new in this run, for the bar grid; whether the menu changed at all.
+  let newItems: { itemId: string; posSection: string | null; category: string }[] = [];
+  let menuChanged = false;
+  /** True while the menu is tried out before a live run: nothing is counted. */
+  let rehearsing = false;
+  const today = Temporal.PlainDate.from(cutoverDate);
+  /** The save path's promotion checks on one thing; a refusal stops the import, naming the row. */
+  const promote = async (
+    c: pg.ClientBase,
+    at: { file: string; line: number },
+    thing: Promotable,
+  ): Promise<string> => {
+    const r = await menuPromotionRefusals(c, venue.id, [thing], today);
+    if (r.refusals.length > 0)
+      throw new ImportInvalid(
+        r.refusals.map((x) => ({
+          file: at.file,
+          line: at.line,
+          message: `the rule pack's promotion checks refuse "${"name" in thing ? thing.name : thing.kind}": ${x.message}`,
+        })),
+      );
+    return r.packVersion ?? "unchecked";
+  };
   const problems = [
     ...p.problems,
     ...(await asImport(pool, venue.id, runId, (c) => preflight(c, p), { rollback: true })),
@@ -302,6 +402,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
   for (const f of p.files)
     tallies[f.kind] = { in_files: 0, loaded: 0, already: 0, changed: 0, in_db: 0 };
   const count = (kind: Kind, rec: { file: string; line: number; legacyRef: string }, s: string) => {
+    if (rehearsing) return;
     const t = tallies[kind]!;
     t.in_files += 1;
     if (s === "new") t.loaded += 1;
@@ -398,6 +499,9 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       kind: "menu",
       rows: p.menu,
       load: async (c, rows) => {
+        // Through Admin → Menu's save path (M9-04): the same row inserts, then the promotion
+        // checks on every item this batch touched; a refusal stops the import with the reason.
+        const touched = new Map<string, { file: string; line: number }>();
         for (const m of rows as Prepared["menu"][number][]) {
           const categoryId = randomUUID();
           const cat = await claim(
@@ -414,35 +518,167 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
             const sort = await c.query<{ n: number }>(
               "select count(*)::int as n from menu_categories",
             );
-            await c.query(
-              "insert into menu_categories (id, venue_id, name, sort, tax_category) values ($1, $2, $3, $4, $5)",
-              [categoryId, venue.id, m.category, sort.rows[0]!.n, m.taxCategory],
-            );
+            await insertMenuRow(c, "menu_categories", venue.id, {
+              id: categoryId,
+              name: m.category,
+              sort: sort.rows[0]!.n,
+              tax_category: m.taxCategory,
+            });
           }
           const itemId = randomUUID();
-          const s = await claim(
+          const item = await claim(
             c,
             venue.id,
             runId,
             "menu_item",
-            m.legacyRef,
+            m.itemRef,
             "menu_items",
             itemId,
+            itemHash(m),
+          );
+          if (item === "new") {
+            await insertMenuRow(c, "menu_items", venue.id, {
+              id: itemId,
+              category_id: await refId(c, "menu_category", m.category.toLowerCase()),
+              name: m.name,
+              button_name: m.buttonName,
+              alcohol: m.alcohol,
+              station: m.station,
+              sort: m.sort,
+            });
+            newItems.push({ itemId, posSection: m.posSection, category: m.category });
+          }
+          const variantId = randomUUID();
+          const s = await claim(
+            c,
+            venue.id,
+            runId,
+            "menu_variant",
+            m.legacyRef,
+            "menu_variants",
+            variantId,
             m.hash,
           );
           if (s === "new") {
-            const category = await refId(c, "menu_category", m.category.toLowerCase());
-            await c.query(
-              `insert into menu_items (id, venue_id, category_id, name, button_name, alcohol, sort)
-               values ($1, $2, $3, $4, $5, $6, $7)`,
-              [itemId, venue.id, category, m.name, m.buttonName, m.alcohol, m.sort],
-            );
-            await c.query(
-              "insert into menu_variants (venue_id, item_id, name, price_cents) values ($1, $2, $3, $4)",
-              [venue.id, itemId, m.variant, m.priceCents],
-            );
+            const forItem = await refId(c, "menu_item", m.itemRef);
+            await insertMenuRow(c, "menu_variants", venue.id, {
+              id: variantId,
+              item_id: forItem,
+              name: m.variant,
+              price_cents: m.priceCents,
+              sort: m.sort,
+            });
+            if (!touched.has(forItem)) touched.set(forItem, { file: m.file, line: m.line });
           }
           count("menu", m, s);
+        }
+        for (const [itemId, at] of touched) {
+          const r = await c.query<{ name: string; alcohol: boolean; prices: number[] }>(
+            `select i.name, i.alcohol, array_agg(v.price_cents order by v.sort, v.id) as prices
+               from menu_items i join menu_variants v on v.venue_id = i.venue_id and v.item_id = i.id
+              where i.venue_id = $1 and i.id = $2 group by i.id`,
+            [venue.id, itemId],
+          );
+          const x = r.rows[0]!;
+          await promote(c, at, {
+            kind: "menuItem",
+            name: x.name,
+            alcohol: x.alcohol,
+            priceCents: x.prices.map(Number),
+          });
+        }
+        if (touched.size > 0) menuChanged = true;
+      },
+    },
+    {
+      kind: "modifiers",
+      rows: p.modifiers,
+      load: async (c, rows) => {
+        for (const x of rows as Prepared["modifiers"][number][]) {
+          const key = `${x.itemRef}|${x.group.toLowerCase()}`;
+          const groupId = randomUUID();
+          const g = await claim(
+            c,
+            venue.id,
+            runId,
+            "modifier_group",
+            key,
+            "modifier_groups",
+            groupId,
+            [x.required, x.minChoices, x.maxChoices].join("|"),
+          );
+          const itemId = await refId(c, "menu_item", x.itemRef);
+          if (g === "new") {
+            await insertMenuRow(c, "modifier_groups", venue.id, {
+              id: groupId,
+              item_id: itemId,
+              name: x.group,
+              required: x.required,
+              min_choices: x.minChoices,
+              max_choices: x.maxChoices,
+              sort: x.sort,
+            });
+          }
+          const optionId = randomUUID();
+          const s = await claim(
+            c,
+            venue.id,
+            runId,
+            "menu_option",
+            x.legacyRef,
+            "menu_options",
+            optionId,
+            x.hash,
+          );
+          if (s === "new") {
+            await insertMenuRow(c, "menu_options", venue.id, {
+              id: optionId,
+              item_id: itemId,
+              group_id: await refId(c, "modifier_group", key),
+              name: x.name,
+              price_delta_cents: x.priceDeltaCents,
+              is_default: x.isDefault,
+              sort: x.sort,
+            });
+            menuChanged = true;
+          }
+          count("modifiers", x, s);
+        }
+      },
+    },
+    {
+      kind: "packages",
+      rows: p.packages,
+      load: async (c, rows) => {
+        for (const x of rows as Prepared["packages"][number][]) {
+          const id = randomUUID();
+          const s = await claim(c, venue.id, runId, "package", x.legacyRef, "packages", id, x.hash);
+          if (s === "new") {
+            const contents = [];
+            for (const k of x.contents)
+              contents.push({ item_id: await refId(c, "menu_item", k.itemRef), qty: k.qty });
+            await insertMenuRow(c, "packages", venue.id, {
+              id,
+              name: x.name,
+              price_cents: x.priceCents,
+              hourly: x.hourly,
+              contents,
+              private_function_only: x.privateFunctionOnly,
+              shown: x.shown,
+              checked_pack_version: "unchecked",
+            });
+            const version = await promote(c, x, {
+              kind: "package",
+              name: x.name,
+              priceCents: x.priceCents,
+              hourly: x.hourly,
+              privateFunctionOnly: x.privateFunctionOnly,
+              contents: contents.map((k) => ({ itemId: k.item_id, qty: k.qty })),
+            });
+            await patchMenuRow(c, "packages", venue.id, id, { checked_pack_version: version });
+            menuChanged = true;
+          }
+          count("packages", x, s);
         }
       },
     },
@@ -666,6 +902,19 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
     },
   ];
 
+  /**
+   * After the menu loads (M9-04), as after a save in Admin → Menu: menu.changed goes out, the menu
+   * PDF re-renders, and the bar's grid gets a new version with the new items, from the next
+   * business date.
+   */
+  let layout: LayoutResult | null = null;
+  const afterMenu = async (c: pg.ClientBase) => {
+    if (!menuChanged) return;
+    await emitEvent(c, { venueId: venue.id, type: "menu.changed", entityId: venue.id });
+    await queueMenuPdf(c, venue.id, now.add({ seconds: 5 }).toString());
+    layout = await publishBarLayout(c, venue, newItems, now);
+  };
+
   const tallyDb = async (c: pg.ClientBase) => {
     for (const f of p.files) {
       const t = tallies[f.kind]!;
@@ -680,8 +929,12 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
           "select count(*)::int as n, 0::bigint as cents, null::text as by from guests x where x.id::text = r.target_id",
         people:
           "select count(*)::int as n, 0::bigint as cents, x.role as by from memberships x where x.id::text = r.target_id group by x.role",
-        menu: `select count(*)::int as n, coalesce(sum(v.price_cents), 0)::bigint as cents, null::text as by
-                 from menu_items x join menu_variants v on v.item_id = x.id where x.id::text = r.target_id`,
+        menu: `select count(*)::int as n, coalesce(sum(x.price_cents), 0)::bigint as cents, null::text as by
+                 from menu_variants x where x.id::text = r.target_id`,
+        modifiers:
+          "select count(*)::int as n, 0::bigint as cents, null::text as by from menu_options x where x.id::text = r.target_id",
+        packages:
+          "select count(*)::int as n, coalesce(sum(x.price_cents), 0)::bigint as cents, null::text as by from packages x where x.id::text = r.target_id",
         policies:
           "select count(*)::int as n, 0::bigint as cents, null::text as by from policy_versions x where x.id::text = r.target_id",
         // A booking that fit no room is on the manager's list (import_unplaced), with its deposit.
@@ -707,14 +960,21 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       if (f.kind === "people" || f.kind === "consents") {
         t.by = Object.fromEntries(r.rows.filter((x) => x.by).map((x) => [x.by!, x.n]));
       }
-      if (f.kind === "bookings" || f.kind === "menu" || f.kind === "nightly_totals") {
+      if (
+        f.kind === "bookings" ||
+        f.kind === "menu" ||
+        f.kind === "packages" ||
+        f.kind === "nightly_totals"
+      ) {
         t.cents_in_db = r.rows.reduce((a, x) => a + Number(x.cents), 0);
         t.cents_in_files =
           f.kind === "bookings"
             ? p.bookings.reduce((a, b) => a + b.depositCents, 0)
             : f.kind === "menu"
               ? p.menu.reduce((a, m) => a + m.priceCents, 0)
-              : p.nightlyTotals.reduce((a, n) => a + n.netSalesCents, 0);
+              : f.kind === "packages"
+                ? p.packages.reduce((a, m) => a + m.priceCents, 0)
+                : p.nightlyTotals.reduce((a, n) => a + n.netSalesCents, 0);
       }
     }
   };
@@ -737,6 +997,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       opening_journal: journal,
       no_room: noRoom,
       consents: { ...consentTally, dropped },
+      layout,
       listed: p.listed,
       reconciles:
         Object.values(tallies).every(
@@ -762,6 +1023,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       async (c) => {
         await insertRun(c, "dry_run");
         for (const step of steps) await step.load(c, [...step.rows]);
+        await afterMenu(c);
         await tallyDb(c);
         return report();
       },
@@ -776,6 +1038,29 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
     return { ...out, manage_links: [] };
   }
 
+  // The menu is tried out whole first, in a transaction that's rolled back: an item or package
+  // the promotion checks refuse stops the import before any batch commits (M9-04).
+  if (p.menu.length + p.modifiers.length + p.packages.length > 0) {
+    rehearsing = true;
+    try {
+      await asImport(
+        pool,
+        venue.id,
+        runId,
+        async (c) => {
+          await insertRun(c, "live");
+          for (const step of steps.filter((s) => MENU_KINDS.has(s.kind)))
+            await step.load(c, [...step.rows]);
+        },
+        { rollback: true },
+      );
+    } finally {
+      rehearsing = false;
+      newItems = [];
+      menuChanged = false;
+    }
+  }
+
   await asImport(pool, venue.id, runId, (c) => insertRun(c, "live"));
   try {
     const size = o.batchSize ?? 500;
@@ -785,6 +1070,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       }
       if (step.rows.length > 0) log(`${step.kind}: ${step.rows.length} record(s) read`);
     }
+    await asImport(pool, venue.id, runId, afterMenu);
     const out = await asImport(pool, venue.id, runId, async (c) => {
       await tallyDb(c);
       const r = report();
@@ -818,6 +1104,8 @@ export function formatReport(r: ImportReport): string[] {
     guests: "guests",
     people: "people",
     menu: "menu lines",
+    modifiers: "menu choices",
+    packages: "packages",
     policies: "terms",
     bookings: "bookings",
     consents: "consents",
@@ -826,6 +1114,7 @@ export function formatReport(r: ImportReport): string[] {
   const money: Partial<Record<Kind, string>> = {
     bookings: "of deposits",
     menu: "of prices",
+    packages: "of prices",
     nightly_totals: "of net sales",
   };
   const lines = [
@@ -864,6 +1153,15 @@ export function formatReport(r: ImportReport): string[] {
     );
   }
   for (const l of r.listed) lines.push(`imported, listed: ${l.file}:${l.line} ${l.message}`);
+  if (r.layout) {
+    const l = r.layout;
+    if (l.version !== null)
+      lines.push(
+        `Bar grid: version ${l.version} from ${l.starts_on}, ${l.placed} new item(s) placed`,
+      );
+    else if (l.skipped) lines.push(`Bar grid not published: ${l.skipped}`);
+    for (const x of l.not_placed) lines.push(`not on the bar grid: ${x.item} (${x.why})`);
+  }
   for (const x of r.no_room) {
     lines.push(`fits no room, on the manager's list: ${x.file}:${x.line} ${x.legacy_ref}`);
   }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { POS_SECTIONS } from "@west4/shared";
 import { parseCsv, CsvError } from "./csv.js";
 import { FIELDS, KINDS, type FileMapping, type Kind, type Mapping } from "./mapping.js";
 import {
@@ -70,6 +71,8 @@ export interface PersonRecord extends Base {
   readonly locale: "en" | "es" | null;
 }
 export interface MenuRecord extends Base {
+  /** The item this row sells (rows sharing it are its variants); the row's own ref by default. */
+  readonly itemRef: string;
   readonly name: string;
   readonly category: string;
   readonly priceCents: number;
@@ -78,6 +81,29 @@ export interface MenuRecord extends Base {
   readonly taxCategory: string;
   readonly variant: string;
   readonly sort: number;
+  readonly station: string;
+  /** The bar POS grid section, when the export or mapping names one. */
+  readonly posSection: string | null;
+}
+export interface ModifierRecord extends Base {
+  readonly itemRef: string;
+  readonly group: string;
+  readonly name: string;
+  readonly priceDeltaCents: number;
+  readonly required: boolean;
+  readonly minChoices: number;
+  readonly maxChoices: number;
+  readonly isDefault: boolean;
+  readonly sort: number;
+}
+export interface PackageRecord extends Base {
+  readonly name: string;
+  readonly priceCents: number;
+  readonly hourly: boolean;
+  readonly privateFunctionOnly: boolean;
+  /** qty null: as many as the guests want. */
+  readonly contents: readonly { itemRef: string; qty: number | null }[];
+  readonly shown: boolean;
 }
 export interface PolicyRecord extends Base {
   readonly text: string;
@@ -123,6 +149,8 @@ export interface Prepared {
   readonly guests: readonly GuestRecord[];
   readonly people: readonly PersonRecord[];
   readonly menu: readonly MenuRecord[];
+  readonly modifiers: readonly ModifierRecord[];
+  readonly packages: readonly PackageRecord[];
   readonly policies: readonly PolicyRecord[];
   readonly bookings: readonly BookingRecord[];
   readonly consents: readonly ConsentRecord[];
@@ -132,6 +160,8 @@ export interface Prepared {
   readonly listed: readonly Problem[];
 }
 
+/** The tax categories a menu category can carry; the rest belong to room time, songs and fees. */
+const MENU_TAX_CATEGORIES = new Set(["drink", "food"]);
 const ROLES = new Set(["owner", "manager", "bartender", "front_desk", "staff"]);
 const BOOKING_STATUSES = new Set([
   "pending",
@@ -253,6 +283,8 @@ export function prepareImport(
     guests: [] as GuestRecord[],
     people: [] as PersonRecord[],
     menu: [] as MenuRecord[],
+    modifiers: [] as ModifierRecord[],
+    packages: [] as PackageRecord[],
     policies: [] as PolicyRecord[],
     bookings: [] as BookingRecord[],
     consents: [] as ConsentRecord[],
@@ -363,15 +395,60 @@ export function prepareImport(
         const priceCents = req("price", money);
         nonNegative("price", priceCents);
         const buttonName = text("button_name", 24) ?? null;
+        const station = text("station", 32) ?? "bar";
+        if (!/^[a-z][a-z0-9_]{0,31}$/.test(station))
+          rowProblems.push(`station "${station}" must be lowercase letters, digits and _`);
         record = {
-          name: text("name", 120),
+          itemRef: text("item_ref", 200) ?? ref,
+          name: text("name", 80),
           category: text("category", 80),
           priceCents,
           alcohol: req("alcohol", parseYesNo),
           buttonName,
-          taxCategory: text("tax_category", 40) ?? "drink",
-          variant: text("variant", 60) ?? "Regular",
+          taxCategory: oneOf("tax_category", MENU_TAX_CATEGORIES),
+          variant: text("variant", 80) ?? "Regular",
           sort: opt("sort", (s) => parseWholeNumber(s, 0, 100000)) ?? row.line,
+          station,
+          posSection: oneOf("pos_section", new Set(POS_SECTIONS)) ?? null,
+        };
+      } else if (kind === "modifiers") {
+        ref = text("legacy_ref");
+        const priceDeltaCents = opt("price_delta", money) ?? 0;
+        nonNegative("price_delta", priceDeltaCents);
+        const minChoices = opt("min_choices", (s) => parseWholeNumber(s, 0, 50)) ?? 0;
+        const maxChoices = opt("max_choices", (s) => parseWholeNumber(s, 1, 50)) ?? 1;
+        if (minChoices > maxChoices) rowProblems.push("min_choices is more than max_choices");
+        record = {
+          itemRef: text("item_ref", 200),
+          group: text("group", 80),
+          name: text("name", 80),
+          priceDeltaCents,
+          required: opt("required", parseYesNo) ?? false,
+          minChoices,
+          maxChoices,
+          isDefault: opt("is_default", parseYesNo) ?? false,
+          sort: opt("sort", (s) => parseWholeNumber(s, 0, 100000)) ?? row.line,
+        };
+      } else if (kind === "packages") {
+        ref = text("legacy_ref");
+        const priceCents = req("price", money);
+        nonNegative("price", priceCents);
+        const contents: { itemRef: string; qty: number | null }[] = [];
+        for (const part of (field("contents") ?? "").split(";")) {
+          const p = part.trim();
+          if (p === "") continue;
+          const m = /^(.+?)(?::\s*(\d+))?$/.exec(p)!;
+          const qty = m[2] === undefined ? null : Number(m[2]);
+          if (qty === 0) rowProblems.push(`contents "${p}" has a quantity of 0`);
+          contents.push({ itemRef: m[1]!.trim(), qty });
+        }
+        record = {
+          name: text("name", 120),
+          priceCents,
+          hourly: opt("hourly", parseYesNo) ?? false,
+          privateFunctionOnly: opt("private_function_only", parseYesNo) ?? false,
+          contents,
+          shown: opt("shown", parseYesNo) ?? true,
         };
       } else if (kind === "policies") {
         ref = text("legacy_ref");

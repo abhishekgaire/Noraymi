@@ -1,3 +1,6 @@
+import { promotionChecks, type Promotable, type PromotionRefusal } from "@west4/rules";
+import type { Temporal } from "@west4/shared";
+import { rulePackFor } from "./rule-packs.js";
 import type { Queryable } from "./tenancy.js";
 
 /**
@@ -365,5 +368,33 @@ export async function orderableVariant(
       ...g,
       options: options.rows.filter((o) => o.group_id === g.id).map(({ group_id: _, ...o }) => o),
     })),
+  };
+}
+
+/**
+ * The save path's promotion checks (M3-02/M3-03; Settings · Promotion
+ * checks): the things a save touches, run against the venue's rule pack in
+ * force today and the menu as saved. Admin → Menu and the menu import (M9-04)
+ * both call it; any refusal means the save must not stand. Throws when the
+ * venue has no usable rule pack.
+ */
+export async function menuPromotionRefusals(
+  client: Queryable,
+  venueId: string,
+  things: readonly Promotable[],
+  today: Temporal.PlainDate,
+): Promise<{ refusals: PromotionRefusal[]; packVersion: string | null }> {
+  if (things.length === 0) return { refusals: [], packVersion: null };
+  const venue = await client.query<{ rule_pack_id: string | null }>(
+    "select rule_pack_id from venues where id = $1",
+    [venueId],
+  );
+  const packId = venue.rows[0]?.rule_pack_id ?? "us-ny-new-york-county";
+  const pack = await rulePackFor(client, packId, today);
+  if (!pack) throw new Error(`no usable rule pack ${packId} for ${today.toString()}`);
+  const menu = await promoMenu(client, venueId);
+  return {
+    refusals: things.flatMap((t) => promotionChecks(t, menu, pack.pack)),
+    packVersion: pack.pack.version,
   };
 }

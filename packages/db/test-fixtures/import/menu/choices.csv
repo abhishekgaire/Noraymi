@@ -1,0 +1,3 @@
+Choice ID,Item ID,Group,Choice,Extra,Required,Default
+T-OPT-1,T-MARG,Flavor,Classic,$0.00,Y,Y
+T-OPT-2,T-MARG,Flavor,Strawberry,$2.00,Y,N

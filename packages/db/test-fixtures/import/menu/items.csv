@@ -1,0 +1,6 @@
+SKU,Item ID,Name,Category,Size,Price,Alcohol,Button,Tax,Grid
+T-LAGER-PINT,T-LAGER,Test Lager,Test Beer,Pint,$8.00,Y,T Lager,drink,beer
+T-LAGER-PITCHER,T-LAGER,Test Lager,Test Beer,Pitcher,$24.00,Y,T Lager,drink,beer
+T-COLA,T-COLA,Test Cola,Soft drinks (test),Regular,$3.00,N,T Cola,drink,
+T-MARG,T-MARG,Test Margarita,Cocktails (test),Regular,$14.00,Y,T Marg,drink,
+T-FRIES,T-FRIES,Test Fries,Kitchen,Regular,$9.00,N,T Fries,food,

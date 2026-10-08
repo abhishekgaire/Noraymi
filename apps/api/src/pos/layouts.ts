@@ -1,5 +1,5 @@
-import { readSetting, rulePackFor, saveSettings, type Queryable } from "@west4/db";
-import { businessDate, nextBusinessDate } from "@west4/rules";
+import { PosLayoutRefused, publishPosLayout, readSetting, type Queryable } from "@west4/db";
+import { businessDate } from "@west4/rules";
 import {
   POS_SECTIONS,
   posLayoutSectionsSchema,
@@ -136,42 +136,12 @@ export async function publishLayout(
   by: { userId: string | null; now: Temporal.Instant },
 ) {
   const venue = await venueClock(c, venueId);
-  const today = businessDate(by.now, venue.timeZone, venue.dayCutover).businessDate;
-  const startsOn = nextBusinessDate(by.now, venue.timeZone, venue.dayCutover);
-  const r = await c.query<{ station: string; version: number }>(
-    `update pos_layouts p set status = 'published',
-            version = coalesce((select max(version) from pos_layouts q
-                                 where q.venue_id = p.venue_id and q.station = p.station), 0) + 1,
-            published_by = $3, published_at = $4, starts_on = $5
-      where p.venue_id = $1 and p.id = $2 and p.status = 'draft'
-      returning p.station, p.version`,
-    [venueId, layoutId, by.userId, by.now.toString(), startsOn.toString()],
-  );
-  const published = r.rows[0];
-  if (!published) throw new ApiError("not_found", "no draft layout with that id");
-  // pos.layouts names the version in force; a layouts change starts at the next business date.
-  const pos = await readSetting(c, venueId, "pos", startsOn);
-  if (!pos) throw new ApiError("invalid_request", "the bar POS settings aren't set for this venue");
-  const packId =
-    (
-      await c.query<{ rule_pack_id: string | null }>(
-        "select rule_pack_id from venues where id = $1",
-        [venueId],
-      )
-    ).rows[0]?.rule_pack_id ?? "us-ny-new-york-county";
-  const pack = await rulePackFor(c, packId, today);
-  if (!pack) throw new ApiError("internal", `no usable rule pack ${packId}`);
-  await saveSettings(c, {
-    venueId,
-    values: {
-      pos: {
-        ...pos.value,
-        layouts: { ...pos.value.layouts, [published.station]: published.version },
-      },
-    },
-    savedBy: by.userId ?? undefined,
-    today,
-    check: { pack: pack.pack, cutover: venue.dayCutover },
-  });
-  return { station: published.station, version: published.version, starts_on: startsOn.toString() };
+  try {
+    return await publishPosLayout(c, venueId, layoutId, { ...by, ...venue });
+  } catch (error) {
+    if (!(error instanceof PosLayoutRefused)) throw error;
+    if (error.reason === "no_draft") throw new ApiError("not_found", error.message);
+    if (error.reason === "no_pos_settings") throw new ApiError("invalid_request", error.message);
+    throw new ApiError("internal", error.message);
+  }
 }

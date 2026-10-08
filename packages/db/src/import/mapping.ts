@@ -19,6 +19,8 @@ export const KINDS = [
   "guests",
   "people",
   "menu",
+  "modifiers",
+  "packages",
   "policies",
   "bookings",
   "consents",
@@ -30,9 +32,21 @@ export type Kind = (typeof KINDS)[number];
 export const FIELDS: Record<Kind, { required: readonly string[]; optional: readonly string[] }> = {
   guests: { required: ["legacy_ref", "name"], optional: ["phone", "email", "locale"] },
   people: { required: ["legacy_ref", "name", "role"], optional: ["email", "phone", "locale"] },
+  // One row per thing sold: an item, or one variant of it (rows sharing item_ref are one item).
+  // The tax category is the export's or the mapping's default, never guessed (M9-04).
   menu: {
-    required: ["legacy_ref", "name", "category", "price", "alcohol"],
-    optional: ["button_name", "tax_category", "variant", "sort"],
+    required: ["legacy_ref", "name", "category", "price", "alcohol", "tax_category"],
+    optional: ["button_name", "variant", "sort", "item_ref", "station", "pos_section"],
+  },
+  /** One row per choice in a modifier group of an item (M9-04). */
+  modifiers: {
+    required: ["legacy_ref", "item_ref", "group", "name"],
+    optional: ["price_delta", "required", "min_choices", "max_choices", "is_default", "sort"],
+  },
+  /** Packages, checked against the rule pack on save like Admin's (M9-04). Contents: "ITEM:2; ITEM2". */
+  packages: {
+    required: ["legacy_ref", "name", "price"],
+    optional: ["hourly", "private_function_only", "contents", "shown"],
   },
   /** The terms guests accepted on the old site (M9-02): their words, and the refund window they set. */
   policies: { required: ["legacy_ref", "text"], optional: ["refund_hours", "published_at"] },

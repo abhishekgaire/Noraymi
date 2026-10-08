@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { publishTestRulePack } from "./test-pack.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isBalanced } from "@west4/rules";
 import { readSeedFile } from "../seed.js";
@@ -52,6 +53,8 @@ beforeAll(async () => {
   db = await createTestDatabase({ migrate: true });
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
+  // The menu goes in through the save path's promotion checks (M9-04): the venue's rule pack.
+  await publishTestRulePack(owner);
   pool = new pg.Pool({ connectionString: db.url, max: 3 });
   const v = await seedTwoVenues(db.url);
   venueB = v.venueB;
