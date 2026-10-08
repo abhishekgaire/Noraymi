@@ -1004,6 +1004,7 @@ export async function loadDemoSeed(options: SeedLoadOptions): Promise<SeedLoadRe
       "prepaid_ledger",
       "prepaid_accounts",
       "tab_openings",
+      "owner_alerts",
       "dispute_funds",
       "disputes",
       "tip_shares",
