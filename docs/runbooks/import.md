@@ -70,6 +70,18 @@ West 4's two marketing texts stay off either way (the Marketing texts module).
 
 **Refunding or keeping an old deposit** (cautious default until the founder confirms where the old deposits are held): refund it in the old system, then record it here as a refund of the `external` payment with the old system's reference; a kept one becomes the usual `fee` check with a `forfeit` line. The old site's manage links can't carry over; M9-09 redirects them.
 
+## The dry run that proves nothing is lost (M9-06)
+
+The import's own report only says that what was in the files got saved. The dry run also checks the files against the old system itself:
+
+1. **On the day of the export**, West 4 takes the old system's own totals from that system's own report or screen, never from the export file: bookings, deposits held (as the report prints them, `$1,234.50`), consents, and guests if it shows them. They go in a small JSON file kept with the export, outside the repo: `{ "taken_from": "…", "taken_at": "…", "bookings": 11, "deposits": "$990.00", "consents": 0, "guests": 17 }` (`guests` is optional).
+2. **Run the dry run on a staging copy of production** with `--old-system <totals.json> --out <dir>`. It prints one line per total (`match` or `DIFFERENT`, old system against saved) and writes `dry-run-report-<run>.md`, the written report for the owner to sign: the comparison table, the import's own report, and a sign-off block. It holds counts and cents only, no guest's name, number or email. The command exits non-zero on any difference.
+3. **Fix every difference** (the export, the mapping, or the old system's report scope) and run it again until it says "Matches the old system in count and to the cent."
+4. **The owner signs** the report; keep it in `docs/gate/` (see `docs/gate/import-dry-run.md`).
+5. **Rehearse the cutover delta**: run again with the newer files and the old system's newer totals. Bookings already imported are matched by their legacy reference and left exactly as they are; only the new ones load, with their own opening journal entry.
+
+How the totals are counted: bookings and deposits are every booking in the files that's in the venue, the ones on the manager's list included (named in a note). Consents are those imported plus the marketing opt-ins listed for lack of proof (M9-03): those are accounted for, by name, not lost, and the row says how many.
+
 ## What stops an import before anything loads
 
 1. **A PIN or a card number.** A file with a column named like a PIN or password (PIN, Staff PIN, Passcode…) or like card data (Card Number, CC#, CVV, Expiry Date, PAN…), or with a card number anywhere in any cell (13 to 19 digits that pass the card checksum), is refused whole, whether or not the mapping reads that column. Ask the venue to export again without that column. Staff set new PINs on their own phones (M9-08).

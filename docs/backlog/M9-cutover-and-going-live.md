@@ -146,17 +146,17 @@ Definition of done: see CLAUDE.md.
 
 ### M9-06 · Run the import dry run and prove nothing is lost
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M9-01 to M9-05
 - **Spec:** [milestones](../milestones.md#m9--cutover-and-going-live) · M9 Done when; [milestones](../milestones.md#the-go-live-gate) · the go-live gate, item 3
 - **Build:** the dry run on a staging copy of production: bookings, deposits and consents compared in count and to the cent with the old system's own totals, a report or screen West 4 takes from the old system on the day of the export, never the export file itself. Every difference is fixed and the run repeated until there are none. West 4's owner signs the report. The cutover delta is rehearsed: bookings made after the dry run are imported again by `legacy_ref`.
 - **Acceptance:**
-  - [ ] The dry run's bookings, deposits and consents match West 4's old system in count and to the cent.
-  - [ ] The signed report is kept in `docs/gate/` as the evidence for gate item 3.
-  - [ ] The rehearsed delta adds only the new bookings and changes nothing already imported.
+  - [ ] The dry run's bookings, deposits and consents match West 4's old system in count and to the cent. (The comparison is built and proven on the fixtures; waits on West 4's real export and the old system's own totals.)
+  - [ ] The signed report is kept in `docs/gate/` as the evidence for gate item 3. (The report is written for signing and `docs/gate/import-dry-run.md` is its place; waits on the real run and the owner's signature.)
+  - [ ] The rehearsed delta adds only the new bookings and changes nothing already imported. (Proven on the fixtures in `dry-run.int.test.ts`; rehearsed for real with West 4's newer files.)
 - **Tests:** the dry run itself; the delta rehearsal.
-- **Notes:** —
+- **Notes:** Built: `pnpm db:import … --dry-run --old-system <totals.json> --out <dir>` (`packages/db/src/import/old-system.ts`) compares the saved bookings (count), deposits (to the cent) and consents (count), and guests when given, with the old system's own totals typed from its own report on the day of the export; prints `match`/`DIFFERENT` per line, exits non-zero on any difference, and writes `dry-run-report-<run>.md` for the owner to sign (counts and cents only, no guest details). Rehearsed on the fixtures (`rehearsal/` and `sample/old-system-totals.json`) in `packages/db/src/import/dry-run.int.test.ts`: the match, a one-booking and one-cent difference named, the signable report, and the delta (two new bookings load, every earlier row unchanged). Runbook: `docs/runbooks/import.md` · The dry run; gate page `docs/gate/import-dry-run.md`. Cautious default: a marketing opt-in dropped for lack of proof (M9-03) counts as accounted for, with a note naming how many, since the law keeps it from becoming consent. Blocked on West 4's real export files and the old system's own totals; the owner's signature follows.
 
 ### M9-07 · Install and pair the hardware, and check the cellular signal at every pay point
 

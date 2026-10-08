@@ -5,6 +5,13 @@ import { databaseUrl } from "./config.js";
 import { checkMapping } from "./import/mapping.js";
 import { prepareImport, ImportRefused } from "./import/prepare.js";
 import { formatReport, ImportInvalid, resolveVenue, runImport } from "./import/load.js";
+import {
+  checkOldSystemTotals,
+  compareWithOldSystem,
+  dryRunReportMarkdown,
+  formatComparison,
+  type OldSystemTotals,
+} from "./import/old-system.js";
 import { ACCOUNTS, journalCsv, type Account } from "@west4/rules";
 
 /** The accounts' plain names for the opening journal's file; the accountant maps them in QuickBooks. */
@@ -22,6 +29,7 @@ const OPENING_ACCOUNT_NAMES = Object.fromEntries(
 /**
  * pnpm db:import -- --venue <slug|id> --mapping <file.json> [--dry-run] [--out <dir>] [--batch <n>]
  *                   [--cutover-date <YYYY-MM-DD>] [--links-out <file.csv>] [--link-base <url>]
+ *                   [--old-system <totals.json>]
  *
  * Reads the files a venue exported from its old system with that system's
  * own tools, through a mapping file (docs/runbooks/import.md), and loads them
@@ -34,6 +42,12 @@ const OPENING_ACCOUNT_NAMES = Object.fromEntries(
  * them (legacy ref, link) to a file only the operator can read, for the
  * cutover texts; without it they can't be recovered, and a manager reissues
  * a guest's link instead.
+ *
+ * --old-system (M9-06) compares what was saved with the old system's own
+ * totals (bookings, deposits, consents, from its own report on the day of
+ * the export, never the export file), writes the written report for the
+ * owner to sign (dry-run-report-<run>.md, with --out), and exits non-zero
+ * on any difference.
  */
 const log = (line: string) => process.stdout.write(`${line}\n`);
 
@@ -47,7 +61,7 @@ async function main(): Promise<number> {
   const mappingPath = arg("mapping");
   if (!venueRef || !mappingPath) {
     log(
-      "usage: pnpm db:import -- --venue <slug|id> --mapping <file.json> [--dry-run] [--out <dir>] [--batch <n>] [--cutover-date <YYYY-MM-DD>] [--links-out <file.csv>] [--link-base <url>]",
+      "usage: pnpm db:import -- --venue <slug|id> --mapping <file.json> [--dry-run] [--out <dir>] [--batch <n>] [--cutover-date <YYYY-MM-DD>] [--links-out <file.csv>] [--link-base <url>] [--old-system <totals.json>]",
     );
     return 2;
   }
@@ -56,6 +70,16 @@ async function main(): Promise<number> {
   if (!mapping) {
     for (const p of problems) log(`${mappingPath}: ${p}`);
     return 1;
+  }
+  let oldTotals: OldSystemTotals | undefined;
+  const oldPath = arg("old-system");
+  if (oldPath) {
+    const checked = checkOldSystemTotals(JSON.parse(readFileSync(oldPath, "utf8")));
+    if (!checked.totals) {
+      for (const p of checked.problems) log(`${oldPath}: ${p}`);
+      return 1;
+    }
+    oldTotals = checked.totals;
   }
   const dir = dirname(resolve(mappingPath));
   const pool = new pg.Pool({
@@ -86,7 +110,10 @@ async function main(): Promise<number> {
       ...(cutoverDate ? { cutoverDate } : {}),
       log,
     });
-    for (const line of formatReport(report)) log(line);
+    const reportLines = formatReport(report);
+    for (const line of reportLines) log(line);
+    const comparison = oldTotals ? compareWithOldSystem(report, oldTotals) : undefined;
+    if (comparison) for (const line of formatComparison(comparison)) log(line);
     const linksOut = arg("links-out");
     if (linksOut && links.length > 0) {
       const base = (arg("link-base") ?? "").replace(/\/$/, "");
@@ -108,8 +135,13 @@ async function main(): Promise<number> {
         writeFileSync(journal, journalCsv([report.opening_journal], {}, OPENING_ACCOUNT_NAMES));
         log(`opening journal written to ${journal}`);
       }
+      if (comparison && oldTotals) {
+        const md = join(out, `dry-run-report-${report.run_id}.md`);
+        writeFileSync(md, dryRunReportMarkdown(report, oldTotals, comparison, reportLines));
+        log(`written report for the owner to sign: ${md}`);
+      }
     }
-    return report.reconciles ? 0 : 1;
+    return report.reconciles && (comparison?.matches ?? true) ? 0 : 1;
   } catch (e) {
     if (e instanceof ImportRefused || e instanceof ImportInvalid) {
       log(e.message);

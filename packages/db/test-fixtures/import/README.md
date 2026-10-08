@@ -6,4 +6,6 @@ Made-up files for testing `pnpm db:import`. **No real guest, staff or card data 
 - `sample/` covers what the seed doesn't: a JSON file, money in cents, consents (opt-ins and an opt-out) and nightly totals.
 - `refused/` holds files the tool must refuse before anything loads: a PIN column, a card-number column, and a card number hidden in a notes column.
 
+`old-system-totals.json` in `rehearsal/` and `sample/` stands in for the old system's own report of its totals on the day of the export (M9-06's `--old-system`), made up to match the fixtures.
+
 West 4's real export files are not here and must never be committed.

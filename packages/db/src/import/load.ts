@@ -1097,7 +1097,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
   }
 }
 
-const dollars = (cents: number) => {
+export const dollars = (cents: number) => {
   const sign = cents < 0 ? "-" : "";
   const a = Math.abs(cents);
   const whole = Math.floor(a / 100)
