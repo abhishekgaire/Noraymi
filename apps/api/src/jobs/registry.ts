@@ -62,6 +62,7 @@ import {
   syntheticSweep,
   type SyntheticConfig,
 } from "../ops/synthetic.js";
+import { BOOKING_CONFIRMED_KIND, makeBookingConfirmedHandler } from "../bookings/confirm.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -101,6 +102,8 @@ export interface HandlerDeps {
     readonly config: SyntheticConfig;
     readonly log?: (line: string) => void;
   };
+  /** The guest site, where a confirmation text's manage link opens (M5-10). */
+  readonly guestAppUrl?: string | null;
   /** Guest texts from each venue's subaccount (M2-09). */
   readonly venueTexts?: {
     readonly client: VenueTextClient;
@@ -119,6 +122,7 @@ export function makeHandlers({
   venueTexts,
   stripe,
   synthetic,
+  guestAppUrl,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   const stripeEvents = stripe
     ? { [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client) }
@@ -161,6 +165,11 @@ export function makeHandlers({
               venueTexts.secretKey,
             ),
             [TEXT_TRIGGER_KIND]: makeTextTriggerHandler(venueTexts.settings),
+            // The Booking confirmed text, with its own manage link (M5-10).
+            [BOOKING_CONFIRMED_KIND]: makeBookingConfirmedHandler({
+              allowList: venueTexts.settings.allowList,
+              guestAppUrl: guestAppUrl ?? null,
+            }),
           }
         : {}),
       // The synthetic order and reader payment every 5 minutes (M8-18), at most one at a time per slot.

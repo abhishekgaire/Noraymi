@@ -60,6 +60,7 @@ const handlers = tracedHandlers(
       settings: venueTextSettings,
       secretKey: config.auth.secretKey,
     },
+    guestAppUrl: config.guestAppUrl,
     s3: makeS3(),
     // The ID-scan key store (M8-14), sealed with the server key.
     idKeys: idKeyStore(config.auth.secretKey),

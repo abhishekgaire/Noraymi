@@ -11,6 +11,7 @@ import {
 } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
+import { LINK_DAYS_AFTER } from "../bookings/online.js";
 import { ApiError } from "../http/errors.js";
 import { payAnotherWay } from "../payments/bill-pay.js";
 import { guestBill } from "../rooms/guest-bill.js";
@@ -186,7 +187,7 @@ export function billRoutes(
     },
   );
 
-  /** The booking behind a link token, inside its venue, or not found. */
+  /** The booking behind a link token (the one the guest booked with, or a text's), inside its venue, or not found. */
   async function booking(token: string) {
     if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) throw notFound();
     const hash = payTokenHash(token);
@@ -209,8 +210,12 @@ export function billRoutes(
                     order by k.opened_at desc limit 1) as check_id
              from bookings b join venues v on v.id = b.venue_id
              left join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
-            where b.venue_id = $1 and b.manage_token_hash = $2`,
-          [venueId, hash],
+            where b.venue_id = $1
+              and (b.manage_token_hash = $2
+                   or b.id in (select l.booking_id from booking_links l where l.venue_id = $1 and l.token_hash = $2))
+              -- A manage link expires a day after the booking ends (M5-10; Security 9).
+              and b.ends_at + interval '${LINK_DAYS_AFTER} days' > $3`,
+          [venueId, hash, options.clock.now().toString()],
         )
       ).rows[0];
       if (!b) throw notFound();

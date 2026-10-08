@@ -88,7 +88,7 @@ describe("the venue wall", () => {
       push,
     });
     expect(findings, findings.map((f) => `${f.where}: ${f.why}`).join("\n")).toEqual([]);
-    expect(rows.length).toBe(16); // M8-09 added the license reminders, M8-12 the retention job, M8-13 the erase job, M8-18 the synthetic check, M9-15 the money audit, M9-17 the gate's weekly summary
+    expect(rows.length).toBe(17); // M8-09 added the license reminders, M8-12 the retention job, M8-13 the erase job, M8-18 the synthetic check, M9-15 the money audit, M9-17 the gate's weekly summary, M5-10 the Booking confirmed text
     expect(venueClient.sent).toEqual([]);
   });
 });

@@ -270,7 +270,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-10 · Confirm the booking and send the confirmation
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-09; M4-03, M4-12; M2 (texts)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) steps 3 and 4, Confirmed and Failures; [Money rules](../spec/05-money-rules.md) rule 2; [Song systems and texts](../spec/11-song-systems-texts.md) (the Booking confirmed text); [Security and data retention](../spec/12-security-retention.md) 9; [screens: N1](../screens.md#n1-booking-steps-after-the-price), [Manage note 4](../screens.md#manage)
@@ -282,12 +282,23 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The Booking confirmed text says the same, for example "Booked. Room for 5 at 11:00 PM, Fri Sep 25. A 20% gratuity is added to room tabs. Deposit $50 paid, comes off your bill. Free to cancel until Thu 11:00 PM: west4karaoke.com/b/…".
   - The manage link carries a 128-bit token stored hashed (`bookings.manage_token_hash`) and expires after the booking.
 - **Acceptance:**
-  - [ ] Booked on Wed Sep 23 for Fri 11:00 PM, Jae's confirmation page and text both say "Free to cancel until Thu 11:00 PM" and $50 paid.
-  - [ ] With the page closed right after paying, the webhook confirms the booking; with the webhook held back too, the reconciler confirms it on its next run.
-  - [ ] A payment that lands after its hold lapsed, with the room taken, is refunded in full and the page says so.
-  - [ ] A booking whose cut-off falls across the Nov 1, 2026 change shows its cut-off with EDT or EST.
+  - [x] Booked on Wed Sep 23 for Fri 11:00 PM, Jae's confirmation page and text both say "Free to cancel until Thu 11:00 PM" and $50 paid.
+  - [x] With the page closed right after paying, the webhook confirms the booking; with the webhook held back too, the reconciler confirms it on its next run.
+  - [x] A payment that lands after its hold lapsed, with the room taken, is refunded in full and the page says so.
+  - [x] A booking whose cut-off falls across the Nov 1, 2026 change shows its cut-off with EDT or EST.
 - **Tests:** sandbox integration for the return path, the webhook path and the reconciler path; daylight-saving unit tests for the cut-off; text rendering tests; principal suite for the manage token.
 - **Notes:** Spec gap: `refundHours` is a duration, and rule 2 counts durations in elapsed time, while GA-M5 asks for "refund cut-offs in New York time"; across a daylight-saving change the two differ by an hour. Cautious default: elapsed hours (Temporal's hour arithmetic), shown in New York time with EDT or EST; flagged for the founder.
+  - Built: `settleDeposit()` (`apps/api/src/bookings/confirm.ts`) runs inside the state machine's transaction the moment a booking's card_online capture is recorded, so the page's return (`/v1/public/pay/{token}/confirm`, the server reading the PaymentIntent itself), `payment_intent.succeeded` and the reconciler all confirm the same way, whichever comes first, and only once. The hold's block becomes the booking's; a hold already swept gets the same room again if it's still free; if the room has gone, the payment is refunded in full by rule.
+  - The refund by rule: a `refunds` row with `automatic` true and no requester or approver (migration 0131; `requested_by` may now be empty only when `automatic`), sent by the usual `refund.run` job outside any transaction with key `<payment_id>:refund:<n>`, landing on refund.updated as before. The pay page and the booking page say "Your payment came in after your hold ran out, and the room had been taken. We've refunded $50.00 in full." (D96).
+  - The cut-off is fixed at the first confirmation from the deposit settings of the booked night (the big-party window for a big party), counted in elapsed hours as the Notes' cautious default says, and shown in New York time, with EDT or EST when the cut-off and the start sit on different sides of a change (`cutoffWords`).
+  - Confirmed state, on the booking's own page (`/v/{slug}/book/{token}`): "You're booked", the room size, date, time and length, "Deposit $50.00 paid · it comes off your bill", "Free to cancel until …", the gratuity sentence, "We texted your confirmation to (212) 555-0188." and "Manage your booking" (`/b/{token}`). The payment page sends the guest there once paid, using the booking's link that rode in the URL fragment; without it, it says "Booked · we texted your confirmation and a link to manage your booking."
+  - The Booking confirmed text (job `booking.confirmed`, normal pool, once per booking): the seeded template, with "$50" for whole dollars as the spec's example reads, and a manage link of its own, `west4karaoke.com/b/<token>` from `GUEST_APP_URL` (`booking_links`, a new table: only a token's hash is kept, so the text can't reuse the browser's link; both resolve through `resolve_booking_link`). A text switched off, Guest texts off or an opt-out stops it as for every text. The worker gets `GUEST_APP_URL`; without it no text goes.
+  - Manage links (the booking's and the text's) stop working a day after the booking ends (`LINK_DAYS_AFTER`; Security 9 says only "after the booking": cautious default, flagged), for the hold/manage view and Marcus's `/b/` bill alike. The retention job deletes a booking's text links when it pseudonymizes the booking.
+  - Not confirmed by this path: a booking a guest or the venue cancelled (`cancelled_by` set; M5-12) and practice payments.
+  - Spec changes: `booking_links` and `refunds.automatic` in the data model, D96.
+  - Tests: `booking-confirm.int.test.ts` (Wed Sep 23 → "Thu 11:00 PM" and $50 on the page and in the text, the text's own link, no second text, the link's expiry, the webhook path, the reconciler path, a late payment confirming with a new block and another refunded in full by rule and sent to Stripe, the Nov 1 cut-off "Sat 10:00 PM EDT"); the venue-wall suite's case for the new job kind; Playwright "Book: Jae pays the $50.00 deposit on the payment page and is booked". On the fake Stripe; the real sandbox run is M5-17's.
+  - `src/ops/synthetic.int.test.ts` (M8-18) failed once in the full run on a 2-second clock drift (`server_time` 22:41:02) and passes alone: it only times out or drifts in the full run.
+
 
 ### M5-11 · Change a booking on the manage page
 

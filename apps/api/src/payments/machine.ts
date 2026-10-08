@@ -18,6 +18,7 @@ import { Temporal, cardOutcome } from "@west4/shared";
 import { telemetry } from "../telemetry/index.js";
 import { settleCheck } from "../rooms/present.js";
 import { afterTabPaymentEnded, takeOverHold } from "../tabs/pay.js";
+import { settleDeposit } from "../bookings/confirm.js";
 import { settleShares } from "./splits.js";
 import type { IntentObservation, ReaderAction } from "../stripe/payments.js";
 import {
@@ -221,6 +222,15 @@ export async function applyObservation(
   )
     for (const check of await allocatedChecks(c, venueId, paymentId))
       await afterTabPaymentEnded(c, venueId, check);
+  // A booking's deposit landed (M5-10): the booking confirms, or, if its room went after the hold lapsed,
+  // the payment is refunded in full by rule.
+  if (
+    changed &&
+    payment.status === "captured" &&
+    before.status !== "captured" &&
+    payment.booking_id
+  )
+    await settleDeposit(c, venueId, payment, now ?? Temporal.Now.instant());
   // Money landed: each check it paid is paid in full or partly paid, and a paid room may go to cleaning.
   if (changed && payment.status === "captured" && before.status !== "captured" && now)
     for (const check of await allocatedChecks(c, venueId, paymentId))

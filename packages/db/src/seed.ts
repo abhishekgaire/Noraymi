@@ -1085,6 +1085,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "venue_counters",
       "session_segments",
       "room_sessions",
+      // The confirmation texts' manage links (M5-10) point at their bookings.
+      "booking_links",
       "bookings",
       "policy_versions",
       "guests",

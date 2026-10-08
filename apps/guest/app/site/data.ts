@@ -250,6 +250,9 @@ export interface HeldBooking {
   /** "Thu 11:00 PM", the refund cut-off in the venue's time zone (M5-08). */
   readonly cutoff_words: string | null;
   readonly guest: { name: string; phone: string | null; email: string | null } | null;
+  /** M5-10: the deposit paid, and a late payment refunded in full because the room had gone. */
+  readonly deposit_paid_cents: number;
+  readonly late_refund: { amount_cents: number; status: string } | null;
   readonly policy: { id: string; version: number; text: string; hash: string } | null;
   readonly accepted: { policy_version_id: string; at: string } | null;
   /** The marketing box's exact words; null while Marketing texts is off. */

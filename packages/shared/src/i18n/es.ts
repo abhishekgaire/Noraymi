@@ -1536,6 +1536,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "payPage.testDecline": "Probar una tarjeta de prueba rechazada",
   "payPage.payDeposit": "Pagar el depósito de {amount}",
   "payPage.depositTitle": "Tu depósito · {amount}",
+  "payPage.booked":
+    "Reserva confirmada · te enviamos la confirmación y un enlace para administrar tu reserva.",
   "yourBill.title": "Tu cuenta · #{number}",
   "yourBill.revision": "Revisión {n}",
   "yourBill.roomTime": "Tiempo de sala",
@@ -1997,6 +1999,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.book.policyVersion": "Versión de la política {n}",
   "site.book.cutoff": "Cancelación gratis hasta el {cutoff}",
   "site.book.payFailed": "No se pudo abrir la página de pago. Inténtalo de nuevo.",
+  "site.book.confirmed": "Tienes tu reserva",
+  "site.book.confirmedWhat": "{tier} · {when}",
+  "site.book.depositPaid": "Depósito de {amount} pagado · se descuenta de tu cuenta",
+  "site.book.gratuityLine": "Se agrega una propina del {pct}% a las cuentas de las salas.",
+  "site.book.textSent": "Te enviamos la confirmación por mensaje de texto al {phone}.",
+  "site.book.manage": "Administrar tu reserva",
+  "site.book.lateRefund":
+    "Tu pago llegó después de que venció tu reserva temporal y la sala ya estaba ocupada. Te reembolsamos {amount} completo.",
   "admin.section.barPos": "TPV de barra",
   "admin.hint.barPos": "Los botones del TPV de barra, por estación",
   "barPos.layout": "Distribución",

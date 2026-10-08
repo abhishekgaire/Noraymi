@@ -12,7 +12,7 @@ import { Countdown } from "../../site/countdown";
  * for the Payment Element.
  */
 export interface PayPage {
-  readonly status: "open" | "paid" | "checking" | "declined" | "lapsed";
+  readonly status: "open" | "paid" | "checking" | "declined" | "lapsed" | "refunded";
   readonly kind: "balance" | "deposit";
   /** A booking's deposit (M5-09): the hold's countdown, the policy above the pay button, where to pick again. */
   readonly deposit: {
@@ -21,6 +21,8 @@ export interface PayPage {
     readonly cutoff_words: string | null;
     readonly policy: { id: string; version: number; text: string; hash: string } | null;
     readonly pick_again_url: string | null;
+    readonly booking_status: string;
+    readonly late_refund_cents: number | null;
   } | null;
   readonly amount_cents: number;
   readonly venue_name: string;
@@ -110,6 +112,15 @@ export function PayForm({
     setBusy(false);
   };
 
+  // A deposit paid and its booking confirmed (M5-10): back to the booking's page on the guest site, whose
+  // link rode here in the URL fragment (never sent to a server).
+  useEffect(() => {
+    if (page.status !== "paid" || page.deposit?.booking_status !== "confirmed") return;
+    const back = /(?:^#|&)b=([A-Za-z0-9_-]{20,64})/.exec(window.location.hash)?.[1];
+    if (back && page.deposit.pick_again_url)
+      window.location.replace(`${page.deposit.pick_again_url}/${back}`);
+  }, [page]);
+
   const amount = formatMoney("en", cents(page.amount_cents));
   const deposit = page.deposit;
   const payLabel = t("en", deposit ? "payPage.payDeposit" : "payPage.pay", { amount });
@@ -139,6 +150,24 @@ export function PayForm({
             </a>
           )}
         </section>
+      ) : page.status === "refunded" ? (
+        <section aria-labelledby="refunded-h">
+          <h2 id="refunded-h">
+            {t("en", "site.book.lateRefund", {
+              amount: formatMoney(
+                "en",
+                cents(page.deposit?.late_refund_cents ?? page.amount_cents),
+              ),
+            })}
+          </h2>
+          {deposit?.pick_again_url && (
+            <a className="button" href={deposit.pick_again_url}>
+              {t("en", "site.book.pickAgain")}
+            </a>
+          )}
+        </section>
+      ) : page.status === "paid" && deposit?.booking_status === "confirmed" ? (
+        <p role="status">{t("en", "payPage.booked")}</p>
       ) : page.status === "paid" ? (
         <p role="status">{t("en", "payPage.paid", { amount })}</p>
       ) : page.status === "checking" ? (

@@ -28,6 +28,7 @@ import {
 import { t, Temporal, type DepositRule, type PriceSettings } from "@west4/shared";
 import { z } from "zod";
 import { ApiError } from "../http/errors.js";
+import { LATE_ROOM_GONE } from "./confirm.js";
 import { assignBooking, freeSlots, nightHours, venueClock } from "../rooms/assignment.js";
 import { pctOf } from "../site/site.js";
 
@@ -41,6 +42,12 @@ import { pctOf } from "../site/site.js";
  * is read on the venue's clock, never the guest's device.
  */
 export const HOLD_MINUTES = 10;
+/**
+ * A manage link (the booking's own, or the one its confirmation text carries) stops working this many
+ * days after the booking ends (Security 9 says "expire after the booking"; one day keeps the night's
+ * bill and receipt reachable the morning after: cautious default, flagged).
+ */
+export const LINK_DAYS_AFTER = 1;
 export const MORE_TIME_TIMES = 10;
 
 interface Night {
@@ -322,8 +329,12 @@ export async function heldBooking(
               g.name as guest_name, g.phone_e164 as guest_phone, g.email as guest_email,
               b.policy_version_id, to_json(b.accepted_at) #>> '{}' as accepted_at
          from bookings b left join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
-        where b.venue_id = $1 and b.manage_token_hash = $2`,
-      [venueId, tokenHash],
+        where b.venue_id = $1
+          and (b.manage_token_hash = $2
+               or b.id in (select l.booking_id from booking_links l where l.venue_id = $1 and l.token_hash = $2))
+          -- A manage link expires a day after the booking ends (M5-10; Security 9).
+          and b.ends_at + interval '${LINK_DAYS_AFTER} days' > $3`,
+      [venueId, tokenHash, now.toString()],
     )
   ).rows[0];
   if (!b) throw new ApiError("not_found", "no such booking");
@@ -365,6 +376,17 @@ export async function heldBooking(
     cutoff_words: b.refund_cutoff_at
       ? cutoffWords(Temporal.Instant.from(b.refund_cutoff_at), start, now, venue.timeZone)
       : null,
+    // The Confirmed state (M5-10): the deposit paid, or a late payment refunded because the room had gone.
+    deposit_paid_cents: Number(
+      (
+        await c.query<{ s: string }>(
+          `select coalesce(sum(amount_cents), 0)::text as s from payments
+            where venue_id = $1 and booking_id = $2 and status in ('captured', 'partly_refunded', 'refunded')`,
+          [venueId, b.id],
+        )
+      ).rows[0]!.s,
+    ),
+    late_refund: await lateRefund(c, venueId, b.id),
     // The Details step (M5-08): who the booking is for, once given.
     guest: b.guest_name ? { name: b.guest_name, phone: b.guest_phone, email: b.guest_email } : null,
     // The Terms step: the deposit policy now in force, and the one this booking accepted, if any.
@@ -633,6 +655,7 @@ export async function depositBooking(
     )
   ).rows[0];
   if (!b) return null;
+  const late = await lateRefund(c, venueId, bookingId);
   const lapsed =
     b.status === "cancelled" ||
     (b.status === "pending" &&
@@ -657,5 +680,22 @@ export async function depositBooking(
         )
       : null,
     policy: await policyJson(c, venueId),
+    late_refund: late,
   };
+}
+
+/**
+ * A payment that landed after its hold lapsed, with the room gone, refunded in full by rule (M5-10): the
+ * amount and whether Stripe has finished it, for the page to say so.
+ */
+export async function lateRefund(c: Queryable, venueId: string, bookingId: string) {
+  const r = (
+    await c.query<{ amount_cents: number; status: string }>(
+      `select amount_cents::int as amount_cents, status from refunds
+        where venue_id = $1 and booking_id = $2 and automatic is true and reason = $3
+        order by requested_at desc limit 1`,
+      [venueId, bookingId, LATE_ROOM_GONE],
+    )
+  ).rows[0];
+  return r ?? null;
 }

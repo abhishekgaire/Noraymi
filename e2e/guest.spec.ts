@@ -1070,7 +1070,10 @@ test("Book: Jae's details, the marketing box and the terms", async ({ page }) =>
  * "Pay $50.00 deposit", a declined test card then a good one on the same PaymentIntent, and a second
  * hold left to run out goes back to pick a time.
  */
-test("Book: Jae pays the $50.00 deposit on the payment page", async ({ page, request }) => {
+test("Book: Jae pays the $50.00 deposit on the payment page and is booked", async ({
+  page,
+  request,
+}) => {
   test.setTimeout(120_000);
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
@@ -1100,7 +1103,19 @@ test("Book: Jae pays the $50.00 deposit on the payment page", async ({ page, req
     "Your card was declined · try another card",
   );
   await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
-  await expect(page.getByRole("status").first()).toContainText("$50.00");
+  // Paid and confirmed (M5-10): back on the booking's own page, in the Confirmed state.
+  await page.waitForURL(/^http:\/\/localhost:3001\/v\/west4karaoke\/book\/[A-Za-z0-9_-]{22}$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked");
+  const confirmed = page.locator(".confirmed");
+  await expect(confirmed).toContainText("A small room · Fri, Oct 2 · 11 PM · 5 guests · 2 hours");
+  await expect(confirmed).toContainText("Deposit $50.00 paid · it comes off your bill");
+  await expect(confirmed).toContainText("Free to cancel until Thu, Oct 1 11:00 PM");
+  await expect(confirmed).toContainText("A 20% gratuity is added to room tabs.");
+  await expect(confirmed).toContainText("We texted your confirmation to (212) 555-0188.");
+  await expect(page.getByRole("link", { name: "Manage your booking" })).toHaveAttribute(
+    "href",
+    /^\/b\/[A-Za-z0-9_-]{22}$/,
+  );
 
   // A second booking whose hold runs out on the payment page.
   await book("9 PM");

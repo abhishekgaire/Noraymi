@@ -33,7 +33,7 @@ import { screenState } from "./machine.js";
  */
 export interface PayPage {
   /** `lapsed`: a deposit's hold ran out before it was paid (M5-09), and the guest picks a time again. */
-  readonly status: "open" | "paid" | "checking" | "declined" | "lapsed";
+  readonly status: "open" | "paid" | "checking" | "declined" | "lapsed" | "refunded";
   readonly kind: "balance" | "deposit";
   /** A booking's deposit (M5-09): the hold's countdown, the policy above the pay button, and where to pick again. */
   readonly deposit: {
@@ -42,6 +42,9 @@ export interface PayPage {
     readonly cutoff_words: string | null;
     readonly policy: { id: string; version: number; text: string; hash: string } | null;
     readonly pick_again_url: string | null;
+    /** M5-10: the booking once paid (confirmed), and a late payment refunded in full because the room went. */
+    readonly booking_status: string;
+    readonly late_refund_cents: number | null;
   } | null;
   readonly amount_cents: number;
   readonly venue_name: string;
@@ -175,9 +178,13 @@ export async function openPayLink(
           pick_again_url: deps.guestAppUrl
             ? `${deps.guestAppUrl}/v/${written.booking.slug}/book`
             : null,
+          booking_status: written.booking.status,
+          late_refund_cents: written.booking.late_refund?.amount_cents ?? null,
         }
       : null,
   };
+  // Paid after the hold lapsed, with the room gone: refunded in full (M5-10), never offered again.
+  if (written.booking?.late_refund) return { ...base, status: "refunded", client_secret: null };
   const status = statusOf(written.payment, written.attempt);
   if (status === "paid") return { ...base, status, client_secret: null };
   // The hold ran out before the money went through: back to pick a time (no PaymentIntent is made).

@@ -379,14 +379,16 @@ async function announce(c: Queryable, venueId: string, refund: RefundRow) {
   await emitEvent(c, { venueId, type: "payment.updated", entityId: refund.payment_id, roomId });
   if (refund.check_id)
     await emitEvent(c, { venueId, type: "check.updated", entityId: refund.check_id, roomId });
-  await emitEvent(c, {
-    venueId,
-    type: "refund.updated",
-    entityId: refund.id,
-    entityVersion: 0,
-    audience: "user",
-    userId: refund.requested_by,
-  });
+  // The person who asked hears how it went; a refund a rule made (M5-10) has no one to tell.
+  if (refund.requested_by)
+    await emitEvent(c, {
+      venueId,
+      type: "refund.updated",
+      entityId: refund.id,
+      entityVersion: 0,
+      audience: "user",
+      userId: refund.requested_by,
+    });
 }
 
 // Approved on another person's own phone: the reversing lines first, then each refund.
@@ -505,7 +507,13 @@ export async function runRefund(deps: RefundDeps, venueId: string, refundId: str
     withVenue(deps.pool, { venueId, requestId: `refund:${refundId}` }, work);
   const ctx = await inVenue(async (c) => {
     const refund = await refundById(c, venueId, refundId);
-    if (!refund || refund.status !== "pending" || refund.stripe_refund_id || !refund.approved_by)
+    // Sent once approved, or at once when a rule made it (M5-10's late payment for a room that's gone).
+    if (
+      !refund ||
+      refund.status !== "pending" ||
+      refund.stripe_refund_id ||
+      (!refund.approved_by && !refund.automatic)
+    )
       return null;
     const payment = await paymentById(c, venueId, refund.payment_id);
     const training = payment?.training ?? false;

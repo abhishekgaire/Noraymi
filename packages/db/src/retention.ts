@@ -218,6 +218,12 @@ export async function pseudonymize(
       where venue_id = $1 and pseudonymized_at is null and ends_at < $2`,
     [venueId, at(cut["bookings"]!), at(now)],
   );
+  // The confirmation texts' manage links (M5-10) go with the booking's own.
+  await c.query(
+    `delete from booking_links l using bookings b
+      where l.venue_id = $1 and b.venue_id = l.venue_id and b.id = l.booking_id and b.ends_at < $2`,
+    [venueId, at(cut["bookings"]!)],
+  );
   const waitlist = await c.query(
     `update waitlist_entries set link_token_hash = null, link_expires_at = null, offer_message_id = null,
             pseudonymized_at = $3

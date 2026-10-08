@@ -3,6 +3,7 @@ import { MENU_PDF_KIND } from "../jobs/menu-pdf.js";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { TEXT_TRIGGER_KIND } from "../texts/triggers.js";
+import { BOOKING_CONFIRMED_KIND } from "../bookings/confirm.js";
 import { Worker, enqueue, type JobHandler } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import type { RegisteredRoute } from "../http/registry.js";
@@ -346,6 +347,16 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the text trigger didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  // The Booking confirmed text (M5-10): venue B's booking isn't venue A's, so no link is made and nothing sends.
+  [BOOKING_CONFIRMED_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({ booking_id: (c as unknown as { bookingB: string }).bookingB }),
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the confirmation text didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [SINGER_PUSH_KIND]: {
     carries: "venue B's ids",

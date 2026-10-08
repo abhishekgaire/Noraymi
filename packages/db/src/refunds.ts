@@ -14,14 +14,16 @@ export interface RefundRow {
   readonly n: number;
   readonly stripe_refund_id: string | null;
   readonly failure_reason: string | null;
-  readonly requested_by: string;
+  /** Empty for a refund made by a rule (M5-10), with `automatic` true. */
+  readonly requested_by: string | null;
+  readonly automatic: boolean;
   readonly approval_id: string | null;
   readonly approved_by: string | null;
   readonly business_date: string;
 }
 
 const COLS = `id, payment_id, check_id, booking_id, amount_cents::int as amount_cents, reason, status, n,
-  stripe_refund_id, failure_reason, requested_by, approval_id, approved_by, business_date::text`;
+  stripe_refund_id, failure_reason, requested_by, coalesce(automatic, false) as automatic, approval_id, approved_by, business_date::text`;
 
 export async function insertRefund(
   c: Queryable,
@@ -33,7 +35,9 @@ export async function insertRefund(
     bookingId: string | null;
     amountCents: number;
     reason: string;
-    requestedBy: string;
+    /** Null for a refund a rule makes, with `automatic` (M5-10). */
+    requestedBy: string | null;
+    automatic?: boolean;
     approvalId: string | null;
     businessDate: string;
     adjustsBusinessDate: string | null;
@@ -42,11 +46,11 @@ export async function insertRefund(
 ): Promise<void> {
   const made = await c.query<{ business_date: string }>(
     `insert into refunds (id, venue_id, payment_id, check_id, booking_id, amount_cents, reason, n, requested_by,
-       approval_id, business_date, adjusts_business_date, requested_at)
+       approval_id, business_date, adjusts_business_date, requested_at, automatic)
      values ($1, $2, $3, $4, $5, $6, $7,
        (select coalesce(max(n), 0) + 1 from refunds where venue_id = $2 and payment_id = $3),
        $8, $9, open_business_date($2, $10::date),
-       coalesce($11::date, nullif($10::date, open_business_date($2, $10::date))), $12)
+       coalesce($11::date, nullif($10::date, open_business_date($2, $10::date))), $12, $13)
      returning business_date::text`,
     [
       r.id,
@@ -61,6 +65,7 @@ export async function insertRefund(
       r.businessDate,
       r.adjustsBusinessDate,
       r.requestedAt,
+      r.automatic ? true : null,
     ],
   );
   // A refund over the venue's set amount (every refund while it isn't set) alerts the owner (M8-19).

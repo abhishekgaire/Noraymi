@@ -287,6 +287,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     messageB: string;
     guestB: string;
     sessionB: string;
+    bookingB: string;
     singerB: string;
     songB: string;
   } = {
@@ -302,6 +303,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     messageB: messageB.rows[0]!.id,
     guestB: guestB.rows[0]!.id,
     sessionB: sessionB.rows[0]!.id,
+    bookingB: bookingB.rows[0]!.id,
     singerB: singerB.rows[0]!.id,
     songB: songB.rows[0]!.id,
   };

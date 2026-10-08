@@ -122,7 +122,7 @@ export async function alertRefund(
     amountCents: number;
     businessDate: string;
     at: string;
-    requestedBy: string;
+    requestedBy: string | null;
   },
 ): Promise<boolean> {
   const pay = await c.query<{ training: boolean }>(

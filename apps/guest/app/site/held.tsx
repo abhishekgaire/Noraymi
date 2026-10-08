@@ -40,6 +40,55 @@ export function Terms({ held, token }: { held: HeldBooking; token: string }) {
  * A hold that ran out says so and sends the guest back to pick a time. The
  * guest's details and the terms (M5-08) follow, then the payment page (M5-09).
  */
+/** "(212) 555-0188" for a +1 number. */
+const phoneWords = (e164: string | null) => {
+  const m = e164 ? /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164) : null;
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : (e164 ?? "");
+};
+
+/**
+ * The Confirmed state (M5-10; screens N1): the room size, date and time, the deposit paid, "Free to
+ * cancel until …", the gratuity sentence, that the confirmation text went to their number, and a link
+ * to manage the booking.
+ */
+function Confirmed({
+  held,
+  token,
+  tier,
+  when,
+}: {
+  held: HeldBooking;
+  token: string;
+  tier: string;
+  when: string;
+}) {
+  return (
+    <section aria-labelledby="confirmed-h" className="confirmed">
+      <h1 id="confirmed-h">{t("en", "site.book.confirmed")}</h1>
+      <p className="lead">{t("en", "site.book.confirmedWhat", { tier, when })}</p>
+      {held.deposit_paid_cents > 0 && (
+        <p>
+          {t("en", "site.book.depositPaid", {
+            amount: formatMoney("en", cents(held.deposit_paid_cents)),
+          })}
+        </p>
+      )}
+      {held.cutoff_words && (
+        <p className="cutoff">{t("en", "site.book.cutoff", { cutoff: held.cutoff_words })}</p>
+      )}
+      {held.gratuity_pct > 0 && (
+        <p>{t("en", "site.book.gratuityLine", { pct: held.gratuity_pct })}</p>
+      )}
+      {held.guest?.phone && (
+        <p>{t("en", "site.book.textSent", { phone: phoneWords(held.guest.phone) })}</p>
+      )}
+      <a className="button" href={`/b/${encodeURIComponent(token)}`}>
+        {t("en", "site.book.manage")}
+      </a>
+    </section>
+  );
+}
+
 export function HeldPage({
   site,
   base,
@@ -54,11 +103,31 @@ export function HeldPage({
   const hours = held.quote.minutes / 60;
   const tier = t("en", `site.book.tier.${held.size_tier}` as MessageKey);
   const lapsed = held.status === "lapsed" || held.status === "cancelled";
+  const tierWords = tier.startsWith("site.") ? held.size_tier : tier;
+  const when = t("en", hours === 1 ? "site.book.whenOne" : "site.book.when", {
+    date: dateWords(held.quote.business_date),
+    time: clockWords(held.starts_at, held.time_zone),
+    guests: held.party_size,
+    n: hours,
+  });
   return (
     <>
       <SiteHeader site={site} base={base} />
       <main className="guest site book-page">
-        {lapsed ? (
+        {held.late_refund ? (
+          <section aria-labelledby="refunded-h">
+            <h1 id="refunded-h">
+              {t("en", "site.book.lateRefund", {
+                amount: formatMoney("en", cents(held.late_refund.amount_cents)),
+              })}
+            </h1>
+            <a className="button" href={`${base}/book`}>
+              {t("en", "site.book.pickAgain")}
+            </a>
+          </section>
+        ) : held.status === "confirmed" ? (
+          <Confirmed held={held} token={token} tier={tierWords} when={when} />
+        ) : lapsed ? (
           <section aria-labelledby="lapsed-h">
             <h1 id="lapsed-h">{t("en", "site.book.lapsed")}</h1>
             <a className="button" href={`${base}/book`}>
