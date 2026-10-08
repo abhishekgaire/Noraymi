@@ -340,19 +340,23 @@ Definition of done: see CLAUDE.md.
   - Blocked on the founder: the first live night's date, the responders for every shift of the 4 weeks (each with a Console account), `MONEY_AUDIT_TO`, West 4's real hours, and every go or no-go line's own ticket.
 ### M9-17 · Run 4 weeks of live nights without a money error
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S (then the 4-week gate)
 - **Depends on:** M9-13, M9-14, M9-15, M9-16
 - **Spec:** [milestones](../milestones.md#the-go-live-gate) · The go-live gate; [milestones](../milestones.md#estimate) · Estimate (each money error adds up to 4 more weeks)
 - **Build:** a gate tracker in `docs/gate/`: live nights since the last money error; a money error is fixed first and starts the 4 weeks again; a weekly summary to the founder and West 4's owner; the final gate report once all five gate items are met.
 - **Acceptance:**
-  - [ ] Every must-fix item is closed (M9-14).
-  - [ ] Every gate sign-off is in (M9-13).
-  - [ ] West 4's future bookings, deposits and guests are imported with nothing lost (M9-06).
-  - [ ] The outage drill has passed (M8-07).
-  - [ ] West 4 has run 4 weeks of live nights without a money error.
+  - [ ] Every must-fix item is closed (M9-14). (0 of 11; `docs/gate/must-fix.md`.)
+  - [ ] Every gate sign-off is in (M9-13). (0 of 10; `docs/gate/sign-offs.md`.)
+  - [ ] West 4's future bookings, deposits and guests are imported with nothing lost (M9-06). (Waiting on West 4's export files and the owner's signature.)
+  - [ ] The outage drill has passed (M8-07). (Waiting on the drills at West 4.)
+  - [ ] West 4 has run 4 weeks of live nights without a money error. (No live night yet.)
 - **Tests:** none of its own.
-- **Notes:** —
+- **Notes:**
+  - Built (M9-17): `docs/gate/README.md`, the gate tracker: the five items with their evidence pages and status, the live-night count with a weekly row, and the final gate report's outline (written only when all five are met). `packages/rules/src/gate-streak.ts` (`gateStreak`, `GATE_DAYS` 28): clean live nights since the last money error, when the run started, the days to go and whether the 4 weeks are met. `apps/api/src/reconcile/gate-week.ts`: the count from `money_audits` (a night any audit found an error in counts as an error night, even after a clean rerun) and the `gate.weekly` job, Mondays at 8:30 AM on the venue's clock once it has a live night, emailing the summary (template `gate_week`, English and Spanish) to the venue's owners and to `MONEY_AUDIT_TO`. `pnpm --filter @west4/api gate:status` prints the count.
+  - Cautious defaults: the 4 weeks are 28 calendar days from the run's first clean night, and the nights the venue is shut don't break the run (the gate says "4 weeks of live nights", not 28 open nights); the run restarts the night after the error night (the fix can land later, and the next audits catch anything it leaves).
+  - Tests: unit tests for the count; an integration test for the weekly summary (nothing before a live night, Mondays only, the owner and the founder, an error night restarting the run even after a clean rerun); `gate-docs.test.ts` holds the tracker's items to their evidence pages and keeps the final report unwritten until all five are met.
+  - Blocked: every acceptance line is a gate item that waits on M9-06, M9-13, M9-14, M8-07 and the live nights themselves.
 
 ## Coverage
 

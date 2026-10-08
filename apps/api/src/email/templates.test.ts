@@ -80,6 +80,24 @@ describe("email templates", () => {
     },
   );
 
+  it.each(locales)("the gate's weekly summary renders in %s (M9-17)", (locale) => {
+    const mail = render("gate_week", locale, {
+      venueName: "West 4 Boho Karaoke",
+      weekEnding: "2026-11-15",
+      cleanNights: 14,
+      runStartedOn: "2026-11-02",
+      lastErrorOn: null,
+      daysToGo: 14,
+      met: false,
+      errorsThisWeek: 0,
+    });
+    for (const part of [mail.subject, mail.text, mail.html]) {
+      expect(part).not.toMatch(/\{\w+\}/);
+      expect(part).toContain("West 4 Boho Karaoke");
+    }
+    expect(mail.text).toContain("14");
+  });
+
   it("no template takes a PIN, a password or a secret, and a payload that carries one is rejected", () => {
     for (const name of templateNames) {
       const keys = Object.keys(templateSchemas[name].shape);

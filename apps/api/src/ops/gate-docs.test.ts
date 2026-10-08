@@ -158,3 +158,30 @@ describe("the go-live runbook (M9-16)", () => {
       expect(book, t).toContain(t);
   });
 });
+
+describe("the gate tracker (M9-17)", () => {
+  const gate = read("docs/gate/README.md");
+  const items = tableRows(gate, "## The five items");
+
+  it("lists the five gate items with evidence that exists", () => {
+    expect(items.map((r) => r[0])).toEqual(["1", "2", "3", "4", "5"]);
+    for (const m of gate.matchAll(/\]\(([^)#\s]+)(#[^)]*)?\)/g))
+      expect(existsSync(join(ROOT, "docs/gate", m[1]!)), m[1]).toBe(true);
+  });
+
+  it("reads each item as its evidence page does: met only where that page says met", () => {
+    const met = (path: string, item: number) =>
+      new RegExp(`\\*\\*Gate item ${item}[^*]*:\\*\\* met`).test(read(path));
+    expect(items[0]![3] === "met").toBe(met("docs/gate/must-fix.md", 1));
+    expect(items[1]![3] === "met").toBe(met("docs/gate/sign-offs.md", 2));
+    expect(items[3]![3] === "met").toBe(met("docs/gate/must-fix.md", 4));
+    expect(items[2]![3] === "met").toBe(
+      /\*\*Status:\*\* met/.test(read("docs/gate/import-dry-run.md")),
+    );
+  });
+
+  it("the final report is written only when all five are met", () => {
+    const allMet = items.every((r) => r[3] === "met");
+    expect(/## The final gate report\n\nNot written\./.test(gate)).toBe(!allMet);
+  });
+});

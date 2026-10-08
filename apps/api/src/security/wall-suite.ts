@@ -12,6 +12,7 @@ import { RESTORE_PULL_KIND } from "../restore/restore.js";
 import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
 import { RETENTION_KIND } from "../jobs/retention.js";
 import { MONEY_AUDIT_KIND } from "../reconcile/audit-job.js";
+import { GATE_WEEK_KIND } from "../reconcile/gate-week.js";
 import { ERASE_KIND } from "../jobs/erase.js";
 import { SYNTHETIC_KIND } from "../ops/synthetic.js";
 import { EVENTS_CLEANUP_KIND } from "../jobs/events-cleanup.js";
@@ -360,6 +361,16 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
         : push.sent.length > 0
           ? "a singer alert went to venue B's singer from venue A"
           : null,
+  },
+  [GATE_WEEK_KIND]: {
+    carries: "venue B's ids",
+    pool: "bulk",
+    payload: (c) => ({ venue_id: c.venueB }),
+    // The venue comes from the job row: it counts and emails only venue A's nights.
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the gate's weekly summary didn't finish on venue A alone (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [MONEY_AUDIT_KIND]: {
     carries: "venue B's ids",

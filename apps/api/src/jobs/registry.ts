@@ -53,6 +53,7 @@ import {
   makeMoneyAuditHandler,
   moneyAuditSchedule,
 } from "../reconcile/audit-job.js";
+import { GATE_WEEK_KIND, gateWeekSchedule, makeGateWeekHandler } from "../reconcile/gate-week.js";
 import { ERASE_KIND, makeEraseHandler } from "./erase.js";
 import { RESTORE_PULL_KIND, makeRestorePullHandler } from "../restore/restore.js";
 import {
@@ -211,6 +212,8 @@ export function makeHandlers({
       [LICENSE_REMINDER_KIND]: makeLicenseReminderHandler(email),
       // The morning money audit (M9-15), per venue: last night checked to the cent, paged and emailed.
       [MONEY_AUDIT_KIND]: makeMoneyAuditHandler(email),
+      // The gate's weekly summary (M9-17), Mondays, once the venue has a live night.
+      [GATE_WEEK_KIND]: makeGateWeekHandler(email),
       // The nightly retention job (M8-12), per venue, under its own role.
       [RETENTION_KIND]: makeRetentionHandler({
         ...(stripe ? { stripe: stripe.client } : {}),
@@ -230,6 +233,7 @@ export const schedules: Schedule[] = [
   licenseReminderSchedule,
   retentionSchedule,
   moneyAuditSchedule,
+  gateWeekSchedule,
 ];
 
 /** What the scheduler's leader checks between ticks (M1-16: quiet devices). */

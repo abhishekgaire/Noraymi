@@ -124,6 +124,27 @@ export const moneyAuditData = z
   })
   .strict();
 
+/** The gate's weekly summary (M9-17) to the venue's owners and our founder: the run of clean live nights. */
+export const gateWeekData = z
+  .object({
+    venueName: z.string().min(1),
+    /** YYYY-MM-DD, the last night of the week. */
+    weekEnding: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    cleanNights: z.number().int().min(0),
+    runStartedOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable(),
+    lastErrorOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable(),
+    daysToGo: z.number().int().min(0),
+    met: z.boolean(),
+    errorsThisWeek: z.number().int().min(0),
+  })
+  .strict();
+
 export const templateSchemas = {
   invite: inviteData,
   sign_in_code: signInCodeData,
@@ -133,6 +154,7 @@ export const templateSchemas = {
   license_reminder: licenseReminderData,
   emergency_action: emergencyActionData,
   money_audit: moneyAuditData,
+  gate_week: gateWeekData,
 } as const;
 
 export type TemplateName = keyof typeof templateSchemas;
@@ -266,6 +288,36 @@ export function render<N extends TemplateName>(
       ];
       return {
         subject: line("email.license.subject"),
+        text: paragraphs.join("\n\n"),
+        html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
+      };
+    }
+    case "gate_week": {
+      const d = data as TemplateData<"gate_week">;
+      const day = (iso: string) =>
+        new Intl.DateTimeFormat(locale === "es" ? "es-US" : "en-US", {
+          dateStyle: "long",
+          timeZone: "UTC",
+        }).format(new Date(`${iso}T00:00:00Z`));
+      const values = {
+        venue: d.venueName,
+        date: day(d.weekEnding),
+        nights: d.cleanNights,
+        since: d.runStartedOn ? day(d.runStartedOn) : "",
+        days: d.daysToGo,
+        error: d.lastErrorOn ? day(d.lastErrorOn) : "",
+        count: d.errorsThisWeek,
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line(d.runStartedOn ? "email.gateWeek.run" : "email.gateWeek.noRun"),
+        line(d.lastErrorOn ? "email.gateWeek.lastError" : "email.gateWeek.noError"),
+        line("email.gateWeek.week"),
+        ...(d.met ? [line("email.gateWeek.met")] : []),
+        line("email.footer"),
+      ];
+      return {
+        subject: line(d.met ? "email.gateWeek.subjectMet" : "email.gateWeek.subject"),
         text: paragraphs.join("\n\n"),
         html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
       };

@@ -2828,6 +2828,17 @@ export const en = {
   "moneyAudit.kind.report": "Z report",
   "moneyAudit.kind.drawer": "Cash drawer",
   "moneyAudit.kind.journal": "Journal",
+  "email.gateWeek.subject": "Go-live gate · {venue} · week to {date}: {nights} clean live nights",
+  "email.gateWeek.subjectMet":
+    "Go-live gate · {venue}: 4 weeks of live nights without a money error",
+  "email.gateWeek.run": "Clean live nights since {since}: {nights}. Days to go: {days}.",
+  "email.gateWeek.noRun": "No clean live night yet in this run.",
+  "email.gateWeek.lastError":
+    "The last money error was on the night of {error}; the 4 weeks started again the next night.",
+  "email.gateWeek.noError": "No money error so far.",
+  "email.gateWeek.week": "Money errors this week: {count}.",
+  "email.gateWeek.met":
+    "The 4 weeks are met. The final gate report needs the other four gate items as well.",
   "email.license.renew":
     "Renew it, then open Admin → Licenses and enter the new expiry and a copy.",
   "licenses.kind.liquor": "Liquor",

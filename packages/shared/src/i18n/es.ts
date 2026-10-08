@@ -2887,6 +2887,19 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "moneyAudit.kind.report": "Informe Z",
   "moneyAudit.kind.drawer": "Cajón de efectivo",
   "moneyAudit.kind.journal": "Asiento contable",
+  "email.gateWeek.subject":
+    "Puerta de lanzamiento · {venue} · semana al {date}: {nights} noches en vivo sin errores",
+  "email.gateWeek.subjectMet":
+    "Puerta de lanzamiento · {venue}: 4 semanas de noches en vivo sin errores de dinero",
+  "email.gateWeek.run":
+    "Noches en vivo sin errores desde el {since}: {nights}. Días que faltan: {days}.",
+  "email.gateWeek.noRun": "Todavía no hay una noche en vivo sin errores en esta racha.",
+  "email.gateWeek.lastError":
+    "El último error de dinero fue la noche del {error}; las 4 semanas volvieron a empezar la noche siguiente.",
+  "email.gateWeek.noError": "Ningún error de dinero hasta ahora.",
+  "email.gateWeek.week": "Errores de dinero esta semana: {count}.",
+  "email.gateWeek.met":
+    "Se cumplieron las 4 semanas. El informe final de la puerta necesita también los otros cuatro puntos.",
   "email.license.renew":
     "Renuévala y luego abre Administración → Licencias e ingresa el nuevo vencimiento y una copia.",
   "licenses.kind.liquor": "Licor",
