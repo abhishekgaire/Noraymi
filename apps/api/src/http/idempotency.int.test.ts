@@ -180,6 +180,9 @@ describe("Idempotency-Key", () => {
     expect(codes.slice(5)).toEqual([429, 429]);
     const limited = await app.inject({ method: "GET", url: `/v1/venues/${v.venueA}/things` });
     expect(limited.json().error).toMatchObject({ code: "rate_limited", retryable: true });
+    // Another venue, from the same address (the load balancer's), keeps its own count (M8-21).
+    const other = await app.inject({ method: "GET", url: `/v1/venues/${v.venueB}/things` });
+    expect(other.statusCode).not.toBe(429);
     await app.close();
   });
 });

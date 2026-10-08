@@ -1,6 +1,7 @@
 import { assertOutsideTransaction } from "@west4/db";
 import type { West4Env } from "../config.js";
 import { noteVendorCall } from "../vendors/outcomes.js";
+import { stripeBucket } from "./rate.js";
 import {
   LIVE_KEY,
   loadStripeSandboxSettings,
@@ -272,6 +273,8 @@ export class StripeClient {
       body = new URLSearchParams(formEncode(call.params ?? {})).toString();
     }
     await this.faults?.before?.(method, path);
+    // The token bucket (M8-21): a burst waits its turn instead of meeting Stripe's 429.
+    await stripeBucket(this.settings).take();
     let response: Response;
     try {
       response = await this.fetchImpl(url, {

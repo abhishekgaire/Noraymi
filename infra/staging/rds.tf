@@ -71,3 +71,24 @@ resource "aws_db_instance_automated_backups_replication" "dr" {
   kms_key_id             = aws_kms_key.dr.arn
   retention_period       = var.backup_retention_days
 }
+
+# Reports read here (M8-21; spec 13 · Capacity): a read replica of the main database, so the
+# 8-week trends during a Friday peak never take the primary's time from orders and the alarm.
+# The API's reports pool connects to it as app_rw (DB_REPLICA_HOST in ecs.tf); without it,
+# reports read the primary.
+resource "aws_db_instance" "replica" {
+  count                      = var.db_reports_replica ? 1 : 0
+  identifier                 = "${var.name}-reports"
+  replicate_source_db        = aws_db_instance.main.identifier
+  instance_class             = var.db_instance_class
+  storage_encrypted          = true
+  kms_key_id                 = aws_kms_key.data.arn
+  vpc_security_group_ids     = [aws_security_group.db.id]
+  parameter_group_name       = aws_db_parameter_group.main.name
+  publicly_accessible        = false
+  multi_az                   = false
+  backup_retention_period    = 0
+  auto_minor_version_upgrade = true
+  skip_final_snapshot        = true
+  apply_immediately          = true
+}

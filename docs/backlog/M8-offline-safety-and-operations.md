@@ -525,7 +525,7 @@ Definition of done: see CLAUDE.md.
   - **For the founder (staging).** `terraform plan` then `apply` in `infra/staging` (the 35 days, the second region's key and the replication); then run the first monthly drill from `docs/runbooks/restore-drill.md` on a real snapshot and file `docs/drills/<date>-restore.md`. The integration test of the restore tool on staging is that drill. The yearly region drill comes later.
 ### M8-21 · Load-test a Friday night for 20 venues
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** L
 - **Depends on:** M8-16; M3-06 and M3-16 (orders and the alarm), M4-05 (payments), M6 (tabs), M7-18 (a heavy report)
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Tests (Friday-night load test), Capacity; [Scope and architecture](../spec/01-scope-architecture.md) · Targets
@@ -533,11 +533,24 @@ Definition of done: see CLAUDE.md.
   - A load harness in the repo against a staging copy with 20 venues seeded from the demo seed. Each runs a Friday peak of room orders, bar rounds, tabs and payments, with Stripe mocked at delays sampled from real sandbox calls and Twilio mocked; then a reconnect storm, every device reconnecting at once; and a heavy report (the 8-week trends) during the peak. Synthetic bar devices measure order to alarm.
   - The capacity guards in place: 5-second limits on statements and idle transactions for the app role, reports on the replica, staff routes rate-limited per venue, a token bucket in front of Stripe, and night-close captures staggered across venues.
 - **Acceptance:**
-  - [ ] With 20 venues peaking together, the bar alarm still rings within 3 seconds for 95% of orders (the published target), and the run reports the slowest.
-  - [ ] The reconnect storm and the heavy report don't push the alarm past the target.
-  - [ ] No ordering or payment request fails on our side during the run.
+  - [ ] With 20 venues peaking together, the bar alarm still rings within 3 seconds for 95% of orders (the published target), and the run reports the slowest. (Passes locally, scaled down, in `apps/api/src/load/load.int.test.ts` and in a local 20-venue run; open until the full run on a staging copy.)
+  - [ ] The reconnect storm and the heavy report don't push the alarm past the target. (Passes locally, scaled down, in `apps/api/src/load/load.int.test.ts` and in a local 20-venue run; open until the full run on a staging copy.)
+  - [ ] No ordering or payment request fails on our side during the run. (Passes locally, scaled down, in `apps/api/src/load/load.int.test.ts` and in a local 20-venue run; open until the full run on a staging copy.)
 - **Tests:** the load test itself, rerun before the gate starts and after any change to the event relay or sockets.
 - **Notes:** Spec gap: peak volume per venue isn't given; cautious default: the busiest 20 minutes of M7-19's staging nights, per venue.
+  - **Built.**
+    - The harness, `apps/api/src/load/`: `setup.ts` makes the run's own venues (`<prefix>-01…`, each in its own organization, flags `synthetic.test_venue` and `load.test_venue`): a copy of the template's settings, modules and rooms (the demo seed's West 4, only read), a soda, an owner session for Reports, a bartender with a PIN, a bar computer in training with a fresh key, and two simulated readers on the organization's sandbox; it refuses production and an existing prefix. `run.ts` peaks every venue together: rooms seated and joined from guests' phones, each room ordering on a random (Poisson) clock, the bar hearing the ring on its live channel with the 5-second poll as fallback (order to ring timed as the synthetic check times it, then `rang` and Accept), bar rounds onto rooms and tabs, tabs opened on the readers with a different test card each, the owner reading the 8-week trends, and every live connection of every venue reconnecting at once partway; then every room pays by card and every tab closes. The report: p50, p95, p99 and max of order to alarm, the same in the 10 seconds of the storm and while reports ran, the five slowest, report and payment times, every failure, and pass/fail. `stats.ts` takes percentiles by nearest rank.
+    - `pnpm --filter @west4/api load:friday -- --api-url <url> [--venues 20] [--peak-s 1200] …` (`cli.ts`): reads no `.env` and refuses unless Stripe is the fake; writes `evidence/load/<prefix>.json`; exits non-zero on a miss.
+    - The fake Stripe answers at delays picked from `FAKE_STRIPE_DELAYS_MS` (`answerDelaysMs`).
+    - Capacity guards: the 5-second statement and idle limits were already on `app_rw` (0002). New: reports read through their own pool on a read replica (`REPORTS_DATABASE_URL`, or app_rw on `DB_REPLICA_HOST`; unset, the primary), `request.inReports`; Terraform (not applied) adds `aws_db_instance.replica` (`var.db_reports_replica`, default on) and passes its address to the tasks. The token bucket in front of Stripe (`stripe/rate.ts`: per process, 80 a second live, 20 in test mode, a burst waits its turn instead of meeting a 429).
+  - **Found by the local run and fixed.** The per-venue rate limit on staff routes was keyed by the caller's address: the limit runs before the venue is resolved, so `request.venueId` was always empty. Behind the load balancer every venue would have shared one counter; at three times the default peak, 20 venues together hit it (596 `rang` calls refused). It now keys by the path's venue (`http/conventions.ts`), with a test that a second venue keeps its own count.
+  - **Local numbers** (one laptop, API, Postgres and the fake on it, fake answers 150–600 ms): 20 venues × 14 rooms, 2-minute peak, an order per room a minute, 20 connections per venue (400 reconnecting at once): 730 orders, p50 18 ms, p95 29 ms, max 819 ms (in the storm), no failures. At three times that (an order per room every 20 s; 1,801 orders, 300 rounds, 80 tabs, 360 payments, 239 reports): p50 13 ms, p95 25 ms, max 244 ms; storm p95 30 ms; during reports p95 27 ms; reports p95 16 ms; payments p95 2.7 s; no failures.
+  - **Cautious defaults.**
+    - Peak volume (the spec gap): the CLI's defaults are 14 rooms, an order per room every 4 minutes, a bar round every 30 s, 6 tabs, the 8-week trends every minute per venue, 20 connections per venue, a 20-minute peak with the storm halfway. Replace them with the busiest 20 minutes of M7-19's staging nights before the staging run (flags, no code change).
+    - Only a soda is ordered, so ID checks and the alcohol rules don't stop the run; their server checks run on every order anyway.
+    - Night-close captures: no capture happens at close for all venues at once. Swept paper slips are captured 12 hours before each tab's own hold runs out, so they're spread by when each tab opened; the token bucket smooths whatever still lands together. No extra stagger was added.
+    - The fake's answer delays: none are recorded from real sandbox calls yet. Set `FAKE_STRIPE_DELAYS_MS` from timed sandbox calls before the staging run.
+  - **For the staging run.** Apply the Terraform (the replica), make a staging copy with the fake Stripe, sample the delays, set the peak from M7-19, run `load:friday` with 20 venues against it, and file the evidence JSON. Each run adds its own venues; throw the copy away afterwards.
 
 ### M8-22 · Put West 4's texts live on its 10DLC campaign
 

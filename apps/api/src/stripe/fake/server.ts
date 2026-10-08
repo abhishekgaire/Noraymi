@@ -119,6 +119,11 @@ export interface FakeStripeOptions {
   readonly webhookDelayMs?: number;
   /** The address the fake tells browsers to open (onboarding links). */
   readonly publicBase?: string;
+  /**
+   * How long Stripe takes to answer, in ms: each answer waits one of these, picked at random
+   * (M8-21's load test feeds it delays sampled from real sandbox calls). None: answers at once.
+   */
+  readonly answerDelaysMs?: readonly number[];
 }
 
 export class FakeStripe {
@@ -272,6 +277,9 @@ export class FakeStripe {
     const chunks: Buffer[] = [];
     for await (const chunk of req) chunks.push(chunk as Buffer);
     const raw = Buffer.concat(chunks).toString("utf8");
+    const delays = this.options.answerDelaysMs;
+    if (delays && delays.length > 0 && !url.pathname.startsWith("/fake/"))
+      await new Promise((r) => setTimeout(r, delays[Math.floor(Math.random() * delays.length)]));
     const send = (a: FakeAnswer) => {
       res.writeHead(a.status ?? 200, {
         "content-type": "application/json",

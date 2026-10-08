@@ -16,6 +16,11 @@ const fake = new FakeStripe({
     training: `${hooks}/training`,
   },
   webhookDelayMs: 200,
+  // FAKE_STRIPE_DELAYS_MS: "180,240,310,…", Stripe's answer times to sample from (M8-21's load test).
+  answerDelaysMs: (process.env["FAKE_STRIPE_DELAYS_MS"] ?? "")
+    .split(",")
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n >= 0 && n <= 30_000),
 });
 const base = await fake.start(port, "127.0.0.1");
 console.warn(`fake Stripe on ${base}, webhooks to ${hooks}/…`);

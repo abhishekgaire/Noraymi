@@ -36,6 +36,12 @@ variable "db_instance_class" {
   default = "db.t4g.micro"
 }
 
+variable "db_reports_replica" {
+  description = "The read replica reports run on (M8-21; spec 13 · Capacity)."
+  type        = bool
+  default     = true
+}
+
 variable "db_multi_az" {
   description = "Off on staging to save money; production keeps the standby the spec asks for."
   type        = bool

@@ -51,6 +51,21 @@ export function appDatabaseUrl(env: Record<string, string | undefined> = process
   return "postgres://app_rw:app_rw@localhost:5432/west4";
 }
 
+/**
+ * Where reports read (M8-21; spec 13 · Capacity: reports on a replica): REPORTS_DATABASE_URL, or
+ * app_rw on DB_REPLICA_HOST (the read replica ECS names), else null: reports read the primary.
+ */
+export function reportsDatabaseUrl(
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const direct = env["REPORTS_DATABASE_URL"];
+  if (direct !== undefined && direct !== "") return direct;
+  const replica = env["DB_REPLICA_HOST"];
+  if (replica !== undefined && replica !== "")
+    return appDatabaseUrl({ ...env, APP_DATABASE_URL: undefined, DB_HOST: replica });
+  return null;
+}
+
 /** The same server, a different database. Used to create and drop databases. */
 export function withDatabase(url: string, database: string): string {
   const parsed = new URL(url);

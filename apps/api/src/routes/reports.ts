@@ -38,9 +38,9 @@ export function reportRoutes(app: FastifyInstance, options: { clock: Clock }): v
     module: "reports",
     action: "admin.access",
   });
-  /** A report's queries, with the 5-second limit (spec 08 · Conventions). */
+  /** A report's queries, on the read replica with the 5-second limit (spec 08 · Conventions). */
   const run = <T>(request: FastifyRequest, work: (c: Queryable) => Promise<T>) =>
-    request.inVenue(async (c) => {
+    request.inReports(async (c) => {
       await c.query("set local statement_timeout = 5000");
       return work(c);
     });

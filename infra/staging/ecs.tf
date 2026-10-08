@@ -20,6 +20,7 @@ locals {
     { name = "DB_PORT", value = tostring(aws_db_instance.main.port) },
     { name = "DB_NAME", value = aws_db_instance.main.db_name },
     { name = "DB_USER", value = aws_db_instance.main.username },
+    { name = "DB_REPLICA_HOST", value = var.db_reports_replica ? aws_db_instance.replica[0].address : "" },
     { name = "S3_BUCKET_FILES", value = aws_s3_bucket.files.bucket },
     { name = "S3_BUCKET_AUDIT", value = aws_s3_bucket.audit.bucket },
     { name = "S3_BUCKET_ID_KEYS", value = aws_s3_bucket.id_keys.bucket },

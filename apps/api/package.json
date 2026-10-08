@@ -20,7 +20,8 @@
     "outage:record": "tsx --env-file-if-exists=../../.env src/ops/outage-record.ts",
     "status:set": "tsx --env-file-if-exists=../../.env src/telemetry/status-cli.ts",
     "oncall:set": "tsx --env-file-if-exists=../../.env src/ops/oncall-cli.ts",
-    "synthetic:setup": "tsx --env-file-if-exists=../../.env src/ops/synthetic-cli.ts"
+    "synthetic:setup": "tsx --env-file-if-exists=../../.env src/ops/synthetic-cli.ts",
+    "load:friday": "tsx src/load/cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1142.0",

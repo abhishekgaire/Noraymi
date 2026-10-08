@@ -160,7 +160,10 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
   const stripe = (): StripeClient => (stripeClient ??= stripeFromEnv(config!.env));
 
   if (config) {
-    void app.register(dbPlugin, { databaseUrl: config.databaseUrl });
+    void app.register(dbPlugin, {
+      databaseUrl: config.databaseUrl,
+      reportsDatabaseUrl: config.reportsDatabaseUrl,
+    });
     const gatePool = new pg.Pool({
       connectionString: config.databaseUrl,
       max: 2,

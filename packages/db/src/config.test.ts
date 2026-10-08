@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appDatabaseUrl,
+  reportsDatabaseUrl,
   databaseName,
   databaseUrl,
   defaultDatabaseUrl,
@@ -46,5 +47,18 @@ describe("appDatabaseUrl", () => {
       appDatabaseUrl({ DB_HOST: "h", DB_PASSWORD: "owner-pw", APP_DB_PASSWORD: "app-pw" }),
     ).toBe("postgres://app_rw:app-pw@h:5432/west4?sslmode=require");
     expect(appDatabaseUrl({})).toBe("postgres://app_rw:app_rw@localhost:5432/west4");
+  });
+});
+
+describe("reportsDatabaseUrl (M8-21)", () => {
+  it("is the replica as app_rw, REPORTS_DATABASE_URL first, else none (reports read the primary)", () => {
+    expect(reportsDatabaseUrl({ REPORTS_DATABASE_URL: "postgres://app_rw:x@r/west4" })).toBe(
+      "postgres://app_rw:x@r/west4",
+    );
+    expect(
+      reportsDatabaseUrl({ DB_HOST: "h", DB_REPLICA_HOST: "r", APP_DB_PASSWORD: "app-pw" }),
+    ).toBe("postgres://app_rw:app-pw@r:5432/west4?sslmode=require");
+    expect(reportsDatabaseUrl({ DB_HOST: "h" })).toBeNull();
+    expect(reportsDatabaseUrl({})).toBeNull();
   });
 });

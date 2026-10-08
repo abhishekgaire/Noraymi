@@ -3,6 +3,7 @@ export type { Migration, MigrateOptions, MigrateResult } from "./migrate.js";
 export {
   databaseUrl,
   appDatabaseUrl,
+  reportsDatabaseUrl,
   defaultDatabaseUrl,
   migrationsDir,
   withDatabase,

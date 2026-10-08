@@ -56,6 +56,8 @@ declare module "fastify" {
     venueId: string | undefined;
     /** The request's venue transaction: sets app.venue_id, app.user_id and app.request_id. */
     inVenue<T>(work: (client: Queryable) => Promise<T>): Promise<T>;
+    /** The same wall, for a report's reads: on the read replica when there is one (M8-21). */
+    inReports<T>(work: (client: Queryable) => Promise<T>): Promise<T>;
   }
   interface FastifyInstance {
     routes: RegisteredRoute[];
@@ -80,6 +82,7 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   app.decorateRequest("session", undefined);
   app.decorateRequest("sessionProblem", undefined);
   (app.decorateRequest as (name: string, value: unknown) => void)("inVenue", null);
+  (app.decorateRequest as (name: string, value: unknown) => void)("inReports", null);
 
   // Staff routes get the per-venue rate limit unless the route turns it off.
   app.addHook("onRoute", (route) => {
@@ -95,7 +98,13 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
 
   await app.register(rateLimit, {
     global: false,
-    keyGenerator: (request) => request.venueId ?? request.ip,
+    // Per venue, from the path: the limit runs before the venue is resolved (request.venueId is set
+    // later), and every request reaches us through the load balancer, so the address alone would
+    // put every venue on one counter (found by M8-21's load test).
+    keyGenerator: (request) =>
+      (request.params as { venueId?: string } | undefined)?.venueId ??
+      request.venueId ??
+      request.ip,
   });
 
   // Every response: server_time and min_client_version, as headers and, on
@@ -172,6 +181,10 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     request.inVenue = (work) => {
       if (!options.db) throw new Error("no database in this app");
       return app.db.withVenue(context, work);
+    };
+    request.inReports = (work) => {
+      if (!options.db) throw new Error("no database in this app");
+      return app.db.withReports(context, work);
     };
     // Training mode (M7-03): marked once, then the wall between practice and live work.
     request.training = false;

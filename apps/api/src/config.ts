@@ -1,6 +1,7 @@
 import {
   LOCAL_DEV_AUTH_KEY,
   appDatabaseUrl,
+  reportsDatabaseUrl,
   generateSigningKey,
   parseAuthSecretKey,
 } from "@west4/db";
@@ -19,6 +20,8 @@ export interface Config {
   readonly host: string;
   /** The app_rw connection: behind the venue wall, never the table owner. */
   readonly databaseUrl: string;
+  /** Reports' read replica (M8-21), as app_rw; null: reports read the primary. */
+  readonly reportsDatabaseUrl?: string | null;
   /** Where invite links open: the staff app's public URL (M1-23). Unset outside local until the app has a hostname. */
   readonly staffAppUrl: string | null;
   /** GUEST_APP_URL: the guest site, where a room's join link opens (M2-11). Local defaults to the Next server. */
@@ -86,6 +89,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     port: Number(source["PORT"] ?? 3000),
     host: source["HOST"] ?? "127.0.0.1",
     databaseUrl: appDatabaseUrl(source),
+    reportsDatabaseUrl: reportsDatabaseUrl(source),
     staffAppUrl: staffAppUrl(env, source),
     guestAppUrl: guestAppUrl(env, source),
     payAppUrl: payAppUrl(env, source),
