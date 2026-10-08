@@ -3,6 +3,8 @@ import { stripeFromEnv } from "./stripe/client.js";
 import { paymentsAdminRoutes } from "./routes/payments-admin.js";
 import { readerRoutes } from "./routes/readers.js";
 import { stripeHookRoutes } from "./routes/stripe-hooks.js";
+import { alarmHookRoutes, type AlarmHookOptions } from "./routes/alarm-hooks.js";
+import { pagingConsoleRoutes } from "./console/paging.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { drawerRoutes } from "./routes/drawers.js";
 import { drawerMoveRoutes } from "./routes/drawer-moves.js";
@@ -128,6 +130,8 @@ export interface AppOptions {
   readonly email?: Pick<EmailSettings, "allowList">;
   /** Stripe (M4-01). Defaults to the environment's keys, or the fake Stripe locally. */
   readonly stripe?: StripeClient;
+  /** The alarm hook's topic and signature checks (M8-17); tests pass their own. */
+  readonly alarmHook?: Pick<AlarmHookOptions, "topicArn" | "getCert" | "confirm">;
 }
 
 /** server_time is shown in New York time, the platform's home zone (spec conventions · Time zone). */
@@ -319,6 +323,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       planBillingRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
       readerRoutes(scope, { clock, stripe });
       stripeHookRoutes(scope, { pool: gatePoolRef!, clock, stripe });
+      // Paging (M8-17): CloudWatch alarms and RDS failovers through the pages topic.
+      alarmHookRoutes(scope, { pool: gatePoolRef!, clock, ...options.alarmHook });
       paymentRoutes(scope, {
         pool: gatePoolRef!,
         clock,
@@ -420,6 +426,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
           stripe,
           email: options.email ?? { allowList: null },
         });
+        // Paging (M8-17): open pages, who is on call, Acknowledge.
+        pagingConsoleRoutes(scope, { pool: gatePoolRef!, clock });
       }
     }
     await options.extraRoutes?.(scope);

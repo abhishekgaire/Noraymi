@@ -422,7 +422,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-17 · Page on money risk with runbooks, and put two people on call
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M8-16; M7-14 (payout matching); M6 (the capture sweep); M1-06 (jobs and dead letters), M1-16 (heartbeats and grouped device alerts)
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Watching production, On call; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Heartbeats; [Security and data retention](../spec/12-security-retention.md) 4 (payouts matched every night)
@@ -432,12 +432,18 @@ Definition of done: see CLAUDE.md.
   - Every alert links its runbook in `docs/runbooks/`, one per alert.
   - A paging tool with an escalation policy: a page nobody acknowledges within 10 minutes goes to the second responder. The rota names both.
 - **Acceptance:**
-  - [ ] A second responder is on the rota, and a test page nobody acknowledges in 10 minutes reaches them.
-  - [ ] Every alert rule links a runbook that exists.
-  - [ ] Both readers going offline at the test venue during opening hours pages us, while one quiet room tablet only alerts the manager.
-  - [ ] A payout that doesn't reconcile pages us.
+  - [ ] A second responder is on the rota, and a test page nobody acknowledges in 10 minutes reaches them. *Built and tested with two test responders (`paging.int.test.ts`: first at once, nothing at 9:59, the second by email and text at 10:00, never after an acknowledgement); open until the founder names the two real people and the rota is set with `oncall:set`, then `oncall:set -- --test-page` run on staging.*
+  - [x] Every alert rule links a runbook that exists.
+  - [x] Both readers going offline at the test venue during opening hours pages us, while one quiet room tablet only alerts the manager.
+  - [x] A payout that doesn't reconcile pages us.
 - **Tests:** alert-rule tests with forced conditions; the escalation test; a link check over the runbook links.
 - **Notes:** Support hours are a founder decision ([blueprint](../blueprint.md) · Open decisions); M9-16 extends on-call to every opening hour.
+  - **Built (vendor-neutral, no paging vendor is named in the spec or decisions):** platform tables `oncall_rota`, `pages`, `page_notifications` (migration 0120; no venue_id and no wall, like `console_staff` and `status_parts`: our own on-call records, a page names its venue only inside its key). `apps/api/src/ops/alert-rules.ts` lists every rule with its audience (us or the manager), how it clears and its runbook. The worker's alert sweep (`ops/alert-sweep.ts`, every 30 s, `alerts.page`) checks each venue inside its own wall: every live reader offline during opening hours, a swept tab in `capture_failed`, dead money jobs (critical pool or `payment.*`/`refund.*`/`tab.*`/`stripe.*`), Stripe webhooks unprocessed over 60 s, unreconciled payouts (one page per payout, ever); and the card-payment and order-to-alarm burn rates (the page-severity BURN_ALERTS) summed over the venues open now. `ops/paging.ts` opens and clears pages, then sends each one to the first responder at once and the second after 10 minutes unacknowledged (straight to the second when the first slot is empty): email to their Console address, and a text when the rota has their phone, through the existing mailer and text sender. Each send is claimed in the database, made outside any transaction with `page:<id>:<slot>:<channel>` as its idempotency key, and retried under the same key if it failed.
+  - **CloudWatch and RDS:** `infra/staging/paging.tf` (not applied): an SNS pages topic, multi-window burn-rate composite alarms on ordering, payments and printing availability (14.4x 1 h/5 min, 6x 6 h/30 min), an RDS event subscription for failovers, and an HTTPS subscription to `POST /v1/hooks/alarms`. The hook believes only Amazon-signed messages from `PAGES_TOPIC_ARN` (set in ecs.tf), confirms the subscription itself (no token in the Terraform state), pages a burn alarm during opening hours and turns it into a ticket-severity page outside them, clears it on OK, and pages each failover once.
+  - **Console:** a Pages panel (open pages, who's on call or "nobody yet" with the hint, Runbook, Acknowledge) on `GET /v1/console/pages` and `POST /v1/console/pages/:pageId/ack`. **Rota and test page:** `pnpm --filter @west4/api oncall:set` (empty until set; no phone is invented). **Runbooks:** one per alert in `docs/runbooks/` plus `on-call.md`; a unit test checks every rule's and every Terraform alarm's runbook exists and every runbook link resolves.
+  - **Device alerts** stay as M1-16 built them (to the manager); `device-offline` and `venue-offline` are in the rule list with runbooks but never page.
+  - **Cautious defaults and limits:** acknowledging is the only thing that stops escalation (a page whose condition cleared before anyone acknowledged it still escalates). No minimum volume on the burn rates: one failure on our side among few attempts can page; tune once real nights are seen. The 3-day ticket-severity burn alert isn't built (CloudWatch periods; the dashboard shows it). Burn checks read `payment_attempts`/`order_traces` times against the app clock, so in staging's simulated clock real-time rows may fall outside the windows.
+  - **For the founder:** which paging tool (if any) and who the two responders are, with their hours, added to [open questions](../spec/14-open-questions.md). **For M8-18:** the synthetic checks can page through `raisePage` with a new rule and runbook; the status page's ordering and printing parts still don't turn automatic from pages.
 
 ### M8-18 · Run a synthetic order and reader payment every 5 minutes
 

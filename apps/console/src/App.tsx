@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { t, type Locale, type MessageKey } from "@west4/shared";
 import { SupportAccess } from "./SupportAccess.js";
 import { EmergencyActions } from "./EmergencyActions.js";
+import { Pages } from "./Pages.js";
 import { api, ConsoleApiError } from "./api.js";
 
 /**
@@ -309,6 +310,7 @@ function Venues({
           {screen.error}
         </p>
       )}
+      <Pages />
       <div className="columns">
         <section>
           <h2>Venues</h2>

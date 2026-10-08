@@ -443,6 +443,10 @@ export const webhookWallCases: Readonly<Record<string, string>> = {
   // ingest_stripe_event and venue_subscriptions; one naming no venue's subscription is kept with venue_id null.
   "POST /v1/hooks/stripe/platform":
     "plan-billing.int.test.ts · venue B's subscription event moves only venue B's plan, and an unknown one none",
+  // Paging (M8-17): Amazon-signed alarms from our own pages topic. It reads and writes no venue's rows, only the
+  // platform's pages table; the opening-hours check reads each venue's hours inside that venue's own wall.
+  "POST /v1/hooks/alarms":
+    "paging.int.test.ts · refuses anything not signed for the pages topic, and writes only platform pages",
 };
 
 export function checkWebhooks(routes: readonly RegisteredRoute[]): WallFinding[] {

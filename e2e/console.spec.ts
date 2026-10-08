@@ -54,6 +54,12 @@ test("our staff sign in with a security key and read West 4's health, modules an
     const key = await db.query("select 1 from console_credentials where revoked_at is null");
     expect(key.rowCount).toBeGreaterThan(0);
 
+    // Pages (M8-17): nobody is on call in the demo until we set the rota, and nothing is open.
+    const pages = page.getByRole("region", { name: "Pages" });
+    await expect(pages).toContainText("First · nobody yet · Second · nobody yet");
+    await expect(pages).toContainText("Nobody is on call yet.");
+    await expect(pages).toContainText("No open pages.");
+
     const west4 = page.getByRole("button", { name: /West 4 Boho Karaoke/ });
     await expect(west4).toContainText("13 of 14 room tablets online");
     await expect(west4).toContainText("2 of 2 readers online");

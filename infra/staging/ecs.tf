@@ -34,6 +34,8 @@ locals {
     # (CONSOLE_OIDC_ISSUER, _CLIENT_ID, _CLIENT_SECRET) is added as secrets once the provider is chosen;
     # until then staging's Console says sign-on isn't configured.
     { name = "CONSOLE_URL", value = "https://${aws_cloudfront_distribution.static["console"].domain_name}" },
+    # Paging (M8-17): the alarm hook believes only Amazon-signed messages from this topic.
+    { name = "PAGES_TOPIC_ARN", value = aws_sns_topic.pages.arn },
   ]
   # The API and the worker connect as app_rw, behind the venue wall (M1-05).
   app_secrets = [

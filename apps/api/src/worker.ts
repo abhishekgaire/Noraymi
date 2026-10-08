@@ -78,7 +78,12 @@ const workers = (["critical", "normal", "bulk"] as const).map(
 );
 const scheduler = new Scheduler(pool, {
   schedules,
-  sweeps: makeSweeps(pool, log, venueTextSettings, stripeFromEnv(config.env)),
+  sweeps: makeSweeps(pool, log, venueTextSettings, stripeFromEnv(config.env), {
+    mailer,
+    texts: textSender(),
+    from: email.from,
+    consoleUrl: config.console?.url ?? process.env["CONSOLE_URL"] ?? null,
+  }),
   clock,
   log,
 });

@@ -190,3 +190,19 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+
+/* Pages (M8-17) */
+#pages {
+  margin-bottom: 1.5rem;
+}
+.pages-list {
+  list-style: none;
+  padding: 0;
+}
+.pages-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line, #ddd);
+}
+.hint {
+  font-style: italic;
+}

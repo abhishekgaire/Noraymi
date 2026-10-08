@@ -40,6 +40,8 @@ import { clearOutSweep } from "../rooms/clear-out.js";
 import { holdWatchSweep } from "../tabs/expiry.js";
 import { tabCutOffSweep } from "../tabs/walkout.js";
 import { vendorHealthSweep } from "./vendor-health.js";
+import { alertSweep } from "../ops/alert-sweep.js";
+import type { PagerDeps } from "../ops/paging.js";
 import {
   LICENSE_REMINDER_KIND,
   licenseReminderSchedule,
@@ -184,9 +186,12 @@ export function makeSweeps(
   log?: (line: string) => void,
   texts: Pick<VenueTextSettings, "allowList"> = { allowList: null },
   stripe?: StripeClient,
+  pager?: PagerDeps,
 ): Sweep[] {
   const s3 = makeS3();
   return [
+    // Paging (M8-17): money at risk and burning targets page the on-call rota, escalating after 10 minutes.
+    ...(pager ? [alertSweep(pool, pager, log)] : []),
     deviceWatchSweep(pool, log),
     // Stripe and Twilio health for the staff banners (M8-01).
     vendorHealthSweep(pool, log),

@@ -1,6 +1,6 @@
 # Infrastructure
 
-Staging runs on AWS in `us-east-1` (decision D85). `infra/staging` is one Terraform root module: a VPC across two zones, ECS Fargate services for the API, the worker and the guest web behind one load balancer, RDS Postgres 16, S3 buckets (files, audit with Object Lock, the unversioned ID-scan keys bucket of M8-14, and the two static apps), KMS keys, Secrets Manager, CloudWatch logs (30 days) with the targets dashboard and its metric filters (`observability.tf`, M8-16), four CloudFront hostnames and the GitHub OIDC deploy role.
+Staging runs on AWS in `us-east-1` (decision D85). `infra/staging` is one Terraform root module: a VPC across two zones, ECS Fargate services for the API, the worker and the guest web behind one load balancer, RDS Postgres 16, S3 buckets (files, audit with Object Lock, the unversioned ID-scan keys bucket of M8-14, and the two static apps), KMS keys, Secrets Manager, CloudWatch logs (30 days) with the targets dashboard and its metric filters (`observability.tf`, M8-16), the pages topic with the burn-rate alarms and the RDS failover subscription (`paging.tf`, M8-17; the API confirms the subscription itself), four CloudFront hostnames and the GitHub OIDC deploy role.
 
 Infrastructure changes run from a laptop with an admin profile, never from CI. CI only deploys application code (`.github/workflows/deploy-staging.yml`).
 
