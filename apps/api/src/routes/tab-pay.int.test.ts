@@ -298,6 +298,12 @@ describe("Pay a tab with another card or cash (Payment flows · Paying with a di
       [tab.check_id],
     );
     expect(allocations.rows).toEqual([{ payment_id: newId, state: "captured", amount: 4355 }]);
+    // A card payment never opens a drawer (M9-07: only cash and a no-sale do at the till).
+    const kicks = await owner.query(
+      "select 1 from print_jobs where kind = 'drawer' and payload->>'payment_id' = any($1::text[])",
+      [[newId, tab.paymentId]],
+    );
+    expect(kicks.rowCount).toBe(0);
   });
 
   it("a declined new card leaves the $50.00 hold in place, and the tab takes drinks again once it's canceled", async () => {

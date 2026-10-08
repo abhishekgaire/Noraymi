@@ -160,7 +160,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-07 · Install and pair the hardware, and check the cellular signal at every pay point
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M1-15 (pairing), M1-30 (the USB NFC readers), M3-13 and M3-14 (network and USB printers), M4-02 (readers on West 4's Location), M4-13 (drawers), M6 (the Up next TV), M8-02 (the router)
 - **Spec:** [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Devices at West 4, Pairing, Room tablets, Router, Supported hardware; [Stripe setup](../spec/06-stripe-setup.md) 4; [Scope and architecture](../spec/01-scope-architecture.md) · When the venue's internet drops (1); screens [AdminDesk](../screens.md#admindesk) note 9, [Console](../screens.md#console) note 1; [demo seed](../demo-seed.md#cash-drawers-and-devices)
@@ -171,12 +171,12 @@ Definition of done: see CLAUDE.md.
   - Every device paired, and Admin → Printers & devices and the Console checked against each other.
   - The cellular signal check in `docs/runbooks/cellular-check.md`: at each pay point, with the reader's Wi-Fi off, a small live payment completes over cellular and is refunded, three times at a busy hour, with the reader's signal noted.
 - **Acceptance:**
-  - [ ] The cellular signal check passes at the bar and at the front desk.
-  - [ ] Admin and the Console show the same devices online: both readers, "Backup internet · on", and 13 of 14 room tablets while Room 4 is out of service.
-  - [ ] Each drawer opens on a cash payment and on a no-sale, and on nothing else.
-  - [ ] Each room tablet shows "Room available" between sessions and takes no orders then.
+  - [ ] The cellular signal check passes at the bar and at the front desk. (On site: `docs/runbooks/cellular-check.md` with its record table; needs the installed S710s and a busy night.)
+  - [ ] Admin and the Console show the same devices online: both readers, "Backup internet · on", and 13 of 14 room tablets while Room 4 is out of service. (Software proven on the seed: `devices:check` and the Console share `deviceHealth` over the same rows, `apps/api/src/ops/hardware-check.int.test.ts`; `e2e/console.spec.ts` and `e2e/staff.spec.ts` show the same line on both screens. On site after the install.)
+  - [ ] Each drawer opens on a cash payment and on a no-sale, and on nothing else. (Software proven: `cash.int.test.ts`, `drawer-moves.int.test.ts`, `training.int.test.ts`, and now a card payment in `tab-pay.int.test.ts` makes no kick; the kick test on each real drawer is on site, `hardware-install.md` step 3.)
+  - [ ] Each room tablet shows "Room available" between sessions and takes no orders then. (Software proven: `room-tablet.int.test.ts`, `e2e/guest.spec.ts`; checked on each real tablet on site.)
 - **Tests:** the check itself; a kick test on each drawer.
-- **Notes:** Spec gap: "passes" has no mark of its own; cautious default: three live payments in a row complete over cellular at each pay point without an unknown result.
+- **Notes:** Spec gap: "passes" has no mark of its own; cautious default: three live payments in a row complete over cellular at each pay point without an unknown result. Built: `pnpm --filter @west4/api devices:check` (`apps/api/src/ops/hardware-check.ts`), read-only, prints the install's device check as Markdown and exits non-zero naming what's not in place: each pay point's S710 (label, Stripe registration, cellular on, online), its drawer on an online receipt printer, its USB badge reader on its computer, one tablet per room (online unless out of service), the Up next TV, the router's backup internet, and the health line Admin and the Console share (the Console's `deviceHealth`). Runbooks: `docs/runbooks/hardware-install.md` (install table with blank serials, the checks) and `docs/runbooks/cellular-check.md` (the procedure and a blank record for the reader's signal as shown; nothing is estimated). The seed now links each USB badge reader to its computer and keeps the readers' cellular flag, as real pairing and registration do. Spec gap: spec 09 opens the drawer for drops, paid-outs and tip-outs too, so "nothing else" is read as no kick for a card payment, a reprint or a practice sale; written so in the runbook. No serial number or signal reading is invented; they're written on site. Blocked on the physical install at West 4.
 
 ### M9-08 · Get everyone their own PIN and badge
 

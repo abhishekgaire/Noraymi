@@ -437,6 +437,10 @@ export interface SeedDevice {
   readonly room?: string;
   readonly owner?: string;
   readonly online?: boolean;
+  /** A USB badge reader's computer (M9-07's device check reads the link). */
+  readonly host?: string;
+  /** A Stripe reader with cellular on (its Stripe side comes from stripe:seed). */
+  readonly cellular?: boolean;
   readonly cellular_backup?: boolean;
   readonly on_backup_now?: boolean;
 }
@@ -2286,8 +2290,18 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
           : null;
       const roomId = device.room === undefined ? null : id(device.room);
       await client.query(
-        `insert into devices (id, venue_id, kind, name, user_id, room_id) values ($1, $2, $3, $4, $5, $6)`,
-        [deviceId, venueId, device.kind, device.name, userId, roomId],
+        `insert into devices (id, venue_id, kind, name, user_id, room_id, host_device_id, cellular)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          deviceId,
+          venueId,
+          device.kind,
+          device.name,
+          userId,
+          roomId,
+          device.host === undefined ? null : id(device.host),
+          device.kind === "reader" ? (device.cellular ?? null) : null,
+        ],
       );
       if (device.online === true) {
         await client.query(
