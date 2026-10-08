@@ -1,0 +1,4 @@
+consent_id,guest_id,channel,purpose,opted_in_at,opted_out_at,opted_out_by,wording_version
+C-1,501,SMS,Reservation texts,2026-09-01 18:00,,,old-site-2025-03
+C-2,501,SMS,Promotions,2026-09-01 18:00,,,old-site-2025-03
+C-3,502,SMS,Promotions,2026-08-01 12:00,2026-08-20 09:15,STOP reply,old-site-2025-03

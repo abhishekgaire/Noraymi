@@ -1,0 +1,71 @@
+# Import a venue's records from its old system (M9-01)
+
+The import tool loads the files a venue exports from its old system into our records: future bookings with their deposits, guests, consents, the menu, the team (people and roles only), and nightly totals for the reports' trends ([milestones](../milestones.md#m9--cutover-and-going-live) · Imports). M9-02 to M9-05 build out each kind; M9-06 runs the dry run that proves nothing is lost.
+
+**Partnerships only.** Import only files the venue makes with its old system's own export tools, or pulls through that system's documented API under the venue's own account. Never scrape the old system or reverse-engineer it. If it has no export, the venue exports by hand into the same columns.
+
+**Never commit a real export.** The files hold guests' names and numbers. Keep them in a private location outside the repo, read them from there, and delete the local copy after the cutover. The made-up fixtures in `packages/db/test-fixtures/import/` are the only export files in the repo.
+
+## Run it
+
+```
+pnpm db:import -- --venue <slug|id> --mapping <dir>/mapping.json --dry-run --out evidence/import
+pnpm db:import -- --venue <slug|id> --mapping <dir>/mapping.json --out evidence/import
+```
+
+- The export files sit next to the mapping file. `DATABASE_URL` names the database (a staging copy for a rehearsal).
+- `--dry-run` does the whole import inside one transaction, writes the report, then rolls everything back. Only the run's row in `import_runs`, with its report, is kept.
+- A live run loads in batches (`--batch`, 500 by default), each its own short transaction as the audited migration role (`app_migrator`), walled to the one venue. Every row is audited under `import:<run id>`.
+- Running the same files again changes nothing: each record's reference in the old system is kept in `import_refs`, and a record already imported is skipped. The cutover delta is just a re-run with the newer files. A record whose values changed in the old system since the last run is listed under "changed … not applied" for a manager to fix by hand; the run then doesn't reconcile.
+- The command exits non-zero when a file is refused, a row has a problem, or the result doesn't reconcile.
+
+## What stops an import before anything loads
+
+1. **A PIN or a card number.** A file with a column named like a PIN or password (PIN, Staff PIN, Passcode…) or like card data (Card Number, CC#, CVV, Expiry Date, PAN…), or with a card number anywhere in any cell (13 to 19 digits that pass the card checksum), is refused whole, whether or not the mapping reads that column. Ask the venue to export again without that column. Staff set new PINs on their own phones (M9-08).
+2. **A problem in any row.** Every problem is listed as `file:line reason`: an empty required field, a value the mapping doesn't know, an amount that isn't dollars and cents, a time that happens twice or never on a daylight-saving night, a repeated record, a room the venue doesn't have, a guest the guests file doesn't have. Fix the export or the mapping and run again.
+
+## The report
+
+One line per kind: how many records are in the venue's database, with cents where the kind carries money (deposits, menu prices, nightly net sales), then what was in the files and how many were new, already imported, or changed. People are counted by role and consents by kind, channel and given or revoked. The last line says whether every record and cent in the files is in the venue. `--out` also writes the report as JSON.
+
+## The mapping file (version 1)
+
+One mapping per source system and export layout. When the venue's export changes, write a new mapping; the code doesn't change.
+
+```json
+{
+  "mapping_version": 1,
+  "source": "west4-oldsystem-2026-10",
+  "description": "What exported these files, and when.",
+  "files": {
+    "bookings": {
+      "file": "reservations.csv",
+      "format": "csv",
+      "money_unit": "dollars",
+      "columns": { "legacy_ref": "Reservation #", "guest_ref": "Customer #", "room": "Room" },
+      "values": { "status": { "Arrived": "checked_in", "Confirmed": "confirmed" } },
+      "defaults": { "status": "confirmed" }
+    }
+  }
+}
+```
+
+- `format` is `csv` or `json` (an array of objects); by default it follows the file's extension.
+- `columns` maps our field to the export's column name. `values` maps the export's words to ours, field by field; a word missing from the map is a problem. `defaults` fills a field the export has no column for.
+- `money_unit` is `dollars` (`$1,234.50`, the default) or `cents` (whole numbers). Amounts never pass through a float.
+- Times may carry an offset (`2026-09-25T19:00:00-04:00`) or be local wall-clock times (`2026-09-25 19:00`), read in the venue's time zone. A booking's business date comes from its start, with the venue's 6:00 AM cutover.
+
+| Kind | Required fields | Optional fields |
+| --- | --- | --- |
+| `guests` | legacy_ref, name | phone, email, locale |
+| `people` | legacy_ref, name, role (owner, manager, bartender, front_desk, staff) | email, phone, locale |
+| `menu` | legacy_ref, name, category, price, alcohol | button_name, tax_category (default `drink`), variant (default `Regular`), sort |
+| `bookings` | legacy_ref, guest_ref, room (a room name), party_size, starts_at, ends_at | deposit, status (default `confirmed`) |
+| `consents` | guest_ref, channel (sms, email), kind (texts, marketing) | legacy_ref, given_at, revoked_at, revoked_via (keyword, staff, guest_page), source, text_version |
+| `nightly_totals` | business_date, net_sales | rooms, bar |
+
+What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a category, an item and one priced variant; a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents`; a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-02 to M9-05 add the rest (room blocks and payments for deposits, consent proof, the menu's checks, invites).
+
+## West 4
+
+West 4's old system and its export format aren't known yet (spec gap, see the M9-01 ticket). When the files arrive: write `mapping.json` for them, run a dry run on a staging copy, and compare the report with the old system's own counts and totals.

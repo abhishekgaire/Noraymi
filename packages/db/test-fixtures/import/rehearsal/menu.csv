@@ -1,0 +1,128 @@
+Item Code,Item,Category,Price,Alcohol
+BUD,Bud Light,Beer,$8.00,Y
+BUDW,Budweiser,Beer,$8.00,Y
+ULTRA,Michelob Ultra,Beer,$8.00,Y
+MODELO,Modelo,Beer,$9.00,Y
+ORCHARD,Angry Orchard,Beer,$9.00,Y
+HEINEKEN,Heineken,Beer,$9.00,Y
+CORONA,Corona,Beer,$9.00,Y
+GOOSE,Goose Island IPA,Beer,$9.00,Y
+GUINNESS,Guinness,Beer,$9.00,Y
+HOE,Hoegaarden,Beer,$9.00,Y
+BLUEMOON,Blue Moon,Beer,$9.00,Y
+STELLA,Stella Artois,Beer,$9.00,Y
+KIRIN-G,Kirin draft · glass,Beer,$9.00,Y
+KIRIN-P,Kirin draft · pitcher,Beer,$31.00,Y
+NUTRL,Nütrl hard seltzer,Beer,$10.00,Y
+CHAMISUL,Chamisul Fresh,Soju,$20.00,Y
+JINRO,Jinro Is Back,Soju,$20.00,Y
+SJ-STRAW,Strawberry soju,Soju,$20.00,Y
+SJ-GRAPE,Grapefruit soju,Soju,$20.00,Y
+SJ-GREEN,Green Grape soju,Soju,$20.00,Y
+SJ-PEACH,Peach soju,Soju,$20.00,Y
+SJ-PLUM,Plum soju,Soju,$20.00,Y
+SUNRISE,Tequila Sunrise,Cocktails,$12.00,Y
+HAWAII,Blue Hawaii,Cocktails,$12.00,Y
+JOLLY,Jolly Rancher,Cocktails,$12.00,Y
+MELON,Melon Ball,Cocktails,$12.00,Y
+RUSSIAN,Black Russian,Cocktails,$12.00,Y
+SOTB,Sex on the Beach,Cocktails,$12.00,Y
+PALOMA,Paloma,Cocktails,$12.00,Y
+MIDORI,Midori Sour,Cocktails,$12.00,Y
+AMARETTO,Amaretto Sour,Cocktails,$12.00,Y
+KAMITINI,Kamikaze-tini,Cocktails,$12.00,Y
+DROPTINI,Lemon Drop-tini,Cocktails,$13.00,Y
+MULE-C,Moscow Mule,Cocktails,$13.00,Y
+STORMY,Dark ’n’ Stormy,Cocktails,$13.00,Y
+MAITAI,Mai Tai,Cocktails,$13.00,Y
+YOGURT,Yogurt Soju Cocktail,Cocktails,$13.00,Y
+MALIBUBAY,Malibu Bay Breeze,Cocktails,$13.00,Y
+MARG,Margarita,Cocktails,$13.00,Y
+TEA,Iced Tea,Cocktails,$13.00,Y
+S-DROP,Lemon Drop shot,Shots,$9.00,Y
+S-BUTTER,Buttery Nipple,Shots,$9.00,Y
+S-KAMI,Kamikaze shot,Shots,$9.00,Y
+S-WOO,Woo Woo,Shots,$9.00,Y
+S-ORG,Orgasm,Shots,$9.00,Y
+S-GREEN,Green Tea shot,Shots,$10.00,Y
+S-RHS,Red Headed Slut,Shots,$10.00,Y
+JAGER,Jäger Bomb,Shots,$12.00,Y
+JAMESON,Jameson,Spirits,$12.00,Y
+JACK,Jack Daniel’s,Spirits,$12.00,Y
+JWB,Johnnie Walker Black,Spirits,$12.00,Y
+FIREBALL,Fireball,Spirits,$13.00,Y
+JACKH,Jack Daniel’s Honey,Spirits,$13.00,Y
+MAKERS,Maker’s Mark,Spirits,$13.00,Y
+HENNESSY,Hennessy,Spirits,$13.00,Y
+BULLEIT,Bulleit Bourbon,Spirits,$13.00,Y
+BASIL,Basil Hayden,Spirits,$13.00,Y
+GLEN,The Glenlivet 12,Spirits,$14.00,Y
+TITOS,Tito’s,Spirits,$12.00,Y
+STOLI,Stoli,Spirits,$12.00,Y
+KETEL,Ketel One,Spirits,$12.00,Y
+GOOSEV,Grey Goose,Spirits,$13.00,Y
+PATRON,Patrón,Spirits,$13.00,Y
+CASA,Casamigos Blanco,Spirits,$13.00,Y
+MEZCAL,Mezcal,Spirits,$14.00,Y
+BACARDI,Bacardi,Spirits,$12.00,Y
+CAPTAIN,Captain Morgan,Spirits,$12.00,Y
+MALIBU,Malibu,Spirits,$12.00,Y
+TANQ,Tanqueray,Spirits,$12.00,Y
+BOMBAY,Bombay,Spirits,$12.00,Y
+HENDRICKS,Hendrick’s,Spirits,$13.00,Y
+MALBEC-G,Malbec · glass,Wine,$10.00,Y
+MALBEC-B,Malbec · bottle,Wine,$40.00,Y
+MERLOT-G,Merlot · glass,Wine,$10.00,Y
+MERLOT-B,Merlot · bottle,Wine,$40.00,Y
+CAB-G,Cabernet · glass,Wine,$10.00,Y
+CAB-B,Cabernet · bottle,Wine,$40.00,Y
+SAUV-G,Sauvignon Blanc · glass,Wine,$10.00,Y
+SAUV-B,Sauvignon Blanc · bottle,Wine,$40.00,Y
+PINOT-G,Pinot Grigio · glass,Wine,$10.00,Y
+PINOT-B,Pinot Grigio · bottle,Wine,$40.00,Y
+PROS-G,Prosecco · glass,Wine,$10.00,Y
+PROS-B,Prosecco · bottle,Wine,$40.00,Y
+ANDRE,André Brut · bottle,Wine,$40.00,Y
+MOET,Moët & Chandon · bottle,Wine,$180.00,Y
+SODA-C,Soda · cup,Soft drinks,$5.00,N
+SODA-P,Soda · pitcher,Soft drinks,$18.00,N
+LEM-C,Lemonade · cup,Soft drinks,$5.00,N
+LEM-P,Lemonade · pitcher,Soft drinks,$18.00,N
+CRAN-C,Cranberry juice · cup,Soft drinks,$5.00,N
+CRAN-P,Cranberry juice · pitcher,Soft drinks,$18.00,N
+SELT-C,Seltzer · cup,Soft drinks,$2.00,N
+SELT-P,Seltzer · pitcher,Soft drinks,$16.00,N
+GBEER,Ginger beer,Soft drinks,$9.00,N
+REDBULL,Red Bull,Soft drinks,$6.00,N
+MULE-M,Mule mocktail,Soft drinks,$11.00,N
+SHIRLEY,Shirley Temple,Soft drinks,$11.00,N
+B-JAMESON,Jameson · bottle,Bottles,$250.00,Y
+B-JACK,Jack Daniel’s · bottle,Bottles,$250.00,Y
+B-JWB,Johnnie Walker Black · bottle,Bottles,$300.00,Y
+B-FIREBALL,Fireball · bottle,Bottles,$250.00,Y
+B-HENNESSY,Hennessy · bottle,Bottles,$300.00,Y
+B-MAKERS,Maker’s Mark · bottle,Bottles,$300.00,Y
+B-BULLEIT,Bulleit · bottle,Bottles,$330.00,Y
+B-GLEN,Glenlivet 12 · bottle,Bottles,$350.00,Y
+B-TITOS,Tito’s · bottle,Bottles,$250.00,Y
+B-GOOSE,Grey Goose · bottle,Bottles,$350.00,Y
+B-PATRON,Patrón · bottle,Bottles,$300.00,Y
+B-CASA,Casamigos · bottle,Bottles,$330.00,Y
+B-BACARDI,Bacardi · bottle,Bottles,$275.00,Y
+B-HENDRICKS,Hendrick’s · bottle,Bottles,$300.00,Y
+B-TANQ,Tanqueray · bottle,Bottles,$250.00,Y
+BUCKET-S,Small bucket · 6 beers,Buckets,$40.00,Y
+BUCKET-L,Large bucket · 10 beers,Buckets,$70.00,Y
+P-SOJU2,2 soju + small bucket,Buckets,$70.00,Y
+P-SOJU4,4 soju + large bucket,Buckets,$120.00,Y
+P-SHOTS,12 house shots + 2 small buckets,Buckets,$150.00,Y
+P-BOTTLE1,1 bottle + large bucket,Buckets,$300.00,Y
+P-BOTTLE2,2 bottles + 3 large buckets,Buckets,$680.00,Y
+B-JACKH,Jack Daniel’s Honey · bottle,Bottles,$300.00,Y
+B-BASIL,Basil Hayden · bottle,Bottles,$330.00,Y
+B-STOLI,Stoli · bottle,Bottles,$250.00,Y
+B-KETEL,Ketel One · bottle,Bottles,$330.00,Y
+B-MEZCAL,Mezcal · bottle,Bottles,$350.00,Y
+B-CAPTAIN,Captain Morgan · bottle,Bottles,$275.00,Y
+B-MALIBU,Malibu · bottle,Bottles,$250.00,Y
+B-BOMBAY,Bombay · bottle,Bottles,$250.00,Y

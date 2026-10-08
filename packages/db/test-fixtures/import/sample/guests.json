@@ -1,0 +1,16 @@
+[
+  {
+    "guestId": 501,
+    "fullName": "Test Guest One",
+    "phone": "+12125550101",
+    "email": "one@example.com",
+    "language": "en"
+  },
+  {
+    "guestId": 502,
+    "fullName": "Test Guest Two",
+    "phone": "212-555-0102",
+    "email": null,
+    "language": "Spanish"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "mapping_version": 1,
+  "source": "refused-pin",
+  "files": {
+    "people": {
+      "file": "staff-with-pin.csv",
+      "columns": { "legacy_ref": "Staff #", "name": "Name", "role": "Position" },
+      "values": { "role": { "Bartender": "bartender" } }
+    }
+  }
+}

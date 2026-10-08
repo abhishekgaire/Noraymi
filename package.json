@@ -25,7 +25,8 @@
     "db:migrate": "tsc -b packages/db && node packages/db/dist/cli.js migrate",
     "db:reset": "tsc -b packages/db && node packages/db/dist/cli.js reset",
     "db:lint": "tsc -b packages/db && node packages/db/dist/lint-cli.js",
-    "seed": "tsc -b packages/db && node packages/db/dist/cli.js seed"
+    "seed": "tsc -b packages/db && node packages/db/dist/cli.js seed",
+    "db:import": "tsc -b packages/db && node packages/db/dist/import-cli.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

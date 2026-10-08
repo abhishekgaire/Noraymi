@@ -1,0 +1,70 @@
+{
+  "mapping_version": 1,
+  "source": "rehearsal-from-demo-seed",
+  "description": "A rehearsal export made from the demo seed, in an old booking system's style. Fake data only. Replace with West 4's real export's mapping once its files arrive.",
+  "files": {
+    "guests": {
+      "file": "customers.csv",
+      "columns": {
+        "legacy_ref": "Customer #",
+        "name": "Customer Name",
+        "phone": "Mobile",
+        "email": "Email"
+      }
+    },
+    "people": {
+      "file": "staff.csv",
+      "columns": {
+        "legacy_ref": "Staff #",
+        "name": "Name",
+        "email": "Email",
+        "role": "Position"
+      },
+      "values": {
+        "role": {
+          "Owner": "owner",
+          "Manager": "manager",
+          "Bartender": "bartender",
+          "Front Desk": "front_desk",
+          "Staff": "staff"
+        }
+      }
+    },
+    "menu": {
+      "file": "menu.csv",
+      "columns": {
+        "legacy_ref": "Item Code",
+        "name": "Item",
+        "category": "Category",
+        "price": "Price",
+        "alcohol": "Alcohol"
+      },
+      "defaults": {
+        "tax_category": "drink"
+      }
+    },
+    "bookings": {
+      "file": "reservations.csv",
+      "columns": {
+        "legacy_ref": "Reservation #",
+        "guest_ref": "Customer #",
+        "room": "Room",
+        "party_size": "Party Size",
+        "starts_at": "Start",
+        "ends_at": "End",
+        "deposit": "Deposit Paid",
+        "status": "Status"
+      },
+      "values": {
+        "status": {
+          "Pending": "pending",
+          "Confirmed": "confirmed",
+          "Arrived": "checked_in",
+          "Completed": "completed",
+          "No Show": "no_show",
+          "Cancelled": "cancelled"
+        }
+      }
+    }
+  }
+}

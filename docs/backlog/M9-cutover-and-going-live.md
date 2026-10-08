@@ -39,7 +39,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-01 · Build the import tool for West 4's export files
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M1-05 (the audited migration role), M1-07 (audit triggers), M2-04 (rooms), M2-06 (guests and bookings), M3-03 (the menu's save path), M5-06 (policy versions), M5-11 (manage links)
 - **Spec:** [Data model](../spec/04-data-model.md) · `bookings` (source `import`, `legacy_ref`, `deposit_legacy_cents`), `guests`, `consents`, the menu tables, `memberships`, `legacy_nightly_totals`; [Testing and operations](../spec/13-testing-operations.md) · Releases (batches as the audited migration role); [milestones](../milestones.md#m9--cutover-and-going-live) · M9 Ships (Imports); [blueprint](../blueprint.md) · Proposed plans (Setup: menu import)
@@ -51,12 +51,17 @@ Definition of done: see CLAUDE.md.
   - It refuses any column that looks like a PIN or a card number, and stores neither.
   - It loads `legacy_nightly_totals` from the old system's nightly totals when West 4 has them.
 - **Acceptance:**
-  - [ ] A rehearsal export made from the demo seed's 11 bookings, 17 guests, 127-line menu and team imports, and the report reads 11 bookings with $990.00 of deposits.
-  - [ ] A file with a PIN or card-number column is refused before anything loads.
-  - [ ] Running the same file twice changes nothing the second time.
-  - [ ] Every loaded row has an audit row naming the import run.
+  - [x] A rehearsal export made from the demo seed's 11 bookings, 17 guests, 127-line menu and team imports, and the report reads 11 bookings with $990.00 of deposits.
+  - [x] A file with a PIN or card-number column is refused before anything loads.
+  - [x] Running the same file twice changes nothing the second time.
+  - [x] Every loaded row has an audit row naming the import run.
+  - [ ] Works on West 4's real export files. Blocked: West 4's old system and its export files haven't been received; write their mapping and dry-run them when they arrive (M9-06).
 - **Tests:** unit tests for mapping and validation; an integration test of the rehearsal import; the venue-wall suite over the import, which writes only its own venue.
 - **Notes:** Import only what West 4 exports with its old system's own tools, or through that system's documented API under West 4's own account; never scrape or reverse-engineer it. Spec gap: neither the spec nor the seed names West 4's old system or its export formats; ask West 4 first, and if the system has no export, West 4 exports by hand. `legacy_nightly_totals` isn't in the milestone's import list; load it if West 4 has nightly totals, for M7-18's trends.
+  - **Built (Oct 8, 2026):** `pnpm db:import` (root script; `pnpm import` is pnpm's own command, so the script is `db:import`) in `packages/db/src/import-cli.ts` and `packages/db/src/import/` (CSV reader, value readers, the versioned mapping, prepare, load). Migration `0125_imports.sql`: `import_runs` (one per run, with file hashes, mapping version and report) and `import_refs` (legacy record → our row, with a hash of its values), both walled and audited; `app_migrator` may now insert users. Runbook and mapping format: `docs/runbooks/import.md`. Fixtures (all made up): `packages/db/test-fixtures/import/` (`rehearsal/` generated from the demo seed by `src/import/rehearsal.ts`, `sample/` for JSON, cents, consents and nightly totals, `refused/`). Tests: `src/import/import.test.ts` (unit), `src/import/import.int.test.ts` (rehearsal dry and live runs, re-run, delta, refusals, problems, and the venue wall: an import into venue B leaves venue A byte-for-byte unchanged, audits only in B's chain, and can't see A's rooms or imported guests).
+  - **Cautious defaults:** the export format is unknown, so the tool reads any CSV or JSON through a mapping file (version 1) instead of one fixed format. A record already imported is never overwritten: if its values changed in the old system, the run lists it as "changed, not applied" and doesn't reconcile, for a manager to settle by hand. Any problem in any row stops the whole import (nothing partial). Local times that happen twice or never on daylight-saving nights are refused, not guessed. A card number anywhere in any cell refuses the file, even in a column the mapping doesn't read. A person whose email is already a user is linked to that user, and someone already on the venue's team keeps their membership untouched. Guests and people with no language get English.
+  - **Dry run:** "a scratch venue on a staging copy" is done as one transaction that loads everything into the real target venue, writes the report, and rolls back, so the rooms the bookings need are the venue's own and nothing is left behind; point `DATABASE_URL` at a staging copy for the rehearsal. Only the `import_runs` row with its report is kept.
+  - **Left for later tickets:** an imported booking gets no room block, payment, policy version or manage link yet, and `deposit_cents` stays empty with the old system's deposit in `deposit_legacy_cents` (M9-02); consent proof rules (M9-03); the menu's tax categories per item and promotion checks (M9-04); team invites (M9-05). `pnpm seed` now also wipes the venue's `import_runs` and `import_refs`.
 
 ### M9-02 · Import West 4's future bookings with their deposits
 

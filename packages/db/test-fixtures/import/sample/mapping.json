@@ -1,0 +1,58 @@
+{
+  "mapping_version": 1,
+  "source": "sample-fixture",
+  "description": "Fake sample export for tests: JSON guests, deposits in cents, consents and nightly totals.",
+  "files": {
+    "guests": {
+      "file": "guests.json",
+      "columns": {
+        "legacy_ref": "guestId",
+        "name": "fullName",
+        "phone": "phone",
+        "email": "email",
+        "locale": "language"
+      }
+    },
+    "bookings": {
+      "file": "bookings.csv",
+      "money_unit": "cents",
+      "columns": {
+        "legacy_ref": "booking_id",
+        "guest_ref": "guest_id",
+        "room": "room_name",
+        "party_size": "pax",
+        "starts_at": "start_time",
+        "ends_at": "end_time",
+        "deposit": "deposit_cents"
+      },
+      "defaults": { "status": "confirmed" }
+    },
+    "consents": {
+      "file": "consents.csv",
+      "columns": {
+        "legacy_ref": "consent_id",
+        "guest_ref": "guest_id",
+        "channel": "channel",
+        "kind": "purpose",
+        "given_at": "opted_in_at",
+        "revoked_at": "opted_out_at",
+        "revoked_via": "opted_out_by",
+        "text_version": "wording_version"
+      },
+      "values": {
+        "channel": { "SMS": "sms", "Email": "email" },
+        "kind": { "Reservation texts": "texts", "Promotions": "marketing" },
+        "revoked_via": { "STOP reply": "keyword", "Front desk": "staff", "Web form": "guest_page" }
+      }
+    },
+    "nightly_totals": {
+      "file": "nightly.csv",
+      "columns": {
+        "business_date": "date",
+        "net_sales": "net_sales",
+        "rooms": "room_sales",
+        "bar": "bar_sales"
+      }
+    }
+  }
+}

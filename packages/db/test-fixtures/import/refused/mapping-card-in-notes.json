@@ -1,0 +1,10 @@
+{
+  "mapping_version": 1,
+  "source": "refused-card-in-notes",
+  "files": {
+    "guests": {
+      "file": "customers-card-in-notes.csv",
+      "columns": { "legacy_ref": "Customer #", "name": "Customer Name" }
+    }
+  }
+}
