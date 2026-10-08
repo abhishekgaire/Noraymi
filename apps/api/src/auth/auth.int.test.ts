@@ -644,3 +644,70 @@ describe("Every Admin route called with a PIN session or a badge session answers
     }
   });
 });
+
+describe("M8-19: a sign-in from a new country pages us", () => {
+  it("Andy signs in from the US twice, then from France: one signin-new-country page", async () => {
+    const email = "andy.travels@example.com";
+    const user = (
+      await owner.query<{ id: string }>(
+        "insert into users (name, email) values ('Andy C.', $1) returning id",
+        [email],
+      )
+    ).rows[0]!.id;
+    await owner.query(
+      "insert into memberships (venue_id, user_id, role, status) values ($1, $2, 'manager', 'active')",
+      [v.venueA, user],
+    );
+    const pk = new SoftwarePasskey("localhost");
+    await enrolPasskey(email, pk);
+    let traveller = 0;
+    const from = async (country: string) => {
+      // Its own address, as a traveller's would be (the sign-in rate limit is per address).
+      const remoteAddress = `203.0.113.${++traveller}`;
+      const start = json(
+        await app.inject({
+          method: "POST",
+          url: "/v1/auth/login",
+          remoteAddress,
+          payload: { step: "start", method: "passkey", email },
+        }),
+      );
+      const finish = await app.inject({
+        method: "POST",
+        url: "/v1/auth/login",
+        remoteAddress,
+        headers: { "cloudfront-viewer-country": country },
+        payload: {
+          step: "finish",
+          method: "passkey",
+          email,
+          credential: pk.assert(start["options"] as { challenge: string }, ORIGIN),
+          client: "web",
+        },
+      });
+      expect(finish.statusCode, finish.body).toBe(200);
+      return (json(finish)["session"] as { id: string }).id;
+    };
+    const pagesFor = async () =>
+      (
+        await owner.query<{ key: string; summary: string }>(
+          "select key, summary from pages where rule = 'signin-new-country' and summary like $1",
+          [`%${user}%`],
+        )
+      ).rows;
+    await from("US");
+    await from("US");
+    // A header that isn't two capital letters is ignored, not stored.
+    await from("not-a-country");
+    expect(await pagesFor()).toEqual([]);
+    const away = await from("FR");
+    const pages = await pagesFor();
+    expect(pages).toHaveLength(1);
+    expect(pages[0]!.key).toBe(`signin-new-country:${away}`);
+    expect(pages[0]!.summary).toContain("Sign-in from FR");
+    expect(pages[0]!.summary).toContain("before: US");
+    // France is known now: the next sign-in from there doesn't page again.
+    await from("FR");
+    expect(await pagesFor()).toHaveLength(1);
+  });
+});

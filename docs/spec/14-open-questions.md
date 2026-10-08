@@ -33,6 +33,7 @@ Twenty-nine questions are open: 8 for Stripe, 4 for the founder, 2 for Playbox, 
 | How long may scanned ID fields be kept, may they be shared (is handing them to NYPD "dissemination" under §65-b?), and may a banned list use them? | `id_checks`, its delete job and the safety module | Lawyer (a blueprint decision) | M2 builds the 7-day default · gate |
 | In training mode, what may a trainee do with room sessions, bookings, the waitlist, room orders and approvals? The cautious default (M7-03): no checking in a real booking, seating a real waitlist party or changing a live room's state; a practice session on a free room blocks nothing and only screens in training see it; practice approvals go to the manager marked TRAINING and never count. | Practice must never touch live rooms or real guests | Founder | M9 (the staff trial) |
 | Who tells whom after a breach, as written into the data processing addendum? | The breach runbook | Lawyer | M8 · gate |
+| Who is the named person who runs the breach runbook, and who backs them up (M8-19)? | `docs/security/breach-contacts.md` | Founder | M8 · gate |
 | Which PCI validation do we file, and what script-protection confirmation do we give venues? | Our own PCI status | PCI assessor (QSA) | M4 (the payment page) · gate |
 
 **Closed**

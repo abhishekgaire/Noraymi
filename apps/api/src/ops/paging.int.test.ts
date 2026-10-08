@@ -421,3 +421,126 @@ describe("the alarm hook (CloudWatch and RDS through the pages topic)", () => {
     expect(await raw.query("select 1 from pages")).toMatchObject({ rowCount: 0 });
   });
 });
+
+describe("M8-19: the decline-rate alarm and the payment page check", () => {
+  const post = (body: unknown) =>
+    app.inject({
+      method: "POST",
+      url: "/v1/hooks/alarms",
+      headers: { "content-type": "text/plain; charset=UTF-8" },
+      payload: JSON.stringify(body),
+    });
+
+  it("a burst of declined cards on West 4's booking page raises the decline-rate alarm, and it clears", async () => {
+    const booking = (
+      await raw.query<{ id: string }>("select id from bookings where venue_id = $1 limit 1", [
+        venueId,
+      ])
+    ).rows[0]!.id;
+    const payment = (
+      await raw.query<{ id: string }>(
+        `insert into payments (venue_id, booking_id, method, status, business_date)
+         values ($1, $2, 'card_online', 'requires_action', '2026-09-25') returning id`,
+        [venueId, booking],
+      )
+    ).rows[0]!.id;
+    const now = clock.now();
+    const attempt = async (no: number, state: string, code: string | null, minutesAgo: number) =>
+      raw.query(
+        `insert into payment_attempts (venue_id, payment_id, attempt_no, booking_id, portion_key, action,
+           idem_key, amount_cents, state, decline_code, started_at, resolved_at)
+         values ($1, $2, $3, $4, 'deposit', 'confirm', $5, 12000, $6, $7, $8, $8)`,
+        [
+          venueId,
+          payment,
+          no,
+          booking,
+          `${payment}:confirm:${no}`,
+          state,
+          code,
+          now.subtract({ minutes: minutesAgo }).toString(),
+        ],
+      );
+    // Four declines and a success: under the alarm's five.
+    for (let i = 1; i <= 4; i++) await attempt(i, "failed", "card_declined", 2);
+    await attempt(5, "succeeded", null, 2);
+    await sweep(now);
+    expect(await livePages("decline-rate")).toEqual([]);
+    // A fifth decline within 10 minutes (5 of 6 attempts): the alarm pages.
+    await attempt(6, "failed", "incorrect_cvc", 1);
+    await sweep(now);
+    const pages = await livePages("decline-rate");
+    expect(pages.map((p) => p.key)).toEqual([`decline-rate:${venueId}`]);
+    // Ten minutes on, the burst is over and the page clears.
+    await sweep(now.add({ minutes: 11 }));
+    expect(await livePages("decline-rate")).toEqual([]);
+  });
+
+  it("five refunds within an hour at West 4 page us as a refund spike; practice ones don't count", async () => {
+    const by = (
+      await raw.query<{ id: string }>(
+        "select user_id as id from memberships where venue_id = $1 and role = 'owner' limit 1",
+        [venueId],
+      )
+    ).rows[0]!.id;
+    const now = clock.now();
+    const refundOn = async (training: boolean, minutesAgo: number) => {
+      const pay = (
+        await raw.query<{ id: string }>(
+          `insert into payments (venue_id, method, status, amount_cents, business_date, training)
+           values ($1, 'cash', 'captured', 1000, '2026-09-25', $2) returning id`,
+          [venueId, training],
+        )
+      ).rows[0]!.id;
+      const check = (
+        await raw.query<{ id: string }>(
+          `insert into checks (venue_id, number, kind, business_date, opened_by, status, training)
+           values ($1, (select coalesce(max(number), 0) + 1 from checks where venue_id = $1 and training = $3),
+                   'bar', '2026-09-25', $2, 'paid', $3) returning id`,
+          [venueId, by, training],
+        )
+      ).rows[0]!.id;
+      await raw.query(
+        `insert into refunds (venue_id, payment_id, check_id, amount_cents, reason, n, requested_by,
+           business_date, requested_at, status)
+         values ($1, $2, $3, 500, 'test', 1, $4, '2026-09-25', $5, 'succeeded')`,
+        [venueId, pay, check, by, now.subtract({ minutes: minutesAgo }).toString()],
+      );
+    };
+    for (let i = 0; i < 4; i++) await refundOn(false, 10 + i);
+    await refundOn(true, 5);
+    await refundOn(false, 90);
+    await sweep(now);
+    expect(await livePages("refund-spike")).toEqual([]);
+    await refundOn(false, 1);
+    await sweep(now);
+    expect((await livePages("refund-spike")).map((p) => p.key)).toEqual([
+      `refund-spike:${venueId}`,
+    ]);
+    await sweep(now.add({ minutes: 61 }));
+    expect(await livePages("refund-spike")).toEqual([]);
+  });
+
+  it("a failing weekly run of the payment page check pages us; a passing run clears it", async () => {
+    const run = (state: "ALARM" | "OK", id: string) =>
+      signer.sign({
+        Type: "Notification",
+        MessageId: id,
+        TopicArn: TOPIC,
+        Timestamp: "2026-09-26T02:41:00.000Z",
+        // What scripts/pay-check-alarm.mjs publishes from .github/workflows/pay-page-check.yml.
+        Message: JSON.stringify({
+          AlarmName: "pay-page-check",
+          AlarmDescription: "rule:pay-page-check The payment page's scripts or headers changed.",
+          NewStateValue: state,
+        }),
+      });
+    const failed = await post(run("ALARM", "ppc-1"));
+    expect(failed.statusCode, failed.body).toBe(200);
+    expect((await livePages("pay-page-check")).map((p) => [p.key, p.severity])).toEqual([
+      ["cw:pay-page-check", "page"],
+    ]);
+    expect((await post(run("OK", "ppc-2"))).statusCode).toBe(200);
+    expect(await livePages("pay-page-check")).toEqual([]);
+  });
+});

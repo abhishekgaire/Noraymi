@@ -22,6 +22,20 @@ export const ALERT_SWEEP_EVERY_MS = 30_000;
 /** Spec 13: webhook lag over a minute pages. */
 export const WEBHOOK_LAG_SECONDS = 60;
 
+/**
+ * The decline-rate alarm (M8-19; spec 12 · 8, Stripe's card-testing guidance): a burst of declined
+ * cards on a venue's booking page, any hour. Cautious defaults, ours to tune once real nights are
+ * seen: at least 5 declines within 10 minutes, making up at least half of the page's attempts.
+ */
+export const DECLINE_ALARM = { windowMinutes: 10, minDeclines: 5, minShare: 0.5 } as const;
+
+/**
+ * Refund spikes (M8-19; spec 12 · 12): at least 5 refunds at a venue within 60 minutes pages us,
+ * practice refunds aside. A cautious default of ours, to tune once real nights are seen; the
+ * owner hears of every refund anyway (owner_alerts).
+ */
+export const REFUND_SPIKE = { windowMinutes: 60, minRefunds: 5 } as const;
+
 /** Money job kinds: the critical pool, plus payments, refunds, tabs and Stripe events wherever they run. */
 const MONEY_KINDS = ["payment.%", "refund.%", "tab.%", "stripe.%"];
 
@@ -128,6 +142,42 @@ export async function checkVenue(
       summary: `Payout ${p.stripe_payout_id} doesn't reconcile at venue ${venueId}`,
     });
 
+  const refunds = await n(
+    c,
+    `select count(*)::int as n from refunds r
+       join payments p on p.venue_id = r.venue_id and p.id = r.payment_id
+      where r.venue_id = $1 and not p.training and r.status in ('pending', 'succeeded')
+        and r.requested_at > $2 and r.requested_at <= $3`,
+    [venueId, now.subtract({ minutes: REFUND_SPIKE.windowMinutes }).toString(), at],
+  );
+  if (refunds >= REFUND_SPIKE.minRefunds)
+    firings.push({
+      rule: "refund-spike",
+      key: `refund-spike:${venueId}`,
+      summary: `${refunds} refunds in ${REFUND_SPIKE.windowMinutes} min at venue ${venueId}`,
+    });
+
+  // Card testing on the booking page: its attempts carry the booking (M5-09 records them).
+  const booking = await c.query<{ state: string; decline_code: string | null; n: number }>(
+    `select state, decline_code, count(*)::int as n from payment_attempts
+      where venue_id = $1 and booking_id is not null and state in ('succeeded', 'failed', 'unknown')
+        and coalesce(resolved_at, started_at) > $2 and coalesce(resolved_at, started_at) <= $3
+      group by 1, 2`,
+    [venueId, now.subtract({ minutes: DECLINE_ALARM.windowMinutes }).toString(), at],
+  );
+  let declines = 0;
+  let attempts = 0;
+  for (const a of booking.rows) {
+    attempts += a.n;
+    if (cardOutcome(a.state, a.decline_code) === "declined") declines += a.n;
+  }
+  if (declines >= DECLINE_ALARM.minDeclines && declines >= attempts * DECLINE_ALARM.minShare)
+    firings.push({
+      rule: "decline-rate",
+      key: `decline-rate:${venueId}`,
+      summary: `${declines} of ${attempts} card attempts declined in ${DECLINE_ALARM.windowMinutes} min on the booking page at venue ${venueId}`,
+    });
+
   const card: Counts = {};
   const alarm: Counts = {};
   if (open)
@@ -210,6 +260,8 @@ const SWEEP_RULES: readonly AlertRuleId[] = [
   "money-dead-letters",
   "webhook-lag",
   "payment-failures",
+  "decline-rate",
+  "refund-spike",
 ];
 
 /** Opens a page per firing and clears what the sweep no longer finds. */

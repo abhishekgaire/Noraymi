@@ -75,3 +75,26 @@ resource "aws_iam_role_policy" "github_deploy" {
   role   = aws_iam_role.github_deploy.id
   policy = data.aws_iam_policy_document.github_deploy.json
 }
+
+# M8-19: the payment page check (.github/workflows/pay-page-check.yml) pages us
+# when a weekly or post-deploy run fails, and clears the page when one passes,
+# by publishing an alarm-shaped message to the pages topic (paging.tf). Its own
+# role can do nothing else.
+resource "aws_iam_role" "github_checks" {
+  name               = "${var.name}-github-checks"
+  assume_role_policy = data.aws_iam_policy_document.github_assume.json
+}
+
+data "aws_iam_policy_document" "github_checks" {
+  statement {
+    sid       = "PublishPages"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.pages.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "github_checks" {
+  name   = "checks"
+  role   = aws_iam_role.github_checks.id
+  policy = data.aws_iam_policy_document.github_checks.json
+}

@@ -7,10 +7,11 @@
  * `clears` says when a page is over: `condition` when the check stops finding it (and it can fire
  * again later), `ack` when someone acknowledges it (one page per key, ever: a payout, a failover).
  * `source` says where it is raised: the alert sweep, a CloudWatch alarm or RDS event through the
- * alarm hook, the device watch (M1-16) for the manager's alerts, or the synthetic check (M8-18).
+ * alarm hook, the device watch (M1-16) for the manager's alerts, the synthetic check (M8-18), a
+ * sign-in (M8-19), or a CI workflow publishing to the pages topic (M8-19: the payment page check).
  */
 export type AlertAudience = "us" | "manager";
-export type AlertSource = "sweep" | "cloudwatch" | "devices" | "synthetic";
+export type AlertSource = "sweep" | "cloudwatch" | "devices" | "synthetic" | "signin" | "ci";
 
 export interface AlertRule {
   readonly id: string;
@@ -89,6 +90,34 @@ export const ALERT_RULES = [
     audience: "us",
     clears: "condition",
     sources: ["synthetic"],
+  }),
+  rule({
+    id: "signin-new-country",
+    title: "A sign-in from a country the person hasn't signed in from before (M8-19)",
+    audience: "us",
+    clears: "ack",
+    sources: ["signin"],
+  }),
+  rule({
+    id: "decline-rate",
+    title: "A burst of declined cards on a venue's booking page (M8-19)",
+    audience: "us",
+    clears: "condition",
+    sources: ["sweep"],
+  }),
+  rule({
+    id: "refund-spike",
+    title: "A spike of refunds at a venue (M8-19)",
+    audience: "us",
+    clears: "condition",
+    sources: ["sweep"],
+  }),
+  rule({
+    id: "pay-page-check",
+    title: "The payment page's script and header check failed (M4-15, M8-19)",
+    audience: "us",
+    clears: "condition",
+    sources: ["ci"],
   }),
   rule({
     id: "device-offline",

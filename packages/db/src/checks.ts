@@ -1,4 +1,6 @@
 import type pg from "pg";
+import { Temporal } from "@west4/shared";
+import { alertVoidAfterCash } from "./owner-alerts.js";
 import { withVenue } from "./tenancy.js";
 import type { Queryable } from "./tenancy.js";
 
@@ -105,12 +107,12 @@ export async function addCheckLine(
   checkId: string,
   line: LineInput,
 ): Promise<number> {
-  const r = await c.query<{ id: string }>(
+  const r = await c.query<{ id: string; business_date: string }>(
     `insert into check_lines (venue_id, check_id, kind, description, qty, unit_cents, amount_cents, tax_category,
        business_date, adjusts_business_date, reverses_id, made, reason, added_by, added_at, source_id, approved_by,
        file_id, moved_check_id)
      values ($1, $2, $3, $4, $5, $6, $7, $8, open_business_date($1, $9::date), nullif($9::date, open_business_date($1, $9::date)), $10, $11, $12, $13, coalesce($14::timestamptz, now()), $15, $16, $17, $18)
-     returning id`,
+     returning id, business_date::text`,
     [
       venueId,
       checkId,
@@ -136,7 +138,18 @@ export async function addCheckLine(
     venueId,
     checkId,
   ]);
-  return Number(r.rows[0]!.id);
+  const id = Number(r.rows[0]!.id);
+  // A void after cash was paid on the check alerts the owner (M8-19), whichever path wrote it.
+  if (line.kind === "void")
+    await alertVoidAfterCash(c, venueId, {
+      lineId: id,
+      checkId,
+      amountCents: Number(line.amountCents),
+      businessDate: r.rows[0]!.business_date,
+      at: line.addedAt ?? Temporal.Now.instant().toString(),
+      addedBy: line.addedBy ?? null,
+    });
+  return id;
 }
 
 export interface CheckRow {

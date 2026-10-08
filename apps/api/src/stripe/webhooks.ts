@@ -74,7 +74,11 @@ export const ENDPOINT_EVENTS: Readonly<Record<WebhookEndpoint, readonly string[]
   ],
 };
 
-/** Stripe-Signature: t=…,v1=… (one or more v1). Checked against the endpoint's own secret. */
+/**
+ * Stripe-Signature: t=…,v1=… (one or more v1). Checked against the endpoint's own secret. While a
+ * secret is being rotated (docs/runbooks/key-rotation.md; M8-19) the setting holds the new and the
+ * old one, comma-separated, and either signs; the old one comes out within 7 days.
+ */
 export function validStripeSignature(
   payload: string,
   header: string | undefined,
@@ -88,12 +92,16 @@ export function validStripeSignature(
   const sigs = parts.filter(([k]) => k === "v1").map(([, v]) => v ?? "");
   if (!Number.isFinite(t) || sigs.length === 0) return false;
   if (Math.abs(nowSeconds - t) > toleranceS) return false;
-  const expected = Buffer.from(
-    createHmac("sha256", secret).update(`${t}.${payload}`).digest("hex"),
-  );
-  return sigs.some((s) => {
-    const got = Buffer.from(s);
-    return got.length === expected.length && timingSafeEqual(got, expected);
+  const secrets = secret
+    .split(",")
+    .map((x) => x.trim())
+    .filter((x) => x.length > 0);
+  return secrets.some((one) => {
+    const expected = Buffer.from(createHmac("sha256", one).update(`${t}.${payload}`).digest("hex"));
+    return sigs.some((s) => {
+      const got = Buffer.from(s);
+      return got.length === expected.length && timingSafeEqual(got, expected);
+    });
   });
 }
 

@@ -9,8 +9,12 @@ data "aws_cloudfront_cache_policy" "optimized" {
   name = "Managed-CachingOptimized"
 }
 
+# M8-19: AllViewerAndCloudFrontHeaders adds CloudFront-Viewer-Country, which the
+# API keeps on each owner or manager sign-in; a country the person hasn't signed
+# in from before pages us. The load balancer only takes requests carrying the
+# origin header (alb.tf), so a client can't set the country itself.
 data "aws_cloudfront_origin_request_policy" "all_viewer" {
-  name = "Managed-AllViewer"
+  name = "Managed-AllViewerAndCloudFrontHeaders-2022-06"
 }
 
 resource "aws_cloudfront_distribution" "app" {

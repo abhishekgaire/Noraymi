@@ -1,3 +1,4 @@
+import { alertRefund } from "./owner-alerts.js";
 import type { Queryable } from "./tenancy.js";
 
 /** Refunds (M4-21): one row per payment a refund comes off, with its Stripe refund and status. */
@@ -39,13 +40,14 @@ export async function insertRefund(
     requestedAt: string;
   },
 ): Promise<void> {
-  await c.query(
+  const made = await c.query<{ business_date: string }>(
     `insert into refunds (id, venue_id, payment_id, check_id, booking_id, amount_cents, reason, n, requested_by,
        approval_id, business_date, adjusts_business_date, requested_at)
      values ($1, $2, $3, $4, $5, $6, $7,
        (select coalesce(max(n), 0) + 1 from refunds where venue_id = $2 and payment_id = $3),
        $8, $9, open_business_date($2, $10::date),
-       coalesce($11::date, nullif($10::date, open_business_date($2, $10::date))), $12)`,
+       coalesce($11::date, nullif($10::date, open_business_date($2, $10::date))), $12)
+     returning business_date::text`,
     [
       r.id,
       venueId,
@@ -61,6 +63,16 @@ export async function insertRefund(
       r.requestedAt,
     ],
   );
+  // A refund over the venue's set amount (every refund while it isn't set) alerts the owner (M8-19).
+  await alertRefund(c, venueId, {
+    refundId: r.id,
+    paymentId: r.paymentId,
+    checkId: r.checkId,
+    amountCents: r.amountCents,
+    businessDate: made.rows[0]!.business_date,
+    at: r.requestedAt,
+    requestedBy: r.requestedBy,
+  });
 }
 
 export async function refundById(

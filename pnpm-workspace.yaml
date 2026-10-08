@@ -14,3 +14,8 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - nodemailer@10.0.13
+
+# Security fixes for transitive dependencies (M8-19: CI fails a merge on high and critical findings).
+overrides:
+  source-map-js: ">=1.2.2"
+  http-cache-semantics: ">=4.3.0"

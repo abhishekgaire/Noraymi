@@ -1,7 +1,14 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { Worker, generateSigningKey, loadDemoSeed, publishRulePack } from "@west4/db";
+import {
+  Worker,
+  addCheckLine,
+  generateSigningKey,
+  loadDemoSeed,
+  publishRulePack,
+  withVenue,
+} from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { FrozenClock, SEED_NOW, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
@@ -447,5 +454,87 @@ describe("Split a tab and keep its paid shares (step 8)", () => {
     expect(await closeStatus(tab.id)).toMatchObject({ state: "captured", capture_cents: 1633 });
     expect((await intentOf(tab.paymentId))["amount_received"]).toBe(1633);
     expect(await checkStatusOf(tab.check_id)).toBe("paid");
+  });
+});
+
+describe("M8-19: a void after a cash payment alerts the owner", () => {
+  it("a void on Jess P.'s tab after one $16.33 share was paid in cash alerts Abhishek", async () => {
+    const tab = await openTab("Jess P.", "4000000000004417");
+    expect((await send(tab.check_id, jessRound())).statusCode).toBe(201);
+    const shares = (await split(tab.id, 2)).json<{ split: { shares: Share[] } }>().split.shares;
+    const paid = await cash(tab.check_id, shares[1]!);
+    expect(paid.statusCode, paid.body).toBe(201);
+    const alerts = async () =>
+      (
+        await owner.query<{ kind: string; amount_cents: string; source_key: string }>(
+          "select kind, amount_cents, source_key from owner_alerts where check_id = $1",
+          [tab.check_id],
+        )
+      ).rows;
+    expect(await alerts()).toEqual([]);
+    const jager = (
+      await owner.query<{ id: string }>(
+        "select id from check_lines where check_id = $1 and kind = 'item' and description like 'J%' order by id limit 1",
+        [tab.check_id],
+      )
+    ).rows[0]!.id;
+    // Today the server refuses a void on a partly paid check ("a correction is a refund")…
+    const voided = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/checks/${tab.check_id}/lines/${jager}/void`,
+      payload: { reason: "Rang up by mistake", made: false },
+    });
+    expect(voided.statusCode, voided.body).toBe(409);
+    expect(await alerts()).toEqual([]);
+    // …so the condition is forced: a void line written after the cash share, as any path that
+    // writes one goes through addCheckLine (an approved order return, a later screen).
+    await withVenue(workerPool, { venueId, requestId: "m8-19" }, (c) =>
+      addCheckLine(c, venueId, tab.check_id, {
+        kind: "void",
+        description: "VOID · Jäger Bomb",
+        qty: 1,
+        unitCents: -1200,
+        amountCents: -1200,
+        taxCategory: "drink",
+        businessDate: "2026-09-25",
+        reversesId: Number(jager),
+        made: false,
+        reason: "Rang up by mistake",
+        addedBy: ids["maya"]!,
+        addedAt: clock.now().toString(),
+      }),
+    );
+    const line = (
+      await owner.query<{ id: string }>(
+        "select id from check_lines where check_id = $1 and kind = 'void'",
+        [tab.check_id],
+      )
+    ).rows[0];
+    expect(await alerts()).toEqual([
+      { kind: "void_after_cash", amount_cents: "1200", source_key: `void:${line!.id}` },
+    ]);
+    // The push goes to the venue's owners: Abhishek at West 4.
+    const push = await owner.query<{
+      payload: {
+        audience: { kind: string; role: string };
+        message: { key: string; params: Record<string, string> };
+      };
+    }>(
+      "select payload from jobs where kind = 'push.send' and dedupe_key like 'owner-alert:%' and venue_id = $1",
+      [venueId],
+    );
+    expect(push.rows).toHaveLength(1);
+    expect(push.rows[0]!.payload.audience).toEqual({ kind: "role", role: "owner" });
+    expect(push.rows[0]!.payload.message.key).toBe("push.ownerAlert.voidAfterCash");
+    expect(push.rows[0]!.payload.message.params).toMatchObject({
+      amount: "$12.00",
+      staff: "Maya S.",
+    });
+    const owners = await owner.query<{ name: string }>(
+      `select u.name from memberships m join users u on u.id = m.user_id
+        where m.venue_id = $1 and m.role = 'owner' and m.status = 'active'`,
+      [venueId],
+    );
+    expect(owners.rows.map((o) => o.name)).toContain("Abhishek G.");
   });
 });

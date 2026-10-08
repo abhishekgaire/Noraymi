@@ -262,6 +262,25 @@ export interface OpenSessionInput {
   readonly deviceId?: string | null;
   readonly startedAt: string;
   readonly expiresAt: string;
+  /** The country the CDN saw the sign-in from (two letters), when it said (M8-19). */
+  readonly country?: string | null;
+}
+
+/**
+ * The countries a person signed in from before this session (M8-19): a sign-in from one not
+ * among them, when there were some, pages us. Their own sessions only (own_sessions).
+ */
+export async function earlierSignInCountries(
+  client: Queryable,
+  userId: string,
+  exceptSessionId: string,
+): Promise<string[]> {
+  const r = await client.query<{ country: string }>(
+    `select distinct country from auth_sessions
+      where user_id = $1 and id <> $2 and country is not null order by country`,
+    [userId, exceptSessionId],
+  );
+  return r.rows.map((x) => x.country);
 }
 
 /** Opens a session and returns the token, shown once. */
@@ -272,8 +291,8 @@ export async function openSession(
   const token = newToken();
   const r = await client.query<{ id: string }>(
     `insert into auth_sessions (principal, user_id, membership_id, device_id, assurance, client, token_hash,
-       started_at, last_seen_at, expires_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9) returning id`,
+       started_at, last_seen_at, expires_at, country)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $10) returning id`,
     [
       input.principal,
       input.userId,
@@ -284,6 +303,7 @@ export async function openSession(
       sha256Hex(token),
       input.startedAt,
       input.expiresAt,
+      input.country ?? null,
     ],
   );
   return { id: r.rows[0]!.id, token };

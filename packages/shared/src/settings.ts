@@ -208,6 +208,11 @@ export const posSchema = z
       .strict(),
     chime: z.boolean(),
     muteSec: z.number().nonnegative(),
+    /**
+     * Refunds over this amount alert the owner (spec 02 · On the record; M8-19). No venue has a
+     * value yet, so while it's absent every refund alerts (the cautious default).
+     */
+    refundAlertOverCents: cents.optional(),
   })
   .strict();
 

@@ -2493,6 +2493,9 @@ export const en = {
   "report.adjustmentFor": "For {date}",
   "report.printed": "Sent to the front-desk printer",
   "report.printFailed": "It didn't print. Try again.",
+  "push.ownerAlert.voidAfterCash":
+    "Void after a cash payment · {amount} on check {check} · {staff}",
+  "push.ownerAlert.refund": "Refund · {amount} on check {check} · {staff}",
   "push.payoutOff.body":
     "A Stripe payout ({payout}) doesn't add up to its lines. Check Admin → Payments.",
   "unmatched.title": "Unmatched payments · {count}",

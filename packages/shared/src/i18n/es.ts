@@ -2541,6 +2541,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "report.adjustmentFor": "Del {date}",
   "report.printed": "Enviado a la impresora de recepción",
   "report.printFailed": "No se imprimió. Inténtalo de nuevo.",
+  "push.ownerAlert.voidAfterCash":
+    "Anulación después de un pago en efectivo · {amount} en la cuenta {check} · {staff}",
+  "push.ownerAlert.refund": "Reembolso · {amount} en la cuenta {check} · {staff}",
   "push.payoutOff.body":
     "Un pago de Stripe ({payout}) no cuadra con sus líneas. Revisa Admin → Pagos.",
   "unmatched.title": "Pagos sin asignar · {count}",

@@ -34,3 +34,13 @@ output "github_variables" {
     STAGING_CONSOLE_URL   = "https://${aws_cloudfront_distribution.static["console"].domain_name}"
   }
 }
+
+# M8-19: set these as the repository variables AWS_CHECKS_ROLE_ARN and
+# PAGES_TOPIC_ARN so the payment page check can page us.
+output "github_checks_role_arn" {
+  value = aws_iam_role.github_checks.arn
+}
+
+output "pages_topic_arn" {
+  value = aws_sns_topic.pages.arn
+}

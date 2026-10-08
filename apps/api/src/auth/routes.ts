@@ -30,6 +30,7 @@ import {
   openChallenge,
   openOwnerRecovery,
   openSession,
+  earlierSignInCountries,
   ownerRecoveryById,
   ownerRecoveryContacts,
   replaceRecoveryCodes,
@@ -56,6 +57,7 @@ import type { AuthConfig } from "../config.js";
 import type { EmailSettings } from "../email/settings.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { raisePage } from "../ops/paging.js";
 import { enqueueEmail } from "../jobs/send-email.js";
 import { SESSION_MAX_HOURS, setSessionCookie, type RequestSession } from "./session-auth.js";
 import { newTotpSecret, otpauthUrl, verifyTotp } from "./totp.js";
@@ -188,6 +190,17 @@ function parse<S extends z.ZodType>(schema: S, body: unknown): z.output<S> {
   return parsed.data;
 }
 
+/**
+ * The viewer's country as CloudFront adds it (the AllViewerAndCloudFrontHeaders origin request
+ * policy, infra/staging/cloudfront.tf). The load balancer only takes requests carrying CloudFront's
+ * origin header, so a client can't send its own. Absent locally and in tests.
+ */
+export const VIEWER_COUNTRY_HEADER = "cloudfront-viewer-country";
+export function viewerCountry(raw: string | string[] | undefined): string | null {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v && /^[A-Z]{2}$/.test(v) ? v : null;
+}
+
 const signInFailed = () => new ApiError("unauthorized", "we couldn't sign you in");
 
 export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): void {
@@ -312,16 +325,33 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
     assurance: SessionAssurance,
     clientKind: "web" | "desktop",
   ): Promise<Record<string, unknown>> {
-    const opened = await asUser(account.userId, request, (c) =>
-      openSession(c, {
+    const country = viewerCountry(request.headers[VIEWER_COUNTRY_HEADER]);
+    const opened = await asUser(account.userId, request, async (c) => {
+      const session = await openSession(c, {
         userId: account.userId,
         principal: "owner_manager",
         assurance,
         client: clientKind,
         startedAt: at(),
         expiresAt: now().add({ hours: SESSION_MAX_HOURS }).toString(),
-      }),
-    );
+        country,
+      });
+      // A sign-in from a country this person hasn't signed in from before pages us (M8-19).
+      if (country) {
+        const before = await earlierSignInCountries(c, account.userId, session.id);
+        if (before.length > 0 && !before.includes(country))
+          await raisePage(
+            c,
+            {
+              rule: "signin-new-country",
+              key: `signin-new-country:${session.id}`,
+              summary: `Sign-in from ${country} for user ${account.userId} (before: ${before.join(", ")})`,
+            },
+            now(),
+          );
+      }
+      return session;
+    });
     const body: Record<string, unknown> = {
       session: {
         id: opened.id,

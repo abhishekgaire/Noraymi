@@ -103,7 +103,12 @@ export function alarmHookRoutes(app: FastifyInstance, options: AlarmHookOptions)
         }
         if (event.kind !== "alarm" || !event.rule) return reply.code(200).send({ ignored: true });
         const rule = alertRule(event.rule);
-        if (!rule || rule.audience !== "us" || !rule.sources.includes("cloudwatch"))
+        // CloudWatch alarms, and CI checks published in the same shape (the payment page check, M8-19).
+        if (
+          !rule ||
+          rule.audience !== "us" ||
+          !(rule.sources.includes("cloudwatch") || rule.sources.includes("ci"))
+        )
           return reply.code(200).send({ ignored: true });
         const key = `cw:${event.name}`;
         if (event.state === "OK") {
