@@ -260,7 +260,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-13 · Collect the gate sign-offs and apply them
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** nothing to start; the requests go out on day one
 - **Spec:** [Open technical questions](../spec/14-open-questions.md) (the ten marked "gate"); [milestones](../milestones.md#the-go-live-gate) · the go-live gate, item 2; [decisions](../decisions.md) (how a decision is recorded)
@@ -270,11 +270,13 @@ Definition of done: see CLAUDE.md.
   - The PCI assessor: which validation we file, and what script-protection confirmation we give venues.
   - Each answer is recorded as a decision row and closed in Open technical questions, then applied as a settings change, a new rule-pack version (two approvers) or a ticket when it needs code, switching away from the cautious default where the answer differs.
 - **Acceptance:**
-  - [ ] All ten sign-offs are in and recorded.
-  - [ ] Each cautious default built in M2 to M8 either stands by its answer or has been changed.
-  - [ ] Gate item 2 is marked met in `docs/gate/`.
+  - [ ] All ten sign-offs are in and recorded. (Waiting: the founder sends the requests; the accountant, the lawyer and the PCI assessor answer in writing.)
+  - [ ] Each cautious default built in M2 to M8 either stands by its answer or has been changed. (Waiting on the answers; each row in `docs/gate/sign-offs.md` names its default and how an answer is applied.)
+  - [ ] Gate item 2 is marked met in `docs/gate/`. (`docs/gate/sign-offs.md` says not met; a test lets it say met only when all ten rows are applied.)
 - **Tests:** the tests of whatever setting, rule-pack version or code each answer changes.
 - **Notes:** Apply the answers as given; the owner has verified the legal conclusions, so don't re-check them.
+  - Built (M9-13): `docs/gate/sign-offs.md`, the register of the ten adviser questions marked gate (S1 to S10): each with the cautious default built now and where, how an answer is applied (a settings change, a rule-pack version with two approvers in the Console, a runbook edit or a ticket), and its status (`not sent`, `sent`, `answered`, `applied`), the answer's date and its decision row. `docs/gate/sign-off-requests.md`: the three letters ready to send, each question with what the system does meanwhile. `apps/api/src/ops/gate-docs.test.ts` holds the register to the spec's gate questions word for word, refuses an answered row without a date and an existing decision row, and lets gate item 2 read met only when all ten are applied.
+  - Blocked: no answer exists yet, so no default changed, no decision row was added and no question moved to Closed. All ten rows are `not sent`; the founder sends the letters and files each written answer. The founder's own two gate questions (responders, breach contacts) are tracked in M9-16 and `docs/security/breach-contacts.md`.
 
 ### M9-14 · Prove every must-fix item closed
 
