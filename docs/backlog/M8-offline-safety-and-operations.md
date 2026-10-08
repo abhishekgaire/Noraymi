@@ -597,7 +597,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-24 · Close GA-M3, GA-M8, GA-M9 and GA-M10, and sign off M8
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M8-01 to M8-22
 - **Spec:** [milestones](../milestones.md#must-fix-items-and-where-they-close) · GA-M3, GA-M8, GA-M9 and GA-M10, GA-S4, GA-S6, GA-S7 and GA-S8
@@ -607,6 +607,33 @@ Definition of done: see CLAUDE.md.
   - [ ] GA-M3, GA-M8, GA-M9 and GA-M10 are marked closed in M9-14's must-fix tracker.
 - **Tests:** none of its own.
 - **Notes:** M8-23 (the mic trial) isn't part of the gate or this sign-off.
+  - **Run on Oct 8, 2026 (local):** lint, i18n (2,698 keys in English and Spanish), typecheck (8 projects), unit (121 files, 864 tests), the migration linter and `terraform fmt -check` / `terraform validate` in `infra/staging` all pass. Integration: 1,020 of 1,021 passed in the full run; the one failure was the load test (`load/load.int.test.ts`), which is timing-bound and lost its 3-second margin while 172 other files ran beside it; run alone it passes 3 of 3. E2e: 176 passed and 2 timed out in the 22.7-minute run (the bar POS "Repeat round" margarita flavor and Undo, and Admin → Bar POS hold and amber time); both pass when re-run alone (`--last-failed`, 2 passed), so they are timing flakes under a long run, not M8 regressions. Terraform is still not planned or applied.
+  - **Evidence for each M8 done-when line:**
+
+    | Done when | Proven locally | Waiting on |
+    | --- | --- | --- |
+    | The four outage drills pass at West 4 (banners, queue mode behind a code, replay as asked to wait with nothing charged twice, Review after outage, a break-glass tap in Unmatched payments) | `apps/api/src/ops/outage-drill.int.test.ts`, `routes/offline-orders.int.test.ts`, `routes/offline-codes.int.test.ts`, `routes/break-glass.int.test.ts`, `jobs/router-watch.int.test.ts`; `apps/desktop/src/offline.test.ts`, `queue.test.ts`; `apps/staff/src/offline.test.ts`; `e2e/staff.spec.ts`, `e2e/desktop.spec.ts` | M8-07: the drills on site at West 4 (router and both S710s installed, closed hours, founder and Andy), filed under `docs/drills/` |
+    | A help alert from Room 9 reaches only the managers' phones; the board shows "Manager needed" with no room | `apps/api/src/routes/incidents.int.test.ts`, `e2e/staff.spec.ts` | nothing (M8-08 done) |
+    | The restore drill brings one venue back without touching the others, and its counts match Stripe | `apps/api/src/restore/restore.int.test.ts`, `restore/backups.test.ts` | M8-20: `terraform apply`, then the first monthly drill on a real staging snapshot |
+    | In the 20-venue load test the bar alarm rings within 3 s | `apps/api/src/load/load.int.test.ts` (scaled down) and a local 20-venue run | M8-21: the full run on a staging copy |
+    | A support grant opens only after the owner approves, stays read-only, ends at 60 min; an emergency action needs our second approver and tells the owner | `routes/support-grants.int.test.ts`, `routes/emergency-actions.int.test.ts`, `packages/db/src/support-grants.int.test.ts`, `emergency-actions.int.test.ts`, `owner-alerts.int.test.ts`, `e2e/console.spec.ts` | nothing (M8-10, M8-11 done) |
+    | The retention job deletes or pseudonymizes and logs it; erasing a guest blanks them, detaches their cards, keeps the opt-out as a hash | `apps/api/src/jobs/retention.int.test.ts`, `packages/db/src/retention.test.ts`, `id-keys/id-scan-keys.int.test.ts` | nothing (M8-12 to M8-14 done) |
+    | A license inside its reminder window sends the reminder | `apps/api/src/routes/licenses.int.test.ts`, `licenses/licenses.test.ts`, `e2e/staff.spec.ts` | M8-09: West 4's real licenses entered from the paper copies |
+    | A failed plan payment shows the banner; 14 days later Admin is read-only while the board, rooms, bar and payments work | `apps/api/src/billing/plan-billing.int.test.ts`, `packages/rules/src/plan-billing.test.ts` (fake Stripe test clock) | M8-15: the company entity, our platform Stripe account, the plan's Prices and the staging run |
+    | A second responder is on call; a page unacknowledged for 10 min reaches them | `apps/api/src/ops/paging.int.test.ts`, `ops/alert-rules.test.ts` | M8-17: the two real responders on the rota, then `oncall:set -- --test-page` on staging |
+
+  - **Must-fix rows:**
+    - **GA-M3** (marketing texts): STOP (`packages/rules/src/sms-keywords.test.ts`, M2), the unticked opt-in (M5) and the campaign guard and send window (`apps/api/src/texts/campaign.int.test.ts`) are proven. Open until West 4's 10DLC brand and campaign are approved and the runbook's live checks pass (M8-22).
+    - **GA-M8** (offline mode): built and tested end to end locally (the first row of the table). Open until M8-07's four drills pass on site.
+    - **GA-M9** (security and PCI): `docs/security/ga-m9-evidence.md` maps all 15 items to their code and tests. Open until the key-rotation drill on staging, the QSA's answer, the named breach person and the addendum's wording (M8-19).
+    - **GA-M10** (music licensing): the register and reminders are built and tested; the play log shipped in M6. Open until West 4's real licenses are on file (M8-09).
+    - **GA-S6** (help alert and incident log) is proven (M8-08). **GA-S7**'s M8 half (destroying the ID-scan keys) is proven (M8-14). **GA-S8**'s M8 half is the license register, waiting with GA-M10. **GA-S4** is phase 2; its trial (M8-23) isn't part of the gate.
+    - The must-fix tracker `docs/gate/must-fix.md` doesn't exist yet; M9-14 builds it and should mark GA-M3, GA-M8, GA-M9 and GA-M10 closed when the "Waiting on" items above land, with this table as their evidence.
+  - **M8-17's two alerting gaps, reviewed:** the spec (Testing and operations · Watching production) names the alert kinds but no burn windows and no minimum volume, so neither is required and neither was built. The 3-day ticket-severity burn alert stays on the dashboard only; the failure-rate pages have no minimum count, so a single failure on a quiet night can page. Both are tuning to revisit once real nights are seen (M9's live nights), not decisions to invent now.
+  - **Waiting on the founder for M8 (one list, from every M8 ticket and the open questions):**
+    - *Decisions:* which paging tool, if any, and the first and second responders with their hours (M8-17); support hours (blueprint); the company entity that holds our Stripe platform account, with the lawyer (M8-15); plan prices and whether West 4 is billed during the gate (M8-15); the named breach person and backup (M8-19); the router model and its carrier (M8-02).
+    - *To provide or get from others:* West 4's license papers (numbers, holders, expiry, fees, conditions, copies) (M8-09); West 4's legal name, EIN and address for the 10DLC brand, and the carriers' approval (M8-22); the lawyer's addendum wording and breach roles, and whether review-ask and birthday texts are marketing (M8-19, M8-22); the QSA's PCI validation answer (M8-19); Playbox's warranty answer and West 4's written approval naming a room (M8-23, not the gate); Stripe's answer on whether a reader switches to cellular with the Wi-Fi up (answered by drill 1).
+    - *To run or do:* `terraform plan` then `apply` in `infra/staging` (observability, paging, replica, backups) and the repository variables (M8-16, M8-17, M8-19, M8-20, M8-21); on site at West 4, install the router and both S710s and run the four outage drills with the status page watched (M8-07, M8-16); `oncall:set` with the two people, then a test page (M8-17); the key-rotation drill on staging (M8-19); the first restore drill on staging (M8-20); the 20-venue load run on a staging copy (M8-21); the plan-billing test-clock run on staging (M8-15); register the 10DLC campaign, turn on SMS pumping protection, set real Twilio credentials and run the live text checks (M8-22); Radar rules by hand per live account (M8-19).
 
 ## Coverage
 
