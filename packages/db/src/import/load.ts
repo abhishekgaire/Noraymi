@@ -10,6 +10,7 @@ import {
   refundCutoff,
   sha256,
 } from "./bookings.js";
+import { consentOutcome, storedKind } from "./consents.js";
 import type { Kind } from "./mapping.js";
 import type { Prepared, Problem } from "./prepare.js";
 
@@ -78,6 +79,25 @@ export interface ImportReport {
   readonly opening_journal: Journal;
   /** Bookings still to come that fit no room: on the manager's list, never dropped. */
   readonly no_room: readonly { legacy_ref: string; file: string; line: number }[];
+  /**
+   * The consents in the files by what they became (M9-03): marketing opt-ins with their proof,
+   * opt-outs (honored at once), service-text opt-ins, and marketing opt-ins dropped for lack of
+   * proof, which are listed with what's missing and never imported as consent.
+   */
+  readonly consents: {
+    readonly marketing_with_proof: number;
+    readonly opt_outs: number;
+    readonly service: number;
+    readonly dropped_no_proof: number;
+    readonly dropped: readonly {
+      file: string;
+      line: number;
+      legacy_ref: string;
+      missing: string[];
+    }[];
+  };
+  /** Imported with a value left out, for a manager to see (a phone number that isn't +1). */
+  readonly listed: Prepared["listed"];
   /** True when every kind's records and cents in the files are in the database. */
   readonly reconciles: boolean;
 }
@@ -244,7 +264,23 @@ export interface ImportResult extends ImportReport {
 
 /** Validates against the venue, loads (or rehearses) the records, and returns the reconciliation report. */
 export async function runImport(o: RunOptions): Promise<ImportResult> {
-  const { pool, venue, prepared: p } = o;
+  const { pool, venue } = o;
+  // A marketing opt-in without its proof never becomes consent: it's set aside and listed.
+  const consentTally = { marketing_with_proof: 0, opt_outs: 0, service: 0, dropped_no_proof: 0 };
+  const dropped: ImportReport["consents"]["dropped"][number][] = [];
+  const kept = o.prepared.consents.filter((x) => {
+    const { outcome, missing } = consentOutcome(x);
+    if (outcome === "opt_out") consentTally.opt_outs += 1;
+    else if (outcome === "service") consentTally.service += 1;
+    else if (outcome === "marketing_with_proof") consentTally.marketing_with_proof += 1;
+    else {
+      consentTally.dropped_no_proof += 1;
+      dropped.push({ file: x.file, line: x.line, legacy_ref: x.legacyRef, missing });
+      return false;
+    }
+    return true;
+  });
+  const p: Prepared = { ...o.prepared, consents: kept };
   const log = o.log ?? (() => {});
   const runId = randomUUID();
   const cutoverDate =
@@ -581,19 +617,20 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
             const guestId = await refId(c, "guest", x.guestRef);
             await c.query(
               `insert into consents (id, venue_id, guest_id, phone_e164, channel, kind, given_at, revoked_at,
-                 revoked_via, source, text_version)
-               select $1, $2, g.id, g.phone_e164, $4, $5, $6, $7, $8, $9, $10 from guests g where g.id = $3`,
+                 revoked_via, source, text_version, ip)
+               select $1, $2, g.id, g.phone_e164, $4, $5, $6, $7, $8, $9, $10, $11 from guests g where g.id = $3`,
               [
                 id,
                 venue.id,
                 guestId,
                 x.channel,
-                x.kind,
+                storedKind(x),
                 x.givenAt,
                 x.revokedAt,
                 x.revokedVia,
                 x.source,
                 x.textVersion,
+                x.ip,
               ],
             );
           }
@@ -699,6 +736,8 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       deposits: { cutover_date: cutoverDate, ...deposits },
       opening_journal: journal,
       no_room: noRoom,
+      consents: { ...consentTally, dropped },
+      listed: p.listed,
       reconciles:
         Object.values(tallies).every(
           (t) => t.changed === 0 && t.in_db === t.in_files && t.cents_in_db === t.cents_in_files,
@@ -812,6 +851,19 @@ export function formatReport(r: ImportReport): string[] {
         `(${dollars(r.deposits.payments_cents)} held as old-system payments, ${dollars(r.deposits.on_list_cents)} with bookings on the manager's list)`,
     );
   }
+  if (r.kinds.consents || r.consents.dropped_no_proof > 0) {
+    const c = r.consents;
+    lines.push(
+      `Consents in the files: ${c.marketing_with_proof} marketing opt-in(s) with proof, ${c.opt_outs} opt-out(s), ` +
+        `${c.service} service-text opt-in(s), ${c.dropped_no_proof} marketing opt-in(s) dropped for lack of proof`,
+    );
+  }
+  for (const d of r.consents.dropped) {
+    lines.push(
+      `not imported as consent, no proof (missing ${d.missing.join(", ")}): ${d.file}:${d.line} ${d.legacy_ref}`,
+    );
+  }
+  for (const l of r.listed) lines.push(`imported, listed: ${l.file}:${l.line} ${l.message}`);
   for (const x of r.no_room) {
     lines.push(`fits no room, on the manager's list: ${x.file}:${x.line} ${x.legacy_ref}`);
   }

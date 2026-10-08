@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readSeedFile } from "../seed.js";
 import { parseCsv } from "./csv.js";
+import { consentOutcome, storedKind } from "./consents.js";
 import { checkMapping, type Mapping } from "./mapping.js";
 import { ImportRefused, prepareImport } from "./prepare.js";
 import { buildRehearsalExport } from "./rehearsal.js";
@@ -153,13 +154,24 @@ describe("preparing an import", () => {
     expect(p.guests.map((g) => [g.legacyRef, g.phone, g.locale])).toEqual([
       ["501", "+12125550101", "en"],
       ["502", "+12125550102", "es"],
+      ["503", null, "en"],
+    ]);
+    // Texts go only to +1 numbers: a London number is left out and listed, not a stop.
+    expect(p.listed).toEqual([
+      {
+        file: "guests.json",
+        line: 3,
+        message: "phone +442079460103 isn't a +1 number: imported without it",
+      },
     ]);
     expect(p.bookings.map((b) => b.depositCents)).toEqual([7500, 5000]);
-    expect(p.consents.map((c) => [c.kind, c.revokedVia])).toEqual([
-      ["texts", null],
-      ["marketing", null],
-      ["marketing", "keyword"],
+    expect(p.consents.map((c) => [c.kind, c.revokedVia, c.form, c.ip])).toEqual([
+      ["texts", null, null, null],
+      ["marketing", null, "Old site booking form", "203.0.113.7"],
+      ["marketing", "keyword", "Old site booking form", "203.0.113.8"],
+      ["marketing", null, null, null],
     ]);
+    expect(p.consents[1]!.source).toBe("import:sample-fixture · Old site booking form");
     expect(p.nightlyTotals.map((n) => [n.businessDate, n.netSalesCents])).toEqual([
       ["2026-09-18", 421050],
       ["2026-09-19", 510000],
@@ -221,5 +233,46 @@ describe("preparing an import", () => {
     const read = (f: string) => readFileSync(join(fixtures, "refused", f), "utf8");
     expect(() => prepareImport(mapping, read, NY)).toThrow(ImportRefused);
     expect(() => prepareImport(mapping, read, NY)).toThrow(why);
+  });
+});
+
+describe("the consent proof check (M9-03)", () => {
+  const proof = {
+    kind: "marketing" as const,
+    givenAt: "2026-09-01T22:00:00Z",
+    revokedAt: null,
+    form: "Old site booking form",
+    textVersion: "old-site-2025-03",
+    ip: "203.0.113.7",
+  };
+
+  it("imports a marketing opt-in only with the form, its wording, the IP address and the time", () => {
+    expect(consentOutcome(proof)).toEqual({ outcome: "marketing_with_proof", missing: [] });
+    expect(consentOutcome({ ...proof, ip: null })).toEqual({
+      outcome: "dropped_no_proof",
+      missing: ["the IP address"],
+    });
+    expect(consentOutcome({ ...proof, form: null, textVersion: null, givenAt: null })).toEqual({
+      outcome: "dropped_no_proof",
+      missing: ["the form", "its wording", "the time"],
+    });
+  });
+
+  it("keeps every opt-out, with or without proof, and an SMS one stops every text", () => {
+    const out = { ...proof, form: null, ip: null, revokedAt: "2026-09-02T00:00:00Z" };
+    expect(consentOutcome(out).outcome).toBe("opt_out");
+    expect(storedKind({ channel: "sms", kind: "marketing", revokedAt: out.revokedAt })).toBe(
+      "texts",
+    );
+    expect(storedKind({ channel: "email", kind: "marketing", revokedAt: out.revokedAt })).toBe(
+      "marketing",
+    );
+    expect(storedKind({ channel: "sms", kind: "marketing", revokedAt: null })).toBe("marketing");
+  });
+
+  it("needs no proof for an opt-in to service texts", () => {
+    expect(consentOutcome({ ...proof, kind: "texts", form: null, ip: null }).outcome).toBe(
+      "service",
+    );
   });
 });

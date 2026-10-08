@@ -278,10 +278,34 @@ describe("the venue wall", () => {
       dryRun: false,
     });
     expect(report.reconciles).toBe(true);
+    // The opt-out stops every text; the opt-in with no form or IP is listed, never consent (M9-03).
     expect(report.kinds.consents).toMatchObject({
       in_db: 3,
-      by: { "marketing sms given": 1, "marketing sms revoked": 1, "texts sms given": 1 },
+      by: { "marketing sms given": 1, "texts sms revoked": 1, "texts sms given": 1 },
     });
+    expect(report.consents).toMatchObject({
+      marketing_with_proof: 1,
+      opt_outs: 1,
+      service: 1,
+      dropped_no_proof: 1,
+      dropped: [
+        {
+          file: "consents.csv",
+          line: 5,
+          legacy_ref: "C-4",
+          missing: ["the form", "the IP address"],
+        },
+      ],
+    });
+    expect(formatReport(report)).toContain(
+      "Consents in the files: 1 marketing opt-in(s) with proof, 1 opt-out(s), 1 service-text opt-in(s), 1 marketing opt-in(s) dropped for lack of proof",
+    );
+    const proofless = await owner.query(
+      `select count(*)::int as n from consents where venue_id = $1 and kind = 'marketing' and revoked_at is null
+          and (given_at is null or source is null or text_version is null or ip is null)`,
+      [v.venueB],
+    );
+    expect(proofless.rows[0].n).toBe(0);
     expect(report.kinds.nightly_totals).toMatchObject({ in_db: 2, cents_in_db: 931050 });
     expect(report.kinds.bookings).toMatchObject({ in_db: 2, cents_in_db: 12500 });
     expect(await snapshot(v.venueA)).toBe(aBefore);

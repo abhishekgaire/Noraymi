@@ -35,6 +35,19 @@ Other statuses (seated, finished, cancelled, no-show) are kept as history: the b
 
 **The opening journal.** The deposits of the bookings still to come that a run loaded (placed or on the manager's list) go into customer deposits on the cutover date, against "Deposits held by the old system": debit that, credit customer deposits, the same cents. It's kept on the run (`import_runs.opening_journal`) and, with `--out`, written as `opening-journal-<run>.csv` in QuickBooks' journal format for the accountant. A cutover delta's new deposits get their own entry. The report's deposits line shows the total, the part held as old-system payments, and the part with bookings on the manager's list; the run reconciles only when those add up and the journal balances.
 
+## Guests and their consents (M9-03)
+
+Guests belong to the one venue they're imported into; nothing is shared across venues. A phone number must be a +1 number: another country's number is left out of the guest (the guest is still imported) and listed in the report (`imported, listed: file:line …`), since we text only +1 numbers. Service texts go to the number the guest gave.
+
+Each consent becomes one of four things, and the report counts them (`Consents in the files: …`):
+
+- **A marketing opt-in with its proof** is imported as consent. Proof is all four of: the form it was given on (`source`), its wording (`text_version`), the IP address (`ip`) and the time (`given_at`). It's stored with source `import:<mapping source> · <form>`.
+- **A marketing opt-in missing any of that proof** isn't imported as consent. The report lists it with what's missing (`not imported as consent, no proof (missing …)`). Never fill in proof the old system didn't keep; that guest simply isn't opted in to marketing.
+- **An opt-out** is imported as an opt-out and honored at once. An SMS opt-out, whether the old site recorded it for promotions or for every text, is kept as an opt-out of every text, so a guest who opted out on the old site gets no text from us.
+- **An opt-in to service texts** is imported as it is; service texts need no proof.
+
+West 4's two marketing texts stay off either way (the Marketing texts module).
+
 **Refunding or keeping an old deposit** (cautious default until the founder confirms where the old deposits are held): refund it in the old system, then record it here as a refund of the `external` payment with the old system's reference; a kept one becomes the usual `fee` check with a `forfeit` line. The old site's manage links can't carry over; M9-09 redirects them.
 
 ## What stops an import before anything loads
@@ -80,10 +93,10 @@ One mapping per source system and export layout. When the venue's export changes
 | `menu` | legacy_ref, name, category, price, alcohol | button_name, tax_category (default `drink`), variant (default `Regular`), sort |
 | `policies` | legacy_ref, text | refund_hours, published_at |
 | `bookings` | legacy_ref, guest_ref, room (a room name), party_size, starts_at, ends_at | deposit, status (default `confirmed`), policy_ref, accepted_at |
-| `consents` | guest_ref, channel (sms, email), kind (texts, marketing) | legacy_ref, given_at, revoked_at, revoked_via (keyword, staff, guest_page), source, text_version |
+| `consents` | guest_ref, channel (sms, email), kind (texts, marketing) | legacy_ref, given_at, ip, revoked_at, revoked_via (keyword, staff, guest_page), source (the form it was given on), text_version (its wording) |
 | `nightly_totals` | business_date, net_sales | rooms, bar |
 
-What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a category, an item and one priced variant; a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-03 to M9-05 add the rest (consent proof, the menu's checks, invites).
+What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a category, an item and one priced variant; a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-04 and M9-05 add the rest (the menu's checks, invites).
 
 ## West 4
 

@@ -25,7 +25,9 @@
         "ends_at": "end_time",
         "deposit": "deposit_cents"
       },
-      "defaults": { "status": "confirmed" }
+      "defaults": {
+        "status": "confirmed"
+      }
     },
     "consents": {
       "file": "consents.csv",
@@ -37,12 +39,24 @@
         "given_at": "opted_in_at",
         "revoked_at": "opted_out_at",
         "revoked_via": "opted_out_by",
-        "text_version": "wording_version"
+        "text_version": "wording_version",
+        "source": "form",
+        "ip": "ip_address"
       },
       "values": {
-        "channel": { "SMS": "sms", "Email": "email" },
-        "kind": { "Reservation texts": "texts", "Promotions": "marketing" },
-        "revoked_via": { "STOP reply": "keyword", "Front desk": "staff", "Web form": "guest_page" }
+        "channel": {
+          "SMS": "sms",
+          "Email": "email"
+        },
+        "kind": {
+          "Reservation texts": "texts",
+          "Promotions": "marketing"
+        },
+        "revoked_via": {
+          "STOP reply": "keyword",
+          "Front desk": "staff",
+          "Web form": "guest_page"
+        }
       }
     },
     "nightly_totals": {

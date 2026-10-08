@@ -7,6 +7,7 @@ import {
   parseDate,
   parseEmail,
   parseInstant,
+  parseIp,
   parsePhone,
   parseWholeNumber,
   parseYesNo,
@@ -102,8 +103,12 @@ export interface ConsentRecord extends Base {
   readonly givenAt: string | null;
   readonly revokedAt: string | null;
   readonly revokedVia: string | null;
+  /** Where it's stored as given: `import:<mapping source>`, then the form when the export names one. */
   readonly source: string;
+  /** The form or page the guest gave it on, as the export names it. */
+  readonly form: string | null;
   readonly textVersion: string | null;
+  readonly ip: string | null;
 }
 export interface NightlyTotalRecord extends Base {
   readonly businessDate: string;
@@ -123,6 +128,8 @@ export interface Prepared {
   readonly consents: readonly ConsentRecord[];
   readonly nightlyTotals: readonly NightlyTotalRecord[];
   readonly problems: readonly Problem[];
+  /** Imported with a value left out, for a manager to see (a phone number that isn't +1). */
+  readonly listed: readonly Problem[];
 }
 
 const ROLES = new Set(["owner", "manager", "bartender", "front_desk", "staff"]);
@@ -191,6 +198,7 @@ export function prepareImport(
 ): Prepared {
   const parsed = new Map<Kind, { fm: FileMapping; header: string[]; rows: RawRow[] }>();
   const problems: Problem[] = [];
+  const listed: Problem[] = [];
   const refusals: Refusal[] = [];
   const files: { kind: Kind; file: string; sha256: string; records: number }[] = [];
 
@@ -325,9 +333,19 @@ export function prepareImport(
       let ref: string | undefined;
       if (kind === "guests") {
         ref = text("legacy_ref");
+        // Texts go only to +1 numbers (spec 11 · Abuse): another country's number is left out and listed.
+        let phone = opt("phone", parsePhone);
+        if (phone !== null && !phone.startsWith("+1")) {
+          listed.push({
+            file: fm.file,
+            line: row.line,
+            message: `phone ${phone} isn't a +1 number: imported without it`,
+          });
+          phone = null;
+        }
         record = {
           name: text("name", 120),
-          phone: opt("phone", parsePhone),
+          phone,
           email: opt("email", parseEmail),
           locale: locale(),
         };
@@ -392,6 +410,8 @@ export function prepareImport(
         if (revokedAt && !revokedVia) rowProblems.push("revoked_at needs revoked_via");
         if (!revokedAt && revokedVia) rowProblems.push("revoked_via needs revoked_at");
         const guestRef = text("guest_ref");
+        const form = text("source", 160) ?? null;
+        const ip = opt("ip", parseIp);
         record = {
           guestRef,
           channel,
@@ -399,8 +419,10 @@ export function prepareImport(
           givenAt: givenAt?.toString() ?? null,
           revokedAt: revokedAt?.toString() ?? null,
           revokedVia,
-          source: text("source", 200) ?? `import:${mapping.source}`,
+          source: form ? `import:${mapping.source} · ${form}` : `import:${mapping.source}`,
+          form,
           textVersion: text("text_version", 200) ?? null,
+          ip,
         };
         ref =
           text("legacy_ref") ??
@@ -437,5 +459,5 @@ export function prepareImport(
     }
   }
 
-  return { mapping, files, ...out, problems };
+  return { mapping, files, ...out, problems, listed };
 }

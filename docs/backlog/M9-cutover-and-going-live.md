@@ -91,17 +91,21 @@ Definition of done: see CLAUDE.md.
 
 ### M9-03 · Import guests with their consent evidence
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M9-01; M2-06 (guests), M2-23 (consents, STOP and HELP); M8-13 (opt-outs kept as hashes)
 - **Spec:** [Data model](../spec/04-data-model.md) · `guests`, `consents`; [Song systems and texts](../spec/11-song-systems-texts.md) · Consent and timing; [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-M3
 - **Build:** guests per venue, never shared across venues. `consents` rows only with their proof: the form, its wording (as `text_version`), the IP address and the time, with source `import`. A marketing opt-in without proof isn't imported as consent and is listed in the report. Opt-outs are imported as opt-outs and honored at once. Service texts go to the number given for each booking. Phone numbers must be +1 E.164; others are listed.
 - **Acceptance:**
-  - [ ] The report counts consents by kind: marketing opt-ins with proof, opt-outs, and opt-ins dropped for lack of proof.
-  - [ ] A guest who opted out on the old site gets no text from us.
-  - [ ] No marketing consent exists without its proof.
+  - [x] The report counts consents by kind: marketing opt-ins with proof, opt-outs, and opt-ins dropped for lack of proof.
+  - [x] A guest who opted out on the old site gets no text from us.
+  - [x] No marketing consent exists without its proof.
+  - [ ] Works on West 4's real export files. Blocked: West 4's old system and its export files haven't been received; map its guests and consents (and check it kept the form, wording, IP and time of each opt-in) and dry-run them when they arrive (M9-06).
 - **Tests:** unit tests for the proof check; an integration test that an imported opt-out blocks a Booking confirmed text.
 - **Notes:** West 4's two marketing texts stay off either way.
+  - **Built (Oct 8, 2026):** `packages/db/src/import/consents.ts` (`consentOutcome`, `storedKind`), the consents step and report in `load.ts`, and the `ip` field and form (`source`) in the mapping. A marketing opt-in is imported only with all four pieces of proof: the form (stored as source `import:<mapping source> · <form>`), its wording (`text_version`), the IP address and the time; one missing any of them is set aside before loading, never stored as consent, and listed in the report with what's missing. Every opt-out is imported and honored at once. A guest's phone number that isn't +1 is left out of the guest (the guest still imports) and listed (`Prepared.listed`); a number that isn't a phone number at all is still a problem that stops the run. Service texts already go to the guest's own number; nothing changed there. Runbook: docs/runbooks/import.md · Guests and their consents.
+  - **Tests:** unit tests for the proof check in `import.test.ts`; `packages/db/src/import/import.int.test.ts` (the sample's four consents: one with proof, one opt-out, one service, one dropped; no proofless marketing consent in the venue); `apps/api/src/routes/imported-consents.int.test.ts` (an imported opt-out makes `queueText` refuse Booking confirmed with `opted_out`; `marketingConsent` is true only with proof; a French number is listed).
+  - **Cautious defaults:** an SMS opt-out of any kind (marketing or every text) is kept as an opt-out of every text (kind `texts`), so a guest who opted out on the old site gets no text at all, including service texts; an email opt-out keeps its kind. Proof is required of email marketing opt-ins too. Nothing is ever filled in for missing proof.
 
 ### M9-04 · Import the menu
 

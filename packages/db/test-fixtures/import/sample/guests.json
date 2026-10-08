@@ -12,5 +12,12 @@
     "phone": "212-555-0102",
     "email": null,
     "language": "Spanish"
+  },
+  {
+    "guestId": 503,
+    "fullName": "Test Guest Three",
+    "phone": "+44 20 7946 0103",
+    "email": null,
+    "language": "en"
   }
 ]

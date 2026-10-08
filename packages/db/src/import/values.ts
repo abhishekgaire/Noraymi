@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { Temporal } from "@west4/shared";
 
 /**
@@ -88,6 +89,11 @@ export function parsePhone(raw: string): Parsed<string> {
   if (/^\d{10}$/.test(digits)) return ok(`+1${digits}`);
   if (/^1\d{10}$/.test(digits)) return ok(`+${digits}`);
   return bad(`"${raw}" is not a phone number`);
+}
+
+export function parseIp(raw: string): Parsed<string> {
+  const s = raw.trim();
+  return isIP(s) ? ok(s) : bad(`"${raw}" is not an IP address`);
 }
 
 export function parseEmail(raw: string): Parsed<string> {

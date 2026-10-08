@@ -42,7 +42,17 @@ export const FIELDS: Record<Kind, { required: readonly string[]; optional: reado
   },
   consents: {
     required: ["guest_ref", "channel", "kind"],
-    optional: ["legacy_ref", "given_at", "revoked_at", "revoked_via", "source", "text_version"],
+    // The proof of a marketing opt-in (M9-03): the form it was given on (source), its wording
+    // (text_version), the IP address and the time (given_at).
+    optional: [
+      "legacy_ref",
+      "given_at",
+      "revoked_at",
+      "revoked_via",
+      "source",
+      "text_version",
+      "ip",
+    ],
   },
   nightly_totals: { required: ["business_date", "net_sales"], optional: ["rooms", "bar"] },
 };
