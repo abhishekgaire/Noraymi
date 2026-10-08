@@ -228,7 +228,7 @@ Definition of done: see CLAUDE.md.
 
 ### M9-11 · Run the timed staff trial
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M9-07, M9-10; M7-03 and M7-04 (training mode)
 - **Spec:** [Testing and operations](../spec/13-testing-operations.md) · Tests (Timed staff trial); [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · How we'll know it works; [milestones](../milestones.md#m9--cutover-and-going-live) · M9 Ships (Training and the timed staff trial)
@@ -239,10 +239,10 @@ Definition of done: see CLAUDE.md.
   - Three bartenders new to the system and a front-desk person run it in the venue, music on and hands wet, in training mode, and the results go in a table against the targets.
   - A missed target changes the design (a new ticket), not the target, and the trial runs again. The trial repeats after the first real Friday.
 - **Acceptance:**
-  - [ ] The staff trial meets its targets, or the design changed and the trial ran again.
-  - [ ] The results, and the rerun after the first real Friday, are kept in `docs/gate/`.
+  - [ ] The staff trial meets its targets, or the design changed and the trial ran again. In person at the venue; needs the staging dry run first and the founder's answer on room orders in practice rooms (Notes).
+  - [ ] The results, and the rerun after the first real Friday, are kept in `docs/gate/`. `trial:report --out docs/gate/staff-trial-<date>.md` writes them; nothing has run yet.
 - **Tests:** a dry run of the rush driver and the capture in staging before the day.
-- **Notes:** Spec gap: the targets table has no front-desk tasks, though a front-desk person runs the trial; cautious default: time their check-ins, walk-ins and close-outs as a baseline, and judge only the listed targets.
+- **Notes:** Built: the rush script and targets in `docs/trial/rush-script.md`; the capture in the staff app (`apps/staff/src/trial-capture.ts`, started by the shell only in training: each tap with the button's own words and the screen's path, the errors a screen showed, and a badge take-over's two moments) sent to `POST /v1/venues/{v}/trial-events` (`apps/api/src/routes/trial.ts`, 403 outside training) into `trial_events` (migration 0128, row-level security forced); the rush driver `pnpm --filter @west4/api rush:drive` (`apps/api/src/ops/rush.ts`: the script's 14 room orders over 20 minutes, one-tap items from the venue's own menu, joined and ordered through the guest routes); and `pnpm --filter @west4/api trial:report` (`apps/api/src/ops/trial.ts`), which finds each task by its buttons' words in English or Spanish from the catalog, times room orders from placed to accepted, and writes the table against the targets. Tests: `trial.test.ts`, `trial-capture.test.ts`, `trial.int.test.ts`. A target counts as met only when every run is under it (cautious). Contradiction found: M7-03 doesn't let a phone or tablet join a practice session at a real venue (only a test venue), so the driver's room orders can't reach West 4's practice rooms; the wall was kept, the driver works on a test venue (the staging dry run), and the founder decides (spec 14's training-mode question now says so). The task rules are first guesses checked by the staging dry run; the report lists each window's taps so a missed rule shows. Spec gap: the targets table has no front-desk tasks, though a front-desk person runs the trial; cautious default: time their check-ins, walk-ins and close-outs as a baseline, and judge only the listed targets.
 
 ### M9-12 · Review every staff screen in Spanish
 

@@ -18,6 +18,7 @@ import {
 } from "./api.js";
 import { signedApi, type StoredDevice } from "./device.js";
 import { useClock } from "./clock.js";
+import { trialMark } from "./trial-capture.js";
 
 /**
  * Who is signed in, where, and in which language (spec 02 · Languages).
@@ -164,11 +165,14 @@ export function SessionProvider({
 
   const signInWithBadge = useCallback(
     async (device: StoredDevice, url: string) => {
+      // A badge take-over's two moments, for the timed staff trial (M9-11; only in training).
+      trialMark("badge");
       const opened = await signedApi<{ token?: string }>(device, "POST", "/v1/auth/badge", {
         sun: url,
       });
       if (opened.token) setSessionToken(opened.token);
       await refresh();
+      trialMark("signed_in");
     },
     [refresh],
   );

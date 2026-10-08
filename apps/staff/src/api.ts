@@ -6,6 +6,7 @@ import {
   type Role,
 } from "@west4/shared";
 import { unreachableStatus } from "./connection-state.js";
+import { TRIAL_PATH, trialMark } from "./trial-capture.js";
 import { noteKept, noteLive, offlineStore } from "./offline.js";
 
 /** The API said no: its error code and message (apps/api http/errors.ts). */
@@ -173,6 +174,8 @@ async function liveApi<T>(
     const parsed = (await response.json().catch(() => null)) as {
       error?: { code?: string; message?: string; details?: Record<string, unknown> };
     } | null;
+    // The timed staff trial counts the errors a screen showed (M9-11); a no-op outside training.
+    if (!TRIAL_PATH.test(path)) trialMark("error", parsed?.error?.code ?? String(response.status));
     throw new ApiCallError(
       response.status,
       parsed?.error?.code ?? "unknown",

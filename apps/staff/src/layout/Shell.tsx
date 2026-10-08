@@ -9,6 +9,7 @@ import { banners, isOutageScreen } from "../connection-state.js";
 import { roleKey, useT } from "../i18n.js";
 import { menu, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
+import { startTrialCapture } from "../trial-capture.js";
 import { WaitingStrip } from "../approvals/WaitingStrip.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
 import { OfflineSync, ReadOnlyWhileOffline } from "./ReadOnly.js";
@@ -57,6 +58,11 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const venueTime = useVenueTime(membership.venue.time_zone, membership.venue.day_cutover);
+  // The timed staff trial's capture (M9-11): only while the person or this screen is in training.
+  useEffect(
+    () => (membership.training ? startTrialCapture(membership.venue_id) : undefined),
+    [membership.training, membership.venue_id],
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const entries = visibleMenu(
     { modules: membership.modules, permissions: membership.permissions },

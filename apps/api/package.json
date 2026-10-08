@@ -22,6 +22,8 @@
     "devices:check": "tsx --env-file-if-exists=../../.env src/ops/hardware-check-cli.ts",
     "pins:check": "tsx --env-file-if-exists=../../.env src/ops/pins-check-cli.ts",
     "training:check": "tsx --env-file-if-exists=../../.env src/ops/training-check-cli.ts",
+    "rush:drive": "tsx --env-file-if-exists=../../.env src/ops/rush-cli.ts",
+    "trial:report": "tsx --env-file-if-exists=../../.env src/ops/trial-report-cli.ts",
     "status:set": "tsx --env-file-if-exists=../../.env src/telemetry/status-cli.ts",
     "oncall:set": "tsx --env-file-if-exists=../../.env src/ops/oncall-cli.ts",
     "synthetic:setup": "tsx --env-file-if-exists=../../.env src/ops/synthetic-cli.ts",

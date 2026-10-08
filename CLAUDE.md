@@ -144,6 +144,8 @@ pnpm --filter @west4/api pins:check -- [--venue <slug>]   # M9-08, with the API'
 pnpm format             # Prettier --write
 pnpm --filter @west4/guest check:domain -- --host <domain> [--dkim <selector>] [--save f | --expect f]   # the domain move (M9-09): DNS, email records kept, the certificate, and every old URL answering (docs/runbooks/domain-move.md)
 pnpm --filter @west4/api training:check -- [--venue <slug>] [--allow-device "<name>"]   # before a live night (M9-10): names anyone and any device still in training mode; non-zero while any is
+pnpm --filter @west4/api rush:drive -- --api <API url> [--venue <slug>] [--speed n] [--dry-run]   # the staff trial (M9-11): the scripted room orders on the open practice rooms (docs/trial/rush-script.md)
+pnpm --filter @west4/api trial:report -- --from <ISO> --to <ISO> [--venue <slug>] [--out docs/gate/<file>.md]   # the staff trial's taps, errors and seconds per task against the targets; non-zero on a miss
 pnpm --filter @west4/api load:friday -- --api-url <url> [--venues 20] [--peak-s 1200]   # the Friday-night load test (M8-21): makes its own practice venues, peaks them together on the fake Stripe (no .env; FAKE_STRIPE_DELAYS_MS on the fake), reports order-to-alarm p95 to evidence/load; never production
 pnpm --filter @west4/api twilio:subaccount -- --venue <slug> --number <+1…>   # one-time: a venue's own Twilio subaccount with a number we already own (needs our platform TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
 pnpm --filter @west4/api twilio:campaign -- --venue <slug> --service <MG…> [--marketing]   # read a venue's 10DLC campaign status from Twilio and record its messaging service; production texts nothing until the service campaign is approved (docs/runbooks/texts-10dlc.md)

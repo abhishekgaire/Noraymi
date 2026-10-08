@@ -974,6 +974,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "device_heartbeats",
       // The mic power trial's log (M8-23) names its outlet.
       "mic_outlet_switches",
+      // The staff trial's capture (M9-11) names its device.
+      "trial_events",
       "vendor_calls",
       "vendor_health",
       // Our plan (M8-15): no subscription on the demo night; a test that makes one starts clean.

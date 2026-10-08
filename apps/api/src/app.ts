@@ -85,6 +85,7 @@ import { emergencyConsoleRoutes, emergencyVenueRoutes } from "./console/emergenc
 import { conversationRoutes } from "./routes/conversations.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { headcountRoutes } from "./routes/headcount.js";
+import { trialRoutes } from "./routes/trial.js";
 import { connectionRoutes } from "./routes/connection.js";
 import { routerRoutes } from "./routes/router.js";
 import { boardRoutes } from "./routes/board.js";
@@ -312,6 +313,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       // Admin → Console's emergency actions (M8-11), read by the owner.
       emergencyVenueRoutes(scope, { clock });
       headcountRoutes(scope, { clock });
+      trialRoutes(scope);
       connectionRoutes(scope, { clock });
       boardRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
