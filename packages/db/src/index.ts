@@ -309,6 +309,10 @@ export {
   type ConversationRow,
   type ThreadMessageRow,
   optedOut,
+  marketingConsent,
+  saveTextCampaign,
+  type CampaignStatus,
+  type TextCampaign,
   recordOptOut,
   stopMessage,
 } from "./texts.js";

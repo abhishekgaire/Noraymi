@@ -140,6 +140,7 @@ SYNTHETIC_PIN=… pnpm --filter @west4/api synthetic:setup -- --venue <id> --mem
 pnpm format             # Prettier --write
 pnpm --filter @west4/api load:friday -- --api-url <url> [--venues 20] [--peak-s 1200]   # the Friday-night load test (M8-21): makes its own practice venues, peaks them together on the fake Stripe (no .env; FAKE_STRIPE_DELAYS_MS on the fake), reports order-to-alarm p95 to evidence/load; never production
 pnpm --filter @west4/api twilio:subaccount -- --venue <slug> --number <+1…>   # one-time: a venue's own Twilio subaccount with a number we already own (needs our platform TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
+pnpm --filter @west4/api twilio:campaign -- --venue <slug> --service <MG…> [--marketing]   # read a venue's 10DLC campaign status from Twilio and record its messaging service; production texts nothing until the service campaign is approved (docs/runbooks/texts-10dlc.md)
 pnpm --filter @west4/desktop rebuild-native   # build the USB NFC reader's PC/SC binding for Electron's Node (optional; WEST4_FAKE_READER=1 runs an emulated reader instead, and WEST4_FAKE_PRINTER=1 a virtual USB printer that keeps its tickets in WEST4_FAKE_PRINTER_DIR)
 pnpm --filter @west4/desktop build   # package the desktop app with electron-builder; signed and notarised only when the certificates are in the environment (apps/desktop/electron-builder.yml)
 ```

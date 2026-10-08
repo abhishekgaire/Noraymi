@@ -53,7 +53,7 @@ The `BarModeSettings` type is defined once, in [Settings, rule packs and modules
 
 **Texts through Twilio**
 
-- **Accounts.** Each venue gets its own Twilio subaccount and brand registration, so one venue's texts can't get another venue suspended. One campaign carries service texts; marketing gets its own campaign only when that module is on.
+- **Accounts.** Each venue gets its own Twilio subaccount and brand registration, so one venue's texts can't get another venue suspended. One campaign carries service texts; marketing gets its own campaign only when that module is on. Production sends no text until the venue's service campaign is approved, and through that campaign's messaging service once it is; Admin → Phone & texts shows each campaign's status.
 - **Numbers and delivery.** Texts come from the venue's number in Admin → Phone & texts. Each message is written as `sending` before the call to Twilio, so a retried job never sends twice, and Twilio's status callbacks move it to sent, delivered or failed. A Room ready text that fails shows "Not delivered · Call" on the waitlist.
 - **Two-way inbox.** Replies arrive by webhook into `conversations`, each tied to its booking, waitlist spot or room session, with an unread state and an assignee. `message.received` updates the board, the badges and the phone of the manager on shift. Staff can type free text only as a reply in an open service conversation, and links and promotions are blocked there.
 - **Templates.** `message_templates` holds every text the product sends, each tagged service or marketing and edited in Admin → Texts; the list is below. Review asks and birthday texts count as marketing until the lawyer rules, so they never go out with receipts.

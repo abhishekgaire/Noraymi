@@ -16,6 +16,8 @@ export interface TwilioAccount {
 export interface VenueText {
   readonly to: string;
   readonly from: string;
+  /** The 10DLC campaign's messaging service (M8-22): when set, Twilio sends from it instead of `from`. */
+  readonly messagingServiceSid?: string | null;
   readonly body: string;
   readonly statusCallback: string | null;
 }
@@ -56,7 +58,9 @@ export class TwilioVenueClient implements VenueTextClient {
 
   async send(account: TwilioAccount, text: VenueText): Promise<{ sid: string }> {
     assertOutsideTransaction("text");
-    const form = new URLSearchParams({ To: text.to, From: text.from, Body: text.body });
+    const form = new URLSearchParams({ To: text.to, Body: text.body });
+    if (text.messagingServiceSid) form.set("MessagingServiceSid", text.messagingServiceSid);
+    else form.set("From", text.from);
     if (text.statusCallback) form.set("StatusCallback", text.statusCallback);
     let response: Response;
     try {
@@ -232,6 +236,11 @@ export interface VenueTextSettings {
   readonly publicApiUrl: string | null;
   /** Staging sends only to our own test phones; null means no list (production, and local where nothing is sent). */
   readonly allowList: readonly string[] | null;
+  /**
+   * Texts go only once the venue's 10DLC campaign is approved (M8-22): always
+   * in production; anywhere else only with TEXT_REQUIRE_CAMPAIGN=1.
+   */
+  readonly requireApprovedCampaign: boolean;
 }
 
 export function loadVenueTextSettings(
@@ -249,5 +258,6 @@ export function loadVenueTextSettings(
     twilioBaseUrl: source["TWILIO_API_BASE"] ?? "https://api.twilio.com",
     publicApiUrl: source["PUBLIC_API_URL"]?.replace(/\/+$/, "") ?? null,
     allowList: env === "production" ? null : list.length > 0 ? list : null,
+    requireApprovedCampaign: env === "production" || source["TEXT_REQUIRE_CAMPAIGN"] === "1",
   };
 }

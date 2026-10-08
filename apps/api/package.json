@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -b",
     "twilio:subaccount": "tsx src/texts/setup-subaccount.ts",
+    "twilio:campaign": "tsx src/texts/check-campaign.ts",
     "stripe:fake": "tsx src/stripe/fake/main.ts",
     "stripe:create-account": "tsx --env-file-if-exists=../../.env src/stripe/create-account.ts",
     "billing:subscribe": "tsx --env-file-if-exists=../../.env src/billing/subscribe-cli.ts",

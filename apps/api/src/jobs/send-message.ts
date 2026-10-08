@@ -69,6 +69,10 @@ export function makeSendMessageHandler(
         {
           to: ready.message.phone_e164,
           from: ready.twilio.phoneE164,
+          messagingServiceSid:
+            ready.message.category === "marketing"
+              ? ready.twilio.marketingCampaign.serviceSid
+              : ready.twilio.campaign.serviceSid,
           body: ready.message.body,
           statusCallback: settings.publicApiUrl
             ? `${settings.publicApiUrl}/v1/hooks/twilio/status`

@@ -554,7 +554,7 @@ Definition of done: see CLAUDE.md.
 
 ### M8-22 · Put West 4's texts live on its 10DLC campaign
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** West 4's 10DLC brand and campaign approval; M2-09 (the Twilio subaccount), M2-23 (STOP and HELP); M5-08 (the marketing opt-in with proof)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Texts through Twilio (Accounts, Consent and timing, Abuse); [Security and data retention](../spec/12-security-retention.md) 8; [milestones](../milestones.md#must-fix-items-and-where-they-close) GA-M3; [blueprint](../blueprint.md) · Start now (10DLC)
@@ -564,11 +564,14 @@ Definition of done: see CLAUDE.md.
   - A marketing campaign only when Marketing texts is on (off at West 4).
   - Tests that prove the marketing rules even though both marketing texts are off: their own opt-in with proof, sending only between 8 AM and 9 PM in the recipient's time zone (from the area code, checked against the venue's), and opt-outs honored at once. SMS pumping protection on and +1 numbers only.
 - **Acceptance:**
-  - [ ] A Booking confirmed text from production reaches a real phone on the approved campaign.
-  - [ ] STOP stops every text to that number at once and sends one confirmation; HELP answers with West 4's name and number.
-  - [ ] On a test venue with Marketing texts on, a marketing send at 9:05 PM in the recipient's time zone is refused.
+  - [ ] A Booking confirmed text from production reaches a real phone on the approved campaign. Waits on the carriers approving West 4's 10DLC brand and service campaign, and on real Twilio credentials in production; the hold-until-approved gate and the send through the campaign's messaging service are tested (`apps/api/src/texts/campaign.int.test.ts`).
+  - [x] STOP stops every text to that number at once and sends one confirmation; HELP answers with West 4's name and number. (M2-23's `opt-out.int.test.ts`; marketing texts too, including one already queued, in `campaign.int.test.ts`. The live-phone repeat is in the runbook's go-live checks.)
+  - [x] On a test venue with Marketing texts on, a marketing send at 9:05 PM in the recipient's time zone is refused. (`campaign.int.test.ts`; clock tests across zones and daylight saving in `packages/rules/src/marketing-window.test.ts`.)
 - **Tests:** integration tests with Twilio test credentials; clock tests for the sending window across time zones.
 - **Notes:** GA-M3 closes here (STOP in M2, the opt-in in M5). Open question (lawyer): whether review-ask and birthday texts are marketing; nothing waits on it, since both stay off.
+  - **Built (M8-22):** production (`requireApprovedCampaign`, or `TEXT_REQUIRE_CAMPAIGN=1` elsewhere) refuses every text with `campaign_not_approved` until the venue's service campaign reads approved, then sends through its messaging service (`MessagingServiceSid`); marketing texts use their own campaign. `pnpm --filter @west4/api twilio:campaign -- --venue <slug> --service MG… [--marketing]` reads the status from Twilio (Usa2p on the messaging service) and records it in the Twilio integration's config; rerunning `twilio:subaccount` keeps it. `GET /v1/venues/{v}/texts/campaign` feeds Admin → Phone & texts (status, and whether texts are going out). Marketing sends: Marketing texts on, own approved campaign, an opt-in with full proof (form, wording, IP, time, not revoked), and 8 AM to 9 PM (`packages/rules/src/marketing-window.ts`). Runbook and go-live checklist: `docs/runbooks/texts-10dlc.md`.
+  - **Cautious defaults:** an area code spanning zones must fit every zone, and the venue's zone too; an area code we can't place is refused. The area-code table is public NANP data; new overlay codes are refused until added. Staging never waits for a campaign (it texts only `TEXT_ALLOW_LIST`).
+  - **Waiting on (blocked):** the founder registering West 4's brand and service campaign in Twilio's console with West 4's legal name, EIN and address (not in our data), the carriers' approval, turning on SMS pumping protection in the subaccount's Messaging settings, and real Twilio credentials in production; then the runbook's go-live checks (a real Booking confirmed, HELP, STOP on a real phone).
 
 ### M8-23 · Run the one-room mic power trial (K1)
 

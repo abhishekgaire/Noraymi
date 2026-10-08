@@ -203,12 +203,38 @@ export async function venueForSmsNumber(c: Queryable, number: string): Promise<s
   return r.rows[0]?.venue ?? null;
 }
 
+/** A 10DLC campaign's state as Twilio last reported it (M8-22). */
+export type CampaignStatus = "not_registered" | "pending" | "approved" | "rejected";
+
+/** One 10DLC campaign: the messaging service the number sits in, and its status. */
+export interface TextCampaign {
+  readonly serviceSid: string | null;
+  readonly status: CampaignStatus;
+  readonly checkedAt: string | null;
+}
+
 export interface TwilioIntegration {
   readonly accountSid: string;
   readonly phoneE164: string;
   readonly secretEnc: string;
   readonly status: string;
+  /** The service campaign (every text but the two marketing ones). */
+  readonly campaign: TextCampaign;
+  /** The marketing campaign, registered only when Marketing texts is on. */
+  readonly marketingCampaign: TextCampaign;
 }
+
+interface CampaignConfig {
+  service_sid?: string;
+  status?: CampaignStatus;
+  checked_at?: string;
+}
+
+const campaignFrom = (c: CampaignConfig | undefined): TextCampaign => ({
+  serviceSid: c?.service_sid ?? null,
+  status: c?.status ?? "not_registered",
+  checkedAt: c?.checked_at ?? null,
+});
 
 export async function twilioIntegration(
   c: Queryable,
@@ -216,7 +242,12 @@ export async function twilioIntegration(
 ): Promise<TwilioIntegration | null> {
   const r = await c.query<{
     external_id: string;
-    config: { phone_e164?: string; secret_enc?: string };
+    config: {
+      phone_e164?: string;
+      secret_enc?: string;
+      campaign?: CampaignConfig;
+      marketing_campaign?: CampaignConfig;
+    };
     status: string;
   }>(
     "select external_id, config, status from integrations where venue_id = $1 and kind = 'twilio'",
@@ -229,7 +260,30 @@ export async function twilioIntegration(
     phoneE164: row.config.phone_e164,
     secretEnc: row.config.secret_enc,
     status: row.status,
+    campaign: campaignFrom(row.config.campaign),
+    marketingCampaign: campaignFrom(row.config.marketing_campaign),
   };
+}
+
+/** Records a campaign's messaging service and the status Twilio reported (M8-22's ops command). */
+export async function saveTextCampaign(
+  c: Queryable,
+  venueId: string,
+  which: "service" | "marketing",
+  input: { serviceSid: string; status: CampaignStatus; at: string },
+): Promise<void> {
+  const key = which === "service" ? "campaign" : "marketing_campaign";
+  const r = await c.query(
+    `update integrations set config = jsonb_set(config, $3::text[], $4::jsonb)
+      where venue_id = $1 and kind = $2`,
+    [
+      venueId,
+      "twilio",
+      [key],
+      JSON.stringify({ service_sid: input.serviceSid, status: input.status, checked_at: input.at }),
+    ],
+  );
+  if (r.rowCount !== 1) throw new Error("the venue has no Twilio subaccount yet");
 }
 
 export async function saveTwilioIntegration(
@@ -241,7 +295,7 @@ export async function saveTwilioIntegration(
     `insert into integrations (venue_id, kind, status, external_id, config, connected_at)
        values ($1, 'twilio', 'connected', $2, $3, $4)
        on conflict (venue_id, kind) do update set status = 'connected', external_id = excluded.external_id,
-         config = excluded.config, connected_at = excluded.connected_at`,
+         config = integrations.config || excluded.config, connected_at = excluded.connected_at`,
     [
       venueId,
       input.accountSid,
@@ -364,6 +418,27 @@ export async function markConversationRead(
 }
 
 /** Has this number opted out of texts at the venue (M2-23)? Every send asks first. */
+/**
+ * A marketing opt-in with its proof (spec 11 · Consent and timing; M5-08): the
+ * form, its wording, the IP address and the time, and not taken back since.
+ */
+export async function marketingConsent(
+  c: Queryable,
+  venueId: string,
+  phone: string,
+): Promise<boolean> {
+  const r = await c.query(
+    `select 1 from consents k left join guests g on g.venue_id = k.venue_id and g.id = k.guest_id
+      where k.venue_id = $1 and k.channel = 'sms' and k.kind = 'marketing'
+        and coalesce(k.phone_e164, g.phone_e164) = $2
+        and k.given_at is not null and k.source is not null and k.text_version is not null and k.ip is not null
+        and k.revoked_at is null
+      limit 1`,
+    [venueId, phone],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
 export async function optedOut(c: Queryable, venueId: string, phone: string): Promise<boolean> {
   const r = await c.query(
     `select 1 from consents k left join guests g on g.venue_id = k.venue_id and g.id = k.guest_id

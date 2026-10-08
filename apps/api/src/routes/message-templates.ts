@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { emitEvent, templates, venueModules } from "@west4/db";
+import { emitEvent, templates, twilioIntegration, venueModules } from "@west4/db";
+import type { VenueTextSettings } from "../texts/venue.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { render } from "../texts/queue.js";
@@ -12,6 +13,7 @@ import { render } from "../texts/queue.js";
  * A text that's off never sends. The two marketing texts can't be turned on
  * while the Marketing texts module is off; and until they have their own
  * opt-in (M5) they never send anyway.
+ *   GET   /v1/venues/{v}/texts/campaign             Admin → Phone & texts: the 10DLC campaigns' status (M8-22)
  */
 export const TEMPLATE_EXAMPLES: Readonly<
   Record<string, Readonly<Record<string, string | number>>>
@@ -60,7 +62,12 @@ const patchBody = z
   .object({ body: z.string().trim().min(1).max(480).optional(), on: z.boolean().optional() })
   .strict();
 
-export function messageTemplateRoutes(app: FastifyInstance): void {
+export function messageTemplateRoutes(
+  app: FastifyInstance,
+  deps: { texts: Pick<VenueTextSettings, "requireApprovedCampaign"> } = {
+    texts: { requireApprovedCampaign: false },
+  },
+): void {
   const read = route({ principals: ["owner_manager"], module: "core", action: "admin.access" });
   const write = route({
     principals: ["owner_manager"],
@@ -85,6 +92,32 @@ export function messageTemplateRoutes(app: FastifyInstance): void {
             example: preview(t.key, t.body),
             locked_off: t.category === "marketing" && marketingOff,
           })),
+        };
+      }),
+  );
+
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/texts/campaign",
+    { config: read },
+    async (request) =>
+      request.inVenue(async (c) => {
+        const venueId = request.venueId!;
+        const twilio = await twilioIntegration(c, venueId);
+        const marketingOn =
+          (await venueModules(c, venueId)).find((m) => m.module_id === "marketing_texts")?.state ===
+          "on";
+        const service = twilio?.campaign.status ?? "not_registered";
+        return {
+          number: twilio?.phoneE164 ?? null,
+          service: { status: service, checked_at: twilio?.campaign.checkedAt ?? null },
+          marketing: marketingOn
+            ? {
+                status: twilio?.marketingCampaign.status ?? "not_registered",
+                checked_at: twilio?.marketingCampaign.checkedAt ?? null,
+              }
+            : null,
+          // Whether texts reach real phones now: a server that doesn't wait for the campaign, or an approved one.
+          live: twilio !== null && (!deps.texts.requireApprovedCampaign || service === "approved"),
         };
       }),
   );

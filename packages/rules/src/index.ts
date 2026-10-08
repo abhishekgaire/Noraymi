@@ -118,3 +118,10 @@ export {
 export type { Hmac, OfflineCodeCheck, OfflineCodeScope, UpcomingCode } from "./offline-codes.js";
 export { PLAN_GRACE_DAYS, adminReadOnlyFrom, planState } from "./plan-billing.js";
 export type { PlanState } from "./plan-billing.js";
+export {
+  MARKETING_FROM,
+  MARKETING_UNTIL,
+  marketingWindow,
+  recipientZones,
+} from "./marketing-window.js";
+export type { MarketingWindowCheck } from "./marketing-window.js";

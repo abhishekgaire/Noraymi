@@ -1,10 +1,13 @@
 import {
   conversationFor,
   insertOutbound,
+  marketingConsent,
   templateByKey,
+  twilioIntegration,
   venueModules,
   type Queryable,
 } from "@west4/db";
+import { marketingWindow } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { enqueue, optedOut } from "@west4/db";
 import { ApiError } from "../http/errors.js";
@@ -14,8 +17,11 @@ import type { VenueTextSettings } from "./venue.js";
  * Queueing a guest text (M2-09; spec 11; spec 12 · 8). The message is written
  * as `sending` with its words, and a job in the normal pool sends it. Refused:
  * a number outside +1, a number outside staging's test phones, a template
- * that's off, any marketing text (no opt-in yet), any service text with Guest
- * texts off, and more than the per-prefix limit in an hour.
+ * that's off, any service text with Guest texts off, more than the per-prefix
+ * limit in an hour, and (where the setting asks, as production does) any text
+ * before the venue's 10DLC campaign is approved. A marketing text also needs
+ * Marketing texts on, its own approved campaign, the guest's marketing opt-in
+ * with proof, and 8 AM to 9 PM in the recipient's zone (M8-22).
  */
 export const MESSAGE_SEND_KIND = "message.send";
 /** Cautious default (flagged): at most this many texts an hour to one +1 area code from one venue. */
@@ -45,7 +51,7 @@ export async function queueText(
     /** A practice check's text (training mode, M7-03): refused, since practice never texts a guest. */
     training?: boolean;
   },
-  settings: Pick<VenueTextSettings, "allowList">,
+  settings: SendSettings,
 ): Promise<{ messageId: string }> {
   const practice =
     input.training === true ||
@@ -62,8 +68,11 @@ export async function queueText(
     });
   const template = await templateByKey(c, venueId, input.templateKey);
   if (!template) throw new ApiError("not_found", `no text "${input.templateKey}"`);
-  if (template.category === "marketing")
-    throw new ApiError("invalid_request", "marketing texts need their own opt-in first", {
+  if (
+    template.category === "marketing" &&
+    (await venueModules(c, venueId)).find((m) => m.module_id === "marketing_texts")?.state !== "on"
+  )
+    throw new ApiError("invalid_request", "marketing texts stay off while Marketing texts is off", {
       details: { reason: "marketing" },
     });
   if (!template.on)
@@ -71,6 +80,8 @@ export async function queueText(
       details: { reason: "template_off" },
     });
   await guardSend(c, venueId, input.to, input.now, settings);
+  if (template.category === "marketing")
+    await guardMarketing(c, venueId, input.to, input.now, settings);
   const body = render(template.body, input.params);
   const conversationId = await conversationFor(c, venueId, {
     phoneE164: input.to,
@@ -81,7 +92,7 @@ export async function queueText(
   const messageId = await queueOutbound(c, venueId, {
     conversationId,
     templateId: template.id,
-    category: "service",
+    category: template.category,
     body,
     sentBy: input.sentBy,
     now: input.now,
@@ -94,12 +105,15 @@ export async function queueText(
  * M2-22): a US number, the staging allow-list, Guest texts on, and at most
  * PER_PREFIX_PER_HOUR texts an hour to one area code.
  */
+export type SendSettings = Pick<VenueTextSettings, "allowList"> &
+  Partial<Pick<VenueTextSettings, "requireApprovedCampaign">>;
+
 export async function guardSend(
   c: Queryable,
   venueId: string,
   to: string,
   now: Temporal.Instant,
-  settings: Pick<VenueTextSettings, "allowList">,
+  settings: SendSettings,
 ): Promise<void> {
   const input = { to, now };
   if (await optedOut(c, venueId, to))
@@ -117,6 +131,14 @@ export async function guardSend(
   const modules = await venueModules(c, venueId);
   if (modules.find((m) => m.module_id === "guest_texts")?.state === "off")
     throw new ApiError("module_off", "Guest texts are off at this venue");
+  if (settings.requireApprovedCampaign === true) {
+    // Production texts real numbers only on an approved 10DLC campaign (M8-22).
+    const twilio = await twilioIntegration(c, venueId);
+    if (twilio?.campaign.status !== "approved")
+      throw new ApiError("invalid_request", "the venue's texting campaign isn't approved yet", {
+        details: { reason: "campaign_not_approved" },
+      });
+  }
   const prefix = input.to.slice(0, 5);
   const recent = await c.query<{ n: number }>(
     `select count(*)::int as n from messages m join conversations cv on cv.venue_id = m.venue_id and cv.id = m.conversation_id
@@ -129,6 +151,41 @@ export async function guardSend(
     });
 }
 
+/**
+ * What a marketing text passes on top of guardSend (M8-22; spec 11 · Consent
+ * and timing; the Marketing texts module is checked first, in queueText): its
+ * own approved campaign where the setting asks, the number's marketing opt-in with proof, and the sending window.
+ */
+export async function guardMarketing(
+  c: Queryable,
+  venueId: string,
+  to: string,
+  now: Temporal.Instant,
+  settings: SendSettings,
+): Promise<void> {
+  if (settings.requireApprovedCampaign === true) {
+    const twilio = await twilioIntegration(c, venueId);
+    if (twilio?.marketingCampaign.status !== "approved")
+      throw new ApiError("invalid_request", "the venue's marketing campaign isn't approved yet", {
+        details: { reason: "campaign_not_approved" },
+      });
+  }
+  if (!(await marketingConsent(c, venueId, to)))
+    throw new ApiError("invalid_request", "marketing texts need the guest's own opt-in first", {
+      details: { reason: "no_marketing_consent" },
+    });
+  const venue = await c.query<{ time_zone: string }>("select time_zone from venues where id = $1", [
+    venueId,
+  ]);
+  const check = marketingWindow(now, to, venue.rows[0]?.time_zone ?? "America/New_York");
+  if (!check.ok)
+    throw new ApiError(
+      "invalid_request",
+      "marketing texts go only between 8 AM and 9 PM where the guest is",
+      { details: { reason: check.reason === "unknown_area" ? "unknown_area" : "outside_hours" } },
+    );
+}
+
 /** Writes the outbound message and queues its one send attempt. */
 export async function queueOutbound(
   c: Queryable,
@@ -136,7 +193,7 @@ export async function queueOutbound(
   input: {
     conversationId: string;
     templateId: string | null;
-    category: "service" | "reply";
+    category: "service" | "marketing" | "reply";
     body: string;
     sentBy: string | null;
     now: Temporal.Instant;

@@ -283,7 +283,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       bookingsRoutes(scope, { clock });
       sessionsRoutes(scope, { clock });
       checksRoutes(scope, { clock });
-      messageTemplateRoutes(scope);
+      messageTemplateRoutes(scope, { texts: loadVenueTextSettings(config.env) });
       idCheckRoutes(scope, {
         clock,
         wrappingKey: config.auth.secretKey,

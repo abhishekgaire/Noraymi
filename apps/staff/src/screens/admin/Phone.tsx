@@ -13,6 +13,14 @@ import { useSession } from "../../session.js";
  */
 const E164 = /^\+[1-9]\d{6,14}$/;
 
+type CampaignStatus = "not_registered" | "pending" | "approved" | "rejected";
+interface CampaignView {
+  number: string | null;
+  service: { status: CampaignStatus; checked_at: string | null };
+  marketing: { status: CampaignStatus; checked_at: string | null } | null;
+  live: boolean;
+}
+
 /** "+12122550011" as "+1 212 255 0011". */
 export function formatPhone(e164: string): string {
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164);
@@ -27,6 +35,7 @@ export function Phone() {
   const [saved, setSaved] = useState<PhoneSettings | null>(null);
   const [failed, setFailed] = useState(false);
   const [raw, setRaw] = useState<Partial<Record<keyof PhoneSettings, string>>>({});
+  const [campaign, setCampaign] = useState<CampaignView | null>(null);
 
   const load = useCallback(async () => {
     const answer = await api<{ value: PhoneSettings }>(
@@ -34,6 +43,8 @@ export function Phone() {
       `/v1/venues/${venueId}/settings/phone`,
     );
     setSaved(answer.value);
+    // The 10DLC campaigns (M8-22): read only; set by our ops command once Twilio reports.
+    setCampaign(await api<CampaignView>("GET", `/v1/venues/${venueId}/texts/campaign`));
   }, [venueId]);
 
   useEffect(() => {
@@ -86,6 +97,21 @@ export function Phone() {
           {field("callNumber", "phone.callNumber")}
           {field("textNumber", "phone.textNumber")}
         </div>
+      )}
+      {campaign && (
+        <dl className="campaign" data-testid="text-campaign">
+          <dt>{t("phone.campaign")}</dt>
+          <dd>{t(`phone.campaign.${campaign.service.status}`)}</dd>
+          {campaign.marketing && (
+            <>
+              <dt>{t("phone.campaign.marketing")}</dt>
+              <dd>{t(`phone.campaign.${campaign.marketing.status}`)}</dd>
+            </>
+          )}
+          <dd className={campaign.live ? "small" : "small muted"} role="status">
+            {t(campaign.live ? "phone.campaign.live" : "phone.campaign.held")}
+          </dd>
+        </dl>
       )}
     </section>
   );
