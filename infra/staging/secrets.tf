@@ -12,6 +12,7 @@ locals {
     "rule-pack-signing-key" = "Ed25519 private key (PEM) that signs rule-pack versions (M1-10)"
     "smtp-url"              = "The email provider's SMTP relay URL, smtp://user:pass@host:port (M1-18)"
     "auth-secret-key"       = "32 bytes as hex that seal authenticator-app secrets (M1-19)"
+    "synthetic-check"       = "The worker's synthetic order and reader payment (M8-18): synthetic:setup prints it; blank is off"
   }
 }
 

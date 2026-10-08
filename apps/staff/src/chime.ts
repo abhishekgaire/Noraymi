@@ -1,5 +1,10 @@
 import { createElement, useEffect, useState } from "react";
-import { staffOrderWordsKey } from "@west4/shared";
+import {
+  EventClient,
+  signDeviceSocketPath,
+  staffOrderWordsKey,
+  type SocketLike,
+} from "@west4/shared";
 import { useClock } from "./clock.js";
 import { useT } from "./i18n.js";
 import { deviceOnlyApi, readDevice, signedApi, type StoredDevice } from "./device.js";
@@ -7,8 +12,10 @@ import { deviceOnlyApi, readDevice, signedApi, type StoredDevice } from "./devic
 /**
  * The bar's chime (M3-16; spec 10 rule 7): a backup to the colors and the
  * phones. On a paired bar or front-desk computer, signed in or locked, it
- * checks for ringing and asked-to-wait orders every 5 seconds and chimes for
- * each new one, and again every minute while any has waited past 2 minutes.
+ * checks for ringing and asked-to-wait orders as soon as the venue's live
+ * channel says one rang (M8-18: order to alarm under 3 seconds), and every
+ * 5 seconds as the fallback when the channel is down; it chimes for each new
+ * one, and again every minute while any has waited past 2 minutes.
  * Mute silences it for `pos.muteSec` (60 s at West 4); the colors keep changing.
  * The desktop app never throttles its window, so it chimes behind other
  * windows too.
@@ -113,11 +120,79 @@ async function check(device: StoredDevice, state: { heard: Set<string>; lastRepe
   if (chimeDecision(r.orders, state, Date.now(), (r.aging?.amber_sec ?? 120) * 1000)) playChime();
 }
 
+/** The events that mean an order is waiting at the bar. */
+const RING_EVENTS: ReadonlySet<string> = new Set(["order.ringing", "order.held"]);
+
+/**
+ * The live channel's part (M8-18): the device's own signed socket, with nobody's session, so it
+ * carries only ring state (`locked=1`). Each ring runs a check at once instead of waiting for the
+ * next 5-second poll; a full refetch (the channel lost its place) runs one too. Returns the stop.
+ */
+export function startRingWatch(args: {
+  readonly url: string;
+  readonly connect: (url: string) => SocketLike;
+  readonly onRing: () => void;
+}): () => void {
+  const client = new EventClient({
+    url: args.url,
+    connect: args.connect,
+    groupMs: 0,
+    onRefetch: (events) => {
+      if (events.some((e) => RING_EVENTS.has(e.type))) args.onRing();
+    },
+    onFullRefetch: () => args.onRing(),
+  });
+  client.start();
+  return () => client.stop();
+}
+
+/**
+ * A browser can't put headers on a WebSocket, so the device signs the socket's URL with its key (the
+ * same four values as query parameters, its nonce spent once) before each connection, as the Up next
+ * TV does (M6-22).
+ */
+export function signedDeviceSocket(
+  device: Pick<StoredDevice, "deviceId" | "privateKey">,
+  url: string,
+  open: (url: string) => WebSocket = (u) => new WebSocket(u),
+): SocketLike {
+  let ws: WebSocket | undefined;
+  let closed = false;
+  const proxy: SocketLike = {
+    onopen: null,
+    onmessage: null,
+    onclose: null,
+    onerror: null,
+    send: (data) => ws?.send(data),
+    close: (code, reason) => {
+      closed = true;
+      ws?.close(code, reason);
+    },
+  };
+  const u = new URL(url);
+  void signDeviceSocketPath({
+    deviceId: device.deviceId,
+    privateKey: device.privateKey,
+    path: `${u.pathname}${u.search}`,
+  })
+    .then((path) => {
+      if (closed) return;
+      ws = open(`${u.protocol}//${u.host}${path}`);
+      ws.onopen = (e) => proxy.onopen?.(e);
+      ws.onmessage = (e) => proxy.onmessage?.(e);
+      ws.onclose = (e) => proxy.onclose?.(e);
+      ws.onerror = (e) => proxy.onerror?.(e);
+    })
+    .catch(() => proxy.onclose?.({}));
+  return proxy;
+}
+
 /** Runs on paired bar and front-desk computers inside the desktop app, for as long as the app runs. */
 export function ChimeLoop() {
   useEffect(() => {
     if (typeof window === "undefined" || !window.west4) return;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let stopWatch: (() => void) | undefined;
     let live = true;
     void readDevice().then((device) => {
       if (!live || !device || (device.kind !== "bar_computer" && device.kind !== "front_desk"))
@@ -126,10 +201,18 @@ export function ChimeLoop() {
       // The orders already waiting when the app opens are heard once, not chimed for again.
       timer = setInterval(() => void check(device, state), CHIME_CHECK_MS);
       void check(device, state);
+      // A ring on the live channel checks at once; the poll above is the fallback (M8-18).
+      const scheme = location.protocol === "https:" ? "wss" : "ws";
+      stopWatch = startRingWatch({
+        url: `${scheme}://${location.host}/v1/venues/${device.venueId}/events?locked=1`,
+        connect: (url) => signedDeviceSocket(device, url),
+        onRing: () => void check(device, state),
+      });
     });
     return () => {
       live = false;
       if (timer) clearInterval(timer);
+      stopWatch?.();
     };
   }, []);
   return null;

@@ -159,7 +159,12 @@ export async function refreshRoomGuest(
   );
 }
 
-/** A room's open session, for joining with its code. */
+/**
+ * A room's open session, for joining with its code. A practice session can't be joined: practice
+ * never reaches a real guest (M7-03). The one exception is our own test venue (the
+ * `synthetic.test_venue` flag, M8-18), where the synthetic check's phone joins its practice
+ * walk-in: no real guest is ever there.
+ */
 export async function openSessionInRoom(
   c: Queryable,
   venueId: string,
@@ -177,7 +182,10 @@ export async function openSessionInRoom(
     wrong_codes: number;
   }>(
     `select id, room_code_hash, token_version, wrong_codes from room_sessions
-      where venue_id = $1 and room_id = $2 and ended_at is null and not training order by started_at desc limit 1`,
+      where venue_id = $1 and room_id = $2 and ended_at is null
+        and (not training or exists (select 1 from venue_flags f
+                                      where f.venue_id = $1 and f.flag = 'synthetic.test_venue' and f."on"))
+      order by started_at desc limit 1`,
     [venueId, roomId],
   );
   return r.rows[0] ?? null;

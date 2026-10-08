@@ -7,10 +7,10 @@
  * `clears` says when a page is over: `condition` when the check stops finding it (and it can fire
  * again later), `ack` when someone acknowledges it (one page per key, ever: a payout, a failover).
  * `source` says where it is raised: the alert sweep, a CloudWatch alarm or RDS event through the
- * alarm hook, or the device watch (M1-16) for the manager's alerts.
+ * alarm hook, the device watch (M1-16) for the manager's alerts, or the synthetic check (M8-18).
  */
 export type AlertAudience = "us" | "manager";
-export type AlertSource = "sweep" | "cloudwatch" | "devices";
+export type AlertSource = "sweep" | "cloudwatch" | "devices" | "synthetic";
 
 export interface AlertRule {
   readonly id: string;
@@ -82,6 +82,13 @@ export const ALERT_RULES = [
     audience: "us",
     clears: "condition",
     sources: ["sweep"],
+  }),
+  rule({
+    id: "synthetic-check",
+    title: "The synthetic order or reader payment failed (M8-18)",
+    audience: "us",
+    clears: "condition",
+    sources: ["synthetic"],
   }),
   rule({
     id: "device-offline",

@@ -7,6 +7,7 @@ import { makeClock } from "./clock.js";
 import { databaseVendorObserver, setVendorObserver } from "./vendors/outcomes.js";
 import { makeHandlers, makeSweeps, schedules } from "./jobs/registry.js";
 import { stripeFromEnv } from "./stripe/client.js";
+import { loadSyntheticConfig } from "./ops/synthetic.js";
 import { makeS3 } from "./s3.js";
 import { idKeyStore } from "./id-keys/store.js";
 import { SmtpMailer } from "./email/mailer.js";
@@ -40,6 +41,8 @@ const textSender = () => {
 };
 const venueTextSettings = loadVenueTextSettings(config.env);
 const stripe = stripeFromEnv(config.env);
+// The synthetic order and reader payment (M8-18): on only where SYNTHETIC_CHECK is set.
+const synthetic = loadSyntheticConfig();
 const handlers = tracedHandlers(
   makeHandlers({
     stripe: {
@@ -64,6 +67,7 @@ const handlers = tracedHandlers(
     email,
     push: new WebPushSender(loadPushSettings(config.env)),
     texts: textSender(),
+    ...(synthetic ? { synthetic: { pool, config: synthetic, log } } : {}),
   }),
 );
 if (
@@ -78,12 +82,19 @@ const workers = (["critical", "normal", "bulk"] as const).map(
 );
 const scheduler = new Scheduler(pool, {
   schedules,
-  sweeps: makeSweeps(pool, log, venueTextSettings, stripeFromEnv(config.env), {
-    mailer,
-    texts: textSender(),
-    from: email.from,
-    consoleUrl: config.console?.url ?? process.env["CONSOLE_URL"] ?? null,
-  }),
+  sweeps: makeSweeps(
+    pool,
+    log,
+    venueTextSettings,
+    stripeFromEnv(config.env),
+    {
+      mailer,
+      texts: textSender(),
+      from: email.from,
+      consoleUrl: config.console?.url ?? process.env["CONSOLE_URL"] ?? null,
+    },
+    synthetic,
+  ),
   clock,
   log,
 });

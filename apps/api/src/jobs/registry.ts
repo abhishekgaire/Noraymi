@@ -50,6 +50,12 @@ import {
 import { RETENTION_KIND, makeRetentionHandler, retentionSchedule } from "./retention.js";
 import { ERASE_KIND, makeEraseHandler } from "./erase.js";
 import {
+  SYNTHETIC_KIND,
+  makeSyntheticHandler,
+  syntheticSweep,
+  type SyntheticConfig,
+} from "../ops/synthetic.js";
+import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
   eventsCleanupSchedule,
@@ -82,6 +88,12 @@ export interface HandlerDeps {
   readonly email: EmailSettings;
   readonly push: PushSender;
   readonly texts: TextSender;
+  /** The synthetic order and reader payment on our test venue (M8-18); without it the check is off. */
+  readonly synthetic?: {
+    readonly pool: pg.Pool;
+    readonly config: SyntheticConfig;
+    readonly log?: (line: string) => void;
+  };
   /** Guest texts from each venue's subaccount (M2-09). */
   readonly venueTexts?: {
     readonly client: VenueTextClient;
@@ -99,6 +111,7 @@ export function makeHandlers({
   texts,
   venueTexts,
   stripe,
+  synthetic,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   const stripeEvents = stripe
     ? { [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client) }
@@ -141,6 +154,17 @@ export function makeHandlers({
               venueTexts.secretKey,
             ),
             [TEXT_TRIGGER_KIND]: makeTextTriggerHandler(venueTexts.settings),
+          }
+        : {}),
+      // The synthetic order and reader payment every 5 minutes (M8-18), at most one at a time per slot.
+      ...(synthetic
+        ? {
+            [SYNTHETIC_KIND]: makeSyntheticHandler(
+              synthetic.pool,
+              synthetic.config,
+              {},
+              synthetic.log,
+            ),
           }
         : {}),
       // Erasing a guest or a singer on request (M8-13): cards at Stripe, bodies at Twilio.
@@ -187,11 +211,14 @@ export function makeSweeps(
   texts: Pick<VenueTextSettings, "allowList"> = { allowList: null },
   stripe?: StripeClient,
   pager?: PagerDeps,
+  synthetic?: SyntheticConfig | null,
 ): Sweep[] {
   const s3 = makeS3();
   return [
     // Paging (M8-17): money at risk and burning targets page the on-call rota, escalating after 10 minutes.
     ...(pager ? [alertSweep(pool, pager, log)] : []),
+    // The synthetic check's 5-minute slots during the live venues' hours (M8-18).
+    ...(synthetic ? [syntheticSweep(pool, synthetic, log)] : []),
     deviceWatchSweep(pool, log),
     // Stripe and Twilio health for the staff banners (M8-01).
     vendorHealthSweep(pool, log),

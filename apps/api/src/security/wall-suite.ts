@@ -11,6 +11,7 @@ import { AUDIT_EXPORT_KIND } from "../jobs/audit-export.js";
 import { LICENSE_REMINDER_KIND } from "../licenses/licenses.js";
 import { RETENTION_KIND } from "../jobs/retention.js";
 import { ERASE_KIND } from "../jobs/erase.js";
+import { SYNTHETIC_KIND } from "../ops/synthetic.js";
 import { EVENTS_CLEANUP_KIND } from "../jobs/events-cleanup.js";
 import { IDEMPOTENCY_CLEANUP_KIND } from "../jobs/idempotency-cleanup.js";
 import { EMAIL_SEND_KIND } from "../jobs/send-email.js";
@@ -259,6 +260,10 @@ export type JobWallCase =
     };
 
 export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
+  [SYNTHETIC_KIND]: {
+    carries: "no venue-owned ids",
+    why: "an empty payload; it runs only at the configured test venue with its flag on, through the API as that venue's own device and people",
+  },
   [MENU_PDF_KIND]: {
     carries: "no venue-owned ids",
     why: "an empty payload: the venue comes from the job row, and the menu is read in its context",

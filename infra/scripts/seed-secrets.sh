@@ -22,3 +22,5 @@ put_if_empty rule-pack-signing-key "$(openssl genpkey -algorithm ed25519 2>/dev/
 put_if_empty stripe '{"secret_key":"sk_test_replace_me","publishable_key":"pk_test_replace_me","webhook_secret":"whsec_replace_me"}'
 put_if_empty smtp-url 'smtp://replace_me:replace_me@smtp.example.com:587'
 put_if_empty twilio '{"account_sid":"ACreplace_me","auth_token":"replace_me","from_number":"+15005550006"}'
+# The synthetic check (M8-18): off (a blank) until `synthetic:setup` prints the real value.
+put_if_empty synthetic-check ' '

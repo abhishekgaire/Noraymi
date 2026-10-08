@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { S3Client } from "@aws-sdk/client-s3";
 import { buildApp } from "../app.js";
@@ -66,12 +67,28 @@ describe("the venue wall", () => {
         settings: { publicApiUrl: null },
         secretKey: Buffer.alloc(32, 7),
       },
+      // The synthetic check (M8-18), configured for venue B: a job queued as venue A runs nothing.
+      synthetic: {
+        pool: world.owner,
+        config: {
+          api_url: "http://127.0.0.1:1",
+          venue_id: world.cast.venueB,
+          venue_slug: "b",
+          device_id: randomUUID(),
+          device_key: {},
+          membership_id: randomUUID(),
+          pin: "1234",
+          room_id: randomUUID(),
+          reader_id: randomUUID(),
+          variant_id: randomUUID(),
+        },
+      },
     });
     const { rows, findings } = await runJobWalls(world.owner, handlers, world.clock, world.cast, {
       push,
     });
     expect(findings, findings.map((f) => `${f.where}: ${f.why}`).join("\n")).toEqual([]);
-    expect(rows.length).toBe(13); // M8-09 added the license reminders, M8-12 the retention job, M8-13 the erase job
+    expect(rows.length).toBe(14); // M8-09 added the license reminders, M8-12 the retention job, M8-13 the erase job, M8-18 the synthetic check
     expect(venueClient.sent).toEqual([]);
   });
 });

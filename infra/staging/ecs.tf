@@ -89,7 +89,10 @@ resource "aws_ecs_task_definition" "worker" {
     command     = ["node", "dist/worker.js"]
     essential   = true
     environment = local.app_env
-    secrets     = local.app_secrets
+    # The synthetic check's device key and PIN (M8-18) reach the worker only.
+    secrets = concat(local.app_secrets, [
+      { name = "SYNTHETIC_CHECK", valueFrom = aws_secretsmanager_secret.app["synthetic-check"].arn },
+    ])
     logConfiguration = {
       logDriver = "awslogs"
       options   = { awslogs-group = aws_cloudwatch_log_group.app["worker"].name, awslogs-region = var.region, awslogs-stream-prefix = "worker" }
