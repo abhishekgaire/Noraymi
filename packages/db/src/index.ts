@@ -677,3 +677,4 @@ export {
   type ImportResult,
 } from "./import/load.js";
 export { publishPosLayout, PosLayoutRefused } from "./pos-layouts.js";
+export { pinDigitsFor } from "./import/load.js";

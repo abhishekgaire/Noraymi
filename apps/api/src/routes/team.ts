@@ -11,6 +11,7 @@ import {
   setPinVerifier,
   sha256Hex,
   type Queryable,
+  pinDigitsFor,
 } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import { businessDate } from "@west4/rules";
@@ -67,8 +68,8 @@ interface TeamRow {
   readonly invite_expires_at: string | null;
 }
 
-export const pinDigitsFor = (role: string): 4 | 6 =>
-  role === "owner" || role === "manager" ? 6 : 4;
+/** The PIN's length a role sets; shared with the team import (M9-05). */
+export { pinDigitsFor };
 
 export function newInviteToken(): { token: string; hash: string } {
   const token = randomBytes(32).toString("base64url");

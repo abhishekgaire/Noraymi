@@ -47,6 +47,14 @@ The menu goes in through the same save path as Admin → Menu, so the rule pack'
 
 **After it loads**, as after an Admin save: `menu.changed` goes out, the menu PDF renders again, and the bar's grid gets a new version starting at the next business date (nothing moves mid-shift). Buttons already on the grid stay where they are; each new bar item takes the first free slot of its section: the export's `pos_section`, or the section its category's name starts with (Beer, Soju, Cocktails, Shots, Spirits, Wine, Soft…, Bottles, Buckets). Favorites stay the owner's pick. An item with no section, or whose section is full, is listed (`not on the bar grid: …`) for the owner to place in Admin → Bar POS. If a draft layout is open in Admin → Bar POS, the import publishes nothing and says so; publish or discard the draft, then place the new items there.
 
+## The team (M9-05)
+
+The team imports as people and roles only. Each person becomes a user (or is linked to the user who already has that email) with an **invited** membership: their name, phone, email, role and language (English unless the export says Spanish), the PIN's length for their role (6 digits for owners and managers, 4 for everyone else, as an invite from Admin → Team), and no PIN and no badge. Each person chooses their own PIN on their own phone from their invite (M9-08), and gets a badge then if the venue uses them. Tip eligibility and occupation are left for the owner to set in Admin → Team, as for anyone invited there.
+
+- The role must be one of Owner, Manager, Bartender, Front desk and Staff (`owner`, `manager`, `bartender`, `front_desk`, `staff`). Map the old system's job titles onto them in the mapping's `values`; a title the mapping doesn't know stops the import, naming the row.
+- A file with a PIN, passcode or password column is refused whole, even when the mapping doesn't read it. Ask for the export again without it.
+- Someone already on the venue's team keeps their membership exactly as it is (role, PIN and all).
+
 ## Guests and their consents (M9-03)
 
 Guests belong to the one venue they're imported into; nothing is shared across venues. A phone number must be a +1 number: another country's number is left out of the guest (the guest is still imported) and listed in the report (`imported, listed: file:line …`), since we text only +1 numbers. Service texts go to the number the guest gave.
@@ -110,7 +118,7 @@ One mapping per source system and export layout. When the venue's export changes
 | `consents` | guest_ref, channel (sms, email), kind (texts, marketing) | legacy_ref, given_at, ip, revoked_at, revoked_via (keyword, staff, guest_page), source (the form it was given on), text_version (its wording) |
 | `nightly_totals` | business_date, net_sales | rooms, bar |
 
-What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a priced variant of its item, in its category (above); a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-05 adds the invites.
+What each kind becomes, today: a guest is a `guests` row (locale English when the export has none); a person is a user (linked to an existing user with the same email) with an **invited** membership in the role, no PIN and no badge; a menu row is a priced variant of its item, in its category (above); a booking is a `bookings` row with source `import`, its `legacy_ref`, and the deposit the old system took in `deposit_legacy_cents` (one still to come also gets its room, terms, payment and link, above); a consent is a `consents` row; a nightly total is a `legacy_nightly_totals` row. M9-08 sends the invites.
 
 ## West 4
 

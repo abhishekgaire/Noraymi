@@ -303,6 +303,10 @@ function chunks<T>(list: readonly T[], size: number): T[][] {
   return out;
 }
 
+/** The PIN's length a role sets (spec 02 · PINs): the same rule as an invite from Admin → Team. */
+export const pinDigitsFor = (role: string): 4 | 6 =>
+  role === "owner" || role === "manager" ? 6 : 4;
+
 const MENU_KINDS: ReadonlySet<Kind> = new Set(["menu", "modifiers", "packages"]);
 
 /** An item's own values: rows of one item must agree on them, and a re-run compares them. */
@@ -485,10 +489,14 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
                 [userId, x.name, x.email, x.phone],
               );
             }
+            // As an invite from Admin → Team: invited, the PIN's length for the role (6 digits for
+            // owners and managers, 4 for the rest) and no PIN, which the person chooses on their
+            // own phone from their invite (M9-08). No badge. Tip eligibility stays the owner's to
+            // set in Admin → Team, as for anyone invited there.
             await c.query(
-              `insert into memberships (id, venue_id, user_id, role, status, locale)
-               values ($1, $2, $3, $4, 'invited', coalesce($5, 'en'))`,
-              [membershipId, venue.id, userId, x.role, x.locale],
+              `insert into memberships (id, venue_id, user_id, role, status, pin_digits, locale)
+               values ($1, $2, $3, $4, 'invited', $5, coalesce($6, 'en'))`,
+              [membershipId, venue.id, userId, x.role, pinDigitsFor(x.role), x.locale],
             );
           }
           count("people", x, s);

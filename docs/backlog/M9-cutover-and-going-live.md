@@ -128,17 +128,21 @@ Definition of done: see CLAUDE.md.
 
 ### M9-05 · Import the team as people and roles only
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** S
 - **Depends on:** M9-01; M1-05 (memberships), M1-14 (roles), M1-31 (Admin → Team and languages)
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · PINs, Roles, Languages; [Data model](../spec/04-data-model.md) · `memberships`; screens [AdminDesk](../screens.md#admindesk) note 8, [N25](../screens.md#n25-set-your-pin)
 - **Build:** memberships with each person's name, phone, email, role (one of the five) and language, and no PIN and no badge. Tip eligibility is left for the owner to set in Admin → Team (M7-09). A file with a PIN column is refused. Each imported person gets their invite in M9-08.
 - **Acceptance:**
-  - [ ] No imported membership has a `pin_verifier` or a badge.
-  - [ ] A team file with a PIN column is refused.
-  - [ ] Every imported role is one of Owner, Manager, Bartender, Front desk and Staff.
+  - [x] No imported membership has a `pin_verifier` or a badge.
+  - [x] A team file with a PIN column is refused.
+  - [x] Every imported role is one of Owner, Manager, Bartender, Front desk and Staff.
+  - [ ] Works on West 4's real team export. Blocked: West 4's old system and its export files haven't been received; map its job titles onto the five roles and dry-run it when it arrives (M9-06).
 - **Tests:** an integration test of the team import; the refusal test.
 - **Notes:** The demo PINs in the seed are for staging only and never reach production.
+  - **Built (Oct 8, 2026):** most of it came with M9-01 (the `people` step: a user, linked by email when one exists, and an invited membership with name, phone, email, role and language; the PIN-column refusal). This ticket adds the PIN's length for the role (`pin_digits`: 6 for owners and managers, 4 for the rest), set exactly as an invite from Admin → Team does (`pinDigitsFor`, now shared from `@west4/db`), so the person's own PIN screen (N25) knows how many digits to ask for. Still no PIN and no badge. Runbook: docs/runbooks/import.md · The team.
+  - **Tests:** `packages/db/src/import/team.int.test.ts` (four people in four roles with their phones, emails and languages, invited with no PIN or badge, every membership the run inserted checked through its audit row; a PIN column refused before anything loads, in another spelling too and when the mapping doesn't read it; an unknown job title or role refused; someone already on the team left untouched, PIN and all).
+  - **Cautious default:** tip eligibility isn't set by the import; the membership gets the same default as an invite from Admin → Team, and the owner sets it there (M7-09). Invites go out in M9-08.
 
 ### M9-06 · Run the import dry run and prove nothing is lost
 
