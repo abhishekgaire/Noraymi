@@ -12,6 +12,7 @@ import {
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { LINK_DAYS_AFTER } from "../bookings/online.js";
+import { linkedBooking, manageView } from "../bookings/manage.js";
 import { ApiError } from "../http/errors.js";
 import { payAnotherWay } from "../payments/bill-pay.js";
 import { guestBill } from "../rooms/guest-bill.js";
@@ -28,7 +29,7 @@ import { webReceiptLink, type ReceiptDeps } from "../receipts/send.js";
 /**
  * Paying the bill from a guest's own phone (M4-16; screens N5; spec 08 · Guest room, Bookings):
  *   POST /v1/public/room-session/pay-link   "Pay another way": a payment-page link for the amount due
- *   GET  /v1/public/bookings/{token}        the booking link: the booking, and its bill once presented
+ *   GET  /v1/public/bookings/{token}        the booking link: the booking, its manage view (M5-11), and its bill once presented
  *   POST /v1/public/bookings/{token}/pay-link   the same "Pay another way" from the booking link
  *   POST /v1/public/bookings/{token}/cash       "Pay cash to staff" from the booking link
  *   POST /v1/public/room-session/payments/{p}/confirm, /v1/public/bookings/{token}/payments/{p}/confirm
@@ -219,10 +220,14 @@ export function billRoutes(
         )
       ).rows[0];
       if (!b) throw notFound();
+      const now = options.clock.now();
+      const linked = await linkedBooking(c, venueId, hash, now);
       return {
         venueId,
         booking: b,
         bill: b.check_id ? await guestBill(c, venueId, b.check_id) : null,
+        // The manage page (M5-11): the booking's slot, deposit, cut-off and what it can still change.
+        manage: linked ? await manageView(c, venueId, linked, now) : null,
       };
     });
   }
@@ -237,7 +242,7 @@ export function billRoutes(
     "/v1/public/bookings/:token",
     { config: tokenConfig },
     async (request) => {
-      const { venueId, booking: b, bill: found } = await booking(request.params.token);
+      const { venueId, booking: b, bill: found, manage } = await booking(request.params.token);
       const receipts = options.receipts;
       const bill =
         found?.status === "paid" && receipts
@@ -257,6 +262,7 @@ export function billRoutes(
         starts_at: b.starts_at,
         status: b.status,
         bill,
+        manage,
       };
     },
   );

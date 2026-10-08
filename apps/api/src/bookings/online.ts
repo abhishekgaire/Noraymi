@@ -61,7 +61,7 @@ interface Night {
   readonly wording: "plusTaxAndGratuity" | "allIn";
 }
 
-async function nightFacts(
+export async function nightFacts(
   c: Queryable,
   venueId: string,
   now: Temporal.Instant,

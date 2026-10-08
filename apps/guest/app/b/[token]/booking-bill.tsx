@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { t } from "@west4/shared";
 import { YourBill, type GuestBill } from "../../bill/your-bill";
+import { Manage, type ManageView } from "./manage";
 
 export interface BookingLink {
   readonly venue_name: string;
@@ -11,6 +12,8 @@ export interface BookingLink {
   readonly starts_at: string;
   readonly status: string;
   readonly bill: GuestBill | null;
+  /** M5-11: the manage page's view, while the link works. */
+  readonly manage: ManageView | null;
 }
 
 /** How often the booking link reads the bill again, so payments show as they land. */
@@ -54,6 +57,13 @@ export function BookingBill({ token, initial }: { token: string; initial: Bookin
             if (done.bill) setLink({ ...link, bill: done.bill });
             return done.status;
           }}
+        />
+      ) : link.manage && link.manage.status === "confirmed" ? (
+        <Manage
+          key={JSON.stringify(link.manage)}
+          token={token}
+          initial={link.manage}
+          onChanged={(manage) => setLink({ ...link, manage, party_size: manage.party_size })}
         />
       ) : (
         <p role="status">{t("en", "bookingLink.noBill")}</p>

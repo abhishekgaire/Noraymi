@@ -450,26 +450,51 @@ export async function applyDeposits(
   venueId: string,
   input: { bookingId: string; checkId: string },
 ): Promise<number> {
-  const r = await c.query<{ id: string; amount_cents: string }>(
-    `select p.id, p.amount_cents from payments p
-      where p.venue_id = $1 and p.booking_id = $2 and p.status = 'captured' and p.amount_cents > 0
+  const r = await c.query<{ id: string }>(
+    `select p.id from payments p
+      where p.venue_id = $1 and p.booking_id = $2
         and not exists (select 1 from payment_allocations a where a.venue_id = p.venue_id and a.payment_id = p.id
-                         and a.state <> 'released')
-      order by p.created_at, p.id`,
+                         and a.state <> 'released')`,
     [venueId, input.bookingId],
   );
+  const free = new Set(r.rows.map((x) => x.id));
   let applied = 0;
-  for (const p of r.rows) {
+  // A deposit partly refunded before check-in (M5-11: a smaller party before the cut-off) applies what's left.
+  for (const p of await heldDeposits(c, venueId, input.bookingId)) {
+    if (!free.has(p.payment_id) || p.held_cents <= 0) continue;
     await allocate(c, venueId, {
-      paymentId: p.id,
+      paymentId: p.payment_id,
       checkId: input.checkId,
-      amountCents: Number(p.amount_cents),
+      amountCents: p.held_cents,
       state: "captured",
       followsLines: true,
     });
-    applied += Number(p.amount_cents);
+    applied += p.held_cents;
   }
   return applied;
+}
+
+/**
+ * What a booking's guest holds with us as a deposit (M5-11; Money rules 11): each captured (or partly
+ * refunded) payment of the booking less its refunds made or on their way, oldest first.
+ */
+export async function heldDeposits(
+  c: Queryable,
+  venueId: string,
+  bookingId: string,
+): Promise<{ payment_id: string; method: string; held_cents: number }[]> {
+  const r = await c.query<{ payment_id: string; method: string; held_cents: string }>(
+    `select p.id as payment_id, p.method,
+            (p.amount_cents - coalesce((select sum(f.amount_cents) from refunds f
+                                         where f.venue_id = p.venue_id and f.payment_id = p.id
+                                           and f.status in ('pending', 'succeeded')), 0))::text as held_cents
+       from payments p
+      where p.venue_id = $1 and p.booking_id = $2 and p.status in ('captured', 'partly_refunded')
+        and p.amount_cents > 0
+      order by p.created_at, p.id`,
+    [venueId, bookingId],
+  );
+  return r.rows.map((x) => ({ ...x, held_cents: Number(x.held_cents) }));
 }
 
 /** The deposits on a check: each deposit payment's live allocation there (captured, following the lines). */

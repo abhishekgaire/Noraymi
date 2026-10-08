@@ -578,3 +578,30 @@ body {
 .book-page .terms .cutoff {
   font-weight: 700;
 }
+
+/* The manage page (M5-11): the change panels and the party stepper. */
+.manage .manage-actions,
+.manage .manage-preview,
+.manage .manage-party,
+.manage .manage-time {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.manage .stepper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.manage .stepper button {
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.25rem;
+}
+.manage select,
+.manage input[type="date"] {
+  display: block;
+  min-height: 44px;
+  width: 100%;
+}

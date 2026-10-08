@@ -42,6 +42,8 @@ export {
 export type { AssignmentRefusal, BlockSpan, RoomForAssignment } from "./assignment.js";
 export { bookingGrid, resolveStart, zoneName, GRID_STEP_MIN } from "./booking-grid.js";
 export { cutoffWords, refundCutoffAt } from "./booking-cutoff.js";
+export { changedCutoff, depositChange } from "./deposit-change.js";
+export type { DepositChange } from "./deposit-change.js";
 export type { GridSlot, StartRefusal } from "./booking-grid.js";
 export { sessionClock, STAY_ON_STOPS_BEFORE_CLOSE_MIN } from "./session-clock.js";
 export type { ClockSegment, SessionClock, Tile } from "./session-clock.js";

@@ -460,6 +460,7 @@ export {
   setPaymentIntent,
   setPaymentCard,
   applyDeposits,
+  heldDeposits,
   depositsOn,
   releaseAllocation,
 } from "./payments.js";

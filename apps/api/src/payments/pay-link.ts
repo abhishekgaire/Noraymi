@@ -274,8 +274,14 @@ export async function startPayLink(
     const link = await payLinkByHash(c, venueId, hash, true);
     if (!link?.payment_id) throw notFound();
     const payment = (await paymentById(c, venueId, link.payment_id))!;
-    if (link.purpose === "deposit" && link.booking_id) {
-      const booking = await depositBooking(c, venueId, link.booking_id, now);
+    const booking =
+      link.purpose === "deposit" && link.booking_id
+        ? await depositBooking(c, venueId, link.booking_id, now)
+        : null;
+    // A difference after a change (M5-11) pays under the policy the booking already accepted.
+    if (booking?.status === "confirmed" && link.booking_id) {
+      // nothing to record: the terms were accepted when the booking was paid for
+    } else if (link.purpose === "deposit" && link.booking_id) {
       if (!booking || booking.lapsed || booking.status !== "pending")
         throw new ApiError("invalid_request", "this hold has run out: pick a time again", {
           details: { reason: "hold_over" },

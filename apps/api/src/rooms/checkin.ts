@@ -6,6 +6,7 @@ import {
   bookingById,
   emitEvent,
   applyDeposits,
+  heldDeposits,
   findOrCreateGuest,
   insertCheck,
   listRooms,
@@ -111,15 +112,12 @@ export async function checkInPreview(
     : null;
   // The deposit the sheet applies (M4-09): the booking's captured deposit payments, once they exist
   // as payments (online booking, M5; the seed's, M4-10); until then the booking's own figure.
-  const paid = booking
-    ? (
-        await c.query<{ cents: string | null; n: number }>(
-          `select sum(amount_cents)::text as cents, count(*)::int as n from payments
-            where venue_id = $1 and booking_id = $2 and status = 'captured'`,
-          [venueId, booking.id],
-        )
-      ).rows[0]
-    : undefined;
+  // A deposit partly refunded (M5-11: a smaller party before the cut-off) counts what's left.
+  const held = booking ? await heldDeposits(c, venueId, booking.id) : [];
+  const paid =
+    held.length > 0
+      ? { cents: String(held.reduce((s, p) => s + p.held_cents, 0)), n: held.length }
+      : undefined;
   return {
     booking_id: booking?.id ?? null,
     guest_name: booking?.guest_name ?? null,

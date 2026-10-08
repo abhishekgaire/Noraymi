@@ -22,6 +22,7 @@ import {
   onlineAvailability,
   saveDetails,
 } from "../bookings/online.js";
+import { changeBody, changeBooking, differencePayLink, linkedBooking } from "../bookings/manage.js";
 import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
 
 /**
@@ -31,7 +32,10 @@ import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
  *   GET  /v1/public/bookings/{token}/hold      the held booking, its countdown and its exact price
  *   POST /v1/public/bookings/{token}/more-time 10 more minutes, ten times
  *   POST /v1/public/bookings/{token}/details   { name, phone, email, marketing } (M5-08: the Details step)
- *   POST /v1/public/bookings/{token}/pay       Terms → Payment: a pay link to the booking's one deposit payment (M5-09)
+ *   POST /v1/public/bookings/{token}/pay       Terms → Payment: a pay link to the booking's one deposit payment (M5-09),
+ *                                              or, once confirmed, to a difference a change left owing (M5-11)
+ *   PATCH /v1/public/bookings/{token}          the manage page: { party_size?, business_date?, time?, offset?,
+ *                                              running_late?, accept_keep?, preview? } (M5-11)
  * The CAPTCHA and daily limits join POST with M5-05 (blocked on M2-27). The hold and more-time
  * routes are the cautious default (the API table names only availability and POST bookings).
  */
@@ -197,8 +201,31 @@ export function onlineBookingRoutes(
       if (!options.payAppUrl)
         throw new ApiError("invalid_request", "the payment page isn't set up here (PAY_APP_URL)");
       const payAppUrl = options.payAppUrl;
+      const now = options.clock.now();
+      return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
+        // A confirmed booking that owes a difference after a change (M5-11) pays it on the payment page.
+        const linked = await linkedBooking(c, venueId, hash, now);
+        if (linked?.status === "confirmed")
+          return differencePayLink(c, venueId, linked, now, payAppUrl);
+        return depositPayLink(c, venueId, hash, now, payAppUrl);
+      });
+    },
+  );
+
+  // The manage page's changes (M5-11): time, date, party size, running late; `preview` writes nothing.
+  app.patch<{ Params: { token: string }; Body: unknown }>(
+    "/v1/public/bookings/:token",
+    { config: payRoute },
+    async (request) => {
+      const parsed = changeBody.safeParse(request.body ?? {});
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "send { party_size?, business_date?, time?, offset?, running_late?, accept_keep?, preview? }",
+        );
+      const { venueId, hash } = await byToken(request.params.token);
       return withVenue(options.pool, { venueId, requestId: request.requestId }, (c) =>
-        depositPayLink(c, venueId, hash, options.clock.now(), payAppUrl),
+        changeBooking(c, venueId, hash, options.clock.now(), parsed.data, options.payAppUrl),
       );
     },
   );

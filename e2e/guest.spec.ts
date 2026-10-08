@@ -1132,6 +1132,62 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
   );
 });
 
+/**
+ * The manage page (M5-11) on Jae's seed booking at 10:41 PM: 5 guests, $50.00 paid, past the Thu
+ * 11:00 PM cut-off. 5 to 6 shows the $60.00 deposit and sends him to pay $10.00 on the payment page;
+ * Running late holds the room until 11:15 PM.
+ */
+test("Manage: Jae goes from 5 to 6 guests and pays $10.00, then says he's running late", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
+    cwd: "apps/api",
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    },
+  });
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  const token = randomBytes(16).toString("base64url");
+  try {
+    await db.query(
+      `update bookings set manage_token_hash = $1
+        where id = (select row_id from seed_ids where slug = 'bk_jae')`,
+      [createHash("sha256").update(token).digest("hex")],
+    );
+  } finally {
+    await db.end();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/b/${token}`);
+  const manage = page.getByRole("region", { name: "Your booking" });
+  await expect(manage).toContainText("A small room · Fri, Sep 25 · 11 PM · 5 guests");
+  await expect(manage).toContainText("Deposit $50.00 paid");
+  await expect(manage).toContainText("You're past the refund cut-off (Thu 11:00 PM)");
+
+  await manage.getByRole("button", { name: "Change party size" }).click();
+  await manage.getByRole("button", { name: "More guests" }).click();
+  await manage.getByRole("button", { name: "Update to 6 guests" }).click();
+  await expect(manage).toContainText("Your deposit becomes $60.00");
+  await expect(manage).toContainText("You pay the $10.00 difference on the next page");
+  await manage.getByRole("button", { name: "Confirm and pay $10.00" }).click();
+  await page.waitForURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("$10.00");
+
+  await page.goto(`/b/${token}`);
+  await expect(manage).toContainText("Pay the $10.00 difference");
+  await manage.getByRole("button", { name: "Running late?" }).click();
+  await expect(manage).toContainText(
+    "We'll hold your room until 11:15 PM. That's our 15-minute grace.",
+  );
+});
+
 test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 AM EST", async ({
   page,
 }) => {

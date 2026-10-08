@@ -302,7 +302,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-11 · Change a booking on the manage page
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-10; M2 (room assignment, running late)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) steps 4 and 5; [Money rules](../spec/05-money-rules.md) rules 3 and 11; [API](../spec/08-api.md) (`GET` and `PATCH /v1/public/bookings/{token}`); [screens: Manage](../screens.md#manage)
@@ -313,12 +313,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Running late: "We'll hold your room until … That's our 15-minute grace." sets `running_late_until` and shows on the Board.
   - Big parties (20 or more) follow the big-party deposit.
 - **Acceptance:**
-  - [ ] Before the cut-off, Jae goes from 5 to 6 guests: the deposit becomes $60.00 and he pays $10.00 on the payment page.
-  - [ ] Before the cut-off, he goes from 6 to 3: the deposit becomes $40.00 (Friday bills 4) and $20.00 is refunded; after the cut-off, the $60.00 stays and the page says so.
-  - [ ] Moving Jae to Saturday keeps his deposit, gives him a small room free then, and keeps his cut-off at Thu 11:00 PM.
-  - [ ] Running late reads "We'll hold your room until 11:15 PM", and the Board shows the booking as late.
+  - [x] Before the cut-off, Jae goes from 5 to 6 guests: the deposit becomes $60.00 and he pays $10.00 on the payment page.
+  - [x] Before the cut-off, he goes from 6 to 3: the deposit becomes $40.00 (Friday bills 4) and $20.00 is refunded; after the cut-off, the $60.00 stays and the page says so.
+  - [x] Moving Jae to Saturday keeps his deposit, gives him a small room free then, and keeps his cut-off at Thu 11:00 PM.
+  - [x] Running late reads "We'll hold your room until 11:15 PM", and the Board shows the booking as late.
 - **Tests:** the money-cases group `deposits`; sandbox integration for the difference and the refund; end-to-end.
 - **Notes:** The canvas shows Jae as 7 guests at 10:00 PM for $70 ([Manage note 1](../screens.md#manage)), stops the stepper at 4 ([Manage note 2](../screens.md#manage)) and changes the time only on the same night ([Manage note 3](../screens.md#manage)). The policy's refund of an excess isn't a staff refund, so it needs no approval.
+  - Built (M5-11): `PATCH /v1/public/bookings/{token}` (`apps/api/src/bookings/manage.ts`) with `preview`, and the manage view on `GET /v1/public/bookings/{token}` (`manage`); the page is `apps/guest/app/b/[token]/manage.tsx`. The rule is `depositChange` and `changedCutoff` in `packages/rules/src/deposit-change.ts`, tested from the `deposits` group. Tests: `apps/api/src/routes/booking-manage.int.test.ts` (fake Stripe for the difference; the refund is checked as an automatic `refunds` row and its `refund.run` job) and the e2e "Manage: Jae goes from 5 to 6 guests…".
+  - The difference is its own `card_online` payment with a `deposit` pay link to the booking (one PaymentIntent per difference, reused on retries); `POST /v1/public/bookings/{token}/pay` gives a new link to it while it's owed. It pays under the policy the booking already accepted, so the payment page records no new acceptance for it.
+  - Cautious defaults: the party change applies at Confirm and the difference is owed until paid (`owed_cents`), so an unpaid difference leaves less deposit held, never a bigger bill; a difference already sent to Stripe must be paid before another change (`pay_difference_first`); a smaller party's excess is refunded newest card payment first, and an imported deposit paid through the old system can't be refunded here (`call_venue`); with deposits off or in cardHold mode a change leaves the deposit alone; the "rest is kept" warning shows whenever the new deposit is below what's held after the cut-off (the exact keep is worked out at check-in by rule 11).
+  - Fixed on the way: check-in now applies a partly refunded deposit's remainder (`heldDeposits`), where it used to skip any payment no longer `captured`.
+  - Cancel is M5-12's (`DELETE`); the page shows no Cancel button yet.
 
 ### M5-12 · Cancel by the refund cut-off, charge no-shows, and let the venue cancel
 
