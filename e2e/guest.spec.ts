@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
 import { API, DB, esc, GUEST, PAY } from "./stack.js";
+import { testKitchenMenu } from "./kitchen.js";
 
 // Put the shared clock back for whatever spec runs next, in this project or another.
 test.afterEach(async () => {
@@ -401,6 +402,133 @@ test("the room page on a phone: order 2 × Margarita · Peach and follow it in t
     }
     await page.context().close();
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Food from the room (K-04; Kitchen and food · Ordering food), with the test kitchen menu laid over
+ * the seed: Room 9's page shows a Food heading with TEST Wings then TEST Sides, and moving or
+ * renaming a category in the menu changes them; wings with an allergy note and a Bud Light go as
+ * two cards, Drinks and Food, each "Sent to the bar · you can still cancel"; Accept prints the
+ * food in the kitchen at once with the note boxed and moves only the Food card; the room tablet
+ * shows the same Food heading.
+ */
+test("food on the room page and tablet: a Food heading, an allergy note, and Drinks and Food cards", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const kitchen = await testKitchenMenu(db);
+  try {
+    const token = randomBytes(24).toString("base64url");
+    const maya = (
+      await db.query<{ user_id: string; id: string; venue_id: string }>(
+        "select m.user_id, m.id, m.venue_id from memberships m join users u on u.id = m.user_id where u.name like 'Maya%'",
+      )
+    ).rows[0]!;
+    await db.query(
+      `insert into auth_sessions (principal, user_id, membership_id, assurance, client, token_hash, started_at, last_seen_at, expires_at)
+       values ('staff', $1, $2, 'pin', 'web', $3, '2026-09-25T22:41:00-04:00', '2026-09-25T22:41:00-04:00', '2026-09-26T06:00:00-04:00')`,
+      [maya.user_id, maya.id, createHash("sha256").update(token).digest("hex")],
+    );
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    const page = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await page.goto(`/v/west4karaoke/room/${room9}`);
+    await page.getByLabel("Room code").fill("KX4M7");
+    await page.getByRole("button", { name: "Join" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
+
+    const foodSections = () =>
+      page.getByRole("region", { name: "Food" }).locator(".menu-section h3").allTextContents();
+    await expect(page.getByRole("heading", { level: 2, name: "Food" })).toBeVisible({
+      timeout: 15_000,
+    });
+    expect(await foodSections()).toEqual(["TEST Wings", "TEST Sides"]);
+    // Moved up and renamed in the menu (Admin → Menu writes the same columns, K-02): the page follows.
+    await db.query(
+      "update menu_categories set name = 'TEST Sides and more', sort = 899 where name = 'TEST Sides'",
+    );
+    await page.reload();
+    await expect
+      .poll(foodSections, { timeout: 15_000 })
+      .toEqual(["TEST Sides and more", "TEST Wings"]);
+    // Food never sits under the drinks' Menu heading.
+    await expect(
+      page.getByRole("region", { name: "Menu" }).getByRole("button", { name: /TEST wings/ }),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "TEST wings · $12.00" }).click();
+    await page.getByRole("button", { name: "Bud Light · $8.00" }).click();
+    const cart = page.getByRole("region", { name: "Your order · not sent yet" });
+    await cart
+      .getByLabel("Allergies or notes for the kitchen · TEST wings")
+      .fill("TEST no peanuts");
+    await cart.getByLabel("This is an allergy · TEST wings").check();
+    // A drink has no note for the kitchen.
+    await expect(cart.getByLabel(/Allergies or notes for the kitchen · Bud Light/)).toHaveCount(0);
+    await cart.getByRole("button", { name: "Send 2 to the bar · $20.00" }).click();
+
+    const drinks = page.locator(".order", { hasText: "1 × Bud Light" });
+    const meal = page.locator(".order", { hasText: "1 × TEST wings" });
+    await expect(drinks.getByRole("heading", { name: "Drinks" })).toBeVisible();
+    await expect(meal.getByRole("heading", { name: "Food" })).toBeVisible();
+    for (const card of [drinks, meal])
+      await expect(card.locator(".status")).toHaveText("Sent to the bar · you can still cancel");
+
+    const mealId = (
+      await db.query<{ id: string }>(
+        "select id from orders where source = 'room' and station = 'kitchen' order by placed_at desc limit 1",
+      )
+    ).rows[0]!.id;
+    expect(
+      (
+        await request.post(`${API}/v1/venues/${maya.venue_id}/orders/${mealId}/accept`, {
+          headers: { authorization: `Bearer ${token}` },
+          data: {},
+        })
+      ).status(),
+    ).toBe(200);
+    await expect(meal.locator(".status")).toHaveText("Being made · on your tab", {
+      timeout: 15_000,
+    });
+    await expect(drinks.locator(".status")).toHaveText("Sent to the bar · you can still cancel");
+    const job = await db.query<{ station: string; payload: { lines: unknown[] } }>(
+      "select station, payload from print_jobs where order_id = $1",
+      [mealId],
+    );
+    expect(job.rows[0]!.station).toBe("kitchen");
+    expect(job.rows[0]!.payload.lines).toEqual([
+      expect.objectContaining({ kitchen_note: "TEST no peanuts", allergy: true }),
+    ]);
+    await page.context().close();
+
+    // The room tablet shows the same Food heading and sections.
+    const code = randomBytes(4).toString("hex").toUpperCase();
+    await db.query(
+      `insert into device_pairing_codes (venue_id, code_hash, kind, name, room_id, expires_at)
+       select r.venue_id, $1, 'room_tablet', 'Tablet · ' || r.name, r.id, now() + interval '1 hour'
+         from rooms r where r.name = 'Room 9'`,
+      [createHash("sha256").update(code).digest("hex")],
+    );
+    const tablet = await (
+      await browser.newContext({ viewport: { width: 1024, height: 768 } })
+    ).newPage();
+    await tablet.goto("/tablet");
+    await tablet.getByLabel("Pairing code from Admin → Devices").fill(code);
+    await tablet.getByRole("button", { name: "Pair" }).click();
+    await expect(tablet.getByRole("heading", { level: 2, name: "Food" })).toBeVisible();
+    await expect(
+      tablet.getByRole("region", { name: "Food" }).locator(".menu-section h3"),
+    ).toHaveText(["TEST Sides and more", "TEST Wings"]);
+    await tablet.context().close();
+  } finally {
+    await kitchen.restore();
     await db.end();
   }
 });

@@ -99,7 +99,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-04 · Order food from the room page and the room tablet, with the allergy note
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K-02, K-03; M3-09, M3-11, M3-12
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food
@@ -108,14 +108,19 @@ Definition of done: see CLAUDE.md.
   - Same again includes food.
   - After 4 AM, a food order keeps ringing while unaccepted alcohol is cancelled.
 - **Acceptance:**
-  - [ ] A guest's mixed basket shows as two cards that each move through the guest words.
-  - [ ] The room page and the room tablet show a "Food" heading with each food category as its own section, in Admin → Menu's order; renaming or reordering a category there changes them.
-  - [ ] Accept prints the food in the kitchen at once with each line's note, an allergy note boxed, and no Send to kitchen step.
-  - [ ] The guest can cancel the food card while it's ringing, and nothing is charged.
-  - [ ] At 4:00 AM on the simulated clock, the drinks card is cancelled as `alcohol_closed` and the food card keeps ringing.
-  - [ ] A food-only order shows no ID status.
+  - [x] A guest's mixed basket shows as two cards that each move through the guest words.
+  - [x] The room page and the room tablet show a "Food" heading with each food category as its own section, in Admin → Menu's order; renaming or reordering a category there changes them.
+  - [x] Accept prints the food in the kitchen at once with each line's note, an allergy note boxed, and no Send to kitchen step.
+  - [x] The guest can cancel the food card while it's ringing, and nothing is charged.
+  - [x] At 4:00 AM on the simulated clock, the drinks card is cancelled as `alcohol_closed` and the food card keeps ringing.
+  - [x] A food-only order shows no ID status.
 - **Tests:** end-to-end tests from a fresh seed with the test kitchen menu; the accessibility checks on the room page and tablet.
-- **Notes:** The allergy field's wording and the note's retention are open with the lawyer.
+- **Notes:** The allergy field's wording and the note's retention are open with the lawyer: built with the draft words ("Allergies or notes for the kitchen", "This is an allergy") and the note kept with the order (order_items), never on a check line, a text or the guest's record (tested).
+  - API: the guest order line takes `kitchen_note` (up to 200 characters) and `kitchen_note_allergy`; a note on a drink is refused (`kitchen_note_not_food`), and "This is an allergy" counts only with a note. The guest order view now carries `station`. Same again copies food without its notes. The 4 AM stop already cancelled only alcohol orders, so the split food order keeps ringing (tested).
+  - Room page and tablet (`apps/guest/app/room/room.tsx`, which the tablet shares): drink categories stay under Menu; food categories go under a Food heading in the menu's order; each food line in the basket has the note field and the allergy checkbox; each order card is titled Drinks or Food while the menu has food (West 4's page is unchanged). Spanish strings are in the catalog, as for the rest of the room page, which still renders English.
+  - Bar orders: a food order shows no ID status, and its card shows each line's note ("ALLERGY: …" for an allergy).
+  - Left for later: the "Kitchen" chip on the bar's ringing cards (spec 16 · At the bar) isn't in any K ticket's Build; the allergy notice on the menus is K-08.
+  - Tests: `routes/kitchen-guest.int.test.ts`; e2e "food on the room page and tablet" (guest.spec.ts) and the food accessibility check (a11y-guest.spec.ts), both with the test kitchen menu in `e2e/kitchen.ts`, which puts the module back after.
 
 ### K-05 · Add food from the bar POS, bar tabs, quick sale and room tabs, and Send to kitchen
 

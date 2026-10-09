@@ -1216,6 +1216,11 @@ export const en = {
   "guestRoom.ended": "This room's session has ended.",
   // The room page: the menu, the cart and orders (M3-09).
   "guestRoom.menu": "Menu",
+  "guestRoom.food": "Food",
+  "guestRoom.card.drinks": "Drinks",
+  "guestRoom.card.food": "Food",
+  "guestRoom.kitchenNote": "Allergies or notes for the kitchen",
+  "guestRoom.kitchenNote.allergy": "This is an allergy",
   "guestRoom.menu.loading": "Loading the menu…",
   "guestRoom.out": "86'd tonight",
   "guestRoom.which": "Which one? The bar gets it on the ticket.",
@@ -3084,6 +3089,7 @@ export const en = {
   "kitchen.admin.afterOutage": "Print AFTER OUTAGE on replayed food",
   "kitchen.admin.afterOutage.hint":
     "Food taken offline prints with “AFTER OUTAGE · check with the kitchen before making”, in case staff handed the kitchen a written order.",
+  "kitchen.note.allergy": "ALLERGY: {note}",
   "kitchen.ticket.failed": "Kitchen ticket didn't print",
   "kitchen.ticket.failedRoom": "{room} · Kitchen ticket didn't print",
   "kitchen.reprint.kitchen": "Kitchen printer",

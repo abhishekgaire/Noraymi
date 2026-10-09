@@ -6,6 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
 import { API, DB, esc, PAY } from "./stack.js";
+import { testKitchenMenu } from "./kitchen.js";
 
 /**
  * Accessibility checks for the guest web (M3-24; spec 12 · 14): WCAG 2.2 AA,
@@ -204,6 +205,58 @@ test("the room tablet passes, available and in a session", async ({ page }) => {
       await tablet.context().close();
     }
   } finally {
+    await c.end();
+  }
+});
+
+test("food on the room page and the tablet passes: the Food heading, a note and two cards", async ({
+  page,
+}) => {
+  const c = db();
+  await c.connect();
+  const kitchen = await testKitchenMenu(c);
+  try {
+    const room9 = (await c.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/v/west4karaoke/room/${room9}`);
+    await page.getByLabel("Room code").fill("KX4M7");
+    await page.getByRole("button", { name: "Join" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Food" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole("button", { name: "TEST wings · $12.00" }).click();
+    const cart = page.getByRole("region", { name: "Your order · not sent yet" });
+    await cart
+      .getByLabel("Allergies or notes for the kitchen · TEST wings")
+      .fill("TEST no peanuts");
+    await cart.getByLabel("This is an allergy · TEST wings").check();
+    expect(await violations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Bud Light · $8.00" }).click();
+    await cart.getByRole("button", { name: "Send 2 to the bar · $20.00" }).click();
+    await expect(page.locator(".order").getByRole("heading", { name: "Food" })).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+
+    const code = randomBytes(4).toString("hex").toUpperCase();
+    await c.query(
+      `insert into device_pairing_codes (venue_id, code_hash, kind, name, room_id, expires_at)
+       select r.venue_id, $1, 'room_tablet', 'Tablet · ' || r.name, r.id, now() + interval '1 hour' from rooms r where r.name = 'Room 9'`,
+      [createHash("sha256").update(code).digest("hex")],
+    );
+    const tablet = await (
+      await page
+        .context()
+        .browser()!
+        .newContext({ viewport: { width: 1024, height: 768 } })
+    ).newPage();
+    await tablet.goto("/tablet");
+    await tablet.getByLabel("Pairing code from Admin → Devices").fill(code);
+    await tablet.getByRole("button", { name: "Pair" }).click();
+    await expect(tablet.getByRole("heading", { level: 2, name: "Food" })).toBeVisible();
+    expect(await violations(tablet)).toEqual([]);
+    await tablet.context().close();
+  } finally {
+    await kitchen.restore();
     await c.end();
   }
 });

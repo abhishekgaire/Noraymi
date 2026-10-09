@@ -97,6 +97,8 @@ interface Item {
 interface Category {
   readonly id: string;
   readonly name: string;
+  /** A food category (K-02): shown under the Food heading, in Admin → Menu's order (K-04). */
+  readonly food?: boolean;
   readonly items: readonly Item[];
 }
 interface CartLine {
@@ -105,6 +107,10 @@ interface CartLine {
   readonly qty: number;
   readonly label: string;
   readonly unit_cents: number;
+  /** A food line (K-04): it can carry a note for the kitchen, boxed on the ticket when it's an allergy. */
+  readonly food: boolean;
+  readonly kitchen_note: string;
+  readonly allergy: boolean;
 }
 interface GuestOrder {
   readonly id: string;
@@ -113,7 +119,12 @@ interface GuestOrder {
   readonly decline_reason: string | null;
   readonly items: readonly { qty: number; name: string; options: readonly string[] }[];
   readonly can_cancel: boolean;
+  /** One order per station (K-02): the guest's "Drinks" and "Food" cards. */
+  readonly station?: string;
 }
+
+/** A note for the kitchen is at most 200 characters (Kitchen and food · Ordering food). */
+const KITCHEN_NOTE_MAX = 200;
 
 const REFRESH_MS = 10_000;
 
@@ -149,6 +160,10 @@ export function RoomPage({
   // The private help sheet (M8-08; screens N20): closed, asking, sent, or failed.
   const [help, setHelp] = useState<"closed" | "asking" | "sent" | "failed">("closed");
   const [cart, setCart] = useState<readonly CartLine[]>([]);
+  // The menu's food items (K-04): their basket lines take a note for the kitchen.
+  const foodItems = new Set(
+    (menu ?? []).filter((c) => c.food).flatMap((c) => c.items.map((i) => i.id)),
+  );
   const [choosing, setChoosing] = useState<{
     item: Item;
     variant: Variant;
@@ -238,6 +253,7 @@ export function RoomPage({
       ...options.map((o) => o.name),
     ].join(" · ");
     const unit = variant.price_cents + options.reduce((s, o) => s + o.price_delta_cents, 0);
+    const food = foodItems.has(item.id);
     setCart((lines) => {
       const same = lines.findIndex(
         (l) => l.variant_id === variant.id && l.option_ids.join() === [...optionIds].sort().join(),
@@ -252,6 +268,9 @@ export function RoomPage({
               qty: 1,
               label,
               unit_cents: unit,
+              food,
+              kitchen_note: "",
+              allergy: false,
             },
           ];
     });
@@ -269,6 +288,8 @@ export function RoomPage({
       setChoosing({ item, variant, picks });
     } else add(item, variant, defaults);
   };
+  const setNote = (i: number, note: Partial<Pick<CartLine, "kitchen_note" | "allergy">>) =>
+    setCart((lines) => lines.map((l, j) => (j === i ? { ...l, ...note } : l)));
   const setQty = (i: number, qty: number) =>
     setCart((lines) =>
       qty <= 0
@@ -292,6 +313,10 @@ export function RoomPage({
             variant_id: l.variant_id,
             qty: l.qty,
             option_ids: l.option_ids,
+            // Food only: the note for the kitchen and whether it's an allergy (K-04).
+            ...(l.food && l.kitchen_note.trim()
+              ? { kitchen_note: l.kitchen_note.trim(), kitchen_note_allergy: l.allergy }
+              : {}),
           })),
         }),
       });
@@ -391,6 +416,41 @@ export function RoomPage({
       </main>
     );
   const total = cart.reduce((s, l) => s + l.unit_cents * l.qty, 0);
+  const hasFood = foodItems.size > 0;
+  /** One menu category as its own section; food categories sit under the Food heading (K-04). */
+  const menuSection = (cat: Category) => (
+    <section key={cat.id} className="menu-section" aria-label={cat.name}>
+      <h3>{cat.name}</h3>
+      <ul>
+        {cat.items
+          .filter((item) => !(item.alcohol && room.alcohol_blocked))
+          .flatMap((item) =>
+            item.variants.map((v) => {
+              const out = item.out_tonight || v.out_tonight;
+              const name = item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
+              return (
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    className={out ? "menu-item out" : "menu-item"}
+                    disabled={out}
+                    aria-label={
+                      out
+                        ? `${name} · ${t("en", "guestRoom.out")}`
+                        : `${name} · ${money(v.price_cents)}`
+                    }
+                    onClick={() => tap(item, v)}
+                  >
+                    <span>{name}</span>
+                    <span>{out ? t("en", "guestRoom.out") : money(v.price_cents)}</span>
+                  </button>
+                </li>
+              );
+            }),
+          )}
+      </ul>
+    </section>
+  );
   const count = cart.reduce((s, l) => s + l.qty, 0);
 
   return (
@@ -528,6 +588,14 @@ export function RoomPage({
               const words = guestOrderWords(o);
               return (
                 <li key={o.id} className="order">
+                  {hasFood && (
+                    <h3 className="card-name">
+                      {t(
+                        "en",
+                        o.station === "kitchen" ? "guestRoom.card.food" : "guestRoom.card.drinks",
+                      )}
+                    </h3>
+                  )}
                   <p className="what">
                     {o.items
                       .map((i) => [`${i.qty} × ${i.name}`, ...i.options].join(" · "))
@@ -572,6 +640,30 @@ export function RoomPage({
                     +
                   </button>
                 </span>
+                {l.food && (
+                  <span className="kitchen-note">
+                    <label>
+                      <span>{t("en", "guestRoom.kitchenNote")}</span>
+                      <input
+                        type="text"
+                        maxLength={KITCHEN_NOTE_MAX}
+                        value={l.kitchen_note}
+                        aria-label={`${t("en", "guestRoom.kitchenNote")} · ${l.label}`}
+                        onChange={(e) => setNote(i, { kitchen_note: e.target.value })}
+                      />
+                    </label>
+                    <label className="check">
+                      <input
+                        type="checkbox"
+                        checked={l.allergy}
+                        disabled={!l.kitchen_note.trim()}
+                        aria-label={`${t("en", "guestRoom.kitchenNote.allergy")} · ${l.label}`}
+                        onChange={(e) => setNote(i, { allergy: e.target.checked })}
+                      />
+                      <span>{t("en", "guestRoom.kitchenNote.allergy")}</span>
+                    </label>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -697,42 +789,15 @@ export function RoomPage({
         {menu === null ? (
           <p aria-busy="true">{t("en", "guestRoom.menu.loading")}</p>
         ) : (
-          menu.map((cat) => (
-            <section key={cat.id} className="menu-section" aria-label={cat.name}>
-              <h3>{cat.name}</h3>
-              <ul>
-                {cat.items
-                  .filter((item) => !(item.alcohol && room.alcohol_blocked))
-                  .flatMap((item) =>
-                    item.variants.map((v) => {
-                      const out = item.out_tonight || v.out_tonight;
-                      const name =
-                        item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
-                      return (
-                        <li key={v.id}>
-                          <button
-                            type="button"
-                            className={out ? "menu-item out" : "menu-item"}
-                            disabled={out}
-                            aria-label={
-                              out
-                                ? `${name} · ${t("en", "guestRoom.out")}`
-                                : `${name} · ${money(v.price_cents)}`
-                            }
-                            onClick={() => tap(item, v)}
-                          >
-                            <span>{name}</span>
-                            <span>{out ? t("en", "guestRoom.out") : money(v.price_cents)}</span>
-                          </button>
-                        </li>
-                      );
-                    }),
-                  )}
-              </ul>
-            </section>
-          ))
+          menu.filter((cat) => !cat.food).map(menuSection)
         )}
       </section>
+      {menu !== null && hasFood && (
+        <section aria-labelledby="food-h">
+          <h2 id="food-h">{t("en", "guestRoom.food")}</h2>
+          {menu.filter((cat) => cat.food).map(menuSection)}
+        </section>
+      )}
 
       {choosing && (
         <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="choose-h">

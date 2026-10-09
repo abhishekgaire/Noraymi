@@ -32,6 +32,9 @@ export interface StaffLine {
   readonly qty: number;
   readonly option_ids?: readonly string[] | undefined;
   readonly notes?: string | null | undefined;
+  /** A food line's note for the kitchen, up to 200 characters, and "This is an allergy" (K-04). */
+  readonly kitchen_note?: string | null | undefined;
+  readonly kitchen_note_allergy?: boolean | undefined;
 }
 
 export interface GiftFor {
@@ -168,6 +171,13 @@ export async function orderItemsFor(
       throw new ApiError("invalid_request", `${name} isn't on the menu`, {
         details: { reason: "kitchen_off", variant_id: v.variant_id },
       });
+    // A note for the kitchen goes on food only: a drink's ticket never reaches the kitchen.
+    if (line.kitchen_note?.trim() && v.station !== "kitchen")
+      throw new ApiError(
+        "invalid_request",
+        `${name} isn't food: a note for the kitchen goes on food`,
+        { details: { reason: "kitchen_note_not_food", variant_id: v.variant_id } },
+      );
     if (v.out_tonight)
       throw new ApiError("invalid_request", `${name} is 86'd tonight`, {
         details: { reason: "out_tonight", variant_id: v.variant_id },
@@ -218,6 +228,8 @@ export async function orderItemsFor(
       taxCategory: v.tax_category,
       station: v.station,
       notes: line.notes?.trim() ? line.notes.trim() : null,
+      kitchenNote: line.kitchen_note?.trim() ? line.kitchen_note.trim() : null,
+      kitchenNoteAllergy: Boolean(line.kitchen_note?.trim()) && line.kitchen_note_allergy === true,
     });
   }
 

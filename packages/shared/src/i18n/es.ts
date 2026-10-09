@@ -1237,6 +1237,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestRoom.ended": "La sesión de esta sala terminó.",
   // The room page: the menu, the cart and orders (M3-09).
   "guestRoom.menu": "Menú",
+  "guestRoom.food": "Comida",
+  "guestRoom.card.drinks": "Bebidas",
+  "guestRoom.card.food": "Comida",
+  "guestRoom.kitchenNote": "Alergias o notas para la cocina",
+  "guestRoom.kitchenNote.allergy": "Es una alergia",
   "guestRoom.menu.loading": "Cargando el menú…",
   "guestRoom.out": "86 esta noche",
   "guestRoom.which": "¿Cuál? La barra lo recibe en el ticket.",
@@ -3153,6 +3158,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.admin.afterOutage": "Imprimir AFTER OUTAGE en la comida reenviada",
   "kitchen.admin.afterOutage.hint":
     "La comida tomada sin conexión se imprime con “AFTER OUTAGE · check with the kitchen before making”, por si el personal le dio a la cocina un pedido escrito.",
+  "kitchen.note.allergy": "ALERGIA: {note}",
   "kitchen.ticket.failed": "El ticket de cocina no se imprimió",
   "kitchen.ticket.failedRoom": "{room} · El ticket de cocina no se imprimió",
   "kitchen.reprint.kitchen": "Impresora de cocina",

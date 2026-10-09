@@ -27,6 +27,8 @@ import "./bar.css";
 interface Order {
   readonly id: string;
   readonly source: string;
+  /** The order's one station (K-02): a kitchen order is food, and shows no ID status (K-04). */
+  readonly station?: string;
   readonly room_name: string | null;
   readonly guest_name: string | null;
   readonly party_size: number | null;
@@ -55,6 +57,9 @@ interface Order {
     name_snapshot: string;
     alcohol: boolean;
     options: readonly { name: string }[];
+    /** A food line's note for the kitchen (K-04), shown on the card as on the ticket. */
+    kitchen_note?: string | null;
+    kitchen_note_allergy?: boolean;
   }[];
 }
 interface MenuItem {
@@ -198,10 +203,22 @@ export function BarOrders() {
 
   const what = (o: Order) =>
     o.items
-      .map((i) => [`${i.qty} × ${i.name_snapshot}`, ...i.options.map((x) => x.name)].join(" · "))
+      .map((i) =>
+        [
+          `${i.qty} × ${i.name_snapshot}`,
+          ...i.options.map((x) => x.name),
+          ...(i.kitchen_note
+            ? [
+                i.kitchen_note_allergy
+                  ? t("kitchen.note.allergy", { note: i.kitchen_note })
+                  : `“${i.kitchen_note}”`,
+              ]
+            : []),
+        ].join(" · "),
+      )
       .join(", ");
   const ids = (o: Order) =>
-    o.party_size === null
+    o.party_size === null || o.station === "kitchen"
       ? null
       : o.ids_checked >= o.party_size
         ? t("ids.chip", { checked: o.ids_checked, party: o.party_size })

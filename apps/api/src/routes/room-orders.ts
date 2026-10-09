@@ -46,6 +46,9 @@ const line = z
     qty: z.number().int().min(1).max(20),
     option_ids: z.array(id).max(10).optional(),
     notes: z.string().max(200).nullable().optional(),
+    /** A food line's note for the kitchen and whether it's an allergy (K-04; spec 16 · Ordering food). */
+    kitchen_note: z.string().max(200).nullable().optional(),
+    kitchen_note_allergy: z.boolean().optional(),
   })
   .strict();
 const orderBody = z
@@ -81,6 +84,8 @@ function guestView(o: OrderRow, me: RoomGuestRow) {
     placed_at: o.placed_at,
     room_name: o.room_name,
     amount_cents: o.amount_cents,
+    // The guest's two cards, "Drinks" and "Food" (K-04): one order per station.
+    station: o.station,
     items: o.items.map((i) => ({
       qty: i.qty,
       name: i.name_snapshot,
