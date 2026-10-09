@@ -68,13 +68,22 @@ Oct 8, 2026 · every screen was built for behaviour from the [spec](../spec/READ
 
 ## V-05 · Restyle Admin and the setup wizard
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** V-01
 - **Canvas:** `AdminDesk.dc.html`, `Setup.dc.html`
 - **Screens:** [AdminDesk](../screens.md#admindesk), [Setup](../screens.md#setup)
 - **Build:** Admin's section list and forms, and the new-venue setup wizard.
-- **Acceptance:** side-by-side captures at 1280; the staff Playwright specs pass unchanged.
+- **Acceptance:**
+  - [x] side-by-side captures at 1280: `docs/design-review/v05/` (Hours with and without unsaved changes, Features, Team, Printers & devices, Menu, Card fee & gratuity, Cash drawers; the 390 phone beside `Admin.dc.html`).
+  - [ ] the staff Playwright specs pass unchanged: no selector, role or word changed, so none was edited; the full run is left to the merge pass.
+
+- **Notes:**
+  - The setup wizard is phase 2 and isn't built, so there was nothing of it to restyle. Its West 4 checks live in Admin → Go live, which picks up the same form layer.
+  - Admin's shell follows the canvas: the settings column (232 px, the rail's background, lime for the open section, its hint at 70%), "Admin" as that column's mono label (still the page's one level-1 heading), and the canvas's footer card in the column, "Every change is logged with who and when…" (new key `admin.changesNote`, English and Spanish). Each section's own title is the display-face header with a rule under it, and "Save and publish" sits in that header's right corner, Discard then Save as the canvas reads, sticky while the section scrolls. It still shows only while there are unsaved changes, or after a publish (the canvas's greyed "Saved" button and "Saved 2 min ago by Andy" aren't in the spec or the catalogs).
+  - New shared form layer `packages/shared/src/design/controls.css` (exported as `@west4/shared/design/controls.css`): a container with `w4-forms` gets the canvas's fields (surface fill, 8 px corners, lime focus edge, 44 px tall), checkboxes in labels drawn as the canvas's 42 × 24 switches (still checkboxes for screen readers, the label row is the 44 px target), radio choices as bordered option rows, fieldsets and forms as cards, and tables as one row card with mono column labels. `.w4-switch`, `.w4-field` and `.w4-card` work on their own for other screens. Admin's own look is `apps/staff/src/admin/admin.css`, all under `.admin-screen`; both load from `main.tsx` after `styles.css`, so they win their ties.
+  - Still different from the canvas: each section is still one column of the built content, not the canvas's two-column card grid (that needs each section's markup grouped into cards, 30 files; the CSS can't wrap them). Team, Devices and Menu stay tables, scrolling sideways inside their card when they're wider than the screen, where the canvas draws Team as per-person rows with role buttons. The canvas's mono subtitle under the section title, "Saved … by", the menu's category chips and search, and the "Try it · Room 9" preview have no spec'd words or behaviour behind them yet. Features' On / Stopping / Off stays three buttons (the spec's three states), not the canvas's two-state switch. The app's own top bar and rail stay as V-01 left them; the canvas has the "W4" rail without a top bar.
+  - The phone capture shows Admin in a passkey session at 390 (the column stacks above the section). The "Admin needs your passkey" stub, for PIN and badge sessions, keeps its words and is now a display-face title over a card.
 
 ## V-06 · Restyle the Console
 

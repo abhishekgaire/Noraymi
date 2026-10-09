@@ -258,6 +258,8 @@ export const en = {
   "admin.unsaved.other": "{count} unsaved changes",
   "admin.saveAndPublish": "Save and publish",
   "admin.discard": "Discard changes",
+  "admin.changesNote":
+    "Every change is logged with who and when. Nothing reaches the website or the room screens until you press Save and publish.",
   "admin.published": "Published",
   "admin.publishFailed": "Couldn't publish · nothing changed",
   "admin.hint.team": "People, roles, invites, badges and languages",
