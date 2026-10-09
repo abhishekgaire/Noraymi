@@ -1,12 +1,6 @@
-/* Colours and type from the shared canvas tokens (V-01, @west4/shared/design/tokens.css). */
+/* The Console on the canvas (V-06, Console.dc.html): shared tokens and bundled fonts only
+   (@west4/shared/design/tokens.css and fonts.css, V-01). Dark only, as the canvas is. */
 :root {
-  --bg: var(--w4-bg);
-  --panel: var(--w4-surface);
-  --line: var(--w4-line-3);
-  --text: var(--w4-text);
-  --muted: var(--w4-muted);
-  --accent: var(--w4-cyan);
-  --danger: var(--w4-pink);
   color-scheme: dark;
 }
 * {
@@ -14,194 +8,526 @@
 }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 16px/1.45 var(--w4-font-body);
+  background: var(--w4-bg);
+  color: var(--w4-text);
+  font: var(--w4-text-base) / 1.45 var(--w4-font-body);
+  -webkit-font-smoothing: antialiased;
 }
+a {
+  color: var(--w4-lime);
+}
+a:hover {
+  color: var(--w4-lime-hover);
+}
+:focus-visible {
+  outline: 2px solid var(--w4-text);
+  outline-offset: 2px;
+}
+
+/* Type: the display face for titles, mono small capitals for labels (capitals from
+   all-small-caps, so the words read and tested stay the catalog's own). */
+h1,
+h2 {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.02em;
+  line-height: 0.88;
+}
+h1 {
+  font-size: 34px;
+  margin: 0 0 var(--w4-space-3);
+}
+h2 {
+  font-size: 34px;
+  margin: 0 0 var(--w4-space-5);
+}
+h3,
+h4,
+th {
+  font-family: var(--w4-font-mono);
+  font-weight: 400;
+  font-size: var(--w4-text-sm);
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+h3 {
+  margin: var(--w4-space-8) 0 var(--w4-space-3);
+}
+h4 {
+  margin: var(--w4-space-6) 0 var(--w4-space-2);
+}
+p {
+  margin: 0 0 var(--w4-space-4);
+}
+.muted {
+  color: var(--w4-muted);
+}
+.small {
+  font-size: var(--w4-text-sm);
+}
+.error {
+  color: var(--w4-pink);
+}
+.ok {
+  color: var(--w4-lime);
+}
+.hint {
+  color: var(--w4-faint);
+  font-size: var(--w4-text-sm);
+}
+code {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-md);
+}
+strong {
+  font-weight: 700;
+}
+
+/* Sign-in and loading: one narrow card in the middle of the page. */
 .console {
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 24px 16px;
 }
 .console.narrow {
   max-width: 420px;
+  margin: 12vh auto 0;
+  padding: 26px 24px;
+  border-radius: var(--w4-radius-lg);
+  background: var(--w4-bg-rail);
+  border: 1px solid var(--w4-line);
 }
-h1 {
-  font-size: 1.5rem;
-  margin: 0 0 8px;
+
+/* Signed in: the canvas's rail on the left (title, staff, Sign out), the work on the right. */
+.console.app {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  column-gap: 22px;
+  align-content: start;
+  min-height: 100vh;
+  padding: 0 22px 0 0;
+  /* The rail's colour runs the page's full height, past the sticky rail itself. */
+  background: linear-gradient(
+    to right,
+    var(--w4-bg-rail) 199px,
+    var(--w4-line) 199px 200px,
+    transparent 200px
+  );
 }
-h2 {
-  font-size: 1.2rem;
-  margin: 16px 0 8px;
+.console.app > * {
+  grid-column: 2;
 }
-h3 {
-  font-size: 1rem;
-  margin: 16px 0 4px;
-}
-.muted {
-  color: var(--muted);
-}
-.small {
-  font-size: 0.875rem;
-}
-.error {
-  color: var(--danger);
+.console.app > .columns,
+.console.app > [role="alert"] {
+  margin-top: 18px;
 }
 .bar {
+  grid-column: 1 !important;
+  grid-row: 1 / span 20;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  height: 100vh;
   display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
+  flex-direction: column;
+  gap: var(--w4-space-1);
+  padding: 18px 12px;
+  background: var(--w4-bg-rail);
+  border-right: 1px solid var(--w4-line);
 }
 .bar h1 {
+  padding: 4px 10px 16px;
   margin: 0;
-  flex: 1;
+}
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-1);
+}
+.rail-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--w4-radius);
+  color: var(--w4-text);
+  text-decoration: none;
+  font-size: var(--w4-text-base);
+}
+.rail-nav a:hover {
+  background: var(--w4-line-faint);
+}
+.rail-nav a:first-child {
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
+  font-weight: 700;
+}
+.staff-card {
+  margin-top: auto;
+  padding: 10px 12px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  font-size: var(--w4-text-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: var(--w4-text-2);
+}
+.bar > button {
+  width: 100%;
+  justify-content: center;
+}
+@media (max-width: 760px) {
+  .console.app {
+    display: block;
+    padding: 0 16px 24px;
+  }
+  .bar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 0 -16px 16px;
+    padding: 12px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--w4-line);
+  }
+  .console.app {
+    display: flex;
+    flex-direction: column;
+    background: none;
+  }
+  .bar h1 {
+    flex: 1;
+    padding: 0;
+  }
+  .rail-nav {
+    display: none;
+  }
+  .staff-card {
+    margin: 0;
+    order: 3;
+    flex-basis: 100%;
+  }
+  .bar > button {
+    width: auto;
+  }
+}
+
+/* Sections as the canvas's dark cards. */
+#pages,
+.rule-packs,
+.columns > section:first-child {
+  padding: 16px;
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+}
+#pages,
+.columns {
+  margin-bottom: var(--w4-space-7);
+}
+/* The venues first, as on the canvas; the on-call pages under them. */
+.console.app > .columns {
+  order: -1;
+}
+.console.app > [role="alert"] {
+  order: -2;
+}
+.console.app > .bar {
+  order: -3;
+}
+.rule-packs {
+  margin-bottom: 22px;
 }
 .columns {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
-  gap: 24px;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: var(--w4-space-7);
+  align-items: start;
+}
+.rule-packs .columns {
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 1.4fr);
+  margin: 0;
+}
+.rule-packs .columns > div:first-child {
+  padding: 0;
+  background: none;
+  border: 0;
 }
 @media (max-width: 900px) {
-  .columns {
+  .columns,
+  .rule-packs .columns {
     grid-template-columns: 1fr;
   }
 }
-label {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 12px;
+/* Nothing open: the venues take the full width, as the canvas's venue table does. */
+.console.app > .columns:not(:has(> section + section)) {
+  grid-template-columns: 1fr;
 }
-input {
-  min-height: 44px;
-  font-size: 1rem;
-  padding: 0 10px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+.columns:not(:has(> section + section)) .venue-list {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
-button,
-.button {
-  min-height: 44px;
-  padding: 0 16px;
-  font-size: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--text);
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
+/* The open venue: the canvas's side panel. */
+.columns > section + section {
+  padding: 16px 20px 22px;
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-rail);
+  border: 1px solid var(--w4-line);
 }
-.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0b1218;
-  font-weight: 600;
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
+
+/* Venue list: the canvas's venue cards, the open one outlined in lime. */
 .venue-list,
-.flag-list {
+.flag-list,
+.pages-list,
+.grant-history {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: var(--w4-space-2);
 }
 .venue {
   width: 100%;
   text-align: left;
   display: grid;
-  gap: 2px;
+  gap: var(--w4-space-1);
   padding: 10px 12px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
 }
 .venue.active {
-  border-color: var(--accent);
+  border-color: var(--w4-lime);
+  background: color-mix(in srgb, var(--w4-lime) 6%, transparent);
 }
 .venue-name {
-  font-weight: 600;
+  font-size: var(--w4-text-md);
+  font-weight: 700;
 }
+.venue .small {
+  font-size: var(--w4-text-xs);
+}
+.pages-list li,
+.grant-history li {
+  padding: var(--w4-space-3) 0;
+  border-bottom: 1px solid var(--w4-line-faint);
+  font-size: var(--w4-text-md);
+}
+summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--w4-text-2);
+  font-size: var(--w4-text-md);
+}
+
+/* Tables: mono labels over thin rows. */
 table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--w4-text-md);
 }
 th,
 td {
   text-align: left;
-  padding: 8px;
-  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--w4-line-faint);
   vertical-align: middle;
 }
+td:has(> .switch) {
+  padding-block: 0;
+}
+thead th {
+  border-bottom-color: var(--w4-line);
+}
+
+/* Controls */
+label {
+  display: grid;
+  gap: var(--w4-space-1);
+  margin-bottom: var(--w4-space-5);
+  font-size: var(--w4-text-sm);
+  color: var(--w4-muted);
+}
+input,
+select,
+textarea {
+  font: inherit;
+  font-size: var(--w4-text-md);
+  color: var(--w4-text);
+  background: var(--w4-bg);
+  border: 1px solid var(--w4-line-3);
+  border-radius: var(--w4-radius-sm);
+  outline: 0;
+}
+input,
+select {
+  min-height: 44px;
+  padding: 0 11px;
+}
+textarea {
+  padding: 9px 11px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  line-height: 1.5;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--w4-lime);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--w4-faint);
+}
+button,
+.button {
+  min-height: 44px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: var(--w4-text-md);
+  font-weight: 700;
+  border-radius: var(--w4-radius);
+  border: 1px solid var(--w4-line-strong);
+  background: transparent;
+  color: var(--w4-text);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  transition: transform 0.12s var(--w4-ease);
+}
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.primary,
+a.primary {
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+a.primary:hover {
+  color: var(--w4-on-accent);
+  background: var(--w4-lime-hover);
+}
+button:disabled {
+  background: var(--w4-surface-2);
+  border-color: var(--w4-surface-2);
+  color: var(--w4-faint);
+  cursor: default;
+}
+.venue:disabled {
+  color: var(--w4-text);
+}
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}
+
+/* Switches: the canvas's pill toggles, lime when on. */
 .switch {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--w4-space-4);
   margin: 0;
   min-height: 44px;
+  color: var(--w4-text);
+  font-size: var(--w4-text-md);
+  cursor: pointer;
 }
 .switch input {
-  width: 22px;
-  height: 22px;
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
   min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: var(--w4-radius-pill);
+  background: var(--w4-line-3);
+  cursor: pointer;
+  transition: background 0.15s var(--w4-ease);
+}
+.switch input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--w4-text-2);
+  transition: transform 0.15s var(--w4-ease);
+}
+.switch input:checked {
+  background: var(--w4-lime);
+}
+.switch input:checked::after {
+  background: var(--w4-on-accent);
+  transform: translateX(12px);
+}
+.switch input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.switch input:focus-visible {
+  outline: 2px solid var(--w4-text);
+  outline-offset: 2px;
 }
 .row {
   display: flex;
-  gap: 12px;
+  gap: var(--w4-space-5);
   align-items: end;
   flex-wrap: wrap;
 }
+.row label {
+  margin-bottom: 0;
+}
 
-textarea {
-  font:
-    13px/1.4 ui-monospace,
-    monospace;
-  padding: 8px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+/* Support access and emergency actions: the canvas's support card. */
+.panel {
+  margin-top: var(--w4-space-6);
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
 }
-select {
-  min-height: 44px;
-  font-size: 1rem;
-  padding: 0 8px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+.panel h3 {
+  margin-top: 0;
 }
-.rule-packs {
-  margin-top: 32px;
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
+.grant-open,
+.grant-waiting {
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-md);
+  border: 1px solid color-mix(in srgb, var(--w4-amber) 47%, transparent);
+}
+.grant-form,
+.fix-row {
+  display: grid;
+  gap: var(--w4-space-1);
+}
+.grant-form > button,
+.fix-row > button {
+  justify-self: start;
 }
 .draft {
   display: grid;
-  gap: 8px;
+  gap: var(--w4-space-3);
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-/* Pages (M8-17) */
-#pages {
-  margin-bottom: 1.5rem;
-}
-.pages-list {
-  list-style: none;
-  padding: 0;
-}
-.pages-list li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line, #ddd);
-}
-.hint {
-  font-style: italic;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
 }
