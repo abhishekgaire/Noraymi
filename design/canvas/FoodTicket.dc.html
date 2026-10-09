@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kitchen ticket</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.9}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.eye{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+.btn{cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform .08s ease,filter .08s ease}
+.btn:active{transform:scale(.97);filter:brightness(1.3)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.in{box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.16);border-radius:10px;padding:10px 12px;color:#F4F1EA;font:inherit;font-size:14px;outline:0}
+.in:focus{border-color:#D4FF3F}
+.chip{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;padding:4px 8px;border-radius:7px;white-space:nowrap}
+.kchip{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:6px;background:#F4F1EA;color:#0b0a0d;white-space:nowrap}
+.ns{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:rgba(255,177,61,.14);color:#FFB13D;border:1px solid rgba(255,177,61,.45);white-space:nowrap}
+.sent{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:rgba(212,255,63,.12);color:#D4FF3F;white-space:nowrap}
+.frame-label{display:flex;flex-direction:column;gap:4px;min-height:44px;padding:0 4px 10px}
+.frame-label b{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#D4FF3F}
+.frame-label span{font-size:13px;color:#A39FA8}
+.frame{position:relative;overflow:hidden;border-radius:6px;border:1px solid rgba(244,241,234,.12);background:#0b0a0d;box-sizing:border-box}
+.paper{background:#FBFAF6;color:#111;font-family:'Courier Prime','Space Mono',ui-monospace,Menlo,monospace}
+@media (prefers-reduced-motion:reduce){.btn:active{transform:none}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1328px; box-sizing: border-box; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 22px; background: #08070a; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px">
+    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+      <span class="mono" style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--acc, #D4FF3F)">K · Kitchen ticket · 80 mm slip</span>
+      <div style="font-size: 14px; line-height: 1.5; color: #C9C5CE; max-width: 760px">The slips the kitchen printer makes, Fri Sep 25, 2026, around 11:42 PM: Jess P.’s bar tab (first send, its reprint, the second send) and Room 3’s guest order. Example menu: item names are examples, not the venue’s.</div>
+      
+    </div>
+    <span class="mono" style="flex: none; max-width: 330px; font-size: 10px; line-height: 1.5; letter-spacing: .04em; padding: 8px 12px; border-radius: 10px; color: #FFB13D; background: rgba(255,177,61,.08); border: 1px dashed rgba(255,177,61,.5)">New board · Oct 9, 2026 · draft for the kitchen spec (docs/spec/16-kitchen.md) · not part of frozen v39</span>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><span class="eye" style="margin-right: 4px">Food flow</span><a href="FoodBar.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Bar POS · Food on a tab · desktop</a><span style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #F4F1EA; color: #0b0a0d">Kitchen ticket · 80 mm slip</span><a href="FoodGuest.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Guest · order food from the room · phone</a><a href="FoodRail.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Bar orders screen and runs · food</a><a href="FoodAdmin.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Desktop app · Admin · Kitchen & food</a></div>
+  <div style="display: flex; gap: 22px; align-items: flex-start; padding: 22px 26px 30px; border-radius: 6px; background: radial-gradient(circle at 30% 0, #1b1921, #0e0d11 70%); border: 1px solid rgba(244,241,234,.12)">
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 290px; flex: none">
+      <div class="paper" style="width: 290px; box-sizing: border-box; padding: 18px 16px 26px; border-radius: 2px; box-shadow: 0 18px 40px rgba(0,0,0,.55); transform: rotate(-0.6deg); -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/16px 8px repeat-x">
+        
+        <div style="font-size: 30px; font-weight: 700; letter-spacing: .08em; text-align: center">KITCHEN</div>
+        <div style="font-size: 20px; font-weight: 700; text-align: center; margin-top: 4px">Bar · Jess P.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 13px; line-height: 1.5">Fri Sep 25 · 11:42 PM<br>Rung by Maya S.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>WINGS · 6 PC</span></div><div style="padding-left: 34px; font-size: 15px">+ Buffalo</div><div style="padding-left: 34px; font-size: 15px; font-style: italic">&gt; sauce on the side</div><div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>FRIES</span></div>
+        <div style="margin-top: 12px; padding: 10px; border: 3px solid #111; font-size: 20px; font-weight: 700; line-height: 1.25">ALLERGY: PEANUTS<br><span style='font-size: 13px; font-weight: 400'>(Wings · 6 pc)</span></div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 12px; line-height: 1.5; text-align: center">2 items · no prices</div>
+      </div>
+      <div style="font-size: 12px; line-height: 1.5; color: #A39FA8; padding: 0 2px"><b style='color:#F4F1EA'>First send.</b> Bar tab food prints only when Maya taps Send to kitchen. The allergy note prints last, boxed, in capitals.</div>
+    </div><div style="display: flex; flex-direction: column; gap: 10px; width: 290px; flex: none">
+      <div class="paper" style="width: 290px; box-sizing: border-box; padding: 18px 16px 26px; border-radius: 2px; box-shadow: 0 18px 40px rgba(0,0,0,.55); transform: rotate(0.5deg); -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/16px 8px repeat-x">
+        <div style="margin: 0 0 10px; padding: 6px 0; text-align: center; font-size: 22px; font-weight: 700; letter-spacing: .2em; background: #111; color: #FBFAF6">REPRINT 2</div>
+        <div style="font-size: 30px; font-weight: 700; letter-spacing: .08em; text-align: center">KITCHEN</div>
+        <div style="font-size: 20px; font-weight: 700; text-align: center; margin-top: 4px">Bar · Jess P.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 13px; line-height: 1.5">Fri Sep 25 · 11:42 PM<br>Rung by Maya S.<br>Reprinted 11:47 PM by Maya S.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>WINGS · 6 PC</span></div><div style="padding-left: 34px; font-size: 15px">+ Buffalo</div><div style="padding-left: 34px; font-size: 15px; font-style: italic">&gt; sauce on the side</div><div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>FRIES</span></div>
+        <div style="margin-top: 12px; padding: 10px; border: 3px solid #111; font-size: 20px; font-weight: 700; line-height: 1.25">ALLERGY: PEANUTS<br><span style='font-size: 13px; font-weight: 400'>(Wings · 6 pc)</span></div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 12px; line-height: 1.5; text-align: center">2 items · no prices</div>
+      </div>
+      <div style="font-size: 12px; line-height: 1.5; color: #A39FA8; padding: 0 2px"><b style='color:#F4F1EA'>Reprint.</b> Same slip, stamped so the kitchen doesn’t make it twice. A remake would print “REMAKE” instead.</div>
+    </div><div style="display: flex; flex-direction: column; gap: 10px; width: 290px; flex: none">
+      <div class="paper" style="width: 290px; box-sizing: border-box; padding: 18px 16px 26px; border-radius: 2px; box-shadow: 0 18px 40px rgba(0,0,0,.55); transform: rotate(-0.3deg); -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/16px 8px repeat-x">
+        
+        <div style="font-size: 30px; font-weight: 700; letter-spacing: .08em; text-align: center">KITCHEN</div>
+        <div style="font-size: 20px; font-weight: 700; text-align: center; margin-top: 4px">Bar · Jess P.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 13px; line-height: 1.5">Fri Sep 25 · 11:44 PM<br>Rung by Maya S.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>DUMPLINGS · 8 PC</span></div>
+        
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 12px; line-height: 1.5; text-align: center">1 item · no prices</div>
+      </div>
+      <div style="font-size: 12px; line-height: 1.5; color: #A39FA8; padding: 0 2px"><b style='color:#F4F1EA'>Second send.</b> Only the line added after the first send. Earlier food never prints twice.</div>
+    </div><div style="display: flex; flex-direction: column; gap: 10px; width: 290px; flex: none">
+      <div class="paper" style="width: 290px; box-sizing: border-box; padding: 18px 16px 26px; border-radius: 2px; box-shadow: 0 18px 40px rgba(0,0,0,.55); transform: rotate(0.4deg); -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom/16px 8px repeat-x">
+        
+        <div style="font-size: 30px; font-weight: 700; letter-spacing: .08em; text-align: center">KITCHEN</div>
+        <div style="font-size: 20px; font-weight: 700; text-align: center; margin-top: 4px">Room 3 · Priya R.</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 13px; line-height: 1.5">Fri Sep 25 · 11:42 PM<br>Accepted by Maya S.<br>Guest order · room page</div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>WINGS · 6 PC</span></div><div style="padding-left: 34px; font-size: 15px">+ Garlic parmesan</div><div style="padding-left: 34px; font-size: 15px; font-style: italic">&gt; extra crispy</div><div style="display: flex; gap: 12px; font-size: 19px; font-weight: 700; margin-top: 8px"><span style="width: 22px">1</span><span>FRIES</span></div>
+        <div style="margin-top: 12px; padding: 10px; border: 3px solid #111; font-size: 20px; font-weight: 700; line-height: 1.25">ALLERGY: TREE NUTS<br><span style='font-size: 13px; font-weight: 400'>(Wings · 6 pc)</span></div>
+        <div style="border-top: 2px dashed #111; margin: 10px 0"></div>
+        <div style="font-size: 12px; line-height: 1.5; text-align: center">2 items · no prices · drinks print at the bar</div>
+      </div>
+      <div style="font-size: 12px; line-height: 1.5; color: #A39FA8; padding: 0 2px"><b style='color:#F4F1EA'>Room order.</b> Prints at Accept on the bar orders screen. The drinks from the same basket print on the bar’s own ticket.</div>
+    </div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+    <div style="padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 13px; line-height: 1.5; color: #C9C5CE"><span class="eye">What prints</span><br>KITCHEN, the room or tab, the time and who rang or accepted it, then each line with quantity, options and notes. No prices. Allergy last, boxed.</div>
+    <div style="padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 13px; line-height: 1.5; color: #C9C5CE"><span class="eye">Paper</span><br>80 mm thermal roll on the kitchen’s network printer. Monospace, large type so the line reads at arm’s length.</div>
+    <div style="padding: 14px; border-radius: 14px; background: #121016; border: 1px solid rgba(244,241,234,.08); font-size: 13px; line-height: 1.5; color: #C9C5CE"><span class="eye">Didn’t print</span><br>The bar sees “Kitchen ticket didn’t print · Reprint”, with Print at the bar instead so a runner can carry it.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1328,"height":908}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? "#D4FF3F" };
+  }
+}
+</script>
+</body>
+</html>

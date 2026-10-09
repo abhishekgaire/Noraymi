@@ -134,6 +134,31 @@
    "title": "D \u00b7 Desktop app \u00b7 Bar POS",
    "w": 1280,
    "h": 800
+  },
+  "FoodBar.dc.html": {
+   "title": "K \u00b7 Bar POS \u00b7 Food on a tab \u00b7 desktop",
+   "w": 1328,
+   "h": 2821
+  },
+  "FoodTicket.dc.html": {
+   "title": "K \u00b7 Kitchen ticket \u00b7 80 mm slip",
+   "w": 1328,
+   "h": 908
+  },
+  "FoodGuest.dc.html": {
+   "title": "K \u00b7 Guest \u00b7 order food from the room \u00b7 phone",
+   "w": 1258,
+   "h": 1092
+  },
+  "FoodRail.dc.html": {
+   "title": "K \u00b7 Bar orders screen and runs \u00b7 food",
+   "w": 1258,
+   "h": 2380
+  },
+  "FoodAdmin.dc.html": {
+   "title": "K \u00b7 Desktop app \u00b7 Admin \u00b7 Kitchen & food",
+   "w": 1328,
+   "h": 1048
   }
  },
  "order": [
@@ -163,6 +188,11 @@
   "DeskReports.dc.html",
   "Setup.dc.html",
   "SiteBuilder.dc.html",
-  "Console.dc.html"
+  "Console.dc.html",
+  "FoodBar.dc.html",
+  "FoodTicket.dc.html",
+  "FoodGuest.dc.html",
+  "FoodRail.dc.html",
+  "FoodAdmin.dc.html"
  ]
 }

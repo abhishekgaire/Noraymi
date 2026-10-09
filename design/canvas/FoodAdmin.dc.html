@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop app — Admin · Kitchen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+body{margin:0;background:#0b0a0d;color:#F4F1EA;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#D4FF3F}a:hover{color:#EAFF8A}
+.disp{font-family:'Bricolage Grotesque',Impact,'Arial Narrow',sans-serif;font-variation-settings:'opsz' 96,'wdth' 75;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:.9}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+.eye{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#8E8994}
+.btn{cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:transform .08s ease,filter .08s ease}
+.btn:active{transform:scale(.97);filter:brightness(1.3)}
+.btn:focus-visible{outline:2px solid #F4F1EA;outline-offset:2px}
+.one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.in{box-sizing:border-box;background:#141218;border:1px solid rgba(244,241,234,.16);border-radius:10px;padding:10px 12px;color:#F4F1EA;font:inherit;font-size:14px;outline:0}
+.in:focus{border-color:#D4FF3F}
+.chip{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;padding:4px 8px;border-radius:7px;white-space:nowrap}
+.kchip{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:6px;background:#F4F1EA;color:#0b0a0d;white-space:nowrap}
+.ns{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:rgba(255,177,61,.14);color:#FFB13D;border:1px solid rgba(255,177,61,.45);white-space:nowrap}
+.sent{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;background:rgba(212,255,63,.12);color:#D4FF3F;white-space:nowrap}
+.frame-label{display:flex;flex-direction:column;gap:4px;min-height:44px;padding:0 4px 10px}
+.frame-label b{font-family:'Space Mono',ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#D4FF3F}
+.frame-label span{font-size:13px;color:#A39FA8}
+.frame{position:relative;overflow:hidden;border-radius:6px;border:1px solid rgba(244,241,234,.12);background:#0b0a0d;box-sizing:border-box}
+.paper{background:#FBFAF6;color:#111;font-family:'Courier Prime','Space Mono',ui-monospace,Menlo,monospace}
+@media (prefers-reduced-motion:reduce){.btn:active{transform:none}}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; width: 1328px; box-sizing: border-box; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 22px; background: #08070a; color: #F4F1EA; font-family: 'Instrument Sans', system-ui, sans-serif">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px">
+    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+      <span class="mono" style="font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--acc, #D4FF3F)">K · Desktop app · Admin · Kitchen & food</span>
+      <div style="font-size: 14px; line-height: 1.5; color: #C9C5CE; max-width: 760px">Where a manager turns food on and sets how tickets behave. The two founder settings (Oct 9): remind about unsent food after 5 minutes, and don’t print tickets for drinks rung at the bar.</div>
+      
+    </div>
+    <span class="mono" style="flex: none; max-width: 330px; font-size: 10px; line-height: 1.5; letter-spacing: .04em; padding: 8px 12px; border-radius: 10px; color: #FFB13D; background: rgba(255,177,61,.08); border: 1px dashed rgba(255,177,61,.5)">New board · Oct 9, 2026 · draft for the kitchen spec (docs/spec/16-kitchen.md) · not part of frozen v39</span>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center"><span class="eye" style="margin-right: 4px">Food flow</span><a href="FoodBar.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Bar POS · Food on a tab · desktop</a><a href="FoodTicket.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Kitchen ticket · 80 mm slip</a><a href="FoodGuest.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Guest · order food from the room · phone</a><a href="FoodRail.dc.html" style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #F4F1EA; text-decoration: none; border: 1px solid rgba(244,241,234,.16)">Bar orders screen and runs · food</a><span style="padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #F4F1EA; color: #0b0a0d">Desktop app · Admin · Kitchen & food</span></div>
+  <div><div class="frame-label"><b>1 · Admin → Kitchen</b><span>The two founder settings, with Kitchen & food on under Features.</span></div><div class="frame" style="width: 1280px; height: 800px; display: flex">
+    <aside style="width: 224px; flex: none; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 22px 12px; border-right: 1px solid rgba(244,241,234,.08); background: #0e0d11">
+      <span class="disp" style="font-size: 26px; padding: 0 10px">W4</span><span class="mono" style="font-size: 9px; letter-spacing: .14em; color: #8E8994; padding: 0 10px 18px">BOHO KARAOKE · DESKTOP</span>
+      <span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Tonight</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Calendar</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Messages</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Bar POS</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Bar orders</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Close the night</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; ">Reports</span><span style="padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 800; background: var(--acc, #D4FF3F); color: #0b0a0d">Admin</span>
+      <div style="margin-top: auto; padding: 12px; border-radius: 12px; border: 1px solid rgba(244,241,234,.12); font-size: 12px; line-height: 1.5; color: #A39FA8"><span class="eye">Signed in</span><br><b style="color: #F4F1EA">Andy C.</b> · Manager</div>
+    </aside>
+    <aside style="width: 252px; flex: none; box-sizing: border-box; display: flex; flex-direction: column; gap: 3px; padding: 22px 10px; border-right: 1px solid rgba(244,241,234,.08)">
+      <span class="eye" style="padding: 0 12px 8px">Settings</span>
+      <div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Hours & prices</b><span style="font-size: 11px; color: #A39FA8">Each day, special dates, $</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Card fee & gratuity</b><span style="font-size: 11px; color: #A39FA8">No card fee · 20% on rooms</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Features</b><span style="font-size: 11px; color: #A39FA8">Modules · Kitchen & food on</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; background: var(--acc, #D4FF3F); color: #0b0a0d"><b style="font-size: 15px">Kitchen <span class='kchip' style='margin-left:6px'>New</span></b><span style="font-size: 11px; color: #0b0a0d">Reminders, tickets, last order</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Cash drawers</b><span style="font-size: 11px; color: #A39FA8">One house drawer · $300 bank</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Alerts & rules</b><span style="font-size: 11px; color: #A39FA8">Warnings, orders, calls</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Printers & devices</b><span style="font-size: 11px; color: #A39FA8">Bar and kitchen printers</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Menu</b><span style="font-size: 11px; color: #A39FA8">Site, PDF and room screens</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Rooms</b><span style="font-size: 11px; color: #A39FA8">Names, sizes, on or off</span></div><div style="display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; "><b style="font-size: 15px">Team</b><span style="font-size: 11px; color: #A39FA8">Roles, PINs, tip pool</span></div>
+    </aside>
+    <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; border-bottom: 1px solid rgba(244,241,234,.08)">
+        <span style="display: flex; flex-direction: column; gap: 4px"><span class="disp" style="font-size: 28px">Kitchen</span><span class="mono" style="font-size: 11px; color: #8E8994">Food, tickets and reminders</span></span>
+        <span style="display: flex; gap: 8px; align-items: center"><span class="mono" style="font-size: 11px; color: #8E8994">Saved 2 min ago by Andy</span><span style="padding: 12px 16px; border-radius: 12px; font-weight: 700; font-size: 14px; border: 1px solid rgba(244,241,234,.18)">Discard</span><span style="padding: 12px 16px; border-radius: 12px; font-weight: 700; font-size: 14px; background: #1b1921; color: #8E8994">Saved</span></span>
+      </div>
+      <div style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; padding: 20px 22px">
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 18px 10px; border-radius: 16px; background: #121016; border: 1px solid rgba(244,241,234,.08)">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><b style="font-size: 15px">Remind about unsent food after</b><span style="font-size: 12px; line-height: 1.5; color: #A39FA8">Food rung on a tab but not sent to the kitchen turns the tab amber and shows “2 food items not sent to the kitchen”.</span></span><span style="flex: none; display: flex; align-items: center; gap: 8px"><span class="in" style="width: 70px; text-align: center; font-family: 'Space Mono', monospace">5</span><span style="font-size: 13px; color: #A39FA8">min</span></span>
+        </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><b style="font-size: 15px">Print tickets for drinks rung at the bar</b><span style="font-size: 12px; line-height: 1.5; color: #A39FA8">Off: drinks rung on the bar POS go straight on the tab, because the bartender who rang them makes them. Orders from rooms and phones always print.</span></span><span style="flex: none; display: flex; gap: 4px; padding: 3px; border-radius: 12px; border: 1px solid rgba(244,241,234,.16)"><span style="padding: 9px 14px; border-radius: 9px; font-weight: 700; font-size: 13px">On</span><span style="padding: 9px 14px; border-radius: 9px; font-weight: 800; font-size: 13px; background: #F4F1EA; color: #0b0a0d">Off</span></span>
+        </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><b style="font-size: 15px">Food always prints in the kitchen</b><span style="font-size: 12px; line-height: 1.5; color: #A39FA8">Food prints only when someone taps Send to kitchen, or when the bar accepts a room’s order. A line already sent never prints again; a reprint is stamped REPRINT.</span></span><span class="chip" style="background: rgba(244,241,234,.07); color: #C9C5CE">Always</span>
+        </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><b style="font-size: 15px">Kitchen’s last order</b><span style="font-size: 12px; line-height: 1.5; color: #A39FA8">Empty means food can be ordered whenever room ordering is open. Ask the kitchen; we don’t guess it.</span></span><span class="in" style="flex: none; width: 140px; color: #6F6B78">Not set</span>
+        </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(244,241,234,.08)">
+          <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0"><b style="font-size: 15px">Allergy notice</b><span style="font-size: 12px; line-height: 1.5; color: #A39FA8">Shown on every menu while the module is on, in English and Spanish. The lawyer’s words, set here; this board doesn’t write them.</span></span><span style="flex: none; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: 13px; border: 1px solid rgba(244,241,234,.18)">Edit · EN / ES</span>
+        </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="eye">Modules · Features</span>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #16141b; border: 1px solid rgba(212,255,63,.45)">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><span style="display: flex; flex-direction: column; gap: 3px"><b style="font-size: 15px">Bar screen & tickets</b><span style="font-size: 12px; color: #A39FA8">Room orders ring at the bar and print</span></span><span style="flex: none; width: 52px; height: 30px; border-radius: 999px; display: flex; align-items: center; padding: 3px; box-sizing: border-box; justify-content: flex-end; background: #D4FF3F"><i style="width: 24px; height: 24px; border-radius: 50%; background: #0b0a0d"></i></span></div>
+        </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #16141b; border: 1px solid rgba(212,255,63,.45)">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><span style="display: flex; flex-direction: column; gap: 3px"><b style="font-size: 15px">Kitchen & food</b><span style="font-size: 12px; color: #A39FA8">Food on menus, tickets in the kitchen</span></span><span style="flex: none; width: 52px; height: 30px; border-radius: 999px; display: flex; align-items: center; padding: 3px; box-sizing: border-box; justify-content: flex-end; background: #D4FF3F"><i style="width: 24px; height: 24px; border-radius: 50%; background: #0b0a0d"></i></span></div><div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #C9C5CE"><span>✓ Kitchen printer · paired</span><span>✓ Allergy notice · set</span></div>
+        </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #16141b; border: 1px solid rgba(212,255,63,.45)">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><span style="display: flex; flex-direction: column; gap: 3px"><b style="font-size: 15px">Room ordering</b><span style="font-size: 12px; color: #A39FA8">Guests order from the room page</span></span><span style="flex: none; width: 52px; height: 30px; border-radius: 999px; display: flex; align-items: center; padding: 3px; box-sizing: border-box; justify-content: flex-end; background: #D4FF3F"><i style="width: 24px; height: 24px; border-radius: 50%; background: #0b0a0d"></i></span></div>
+        </div>
+          <div style="padding: 12px 14px; border-radius: 14px; border: 1px dashed rgba(244,241,234,.16); font-size: 12px; line-height: 1.5; color: #8E8994">Kitchen &amp; food turns on only with a paired kitchen printer and the allergy notice set. Turning it off waits while a food order is ringing or being made.</div>
+        </div>
+      </div>
+    </main>
+  </div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#D4FF3F","options":["#D4FF3F","#FF3DA6","#3DF2FF","#FFB13D"],"section":"Look"},"$preview":{"width":1328,"height":1048}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? "#D4FF3F" };
+  }
+}
+</script>
+</body>
+</html>
