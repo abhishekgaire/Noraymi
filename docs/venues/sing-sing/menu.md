@@ -1,6 +1,6 @@
 # Sing Sing Karaoke Astoria · menu
 
-Sing Sing Karaoke Astoria · menu given by the founder on Oct 9, 2026 · prices as given, before tax · confirm with the manager before go-live
+Sing Sing Karaoke Astoria · menu given by the founder on Oct 9, 2026 · prices as given: credit prices, before tax · confirm with the manager before go-live
 
 This is the venue's own menu, copied as given (the soft drinks' price was added by the founder the same day). The import files for it are in [`import/`](import/) (see [Import file](#import-file) below); nothing here has been loaded into any database.
 
@@ -172,15 +172,22 @@ Crispy bite-sized chicken for snacking or sharing. Small $10.99 · Large $14.99
 
 Korean Sweet Chili Sauce · Ranch · BBQ · Honey Mustard · Nashville Hot · Ketchup · Soy Garlic Sauce
 
+## Prices and the card fee
+
+The founder said on Oct 9, 2026 that the menu's prices already include the credit card fee, and that cash customers pay less. So:
+
+- **Every price on this menu is the credit price**, before tax. The import enters them as given, and every screen, the room page and the menu PDF show them.
+- **Card fee setting: cash discount** (`pay.cardFee` mode `discount`, [Money rules](../../spec/05-money-rules.md) rule 10). When cash is taken, the check gets a `cash_discount` line and a matching tax reduction; card payments pay the listed price. No surcharge is added on top.
+- **The rate isn't given yet**, so it isn't set. The drink prices suggest about 3.5% on a round cash price ($13.00 → $13.45, $8.00 → $8.28, $17.00 → $17.60, $9.00 → $9.32, $7.00 → $7.25, $3.00 → $3.10), which as a discount off the credit price is about 3.4%. The food prices ($9.95, $12.95, $10.99) don't come from a round price at 3.5% ($9.95 ÷ 1.035 = $9.6135…), so whether food includes the fee is open too. Both are with the manager, and whether a discount of that size is allowed and how it must be shown is with the lawyer, in [open questions](../../spec/14-open-questions.md).
+
 ## Open points (ask the manager before go-live)
 
-1. **Tax-inclusive prices?** Signature cocktails $13.45, wine $8.28 / $36.22, soju $17.60, beer $7.25 / $9.32 and soft drinks $3.10 look like a round price with NYC's 8.875% tax already in (for example $12.35 × 1.08875 ≈ $13.45). The import file takes every price as given and as before tax; if they include tax, the before-tax prices must be worked out and entered instead. Not assumed either way.
-2. **Add fries + drink +$5** (burgers, chicken sandwiches, fried rice, wings) is imported as an optional "Make it a meal" choice at +$5.00. Which drink it includes (any soft drink? beer?) and whether the fries can be swapped for another side isn't given.
-3. **Sauce choice** for Combo, Tenders and Bucket is imported as a required "Sauce" choice of one, at no charge. How many sauces come with a bigger order (10 PC tenders, a 10 PC bucket) and the price of an extra sauce aren't given. Wings list no sauce on the menu; the food boards show one on wings as the founder's example, so confirm whether wings take a sauce.
-4. **Sides and sodas inside combos** ("+ 1 Side", "+ 2 Sides", "+ 1 Soda") aren't given as choices: which sides and sodas qualify, and whether a pricier side costs extra, is to be confirmed. The import sells each combo as a priced variant only.
-5. **Beer: draft or bottle.** The menu gives one bottle price ($7.25) and one draft price ($9.32) for all 18 beers; the import offers both for every beer. Which beers are actually on draft (White Claw and Stella 0 likely aren't) is to be confirmed, and Stella 0 and Heineken 0 are imported as not alcohol.
-6. **Liquor: shots and bottles.** Each spirit is imported with a Shot and a Bottle variant at the listed prices. Confirm that bottles are bottle service (sold whole in a room) and whether a shot is a standard pour; mixers aren't priced.
-7. **Ramen add-ons** are imported on the three ramens (Shin, Buldak, Jjajang), up to all three. Whether they also go on Cheese Tteokbokki is to be confirmed.
+1. **Add fries + drink +$5** (burgers, chicken sandwiches, fried rice, wings) is imported as an optional "Make it a meal" choice at +$5.00. Which drink it includes (any soft drink? beer?) and whether the fries can be swapped for another side isn't given.
+2. **Sauce choice** for Combo, Tenders and Bucket is imported as a required "Sauce" choice of one, at no charge. How many sauces come with a bigger order (10 PC tenders, a 10 PC bucket) and the price of an extra sauce aren't given. Wings list no sauce on the menu; the food boards show one on wings as the founder's example, so confirm whether wings take a sauce.
+3. **Sides and sodas inside combos** ("+ 1 Side", "+ 2 Sides", "+ 1 Soda") aren't given as choices: which sides and sodas qualify, and whether a pricier side costs extra, is to be confirmed. The import sells each combo as a priced variant only.
+4. **Beer: draft or bottle.** The menu gives one bottle price ($7.25) and one draft price ($9.32) for all 18 beers; the import offers both for every beer. Which beers are actually on draft (White Claw and Stella 0 likely aren't) is to be confirmed, and Stella 0 and Heineken 0 are imported as not alcohol.
+5. **Liquor: shots and bottles.** Each spirit is imported with a Shot and a Bottle variant at the listed prices. Confirm that bottles are bottle service (sold whole in a room) and whether a shot is a standard pour; mixers aren't priced.
+6. **Ramen add-ons** are imported on the three ramens (Shin, Buldak, Jjajang), up to all three. Whether they also go on Cheese Tteokbokki is to be confirmed.
 
 ## Import file
 
