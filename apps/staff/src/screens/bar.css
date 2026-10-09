@@ -1,0 +1,932 @@
+/* The bar screens restyled after Rail.dc.html and Bar.dc.html (V-04): the bar POS (the Rail), the
+   bar orders screen and the song queue. Only the shared tokens (@west4/shared/design/tokens.css) and
+   the bundled fonts. Every rule is scoped under the screen's own root (.rail, .bar-orders,
+   .song-queue) so it wins over the older rules in styles.css without touching them.
+   Spec 10 rule 9 stays: menu buttons at least 115 × 100 px, main actions 52 to 64 px tall. */
+
+/* ---------- Shared bits: eyebrow labels, mono pills, buttons ---------- */
+.rail button.secondary,
+.bar-orders button.secondary,
+.song-queue button.secondary,
+.song-queue a.song-count,
+.rail a.song-count,
+.bar-orders a.song-count {
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-3);
+  color: var(--w4-text);
+  border-radius: var(--w4-radius-md);
+}
+.rail button.primary,
+.bar-orders button.primary,
+.song-queue button.primary {
+  border-radius: var(--w4-radius-md);
+  font-weight: 800;
+}
+.rail button.link,
+.bar-orders button.link {
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--w4-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rail h2,
+.rail h3,
+.bar-orders h2,
+.song-queue h2 {
+  font-family: var(--w4-font-mono);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  font-size: 12px;
+  color: var(--w4-muted);
+  margin: 0 0 8px;
+}
+
+/* ---------- The bar POS (Rail.dc.html, 1280 × 800) ---------- */
+.rail {
+  gap: 10px;
+}
+.rail .rail-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.rail .rail-title {
+  font-size: 30px;
+  line-height: 0.9;
+  padding: 0;
+  margin: 0 4px 0 0;
+}
+.rail .rail-top .rail-who {
+  grid-area: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 5px 14px 5px 5px;
+  border-radius: var(--w4-radius-tile);
+  border: 2px solid var(--w4-lime);
+  background: var(--w4-surface);
+  color: var(--w4-text);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: normal;
+}
+.rail .rail-avatar {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+.rail .rail-top .on-break {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  color: var(--w4-amber);
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--w4-amber) 14%, transparent);
+}
+.rail .rail-top a.song-count {
+  min-height: 52px;
+  margin-left: auto;
+  padding: 0 14px;
+  font-weight: 700;
+  font-size: var(--w4-text-md);
+}
+.rail .rail-top .clock {
+  grid-area: auto;
+  display: block;
+  padding: 0;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  font-weight: 400;
+  color: var(--w4-muted);
+}
+.rail .rail-top > button.secondary {
+  min-height: 52px;
+  background: transparent;
+  border-color: var(--w4-line-strong);
+  font-size: var(--w4-text-md);
+  font-weight: 700;
+}
+/* Room orders: the canvas's cards across the top, a full row under the header. */
+.rail .rail-orders {
+  order: 10;
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+  gap: 8px;
+  overflow: visible;
+}
+.rail .rail-orders:empty {
+  display: none;
+}
+.rail .rail-order {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 7px 7px 7px 12px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 2px solid var(--w4-cyan);
+  --tone: var(--w4-cyan);
+}
+.rail .rail-order.amber {
+  border-color: var(--w4-amber);
+  --tone: var(--w4-amber);
+}
+.rail .rail-order.pink {
+  border-color: var(--w4-pink);
+  --tone: var(--w4-pink);
+}
+.rail .rail-order.stopped {
+  border-style: dashed;
+  border-color: var(--w4-line-3);
+  --tone: var(--w4-muted);
+  color: var(--w4-muted);
+}
+.rail .rail-order-head {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 8px;
+  font-size: 14px;
+}
+.rail .rail-order-head .age {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  font-weight: 700;
+  color: var(--tone);
+}
+.rail .rail-order .what {
+  grid-column: 1;
+  font-size: var(--w4-text-sm);
+  color: var(--w4-text-2);
+}
+.rail .rail-order .actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 6px;
+}
+.rail .rail-order .actions button {
+  min-height: 52px;
+  padding: 0 12px;
+  font-size: var(--w4-text-md);
+}
+.rail .rail-order form {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin-top: 8px;
+}
+
+/* The three columns: tabs and rooms, the menu, the tab or room. */
+.rail .rail-body {
+  grid-template-columns: 204px minmax(0, 1fr) 284px;
+  gap: 0;
+  align-items: stretch;
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-tile);
+  overflow: hidden;
+}
+.rail .rail-left,
+.rail .rail-right {
+  background: var(--w4-bg-rail);
+  padding: 12px;
+  min-width: 0;
+}
+.rail .rail-left {
+  border-right: 1px solid var(--w4-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rail .rail-right {
+  border-left: 1px solid var(--w4-line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rail .rail-center {
+  padding: 12px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rail .rail-left > label {
+  margin: 0;
+}
+.rail .rail-left input[type="search"],
+.rail .rail-tools input[type="search"] {
+  min-height: 52px;
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-3);
+  border-radius: var(--w4-radius);
+  font-size: var(--w4-text-base);
+}
+.rail .rail-left input[type="search"]:focus,
+.rail .rail-tools input[type="search"]:focus {
+  outline: none;
+  border-color: var(--w4-lime);
+}
+.rail .new-tab-button {
+  margin: 0;
+  min-height: 54px;
+  justify-content: flex-start;
+  padding: 0 14px;
+  font-size: 15px;
+}
+.rail .new-tab-button[aria-pressed="true"] {
+  outline: 2px solid var(--w4-text);
+  outline-offset: 2px;
+}
+/* All · Mine · Rooms, and the sections: segmented pills; the picked one is cream. */
+.rail .rail-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+}
+.rail .rail-filters .chip,
+.rail .rail-sections .chip {
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 8px;
+  border-radius: var(--w4-radius);
+  font-size: var(--w4-text-md);
+  font-weight: 700;
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  color: var(--w4-text);
+}
+.rail .rail-filters .chip {
+  padding: 0 4px;
+  font-size: var(--w4-text-sm);
+  overflow-wrap: normal;
+  background: transparent;
+  border-color: var(--w4-line-3);
+}
+.rail .rail-filters .chip.on,
+.rail .rail-sections .chip.on {
+  background: var(--w4-text);
+  color: var(--w4-on-accent);
+  border-color: var(--w4-text);
+}
+/* The tab list: name and total, then its marks; a coloured edge (cyan for a room). */
+.rail .rail-list {
+  margin: 0;
+  gap: 5px;
+}
+.rail .rail-list[aria-label] + .rail-list[aria-label] {
+  margin-top: 4px;
+}
+.rail .rail-row {
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 3px 8px;
+  padding: 8px 10px 8px 11px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line);
+  border-left: 5px solid var(--w4-muted);
+  font-weight: 400;
+}
+.rail .rail-row.quick {
+  grid-template-columns: minmax(0, 1fr);
+  border-left-color: var(--w4-lime);
+}
+.rail .rail-row.room {
+  border-left-color: var(--w4-cyan);
+}
+.rail .rail-row.on {
+  outline: none;
+  background: var(--w4-surface-2);
+  border: 2px solid var(--w4-text);
+  border-left: 5px solid var(--w4-text);
+}
+.rail .rail-row.quick.on {
+  border-left-color: var(--w4-lime);
+}
+.rail .rail-row.room.on {
+  border-left-color: var(--w4-cyan);
+}
+.rail .rail-row .name {
+  font-size: 15px;
+  font-weight: 700;
+}
+.rail .rail-row .amount {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-md);
+}
+.rail .rail-row .sub {
+  grid-column: 1 / -1;
+  font-size: var(--w4-text-xs);
+}
+.rail .rail-row .badge {
+  grid-column: 1 / -1;
+  justify-self: start;
+  font-family: var(--w4-font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 0;
+  background: var(--w4-line);
+  color: var(--w4-text-2);
+}
+.rail .rail-row .badge.bad {
+  background: color-mix(in srgb, var(--w4-pink) 14%, transparent);
+  color: var(--w4-pink);
+}
+.rail .rail-row .badge.warn {
+  background: color-mix(in srgb, var(--w4-amber) 14%, transparent);
+  color: var(--w4-amber);
+}
+.rail .rail-row .badge.ok {
+  background: color-mix(in srgb, var(--w4-lime) 10%, transparent);
+  color: var(--w4-lime);
+}
+.rail .rail-left details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--w4-muted);
+}
+.rail .closed-tab {
+  padding: 6px 6px 6px 11px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-bg-row);
+  border: 1px dashed var(--w4-line-2);
+  color: var(--w4-text-2);
+}
+.rail .closed-tab .amount {
+  font-family: var(--w4-font-mono);
+}
+
+/* The menu: search and 86, the sections with their dots, then 25 fixed buttons, five across. */
+.rail .rail-tools {
+  gap: 8px;
+}
+.rail .rail-tools button {
+  min-height: 52px;
+  min-width: 64px;
+  font-family: var(--w4-font-mono);
+  font-weight: 700;
+}
+.rail .rail-sections {
+  display: grid;
+  /* Five across, so a Food section (spec 16, draft) lands after the ten without moving any. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+.rail .rail-sections .chip {
+  justify-content: flex-start;
+  gap: 7px;
+  text-align: left;
+}
+.rail .rail-sections .chip::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sec, var(--w4-muted));
+}
+.rail [data-section="favorites"] {
+  --sec: var(--w4-sec-favorites);
+}
+.rail [data-section="beer"] {
+  --sec: var(--w4-sec-beer);
+}
+.rail [data-section="soju"] {
+  --sec: var(--w4-sec-soju);
+}
+.rail [data-section="cocktails"] {
+  --sec: var(--w4-sec-cocktails);
+}
+.rail [data-section="shots"] {
+  --sec: var(--w4-sec-shots);
+}
+.rail [data-section="spirits"] {
+  --sec: var(--w4-sec-spirits);
+}
+.rail [data-section="wine"] {
+  --sec: var(--w4-sec-wine);
+}
+.rail [data-section="soft"] {
+  --sec: var(--w4-sec-soft);
+}
+.rail [data-section="bottles"] {
+  --sec: var(--w4-sec-bottles);
+}
+.rail [data-section="buckets"] {
+  --sec: var(--w4-sec-buckets);
+}
+.rail .rail-grid {
+  margin: 0;
+  grid-template-columns: repeat(5, minmax(115px, 1fr));
+  grid-auto-rows: minmax(100px, auto);
+  gap: 6px;
+}
+.rail .rail-grid .slot {
+  min-height: 100px;
+}
+.rail .rail-grid .slot button {
+  height: 100%;
+  min-height: 100px;
+  gap: 4px;
+  padding: 10px 8px 9px 10px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface-2);
+  border: 1px solid var(--w4-line-2);
+  border-left: 4px solid var(--sec, var(--w4-line-strong));
+  text-align: left;
+  font-weight: 700;
+}
+.rail .rail-grid .slot .item-name {
+  font-size: 15px;
+  line-height: 1.15;
+}
+.rail .rail-grid .slot .item-price {
+  align-self: flex-end;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-md);
+  font-weight: 400;
+}
+.rail .rail-grid .slot .item-price.out {
+  align-self: flex-start;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--w4-pink);
+}
+.rail .rail-grid .slot.out button {
+  opacity: 1;
+  text-decoration: none;
+  background: var(--w4-bg-row);
+  color: var(--w4-faint);
+  border-color: var(--w4-line-faint);
+  border-left-color: var(--w4-line-2);
+}
+.rail .rail-grid .slot.empty {
+  border: 1px dashed var(--w4-line);
+  border-radius: var(--w4-radius-md);
+}
+.rail .sheet {
+  padding: 12px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-3);
+}
+
+/* The tab or room: its name in the display face, the chips, the lines, the total, the actions. */
+.rail .rail-right > h2 {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.01em;
+  font-size: 38px;
+  line-height: 0.9;
+  color: var(--w4-text);
+  margin: 0;
+}
+.rail .rail-right .chips .chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--w4-font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: var(--w4-line);
+  color: var(--w4-text-2);
+}
+.rail .rail-right .chips .chip.warn {
+  background: color-mix(in srgb, var(--w4-amber) 14%, transparent);
+  color: var(--w4-amber);
+}
+.rail .rail-right .on-tab {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--w4-line);
+}
+.rail .rail-right .on-tab li {
+  align-items: center;
+  min-height: 44px;
+  padding: 0 2px;
+  font-size: var(--w4-text-md);
+  color: var(--w4-text-2);
+  border-bottom: 1px solid var(--w4-line-faint);
+}
+.rail .rail-right .on-tab li > span:last-child,
+.rail .rail-right .on-tab button.tab-line > span:last-child {
+  font-family: var(--w4-font-mono);
+}
+.rail .rail-right .on-tab button.tab-line {
+  border-radius: var(--w4-radius);
+  font-weight: 400;
+  color: var(--w4-text-2);
+}
+.rail .rail-right .on-tab button.tab-line[aria-expanded="true"] {
+  border-color: var(--w4-lime);
+  background: var(--w4-surface-2);
+}
+.rail .rail-right .on-tab .waiting {
+  color: var(--w4-amber);
+}
+.rail .rail-right p.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+  font-size: var(--w4-text-md);
+  color: var(--w4-text-2);
+}
+.rail .rail-right p.total strong {
+  font-family: var(--w4-font-mono);
+  font-size: 17px;
+  color: var(--w4-text);
+}
+.rail .rail-right > .actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.rail .rail-right > .actions button {
+  min-height: 52px;
+  padding: 0 10px;
+}
+.rail .rail-right > .actions button.primary {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  font-size: 16px;
+  border-radius: var(--w4-radius-tile);
+}
+.rail .rail-right form {
+  max-width: none;
+}
+
+/* At the bar computer (1280 × 800) the side menu is slimmer, so five 115 px buttons fit across. */
+@media (min-width: 1024px) {
+  .shell:has(.rail) {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+  .shell:has(.rail) .content {
+    padding: 10px 12px;
+  }
+  /* The POS fills the window, as on the canvas: the tab list, the menu and the tab scroll on their
+     own, so the header and the room orders never scroll away. */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-h) - 20px);
+  }
+  .rail .rail-body {
+    flex: 1 1 0;
+    min-height: 520px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .rail .rail-left > *,
+  .rail .rail-center > *,
+  .rail .rail-right > * {
+    flex-shrink: 0;
+  }
+  .rail .rail-left,
+  .rail .rail-center,
+  .rail .rail-right {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+@media (max-width: 900px) {
+  .rail .rail-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail .rail-left {
+    border-right: 0;
+    border-bottom: 1px solid var(--w4-line);
+  }
+  .rail .rail-right {
+    border-left: 0;
+    border-top: 1px solid var(--w4-line);
+  }
+  .rail .rail-order {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail .rail-order .actions {
+    grid-column: 1;
+    grid-row: auto;
+    flex-wrap: wrap;
+  }
+  .rail .rail-grid {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  }
+  .rail .rail-sections {
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  }
+}
+
+/* ---------- The bar orders screen (Bar.dc.html, 900 × 640) ---------- */
+.bar-orders {
+  display: grid;
+  gap: 12px;
+}
+.bar-orders .bar-orders-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.bar-orders .bar-orders-head h1 {
+  margin: 0 auto 0 0;
+  font-size: 30px;
+}
+.bar-orders .bar-orders-head a.song-count {
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-md);
+}
+/* Waiting, Being made and Ready on the left; Delivered tonight and Returned on the right. */
+.bar-orders .bar-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+}
+.bar-orders .bar-col {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  padding: 2px 16px 0 0;
+}
+.bar-orders .bar-col-side {
+  padding: 2px 0 0 16px;
+  border-left: 1px solid var(--w4-line);
+}
+.bar-orders .bar-columns ul {
+  gap: 8px;
+}
+.bar-orders .bar-order {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-surface);
+  border: 2px solid var(--w4-line-2);
+  --tone: var(--w4-muted);
+}
+.bar-orders .bar-order.new {
+  border-color: var(--w4-cyan);
+  --tone: var(--w4-cyan);
+}
+.bar-orders .bar-order.amber {
+  border-color: var(--w4-amber);
+  --tone: var(--w4-amber);
+}
+.bar-orders .bar-order.pink {
+  border-color: var(--w4-pink);
+  --tone: var(--w4-pink);
+}
+.bar-orders .bar-order p {
+  margin: 0;
+  font-size: var(--w4-text-base);
+  line-height: 1.45;
+}
+.bar-orders .bar-order .bar-order-room strong {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 26px;
+  line-height: 0.9;
+}
+.bar-orders .bar-order .bar-order-room .muted {
+  font-size: var(--w4-text-sm);
+}
+.bar-orders .bar-columns .bar-order p.small {
+  justify-self: start;
+  font-family: var(--w4-font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--w4-lime) 10%, transparent);
+  color: var(--w4-lime);
+}
+.bar-orders .bar-order p.status {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  font-weight: 700;
+  color: var(--tone);
+}
+.bar-orders .bar-order .team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bar-orders .bar-order .team-actions button {
+  min-height: 52px;
+  padding: 0 14px;
+  font-size: var(--w4-text-md);
+}
+.bar-orders .bar-order .team-actions button.primary {
+  flex: 1 1 100%;
+  font-size: 15px;
+}
+.bar-orders .bar-order .team-actions button.secondary {
+  flex: 1 1 0;
+  background: transparent;
+}
+.bar-orders .bar-order > button.primary {
+  min-height: 52px;
+  justify-self: start;
+  background: transparent;
+  color: var(--w4-lime);
+}
+.bar-orders .bar-order form {
+  max-width: none;
+}
+.bar-orders .bar-order .ticket-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--w4-pink);
+}
+/* Being made, Ready, Delivered and Returned: the canvas's quieter rows. */
+.bar-orders .bar-compact .bar-order,
+.bar-orders .bar-col-side .bar-order {
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: var(--w4-radius-md);
+  border-width: 1px;
+  border-color: var(--w4-line-2);
+  background: var(--w4-bg-row);
+}
+.bar-orders .bar-compact .bar-order .bar-order-room strong,
+.bar-orders .bar-col-side .bar-order .bar-order-room strong {
+  font-size: 20px;
+}
+.bar-orders .bar-compact .bar-order p,
+.bar-orders .bar-col-side .bar-order p {
+  font-size: var(--w4-text-md);
+  color: var(--w4-text-2);
+}
+.bar-orders .bar-col-side .bar-order p.status {
+  color: var(--w4-muted);
+}
+.bar-orders .bar-compact .bar-order p.status {
+  color: var(--w4-text-2);
+}
+/* Out tonight: pink pills, each with Back on; the 86 box under them. */
+.bar-orders .out-tonight {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+}
+.bar-orders .out-tonight h2 {
+  margin: 0;
+}
+.bar-orders .out-tonight .faults {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.bar-orders .out-tonight .faults li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 0 12px;
+  border-radius: var(--w4-radius-pill);
+  background: color-mix(in srgb, var(--w4-pink) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--w4-pink) 40%, transparent);
+  color: var(--w4-pink);
+  font-size: var(--w4-text-md);
+  font-weight: 600;
+}
+.bar-orders .out-tonight .faults li button.secondary {
+  min-height: 44px;
+  border-radius: var(--w4-radius-pill);
+  border: 0;
+  background: transparent;
+  color: var(--w4-text);
+  font-size: var(--w4-text-sm);
+}
+.bar-orders .out-tonight form {
+  max-width: none;
+  align-items: flex-end;
+}
+.bar-orders .out-tonight form label {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.bar-orders .out-tonight form label > span {
+  font-size: var(--w4-text-sm);
+}
+.bar-orders .out-tonight form input {
+  background: var(--w4-bg);
+  border-color: var(--w4-line-3);
+}
+.bar-orders .out-tonight form button {
+  min-height: 52px;
+  min-width: 64px;
+  font-family: var(--w4-font-mono);
+  font-weight: 700;
+}
+.bar-orders .footer-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+  font-size: var(--w4-text-sm);
+  line-height: 1.55;
+  color: var(--w4-text-2);
+}
+.bar-orders .footer-line button.secondary {
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-sm);
+}
+@media (max-width: 640px) {
+  .bar-orders .bar-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bar-orders .bar-col,
+  .bar-orders .bar-col-side {
+    padding: 0;
+    border-left: 0;
+  }
+  .bar-orders .bar-col-side {
+    margin-top: 14px;
+  }
+}
+
+/* ---------- The song queue in bar mode (screens N27; no board, drawn in the Rail's style) ---------- */
+.song-queue .song-queue-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.song-queue .song-queue-head h1 {
+  font-size: 30px;
+  margin-bottom: 0;
+}
+.song-queue .sq-now {
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 2px solid var(--w4-lime);
+}
+.song-queue .sq-song {
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+}
+.song-queue .sq-place {
+  font-family: var(--w4-font-mono);
+  color: var(--w4-muted);
+}
+.song-queue .sq-song .pill {
+  border-radius: var(--w4-radius-pill);
+  background: color-mix(in srgb, var(--w4-pink) 13%, transparent);
+}
+.song-queue .sq-add {
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-bg-row);
+  border-color: var(--w4-line-2);
+}

@@ -24,6 +24,18 @@
   --w4-cyan: #3df2ff; /* information */
   --w4-yellow: #ffd338;
 
+  /* Bar POS sections (V-04, Rail.dc.html): the dot on each section and the edge of its buttons */
+  --w4-sec-favorites: #d4ff3f;
+  --w4-sec-beer: #e8c872;
+  --w4-sec-soju: #7fd6c2;
+  --w4-sec-cocktails: #f28fb5;
+  --w4-sec-shots: #b79cff;
+  --w4-sec-spirits: #9ec5ff;
+  --w4-sec-wine: #e07a7a;
+  --w4-sec-soft: #9be08f;
+  --w4-sec-bottles: #c9c5ce;
+  --w4-sec-buckets: #d9a15c;
+
   /* Lines: cream at low opacity */
   --w4-line-faint: rgba(244, 241, 234, 0.06);
   --w4-line: rgba(244, 241, 234, 0.08);
