@@ -7,6 +7,7 @@ import { installErrorReporting } from "./telemetry.js";
 import "@west4/shared/design/fonts.css";
 import "@west4/shared/design/tokens.css";
 import "./styles.css";
+import "./phone.css";
 
 // Uncaught errors go to error tracking, scrubbed (M8-16).
 installErrorReporting();

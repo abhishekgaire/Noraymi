@@ -247,7 +247,7 @@ export function TipsToEnter() {
                 >
                   <span className="row">
                     <strong data-guest-text>{s.name}</strong>
-                    <span>{money((s.slip?.total_cents ?? 0) as never)}</span>
+                    <span className="amount">{money((s.slip?.total_cents ?? 0) as never)}</span>
                   </span>
                   {s.card && (
                     <span className="small" data-guest-text>

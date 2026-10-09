@@ -62,6 +62,15 @@ function passkeySupport(): PasskeyJson | null {
 }
 
 const pinDigits = (role: Role): 4 | 6 => (role === "owner" || role === "manager" ? 6 : 4);
+/** "Maya S." → "MS": a person's name, not app words, so it needs no catalog. */
+const initials = (name: string): string =>
+  name
+    .split(/\s+/)
+    .map((part) => part.replace(/[^\p{L}]/gu, "").charAt(0))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
 export function SignIn() {
   const { t, time, locale } = useT();
@@ -397,14 +406,42 @@ export function SignIn() {
         <WaitingWhileLocked device={device} />
         {!chosen && (
           <>
-            <p className="badge-line">{t("signIn.tapBadge")}</p>
-            <p className="muted">{clockMode ? t("clock.modeHint") : t("signIn.noBadge")}</p>
+            <div className="badge-card">
+              {/* The canvas's badge-and-reader mark (Pin.dc.html, V-02). */}
+              <svg
+                width="46"
+                height="46"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="4" y="3" width="11" height="16" rx="2" />
+                <path d="M8 7h3" />
+                <path d="M18 8.5a4.5 4.5 0 0 1 0 6" />
+                <path d="M20.5 6.5a8 8 0 0 1 0 10" />
+              </svg>
+              <p className="badge-line">{t("signIn.tapBadge")}</p>
+            </div>
+            <p className="muted no-badge">
+              {clockMode ? t("clock.modeHint") : t("signIn.noBadge")}
+            </p>
             <ul className="tiles" aria-label={t("signIn.noBadge")}>
               {(tiles?.tiles ?? [])
                 .filter((tile) => tile.has_pin)
                 .map((tile) => (
                   <li key={tile.membership_id}>
                     <button type="button" className="tile" onClick={() => choose(tile)}>
+                      {/* Initials in a circle, cyan for a 6-digit PIN (Pin.dc.html); the name says it all. */}
+                      <span
+                        className={pinDigits(tile.role) === 6 ? "tile-avatar six" : "tile-avatar"}
+                        aria-hidden="true"
+                      >
+                        {initials(tile.name)}
+                      </span>
                       <span className="tile-name">{tile.name}</span>
                       <span className="tile-role">{t(roleKey[tile.role])}</span>
                       {tile.shift !== undefined && (

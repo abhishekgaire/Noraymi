@@ -1,0 +1,779 @@
+/* The staff phone screens (V-02), after Pin.dc.html, Staff.dc.html and Room.dc.html: the sign-in
+   keypad, the Staff portal's lists (Tonight's bookings, Waitlist, Runs, Tips to enter), the room tab and
+   clock, and the shell around them at 390 wide. Tokens only (@west4/shared/design/tokens.css).
+   Loaded after styles.css; every rule is scoped to its screen so the desk, bar and Admin screens keep theirs. */
+
+/* --- The shell on a phone: the page grows, so the bottom tabs sit at the foot of the screen and never
+   stretch to fill a short page (the grid's 1fr row landed on the tab bar when there was no band). */
+@media (max-width: 1023.98px) {
+  .shell {
+    display: flex;
+    flex-direction: column;
+  }
+  .shell > .content {
+    flex: 1 0 auto;
+  }
+  .shell > .tabs {
+    align-items: center;
+  }
+}
+
+/* --- Pin: the sign-in on the bar computer and on a phone. One centred column, 340 wide. */
+.sign-in.shared,
+.sign-in.phone {
+  max-width: 388px;
+  padding: 20px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+.sign-in.shared > *,
+.sign-in.phone > * {
+  margin: 0;
+  width: 100%;
+  max-width: 340px;
+}
+.sign-in.shared h1,
+.sign-in.phone h1 {
+  font-size: 52px;
+  line-height: 0.88;
+  margin: 0;
+}
+.sign-in-top {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.sign-in .clock-line {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  letter-spacing: 0.16em;
+  font-variant-caps: all-small-caps;
+}
+.sign-in .clock-line time {
+  font-size: var(--w4-text-sm);
+  font-weight: 700;
+  color: var(--w4-lime);
+  font-variant-caps: normal;
+  letter-spacing: 0.06em;
+}
+.sign-in .clock-line .muted {
+  font-size: var(--w4-text-sm);
+}
+.sign-in.phone > .muted:not(.small) {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  color: var(--w4-lime);
+  letter-spacing: 0.06em;
+}
+.badge-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  text-align: left;
+}
+.badge-card svg {
+  flex: none;
+  color: var(--w4-lime);
+}
+.badge-card .badge-line {
+  margin: 0;
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+}
+.sign-in .no-badge {
+  font-family: var(--w4-font-mono);
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  font-size: var(--w4-text-sm);
+}
+.sign-in.shared .tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.sign-in .tile {
+  min-height: 116px;
+  gap: 3px;
+  padding: 14px;
+  border-radius: 16px;
+  border-color: var(--w4-line-2);
+  background: var(--w4-surface);
+  text-align: left;
+  justify-content: flex-start;
+}
+.sign-in .tile:hover:not(:disabled) {
+  border-color: var(--w4-line-strong);
+}
+.tile-avatar {
+  margin-bottom: 9px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--w4-text-base);
+  background: color-mix(in srgb, var(--w4-lime) 12%, transparent);
+  color: var(--w4-lime);
+}
+.tile-avatar.six {
+  background: color-mix(in srgb, var(--w4-cyan) 14%, transparent);
+  color: var(--w4-cyan);
+}
+.sign-in .tile-name {
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+}
+.sign-in .tile-role,
+.sign-in .tile-shift {
+  font-size: var(--w4-text-sm);
+  font-weight: 400;
+}
+.sign-in .waiting-orders {
+  padding: 10px 12px;
+  border-radius: var(--w4-radius-md);
+  background: color-mix(in srgb, var(--w4-cyan) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--w4-cyan) 33%, transparent);
+  text-align: left;
+  font-size: var(--w4-text-md);
+}
+.sign-in .waiting-orders p,
+.sign-in .waiting-orders ul {
+  margin: 0;
+}
+.sign-in .waiting-orders ul {
+  padding-left: 18px;
+}
+.sign-in .pin-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.sign-in .pin-for {
+  margin: 0;
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+}
+
+/* The PIN pad: round 82 px keys, three across, and dots that glow lime as digits go in. */
+.keypad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.keypad .dots {
+  gap: 14px;
+  margin: 0;
+  padding: 6px 0;
+}
+.keypad .dot {
+  border: 1px solid var(--w4-line-strong);
+}
+.keypad .dot.filled {
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  box-shadow: 0 0 10px var(--w4-lime);
+}
+.keypad .keys {
+  grid-template-columns: repeat(3, 82px);
+  gap: 12px;
+  margin: 0;
+  justify-content: center;
+}
+.keypad .key {
+  width: 82px;
+  height: 82px;
+  min-height: 82px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--w4-line-3);
+  background: var(--w4-surface);
+  font-size: 28px;
+  font-weight: 600;
+}
+.keypad .key:active:not(:disabled) {
+  background: var(--w4-surface-2);
+}
+.sign-in .pin-entry > .secondary {
+  border: 0;
+  background: none;
+  color: var(--w4-text-2);
+  font-size: var(--w4-text-base);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sign-in .pin-entry > .primary {
+  border-radius: var(--w4-radius-pill);
+  padding: 0 22px;
+}
+.sign-in-foot {
+  margin-top: 6px;
+  gap: 10px;
+  justify-items: center;
+}
+.sign-in-foot .small,
+.sign-in.phone > .small {
+  font-size: var(--w4-text-sm);
+  line-height: 1.5;
+  color: var(--w4-faint);
+}
+.sign-in-foot > button {
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-md);
+  padding: 0 18px;
+}
+.sign-in-foot > button[aria-pressed="true"] {
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
+  border-color: var(--w4-lime);
+}
+.sign-in.shared .language,
+.sign-in.phone .language {
+  justify-content: center;
+  margin-top: 4px;
+}
+.sign-in.shared .language button,
+.sign-in.phone .language button {
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-md);
+}
+
+/* --- Tonight's bookings on the phone (Staff.dc.html's List): a card a booking, its status as a chip. */
+.phone-tonight .phone-counts {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  color: var(--w4-text-2);
+  letter-spacing: 0.02em;
+}
+.phone-tonight h2 {
+  font-family: var(--w4-font-mono);
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  font-variant-caps: all-small-caps;
+  font-size: var(--w4-text-sm);
+  color: var(--w4-muted);
+  margin: 18px 0 8px;
+}
+.phone-tonight .sheet h2 {
+  font-family: var(--w4-font-body);
+  font-variant-caps: normal;
+  letter-spacing: 0;
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+  color: var(--w4-text);
+  margin: 0;
+}
+.phone-tonight .bookings-list {
+  display: grid;
+  gap: 8px;
+}
+.phone-tonight .bookings-list li {
+  margin: 0;
+}
+.phone-tonight .conversation {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  text-align: start;
+  gap: 8px 10px;
+  margin: 0;
+  padding: 14px;
+  border-radius: var(--w4-radius-tile);
+  border-color: var(--w4-line);
+  background: var(--w4-bg-row);
+  font-size: var(--w4-text-base);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.phone-tonight .conversation:hover:not(:disabled) {
+  border-color: var(--w4-line-strong);
+}
+.phone-tonight .conversation > span:first-child {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.status-chip {
+  flex: none;
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: var(--w4-radius-pill);
+  border: 1px solid var(--w4-line-3);
+  font-family: var(--w4-font-mono);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  font-variant-caps: all-small-caps;
+  font-size: var(--w4-text-sm);
+  line-height: 1.2;
+  color: var(--w4-text-2);
+  text-align: center;
+}
+.status-chip[data-status="seated"] {
+  color: var(--w4-lime);
+  border-color: color-mix(in srgb, var(--w4-lime) 40%, transparent);
+  background: color-mix(in srgb, var(--w4-lime) 10%, transparent);
+}
+.status-chip[data-status="late"] {
+  color: var(--w4-pink);
+  border-color: color-mix(in srgb, var(--w4-pink) 45%, transparent);
+  background: color-mix(in srgb, var(--w4-pink) 10%, transparent);
+}
+.phone-tonight .conversation:has(.status-chip[data-status="late"]) {
+  border-color: color-mix(in srgb, var(--w4-pink) 45%, transparent);
+}
+.status-chip[data-status="no-show"] {
+  color: var(--w4-muted);
+  border-style: dashed;
+}
+/* Room by room: one quiet row a room, a dot in the room's colour. */
+.phone-tonight ul.bookings-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line-faint);
+}
+.phone-tonight ul.bookings-list li::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--w4-line-strong);
+}
+.phone-tonight ul.bookings-list li[data-kind="in_room"]::before,
+.phone-tonight ul.bookings-list li[data-kind="staying"]::before {
+  background: var(--w4-lime);
+}
+.phone-tonight ul.bookings-list li[data-kind="wrap_up"]::before {
+  background: var(--w4-amber);
+}
+.phone-tonight ul.bookings-list li[data-kind="needed_now"]::before,
+.phone-tonight ul.bookings-list li[data-kind="out_of_service"]::before {
+  background: var(--w4-pink);
+}
+.phone-tonight ul.bookings-list li[data-kind="cleaning"]::before {
+  background: var(--w4-cleaning);
+  box-shadow: inset 0 0 0 1px var(--w4-muted);
+}
+
+/* --- The phone sheets (N10 to N22): a raised card with a hairline, not a lime frame. */
+@media (max-width: 1023.98px) {
+  .content .sheet {
+    border-color: var(--w4-line-2);
+    border-radius: var(--w4-radius-lg);
+    background: var(--w4-surface);
+    box-shadow: var(--w4-shadow-lift);
+    padding: 16px;
+  }
+  .content .sheet input,
+  .content .sheet select {
+    border-radius: var(--w4-radius);
+    background: var(--w4-bg-row);
+  }
+  .content .sheet .actions > button,
+  .content .sheet .actions > .button {
+    border-radius: var(--w4-radius-md);
+  }
+}
+
+/* --- Waitlist (Staff.dc.html's Waitlist): numbered cards, the number in pink display type. */
+.waitlist .room-clocks {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  counter-reset: waitlist;
+}
+.waitlist .room-clock {
+  counter-increment: waitlist;
+  position: relative;
+  padding: 14px 14px 14px 52px;
+  border-radius: var(--w4-radius-tile);
+  border-color: var(--w4-line);
+  background: var(--w4-bg-row);
+  gap: 3px;
+}
+.waitlist .room-clock::before {
+  content: counter(waitlist);
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--w4-pink);
+}
+.waitlist .room-clock-head {
+  align-items: baseline;
+}
+.waitlist .room-clock-head .tile-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+.waitlist .room-clock-head > span:last-child {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  color: var(--w4-text-2);
+  white-space: nowrap;
+}
+.waitlist .room-clock .small {
+  font-size: var(--w4-text-sm);
+  color: var(--w4-text-2);
+}
+.waitlist .room-clock .small.muted {
+  color: var(--w4-muted);
+}
+.waitlist .room-clock [role="timer"] {
+  color: var(--w4-lime);
+  font-family: var(--w4-font-mono);
+}
+.waitlist .room-clock .actions {
+  margin-top: 8px;
+  gap: 6px;
+}
+.waitlist .room-clock .actions > button {
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-md);
+  padding: 0 14px;
+}
+/* "Add a party" and "+ Add a walk-in": the canvas's dashed full-width row. */
+.waitlist > .actions {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.waitlist > .actions > button {
+  min-height: 48px;
+  border-style: dashed;
+  border-color: var(--w4-line-strong);
+  border-radius: var(--w4-radius-tile);
+  font-size: var(--w4-text-base);
+  font-weight: 700;
+}
+
+/* --- Runs (Staff.dc.html's Runs): a card a run, the room in display type, the wait in amber mono,
+   the ID line as a chip (lime when every ID is in, amber when the runner checks the last ones). */
+.runs .run-list {
+  gap: 10px;
+}
+.runs .run {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 14px 14px;
+  border-radius: var(--w4-radius-tile);
+  border: 1px solid var(--w4-line);
+  background: var(--w4-bg-row);
+}
+.runs .run.ids-short {
+  border-color: color-mix(in srgb, var(--w4-amber) 55%, transparent);
+}
+.runs .run p {
+  margin: 0;
+}
+.runs .run-room strong {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.01em;
+  font-size: 29px;
+  line-height: 0.9;
+}
+.runs .run-what {
+  font-size: var(--w4-text-base);
+}
+.runs .run .status {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  font-weight: 700;
+  color: var(--w4-amber);
+}
+.runs .run-ids {
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  color: var(--w4-lime);
+  background: color-mix(in srgb, var(--w4-lime) 12%, transparent);
+}
+.runs .run.ids-short .run-ids {
+  color: var(--w4-amber);
+  background: color-mix(in srgb, var(--w4-amber) 12%, transparent);
+}
+.runs .run .team-actions {
+  gap: 8px;
+  margin-top: 4px;
+}
+.runs .run .team-actions > button {
+  border-radius: var(--w4-radius-md);
+}
+.runs .run .team-actions > button.primary {
+  min-height: 52px;
+  font-size: 15px;
+}
+.runs .run .button.primary {
+  min-height: 52px;
+  border-radius: var(--w4-radius-md);
+}
+
+/* --- Tips to enter (Staff.dc.html's Tips): a card a paper slip, the tab's total in mono. */
+.tips-to-enter .cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.tips-to-enter .cards > .card,
+.tips-to-enter .tip-entry {
+  padding: 14px;
+  border-radius: var(--w4-radius-tile);
+  border: 1px solid var(--w4-line);
+  background: var(--w4-bg-row);
+}
+.tips-to-enter .slip-row {
+  gap: 6px;
+  justify-content: stretch;
+  align-items: start;
+}
+.tips-to-enter .slip-row .row,
+.tips-to-enter .tip-entry .row {
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+.tips-to-enter .slip-row strong,
+.tips-to-enter .tip-entry .row strong {
+  font-size: 15px;
+}
+.tips-to-enter .slip-row .amount,
+.tips-to-enter .tip-entry .row > span {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+}
+.tips-to-enter .slip-row .small {
+  font-size: var(--w4-text-sm);
+  color: var(--w4-muted);
+}
+.tips-to-enter .slip-row .badge-text {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  color: var(--w4-amber);
+}
+.tips-to-enter .tip-entry {
+  max-width: none;
+}
+.tips-to-enter .tip-entry input {
+  background: var(--w4-bg);
+  border-radius: var(--w4-radius-md);
+  min-height: 48px;
+}
+.tips-to-enter .tip-entry .slip-photo {
+  border-radius: var(--w4-radius);
+}
+
+/* --- The room tab and clock (Room.dc.html). The tab section's class is "tab", the bottom tab's
+   too: it must not pick up the tab bar's pill. */
+.room-screen section.tab {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: start;
+}
+@media (max-width: 1023.98px) {
+  .room-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 24px;
+  }
+  .room-screen > * {
+    margin: 0;
+  }
+  .room-screen > a.small:first-child {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--w4-text);
+    font-size: var(--w4-text-md);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .room-screen > h1 {
+    font-size: 52px;
+    margin: -6px 0 -4px;
+  }
+  .room-screen > h1 + p:not([role]) {
+    font-family: var(--w4-font-mono);
+    font-size: var(--w4-text-sm);
+    letter-spacing: 0.08em;
+    color: var(--w4-lime);
+  }
+  /* The room clock: the canvas's dark card, the minutes and rate in big display type. */
+  .room-screen > .big {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--w4-bg-row);
+    border: 1px solid var(--w4-line);
+    font-family: var(--w4-font-display);
+    font-variation-settings:
+      "opsz" 96,
+      "wdth" 75;
+    font-weight: 800;
+    font-size: 40px;
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+  }
+  .room-screen > .big + .notice,
+  .room-screen > .notice.error {
+    margin-top: -6px;
+    font-size: var(--w4-text-base);
+  }
+  /* The tab: a card of lines, label on the left, the amount in mono on the right, hairlines between. */
+  .room-screen section.tab,
+  .room-screen > .presented {
+    padding: 16px;
+    border-radius: 20px;
+    background: var(--w4-bg-row);
+    border: 1px solid var(--w4-line);
+  }
+  .room-screen section.tab h2,
+  .room-screen > .presented h2 {
+    margin: 0 0 8px;
+    font-family: var(--w4-font-mono);
+    font-size: var(--w4-text-sm);
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    font-variant-caps: all-small-caps;
+    color: var(--w4-muted);
+  }
+  .room-screen section.tab dl,
+  .room-screen > .presented dl {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0;
+    margin: 0;
+    font-size: var(--w4-text-base);
+  }
+  .room-screen section.tab dt,
+  .room-screen section.tab dd,
+  .room-screen > .presented dt,
+  .room-screen > .presented dd {
+    margin: 0;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--w4-line);
+  }
+  .room-screen section.tab dd,
+  .room-screen > .presented dd {
+    padding-left: 12px;
+    font-family: var(--w4-font-mono);
+    font-size: var(--w4-text-md);
+    text-align: end;
+    white-space: nowrap;
+  }
+  .room-screen section.tab dl > dt:last-of-type,
+  .room-screen section.tab dl > dd:last-of-type,
+  .room-screen > .presented dl > dt:last-of-type,
+  .room-screen > .presented dl > dd:last-of-type {
+    border-bottom: 0;
+    padding-top: 10px;
+    font-size: 18px;
+  }
+  .room-screen section.tab > p {
+    margin: 8px 0 0;
+  }
+  .room-screen section.tab > .small.muted {
+    font-size: var(--w4-text-sm);
+  }
+  .room-screen > section > h2,
+  .room-screen > section > h3 {
+    margin: 4px 0 8px;
+  }
+  .room-screen .party-size span {
+    font-weight: 600;
+  }
+  .room-screen > .actions > button {
+    border-radius: var(--w4-radius-md);
+  }
+  /* The fix panel's lines and the room's lists: rows, not bullets. */
+  .room-screen .fix-lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .room-screen .fix-lines > li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0 4px 2px;
+    border-bottom: 1px solid var(--w4-line);
+  }
+  .room-screen .fix-panel h2,
+  .room-screen .add-drinks h2 {
+    margin: 4px 0 8px;
+  }
+  .room-screen form.actions {
+    align-items: flex-end;
+  }
+  /* The room's calls: the canvas's amber "Called staff" strip, with On it. */
+  .room-screen > section:has(> ul.faults > li > button.primary) {
+    padding: 10px 12px;
+    border-radius: var(--w4-radius-md);
+    background: color-mix(in srgb, var(--w4-amber) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--w4-amber) 33%, transparent);
+  }
+  .room-screen > section:has(> ul.faults > li > button.primary) h2 {
+    margin: 0 0 4px;
+    font-family: var(--w4-font-mono);
+    font-size: var(--w4-text-sm);
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    font-variant-caps: all-small-caps;
+    color: var(--w4-amber);
+  }
+  .room-screen > section:has(> ul.faults > li > button.primary) li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: var(--w4-text-md);
+  }
+  .room-screen form.actions .grow {
+    flex: 1 1 180px;
+    margin: 0;
+  }
+}

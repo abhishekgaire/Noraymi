@@ -139,15 +139,23 @@ export function Runs() {
       ) : (
         <ul className="run-list">
           {runs.map((o) => (
-            <li key={o.id} className="run" aria-label={`${o.room_name ?? ""} · ${what(o)}`}>
-              <p>
+            <li
+              key={o.id}
+              className={
+                o.party_size !== null && o.ids_checked < o.party_size ? "run ids-short" : "run"
+              }
+              aria-label={`${o.room_name ?? ""} · ${what(o)}`}
+            >
+              <p className="run-room">
                 <strong>{o.room_name}</strong>
               </p>
-              <p data-guest-text>{what(o)}</p>
+              <p className="run-what" data-guest-text>
+                {what(o)}
+              </p>
               <p className="status">
                 {t(staffOrderWordsKey(o), { age: age(o.ready_at), name: o.claimed_by_name ?? "" })}
               </p>
-              {ids(o) && <p className="small">{ids(o)}</p>}
+              {ids(o) && <p className="small run-ids">{ids(o)}</p>}
               <div className="team-actions">
                 {o.status === "ready" && (
                   <button
