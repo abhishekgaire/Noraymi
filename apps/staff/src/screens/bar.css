@@ -77,6 +77,14 @@
   font-weight: 700;
   white-space: normal;
 }
+/* The name keeps the .who text the screens read; the avatar sits beside it, outside it. */
+.rail .rail-top .rail-who .who {
+  grid-area: auto;
+  font: inherit;
+  color: inherit;
+  white-space: inherit;
+  padding: 0;
+}
 .rail .rail-avatar {
   width: 38px;
   height: 38px;

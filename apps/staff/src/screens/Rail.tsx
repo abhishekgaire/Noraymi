@@ -666,11 +666,11 @@ export function Rail() {
       <header className="rail-top">
         <h1 className="rail-title">{t("menu.barPos")}</h1>
         {me && (
-          <span className="who rail-who">
+          <span className="rail-who">
             <span className="rail-avatar" aria-hidden="true">
               {initials(me.name)}
             </span>
-            <span>
+            <span className="who">
               {terminal.on_break ? t("rail.onBreak", { name: me.name.split(" ")[0]! }) : me.name}
             </span>
           </span>
