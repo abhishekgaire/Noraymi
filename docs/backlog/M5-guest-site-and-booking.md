@@ -377,7 +377,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-14 · Turn booking off with the module, and keep manage links working
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M5-01, M5-12
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (Modules, stopping, what each module hides); [decisions](../decisions.md) (D71); [screens: Main note 2](../screens.md#main), [Book note 5](../screens.md#book), [SiteBuilder note 1](../screens.md#sitebuilder)
@@ -386,11 +386,15 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Stopping takes no new bookings, while existing ones can still be viewed, changed, cancelled and refunded.
   - Booking routes answer `404 module_off`, except the guest routes for existing bookings (manage, cancel and refund status).
 - **Acceptance:**
-  - [ ] With the module off, the hero reads "Call to book" with (212) 255-0011.
-  - [ ] Jae's manage link still opens, cancels and shows his refund status.
-  - [ ] `POST /v1/public/venues/{slug}/bookings` answers `404 module_off`.
+  - [x] With the module off, the hero reads "Call to book" with (212) 255-0011.
+  - [x] Jae's manage link still opens, cancels and shows his refund status.
+  - [x] `POST /v1/public/venues/{slug}/bookings` answers `404 module_off`.
 - **Tests:** module tests (`404 module_off`; the effects table's row for this module); end-to-end.
 - **Notes:** The canvas keeps "Book a room" whatever the modules say ([Main note 2](../screens.md#main)).
+  - Built: the guest site's hero ("Call to book · (212) 255-0011"), the hidden Book section and Admin → Deposits & cancelling's "Online booking is off" were already in place from M5-01, M5-02 and M5-05; this ticket adds the nav's "Call to book" link (`apps/guest/app/site/home.tsx`). The API (`apps/api/src/routes/online-bookings.ts`) now answers `404 module_off` (details `{module: "online_booking"}`, was `not_found`/`booking_off`) for availability and a new hold, and also for More time, Details and Pay on a guest's own hold, while the module is off or stopping. Manage, change, cancel and refund status keep working, and so does the Deposit refund text for an existing booking.
+  - Payment link: `POST /bookings/{b}/payment-link` belongs to the online_booking module (`404 module_off` when off; still allowed while stopping, since the booking already exists). A staff payment link already sent still pays with the module off: it is an existing booking's guest link.
+  - Cautious default: with the module off, a new staff booking takes no deposit and confirms at once (`apps/api/src/routes/bookings.ts`), since there is no payment link to collect one; otherwise it would sit pending. Ask the founder if staff bookings should still owe a deposit taken another way. "Deposit refund for new bookings" then follows on its own: no new booking has a deposit to refund.
+  - Tests: `online-bookings.int.test.ts` (off and stopping), `booking-cancel.int.test.ts` (Jae with the module off), `booking-payment-link.int.test.ts`, `packages/shared/src/modules.test.ts` (the effects row), and `e2e/guest.spec.ts` (hero and nav; Jae's manage cancel with the module off). The API spec (08) lists the behaviour.
 
 ### M5-15 · Push hours to Google Business Profile
 

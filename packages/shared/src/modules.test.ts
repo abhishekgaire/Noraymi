@@ -98,4 +98,17 @@ describe("modules", () => {
     ]);
     expect(modules.find((m) => m.id === "bar_mode")?.hides.texts).toEqual(["youre_up_next"]);
   });
+
+  it("Online booking & deposits' row (M5-14): Deposits & cancelling, Book, the hero and nav button, Payment link and Deposit refund", () => {
+    expect(modules.find((m) => m.id === "online_booking")?.hides).toEqual({
+      staffApp: ["admin.deposits"],
+      staffPhone: [],
+      website: ["book", "manage.newBookings", "hero.bookARoom"],
+      texts: ["payment_link", "deposit_refund_new"],
+    });
+    expect(catalogs.en["module.online_booking.hides.website"]).toContain('"Call to book"');
+    expect(catalogs.en["module.online_booking.hides.texts"]).toBe(
+      "Payment link, and Deposit refund for new bookings",
+    );
+  });
 });

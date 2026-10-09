@@ -55,7 +55,12 @@ export function SiteHeader({ site, base }: { site: SiteView; base: string }) {
         {site.modules.rooms && <a href={`${base}/#rooms`}>{t("en", "site.nav.rooms")}</a>}
         <a href={`${base}/#menu`}>{t("en", "site.nav.menu")}</a>
         <a href={`${base}/parties`}>{t("en", "site.nav.parties")}</a>
-        {site.modules.booking && <a href={`${base}/book`}>{t("en", "site.nav.book")}</a>}
+        {site.modules.booking ? (
+          <a href={`${base}/book`}>{t("en", "site.nav.book")}</a>
+        ) : (
+          // Booking off (M5-14): the nav's "Book a room" reads "Call to book" with the venue's number.
+          site.phone && <a href={`tel:${site.phone}`}>{t("en", "site.hero.callToBook")}</a>
+        )}
       </nav>
     </header>
   );

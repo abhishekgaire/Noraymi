@@ -199,6 +199,46 @@ describe("payment links and cardHold", () => {
     );
   });
 
+  it("with Online booking & deposits off: no new payment link, a staff booking takes no deposit, and a link already sent still pays", async () => {
+    const pending = await staff("/bookings", {
+      guest: { name: "Lena V.", phone_e164: "+12125550163" },
+      party_size: 6,
+      business_date: "2026-10-03",
+      time: "20:00",
+      hours: 2,
+    });
+    const id = pending.json().booking.id as string;
+    const sent = await staff(`/bookings/${id}/payment-link`);
+    expect(sent.statusCode, sent.body).toBe(200);
+    const token = (sent.json().url as string).split("/").pop()!;
+    await owner.query(
+      "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'online_booking'",
+      [venueId],
+    );
+    try {
+      const again = await staff(`/bookings/${id}/payment-link`);
+      expect(again.statusCode).toBe(404);
+      expect(again.json().error.code).toBe("module_off");
+      const made = await staff("/bookings", {
+        guest: { name: "Rafa D.", phone_e164: "+12125550164" },
+        party_size: 6,
+        business_date: "2026-10-03",
+        time: "22:00",
+        hours: 2,
+      });
+      expect(made.statusCode, made.body).toBe(201);
+      expect(made.json().booking).toMatchObject({ status: "confirmed", deposit_cents: 0 });
+      // The link Lena already has is an existing booking's link: it still pays.
+      const { paid } = await guestPays(token);
+      expect(paid).toMatchObject({ status: "paid", deposit: { booking_status: "confirmed" } });
+    } finally {
+      await owner.query(
+        "update venue_modules set state = 'on' where venue_id = $1 and module_id = 'online_booking'",
+        [venueId],
+      );
+    }
+  });
+
   it("cardHold: a booking saves the card, charges $0.00 and stores the policy version", async () => {
     await owner.query(
       `update venue_settings set value = value || '{"mode": "cardHold", "value": 0}'::jsonb

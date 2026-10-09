@@ -163,11 +163,31 @@ describe("the hold", () => {
     expect(left.rows[0].n).toBe(0);
   });
 
-  it("is off with Online booking & deposits", async () => {
-    await owner.query("update venue_modules set state = 'off' where module_id = 'online_booking'");
-    const r = await availability("date=2026-09-25&guests=5&hours=2");
-    expect(r.statusCode).toBe(404);
-    expect(r.json().error.details).toEqual({ reason: "booking_off" });
+  it("is off with Online booking & deposits: 404 module_off, and a hold already made goes no further", async () => {
+    const token = (await hold(jae)).json().token as string;
+    const more = () =>
+      api.inject({ method: "POST", url: `/v1/public/bookings/${token}/more-time` });
+    const details = () =>
+      api.inject({
+        method: "POST",
+        url: `/v1/public/bookings/${token}/details`,
+        payload: { name: "Jae", phone: "+12125550188", email: "jae@example.com", marketing: false },
+      });
+    for (const state of ["off", "stopping"]) {
+      await owner.query("update venue_modules set state = $1 where module_id = 'online_booking'", [
+        state,
+      ]);
+      for (const r of [
+        await availability("date=2026-09-25&guests=5&hours=2"),
+        await hold(jae),
+        await more(),
+        await details(),
+      ]) {
+        expect(r.statusCode).toBe(404);
+        expect(r.json().error.code).toBe("module_off");
+      }
+    }
     await owner.query("update venue_modules set state = 'on' where module_id = 'online_booking'");
+    expect((await more()).statusCode).toBe(200);
   });
 });

@@ -173,6 +173,12 @@ describe("cancelling and no-shows", () => {
       { name: "Jae K.", phone: "+12125550188" },
     );
     clock.set(THU_10PM);
+    // With Online booking & deposits off (M5-14), Jae's manage link still opens, cancels and shows the refund.
+    await owner.query(
+      "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'online_booking'",
+      [venueId],
+    );
+    expect((await manage(jae.token)).status).toBe("confirmed");
     const r = await cancel(jae.token);
     expect(r.statusCode, r.body).toBe(200);
     expect(r.json()).toMatchObject({
@@ -195,12 +201,6 @@ describe("cancelling and no-shows", () => {
     expect(await texts("%$50.00 deposit for Fri Sep 25%")).toHaveLength(1);
     // Cancelling again changes nothing.
     expect((await cancel(jae.token)).json().refund_cents).toBe(0);
-    // With Online booking & deposits off, the manage page still shows the refund.
-    await owner.query(
-      "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'online_booking'",
-      [venueId],
-    );
-    expect((await manage(jae.token)).refund).toEqual({ amount_cents: 5000, status: "refunded" });
     await owner.query(
       "update venue_modules set state = 'on' where venue_id = $1 and module_id = 'online_booking'",
       [venueId],

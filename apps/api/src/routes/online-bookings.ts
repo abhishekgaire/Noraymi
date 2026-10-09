@@ -81,6 +81,18 @@ export function onlineBookingRoutes(
     idempotency: "none",
   });
 
+  /**
+   * New bookings need Online booking & deposits on (M5-14; spec 03 · Modules):
+   * off or stopping answers 404 module_off. The guest routes for existing
+   * bookings (manage, change, cancel, refund status) never call this.
+   */
+  const takingNewBookings = async (c: Queryable, venueId: string) => {
+    if (statesOf(await venueModules(c, venueId))["online_booking"] !== "on")
+      throw new ApiError("module_off", "online booking is off at this venue", {
+        details: { module: "online_booking" },
+      });
+  };
+
   /** A public route by slug: Online booking & deposits has to be on (checked here, in the venue). */
   const bookingVenue = async (slug: string, requestId: string) => {
     const venueId = await resolveVenueSlug(options.pool, slug);
@@ -89,10 +101,7 @@ export function onlineBookingRoutes(
       venueId,
       run: <T>(fn: (c: Queryable) => Promise<T>) =>
         withVenue(options.pool, { venueId, requestId }, async (c) => {
-          if (statesOf(await venueModules(c, venueId))["online_booking"] !== "on")
-            throw new ApiError("not_found", "online booking is off", {
-              details: { reason: "booking_off" },
-            });
+          await takingNewBookings(c, venueId);
           return fn(c);
         }),
     };
@@ -169,6 +178,7 @@ export function onlineBookingRoutes(
       const { venueId, hash } = await byToken(request.params.token);
       const now = options.clock.now();
       return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
+        await takingNewBookings(c, venueId);
         const held = await heldBooking(c, venueId, hash, now);
         await moreTime(c, venueId, held.id, now);
         return heldBooking(c, venueId, hash, now);
@@ -195,6 +205,7 @@ export function onlineBookingRoutes(
       const now = options.clock.now();
       const ip = publicIpOf(request.ip, request.headers["x-forwarded-for"], proxyHops);
       return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
+        await takingNewBookings(c, venueId);
         await saveDetails(c, venueId, hash, now, parsed.data, ip);
         return heldBooking(c, venueId, hash, now);
       });
@@ -215,6 +226,17 @@ export function onlineBookingRoutes(
         const linked = await linkedBooking(c, venueId, hash, now);
         if (linked?.status === "confirmed")
           return differencePayLink(c, venueId, linked, now, payAppUrl);
+        // A guest's own hold becomes a new booking here: not while booking is off or stopping.
+        // A staff booking's payment link (M5-13) already sent is an existing booking's link and still pays.
+        const source = linked
+          ? (
+              await c.query<{ source: string }>(
+                "select source from bookings where venue_id = $1 and id = $2",
+                [venueId, linked.id],
+              )
+            ).rows[0]?.source
+          : undefined;
+        if (source !== "staff") await takingNewBookings(c, venueId);
         return depositPayLink(c, venueId, hash, now, payAppUrl);
       });
     },

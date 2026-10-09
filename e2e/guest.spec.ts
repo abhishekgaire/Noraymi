@@ -116,6 +116,10 @@ test("all in, and booking off: every price line changes, and the hero reads Call
     await expect(
       page.locator(".hero").getByRole("link", { name: /^Call to book/ }),
     ).toHaveAttribute("href", "tel:+12122550011");
+    await expect(page.locator(".hero")).toContainText("Call to book · (212) 255-0011");
+    await expect(
+      page.getByRole("navigation").getByRole("link", { name: "Call to book" }),
+    ).toHaveAttribute("href", "tel:+12122550011");
     await expect(page.getByRole("link", { name: "Book a room" })).toHaveCount(0);
   } finally {
     await db.end();
@@ -1192,7 +1196,7 @@ test("Manage: Jae goes from 5 to 6 guests and pays $10.00, then says he's runnin
  * Cancelling on the manage page (M5-12) at 10:41 PM, after Jae's Thu 11:00 PM cut-off: the page says the
  * $50.00 is kept before he confirms, then shows it kept.
  */
-test("Manage: Jae cancels after the cut-off and the page says the deposit is kept", async ({
+test("Manage: with Online booking & deposits off, Jae cancels after the cut-off and the page says the deposit is kept", async ({
   page,
 }) => {
   const db = new pg.Client({
@@ -1200,27 +1204,30 @@ test("Manage: Jae cancels after the cut-off and the page says the deposit is kep
   });
   await db.connect();
   const token = randomBytes(16).toString("base64url");
+  await db.query(
+    `update bookings set manage_token_hash = $1
+      where id = (select row_id from seed_ids where slug = 'bk_jae')`,
+    [createHash("sha256").update(token).digest("hex")],
+  );
+  // M5-14: his manage link keeps working with the module off.
+  await db.query("update venue_modules set state = 'off' where module_id = 'online_booking'");
   try {
-    await db.query(
-      `update bookings set manage_token_hash = $1
-        where id = (select row_id from seed_ids where slug = 'bk_jae')`,
-      [createHash("sha256").update(token).digest("hex")],
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/b/${token}`);
+    const manage = page.getByRole("region", { name: "Your booking" });
+    await manage.getByRole("button", { name: "Cancel booking" }).click();
+    await expect(page.getByRole("dialog", { name: "Cancel booking" })).toContainText(
+      "You're past the refund cut-off (Thu 11:00 PM): the $50.00 deposit is kept per our policy.",
     );
+    await page.getByRole("button", { name: "Yes, cancel" }).click();
+    const cancelled = page.getByRole("region", { name: "Cancelled" });
+    await expect(cancelled).toContainText("Deposit kept per our policy · $50.00");
+    await page.reload();
+    await expect(cancelled).toContainText("Deposit kept per our policy · $50.00");
   } finally {
+    await db.query("update venue_modules set state = 'on' where module_id = 'online_booking'");
     await db.end();
   }
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/b/${token}`);
-  const manage = page.getByRole("region", { name: "Your booking" });
-  await manage.getByRole("button", { name: "Cancel booking" }).click();
-  await expect(page.getByRole("dialog", { name: "Cancel booking" })).toContainText(
-    "You're past the refund cut-off (Thu 11:00 PM): the $50.00 deposit is kept per our policy.",
-  );
-  await page.getByRole("button", { name: "Yes, cancel" }).click();
-  const cancelled = page.getByRole("region", { name: "Cancelled" });
-  await expect(cancelled).toContainText("Deposit kept per our policy · $50.00");
-  await page.reload();
-  await expect(cancelled).toContainText("Deposit kept per our policy · $50.00");
 });
 
 test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 AM EST", async ({

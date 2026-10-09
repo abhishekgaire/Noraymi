@@ -12,7 +12,9 @@ import {
   readSetting,
   releaseBlock,
   RoomNotFree,
+  statesOf,
   updateBooking,
+  venueModules,
   type Queryable,
 } from "@west4/db";
 import { bookingGrid, businessDate, deposit, resolveStart } from "@west4/rules";
@@ -118,6 +120,13 @@ export function bookingsRoutes(
     action: "bookings.manage",
     idempotency: "optional",
     createsNewWork: true,
+  });
+  // The Payment link belongs to Online booking & deposits (M5-14): off answers 404 module_off.
+  const paymentLinkRoute = route({
+    principals: ["owner_manager", "staff"],
+    module: "online_booking",
+    action: "bookings.manage",
+    idempotency: "optional",
   });
   const today = async (c: Queryable, venueId: string) => {
     const v = await venueClock(c, venueId);
@@ -297,7 +306,9 @@ export function bookingsRoutes(
             details: { reason: "past_close" },
           });
 
-        const owed = deposit(b.party_size, on, rule, prices).depositCents;
+        // With Online booking & deposits off, a staff booking takes no deposit and confirms at once (M5-14).
+        const depositsOff = statesOf(await venueModules(c, venueId))["online_booking"] === "off";
+        const owed = depositsOff ? 0 : deposit(b.party_size, on, rule, prices).depositCents;
         const status = owed > 0 ? "pending" : "confirmed";
         const kind = owed > 0 ? "hold" : "booking";
         const guestId = await findOrCreateGuest(c, venueId, {
@@ -376,7 +387,7 @@ export function bookingsRoutes(
   // M5-13: a staff or big-party booking's payment link (Payment flows step 7).
   app.post<{ Params: VenueParams & { bookingId: string } }>(
     "/v1/venues/:venueId/bookings/:bookingId/payment-link",
-    { config: write },
+    { config: paymentLinkRoute },
     async (request) => {
       if (!z.string().uuid().safeParse(request.params.bookingId).success)
         throw new ApiError("not_found", "no such booking");
