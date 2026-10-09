@@ -22,13 +22,15 @@ export function Terms({ held, token }: { held: HeldBooking; token: string }) {
           <p key={i}>{line}</p>
         ))}
       <p className="small">{t("en", "site.book.policyVersion", { n: held.policy.version })}</p>
-      {held.quote.deposit_cents > 0 && (
+      {held.quote.deposit_cents > 0 ? (
         <PayButton
           token={token}
           label={t("en", "payPage.payDeposit", {
             amount: formatMoney("en", cents(held.quote.deposit_cents)),
           })}
         />
+      ) : (
+        held.card_hold && <PayButton token={token} label={t("en", "payPage.cardHoldTitle")} />
       )}
     </section>
   );

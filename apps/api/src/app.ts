@@ -282,7 +282,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       settingsRoutes(scope, { clock, stripe });
       rulePackRoutes(scope, { clock });
       roomsRoutes(scope, { clock });
-      bookingsRoutes(scope, { clock });
+      bookingsRoutes(scope, {
+        clock,
+        guestAppUrl: config.guestAppUrl,
+        texts: loadVenueTextSettings(config.env),
+      });
       sessionsRoutes(scope, { clock });
       checksRoutes(scope, { clock });
       messageTemplateRoutes(scope, { texts: loadVenueTextSettings(config.env) });

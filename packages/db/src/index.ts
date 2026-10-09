@@ -508,6 +508,8 @@ export {
   venueForBookingToken,
   payLinkByHash,
   setPayLinkPayment,
+  setPayLinkSetupIntent,
+  payLinkBySetupIntent,
 } from "./pay-links.js";
 export type { PayLinkRow } from "./pay-links.js";
 export { insertReceipt, webReceiptOf, receiptByHash, venueForReceiptToken } from "./receipts.js";

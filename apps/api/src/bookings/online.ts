@@ -398,6 +398,8 @@ export async function heldBooking(
     tax_pct: n.taxRatePct,
     gratuity_pct: n.gratuityPct,
     quote: quoteJson(q),
+    // M5-13: a venue that takes no deposit saves the card instead (cardHold).
+    card_hold: n.deposit.on && n.deposit.mode === "cardHold" && q.depositCents === 0,
   };
 }
 
@@ -427,11 +429,11 @@ export async function moreTime(
   );
 }
 
-/** Web holds that lapsed unpaid are cancelled (their blocks go with the hold sweep). */
+/** Web holds, and payment links (M5-13), that lapsed unpaid are cancelled (their blocks go with the hold sweep). */
 export async function lapseHolds(c: Queryable, venueId: string, now: Temporal.Instant) {
   const r = await c.query<{ id: string }>(
     `update bookings set status = 'cancelled'
-      where venue_id = $1 and source = 'web' and status = 'pending' and pending_until <= $2
+      where venue_id = $1 and source in ('web', 'staff') and status = 'pending' and pending_until <= $2
       returning id`,
     [venueId, now.toString()],
   );
@@ -484,8 +486,12 @@ export const detailsBody = z
 async function stillHeld(c: Queryable, venueId: string, tokenHash: string, now: Temporal.Instant) {
   const b = (
     await c.query<{ id: string }>(
-      `select id from bookings where venue_id = $1 and manage_token_hash = $2 and source = 'web'
-          and status = 'pending' and pending_until > $3 for update`,
+      `select id from bookings
+        where venue_id = $1
+          and (manage_token_hash = $2
+               or id in (select l.booking_id from booking_links l where l.venue_id = $1 and l.token_hash = $2))
+          -- A staff or big-party booking's payment link (M5-13) pays the same way.
+          and source in ('web', 'staff') and status = 'pending' and pending_until > $3 for update`,
       [venueId, tokenHash, now.toString()],
     )
   ).rows[0];
@@ -587,14 +593,33 @@ export async function depositPayLink(
 ) {
   const bookingId = await stillHeld(c, venueId, tokenHash, now);
   const b = (
-    await c.query<{ guest_id: string | null; deposit_cents: number; starts_at: string }>(
-      `select guest_id, deposit_cents, to_json(starts_at) #>> '{}' as starts_at
+    await c.query<{
+      guest_id: string | null;
+      deposit_cents: number;
+      starts_at: string;
+      business_date: string;
+    }>(
+      `select guest_id, deposit_cents, to_json(starts_at) #>> '{}' as starts_at, business_date::text
          from bookings where venue_id = $1 and id = $2`,
       [venueId, bookingId],
     )
   ).rows[0]!;
   if (!b.guest_id) throw refuse("details", "give your name and mobile number first");
-  if (b.deposit_cents <= 0) throw refuse("no_deposit", "this booking takes no deposit");
+  if (b.deposit_cents <= 0) {
+    // cardHold (M5-13): the payment page saves the card with a SetupIntent and charges nothing.
+    const rule = (
+      await readSetting(c, venueId, "deposit", Temporal.PlainDate.from(b.business_date))
+    )?.value;
+    if (!rule?.on || rule.mode !== "cardHold")
+      throw refuse("no_deposit", "this booking takes no deposit");
+    const link = await createPayLink(c, venueId, {
+      bookingId,
+      amountCents: 0,
+      expiresAt: b.starts_at,
+      purpose: "card_hold",
+    });
+    return { pay_url: `${payAppUrl}/pay/${link.token}` };
+  }
   let paymentId = (
     await c.query<{ id: string }>(
       `select id from payments where venue_id = $1 and booking_id = $2 and method = 'card_online'

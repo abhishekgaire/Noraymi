@@ -5,6 +5,8 @@ import { confirmCollected } from "./surcharge.js";
 import { checkClose } from "../tabs/close.js";
 import { checkSavedCard, confirmOfStep } from "../tabs/saved-card.js";
 import { checkRoomCard } from "../rooms/room-card.js";
+// cardHold (M5-13): setup_intent.succeeded and setup_intent.setup_failed register themselves.
+import "./card-hold.js";
 
 /**
  * Payment events (M4-05; Stripe setup 6): each finds our payment by the

@@ -2575,13 +2575,23 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
     await sunday.getByLabel("Name").fill("Rae V.");
     await sunday.getByLabel("Guests").fill("5");
     await sunday.getByLabel("Time").fill("21:00");
+    await sunday.getByLabel("Mobile").fill("(212) 555-0164");
     await sunday.getByRole("button", { name: "Book it" }).click();
-    await expect(page.getByRole("status")).toHaveText("Booked Rae V.");
+    await expect(page.locator(".notice")).toHaveText("Booked Rae V.");
+    // M5-13: her deposit's payment link, texted, with the room held 24 hours.
+    await page
+      .getByRole("list", { name: "Bookings" })
+      .getByRole("listitem", { name: "Rae V." })
+      .getByRole("button", { name: "Send payment link" })
+      .click();
+    await expect(page.locator(".notice")).toHaveText(
+      "Payment link texted to Rae V. · the room is held until 10:41 PM",
+    );
     await page.getByRole("button", { name: "Block this date" }).click();
     const sundayDialog = page.getByRole("dialog", { name: "Block this date" });
     await expect(sundayDialog).toContainText("This date has 1 bookings:");
     await sundayDialog.getByRole("button", { name: "Cancel and refund all" }).click();
-    await expect(page.getByRole("status")).toContainText(
+    await expect(page.locator(".notice")).toContainText(
       "1 bookings cancelled and refunded in full",
     );
     const rae = await db.query<{ status: string; cancelled_via: string }>(

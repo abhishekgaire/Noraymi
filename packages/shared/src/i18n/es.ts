@@ -994,6 +994,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "calendar.affects": "Esta fecha tiene {count} reservas:",
   "calendar.blockIt": "Bloquear la fecha",
   "calendar.blockedDone": "{date} quedó bloqueado",
+  "calendar.sendLink": "Enviar enlace de pago",
+  "calendar.linkSent": "Enlace de pago enviado a {name} · la sala queda reservada hasta las {time}",
+  "calendar.linkNotTexted":
+    "No se pudo enviar el enlace a {name} · la sala queda reservada hasta las {time}",
   "calendar.cancelRefundAll": "Cancelar y reembolsar todas",
   "calendar.cancelledDone":
     "{date} está bloqueado · {count} reservas canceladas y reembolsadas por completo; a cada cliente le llega un texto cuando se hace su reembolso",
@@ -1539,6 +1543,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "payPage.testDecline": "Probar una tarjeta de prueba rechazada",
   "payPage.payDeposit": "Pagar el depósito de {amount}",
   "payPage.depositTitle": "Tu depósito · {amount}",
+  "payPage.cardHoldTitle": "Guarda tu tarjeta",
+  "payPage.saveCard": "Guardar la tarjeta · no se cobra nada ahora",
   "payPage.booked":
     "Reserva confirmada · te enviamos la confirmación y un enlace para administrar tu reserva.",
   "yourBill.title": "Tu cuenta · #{number}",
@@ -2009,6 +2015,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.book.textSent": "Te enviamos la confirmación por mensaje de texto al {phone}.",
   "site.book.manage": "Administrar tu reserva",
   "manage.title": "Tu reserva",
+  "manage.heldUntil":
+    "Te guardamos la sala hasta las {time}, {date}. Acepta las condiciones y paga para confirmarla.",
   "manage.when": "{date} · {time} · {guests} personas",
   "manage.pastCutoff":
     "Ya pasó el límite para reembolsos ({cutoff}): el depósito pagado se queda y se descuenta de tu cuenta",

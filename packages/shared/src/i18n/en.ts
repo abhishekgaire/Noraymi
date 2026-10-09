@@ -977,6 +977,9 @@ export const en = {
   "calendar.affects": "This date has {count} bookings:",
   "calendar.blockIt": "Block the date",
   "calendar.blockedDone": "{date} is blocked",
+  "calendar.sendLink": "Send payment link",
+  "calendar.linkSent": "Payment link texted to {name} · the room is held until {time}",
+  "calendar.linkNotTexted": "The link couldn't be texted to {name} · the room is held until {time}",
   "calendar.cancelRefundAll": "Cancel and refund all",
   "calendar.cancelledDone":
     "{date} is blocked · {count} bookings cancelled and refunded in full, and the guests are texted as each refund goes through",
@@ -1512,6 +1515,8 @@ export const en = {
   "payPage.testDecline": "Try a declined test card",
   "payPage.payDeposit": "Pay {amount} deposit",
   "payPage.depositTitle": "Your deposit · {amount}",
+  "payPage.cardHoldTitle": "Save your card",
+  "payPage.saveCard": "Save card · nothing is charged now",
   "payPage.booked": "Booked · we texted your confirmation and a link to manage your booking.",
   "yourBill.title": "Your bill · #{number}",
   "yourBill.revision": "Revision {n}",
@@ -1975,6 +1980,8 @@ export const en = {
   "site.book.textSent": "We texted your confirmation to {phone}.",
   "site.book.manage": "Manage your booking",
   "manage.title": "Your booking",
+  "manage.heldUntil":
+    "We're holding your room until {time}, {date}. Agree to the terms and pay to confirm it.",
   "manage.when": "{date} · {time} · {guests} guests",
   "manage.pastCutoff":
     "You're past the refund cut-off ({cutoff}): the deposit already paid stays and comes off your bill",

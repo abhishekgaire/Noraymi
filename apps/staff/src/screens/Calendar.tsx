@@ -199,6 +199,25 @@ export function Calendar() {
     }
   };
 
+  // M5-13: a staff or big-party booking's payment link: the room held until `pending_until`, and the text.
+  const sendLink = async (b: Booking) => {
+    setError(null);
+    try {
+      const sent = await api<{ pending_until: string; texted: boolean }>(
+        "POST",
+        `/v1/venues/${venueId}/bookings/${b.id}/payment-link`,
+      );
+      setDone(
+        t(sent.texted ? "calendar.linkSent" : "calendar.linkNotTexted", {
+          name: b.guest_name,
+          time: time(sent.pending_until, timeZone),
+        }),
+      );
+    } catch {
+      setError(t("calendar.failed"));
+    }
+  };
+
   const current = days?.find((d) => d.business_date === day);
   return (
     <section className="screen calendar">
@@ -374,6 +393,11 @@ export function Calendar() {
                     hours: hoursOf(b),
                     deposit: money(b.deposit_cents as never),
                   })}
+                  {canBook && b.status === "pending" && (
+                    <button type="button" className="secondary" onClick={() => void sendLink(b)}>
+                      {t("calendar.sendLink")}
+                    </button>
+                  )}
                 </li>
               ))}
             </ol>

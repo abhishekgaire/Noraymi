@@ -911,9 +911,36 @@ fakeRouteSets.push((fake) => {
         latest_attempt: null,
         last_setup_error: null,
         metadata: req.body["metadata"] ?? {},
+        client_secret: `seti_secret_${fakeId("cs")}`,
         created: Math.floor(Date.now() / 1000),
       }),
     };
+  });
+  /**
+   * A card saved online (M5-13, cardHold), as Stripe.js's confirmSetup does it: a test card succeeds
+   * the SetupIntent (`setup_intent.succeeded`), a declining one leaves it waiting with the error
+   * (`setup_intent.setup_failed`). Nothing is charged.
+   */
+  fake.route("POST", "/v1/setup_intents/:id/confirm", (req) => {
+    const account = needAccount(req.account);
+    const si = fake.get(req.params["id"]!, account, "setup_intent");
+    if (si["status"] === "succeeded") return { body: si };
+    const pm = String(req.body["payment_method"] ?? "pm_card_visa");
+    if (pm === "pm_card_chargeDeclined") {
+      si["last_setup_error"] = {
+        code: "card_declined",
+        decline_code: "generic_decline",
+        message: "Your card was declined.",
+      };
+      si["status"] = "requires_payment_method";
+      fake.emit("connect", "setup_intent.setup_failed", si, account);
+      return { body: si };
+    }
+    si["payment_method"] = fakeId("pm");
+    si["last_setup_error"] = null;
+    si["status"] = "succeeded";
+    fake.emit("connect", "setup_intent.succeeded", si, account);
+    return { body: si };
   });
   fake.route("GET", "/v1/setup_intents/:id", (req) => {
     const si = fake.get(req.params["id"]!, needAccount(req.account), "setup_intent");

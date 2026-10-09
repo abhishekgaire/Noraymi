@@ -353,7 +353,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-13 · Send payment links for staff and big-party bookings, and save cards for cardHold
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-09, M5-10; M2 (staff bookings, the Calendar and DeskCalendar)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) step 7; [Data model](../spec/04-data-model.md) (`bookings.pending_until`, `room_blocks`); [API](../spec/08-api.md) (`POST /bookings/{b}/payment-link`); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`DepositRule` mode cardHold, `bigParty`); [Song systems and texts](../spec/11-song-systems-texts.md) (the Payment link text); [screens: Calendar notes 2 and 3](../screens.md#calendar), [DeskCalendar notes 2 and 3](../screens.md#deskcalendar), [N1](../screens.md#n1-booking-steps-after-the-price)
@@ -363,12 +363,17 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The big-party dialog on the Calendar and DeskCalendar shows the room and how long it's free, refuses overlapping or past slots, and places the pending hold.
   - cardHold mode, for venues that take no deposit: the payment page saves the card with a SetupIntent (`usage=off_session`, a Customer on the venue's account) under the same consent record and charges nothing.
 - **Acceptance:**
-  - [ ] Andy sends a payment link for 22 guests in the VIP room: the Payment link text goes out, the room is held for 24 hours (or until the start), and paying $250.00 confirms the booking.
-  - [ ] The dialog refuses 24 guests in the VIP room at 9:00 PM for 3 hours while Bianca L.'s party holds it from 9:30 PM, and refuses a slot already past.
-  - [ ] An unpaid link lapses at `pending_until` and frees the room.
-  - [ ] On a test venue in cardHold mode, a booking saves the card, charges $0.00 and stores the policy version.
+  - [x] Andy sends a payment link for 22 guests in the VIP room: the Payment link text goes out, the room is held for 24 hours (or until the start), and paying $250.00 confirms the booking.
+  - [x] The dialog refuses 24 guests in the VIP room at 9:00 PM for 3 hours while Bianca L.'s party holds it from 9:30 PM, and refuses a slot already past.
+  - [x] An unpaid link lapses at `pending_until` and frees the room.
+  - [x] On a test venue in cardHold mode, a booking saves the card, charges $0.00 and stores the policy version.
 - **Tests:** sandbox integration (a link paid, a link lapsed, a SetupIntent); end-to-end on the Calendar.
 - **Notes:** [Calendar note 2](../screens.md#calendar) says the spec doesn't fix a payment link's hold length; the data model does (24 hours, never later than the start). Spec gap: SetupIntent events aren't on the Venue payments endpoint's list in [Stripe setup](../spec/06-stripe-setup.md) step 6; add `setup_intent.succeeded` and `setup_intent.setup_failed` for cardHold, flagged. Closes GA-N1's big-party booking with M5-04's enquiry form.
+  - Built (M5-13): `POST /bookings/{b}/payment-link` (`apps/api/src/bookings/payment-link.ts`), the booking link's pay panel for a pending booking (`manage.pay`), "Send payment link" on Calendar and DeskCalendar's booking rows, the hold sweep lapsing staff links (`lapseHolds` now covers `source = 'staff'`), and cardHold on the payment page (`apps/api/src/payments/card-hold.ts`: a Customer and a SetupIntent per link, kept in `pay_links.setup_intent_id`, read back by the server; `bookings.payment_method_id` keeps the card). Migration 0133: `booking_links` purpose `payment_link`, `pay_links` purpose `card_hold` with a $0 amount allowed only for it, and `setup_intent_id`. The fake Stripe confirms SetupIntents. Tests: `apps/api/src/routes/booking-payment-link.int.test.ts` and the Calendar e2e's "Send payment link".
+  - The dialog's refusals (overlap and past) were already built in M2-33; the acceptance line is checked again by the integration test.
+  - Spec gap, as flagged: `setup_intent.succeeded` and `setup_intent.setup_failed` are added to the Venue payments endpoint in `docs/spec/06-stripe-setup.md` and handled (found by the SetupIntent's id, never by metadata). The Stripe Dashboard's Connect endpoint must be subscribed to them before cardHold goes live.
+  - Cautious defaults: a link's text goes to the guest's mobile only (no phone: refused, `no_phone`); a resend makes a new link and restarts the 24 hours; a cardHold booking's Booking confirmed text says "Deposit $0 paid", since text 1's wording has no cardHold variant (founder to word one); a no-show on a cardHold booking can't yet charge the saved card (`savedCardFor` reads a deposit's PaymentIntent), left for a later ticket.
+  - Not run against Stripe's real sandbox here (fake Stripe only). The guest's pay panel on the booking link has no end-to-end test yet; the integration test covers the same calls.
 
 ### M5-14 · Turn booking off with the module, and keep manage links working
 

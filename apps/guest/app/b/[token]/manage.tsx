@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cents, formatMoney, t, type MessageKey } from "@west4/shared";
 import { clockWords, dateWords, hhmmWords } from "../../site/data";
+import { PayButton } from "../../site/pay-button";
 
 /** The manage view the booking link carries (M5-11; GET /v1/public/bookings/{token} · manage). */
 export interface ManageView {
@@ -33,6 +34,13 @@ export interface ManageView {
   readonly cancelled_via: string | null;
   readonly refund: { amount_cents: number; status: "pending" | "refunded" | "failed" } | null;
   readonly kept_cents: number;
+  /** M5-13: a staff or big-party booking waiting on its payment link: the hold, the policy and what to pay. */
+  readonly pay: {
+    readonly deposit_cents: number;
+    readonly card_hold: boolean;
+    readonly pending_until: string;
+    readonly policy: { id: string; version: number; text: string } | null;
+  } | null;
 }
 
 interface Change {
@@ -232,6 +240,38 @@ export function Manage({
     <section aria-labelledby="manage-h" className="manage">
       <h2 id="manage-h">{t("en", "manage.title")}</h2>
       <p className="lead">{t("en", "site.book.confirmedWhat", { tier, when })}</p>
+      {m.status === "pending" && m.pay && (
+        <div className="terms" aria-label={t("en", "site.book.terms")}>
+          <p>
+            {t("en", "manage.heldUntil", {
+              time: clockWords(m.pay.pending_until, m.time_zone),
+              date: new Intl.DateTimeFormat("en-US", {
+                timeZone: m.time_zone,
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              }).format(new Date(m.pay.pending_until)),
+            })}
+          </p>
+          {m.cutoff_words && (
+            <p className="cutoff">{t("en", "site.book.cutoff", { cutoff: m.cutoff_words })}</p>
+          )}
+          {m.pay.policy?.text
+            .split("\n")
+            .filter((line) => line.trim())
+            .map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          <PayButton
+            token={token}
+            label={
+              m.pay.card_hold
+                ? t("en", "payPage.cardHoldTitle")
+                : t("en", "payPage.payDeposit", { amount: money(m.pay.deposit_cents) })
+            }
+          />
+        </div>
+      )}
       {m.held_cents > 0 && (
         <p>{t("en", "site.book.depositPaid", { amount: money(m.held_cents) })}</p>
       )}

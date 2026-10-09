@@ -1,5 +1,6 @@
 import {
   createPayLink,
+  currentPolicy,
   emitEvent,
   heldDeposits,
   insertPayment,
@@ -85,6 +86,7 @@ interface Linked {
   refund_cutoff_at: string | null;
   running_late_until: string | null;
   cancelled_via: string | null;
+  pending_until: string | null;
 }
 
 /** The booking behind a manage link (the booking's own, or a confirmation text's), until a day after it ends. */
@@ -99,7 +101,8 @@ export async function linkedBooking(
     `select b.id, b.status, b.party_size, b.size_tier, b.room_id, to_json(b.starts_at) #>> '{}' as starts_at,
             to_json(b.ends_at) #>> '{}' as ends_at, b.business_date::text, b.deposit_cents,
             to_json(b.refund_cutoff_at) #>> '{}' as refund_cutoff_at,
-            to_json(b.running_late_until) #>> '{}' as running_late_until, b.cancelled_via
+            to_json(b.running_late_until) #>> '{}' as running_late_until, b.cancelled_via,
+            to_json(b.pending_until) #>> '{}' as pending_until
        from bookings b
       where b.venue_id = $1
         and (b.manage_token_hash = $2
@@ -167,6 +170,26 @@ export async function manageView(c: Queryable, venueId: string, b: Linked, now: 
     // What cancelling now would do, by the cut-off and the accepted policy (the page says it first).
     cancel_preview: confirmed ? await cancelPreview(c, venueId, b, held, cutoff, now) : null,
     ...(await moneyStatus(c, venueId, b.id)),
+    // M5-13: a staff or big-party booking waiting on its payment link: what to accept and pay.
+    pay: await payPanel(c, venueId, b, now),
+  };
+}
+
+async function payPanel(c: Queryable, venueId: string, b: Linked, now: Temporal.Instant) {
+  if (
+    b.status !== "pending" ||
+    !b.pending_until ||
+    Temporal.Instant.compare(Temporal.Instant.from(b.pending_until), now) <= 0
+  )
+    return null;
+  const rule = (await readSetting(c, venueId, "deposit", Temporal.PlainDate.from(b.business_date)))
+    ?.value;
+  const policy = await currentPolicy(c, venueId);
+  return {
+    deposit_cents: b.deposit_cents,
+    card_hold: b.deposit_cents === 0 && rule?.on === true && rule.mode === "cardHold",
+    pending_until: b.pending_until,
+    policy: policy ? { id: policy.id, version: policy.version, text: policy.text } : null,
   };
 }
 

@@ -7,6 +7,7 @@ import {
   paymentById,
   payTokenHash,
   setPayLinkPayment,
+  setPayLinkSetupIntent,
   setPaymentIntent,
   startAttempt,
   stripeAccountOf,
@@ -22,6 +23,7 @@ import { createOnlineIntent, retrieveIntentSecret } from "../stripe/payments.js"
 import { createTabCustomer } from "../stripe/tabs.js";
 import { acceptTerms, depositBooking, moreTime } from "../bookings/online.js";
 import { checkNow, type PaymentDeps } from "./run.js";
+import { cardSaved, createCardHoldSetup, retrieveSetup } from "./card-hold.js";
 import { screenState } from "./machine.js";
 
 /**
@@ -34,7 +36,8 @@ import { screenState } from "./machine.js";
 export interface PayPage {
   /** `lapsed`: a deposit's hold ran out before it was paid (M5-09), and the guest picks a time again. */
   readonly status: "open" | "paid" | "checking" | "declined" | "lapsed" | "refunded";
-  readonly kind: "balance" | "deposit";
+  /** M5-13: `card_hold` saves the card with a SetupIntent and charges nothing. */
+  readonly kind: "balance" | "deposit" | "card_hold";
   /** A booking's deposit (M5-09): the hold's countdown, the policy above the pay button, and where to pick again. */
   readonly deposit: {
     readonly seconds_left: number | null;
@@ -89,6 +92,8 @@ export async function openPayLink(
   const retry = options.retry ?? true;
   const { hash, venueId, inVenue } = await resolve(deps, token);
   const now = deps.clock.now();
+  if ((await inVenue((c) => payLinkByHash(c, venueId, hash)))?.purpose === "card_hold")
+    return openCardHold(deps, venueId, hash, inVenue);
   const written = await inVenue(async (c) => {
     const link = await payLinkByHash(c, venueId, hash, true);
     if (!link || Temporal.Instant.compare(Temporal.Instant.from(link.expires_at), now) <= 0)
@@ -230,6 +235,20 @@ export async function confirmPayLink(
   testCard?: string,
 ): Promise<PayPage> {
   const { hash, venueId, inVenue } = await resolve(deps, token);
+  const held = await inVenue((c) => payLinkByHash(c, venueId, hash));
+  if (held?.purpose === "card_hold") {
+    const account = await inVenue((c) => stripeAccountOf(c, venueId));
+    // On the fake Stripe, `testCard` confirms the SetupIntent the way Stripe.js would.
+    if (testCard && deps.stripe.settings.mode === "fake" && held.setup_intent_id && account)
+      await deps.stripe
+        .call("payments", "POST", `/v1/setup_intents/${held.setup_intent_id}/confirm`, {
+          account,
+          idempotencyKey: `${held.id}:card_hold:confirm:${Date.now()}`,
+          params: { payment_method: testCard },
+        })
+        .catch(() => undefined);
+    return openCardHold(deps, venueId, hash, inVenue);
+  }
   const found = await inVenue(async (c) => {
     const link = await payLinkByHash(c, venueId, hash);
     if (!link?.payment_id) throw notFound();
@@ -272,6 +291,25 @@ export async function startPayLink(
   const now = deps.clock.now();
   await inVenue(async (c) => {
     const link = await payLinkByHash(c, venueId, hash, true);
+    // cardHold (M5-13): the guest's acceptance is stored as a deposit's is, before the card is saved.
+    if (link?.purpose === "card_hold" && link.booking_id) {
+      const booking = await depositBooking(c, venueId, link.booking_id, now);
+      if (!booking || booking.lapsed || booking.status !== "pending")
+        throw new ApiError("invalid_request", "this hold has run out: pick a time again", {
+          details: { reason: "hold_over" },
+        });
+      if (!input.policyVersionId)
+        throw new ApiError("invalid_request", "send the policy version you read", {
+          details: { reason: "policy_changed" },
+        });
+      await acceptTerms(c, venueId, link.booking_id, {
+        policyVersionId: input.policyVersionId,
+        ip: input.ip,
+        userAgent: input.userAgent,
+        at: now,
+      });
+      return;
+    }
     if (!link?.payment_id) throw notFound();
     const payment = (await paymentById(c, venueId, link.payment_id))!;
     const booking =
@@ -321,8 +359,84 @@ export async function payLinkMoreTime(deps: PayLinkDeps, token: string): Promise
   const { hash, venueId, inVenue } = await resolve(deps, token);
   await inVenue(async (c) => {
     const link = await payLinkByHash(c, venueId, hash);
-    if (!link?.booking_id || link.purpose !== "deposit") throw notFound();
+    if (!link?.booking_id || (link.purpose !== "deposit" && link.purpose !== "card_hold"))
+      throw notFound();
     await moreTime(c, venueId, link.booking_id, deps.clock.now());
   });
   return openPayLink(deps, token, { retry: false });
+}
+
+/**
+ * cardHold's payment page (M5-13): the booking's hold and policy as a deposit's page shows them, and a
+ * SetupIntent (made once per link, kept on it) whose client secret the Payment Element confirms. The
+ * server reads the SetupIntent itself; succeeded, the card is saved on the booking and it confirms.
+ */
+async function openCardHold(
+  deps: PayLinkDeps,
+  venueId: string,
+  hash: string,
+  inVenue: <T>(work: (c: Queryable) => Promise<T>) => Promise<T>,
+): Promise<PayPage> {
+  const now = deps.clock.now();
+  const w = await inVenue(async (c) => {
+    const link = await payLinkByHash(c, venueId, hash);
+    if (
+      !link?.booking_id ||
+      Temporal.Instant.compare(Temporal.Instant.from(link.expires_at), now) <= 0
+    )
+      throw notFound();
+    const venue = (
+      await c.query<{ name: string }>("select name from venues where id = $1", [venueId])
+    ).rows[0]!;
+    const account = await stripeAccountOf(c, venueId);
+    if (!account) throw new ApiError("invalid_request", "this venue can't take card payments yet");
+    const booking = (await depositBooking(c, venueId, link.booking_id, now))!;
+    return { link, venue, account, booking };
+  });
+  const settings = deps.stripe.settings;
+  const view = (booking: typeof w.booking, status: PayPage["status"], secret: string | null) => ({
+    status,
+    kind: "card_hold" as const,
+    amount_cents: 0,
+    venue_name: w.venue.name,
+    client_secret: secret,
+    publishable_key: settings.publishableKey,
+    stripe_account: w.account,
+    mode: settings.mode,
+    deposit: {
+      seconds_left: booking.seconds_left,
+      more_time_left: booking.more_time_left,
+      cutoff_words: booking.cutoff_words,
+      policy: booking.policy,
+      pick_again_url: deps.guestAppUrl ? `${deps.guestAppUrl}/v/${booking.slug}/book` : null,
+      booking_status: booking.status,
+      late_refund_cents: null,
+    },
+  });
+  if (w.booking.status === "confirmed") return view(w.booking, "paid", null);
+  try {
+    const link = { id: w.link.id, booking_id: w.link.booking_id! };
+    const setup = w.link.setup_intent_id
+      ? await retrieveSetup(deps.stripe, w.account, w.link.setup_intent_id)
+      : await createCardHoldSetup(deps.stripe, w.account, link);
+    if (!w.link.setup_intent_id)
+      await inVenue((c) => setPayLinkSetupIntent(c, venueId, w.link.id, setup.id));
+    if (setup.status === "succeeded") {
+      const done = await inVenue((c) =>
+        cardSaved(c, venueId, { ...w.link, setup_intent_id: setup.id }, setup, now),
+      );
+      const booking = (await inVenue((c) => depositBooking(c, venueId, link.booking_id, now)))!;
+      return view(booking, done === "confirmed" ? "paid" : "lapsed", null);
+    }
+    if (w.booking.lapsed) return view(w.booking, "lapsed", null);
+    return view(
+      w.booking,
+      setup.last_setup_error ? "declined" : "open",
+      setup.client_secret ?? null,
+    );
+  } catch (e) {
+    if (e instanceof StripeError || e instanceof StripeUnknownResult)
+      return view(w.booking, "checking", null);
+    throw e;
+  }
 }

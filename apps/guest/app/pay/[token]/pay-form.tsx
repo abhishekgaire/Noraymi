@@ -13,7 +13,8 @@ import { Countdown } from "../../site/countdown";
  */
 export interface PayPage {
   readonly status: "open" | "paid" | "checking" | "declined" | "lapsed" | "refunded";
-  readonly kind: "balance" | "deposit";
+  /** M5-13: `card_hold` saves the card with a SetupIntent and charges nothing. */
+  readonly kind: "balance" | "deposit" | "card_hold";
   /** A booking's deposit (M5-09): the hold's countdown, the policy above the pay button, where to pick again. */
   readonly deposit: {
     readonly seconds_left: number | null;
@@ -37,6 +38,10 @@ interface StripeLike {
     create(kind: "payment"): { mount(el: HTMLElement): void };
   };
   confirmPayment(options: {
+    elements: unknown;
+    redirect: "if_required";
+  }): Promise<{ error?: { message?: string } }>;
+  confirmSetup(options: {
     elements: unknown;
     redirect: "if_required";
   }): Promise<{ error?: { message?: string } }>;
@@ -95,10 +100,11 @@ export function PayForm({
       return;
     }
     if (stripe.current) {
-      const r = await stripe.current.client.confirmPayment({
-        elements: stripe.current.elements,
-        redirect: "if_required",
-      });
+      const options = { elements: stripe.current.elements, redirect: "if_required" as const };
+      const r =
+        page.kind === "card_hold"
+          ? await stripe.current.client.confirmSetup(options)
+          : await stripe.current.client.confirmPayment(options);
       if (r.error) setError(r.error.message ?? t("en", "payPage.declined"));
     }
     setPage({ ...page, status: "checking" });
@@ -123,12 +129,19 @@ export function PayForm({
 
   const amount = formatMoney("en", cents(page.amount_cents));
   const deposit = page.deposit;
-  const payLabel = t("en", deposit ? "payPage.payDeposit" : "payPage.pay", { amount });
+  const hold = page.kind === "card_hold";
+  const payLabel = hold
+    ? t("en", "payPage.saveCard")
+    : t("en", deposit ? "payPage.payDeposit" : "payPage.pay", { amount });
   return (
     <main className="guest pay-page">
       <header>
         <p className="venue">{page.venue_name}</p>
-        <h1>{t("en", deposit ? "payPage.depositTitle" : "payPage.title", { amount })}</h1>
+        <h1>
+          {hold
+            ? t("en", "payPage.cardHoldTitle")
+            : t("en", deposit ? "payPage.depositTitle" : "payPage.title", { amount })}
+        </h1>
       </header>
       {deposit &&
         page.status !== "paid" &&

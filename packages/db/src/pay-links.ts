@@ -14,6 +14,8 @@ export interface PayLinkRow {
   readonly purpose: string;
   readonly expires_at: string;
   readonly used_at: string | null;
+  /** M5-13: a cardHold link's SetupIntent, made once. */
+  readonly setup_intent_id: string | null;
 }
 
 export async function createPayLink(
@@ -25,7 +27,7 @@ export async function createPayLink(
     amountCents: number;
     expiresAt: string;
     createdBy?: string | null;
-    purpose?: "balance" | "deposit" | "link";
+    purpose?: "balance" | "deposit" | "link" | "card_hold";
   },
 ): Promise<{ id: string; token: string }> {
   const token = randomBytes(16).toString("base64url");
@@ -61,10 +63,38 @@ export async function payLinkByHash(
   lock = false,
 ): Promise<PayLinkRow | null> {
   const r = await c.query<PayLinkRow>(
-    `select id, check_id, booking_id, amount_cents::int, payment_id, purpose,
+    `select id, check_id, booking_id, amount_cents::int, payment_id, purpose, setup_intent_id,
             to_json(expires_at) #>> '{}' as expires_at, to_json(used_at) #>> '{}' as used_at
        from pay_links where venue_id = $1 and token_hash = $2${lock ? " for update" : ""}`,
     [venueId, tokenHash],
+  );
+  return r.rows[0] ?? null;
+}
+
+/** M5-13: a cardHold link's SetupIntent, kept so every retry reaches the same one. */
+export async function setPayLinkSetupIntent(
+  c: Queryable,
+  venueId: string,
+  linkId: string,
+  setupIntentId: string,
+): Promise<void> {
+  await c.query(
+    "update pay_links set setup_intent_id = coalesce(setup_intent_id, $3) where venue_id = $1 and id = $2",
+    [venueId, linkId, setupIntentId],
+  );
+}
+
+/** The cardHold link behind a SetupIntent, found by its id (never by metadata; Stripe setup 6). */
+export async function payLinkBySetupIntent(
+  c: Queryable,
+  venueId: string,
+  setupIntentId: string,
+): Promise<PayLinkRow | null> {
+  const r = await c.query<PayLinkRow>(
+    `select id, check_id, booking_id, amount_cents::int, payment_id, purpose, setup_intent_id,
+            to_json(expires_at) #>> '{}' as expires_at, to_json(used_at) #>> '{}' as used_at
+       from pay_links where venue_id = $1 and setup_intent_id = $2`,
+    [venueId, setupIntentId],
   );
   return r.rows[0] ?? null;
 }

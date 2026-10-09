@@ -21,6 +21,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
 import { noShowFrom } from "../rooms/checkin.js";
+import { sendPaymentLink } from "../bookings/payment-link.js";
 
 /**
  * Staff bookings (M2-06; spec 04 · bookings, Room assignment; spec 08 · Bookings):
@@ -28,6 +29,7 @@ import { noShowFrom } from "../rooms/checkin.js";
  *   GET   /v1/venues/{v}/bookings/grid?business_date= start times, both 1:00 AMs on the fall-back night
  *   POST  /v1/venues/{v}/bookings                    a staff booking: a real room, the deposit, pending or confirmed
  *   PATCH /v1/venues/{v}/bookings/{b}                reassign the room, change the party, or cancel
+ *   POST  /v1/venues/{v}/bookings/{b}/payment-link   M5-13: hold the room until pending_until and text the Payment link
  *   GET   /v1/venues/{v}/bookings/no-room             managers: imported bookings that fit no room (M9-02)
  * Every booking gets a real room; guests see only its size tier. A booking
  * that owes a deposit saves as pending with a hold block until M5's payment
@@ -97,7 +99,14 @@ async function blockOf(c: Queryable, venueId: string, bookingId: string) {
   return r.rows[0]?.id ?? null;
 }
 
-export function bookingsRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+export function bookingsRoutes(
+  app: FastifyInstance,
+  options: {
+    clock: Clock;
+    guestAppUrl?: string | null;
+    texts?: { allowList: readonly string[] | null };
+  },
+): void {
   const read = route({
     principals: ["owner_manager", "staff"],
     module: "rooms",
@@ -361,6 +370,24 @@ export function bookingsRoutes(app: FastifyInstance, options: { clock: Clock }):
         return bookingById(c, venueId, id);
       });
       return reply.code(201).send({ booking });
+    },
+  );
+
+  // M5-13: a staff or big-party booking's payment link (Payment flows step 7).
+  app.post<{ Params: VenueParams & { bookingId: string } }>(
+    "/v1/venues/:venueId/bookings/:bookingId/payment-link",
+    { config: write },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.bookingId).success)
+        throw new ApiError("not_found", "no such booking");
+      const p = request.principal;
+      return request.inVenue((c) =>
+        sendPaymentLink(c, request.venueId!, request.params.bookingId, options.clock.now(), {
+          guestAppUrl: options.guestAppUrl ?? null,
+          allowList: options.texts?.allowList ?? null,
+          userId: p.kind === "user" ? p.userId : null,
+        }),
+      );
     },
   );
 

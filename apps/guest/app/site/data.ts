@@ -238,6 +238,8 @@ export async function fetchAvailability(
 export interface HeldBooking {
   readonly id: string;
   readonly status: "pending" | "lapsed" | "cancelled" | "confirmed" | string;
+  /** M5-13: the venue takes no deposit and saves the card instead (cardHold). */
+  readonly card_hold?: boolean;
   readonly party_size: number;
   readonly size_tier: string;
   readonly starts_at: string;

@@ -51,6 +51,9 @@ export const ENDPOINT_EVENTS: Readonly<Record<WebhookEndpoint, readonly string[]
     "charge.dispute.funds_reinstated",
     "payout.reconciliation_completed",
     "account.updated",
+    // cardHold (M5-13): a card saved on the payment page; the spec's list gains these (flagged).
+    "setup_intent.succeeded",
+    "setup_intent.setup_failed",
   ],
   platform: [
     "customer.subscription.updated",
