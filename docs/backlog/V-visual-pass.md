@@ -117,13 +117,23 @@ Oct 8, 2026 · every screen was built for behaviour from the [spec](../spec/READ
 
 ## V-06 · Restyle the Console
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** V-01
 - **Canvas:** `Console.dc.html`
 - **Screens:** [Console](../screens.md#console)
 - **Build:** the internal Console on the tokens (V-01 gave it the tokens' colours and body font only).
-- **Acceptance:** side-by-side captures; the console Playwright specs pass unchanged.
+- **Acceptance:**
+  - [x] Side-by-side captures at 1280 (canvas left, built right) in `docs/design-review/v06/`: the venue list, an open venue and sign-in, plus the built pages in full and an open venue at 390.
+  - [x] Only the shared tokens and the bundled fonts: no colour, size or typeface outside `@west4/shared/design/`.
+  - [x] Words, states and behaviour unchanged: lint, typecheck, i18n and unit pass, and both console Playwright specs pass with no assertion changed.
+  - [x] Touch targets stay at least 44 px (buttons, inputs, switches' rows, rail links).
+- **Notes:**
+  - The canvas's rail: the existing header becomes a 200 px left rail (the "Console" title in the display face, links to Venues, Pages and Rule packs, the signed-in card and Sign out at its foot); on a phone it folds back into a top bar. Sections are the canvas's dark cards; headings take the display face and the labels Space Mono small capitals (`all-small-caps`, as V-01). Buttons, inputs and the module and flag switches (lime pill toggles, still checkboxes) follow the canvas; the open venue is the canvas's side panel, its card outlined in lime.
+  - The venues come first, as on the canvas; the on-call Pages card moved under them by CSS `order` (the DOM order is unchanged). With nothing open the venue cards fill the width; with one open they become the canvas's 270 px list beside the panel.
+  - Still different from the canvas, by the spec (screens.md, Console): the phase-1 Console has no venue table with status, plan, MRR or setup columns, no Plans, Support, Billing or Releases pages, no stat chips in a header, and no plan, billing or setup cards in the venue panel; device health reads from Admin's rows (13 of 14 tablets), not "7/7 online"; support access is approved by the owner only. The canvas's mono subtitles ("Venue software · our team", "Every action here is logged") aren't in the Console's words, so they aren't added.
+  - `vite.config.ts` proxies `/v1` to `CONSOLE_API_URL` when it is set (default still port 3000), so the Console can run against an API on another port.
+  - Captured on a private stack (database `west4_v06`, API 3106, Console 5186, a fake Stripe on 12116 through `STRIPE_API_BASE` and `STRIPE_FAKE_PORT`/`STRIPE_FAKE_HOOKS`); the console specs ran there with only their hard-coded ports swapped. `pnpm check unit` hit one 5 s timeout in `rules/pricing.property.test.ts` under load from parallel work; it passes alone and this ticket doesn't touch it.
 
 ## V-07 · Restyle the guest site and guest pages
 

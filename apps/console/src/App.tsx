@@ -295,10 +295,15 @@ function Venues({
 
   const open = screen.open;
   return (
-    <main className="console">
+    <main className="console app">
       <header className="bar">
         <h1>Console</h1>
-        <span className="muted">
+        <nav className="rail-nav" aria-label="Console">
+          <a href="#venues">Venues</a>
+          <a href="#pages">Pages</a>
+          <a href="#rule-packs">Rule packs</a>
+        </nav>
+        <span className="staff-card">
           {screen.staff.name} · {screen.staff.email}
         </span>
         <button type="button" className="secondary" onClick={() => void signOut()}>
@@ -312,7 +317,7 @@ function Venues({
       )}
       <Pages />
       <div className="columns">
-        <section>
+        <section id="venues">
           <h2>Venues</h2>
           {screen.venues === null ? (
             <p role="status">Loading…</p>
@@ -554,7 +559,7 @@ function RulePacks() {
 
   const waiting = drafts.filter((d) => !d.published_at);
   return (
-    <section className="rule-packs">
+    <section className="rule-packs" id="rule-packs">
       <h2>Rule packs</h2>
       <p className="muted small">
         Versioned limits for a place: the tax table, the alcohol window, wage rules. Two people
