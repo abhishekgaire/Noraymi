@@ -2111,6 +2111,10 @@ export const en = {
   "barPos.tip.reader": "On the reader",
   "barPos.tip.slip": "On a paper slip",
   "barPos.tip.hint": "The paper slip stays as the fallback either way.",
+  "barPos.tickets": "Drink tickets",
+  "barPos.tickets.label": "Print tickets for drinks rung at the bar",
+  "barPos.tickets.hint":
+    "Whether Send prints a bar ticket for a bar tab's or a quick sale's drinks. Room orders, from guests or from staff, always print.",
   "barPos.aging": "Order aging",
   "barPos.aging.phones": "Bar phones, in seconds",
   "barPos.aging.amber": "Amber and the Board alert, in minutes",

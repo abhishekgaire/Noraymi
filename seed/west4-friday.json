@@ -192,6 +192,7 @@
    "idleLockMin": 3,
    "wipeLockSec": 10,
    "barTabTip": "reader",
+   "printBarDrinkTickets": false,
    "orderAging": {
     "phonesSec": 30,
     "amberSec": 120,

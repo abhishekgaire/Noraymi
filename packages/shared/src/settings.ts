@@ -198,6 +198,12 @@ export const posSchema = z
     idleLockMin: z.number().nonnegative(),
     wipeLockSec: z.number().nonnegative(),
     barTabTip: z.enum(["reader", "slip"]),
+    /**
+     * "Print tickets for drinks rung at the bar" (M6-29; D99): whether Send on a bar tab or a quick
+     * sale prints a bar ticket. Room orders always print. Off by default, and absent reads as off,
+     * so a venue saved before it existed stays off.
+     */
+    printBarDrinkTickets: z.boolean().optional(),
     orderAging: z
       .object({
         phonesSec: z.number().nonnegative(),

@@ -669,6 +669,7 @@ export function mapSeedSettings(
       idleLockMin: pos["idleLockMin"],
       wipeLockSec: pos["wipeLockSec"],
       barTabTip: pos["barTabTip"],
+      printBarDrinkTickets: pos["printBarDrinkTickets"] ?? false,
       orderAging: pos["orderAging"],
       chime: pos["chime"],
       muteSec: pos["muteSec"],

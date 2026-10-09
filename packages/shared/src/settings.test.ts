@@ -44,6 +44,25 @@ describe("settings schemas", () => {
     );
   });
 
+  it("pos.printBarDrinkTickets is a yes or no, and a venue saved before it existed still parses (M6-29)", () => {
+    const pos = {
+      layouts: { bar: 1 },
+      reasonOnly: { eachCents: 2500, perShiftCents: 7500 },
+      idleLockMin: 3,
+      wipeLockSec: 10,
+      barTabTip: "reader",
+      orderAging: { phonesSec: 30, amberSec: 120, pinkSec: 240, callSec: 360 },
+      chime: true,
+      muteSec: 60,
+    };
+    expect(parseSetting("pos", pos).ok).toBe(true);
+    expect(parseSetting("pos", { ...pos, printBarDrinkTickets: false }).ok).toBe(true);
+    expect(parseSetting("pos", { ...pos, printBarDrinkTickets: true }).ok).toBe(true);
+    const bad = parseSetting("pos", { ...pos, printBarDrinkTickets: "yes" });
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.reasons[0]).toMatch(/^pos\.printBarDrinkTickets/);
+  });
+
   it("only the drawer model, the tip-pool method and the bar POS layouts wait for the next business date", () => {
     expect(startsNextBusinessDate("drawer", { drawer: "house" }, { drawer: "perPerson" })).toBe(
       true,

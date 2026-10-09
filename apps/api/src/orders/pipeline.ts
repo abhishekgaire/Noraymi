@@ -33,6 +33,7 @@ import {
 import { venueClock } from "../rooms/assignment.js";
 import { writeFixLine, type FixPayload } from "../rooms/fix.js";
 import { alcoholNow, checkAlcohol, checkGiftAlcohol } from "./alcohol.js";
+import { printsBarTicket } from "./print-rule.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -87,6 +88,26 @@ async function ticket(
   now: Temporal.Instant,
   remake: boolean,
 ) {
+  // A practice order's ticket prints TRAINING (M7-03).
+  const check = (
+    await c.query<{ training: boolean; kind: string }>(
+      "select training, kind from checks where venue_id = $1 and id = $2",
+      [venueId, order.check_id],
+    )
+  ).rows[0];
+  // Drinks rung on a bar tab or a quick sale print only while the venue asks for it (M6-29, D99);
+  // room orders always do. A remake always prints: it's a room order sent back.
+  if (!remake) {
+    const night = await nightOfNow(c, venueId, now);
+    const pos = await readSetting(c, venueId, "pos", Temporal.PlainDate.from(night));
+    const prints = printsBarTicket({
+      source: order.source,
+      checkKind: check?.kind ?? "room",
+      printBarDrinkTickets: pos?.value.printBarDrinkTickets,
+    });
+    if (!prints) return;
+  }
+  const training = check?.training;
   const stations = [...new Set(order.items.map((i) => i.station))];
   // The ID status for the ticket: IDs checked of the party, as the room's tile shows it.
   let ids: { checked: number; party: number } | null = null;
@@ -99,13 +120,6 @@ async function ticket(
     if (party.rows[0])
       ids = { checked: counts.get(order.session_id) ?? 0, party: party.rows[0].party_size };
   }
-  // A practice order's ticket prints TRAINING (M7-03).
-  const training = (
-    await c.query<{ training: boolean }>(
-      "select training from checks where venue_id = $1 and id = $2",
-      [venueId, order.check_id],
-    )
-  ).rows[0]?.training;
   for (const station of stations) {
     await insertPrintJob(c, venueId, {
       orderId: order.id,

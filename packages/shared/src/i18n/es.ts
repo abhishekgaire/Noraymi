@@ -2147,6 +2147,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "barPos.tip.reader": "En el lector",
   "barPos.tip.slip": "En un comprobante de papel",
   "barPos.tip.hint": "El comprobante de papel queda como respaldo en cualquier caso.",
+  "barPos.tickets": "Tickets de bebidas",
+  "barPos.tickets.label": "Imprimir tickets de las bebidas marcadas en la barra",
+  "barPos.tickets.hint":
+    "Si Enviar imprime un ticket en la barra para las bebidas de una cuenta de bar o de una venta rápida. Los pedidos de las salas, de los clientes o del personal, siempre se imprimen.",
   "barPos.aging": "Tiempo de los pedidos",
   "barPos.aging.phones": "Teléfonos de barra, en segundos",
   "barPos.aging.amber": "Ámbar y la alerta del tablero, en minutos",

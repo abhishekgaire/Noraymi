@@ -237,6 +237,11 @@ describe("Training mode", () => {
   let sale = "";
   it("a practice cash sale shows the change, never kicks the drawer and writes no drawer move; its ticket prints TRAINING", async () => {
     const front = ids["dev_front_computer"]!;
+    // A quick sale prints a bar ticket only while the venue asks for drink tickets (M6-29, D99).
+    await owner.query(
+      `update venue_settings set value = value || '{"printBarDrinkTickets": true}'::jsonb
+        where key = 'pos'`,
+    );
     const r = await as(nina, front, () => sell([{ variant_id: v("modelo"), qty: 4 }]));
     expect(r.statusCode, r.body).toBe(201);
     sale = r.json().check_id;
@@ -249,6 +254,9 @@ describe("Training mode", () => {
       [sale],
     );
     expect(ticket.rows[0]?.payload.training).toBe(true);
+    await owner.query(
+      `update venue_settings set value = value || '{"printBarDrinkTickets": false}'::jsonb where key = 'pos'`,
+    );
     const due = r.json().amount_due_cents as number;
     const cash = await as(nina, front, () =>
       call("POST", `/checks/${sale}/payments`, {

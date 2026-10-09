@@ -1186,6 +1186,7 @@ One settings screen edits the `pos` and `tabs` keys. Whether the front desk may 
 - **Limits.** The reason-only limit for comps and voids: $25 each and $75 a shift per person. 0 sends every one for approval.
 - **Locks.** Idle lock 3 min and Wipe screen 10 s.
 - **Tip path.** Bar tabs tip on the reader (West 4) or on a paper slip. The slip stays as the fallback either way.
+- **Drink tickets.** "Print tickets for drinks rung at the bar", off for West 4: whether Send prints a bar ticket for a bar tab's or a quick sale's drinks. Room orders, from guests or from staff, always print (D99).
 - **Order aging.** Bar phones 30 s, amber and the Board alert 2 min, pink and the manager on duty 4 min, a text or call 6 min. The chime is on, and Mute lasts 1 min.
 - **Tabs.** The $50 opening hold, the $600 flag, and the 4:30 AM cut-off. The consent line ([N23](#n23-new-bar-tab-consent-line-and-slip)) is built from them and saved as a `policy_versions` row.
 

@@ -108,6 +108,19 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
       </div>
       <p className="small muted">{t("barPos.tip.hint")}</p>
 
+      <h3>{t("barPos.tickets")}</h3>
+      <div className="invite-fields">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={pos.printBarDrinkTickets === true}
+            onChange={(e) => setPos({ printBarDrinkTickets: e.target.checked })}
+          />
+          <span>{t("barPos.tickets.label")}</span>
+        </label>
+      </div>
+      <p className="small muted">{t("barPos.tickets.hint")}</p>
+
       <h3>{t("barPos.aging")}</h3>
       <div className="invite-fields">
         {whole(t("barPos.aging.phones"), pos.orderAging.phonesSec, 1, (n) =>

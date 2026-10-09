@@ -5630,6 +5630,11 @@ test("Admin → Bar POS: West 4's settings, a $60 opening hold and a new amber t
     await expect(page.getByLabel("A text or call, in minutes")).toHaveValue("6");
     await expect(page.getByLabel("Chime as backup")).toBeChecked();
     await expect(page.getByLabel("Mute lasts, in seconds")).toHaveValue("60");
+    // Drink tickets (M6-29, D99): off for West 4.
+    await expect(page.getByLabel("Print tickets for drinks rung at the bar")).not.toBeChecked();
+    await expect(
+      page.getByText("Room orders, from guests or from staff, always print.", { exact: false }),
+    ).toBeVisible();
     await expect(
       page.getByText(
         "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",
@@ -5648,8 +5653,14 @@ test("Admin → Bar POS: West 4's settings, a $60 opening hold and a new amber t
     await expect(
       page.getByText("Ages on screen: amber at 3 min, pink at 4", { exact: false }),
     ).toBeVisible();
+    await page.getByLabel("Print tickets for drinks rung at the bar").check();
     await page.getByRole("button", { name: "Save and publish" }).click();
     await expect(page.getByText("Published")).toBeVisible();
+    const pos = await db.query<{ on: boolean }>(
+      `select (value->>'printBarDrinkTickets')::boolean as on from venue_settings
+        where key = 'pos' order by version desc limit 1`,
+    );
+    expect(pos.rows[0]!.on).toBe(true);
     const consent = await db.query<{ text: string }>(
       "select text from policy_versions where kind = 'tab_consent' order by version desc limit 1",
     );
@@ -5868,11 +5879,20 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
     const panel = page.getByRole("complementary");
     await expect(panel).toContainText("$32.66");
 
+    const tickets = async () =>
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int as n from print_jobs where kind = 'ticket'",
+        )
+      ).rows[0]!.n;
+    const ticketsBefore = await tickets();
     const started = Date.now();
     await panel.getByRole("button", { name: "Repeat round" }).click();
     await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
     await expect(panel.locator(".total")).toContainText("$65.33");
     timedTask("Another round on a tab", 2, Date.now() - started, 3000);
+    // The bartender pours what they ring: no bar ticket while drink tickets are off (M6-29, D99).
+    expect(await tickets()).toBe(ticketsBefore);
 
     // A margarita has no usual flavor: Send waits and says what's missing.
     await page.getByRole("tab", { name: "Cocktails" }).click();

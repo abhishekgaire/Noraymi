@@ -767,7 +767,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M6-29 · Print bar tickets only for room orders, unless "Print tickets for drinks rung at the bar" is on
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6-03, M6-05, M6-25; M3-13 (tickets)
 - **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Ringing, Admin → Bar POS); [Devices, printing and offline](../spec/09-devices-printing-offline.md) (Tickets); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`PosSettings`); decision D99
@@ -777,12 +777,16 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Room orders always print: a guest's order at Accept, and drinks staff add to a room from the room tab on desktop or phone or with Open in the bar POS.
   - Training mode and the "Ticket didn't print · Reprint" path unchanged for the tickets that still print.
 - **Acceptance:**
-  - [ ] With the setting off, Send on Jess P.'s tab and a quick sale put the drinks on the tab and the sale and create no print job.
-  - [ ] With the setting on, the same Send prints a bar ticket, as M6-03 built it.
-  - [ ] Accepting a guest's order from Room 9, adding a drink from Room 9's tab on a phone, and a round for Room 9 rung with Open in the bar POS each print a bar ticket whatever the setting.
-  - [ ] Admin → Bar POS shows the row off for West 4, a bartender can't change it, and a manager's change is live at once.
+  - [x] With the setting off, Send on Jess P.'s tab and a quick sale put the drinks on the tab and the sale and create no print job.
+  - [x] With the setting on, the same Send prints a bar ticket, as M6-03 built it.
+  - [x] Accepting a guest's order from Room 9, adding a drink from Room 9's tab on a phone, and a round for Room 9 rung with Open in the bar POS each print a bar ticket whatever the setting.
+  - [x] Admin → Bar POS shows the row off for West 4, a bartender can't change it, and a manager's change is live at once.
 - **Tests:** unit tests for the print rule (bar tab, quick sale, room order, guest order; on and off); settings validation; integration tests for Send with the setting on and off against the fake printer, and the principal suite over the setting; an end-to-end check of the Admin row.
 - **Notes:** Built code currently prints a bar ticket on every Send (M6-03), as the spec said until D99 (Oct 9, 2026). Applies at every venue, not only Sing Sing. Food's Send to kitchen is K-05, not this ticket.
+  - Built (Oct 9, 2026): the rule is `printsBarTicket` in `apps/api/src/orders/print-rule.ts`, applied where an accepted order makes its ticket (`ticket()` in `apps/api/src/orders/pipeline.ts`), so every path is covered at once: a guest's order (source `room`) and anything on a room's check (the room tab on desktop or phone, Open in the bar POS) always print; a bar tab's or a quick sale's check prints only while `pos.printBarDrinkTickets` is on, read for the night at the moment of Send, so a manager's change is live at once. A remake (a returned room order) always prints. Training tickets still print TRAINING, and Reprint is unchanged for tickets that print.
+  - `pos.printBarDrinkTickets` is optional in the schema (absent reads as off), so venues saved before it existed still validate; the seed sets it to `false` for West 4. Admin → Bar POS has the "Drink tickets" row (English and Spanish). Only managers and the owner can save it, through the existing settings route.
+  - Cautious default: a **gift** (M6-24, "Send the singer a drink") still always prints, because it isn't a Send and its ticket names the singer and says CHECK ID AT HAND-OFF. Ask the founder whether gifts should follow the setting too.
+  - Tests: `print-rule.test.ts` (unit), `settings.test.ts` (validation), `drink-tickets.int.test.ts` (Send off and on, quick sale, Room 9's guest order, room tab and Open in the bar POS, the bartender refused, the manager's change live at once); `training.int.test.ts` turns the setting on for its practice-ticket check; the Admin → Bar POS and bar POS Send Playwright tests check the row and that Send printed nothing.
 
 ## Coverage
 
