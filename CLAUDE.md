@@ -126,6 +126,7 @@ pnpm test:principals    # the principal suite: every route as every principal, p
 pnpm test:walls         # the venue-wall suite: every route, job kind and webhook as venue A with venue B's ids (Postgres only; also inside test:integration)
 pnpm test:load          # the Friday-night load test (M8-21) alone: 20 venues peaking, the bar alarm within 3 s (Postgres only; kept out of test:integration and pnpm check because it is timing-bound; `pnpm check load` runs it too)
 pnpm e2e                # Playwright smoke tests; loads the seed first (Postgres must be up), then starts the dev servers itself (`pnpm exec playwright install chromium` once)
+pnpm e2e:isolated       # the same tests on their own stack (E2E_ISOLATED=1): database west4_e2e (created if missing) and ports 13000+ (E2E_PORT_BASE), never a running demo's; ports and URLs come from e2e/stack.ts. pnpm check --e2e uses it when port 3000 is busy
 pnpm --filter @west4/api dev:test   # the API without .env (what the smoke tests start, so real credentials never load)
 pnpm --filter @west4/api stripe:fake   # the fake Stripe on 127.0.0.1:12111: every Stripe call goes here while no real keys are set (the smoke tests and demo-start run it)
 pnpm --filter @west4/api google:fake   # the fake Google on 127.0.0.1:12112: Business Profile's OAuth and hours calls go here while GOOGLE_CLIENT_ID isn't set (the smoke tests run it)

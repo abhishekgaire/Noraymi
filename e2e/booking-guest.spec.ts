@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
 import { checkPayPage } from "../apps/guest/pay-check.js";
 import { SEED_COMMAND, SEED_INSTANT, setClock } from "./night.js";
+import { API, DB, esc, GUEST, PAY_HOST, ports } from "./stack.js";
 
 /**
  * M5-17: Jae & co.'s booking end to end, the M5 done-when on the fake Stripe. The seed already holds
@@ -10,11 +11,10 @@ import { SEED_COMMAND, SEED_INSTANT, setClock } from "./night.js";
  * 11:00 PM. The clock goes to Wed Sep 23, 2 PM (the day the seed says Jae paid) to book, change and
  * cancel before the Thu 11:00 PM cut-off, and to Fri Sep 25, 10:41 PM to cancel after it.
  */
-const DB = process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4";
 const WED_2PM = "2026-09-23T18:00:00Z";
 const JAE = { name: "Jae & co.", phone: "(347) 555-0165", email: "jae@example.com" };
-const PAY = /^http:\/\/pay\.localhost:3001\/pay\//;
-const BOOKED = /^http:\/\/localhost:3001\/v\/west4karaoke\/book\/[A-Za-z0-9_-]{22}$/;
+const PAY = new RegExp(`^http://${esc(PAY_HOST)}/pay/`);
+const BOOKED = new RegExp(`^${esc(GUEST)}/v/west4karaoke/book/[A-Za-z0-9_-]{22}$`);
 
 /** Prints the Booking confirmed text for one booking, as the M5-10 job builds and renders it. */
 const CONFIRM_TEXT = [
@@ -71,11 +71,9 @@ test.beforeEach(async ({ request }) => {
   } finally {
     await db.end();
   }
-  expect(
-    (
-      await request.post("http://127.0.0.1:3000/v1/ops/clock", { data: { server_time: WED_2PM } })
-    ).ok(),
-  ).toBe(true);
+  expect((await request.post(`${API}/v1/ops/clock`, { data: { server_time: WED_2PM } })).ok()).toBe(
+    true,
+  );
 });
 
 test.afterEach(async () => {
@@ -114,7 +112,7 @@ test("Jae & co. book on Wed Sep 23: the whole price, the terms stored, $50.00 pa
   // Every request our own servers get from the browser, to show no card data reaches them.
   const ours: string[] = [];
   page.on("request", (r) => {
-    if (/^http:\/\/(pay\.)?localhost:3001|^http:\/\/127\.0\.0\.1:3000/.test(r.url()))
+    if (new RegExp(`^http://(pay\\.)?localhost:${ports.guest}|^${esc(API)}`).test(r.url()))
       ours.push(`${r.url()} ${r.postData() ?? ""}`);
   });
   const payDoc = await bookToPayPage(page);
@@ -242,7 +240,7 @@ test("Jae & co. book on Wed, then on Fri at 10:41 PM, with Online booking & depo
 
   expect(
     (
-      await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+      await request.post(`${API}/v1/ops/clock`, {
         data: { server_time: SEED_INSTANT },
       })
     ).ok(),

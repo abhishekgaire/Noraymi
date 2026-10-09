@@ -28,3 +28,6 @@ infra/staging/backend.hcl
 packages/db/seed/
 .demo-logs/
 spanish-review/
+
+# The isolated browser-test stack builds the guest web here (E2E_ISOLATED=1).
+.next-e2e/

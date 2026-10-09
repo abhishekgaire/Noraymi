@@ -14,6 +14,7 @@ import { PLAN_LOOKUP_KEYS, ROOM_LOOKUP_KEY } from "../apps/api/src/stripe/billin
 import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 import { SEED_COMMAND, setClock as resetClock } from "./night.js";
+import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
 /**
  * The staff app shell (M1-21). Andy (manager) enrols a passkey with
@@ -72,7 +73,7 @@ test.afterEach(async () => {
  */
 test.beforeEach(async ({ request }) => {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
-  const clock = await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+  const clock = await request.post(`${API}/v1/ops/clock`, {
     data: { server_time: "2026-09-26T02:41:00Z" },
   });
   expect(clock.ok()).toBe(true);
@@ -242,7 +243,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -334,7 +335,7 @@ test("Andy's phone installs the staff app, turns on alerts and gets a test alert
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -433,7 +434,7 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -563,7 +564,7 @@ test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's 
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -630,7 +631,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
 }) => {
   test.setTimeout(180_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const reset = () =>
@@ -786,7 +787,7 @@ test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar scree
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const stateOf = async (id: string) =>
@@ -877,7 +878,7 @@ test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const lastCall = async () =>
@@ -991,7 +992,7 @@ test("Admin → Printers & devices: West 4's devices, a code pairs a new browser
 }) => {
   test.setTimeout(180_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const other = await browser.newContext();
@@ -1091,7 +1092,7 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const clean = async () => {
@@ -1121,8 +1122,8 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
       };
       const credential =
         start.mode === "register"
-          ? key.register(start.options, "http://localhost:5174")
-          : key.assert(start.options, "http://localhost:5174");
+          ? key.register(start.options, CONSOLE)
+          : key.assert(start.options, CONSOLE);
       const finish = await ctx.post("/v1/console/auth/key", {
         data: { step: "finish", credential },
       });
@@ -1194,7 +1195,7 @@ test("Admin → Rooms: West 4's 14 rooms, switch a room off and on, archive one,
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const baseVersion = (
@@ -1277,7 +1278,7 @@ test("Tonight's room clocks tick on the server's offset while the device clock i
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1322,7 +1323,7 @@ test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1423,7 +1424,7 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1481,7 +1482,7 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
 test("the ID chip and Scan ID, with Safety & ID records on and off", async ({ page, request }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1525,7 +1526,7 @@ test("Andy's phone: Approvals · 1, Diego's comp approved onto Room 9, and his o
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1627,7 +1628,7 @@ test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1685,7 +1686,7 @@ test("the party-size control: Room 9 one guest more shows the new rate and ID 12
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1720,7 +1721,7 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1755,7 +1756,7 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
       .update("host-token:sess_room7")
       .digest("base64url")
       .slice(0, 32);
-    await robsPhone.goto(`http://localhost:3001/r/${hostToken}`);
+    await robsPhone.goto(`${GUEST}/r/${hostToken}`);
     await expect(robsPhone.getByRole("heading", { level: 1 })).toHaveText(
       /^Room 7 · Code [A-Z2-9]{5}$/,
     );
@@ -1790,7 +1791,7 @@ test("cleaning and the lost-and-found log: Room 6 marked clean, a scarf found in
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1841,7 +1842,7 @@ test("the Calls list on a phone: Room 9's mic call, On it clears it on the board
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1889,7 +1890,7 @@ test("the damage fee on a phone: a camera photo and a reason add $150.00 with it
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1945,7 +1946,7 @@ test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a 
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2021,7 +2022,7 @@ test("the waitlist drawer: Waitlist · 3, the three parties, and Remove", async 
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2067,7 +2068,7 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2096,7 +2097,7 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
       .slug;
     const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await guest.goto(`http://localhost:3001/v/${slug}/waitlist`);
+    await guest.goto(`${GUEST}/v/${slug}/waitlist`);
     await guest.getByLabel("Your name").fill("Jordan L.");
     await guest.getByLabel("Mobile number").fill("2125550145");
     await guest.getByLabel("How many of you").fill("4");
@@ -2145,7 +2146,7 @@ test("the headcount: 93 inside, limit not set, the door counter, and Admin → S
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2202,7 +2203,7 @@ test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile"
   const dollars = (cents: number) =>
     `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2260,7 +2261,7 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
     board_alerts: { rank: number; color: string; text: string }[];
   };
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2338,7 +2339,7 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2413,7 +2414,7 @@ test("the staff phone: Andy's Tonight, booking actions by status, and a runner's
 }) => {
   test.setTimeout(180_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2554,7 +2555,7 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2661,7 +2662,7 @@ test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minut
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -2759,7 +2760,7 @@ const setClock = async (request: APIRequestContext, iso: string) =>
   expect((await request.post("/v1/ops/clock", { data: { server_time: iso } })).ok()).toBe(true);
 const dbClient = async () => {
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   return db;
@@ -2818,7 +2819,7 @@ for (const size of SIZES) {
         const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
           .slug;
         const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
-        await guest.goto(`http://localhost:3001/v/${slug}/waitlist`);
+        await guest.goto(`${GUEST}/v/${slug}/waitlist`);
         await guest.getByLabel("Your name").fill("Jordan L.");
         await guest.getByLabel("Mobile number").fill("2125550145");
         await guest.getByLabel("How many of you").fill("4");
@@ -2942,7 +2943,7 @@ for (const size of SIZES) {
 test("a manager's phone: the PIN pad waits for all 6 digits", async ({ page, request }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -3015,7 +3016,7 @@ test("Admin → Menu: button names, a refused $6.00 happy hour, $6.50 saved, a h
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -3078,7 +3079,7 @@ test("Admin → Menu: button names, a refused $6.00 happy hour, $6.50 saved, a h
     await page.locator(".menu-editor").getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Bud Light saved")).toBeVisible();
     await expect(row("Bud Light")).toContainText("Hidden");
-    const guest = await request.get("http://127.0.0.1:3000/v1/public/venues/west4karaoke/menu");
+    const guest = await request.get(`${API}/v1/public/venues/west4karaoke/menu`);
     const names = (
       (await guest.json()) as { categories: { items: { name: string }[] }[] }
     ).categories.flatMap((c) => c.items.map((i) => i.name));
@@ -3112,7 +3113,7 @@ test("Adding drinks to Room 9: an amber Margarita until Peach, Hoegaarden 86'd, 
 }) => {
   test.setTimeout(150_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -3207,7 +3208,7 @@ test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3",
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -3270,8 +3271,7 @@ for (const size of [
   }) => {
     test.setTimeout(150_000);
     const db = new pg.Client({
-      connectionString:
-        process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      connectionString: DB,
     });
     await db.connect();
     try {
@@ -3351,7 +3351,7 @@ test("Bar orders · 2 in the side menu, and Mute for 60 seconds on the bar order
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -3389,7 +3389,7 @@ test("Bar orders · 2 in the side menu, and Mute for 60 seconds on the bar order
 test("a locked bar computer still shows the orders waiting at the bar", async ({ page }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -3623,7 +3623,7 @@ test("Cut off Room 9 from the board: every screen reads it, o1 is cancelled, the
     const phone = await (
       await browser.newContext({ viewport: { width: 390, height: 844 } })
     ).newPage();
-    await phone.goto(`http://localhost:3001/r/${token}`);
+    await phone.goto(`${GUEST}/r/${token}`);
     await expect(
       phone.getByText("Your server has paused alcohol for this room").first(),
     ).toBeVisible();
@@ -3688,7 +3688,7 @@ test("after 4:00 AM the bar orders screen lists Cancelled at 4:00 AM and offers 
  */
 test.describe("M3 scenarios", () => {
   const hostLink = (slug: string) =>
-    `http://localhost:3001/r/${createHash("sha256").update(`host-token:${slug}`).digest("base64url").slice(0, 32)}`;
+    `${GUEST}/r/${createHash("sha256").update(`host-token:${slug}`).digest("base64url").slice(0, 32)}`;
   const phone = async (browser: Browser) =>
     (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   const seedRow = async (db: pg.Client, slug: string) =>
@@ -3925,7 +3925,7 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
   test.setTimeout(120_000);
   const db = await dbClient();
   try {
-    const made = await request.post("http://127.0.0.1:12111/v2/core/accounts", {
+    const made = await request.post(`${STRIPE}/v2/core/accounts`, {
       headers: {
         authorization: "Bearer rk_test_fake_payments",
         "idempotency-key": `e2e-${Date.now()}`,
@@ -4034,7 +4034,7 @@ test("Admin → Printers & devices: register the Bar S710 with its code", async 
   test.setTimeout(120_000);
   const db = await dbClient();
   try {
-    const made = await request.post("http://127.0.0.1:12111/v2/core/accounts", {
+    const made = await request.post(`${STRIPE}/v2/core/accounts`, {
       headers: {
         authorization: "Bearer rk_test_fake_payments",
         "idempotency-key": `e2e-r-${Date.now()}`,
@@ -4113,7 +4113,7 @@ test("Present the check: blocked while 2 × Margarita · Peach rings, then prese
       .update("host-token:sess_room9")
       .digest("base64url")
       .slice(0, 32);
-    await marcus.goto(`http://localhost:3001/r/${token}`);
+    await marcus.goto(`${GUEST}/r/${token}`);
     await expect(marcus.getByText("Your bill is ready · ordering is closed")).toBeVisible();
     await marcus.context().close();
   } finally {
@@ -4134,7 +4134,7 @@ const stripeSeed = () =>
     env: {
       ...process.env,
       WEST4_ENV: "local",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      DATABASE_URL: DB,
     },
   });
 test("the hold grows: a round past the $50.00 hold raises it to $80.00, and the chip shows what's left", async ({
@@ -4162,14 +4162,14 @@ test("the hold grows: a round past the $50.00 hold raises it to $80.00, and the 
     await panel.getByRole("button", { name: "Read to guest ✓" }).click();
     await expect
       .poll(async () => {
-        const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+        const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
           headers,
         });
         return ((await r.json()) as { action?: { status?: string } }).action?.status;
       })
       .toBe("in_progress");
     const r = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
       {
         headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
         form: { "card_present[number]": "5555555555552281" },
@@ -4220,7 +4220,7 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
       "stripe-account": ids.account,
     };
     const readerAction = async () => {
-      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+      const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
         headers,
       });
       const action = ((await r.json()) as { action?: { type?: string; status?: string } }).action;
@@ -4231,7 +4231,7 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
     await panel.getByRole("button", { name: "Read to guest ✓" }).click();
     await expect.poll(readerAction).toBe("collect_payment_method:in_progress");
     const tapped = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
       {
         headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
         form: { "card_present[number]": "4000003800000008" },
@@ -4267,7 +4267,7 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
     ]);
     await expect.poll(readerAction).toBe("collect_inputs:in_progress");
     const picked = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
       {
         headers: { ...headers, "idempotency-key": `e2e-tip-${Date.now()}-${Math.random()}` },
         form: { selection: "tip_1" },
@@ -4320,7 +4320,7 @@ test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··441
       "stripe-account": ids.account,
     };
     const readerAction = async () => {
-      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+      const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
         headers,
       });
       return ((await r.json()) as { action?: { type?: string } }).action?.type ?? "";
@@ -4330,7 +4330,7 @@ test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··441
     await panel.getByRole("button", { name: "Read to guest ✓" }).click();
     await expect.poll(readerAction).toBe("collect_payment_method");
     const tapped = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
       {
         headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
         form: { "card_present[number]": "4000000000004417" },
@@ -4381,7 +4381,7 @@ test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··441
     await expect(closing).toContainText("Waiting for the tip on the bar reader");
     await expect.poll(readerAction).toBe("collect_inputs");
     const picked = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
       {
         headers: { ...headers, "idempotency-key": `e2e-tip-${Date.now()}-${Math.random()}` },
         form: { selection: "none" },
@@ -4426,7 +4426,7 @@ test("Pay a tab another way: a declined new card keeps the hold, then cash close
       "stripe-account": ids.account,
     };
     const readerAction = async () => {
-      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+      const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
         headers,
       });
       return ((await r.json()) as { action?: { type?: string } }).action?.type ?? "";
@@ -4441,7 +4441,7 @@ test("Pay a tab another way: a declined new card keeps the hold, then cash close
     await panel.getByRole("button", { name: "Read to guest ✓" }).click();
     await expect.poll(readerAction).toBe("collect_payment_method");
     const tapped = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
       {
         headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
         form: { "card_present[number]": "4000000000005120" },
@@ -4511,7 +4511,7 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
       "stripe-account": ids.account,
     };
     const readerAction = async () => {
-      const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+      const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
         headers,
       });
       const a = ((await r.json()) as { action?: { type?: string; status?: string } }).action;
@@ -4519,7 +4519,7 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
     };
     const guestPicks = async (selection: string) => {
       const r = await request.post(
-        `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+        `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
         {
           headers: { ...headers, "idempotency-key": `e2e-pick-${Date.now()}-${Math.random()}` },
           form: { selection },
@@ -4536,7 +4536,7 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
     await panel.getByRole("button", { name: "Read to guest ✓" }).click();
     await expect.poll(readerAction).toBe("collect_payment_method:in_progress");
     const tapped = await request.post(
-      `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
       {
         headers: { ...headers, "idempotency-key": `e2e-present-${Date.now()}-${Math.random()}` },
         form: { "card_present[number]": "4242424242424242" },
@@ -4621,7 +4621,7 @@ const presentCard = async (
     )
   ).rows[0]!;
   const r = await request.post(
-    `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+    `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
     {
       headers: {
         authorization: "Bearer rk_test_fake_payments",
@@ -4679,7 +4679,7 @@ test("Tap at the reader: Room 9's $498.60 waits on the front-desk reader, a decl
     });
 
     // One PaymentIntent for $498.60, and the reader skipped its tip screen.
-    const reader = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+    const reader = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
       headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.account },
     });
     expect(
@@ -4935,7 +4935,7 @@ test("Card on file: Room 9 waits for Marcus, the guest taps Pay with Amex ··10
       .update("host-token:sess_room9")
       .digest("base64url")
       .slice(0, 32);
-    await phone.goto(`http://localhost:3001/r/${hostToken}`);
+    await phone.goto(`${GUEST}/r/${hostToken}`);
     const bill = phone.getByRole("region", { name: "Your bill · #1042" });
     await bill.getByRole("button", { name: "Pay with Amex ··1005" }).click();
     await expect(
@@ -4994,7 +4994,7 @@ test("Pay my share: Kevin pays 1 of 12 on the phone and DeskRoom shows it", asyn
     const kevin = await (
       await browser.newContext({ viewport: { width: 390, height: 844 } })
     ).newPage();
-    await kevin.goto(`http://localhost:3001/v/west4karaoke/room/${room9}`);
+    await kevin.goto(`${GUEST}/v/west4karaoke/room/${room9}`);
     await kevin.getByLabel("Room code").fill("KX4M7");
     await kevin.getByRole("button", { name: "Join" }).click();
     const bill = kevin.getByRole("region", { name: "Your bill · #1042" });
@@ -5004,7 +5004,7 @@ test("Pay my share: Kevin pays 1 of 12 on the phone and DeskRoom shows it", asyn
     await expect(share.getByText("Your share 1 of 12 · $41.55")).toBeVisible();
     await expect(share.getByText("Includes $3.55 tax and $8.00 gratuity")).toBeVisible();
     await share.getByRole("link", { name: "Pay $41.55" }).click();
-    await expect(kevin).toHaveURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+    await expect(kevin).toHaveURL(new RegExp(`^${esc(PAY)}/pay/`));
     await kevin.getByRole("button", { name: "Pay $41.55" }).click();
     await expect(kevin.getByRole("status")).toHaveText("Paid $41.55 · thank you");
 
@@ -5063,7 +5063,7 @@ test("Close-out on DeskRoom: Room 9's #1042 at $618.60, paid by tap, the receipt
     await expect(page.getByRole("status").filter({ hasText: /^Paid$/ })).toBeVisible({
       timeout: 15_000,
     });
-    const reader = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+    const reader = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
       headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.account },
     });
     expect(
@@ -5361,15 +5361,12 @@ test("Admin → Card fee & gratuity: West 4's settings, and a tip change reaches
     await expect
       .poll(
         async () => {
-          const r = await request.get(
-            `http://127.0.0.1:12111/v1/terminal/configurations/${ids.config}`,
-            {
-              headers: {
-                authorization: "Bearer rk_test_fake_payments",
-                "stripe-account": ids.account,
-              },
+          const r = await request.get(`${STRIPE}/v1/terminal/configurations/${ids.config}`, {
+            headers: {
+              authorization: "Bearer rk_test_fake_payments",
+              "stripe-account": ids.account,
             },
-          );
+          });
           const tipping = ((await r.json()) as { tipping?: { usd?: { percentages?: string[] } } })
             .tipping;
           return tipping?.usd?.percentages?.map(String);
@@ -5399,9 +5396,7 @@ test("Go-live checklist: the merchant category, Andy and Abhishek confirmed, and
       await db.query<{ a: string }>("select stripe_account_id as a from organizations limit 1")
     ).rows[0]!.a;
     // The account's onboarding is done in the fake, so it reports its merchant category.
-    expect((await request.get(`http://127.0.0.1:12111/fake/onboarding/${account}`)).ok()).toBe(
-      true,
-    );
+    expect((await request.get(`${STRIPE}/fake/onboarding/${account}`)).ok()).toBe(true);
     await db.query("update memberships set locale = 'en'");
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/");
@@ -5471,23 +5466,19 @@ test("Admin → Website: new hero words go live, version 1 comes back, alt text 
     await expect(page.getByRole("alert")).toHaveText("Every photo needs alt text before you save.");
     await page.getByRole("button", { name: "Remove photo" }).click();
 
-    const home = await (await request.get("http://localhost:3001/")).text();
+    const home = await (await request.get(`${GUEST}/`)).text();
     expect(home).toContain("Lose your voice.");
     await page.getByLabel("Headline", { exact: true }).fill("Sing it like you mean it.");
     await page.getByRole("button", { name: "Save draft" }).click();
     await expect(page.getByText("Draft saved. It goes live when you publish.")).toBeVisible();
     await page.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(page.getByText(/^Version 2 is live/)).toBeVisible();
-    expect(await (await request.get("http://localhost:3001/")).text()).toContain(
-      "Sing it like you mean it.",
-    );
+    expect(await (await request.get(`${GUEST}/`)).text()).toContain("Sing it like you mean it.");
 
     const v1 = page.getByRole("listitem").filter({ hasText: "Version 1" });
     await v1.getByRole("button", { name: "Publish again" }).click();
     await expect(page.getByText(/^Version 3 is live/)).toBeVisible();
-    expect(await (await request.get("http://localhost:3001/")).text()).toContain(
-      "Lose your voice.",
-    );
+    expect(await (await request.get(`${GUEST}/`)).text()).toContain("Lose your voice.");
   } finally {
     await db.end();
   }
@@ -5716,7 +5707,7 @@ test("after a load, Maya's bar POS matches the seed: five tabs on their holds, t
       stdio: "ignore",
       env: {
         ...process.env,
-        DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+        DATABASE_URL: DB,
         S3_ENDPOINT: process.env["S3_ENDPOINT"] ?? "http://localhost:9000",
         S3_ACCESS_KEY_ID: process.env["S3_ACCESS_KEY_ID"] ?? "west4",
         S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
@@ -5846,9 +5837,7 @@ test("the bar POS: five tabs, the rooms, Room 5's order accepted, and 86 on Hoeg
     await page.getByRole("button", { name: /^Hoegaarden · \$/ }).click();
     await expect(page.getByRole("button", { name: "Hoegaarden · 86'd tonight" })).toBeDisabled();
     expect(await grid.allInnerTexts()).toEqual(before);
-    const guest = await (
-      await request.get("http://127.0.0.1:3000/v1/public/venues/west4karaoke/menu")
-    ).json();
+    const guest = await (await request.get(`${API}/v1/public/venues/west4karaoke/menu`)).json();
     const hoe = guest.categories
       .flatMap((c: { items: { name: string; out_tonight: boolean }[] }) => c.items)
       .find((i: { name: string }) => i.name === "Hoegaarden");
@@ -6295,7 +6284,7 @@ test("Singer alerts: Ben T. turns alerts on, and Kira's start makes him up next 
         )
       ).rows[0]!.id;
     const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    await ben.grantPermissions(["notifications"], { origin: "http://localhost:3001" });
+    await ben.grantPermissions(["notifications"], { origin: GUEST });
     await ben.addInitScript(() => {
       const fake = {
         endpoint: "https://push.example.test/send/ben-e2e",
@@ -6317,7 +6306,7 @@ test("Singer alerts: Ben T. turns alerts on, and Kira's start makes him up next 
       };
     });
     const phone = await ben.newPage();
-    await phone.goto("http://localhost:3001/v/west4karaoke/sing");
+    await phone.goto(`${GUEST}/v/west4karaoke/sing`);
     await phone.getByLabel("Your name on the TV").fill("Ben");
     await phone.getByLabel("Mobile number").fill("(646) 555-0163");
     await phone.getByRole("button", { name: "Text me a code" }).click();
@@ -6415,7 +6404,7 @@ test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, no
       // The guest taps once the reader is asking.
       await expect
         .poll(async () => {
-          const r = await request.get(`http://127.0.0.1:12111/v1/terminal/readers/${ids.reader}`, {
+          const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, {
             headers: {
               authorization: "Bearer rk_test_fake_payments",
               "stripe-account": ids.account,
@@ -6425,7 +6414,7 @@ test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, no
         })
         .toBe("in_progress");
       const r = await request.post(
-        `http://127.0.0.1:12111/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+        `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
         {
           headers: {
             authorization: "Bearer rk_test_fake_payments",
@@ -6466,7 +6455,7 @@ test("New tab: a tapped phone in four taps, Jess P.'s ··4417 opens her tab, no
     ).rows[0]!;
     expect(held.read_by).toMatch(/^Maya/);
     const pi = await (
-      await request.get(`http://127.0.0.1:12111/v1/payment_intents/${held.pi}`, {
+      await request.get(`${STRIPE}/v1/payment_intents/${held.pi}`, {
         headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.account },
         params: { "expand[]": "latest_charge" },
       })
@@ -6927,7 +6916,7 @@ test("The KJ song queue and the Up next TV: Started on Jess P. reaches the TV an
     // The Up next TV, paired like a shared device.
     const tvContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     const tv = await tvContext.newPage();
-    await tv.goto("http://localhost:3001/tv");
+    await tv.goto(`${GUEST}/tv`);
     await tv
       .getByLabel("Pairing code from Admin → Devices")
       .fill(await pairingCode(db, "up_next_display", "Up next TV · e2e"));
@@ -6942,13 +6931,13 @@ test("The KJ song queue and the Up next TV: Started on Jess P. reaches the TV an
     ]);
     const qr = tv.getByRole("img", { name: "Scan to sing" });
     await expect(qr).toBeVisible();
-    expect(await qr.getAttribute("data-url")).toBe("http://localhost:3001/v/west4karaoke/sing");
+    expect(await qr.getAttribute("data-url")).toBe(`${GUEST}/v/west4karaoke/sing`);
     expect(await tv.locator("body").innerText()).not.toMatch(phoneNumber);
 
     // Ben T. on his queue page.
     const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const phone = await ben.newPage();
-    await phone.goto("http://localhost:3001/v/west4karaoke/sing");
+    await phone.goto(`${GUEST}/v/west4karaoke/sing`);
     await phone.getByLabel("Your name on the TV").fill("Ben");
     await phone.getByLabel("Mobile number").fill("(646) 555-0163");
     await phone.getByRole("button", { name: "Text me a code" }).click();
@@ -7067,7 +7056,7 @@ test("The songbook: a CSV loads in Admin → Bar mode, line 12's missing title i
     // Ben T. on his queue page searches the songbook.
     const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const phone = await ben.newPage();
-    await phone.goto("http://localhost:3001/v/west4karaoke/sing");
+    await phone.goto(`${GUEST}/v/west4karaoke/sing`);
     await phone.getByLabel("Your name on the TV").fill("Ben");
     await phone.getByLabel("Mobile number").fill("(646) 555-0163");
     await phone.getByRole("button", { name: "Text me a code" }).click();
@@ -7105,7 +7094,7 @@ test("The songbook: a CSV loads in Admin → Bar mode, line 12's missing title i
 
     // The website's song section now has its search box.
     const site = await ben.newPage();
-    await site.goto("http://localhost:3001/v/west4karaoke");
+    await site.goto(`${GUEST}/v/west4karaoke`);
     await site.getByLabel("Search the songbook").fill("killers");
     await expect(site.getByText("Mr. Brightside · The Killers")).toBeVisible();
     await ben.close();
@@ -7161,7 +7150,7 @@ test("Admin → Bar mode: West 4's settings, a free drink with a song refused, 2
  * Stripe's sandbox has no test card or amount for either. Jobs (the reconciler, the hold cancel, the 4:30
  * AM cut-off) run in a real worker the test starts, as they would in staging.
  */
-const FAKE_STRIPE = "http://127.0.0.1:12111";
+const FAKE_STRIPE = STRIPE;
 const fakeStripe = async (db: pg.Client) => {
   const account = (
     await db.query<{ account: string }>(
@@ -7208,9 +7197,8 @@ const startWorker = () => {
       ...process.env,
       WEST4_ENV: "local",
       ALLOW_STAGING_FEATURES: "true",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
-      APP_DATABASE_URL:
-        process.env["APP_DATABASE_URL"] ?? "postgres://app_rw:app_rw@localhost:5432/west4",
+      DATABASE_URL: DB,
+      APP_DATABASE_URL: APP_DB,
     },
   });
   return () => {
@@ -7791,14 +7779,14 @@ test("training mode: a trainee's tap runs on a simulated reader, declined then p
     ).rows[0]!;
     expect(row.reader).toBe(ids.reader);
     // On the sandbox account with the sandbox's key; the live key can't even see it.
-    const atSandbox = await request.get(`http://127.0.0.1:12111/v1/payment_intents/${row.pi}`, {
+    const atSandbox = await request.get(`${STRIPE}/v1/payment_intents/${row.pi}`, {
       headers: {
         authorization: "Bearer rk_test_fake_sandbox_payments",
         "stripe-account": ids.sandbox,
       },
     });
     expect(((await atSandbox.json()) as { status: string }).status).toBe("succeeded");
-    const atLive = await request.get(`http://127.0.0.1:12111/v1/payment_intents/${row.pi}`, {
+    const atLive = await request.get(`${STRIPE}/v1/payment_intents/${row.pi}`, {
       headers: { authorization: "Bearer rk_test_fake_payments", "stripe-account": ids.live },
     });
     expect(atLive.status()).toBe(404);
@@ -8118,8 +8106,7 @@ for (const size of [
 const NIGHT = Temporal.Instant.from("2026-09-26T02:41:00Z");
 const vendorSweep = async () => {
   const pool = new pg.Pool({
-    connectionString:
-      process.env["APP_DATABASE_URL"] ?? "postgres://app_rw:app_rw@localhost:5432/west4",
+    connectionString: APP_DB,
     max: 2,
   });
   try {
@@ -8152,8 +8139,7 @@ const routerOnLte = async (db: pg.Client, on: boolean) => {
      on conflict (device_id) do nothing`,
   );
   const pool = new pg.Pool({
-    connectionString:
-      process.env["APP_DATABASE_URL"] ?? "postgres://app_rw:app_rw@localhost:5432/west4",
+    connectionString: APP_DB,
     max: 2,
   });
   try {
@@ -8504,7 +8490,7 @@ test("Confirm replayed orders (3) on the bar POS and bar orders, and Review afte
     await expect(rows.first()).toContainText("Cash posted · $12.00 · Andy C.");
 
     // Maya at the bar: the banner and the list, each asked to wait.
-    const bar = await browser.newContext({ baseURL: "http://localhost:5173" });
+    const bar = await browser.newContext({ baseURL: STAFF });
     const barPage = await bar.newPage();
     try {
       await signInMayaAtTheBar(barPage, request, db);
@@ -8630,7 +8616,7 @@ test("Help alert: Room 9 asks privately, the Board pins Manager needed · 1, And
     const guest = await (
       await browser.newContext({ viewport: { width: 390, height: 844 } })
     ).newPage();
-    await guest.goto(`http://localhost:3001/r/${hostToken}`);
+    await guest.goto(`${GUEST}/r/${hostToken}`);
     await guest.getByRole("button", { name: "Need a manager, privately?" }).click();
     const sheet = guest.getByRole("dialog", { name: "Get help privately" });
     await expect(sheet).toContainText("Only the managers see what you send.");
@@ -8813,7 +8799,7 @@ test("Admin → Console: Abhishek approves a support request, the banner shows, 
     await expect(ran.getByRole("button")).toHaveCount(0);
 
     // Andy's Admin has no Console section.
-    const andy = await browser.newContext({ baseURL: "http://localhost:5173" });
+    const andy = await browser.newContext({ baseURL: STAFF });
     const andyPage = await andy.newPage();
     await andyPage.setViewportSize({ width: 1280, height: 800 });
     await signInAndy(andyPage, andy.request, db);
@@ -8844,10 +8830,10 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
   test.setTimeout(120_000);
   const db = await dbClient();
   const owner = new pg.Pool({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
     max: 2,
   });
-  const stripe = new StripeClient(fakeStripeSettings());
+  const stripe = new StripeClient(fakeStripeSettings(STRIPE));
   const billing = <T>(path: string, params: Record<string, unknown>) =>
     stripe.call<T>("billing", "POST", path, {
       account: null,
@@ -8947,7 +8933,7 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
     await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
     await page.goto("/bar");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
-    const tabs = await page.request.get(`http://localhost:3000/v1/venues/${venueId}/tabs`);
+    const tabs = await page.request.get(`${API_LOCAL}/v1/venues/${venueId}/tabs`);
     expect(tabs.status()).toBe(200);
 
     // Paid: the banner goes and Admin saves again.

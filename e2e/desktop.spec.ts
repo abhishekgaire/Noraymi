@@ -10,6 +10,7 @@ import { Temporal } from "@west4/shared";
 import { loadConfig } from "../apps/api/src/config.js";
 import { decryptSecret } from "../packages/db/src/auth.js";
 import { freshNight, setClock } from "./night.js";
+import { API, DB, STAFF } from "./stack.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const desktopDir = path.resolve(here, "..", "apps", "desktop");
@@ -24,7 +25,7 @@ const desktopDir = path.resolve(here, "..", "apps", "desktop");
 async function launch(userData: string): Promise<ElectronApplication> {
   return electron.launch({
     args: [desktopDir],
-    env: { ...process.env, STAFF_URL: "http://localhost:5173", WEST4_USER_DATA: userData },
+    env: { ...process.env, STAFF_URL: STAFF, WEST4_USER_DATA: userData },
   });
 }
 
@@ -85,7 +86,7 @@ test("navigating to a host that isn't ours is blocked, and new windows are denie
       window.location.assign("https://example.com/");
     });
     await page.waitForTimeout(1000);
-    expect(new URL(page.url()).origin).toBe("http://localhost:5173");
+    expect(new URL(page.url()).origin).toBe(STAFF);
     const opened = await page.evaluate(() => window.open("https://example.com/") === null);
     expect(opened).toBe(true);
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
@@ -120,7 +121,7 @@ test("an IPC message from an unexpected frame is refused; the token is kept in n
           nodeIntegration: false,
         },
       });
-      await stranger.loadURL("http://127.0.0.1:3000/v1/health");
+      await stranger.loadURL(`${API}/v1/health`);
       const answer = await stranger.webContents.executeJavaScript(
         `(() => { try { return window.west4.token.get().then(() => "allowed", (e) => String(e)); } catch (e) { return "no bridge: " + String(e); } })()`,
       );
@@ -146,13 +147,13 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
     args: [desktopDir],
     env: {
       ...process.env,
-      STAFF_URL: "http://localhost:5173",
+      STAFF_URL: STAFF,
       WEST4_USER_DATA: userData,
       WEST4_FAKE_READER: "1",
     },
   });
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -189,7 +190,7 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
         automaticPresenceSimulation: true,
       },
     });
-    const api = "http://localhost:5173";
+    const api = STAFF;
     // The sign-in routes allow 30 calls a minute from one address; the staff tests before this one
     // sign in many times, so a 429 here waits out the window instead of failing (the limit stays).
     const post = async (p: string, data: unknown) => {
@@ -279,7 +280,7 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
   const app = await launch(userData);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -295,7 +296,7 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
     );
     expect(
       (
-        await page.request.post("http://localhost:5173/v1/ops/clock", {
+        await page.request.post(`${STAFF}/v1/ops/clock`, {
           data: { server_time: "2026-09-26T02:41:00Z" },
         })
       ).ok(),
@@ -422,7 +423,7 @@ async function queueNight(serverTime: string) {
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
   const app = await launch(userData);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const page = await app.firstWindow();
@@ -437,7 +438,7 @@ async function queueNight(serverTime: string) {
   );
   expect(
     (
-      await page.request.post("http://localhost:5173/v1/ops/clock", {
+      await page.request.post(`${STAFF}/v1/ops/clock`, {
         data: { server_time: serverTime },
       })
     ).ok(),
@@ -491,7 +492,7 @@ async function queueNight(serverTime: string) {
       APP_DATABASE_URL: "postgres://unused",
     });
     const secret = decryptSecret(config.auth.secretKey, row.secret_enc);
-    const health = (await (await page.request.get("http://localhost:5173/v1/health")).json()) as {
+    const health = (await (await page.request.get(`${STAFF}/v1/health`)).json()) as {
       server_time: string;
     };
     return offlineCodeAt(
@@ -698,7 +699,7 @@ test("queue mode: past 4:00 AM on the simulated clock, alcohol greys out from th
   } finally {
     // Back to the seed's 10:41 PM for the specs that run after this one.
     await page.request
-      .post("http://localhost:5173/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      .post(`${STAFF}/v1/ops/clock`, { data: { server_time: "2026-09-26T02:41:00Z" } })
       .catch(() => undefined);
     await db.end();
     await app.close();

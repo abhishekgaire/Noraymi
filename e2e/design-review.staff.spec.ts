@@ -10,9 +10,10 @@ import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import pg from "pg";
 import { freshNight, SEED_COMMAND, SEED_INSTANT } from "./night.js";
+import { CANVAS, DB, ports } from "./stack.js";
 
 const OUT = "docs/design-review/v08";
-const CANVAS_PORT = Number(process.env["DESIGN_REVIEW_CANVAS_PORT"] ?? 8765);
+const CANVAS_PORT = ports.canvas;
 const ANDY = "andy@demo.west4.local";
 
 test.skip(!process.env["DESIGN_REVIEW"], "design review captures run only with DESIGN_REVIEW=1");
@@ -25,7 +26,7 @@ test.beforeAll(async () => {
   });
   for (let i = 0; i < 50; i++) {
     try {
-      if ((await fetch(`http://localhost:${CANVAS_PORT}/boards.json`)).ok) return;
+      if ((await fetch(`${CANVAS}/boards.json`)).ok) return;
     } catch {
       /* not up yet */
     }
@@ -114,7 +115,7 @@ test("V-08 · the Board beside Board.dc.html at 1280, and the phone beside Staff
   mkdirSync(OUT, { recursive: true });
   await freshNight();
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -133,7 +134,7 @@ test("V-08 · the Board beside Board.dc.html at 1280, and the phone beside Staff
     const canvasPage = await page.context().newPage();
     const shoot = async (board: string, width: number, height: number, fullPage: boolean) => {
       await canvasPage.setViewportSize({ width, height });
-      await canvasPage.goto(`http://localhost:${CANVAS_PORT}/${board}`);
+      await canvasPage.goto(`${CANVAS}/${board}`);
       await canvasPage.waitForLoadState("networkidle");
       await canvasPage.waitForTimeout(800);
       return canvasPage.screenshot({ fullPage });
@@ -177,7 +178,7 @@ test("V-03 · the desk screens beside their canvas boards at 1280", async ({ pag
   const clock = await request.post("/v1/ops/clock", { data: { server_time: SEED_INSTANT } });
   expect(clock.ok()).toBe(true);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -200,7 +201,7 @@ test("V-03 · the desk screens beside their canvas boards at 1280", async ({ pag
       ["Night.dc.html", "/close-the-night", "Close the night", "night"],
     ];
     for (const [board, path, title, file] of screens) {
-      await canvasPage.goto(`http://localhost:${CANVAS_PORT}/${board}`);
+      await canvasPage.goto(`${CANVAS}/${board}`);
       await canvasPage.waitForLoadState("networkidle");
       await canvasPage.waitForTimeout(800);
       const canvasShot = await canvasPage.screenshot();

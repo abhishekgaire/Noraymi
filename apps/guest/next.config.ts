@@ -6,6 +6,8 @@ const api = (process.env["API_URL"] ?? "http://localhost:3000").replace(/\/+$/, 
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The isolated browser-test stack (E2E_ISOLATED=1) builds into its own folder: next dev locks its folder.
+  distDir: process.env["NEXT_DIST_DIR"] || ".next",
   // A self-contained server for the container image (apps/guest/Dockerfile).
   output: "standalone",
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),

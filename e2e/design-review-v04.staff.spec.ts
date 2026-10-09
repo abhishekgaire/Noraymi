@@ -10,9 +10,10 @@ import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
 import { SEED_COMMAND, SEED_INSTANT } from "./night.js";
+import { CANVAS, DB, ports } from "./stack.js";
 
 const OUT = "docs/design-review/v04";
-const CANVAS_PORT = Number(process.env["DESIGN_REVIEW_CANVAS_PORT"] ?? 8765);
+const CANVAS_PORT = ports.canvas;
 const ANDY = "andy@demo.west4.local";
 
 test.skip(!process.env["DESIGN_REVIEW"], "design review captures run only with DESIGN_REVIEW=1");
@@ -25,7 +26,7 @@ test.beforeAll(async () => {
   });
   for (let i = 0; i < 50; i++) {
     try {
-      if ((await fetch(`http://localhost:${CANVAS_PORT}/boards.json`)).ok) return;
+      if ((await fetch(`${CANVAS}/boards.json`)).ok) return;
     } catch {
       /* not up yet */
     }
@@ -117,7 +118,7 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
     true,
   );
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -132,7 +133,7 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
     const canvasPage = await page.context().newPage();
     const shoot = async (board: string, width: number, height: number) => {
       await canvasPage.setViewportSize({ width, height });
-      await canvasPage.goto(`http://localhost:${CANVAS_PORT}/${board}`);
+      await canvasPage.goto(`${CANVAS}/${board}`);
       await canvasPage.waitForLoadState("networkidle");
       await canvasPage.waitForTimeout(800);
       return canvasPage.screenshot();

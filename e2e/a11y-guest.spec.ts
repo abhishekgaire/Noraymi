@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
+import { API, DB, esc, PAY } from "./stack.js";
 
 /**
  * Accessibility checks for the guest web (M3-24; spec 12 · 14): WCAG 2.2 AA,
@@ -14,7 +15,6 @@ import { SEED_COMMAND, setClock } from "./night.js";
  * violation shows the checks really fail.
  */
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-const API = "http://127.0.0.1:3000";
 const hostToken = (slug: string) =>
   createHash("sha256").update(`host-token:${slug}`).digest("base64url").slice(0, 32);
 
@@ -25,7 +25,7 @@ async function violations(page: Page) {
 
 const db = () =>
   new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
 
 // Put the shared clock back for whatever spec runs next, in this project or another.
@@ -349,7 +349,7 @@ const stripeSeed = () =>
     env: {
       ...process.env,
       WEST4_ENV: "local",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      DATABASE_URL: DB,
     },
   });
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -427,7 +427,7 @@ test("every booking step passes: details, terms, the payment page, booked and a 
   await expect(page.getByRole("heading", { name: "The deposit policy" })).toBeVisible();
   await both("terms");
   await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
-  await page.waitForURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+  await page.waitForURL(new RegExp(`^${esc(PAY)}/pay/`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your deposit · $50.00");
   await both("the payment page");
   await page.getByRole("button", { name: "Try a declined test card" }).click();
@@ -464,7 +464,7 @@ test("the payment page passes for a pay link, and once paid", async ({ page }) =
       [tokenHash(token)],
     );
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`http://pay.localhost:3001/pay/${token}`);
+    await page.goto(`${PAY}/pay/${token}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pay $25.00");
     expect(await violations(page)).toEqual([]);
     await page.getByRole("button", { name: "Pay $25.00" }).click();

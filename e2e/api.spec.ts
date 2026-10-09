@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { SEED_COMMAND } from "./night.js";
+import { API_LOCAL, DB } from "./stack.js";
 
 test("the API answers /v1/health", async ({ request }) => {
   const response = await request.get("/v1/health");
@@ -36,7 +37,7 @@ test("after a fresh seed load, server_time is Fri Sep 25, 2026, 10:41 PM in New 
 test("Andy enrols a passkey, signs in with it and opens Admin", async ({ page, request }) => {
   const pg = await import("pg");
   const db = new pg.default.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -59,7 +60,7 @@ test("Andy enrols a passkey, signs in with it and opens Admin", async ({ page, r
         automaticPresenceSimulation: true,
       },
     });
-    await page.goto("http://localhost:3000/v1/health");
+    await page.goto(`${API_LOCAL}/v1/health`);
 
     expect((await request.post("/v1/auth/enroll", { data: { step: "start", email } })).ok()).toBe(
       true,

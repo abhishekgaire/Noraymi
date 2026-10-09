@@ -3,6 +3,7 @@ import { execSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
+import { API, DB, esc, GUEST, PAY } from "./stack.js";
 
 // Put the shared clock back for whatever spec runs next, in this project or another.
 test.afterEach(async () => {
@@ -16,7 +17,7 @@ test.afterEach(async () => {
  */
 test.beforeEach(async ({ request }) => {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
-  const clock = await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+  const clock = await request.post(`${API}/v1/ops/clock`, {
     data: { server_time: "2026-09-26T02:41:00Z" },
   });
   expect(clock.ok()).toBe(true);
@@ -100,7 +101,7 @@ test("all in, and booking off: every price line changes, and the hero reads Call
   page,
 }) => {
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -138,13 +139,13 @@ test("the door QR on a phone: a party of 4 joins fourth, 3 parties ahead, then l
   test.setTimeout(90_000);
   expect(
     (
-      await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+      await request.post(`${API}/v1/ops/clock`, {
         data: { server_time: "2026-09-26T02:41:00Z" },
       })
     ).ok(),
   ).toBe(true);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -184,7 +185,7 @@ test("the singer's queue page: Ben T. 2 singers before you, Sofia R. needs a dri
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const codeFor = async (phone: string) => {
@@ -264,7 +265,7 @@ test("joining a room on a phone: the host link, a wrong code, KX4M7, and a close
 }) => {
   test.setTimeout(90_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -323,7 +324,7 @@ test("the room page on a phone: order 2 × Margarita · Peach and follow it in t
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -342,10 +343,10 @@ test("the room page on a phone: order 2 × Margarita · Peach and follow it in t
     const bar = async (orderId: string, step: string) =>
       expect(
         (
-          await request.post(
-            `http://127.0.0.1:3000/v1/venues/${maya.venue_id}/orders/${orderId}/${step}`,
-            { headers: { authorization: `Bearer ${token}` }, data: {} },
-          )
+          await request.post(`${API}/v1/venues/${maya.venue_id}/orders/${orderId}/${step}`, {
+            headers: { authorization: `Bearer ${token}` },
+            data: {},
+          })
         ).status(),
         step,
       ).toBe(200);
@@ -417,7 +418,7 @@ test("the room page on a phone: tonight so far, the stay and wrap-up lines, Call
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -485,7 +486,7 @@ test("Same again on a phone: Room 3's round for $39.00, ordered again, and witho
 }) => {
   test.setTimeout(90_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -534,7 +535,7 @@ test("room tablets on a tablet: Room 11 available, Room 9's clock, $480.00 and a
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -600,7 +601,7 @@ test("at 4:00 AM the room page hides alcohol and says why; a Red Bull still orde
   test.setTimeout(90_000);
   expect(
     (
-      await request.post("http://127.0.0.1:3000/v1/ops/clock", {
+      await request.post(`${API}/v1/ops/clock`, {
         data: { server_time: "2026-09-26T08:00:30Z" },
       })
     ).ok(),
@@ -640,11 +641,11 @@ test("the payment page: its own origin, strict headers, one PaymentIntent, paid 
     env: {
       ...process.env,
       WEST4_ENV: "local",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      DATABASE_URL: DB,
     },
   });
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -658,7 +659,7 @@ test("the payment page: its own origin, strict headers, one PaymentIntent, paid 
     // Not on the guest site's own hostname.
     expect((await page.goto(`/pay/${token}`))?.status()).toBe(404);
 
-    const url = `http://pay.localhost:3001/pay/${token}`;
+    const url = `${PAY}/pay/${token}`;
     const r = await page.goto(url);
     expect(r?.status()).toBe(200);
     const h = r!.headers();
@@ -684,7 +685,7 @@ test("the payment page: its own origin, strict headers, one PaymentIntent, paid 
     await page.reload();
     expect(await intentOf()).toBe(first);
 
-    expect((await page.goto(`http://pay.localhost:3001/pay/not-a-real-token`))?.status()).toBe(404);
+    expect((await page.goto(`${PAY}/pay/not-a-real-token`))?.status()).toBe(404);
 
     await page.goto(url);
     await page.getByRole("button", { name: "Pay $25.00" }).click();
@@ -712,11 +713,11 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
     env: {
       ...process.env,
       WEST4_ENV: "local",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      DATABASE_URL: DB,
     },
   });
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -733,7 +734,7 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
       [andy.user_id, andy.id, createHash("sha256").update(token).digest("hex")],
     );
     const staff = (method: "get" | "post", path: string) =>
-      request[method](`http://127.0.0.1:3000/v1/venues/${andy.venue_id}${path}`, {
+      request[method](`${API}/v1/venues/${andy.venue_id}${path}`, {
         headers: { authorization: `Bearer ${token}` },
         ...(method === "post" ? { data: {} } : {}),
       });
@@ -838,7 +839,7 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
       .getByRole("region", { name: "Your bill · #1042" })
       .getByRole("button", { name: "Pay another way" })
       .click();
-    await expect(phone).toHaveURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+    await expect(phone).toHaveURL(new RegExp(`^${esc(PAY)}/pay/`));
     await expect(phone.getByRole("heading", { level: 1 })).toHaveText("Pay $498.60");
 
     // Paid on the payment page: the phone's bill says so, with the receipt (M4-19).
@@ -875,7 +876,7 @@ test("the menu page, the PDF and the room page's menu show the same items and pr
 }) => {
   test.setTimeout(90_000);
   const { menuPdfText } = await import("../apps/api/src/menu/pdf-text.js");
-  const databaseUrl = process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4";
+  const databaseUrl = DB;
   const cents = (s: string) => Math.round(Number(s.replace(/[$,]/g, "")) * 100);
   const pdfMoney = (c: number) => `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
   type Api = {
@@ -890,7 +891,7 @@ test("the menu page, the PDF and the room page's menu show the same items and pr
   };
   const compare = async () => {
     const api = (await (
-      await request.get("http://127.0.0.1:3000/v1/public/venues/west4karaoke/menu")
+      await request.get(`${API}/v1/public/venues/west4karaoke/menu`)
     ).json()) as Api;
     const expected = api.categories.flatMap((c) =>
       c.items.flatMap((i) =>
@@ -965,7 +966,7 @@ test("the parties page takes an enquiry for 22 by mobile number, not email", asy
     "Sent. We'll reply by text.",
   );
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1003,8 +1004,7 @@ test("Book: 5 guests for 2 hours on a Friday at 11 PM, held for 10 minutes, More
   const held = page.url();
 
   // At one minute left, More time adds 10 minutes.
-  const at = (iso: string) =>
-    request.post("http://127.0.0.1:3000/v1/ops/clock", { data: { server_time: iso } });
+  const at = (iso: string) => request.post(`${API}/v1/ops/clock`, { data: { server_time: iso } });
   expect((await at("2026-09-26T02:50:10Z")).ok()).toBe(true);
   await page.reload();
   await expect(page.getByText("One minute left. Need more time?")).toBeAttached();
@@ -1027,7 +1027,7 @@ test("Book: 5 guests for 2 hours on a Friday at 11 PM, held for 10 minutes, More
 test("Book: Jae's details, the marketing box and the terms", async ({ page }) => {
   test.setTimeout(90_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   try {
@@ -1085,7 +1085,7 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
     env: {
       ...process.env,
       WEST4_ENV: "local",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      DATABASE_URL: DB,
     },
   });
   const book = async (time: string) => {
@@ -1096,7 +1096,7 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
     await page.getByLabel("Email").fill("jae@example.com");
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
-    await page.waitForURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+    await page.waitForURL(new RegExp(`^${esc(PAY)}/pay/`));
   };
   await book("11 PM");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your deposit · $50.00");
@@ -1108,7 +1108,7 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
   );
   await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
   // Paid and confirmed (M5-10): back on the booking's own page, in the Confirmed state.
-  await page.waitForURL(/^http:\/\/localhost:3001\/v\/west4karaoke\/book\/[A-Za-z0-9_-]{22}$/);
+  await page.waitForURL(new RegExp(`^${esc(GUEST)}/v/west4karaoke/book/[A-Za-z0-9_-]{22}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked");
   const confirmed = page.locator(".confirmed");
   await expect(confirmed).toContainText("A small room · Fri, Oct 2 · 11 PM · 5 guests · 2 hours");
@@ -1123,8 +1123,7 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
 
   // A second booking whose hold runs out on the payment page.
   await book("9 PM");
-  const at = (iso: string) =>
-    request.post("http://127.0.0.1:3000/v1/ops/clock", { data: { server_time: iso } });
+  const at = (iso: string) => request.post(`${API}/v1/ops/clock`, { data: { server_time: iso } });
   expect((await at("2026-09-26T03:05:00Z")).ok()).toBe(true);
   await page.reload();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText(
@@ -1132,7 +1131,7 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
   );
   await expect(page.getByRole("link", { name: "Pick a time again" })).toHaveAttribute(
     "href",
-    "http://localhost:3001/v/west4karaoke/book",
+    `${GUEST}/v/west4karaoke/book`,
   );
 });
 
@@ -1151,11 +1150,11 @@ test("Manage: Jae goes from 5 to 6 guests and pays $10.00, then says he's runnin
     env: {
       ...process.env,
       WEST4_ENV: "local",
-      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+      DATABASE_URL: DB,
     },
   });
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const token = randomBytes(16).toString("base64url");
@@ -1181,7 +1180,7 @@ test("Manage: Jae goes from 5 to 6 guests and pays $10.00, then says he's runnin
   await expect(manage).toContainText("Your deposit becomes $60.00");
   await expect(manage).toContainText("You pay the $10.00 difference on the next page");
   await manage.getByRole("button", { name: "Confirm and pay $10.00" }).click();
-  await page.waitForURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+  await page.waitForURL(new RegExp(`^${esc(PAY)}/pay/`));
   await expect(page.getByRole("heading", { level: 1 })).toContainText("$10.00");
 
   await page.goto(`/b/${token}`);
@@ -1200,7 +1199,7 @@ test("Manage: with Online booking & deposits off, Jae cancels after the cut-off 
   page,
 }) => {
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const token = randomBytes(16).toString("base64url");
@@ -1252,7 +1251,7 @@ test("Book: a party of 3 on a Friday pays for 4, and Nov 1 lists 1 AM EDT and 1 
  */
 test("the status page shows each part and follows an operator's post", async ({ page }) => {
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const clear = () =>

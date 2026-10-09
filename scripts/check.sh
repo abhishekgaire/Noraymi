@@ -2,7 +2,7 @@
 # pnpm check: every suite, one line each. On a failure, only the failing
 # names and the first error lines are printed, never the whole log.
 # Usage: pnpm check            (lint, i18n, typecheck, unit, integration, db:lint)
-#        pnpm check --e2e      (also the Playwright smoke tests)
+#        pnpm check --e2e      (also the Playwright smoke tests; isolated when port 3000 is busy)
 #        pnpm check unit       (one suite: lint | i18n | typecheck | unit | integration | db-lint | e2e | principals | walls | load)
 #        The principal and venue-wall suites (M1-37) are part of integration; name them to run one alone.
 #        pnpm check load runs the Friday-night load test (M8-21) on its own; it is never part of a default run.
@@ -51,7 +51,11 @@ for s in "${suites[@]}"; do
     walls) run walls pnpm exec vitest run --config vitest.integration.config.ts --project api:integration apps/api/src/security/walls apps/api/src/security/planted-leak --reporter=dot ;;
     load) run load pnpm exec vitest run --config apps/api/vitest.load.config.ts --reporter=dot ;;
     db-lint) run db-lint pnpm db:lint ;;
-    e2e) run e2e pnpm e2e ;;
+    # A demo on the usual ports (API 3000) is never reseeded: the smoke tests then run on their own isolated stack.
+    e2e) if [ -z "${E2E_ISOLATED:-}" ] && (exec 3<>/dev/tcp/127.0.0.1/3000) 2>/dev/null; then
+           echo "e2e: port 3000 is busy (a demo?), so the smoke tests run isolated (pnpm e2e:isolated)"
+           run e2e pnpm e2e:isolated
+         else run e2e pnpm e2e; fi ;;
     --e2e) ;;
     *) echo "unknown suite $s"; failed=1 ;;
   esac

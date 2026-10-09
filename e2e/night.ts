@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { API } from "./stack.js";
 
 /**
  * The one Friday night every spec shares (M1-17). The simulated clock lives in
@@ -18,7 +19,7 @@ export const SEED_COMMAND = "node packages/db/dist/cli.js seed";
 export const SEED_INSTANT = "2026-09-26T02:41:00Z"; // Fri Sep 25, 2026, 10:41 PM in New York
 
 export async function setClock(iso: string = SEED_INSTANT): Promise<void> {
-  const r = await fetch("http://127.0.0.1:3000/v1/ops/clock", {
+  const r = await fetch(`${API}/v1/ops/clock`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ server_time: iso }),

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import pg from "pg";
 import { freshNight, setClock } from "./night.js";
+import { API, CONSOLE, DB } from "./stack.js";
 
 // Put the shared clock back for whatever spec runs next, in this project or another.
 test.afterEach(async () => {
@@ -19,7 +20,7 @@ test("our staff sign in with a security key and read West 4's health, modules an
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const clean = async () => {
@@ -85,7 +86,7 @@ test("our staff sign in with a security key and read West 4's health, modules an
     await expect(support.getByText("Waiting for West 4 Boho Karaoke to approve")).toBeVisible();
     // Abhishek's approval in Admin → Console (staff.spec.ts covers that screen), at a known moment.
     const at = "2026-09-26T02:41:00Z";
-    const clock = await page.request.post("http://127.0.0.1:3000/v1/ops/clock", {
+    const clock = await page.request.post(`${API}/v1/ops/clock`, {
       data: { server_time: at },
     });
     expect(clock.ok()).toBe(true);
@@ -126,7 +127,7 @@ test("an emergency requeue waits for a second person on our side, then prints RE
 }) => {
   test.setTimeout(120_000);
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const clean = async () => {
@@ -150,7 +151,7 @@ test("an emergency requeue waits for a second person on our side, then prints RE
         automaticPresenceSimulation: true,
       },
     });
-    await page.goto("http://localhost:5174/");
+    await page.goto(`${CONSOLE}/`);
     await page.getByLabel("Work email").fill(email);
     await page.getByRole("button", { name: "Continue" }).click();
     await page.getByRole("button", { name: "Use your security key" }).click();

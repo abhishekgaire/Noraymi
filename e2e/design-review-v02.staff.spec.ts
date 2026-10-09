@@ -11,10 +11,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
 import { SEED_COMMAND, SEED_INSTANT } from "./night.js";
+import { API as STACK_API, CANVAS, DB, ports } from "./stack.js";
 
 const OUT = "docs/design-review/v02";
-const CANVAS_PORT = Number(process.env["DESIGN_REVIEW_CANVAS_PORT"] ?? 8765);
-const API = process.env["DESIGN_REVIEW_API"] ?? "http://127.0.0.1:3000";
+const CANVAS_PORT = ports.canvas;
+const API = process.env["DESIGN_REVIEW_API"] ?? STACK_API;
 const ANDY = "andy@demo.west4.local";
 const W = 390;
 const H = 844;
@@ -29,7 +30,7 @@ test.beforeAll(async () => {
   });
   for (let i = 0; i < 50; i++) {
     try {
-      if ((await fetch(`http://localhost:${CANVAS_PORT}/boards.json`)).ok) return;
+      if ((await fetch(`${CANVAS}/boards.json`)).ok) return;
     } catch {
       /* not up yet */
     }
@@ -139,7 +140,7 @@ test("V-02 · the staff phone screens beside their canvas boards at 390", async 
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   await setClock();
   const db = new pg.Client({
-    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    connectionString: DB,
   });
   await db.connect();
   const canvasPage = await browser.newPage();
@@ -150,7 +151,7 @@ test("V-02 · the staff phone screens beside their canvas boards at 390", async 
     prepare?: (p: Page) => Promise<void>,
   ) => {
     await canvasPage.setViewportSize({ width: W, height: H });
-    await canvasPage.goto(`http://localhost:${CANVAS_PORT}/${file}`);
+    await canvasPage.goto(`${CANVAS}/${file}`);
     await canvasPage.waitForLoadState("networkidle");
     await canvasPage.waitForTimeout(600);
     if (click) await canvasPage.getByRole("button", { name: click, exact: true }).first().click();
