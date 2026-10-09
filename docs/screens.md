@@ -55,6 +55,8 @@ Sep 29, 2026 · the 27 boards of the design canvas, what each one becomes in the
 
 Public pages that anyone with a link can open, server-rendered with Next.js on West 4's own domain. The payment step runs on its own origin (a `pay.` subdomain), not on these pages.
 
+**Light and dark (founder, Oct 9, 2026; V-07).** The canvas draws these boards dark only. The guest web follows the phone's light or dark setting: dark is the canvas; light is the same tokens inverted (cream page, near-black text, the primary action a near-black pill with lime words), with the canvas's accents darkened wherever they are text so every colour passes WCAG 2.2 AA. This applies to every guest page here and under "Guest pages and states" below, including the room page and the payment page.
+
 ### Main
 
 [`Main.dc.html`](../design/canvas/Main.dc.html) · "A · Downstairs · phone" · 390 × 6400
@@ -165,7 +167,7 @@ Public pages that anyone with a link can open, server-rendered with Next.js on W
 
 ## Guest phone (1)
 
-The room page a guest opens on their own phone after joining a room. The room tablets run the same guest web app in managed kiosk mode.
+The room page a guest opens on their own phone after joining a room. The room tablets run the same guest web app in managed kiosk mode. Like the guest website, it follows the phone's light or dark setting (founder, Oct 9, 2026): dark is the Order board, light is its inverted, AA-checked twin.
 
 ### Order
 
@@ -664,7 +666,7 @@ Each entry names the screen it lives in, the milestone that ships it, the findin
 
 ### Guest pages and states
 
-Screens and states a guest sees on the website, on their phone or on a room tablet.
+Screens and states a guest sees on the website, on their phone or on a room tablet. None has a board; they take the guest website's look in the phone's light or dark setting (founder, Oct 9, 2026; V-07).
 
 #### N1. Booking steps after the price
 

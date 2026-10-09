@@ -1,109 +1,394 @@
-/* The guest pages (M2-25): phone first, 44 px targets, light and dark. */
+/* The guest pages (M2-25, restyled in V-07): phone first, 44 px targets, on the canvas's tokens.
+   The guest web follows the phone's light or dark setting (founder, Oct 9, 2026). Dark is the
+   canvas (Main, Book, Manage, Waitlist, Order …). Light has no board: the same tokens inverted,
+   cream page and near-black ink, with the accents darkened so every text colour passes WCAG 2.2 AA
+   (4.5:1) on every surface it sits on. Ratios are noted beside each colour. */
 :root {
-  --ink: #1d1a22;
-  --paper: #ffffff;
-  --line: #d9d4e0;
-  --accent: #b8135f; /* white on it is 6.6:1, past WCAG AA's 4.5:1 (M3-24) */
   color-scheme: light dark;
+  /* Light: cream page, near-black ink. */
+  --bg: #f4f1ea;
+  --bg-top: #ece8df;
+  --surface: #fffdf8;
+  --surface-2: #e9e5dc;
+  --text: #0b0a0d; /* 17.5:1 on --bg */
+  --text-2: #3d3a44; /* 9.9:1 on --bg */
+  --muted: #5c5865; /* 5.5:1 on --surface-2, the lowest it sits on */
+  --line: rgba(11, 10, 13, 0.12);
+  --line-2: rgba(11, 10, 13, 0.2);
+  --line-3: rgba(11, 10, 13, 0.32);
+  /* The primary action: lime can't carry text on cream, so light mode inverts it to near-black
+     with lime words (17:1); dark mode is the canvas's lime with near-black words (17:1). */
+  --fill: #0b0a0d;
+  --on-fill: #d4ff3f;
+  --fill-hover: #2a2830;
+  --glow: none;
+  /* Accents as text (kickers, links, prices): darkened for cream. */
+  --accent: #4d6100; /* olive, the lime's light-mode stand-in: 5.5:1 on --surface-2 */
+  --pink: #b0125b; /* 5.4:1 on --surface-2 */
+  --on-pink: #ffffff;
+  --amber: #8a5200; /* 5.1:1 on --surface-2 */
+  --cyan: #00687a; /* 5.1:1 on --surface-2 */
+  --ok: #2f6b00; /* 5.2:1 on --surface-2 */
+  /* The receipt slip (Book's quote): paper on either page. */
+  --slip: #fffdf8;
+  --slip-ink: #0b0a0d;
+  --slip-muted: #4f4b57;
+  --slip-line: rgba(11, 10, 13, 0.3);
+  --slip-edge: var(--line-2);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #f3eff7;
-    --paper: #16131a;
-    --line: #3a3442;
+    --bg: var(--w4-bg);
+    --bg-top: #151219;
+    --surface: var(--w4-surface);
+    --surface-2: var(--w4-surface-2);
+    --text: var(--w4-text); /* 15.3:1 on --surface-2 */
+    --text-2: var(--w4-text-2);
+    --muted: var(--w4-muted); /* 5.05:1 on --surface-2 */
+    --line: var(--w4-line);
+    --line-2: var(--w4-line-2);
+    --line-3: var(--w4-line-strong);
+    --fill: var(--w4-lime);
+    --on-fill: var(--w4-on-accent);
+    --fill-hover: var(--w4-lime-hover);
+    --glow: 0 0 28px -6px rgba(212, 255, 63, 0.55);
+    --accent: var(--w4-lime); /* 14.9:1 on --surface-2 */
+    --pink: var(--w4-pink); /* 5.3:1 on --surface-2 */
+    --on-pink: var(--w4-on-accent);
+    --amber: var(--w4-amber);
+    --cyan: var(--w4-cyan);
+    --ok: var(--w4-lime);
+    --slip: var(--w4-text);
+    --slip-ink: #0b0a0d;
+    --slip-muted: #4f4b57;
+    --slip-line: rgba(11, 10, 13, 0.3);
+    --slip-edge: transparent;
   }
 }
+
+/* ---------- The page ---------- */
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
-  /* The canvas's body face, bundled (V-01); the guest colours get their own pass later. */
-  font: 16px/1.45 var(--w4-font-body);
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--bg-top) 0, var(--bg) 640px) var(--bg);
+  color: var(--text);
+  font: 16px/1.5 var(--w4-font-body);
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .guest {
   max-width: 480px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px 16px 48px;
+  box-sizing: border-box;
 }
+/* Headings in the canvas's display face: Bricolage, condensed, extra bold, capitals from small caps
+   (the words people and screen readers get stay the catalog's own). */
+.guest h1,
+.guest h2,
+.site-footer .site-name {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.01em;
+  line-height: 0.9;
+  margin: 0 0 12px;
+}
+.guest h1 {
+  font-size: 56px;
+}
+.guest h2 {
+  font-size: 40px;
+  margin-top: 8px;
+}
+.guest h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.guest .lead {
+  color: var(--text-2);
+  font-size: 17px;
+}
+.guest .small,
+.guest .muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+/* The canvas's mono label: small, tracked, in capitals; an accent colour when it heads a section. */
+.guest .kicker,
+.guest .venue,
+.guest dt.label {
+  font-family: var(--w4-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.guest .kicker {
+  color: var(--accent);
+}
+
+/* ---------- Controls ---------- */
 .guest form {
   display: grid;
   gap: 12px;
 }
 .guest label {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 15px;
 }
-.guest input {
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
-.guest button {
-  min-height: 44px;
+.guest input,
+.guest select,
+.guest textarea {
+  min-height: 52px;
   padding: 0 16px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-md);
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
+  font-size: 17px;
+  box-sizing: border-box;
+}
+.guest textarea {
+  padding: 12px 16px;
+}
+.guest input[type="checkbox"],
+.guest input[type="radio"] {
+  min-height: 24px;
+  min-width: 24px;
+  accent-color: var(--fill);
+}
+.guest input::placeholder,
+.guest textarea::placeholder {
+  color: var(--muted);
+}
+.guest button,
+.guest a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--w4-radius-pill);
+  background: var(--fill);
+  color: var(--on-fill);
+  box-shadow: var(--glow);
+  font: inherit;
+  font-size: 16px;
   font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  /* Only the press moves: a colour transition would leave a button half-way between the light and
+     dark colours for a moment when the phone switches scheme. */
+  transition: transform 0.15s var(--w4-ease);
+}
+.guest button:hover:not(:disabled),
+.guest a.button:hover {
+  background: var(--fill-hover);
+  color: var(--on-fill);
+}
+.guest button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .guest button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: default;
+}
+.guest button.secondary,
+.guest a.button.secondary,
+.manage button.button:not(.primary) {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line-3);
+  box-shadow: none;
+}
+.guest button.secondary:hover:not(:disabled),
+.guest a.button.secondary:hover,
+.manage button.button:not(.primary):hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
 }
 .guest .big {
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 40px;
+  line-height: 1;
 }
-/* Joining a room (M3-08). */
+/* Joining a room (M3-08): the code in mono, spaced, like the canvas's "Code KX4M7". */
 .guest input.code {
+  font-family: var(--w4-font-mono);
   font-size: 1.6rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
+  text-align: center;
+  min-height: 64px;
 }
 .guest .hint {
-  margin: -8px 0 0;
-  font-size: 0.9rem;
-  opacity: 0.8;
+  margin: -4px 0 0;
+  font-size: 14px;
+  color: var(--muted);
 }
 .guest .notice {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border-left: 6px solid #d97706;
+  padding: 12px 14px;
+  border-radius: var(--w4-radius-md);
+  border: 1px solid var(--line-2);
+  border-left: 4px solid var(--amber);
+  background: var(--surface);
+  color: var(--text);
+}
+.guest .notice.bill-ready {
+  border-left-color: var(--accent);
+}
+.guest [role="alert"] {
+  color: var(--pink);
+  font-weight: 600;
+}
+
+/* ---------- Cards: the canvas's raised panels ---------- */
+.room-page .bill,
+.room-page .cart,
+.room-page .again,
+.room-page .calls,
+.guest .your-bill,
+.manage,
+.book-page .details,
+.book-page .terms,
+.book-page .confirmed,
+.guest .pay-share,
+.guest .lock,
+.waitlist-card {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-lg);
+  padding: 18px;
+  margin: 16px 0;
+}
+.guest .pay-share,
+.guest .lock {
+  background: var(--surface-2);
+}
+
+/* ---------- The room page (M3-09, M3-10; canvas Order) ---------- */
+.room-page > header {
+  margin-bottom: 16px;
 }
 .room-page .venue {
-  margin: 0;
-  opacity: 0.8;
+  color: var(--accent);
 }
-/* The room page (M3-09): the menu, 86 greyed in place, the cart, orders and the choice sheet. */
+.room-page > header h1 {
+  font-size: 44px;
+}
+.room-page > header p:not(.venue) {
+  color: var(--text-2);
+  margin: 0;
+}
+.room-page section {
+  margin: 20px 0;
+}
 .room-page section ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
+.room-page .menu-section h3 {
+  font-family: var(--w4-font-mono);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 20px 0 8px;
+}
+/* A menu row: name on the left, price in mono and the lime "+" on the right. */
 .guest .menu-item {
   width: 100%;
-  min-height: 44px;
+  min-height: 56px;
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 0 16px;
   text-align: left;
+  border-radius: var(--w4-radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+  box-shadow: none;
+}
+.guest .menu-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--line-3);
+}
+.guest .menu-item span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--w4-font-mono);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.guest .menu-item:not(:disabled) span:last-child::after {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--w4-radius);
+  background: var(--fill);
+  color: var(--on-fill);
+  font-family: var(--w4-font-body);
+  font-size: 22px;
+  font-weight: 600;
 }
 .guest .menu-item.out {
   opacity: 0.5;
 }
 .guest .order {
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+  padding: 14px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-md);
+  background: var(--surface);
 }
 .guest .order p {
   margin: 0 0 4px;
+}
+.guest .order .what {
+  font-weight: 600;
+}
+.guest .order .status {
+  color: var(--text-2);
+  font-size: 14px;
+}
+.guest .order button {
+  margin-top: 8px;
+  min-height: 44px;
 }
 .guest .cart li {
   display: flex;
@@ -114,6 +399,7 @@ body {
 .guest .cart .qty button {
   min-width: 44px;
   min-height: 44px;
+  padding: 0;
   margin-left: 4px;
 }
 .guest .sheet {
@@ -121,29 +407,47 @@ body {
   inset: auto 0 0 0;
   max-height: 80vh;
   overflow: auto;
-  padding: 16px;
-  background: Canvas;
-  color: CanvasText;
-  border-top: 1px solid rgba(127, 127, 127, 0.5);
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  color: var(--text);
+  border-top: 1px solid var(--line-3);
+  border-radius: var(--w4-radius-lg) var(--w4-radius-lg) 0 0;
+  box-shadow: 0 -20px 40px -20px rgba(0, 0, 0, 0.6);
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  z-index: 10;
 }
 .guest .sheet label {
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
+  color: var(--text);
 }
 /* Tonight so far, Call staff and the host lock (M3-10). */
 .guest .bill dl {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 4px 12px;
+  gap: 6px 0;
   margin: 0;
+}
+.guest .bill dt {
+  color: var(--text-2);
 }
 .guest .bill dd {
   margin: 0;
+  padding-left: 12px;
   text-align: right;
+  font-family: var(--w4-font-mono);
+}
+.guest .bill dt:has(strong),
+.guest .bill dd:has(strong) {
+  padding-top: 8px;
+  border-top: 1px solid var(--line-2);
+  color: var(--text);
+}
+.guest .bill dd strong {
+  font-weight: 700;
 }
 .guest .call-buttons {
   display: grid;
@@ -151,17 +455,24 @@ body {
   gap: 8px;
 }
 .guest .call-buttons button {
-  min-height: 44px;
+  min-height: 52px;
+  padding: 0 12px;
+  border-radius: var(--w4-radius-md);
 }
 .guest .lock {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-start;
   min-height: 44px;
+  color: var(--text);
 }
 .guest .lock small {
   display: block;
-  opacity: 0.8;
+  color: var(--muted);
+}
+.room-page .help-link {
+  text-align: center;
+  margin: 12px 0 0;
 }
 
 /* Your bill (M4-16): the ways to pay, one full-width button each. */
@@ -174,53 +485,89 @@ body {
   margin: 0;
   font-size: 1rem;
 }
+.guest .your-bill dl dd {
+  font-family: var(--w4-font-mono);
+}
 
 /* Pay my share (M4-18): the share's pay link is a button to the payment page. */
-.guest a.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-  text-decoration: none;
-}
 .guest .pay-share {
   display: grid;
   gap: 8px;
 }
 
-/* The receipt page (M4-19): label and amount on one line, totals in bold. */
+/* The receipt page (M4-19): a paper slip, label and amount on one line, totals in bold. */
+.guest.receipt-page dl {
+  font-family: var(--w4-font-mono);
+  font-size: 14px;
+  background: var(--slip);
+  color: var(--slip-ink);
+  border: 1px solid var(--slip-edge);
+  border-radius: 4px;
+  padding: 16px 18px;
+}
 .guest.receipt-page dl > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  padding: 2px 0;
 }
 .guest.receipt-page dl > div.strong {
   font-weight: 700;
+  border-top: 1px dashed var(--slip-line);
+  padding-top: 8px;
+  margin-top: 6px;
 }
 .guest.receipt-page dd {
   margin: 0;
   white-space: nowrap;
 }
 
-/* The guest site (M5-01): the venue's home page and private parties page. */
+/* ---------- The guest site (M5-01; canvas Main) ---------- */
 .site-header,
 .site-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 4px 16px;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+.site-header {
+  border-bottom: 1px solid var(--line);
+}
+.site-header .site-name {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--text);
+  text-decoration: none;
 }
 .site-header nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 4px 18px;
+  align-items: center;
+}
+.site-header nav a {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.04em;
+  font-size: 17px;
+}
+/* The last link is Book (or Call to book): the canvas's lime pill. */
+.site-header nav a:last-child {
+  padding: 0 16px;
+  border-radius: var(--w4-radius-pill);
+  background: var(--fill);
+  color: var(--on-fill);
 }
 .site-header a,
 .site-footer a {
@@ -228,42 +575,295 @@ body {
   display: inline-flex;
   align-items: center;
 }
+.site-footer {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  font-family: var(--w4-font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.site-footer p {
+  margin: 0;
+}
+.site-footer a {
+  color: var(--text);
+}
 .guest.site section {
-  margin: 32px 0;
+  margin: 56px 0;
+}
+.guest.site .hero {
+  margin-top: 32px;
+}
+.guest.site .hero h1 {
+  font-size: 128px;
+  line-height: 0.72;
+  margin-bottom: 20px;
+}
+.guest.site .hero .lead {
+  font-size: 19px;
+}
+.guest.site .hero .button {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 18px;
+}
+.guest.site .open-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 12px 0 0;
+  padding: 0 16px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--w4-radius-pill);
+  font-weight: 600;
+  font-size: 15px;
+}
+.guest.site .open-line::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 .guest.site .kicker {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.8rem;
+  font-size: 14px;
 }
-.guest.site .numbers,
-.guest.site .menu-teaser {
+.guest.site .kicker::before {
+  content: "↓ ";
+}
+.guest.site h2 {
+  font-size: 52px;
+}
+.guest.site h2.kicker {
+  font-family: var(--w4-font-mono);
+  font-variation-settings: normal;
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+}
+/* The numbers: huge display figures down a stepped rule, as on the canvas. */
+.guest.site .numbers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
+  gap: 28px;
+  margin: 0;
+}
+.guest.site .numbers > div {
+  border-left: 1px solid var(--line-3);
+  padding-left: 18px;
+}
+.guest.site .numbers > div:nth-child(2) {
+  margin-left: 24px;
+}
+.guest.site .numbers > div:nth-child(3) {
+  margin-left: 48px;
+}
+.guest.site .numbers > div:nth-child(4) {
+  margin-left: 72px;
+  border-left-color: var(--accent);
 }
 .guest.site .numbers dt {
-  font-size: 2rem;
-  font-weight: 700;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 88px;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+.guest.site .numbers > div:nth-child(4) dt {
+  color: var(--accent);
 }
 .guest.site .numbers dd,
 .guest.site .menu-teaser dd,
 .guest.site .find-us dd {
   margin: 0;
 }
+.guest.site .numbers dd {
+  color: var(--text-2);
+}
+/* The bar's prices: small panels with a mono label and a display price. */
+.guest.site .menu-teaser {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.guest.site .menu-teaser > div {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-md);
+  padding: 12px 14px;
+}
+.guest.site .menu-teaser dt {
+  font-family: var(--w4-font-mono);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: 14px;
+  color: var(--muted);
+}
+.guest.site .menu-teaser dd {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 30px;
+  line-height: 1.1;
+}
+.guest.site .house-rules {
+  list-style: none;
+  counter-reset: rule;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.guest.site .house-rules li {
+  counter-increment: rule;
+  position: relative;
+  padding-left: 32px;
+}
+.guest.site .house-rules li::before {
+  content: "0" counter(rule);
+  position: absolute;
+  left: 0;
+  font-family: var(--w4-font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  padding-top: 4px;
+}
+/* The rooms picker: a panel with − count + and the room that fits. */
+.guest.site .site-rooms .picker,
+.guest.site .site-rooms .fit {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+}
 .guest.site .picker {
-  display: flex;
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  padding: 16px;
+  border-radius: var(--w4-radius-lg) var(--w4-radius-lg) 0 0;
+  text-align: center;
+}
+.guest.site .picker p {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: left;
+  font-family: var(--w4-font-mono);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: 14px;
+  color: var(--accent);
+}
+.guest.site .picker .button.secondary {
+  min-height: 56px;
+  padding: 0;
+  border-radius: var(--w4-radius-md);
+  background: var(--surface-2);
+  font-size: 24px;
+}
+.guest.site .picker output {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 34px;
+}
+.guest.site .fit {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 16px;
+  border-top: 0 !important;
+  border-radius: 0 0 var(--w4-radius-lg) var(--w4-radius-lg);
+}
+.guest.site .fit p {
+  margin: 0;
+}
+.guest.site .fit p + p {
+  color: var(--muted);
+  font-size: 14px;
+}
+.guest.site .fit .button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.guest.site .price-lines {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.guest.site .price-lines li {
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-md);
+  background: var(--surface);
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+/* Find the door: the address and hours as panels. */
+.guest.site .find-us {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-lg);
+  padding: 8px 18px 16px;
+}
+.guest.site .find-us dt {
+  margin-top: 12px;
+  font-family: var(--w4-font-mono);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: 14px;
+  color: var(--muted);
+}
+.guest.site .find-us dd {
+  font-weight: 600;
+}
+.guest.site .find-us .hours {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-weight: 400;
+  color: var(--text-2);
+}
+.guest.site .picker-row {
+  display: flex;
 }
 .guest.site .hosts,
 .guest.site .tiers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  gap: 10px;
   padding: 0;
   list-style: none;
+}
+.guest.site .hosts > li,
+.guest.site .tiers > li,
+.guest.site .packages > li {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-md);
+  padding: 14px 16px;
+}
+.guest.site .packages {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
 }
 .guest.site .estimate {
   display: grid;
@@ -273,6 +873,7 @@ body {
 .guest.site .estimate dd {
   margin: 0;
   text-align: right;
+  font-family: var(--w4-font-mono);
 }
 
 /* The venue's own photos (M5-02) */
@@ -285,18 +886,19 @@ body {
 .site-photos img {
   width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--w4-radius-lg);
+  border: 1px solid var(--line-2);
   object-fit: cover;
 }
 
-/* The menu page (M5-03) */
+/* The menu page (M5-03; canvas Menu) */
 .menu-page ul {
   list-style: none;
   padding: 0;
 }
 .menu-page .menu-row {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line, #3334);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-2);
 }
 .menu-page .line {
   display: flex;
@@ -304,20 +906,33 @@ body {
   gap: 12px;
   margin: 0;
 }
+.menu-page .name {
+  font-weight: 600;
+}
 .menu-page .price {
   white-space: nowrap;
+  font-family: var(--w4-font-mono);
+  color: var(--accent);
 }
 .menu-page .menu-row.out .name {
   text-decoration: line-through;
 }
-.menu-page .menu-row.out {
-  /* Greyed, and still past 4.5:1 in light and dark. */
-  opacity: 0.72;
+.menu-page .menu-row.out .price,
+.menu-page .menu-row.out .name {
+  color: var(--muted);
 }
 .menu-page .desc,
 .menu-page .choices {
   font-size: 0.9em;
   margin: 4px 0 0;
+  color: var(--text-2);
+}
+.menu-page .happy-hour {
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--w4-radius-md);
+  padding: 12px 16px;
 }
 
 /* The party enquiry form (M5-04) */
@@ -328,15 +943,15 @@ body {
 }
 .enquiry label {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 .enquiry input,
 .enquiry textarea {
-  min-height: 44px;
+  min-height: 52px;
   font: inherit;
 }
 
-/* Book a room (M5-07) */
+/* Book a room (M5-07; canvas Book) */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -352,54 +967,112 @@ body {
 }
 .book-page .pick label {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 .book-page .pick input,
 .book-page .pick select {
-  min-height: 44px;
+  min-height: 52px;
   font: inherit;
 }
 .book-page .slots {
   list-style: none;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-.book-page .slot {
-  min-height: 44px;
-  min-width: 96px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  color: var(--ink);
+.book-page .slots li {
+  display: grid;
+}
+.guest.book-page .slot {
+  min-height: 56px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--w4-radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: none;
   font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+}
+.guest.book-page .slot:hover:not(:disabled) {
+  background: var(--fill);
+  color: var(--on-fill);
 }
 .book-page .slot.taken {
-  display: inline-block;
+  display: inline-grid;
+  place-items: center;
   text-decoration: line-through;
+  color: var(--muted);
+  border-style: dashed;
+}
+/* The quote: the canvas's paper receipt, in mono. */
+.book-page .quote {
+  margin: 24px 0;
+  padding: 20px 18px;
+  background: var(--slip);
+  color: var(--slip-ink);
+  border: 1px solid var(--slip-edge);
+  border-radius: 4px;
+  font-family: var(--w4-font-mono);
+  font-size: 14px;
+}
+.book-page .quote h2 {
+  font-family: var(--w4-font-mono);
+  font-variation-settings: normal;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-align: center;
+  line-height: 1.4;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--slip-line);
+}
+.book-page .quote dl {
+  margin: 0;
 }
 .book-page .quote dl div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  padding: 2px 0;
+}
+.book-page .quote dd {
+  margin: 0;
 }
 .book-page .quote .total,
 .book-page .quote .deposit {
   font-weight: 700;
 }
+.book-page .quote .total {
+  border-top: 1px dashed var(--slip-line);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.book-page .quote .small {
+  color: var(--slip-muted);
+  font-size: 13px;
+  margin-bottom: 0;
+}
 .book-page .countdown {
+  font-family: var(--w4-font-mono);
   font-size: 1.25em;
   font-variant-numeric: tabular-nums;
+  color: var(--accent);
 }
 /* The singer's queue page (M6-20). */
 .sing-page .venue {
-  margin: 0;
-  opacity: 0.8;
+  color: var(--accent);
 }
 .sing-page section {
   margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-lg);
+  padding: 18px;
 }
 .sing-page ul,
 .sing-page ol {
@@ -419,29 +1092,30 @@ body {
 .sing-page .credits dd {
   margin: 0;
   font-weight: 700;
+  color: var(--accent);
 }
 .sing-page .flag {
   display: inline-block;
   margin-left: 8px;
   padding: 0 6px;
-  border-left: 4px solid #d97706;
+  border-left: 4px solid var(--amber);
   font-weight: 600;
-}
-.guest button.secondary {
-  background: transparent;
-  color: inherit;
-  border: 1px solid var(--line);
 }
 /* The private help link (M8-08; screens N20): discreet, but still a 44 px target. */
 .guest button.link {
   min-height: 44px;
   padding: 0;
   background: transparent;
-  color: inherit;
+  color: var(--text-2);
   border: 0;
+  box-shadow: none;
   text-decoration: underline;
   font-size: 0.875rem;
-  opacity: 0.8;
+  font-weight: 400;
+}
+.guest button.link:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
 }
 .guest .sheet a[href^="tel:"] {
   display: inline-block;
@@ -466,7 +1140,7 @@ body {
   margin: 0 0 1vh;
   font-size: clamp(20px, 3vw, 48px);
   font-weight: 600;
-  opacity: 0.8;
+  color: var(--text-2);
 }
 .tv-singing {
   display: grid;
@@ -524,37 +1198,44 @@ body {
   gap: 4px 12px;
   min-height: 44px;
   align-items: center;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-left-width: 6px;
-  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-left-width: 4px;
+  border-radius: var(--w4-radius-md);
 }
 .status-parts li[data-state="operational"] {
-  border-left-color: #1f8a4c;
+  border-left-color: var(--ok);
 }
 .status-parts li[data-state="degraded"],
 .status-parts li[data-state="maintenance"] {
-  border-left-color: #b26a00;
+  border-left-color: var(--amber);
 }
 .status-parts li[data-state="outage"] {
-  border-left-color: var(--accent);
+  border-left-color: var(--pink);
 }
 .status-name {
   font-weight: 600;
+}
+.status-state {
+  font-family: var(--w4-font-mono);
+  font-size: 13px;
+  color: var(--text-2);
 }
 .status-note,
 .status-since {
   grid-column: 1 / -1;
   font-size: 14px;
+  color: var(--text-2);
 }
 .status-updated {
   font-size: 14px;
-  opacity: 0.8;
+  color: var(--muted);
 }
 .status-unreachable {
   padding: 12px;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
+  border: 1px solid var(--pink);
+  border-radius: var(--w4-radius-md);
 }
 /* The booking's Details and Terms steps (M5-08). */
 .book-page .details,
@@ -572,11 +1253,12 @@ body {
   min-height: 24px;
   margin-top: 2px;
 }
-.book-page .terms .cutoff {
+.guest .terms .cutoff,
+.guest .cutoff {
   font-weight: 700;
 }
 
-/* The manage page (M5-11): the change panels and the party stepper. */
+/* The manage page (M5-11; canvas Manage): the booking card, the change rows and the party stepper. */
 .manage .manage-actions,
 .manage .manage-preview,
 .manage .manage-party,
@@ -586,19 +1268,224 @@ body {
   gap: 8px;
   margin: 12px 0;
 }
+.manage .manage-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.manage .terms {
+  background: var(--surface-2);
+  border-radius: var(--w4-radius-md);
+  padding: 12px 14px;
+  margin: 12px 0;
+  color: var(--text-2);
+}
 .manage .stepper {
-  display: flex;
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
   align-items: center;
   gap: 16px;
+  text-align: center;
+  background: var(--surface-2);
+  border-radius: var(--w4-radius-lg);
+  padding: 8px;
 }
 .manage .stepper button {
   min-width: 44px;
-  min-height: 44px;
+  min-height: 56px;
+  padding: 0;
+  border-radius: var(--w4-radius-md);
   font-size: 1.25rem;
 }
 .manage select,
 .manage input[type="date"] {
   display: block;
-  min-height: 44px;
+  min-height: 52px;
   width: 100%;
+}
+
+/* Inside a card, a section's heading is the canvas's mono label ("TONIGHT SO FAR"). */
+.room-page .bill h2,
+.room-page .cart h2,
+.room-page .again h2,
+.room-page .calls h2,
+.guest .your-bill h2,
+.manage h2,
+.book-page .details h2,
+.book-page .terms h2,
+.sing-page section h2 {
+  font-family: var(--w4-font-mono);
+  font-variation-settings: normal;
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  color: var(--accent);
+  margin: 0 0 12px;
+}
+/* The change rows: full width, the label on the left and a "+" on the right; cancel's "+" in pink. */
+.manage .manage-actions {
+  flex-direction: column;
+}
+.manage .manage-actions > button.button,
+.manage > button.button:not(.primary) {
+  width: 100%;
+  min-height: 60px;
+  justify-content: space-between;
+  padding: 0 20px;
+  margin: 4px 0;
+  border-radius: var(--w4-radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  font-size: 17px;
+  text-align: left;
+}
+.manage .manage-actions > button.button::after,
+.manage > button.button:not(.primary)::after {
+  content: "+";
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--accent);
+}
+.manage > button.button.cancel::after {
+  color: var(--pink);
+}
+
+/* The menu page as the canvas's printed menu: two columns of compact categories on a phone. */
+.guest.site.menu-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+}
+.guest.site.menu-page > section {
+  grid-column: 1 / -1;
+  margin: 24px 0;
+}
+.guest.site.menu-page > section.menu-category {
+  grid-column: auto;
+  margin: 12px 0;
+}
+.guest.site.menu-page > section.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+.guest.site.menu-page .hero h1 {
+  font-size: 72px;
+  margin: 0;
+}
+.guest.site.menu-page h2 {
+  font-size: 34px;
+  margin-bottom: 4px;
+}
+.menu-category .menu-row {
+  padding: 6px 0;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.menu-category .menu-row .price {
+  font-size: 12px;
+}
+.menu-category .desc,
+.menu-category .choices {
+  font-size: 12px;
+}
+.menu-category .line {
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+@media (min-width: 720px) {
+  .guest.site.menu-page {
+    max-width: 960px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 28px;
+  }
+}
+
+/* Desktop: the site's pages open out, as the canvas's 1100 px wrap does; the guest's own pages
+   (room, bill, manage, payment) stay one phone-width column. */
+@media (min-width: 900px) {
+  .guest.site {
+    max-width: 760px;
+  }
+  .guest.site .hero h1 {
+    font-size: 160px;
+  }
+}
+
+/* Private parties (canvas Parties): each kind of party a card with a display title and its tag in
+   pink; the room sizes as one compact list with the price in mono. */
+.guest.site .hosts > li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 16px 18px;
+}
+.guest.site .hosts h3 {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 34px;
+  line-height: 0.9;
+  margin: 0;
+}
+.guest.site .hosts .kicker {
+  margin: 0;
+  color: var(--pink);
+  font-size: 13px;
+  text-align: right;
+}
+.guest.site .hosts .kicker::before {
+  content: none;
+}
+.guest.site .hosts p:not(.kicker) {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+.guest.site .tiers {
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--w4-radius-lg);
+  padding: 4px 16px;
+}
+.guest.site .tiers > li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 12px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 12px 0;
+}
+.guest.site .tiers > li:last-child {
+  border-bottom: 0;
+}
+.guest.site .tiers h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.guest.site .tiers p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.guest.site .tiers p:last-child {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  max-width: 150px;
+  text-align: right;
+  font-family: var(--w4-font-mono);
+  font-size: 12px;
+  color: var(--text);
 }

@@ -424,7 +424,7 @@ export function Manage({
       )}
 
       {!preview && m.can_cancel && !cancelling && (
-        <button type="button" className="button" onClick={() => setCancelling(true)}>
+        <button type="button" className="button cancel" onClick={() => setCancelling(true)}>
           {t("en", "manage.cancel")}
         </button>
       )}
