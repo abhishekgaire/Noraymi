@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Temporal } from "@west4/shared";
 import { useT } from "../i18n.js";
 
@@ -113,12 +114,19 @@ export function Alerts({
   alerts,
   timeZone,
   actions,
+  limit,
+  label,
 }: {
   alerts: readonly Alert[];
   timeZone: string;
   actions: AlertActions;
+  /** Show only the first, most urgent, alerts with "Show all N" for the rest (V-08, founder-approved). */
+  limit?: number;
+  /** The list's name, when it isn't the board's alerts band (a room panel's calls). */
+  label?: string;
 }) {
   const { t, locale } = useT();
+  const [all, setAll] = useState(false);
   const list = (items: readonly string[]) =>
     new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(items);
   const short = (iso: string) => {
@@ -205,104 +213,120 @@ export function Alerts({
   };
 
   if (alerts.length === 0) return null;
+  const folds = limit !== undefined && alerts.length > limit;
+  const shown = folds && !all ? alerts.slice(0, limit) : alerts;
   return (
-    <ul className="alerts" aria-label={t("alert.title")}>
-      {alerts.map((a, i) => (
-        <li key={`${a.kind}-${i}`} className={`alert ${a.color}`} aria-label={words(a)}>
-          <span>{words(a)}</span>
-          <span className="actions">
-            {(a.kind === "needed_now" || a.kind === "near_end") && (
-              <>
-                {a.guest_name && actions.canText && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => actions.wrapUp(a.session_id, a.guest_name!)}
-                  >
-                    {t("wrapUp.text", { name: a.guest_name })}
-                  </button>
-                )}
-                {a.kind === "needed_now" && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => actions.move(a.session_id, a.room_name)}
-                  >
-                    {t("alert.move")}
-                  </button>
-                )}
-              </>
-            )}
-            {a.kind === "clear_out" && !a.done && (
-              <button
-                type="button"
-                className="primary"
-                onClick={() => actions.clearOut(a.business_date)}
-              >
-                {t("alert.clearOut.button")}
-              </button>
-            )}
-            {a.kind === "order" && (
-              <button type="button" className="secondary" onClick={() => actions.showOrders()}>
-                {t("alert.order.show")}
-              </button>
-            )}
-            {a.kind === "ticket" && (
-              <button type="button" className="primary" onClick={() => actions.reprint(a.job_id)}>
-                {t("alert.reprint")}
-              </button>
-            )}
-            {a.kind === "call" && (
-              <button type="button" className="primary" onClick={() => actions.onIt(a.call_id)}>
-                {t("calls.onIt")}
-              </button>
-            )}
-            {a.kind === "offer" && (
-              <button type="button" className="primary" onClick={() => actions.offer(a.entry_id)}>
-                {t("waitlist.offerButton", { room: a.room_name })}
-              </button>
-            )}
-            {a.kind === "wipe" && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => actions.show(a.rooms[0]!.room_id)}
-              >
-                {t("alert.show")}
-              </button>
-            )}
-            {a.kind === "late" && (
-              <>
-                {actions.canText && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => actions.noProblem(a.conversation_id)}
-                  >
-                    {t("messages.noProblem")}
-                  </button>
-                )}
+    <>
+      <ul className="alerts" aria-label={label ?? t("alert.title")}>
+        {shown.map((a, i) => (
+          <li key={`${a.kind}-${i}`} className={`alert ${a.color}`} aria-label={words(a)}>
+            <span>{words(a)}</span>
+            <span className="actions">
+              {(a.kind === "needed_now" || a.kind === "near_end") && (
+                <>
+                  {a.guest_name && actions.canText && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => actions.wrapUp(a.session_id, a.guest_name!)}
+                    >
+                      {t("wrapUp.text", { name: a.guest_name })}
+                    </button>
+                  )}
+                  {a.kind === "needed_now" && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => actions.move(a.session_id, a.room_name)}
+                    >
+                      {t("alert.move")}
+                    </button>
+                  )}
+                </>
+              )}
+              {a.kind === "clear_out" && !a.done && (
                 <button
                   type="button"
                   className="primary"
-                  onClick={() => actions.checkIn(a.booking_id, a.name)}
+                  onClick={() => actions.clearOut(a.business_date)}
                 >
-                  {t("checkIn.button")}
+                  {t("alert.clearOut.button")}
                 </button>
-                {a.no_show_ok && (
+              )}
+              {a.kind === "order" && (
+                <button type="button" className="secondary" onClick={() => actions.showOrders()}>
+                  {t("alert.order.show")}
+                </button>
+              )}
+              {a.kind === "ticket" && (
+                <button type="button" className="primary" onClick={() => actions.reprint(a.job_id)}>
+                  {t("alert.reprint")}
+                </button>
+              )}
+              {a.kind === "call" && (
+                <button type="button" className="primary" onClick={() => actions.onIt(a.call_id)}>
+                  {t("calls.onIt")}
+                </button>
+              )}
+              {a.kind === "offer" && (
+                <button type="button" className="primary" onClick={() => actions.offer(a.entry_id)}>
+                  {t("waitlist.offerButton", { room: a.room_name })}
+                </button>
+              )}
+              {a.kind === "wipe" && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => actions.show(a.rooms[0]!.room_id)}
+                >
+                  {t("alert.show")}
+                </button>
+              )}
+              {a.kind === "late" && (
+                <>
+                  {actions.canText && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => actions.noProblem(a.conversation_id)}
+                    >
+                      {t("messages.noProblem")}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="secondary"
-                    onClick={() => actions.noShow(a.booking_id)}
+                    className="primary"
+                    onClick={() => actions.checkIn(a.booking_id, a.name)}
                   >
-                    {t("checkIn.noShow")}
+                    {t("checkIn.button")}
                   </button>
-                )}
-              </>
-            )}
-          </span>
-        </li>
-      ))}
-    </ul>
+                  {a.no_show_ok && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => actions.noShow(a.booking_id)}
+                    >
+                      {t("checkIn.noShow")}
+                    </button>
+                  )}
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {folds && (
+        <button
+          type="button"
+          className="link alerts-more"
+          aria-expanded={all}
+          onClick={() => setAll((open) => !open)}
+        >
+          {all
+            ? t("alert.showFewer", { count: limit })
+            : t("alert.showAll", { count: alerts.length })}
+        </button>
+      )}
+    </>
   );
 }

@@ -2225,7 +2225,7 @@ a.song-count {
 @media (min-width: 1024px) {
   .board-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 270px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 20px;
     align-items: start;
   }
@@ -2234,6 +2234,9 @@ a.song-count {
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+  .board-side > * {
+    order: 0;
   }
   .board-side {
     gap: 4px;
@@ -2263,11 +2266,19 @@ a.song-count {
 /* Room tiles: the canvas's colours by state. */
 .room-clocks.board {
   margin: 0 0 12px;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-items: stretch;
   gap: 10px;
 }
+/* The canvas's 5 columns at the front desk (V-08). */
+@media (min-width: 1024px) {
+  .room-clocks.board {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
 .room-clocks.board .room-clock {
+  padding: 0;
+  overflow: visible;
   --tile-ink: var(--w4-text);
   --tile-soft: var(--w4-text-2);
   align-content: start;
@@ -2295,7 +2306,7 @@ a.song-count {
     "wdth" 75;
   font-weight: 800;
   font-variant-caps: all-small-caps;
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   line-height: 0.85;
   letter-spacing: -0.01em;
 }
@@ -2313,24 +2324,46 @@ a.song-count {
 .room-clocks.board .muted {
   color: var(--tile-soft);
 }
-.room-clocks.board a {
+/* The whole tile is one button that opens the room's panel (V-08). */
+.room-clocks.board .tile-open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+  padding: 10px 10px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
   color: inherit;
-  font-weight: 700;
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
 }
-.room-clocks.board .actions,
-.room-clocks.board .party-size {
-  gap: 6px;
+.room-clocks.board .room-clock:has(.tile-open[aria-pressed="true"]) {
+  box-shadow:
+    0 0 0 2px var(--w4-bg),
+    0 0 0 4px var(--w4-text);
 }
-.room-clocks.board button {
+.room-clocks.board .tile-who {
   font-size: var(--w4-text-sm);
-  padding: 0 10px;
-  border-color: color-mix(in srgb, var(--tile-ink) 30%, transparent);
-  color: var(--tile-ink);
+  font-weight: 600;
 }
-.room-clocks.board button.primary {
-  background: var(--tile-ink);
-  border-color: var(--tile-ink);
-  color: var(--tile-fill, var(--w4-bg));
+.room-clocks.board .tile-words {
+  font-size: var(--w4-text-xs);
+  line-height: 1.3;
+  color: var(--tile-soft);
+}
+.room-clocks.board .tile-foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  white-space: nowrap;
 }
 /* In room: lime. Ten minutes left (wrap up): amber. Over time: pink. */
 .room-clocks.board .room-clock[data-state="in_room"],
@@ -2388,4 +2421,430 @@ a.song-count {
 }
 .room-clocks.board .room-clock[data-state="staying"] .error {
   color: var(--w4-pink);
+}
+
+/* The open room's panel (V-08), after the canvas's "ROOM 9" panel: clock and tab, its calls, the
+   controls the tiles used to hold, the tab so far and the room notes. */
+.room-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: var(--w4-text-md);
+}
+.board-side .room-panel {
+  padding: 0 0 14px;
+  margin: 0 0 10px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.room-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.room-panel-name {
+  margin: 0 auto 0 0;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: var(--w4-text-hero);
+  line-height: 0.9;
+}
+.room-panel-head .room-clock-min {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  letter-spacing: 0.1em;
+  color: var(--w4-lime);
+}
+.room-panel-head .link {
+  font-size: var(--w4-text-sm);
+  padding: 0 12px;
+}
+.room-panel-who {
+  color: var(--w4-text-2);
+}
+.room-panel-boxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.room-panel-boxes > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-surface);
+}
+.room-panel-boxes .board-label {
+  margin: 0;
+  font-size: var(--w4-text-label);
+}
+.room-panel-boxes b {
+  font-size: var(--w4-text-lg);
+  line-height: 1.25;
+}
+.room-panel .alerts {
+  margin: 0;
+}
+.room-panel-note {
+  padding: 10px 12px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  font-size: var(--w4-text-sm);
+  line-height: 1.5;
+}
+.room-panel-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.room-panel-actions > * {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  font-size: var(--w4-text-md);
+  padding: 4px 10px;
+}
+.room-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--w4-line);
+}
+.room-panel-section .board-label {
+  margin: 0;
+}
+.room-panel-section .party-size {
+  gap: 6px;
+}
+.room-panel-form {
+  display: flex;
+  gap: 6px;
+}
+.room-panel-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 10px;
+  color: var(--w4-text);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+}
+.room-panel-form button {
+  font-size: var(--w4-text-sm);
+  padding: 0 12px;
+}
+.board-pick {
+  margin: 0 0 12px;
+  padding: 14px;
+  border-radius: var(--w4-radius-md);
+  border: 1px dashed var(--w4-line-3);
+  color: var(--w4-muted);
+  font-size: var(--w4-text-sm);
+}
+/* "Show all 7" under the three most urgent alerts (V-08, founder-approved). */
+.alerts-more {
+  align-self: flex-start;
+  margin: -6px 0 10px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--w4-text-2);
+  font-size: var(--w4-text-sm);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The phone's Tonight (V-08, founder-approved, after Staff.dc.html). */
+.board-screen.phone {
+  padding-bottom: 96px;
+}
+.board-boxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.board-boxes > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line);
+}
+.board-boxes b {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: var(--w4-text-hero);
+  line-height: 1;
+}
+.board-boxes .lime b {
+  color: var(--w4-lime);
+}
+.board-boxes .pink b {
+  color: var(--w4-pink);
+}
+.board-boxes span {
+  font-family: var(--w4-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--w4-muted);
+}
+.board-views {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 4px;
+  border-radius: var(--w4-radius-pill);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  contain: inline-size;
+}
+.board-views > button,
+.board-views > .button {
+  flex: 1 0 auto;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--w4-radius-pill);
+  padding: 0 10px;
+  font-size: var(--w4-text-sm);
+  font-weight: 700;
+  color: var(--w4-text);
+  background: transparent;
+}
+.board-views > button[aria-pressed="true"] {
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+.board-screen.phone .board-counts {
+  margin: 0;
+}
+.board-screen.phone .room-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(57px + env(safe-area-inset-bottom));
+  z-index: 30;
+  max-height: 78vh;
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+  border-radius: 22px 22px 0 0;
+  background: var(--w4-surface);
+  border-top: 1px solid var(--w4-line-2);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+}
+.board-screen.phone .room-panel-boxes > div,
+.board-screen.phone .room-panel-note,
+.board-screen.phone .room-panel-form input {
+  background: var(--w4-bg-row);
+}
+.walk-in-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(57px + env(safe-area-inset-bottom));
+  z-index: 20;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(11, 10, 13, 0), rgba(11, 10, 13, 0.95) 40%);
+}
+.walk-in-bar button {
+  width: 100%;
+  justify-content: center;
+  min-height: 52px;
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+}
+
+/* The timeline: a row a room, 4 PM to 4 AM, 65 px an hour, the now line in pink. */
+.timeline-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: var(--w4-text-sm);
+  color: var(--w4-muted);
+}
+.timeline-frame {
+  display: flex;
+  border-radius: 16px;
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+  overflow: hidden;
+}
+.timeline-names {
+  width: 96px;
+  flex: none;
+  border-right: 1px solid var(--w4-line-2);
+}
+.timeline-corner {
+  height: 28px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.timeline-name {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--w4-line-faint);
+}
+.timeline-name.closed {
+  color: var(--w4-pink);
+}
+.timeline-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.timeline-grid {
+  position: relative;
+}
+.timeline-hours {
+  display: flex;
+  height: 28px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.timeline-hours span {
+  width: 65px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  border-left: 1px solid var(--w4-line-faint);
+  font-family: var(--w4-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--w4-muted);
+  white-space: nowrap;
+}
+.timeline-row {
+  position: relative;
+  height: 52px;
+  border-bottom: 1px solid var(--w4-line-faint);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--w4-line-faint) 0 1px,
+    transparent 1px 65px
+  );
+}
+.timeline-row.closed {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 61, 166, 0.16) 0 6px,
+    transparent 6px 12px
+  );
+}
+.timeline-block {
+  position: absolute;
+  top: 4px;
+  height: 44px;
+  display: block;
+  padding: 0 8px;
+  border-radius: var(--w4-radius-sm);
+  font-size: var(--w4-text-xs);
+  font-weight: 700;
+  line-height: 44px;
+  white-space: nowrap;
+  text-align: left;
+  /* The label is cut at the block's edge; the full words are the button's name. */
+  clip-path: inset(0 round var(--w4-radius-sm));
+}
+.timeline-block.in {
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+.timeline-block.late {
+  background: var(--w4-pink);
+  border-color: var(--w4-pink);
+  color: var(--w4-on-accent);
+}
+.timeline-block.booked {
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-strong);
+  color: var(--w4-text);
+}
+.timeline-block.done {
+  background: var(--w4-surface-2);
+  border-color: var(--w4-surface-2);
+  color: var(--w4-muted);
+}
+.timeline-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--w4-pink);
+  box-shadow: 0 0 8px var(--w4-pink);
+  pointer-events: none;
+}
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 0 0;
+  font-size: var(--w4-text-xs);
+  color: var(--w4-muted);
+}
+.timeline-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.timeline-legend span::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+.timeline-legend .in::before {
+  background: var(--w4-lime);
+}
+.timeline-legend .booked::before {
+  border: 1px solid rgba(244, 241, 234, 0.4);
+}
+.timeline-legend .late::before {
+  background: var(--w4-pink);
+}
+.timeline-legend .now::before {
+  width: 2px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--w4-pink);
+}
+
+/* The phone's bottom tabs, as the canvas's pills (V-08). */
+.tabs {
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--w4-bg-rail);
+  border-top-color: var(--w4-line);
+}
+.tab {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--w4-radius-pill);
+  font-size: var(--w4-text-md);
+  font-weight: 600;
+}
+.tab.active {
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
 }

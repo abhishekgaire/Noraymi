@@ -98,10 +98,23 @@ Oct 8, 2026 · every screen was built for behaviour from the [spec](../spec/READ
 
 ## V-08 · Open a room in a side panel on the Board
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** V-01
-- **Canvas:** `Board.dc.html`
-- **Screens:** [Board](../screens.md#board)
-- **Build:** small canvas tiles (name, party, words, minutes and tab) in 5 columns, and the selected room's controls in the canvas's right panel, on desktop only. Founder to confirm first: it changes how staff reach a room's controls (one tap on the tile first), and every Board Playwright test then opens the room before using its controls.
-- **Acceptance:** side-by-side capture at 1280 with the tiles in 5 columns; the staff Playwright specs pass with the extra tap and no assertion weakened.
+- **Canvas:** `Board.dc.html`; `Staff.dc.html` (the phone's Tonight)
+- **Screens:** [Board](../screens.md#board), [Staff](../screens.md#staff)
+- **Build:** small canvas tiles (name, party, words, minutes and tab) in 5 columns, and the selected room's controls in the canvas's right panel. The founder confirmed it (Oct 9, 2026), with two additions: "Show all N" under the 3 most urgent alerts, and the phone's Tonight after `Staff.dc.html` (four counts, the views, the timeline first, a pinned "+ Walk-in").
+- **Acceptance:**
+  - [x] Side-by-side capture at 1280 with the tiles in 5 columns and Room 9's panel open (`docs/design-review/v08/`).
+  - [x] Every control and state a tile held is in the panel: Tab & close out, Move, the wrap-up text, Report a fault, Damage fee, party size, ID chip and Scan ID, No more alcohol, Unpause, stay on, faults and Fixed, notes, Mark clean, + Walk-in.
+  - [x] The staff Playwright specs pass with the extra tap and no assertion weakened.
+  - [x] English and Spanish strings; touch targets at least 44 px.
+- **Tests:** `e2e/staff.spec.ts` (the `openRoom`, `listView` and `showAllAlerts` helpers add the extra taps; the alerts band test now also checks that only 3 show before "Show all 7"); `e2e/design-review.staff.spec.ts` with `DESIGN_REVIEW=1`.
+- **Notes:**
+  - Founder-approved design additions, beyond the canvas and the spec: (1) the board shows the 3 most urgent alerts and "Show all N" ("Show only the 3 most urgent" folds them again); (2) below 1024 px the board opens on the phone Tonight of `Staff.dc.html`: four count boxes (In room, Open, Arriving, Waitlist), the views (Timeline, List, Waitlist, and Runs and Tips as links to `/runs` and `/tips` when the role and modules allow them), the room-by-room timeline from 4 PM to 4 AM with the now line, bookings as blocks and out-of-service rooms hatched, and "+ Walk-in" pinned above the bottom tabs. List is the board as it was (alerts, tiles, headcount, arrivals, lost and found); the last view is remembered for the tab in `sessionStorage`. The bottom tabs are styled as the canvas's pills.
+  - Desktop: the panel sits at the top of the right column, with the headcount, arrivals and lost and found under it; with no room open it says "Tap a room to see its clock, tab and controls here." No room opens by default, so nothing changes until someone taps. On a phone the panel is a sheet above the bottom tabs, and it steps aside while a sheet it opened (Move, Damage fee, Report a fault, check-in) is up.
+  - The panel adds the canvas's room-note field (the same `POST …/rooms/:id/notes` as the room screen) and shows the room's calls with On it.
+  - The counts line ("8 in use · 3 open · 2 cleaning · 1 out of service", Staff note 12) stays on the phone too, beside the four boxes.
+  - Still different from the canvas: the panel's "Tab so far" is the totals (tab, room time, deposit), not the line items; there is no "Text guest" link or "Text: stay as long as you like" button (the spec's wrap-up text and stay-on line stand in); no colour legend under the desktop tiles; the built top bar and side menu stay instead of the canvas's rail (headcount and drawers live in the right column and Cash drawers); on a phone the shell's top bar and the Tonight head (counts line, Waitlist, Cash drawers) sit above the boxes, the canvas's Calendar/Messages/Reports/lock row isn't built (they're in the menu and tabs), the timeline's room names have no size range ("3–6"), alerts show only in the List view, and Runs has no count.
+  - Timeline block labels are cut at the block's edge with `clip-path`; each block's button carries the full words.
+  - Test run (Oct 9, 2026): the staff project ran once in full, 136 passed. `accept_o1` failed only in the full run and passes alone. "Our plan: a failed payment…" fails alone too, and not on the Board: `subscribeVenue` gets Stripe's "Keys for idempotent requests can only be used with the same parameters" because the long-running fake Stripe (started by `scripts/demo-start.sh`) still holds `billing:subscription:<venue>:<plan>` from an earlier run after the database was reseeded. A fresh fake Stripe (as in CI) passes it. Worth a ticket: the key is fixed per venue and plan, so a venue that resubscribes to the same plan within Stripe's 24 hours with different items would hit the same error.

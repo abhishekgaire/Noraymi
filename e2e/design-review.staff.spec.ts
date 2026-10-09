@@ -1,8 +1,8 @@
 /**
- * Design review captures (V-01): the frozen canvas board beside the built screen, at the same sizes,
+ * Design review captures (V-01, V-08): the frozen canvas board beside the built screen, at the same sizes,
  * from a fresh demo seed at 10:41 PM. Off by default; run it with
  *   DESIGN_REVIEW=1 pnpm exec playwright test --project staff design-review
- * The side-by-side PNGs land in docs/design-review/v01/ for the founder.
+ * The side-by-side PNGs land in docs/design-review/v08/ for the founder (v01/ holds V-01's).
  */
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import pg from "pg";
 import { freshNight } from "./night.js";
 
-const OUT = "docs/design-review/v01";
+const OUT = "docs/design-review/v08";
 const CANVAS_PORT = 8765;
 const ANDY = "andy@demo.west4.local";
 
@@ -105,7 +105,10 @@ async function sideBySide(page: Page, left: Buffer, right: Buffer, file: string)
   await sheet.close();
 }
 
-test("V-01 · the Board beside Board.dc.html, at 1280 and 390", async ({ page, request }) => {
+test("V-08 · the Board beside Board.dc.html at 1280, and the phone beside Staff.dc.html at 390", async ({
+  page,
+  request,
+}) => {
   test.setTimeout(180_000);
   mkdirSync(OUT, { recursive: true });
   await freshNight();
@@ -137,15 +140,19 @@ test("V-01 · the Board beside Board.dc.html, at 1280 and 390", async ({ page, r
 
     // Desktop: the front-desk computer's 1280 × 800.
     const canvasDesk = await shoot("Board.dc.html", 1280, 800, false);
-    const builtDesk = await page.screenshot();
-    await sideBySide(page, canvasDesk, builtDesk, "board-desktop-1280.png");
     const builtDeskFull = await page.screenshot({ fullPage: true });
     await sideBySide(page, canvasDesk, builtDeskFull, "board-desktop-1280-full.png");
+    // Room 9 open in the side panel, as the canvas shows it.
+    await page.getByRole("listitem", { name: "Room 9", exact: true }).getByRole("button").click();
+    await expect(page.getByRole("region", { name: "Room 9", exact: true })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const builtDesk = await page.screenshot();
+    await sideBySide(page, canvasDesk, builtDesk, "board-desktop-1280-panel.png");
 
     // Phone: 390 wide. The canvas's phone home is Staff.dc.html (M · Staff portal · tonight).
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: /^Room by room/ })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     const canvasPhone = await shoot("Staff.dc.html", 390, 844, false);
     const builtPhone = await page.screenshot();

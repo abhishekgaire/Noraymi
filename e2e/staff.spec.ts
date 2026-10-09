@@ -192,6 +192,29 @@ const matchers = (locale: "en" | "es") =>
   );
 
 /** Elements whose text is wider than the box that hides it, plus any sideways page scroll. */
+/**
+ * The Board's room panel (V-08): one tap on a tile opens that room's details and controls in the
+ * side panel (a sheet on a phone), named after the room.
+ */
+async function openRoom(page: Page, name: string) {
+  await page.getByRole("listitem", { name, exact: true }).getByRole("button").first().click();
+  const panel = page.getByRole("region", { name, exact: true });
+  await expect(panel).toBeVisible();
+  return panel;
+}
+/** The phone's board opens on its timeline (V-08); the List view holds the alerts, tiles and arrivals. */
+async function listView(page: Page) {
+  await page
+    .getByRole("navigation", { name: "Board views" })
+    .getByRole("button", { name: "List", exact: true })
+    .click();
+}
+
+/** The board shows its 3 most urgent alerts; "Show all N" opens the rest (V-08). */
+async function showAllAlerts(page: Page) {
+  await page.getByRole("button", { name: /^Show all \d+$/ }).click();
+}
+
 async function clippedText(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const clipped: string[] = [];
@@ -1271,14 +1294,14 @@ test("Tonight's room clocks tick on the server's offset while the device clock i
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
     await expect(room9).toContainText("161 min");
-    await expect(room9).toContainText("Room time so far $322.00");
     await expect(room9).toContainText("In room · 19 min left");
+    await expect(await openRoom(page, "Room 9")).toContainText("Room time so far $322.00");
     const room10 = page.getByRole("listitem", { name: "Room 10", exact: true });
     await expect(room10).toContainText("Staying · 41 min past");
-    await expect(room10).toContainText("Stay on by the minute until we close at 4 AM");
-    await expect(page.getByRole("listitem", { name: "Room 7", exact: true })).toContainText(
-      "Wrap-up",
+    await expect(await openRoom(page, "Room 10")).toContainText(
+      "Stay on by the minute until we close at 4 AM",
     );
+    await expect(await openRoom(page, "Room 7")).toContainText("Wrap-up");
     expect(await clippedText(page)).toEqual([]);
     await page.clock.fastForward("02:00");
     await expect(room9).toContainText("163 min", { timeout: 20_000 });
@@ -1435,7 +1458,8 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
     );
 
     await page.setViewportSize({ width: 390, height: 844 });
-    const room11 = page.getByRole("listitem", { name: "Room 11", exact: true });
+    await listView(page);
+    const room11 = await openRoom(page, "Room 11");
     await room11.getByRole("button", { name: "+ Walk-in" }).click();
     const walkIn = page.getByRole("dialog", { name: "Walk-in · Room 11" });
     await walkIn.getByLabel("1 · Guests").fill("7");
@@ -1471,14 +1495,15 @@ test("the ID chip and Scan ID, with Safety & ID records on and off", async ({ pa
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
-    const room1 = page.getByRole("listitem", { name: "Room 1", exact: true });
-    const room5 = page.getByRole("listitem", { name: "Room 5", exact: true });
+    const room1 = await openRoom(page, "Room 1");
     await expect(room1).toContainText("ID ✓ 3 of 4 · the runner checks the last ID");
+    const room5 = await openRoom(page, "Room 5");
     await expect(room5).toContainText("ID ✓ 4 of 4");
     await expect(room5.getByRole("button", { name: "Scan ID" })).toBeVisible();
 
     await db.query("update venue_modules set state = 'off' where module_id = 'safety'");
     await page.reload();
+    await openRoom(page, "Room 5");
     await expect(room5).toContainText("ID ✓ 4 of 4");
     await expect(page.getByRole("button", { name: "Scan ID" })).toHaveCount(0);
   } finally {
@@ -1615,11 +1640,14 @@ test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
 
-    const room4 = page.getByRole("listitem", { name: "Room 4", exact: true });
+    await expect(page.getByRole("listitem", { name: "Room 4", exact: true })).toContainText(
+      "Out of service",
+    );
+    const room4 = await openRoom(page, "Room 4");
     await expect(room4).toContainText("Out of service");
     await expect(room4).toContainText("Mic dead since Tue. Replacement ordered.");
 
-    const room5 = page.getByRole("listitem", { name: "Room 5", exact: true });
+    const room5 = await openRoom(page, "Room 5");
     await room5.getByRole("button", { name: "Report a fault" }).click();
     let sheet = page.getByRole("dialog", { name: "Report a fault · Room 5" });
     await sheet.getByLabel("What's wrong").fill("Mic 2 cuts out");
@@ -1629,7 +1657,7 @@ test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9
     await expect(page.getByText("Fault logged in Room 5 · Comp of $10.00 added")).toBeVisible();
     await expect(room5).toContainText("Mic 2 cuts out");
 
-    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    const room9 = await openRoom(page, "Room 9");
     await room9.getByRole("button", { name: "Report a fault" }).click();
     sheet = page.getByRole("dialog", { name: "Report a fault · Room 9" });
     await sheet.getByLabel("What's wrong").fill("TV keeps rebooting");
@@ -1638,6 +1666,7 @@ test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9
     await expect(page.getByText("Fault logged in Room 9 · Waiting for Abhishek G.")).toBeVisible();
     await expect(page.getByRole("list").getByText("Waiting for Abhishek G.")).toBeVisible();
 
+    await openRoom(page, "Room 5");
     await room5.getByRole("button", { name: "Fixed" }).click();
     await expect(room5).not.toContainText("Mic 2 cuts out");
     const lines = await db.query<{ amount_cents: string }>(
@@ -1667,7 +1696,7 @@ test("the party-size control: Room 9 one guest more shows the new rate and ID 12
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
-    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    const room9 = await openRoom(page, "Room 9");
     const before = Number(/(\d+) guests/.exec((await room9.textContent()) ?? "")![1]);
     await room9.getByRole("button", { name: "One guest more" }).click();
     await expect(room9).toContainText(`${before + 1} guests`);
@@ -1706,7 +1735,10 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
-    const room7 = page.getByRole("listitem", { name: "Room 7", exact: true });
+    await expect(page.getByRole("listitem", { name: "Room 7", exact: true })).toContainText(
+      "Needed now",
+    );
+    const room7 = await openRoom(page, "Room 7");
     await expect(room7).toContainText("Needed now");
     // The board's alert also offers the wrap-up text (M2-24).
     await expect(room7.getByRole("button", { name: /^Text .+: please wrap up$/ })).toBeVisible();
@@ -1740,9 +1772,7 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
       `Room 11 · Code ${newCode}`,
     );
     await guest.close();
-    await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).toContainText(
-      "7 guests",
-    );
+    await expect(await openRoom(page, "Room 11")).toContainText("7 guests");
   } finally {
     await db.end();
   }
@@ -1772,7 +1802,10 @@ test("cleaning and the lost-and-found log: Room 6 marked clean, a scarf found in
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
 
-    const room6 = page.getByRole("listitem", { name: "Room 6", exact: true });
+    await expect(page.getByRole("listitem", { name: "Room 6", exact: true })).toContainText(
+      /Needs a wipe · left 10:33\s?PM \(\d+ min\)/,
+    );
+    const room6 = await openRoom(page, "Room 6");
     await expect(room6).toContainText(/Needs a wipe · left 10:33\s?PM \(\d+ min\)/);
     await expect(room6).toContainText("TV remote goes missing. Check under the couch.");
     await room6.getByRole("button", { name: "Mark clean" }).click();
@@ -1867,7 +1900,8 @@ test("the damage fee on a phone: a camera photo and a reason add $150.00 with it
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
-    const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
+    await listView(page);
+    const room9 = await openRoom(page, "Room 9");
     await room9.getByRole("button", { name: "Damage fee" }).click();
     const sheet = page.getByRole("dialog", { name: "Damage fee · Room 9" });
     await expect(sheet.getByRole("button", { name: "Add the damage fee" })).toBeDisabled();
@@ -2047,6 +2081,7 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await showAllAlerts(page);
     await expect(
       page.getByText("Room 11 is free all night, and Amara B. (7) has waited 26 min."),
     ).toBeVisible();
@@ -2196,7 +2231,7 @@ test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile"
     for (const check of seed.checks.filter((x) => x.room_session && x.expected_at_now)) {
       const session = seed.sessions.find((s) => s.id === check.room_session)!;
       const room = seed.rooms.find((r) => r.id === session.room)!;
-      const tile = page.getByRole("listitem", { name: room.name, exact: true });
+      const tile = await openRoom(page, room.name);
       await expect(tile, room.name).toContainText(
         `Room time so far ${dollars(check.expected_at_now!.room_time_cents!)}`,
       );
@@ -2241,6 +2276,9 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
     const band = page.getByRole("list", { name: "Alerts" });
     const expected = seed.board_alerts;
+    // The three most urgent show; "Show all 7" opens the rest (V-08).
+    await expect(band.getByRole("listitem")).toHaveCount(3);
+    await page.getByRole("button", { name: `Show all ${expected.length}` }).click();
     await expect(band.getByRole("listitem")).toHaveCount(expected.length);
     const items = band.getByRole("listitem");
     // The colors in the seed's order, and each alert's key facts.
@@ -2326,10 +2364,7 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
       await expect(tab).not.toContainText("Margarita · Peach");
       expect(await clippedText(p)).toEqual([]);
     };
-    await page
-      .getByRole("listitem", { name: "Room 9", exact: true })
-      .getByRole("link", { name: "Tab & close out →" })
-      .click();
+    await (await openRoom(page, "Room 9")).getByRole("link", { name: "Tab & close out →" }).click();
     await readRoom9(page);
 
     const v = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
@@ -2350,8 +2385,10 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
       viewport: { width: 390, height: 844 },
     });
     await phone.goto("/tonight");
-    await phone
-      .getByRole("listitem", { name: "Room 9", exact: true })
+    await listView(phone);
+    await (
+      await openRoom(phone, "Room 9")
+    )
       .getByRole("link", { name: "Tab & close out →" })
       .click();
     await readRoom9(phone);
@@ -2742,6 +2779,7 @@ for (const size of SIZES) {
       const db = await dbClient();
       try {
         await signInAndy(page, request, db);
+        if (size.name === "phone") await listView(page);
         await setClock(request, "2026-09-26T02:44:00Z");
         await page.reload();
         await page
@@ -2761,7 +2799,7 @@ for (const size of SIZES) {
         expect(texted.rows[0]!.body).toMatch(
           /^Welcome to Room 2\..*room code [A-Z2-9]{5}\. Or open http/,
         );
-        const room2 = page.getByRole("listitem", { name: "Room 2", exact: true });
+        const room2 = await openRoom(page, "Room 2");
         await expect(room2).toContainText("Room time so far $40.00");
         expect(await clippedText(page)).toEqual([]);
       } finally {
@@ -2788,6 +2826,7 @@ for (const size of SIZES) {
         await expect(guest.getByRole("status")).toHaveText("3 parties ahead");
 
         await signInAndy(page, request, db);
+        if (size.name === "phone") await listView(page);
         const sam = page.getByRole("listitem", { name: "Sam O.", exact: true });
         await expect(sam).toContainText(/No-show from 10:45\s?PM/);
         await expect(sam.getByRole("button", { name: "Mark no-show" })).toHaveCount(0);
@@ -2827,7 +2866,9 @@ for (const size of SIZES) {
       const db = await dbClient();
       try {
         await signInAndy(page, request, db);
+        if (size.name === "phone") await listView(page);
         const band = page.getByRole("list", { name: "Alerts" });
+        await showAllAlerts(page);
         await band.getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
         const drawer = page.getByRole("complementary", { name: "Waitlist" });
         const amara = drawer.getByRole("listitem", { name: "Amara B." });
@@ -2864,6 +2905,7 @@ for (const size of SIZES) {
       const db = await dbClient();
       try {
         await signInAndy(page, request, db);
+        if (size.name === "phone") await listView(page);
         await page
           .getByRole("list", { name: "Alerts" })
           .getByRole("listitem")
@@ -3186,6 +3228,7 @@ test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3",
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
 
+    await showAllAlerts(page);
     const alert = page.locator(".alert", { hasText: "Room 1 · Ticket didn't print" });
     await expect(alert).toBeVisible();
     await alert.getByRole("button", { name: "Reprint" }).click();
@@ -3200,6 +3243,7 @@ test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3",
 
     await fail("where reprint_n = 2");
     await page.reload();
+    await showAllAlerts(page);
     await expect(alert).toBeVisible();
     await alert.getByRole("button", { name: "Reprint" }).click();
     await expect(alert).toHaveCount(0);
@@ -3551,7 +3595,7 @@ test("Cut off Room 9 from the board: every screen reads it, o1 is cancelled, the
     await setClock(request, "2026-09-26T02:41:00Z");
     await page.setViewportSize({ width: 1280, height: 800 });
     await signInAndy(page, request, db);
-    const tile = page.getByRole("listitem", { name: "Room 9", exact: true });
+    const tile = await openRoom(page, "Room 9");
     await tile.getByRole("button", { name: "No more alcohol for this room" }).click();
     const sheet = page.getByRole("dialog", { name: "No more alcohol for this room" });
     await sheet.getByLabel("Why is Room 9 cut off?").fill("Someone looks too drunk");
@@ -3742,9 +3786,7 @@ test.describe("M3 scenarios", () => {
       await leo.context().close();
 
       await page.goto("/tonight");
-      await expect(page.getByRole("listitem", { name: "Room 5", exact: true })).toContainText(
-        "ID ✓ 4 of 4",
-      );
+      await expect(await openRoom(page, "Room 5")).toContainText("ID ✓ 4 of 4");
     } finally {
       await db.end();
     }
@@ -5217,10 +5259,7 @@ test("Party size down on the Board: Room 9's one guest fewer waits for Abhishek 
     await page.setViewportSize({ width: 1280, height: 800 });
     await signInAndy(page, request, db);
     await page.goto("/tonight");
-    await page
-      .getByRole("listitem", { name: "Room 9" })
-      .getByRole("button", { name: "One guest fewer" })
-      .click();
+    await (await openRoom(page, "Room 9")).getByRole("button", { name: "One guest fewer" }).click();
     await expect(
       page.getByRole("status").filter({ hasText: "Waiting for Abhishek" }),
     ).toBeVisible();
@@ -8278,6 +8317,7 @@ test("Twilio trouble: Texts are delayed, Text still works, and Amara B.'s failed
       timeout: 20_000,
     });
     const band = page.getByRole("list", { name: "Alerts" });
+    await showAllAlerts(page);
     await band.getByRole("button", { name: "Offer Room 11 · 10 min to claim" }).click();
     const drawer = page.getByRole("complementary", { name: "Waitlist" });
     const amara = drawer.getByRole("listitem", { name: "Amara B." });
