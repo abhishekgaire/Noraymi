@@ -28,7 +28,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-01 · Add the Kitchen module switch and the `kitchen` settings
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** the M1 modules and settings tickets; M3-13 (printers)
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · The Kitchen module; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Modules
@@ -37,14 +37,18 @@ Definition of done: see CLAUDE.md.
   - The `kitchen` settings key (`allergyNotice`, `lastOrder`, `unsentWarnMin` defaulting to 5), versioned and validated like the others, and Admin → Kitchen to edit it.
   - Turning the module on is refused until a kitchen printer is paired and the allergy notice is set ("Kitchen · needs a kitchen printer and the allergy notice"); turning it off is refused while a kitchen order is open.
 - **Acceptance:**
-  - [ ] With no kitchen printer or no notice, Admin → Features keeps Kitchen off and says what's missing.
-  - [ ] Turning Bar screen & tickets off lists Kitchen among what turns off with it.
-  - [ ] Every kitchen route answers `404 module_off` while the module is off.
-  - [ ] Guest food ordering follows the Ordering from the room module: with it off, the room page and tablet offer no food, and there's no separate switch.
-  - [ ] `unsentWarnMin` defaults to 5 and refuses a value outside 1 to 60.
-  - [ ] Turning Kitchen off with a kitchen order being made is refused.
+  - [x] With no kitchen printer or no notice, Admin → Features keeps Kitchen off and says what's missing.
+  - [x] Turning Bar screen & tickets off lists Kitchen among what turns off with it.
+  - [x] Every kitchen route answers `404 module_off` while the module is off.
+  - [x] Guest food ordering follows the Ordering from the room module: with it off, the room page and tablet offer no food, and there's no separate switch.
+  - [x] `unsentWarnMin` defaults to 5 and refuses a value outside 1 to 60.
+  - [x] Turning Kitchen off with a kitchen order being made is refused.
 - **Tests:** unit tests for the dependency rules; integration tests for the settings key and the module routes; the principal and venue-wall suites over Admin → Kitchen.
-- **Notes:**
+- **Notes:** Built in `packages/shared/src/modules.ts` (Kitchen & food is phase 1, needs `bar_screen`, its hides row, `kitchenMissing`), `packages/shared/src/settings.ts` (`kitchen` key, `KITCHEN_DEFAULTS`, `settingsDefaults`), `apps/api/src/kitchen/module.ts` (settings in force, kitchen printer, open kitchen orders), `apps/api/src/routes/modules.ts` (on refused with "Kitchen · needs …", `still_needs` on GET, off refused while kitchen orders are open), `apps/api/src/routes/kitchen.ts` (`GET /v1/venues/{v}/kitchen`, the first kitchen route, module-gated) and Admin → Kitchen (`apps/staff/src/screens/admin/Kitchen.tsx`, screens.md N40). Tests: `modules.test.ts`, `settings.test.ts`, `sections.test.ts`, `kitchen-module.int.test.ts`, e2e "Admin → Kitchen" and the updated Features and Console tests.
+  - A venue that never saved `kitchen` reads its defaults (the settings GET answers version 0); the seed loader writes the defaults for West 4, whose numbers are unchanged. The Console still allows the module per venue: the seed keeps it not allowed at West 4 (no kitchen in its plan), and Features shows "Not in your plan" there (13 on · 3 off).
+  - Admin → Kitchen lists only where the Console allows Kitchen & food (`/me` now carries `modules_allowed`), on or off, since the notice must be set before the switch turns on; the settings key saves through the core settings routes, which stay open while the module is off.
+  - Cautious defaults: a kitchen printer counts only on a network protocol (CloudPRNT or Server Direct Print), not revoked or switched off; "open kitchen work" counts orders with a kitchen line that are ringing, held, accepted or ready (ready is still in the kitchen until Picked up). K-02 can switch the check to `orders.station`.
+  - When turning off Bar screen & tickets takes Kitchen & food with Ordering from the room, the room-orders question is followed by "These turn off with it: …" so Kitchen is named (spec 03 updated).
 
 ### K-02 · Route items to a station, and split a basket into one order per station
 

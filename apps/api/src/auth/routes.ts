@@ -810,7 +810,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         { venueId: m.venueId, userId: p.userId, requestId: request.requestId },
         async (c) => ({
           overrides: await permissionOverrides(c, m.venueId),
-          states: statesOf(await venueModules(c, m.venueId)),
+          rows: await venueModules(c, m.venueId),
           // Training mode (M7-03): the person's, or the device this session runs on.
           training: await trainingOf(c, m.venueId, {
             membershipId: m.membershipId,
@@ -818,6 +818,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
           }),
         }),
       );
+      const states = statesOf(venue.rows);
       memberships.push({
         venue_id: m.venueId,
         membership_id: m.membershipId,
@@ -829,7 +830,9 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
           time_zone: home.timeZone,
           day_cutover: home.dayCutover,
         },
-        modules: Object.fromEntries(moduleIds.map((id) => [id, stateOf(venue.states, id)])),
+        modules: Object.fromEntries(moduleIds.map((id) => [id, stateOf(states, id)])),
+        // What the Console allows, on or not: Admin → Kitchen shows where Kitchen & food is allowed (K-01).
+        modules_allowed: venue.rows.filter((r) => r.allowed).map((r) => r.module_id),
         permissions: actions.filter((a) => permissionFor(venue.overrides, m.role, a).allowed),
         training: venue.training,
       });

@@ -10,20 +10,24 @@ import {
   type ModuleId,
   type ModuleState,
   type ModuleStates,
+  type Clock,
 } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import type { Queryable } from "@west4/db";
 import { merchantCategoryPasses } from "../payments/go-live.js";
+import { kitchenNeeds, kitchenNeedsText, kitchenOrdersOpen } from "../kitchen/module.js";
 
 interface VenueParams {
   venueId: string;
 }
 
-/** Each module registers the check that refuses "off" while it has open work; empty until its tables land. */
+/** Each module registers the check that refuses "off" while it has open work, once its tables land. */
 export type OpenWorkCheck = (client: Queryable, venueId: string) => Promise<string | null>;
-export const openWorkChecks: Partial<Record<ModuleId, OpenWorkCheck>> = {};
+export const openWorkChecks: Partial<Record<ModuleId, OpenWorkCheck>> = {
+  kitchen: kitchenOrdersOpen,
+};
 
 /**
  * Modules and flags (spec 08 · Settings and modules; M1-13):
@@ -32,7 +36,10 @@ export const openWorkChecks: Partial<Record<ModuleId, OpenWorkCheck>> = {};
  *                                         others off answers the confirm first and applies nothing
  *   GET   /v1/venues/{v}/flags            the venue's beta and rollout switches
  */
-export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate }): void {
+export function modulesRoutes(
+  app: FastifyInstance,
+  options: { gate: ModuleGate; clock: Clock },
+): void {
   const read = route({
     principals: ["owner_manager", "staff", "shared_device"],
     module: "core",
@@ -49,7 +56,16 @@ export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate 
     "/v1/venues/:venueId/modules",
     { config: read },
     async (request) => {
-      const rows = await request.inVenue((c) => venueModules(c, request.venueId!));
+      const { rows, kitchen } = await request.inVenue(async (c) => {
+        const rows = await venueModules(c, request.venueId!);
+        // What Kitchen & food still needs, so Admin → Features can say it while the switch stays off.
+        const k = rows.find((r) => r.module_id === "kitchen");
+        const kitchen =
+          k && k.allowed && k.state === "off"
+            ? await kitchenNeeds(c, request.venueId!, options.clock)
+            : [];
+        return { rows, kitchen };
+      });
       const states = statesOf(rows);
       return {
         modules: rows.map((r) => {
@@ -63,6 +79,7 @@ export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate 
             needs: def.needs,
             hides: def.hides,
             turns_off_with_it: turnsOffWith(states, r.module_id),
+            ...(r.module_id === "kitchen" ? { still_needs: kitchen } : {}),
           };
         }),
       };
@@ -107,6 +124,14 @@ export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate 
             { details: { needs: missing } },
           );
         }
+        // Kitchen & food also needs a paired kitchen printer and the allergy notice (spec 16).
+        if (id === "kitchen") {
+          const needs = await kitchenNeeds(c, venueId, options.clock);
+          if (needs.length > 0)
+            throw new ApiError("invalid_request", kitchenNeedsText(needs), {
+              details: { reason: "kitchen_needs", missing: needs },
+            });
+        }
         await setModuleState(c, venueId, id, "on", updatedBy);
         await emitEvent(c, {
           venueId,
@@ -127,12 +152,17 @@ export function modulesRoutes(app: FastifyInstance, options: { gate: ModuleGate 
         }
       }
       if (dependents.length > 0 && request.body?.confirm !== true) {
+        const list = t("en", "modules.confirm.theseTurnOffWithIt").replace(
+          "{list}",
+          dependents.map((m) => t("en", `module.${m}.name`)).join(", "),
+        );
+        // The room-orders question, and the full list when more than Ordering from the room goes too
+        // (Kitchen & food needs Bar screen & tickets as well, K-01).
         const question = needsRoomOrdersConfirm(states, id)
-          ? t("en", "modules.confirm.roomOrdersNowhereToRing")
-          : t("en", "modules.confirm.theseTurnOffWithIt").replace(
-              "{list}",
-              dependents.map((m) => t("en", `module.${m}.name`)).join(", "),
-            );
+          ? dependents.length > 1
+            ? `${t("en", "modules.confirm.roomOrdersNowhereToRing")} ${list}`
+            : t("en", "modules.confirm.roomOrdersNowhereToRing")
+          : list;
         return { applied: false, needs_confirm: true as const, turns_off: dependents, question };
       }
       for (const m of [id, ...dependents]) await setModuleState(c, venueId, m, target, updatedBy);

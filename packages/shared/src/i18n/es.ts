@@ -3122,4 +3122,32 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "status.unreachable":
     "Ahora no podemos conectar con nuestro servicio. Los pedidos y los pagos pueden fallar; ya estamos en ello.",
   "status.retry": "Revisar de nuevo",
+  "module.kitchen.hides.staffApp":
+    "La comida en el TPV de la barra, Enviar a cocina, Estación en Admin → Menú, las comandas de cocina",
+  "module.kitchen.hides.staffPhone": "Entregas de comida",
+  "module.kitchen.hides.website":
+    "La comida en la página de la sala, las tabletas, la página del menú y el PDF del menú; el aviso de alergias",
+  "module.kitchen.hides.texts": "—",
+  "kitchen.needs": "Cocina · necesita {list}",
+  "kitchen.needs.printer": "una impresora de cocina",
+  "kitchen.needs.allergyNotice": "el aviso de alergias",
+  "kitchen.needs.and": " y ",
+  "kitchen.refused.ordersOpen":
+    "Cocina y comida no se puede apagar mientras un pedido de comida esté sonando, en espera o preparándose ({n} ahora).",
+  "admin.section.kitchen": "Cocina",
+  "admin.hint.kitchen": "Aviso de alergias, último pedido, recordatorio de No enviado",
+  "kitchen.admin.notice": "Aviso de alergias",
+  "kitchen.admin.notice.hint":
+    "Se muestra en cada menú mientras Cocina está encendida. Su texto lo confirma el abogado; nunca lo escribimos nosotros.",
+  "kitchen.admin.notice.notSet": "Aviso de alergias · sin definir · Admin → Cocina",
+  "kitchen.admin.notice.en": "En inglés",
+  "kitchen.admin.notice.es": "En español",
+  "kitchen.admin.notice.bothLanguages":
+    "Escribe el aviso en inglés y en español, o deja los dos vacíos.",
+  "kitchen.admin.lastOrder": "Último pedido",
+  "kitchen.admin.lastOrder.hint":
+    "Vacío: se puede pedir comida mientras los pedidos desde la sala estén abiertos.",
+  "kitchen.admin.unsentWarnMin": "Recordatorio de No enviado (minutos)",
+  "kitchen.admin.unsentWarnMin.hint":
+    "Cuánto puede quedar sin enviar la comida que marca el personal antes de mostrar el recordatorio: de 1 a 60 minutos.",
 };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ROOM_ORDERS_NOWHERE_TO_RING,
+  type KitchenMissing,
   type MessageKey,
   type ModuleId,
   type ModuleState,
@@ -28,6 +29,8 @@ interface ModuleRow {
   readonly phase1: boolean;
   readonly needs: readonly ModuleId[];
   readonly turns_off_with_it: readonly ModuleId[];
+  /** Kitchen & food only (K-01): what it still needs before it can be on. */
+  readonly still_needs?: readonly KitchenMissing[];
 }
 
 type PatchAnswer =
@@ -98,11 +101,24 @@ export function Features() {
     }
   };
 
-  const confirmQuestion = (p: Pending): string =>
-    p.id === ROOM_ORDERS_NOWHERE_TO_RING.turningOff &&
-    p.turnsOff.includes(ROOM_ORDERS_NOWHERE_TO_RING.whileOn)
-      ? t("modules.confirm.roomOrdersNowhereToRing")
-      : t("modules.confirm.theseTurnOffWithIt", { list: names(p.turnsOff) });
+  // The room-orders question, followed by the full list when more than Ordering from the room
+  // turns off with it (Kitchen & food needs Bar screen & tickets too, K-01).
+  const confirmQuestion = (p: Pending): string => {
+    const list = t("modules.confirm.theseTurnOffWithIt", { list: names(p.turnsOff) });
+    if (
+      p.id !== ROOM_ORDERS_NOWHERE_TO_RING.turningOff ||
+      !p.turnsOff.includes(ROOM_ORDERS_NOWHERE_TO_RING.whileOn)
+    )
+      return list;
+    const question = t("modules.confirm.roomOrdersNowhereToRing");
+    return p.turnsOff.length > 1 ? `${question} ${list}` : question;
+  };
+
+  // "Kitchen · needs a kitchen printer and the allergy notice", naming only what's missing.
+  const kitchenNeeds = (missing: readonly KitchenMissing[]): string =>
+    t("kitchen.needs", {
+      list: missing.map((m) => t(`kitchen.needs.${m}` as MessageKey)).join(t("kitchen.needs.and")),
+    });
 
   const names = (ids: readonly ModuleId[]): string =>
     ids.map((m) => t(`module.${m}.name` as MessageKey)).join(", ");
@@ -143,6 +159,11 @@ export function Features() {
                         {t("modules.needsLabel", { list: names(m.needs) })}
                       </p>
                     )}
+                    {m.allowed && m.state === "off" && (m.still_needs?.length ?? 0) > 0 && (
+                      <p className="notice small" role="status">
+                        {kitchenNeeds(m.still_needs!)}
+                      </p>
+                    )}
                   </div>
                   <div
                     className="module-state"
@@ -160,7 +181,11 @@ export function Features() {
                           type="button"
                           className="secondary"
                           aria-pressed={m.state === s}
-                          disabled={busy !== null || m.state === s}
+                          disabled={
+                            busy !== null ||
+                            m.state === s ||
+                            (s !== "off" && (m.still_needs?.length ?? 0) > 0)
+                          }
                           onClick={() => void change(m.id, s)}
                         >
                           {t(`modules.state.${s}` as MessageKey)}

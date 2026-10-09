@@ -26,6 +26,7 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `messages` | When the reminder and offer-expiring texts go out |
 | `safety` | The occupancy limit and when the board warns (empty at West 4, and never guessed) |
 | `languages` | The staff languages a venue offers: English and Spanish in phase 1 |
+| `kitchen` | Kitchen & food: the allergy notice in English and Spanish (empty keeps the module off), the kitchen's last order time (empty follows room ordering) and `unsentWarnMin`, how long staff-rung food may sit Not sent before the reminder (5 by default, 1 to 60). A venue that never saved it reads these defaults ([Kitchen and food](16-kitchen.md) · The Kitchen module) |
 
 The money and time shapes:
 
@@ -237,10 +238,11 @@ A new version needs two people on our side to approve it in the Console, is sign
 | --- | --- |
 | Online booking & deposits, Packages & specials, Song system control, Event sales | Rooms & room clock |
 | Ordering from the room | Rooms & room clock, and Bar screen & tickets |
+| Kitchen & food | Bar screen & tickets, and a paired kitchen printer and the allergy notice ([Kitchen and food](16-kitchen.md)) |
 | Bar mode | Bar tabs & quick sale |
 | Marketing texts | Guest texts |
 
-A module can be on only while what it needs is on. Turning one off that others need lists them ("These turn off with it: …") and turns them off too after a confirm. Turning off Bar screen & tickets while Ordering from the room is on asks: **"Room orders would have nowhere to ring. Turn off Ordering from the room too?"**
+A module can be on only while what it needs is on. Turning one off that others need lists them ("These turn off with it: …") and turns them off too after a confirm. Turning off Bar screen & tickets while Ordering from the room is on asks: **"Room orders would have nowhere to ring. Turn off Ordering from the room too?"**, followed by "These turn off with it: …" when Kitchen & food goes too.
 
 **What each module hides.** Admin → Features shows this table, and every screen reads it, so a module that's off disappears from staff menus, phone tabs, the website and texts at once. Guest links for existing bookings, waitlist spots, receipts and payments keep working whatever is off.
 
@@ -252,6 +254,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Ordering from the room | — (room orders stop arriving) | — | The menu, ordering and Same again on the room page and tablets | — |
 | Bar screen & tickets | Bar orders, the room-order cards on the bar POS, tickets | Runs | — | — |
 | Bar tabs & quick sale | New tab, bar tabs and Quick sale on the bar POS | Tips to enter | — | — |
+| Kitchen & food | Food on the bar POS, Send to kitchen, Station in Admin → Menu, kitchen tickets (Admin → Kitchen stays, where the Console allows the module) | Food runs | Food on the room page, the room tablets, the menu page and the menu PDF; the allergy notice | — |
 | Bar mode | Song queue (the KJ screen) and "Song queue · N" on the bar POS; the Up next TV | — | "Sing at the bar" and the singer's queue page | You're up next |
 | Packages & specials | Packages on the staff menus | — | Packages and happy-hour lines on the menu page and PDF | — |
 | Song system control | Admin → Song system (phase 1 runs every system as `none`) | — | — | — |

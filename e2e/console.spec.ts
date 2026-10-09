@@ -74,7 +74,10 @@ test("our staff sign in with a security key and read West 4's health, modules an
     const row = page.getByRole("row", { name: /^Bar screen & tickets / });
     await expect(row).toContainText("On");
     await expect(row).toContainText("Allowed");
-    await expect(page.getByRole("row", { name: /^Kitchen & food / })).toHaveCount(0);
+    // Kitchen & food is phase 1 (K-01): the Console can allow it, and West 4's plan doesn't.
+    await expect(page.getByRole("row", { name: /^Kitchen & food / })).toContainText("Off");
+    await expect(page.getByLabel("Kitchen & food allowed")).not.toBeChecked();
+    await expect(page.getByRole("row", { name: /^Event sales / })).toHaveCount(0);
     await expect(page.getByRole("row", { name: /^Payments & checks / })).toContainText("Always on");
     await expect(page.getByText("No flags set")).toBeVisible();
 

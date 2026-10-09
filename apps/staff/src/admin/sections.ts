@@ -1,4 +1,4 @@
-import type { Action, MessageKey } from "@west4/shared";
+import type { Action, MessageKey, ModuleId } from "@west4/shared";
 
 /**
  * The AdminDesk sections (M1-31; screens.md · AdminDesk; milestones.md ·
@@ -15,6 +15,8 @@ export interface AdminSection {
   /** The role action the section needs (owner-only sections carry their own). */
   readonly action: Action;
   readonly shipped: boolean;
+  /** Listed only where the Console allows this module, on or off (Admin → Kitchen, K-01). */
+  readonly module?: ModuleId;
 }
 
 export const adminSections: readonly AdminSection[] = [
@@ -163,6 +165,17 @@ export const adminSections: readonly AdminSection[] = [
     shipped: true,
   },
   {
+    // Kitchen & food (K-01): reachable while the module is off, because the allergy notice has to
+    // be set before the switch turns on; hidden where the plan has no kitchen.
+    id: "kitchen",
+    path: "/admin/kitchen",
+    labelKey: "admin.section.kitchen",
+    hintKey: "admin.hint.kitchen",
+    action: "admin.access",
+    shipped: true,
+    module: "kitchen",
+  },
+  {
     id: "deposits",
     path: "/admin/deposits",
     labelKey: "admin.section.deposits",
@@ -190,10 +203,13 @@ export const adminSections: readonly AdminSection[] = [
 
 export function visibleSections(
   permissions: readonly Action[],
-  options: { includeUnshipped?: boolean } = {},
+  options: { includeUnshipped?: boolean; allowedModules?: readonly ModuleId[] } = {},
   sections: readonly AdminSection[] = adminSections,
 ): AdminSection[] {
   return sections.filter(
-    (s) => (s.shipped || options.includeUnshipped === true) && permissions.includes(s.action),
+    (s) =>
+      (s.shipped || options.includeUnshipped === true) &&
+      permissions.includes(s.action) &&
+      (s.module === undefined || (options.allowedModules ?? []).includes(s.module)),
   );
 }

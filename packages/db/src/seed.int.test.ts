@@ -66,7 +66,7 @@ describe("the M1 part of the demo seed", () => {
       [first.venueId],
     );
     const by = Object.fromEntries(r.rows.map((row) => [row.key, row.value]));
-    expect(Object.keys(by)).toHaveLength(16);
+    expect(Object.keys(by)).toHaveLength(17); // kitchen: the spec default, West 4 has none
     expect((by["prices"]!["billing"] as { incrementMin: number }).incrementMin).toBe(1);
     expect(by["prices"]!["minSpend"]).toEqual([]);
     expect(by["tabs"]!["flagOverCents"]).toBe(60000);

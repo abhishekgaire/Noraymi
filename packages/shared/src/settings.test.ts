@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { parseSetting, settingsKeys, startsNextBusinessDate, withLaterPart } from "./settings.js";
+import {
+  KITCHEN_DEFAULTS,
+  parseSetting,
+  settingsKeys,
+  startsNextBusinessDate,
+  withLaterPart,
+} from "./settings.js";
 
 describe("settings schemas", () => {
-  it("has the sixteen keys spec 03 lists", () => {
+  it("has the seventeen keys spec 03 and spec 16 list", () => {
     expect([...settingsKeys].sort()).toEqual(
       [
         "alerts",
@@ -10,6 +16,7 @@ describe("settings schemas", () => {
         "deposit",
         "drawer",
         "hours",
+        "kitchen",
         "languages",
         "messages",
         "ordering",
@@ -61,6 +68,30 @@ describe("settings schemas", () => {
     const bad = parseSetting("pos", { ...pos, printBarDrinkTickets: "yes" });
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.reasons[0]).toMatch(/^pos\.printBarDrinkTickets/);
+  });
+
+  it("kitchen (K-01): unsentWarnMin defaults to 5 and refuses a value outside 1 to 60; the notice needs both languages", () => {
+    expect(KITCHEN_DEFAULTS).toEqual({ allergyNotice: null, lastOrder: null, unsentWarnMin: 5 });
+    expect(parseSetting("kitchen", KITCHEN_DEFAULTS).ok).toBe(true);
+    for (const ok of [1, 60])
+      expect(parseSetting("kitchen", { ...KITCHEN_DEFAULTS, unsentWarnMin: ok }).ok).toBe(true);
+    for (const bad of [0, 61, 2.5, -1]) {
+      const r = parseSetting("kitchen", { ...KITCHEN_DEFAULTS, unsentWarnMin: bad });
+      expect(r.ok, String(bad)).toBe(false);
+      if (!r.ok) expect(r.reasons[0]).toMatch(/^kitchen\.unsentWarnMin/);
+    }
+    expect(parseSetting("kitchen", { ...KITCHEN_DEFAULTS, lastOrder: "23:30" }).ok).toBe(true);
+    expect(parseSetting("kitchen", { ...KITCHEN_DEFAULTS, lastOrder: "11:30 PM" }).ok).toBe(false);
+    expect(
+      parseSetting("kitchen", { ...KITCHEN_DEFAULTS, allergyNotice: { en: "Notice", es: "Aviso" } })
+        .ok,
+    ).toBe(true);
+    expect(
+      parseSetting("kitchen", { ...KITCHEN_DEFAULTS, allergyNotice: { en: "Notice" } }).ok,
+    ).toBe(false);
+    expect(
+      parseSetting("kitchen", { ...KITCHEN_DEFAULTS, allergyNotice: { en: " ", es: "Aviso" } }).ok,
+    ).toBe(false);
   });
 
   it("only the drawer model, the tip-pool method and the bar POS layouts wait for the next business date", () => {

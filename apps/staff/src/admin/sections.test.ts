@@ -58,6 +58,18 @@ describe("the Admin sections", () => {
     expect(manager).not.toContain("team");
   });
 
+  it("lists Admin → Kitchen after Bar mode only where the Console allows Kitchen & food (K-01)", () => {
+    const west4 = visibleSections(permissionsOf("manager")).map((s) => s.id);
+    expect(west4).not.toContain("kitchen");
+    const singSing = visibleSections(permissionsOf("manager"), { allowedModules: ["kitchen"] }).map(
+      (s) => s.id,
+    );
+    expect(singSing.slice(singSing.indexOf("barMode"), singSing.indexOf("barMode") + 2)).toEqual([
+      "barMode",
+      "kitchen",
+    ]);
+  });
+
   it("shows a bartender or the front desk nothing: Admin isn't theirs", () => {
     for (const role of ["bartender", "front_desk", "staff"] as const) {
       expect(visibleSections(permissionsOf(role), { includeUnshipped: true })).toEqual([]);

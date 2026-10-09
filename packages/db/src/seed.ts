@@ -16,6 +16,7 @@ import {
   moduleDef,
   parseSetting,
   roles,
+  settingsDefaults,
   settingsKeys,
   type Action,
   type ModuleId,
@@ -600,6 +601,8 @@ export function mapSeedSettings(
   const tipScreen = (pay["tipScreen"] ?? {}) as Record<string, unknown>;
   const weekly = (hours["weekly"] ?? []) as { day: string; opens: string; closes: string }[];
   return {
+    // West 4 has no kitchen: absent, the key loads its spec default (no notice, 5 minutes).
+    kitchen: s["kitchen"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,
@@ -713,7 +716,8 @@ export function parsedSeedSettings(
   const reasons: string[] = [];
   const out: { key: SettingsKey; value: unknown }[] = [];
   for (const key of settingsKeys) {
-    const r = parseSetting(key, values[key]);
+    // A key the seed doesn't carry (kitchen: West 4 has none) loads its spec default.
+    const r = parseSetting(key, values[key] ?? settingsDefaults[key]);
     if (r.ok) out.push({ key, value: r.value });
     else reasons.push(...r.reasons);
   }
@@ -752,7 +756,7 @@ export interface SeedModuleRow {
   readonly state: "on" | "off";
 }
 
-/** One row per named module: on or off as the seed says, allowed for the phase 1 modules and not for the phase 2 ones. */
+/** One row per named module: on or off as the seed says, allowed for the phase 1 modules but Kitchen, and not for the phase 2 ones. */
 export function mapSeedModules(
   venue: Pick<SeedFile["venue"], "modules_on" | "modules_off">,
 ): SeedModuleRow[] {
@@ -763,7 +767,9 @@ export function mapSeedModules(
     const def = moduleDef(id);
     if (state === "on" && !def.phase1)
       throw new Error(`seed: ${name} is a phase 2 module and can't be on`);
-    rows.push({ moduleId: id, allowed: def.phase1, state });
+    // Kitchen & food comes with the Rooms + Kitchen plan, which the Console allows (K-01); West 4's
+    // plan has no kitchen.
+    rows.push({ moduleId: id, allowed: def.phase1 && id !== "kitchen", state });
   };
   for (const name of venue.modules_on) add(name, "on");
   for (const name of venue.modules_off) add(name, "off");

@@ -12,7 +12,13 @@ import {
 } from "@west4/db";
 import { businessDate, checkSetting, depositPolicyText, wallClock } from "@west4/rules";
 import { queueGooglePush } from "../google/profile.js";
-import { isSettingsKey, settingsSchemas, Temporal, type Clock } from "@west4/shared";
+import {
+  isSettingsKey,
+  settingsDefaults,
+  settingsSchemas,
+  Temporal,
+  type Clock,
+} from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 
@@ -68,6 +74,10 @@ export function settingsRoutes(
       return { key, versions };
     }
     const version = await request.inVenue((c) => readSetting(c, request.venueId!, key, date));
+    // A key with a spec default (kitchen) reads as version 0 until the venue saves its own.
+    const fallback = settingsDefaults[key];
+    if (!version && fallback !== undefined)
+      return { business_date: date.toString(), key, version: 0, value: fallback, startsOn: null };
     if (!version) throw new ApiError("not_found", `"${key}" isn't set yet for this venue`);
     return { business_date: date.toString(), ...version };
   });

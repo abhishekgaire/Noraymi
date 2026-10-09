@@ -272,6 +272,21 @@ export const safetySchema = z
   .strict();
 export const languagesSchema = z.object({ staff: z.array(z.enum(["en", "es"])).min(1) }).strict();
 
+const noticeText = z.string().trim().min(1).max(1000);
+/**
+ * Kitchen & food (spec 16 · The Kitchen module; K-01). `allergyNotice` is the notice on every menu,
+ * in both languages, and the module stays off while it's null: its words are the lawyer's, never
+ * ours. `lastOrder` is the kitchen's last order time on the wall clock; null means food follows room
+ * ordering (an open question). `unsentWarnMin` is how long staff-rung food may sit Not sent.
+ */
+export const kitchenSchema = z
+  .object({
+    allergyNotice: z.object({ en: noticeText, es: noticeText }).strict().nullable(),
+    lastOrder: time.nullable(),
+    unsentWarnMin: z.number().int().min(1).max(60),
+  })
+  .strict();
+
 export const settingsSchemas = {
   hours: hoursSchema,
   prices: pricesSchema,
@@ -289,6 +304,7 @@ export const settingsSchemas = {
   messages: messagesSchema,
   safety: safetySchema,
   languages: languagesSchema,
+  kitchen: kitchenSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -313,6 +329,17 @@ export type WebsiteSettings = z.infer<typeof websiteSchema>;
 export type MessageSettings = z.infer<typeof messagesSchema>;
 export type SafetySettings = z.infer<typeof safetySchema>;
 export type LanguageSettings = z.infer<typeof languagesSchema>;
+export type KitchenSettings = z.infer<typeof kitchenSchema>;
+
+/** The `kitchen` key until a venue saves one (spec 16): no notice, no last order, 5 minutes. */
+export const KITCHEN_DEFAULTS: KitchenSettings = {
+  allergyNotice: null,
+  lastOrder: null,
+  unsentWarnMin: 5,
+};
+
+/** Keys every venue reads with a default until it saves its own (a venue made before the key existed). */
+export const settingsDefaults: Partial<SettingsMap> = { kitchen: KITCHEN_DEFAULTS };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;
 export type SettingsMap = { [K in SettingsKey]: SettingsValue<K> };

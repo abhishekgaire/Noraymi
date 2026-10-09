@@ -2,6 +2,7 @@ import {
   isOfflineRead,
   type Action,
   type Locale,
+  type ModuleId,
   type ModuleStates,
   type Role,
 } from "@west4/shared";
@@ -200,6 +201,8 @@ export interface Membership {
     readonly day_cutover: string;
   };
   readonly modules: ModuleStates;
+  /** The modules the Console allows, on or off (K-01): Admin → Kitchen shows only where Kitchen is allowed. */
+  readonly modules_allowed?: readonly ModuleId[];
   readonly permissions: readonly Action[];
   /** Training mode (M7-03): the person or this device; the shell shows the band. */
   readonly training?: boolean;

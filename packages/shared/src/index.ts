@@ -45,6 +45,8 @@ export {
   parseSetting,
   startsNextBusinessDate,
   withLaterPart,
+  KITCHEN_DEFAULTS,
+  settingsDefaults,
 } from "./settings.js";
 export type {
   SettingsKey,
@@ -69,6 +71,7 @@ export type {
   MessageSettings,
   SafetySettings,
   LanguageSettings,
+  KitchenSettings,
 } from "./settings.js";
 export {
   modules,
@@ -80,7 +83,9 @@ export {
   missingNeeds,
   needsRoomOrdersConfirm,
   ROOM_ORDERS_NOWHERE_TO_RING,
+  kitchenMissing,
 } from "./modules.js";
+export type { KitchenMissing } from "./modules.js";
 export type { ModuleId, ModuleState, ModuleDef, ModuleEffects, ModuleStates } from "./modules.js";
 export {
   roles,

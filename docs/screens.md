@@ -663,6 +663,7 @@ Each entry names the screen it lives in, the milestone that ships it, the findin
 | [N37](#n37-admin--payments-disputes-and-unmatched-payments) | Admin → Payments, disputes and Unmatched payments | [AdminDesk](#admindesk), new sections; Unmatched payments opens from Close the night ([Night](#night)) | [M4] |
 | [N38](#n38-reports-and-exports) | Reports and exports | [Reports](#reports) and [DeskReports](#deskreports) | [M7] |
 | [N39](#n39-admin--console) | Admin → Console | [AdminDesk](#admindesk), a new section; managers don't see it | [M8] |
+| [N40](#n40-admin--kitchen) | Admin → Kitchen | [AdminDesk](#admindesk), a new section where the Console allows Kitchen & food | [K-01](backlog/K-kitchen.md) |
 
 ### Guest pages and states
 
@@ -1279,6 +1280,16 @@ Where the owner approves support access from our staff.
 - **Audit.** Every row records both identities.
 
 *Spec: [Tenancy and access][spec-02], [API][spec-08].*
+
+#### N40. Admin → Kitchen
+
+- **Becomes:** Staff app and Admin (React + Vite), passkey session, managers and the owner.
+- **Lives in:** [AdminDesk](#admindesk), a new section after Bar mode, listed only where the Console allows Kitchen & food (on or off, because the notice has to be set before the switch turns on).
+- **Ships in:** [K-01](backlog/K-kitchen.md).
+
+The `kitchen` settings key, through Save and publish: the allergy notice in English and Spanish ("Allergy notice · not set · Admin → Kitchen" while it's empty; both languages or neither), the last order time (empty: food follows room ordering) and the Not sent reminder in minutes (5 by default, 1 to 60). Admin → Features keeps Kitchen & food off and reads "Kitchen · needs a kitchen printer and the allergy notice", naming only what's missing, until both are there.
+
+*Spec: [Kitchen and food](spec/16-kitchen.md) · The Kitchen module.*
 
 ## Finding map
 

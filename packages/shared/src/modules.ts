@@ -237,7 +237,20 @@ export const modules: readonly ModuleDef[] = [
       texts: [],
     },
   },
-  { id: "kitchen", core: false, phase1: false, needs: [], hides: none },
+  {
+    // Kitchen & food (spec 16 · The Kitchen module; D98): phase 1 for Sing Sing. Guest food follows
+    // Ordering from the room, so the room page and tablets lose food with either switch off.
+    id: "kitchen",
+    core: false,
+    phase1: true,
+    needs: ["bar_screen"],
+    hides: {
+      staffApp: ["pos.food", "pos.sendToKitchen", "admin.menu.station", "kitchenTickets"],
+      staffPhone: ["runs.food"],
+      website: ["roomPage.food", "roomTablets.food", "menu.food", "menuPdf.food", "allergyNotice"],
+      texts: [],
+    },
+  },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },
   { id: "multi_location", core: false, phase1: false, needs: [], hides: none },
@@ -294,4 +307,17 @@ export function needsRoomOrdersConfirm(states: ModuleStates, id: ModuleId): bool
     id === ROOM_ORDERS_NOWHERE_TO_RING.turningOff &&
     stateOf(states, ROOM_ORDERS_NOWHERE_TO_RING.whileOn) !== "off"
   );
+}
+
+/** What Kitchen & food still needs before it can be on (spec 16 · The Kitchen module), besides its modules. */
+export type KitchenMissing = "printer" | "allergyNotice";
+
+export function kitchenMissing(ready: {
+  readonly kitchenPrinter: boolean;
+  readonly allergyNotice: boolean;
+}): KitchenMissing[] {
+  const out: KitchenMissing[] = [];
+  if (!ready.kitchenPrinter) out.push("printer");
+  if (!ready.allergyNotice) out.push("allergyNotice");
+  return out;
 }

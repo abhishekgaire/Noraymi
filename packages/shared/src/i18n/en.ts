@@ -3054,4 +3054,31 @@ export const en = {
   "status.unreachable":
     "We can't reach our service right now. Ordering and payments may be down; we're on it.",
   "status.retry": "Check again",
+  "module.kitchen.hides.staffApp":
+    "Food on the bar POS, Send to kitchen, Station in Admin → Menu, kitchen tickets",
+  "module.kitchen.hides.staffPhone": "Food runs",
+  "module.kitchen.hides.website":
+    "Food on the room page, the room tablets, the menu page and the menu PDF; the allergy notice",
+  "module.kitchen.hides.texts": "—",
+  "kitchen.needs": "Kitchen · needs {list}",
+  "kitchen.needs.printer": "a kitchen printer",
+  "kitchen.needs.allergyNotice": "the allergy notice",
+  "kitchen.needs.and": " and ",
+  "kitchen.refused.ordersOpen":
+    "Kitchen & food can't turn off while a food order is ringing, asked to wait or being made ({n} now).",
+  "admin.section.kitchen": "Kitchen",
+  "admin.hint.kitchen": "Allergy notice, last order, Not sent reminder",
+  "kitchen.admin.notice": "Allergy notice",
+  "kitchen.admin.notice.hint":
+    "Shown on every menu while Kitchen is on. Its words are the lawyer's to confirm; we never write them.",
+  "kitchen.admin.notice.notSet": "Allergy notice · not set · Admin → Kitchen",
+  "kitchen.admin.notice.en": "In English",
+  "kitchen.admin.notice.es": "In Spanish",
+  "kitchen.admin.notice.bothLanguages":
+    "Write the notice in English and Spanish, or leave both empty.",
+  "kitchen.admin.lastOrder": "Last order",
+  "kitchen.admin.lastOrder.hint": "Empty: food can be ordered whenever room ordering is open.",
+  "kitchen.admin.unsentWarnMin": "Not sent reminder (minutes)",
+  "kitchen.admin.unsentWarnMin.hint":
+    "How long food staff ring may sit Not sent before the reminder shows: 1 to 60 minutes.",
 } as const;

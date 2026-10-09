@@ -4,6 +4,7 @@ import {
   missingNeeds,
   moduleIds,
   modules,
+  kitchenMissing,
   needsRoomOrdersConfirm,
   stateOf,
   turnsOffWith,
@@ -41,7 +42,6 @@ describe("modules", () => {
     expect(stateOf({}, "payments")).toBe("on");
     expect(stateOf({}, "rooms")).toBe("off");
     expect(modules.filter((m) => !m.phase1).map((m) => m.id)).toEqual([
-      "kitchen",
       "event_sales",
       "guests_loyalty",
       "multi_location",
@@ -66,6 +66,7 @@ describe("modules", () => {
       song_system: ["rooms"],
       event_sales: ["rooms"],
       room_ordering: ["rooms", "bar_screen"],
+      kitchen: ["bar_screen"],
       bar_mode: ["bar_tabs"],
       marketing_texts: ["guest_texts"],
     });
@@ -97,6 +98,31 @@ describe("modules", () => {
       "calendar",
     ]);
     expect(modules.find((m) => m.id === "bar_mode")?.hides.texts).toEqual(["youre_up_next"]);
+  });
+
+  it("Kitchen & food (K-01) needs Bar screen & tickets, and turns off with it", () => {
+    const singSing: ModuleStates = { ...west4, kitchen: "on" };
+    expect(missingNeeds({ ...west4, bar_screen: "off" }, "kitchen")).toEqual(["bar_screen"]);
+    expect(missingNeeds(west4, "kitchen")).toEqual([]);
+    expect(turnsOffWith(singSing, "bar_screen")).toEqual(["room_ordering", "kitchen"]);
+    expect(turnsOffWith({ ...singSing, room_ordering: "off" }, "bar_screen")).toEqual(["kitchen"]);
+    // West 4 has no kitchen: nothing new turns off with Bar screen & tickets.
+    expect(turnsOffWith(west4, "bar_screen")).toEqual(["room_ordering"]);
+    // Nothing needs Ordering from the room's switch for food: no separate guest food switch.
+    expect(turnsOffWith(singSing, "room_ordering")).toEqual([]);
+    expect(turnsOffWith(singSing, "kitchen")).toEqual([]);
+  });
+
+  it("Kitchen & food stays off until a kitchen printer is paired and the allergy notice is set", () => {
+    expect(kitchenMissing({ kitchenPrinter: false, allergyNotice: false })).toEqual([
+      "printer",
+      "allergyNotice",
+    ]);
+    expect(kitchenMissing({ kitchenPrinter: true, allergyNotice: false })).toEqual([
+      "allergyNotice",
+    ]);
+    expect(kitchenMissing({ kitchenPrinter: true, allergyNotice: true })).toEqual([]);
+    expect(modules.find((m) => m.id === "kitchen")?.hides.website).toContain("allergyNotice");
   });
 
   it("Online booking & deposits' row (M5-14): Deposits & cancelling, Book, the hero and nav button, Payment link and Deposit refund", () => {

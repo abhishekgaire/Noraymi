@@ -47,6 +47,7 @@ import { eventsPlugin } from "./http/events.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { closuresRoutes } from "./routes/closures.js";
 import { modulesRoutes } from "./routes/modules.js";
+import { kitchenRoutes } from "./routes/kitchen.js";
 import { ModuleGate } from "./http/module-gate.js";
 import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
@@ -414,7 +415,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       });
       closuresRoutes(scope, { clock });
 
-      modulesRoutes(scope, { gate: gate! });
+      modulesRoutes(scope, { gate: gate!, clock });
+      kitchenRoutes(scope, { clock });
       permissionsRoutes(scope, { gate: permissions! });
       devicesRoutes(scope, { clock, micSigner: micSigner(config.auth.secretKey) });
       routerRoutes(scope, { clock });

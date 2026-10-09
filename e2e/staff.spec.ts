@@ -781,7 +781,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
  * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
  * and they come back on in order.
  */
-test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+test("Admin → Features: 13 on and 3 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
   page,
   request,
 }) => {
@@ -809,7 +809,7 @@ test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("13 on · 2 off")).toBeVisible();
+    await expect(page.getByText("13 on · 3 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -820,12 +820,12 @@ test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar scree
     await expect(
       stateGroup("Rooms & room clock").getByRole("button", { name: "On" }),
     ).toHaveAttribute("aria-pressed", "true");
-    for (const phase2 of [
-      "Kitchen & food",
-      "Event sales",
-      "Guests, loyalty & gift cards",
-      "Multiple locations",
-    ]) {
+    // Kitchen & food is phase 1 (K-01), but West 4's plan has no kitchen.
+    await expect(
+      stateGroup("Kitchen & food").getByText("Not in your plan", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Kitchen/ })).toHaveCount(0);
+    for (const phase2 of ["Event sales", "Guests, loyalty & gift cards", "Multiple locations"]) {
       await expect(page.getByText(phase2)).toHaveCount(0);
     }
     await expect(page.getByText("Always on")).toHaveCount(4);
@@ -851,16 +851,96 @@ test("Admin → Features: 13 on and 2 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("11 on · 4 off")).toBeVisible();
+    await expect(page.getByText("11 on · 5 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("13 on · 2 off")).toBeVisible();
+    await expect(page.getByText("13 on · 3 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
     );
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Kitchen (K-01): where the Console allows Kitchen & food, Features keeps it off and says
+ * what's missing; the allergy notice (a test one, never Sing Sing's words) saves through Save and
+ * publish in English and Spanish, after which only the kitchen printer is missing; 0 minutes is
+ * refused on screen. West 4's plan has no kitchen, so the test allows it and puts everything back.
+ */
+test("Admin → Kitchen: Features names what Kitchen needs, and the allergy notice saves in both languages", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const before = (
+    await db.query<{ v: number }>(
+      "select coalesce(max(version), 0)::int as v from venue_settings where key = 'kitchen'",
+    )
+  ).rows[0]!.v;
+  try {
+    await db.query("update venue_modules set allowed = true where module_id = 'kitchen'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/features");
+    await expect(
+      page.getByText("Kitchen · needs a kitchen printer and the allergy notice"),
+    ).toBeVisible();
+    const kitchen = page.getByRole("group", { name: "Kitchen & food · State" });
+    await expect(kitchen.getByRole("button", { name: "On" })).toBeDisabled();
+    await expect(kitchen.getByRole("button", { name: "Off" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await page.getByRole("link", { name: /^Kitchen/ }).click();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Kitchen");
+    await expect(page.getByText("Allergy notice · not set · Admin → Kitchen")).toBeVisible();
+    await expect(page.getByLabel("Not sent reminder (minutes)")).toHaveValue("5");
+    await page.getByLabel("Not sent reminder (minutes)").fill("0");
+    await expect(page.getByLabel("Not sent reminder (minutes)")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await page.getByLabel("Not sent reminder (minutes)").fill("8");
+    await page.getByLabel("Allergy notice · In English").fill("TEST ONLY · allergy notice");
+    await expect(
+      page.getByText("Write the notice in English and Spanish, or leave both empty."),
+    ).toBeVisible();
+    await page.getByLabel("Allergy notice · In Spanish").fill("SOLO PRUEBA · aviso de alergias");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const saved = (
+      await db.query<{ value: { allergyNotice: unknown; unsentWarnMin: number } }>(
+        "select value from venue_settings where key = 'kitchen' order by version desc limit 1",
+      )
+    ).rows[0]!.value;
+    expect(saved).toMatchObject({
+      allergyNotice: { en: "TEST ONLY · allergy notice", es: "SOLO PRUEBA · aviso de alergias" },
+      unsentWarnMin: 8,
+    });
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.goto("/admin/features");
+    await expect(
+      page.getByText("Kitchen · needs a kitchen printer", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await db.query("update venue_modules set allowed = false where module_id = 'kitchen'");
+    await db.query("delete from venue_settings where key = 'kitchen' and version > $1", [before]);
     await db.end();
   }
 });
