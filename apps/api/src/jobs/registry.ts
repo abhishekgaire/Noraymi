@@ -63,6 +63,9 @@ import {
   type SyntheticConfig,
 } from "../ops/synthetic.js";
 import { BOOKING_CONFIRMED_KIND, makeBookingConfirmedHandler } from "../bookings/confirm.js";
+import { GOOGLE_PUSH_KIND, makeGooglePushHandler } from "../google/profile.js";
+import { GoogleClient } from "../google/client.js";
+import { loadGoogleSettings } from "../google/settings.js";
 import {
   EVENTS_CLEANUP_KIND,
   eventsCleanupHandler,
@@ -104,6 +107,8 @@ export interface HandlerDeps {
   };
   /** The guest site, where a confirmation text's manage link opens (M5-10). */
   readonly guestAppUrl?: string | null;
+  /** Google Business Profile (M5-15): the client and the key the refresh tokens are sealed with. */
+  readonly google?: { readonly client: GoogleClient; readonly secretKey: Buffer };
   /** Guest texts from each venue's subaccount (M2-09). */
   readonly venueTexts?: {
     readonly client: VenueTextClient;
@@ -123,6 +128,7 @@ export function makeHandlers({
   stripe,
   synthetic,
   guestAppUrl,
+  google,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   const stripeEvents = stripe
     ? { [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client) }
@@ -157,6 +163,11 @@ export function makeHandlers({
       [PUSH_SEND_KIND]: makePushSendHandler(push),
       [SINGER_PUSH_KIND]: makeSingerPushHandler(push),
       [TEXT_SEND_KIND]: makeSendTextHandler(texts),
+      // The venue's hours to its Google Business Profile location (M5-15); without a client, nothing is sent.
+      [GOOGLE_PUSH_KIND]: makeGooglePushHandler(
+        google?.client ?? new GoogleClient({ ...loadGoogleSettings("local", {}), mode: "off" }),
+        google?.secretKey ?? Buffer.alloc(32),
+      ),
       ...(venueTexts
         ? {
             [MESSAGE_SEND_KIND]: makeSendMessageHandler(

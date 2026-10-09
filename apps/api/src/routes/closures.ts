@@ -14,6 +14,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { page, parseListQuery } from "../http/paging.js";
 import { venueCancels } from "../bookings/cancel.js";
+import { queueGooglePush } from "../google/profile.js";
 
 interface VenueParams {
   venueId: string;
@@ -113,6 +114,8 @@ export function closuresRoutes(app: FastifyInstance, options: { clock: Clock }):
             entityId: "closures",
             entityVersion: 0,
           });
+          // Google Business Profile (M5-15): the new closure goes to the location, when connected.
+          await queueGooglePush(c, request.venueId!, options.clock.now());
           if (!body.cancel_bookings) return row;
           const affected = await c.query<{ id: string; guest_name: string | null }>(
             `select b.id, g.name as guest_name from bookings b

@@ -3,15 +3,16 @@ import type { MessageKey } from "@west4/shared";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { GoogleProfile } from "./GoogleProfile.js";
 import { QuickBooksExport } from "./QuickBooksExport.js";
 
 /**
- * Admin → Connections (M4-01; screens AdminDesk note 21): Stripe, Twilio and
- * email, each with its status from `integrations`. No Yelp or Homebase items
- * until a partner program is chosen.
+ * Admin → Connections (M4-01; screens AdminDesk note 21): Stripe, Twilio,
+ * email and Google Business Profile (M5-15), each with its status from
+ * `integrations`. No Yelp or Homebase items until a partner program is chosen.
  */
 interface Connection {
-  readonly kind: "stripe" | "twilio" | "email";
+  readonly kind: "stripe" | "twilio" | "email" | "google";
   readonly status: string;
 }
 
@@ -19,6 +20,8 @@ export function Connections() {
   const { t } = useT();
   const { state } = useSession();
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
+  const timeZone =
+    state.status === "signedIn" ? state.membership.venue.time_zone : "America/New_York";
   const [rows, setRows] = useState<readonly Connection[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -51,6 +54,7 @@ export function Connections() {
           ))}
         </ul>
       )}
+      {venueId && <GoogleProfile venueId={venueId} timeZone={timeZone} />}
       {venueId && <QuickBooksExport venueId={venueId} />}
     </section>
   );

@@ -33,6 +33,8 @@ export const ERROR_STATUS = {
   rate_limited: 429,
   /** Stripe refused or couldn't be reached for something that isn't a payment (M4-01). */
   stripe_error: 502,
+  /** Google refused or couldn't be reached while connecting Business Profile (M5-15). */
+  google_error: 502,
   /** Our plan's payment failed over 14 days ago (M8-15): Admin is read-only until it's paid. */
   admin_read_only: 403,
   internal: 500,

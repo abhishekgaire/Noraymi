@@ -18,10 +18,10 @@ import { syncAccount } from "../stripe/account-sync.js";
  *   GET  /v1/venues/{v}/payments              the Stripe account: card payments, what Stripe still needs, the Dashboard link
  *   POST /v1/venues/{v}/payments/onboarding   Stripe's hosted onboarding link ("Connect with Stripe")
  *   GET  /v1/venues/{v}/payments/payouts      payouts as Stripe lists them, read-only (the reporting key)
- *   GET  /v1/venues/{v}/connections           Stripe, Twilio and email, each with its status
+ *   GET  /v1/venues/{v}/connections           Stripe, Twilio, email and Google (M5-15), each with its status
  * Payments is the owner's alone, in a passkey session; Connections is Admin's.
  */
-const KINDS = ["stripe", "twilio", "email"] as const;
+const KINDS = ["stripe", "twilio", "email", "google"] as const;
 
 /** The permission gate guards writes; Payments' reads are the owner's too (spec 02, as Team). */
 export function ownerOnly(request: FastifyRequest): string {

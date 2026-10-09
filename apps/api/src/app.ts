@@ -1,6 +1,9 @@
 import type { StripeClient } from "./stripe/client.js";
 import { stripeFromEnv } from "./stripe/client.js";
 import { paymentsAdminRoutes } from "./routes/payments-admin.js";
+import { googleProfileRoutes } from "./routes/google-profile.js";
+import { GoogleClient } from "./google/client.js";
+import { loadGoogleSettings } from "./google/settings.js";
 import { readerRoutes } from "./routes/readers.js";
 import { stripeHookRoutes } from "./routes/stripe-hooks.js";
 import { alarmHookRoutes, type AlarmHookOptions } from "./routes/alarm-hooks.js";
@@ -132,6 +135,8 @@ export interface AppOptions {
   readonly email?: Pick<EmailSettings, "allowList">;
   /** Stripe (M4-01). Defaults to the environment's keys, or the fake Stripe locally. */
   readonly stripe?: StripeClient;
+  /** Google Business Profile (M5-15). Defaults to the environment's client, or the fake Google locally. */
+  readonly google?: GoogleClient;
   /** The alarm hook's topic and signature checks (M8-17); tests pass their own. */
   readonly alarmHook?: Pick<AlarmHookOptions, "topicArn" | "getCert" | "confirm">;
 }
@@ -330,6 +335,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         texts: loadVenueTextSettings(config.env),
       });
       paymentsAdminRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
+      googleProfileRoutes(scope, {
+        clock,
+        google: options.google ?? new GoogleClient(loadGoogleSettings(config.env)),
+        secretKey: config.auth.secretKey,
+        staffAppUrl: config.staffAppUrl,
+      });
       planBillingRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
       readerRoutes(scope, { clock, stripe });
       stripeHookRoutes(scope, { pool: gatePoolRef!, clock, stripe });

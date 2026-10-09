@@ -3869,7 +3869,8 @@ test.describe("M3 scenarios", () => {
  * Admin → Payments (M4-01, N37), the owner's alone. With West 4's account
  * made (the ops command's job, done here against the fake Stripe), it reads
  * what Stripe still needs; Connect with Stripe opens Stripe's onboarding and
- * comes back with card payments on. Connections lists Stripe, Twilio and email.
+ * comes back with card payments on. Connections lists Stripe, Twilio and email,
+ * and connects Google Business Profile through the fake Google (M5-15).
  */
 test("Admin → Payments: Stripe needs more information, Connect with Stripe, then card payments are on", async ({
   page,
@@ -3915,6 +3916,25 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
     );
     await expect(page.getByRole("listitem", { name: "Twilio · texts" })).toBeVisible();
     await expect(page.getByRole("listitem", { name: "Email" })).toBeVisible();
+
+    // Google Business Profile (M5-15): not connected until Google's consent (the fake Google here)
+    // comes back with the venue's one location; then the hours are queued for it.
+    await expect(
+      page.getByRole("listitem", { name: "Google Business Profile · hours" }),
+    ).toContainText("Not connected");
+    await page.getByRole("button", { name: "Connect Google" }).click();
+    await expect(page.getByText("Location: West 4 Boho Karaoke (test location)")).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/connections$/);
+    await expect(page.getByRole("button", { name: "Send hours now" })).toBeVisible();
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int as n from jobs where kind = 'google.hours' and status in ('queued', 'running', 'done')",
+        )
+      ).rows[0]!.n,
+    ).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "Disconnect" }).click();
+    await expect(page.getByRole("button", { name: "Connect Google" })).toBeVisible();
   } finally {
     await db.end();
   }

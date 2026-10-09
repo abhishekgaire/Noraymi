@@ -1,3 +1,4 @@
+import { GOOGLE_PUSH_KIND } from "../google/profile.js";
 import { PLAN_ROOMS_KIND } from "../billing/plan.js";
 import { MENU_PDF_KIND } from "../jobs/menu-pdf.js";
 import type { FastifyInstance } from "fastify";
@@ -418,6 +419,10 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
   [PLAN_ROOMS_KIND]: {
     carries: "no venue-owned ids",
     why: "an empty payload: the job counts and sends only its own venue's rooms (plan-billing.int.test.ts)",
+  },
+  [GOOGLE_PUSH_KIND]: {
+    carries: "no venue-owned ids",
+    why: "an empty payload: the job reads and pushes only its own venue's hours and closures (google-profile.int.test.ts)",
   },
   [IDEMPOTENCY_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },
   [EVENTS_CLEANUP_KIND]: { carries: "no venue-owned ids", why: "a platform sweep by age" },

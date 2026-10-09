@@ -15,6 +15,8 @@ import { loadEmailSettings } from "./email/settings.js";
 import { loadPushSettings } from "./push/settings.js";
 import { WebPushSender } from "./push/sender.js";
 import { loadTextSettings } from "./texts/settings.js";
+import { GoogleClient } from "./google/client.js";
+import { loadGoogleSettings } from "./google/settings.js";
 import { LogTextSender, TwilioTextSender } from "./texts/sender.js";
 import { FakeVenueClient, TwilioVenueClient, loadVenueTextSettings } from "./texts/venue.js";
 
@@ -61,6 +63,11 @@ const handlers = tracedHandlers(
       secretKey: config.auth.secretKey,
     },
     guestAppUrl: config.guestAppUrl,
+    // Google Business Profile (M5-15): the environment's client, or the fake Google locally.
+    google: {
+      client: new GoogleClient(loadGoogleSettings(config.env)),
+      secretKey: config.auth.secretKey,
+    },
     s3: makeS3(),
     // The ID-scan key store (M8-14), sealed with the server key.
     idKeys: idKeyStore(config.auth.secretKey),

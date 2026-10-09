@@ -10,7 +10,8 @@ import {
   settingHistory,
   SettingsRefused,
 } from "@west4/db";
-import { businessDate, checkSetting, depositPolicyText } from "@west4/rules";
+import { businessDate, checkSetting, depositPolicyText, wallClock } from "@west4/rules";
+import { queueGooglePush } from "../google/profile.js";
 import { isSettingsKey, settingsSchemas, Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -129,6 +130,20 @@ export function settingsRoutes(
           "tabs" in values
             ? (await tabConsent(c, request.venueId!, options.clock.now())).version
             : undefined;
+        // Google Business Profile (M5-15): new hours go to the location now, and again on the
+        // business date a later version starts. Nothing is queued while Google isn't connected.
+        for (const s of saved.filter((x) => x.key === "hours"))
+          await queueGooglePush(
+            c,
+            request.venueId!,
+            options.clock.now(),
+            wallClock(
+              Temporal.PlainDate.from(s.startsOn),
+              venue.day_cutover,
+              venue.time_zone,
+              venue.day_cutover,
+            ),
+          );
         return { saved, policy, consent };
       });
       // A new pay.tipScreen goes to the readers' Terminal Configuration (M4-02), after the commit.

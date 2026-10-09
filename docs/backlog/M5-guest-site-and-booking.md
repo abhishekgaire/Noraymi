@@ -398,7 +398,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-15 · Push hours to Google Business Profile
 
-- **Status:** todo
+- **Status:** blocked
 - **Size:** M
 - **Depends on:** M1 (`hours`, `closures`, `integrations`); M4-01 (Admin → Connections)
 - **Spec:** [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`hours`); [milestones: Admin by milestone](../milestones.md#admin-by-milestone) (Connections)
@@ -407,11 +407,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - A job pushes the weekly hours and every `closures` row (special and closed dates) to the location on every change (`settings.changed` for `hours`, and each closures write), with retries and the last push's status shown in Admin.
   - Nothing pushes while the connection is off.
 - **Acceptance:**
-  - [ ] With a test location connected, changing Friday's hours updates the location's regular hours, and adding a closed date adds a special-hours entry.
-  - [ ] A failed push shows in Admin → Connections and retries.
-  - [ ] Before connecting, Admin shows Google as not connected and no job runs.
+  - [ ] With a test location connected, changing Friday's hours updates the location's regular hours, and adding a closed date adds a special-hours entry. Passes against the fake Google (the recorded contract); waits on Google granting Business Profile API access and an OAuth client to run against a real test location, then West 4's own profile.
+  - [x] A failed push shows in Admin → Connections and retries.
+  - [x] Before connecting, Admin shows Google as not connected and no job runs.
 - **Tests:** integration against Google's Business Profile API with a test location, or a recorded contract test while API access is pending.
 - **Notes:** Google grants Business Profile API access on request, an outside wait to start now. Only Google's published API is used.
+  - **Built (M5-15):** no migration: the `integrations` row (kind google) already had status, external_id and config. `apps/api/src/google/`: `settings.ts` (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from the environment only; unset, locally every call goes to the fake Google, elsewhere Google is off and Admin says it isn't set up), `client.ts` (Google's OAuth with the `business.manage` scope and offline access, the Account Management API's accounts, the Business Information API's locations, and a PATCH of `regularHours,specialHours`), `fake.ts` and `fake-main.ts` (`pnpm --filter @west4/api google:fake` on 12112; the smoke tests start it), `profile.ts` (the row, the signed OAuth state, `queueGooglePush` and the `google.hours` job). `packages/rules/src/google-hours.ts` turns `hours.weekly` and the closures from today on into Google's shapes (a 4 AM close lands on the next day; a special date missing its opening or close takes it from that weekday, or is sent closed).
+  - Routes (Admin, passkey, `admin.access`): `GET /connections/google`, `POST …/connect` (Google's consent link), `POST …/callback` (`{ code, state }`: Google sends the browser back to Admin → Connections, which posts it in the person's own session; the state is signed for this venue and person and lasts 15 minutes), `GET …/locations`, `PUT …/location`, `POST …/push` (Send hours now), `POST …/disconnect`. One location connects at once; several, Admin picks one. `GET /connections` now lists Google too.
+  - The push: queued in the same transaction as an `hours` save (again at the cutover of a later start date) or a new closure, only while the row is connected. The job reads in one short step, calls Google outside any transaction, and records `last_push` (ok or failed with Google's own message) in the row's config; a failure is thrown so the worker retries it (8 attempts, backoff). Google's API takes no idempotency key, so the job sends the whole schedule every time: a repeat leaves the same result. The refresh token is stored encrypted with the server key, never logged. With no hours set, nothing is sent (no hours are made up).
+  - Admin → Connections: a Google Business Profile card (Connect Google, the location, "Hours sent to Google …" or the failure and "trying again", Send hours now, Disconnect), English and Spanish.
+  - Tests: `apps/api/src/routes/google-profile.int.test.ts` (against the fake: not connected and no job before connecting; a forged state refused; connect through consent; the push of Friday 4 PM–4 AM; Friday changed to 6 PM; a closed date as special hours; a 503 shown then retried to ok; venue B untouched; nothing after disconnecting); `packages/rules/src/google-hours.test.ts`; the wall suite's case for `google.hours`; `e2e/staff.spec.ts` (Admin → Payments test: Connect Google through the fake, then Disconnect).
+  - **Waiting on the founder:** Google's Business Profile API access for our Google Cloud project, an OAuth client (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in staging's secrets) with `<staff app>/admin/connections` as a redirect URI, and the owner signing in with the Google account that manages West 4's listing. Then the first Acceptance line runs against a test location and West 4's profile. West 4's hours pushed are whatever Admin → Hours holds.
+  - **Not here:** deleting a closure (no route deletes one yet; a future delete must call `queueGooglePush`), revoking the token at Google on Disconnect (we drop it), and pushing the house last call (Google has no field for it).
 
 ### M5-16 · Check accessibility: WCAG 2.2 AA in CI and a screen-reader pass
 

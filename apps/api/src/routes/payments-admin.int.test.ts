@@ -190,13 +190,14 @@ describe("West 4's Stripe account", () => {
     who = user(v.ownerA, v.venueA, "owner");
   });
 
-  it("Connections lists Stripe, Twilio and email with their status", async () => {
+  it("Connections lists Stripe, Twilio, email and Google with their status", async () => {
     who = user(v.ownerA, v.venueA, "manager");
     const r = await app.inject({ method: "GET", url: `/v1/venues/${v.venueA}/connections` });
     expect(r.json().connections).toEqual([
       { kind: "stripe", status: "pending", connected_at: expect.any(String) },
       { kind: "twilio", status: "not_connected", connected_at: null },
       { kind: "email", status: "not_connected", connected_at: null },
+      { kind: "google", status: "not_connected", connected_at: null },
     ]);
     who = user(v.ownerA, v.venueA, "owner");
   });

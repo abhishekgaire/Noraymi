@@ -32,6 +32,13 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      // The fake Google (M5-15): no Google client loads in the smoke tests, so Business Profile calls go here.
+      command: "pnpm --filter @west4/api google:fake",
+      url: "http://127.0.0.1:12112/fake/health",
+      reuseExistingServer: !ci,
+      timeout: 60_000,
+    },
+    {
       // dev:test never reads .env, so the smoke tests can't pick up real credentials.
       command: "pnpm --filter @west4/api dev:test",
       // The simulated clock (server_time 10:41 PM after a seed load) needs the staging switch and the database.
