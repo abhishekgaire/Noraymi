@@ -3408,6 +3408,75 @@ test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3",
 });
 
 /**
+ * A kitchen ticket that didn't print (K-03): the board reads "Room 1 · Kitchen ticket didn't print"
+ * with the kitchen printer and Print at the bar instead; the bar copy is REPRINT 2 on the bar's
+ * station, and when it fails too, the kitchen printer makes REPRINT 3 back in the kitchen. The
+ * ticket is a TEST one written straight to print_jobs; nothing is added to any check.
+ */
+test("Kitchen ticket didn't print: Print at the bar instead makes REPRINT 2, the kitchen printer REPRINT 3", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  let first = "";
+  try {
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    first = (
+      await db.query<{ id: string }>(
+        `insert into print_jobs (venue_id, kind, station, payload, status, created_at, failed_at, failure)
+         select id, 'ticket', 'kitchen',
+                '{"kitchen": true, "room": "Room 1", "lines": [{"qty": 1, "name": "TEST wings", "options": []}]}',
+                'failed', '2026-09-25T22:40:00-04:00', '2026-09-25T22:41:00-04:00', 'not confirmed after three polls'
+           from venues where slug = 'west4karaoke' returning id`,
+      )
+    ).rows[0]!.id;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await showAllAlerts(page);
+    const alert = page.locator(".alert", { hasText: "Room 1 · Kitchen ticket didn't print" });
+    await expect(alert).toBeVisible();
+    await expect(alert.getByRole("button", { name: "Kitchen printer" })).toBeVisible();
+    await alert.getByRole("button", { name: "Print at the bar instead" }).click();
+    await expect(alert).toHaveCount(0);
+    const reprints = async () =>
+      (
+        await db.query<{ n: number; station: string }>(
+          "select reprint_n as n, station from print_jobs where reprint_of = $1 order by reprint_n",
+          [first],
+        )
+      ).rows;
+    expect(await reprints()).toEqual([{ n: 2, station: "bar" }]);
+
+    await db.query(
+      "update print_jobs set status = 'failed', failed_at = '2026-09-25T22:41:30-04:00' where reprint_of = $1",
+      [first],
+    );
+    await page.reload();
+    await showAllAlerts(page);
+    await expect(alert).toBeVisible();
+    await alert.getByRole("button", { name: "Kitchen printer" }).click();
+    await expect(alert).toHaveCount(0);
+    expect(await reprints()).toEqual([
+      { n: 2, station: "bar" },
+      { n: 3, station: "kitchen" },
+    ]);
+  } finally {
+    if (first) await db.query("delete from print_jobs where id = $1 or reprint_of = $1", [first]);
+    await db.end();
+  }
+});
+
+/**
  * The bar orders screen (M3-15) on the bar computer, from the seed at 10:41
  * PM, at 900 × 640 and 1280 × 800: o1 and o2 ringing under Waiting for you
  * (o2 amber), o3 and o4 ready for a runner with o4's ID line; Maya's Accept on

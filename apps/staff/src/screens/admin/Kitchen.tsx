@@ -139,6 +139,15 @@ export function Kitchen() {
               {t("kitchen.admin.unsentWarnMin.hint")}
             </span>
           </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={current.afterOutage !== false}
+              onChange={(e) => draft.set("kitchen", { ...current, afterOutage: e.target.checked })}
+            />
+            <span>{t("kitchen.admin.afterOutage")}</span>
+            <span className="small muted">{t("kitchen.admin.afterOutage.hint")}</span>
+          </label>
         </div>
       )}
     </section>

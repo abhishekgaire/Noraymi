@@ -3081,6 +3081,16 @@ export const en = {
   "kitchen.admin.unsentWarnMin": "Not sent reminder (minutes)",
   "kitchen.admin.unsentWarnMin.hint":
     "How long food staff ring may sit Not sent before the reminder shows: 1 to 60 minutes.",
+  "kitchen.admin.afterOutage": "Print AFTER OUTAGE on replayed food",
+  "kitchen.admin.afterOutage.hint":
+    "Food taken offline prints with “AFTER OUTAGE · check with the kitchen before making”, in case staff handed the kitchen a written order.",
+  "kitchen.ticket.failed": "Kitchen ticket didn't print",
+  "kitchen.ticket.failedRoom": "{room} · Kitchen ticket didn't print",
+  "kitchen.reprint.kitchen": "Kitchen printer",
+  "kitchen.reprint.bar": "Print at the bar instead",
+  "kitchen.reprint.title": "Reprint the kitchen ticket",
+  "kitchen.push.ticketFailed": "{room} · Kitchen ticket didn't print · Reprint",
+  "ticket.failed.title": "Tickets that didn't print",
   "kitchen.refused.stationOff":
     "Kitchen & food is off: turn it on in Admin → Features before an item can go to the kitchen.",
   "menuAdmin.col.station": "Station",

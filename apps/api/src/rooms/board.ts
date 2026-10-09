@@ -409,6 +409,7 @@ async function boardAlerts(
       since: j.failed_at,
       job_id: j.id,
       room_name: j.room_name,
+      kitchen: j.kitchen,
       reprint_n: j.reprint_n,
     });
   // Ten wrong room codes rotated a room's code (M3-08): amber for half an hour.

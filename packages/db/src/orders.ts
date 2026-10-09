@@ -20,6 +20,9 @@ export interface OrderItemRow {
   readonly tax_category: string;
   readonly station: string;
   readonly notes: string | null;
+  /** A food line's note for the kitchen (K-03, K-04): on the kitchen ticket only, boxed when it's an allergy. */
+  readonly kitchen_note: string | null;
+  readonly kitchen_note_allergy: boolean;
 }
 
 export interface OrderRow {
@@ -159,7 +162,8 @@ async function withItems(
 ): Promise<OrderRow[]> {
   if (rows.length === 0) return [];
   const items = await c.query<OrderItemRow & { order_id: string }>(
-    `select id, order_id, variant_id, item_id, options, qty, unit_cents, name_snapshot, alcohol, tax_category, station, notes
+    `select id, order_id, variant_id, item_id, options, qty, unit_cents, name_snapshot, alcohol, tax_category, station, notes,
+            kitchen_note, kitchen_note_allergy
        from order_items where venue_id = $1 and order_id = any($2::uuid[]) order by sort, id`,
     [venueId, rows.map((r) => r.id)],
   );
@@ -247,6 +251,9 @@ export interface NewOrder {
     readonly taxCategory: string;
     readonly station: string;
     readonly notes?: string | null;
+    /** A food line's note for the kitchen, and whether it's an allergy (K-03, K-04). */
+    readonly kitchenNote?: string | null;
+    readonly kitchenNoteAllergy?: boolean;
   }[];
 }
 
@@ -279,8 +286,8 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
   for (const [n, item] of o.items.entries()) {
     await c.query(
       `insert into order_items (id, venue_id, order_id, variant_id, item_id, options, qty, unit_cents,
-         name_snapshot, alcohol, tax_category, station, notes, sort)
-       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+         name_snapshot, alcohol, tax_category, station, notes, sort, kitchen_note, kitchen_note_allergy)
+       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
       [
         item.id ?? null,
         venueId,
@@ -296,6 +303,8 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
         item.station,
         item.notes ?? null,
         n,
+        item.kitchenNote?.trim() ? item.kitchenNote.trim() : null,
+        Boolean(item.kitchenNote?.trim()) && item.kitchenNoteAllergy === true,
       ],
     );
   }

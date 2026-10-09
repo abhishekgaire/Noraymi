@@ -938,3 +938,20 @@
   background: var(--w4-bg-row);
   border-color: var(--w4-line-2);
 }
+/* Tickets that didn't print, above the bar POS's room orders (K-03). */
+.rail .rail-tickets {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.rail .rail-tickets .ticket-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--w4-pink);
+}
+.ticket-failed button {
+  min-height: 44px;
+}

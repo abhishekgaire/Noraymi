@@ -3150,6 +3150,16 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.admin.unsentWarnMin": "Recordatorio de No enviado (minutos)",
   "kitchen.admin.unsentWarnMin.hint":
     "Cuánto puede quedar sin enviar la comida que marca el personal antes de mostrar el recordatorio: de 1 a 60 minutos.",
+  "kitchen.admin.afterOutage": "Imprimir AFTER OUTAGE en la comida reenviada",
+  "kitchen.admin.afterOutage.hint":
+    "La comida tomada sin conexión se imprime con “AFTER OUTAGE · check with the kitchen before making”, por si el personal le dio a la cocina un pedido escrito.",
+  "kitchen.ticket.failed": "El ticket de cocina no se imprimió",
+  "kitchen.ticket.failedRoom": "{room} · El ticket de cocina no se imprimió",
+  "kitchen.reprint.kitchen": "Impresora de cocina",
+  "kitchen.reprint.bar": "Imprimir en la barra",
+  "kitchen.reprint.title": "Reimprimir el ticket de cocina",
+  "kitchen.push.ticketFailed": "{room} · El ticket de cocina no se imprimió · Reimprimir",
+  "ticket.failed.title": "Tickets que no se imprimieron",
   "kitchen.refused.stationOff":
     "Cocina y comida está apagada: enciéndela en Admin → Funciones antes de mandar un artículo a la cocina.",
   "menuAdmin.col.station": "Estación",

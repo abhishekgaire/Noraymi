@@ -9,6 +9,7 @@ import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { ReplayedOrders } from "./ReplayedOrders.js";
+import { FailedTicket, type FailedJob, type ReprintAt } from "./FailedTicket.js";
 import { muteChime, useChimeMute } from "../chime.js";
 import { agingFromWire, agingSentence, agingTone, WEST4_AGING, type Aging } from "../aging.js";
 import "./bar.css";
@@ -77,7 +78,7 @@ export function BarOrders() {
   const cutover = signedIn?.membership.venue.day_cutover ?? "06:00";
   const [orders, setOrders] = useState<readonly Order[] | null>(null);
   const [aging, setAging] = useState<Aging>(WEST4_AGING);
-  const [failedJobs, setFailedJobs] = useState<ReadonlySet<string>>(new Set());
+  const [failedJobs, setFailedJobs] = useState<ReadonlyMap<string, FailedJob>>(new Map());
   const [items, setItems] = useState<readonly MenuItem[]>([]);
   // After the alcohol window closes there's no Decline: alcohol nobody accepted cancels itself (M3-22).
   const [windowClosed, setWindowClosed] = useState(false);
@@ -97,7 +98,7 @@ export function BarOrders() {
           "GET",
           `/v1/venues/${venueId}/orders?status=${ALL}${night ? `&business_date=${night}` : ""}`,
         ),
-        api<{ jobs: { id: string }[] }>("GET", `/v1/venues/${venueId}/print-jobs?status=failed`),
+        api<{ jobs: FailedJob[] }>("GET", `/v1/venues/${venueId}/print-jobs?status=failed`),
         api<{ categories: { items: MenuItem[] }[]; alcohol: { state: string } }>(
           "GET",
           `/v1/venues/${venueId}/menu`,
@@ -105,7 +106,7 @@ export function BarOrders() {
       ]);
       setOrders(o.orders);
       setAging(o.aging);
-      setFailedJobs(new Set(f.jobs.map((j) => j.id)));
+      setFailedJobs(new Map(f.jobs.map((j) => [j.id, j])));
       setItems(m.categories.flatMap((c) => c.items));
       setWindowClosed(m.alcohol.state === "closed");
       setFailed(false);
@@ -163,10 +164,10 @@ export function BarOrders() {
       await load();
     }
   };
-  const reprint = async (jobId: string) => {
+  const reprint = async (jobId: string, at: ReprintAt = "own") => {
     setError(null);
     try {
-      await api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`);
+      await api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`, { at });
       await load();
     } catch (e) {
       setError((e as ApiCallError)?.message ?? t("barOrders.failed"));
@@ -206,19 +207,8 @@ export function BarOrders() {
         ? t("ids.chip", { checked: o.ids_checked, party: o.party_size })
         : `${t("ids.chip", { checked: o.ids_checked, party: o.party_size })} · ${t("barOrders.runnerChecks")}`;
   const ticketLine = (o: Order) => {
-    if (o.ticket_job_id && failedJobs.has(o.ticket_job_id))
-      return (
-        <p className="ticket-failed">
-          {t("barOrders.ticket.failed")}{" "}
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => void reprint(o.ticket_job_id!)}
-          >
-            {t("alert.reprint")}
-          </button>
-        </p>
-      );
+    const job = o.ticket_job_id ? failedJobs.get(o.ticket_job_id) : undefined;
+    if (job) return <FailedTicket job={job} onReprint={(id, at) => void reprint(id, at)} />;
     return null;
   };
   const card = (o: Order, body: ReactNode, tone = "") => (

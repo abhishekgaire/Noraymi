@@ -96,8 +96,9 @@ async function ticket(
     )
   ).rows[0];
   // Drinks rung on a bar tab or a quick sale print only while the venue asks for it (M6-29, D99);
-  // room orders always do. A remake always prints: it's a room order sent back.
-  if (!remake) {
+  // room orders always do. A remake always prints: it's a room order sent back. Food always prints
+  // in the kitchen (K-03; Kitchen and food · Drinks don't change with food).
+  if (!remake && order.station !== "kitchen") {
     const night = await nightOfNow(c, venueId, now);
     const pos = await readSetting(c, venueId, "pos", Temporal.PlainDate.from(night));
     const prints = printsBarTicket({
@@ -121,6 +122,22 @@ async function ticket(
       ids = { checked: counts.get(order.session_id) ?? 0, party: party.rows[0].party_size };
   }
   for (const station of stations) {
+    if (station === "kitchen") {
+      const night = await nightOfNow(c, venueId, now);
+      const kitchen = await readSetting(c, venueId, "kitchen", Temporal.PlainDate.from(night));
+      await insertPrintJob(c, venueId, {
+        orderId: order.id,
+        kind: "ticket",
+        station,
+        createdAt: now.toString(),
+        payload: kitchenPayload(order, {
+          remake,
+          training: training === true,
+          afterOutage: kitchen?.value.afterOutage !== false,
+        }),
+      });
+      continue;
+    }
     await insertPrintJob(c, venueId, {
       orderId: order.id,
       kind: "ticket",
@@ -147,6 +164,39 @@ async function ticket(
       },
     });
   }
+}
+
+/**
+ * The kitchen ticket's content (K-03; Kitchen and food · Kitchen tickets): the room or the tab, who
+ * accepted it and when, each line with its options and its note for the kitchen (an allergy boxed),
+ * no prices and no ID line. A replayed offline order prints AFTER OUTAGE while `kitchen.afterOutage`
+ * is on (the cautious default, on), because staff may have handed the kitchen a written order.
+ */
+export function kitchenPayload(
+  order: OrderRow,
+  opts: { remake: boolean; training: boolean; afterOutage: boolean },
+) {
+  const replayed = order.source === "offline" || order.queued_by !== null;
+  return {
+    kitchen: true,
+    order_id: order.id,
+    room: order.room_name ?? (order.tab_name ? `Bar · ${order.tab_name}` : null),
+    remake: opts.remake,
+    accepted_by: order.accepted_by_name,
+    accepted_at: order.accepted_at,
+    ...(replayed && opts.afterOutage ? { after_outage: true } : {}),
+    ...(opts.training ? { training: true } : {}),
+    lines: order.items
+      .filter((i) => i.station === "kitchen")
+      .map((i) => ({
+        qty: i.qty,
+        name: i.name_snapshot,
+        options: i.options.map((o) => o.name),
+        notes: i.notes,
+        kitchen_note: i.kitchen_note,
+        allergy: i.kitchen_note_allergy,
+      })),
+  };
 }
 
 async function announce(c: Queryable, venueId: string, order: OrderRow, type: string) {

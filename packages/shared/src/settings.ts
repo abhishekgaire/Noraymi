@@ -284,6 +284,11 @@ export const kitchenSchema = z
     allergyNotice: z.object({ en: noticeText, es: noticeText }).strict().nullable(),
     lastOrder: time.nullable(),
     unsentWarnMin: z.number().int().min(1).max(60),
+    /**
+     * Whether a replayed food order's kitchen ticket prints "AFTER OUTAGE · check with the kitchen
+     * before making" (K-03). An open question for the founder; absent reads as on, the cautious default.
+     */
+    afterOutage: z.boolean().optional(),
   })
   .strict();
 

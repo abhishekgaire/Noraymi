@@ -73,7 +73,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-03 · Print kitchen tickets, with failures, reprints at the bar and AFTER OUTAGE
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K-02; M3-13 (network printers), M8 (offline replay)
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Kitchen tickets; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Tickets and Outages
@@ -83,13 +83,19 @@ Definition of done: see CLAUDE.md.
   - A failed kitchen job shows "Kitchen ticket didn't print · Reprint" on the bar screens and pushes to the manager on duty; Reprint offers the kitchen printer or Print at the bar instead, numbering REPRINT 2, 3 and so on.
   - Accepting a replayed food order prints "AFTER OUTAGE · check with the kitchen before making".
 - **Acceptance:**
-  - [ ] Accepting a mixed basket prints one bar ticket and one kitchen ticket on the fake printers, and the kitchen ticket shows each line's note, an allergy note boxed and bold, and no prices.
-  - [ ] A kitchen job unconfirmed after three polls raises `print_job.failed`, shows on the bar POS and bar orders screen, and reaches the manager's phone.
-  - [ ] Print at the bar instead prints the same ticket on the bar printer as REPRINT 2.
-  - [ ] Reprint prints a copy stamped REPRINT with its count, and adds nothing to the check and marks nothing sent again.
-  - [ ] A replayed food order prints with AFTER OUTAGE.
+  - [x] Accepting a mixed basket prints one bar ticket and one kitchen ticket on the fake printers, and the kitchen ticket shows each line's note, an allergy note boxed and bold, and no prices.
+  - [x] A kitchen job unconfirmed after three polls raises `print_job.failed`, shows on the bar POS and bar orders screen, and reaches the manager's phone.
+  - [x] Print at the bar instead prints the same ticket on the bar printer as REPRINT 2.
+  - [x] Reprint prints a copy stamped REPRINT with its count, and adds nothing to the check and marks nothing sent again.
+  - [x] A replayed food order prints with AFTER OUTAGE.
 - **Tests:** integration tests with the fake CloudPRNT printer; an end-to-end test of the failure and reprint; English and Spanish strings.
-- **Notes:** The printer model is an open question; build against the fake printer.
+- **Notes:** The printer model is an open question; built against the fake CloudPRNT printer.
+  - Accept on a kitchen order prints a kitchen job (`kitchenPayload` in `apps/api/src/orders/pipeline.ts`): food always prints in the kitchen, whatever `pos.printBarDrinkTickets` says (K-05 makes staff food wait for Send to kitchen instead). Lines carry `kitchen_note` and `kitchen_note_allergy` (`packages/db/src/orders.ts` now reads and writes them; K-04 fills them from the guest). The layout is `kitchenLines` in `apps/api/src/print/ticket.ts`: KITCHEN, the room or "Bar · tab", the time, Accepted by (or Sent by, for K-05's `sent_by`/`sent_at`), lines with options and notes, the allergy note in capitals inside a `*` box, no prices and no ID line. Bold: Star Document Markup for CloudPRNT (offered first, plain text still served when a printer asks for it), `em` on Epson, ESC E on USB; `[` in a note is escaped so it can't become a markup command.
+  - Migration `0136_kitchen_printers.sql`: a device with station kitchen must be CloudPRNT or Server Direct Print; `POST /printers` refuses a kitchen USB printer with its own message. K-01's test that inserted a USB kitchen printer now expects the refusal.
+  - Failure: the print watch and a printer's error report (out of paper, cover open) both push "Room 3 · Kitchen ticket didn't print · Reprint" to the manager on duty (`kitchen.push.ticketFailed`, once per job). The failed list and the board alert carry `kitchen`. Reprint takes `{ at: "bar" }` for Print at the bar instead; without it a kitchen ticket goes back to the kitchen even after a bar copy. The bar POS (`/bar`) gained a strip of tickets that didn't print (it had none before), shared with the bar orders screen and the board (`apps/staff/src/screens/FailedTicket.tsx`).
+  - AFTER OUTAGE prints on a replayed (source offline) food order's kitchen ticket. Cautious default as a setting: `kitchen.afterOutage` (optional, absent reads as on; checkbox in Admin → Kitchen); spec 16 and open questions updated.
+  - Allergy notes live only on the order line and the print job's payload, which the retention sweep blanks on its own schedule, so the note is never kept longer than the order; no receipt, text or guest record reads them.
+  - Tests: `print/kitchen-ticket.test.ts`, `routes/kitchen-tickets.int.test.ts`, e2e "Kitchen ticket didn't print" (isolated stack).
 
 ### K-04 · Order food from the room page and the room tablet, with the allergy note
 

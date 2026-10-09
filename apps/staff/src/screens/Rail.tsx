@@ -10,6 +10,7 @@ import {
 import { api, ApiCallError } from "../api.js";
 import { useClock, useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
+import { FailedTickets } from "./FailedTicket.js";
 import { agingTone, WEST4_AGING, type Aging } from "../aging.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
@@ -682,6 +683,7 @@ export function Rail() {
               {t("rail.onBreak", { name: b.name.split(" ")[0]! })}
             </span>
           ))}
+        {venueId && <FailedTickets venueId={venueId} />}
         <ul className="rail-orders" aria-label={t("rail.roomOrders")}>
           {waiting.map((o) => {
             const age = ageS(o.placed_at);

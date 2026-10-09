@@ -21,6 +21,8 @@ import { z } from "zod";
 import type { Authenticator } from "../http/conventions.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { managerOnDutyAt } from "../approvals/service.js";
+import { enqueuePush } from "../push/send-push.js";
 import {
   DRAWER_MARKUP,
   DRAWER_MARKUP_TYPE,
@@ -33,6 +35,8 @@ import {
   receiptPrintText,
   type ReceiptPayload,
   ticketText,
+  ticketMarkup,
+  TICKET_MARKUP_TYPE,
   type TicketPayload,
 } from "../print/ticket.js";
 
@@ -90,6 +94,37 @@ async function announce(c: Queryable, venueId: string, job: PrintJobRow, type: s
   await emitEvent(c, { venueId, type, entityId: job.id, entityVersion: 0 });
 }
 
+const isKitchenTicket = (job: PrintJobRow) =>
+  job.kind === "ticket" && (job.payload as { kitchen?: unknown }).kitchen === true;
+
+/**
+ * A kitchen ticket that didn't print also tells the manager on duty's phone, because nobody in the
+ * kitchen watches a screen (K-03; Kitchen and food · Didn't print). Once per job.
+ */
+async function tellKitchenFailed(
+  c: Queryable,
+  venueId: string,
+  job: PrintJobRow,
+  now: Temporal.Instant,
+): Promise<void> {
+  if (!isKitchenTicket(job)) return;
+  const manager = await managerOnDutyAt(c, venueId, now);
+  if (!manager) return;
+  const room = (job.payload as { room?: unknown }).room;
+  await enqueuePush(c, {
+    venueId,
+    audience: { kind: "person", userId: manager },
+    message: {
+      key: "kitchen.push.ticketFailed",
+      params: { room: typeof room === "string" ? room : "" },
+      url: "/bar-orders",
+      tag: `kitchen-ticket-${job.reprint_of ?? job.id}`,
+    },
+    runAt: now,
+    dedupeKey: `kitchen-ticket:${job.id}`,
+  });
+}
+
 /** The print watch: every 5 seconds, a job still unconfirmed after three polls is failed and the bar is told. */
 export function printWatchSweep(pool: pg.Pool): Sweep {
   return {
@@ -110,7 +145,10 @@ export async function sweepPrintJobs(pool: pg.Pool, now: Temporal.Instant): Prom
         now.subtract({ milliseconds: PRINT_FAIL_AFTER_MS }).toString(),
         now.toString(),
       );
-      for (const job of gone) await announce(c, v.id, job, "print_job.failed");
+      for (const job of gone) {
+        await announce(c, v.id, job, "print_job.failed");
+        await tellKitchenFailed(c, v.id, job, now);
+      }
       return gone.length;
     });
   }
@@ -159,13 +197,16 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         failure,
         now: options.clock.now().toString(),
       });
-      if (job)
+      if (job) {
         await announce(
           c,
           me(request).venueId,
           job,
           printed ? "print_job.printed" : "print_job.failed",
         );
+        // Out of paper or the cover open: the same path as a ticket that never confirmed.
+        if (!printed) await tellKitchenFailed(c, me(request).venueId, job, options.clock.now());
+      }
       return job;
     });
 
@@ -174,14 +215,20 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     return job
       ? {
           jobReady: true,
-          // A drawer kick is Star markup; a ticket is plain text (M4-13).
-          mediaTypes: [job.kind === "drawer" ? DRAWER_MARKUP_TYPE : "text/plain"],
+          // A drawer kick is Star markup; a ticket is plain text (M4-13). A kitchen ticket is offered
+          // as Star markup first, so its allergy box prints bold (K-03), and plain text after.
+          mediaTypes:
+            job.kind === "drawer"
+              ? [DRAWER_MARKUP_TYPE]
+              : isKitchenTicket(job)
+                ? [TICKET_MARKUP_TYPE, "text/plain"]
+                : ["text/plain"],
           jobToken: job.id,
         }
       : { jobReady: false };
   });
 
-  app.get<{ Querystring: { token?: string } }>(
+  app.get<{ Querystring: { token?: string; type?: string } }>(
     "/v1/print/cloudprnt",
     { config: printer },
     async (request, reply) => {
@@ -199,16 +246,26 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
               reprintN: job.reprint_n,
             }),
           };
-        return {
-          kick: false,
-          body: ticketText(job.payload as TicketPayload, {
-            timeZone: await venueZone(c, me(request).venueId),
-            reprintN: job.reprint_n,
-          }),
+        const opts = {
+          timeZone: await venueZone(c, me(request).venueId),
+          reprintN: job.reprint_n,
         };
+        if (isKitchenTicket(job) && request.query.type !== "text/plain")
+          return {
+            kick: false,
+            markup: true,
+            body: ticketMarkup(job.payload as TicketPayload, opts),
+          };
+        return { kick: false, body: ticketText(job.payload as TicketPayload, opts) };
       });
       return reply
-        .type(text.kick ? `${DRAWER_MARKUP_TYPE}; charset=utf-8` : "text/plain; charset=utf-8")
+        .type(
+          text.kick
+            ? `${DRAWER_MARKUP_TYPE}; charset=utf-8`
+            : "markup" in text
+              ? `${TICKET_MARKUP_TYPE}; charset=utf-8`
+              : "text/plain; charset=utf-8",
+        )
         .send(text.body);
     },
   );
@@ -286,7 +343,12 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     },
   );
 
-  app.post<{ Params: { venueId: string; jobId: string } }>(
+  // Reprint, at the ticket's own printer or, for a kitchen ticket, "Print at the bar instead" (K-03).
+  const reprintBody = z
+    .object({ at: z.enum(["own", "bar"]).optional() })
+    .strict()
+    .nullish();
+  app.post<{ Params: { venueId: string; jobId: string }; Body: unknown }>(
     "/v1/venues/:venueId/print-jobs/:jobId/reprint",
     {
       config: route({
@@ -299,12 +361,16 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     async (request, reply) => {
       if (!z.string().uuid().safeParse(request.params.jobId).success)
         throw new ApiError("not_found", "no such print job");
+      const body = reprintBody.safeParse(request.body);
+      if (!body.success) throw new ApiError("invalid_request", 'send {} or { at: "bar" }');
+      const atBar = body.data?.at === "bar";
       const made = await request.inVenue(async (c) => {
         const r = await reprintJob(
           c,
           request.venueId!,
           request.params.jobId,
           options.clock.now().toString(),
+          atBar ? "bar" : undefined,
         );
         if (!r) throw new ApiError("not_found", "no such print job");
         await emitEvent(c, {
@@ -337,6 +403,18 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     "/v1/venues/:venueId/printers",
     { config: admin },
     async (request, reply) => {
+      // The kitchen has no computer: its printer is a network printer, never USB (K-03).
+      const asked = (request.body ?? {}) as { station?: unknown; protocol?: unknown };
+      if (
+        typeof asked.station === "string" &&
+        asked.station.trim() === "kitchen" &&
+        asked.protocol !== "cloudprnt" &&
+        asked.protocol !== "server_direct"
+      )
+        throw new ApiError(
+          "invalid_request",
+          "The kitchen printer must be a network printer (Star CloudPRNT or Epson Server Direct Print), not USB",
+        );
       const parsed = printerBody.safeParse(request.body);
       if (!parsed.success)
         throw new ApiError("invalid_request", "send { name, station, protocol }");

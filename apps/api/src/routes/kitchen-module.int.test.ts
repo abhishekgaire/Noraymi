@@ -138,11 +138,13 @@ describe("Kitchen & food: the module switch and the kitchen key", () => {
       "Kitchen · needs a kitchen printer",
     );
 
-    // A USB printer can't be the kitchen's: the kitchen has no computer.
-    await owner.query(
-      "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST kitchen USB', 'kitchen', 'usb')",
-      [venueId],
-    );
+    // A USB printer can't be the kitchen's: the kitchen has no computer (refused outright since K-03).
+    await expect(
+      owner.query(
+        "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST kitchen USB', 'kitchen', 'usb')",
+        [venueId],
+      ),
+    ).rejects.toThrow(/devices_kitchen_network_printer_check/);
     expect((await kitchenRow()).still_needs).toEqual(["printer"]);
     await owner.query(
       "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST kitchen', 'kitchen', 'cloudprnt')",

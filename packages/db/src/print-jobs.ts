@@ -104,12 +104,17 @@ export async function failStalePrintJobs(
   return r.rows;
 }
 
-/** A reprint: a new job with the first job's content, numbered after the last reprint. */
+/**
+ * A reprint: a new job with the first job's content, numbered after the last reprint. `station`
+ * sends it to another station's printer: a kitchen ticket printed at the bar instead (K-03). Without
+ * it, a kitchen ticket goes back to the kitchen, even when the copy before was printed at the bar.
+ */
 export async function reprintJob(
   c: Queryable,
   venueId: string,
   jobId: string,
   now: string,
+  station?: string,
 ): Promise<{ id: string; reprint_n: number } | null> {
   const job = await c.query<PrintJobRow & { check_id: string | null }>(
     `select ${COLS}, check_id from print_jobs where venue_id = $1 and id = $2`,
@@ -125,11 +130,11 @@ export async function reprintJob(
   const n = Math.max(1, last.rows[0]!.n) + 1;
   const r = await c.query<{ id: string }>(
     `insert into print_jobs (venue_id, order_id, check_id, kind, station, payload, reprint_of, reprint_n, created_at, device_id)
-     select venue_id, order_id, check_id, kind, station, payload, $3, $4, $5,
-            case when payload ? 'test' then device_id end
+     select venue_id, order_id, check_id, kind, coalesce($6, case when payload->>'kitchen' = 'true' then 'kitchen' else station end), payload, $3, $4, $5,
+            case when payload ? 'test' and $6::text is null then device_id end
        from print_jobs where venue_id = $1 and id = $2
      returning id`,
-    [venueId, jobId, root, n, now],
+    [venueId, jobId, root, n, now, station ?? null],
   );
   return { id: r.rows[0]!.id, reprint_n: n };
 }
@@ -139,6 +144,8 @@ export interface FailedTicket {
   readonly order_id: string | null;
   readonly room_name: string | null;
   readonly station: string;
+  /** A kitchen ticket (K-03), wherever it was sent: "Kitchen ticket didn't print · Reprint". */
+  readonly kitchen: boolean;
   readonly reprint_n: number;
   readonly failed_at: string;
 }
@@ -150,7 +157,8 @@ export async function failedTickets(
   now: string,
 ): Promise<FailedTicket[]> {
   const r = await c.query<FailedTicket>(
-    `select j.id, j.order_id, coalesce(r.name, j.payload->>'room') as room_name, j.station, j.reprint_n,
+    `select j.id, j.order_id, coalesce(r.name, j.payload->>'room') as room_name, j.station,
+            coalesce((j.payload->>'kitchen')::boolean, false) as kitchen, j.reprint_n,
             to_json(j.failed_at) #>> '{}' as failed_at
        from print_jobs j
        left join orders o on o.venue_id = j.venue_id and o.id = j.order_id

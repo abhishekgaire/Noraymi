@@ -462,8 +462,8 @@ export function Tonight() {
         .then(() => setDone(t("wrapUp.sent", { name })))
         .catch(() => setDone(t("wrapUp.failed"))),
     move: (sessionId: string, roomName: string) => setMoving({ sessionId, roomName }),
-    reprint: (jobId: string) =>
-      void api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`)
+    reprint: (jobId: string, at: "own" | "bar" = "own") =>
+      void api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`, { at })
         .then(() => load())
         .catch(() => setFailed(true)),
     onIt: (callId: string) =>

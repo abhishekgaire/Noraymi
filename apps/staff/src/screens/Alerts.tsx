@@ -75,6 +75,8 @@ export type Alert =
       readonly color: string;
       readonly job_id: string;
       readonly room_name: string | null;
+      /** A kitchen ticket (K-03): reprint at the kitchen printer or at the bar instead. */
+      readonly kitchen?: boolean;
     }
   | {
       readonly kind: "code";
@@ -99,7 +101,7 @@ export interface AlertActions {
   readonly wrapUp: (sessionId: string, name: string) => void;
   readonly move: (sessionId: string, roomName: string) => void;
   readonly onIt: (callId: string) => void;
-  readonly reprint: (jobId: string) => void;
+  readonly reprint: (jobId: string, at?: "own" | "bar") => void;
   readonly showOrders: () => void;
   readonly clearOut: (businessDate: string) => void;
   readonly offer: (entryId: string) => void;
@@ -200,6 +202,10 @@ export function Alerts({
         return `${base} · ${t(a.told === "texted" ? "alert.order.texted" : "alert.order.phone", { name: a.manager })}.`;
       }
       case "ticket":
+        if (a.kitchen)
+          return a.room_name
+            ? t("kitchen.ticket.failedRoom", { room: a.room_name })
+            : t("kitchen.ticket.failed");
         return a.room_name ? t("alert.ticket", { room: a.room_name }) : t("alert.ticket.noRoom");
       case "late":
         return t("alert.late", {
@@ -258,10 +264,28 @@ export function Alerts({
                   {t("alert.order.show")}
                 </button>
               )}
-              {a.kind === "ticket" && (
+              {a.kind === "ticket" && !a.kitchen && (
                 <button type="button" className="primary" onClick={() => actions.reprint(a.job_id)}>
                   {t("alert.reprint")}
                 </button>
+              )}
+              {a.kind === "ticket" && a.kitchen && (
+                <>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => actions.reprint(a.job_id, "own")}
+                  >
+                    {t("kitchen.reprint.kitchen")}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => actions.reprint(a.job_id, "bar")}
+                  >
+                    {t("kitchen.reprint.bar")}
+                  </button>
+                </>
               )}
               {a.kind === "call" && (
                 <button type="button" className="primary" onClick={() => actions.onIt(a.call_id)}>
