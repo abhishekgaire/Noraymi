@@ -38,13 +38,13 @@
     "@types/pg": "8.23.1",
     "@west4/rules": "workspace:*",
     "@west4/shared": "workspace:*",
-    "eslint": "10.11.0",
+    "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
     "fast-check": "4.10.2",
-    "pg": "8.23.0",
+    "pg": "8.23.1",
     "prettier": "3.9.9",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.0",
-    "vitest": "5.0.2"
+    "vitest": "5.0.3"
   }
 }
