@@ -88,13 +88,23 @@ Oct 8, 2026 · every screen was built for behaviour from the [spec](../spec/READ
 
 ## V-07 · Restyle the guest site and guest pages
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** V-01
 - **Canvas:** `Main.dc.html`, `Rooms.dc.html`, `Book.dc.html`, `Menu.dc.html`, `Manage.dc.html`, `Waitlist.dc.html`, `Parties.dc.html`, `Order.dc.html`, `SiteBuilder.dc.html`
 - **Screens:** [Main](../screens.md#main), [Rooms](../screens.md#rooms), [Book](../screens.md#book), [Menu](../screens.md#menu), [Manage](../screens.md#manage), [Waitlist](../screens.md#waitlist), [Parties](../screens.md#parties), [Order](../screens.md#order), [SiteBuilder](../screens.md#sitebuilder), and the guest pages N1 to N9
 - **Build:** the guest web on the tokens. Founder to decide first: the canvas is dark only, while the guest web today follows the phone's light or dark setting; and every guest colour must still pass the WCAG 2.2 AA check (M5-16), which the canvas's pink on cream may not.
-- **Acceptance:** side-by-side captures at 390 and desktop; the guest and accessibility Playwright specs pass unchanged.
+- **Acceptance:**
+  - [x] Side-by-side captures at 390 (canvas left, built dark and light right) and at 1280, in `docs/design-review/v07/`.
+  - [x] The guest and accessibility Playwright specs pass unchanged, in both colour schemes: `e2e/a11y-guest.spec.ts` (18), `e2e/guest.spec.ts` and `e2e/booking-guest.spec.ts` (25), run once with the browser in dark and once in light.
+  - [x] Wording, states and behaviour unchanged; touch targets stay at least 44 px; the payment page loads no new script or font from outside its origin.
+- **Notes:**
+  - Founder decision (Oct 9, 2026): the guest web keeps following the phone's light or dark setting. Dark follows the canvas. Light has no board, so it is the same tokens inverted: a cream page (`#f4f1ea`), white-cream cards, near-black text, and the primary action as a near-black pill with lime words (lime can't carry text on cream). The canvas's accents used as text are darkened for cream: olive `#4d6100` for the lime, `#b0125b` pink, `#8a5200` amber, `#00687a` cyan, `#5c5865` for muted labels, each at least 5:1 on the darkest light surface. In dark, the canvas's `#6f6b78` hint grey (3.6:1) is never used for text; `#8e8994` is the lowest.
+  - All of it is guest-local in `apps/guest/app/globals.css` on the V-01 tokens and fonts; `packages/shared/src/design/` is unchanged. Headings use the display face in capitals through `font-variant-caps`, so the catalog's words, the accessible names and the tests' text are untouched. Buttons have no colour transition: axe would otherwise measure a button half-way through a scheme switch.
+  - TSX changes: the manage page's Cancel booking button gets a `cancel` class (its "+" is pink, as on the canvas); the payment page passes Stripe's Payment Element an `appearance` (`night` or `stripe` theme with the page's colours) when real Stripe is on. No new script; the Element's own iframe keeps Stripe's system font, since `font-src 'self'` lets no font leave the origin.
+  - Still different from the canvas: no hero art (the star field, the waves, the glow blobs) and the headline isn't split into a lime last word; the home page has no "Keep scrolling", no head-count dot grid in Rooms, no room photo placeholder (photos show only when Admin uploaded them); the bar's prices and house rules are separate sections, not inside the "Sing at the bar" card; the site header keeps the venue's full name instead of "W4", and its nav wraps on a phone; Book stays the built form (date, guests, how long, Show times, slots) rather than the canvas's Tonight/Tomorrow chips and steppers, with the quote drawn as the canvas's paper slip; Manage has no booking hero (big time, party/length/deposit tiles) or Call us button, and its rows have no second line ("7 guests now"); Waitlist has no "ahead of you"/"wait" tiles or stepper on the join form; the room page's menu is the full list grouped by category, without the canvas's search box and category chips, and has no "your room until" clock card; the menu page has no happy-hour band when there are no price rules (as screens.md says) and no back/PDF header. SiteBuilder is an Admin board (the staff app), not the guest web, so it isn't restyled here.
+  - The Up next TV (N28) and the room tablet pick up the new colours through the shared classes but weren't redesigned.
+  - Test run (Oct 9, 2026) on a separate stack (API 3107, guest 3117, fake Stripe 12117, database `west4_v07`), with copies of the three specs whose only change was those ports: 43 passed with the browser dark, 43 passed light. Lint, typecheck and unit pass.
 
 ## V-08 · Open a room in a side panel on the Board
 

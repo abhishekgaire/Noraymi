@@ -34,7 +34,10 @@ export interface PayPage {
 }
 
 interface StripeLike {
-  elements(options: { clientSecret: string }): {
+  elements(options: {
+    clientSecret: string;
+    appearance?: { theme: "stripe" | "night"; variables: Record<string, string> };
+  }): {
     create(kind: "payment"): { mount(el: HTMLElement): void };
   };
   confirmPayment(options: {
@@ -76,7 +79,28 @@ export function PayForm({
     script.onload = () => {
       if (!window.Stripe || !mount.current || !page.client_secret) return;
       const client = window.Stripe(page.publishable_key, { stripeAccount: page.stripe_account });
-      const elements = client.elements({ clientSecret: page.client_secret });
+      // V-07: the Payment Element in the page's colours, light or dark as the phone is set. Its
+      // own iframe keeps Stripe's system font: no font file leaves this origin.
+      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const elements = client.elements({
+        clientSecret: page.client_secret,
+        appearance: {
+          theme: dark ? "night" : "stripe",
+          variables: dark
+            ? {
+                colorPrimary: "#d4ff3f",
+                colorBackground: "#141218",
+                colorText: "#f4f1ea",
+                borderRadius: "12px",
+              }
+            : {
+                colorPrimary: "#0b0a0d",
+                colorBackground: "#fffdf8",
+                colorText: "#0b0a0d",
+                borderRadius: "12px",
+              },
+        },
+      });
       elements.create("payment").mount(mount.current);
       stripe.current = { client, elements };
     };
