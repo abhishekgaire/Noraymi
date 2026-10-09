@@ -333,9 +333,13 @@ describe("the synthetic order and reader payment (M8-18)", () => {
     });
     const before = reportBefore.json<Record<string, unknown>>();
     const after = reportAfter.json<Record<string, unknown>>();
-    // Everything but the time it was generated.
+    // Everything but when each response was made: the report's generated_at, and the server_time
+    // (and min_client_version) every JSON response carries (http/conventions.ts). The clock is a
+    // ticking SimulatedClock printed to the second, and the run between the two reads takes a second
+    // or two of real time, so those fields differ whenever it crosses a second boundary.
+    const perResponse = new Set(["generated_at", "server_time", "min_client_version"]);
     const moved = Object.keys(after).filter(
-      (k) => k !== "generated_at" && JSON.stringify(after[k]) !== JSON.stringify(before[k]),
+      (k) => !perResponse.has(k) && JSON.stringify(after[k]) !== JSON.stringify(before[k]),
     );
     expect(
       moved,
