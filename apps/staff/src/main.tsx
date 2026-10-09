@@ -4,6 +4,8 @@ import { App } from "./App.js";
 import { loadSessionToken } from "./api.js";
 import { registerServiceWorker } from "./push.js";
 import { installErrorReporting } from "./telemetry.js";
+import "@west4/shared/design/fonts.css";
+import "@west4/shared/design/tokens.css";
 import "./styles.css";
 
 // Uncaught errors go to error tracking, scrubbed (M8-16).

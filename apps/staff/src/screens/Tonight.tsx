@@ -385,9 +385,19 @@ export function Tonight() {
       : null;
 
   return (
-    <section className="screen">
+    <section className="screen board-screen">
       <div className="screen-head">
         <h1>{t("menu.tonight")}</h1>
+        {counts && (
+          <p className="board-counts" aria-label={t("board.countsLabel")}>
+            {t("board.counts", {
+              inUse: counts.in_use,
+              open: counts.open,
+              cleaning: counts.cleaning,
+              oos: counts.out_of_service,
+            })}
+          </p>
+        )}
         {managerNeeded > 0 &&
           (managing ? (
             <Link className="manager-needed" role="status" to="/incidents">
@@ -430,12 +440,6 @@ export function Tonight() {
           <DrawerPanel venueId={venueId} canHandOver={managing} />
         </aside>
       )}
-      {venueId && (
-        <Headcount
-          venueId={venueId}
-          canCount={signedIn?.membership.permissions.includes("guests.checkin") ?? false}
-        />
-      )}
       {drawer && (
         <aside className="drawer" aria-label={t("waitlist.title")}>
           <div className="room-clock-head">
@@ -467,392 +471,430 @@ export function Tonight() {
           {t("shell.error.cantReach")}
         </p>
       )}
-      {sessions === null ? (
-        !failed && <p role="status">{t("shell.loading")}</p>
-      ) : (
-        <>
-          {done && (
-            <p className="notice" role="status">
-              {done}
-            </p>
-          )}
-          {sheet && (
-            <CheckInSheet
-              venueId={venueId}
-              timeZone={timeZone}
-              target={sheet}
-              freeRooms={free}
-              onClose={() => setSheet(null)}
-              onDone={(line) => {
-                setSheet(null);
-                setDone(line);
-                void load();
-              }}
-            />
-          )}
-          <Alerts
-            alerts={alerts}
-            timeZone={timeZone}
-            actions={{
-              canText: signedIn?.membership.permissions.includes("texts.send") ?? false,
-              wrapUp: (sessionId, name) =>
-                void api("POST", `/v1/venues/${venueId}/sessions/${sessionId}/wrap-up-text`)
-                  .then(() => setDone(t("wrapUp.sent", { name })))
-                  .catch(() => setDone(t("wrapUp.failed"))),
-              move: (sessionId, roomName) => setMoving({ sessionId, roomName }),
-              reprint: (jobId) =>
-                void api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`)
-                  .then(() => load())
-                  .catch(() => setFailed(true)),
-              onIt: (callId) =>
-                void api("POST", `/v1/venues/${venueId}/calls/${callId}/ack`)
-                  .then(() => load())
-                  .catch(() => setFailed(true)),
-              offer: (entryId) =>
-                void api("POST", `/v1/venues/${venueId}/waitlist/${entryId}/offer`)
-                  .then(() => {
-                    waitlist.reload();
-                    setDrawer(true);
-                    void load();
-                  })
-                  .catch(() => setFailed(true)),
-              showOrders: () => void navigate("/bar-orders"),
-              clearOut: (date) =>
-                void api("POST", `/v1/venues/${venueId}/nights/${date}/clear-out`, {})
-                  .then(() => load())
-                  .catch(() => setFailed(true)),
-              show: (roomId) =>
-                document
-                  .querySelector(`[data-room="${roomId}"]`)
-                  ?.scrollIntoView({ behavior: "smooth", block: "center" }),
-              noProblem: (conversationId) =>
-                void api(
-                  "POST",
-                  `/v1/venues/${venueId}/conversations/${conversationId}/running-late`,
-                  {},
-                )
-                  .then(() => load())
-                  .catch(() => setFailed(true)),
-              checkIn: (bookingId, name) => setSheet({ kind: "booking", bookingId, name }),
-              noShow: (bookingId) =>
-                void api("POST", `/v1/venues/${venueId}/bookings/${bookingId}/no-show`, {})
-                  .then(() => load())
-                  .catch(() => setFailed(true)),
-            }}
-          />
-          {damage && (
-            <DamageSheet
-              venueId={venueId}
-              checkId={damage.checkId}
-              roomName={damage.roomName}
-              onClose={() => {
-                setDamage(null);
-                void load();
-              }}
-            />
-          )}
-          {moving && (
-            <MoveSheet
-              venueId={venueId}
-              timeZone={timeZone}
-              sessionId={moving.sessionId}
-              roomName={moving.roomName}
-              onClose={() => setMoving(null)}
-              onMoved={(line) => {
-                setMoving(null);
-                setDone(line);
-                void load();
-              }}
-            />
-          )}
-          {faultSheet && (
-            <FaultSheet
-              venueId={venueId}
-              target={faultSheet}
-              onClose={() => setFaultSheet(null)}
-              onLogged={(line) => {
-                setFaultSheet(null);
-                setDone(line);
-                void load();
-              }}
-            />
-          )}
-          <h2>{t("checkIn.arriving")}</h2>
-          {arriving.length === 0 ? (
-            <p className="empty">{t("checkIn.noneArriving")}</p>
+      {/* The canvas's layout (V-01): alerts and room tiles on the left, the headcount, arriving
+          bookings and lost and found in a side column at desktop width; one column on a phone. */}
+      <div className="board-layout">
+        <div className="board-main">
+          {sessions === null ? (
+            !failed && <p role="status">{t("shell.loading")}</p>
           ) : (
-            <ul className="room-clocks">
-              {arriving.map((b) => {
-                const noShowOk =
-                  now !== null &&
-                  now.epochMilliseconds >= Temporal.Instant.from(b.no_show_from).epochMilliseconds;
-                return (
-                  <li key={b.id} className="room-clock" aria-label={b.guest_name}>
-                    <div className="room-clock-head">
-                      <span className="tile-name">{b.guest_name}</span>
-                      <span>{t("checkIn.guests", { party: b.party_size })}</span>
-                    </div>
-                    <div className="small">
-                      {t("checkIn.at", { time: time(b.starts_at, timeZone), room: b.room_name })}
-                    </div>
-                    {b.running_late_until && (
-                      <div className="small">
-                        {b.room_name} ·{" "}
-                        {t("messages.heldFor", {
-                          name: b.guest_name,
-                          time: time(b.running_late_until, timeZone),
-                        })}
+            <>
+              {done && (
+                <p className="notice" role="status">
+                  {done}
+                </p>
+              )}
+              {sheet && (
+                <CheckInSheet
+                  venueId={venueId}
+                  timeZone={timeZone}
+                  target={sheet}
+                  freeRooms={free}
+                  onClose={() => setSheet(null)}
+                  onDone={(line) => {
+                    setSheet(null);
+                    setDone(line);
+                    void load();
+                  }}
+                />
+              )}
+              <Alerts
+                alerts={alerts}
+                timeZone={timeZone}
+                actions={{
+                  canText: signedIn?.membership.permissions.includes("texts.send") ?? false,
+                  wrapUp: (sessionId, name) =>
+                    void api("POST", `/v1/venues/${venueId}/sessions/${sessionId}/wrap-up-text`)
+                      .then(() => setDone(t("wrapUp.sent", { name })))
+                      .catch(() => setDone(t("wrapUp.failed"))),
+                  move: (sessionId, roomName) => setMoving({ sessionId, roomName }),
+                  reprint: (jobId) =>
+                    void api("POST", `/v1/venues/${venueId}/print-jobs/${jobId}/reprint`)
+                      .then(() => load())
+                      .catch(() => setFailed(true)),
+                  onIt: (callId) =>
+                    void api("POST", `/v1/venues/${venueId}/calls/${callId}/ack`)
+                      .then(() => load())
+                      .catch(() => setFailed(true)),
+                  offer: (entryId) =>
+                    void api("POST", `/v1/venues/${venueId}/waitlist/${entryId}/offer`)
+                      .then(() => {
+                        waitlist.reload();
+                        setDrawer(true);
+                        void load();
+                      })
+                      .catch(() => setFailed(true)),
+                  showOrders: () => void navigate("/bar-orders"),
+                  clearOut: (date) =>
+                    void api("POST", `/v1/venues/${venueId}/nights/${date}/clear-out`, {})
+                      .then(() => load())
+                      .catch(() => setFailed(true)),
+                  show: (roomId) =>
+                    document
+                      .querySelector(`[data-room="${roomId}"]`)
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                  noProblem: (conversationId) =>
+                    void api(
+                      "POST",
+                      `/v1/venues/${venueId}/conversations/${conversationId}/running-late`,
+                      {},
+                    )
+                      .then(() => load())
+                      .catch(() => setFailed(true)),
+                  checkIn: (bookingId, name) => setSheet({ kind: "booking", bookingId, name }),
+                  noShow: (bookingId) =>
+                    void api("POST", `/v1/venues/${venueId}/bookings/${bookingId}/no-show`, {})
+                      .then(() => load())
+                      .catch(() => setFailed(true)),
+                }}
+              />
+              {damage && (
+                <DamageSheet
+                  venueId={venueId}
+                  checkId={damage.checkId}
+                  roomName={damage.roomName}
+                  onClose={() => {
+                    setDamage(null);
+                    void load();
+                  }}
+                />
+              )}
+              {moving && (
+                <MoveSheet
+                  venueId={venueId}
+                  timeZone={timeZone}
+                  sessionId={moving.sessionId}
+                  roomName={moving.roomName}
+                  onClose={() => setMoving(null)}
+                  onMoved={(line) => {
+                    setMoving(null);
+                    setDone(line);
+                    void load();
+                  }}
+                />
+              )}
+              {faultSheet && (
+                <FaultSheet
+                  venueId={venueId}
+                  target={faultSheet}
+                  onClose={() => setFaultSheet(null)}
+                  onLogged={(line) => {
+                    setFaultSheet(null);
+                    setDone(line);
+                    void load();
+                  }}
+                />
+              )}
+              <h2 className="board-label board-rooms-label">{t("board.rooms")}</h2>
+              <ul className="room-clocks board">
+                {boardRooms.map((r) => {
+                  const s = sessions.find((x) => x.room_id === r.room_id);
+                  const minutes = s ? minutesSince(s.started_at) : null;
+                  return (
+                    <li
+                      key={r.room_id}
+                      className={r.tone ? `room-clock ${r.tone}` : "room-clock"}
+                      aria-label={r.name}
+                      data-room={r.room_id}
+                      data-state={r.words.kind}
+                    >
+                      <div className="room-clock-head">
+                        <span className="tile-name">{r.name}</span>
+                        {minutes !== null && (
+                          <span className="room-clock-min">
+                            {t("session.minutes", { min: minutes })}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div className="row">
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() =>
-                          setSheet({ kind: "booking", bookingId: b.id, name: b.guest_name })
-                        }
-                      >
-                        {t("checkIn.button")}
-                      </button>
-                      {noShowOk ? (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() =>
-                            void api("POST", `/v1/venues/${venueId}/bookings/${b.id}/no-show`, {})
-                              .then(() => load())
-                              .catch(() => setFailed(true))
-                          }
-                        >
-                          {t("checkIn.noShow")}
-                        </button>
-                      ) : (
-                        <span className="small muted">
-                          {t("checkIn.noShowFrom", { time: time(b.no_show_from, timeZone) })}
-                        </span>
+                      {s && (
+                        <Link className="small" to={`/room/${r.room_id}`}>
+                          {t("room.open")}
+                        </Link>
                       )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <h2>{t("board.rooms")}</h2>
-          {counts && (
-            <p className="small" aria-label={t("board.countsLabel")}>
-              {t("board.counts", {
-                inUse: counts.in_use,
-                open: counts.open,
-                cleaning: counts.cleaning,
-                oos: counts.out_of_service,
-              })}
-            </p>
-          )}
-          <ul className="room-clocks board">
-            {boardRooms.map((r) => {
-              const s = sessions.find((x) => x.room_id === r.room_id);
-              const minutes = s ? minutesSince(s.started_at) : null;
-              return (
-                <li
-                  key={r.room_id}
-                  className={r.tone ? `room-clock ${r.tone}` : "room-clock"}
-                  aria-label={r.name}
-                  data-room={r.room_id}
-                >
-                  <div className="room-clock-head">
-                    <span className="tile-name">{r.name}</span>
-                    {minutes !== null && (
-                      <span className="room-clock-min">
-                        {t("session.minutes", { min: minutes })}
-                      </span>
-                    )}
-                  </div>
-                  {s && (
-                    <Link className="small" to={`/room/${r.room_id}`}>
-                      {t("room.open")}
-                    </Link>
-                  )}
-                  <div className={r.tone === "red" ? "small error" : "small"}>
-                    {wordsText(ticking(r.words, s?.booked_end_at))}
-                  </div>
-                  {s && r.session ? (
-                    <>
-                      {r.session.guest_name && (
-                        <div className="small">
-                          {t("board.party", {
-                            name: r.session.guest_name,
-                            party: r.session.party_size,
-                          })}
-                        </div>
-                      )}
-                      {r.session.deposit_cents > 0 && (
-                        <div className="small muted">
-                          {t("board.deposit", { amount: money(r.session.deposit_cents as never) })}
-                        </div>
-                      )}
-                      <div className="small">
-                        {t("board.tabSoFar", {
-                          amount: money(r.session.tab_so_far_cents as never),
-                        })}
+                      <div className={r.tone === "red" ? "small error" : "small"}>
+                        {wordsText(ticking(r.words, s?.booked_end_at))}
                       </div>
-                      {(r.session.min_spend_left_cents ?? 0) > 0 && (
-                        <div className="small">
-                          {t("minSpend.left", {
-                            amount: money(r.session.min_spend_left_cents as never),
-                          })}
-                        </div>
-                      )}
-                      <div className="small muted">
-                        {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
-                      </div>
-                      <div className="party-size">
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={t("party.fewer")}
-                          disabled={s.party_size <= 1}
-                          onClick={() => void changeParty(s, s.party_size - 1)}
-                        >
-                          −
-                        </button>
-                        <span>{t("party.size", { n: s.party_size })}</span>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={t("party.more")}
-                          onClick={() => void changeParty(s, s.party_size + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                      {rates[s.id] && (
-                        <div className="small">
-                          {t("party.rate", {
-                            amount: money(rates[s.id]!.hourly_cents as never),
-                            min: rates[s.id]!.min_guests,
-                          })}
-                        </div>
-                      )}
-                      <div className="small">{idChip(s)}</div>
-                      {safetyOn && (
-                        <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />
-                      )}
-                      {s.wrap_up && <div className="small error">{t("session.wrapUp")}</div>}
-                      {s.stay_on_offer && (
-                        <div className="small">
-                          {t("session.stayOn", { time: closeWords(s.close) })}
-                        </div>
-                      )}
-                      {s.segments.at(-1)?.paused && (
-                        <div className="small">
-                          {t("session.paused")}{" "}
-                          <button type="button" className="link" onClick={() => void unpause(s.id)}>
-                            {t("session.unpause")}
+                      {s && r.session ? (
+                        <>
+                          {r.session.guest_name && (
+                            <div className="small">
+                              {t("board.party", {
+                                name: r.session.guest_name,
+                                party: r.session.party_size,
+                              })}
+                            </div>
+                          )}
+                          {r.session.deposit_cents > 0 && (
+                            <div className="small muted">
+                              {t("board.deposit", {
+                                amount: money(r.session.deposit_cents as never),
+                              })}
+                            </div>
+                          )}
+                          <div className="small">
+                            {t("board.tabSoFar", {
+                              amount: money(r.session.tab_so_far_cents as never),
+                            })}
+                          </div>
+                          {(r.session.min_spend_left_cents ?? 0) > 0 && (
+                            <div className="small">
+                              {t("minSpend.left", {
+                                amount: money(r.session.min_spend_left_cents as never),
+                              })}
+                            </div>
+                          )}
+                          <div className="small muted">
+                            {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
+                          </div>
+                          <div className="party-size">
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label={t("party.fewer")}
+                              disabled={s.party_size <= 1}
+                              onClick={() => void changeParty(s, s.party_size - 1)}
+                            >
+                              −
+                            </button>
+                            <span>{t("party.size", { n: s.party_size })}</span>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label={t("party.more")}
+                              onClick={() => void changeParty(s, s.party_size + 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                          {rates[s.id] && (
+                            <div className="small">
+                              {t("party.rate", {
+                                amount: money(rates[s.id]!.hourly_cents as never),
+                                min: rates[s.id]!.min_guests,
+                              })}
+                            </div>
+                          )}
+                          <div className="small">{idChip(s)}</div>
+                          {safetyOn && (
+                            <ScanId
+                              venueId={venueId}
+                              sessionId={s.id}
+                              onScanned={() => void load()}
+                            />
+                          )}
+                          {s.wrap_up && <div className="small error">{t("session.wrapUp")}</div>}
+                          {s.stay_on_offer && (
+                            <div className="small">
+                              {t("session.stayOn", { time: closeWords(s.close) })}
+                            </div>
+                          )}
+                          {s.segments.at(-1)?.paused && (
+                            <div className="small">
+                              {t("session.paused")}{" "}
+                              <button
+                                type="button"
+                                className="link"
+                                onClick={() => void unpause(s.id)}
+                              >
+                                {t("session.unpause")}
+                              </button>
+                            </div>
+                          )}
+                          {noteList(s.room_id)}
+                          {faultList(s.room_id)}
+                          <CutOffRoom
+                            venueId={venueId}
+                            sessionId={s.id}
+                            roomName={s.room_name}
+                            timeZone={timeZone}
+                            cutOff={
+                              s.alcohol_cut_off_at
+                                ? {
+                                    at: s.alcohol_cut_off_at,
+                                    by: s.alcohol_cut_off_by_name ?? null,
+                                  }
+                                : null
+                            }
+                            canCutOff={
+                              signedIn?.membership.permissions.includes("cutoff.apply") ?? false
+                            }
+                            onDone={() => void load()}
+                          />
+                          <div className="actions">
+                            <button
+                              type="button"
+                              className={s.tile.kind === "needed_now" ? "primary" : "secondary"}
+                              onClick={() => setMoving({ sessionId: s.id, roomName: s.room_name })}
+                            >
+                              {t("move.button")}
+                            </button>
+                            {reportButton({
+                              roomId: s.room_id,
+                              roomName: s.room_name,
+                              hasSession: true,
+                            })}
+                            {s.guest_name &&
+                              (s.tile.kind === "needed_now" || s.wrap_up) &&
+                              signedIn?.membership.permissions.includes("texts.send") && (
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() =>
+                                    void api(
+                                      "POST",
+                                      `/v1/venues/${venueId}/sessions/${s.id}/wrap-up-text`,
+                                    )
+                                      .then(() =>
+                                        setDone(t("wrapUp.sent", { name: s.guest_name! })),
+                                      )
+                                      .catch(() => setDone(t("wrapUp.failed")))
+                                  }
+                                >
+                                  {t("wrapUp.text", { name: s.guest_name })}
+                                </button>
+                              )}
+                            {s.check_id && (
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() =>
+                                  setDamage({ checkId: s.check_id!, roomName: s.room_name })
+                                }
+                              >
+                                {t("damage.button")}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : r.words.kind === "cleaning" ? (
+                        <>
+                          {r.words.flagged && (
+                            <div className="small error">{t("cleaning.flagged")}</div>
+                          )}
+                          {noteList(r.room_id)}
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => void markClean(r.room_id)}
+                          >
+                            {t("cleaning.markClean")}
                           </button>
-                        </div>
-                      )}
-                      {noteList(s.room_id)}
-                      {faultList(s.room_id)}
-                      <CutOffRoom
-                        venueId={venueId}
-                        sessionId={s.id}
-                        roomName={s.room_name}
-                        timeZone={timeZone}
-                        cutOff={
-                          s.alcohol_cut_off_at
-                            ? { at: s.alcohol_cut_off_at, by: s.alcohol_cut_off_by_name ?? null }
-                            : null
-                        }
-                        canCutOff={
-                          signedIn?.membership.permissions.includes("cutoff.apply") ?? false
-                        }
-                        onDone={() => void load()}
-                      />
-                      <div className="actions">
-                        <button
-                          type="button"
-                          className={s.tile.kind === "needed_now" ? "primary" : "secondary"}
-                          onClick={() => setMoving({ sessionId: s.id, roomName: s.room_name })}
-                        >
-                          {t("move.button")}
-                        </button>
-                        {reportButton({
-                          roomId: s.room_id,
-                          roomName: s.room_name,
-                          hasSession: true,
-                        })}
-                        {s.guest_name &&
-                          (s.tile.kind === "needed_now" || s.wrap_up) &&
-                          signedIn?.membership.permissions.includes("texts.send") && (
+                        </>
+                      ) : r.words.kind === "out_of_service" ? (
+                        faultList(r.room_id)
+                      ) : (
+                        <>
+                          {r.free_now && (
                             <button
                               type="button"
                               className="secondary"
                               onClick={() =>
-                                void api(
-                                  "POST",
-                                  `/v1/venues/${venueId}/sessions/${s.id}/wrap-up-text`,
-                                )
-                                  .then(() => setDone(t("wrapUp.sent", { name: s.guest_name! })))
-                                  .catch(() => setDone(t("wrapUp.failed")))
+                                setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })
                               }
                             >
-                              {t("wrapUp.text", { name: s.guest_name })}
+                              {t("checkIn.walkIn")}
                             </button>
                           )}
-                        {s.check_id && (
-                          <button
-                            type="button"
-                            className="secondary"
-                            onClick={() =>
-                              setDamage({ checkId: s.check_id!, roomName: s.room_name })
-                            }
-                          >
-                            {t("damage.button")}
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  ) : r.words.kind === "cleaning" ? (
-                    <>
-                      {r.words.flagged && (
-                        <div className="small error">{t("cleaning.flagged")}</div>
+                          {noteList(r.room_id)}
+                          {faultList(r.room_id)}
+                          {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
+                        </>
                       )}
-                      {noteList(r.room_id)}
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => void markClean(r.room_id)}
-                      >
-                        {t("cleaning.markClean")}
-                      </button>
-                    </>
-                  ) : r.words.kind === "out_of_service" ? (
-                    faultList(r.room_id)
-                  ) : (
-                    <>
-                      {r.free_now && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() =>
-                            setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })
-                          }
-                        >
-                          {t("checkIn.walkIn")}
-                        </button>
-                      )}
-                      {noteList(r.room_id)}
-                      {faultList(r.room_id)}
-                      {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          <LostAndFound venueId={venueId} rooms={rooms} />
-        </>
-      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+        <div className="board-side">
+          {venueId && (
+            <div className="board-headcount">
+              <Headcount
+                venueId={venueId}
+                canCount={signedIn?.membership.permissions.includes("guests.checkin") ?? false}
+              />
+            </div>
+          )}
+          {sessions !== null && (
+            <>
+              <div className="board-arriving">
+                <h2 className="board-label">{t("checkIn.arriving")}</h2>
+                {arriving.length === 0 ? (
+                  <p className="empty">{t("checkIn.noneArriving")}</p>
+                ) : (
+                  <ul className="room-clocks arriving">
+                    {arriving.map((b) => {
+                      const noShowOk =
+                        now !== null &&
+                        now.epochMilliseconds >=
+                          Temporal.Instant.from(b.no_show_from).epochMilliseconds;
+                      return (
+                        <li key={b.id} className="room-clock" aria-label={b.guest_name}>
+                          <div className="room-clock-head">
+                            <span className="tile-name">{b.guest_name}</span>
+                            <span>{t("checkIn.guests", { party: b.party_size })}</span>
+                          </div>
+                          <div className="small">
+                            {t("checkIn.at", {
+                              time: time(b.starts_at, timeZone),
+                              room: b.room_name,
+                            })}
+                          </div>
+                          {b.running_late_until && (
+                            <div className="small">
+                              {b.room_name} ·{" "}
+                              {t("messages.heldFor", {
+                                name: b.guest_name,
+                                time: time(b.running_late_until, timeZone),
+                              })}
+                            </div>
+                          )}
+                          <div className="row">
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() =>
+                                setSheet({ kind: "booking", bookingId: b.id, name: b.guest_name })
+                              }
+                            >
+                              {t("checkIn.button")}
+                            </button>
+                            {noShowOk ? (
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() =>
+                                  void api(
+                                    "POST",
+                                    `/v1/venues/${venueId}/bookings/${b.id}/no-show`,
+                                    {},
+                                  )
+                                    .then(() => load())
+                                    .catch(() => setFailed(true))
+                                }
+                              >
+                                {t("checkIn.noShow")}
+                              </button>
+                            ) : (
+                              <span className="small muted">
+                                {t("checkIn.noShowFrom", { time: time(b.no_show_from, timeZone) })}
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              <div className="board-lost">
+                <LostAndFound venueId={venueId} rooms={rooms} />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
       {/* "Online · synced 4 s ago", never "works offline" (M8-01; screens Board note 14). */}
       <SyncFooter />
     </section>

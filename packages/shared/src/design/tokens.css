@@ -1,0 +1,106 @@
+/* The design canvas's tokens (V-01, decision D97), read from design/canvas/*.dc.html.
+   One place for the staff app, the Console and the guest web. The canvas is dark only. */
+:root {
+  /* Surfaces, darkest first */
+  --w4-bg: #0b0a0d; /* page */
+  --w4-bg-rail: #0e0d11; /* side rail and side panels */
+  --w4-bg-row: #121016; /* alert rows */
+  --w4-surface: #141218; /* chips, cards, inputs */
+  --w4-surface-2: #1c1a21; /* disabled buttons, raised */
+  --w4-cleaning: #3a3841; /* a room that needs a wipe */
+
+  /* Text */
+  --w4-text: #f4f1ea; /* cream */
+  --w4-text-2: #c9c5ce; /* secondary */
+  --w4-muted: #8e8994; /* labels */
+  --w4-faint: #6f6b78; /* hints */
+  --w4-on-accent: #0b0a0d; /* text on a lime, amber or pink fill */
+
+  /* Accents */
+  --w4-lime: #d4ff3f; /* in room, primary action */
+  --w4-lime-hover: #eaff8a;
+  --w4-pink: #ff3da6; /* over time, late, needs you now */
+  --w4-amber: #ffb13d; /* ten minutes left, warnings */
+  --w4-cyan: #3df2ff; /* information */
+  --w4-yellow: #ffd338;
+
+  /* Lines: cream at low opacity */
+  --w4-line-faint: rgba(244, 241, 234, 0.06);
+  --w4-line: rgba(244, 241, 234, 0.08);
+  --w4-line-2: rgba(244, 241, 234, 0.12);
+  --w4-line-3: rgba(244, 241, 234, 0.16);
+  --w4-line-strong: rgba(244, 241, 234, 0.28);
+
+  /* Type */
+  --w4-font-display:
+    "Bricolage Grotesque Variable", "Bricolage Grotesque", Impact, "Arial Narrow", sans-serif;
+  --w4-font-body:
+    "Instrument Sans Variable", "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --w4-font-mono: "Space Mono", ui-monospace, Menlo, monospace;
+  --w4-font-serif: "Instrument Serif", Georgia, serif;
+  --w4-font-archivo: "Archivo Variable", "Archivo", Impact, sans-serif;
+  --w4-font-dm: "DM Sans Variable", "DM Sans", system-ui, sans-serif;
+  --w4-text-label: 10px; /* mono, uppercase, tracked */
+  --w4-text-xs: 11px;
+  --w4-text-sm: 12px;
+  --w4-text-md: 13px;
+  --w4-text-base: 14px;
+  --w4-text-lg: 16px;
+  --w4-text-title: 26px; /* display, screen titles */
+  --w4-text-hero: 30px;
+
+  /* Radii */
+  --w4-radius-sm: 8px;
+  --w4-radius: 10px; /* buttons, chips, rows */
+  --w4-radius-md: 12px;
+  --w4-radius-tile: 14px; /* room tiles */
+  --w4-radius-lg: 18px; /* dialogs */
+  --w4-radius-pill: 999px;
+
+  /* Spacing */
+  --w4-space-1: 4px;
+  --w4-space-2: 6px;
+  --w4-space-3: 8px;
+  --w4-space-4: 10px;
+  --w4-space-5: 12px;
+  --w4-space-6: 14px;
+  --w4-space-7: 16px;
+  --w4-space-8: 20px;
+
+  /* Shadows and motion */
+  --w4-shadow-lift: 0 12px 30px -16px rgba(0, 0, 0, 0.9);
+  --w4-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The canvas's display face: Bricolage Grotesque at optical size 96, 75% wide, extra bold, in capitals.
+   Capitals come from all-small-caps, not text-transform, so the words people and screen readers get
+   (and innerText) stay the catalog's own; small caps sit lower, so size these about 1.3x the canvas. */
+.w4-display {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.02em;
+  line-height: 0.88;
+}
+.w4-mono {
+  font-family: var(--w4-font-mono);
+}
+.w4-label {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+@keyframes w4-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 61, 166, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 61, 166, 0);
+  }
+}

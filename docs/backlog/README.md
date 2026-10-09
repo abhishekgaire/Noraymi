@@ -25,6 +25,8 @@
 | [M9 · Cutover and going live](M9-cutover-and-going-live.md) | 17 | 8 / 9 / 0 | 22–35 |
 | **Total** | **233** | **75 / 147 / 11** | **375.5–571** |
 
+**Visual pass.** [V · Visual pass](V-visual-pass.md) applies the frozen canvas's look to the built screens (decision D97): V-01 built the shared design layer and restyled the Board; V-02 to V-08 restyle the rest, one group of boards each. It runs beside the milestones and doesn't change their order.
+
 ## Every ticket
 
 ### [M1 · Foundations](M1-foundations.md)

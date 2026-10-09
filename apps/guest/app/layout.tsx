@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { t } from "@west4/shared";
+import "@west4/shared/design/fonts.css";
+import "@west4/shared/design/tokens.css";
 import "./globals.css";
 import { ErrorReporting } from "./error-reporting";
 

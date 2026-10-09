@@ -17,11 +17,8 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font:
-    16px/1.45 system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
+  /* The canvas's body face, bundled (V-01); the guest colours get their own pass later. */
+  font: 16px/1.45 var(--w4-font-body);
 }
 .guest {
   max-width: 480px;

@@ -1,15 +1,16 @@
 /* The staff app shell (M1-21). Phone first; the side menu becomes a column at 1024px.
-   Every target is at least 44px (spec 10 · rule 9 sets bigger ones for the bar POS itself). */
+   Every target is at least 44px (spec 10 · rule 9 sets bigger ones for the bar POS itself).
+   Colours, type and radii come from the canvas tokens (V-01, @west4/shared/design/tokens.css). */
 :root {
-  --bg: #121212;
-  --panel: #1d1d1f;
-  --line: #333;
-  --text: #f4f4f4;
-  --muted: #a9a9a9;
-  --accent: #f2b33d;
-  --accent-text: #121212;
-  --danger: #ff6b6b;
-  --notice: #7cc5ff;
+  --bg: var(--w4-bg);
+  --panel: var(--w4-surface);
+  --line: var(--w4-line-3);
+  --text: var(--w4-text);
+  --muted: var(--w4-muted);
+  --accent: var(--w4-lime);
+  --accent-text: var(--w4-on-accent);
+  --danger: var(--w4-pink);
+  --notice: var(--w4-cyan);
   --topbar-h: 56px;
   color-scheme: dark;
 }
@@ -23,16 +24,21 @@ body,
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font:
-    16px/1.4 system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font: 16px/1.4 var(--w4-font-body);
+  -webkit-font-smoothing: antialiased;
   overflow-wrap: anywhere;
 }
+/* Screen titles in the canvas's display face (see .w4-display in the tokens). */
 h1 {
-  font-size: 1.5rem;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.01em;
+  line-height: 0.9;
+  font-size: 2.25rem;
   margin: 0 0 12px;
 }
 h2 {
@@ -57,25 +63,48 @@ button,
 input {
   font: inherit;
   min-height: 44px;
-  border-radius: 8px;
+  border-radius: var(--w4-radius);
 }
 button,
 .button {
   padding: 0 16px;
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: transparent;
   color: var(--text);
+  font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease;
+}
+button:hover:not(:disabled),
+.button:hover {
+  transform: translateY(-1px);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:focus-visible,
+.button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--w4-text);
+  outline-offset: 2px;
+}
+a {
+  color: var(--w4-lime);
+}
+a:hover {
+  color: var(--w4-lime-hover);
 }
 button.primary {
   background: var(--accent);
   color: var(--accent-text);
   border-color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
 }
 button:disabled {
   opacity: 0.5;
@@ -90,7 +119,7 @@ input {
   width: 100%;
   padding: 0 12px;
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--w4-surface);
   color: var(--text);
 }
 label {
@@ -131,12 +160,12 @@ form {
 }
 /* The outage and vendor banners (M8-01): amber on backup internet, pink offline. */
 .band.connection-backup {
-  background: #d97706;
-  color: #121212;
+  background: var(--w4-amber);
+  color: var(--w4-on-accent);
 }
 .band.connection-offline {
-  background: #e0287d;
-  color: #fff;
+  background: var(--w4-pink);
+  color: var(--w4-on-accent);
 }
 .band.connection-replayed {
   background: var(--notice);
@@ -146,18 +175,20 @@ form {
 .band.connection-twilio {
   background: var(--panel);
   color: var(--text);
-  border-bottom: 2px solid #d97706;
+  border-bottom: 2px solid var(--w4-amber);
 }
 /* The Board's footer (M8-01): the connection and the last sync. */
 .sync-footer {
   margin-top: 16px;
   padding: 8px 0;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.9rem;
+  border-top: 1px solid var(--w4-line);
+  color: var(--w4-faint);
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  letter-spacing: 0.1em;
 }
 .sync-footer.offline {
-  color: #ff8fc0;
+  color: var(--w4-pink);
 }
 /* Training mode (M7-03): the permanent "TRAINING · not real money" band. */
 .band.training {
@@ -190,15 +221,21 @@ form {
   column-gap: 12px;
   align-items: center;
   padding: 8px 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  background: var(--w4-bg);
+  border-bottom: 1px solid var(--w4-line);
 }
 .menu-button {
   grid-area: menu;
 }
 .venue {
   grid-area: venue;
-  font-weight: 600;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 .clock {
   grid-area: clock;
@@ -208,8 +245,14 @@ form {
   font-size: 0.875rem;
 }
 .clock time {
+  font-family: var(--w4-font-mono);
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 700;
+}
+.clock .muted {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  letter-spacing: 0.08em;
 }
 .who {
   grid-area: who;
@@ -218,8 +261,8 @@ form {
 }
 .side {
   display: none;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  background: var(--w4-bg-rail);
+  border-bottom: 1px solid var(--w4-line);
   padding: 8px 16px 16px;
 }
 .menu-open .side {
@@ -236,23 +279,28 @@ form {
 .menu-link {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   width: 100%;
   padding: 0 12px;
   border: 1px solid transparent;
   background: none;
   color: var(--text);
+  font-size: var(--w4-text-base);
+  font-weight: 600;
   text-decoration: none;
   text-align: left;
-  border-radius: 8px;
+  border-radius: var(--w4-radius);
+  transition: background 0.15s ease;
 }
 .menu-link:hover,
 .menu-link:focus-visible {
-  border-color: var(--line);
+  background: var(--w4-line-faint);
+  color: var(--text);
 }
 .menu-link.active {
   background: var(--accent);
   color: var(--accent-text);
-  font-weight: 600;
+  font-weight: 700;
 }
 .steps {
   padding-left: 20px;
@@ -425,7 +473,7 @@ form {
 }
 @media (min-width: 1024px) {
   .shell {
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 200px minmax(0, 1fr);
     grid-template-rows: auto 1fr;
     grid-template-areas:
       "band band"
@@ -452,11 +500,12 @@ form {
   .menu-open .side {
     display: block;
     border-bottom: none;
-    border-right: 1px solid var(--line);
+    border-right: 1px solid var(--w4-line);
     min-height: calc(100vh - var(--topbar-h));
+    padding: 14px 12px;
   }
   .content {
-    padding: 24px;
+    padding: 14px 20px;
   }
   .phone-only,
   .tabs {
@@ -879,9 +928,10 @@ main select {
   display: inline-block;
   min-width: 20px;
   padding: 0 6px;
-  border-radius: 10px;
-  background: #e0287d;
-  color: #fff;
+  border-radius: var(--w4-radius-pill);
+  background: var(--w4-pink);
+  color: var(--w4-on-accent);
+  font-weight: 700;
   font-size: 0.8rem;
   text-align: center;
 }
@@ -975,14 +1025,14 @@ main select {
   border-radius: 10px;
 }
 .headcount.warn {
-  border-color: #b42318;
+  border-color: var(--w4-pink);
 }
 /* Board tiles (M2-29): amber in the last minutes before the booked end, red once the room runs over. */
 .room-clock.amber {
-  border-color: #d97706;
+  border-color: var(--w4-amber);
 }
 .room-clock.red {
-  border-color: #b42318;
+  border-color: var(--w4-pink);
 }
 /* The alerts band (M2-30): most urgent first, in pink, amber, lime and grey. */
 .alerts {
@@ -992,27 +1042,43 @@ main select {
   display: grid;
   gap: 6px;
 }
+/* Canvas "Needs you" rows (V-01): a dark row, a hairline, and a 3 px colour edge on the left. */
 .alert {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border-left: 6px solid;
+  gap: 8px 12px;
+  padding: 4px 6px 4px 12px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line-2);
+  border-left: 3px solid;
+  font-size: var(--w4-text-md);
+  line-height: 1.35;
+}
+.alert > span:first-child {
+  flex: 1 1 260px;
+  padding: 6px 0;
+}
+.alert .actions {
+  gap: 6px;
+}
+.alert button {
+  font-size: var(--w4-text-sm);
+  padding: 0 12px;
 }
 .alert.pink {
-  border-color: #e0287d;
+  border-left-color: var(--w4-pink);
 }
 .alert.amber {
-  border-color: #d97706;
+  border-left-color: var(--w4-amber);
 }
 .alert.lime {
-  border-color: #7cb518;
+  border-left-color: var(--w4-lime);
 }
 .alert.grey {
-  border-color: #8a8494;
+  border-left-color: var(--w4-faint);
 }
 /* DeskRoom and Room (M2-31): the running tab as label and amount, two columns. */
 .room-screen .big {
@@ -2073,4 +2139,253 @@ a.song-count {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+}
+
+/* The Board (V-01), after Board.dc.html: a title with the room counts as a chip, "Needs you" rows,
+   room tiles filled by state, and a side column for the headcount, arrivals and lost and found.
+   On a phone it stays one column in the order the board always had. */
+.screen.board-screen {
+  max-width: none;
+  font-size: var(--w4-text-base);
+}
+.board-screen .screen-head {
+  justify-content: flex-start;
+  gap: 8px 10px;
+  margin-bottom: 12px;
+}
+.board-screen .screen-head h1 {
+  margin: 0 6px 0 0;
+}
+.board-counts {
+  margin: 0 auto 0 0;
+  padding: 8px 10px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  font-size: var(--w4-text-sm);
+}
+.manager-needed {
+  padding: 8px 10px;
+  border-radius: var(--w4-radius);
+  background: var(--w4-pink);
+  color: var(--w4-on-accent);
+  font-weight: 700;
+  font-size: var(--w4-text-sm);
+  text-decoration: none;
+  animation: w4-pulse 1.2s ease-out infinite;
+}
+.board-label {
+  font-family: var(--w4-font-mono);
+  font-weight: 400;
+  font-size: var(--w4-text-sm);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  color: var(--w4-muted);
+  margin: 4px 0 6px;
+}
+.board-layout {
+  display: flex;
+  flex-direction: column;
+}
+.board-main,
+.board-side {
+  display: contents;
+}
+.board-headcount {
+  order: -1;
+}
+.board-arriving {
+  order: 1;
+}
+.board-rooms-label,
+.room-clocks.board {
+  order: 2;
+}
+.board-lost {
+  order: 3;
+}
+.board-screen .alerts {
+  margin: 0 0 12px;
+}
+.board-screen .headcount {
+  margin: 0 0 12px;
+  background: var(--w4-surface);
+  border-color: var(--w4-line-2);
+  font-size: var(--w4-text-md);
+}
+.board-screen .headcount strong {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+@media (min-width: 1024px) {
+  .board-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: 20px;
+    align-items: start;
+  }
+  .board-main,
+  .board-side {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .board-side {
+    gap: 4px;
+    padding: 14px;
+    border-radius: var(--w4-radius-tile);
+    background: var(--w4-bg-rail);
+    border: 1px solid var(--w4-line);
+  }
+}
+
+/* Arriving bookings: compact cards. */
+.room-clocks.arriving {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  margin: 0 0 12px;
+  gap: 8px;
+}
+.board-side .room-clocks.arriving {
+  grid-template-columns: minmax(0, 1fr);
+}
+.room-clocks.arriving .room-clock {
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius-md);
+  font-size: var(--w4-text-md);
+}
+
+/* Room tiles: the canvas's colours by state. */
+.room-clocks.board {
+  margin: 0 0 12px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.room-clocks.board .room-clock {
+  --tile-ink: var(--w4-text);
+  --tile-soft: var(--w4-text-2);
+  align-content: start;
+  gap: 5px;
+  min-height: 112px;
+  padding: 11px 12px;
+  border-radius: var(--w4-radius-tile);
+  border: 1px solid var(--w4-line-strong);
+  background: transparent;
+  color: var(--tile-ink);
+  font-size: var(--w4-text-sm);
+  line-height: 1.3;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.2s ease;
+}
+.room-clocks.board .room-clock:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--w4-shadow-lift);
+}
+.room-clocks.board .tile-name {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 1.6rem;
+  line-height: 0.85;
+  letter-spacing: -0.01em;
+}
+.room-clocks.board .room-clock-head {
+  align-items: baseline;
+}
+.room-clocks.board .room-clock-min {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  font-weight: 400;
+}
+.room-clocks.board .small {
+  font-size: var(--w4-text-sm);
+}
+.room-clocks.board .muted {
+  color: var(--tile-soft);
+}
+.room-clocks.board a {
+  color: inherit;
+  font-weight: 700;
+}
+.room-clocks.board .actions,
+.room-clocks.board .party-size {
+  gap: 6px;
+}
+.room-clocks.board button {
+  font-size: var(--w4-text-sm);
+  padding: 0 10px;
+  border-color: color-mix(in srgb, var(--tile-ink) 30%, transparent);
+  color: var(--tile-ink);
+}
+.room-clocks.board button.primary {
+  background: var(--tile-ink);
+  border-color: var(--tile-ink);
+  color: var(--tile-fill, var(--w4-bg));
+}
+/* In room: lime. Ten minutes left (wrap up): amber. Over time: pink. */
+.room-clocks.board .room-clock[data-state="in_room"],
+.room-clocks.board .room-clock[data-state="wrap_up"],
+.room-clocks.board .room-clock[data-state="needed_now"],
+.room-clocks.board .room-clock.amber,
+.room-clocks.board .room-clock.red {
+  --tile-ink: var(--w4-on-accent);
+  --tile-soft: rgba(11, 10, 13, 0.72);
+  --tile-fill: var(--w4-lime);
+  background: var(--tile-fill);
+  border-color: var(--tile-fill);
+}
+.room-clocks.board .room-clock[data-state="wrap_up"],
+.room-clocks.board .room-clock.amber {
+  --tile-fill: var(--w4-amber);
+}
+.room-clocks.board .room-clock[data-state="needed_now"],
+.room-clocks.board .room-clock.red {
+  --tile-fill: var(--w4-pink);
+}
+.room-clocks.board .room-clock[data-state="in_room"] .error,
+.room-clocks.board .room-clock[data-state="wrap_up"] .error,
+.room-clocks.board .room-clock[data-state="needed_now"] .error,
+.room-clocks.board .room-clock.amber .error,
+.room-clocks.board .room-clock.red .error {
+  color: var(--w4-on-accent);
+  font-weight: 700;
+}
+/* Staying on by the minute: a lime tint with a lime edge. */
+.room-clocks.board .room-clock[data-state="staying"] {
+  --tile-ink: var(--w4-text);
+  --tile-soft: var(--w4-text-2);
+  color: var(--tile-ink);
+  background: color-mix(in srgb, var(--w4-lime) 20%, transparent);
+  border-color: var(--w4-lime);
+}
+/* Needs a wipe: grey. */
+.room-clocks.board .room-clock[data-state="cleaning"] {
+  background: var(--w4-cleaning);
+  border-color: var(--w4-cleaning);
+}
+/* Out of service: pink hatching. */
+.room-clocks.board .room-clock[data-state="out_of_service"] {
+  --tile-ink: var(--w4-pink);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 61, 166, 0.18) 0 6px,
+    transparent 6px 12px
+  );
+  border-color: rgba(255, 61, 166, 0.4);
+}
+.room-clocks.board .room-clock[data-state="out_of_service"] .tile-name {
+  color: var(--w4-pink);
+}
+.room-clocks.board .room-clock[data-state="staying"] .error {
+  color: var(--w4-pink);
 }

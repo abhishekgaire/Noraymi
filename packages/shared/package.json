@@ -7,17 +7,26 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./design/tokens.css": "./src/design/tokens.css",
+    "./design/fonts.css": "./src/design/fonts.css"
   },
   "scripts": {
     "dev": "tsc -b --watch --preserveWatchOutput",
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@fontsource-variable/archivo": "5.3.0",
+    "@fontsource-variable/bricolage-grotesque": "5.3.0",
+    "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource-variable/instrument-sans": "5.3.0",
+    "@fontsource/instrument-serif": "5.3.0",
+    "@fontsource/space-mono": "5.3.0",
     "temporal-polyfill": "1.0.5",
     "zod": "4.6.5"
   },
   "files": [
-    "dist"
+    "dist",
+    "src/design"
   ]
 }

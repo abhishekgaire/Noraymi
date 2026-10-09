@@ -1,11 +1,12 @@
+/* Colours and type from the shared canvas tokens (V-01, @west4/shared/design/tokens.css). */
 :root {
-  --bg: #0f1216;
-  --panel: #171c22;
-  --line: #2a323c;
-  --text: #eef2f6;
-  --muted: #9aa6b2;
-  --accent: #6cc3ff;
-  --danger: #ff7b7b;
+  --bg: var(--w4-bg);
+  --panel: var(--w4-surface);
+  --line: var(--w4-line-3);
+  --text: var(--w4-text);
+  --muted: var(--w4-muted);
+  --accent: var(--w4-cyan);
+  --danger: var(--w4-pink);
   color-scheme: dark;
 }
 * {
@@ -15,9 +16,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font:
-    16px/1.45 system-ui,
-    sans-serif;
+  font: 16px/1.45 var(--w4-font-body);
 }
 .console {
   max-width: 1200px;
