@@ -18,7 +18,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import { businessDate, wallClock, type Promotable } from "@west4/rules";
-import type { Clock } from "@west4/shared";
+import { t, type Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { alcoholBlock, alcoholNow } from "../orders/alcohol.js";
@@ -27,6 +27,7 @@ import type { S3Settings } from "../s3.js";
 import { ApiError } from "../http/errors.js";
 import { promotableOf } from "../menu/promotions.js";
 import { guestMenu } from "../menu/guest-menu.js";
+import { kitchenOn } from "../kitchen/module.js";
 
 /**
  * The menu (M3-03; spec 08 · Menu):
@@ -61,7 +62,7 @@ const BODIES = {
       button_name: z.string().trim().min(1).max(24).nullable().optional(),
       description: z.string().trim().max(500).nullable().optional(),
       alcohol: z.boolean().optional(),
-      station: z.string().trim().min(1).max(40).optional(),
+      station: z.enum(["bar", "kitchen"]).optional(),
       shown: z.boolean().optional(),
       sort: sort.optional(),
     })
@@ -253,6 +254,11 @@ export function menuRoutes(
     };
     if (body["category_id"] !== undefined)
       await must("menu_categories", body["category_id"], "category");
+    // With Kitchen & food off, no item can be routed to the kitchen (spec 16; K-02).
+    if (table === "menu_items" && body["station"] === "kitchen" && !(await kitchenOn(c, venueId)))
+      throw new ApiError("invalid_request", t("en", "kitchen.refused.stationOff"), {
+        details: { reason: "kitchen_off" },
+      });
     if (body["item_id"] !== undefined) await must("menu_items", body["item_id"], "item");
     if (body["group_id"] !== undefined) {
       const group = await must("modifier_groups", body["group_id"], "choice group");
@@ -358,6 +364,8 @@ export function menuRoutes(
       return {
         categories: await menuTree(c, request.venueId!, nowIso(), {
           shownOnly: request.query.include_hidden !== "true",
+          // Admin → Menu (include_hidden) keeps food while Kitchen & food is off; staff menus don't.
+          includeKitchen: request.query.include_hidden === "true",
         }),
         alcohol: {
           ...(await alcoholNow(c, request.venueId!, now)),

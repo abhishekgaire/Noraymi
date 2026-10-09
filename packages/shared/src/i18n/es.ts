@@ -3150,4 +3150,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.admin.unsentWarnMin": "Recordatorio de No enviado (minutos)",
   "kitchen.admin.unsentWarnMin.hint":
     "Cuánto puede quedar sin enviar la comida que marca el personal antes de mostrar el recordatorio: de 1 a 60 minutos.",
+  "kitchen.refused.stationOff":
+    "Cocina y comida está apagada: enciéndela en Admin → Funciones antes de mandar un artículo a la cocina.",
+  "menuAdmin.col.station": "Estación",
+  "menuAdmin.station.bar": "Barra",
+  "menuAdmin.station.kitchen": "Cocina",
+  "menuAdmin.category.rename": "Cambiar nombre",
+  "menuAdmin.category.moveUp": "Subir",
+  "menuAdmin.category.moveDown": "Bajar",
+  "menuAdmin.category.food": "Comida",
 };

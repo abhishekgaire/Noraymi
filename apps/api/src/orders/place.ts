@@ -1,7 +1,8 @@
 import {
   clearDraft,
   emitEvent,
-  insertOrder,
+  basketOrders,
+  insertBasket,
   orderById,
   type NewOrder,
   orderableVariant,
@@ -12,6 +13,7 @@ import { businessDate } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
+import { kitchenOn } from "../kitchen/module.js";
 import { stepOrder } from "./pipeline.js";
 import { alcoholBlock, checkAlcohol, checkGiftAlcohol } from "./alcohol.js";
 
@@ -95,7 +97,8 @@ export async function placeStaffOrder(
   });
 
   const clock = await venueClock(c, venueId);
-  const orderId = await insertOrder(c, venueId, {
+  // One order per station, placed together (K-02); each is accepted as it's placed.
+  const orderIds = await insertBasket(c, venueId, {
     checkId: input.checkId,
     sessionId: ch.room_session_id,
     source: input.gift ? "gift" : "staff",
@@ -107,14 +110,19 @@ export async function placeStaffOrder(
     clientOrderId: input.clientOrderId,
     items,
   });
-  await emitEvent(c, { venueId, type: "order.ringing", entityId: orderId, entityVersion: 0 });
-  const accepted = await stepOrder(c, venueId, orderId, "accept", {
-    userId: input.userId,
-    deviceId: input.deviceId,
-    now: input.now,
-  });
-  if (accepted.status !== "done") throw new ApiError("internal", "a staff order wasn't accepted");
-  if (input.keepDraft) return accepted.order;
+  const placed: OrderRow[] = [];
+  for (const orderId of orderIds) {
+    await emitEvent(c, { venueId, type: "order.ringing", entityId: orderId, entityVersion: 0 });
+    const accepted = await stepOrder(c, venueId, orderId, "accept", {
+      userId: input.userId,
+      deviceId: input.deviceId,
+      now: input.now,
+    });
+    if (accepted.status !== "done") throw new ApiError("internal", "a staff order wasn't accepted");
+    placed.push(accepted.order);
+  }
+  const first = placed[0]!;
+  if (input.keepDraft) return first;
   const version = await clearDraft(
     c,
     venueId,
@@ -131,7 +139,7 @@ export async function placeStaffOrder(
       audience: "user",
       userId: input.userId,
     });
-  return accepted.order;
+  return first;
 }
 
 /**
@@ -147,6 +155,7 @@ export async function orderItemsFor(
 ): Promise<NewOrder["items"][number][]> {
   const nowIso = new Date(now.epochMilliseconds).toISOString();
   const items = [];
+  let kitchen: boolean | undefined;
   for (const line of lines) {
     const v = await orderableVariant(c, venueId, line.variant_id, nowIso);
     if (!v || !v.shown)
@@ -154,6 +163,11 @@ export async function orderItemsFor(
         details: { reason: "not_on_menu", variant_id: line.variant_id },
       });
     const name = v.variant_count > 1 ? `${v.item_name} · ${v.variant_name}` : v.item_name;
+    // With Kitchen & food off, no item routes to the kitchen: food can't be ordered (K-02).
+    if (v.station === "kitchen" && !(kitchen ??= await kitchenOn(c, venueId)))
+      throw new ApiError("invalid_request", `${name} isn't on the menu`, {
+        details: { reason: "kitchen_off", variant_id: v.variant_id },
+      });
     if (v.out_tonight)
       throw new ApiError("invalid_request", `${name} is 86'd tonight`, {
         details: { reason: "out_tonight", variant_id: v.variant_id },
@@ -229,12 +243,13 @@ export async function placeRoomOrder(
     sameAgainOf?: string | null;
     now: Temporal.Instant;
   },
-): Promise<OrderRow> {
+): Promise<OrderRow[]> {
   const seen = await c.query<{ id: string }>(
     "select id from orders where venue_id = $1 and client_order_id = $2",
     [venueId, input.clientOrderId],
   );
-  if (seen.rows[0]) return (await orderById(c, venueId, seen.rows[0].id))!;
+  if (seen.rows[0])
+    return basketOrders(c, venueId, (await orderById(c, venueId, seen.rows[0].id))!);
   const s = await c.query<{
     check_id: string | null;
     ordering_locked: boolean;
@@ -266,7 +281,8 @@ export async function placeRoomOrder(
     now: input.now,
   });
   const clock = await venueClock(c, venueId);
-  const orderId = await insertOrder(c, venueId, {
+  // A basket with food and drinks rings as one order per station, placed together (K-02).
+  const orderIds = await insertBasket(c, venueId, {
     checkId: session.check_id,
     sessionId: input.sessionId,
     roomGuestId: input.roomGuestId,
@@ -277,14 +293,18 @@ export async function placeRoomOrder(
     sameAgainOf: input.sameAgainOf ?? null,
     items,
   });
-  await emitEvent(c, {
-    venueId,
-    type: "order.ringing",
-    entityId: orderId,
-    entityVersion: 0,
-    roomId: input.roomId,
-  });
-  return (await orderById(c, venueId, orderId))!;
+  const orders: OrderRow[] = [];
+  for (const orderId of orderIds) {
+    await emitEvent(c, {
+      venueId,
+      type: "order.ringing",
+      entityId: orderId,
+      entityVersion: 0,
+      roomId: input.roomId,
+    });
+    orders.push((await orderById(c, venueId, orderId))!);
+  }
+  return orders;
 }
 
 export interface AgainRound {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { stateOf, type MessageKey } from "@west4/shared";
+import { foodCategories, moveCategory, stateOf, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -40,6 +40,8 @@ interface Item {
   readonly button_name: string | null;
   readonly description: string | null;
   readonly alcohol: boolean;
+  /** bar or kitchen (K-02): shown and chosen only while Kitchen & food is on. */
+  readonly station: string;
   readonly shown: boolean;
   readonly out_tonight: boolean;
   readonly variants: readonly Variant[];
@@ -48,6 +50,7 @@ interface Item {
 interface Category {
   readonly id: string;
   readonly name: string;
+  readonly sort: number;
   readonly tax_category: string;
   readonly items: readonly Item[];
 }
@@ -95,6 +98,9 @@ export function Menu() {
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const packagesOn =
     state.status === "signedIn" && stateOf(state.membership.modules, "packages") !== "off";
+  // Station, and the food categories' names and order (K-02; D100), only while Kitchen & food is on.
+  const kitchenOn =
+    state.status === "signedIn" && stateOf(state.membership.modules, "kitchen") !== "off";
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [packages, setPackages] = useState<Package[]>([]);
   const [rules, setRules] = useState<PriceRule[]>([]);
@@ -142,6 +148,7 @@ export function Menu() {
     api(method, `/v1/venues/${venueId}${path}`, body);
 
   const allItems = (categories ?? []).flatMap((c) => c.items);
+  const food = kitchenOn ? foodCategories(categories ?? []) : [];
   const itemName = (id: string) => allItems.find((i) => i.id === id)?.name ?? "?";
 
   if (failed)
@@ -179,7 +186,29 @@ export function Menu() {
                 <span className="muted small" data-guest-text>
                   · {cat.tax_category}
                 </span>
+                {food.includes(cat) && (
+                  <span className="pill small"> {t("menuAdmin.category.food")}</span>
+                )}
               </h3>
+              {food.includes(cat) && (
+                <FoodCategoryControls
+                  category={cat}
+                  first={food[0] === cat}
+                  last={food[food.length - 1] === cat}
+                  onRename={(name) =>
+                    run(
+                      () => call("PATCH", `/menu/categories/${cat.id}`, { name }),
+                      t("menuAdmin.saved", { name }),
+                    )
+                  }
+                  onMove={(direction) =>
+                    void run(async () => {
+                      for (const change of moveCategory(food, cat.id, direction))
+                        await call("PATCH", `/menu/categories/${change.id}`, { sort: change.sort });
+                    })
+                  }
+                />
+              )}
               <table className="team-table menu-table">
                 <thead>
                   <tr>
@@ -187,6 +216,7 @@ export function Menu() {
                     <th>{t("menuAdmin.col.button")}</th>
                     <th>{t("menuAdmin.col.price")}</th>
                     <th>{t("menuAdmin.col.alcohol")}</th>
+                    {kitchenOn && <th>{t("menuAdmin.col.station")}</th>}
                     <th>{t("menuAdmin.col.shown")}</th>
                     <th>{t("menuAdmin.col.tonight")}</th>
                   </tr>
@@ -197,6 +227,7 @@ export function Menu() {
                       key={item.id}
                       item={item}
                       categories={categories}
+                      kitchenOn={kitchenOn}
                       open={editing === item.id}
                       onEdit={() => setEditing(editing === item.id ? null : item.id)}
                       onEightySix={(out) =>
@@ -394,6 +425,7 @@ interface Save {
 function ItemRows(props: {
   item: Item;
   categories: readonly Category[];
+  kitchenOn: boolean;
   open: boolean;
   onEdit: () => void;
   onEightySix: (out: boolean) => void;
@@ -417,6 +449,7 @@ function ItemRows(props: {
         <td data-guest-text>{item.button_name ?? <span className="muted">{item.name}</span>}</td>
         <td>{item.variants.map((v) => money(v.price_cents)).join(" / ")}</td>
         <td>{item.alcohol ? t("menuAdmin.alcohol.yes") : t("menuAdmin.alcohol.no")}</td>
+        {props.kitchenOn && <td>{t(`menuAdmin.station.${item.station}` as MessageKey)}</td>}
         <td>{item.shown ? t("menuAdmin.shown") : t("menuAdmin.hidden")}</td>
         <td>
           <div className="team-actions">
@@ -443,10 +476,11 @@ function ItemRows(props: {
       </tr>
       {props.open && (
         <tr className="menu-editor-row">
-          <td colSpan={6}>
+          <td colSpan={props.kitchenOn ? 7 : 6}>
             <ItemEditor
               item={item}
               categories={props.categories}
+              kitchenOn={props.kitchenOn}
               onCancel={props.onEdit}
               onSave={props.onSave}
             />
@@ -460,6 +494,7 @@ function ItemRows(props: {
 function ItemEditor(props: {
   item: Item;
   categories: readonly Category[];
+  kitchenOn: boolean;
   onCancel: () => void;
   onSave: (saves: Save[]) => Promise<void>;
 }) {
@@ -470,6 +505,7 @@ function ItemEditor(props: {
   const [description, setDescription] = useState(item.description ?? "");
   const [categoryId, setCategoryId] = useState(item.category_id);
   const [alcohol, setAlcohol] = useState(item.alcohol);
+  const [station, setStation] = useState(item.station);
   const [shown, setShown] = useState(item.shown);
   const [variants, setVariants] = useState(
     item.variants.map((v) => ({
@@ -511,6 +547,7 @@ function ItemEditor(props: {
       itemBody["description"] = description.trim() || null;
     if (categoryId !== item.category_id) itemBody["category_id"] = categoryId;
     if (alcohol !== item.alcohol) itemBody["alcohol"] = alcohol;
+    if (station !== item.station) itemBody["station"] = station;
     if (shown !== item.shown) itemBody["shown"] = shown;
     if (Object.keys(itemBody).length > 0)
       saves.push({ method: "PATCH", path: `/menu/items/${item.id}`, body: itemBody });
@@ -601,6 +638,15 @@ function ItemEditor(props: {
             ))}
           </select>
         </label>
+        {props.kitchenOn && (
+          <label>
+            <span>{t("menuAdmin.col.station")}</span>
+            <select value={station} onChange={(e) => setStation(e.target.value)}>
+              <option value="bar">{t("menuAdmin.station.bar")}</option>
+              <option value="kitchen">{t("menuAdmin.station.kitchen")}</option>
+            </select>
+          </label>
+        )}
         <label>
           <span>{t("menuAdmin.description")}</span>
           <input
@@ -754,6 +800,58 @@ function ItemEditor(props: {
           {t("team.badge.cancel")}
         </button>
       </div>
+    </form>
+  );
+}
+
+/** A food category's name and place among the food categories (D100; K-02). */
+function FoodCategoryControls(props: {
+  category: Category;
+  first: boolean;
+  last: boolean;
+  onRename: (name: string) => Promise<boolean>;
+  onMove: (direction: "up" | "down") => void;
+}) {
+  const { t } = useT();
+  const [name, setName] = useState(props.category.name);
+  useEffect(() => setName(props.category.name), [props.category.name]);
+  const label = `${t("menuAdmin.category.rename")} · ${props.category.name}`;
+  return (
+    <form
+      className="team-actions"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim() && name.trim() !== props.category.name) void props.onRename(name.trim());
+      }}
+    >
+      <input
+        aria-label={label}
+        value={name}
+        required
+        maxLength={80}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <button type="submit" className="secondary" aria-label={label}>
+        {t("menuAdmin.category.rename")}
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        disabled={props.first}
+        aria-label={`${t("menuAdmin.category.moveUp")} · ${props.category.name}`}
+        onClick={() => props.onMove("up")}
+      >
+        {t("menuAdmin.category.moveUp")}
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        disabled={props.last}
+        aria-label={`${t("menuAdmin.category.moveDown")} · ${props.category.name}`}
+        onClick={() => props.onMove("down")}
+      >
+        {t("menuAdmin.category.moveDown")}
+      </button>
     </form>
   );
 }

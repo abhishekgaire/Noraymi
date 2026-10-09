@@ -52,7 +52,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-02 · Route items to a station, and split a basket into one order per station
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K-01; M3-03, M3-04, M3-06
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Stations; [Data model](../spec/04-data-model.md) · Room orders
@@ -61,12 +61,15 @@ Definition of done: see CLAUDE.md.
   - Admin → Menu shows Station on each item only while the module is on, and lets a manager rename and reorder the food categories (`menu_categories` name and sort), which the bar POS's food row and the guest menu's food sections follow (D100).
   - The order pipeline splits a basket or round with lines for both stations into one order per station sharing `basket_id`; options and variants follow their item.
 - **Acceptance:**
-  - [ ] A basket of one food item and two drinks becomes two orders, one per station, with one `basket_id`.
-  - [ ] An option on a food item stays on the kitchen order.
-  - [ ] With the module off, a `kitchen` item can't be saved or ordered.
-  - [ ] Renaming a food category or moving it up in Admin → Menu changes its name and place on the bar POS's food row and the room page's food sections.
+  - [x] A basket of one food item and two drinks becomes two orders, one per station, with one `basket_id`.
+  - [x] An option on a food item stays on the kitchen order.
+  - [x] With the module off, a `kitchen` item can't be saved or ordered.
+  - [x] Renaming a food category or moving it up in Admin → Menu changes its name and place on the bar POS's food row and the room page's food sections.
 - **Tests:** unit tests for the split; integration tests against Postgres with row-level security on; the migration linter.
-- **Notes:**
+- **Notes:** Migration `0135_kitchen_stations.sql` (stations limited to bar and kitchen; `orders.station`, `orders.basket_id`; the `order_items` kitchen columns and `package_id`). The split is `splitByStation` in `packages/shared/src/stations.ts` (with `foodCategories` and `moveCategory`), used by `insertBasket` in `packages/db/src/orders.ts` for guest orders, staff rounds and offline replays: bar order first, the round's `client_order_id` on it, one `basket_id` for all (single-station orders get a basket of their own too). Tests: `stations.test.ts`, `import.test.ts` (Sing Sing's import files: every line bar or kitchen), `kitchen-stations.int.test.ts` (split, option, module off, rename and reorder, venue B can't see a basket), e2e "Admin → Menu with Kitchen on".
+  - The guest order routes now also answer `orders` (the whole basket, bar first) beside `order`; the guest menu marks each category `food`. The two cards ("Drinks", "Food") are K-04's, the bar POS food row K-05's; both read the menu order this ticket saves.
+  - With the module off, kitchen items are hidden from the staff menu, the room page and the website (Admin → Menu still lists them), refused on order (`kitchen_off`) and can't be saved to the kitchen. The menu importer still loads kitchen lines while the module is off (a venue imports before it pairs the printer), refusing any station but bar or kitchen.
+  - Left for later: a staff round's kitchen order is accepted and prints at once on a room check, as drinks do (the M6-29 rule applies on a bar tab); K-05 makes staff food wait for Send to kitchen. `devices.station` limits are K-03's. The open-kitchen-work check from K-01 still reads `order_items.station`.
 
 ### K-03 · Print kitchen tickets, with failures, reprints at the bar and AFTER OUTAGE
 

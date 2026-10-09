@@ -1289,7 +1289,9 @@ Where the owner approves support access from our staff.
 
 The `kitchen` settings key, through Save and publish: the allergy notice in English and Spanish ("Allergy notice · not set · Admin → Kitchen" while it's empty; both languages or neither), the last order time (empty: food follows room ordering) and the Not sent reminder in minutes (5 by default, 1 to 60). Admin → Features keeps Kitchen & food off and reads "Kitchen · needs a kitchen printer and the allergy notice", naming only what's missing, until both are there.
 
-*Spec: [Kitchen and food](spec/16-kitchen.md) · The Kitchen module.*
+While Kitchen & food is on, Admin → Menu (K-02, D100) shows each item's Station (Bar or Kitchen) in its row and its editor, and each food category (one with kitchen items) carries a Food tag, a Rename field and Move up and Move down among the food categories; the bar POS's food row and the room page's food sections follow that name and order. With the module off, Station and these controls are gone, and an item can't be saved to the kitchen.
+
+*Spec: [Kitchen and food](spec/16-kitchen.md) · The Kitchen module, Stations.*
 
 ## Finding map
 

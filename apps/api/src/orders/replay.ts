@@ -1,4 +1,4 @@
-import { emitEvent, insertOrder, type Queryable } from "@west4/db";
+import { emitEvent, insertBasket, type Queryable } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
@@ -203,7 +203,8 @@ export async function replayRound(
     refusedBy: placedBy,
     now: input.now,
   });
-  const orderId = await insertOrder(c, venueId, {
+  // A round with food and drinks is one order per station (K-02); the first carries the round's id.
+  const orderIds = await insertBasket(c, venueId, {
     checkId: round.check_id,
     sessionId: check.room_session_id,
     source: "offline",
@@ -214,13 +215,19 @@ export async function replayRound(
     items,
   });
   // Asked to wait: off the tab until a bartender accepts it against the tab.
-  await c.query("update orders set status = 'held', held_at = $3 where venue_id = $1 and id = $2", [
-    venueId,
-    orderId,
-    input.now.toString(),
-  ]);
-  await record(c, venueId, round, { ...input, outcome: "held", reason: null, orderId });
-  await emitEvent(c, { venueId, type: "order.held", entityId: orderId, entityVersion: 0 });
+  for (const orderId of orderIds)
+    await c.query(
+      "update orders set status = 'held', held_at = $3 where venue_id = $1 and id = $2",
+      [venueId, orderId, input.now.toString()],
+    );
+  await record(c, venueId, round, {
+    ...input,
+    outcome: "held",
+    reason: null,
+    orderId: orderIds[0]!,
+  });
+  for (const orderId of orderIds)
+    await emitEvent(c, { venueId, type: "order.held", entityId: orderId, entityVersion: 0 });
   return { order_id: round.order_id, outcome: "held", reason: null };
 }
 

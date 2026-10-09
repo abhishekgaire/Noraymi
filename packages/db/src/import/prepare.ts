@@ -396,8 +396,10 @@ export function prepareImport(
         nonNegative("price", priceCents);
         const buttonName = text("button_name", 24) ?? null;
         const station = text("station", 32) ?? "bar";
-        if (!/^[a-z][a-z0-9_]{0,31}$/.test(station))
-          rowProblems.push(`station "${station}" must be lowercase letters, digits and _`);
+        // Two stations (Kitchen and food · Stations; K-02). A kitchen item loads while the module is
+        // off: it stays off every menu until Kitchen & food is on.
+        if (station !== "bar" && station !== "kitchen")
+          rowProblems.push(`station "${station}" must be bar or kitchen`);
         record = {
           itemRef: text("item_ref", 200) ?? ref,
           name: text("name", 80),

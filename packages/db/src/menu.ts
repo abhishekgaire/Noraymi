@@ -157,9 +157,22 @@ export async function menuTree(
   client: Queryable,
   venueId: string,
   now: string,
-  options: { shownOnly?: boolean } = {},
+  options: {
+    shownOnly?: boolean;
+    /** Admin → Menu keeps kitchen items while Kitchen & food is off, so a manager can still edit them. */
+    includeKitchen?: boolean;
+  } = {},
 ): Promise<MenuCategory[]> {
   const out = (col: string) => `coalesce(${col} > $2::timestamptz, false) as out_tonight`;
+  // With Kitchen & food off, food is hidden from every menu (spec 16 · What it hides; K-02).
+  const kitchenOff =
+    options.includeKitchen !== true &&
+    ((
+      await client.query<{ state: string }>(
+        "select state from venue_modules where venue_id = $1 and module_id = 'kitchen'",
+        [venueId],
+      )
+    ).rows[0]?.state ?? "off") === "off";
   const [cats, items, variants, groups, opts] = await Promise.all([
     client.query<Omit<MenuCategory, "items">>(
       "select id, name, sort, tax_category from menu_categories where venue_id = $1 order by sort, name, id",
@@ -167,7 +180,8 @@ export async function menuTree(
     ),
     client.query<Omit<MenuItem, "variants" | "groups">>(
       `select id, category_id, name, button_name, description, alcohol, station, shown, ${out("out_until")}
-         from menu_items where venue_id = $1 ${options.shownOnly ? "and shown" : ""} order by sort, name, id`,
+         from menu_items where venue_id = $1 ${options.shownOnly ? "and shown" : ""}
+           ${kitchenOff ? "and station <> 'kitchen'" : ""} order by sort, name, id`,
       [venueId, now],
     ),
     client.query<MenuVariant & { item_id: string }>(
@@ -195,17 +209,31 @@ export async function menuTree(
   const groupsByItem = byKey(groups.rows, "item_id");
   const variantsByItem = byKey(variants.rows, "item_id");
   const itemsByCat = byKey(items.rows, "category_id");
-  return cats.rows.map((cat) => ({
-    ...cat,
-    items: (itemsByCat.get(cat.id) ?? []).map((item) => ({
-      ...item,
-      variants: (variantsByItem.get(item.id) ?? []).map(({ item_id: _, ...v }) => v),
-      groups: (groupsByItem.get(item.id) ?? []).map(({ item_id: _, ...g }) => ({
-        ...g,
-        options: (optsByGroup.get(g.id) ?? []).map(({ group_id: __, ...o }) => o),
+  // A food category is left out with its food, rather than shown empty.
+  const hidden = kitchenOff
+    ? new Set(
+        (
+          await client.query<{ category_id: string }>(
+            `select distinct category_id from menu_items where venue_id = $1 and station = 'kitchen'
+              except select distinct category_id from menu_items where venue_id = $1 and station <> 'kitchen'`,
+            [venueId],
+          )
+        ).rows.map((r) => r.category_id),
+      )
+    : new Set<string>();
+  return cats.rows
+    .filter((cat) => !hidden.has(cat.id))
+    .map((cat) => ({
+      ...cat,
+      items: (itemsByCat.get(cat.id) ?? []).map((item) => ({
+        ...item,
+        variants: (variantsByItem.get(item.id) ?? []).map(({ item_id: _, ...v }) => v),
+        groups: (groupsByItem.get(item.id) ?? []).map(({ item_id: _, ...g }) => ({
+          ...g,
+          options: (optsByGroup.get(g.id) ?? []).map(({ group_id: __, ...o }) => o),
+        })),
       })),
-    })),
-  }));
+    }));
 }
 
 /** What the promotion checks need: each item's name, alcohol flag and regular price (its first variant). */

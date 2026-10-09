@@ -22,6 +22,8 @@ export async function guestMenu(c: Queryable, venueId: string, now: Temporal.Ins
     categories: categories
       .map((cat) => ({
         ...cat,
+        // A food category (D100; K-02): the room page shows it under the Food heading.
+        food: cat.items.some((i) => i.station === "kitchen"),
         items: cat.items.map(({ station: _s, shown: _h, ...item }) => item),
       }))
       .filter((cat) => cat.items.length > 0),

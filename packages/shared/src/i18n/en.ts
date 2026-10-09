@@ -3081,4 +3081,13 @@ export const en = {
   "kitchen.admin.unsentWarnMin": "Not sent reminder (minutes)",
   "kitchen.admin.unsentWarnMin.hint":
     "How long food staff ring may sit Not sent before the reminder shows: 1 to 60 minutes.",
+  "kitchen.refused.stationOff":
+    "Kitchen & food is off: turn it on in Admin → Features before an item can go to the kitchen.",
+  "menuAdmin.col.station": "Station",
+  "menuAdmin.station.bar": "Bar",
+  "menuAdmin.station.kitchen": "Kitchen",
+  "menuAdmin.category.rename": "Rename",
+  "menuAdmin.category.moveUp": "Move up",
+  "menuAdmin.category.moveDown": "Move down",
+  "menuAdmin.category.food": "Food",
 } as const;

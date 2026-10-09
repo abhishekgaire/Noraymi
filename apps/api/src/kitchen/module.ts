@@ -79,3 +79,12 @@ export async function kitchenOrdersOpen(c: Queryable, venueId: string): Promise<
   const n = r.rows[0]?.n ?? 0;
   return n > 0 ? t("en", "kitchen.refused.ordersOpen", { n }) : null;
 }
+
+/** Whether Kitchen & food is on (or stopping, which still serves what's open): off routes nothing to the kitchen. */
+export async function kitchenOn(c: Queryable, venueId: string): Promise<boolean> {
+  const r = await c.query<{ state: string }>(
+    "select state from venue_modules where venue_id = $1 and module_id = 'kitchen'",
+    [venueId],
+  );
+  return (r.rows[0]?.state ?? "off") !== "off";
+}

@@ -946,6 +946,79 @@ test("Admin → Kitchen: Features names what Kitchen needs, and the allergy noti
 });
 
 /**
+ * Admin → Menu with Kitchen & food on (K-02; D100): each item shows its Station, and a manager
+ * renames a food category and moves it up. The kitchen menu is test-only, laid over West 4's and
+ * removed afterwards; West 4's plan has no kitchen, so the test allows and turns it on, then off.
+ */
+test("Admin → Menu with Kitchen on: Station on each item, and a food category renamed and moved up", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const cat = async (name: string, sort: number) =>
+    (
+      await db.query<{ id: string }>(
+        `insert into menu_categories (venue_id, name, sort, tax_category)
+           select id, $1, $2, 'food' from venues where slug = 'west4karaoke' returning id`,
+        [name, sort],
+      )
+    ).rows[0]!.id;
+  const item = (categoryId: string, name: string) =>
+    db.query(
+      `insert into menu_items (venue_id, category_id, name, station)
+         select venue_id, id, $2, 'kitchen' from menu_categories where id = $1`,
+      [categoryId, name],
+    );
+  const wings = await cat("TEST Wings", 9000);
+  const sides = await cat("TEST Sides", 9010);
+  try {
+    await item(wings, "TEST wings");
+    await item(sides, "TEST side");
+    await db.query(
+      "update venue_modules set allowed = true, state = 'on' where module_id = 'kitchen'",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    await page.goto("/admin/menu");
+    await expect(page.getByRole("columnheader", { name: "Station" }).first()).toBeVisible();
+    await expect(page.getByRole("row", { name: /^TEST wings/ })).toContainText("Kitchen");
+    await page.getByRole("textbox", { name: "Rename · TEST Sides" }).fill("TEST Sides & more");
+    await page.getByRole("button", { name: "Rename · TEST Sides" }).click();
+    await expect(page.getByText("TEST Sides & more saved")).toBeVisible();
+    await page.getByRole("button", { name: "Move up · TEST Sides & more" }).click();
+    await expect
+      .poll(async () =>
+        (
+          await db.query<{ name: string }>(
+            "select name from menu_categories where id = any($1::uuid[]) order by sort, name",
+            [[wings, sides]],
+          )
+        ).rows.map((r) => r.name),
+      )
+      .toEqual(["TEST Sides & more", "TEST Wings"]);
+    await expect(page.getByRole("button", { name: "Move up · TEST Sides & more" })).toBeDisabled();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.query(
+      "update venue_modules set allowed = false, state = 'off' where module_id = 'kitchen'",
+    );
+    await db.query("delete from menu_items where category_id = any($1::uuid[])", [[wings, sides]]);
+    await db.query("delete from menu_categories where id = any($1::uuid[])", [[wings, sides]]);
+    await db.end();
+  }
+});
+
+/**
  * Admin → Hours & prices, the M1 part (M1-33). West 4's hours read Mon to Fri
  * 4:00 PM to 4:00 AM and Sat and Sun 2:00 PM to 4:00 AM. A house last call of
  * 4:30 AM is refused on Save and publish with the rule pack's reason, and

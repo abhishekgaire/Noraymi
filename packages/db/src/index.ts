@@ -389,7 +389,15 @@ export type {
   MenuOption,
   OrderableVariant,
 } from "./menu.js";
-export { orderById, listOrders, insertOrder, moveOrder, insertPrintJob } from "./orders.js";
+export {
+  orderById,
+  listOrders,
+  insertOrder,
+  insertBasket,
+  basketOrders,
+  moveOrder,
+  insertPrintJob,
+} from "./orders.js";
 export type { OrderRow, OrderItemRow, NewOrder } from "./orders.js";
 export { draftFor, saveDraft, clearDraft } from "./drafts.js";
 export type { DraftRow } from "./drafts.js";

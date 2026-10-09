@@ -116,6 +116,8 @@ export type { IdScanFields } from "./id-scan.js";
 export { FILE_RULES, isFileKind } from "./files.js";
 export type { FileKind } from "./files.js";
 export { guestOrderWords, staffOrderWordsKey } from "./orders.js";
+export { STATIONS, isStation, splitByStation, foodCategories, moveCategory } from "./stations.js";
+export type { Station, StationPart } from "./stations.js";
 export type { OrderForWords } from "./orders.js";
 export * from "./site.js";
 export * from "./pos.js";

@@ -313,3 +313,33 @@ describe("the bar grid for an imported menu (M9-04)", () => {
     ]);
   });
 });
+
+describe("Sing Sing's menu import files and stations (K-02)", () => {
+  const dir = join(import.meta.dirname, "../../../../docs/venues/sing-sing/import");
+  const mapping = checkMapping(JSON.parse(readFileSync(join(dir, "mapping.json"), "utf8")));
+  const read = (f: string) => readFileSync(join(dir, f), "utf8");
+
+  it("reads every line's station as bar or kitchen, with no problems", () => {
+    const p = prepareImport(mapping.mapping!, read, NY);
+    expect(p.problems).toEqual([]);
+    const stations = new Set(p.menu.map((m) => m.station));
+    expect([...stations].sort()).toEqual(["bar", "kitchen"]);
+    // The file's own count of kitchen lines, so the routing reads what the founder gave.
+    const kitchenRows = parseCsv(read("items.csv")).records.filter(
+      (r) => r.cells[8] === "kitchen",
+    ).length;
+    expect(kitchenRows).toBeGreaterThan(0);
+    expect(p.menu.filter((m) => m.station === "kitchen")).toHaveLength(kitchenRows);
+  });
+
+  it("refuses a station that isn't bar or kitchen", () => {
+    const p = prepareImport(
+      mapping.mapping!,
+      (f) => (f === "items.csv" ? read(f).replace(/,kitchen,/, ",expo,") : read(f)),
+      NY,
+    );
+    expect(p.problems.map((x) => x.message ?? String(x))).toEqual(
+      expect.arrayContaining([expect.stringContaining('station "expo" must be bar or kitchen')]),
+    );
+  });
+});

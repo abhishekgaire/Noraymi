@@ -123,7 +123,7 @@ export function roomOrderRoutes(
           parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
         );
       const me = await currentGuest(request, options.pool, options.clock);
-      const order = await withVenueRefusing(
+      const orders = await withVenueRefusing(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
         (c) =>
@@ -135,13 +135,17 @@ export function roomOrderRoutes(
             lines: parsed.data.lines,
             clientOrderId: parsed.data.client_order_id,
             now: options.clock.now(),
-          }).then(async (o) => {
+          }).then(async (placed) => {
             // The room page's trace runs on to the bar's alarm (M8-16).
-            await noteOrderTrace(c, me.venueId, o, request.trace);
-            return o;
+            for (const o of placed) await noteOrderTrace(c, me.venueId, o, request.trace);
+            return placed;
           }),
       );
-      return reply.code(201).send({ order: guestView(order, me) });
+      // A basket with food and drinks is one order per station (K-02): `order` is the first, and
+      // `orders` all of them, bar first.
+      return reply
+        .code(201)
+        .send({ order: guestView(orders[0]!, me), orders: orders.map((o) => guestView(o, me)) });
     },
   );
 
@@ -337,7 +341,7 @@ export function roomOrderRoutes(
         throw new ApiError("invalid_request", "send { order_id, client_order_id }");
       const me = await currentGuest(request, options.pool, options.clock);
       const now = options.clock.now();
-      const order = await withVenueRefusing(
+      const orders = await withVenueRefusing(
         options.pool,
         { venueId: me.venueId, requestId: request.requestId },
         async (c) => {
@@ -358,15 +362,14 @@ export function roomOrderRoutes(
             clientOrderId: parsed.data.client_order_id,
             sameAgainOf: round.order_id,
             now,
-          }).then(async (o) => {
-            await noteOrderTrace(c, me.venueId, o, request.trace);
-            return o;
+          }).then(async (placed) => {
+            for (const o of placed) await noteOrderTrace(c, me.venueId, o, request.trace);
+            return placed;
           });
         },
       );
-      return reply
-        .code(201)
-        .send({ order: { ...guestView(order, me), same_again_of: order.same_again_of } });
+      const again = (o: OrderRow) => ({ ...guestView(o, me), same_again_of: o.same_again_of });
+      return reply.code(201).send({ order: again(orders[0]!), orders: orders.map(again) });
     },
   );
 }

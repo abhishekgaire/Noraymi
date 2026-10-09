@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { splitByStation } from "@west4/shared";
 import type { Queryable } from "./tenancy.js";
 
 /**
@@ -61,6 +63,9 @@ export interface OrderRow {
   readonly cancelled_by: string | null;
   readonly cancelled_at: string | null;
   readonly decline_reason: string | null;
+  /** The one station the order belongs to, and the basket it was placed in with the other station's (K-02). */
+  readonly station: string;
+  readonly basket_id: string | null;
   readonly version: number;
   /** The party's name and size, and IDs checked in the session (the bar's ID line). */
   readonly guest_name: string | null;
@@ -122,6 +127,8 @@ const ORDER_COLS = [
   "o.cancelled_by",
   ts("cancelled_at"),
   "o.decline_reason",
+  "o.station",
+  "o.basket_id",
   "o.version",
   "gg.name as guest_name",
   "s.party_size",
@@ -226,6 +233,8 @@ export interface NewOrder {
   readonly sameAgainOf?: string | null;
   readonly giftForSingerId?: string | null;
   readonly giftForCheckId?: string | null;
+  /** The basket a split order shares with the other station's (K-02). */
+  readonly basketId?: string | null;
   readonly items: readonly {
     readonly id?: string;
     readonly variantId: string | null;
@@ -245,8 +254,9 @@ export interface NewOrder {
 export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): Promise<string> {
   const r = await c.query<{ id: string }>(
     `insert into orders (id, venue_id, check_id, session_id, room_guest_id, source, placed_by, placed_at,
-       business_date, client_order_id, same_again_of, gift_for_singer_id, gift_for_check_id)
-     values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
+       business_date, client_order_id, same_again_of, gift_for_singer_id, gift_for_check_id, station, basket_id)
+     values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+     returning id`,
     [
       o.id ?? null,
       venueId,
@@ -261,6 +271,8 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
       o.sameAgainOf ?? null,
       o.giftForSingerId ?? null,
       o.giftForCheckId ?? null,
+      orderStation(o.items),
+      o.basketId ?? null,
     ],
   );
   const orderId = r.rows[0]!.id;
@@ -288,6 +300,52 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
     );
   }
   return orderId;
+}
+
+/** An order's station: its lines' one station (bar for an order with no lines). */
+function orderStation(items: NewOrder["items"]): string {
+  const stations = [...new Set(items.map((i) => i.station))];
+  if (stations.length > 1) throw new Error(`one order, one station: got ${stations.join(", ")}`);
+  return stations[0] ?? "bar";
+}
+
+/**
+ * A basket or a round (K-02; Kitchen and food · Stations): one order per station, placed together
+ * with one basket_id, bar first. The client_order_id goes on the first, so a retry finds the
+ * basket through it. Answers the order ids in that order.
+ */
+export async function insertBasket(c: Queryable, venueId: string, o: NewOrder): Promise<string[]> {
+  const parts = splitByStation(o.items);
+  if (parts.length <= 1) return [await insertOrder(c, venueId, { ...o, basketId: randomUUID() })];
+  const basketId = randomUUID();
+  const ids: string[] = [];
+  const { id, ...rest } = o;
+  for (const [n, part] of parts.entries())
+    ids.push(
+      await insertOrder(c, venueId, {
+        ...rest,
+        ...(n === 0 && id !== undefined ? { id } : {}),
+        clientOrderId: n === 0 ? (o.clientOrderId ?? null) : null,
+        basketId,
+        items: part.lines,
+      }),
+    );
+  return ids;
+}
+
+/** The orders placed with this one (itself included), bar first. */
+export async function basketOrders(
+  c: Queryable,
+  venueId: string,
+  order: OrderRow,
+): Promise<OrderRow[]> {
+  if (!order.basket_id) return [order];
+  const r = await c.query<Omit<OrderRow, "items" | "amount_cents">>(
+    `select ${ORDER_COLS} from ${FROM} where o.venue_id = $1 and o.basket_id = $2
+      order by case o.station when 'bar' then 0 else 1 end, o.id`,
+    [venueId, order.basket_id],
+  );
+  return withItems(c, venueId, r.rows);
 }
 
 /** Writes a step's columns while the order still has `from`'s status; false when it moved first. */

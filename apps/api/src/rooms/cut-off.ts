@@ -60,6 +60,7 @@ export async function cancelAlcohol(
         placedBy: o.placed_by,
         placedAt: o.placed_at,
         businessDate: o.business_date,
+        basketId: o.basket_id,
         items: rest.map((i) => ({
           variantId: i.variant_id,
           itemId: i.item_id,
