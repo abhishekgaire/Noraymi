@@ -342,24 +342,15 @@
   order: 3;
 }
 
-/* Wide tables (Team, Devices, Menu) never break a word letter by letter: they scroll inside
-   their card instead, and the page itself never scrolls sideways. */
-.admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) {
-  display: block;
-  overflow-x: auto;
-  max-width: 100%;
-  scrollbar-width: thin;
-}
+/* Wide tables (Team, Devices, Menu) fit their card: no column label is cut off and the page
+   never scrolls sideways. Labels wrap between words, and a long word breaks only where a
+   narrow phone leaves no other room. */
 .admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) :is(th, td) {
-  overflow-wrap: normal;
-  word-break: normal;
   font-size: var(--w4-text-sm);
 }
 .admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) thead th {
-  white-space: nowrap;
-}
-.admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) td {
-  min-width: 72px;
+  white-space: normal;
+  hyphens: auto;
 }
 .admin-screen .admin-body button {
   overflow-wrap: normal;
@@ -423,7 +414,9 @@
   padding: 4px 10px;
   color: var(--w4-muted);
   border-color: var(--w4-line-3);
-  white-space: nowrap;
+  /* A long label (Texts' "Off · needs the Marketing texts module…") wraps inside its chip. */
+  white-space: normal;
+  max-width: 100%;
 }
 .admin-screen .module-hides {
   grid-template-columns: minmax(0, 1fr);
