@@ -262,7 +262,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Reports & accounting | Reports and exports (the Z report stays, under Payments & checks) | Reports | — | — |
 | Website | — | — | The public pages: home, rooms, menu and PDF, parties and enquiries, songs | — |
 
-Event sales, Guests, loyalty & gift cards, and Multiple locations are phase 2 or later, so no phase 1 screen shows them. Kitchen & food comes into phase 1 for Sing Sing Astoria, the first venue to go live, as printed kitchen tickets with no kitchen screen or coursing ([D98](../decisions.md)); its design is in [Kitchen and food](16-kitchen.md), a draft awaiting the founder's approval, and until it's approved no screen shows it.
+Event sales, Guests, loyalty & gift cards, and Multiple locations are phase 2 or later, so no phase 1 screen shows them. Kitchen & food comes into phase 1 for Sing Sing Astoria, the first venue to go live, as printed kitchen tickets with no kitchen screen or coursing ([D98](../decisions.md)); its design is in [Kitchen and food](16-kitchen.md), approved by the founder on Oct 9, 2026.
 
 Beta and rollout switches are separate from modules: `venue_flags (venue_id, flag, on, set_by)`, read by the API and the screens, with our own test venue first in line.
 

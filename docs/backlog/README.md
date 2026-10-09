@@ -27,7 +27,7 @@
 
 **Visual pass.** [V · Visual pass](V-visual-pass.md) applies the frozen canvas's look to the built screens (decision D97): V-01 built the shared design layer and restyled the Board; V-02 to V-08 restyle the rest, one group of boards each. It runs beside the milestones and doesn't change their order.
 
-**Sing Sing first (proposed, awaiting approval).** West 4 asked that the system go live first at Sing Sing Karaoke, Astoria, then West 4 (decision D98). [K · Kitchen](K-kitchen.md) proposes 11 tickets (5 S, 6 M) for the draft [Kitchen and food](../spec/16-kitchen.md) spec, and [S · Sing Sing go-live](S-sing-sing-go-live.md) lists the go-live work done again for Sing Sing (S-01 to S-12). None of them starts until the founder approves the draft; they aren't counted in the table above.
+**Sing Sing first (approved Oct 9, 2026).** West 4 asked that the system go live first at Sing Sing Karaoke, Astoria, then West 4 (decision D98). [K · Kitchen](K-kitchen.md) proposes 11 tickets (5 S, 6 M) for the draft [Kitchen and food](../spec/16-kitchen.md) spec, and [S · Sing Sing go-live](S-sing-sing-go-live.md) lists the go-live work done again for Sing Sing (S-01 to S-12). None of them starts until the founder approves the draft; they aren't counted in the table above.
 
 ## Every ticket
 

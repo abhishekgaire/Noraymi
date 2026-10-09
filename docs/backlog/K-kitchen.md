@@ -1,7 +1,5 @@
 # K · Kitchen
 
-**Awaiting approval of [docs/spec/16-kitchen.md](../spec/16-kitchen.md).** Don't start any ticket here until the founder approves that draft; then remove this line.
-
 Oct 9, 2026 · the proposed backlog for the Kitchen & food module, for Sing Sing Karaoke, Astoria, the first venue to go live ([D98](../decisions.md)), with the founder's Send to kitchen answers of Oct 9 ([D99](../decisions.md)). One ticket per Claude Code session. The [draft spec](../spec/16-kitchen.md) says how each piece works. Tests use a test-only kitchen menu marked as such, laid over the demo seed in the test helpers; the demo seed stays West 4's and gains no food, and no Sing Sing fact is invented.
 
 **Goal (usable when done):** at a venue with the Kitchen module on, guests and staff order food like drinks, the bar accepts it, a ticket prints on the kitchen printer, and a runner carries it to the room.

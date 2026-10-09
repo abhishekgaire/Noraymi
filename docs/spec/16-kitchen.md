@@ -1,6 +1,6 @@
 ## Kitchen and food
 
-**Draft · awaiting the founder's approval.** Oct 9, 2026. Nothing here is built until the founder approves it; until then the rest of the spec wins wherever the two differ. The tickets are proposed in [K · Kitchen](../backlog/K-kitchen.md), and the decisions behind this file are [D98](../decisions.md) and, for Send to kitchen and drink tickets, [D99](../decisions.md) (the founder's answers of Oct 9).
+**Approved by the founder on Oct 9, 2026.** It is built from the tickets in [K · Kitchen](../backlog/K-kitchen.md), and the decisions behind this file are [D98](../decisions.md) and, for Send to kitchen and drink tickets, [D99](../decisions.md) (the founder's answers of Oct 9). Open points it names stay cautious defaults, as settings, until [open questions](14-open-questions.md) answers them.
 
 The first venue to go live is **Sing Sing Karaoke, Astoria (Queens, NY)**, then West 4. Sing Sing runs the same way as West 4, with the same rules, the same kind of rooms and bar and the same managers, but it has 6 rooms and a kitchen. This file adds only what the founder asked for on Oct 9: food that guests and staff order like drinks, a ticket that prints on a kitchen printer (at Accept for a guest's order, at Send to kitchen for food staff ring), runners who take the food to the rooms, food inside some packages, and the allergy notice. The kitchen manages its own timing; the software doesn't.
 
