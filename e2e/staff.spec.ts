@@ -8879,6 +8879,23 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
     );
     const made = await subscribeVenue(owner, stripe, { venueId, plan: "rooms" });
     expect(made.rooms).toBe(14);
+    // The first invoice is paid as the subscription starts; its invoice.paid
+    // is applied by the job worker, so wait for it before the later failure,
+    // or the earlier payment lands last and clears it.
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query(
+              `select 1 from webhook_events
+                where provider = 'stripe' and type = 'invoice.paid'
+                  and payload::text like '%' || $1 || '%' and processed_at is not null`,
+              [made.subscriptionId],
+            )
+          ).rowCount,
+        { timeout: 15_000 },
+      )
+      .toBe(1);
     // The plan payment fails at 10:41 PM.
     await db.query(
       "update venue_subscriptions set status = 'past_due', payment_failed_at = $1 where venue_id = $2",
