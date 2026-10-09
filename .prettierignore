@@ -5,6 +5,7 @@ out
 .next
 coverage
 playwright-report
+.claude/worktrees/
 test-results
 pnpm-lock.yaml
 design/
