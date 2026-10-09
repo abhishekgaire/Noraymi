@@ -982,6 +982,7 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "vendor_health",
       // Our plan (M8-15): no subscription on the demo night; a test that makes one starts clean.
       "venue_subscriptions",
+      "plan_subscribe_attempts",
       "print_jobs",
       // A card tapped for a room names its reader and its consent (M6-13).
       "check_cards",

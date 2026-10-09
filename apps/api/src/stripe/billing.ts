@@ -120,6 +120,8 @@ export async function createCustomer(
 export async function createSubscription(
   stripe: StripeClient,
   input: {
+    /** The stored subscribe attempt (plan_subscribe_attempts): one key per attempt, the same on its retries. */
+    attemptId: string;
     venueId: string;
     customer: string;
     plan: PlanId;
@@ -140,7 +142,7 @@ export async function createSubscription(
       payment_behavior: "allow_incomplete",
       metadata: { venue_id: input.venueId, plan: input.plan },
     },
-    `billing:subscription:${input.venueId}:${input.plan}`,
+    `billing:subscription:${input.venueId}:${input.attemptId}`,
   );
 }
 

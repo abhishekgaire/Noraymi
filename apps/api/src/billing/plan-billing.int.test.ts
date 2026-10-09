@@ -339,6 +339,76 @@ describe("our plan on Stripe Billing (M8-15)", () => {
     ).toBe(200);
     clock.set(SEED_NOW);
   });
+
+  it("a venue that cancels can subscribe again to the same plan with other items, and a lost answer retried makes one subscription", async () => {
+    const subId = async () =>
+      (
+        await owner.query<{ s: string }>(
+          "select stripe_subscription_id as s from venue_subscriptions where venue_id = $1",
+          [venueId],
+        )
+      ).rows[0]!.s;
+    const creates = () =>
+      fake.requests.filter(
+        (r) => r.service === "billing" && r.method === "POST" && r.path === "/v1/subscriptions",
+      );
+    // A live plan can't be started again.
+    await expect(subscribeVenue(owner, stripe, { venueId, plan: "rooms" })).rejects.toThrow(
+      /already has plan rooms/,
+    );
+    // One room fewer, so the new subscription's items differ from the first one's.
+    expect(
+      (await call("abhishek", "PATCH", `/rooms/${ids["room_11"]}`, { archived: true })).statusCode,
+    ).toBe(200);
+    await runJobs();
+    const first = await subId();
+    await stripe.call("billing", "DELETE", `/v1/subscriptions/${first}`, {
+      account: null,
+      params: {},
+    });
+    await deliver();
+    expect((await plan()).status).toBe("canceled");
+
+    // The first try loses Stripe's answer after the subscription was made.
+    const before = creates().length;
+    fake.dropNext.push({ method: "POST", path: /^\/v1\/subscriptions$/, afterHandling: true });
+    await expect(subscribeVenue(owner, stripe, { venueId, plan: "rooms" })).rejects.toThrow();
+    // Retrying the same attempt sends the same key, and Stripe answers with that subscription.
+    const again = await subscribeVenue(owner, stripe, { venueId, plan: "rooms" });
+    expect(again.rooms).toBe(13);
+    expect(again.subscriptionId).not.toBe(first);
+    expect(await subId()).toBe(again.subscriptionId);
+    expect(await plan()).toMatchObject({
+      room_quantity: 13,
+      status: "active",
+      payment_failed_at: null,
+    });
+    const keys = creates().map((r) => r.idempotencyKey);
+    expect(keys.slice(before)).toHaveLength(2);
+    expect(keys[before]).toBe(keys[before + 1]);
+    expect(keys.slice(0, before)).not.toContain(keys[before]);
+    // One live subscription on the customer: the lost answer made no second one.
+    expect(
+      fake.list(
+        "subscription",
+        null,
+        (s) => s["customer"] === customer && s["status"] !== "canceled",
+      ),
+    ).toHaveLength(1);
+    const attempts = await owner.query<{ n: number; done: number }>(
+      `select count(*)::int as n, count(finished_at)::int as done
+         from plan_subscribe_attempts where venue_id = $1`,
+      [venueId],
+    );
+    expect(attempts.rows[0]).toEqual({ n: 2, done: 2 });
+
+    expect(
+      (await call("abhishek", "PATCH", `/rooms/${ids["room_11"]}`, { archived: false })).statusCode,
+    ).toBe(200);
+    await runJobs();
+    expect(await fakeRoomQuantity()).toBe(14);
+    await deliver();
+  });
 });
 
 describe("our billing endpoint (M8-15)", () => {

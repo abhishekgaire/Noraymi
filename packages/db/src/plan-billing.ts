@@ -46,10 +46,70 @@ export async function insertVenueSubscription(
     status: string;
   },
 ): Promise<void> {
-  await c.query(
+  // A subscription that has ended (cancelled, or never paid) is replaced by
+  // the new one; a live one is never overwritten.
+  const r = await c.query(
     `insert into venue_subscriptions (venue_id, plan, stripe_subscription_id, room_item_id, room_quantity, status)
-     values ($1, $2, $3, $4, $5, $6)`,
-    [row.venueId, row.plan, row.subscriptionId, row.roomItemId, row.roomQuantity, row.status],
+     values ($1, $2, $3, $4, $5, $6)
+     on conflict (venue_id) do update
+        set plan = excluded.plan, stripe_subscription_id = excluded.stripe_subscription_id,
+            room_item_id = excluded.room_item_id, room_quantity = excluded.room_quantity,
+            status = excluded.status, payment_failed_at = null, failed_invoice_id = null,
+            updated_at = now()
+      where venue_subscriptions.status = any($7::text[])`,
+    [
+      row.venueId,
+      row.plan,
+      row.subscriptionId,
+      row.roomItemId,
+      row.roomQuantity,
+      row.status,
+      ENDED_PLAN_STATUSES,
+    ],
+  );
+  if (r.rowCount !== 1) throw new Error(`venue ${row.venueId} already has a live plan`);
+}
+
+/** Stripe statuses after which a venue's subscription is over and it may subscribe again. */
+export const ENDED_PLAN_STATUSES: readonly string[] = ["canceled", "incomplete_expired"];
+
+/**
+ * The attempt whose id keys the Stripe call that makes a venue's
+ * subscription (migration 0134). Made before the call, in its own
+ * transaction: an unfinished attempt for the same plan and room count is
+ * the same attempt retried, so it's reused and Stripe replays its answer;
+ * anything else is a new attempt with a new key.
+ */
+export async function planSubscribeAttempt(
+  c: Queryable,
+  input: { venueId: string; plan: PlanId; rooms: number },
+): Promise<string> {
+  // Two clicks at once find the same attempt, so Stripe makes one subscription.
+  await c.query("select pg_advisory_xact_lock(hashtext('plan_subscribe:' || $1))", [input.venueId]);
+  const open = await c.query<{ id: string }>(
+    `select id from plan_subscribe_attempts
+      where venue_id = $1 and plan = $2 and rooms = $3 and finished_at is null
+      order by created_at desc limit 1`,
+    [input.venueId, input.plan, input.rooms],
+  );
+  if (open.rows[0]) return open.rows[0].id;
+  const made = await c.query<{ id: string }>(
+    `insert into plan_subscribe_attempts (venue_id, plan, rooms) values ($1, $2, $3) returning id`,
+    [input.venueId, input.plan, input.rooms],
+  );
+  return made.rows[0]!.id;
+}
+
+/** The attempt is done: its subscription is recorded, so its key is never used again. */
+export async function finishPlanSubscribeAttempt(
+  c: Queryable,
+  attemptId: string,
+  subscriptionId: string,
+): Promise<void> {
+  await c.query(
+    `update plan_subscribe_attempts set stripe_subscription_id = $2, finished_at = now()
+      where id = $1`,
+    [attemptId, subscriptionId],
   );
 }
 

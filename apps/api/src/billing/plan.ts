@@ -1,9 +1,12 @@
 import type pg from "pg";
 import {
+  ENDED_PLAN_STATUSES,
   billableRooms,
   emitEvent,
   enqueue,
+  finishPlanSubscribeAttempt,
   insertVenueSubscription,
+  planSubscribeAttempt,
   setPlanStatus,
   setRoomQuantity,
   venueSubscription,
@@ -178,7 +181,9 @@ export async function subscribeVenue(
     };
   });
   if (!venue.org_id) throw new Error(`no venue ${input.venueId}`);
-  if (venue.existing)
+  // A subscription that has ended (cancelled, or never paid) doesn't count:
+  // the venue may subscribe again, and the new one replaces its row.
+  if (venue.existing && !ENDED_PLAN_STATUSES.includes(venue.existing.status))
     throw new Error(`venue ${input.venueId} already has plan ${venue.existing.plan}`);
   const prices = await planPrices(stripe, input.plan);
   let customer = venue.billing_customer_id;
@@ -198,7 +203,14 @@ export async function subscribeVenue(
       ]),
     );
   }
+  // The attempt is stored before the call (in its own transaction, never
+  // around it) and its id keys the call: a retry of this attempt replays
+  // Stripe's answer, and a later attempt, such as after a cancel, is new.
+  const attemptId = await withVenue(owner, ctx, (c) =>
+    planSubscribeAttempt(c, { venueId: input.venueId, plan: input.plan, rooms: venue.rooms }),
+  );
   const sub = await createSubscription(stripe, {
+    attemptId,
     venueId: input.venueId,
     customer,
     plan: input.plan,
@@ -217,6 +229,7 @@ export async function subscribeVenue(
       roomQuantity: PLANS_WITH_ROOMS.includes(input.plan) ? (roomItem?.quantity ?? venue.rooms) : 0,
       status: sub.status,
     });
+    await finishPlanSubscribeAttempt(c, attemptId, sub.id);
     await emitEvent(c, { venueId: input.venueId, type: "plan.updated", entityId: input.venueId });
   });
   return { subscriptionId: sub.id, rooms: venue.rooms };

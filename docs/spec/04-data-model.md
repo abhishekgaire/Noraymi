@@ -19,6 +19,7 @@ Phase 1 needs about 100 tables. Money is stored in integer cents and every times
 | `seed_ids` | slug, entity, row_id, loaded_at | The demo seed's slugs (`room_9`, `maya`, `dev_router`) beside the UUIDs the loader gave them, so a test finds a row by name. Staging and local dev only; the loader refuses production |
 | `venue_settings` / `venue_modules` / `venue_flags` | See [Settings, rule packs and modules](03-settings-rule-packs-modules.md) | Versioned; modules have a state |
 | `venue_subscriptions` | plan, stripe_subscription_id, room_quantity, status | Our plan billing |
+| `plan_subscribe_attempts` | plan, rooms, stripe_subscription_id, finished_at | One row per attempt to start a venue's plan, written before the Stripe call; its id is the call's idempotency key, so a retry replays and a resubscribe after a cancel is a new call |
 | `integrations` | kind, status, external_id, config, connected_at | Twilio, Google, QuickBooks, email, song system |
 | `support_grants` | staff_id, requested_by, reason, scope, action, minutes, status, approved_by, second_approver, requested_at, decided_at, starts_at, ends_at, revoked_at, revoked_by, revoked_side, action_used_at | Support access the venue approved; a write grant's one named action, spent once |
 | `emergency_actions` | action, target, fixes, reason, requested_by, requested_at, expires_at, status, decided_by, decided_at, done_at, result | The Console's emergency path: one of the four listed actions, asked by one of our staff and decided by another (never the same person) before `expires_at` |
