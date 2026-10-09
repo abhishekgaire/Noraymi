@@ -29,8 +29,8 @@ Every must-fix item from [milestones](../milestones.md#must-fix-items-and-where-
 - **Closed by:** M8 · sign-off [M8-24](../backlog/M8-offline-safety-and-operations.md) (`blocked`)
 - **Status:** open
 - **Closed on:** —
-- **Proven locally:** STOP and HELP ([sms-keywords.test.ts](../../packages/rules/src/sms-keywords.test.ts), [opt-out.int.test.ts](../../apps/api/src/routes/opt-out.int.test.ts)); the 8 AM to 9 PM window ([marketing-window.test.ts](../../packages/rules/src/marketing-window.test.ts)); the campaign guard ([campaign.int.test.ts](../../apps/api/src/texts/campaign.int.test.ts)); imported consents with their evidence ([imported-consents.int.test.ts](../../apps/api/src/routes/imported-consents.int.test.ts)).
-- **Waiting on:** the guest's own unticked opt-in with proof on the booking page: [M5-08](../backlog/M5-guest-site-and-booking.md) is still `todo` (M8-24's Notes count it as built; it isn't). West 4's 10DLC brand and campaign approved and the live checks (M8-22).
+- **Proven locally:** STOP and HELP ([sms-keywords.test.ts](../../packages/rules/src/sms-keywords.test.ts), [opt-out.int.test.ts](../../apps/api/src/routes/opt-out.int.test.ts)); the 8 AM to 9 PM window ([marketing-window.test.ts](../../packages/rules/src/marketing-window.test.ts)); the campaign guard ([campaign.int.test.ts](../../apps/api/src/texts/campaign.int.test.ts)); imported consents with their evidence ([imported-consents.int.test.ts](../../apps/api/src/routes/imported-consents.int.test.ts)); the guest's own unticked opt-in on the booking page, stored with its source, IP, time and text version (M5-08, `done`: [booking-details.int.test.ts](../../apps/api/src/routes/booking-details.int.test.ts) and Playwright "Book: Jae's details, the marketing box and the terms" in [guest.spec.ts](../../e2e/guest.spec.ts)).
+- **Waiting on:** West 4's 10DLC brand and campaign approved and the live checks (M8-22), then M8-24's sign-off.
 
 ## GA-M4 · Tax lines, check numbers, Z reports, no deletes
 
@@ -42,11 +42,11 @@ Every must-fix item from [milestones](../milestones.md#must-fix-items-and-where-
 
 ## GA-M5 · Booking shows the whole price and stores the accepted terms
 
-- **Closed by:** M5 · sign-off [M5-17](../backlog/M5-guest-site-and-booking.md) (`todo`)
+- **Closed by:** M5 · sign-off [M5-17](../backlog/M5-guest-site-and-booking.md) (`blocked`)
 - **Status:** open
 - **Closed on:** —
-- **Proven locally:** the deposit policy and its New York-time refund cut-offs ([policy.test.ts](../../packages/rules/src/policy.test.ts), M5-06); the quote and the 10-minute hold ([quote.test.ts](../../packages/rules/src/quote.test.ts), M5-07); price wording on the site ([site.test.ts](../../packages/rules/src/site.test.ts)).
-- **Waiting on:** code: M5-08 to M5-17 are `todo` (the guest's details and accepted policy, the deposit on the payment page, confirmation, manage, cancel and no-shows, payment links, the module switch, Google hours, accessibility, and M5-17's proof); M5-05 is `blocked` on the CAPTCHA keys. The lawyer's answer S4.
+- **Proven locally:** the deposit policy and its New York-time refund cut-offs ([policy.test.ts](../../packages/rules/src/policy.test.ts), [booking-cutoff.test.ts](../../packages/rules/src/booking-cutoff.test.ts)); the quote and the 10-minute hold ([quote.test.ts](../../packages/rules/src/quote.test.ts)); price wording on the site ([site.test.ts](../../packages/rules/src/site.test.ts)); the guest's details and the accepted policy version stored ([booking-details.int.test.ts](../../apps/api/src/routes/booking-details.int.test.ts)); the deposit on the payment origin ([booking-deposit.int.test.ts](../../apps/api/src/routes/booking-deposit.int.test.ts)); the confirmation text and page ([booking-confirm.int.test.ts](../../apps/api/src/routes/booking-confirm.int.test.ts)); changes and cancels by the cut-off ([booking-manage.int.test.ts](../../apps/api/src/routes/booking-manage.int.test.ts), [booking-cancel.int.test.ts](../../apps/api/src/routes/booking-cancel.int.test.ts), [deposit-change.test.ts](../../packages/rules/src/deposit-change.test.ts)); the module switch ([online-bookings.int.test.ts](../../apps/api/src/routes/online-bookings.int.test.ts)). M5-17's end-to-end proof ([booking-guest.spec.ts](../../e2e/booking-guest.spec.ts)) runs Jae & co. from the quote ($100 + $8.88 tax + $20 gratuity = $128.88, $50 deposit) through the stored policy, the deposit on the payment page with its header and script checks, the confirmation text and page, a change, a full refund before Thu 11:00 PM and the deposit kept after it, on the fake Stripe.
+- **Waiting on:** the same run on the connected Stripe sandbox (the founder's test keys, M5-17); the screen-reader pass ([M5-16](../backlog/M5-guest-site-and-booking.md), `blocked` on a person with an iPhone and an Android phone); M5-05 `blocked` on the CAPTCHA keys; the lawyer's answer S4.
 
 ## GA-M6 · The 4 AM stop, the clear-out check, wall-clock cut-offs
 

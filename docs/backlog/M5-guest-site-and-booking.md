@@ -451,7 +451,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-17 · Prove Jae & co.'s booking end to end, and the payment page checks
 
-- **Status:** todo
+- **Status:** blocked (the same run on the connected Stripe sandbox needs the founder's test keys; the screen-reader pass waits on M5-16)
 - **Size:** M
 - **Depends on:** M5-01 to M5-16
 - **Spec:** [milestones: M5 done when](../milestones.md#m5--guest-site-and-online-booking); [Security and data retention](../spec/12-security-retention.md) 1; [demo seed: Bookings tonight](../demo-seed.md#bookings-tonight)
@@ -459,14 +459,21 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - End-to-end suites on the connected sandbox for each done-when line, starting from a seed load without Jae's booking, so a small room is free at 11:00 PM: the clock at Wed Sep 23 (the day the seed says Jae paid) to book and to cancel before the cut-off, and at Fri Sep 25, 10:41 PM to cancel after it.
   - The payment page's header, script and changed-script checks (M4-15) run on the deposit flow.
 - **Acceptance:**
-  - [ ] Jae & co. (5 guests, Fri Sep 25, 11:00 PM, 2 hours, small tier) see the full price with tax and the 20% gratuity before paying, the accepted policy version is stored, the $50 deposit is paid on our payment origin, and the confirmation text and page agree.
-  - [ ] Manage changes the booking and cancels it, and the refund follows the 24-hour rule in New York time: a full refund before Thu 11:00 PM, and the deposit kept after it.
-  - [ ] The payment page passes its header, script and changed-script checks.
-  - [ ] With Online booking & deposits off, the hero reads "Call to book" with West 4's number, and Jae's manage link still works.
-  - [ ] The menu page, the PDF and the room page show the same items and prices, and a hidden item is gone from all three.
-  - [ ] The automated accessibility checks pass, and the screen-reader pass found nothing that blocks a task.
+  - [ ] Jae & co. (5 guests, Fri Sep 25, 11:00 PM, 2 hours, small tier) see the full price with tax and the 20% gratuity before paying, the accepted policy version is stored, the $50 deposit is paid on our payment origin, and the confirmation text and page agree. (Passes on the fake Stripe; ticked when the same suite passes on the connected sandbox with the founder's test keys.)
+  - [x] Manage changes the booking and cancels it, and the refund follows the 24-hour rule in New York time: a full refund before Thu 11:00 PM, and the deposit kept after it.
+  - [x] The payment page passes its header, script and changed-script checks.
+  - [x] With Online booking & deposits off, the hero reads "Call to book" with West 4's number, and Jae's manage link still works.
+  - [x] The menu page, the PDF and the room page show the same items and prices, and a hidden item is gone from all three.
+  - [ ] The automated accessibility checks pass, and the screen-reader pass found nothing that blocks a task. (The automated checks pass, M5-16; the screen-reader pass waits on a person, M5-16's checklist.)
 - **Tests:** the suites above in CI against the sandbox.
 - **Notes:** The seed already holds Jae's booking in Room 3, so this suite's fixture drops it before booking.
+  - **Built (M5-17):** `e2e/booking-guest.spec.ts` (in the `guest` Playwright project). Its fixture loads the seed, runs `stripe:seed` on the fake Stripe, drops Jae's booking with its $50 payment, links and its block on Room 3 (without the block the hold went to a medium room), and backdates the seed's first settings rows from Fri Sep 25 to Sep 1 (the seed's settings start on its own night, so on Wed Sep 23 the site answered "the venue's settings aren't set").
+  - Test 1, the clock at Wed Sep 23, 2:00 PM: the quote ($100 room time, $8.88 tax, $20 gratuity, $128.88 all in, $50 deposit); the terms "Free to cancel until Thu 11:00 PM"; on the payment origin, `checkPayPage` (M4-15) on the deposit page's own response passes (headers, nonce on every inline script, only listed scripts, no service worker), and the same HTML with an unlisted script added fails; paid, the booked page; the booking's `policy_version_id` and its captured `pi_…` for $50.00; the Booking confirmed text built and rendered by the M5-10 job's own code reads "Booked. Room for 5 at 11:00 PM, Fri Sep 25. A 20% gratuity … Deposit $50 paid … Free to cancel until Thu 11:00 PM" and its link opens the same booking; Manage 5 → 6 guests pays the $10.00 difference on the payment page ($60.00 paid); Cancel before the cut-off: "$60.00 goes back to your card", Refund pending · $60.00, and refunds totalling 6000 cents with "Cancelled before the refund cut-off". No request from the browser to our servers carries a card number or CVC.
+  - Test 2: booked on Wed, then the clock at Fri 10:41 PM and Online booking & deposits off: the hero reads "Call to book · (212) 255-0011", the manage link from the booked page still works, and cancelling keeps the $50.00 with no refund row.
+  - Covered by earlier suites and re-run in the full run: the menu, the PDF and the room page with a hidden item (M5-03, guest.spec.ts "the menu page, the PDF and the room page's menu …"); the automated accessibility checks (M5-16, a11y-guest.spec.ts).
+  - On the dev server the payment page sends `Cache-Control: no-cache` and our scripts carry no integrity (both production-build behaviour, M4-15), so the suite accepts no-cache and runs the check without the integrity rule; `check:pay` against staging checks both once staging has a pay hostname (M4-15's open line).
+  - The refund itself goes to Stripe from the `refund.run` job, which the Playwright servers don't run, so the page reads "Refund pending"; `booking-cancel.int.test.ts` covers the job sending it.
+  - **Waiting on the founder:** Stripe test keys for the connected sandbox, so this suite runs there (and in CI against the sandbox, as Tests asks); then tick the first line. The screen-reader pass (M5-16). Then set Status to done.
 
 ## Coverage
 
