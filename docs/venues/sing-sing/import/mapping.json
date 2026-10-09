@@ -1,0 +1,37 @@
+{
+  "mapping_version": 1,
+  "source": "sing-sing-menu-2026-10-09",
+  "description": "Sing Sing Karaoke Astoria's menu as the founder gave it on Oct 9, 2026 (soft drinks' price added the same day), typed into the importer's columns by hand. Prices as given, before tax; confirm with the manager before go-live. See ../menu.md for the open points.",
+  "files": {
+    "menu": {
+      "file": "items.csv",
+      "money_unit": "dollars",
+      "columns": {
+        "legacy_ref": "SKU",
+        "item_ref": "Item ID",
+        "name": "Name",
+        "category": "Category",
+        "variant": "Variant",
+        "price": "Price",
+        "alcohol": "Alcohol",
+        "tax_category": "Tax",
+        "station": "Station",
+        "pos_section": "Grid"
+      }
+    },
+    "modifiers": {
+      "file": "choices.csv",
+      "money_unit": "dollars",
+      "columns": {
+        "legacy_ref": "Choice ID",
+        "item_ref": "Item ID",
+        "group": "Group",
+        "name": "Choice",
+        "price_delta": "Extra",
+        "required": "Required",
+        "min_choices": "Min",
+        "max_choices": "Max"
+      }
+    }
+  }
+}

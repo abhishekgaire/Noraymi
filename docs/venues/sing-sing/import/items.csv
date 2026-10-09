@@ -1,0 +1,180 @@
+SKU,Item ID,Name,Category,Variant,Price,Alcohol,Tax,Station,Grid
+D-SOJU-MOJITO,D-SOJU-MOJITO,Soju Mojito,Signature Cocktails,Regular,$13.45,Y,drink,bar,cocktails
+D-SING-SING-SPRITZ,D-SING-SING-SPRITZ,Sing Sing Spritz,Signature Cocktails,Regular,$13.45,Y,drink,bar,cocktails
+D-THE-HEALER,D-THE-HEALER,The Healer,Signature Cocktails,Regular,$13.45,Y,drink,bar,cocktails
+D-SEOUL-ON-FIRE,D-SEOUL-ON-FIRE,Seoul On Fire,Signature Cocktails,Regular,$13.45,Y,drink,bar,cocktails
+D-BEAN-THERE-SUNG-THAT,D-BEAN-THERE-SUNG-THAT,Bean There Sung That,Signature Cocktails,Regular,$13.45,Y,drink,bar,cocktails
+D-SAUVIGNON-BLANC-GLASS,D-SAUVIGNON-BLANC,Sauvignon Blanc,Wine,Glass,$8.28,Y,drink,bar,wine
+D-SAUVIGNON-BLANC-BOTTLE,D-SAUVIGNON-BLANC,Sauvignon Blanc,Wine,Bottle,$36.22,Y,drink,bar,wine
+D-PINOT-GRIGIO-GLASS,D-PINOT-GRIGIO,Pinot Grigio,Wine,Glass,$8.28,Y,drink,bar,wine
+D-PINOT-GRIGIO-BOTTLE,D-PINOT-GRIGIO,Pinot Grigio,Wine,Bottle,$36.22,Y,drink,bar,wine
+D-CABERNET-SAUVIGNON-GLASS,D-CABERNET-SAUVIGNON,Cabernet Sauvignon,Wine,Glass,$8.28,Y,drink,bar,wine
+D-CABERNET-SAUVIGNON-BOTTLE,D-CABERNET-SAUVIGNON,Cabernet Sauvignon,Wine,Bottle,$36.22,Y,drink,bar,wine
+D-PROSECCO-GLASS,D-PROSECCO,Prosecco,Wine,Glass,$8.28,Y,drink,bar,wine
+D-PROSECCO-BOTTLE,D-PROSECCO,Prosecco,Wine,Bottle,$36.22,Y,drink,bar,wine
+D-JINRO-FLAVORED-SOJU-BOTTLE,D-JINRO-FLAVORED-SOJU,Jinro Flavored Soju,Soju,Bottle,$17.60,Y,drink,bar,soju
+D-JINRO-CHAMISUL-FRESH-BOTTLE,D-JINRO-CHAMISUL-FRESH,Jinro Chamisul Fresh,Soju,Bottle,$17.60,Y,drink,bar,soju
+D-SAPPORO-BOTTLE,D-SAPPORO,Sapporo,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-SAPPORO-DRAFT,D-SAPPORO,Sapporo,Beer,Draft,$9.32,Y,drink,bar,beer
+D-STELLA-ARTOIS-BOTTLE,D-STELLA-ARTOIS,Stella Artois,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-STELLA-ARTOIS-DRAFT,D-STELLA-ARTOIS,Stella Artois,Beer,Draft,$9.32,Y,drink,bar,beer
+D-LAGUNITAS-IPA-BOTTLE,D-LAGUNITAS-IPA,Lagunitas IPA,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-LAGUNITAS-IPA-DRAFT,D-LAGUNITAS-IPA,Lagunitas IPA,Beer,Draft,$9.32,Y,drink,bar,beer
+D-CORONA-BOTTLE,D-CORONA,Corona,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-CORONA-DRAFT,D-CORONA,Corona,Beer,Draft,$9.32,Y,drink,bar,beer
+D-MODELO-BOTTLE,D-MODELO,Modelo,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-MODELO-DRAFT,D-MODELO,Modelo,Beer,Draft,$9.32,Y,drink,bar,beer
+D-GUINNESS-BOTTLE,D-GUINNESS,Guinness,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-GUINNESS-DRAFT,D-GUINNESS,Guinness,Beer,Draft,$9.32,Y,drink,bar,beer
+D-BLUE-MOON-BOTTLE,D-BLUE-MOON,Blue Moon,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-BLUE-MOON-DRAFT,D-BLUE-MOON,Blue Moon,Beer,Draft,$9.32,Y,drink,bar,beer
+D-ANGRY-ORCHARD-BOTTLE,D-ANGRY-ORCHARD,Angry Orchard,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-ANGRY-ORCHARD-DRAFT,D-ANGRY-ORCHARD,Angry Orchard,Beer,Draft,$9.32,Y,drink,bar,beer
+D-HEINEKEN-BOTTLE,D-HEINEKEN,Heineken,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-HEINEKEN-DRAFT,D-HEINEKEN,Heineken,Beer,Draft,$9.32,Y,drink,bar,beer
+D-BUD-LIGHT-BOTTLE,D-BUD-LIGHT,Bud Light,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-BUD-LIGHT-DRAFT,D-BUD-LIGHT,Bud Light,Beer,Draft,$9.32,Y,drink,bar,beer
+D-BUDWEISER-BOTTLE,D-BUDWEISER,Budweiser,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-BUDWEISER-DRAFT,D-BUDWEISER,Budweiser,Beer,Draft,$9.32,Y,drink,bar,beer
+D-COORS-LIGHT-BOTTLE,D-COORS-LIGHT,Coors Light,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-COORS-LIGHT-DRAFT,D-COORS-LIGHT,Coors Light,Beer,Draft,$9.32,Y,drink,bar,beer
+D-MICHELOB-ULTRA-BOTTLE,D-MICHELOB-ULTRA,Michelob Ultra,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-MICHELOB-ULTRA-DRAFT,D-MICHELOB-ULTRA,Michelob Ultra,Beer,Draft,$9.32,Y,drink,bar,beer
+D-MILLER-HIGH-LIFE-BOTTLE,D-MILLER-HIGH-LIFE,Miller High Life,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-MILLER-HIGH-LIFE-DRAFT,D-MILLER-HIGH-LIFE,Miller High Life,Beer,Draft,$9.32,Y,drink,bar,beer
+D-SAMUEL-ADAMS-BOSTON-LAGER-BOTTLE,D-SAMUEL-ADAMS-BOSTON-LAGER,Samuel Adams Boston Lager,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-SAMUEL-ADAMS-BOSTON-LAGER-DRAFT,D-SAMUEL-ADAMS-BOSTON-LAGER,Samuel Adams Boston Lager,Beer,Draft,$9.32,Y,drink,bar,beer
+D-WHITE-CLAW-BOTTLE,D-WHITE-CLAW,White Claw,Beer,Bottle,$7.25,Y,drink,bar,beer
+D-WHITE-CLAW-DRAFT,D-WHITE-CLAW,White Claw,Beer,Draft,$9.32,Y,drink,bar,beer
+D-STELLA-0-BOTTLE,D-STELLA-0,Stella 0,Beer,Bottle,$7.25,N,drink,bar,beer
+D-STELLA-0-DRAFT,D-STELLA-0,Stella 0,Beer,Draft,$9.32,N,drink,bar,beer
+D-HEINEKEN-0-BOTTLE,D-HEINEKEN-0,Heineken 0,Beer,Bottle,$7.25,N,drink,bar,beer
+D-HEINEKEN-0-DRAFT,D-HEINEKEN-0,Heineken 0,Beer,Draft,$9.32,N,drink,bar,beer
+L-TITOS-SHOT,L-TITOS,Tito’s,Vodka,Shot,$11.00,Y,drink,bar,spirits
+L-TITOS-BOTTLE,L-TITOS,Tito’s,Vodka,Bottle,$200.00,Y,drink,bar,spirits
+L-KETEL-ONE-SHOT,L-KETEL-ONE,Ketel One,Vodka,Shot,$11.00,Y,drink,bar,spirits
+L-KETEL-ONE-BOTTLE,L-KETEL-ONE,Ketel One,Vodka,Bottle,$200.00,Y,drink,bar,spirits
+L-ABSOLUT-SHOT,L-ABSOLUT,Absolut,Vodka,Shot,$13.00,Y,drink,bar,spirits
+L-ABSOLUT-BOTTLE,L-ABSOLUT,Absolut,Vodka,Bottle,$320.00,Y,drink,bar,spirits
+L-GREY-GOOSE-SHOT,L-GREY-GOOSE,Grey Goose,Vodka,Shot,$12.00,Y,drink,bar,spirits
+L-GREY-GOOSE-BOTTLE,L-GREY-GOOSE,Grey Goose,Vodka,Bottle,$280.00,Y,drink,bar,spirits
+L-CIROC-SHOT,L-CIROC,Ciroc,Vodka,Shot,$13.00,Y,drink,bar,spirits
+L-CIROC-BOTTLE,L-CIROC,Ciroc,Vodka,Bottle,$320.00,Y,drink,bar,spirits
+L-SVEDKA-VANILLA-VODKA-SHOT,L-SVEDKA-VANILLA-VODKA,Svedka Vanilla Vodka,Vodka,Shot,$11.00,Y,drink,bar,spirits
+L-SVEDKA-VANILLA-VODKA-BOTTLE,L-SVEDKA-VANILLA-VODKA,Svedka Vanilla Vodka,Vodka,Bottle,$200.00,Y,drink,bar,spirits
+L-HENDRICKS-SHOT,L-HENDRICKS,Hendricks,Gin,Shot,$13.00,Y,drink,bar,spirits
+L-HENDRICKS-BOTTLE,L-HENDRICKS,Hendricks,Gin,Bottle,$340.00,Y,drink,bar,spirits
+L-BOMBAY-SAPPHIRE-SHOT,L-BOMBAY-SAPPHIRE,Bombay Sapphire,Gin,Shot,$12.00,Y,drink,bar,spirits
+L-BOMBAY-SAPPHIRE-BOTTLE,L-BOMBAY-SAPPHIRE,Bombay Sapphire,Gin,Bottle,$300.00,Y,drink,bar,spirits
+L-BEEF-EATER-SHOT,L-BEEF-EATER,Beef Eater,Gin,Shot,$12.00,Y,drink,bar,spirits
+L-BEEF-EATER-BOTTLE,L-BEEF-EATER,Beef Eater,Gin,Bottle,$300.00,Y,drink,bar,spirits
+L-TANQUERAY-SHOT,L-TANQUERAY,Tanqueray,Gin,Shot,$12.00,Y,drink,bar,spirits
+L-TANQUERAY-BOTTLE,L-TANQUERAY,Tanqueray,Gin,Bottle,$300.00,Y,drink,bar,spirits
+L-BACARDI-WHITE-SHOT,L-BACARDI-WHITE,Bacardi White,Rum,Shot,$12.00,Y,drink,bar,spirits
+L-BACARDI-WHITE-BOTTLE,L-BACARDI-WHITE,Bacardi White,Rum,Bottle,$300.00,Y,drink,bar,spirits
+L-CAPTAIN-MORGAN-SPICED-RUM-SHOT,L-CAPTAIN-MORGAN-SPICED-RUM,Captain Morgan Spiced Rum,Rum,Shot,$12.00,Y,drink,bar,spirits
+L-CAPTAIN-MORGAN-SPICED-RUM-BOTTLE,L-CAPTAIN-MORGAN-SPICED-RUM,Captain Morgan Spiced Rum,Rum,Bottle,$300.00,Y,drink,bar,spirits
+L-MALIBU-SHOT,L-MALIBU,Malibu,Rum,Shot,$10.00,Y,drink,bar,spirits
+L-MALIBU-BOTTLE,L-MALIBU,Malibu,Rum,Bottle,$200.00,Y,drink,bar,spirits
+L-MYERSS-DARK-RUM-SHOT,L-MYERSS-DARK-RUM,Myers’s Dark Rum,Rum,Shot,$14.00,Y,drink,bar,spirits
+L-MYERSS-DARK-RUM-BOTTLE,L-MYERSS-DARK-RUM,Myers’s Dark Rum,Rum,Bottle,$360.00,Y,drink,bar,spirits
+L-CASAMIGOS-BLANCO-SHOT,L-CASAMIGOS-BLANCO,Casamigos Blanco,Tequila,Shot,$13.00,Y,drink,bar,spirits
+L-CASAMIGOS-BLANCO-BOTTLE,L-CASAMIGOS-BLANCO,Casamigos Blanco,Tequila,Bottle,$320.00,Y,drink,bar,spirits
+L-CASAMIGOS-REPOSADO-SHOT,L-CASAMIGOS-REPOSADO,Casamigos Reposado,Tequila,Shot,$15.00,Y,drink,bar,spirits
+L-CASAMIGOS-REPOSADO-BOTTLE,L-CASAMIGOS-REPOSADO,Casamigos Reposado,Tequila,Bottle,$380.00,Y,drink,bar,spirits
+L-PATRON-SILVER-SHOT,L-PATRON-SILVER,Patron Silver,Tequila,Shot,$14.00,Y,drink,bar,spirits
+L-PATRON-SILVER-BOTTLE,L-PATRON-SILVER,Patron Silver,Tequila,Bottle,$360.00,Y,drink,bar,spirits
+L-PATRON-ANEJO-SHOT,L-PATRON-ANEJO,Patron Anejo,Tequila,Shot,$15.00,Y,drink,bar,spirits
+L-PATRON-ANEJO-BOTTLE,L-PATRON-ANEJO,Patron Anejo,Tequila,Bottle,$380.00,Y,drink,bar,spirits
+L-LUNAZUL-BLANCO-SHOT,L-LUNAZUL-BLANCO,Lunazul Blanco,Tequila,Shot,$11.00,Y,drink,bar,spirits
+L-LUNAZUL-BLANCO-BOTTLE,L-LUNAZUL-BLANCO,Lunazul Blanco,Tequila,Bottle,$210.00,Y,drink,bar,spirits
+L-DON-JULIO-SILVER-SHOT,L-DON-JULIO-SILVER,Don Julio Silver,Tequila,Shot,$14.00,Y,drink,bar,spirits
+L-DON-JULIO-SILVER-BOTTLE,L-DON-JULIO-SILVER,Don Julio Silver,Tequila,Bottle,$360.00,Y,drink,bar,spirits
+L-JOSE-CUERVO-SILVER-SHOT,L-JOSE-CUERVO-SILVER,Jose Cuervo Silver,Tequila,Shot,$11.00,Y,drink,bar,spirits
+L-JOSE-CUERVO-SILVER-BOTTLE,L-JOSE-CUERVO-SILVER,Jose Cuervo Silver,Tequila,Bottle,$210.00,Y,drink,bar,spirits
+L-ESPOLON-BLANCO-SHOT,L-ESPOLON-BLANCO,Espolon Blanco,Tequila,Shot,$12.00,Y,drink,bar,spirits
+L-ESPOLON-BLANCO-BOTTLE,L-ESPOLON-BLANCO,Espolon Blanco,Tequila,Bottle,$300.00,Y,drink,bar,spirits
+L-1800-BLANCO-SHOT,L-1800-BLANCO,1800 Blanco,Tequila,Shot,$12.00,Y,drink,bar,spirits
+L-1800-BLANCO-BOTTLE,L-1800-BLANCO,1800 Blanco,Tequila,Bottle,$220.00,Y,drink,bar,spirits
+L-MEXXO-MEZCAL-SHOT,L-MEXXO-MEZCAL,Mexxo Mezcal,Tequila,Shot,$12.00,Y,drink,bar,spirits
+L-MEXXO-MEZCAL-BOTTLE,L-MEXXO-MEZCAL,Mexxo Mezcal,Tequila,Bottle,$220.00,Y,drink,bar,spirits
+L-MARTELL-VS-SHOT,L-MARTELL-VS,Martell VS,Cognac,Shot,$11.00,Y,drink,bar,spirits
+L-MARTELL-VS-BOTTLE,L-MARTELL-VS,Martell VS,Cognac,Bottle,$220.00,Y,drink,bar,spirits
+L-JAMESON-SHOT,L-JAMESON,Jameson,Whiskey,Shot,$11.00,Y,drink,bar,spirits
+L-JAMESON-BOTTLE,L-JAMESON,Jameson,Whiskey,Bottle,$340.00,Y,drink,bar,spirits
+L-MAKERS-MARK-SHOT,L-MAKERS-MARK,Makers Mark,Whiskey,Shot,$13.00,Y,drink,bar,spirits
+L-MAKERS-MARK-BOTTLE,L-MAKERS-MARK,Makers Mark,Whiskey,Bottle,$340.00,Y,drink,bar,spirits
+L-WOODFORD-RESERVE-SHOT,L-WOODFORD-RESERVE,Woodford Reserve,Whiskey,Shot,$15.00,Y,drink,bar,spirits
+L-WOODFORD-RESERVE-BOTTLE,L-WOODFORD-RESERVE,Woodford Reserve,Whiskey,Bottle,$380.00,Y,drink,bar,spirits
+L-JOHNNIE-WALKER-BLACK-SHOT,L-JOHNNIE-WALKER-BLACK,Johnnie Walker Black,Whiskey,Shot,$16.00,Y,drink,bar,spirits
+L-JOHNNIE-WALKER-BLACK-BOTTLE,L-JOHNNIE-WALKER-BLACK,Johnnie Walker Black,Whiskey,Bottle,$400.00,Y,drink,bar,spirits
+L-CROWN-ROYAL-SHOT,L-CROWN-ROYAL,Crown Royal,Whiskey,Shot,$12.00,Y,drink,bar,spirits
+L-CROWN-ROYAL-BOTTLE,L-CROWN-ROYAL,Crown Royal,Whiskey,Bottle,$300.00,Y,drink,bar,spirits
+L-CROWN-ROYAL-APPLE-SHOT,L-CROWN-ROYAL-APPLE,Crown Royal Apple,Whiskey,Shot,$12.00,Y,drink,bar,spirits
+L-CROWN-ROYAL-APPLE-BOTTLE,L-CROWN-ROYAL-APPLE,Crown Royal Apple,Whiskey,Bottle,$300.00,Y,drink,bar,spirits
+L-GLENLIVET-12-YEAR-SHOT,L-GLENLIVET-12-YEAR,Glenlivet 12 Year,Whiskey,Shot,$15.00,Y,drink,bar,spirits
+L-GLENLIVET-12-YEAR-BOTTLE,L-GLENLIVET-12-YEAR,Glenlivet 12 Year,Whiskey,Bottle,$380.00,Y,drink,bar,spirits
+L-GLENFIDDICH-12-YEAR-SHOT,L-GLENFIDDICH-12-YEAR,Glenfiddich 12 Year,Whiskey,Shot,$15.00,Y,drink,bar,spirits
+L-GLENFIDDICH-12-YEAR-BOTTLE,L-GLENFIDDICH-12-YEAR,Glenfiddich 12 Year,Whiskey,Bottle,$380.00,Y,drink,bar,spirits
+L-JIM-BEAM-SHOT,L-JIM-BEAM,Jim Beam,Whiskey,Shot,$10.00,Y,drink,bar,spirits
+L-JIM-BEAM-BOTTLE,L-JIM-BEAM,Jim Beam,Whiskey,Bottle,$200.00,Y,drink,bar,spirits
+L-JACK-DANIELS-SHOT,L-JACK-DANIELS,Jack Daniels,Whiskey,Shot,$11.00,Y,drink,bar,spirits
+L-JACK-DANIELS-BOTTLE,L-JACK-DANIELS,Jack Daniels,Whiskey,Bottle,$300.00,Y,drink,bar,spirits
+L-JACK-DANIELS-HONEY-SHOT,L-JACK-DANIELS-HONEY,Jack Daniels Honey,Whiskey,Shot,$11.00,Y,drink,bar,spirits
+L-JACK-DANIELS-HONEY-BOTTLE,L-JACK-DANIELS-HONEY,Jack Daniels Honey,Whiskey,Bottle,$300.00,Y,drink,bar,spirits
+L-JACK-DANIELS-BLACKBERRY-SHOT,L-JACK-DANIELS-BLACKBERRY,Jack Daniels BlackBerry,Whiskey,Shot,$11.00,Y,drink,bar,spirits
+L-JACK-DANIELS-BLACKBERRY-BOTTLE,L-JACK-DANIELS-BLACKBERRY,Jack Daniels BlackBerry,Whiskey,Bottle,$300.00,Y,drink,bar,spirits
+L-BULLEIT-SHOT,L-BULLEIT,Bulleit,Whiskey,Shot,$13.00,Y,drink,bar,spirits
+L-BULLEIT-BOTTLE,L-BULLEIT,Bulleit,Whiskey,Bottle,$340.00,Y,drink,bar,spirits
+L-BULLEIT-RYE-SHOT,L-BULLEIT-RYE,Bulleit Rye,Whiskey,Shot,$13.00,Y,drink,bar,spirits
+L-BULLEIT-RYE-BOTTLE,L-BULLEIT-RYE,Bulleit Rye,Whiskey,Bottle,$340.00,Y,drink,bar,spirits
+L-FIREBALL-SHOT,L-FIREBALL,Fireball,Whiskey,Shot,$10.00,Y,drink,bar,spirits
+L-FIREBALL-BOTTLE,L-FIREBALL,Fireball,Whiskey,Bottle,$200.00,Y,drink,bar,spirits
+D-COKE,D-COKE,Coke,Soft Drinks,Regular,$3.10,N,drink,bar,soft
+D-DIET-COKE,D-DIET-COKE,Diet Coke,Soft Drinks,Regular,$3.10,N,drink,bar,soft
+D-FANTA,D-FANTA,Fanta,Soft Drinks,Regular,$3.10,N,drink,bar,soft
+D-SPRITE,D-SPRITE,Sprite,Soft Drinks,Regular,$3.10,N,drink,bar,soft
+D-WATER,D-WATER,Water,Soft Drinks,Regular,$3.10,N,drink,bar,soft
+D-SELTZER,D-SELTZER,Seltzer,Soft Drinks,Regular,$3.10,N,drink,bar,soft
+F-CLASSIC-CHEESE,F-CLASSIC-CHEESE,Classic Cheese,Burgers,Regular,$9.95,N,food,kitchen,
+F-BACON-JALAPE-O-SHARP-CHEDDAR,F-BACON-JALAPE-O-SHARP-CHEDDAR,Bacon Jalapeño Sharp Cheddar,Burgers,Regular,$12.95,N,food,kitchen,
+F-TRUFFLE-MUSHROOM-SWISS,F-TRUFFLE-MUSHROOM-SWISS,Truffle Mushroom Swiss,Burgers,Regular,$13.95,N,food,kitchen,
+F-ORIGINAL-CRISPY-CHICKEN-SANDWICH,F-ORIGINAL-CRISPY-CHICKEN-SANDWICH,Original Crispy Chicken Sandwich,Chicken Sandwiches,Regular,$9.95,N,food,kitchen,
+F-SPICY-CHICKEN,F-SPICY-CHICKEN,Spicy Chicken,Chicken Sandwiches,Regular,$9.95,N,food,kitchen,
+F-NASHVILLE-HOT,F-NASHVILLE-HOT,Nashville Hot,Chicken Sandwiches,Regular,$11.95,N,food,kitchen,
+F-BACON-RANCH,F-BACON-RANCH,Bacon Ranch,Chicken Sandwiches,Regular,$11.95,N,food,kitchen,
+F-KIMCHI-FRIED-RICE,F-KIMCHI-FRIED-RICE,Kimchi Fried Rice,Fried Rice,Regular,$14.99,N,food,kitchen,
+F-BEEF-FRIED-RICE,F-BEEF-FRIED-RICE,Beef Fried Rice,Fried Rice,Regular,$15.99,N,food,kitchen,
+F-VEGETABLE-FRIED-RICE,F-VEGETABLE-FRIED-RICE,Vegetable Fried Rice,Fried Rice,Regular,$14.99,N,food,kitchen,
+F-SHIN-RAMEN,F-SHIN-RAMEN,Shin Ramen,Korean Ramen,Regular,$8.99,N,food,kitchen,
+F-BULDAK-RAMEN,F-BULDAK-RAMEN,Buldak Ramen,Korean Ramen,Regular,$9.99,N,food,kitchen,
+F-JJAJANG-RAMEN,F-JJAJANG-RAMEN,Jjajang Ramen,Korean Ramen,Regular,$9.99,N,food,kitchen,
+F-CHEESE-TTEOKBOKKI,F-CHEESE-TTEOKBOKKI,Cheese Tteokbokki,Korean Ramen,Regular,$11.99,N,food,kitchen,
+F-FRENCH-FRIES,F-FRENCH-FRIES,French Fries,Sides,Regular,$5.45,N,food,kitchen,
+F-CHEESE-STICKS,F-CHEESE-STICKS,Cheese Sticks,Sides,Regular,$5.45,N,food,kitchen,
+F-ONION-RINGS,F-ONION-RINGS,Onion Rings,Sides,Regular,$5.45,N,food,kitchen,
+F-BUTTER-RICE,F-BUTTER-RICE,Butter Rice,Sides,Regular,$4.45,N,food,kitchen,
+F-PICKLED-RADISH,F-PICKLED-RADISH,Pickled Radish,Sides,Regular,$2.95,N,food,kitchen,
+F-MAC-CHEESE,F-MAC-CHEESE,Mac & Cheese,Sides,Regular,$4.45,N,food,kitchen,
+F-MASHED-POTATOES,F-MASHED-POTATOES,Mashed Potatoes,Sides,Regular,$4.45,N,food,kitchen,
+F-COLESLAW,F-COLESLAW,Coleslaw,Sides,Regular,$3.45,N,food,kitchen,
+C-2-PC-LEGS-COMBO-1-SIDE,C-2-PC-LEGS-COMBO,2 PC Legs Combo,Chicken,+ 1 Side,$10.99,N,food,kitchen,
+C-2-PC-LEGS-COMBO-1-SIDE-1-SODA,C-2-PC-LEGS-COMBO,2 PC Legs Combo,Chicken,+ 1 Side + 1 Soda,$13.49,N,food,kitchen,
+C-2-PC-LEGS-COMBO-2-SIDES-1-SODA,C-2-PC-LEGS-COMBO,2 PC Legs Combo,Chicken,+ 2 Sides + 1 Soda,$15.49,N,food,kitchen,
+C-3-PC-COMBO-2-LEGS-1-THIGH-1-SIDE,C-3-PC-COMBO-2-LEGS-1-THIGH,3 PC Combo (2 Legs + 1 Thigh),Chicken,+ 1 Side,$13.49,N,food,kitchen,
+C-3-PC-COMBO-2-LEGS-1-THIGH-1-SIDE-1-SODA,C-3-PC-COMBO-2-LEGS-1-THIGH,3 PC Combo (2 Legs + 1 Thigh),Chicken,+ 1 Side + 1 Soda,$15.99,N,food,kitchen,
+C-3-PC-COMBO-2-LEGS-1-THIGH-2-SIDES-1-SODA,C-3-PC-COMBO-2-LEGS-1-THIGH,3 PC Combo (2 Legs + 1 Thigh),Chicken,+ 2 Sides + 1 Soda,$17.99,N,food,kitchen,
+C-CHICKEN-TENDERS-3-PC,C-CHICKEN-TENDERS,Chicken Tenders,Chicken,3 PC,$9.99,N,food,kitchen,
+C-CHICKEN-TENDERS-4-PC,C-CHICKEN-TENDERS,Chicken Tenders,Chicken,4 PC,$11.99,N,food,kitchen,
+C-CHICKEN-TENDERS-6-PC,C-CHICKEN-TENDERS,Chicken Tenders,Chicken,6 PC,$17.99,N,food,kitchen,
+C-CHICKEN-TENDERS-10-PC,C-CHICKEN-TENDERS,Chicken Tenders,Chicken,10 PC,$27.99,N,food,kitchen,
+C-CHICKEN-TENDERS-COMBO-3-PC-1-SIDE-1-SODA,C-CHICKEN-TENDERS-COMBO,Chicken Tenders Combo,Chicken,3 PC + 1 Side + 1 Soda,$14.49,N,food,kitchen,
+C-CHICKEN-TENDERS-COMBO-4-PC-1-SIDE-1-SODA,C-CHICKEN-TENDERS-COMBO,Chicken Tenders Combo,Chicken,4 PC + 1 Side + 1 Soda,$16.49,N,food,kitchen,
+C-CHICKEN-WINGS-6-PC,C-CHICKEN-WINGS,Chicken Wings,Chicken,6 PC,$10.99,N,food,kitchen,
+C-CHICKEN-WINGS-8-PC,C-CHICKEN-WINGS,Chicken Wings,Chicken,8 PC,$14.99,N,food,kitchen,
+C-CHICKEN-WINGS-10-PC,C-CHICKEN-WINGS,Chicken Wings,Chicken,10 PC,$18.99,N,food,kitchen,
+C-KOREAN-POPCORN-CHICKEN-SMALL,C-KOREAN-POPCORN-CHICKEN,Korean Popcorn Chicken,Chicken,Small,$10.99,N,food,kitchen,
+C-KOREAN-POPCORN-CHICKEN-LARGE,C-KOREAN-POPCORN-CHICKEN,Korean Popcorn Chicken,Chicken,Large,$14.99,N,food,kitchen,
+C-BUCKET-CHICKEN-6-PC-3-LEGS-3-THIGHS,C-BUCKET-CHICKEN,Bucket Chicken,Chicken,"6 PC (3 legs, 3 thighs)",$19.99,N,food,kitchen,
+C-BUCKET-CHICKEN-10-PC-5-LEGS-5-THIGHS,C-BUCKET-CHICKEN,Bucket Chicken,Chicken,"10 PC (5 legs, 5 thighs)",$30.99,N,food,kitchen,
+C-BUCKET-CHICKEN-6-PC-2-SIDES-3-LEGS-3-THIGHS,C-BUCKET-CHICKEN,Bucket Chicken,Chicken,"6 PC + 2 Sides (3 legs, 3 thighs)",$23.49,N,food,kitchen,
