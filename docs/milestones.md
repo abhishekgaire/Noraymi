@@ -30,7 +30,7 @@ What moves it inside the range:
 | M3 | Room orders and the bar screen | A mock Friday of room orders: they ring, print, get carried, get cut off and stop at 4 AM | M2 | 2–3 weeks | [25 tickets](backlog/M3-room-orders-and-bar-screen.md) · 36.5–57 days |
 | M4 | Payments and receipts | Room checks close out by tap, card on file, cash, split and Pay my share, with receipts | M3 | 3–4 weeks | [30 tickets](backlog/M4-payments-and-receipts.md) · 51.5–78 days |
 | M5 | Guest site and online booking | West 4's site, booking with a deposit, and manage or cancel | M4 | 2 weeks | [17 tickets](backlog/M5-guest-site-and-booking.md) · 29.5–45 days |
-| M6 | Bar POS, tabs and bar mode | The bar runs on card tabs with growing holds, and singers queue from their phones | M4 | 3–4 weeks | [28 tickets](backlog/M6-bar-pos-tabs-and-bar-mode.md) · 50–76 days |
+| M6 | Bar POS, tabs and bar mode | The bar runs on card tabs with growing holds, and singers queue from their phones | M4 | 3–4 weeks | [29 tickets](backlog/M6-bar-pos-tabs-and-bar-mode.md) · 50.5–77 days |
 | M7 | Close the night and the books | Drawers counted, tips pooled, the Z report and exports reconciled, training mode | M6 | 2–3 weeks | [20 tickets](backlog/M7-close-the-night-and-books.md) · 42.5–60 days |
 | M8 | Offline, safety and operations | The venue gets through an outage; on-call, retention, billing and backups work | M7 | 3–4 weeks | [24 tickets](backlog/M8-offline-safety-and-operations.md) · 50.5–72 days |
 | M9 | Cutover and going live | West 4 runs live nights, and the gate's 4 weeks begin | M8 | 2 weeks, then the gate | [17 tickets](backlog/M9-cutover-and-going-live.md) · 22–35 days |

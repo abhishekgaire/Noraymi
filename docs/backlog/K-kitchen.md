@@ -2,13 +2,14 @@
 
 **Awaiting approval of [docs/spec/16-kitchen.md](../spec/16-kitchen.md).** Don't start any ticket here until the founder approves that draft; then remove this line.
 
-Oct 9, 2026 · the proposed backlog for the Kitchen & food module, for Sing Sing Karaoke, Astoria, the first venue to go live ([D98](../decisions.md)). One ticket per Claude Code session. The [draft spec](../spec/16-kitchen.md) says how each piece works. Tests use a test-only kitchen menu marked as such, laid over the demo seed in the test helpers; the demo seed stays West 4's and gains no food, and no Sing Sing fact is invented.
+Oct 9, 2026 · the proposed backlog for the Kitchen & food module, for Sing Sing Karaoke, Astoria, the first venue to go live ([D98](../decisions.md)), with the founder's Send to kitchen answers of Oct 9 ([D99](../decisions.md)). One ticket per Claude Code session. The [draft spec](../spec/16-kitchen.md) says how each piece works. Tests use a test-only kitchen menu marked as such, laid over the demo seed in the test helpers; the demo seed stays West 4's and gains no food, and no Sing Sing fact is invented.
 
 **Goal (usable when done):** at a venue with the Kitchen module on, guests and staff order food like drinks, the bar accepts it, a ticket prints on the kitchen printer, and a runner carries it to the room.
 
 **Done when:**
 
-- A food order from a guest's phone, a room tablet, the bar POS, a bar tab and a room tab each prints a kitchen ticket at Accept, and a mixed basket prints drinks at the bar and food in the kitchen.
+- A food order from a guest's phone or a room tablet prints a kitchen ticket at Accept with the guest's notes, and a mixed basket prints drinks at the bar and food in the kitchen.
+- Food rung on the bar POS, a bar tab, a quick sale or a room tab waits as Not sent until Send to kitchen prints it once, with its notes, and a reminder catches food left Not sent.
 - A kitchen ticket that doesn't print shows on the bar screens, tells the manager on duty, and can be reprinted at the kitchen or at the bar.
 - A runner's Picked up and Delivered close a food run, and Delivered never charges.
 - 86 and Close the kitchen grey food out on every menu, and the allergy notice shows on every menu.
@@ -35,12 +36,14 @@ Definition of done: see CLAUDE.md.
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · The Kitchen module; [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) · Modules
 - **Build:**
   - `kitchen` in the module list, needing Bar screen & tickets, in the dependency table and What each module hides.
-  - The `kitchen` settings key (`allergyNotice`, `lastOrder`), versioned and validated like the others, and Admin → Kitchen to edit it.
+  - The `kitchen` settings key (`allergyNotice`, `lastOrder`, `unsentWarnMin` defaulting to 5), versioned and validated like the others, and Admin → Kitchen to edit it.
   - Turning the module on is refused until a kitchen printer is paired and the allergy notice is set ("Kitchen · needs a kitchen printer and the allergy notice"); turning it off is refused while a kitchen order is open.
 - **Acceptance:**
   - [ ] With no kitchen printer or no notice, Admin → Features keeps Kitchen off and says what's missing.
   - [ ] Turning Bar screen & tickets off lists Kitchen among what turns off with it.
   - [ ] Every kitchen route answers `404 module_off` while the module is off.
+  - [ ] Guest food ordering follows the Ordering from the room module: with it off, the room page and tablet offer no food, and there's no separate switch.
+  - [ ] `unsentWarnMin` defaults to 5 and refuses a value outside 1 to 60.
   - [ ] Turning Kitchen off with a kitchen order being made is refused.
 - **Tests:** unit tests for the dependency rules; integration tests for the settings key and the module routes; the principal and venue-wall suites over Admin → Kitchen.
 - **Notes:**
@@ -52,7 +55,7 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-01; M3-03, M3-04, M3-06
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Stations; [Data model](../spec/04-data-model.md) · Room orders
 - **Build:**
-  - Migration: `menu_items.station` limited to `bar` and `kitchen`; `orders.station`, `orders.basket_id` and `orders.allergy_note` (up to 200 characters); `order_items.package_id`; row-level security unchanged and a venue-wall test.
+  - Migration: `menu_items.station` limited to `bar` and `kitchen`; `orders.station` and `orders.basket_id`; `order_items.kitchen_note` (up to 200 characters), `kitchen_note_allergy`, `kitchen_sent_at`, `kitchen_sent_by` and `package_id`; row-level security unchanged and a venue-wall test.
   - Admin → Menu shows Station on each item only while the module is on.
   - The order pipeline splits a basket or round with lines for both stations into one order per station sharing `basket_id`; options and variants follow their item.
 - **Acceptance:**
@@ -69,14 +72,15 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-02; M3-13 (network printers), M8 (offline replay)
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Kitchen tickets; [Devices, printing and offline](../spec/09-devices-printing-offline.md) · Tickets and Outages
 - **Build:**
-  - Accept on a kitchen order creates a print job for the kitchen printer; the kitchen ticket layout ("KITCHEN", the room or tab, time, who accepted, lines with options and notes, the boxed allergy note, no prices).
+  - Accept on a guest's kitchen order, and Send to kitchen (K-05), create a print job for the kitchen printer; the kitchen ticket layout ("KITCHEN", the room or tab, the time, who accepted or sent it, lines with options and notes, a note marked as an allergy boxed and bold under its line, no prices).
   - Pairing refuses a USB printer for the kitchen station.
   - A failed kitchen job shows "Kitchen ticket didn't print · Reprint" on the bar screens and pushes to the manager on duty; Reprint offers the kitchen printer or Print at the bar instead, numbering REPRINT 2, 3 and so on.
   - Accepting a replayed food order prints "AFTER OUTAGE · check with the kitchen before making".
 - **Acceptance:**
-  - [ ] Accepting a mixed basket prints one bar ticket and one kitchen ticket on the fake printers, and the kitchen ticket shows the allergy note boxed and no prices.
+  - [ ] Accepting a mixed basket prints one bar ticket and one kitchen ticket on the fake printers, and the kitchen ticket shows each line's note, an allergy note boxed and bold, and no prices.
   - [ ] A kitchen job unconfirmed after three polls raises `print_job.failed`, shows on the bar POS and bar orders screen, and reaches the manager's phone.
   - [ ] Print at the bar instead prints the same ticket on the bar printer as REPRINT 2.
+  - [ ] Reprint prints a copy stamped REPRINT with its count, and adds nothing to the check and marks nothing sent again.
   - [ ] A replayed food order prints with AFTER OUTAGE.
 - **Tests:** integration tests with the fake CloudPRNT printer; an end-to-end test of the failure and reprint; English and Spanish strings.
 - **Notes:** The printer model is an open question; build against the fake printer.
@@ -88,32 +92,47 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-02, K-03; M3-09, M3-11, M3-12
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food
 - **Build:**
-  - Food sections on the room page and tablet; the basket's optional allergy field (draft wording, flagged for the lawyer); two order cards, "Drinks" and "Food", in the existing guest words.
+  - Food sections on the room page and tablet, only while Ordering from the room is on; an optional note on each food line ("Allergies or notes for the kitchen", draft wording flagged for the lawyer) with "This is an allergy"; two order cards, "Drinks" and "Food", in the existing guest words.
   - Same again includes food.
   - After 4 AM, a food order keeps ringing while unaccepted alcohol is cancelled.
 - **Acceptance:**
   - [ ] A guest's mixed basket shows as two cards that each move through the guest words.
+  - [ ] Accept prints the food in the kitchen at once with each line's note, an allergy note boxed, and no Send to kitchen step.
   - [ ] The guest can cancel the food card while it's ringing, and nothing is charged.
   - [ ] At 4:00 AM on the simulated clock, the drinks card is cancelled as `alcohol_closed` and the food card keeps ringing.
   - [ ] A food-only order shows no ID status.
 - **Tests:** end-to-end tests from a fresh seed with the test kitchen menu; the accessibility checks on the room page and tablet.
 - **Notes:** The allergy field's wording and the note's retention are open with the lawyer.
 
-### K-05 · Add food from the bar POS, bar tabs, quick sale and room tabs
+### K-05 · Add food from the bar POS, bar tabs, quick sale and room tabs, and Send to kitchen
 
 - **Status:** todo
 - **Size:** M
-- **Depends on:** K-03; M3-07, M6-02, M6-03, M6-05
-- **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 2
+- **Depends on:** K-03; M3-07, M6-02, M6-03, M6-05, M6-15
+- **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 2 and Changing a sent drink
 - **Build:**
   - A Food section after the ten fixed sections, only while the module is on, so no drink moves.
-  - Send and a room tab's add split drinks and food and print each at its station; the kitchen ticket names the tab, or for a quick sale the person who rang it and the time.
+  - Food goes on the tab or check exactly when a drink would (a room tab's staff order at once; a bar tab's or quick sale's round at Send, or at Send to kitchen if that comes first, through the hold-raise check), and reads "Not sent".
+  - "Send to kitchen (N)" at the bottom of the bar POS and the room tab on desktop and phone, active while unsent food exists; its confirmation lists only the unsent food lines, each with a note (up to 200 characters) and "This is an allergy"; a quick sale's confirmation asks for a name or label first.
+  - `POST /checks/{c}/kitchen-sends` (idempotency key) marks the lines `kitchen_sent_at` and `kitchen_sent_by` and creates one kitchen print job in one transaction, refusing lines already sent; the lines then read "Sent · 11:42".
+  - Unsent food removed with no reason or approval (logged); sent food only through the fix panel's void.
+  - The Not sent reminder: "N food items not sent to the kitchen" on the tab, sale or check after `kitchen.unsentWarnMin`, and the same warning before Close, Send & close or payment, with Send to kitchen beside it.
+  - English and Spanish strings for every new word.
 - **Acceptance:**
   - [ ] Turning the module on adds the Food section and leaves every drink in its slot.
-  - [ ] A round with food on Jess P.'s tab prints "Bar · Jess P." on the kitchen ticket and puts the food on the tab.
-  - [ ] Adding food from Room 9's tab on a phone puts it on the check at once and prints in the kitchen.
-- **Tests:** end-to-end tests on the bar POS and the staff phone; English and Spanish strings.
-- **Notes:** How bar food reaches the guest is open with the founder; the cautious default is no run.
+  - [ ] Food added to Jess P.'s tab reads "Not sent", is on the tab, and prints nothing until Send to kitchen.
+  - [ ] "Send to kitchen (N)" is active only while unsent food exists, and N counts the unsent food items.
+  - [ ] The confirmation lists only the unsent food lines; a note on each prints under its line, and a note marked as an allergy prints boxed and bold.
+  - [ ] Send prints one kitchen ticket reading "Bar · Jess P." with the items, options and notes, and the lines then read "Sent · 11:42" (simulated clock).
+  - [ ] A second Send to kitchen lists only food added since, and sending the same lines twice (two screens at once, or a retried request) prints one ticket.
+  - [ ] A quick sale's Send to kitchen asks for a name, and the ticket reads "Bar · Seat 3".
+  - [ ] Unsent food is removed with no reason or approval; sent food can't be removed except by a void, which follows the reason-only limit and asks a manager above it.
+  - [ ] Reprint on a sent ticket prints a copy stamped "REPRINT 2" and changes nothing on the check.
+  - [ ] Food left Not sent for 5 minutes on the simulated clock shows "1 food item not sent to the kitchen" on the tab, and closing or paying the tab shows the same warning first; with `unsentWarnMin` set to 10 it shows at 10.
+  - [ ] Adding food from Room 9's tab on a phone puts it on the check at once as Not sent, and Send to kitchen prints "Room 9" in the kitchen.
+  - [ ] Drinks rung with the food on a bar tab print no bar ticket while "Print tickets for drinks rung at the bar" is off (M6-29).
+- **Tests:** unit tests for the unsent count and the reminder's timing on the simulated clock; integration tests for the send route (no double send, idempotency, every principal, the venue wall); end-to-end tests on the bar POS and the staff phone; English and Spanish strings.
+- **Notes:** Bar food delivery was answered by the founder on Oct 9: a server takes the food to the guest by the name on the ticket, with no run in the app. Paying with food still Not sent is allowed after the warning; the warning only reminds.
 
 ### K-06 · Run food: In the kitchen and Picked up on the runners' phones
 
@@ -122,12 +141,12 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-03; M3-15, M3-18
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Runners and delivery
 - **Build:**
-  - Accepted kitchen orders show "In the kitchen · ticket printed · age" on the bar orders screen and on Runs, with no Ready button at the bar.
+  - Kitchen orders for rooms show "In the kitchen · ticket printed · age" on the bar orders screen and on Runs once their ticket prints (at Accept for a guest's order, at Send to kitchen for staff-rung food), with no Ready button at the bar; bar-tab and quick-sale food has no run.
   - `POST /orders/{o}/pick-up` records Ready and the claim in one transaction, writing both events.
   - Returns and Remake as for drinks; a remake prints a kitchen ticket marked REMAKE.
 - **Acceptance:**
   - [ ] Picked up moves an accepted food order to "On its way · Andy", and Delivered charges nothing.
-  - [ ] Picked up on an order that isn't accepted is refused.
+  - [ ] Picked up on an order that isn't accepted, or on staff-rung food that's still Not sent, is refused.
   - [ ] A remake prints REMAKE in the kitchen and charges nothing again.
 - **Tests:** unit tests for the step checks; integration tests for the route as every principal; an end-to-end run on a staff phone.
 - **Notes:**
@@ -166,15 +185,15 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-03, K-05; M3-02
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Food in packages; [Money rules](../spec/05-money-rules.md) rule 1
 - **Build:**
-  - Add a package to a room from the room tab, choosing any picks; a staff order accepted at once, drinks at the bar and food in the kitchen.
+  - Add a package to a room from the room tab, choosing any picks; a staff order accepted at once, its drinks printed at the bar at once and its food Not sent until Send to kitchen (K-05).
   - The package price divided across its contents by their regular prices, largest remainder, each line with its own tax category and `package_id`, grouped under the package's name on the bill.
   - The promotion checks refuse an hourly package with food.
 - **Acceptance:**
   - [ ] A package's lines add up to its price to the cent, written test-first as new money cases.
-  - [ ] Adding the package prints its food in the kitchen and its drinks at the bar at once.
+  - [ ] Adding the package prints its drinks at the bar at once, and its food reads Not sent until Send to kitchen prints it in the kitchen.
   - [ ] An hourly package with food can't be saved.
 - **Tests:** unit tests first from new `seed/money-cases.json` groups for packages with food (test prices, marked as test data); integration and end-to-end tests.
-- **Notes:** When package food fires, and how a package is split for tax, are open with the founder and the accountant.
+- **Notes:** When package food fires, and how a package is split for tax, are open with the founder and the accountant; until then package food follows Send to kitchen (D99).
 
 ### K-10 · Tax food and report it
 
@@ -195,7 +214,7 @@ Definition of done: see CLAUDE.md.
 - **Size:** S
 - **Depends on:** K-01 to K-10
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md)
-- **Build:** a Playwright run on the test kitchen menu: a guest's mixed basket, a bar tab with food, a package, a failed kitchen ticket printed at the bar, a run with Picked up, 86 and Close the kitchen, and Close the night reconciling to the cent.
+- **Build:** a Playwright run on the test kitchen menu: a guest's mixed basket, a bar tab with food sent with Send to kitchen (an allergy note, a second send of new food only, the Not sent reminder), a package, a failed kitchen ticket printed at the bar, a run with Picked up, 86 and Close the kitchen, and Close the night reconciling to the cent.
 - **Acceptance:**
   - [ ] The run passes from a fresh seed with the test kitchen menu.
   - [ ] Every new staff string exists in English and Spanish (`pnpm i18n:check`).

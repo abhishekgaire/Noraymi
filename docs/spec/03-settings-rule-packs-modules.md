@@ -16,7 +16,7 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `pay` | Card fee, gratuity, the reader's tip screen, tip review, tip pool, the room card hold, and Pay my share: whether guests can pay their own share from their phones (on at West 4) |
 | `drawer` | The drawer model (house drawers or a drawer per person), the starting bank, the count difference that needs a note, when a second person counts, the paid-out amount that needs approval, and whether a tray can be pulled and counted at close; a change starts with the next business date |
 | `tabs` | The opening hold, the amount that flags a tab ($600 at West 4) and the tab cut-off, when tabs still open are charged (4:30 AM at West 4). The consent line read at New tab is built from them. The house last call is in `hours` |
-| `pos` | The bar POS: the published layout per station, the reason-only limits for comps and voids (each and per shift), the idle and wipe locks, whether bar tabs tip on the reader or a slip, how room orders age and escalate, the chime and how long Mute lasts. Admin → Bar POS edits `pos` and `tabs` together ([Staff screens and the bar POS](10-staff-screens-bar-pos.md)) |
+| `pos` | The bar POS: the published layout per station, the reason-only limits for comps and voids (each and per shift), the idle and wipe locks, whether bar tabs tip on the reader or a slip, whether drinks rung on a bar tab or a quick sale print a bar ticket (off at West 4), how room orders age and escalate, the chime and how long Mute lasts. Admin → Bar POS edits `pos` and `tabs` together ([Staff screens and the bar POS](10-staff-screens-bar-pos.md)) |
 | `ordering` | Whether a new room session starts with the host lock on. Guest ordering itself is the "Ordering from the room" module, and guests can cancel only while an order is ringing or asked to wait, which is a rule, not a setting |
 | `rooms` | Cleaning time between bookings, how cleaning ends, when the board flags a room still cleaning, and whether a room stays on by the minute when nobody's booked next |
 | `barMode` | The song price (not set at West 4), the drink credit for "Buy a drink, get a song", free nights, songs per singer per round, singer alerts, and how many singers the Up next TV shows ([Song systems and texts](11-song-systems-texts.md)) |
@@ -131,6 +131,8 @@ type PosSettings = {                                        // the same shape as
   idleLockMin: number;                                      // 3
   wipeLockSec: number;                                      // 10
   barTabTip: "reader" | "slip";                             // the slip stays as the fallback either way
+  printBarDrinkTickets: boolean;                            // false: drinks rung on a bar tab or quick sale print no bar ticket (D99);
+                                                            // room orders always print; managers and the owner change it in Admin → Bar POS
   orderAging: { phonesSec: number; amberSec: number; pinkSec: number; callSec: number };
                                                             // 30, 120, 240, 360: the board alerts at amber, the manager on duty is told at pink
   chime: boolean;                                           // true: a backup to the colors

@@ -1,6 +1,6 @@
 # Backlog
 
-233 tickets for phase 1, one file per [milestone](../milestones.md). Each ticket names the spec it builds, what to build, how to accept it and which tests to write. The [definition of done](../../CLAUDE.md#definition-of-done) applies to every ticket.
+234 tickets for phase 1, one file per [milestone](../milestones.md). Each ticket names the spec it builds, what to build, how to accept it and which tests to write. The [definition of done](../../CLAUDE.md#definition-of-done) applies to every ticket.
 
 ## How to use it
 
@@ -19,11 +19,11 @@
 | [M3 · Room orders and the bar screen](M3-room-orders-and-bar-screen.md) | 25 | 9 / 16 / 0 | 36.5–57 |
 | [M4 · Payments and receipts](M4-payments-and-receipts.md) | 30 | 7 / 22 / 1 | 51.5–78 |
 | [M5 · Guest site and online booking](M5-guest-site-and-booking.md) | 17 | 3 / 14 / 0 | 29.5–45 |
-| [M6 · Bar POS, tabs and bar mode](M6-bar-pos-tabs-and-bar-mode.md) | 28 | 4 / 24 / 0 | 50–76 |
+| [M6 · Bar POS, tabs and bar mode](M6-bar-pos-tabs-and-bar-mode.md) | 29 | 5 / 24 / 0 | 50.5–77 |
 | [M7 · Close the night and the books](M7-close-the-night-and-books.md) | 20 | 5 / 10 / 5 | 42.5–60 |
 | [M8 · Offline, safety and operations](M8-offline-safety-and-operations.md) | 24 | 5 / 14 / 5 | 50.5–72 |
 | [M9 · Cutover and going live](M9-cutover-and-going-live.md) | 17 | 8 / 9 / 0 | 22–35 |
-| **Total** | **233** | **75 / 147 / 11** | **375.5–571** |
+| **Total** | **234** | **76 / 147 / 11** | **376–572** |
 
 **Visual pass.** [V · Visual pass](V-visual-pass.md) applies the frozen canvas's look to the built screens (decision D97): V-01 built the shared design layer and restyled the Board; V-02 to V-08 restyle the rest, one group of boards each. It runs beside the milestones and doesn't change their order.
 
@@ -232,6 +232,7 @@
 | [M6-26 · Build Admin → Bar mode](M6-bar-pos-tabs-and-bar-mode.md#m6-26--build-admin--bar-mode) | S | M6-18, M6-23 |
 | [M6-27 · Load the seed's bar tabs, slips and singer queue into staging](M6-bar-pos-tabs-and-bar-mode.md#m6-27--load-the-seeds-bar-tabs-slips-and-singer-queue-into-staging) | M | M6-06 to M6-19 |
 | [M6-28 · Prove every tab path and the queue end to end, and time the staff tasks](M6-bar-pos-tabs-and-bar-mode.md#m6-28--prove-every-tab-path-and-the-queue-end-to-end-and-time-the-staff-tasks) | M | M6-01 to M6-27 |
+| [M6-29 · Print bar tickets only for room orders, unless "Print tickets for drinks rung at the bar" is on](M6-bar-pos-tabs-and-bar-mode.md#m6-29--print-bar-tickets-only-for-room-orders-unless-print-tickets-for-drinks-rung-at-the-bar-is-on) | S | M6-03, M6-05, M6-25; M3-13 (tickets) |
 
 ### [M7 · Close the night and the books](M7-close-the-night-and-books.md)
 

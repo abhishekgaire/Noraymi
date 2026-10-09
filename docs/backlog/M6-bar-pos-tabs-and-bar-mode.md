@@ -6,7 +6,7 @@ Sep 29, 2026 · the backlog for milestone M6 of the [phase 1 milestones](../mile
 
 **Depends on:** M4 (the readers and the payment core) and M3 (orders and cut-offs).
 
-**Size:** 3–4 weeks in milestones.md. The 28 tickets below are 4 S and 24 M: about 50 to 76 working days (S ≤ 1 day, M 2–3 days). See [Open points](#open-points).
+**Size:** 3–4 weeks in milestones.md. The 29 tickets below are 5 S and 24 M: about 50.5 to 77 working days (S ≤ 1 day, M 2–3 days). See [Open points](#open-points).
 
 Definition of done: see CLAUDE.md.
 
@@ -765,6 +765,25 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Done-when items not yet covered: the timed targets in staging with people; every tab path on the connected sandbox (and the declined raise and the timeout can't be forced there at all, above); "accept a room order within 2 minutes on a busy night" (an operational measure for the mock Friday and M9's trial, not a test); Ben T.'s "You're up next" by a real push and a real text (locally the e2e test proves the page and the planned jobs, and `singer-alerts.int.test.ts` the delivery through the senders); and a CI job against the sandbox, which needs the sandbox keys as CI secrets. CI already runs every e2e test here against the fake.
   - Test runs: `pnpm check` all green (unit 657, integration 725); the full staff e2e suite 111 passed of 111 (before the fixes, a baseline run had 105 of 106, the one failure being the party-enquiry flake, which passed alone); the guest suite 27 passed of 27.
 
+### M6-29 · Print bar tickets only for room orders, unless "Print tickets for drinks rung at the bar" is on
+
+- **Status:** todo
+- **Size:** S
+- **Depends on:** M6-03, M6-05, M6-25; M3-13 (tickets)
+- **Spec:** [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) (Ringing, Admin → Bar POS); [Devices, printing and offline](../spec/09-devices-printing-offline.md) (Tickets); [Settings, rule packs and modules](../spec/03-settings-rule-packs-modules.md) (`PosSettings`); decision D99
+- **Build:**
+  - `pos.printBarDrinkTickets` (boolean, default off, West 4 off) in the shared settings type and validation, and a Drink tickets row in Admin → Bar POS: "Print tickets for drinks rung at the bar", English and Spanish, changed by managers and the owner, live at once.
+  - Send and Send & close on a bar tab or a quick sale put the round on the tab exactly as now, and create a bar print job only while the setting is on.
+  - Room orders always print: a guest's order at Accept, and drinks staff add to a room from the room tab on desktop or phone or with Open in the bar POS.
+  - Training mode and the "Ticket didn't print · Reprint" path unchanged for the tickets that still print.
+- **Acceptance:**
+  - [ ] With the setting off, Send on Jess P.'s tab and a quick sale put the drinks on the tab and the sale and create no print job.
+  - [ ] With the setting on, the same Send prints a bar ticket, as M6-03 built it.
+  - [ ] Accepting a guest's order from Room 9, adding a drink from Room 9's tab on a phone, and a round for Room 9 rung with Open in the bar POS each print a bar ticket whatever the setting.
+  - [ ] Admin → Bar POS shows the row off for West 4, a bartender can't change it, and a manager's change is live at once.
+- **Tests:** unit tests for the print rule (bar tab, quick sale, room order, guest order; on and off); settings validation; integration tests for Send with the setting on and off against the fake printer, and the principal suite over the setting; an end-to-end check of the Admin row.
+- **Notes:** Built code currently prints a bar ticket on every Send (M6-03), as the spec said until D99 (Oct 9, 2026). Applies at every venue, not only Sing Sing. Food's Send to kitchen is K-05, not this ticket.
+
 ## Coverage
 
 Every "Ships" item, done-when line, Admin section and must-fix item of M6 in [milestones.md](../milestones.md#m6--bar-pos-tabs-and-bar-mode), and the tickets that build it.
@@ -783,7 +802,7 @@ Every "Ships" item, done-when line, Admin section and must-fix item of M6 in [mi
 | Done when: The seed's queue plays out | M6-18, M6-19, M6-20, M6-21, M6-22, M6-28 |
 | Done when: A songbook CSV loads | M6-23, M6-28 |
 | Done when: A gift order to a cut-off tab | M6-24, M6-28 |
-| Admin: Bar POS | M6-01, M6-25 |
+| Admin: Bar POS | M6-01, M6-25, M6-29 |
 | Admin: Bar mode | M6-23, M6-26 |
 | Must-fix: GA-M7 (cut-off for a tab) | M6-14, M6-13 |
 | Must-fix: GA-M10 (the play log in M6) | M6-19 |
@@ -793,7 +812,7 @@ Every "Ships" item, done-when line, Admin section and must-fix item of M6 in [mi
 
 Spec gaps met while writing these tickets, each built with the cautious default its ticket names:
 
-- **The plan's size.** These tickets add up to about 50 to 76 working days against milestones.md's 3–4 weeks.
+- **The plan's size.** These tickets add up to about 50.5 to 77 working days against milestones.md's 3–4 weeks.
 - **"Maya · on break"** needs the break punch, which ships with M7's time clock; M6 reads it and tests against a seeded punch (M6-04).
 - **Growing the hold:** "near the hold" and the step sizes aren't set (M6-07).
 - **The order of a split's shares** isn't set; the held card's share goes last (M6-10).
