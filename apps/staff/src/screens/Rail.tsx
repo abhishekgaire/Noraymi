@@ -31,6 +31,7 @@ import { CashPanel } from "./CashPanel.js";
 import { RefundSheet } from "./RefundSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
+import "./bar.css";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -164,6 +165,18 @@ interface MovedHold {
   readonly cents: number;
 }
 type Picked = { kind: "tab"; id: string } | { kind: "room"; id: string } | { kind: "quick" } | null;
+/** A tab's marks in the list (V-04): pink for a stop, amber for a warning, lime when settled. */
+type Badge = { readonly label: string; readonly tone: "bad" | "warn" | "ok" };
+
+/** The signed-in person's initials for the avatar beside their name (V-04, as on Rail.dc.html). */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+}
 
 export function Rail() {
   const { t, money, time } = useT();
@@ -412,6 +425,15 @@ export function Rail() {
   useEffect(() => void loadLines(), [loadLines, tabs, rooms]);
 
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  // Each item's own section (the first one it sits in after Favorites) colours its button's edge (V-04).
+  const homeSection = useMemo(() => {
+    const home = new Map<string, PosSection>();
+    for (const s of POS_SECTIONS) {
+      if (s === "favorites" || !sections) continue;
+      for (const id of sections[s]) if (id && !home.has(id)) home.set(id, s);
+    }
+    return home;
+  }, [sections]);
   // Queue mode (M8-04): a tapped variant, as the queued round records it.
   const queueLookup = useCallback(
     (variantId: string): QueueLineSource | null => {
@@ -601,23 +623,40 @@ export function Rail() {
         : null;
   const canCutOff = signedIn?.membership.permissions.includes("cutoff.apply") ?? false;
 
-  const badges = (x: Tab) => [
-    ...(x.cut_off ? [t("rail.badge.cutOff")] : []),
-    ...(x.hold?.declined ? [t("rail.badge.holdDeclined")] : []),
+  const badges = (x: Tab): Badge[] => [
+    ...(x.cut_off ? [{ label: t("rail.badge.cutOff"), tone: "bad" as const }] : []),
+    ...(x.hold?.declined ? [{ label: t("rail.badge.holdDeclined"), tone: "bad" as const }] : []),
     ...(x.hold && !x.hold.can_grow && !x.hold.declined
-      ? [t("rail.hold.left", { amount: money(x.hold.left_cents as never) })]
+      ? [
+          {
+            label: t("rail.hold.left", { amount: money(x.hold.left_cents as never) }),
+            tone: "warn" as const,
+          },
+        ]
       : []),
-    ...(x.hold?.checking ? [t("pay.unknown")] : []),
-    ...(x.waiting_for ? [t("rail.badge.waiting", { name: x.waiting_for })] : []),
-    ...(x.unsent > 0 ? [t("rail.badge.unsent", { n: x.unsent })] : []),
+    ...(x.hold?.checking ? [{ label: t("pay.unknown"), tone: "warn" as const }] : []),
+    ...(x.waiting_for
+      ? [{ label: t("rail.badge.waiting", { name: x.waiting_for }), tone: "warn" as const }]
+      : []),
+    ...(x.unsent > 0
+      ? [{ label: t("rail.badge.unsent", { n: x.unsent }), tone: "warn" as const }]
+      : []),
     ...(x.open && x.no_hold
-      ? [t("rail.noHold", { amount: money(x.paid_cents as never) })]
+      ? [
+          {
+            label: t("rail.noHold", { amount: money(x.paid_cents as never) }),
+            tone: "ok" as const,
+          },
+        ]
       : x.open && x.paid_cents > 0
         ? [
-            t("rail.badge.partlyPaid", {
-              paid: money(x.paid_cents as never),
-              total: money((x.totals?.total_cents ?? 0) as never),
-            }),
+            {
+              label: t("rail.badge.partlyPaid", {
+                paid: money(x.paid_cents as never),
+                total: money((x.totals?.total_cents ?? 0) as never),
+              }),
+              tone: "ok" as const,
+            },
           ]
         : []),
   ];
@@ -626,9 +665,16 @@ export function Rail() {
     <section className="rail" aria-label={t("menu.barPos")}>
       <header className="rail-top">
         <h1 className="rail-title">{t("menu.barPos")}</h1>
-        <span className="who">
-          {terminal.on_break && me ? t("rail.onBreak", { name: me.name.split(" ")[0]! }) : me?.name}
-        </span>
+        {me && (
+          <span className="who rail-who">
+            <span className="rail-avatar" aria-hidden="true">
+              {initials(me.name)}
+            </span>
+            <span>
+              {terminal.on_break ? t("rail.onBreak", { name: me.name.split(" ")[0]! }) : me.name}
+            </span>
+          </span>
+        )}
         {terminal.breaks
           .filter((b) => !(terminal.on_break && b.name === me?.name))
           .map((b) => (
@@ -643,11 +689,13 @@ export function Rail() {
             const alcohol = o.items.some((i) => i.alcohol);
             return (
               <li key={o.id} className={`rail-order ${tone}`} aria-label={o.room_name ?? ""}>
-                <strong>{o.room_name}</strong>{" "}
-                <span className="small">
-                  {t(staffOrderWordsKey(o as never), { age: mmss(age) })}
-                </span>
-                <div className="small" data-guest-text>
+                <div className="rail-order-head">
+                  <strong>{o.room_name}</strong>{" "}
+                  <span className="small age">
+                    {t(staffOrderWordsKey(o as never), { age: mmss(age) })}
+                  </span>
+                </div>
+                <div className="small what" data-guest-text>
                   {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
                 </div>
                 <div className="actions">
@@ -709,9 +757,11 @@ export function Rail() {
           })}
           {stopped.map((o) => (
             <li key={o.id} className="rail-order stopped" aria-label={o.room_name ?? ""}>
-              <strong>{o.room_name}</strong>{" "}
-              <span className="small">{t(staffOrderWordsKey(o as never), { age: "" })}</span>
-              <div className="small" data-guest-text>
+              <div className="rail-order-head">
+                <strong>{o.room_name}</strong>{" "}
+                <span className="small age">{t(staffOrderWordsKey(o as never), { age: "" })}</span>
+              </div>
+              <div className="small what" data-guest-text>
                 {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
               </div>
             </li>
@@ -833,8 +883,8 @@ export function Rail() {
                     </span>
                     <span className="amount">{money((x.totals?.total_cents ?? 0) as never)}</span>
                     {badges(x).map((b) => (
-                      <span key={b} className="badge">
-                        {b}
+                      <span key={b.label} className={`badge ${b.tone}`}>
+                        {b.label}
                       </span>
                     ))}
                   </button>
@@ -848,8 +898,8 @@ export function Rail() {
                     type="button"
                     className={
                       picked?.kind === "room" && picked.id === r.room_id
-                        ? "rail-row on"
-                        : "rail-row"
+                        ? "rail-row room on"
+                        : "rail-row room"
                     }
                     aria-pressed={picked?.kind === "room" && picked.id === r.room_id}
                     onClick={() => pick({ kind: "room", id: r.room_id })}
@@ -858,7 +908,7 @@ export function Rail() {
                       {r.name}
                     </span>
                     <span className="amount">{money(r.session!.tab_so_far_cents as never)}</span>
-                    <span className="small muted">
+                    <span className="small muted sub">
                       {t("rail.roomOpened", {
                         time: time(r.session!.started_at, timeZone),
                         min: r.session!.minutes,
@@ -915,7 +965,7 @@ export function Rail() {
             )}
           </nav>
 
-          <div className="rail-center">
+          <div className="rail-center" data-section={q ? undefined : section}>
             <div
               className="rail-sections"
               data-view
@@ -929,6 +979,7 @@ export function Rail() {
                   role="tab"
                   aria-selected={!q && s === section}
                   className={!q && s === section ? "chip on" : "chip"}
+                  data-section={s}
                   onClick={() => {
                     setSection(s);
                     setQuery("");
@@ -978,7 +1029,11 @@ export function Rail() {
                 const name = item.button_name ?? item.name;
                 const price = item.variants[0]?.price_cents ?? 0;
                 return (
-                  <li key={item.id} className={out ? "slot out" : "slot"}>
+                  <li
+                    key={item.id}
+                    className={out ? "slot out" : "slot"}
+                    data-section={homeSection.get(item.id)}
+                  >
                     <button
                       type="button"
                       data-queue={queueOpen ? "" : undefined}
@@ -986,8 +1041,12 @@ export function Rail() {
                       aria-label={out ? `${name} · ${why}` : `${name} · ${money(price as never)}`}
                       onClick={() => tapItem(item)}
                     >
-                      <span data-guest-text>{name}</span>
-                      <span className="small">{out ? why : money(price as never)}</span>
+                      <span className="item-name" data-guest-text>
+                        {name}
+                      </span>
+                      <span className={out ? "small item-price out" : "small item-price"}>
+                        {out ? why : money(price as never)}
+                      </span>
                     </button>
                   </li>
                 );

@@ -11,6 +11,7 @@ import { SongQueueLink } from "./SongQueue.js";
 import { ReplayedOrders } from "./ReplayedOrders.js";
 import { muteChime, useChimeMute } from "../chime.js";
 import { agingFromWire, agingSentence, agingTone, WEST4_AGING, type Aging } from "../aging.js";
+import "./bar.css";
 
 /**
  * The bar orders screen (M3-15; screens Bar notes 1–6, 8 and 9; spec 10 ·
@@ -262,196 +263,209 @@ export function BarOrders() {
         <p role="status">{t("shell.loading")}</p>
       ) : (
         <div className="bar-columns">
-          <section aria-labelledby="col-waiting">
-            <h2 id="col-waiting">{t("barOrders.col.waiting")}</h2>
-            {waiting.length === 0 && <p className="muted small">{t("barOrders.none")}</p>}
-            <ul>
-              {waiting.map((o) => {
-                const age = ageS(o.placed_at);
-                const tone = agingTone(age, aging) ?? (age < NEW_S ? "new" : "");
-                return card(
-                  o,
-                  <>
-                    <p className="status">{t(staffOrderWordsKey(o), { age: mmss(age) })}</p>
-                    <div className="team-actions">
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => void step(o, "accept")}
-                      >
-                        {t("barOrders.accept")}
-                      </button>
-                      {o.status === "ringing" && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void step(o, "hold")}
-                        >
-                          {t("barOrders.hold")}
-                        </button>
-                      )}
-                      {!(windowClosed && o.items.some((i) => i.alcohol)) && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => {
-                            setDeclining(o.id);
-                            setReason("");
-                          }}
-                        >
-                          {t("barOrders.decline")}
-                        </button>
-                      )}
-                    </div>
-                    {declining === o.id && (
-                      <form
-                        className="invite-fields"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void step(o, "decline", { reason: reason.trim() }).then(() =>
-                            setDeclining(null),
-                          );
-                        }}
-                      >
-                        <label>
-                          <span>{t("barOrders.decline.reason")}</span>
-                          <input
-                            value={reason}
-                            required
-                            maxLength={200}
-                            onChange={(e) => setReason(e.target.value)}
-                          />
-                        </label>
-                        <button type="submit" className="primary" disabled={!reason.trim()}>
-                          {t("barOrders.decline.send")}
-                        </button>
-                      </form>
-                    )}
-                  </>,
-                  tone,
-                );
-              })}
-            </ul>
-          </section>
-
-          <section aria-labelledby="col-making">
-            <h2 id="col-making">{t("barOrders.col.making")}</h2>
-            <ul>
-              {making.map((o) =>
-                card(
-                  o,
-                  <>
-                    <p className="status">
-                      {t("barOrders.accepted", {
-                        name: o.accepted_by_name ?? "",
-                        time: clock(o.accepted_at),
-                        room: o.room_name ?? "",
-                        ticket: t(
-                          `barOrders.ticket.${o.ticket_status === "printed" ? "printed" : o.ticket_status === "failed" ? "notPrinted" : "printing"}` as MessageKey,
-                        ),
-                      })}
-                    </p>
-                    <button type="button" className="primary" onClick={() => void step(o, "ready")}>
-                      {t("barOrders.ready")}
-                    </button>
-                  </>,
-                ),
-              )}
-            </ul>
-          </section>
-
-          <section aria-labelledby="col-ready">
-            <h2 id="col-ready">{t("barOrders.col.ready")}</h2>
-            <ul>
-              {ready.map((o) =>
-                card(
-                  o,
-                  <p className="status">
-                    {t(staffOrderWordsKey(o), {
-                      age: mmss(ageS(o.ready_at)),
-                      name: o.claimed_by_name ?? "",
-                    })}
-                  </p>,
-                ),
-              )}
-            </ul>
-          </section>
-
-          <section aria-labelledby="col-delivered">
-            <h2 id="col-delivered">{t("barOrders.col.delivered")}</h2>
-            <ul>
-              {delivered.map((o) =>
-                card(
-                  o,
-                  <p className="status">
-                    {t("orders.staff.delivered", {
-                      time: clock(o.delivered_at),
-                      name: o.delivered_by_name ?? t("barOrders.someone"),
-                    })}
-                  </p>,
-                ),
-              )}
-            </ul>
-          </section>
-
-          <section aria-labelledby="col-returned">
-            <h2 id="col-returned">{t("barOrders.col.returned")}</h2>
-            <ul>
-              {returned.map((o) =>
-                card(
-                  o,
-                  <>
-                    <p className="status">
-                      {o.status === "returned"
-                        ? t("orders.staff.returned", {
-                            reason: t(
-                              `orders.return.${o.returned_reason ?? "other"}` as MessageKey,
-                            ),
-                            name: o.returned_by_name ?? "",
-                          })
-                        : t(staffOrderWordsKey(o), {
-                            reason: o.decline_reason ?? "",
-                            name:
-                              o.cancel_reason === "cut_off"
-                                ? (o.cancelled_by_name ?? "").split(" ")[0]!
-                                : (o.cancelled_by_name ?? ""),
-                          })}
-                    </p>
-                    {o.status === "returned" && !o.return_resolution && o.approval_waiting_for && (
-                      <p className="small" role="status">
-                        {t("fix.waiting", { name: o.approval_waiting_for })}
-                      </p>
-                    )}
-                    {o.status === "returned" && !o.return_resolution && !o.approval_waiting_for && (
+          <div className="bar-col bar-col-main">
+            <section aria-labelledby="col-waiting">
+              <h2 id="col-waiting">{t("barOrders.col.waiting")}</h2>
+              {waiting.length === 0 && <p className="muted small">{t("barOrders.none")}</p>}
+              <ul>
+                {waiting.map((o) => {
+                  const age = ageS(o.placed_at);
+                  const tone = agingTone(age, aging) ?? (age < NEW_S ? "new" : "");
+                  return card(
+                    o,
+                    <>
+                      <p className="status">{t(staffOrderWordsKey(o), { age: mmss(age) })}</p>
                       <div className="team-actions">
                         <button
                           type="button"
-                          className="secondary"
-                          onClick={() => void step(o, "resolve", { resolution: "void_not_made" })}
-                        >
-                          {t("barOrders.voidNotMade")}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void step(o, "resolve", { resolution: "void_made" })}
-                        >
-                          {t("barOrders.voidMade")}
-                        </button>
-                        <button
-                          type="button"
                           className="primary"
-                          onClick={() => void step(o, "resolve", { resolution: "remake" })}
+                          onClick={() => void step(o, "accept")}
                         >
-                          {t("barOrders.remake")}
+                          {t("barOrders.accept")}
                         </button>
+                        {o.status === "ringing" && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => void step(o, "hold")}
+                          >
+                            {t("barOrders.hold")}
+                          </button>
+                        )}
+                        {!(windowClosed && o.items.some((i) => i.alcohol)) && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => {
+                              setDeclining(o.id);
+                              setReason("");
+                            }}
+                          >
+                            {t("barOrders.decline")}
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </>,
-                ),
-              )}
-            </ul>
-          </section>
+                      {declining === o.id && (
+                        <form
+                          className="invite-fields"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            void step(o, "decline", { reason: reason.trim() }).then(() =>
+                              setDeclining(null),
+                            );
+                          }}
+                        >
+                          <label>
+                            <span>{t("barOrders.decline.reason")}</span>
+                            <input
+                              value={reason}
+                              required
+                              maxLength={200}
+                              onChange={(e) => setReason(e.target.value)}
+                            />
+                          </label>
+                          <button type="submit" className="primary" disabled={!reason.trim()}>
+                            {t("barOrders.decline.send")}
+                          </button>
+                        </form>
+                      )}
+                    </>,
+                    tone,
+                  );
+                })}
+              </ul>
+            </section>
+
+            <section aria-labelledby="col-making" className="bar-compact">
+              <h2 id="col-making">{t("barOrders.col.making")}</h2>
+              <ul>
+                {making.map((o) =>
+                  card(
+                    o,
+                    <>
+                      <p className="status">
+                        {t("barOrders.accepted", {
+                          name: o.accepted_by_name ?? "",
+                          time: clock(o.accepted_at),
+                          room: o.room_name ?? "",
+                          ticket: t(
+                            `barOrders.ticket.${o.ticket_status === "printed" ? "printed" : o.ticket_status === "failed" ? "notPrinted" : "printing"}` as MessageKey,
+                          ),
+                        })}
+                      </p>
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => void step(o, "ready")}
+                      >
+                        {t("barOrders.ready")}
+                      </button>
+                    </>,
+                  ),
+                )}
+              </ul>
+            </section>
+
+            <section aria-labelledby="col-ready" className="bar-compact">
+              <h2 id="col-ready">{t("barOrders.col.ready")}</h2>
+              <ul>
+                {ready.map((o) =>
+                  card(
+                    o,
+                    <p className="status">
+                      {t(staffOrderWordsKey(o), {
+                        age: mmss(ageS(o.ready_at)),
+                        name: o.claimed_by_name ?? "",
+                      })}
+                    </p>,
+                  ),
+                )}
+              </ul>
+            </section>
+          </div>
+          <div className="bar-col bar-col-side">
+            <section aria-labelledby="col-delivered">
+              <h2 id="col-delivered">{t("barOrders.col.delivered")}</h2>
+              <ul>
+                {delivered.map((o) =>
+                  card(
+                    o,
+                    <p className="status">
+                      {t("orders.staff.delivered", {
+                        time: clock(o.delivered_at),
+                        name: o.delivered_by_name ?? t("barOrders.someone"),
+                      })}
+                    </p>,
+                  ),
+                )}
+              </ul>
+            </section>
+
+            <section aria-labelledby="col-returned">
+              <h2 id="col-returned">{t("barOrders.col.returned")}</h2>
+              <ul>
+                {returned.map((o) =>
+                  card(
+                    o,
+                    <>
+                      <p className="status">
+                        {o.status === "returned"
+                          ? t("orders.staff.returned", {
+                              reason: t(
+                                `orders.return.${o.returned_reason ?? "other"}` as MessageKey,
+                              ),
+                              name: o.returned_by_name ?? "",
+                            })
+                          : t(staffOrderWordsKey(o), {
+                              reason: o.decline_reason ?? "",
+                              name:
+                                o.cancel_reason === "cut_off"
+                                  ? (o.cancelled_by_name ?? "").split(" ")[0]!
+                                  : (o.cancelled_by_name ?? ""),
+                            })}
+                      </p>
+                      {o.status === "returned" &&
+                        !o.return_resolution &&
+                        o.approval_waiting_for && (
+                          <p className="small" role="status">
+                            {t("fix.waiting", { name: o.approval_waiting_for })}
+                          </p>
+                        )}
+                      {o.status === "returned" &&
+                        !o.return_resolution &&
+                        !o.approval_waiting_for && (
+                          <div className="team-actions">
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() =>
+                                void step(o, "resolve", { resolution: "void_not_made" })
+                              }
+                            >
+                              {t("barOrders.voidNotMade")}
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => void step(o, "resolve", { resolution: "void_made" })}
+                            >
+                              {t("barOrders.voidMade")}
+                            </button>
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => void step(o, "resolve", { resolution: "remake" })}
+                            >
+                              {t("barOrders.remake")}
+                            </button>
+                          </div>
+                        )}
+                    </>,
+                  ),
+                )}
+              </ul>
+            </section>
+          </div>
         </div>
       )}
 

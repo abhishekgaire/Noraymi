@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import { hiddenScreens } from "../navigation.js";
 import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
+import "./bar.css";
 
 /**
  * The KJ's song queue (M6-22; screens N27; Song systems and texts · Screens): who's singing now, who's

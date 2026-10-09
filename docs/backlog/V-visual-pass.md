@@ -58,13 +58,22 @@ Oct 8, 2026 · every screen was built for behaviour from the [spec](../spec/READ
 
 ## V-04 · Restyle the bar screens
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** V-01
 - **Canvas:** `Rail.dc.html`, `Bar.dc.html`
 - **Screens:** [Rail](../screens.md#rail), [Bar](../screens.md#bar), and the song queue in bar mode
 - **Build:** the bar POS (sections, item grid, tabs, close-out) and the bar orders screen by age, keeping spec 10's bigger bar targets.
-- **Acceptance:** side-by-side captures at the boards' sizes; the staff and desktop Playwright specs pass unchanged.
+- **Acceptance:**
+  - [x] Side-by-side captures at the boards' sizes in `docs/design-review/v04/`: `rail-1280.png` (and `-full`) beside `Rail.dc.html` at 1280 × 800, `bar-orders-900.png` (and `-full`) beside `Bar.dc.html` at 900 × 640, `song-queue-1280.png` (no board; drawn in the Rail's style).
+  - [x] Words, roles, states and behaviour unchanged; no Playwright spec or assertion changed. Lint, typecheck, i18n and unit pass. The staff and desktop Playwright suites were not run in this worktree (the merge pass runs them); the capture spec checks in Spanish that nothing is cut off on `/bar` at 1280 and 390, `/bar-orders` at 900 and `/song-queue` at 1280, and that every menu button is at least 115 × 100.
+- **Tests:** `e2e/design-review-v04.staff.spec.ts` makes the captures, off unless `DESIGN_REVIEW=1`. It seeds `DATABASE_URL` and moves the clock through the staff app's own `/v1`, so it can run against its own database and ports (`DESIGN_REVIEW_CANVAS_PORT` picks the canvas server's port, 8765 by default).
+- **Notes:**
+  - Styles live in `apps/staff/src/screens/bar.css`, imported by the Rail, Bar orders and Song queue, every rule scoped under the screen's root so it wins over the older rules in `styles.css` (left untouched). The ten section colours are new tokens (`--w4-sec-*`) in `tokens.css`.
+  - The Rail: room orders as the canvas's cards (cyan new, amber at 2 min, pink at 4) in a row under the header, with all three spec buttons; three panels (tabs and rooms, menu, the tab) that fill the window and scroll on their own; tab rows with coloured edges (cyan for rooms) and mono marks (pink for a stop, amber for a warning, lime when settled); sections with their dots, five across; each menu button edged in its own section's colour (the first section after Favorites that holds it); the tab's name in the display face. A Food section (spec 16, draft) would land as the 11th button in the same five-across grid with no other change; its sub-categories can be a second row under it.
+  - Spec 10 rule 9 beats the canvas: menu buttons stay at least 115 × 100 and main actions 52 to 64 px. To fit five 115 px buttons across at 1280 beside the side menu, the side menu is 148 px wide on the bar POS only (`.shell:has(.rail)`), and the tab list (204 px) and the tab panel (284 px) are narrower than the canvas's 256 and 392. At 800 high the menu's fifth row scrolls inside its panel.
+  - Bar orders: Waiting for you, Being made and Ready for a runner on the left, Delivered tonight and Returned on the right (the spec's five groups, laid out like the canvas's two columns); waiting orders as the canvas's big cards, the rest as quieter rows; Out tonight as pink pills with Back on; the escalation sentence and Mute in a footer panel.
+  - Still different from the canvas: the built shell's top bar and side menu stay (the canvas has its own W4 header and no menu); no "online" dot, Lock button or Demo links in the Rail header (Lock is in the side menu); no "guest taps a card" sub-label on New tab, no "same places every night" eyebrow, no Undo button and no "Send to tab" button (the built draft and send live in Add drinks under the tab); tab rows show the marks the spec defines, not the canvas's seat and owner line; prices show cents ($8.00, not $8); the bar orders screen has no orange alarm band, no printed-ticket preview and no "Tap once for the chime" chip (none is in the spec); at 900 the shell is the phone layout with its bottom tabs. These need catalog words or features, so they stay out of a visual pass.
 
 ## V-05 · Restyle Admin and the setup wizard
 
