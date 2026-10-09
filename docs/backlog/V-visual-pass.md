@@ -60,13 +60,22 @@ Oct 8, 2026 · every screen was built for behaviour from the [spec](../spec/READ
 
 ## V-03 · Restyle the desk screens
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** V-01
 - **Canvas:** `DeskRoom.dc.html`, `DeskCalendar.dc.html`, `DeskMessages.dc.html`, `DeskReports.dc.html`, `Night.dc.html`
 - **Screens:** [DeskRoom](../screens.md#deskroom), [DeskCalendar](../screens.md#deskcalendar), [DeskMessages](../screens.md#deskmessages), [DeskReports](../screens.md#deskreports), [Night](../screens.md#night)
 - **Build:** the room tab and clock, Calendar, Messages, Reports and Close the night at 1280 × 800, with the rail from V-01.
-- **Acceptance:** side-by-side captures at 1280; the staff and desktop Playwright specs pass unchanged.
+- **Acceptance:**
+  - [x] Side-by-side captures at 1280 in `docs/design-review/v03/` (each screen, the first 800 px and the full page).
+  - [ ] The staff and desktop Playwright specs pass unchanged: no spec or assertion was changed, but the full suite wasn't run in this pass (it runs in the merge pass). Lint, typecheck, i18n and unit pass.
+- **Tests:** `e2e/design-review.staff.spec.ts` ("V-03 · the desk screens…", `DESIGN_REVIEW=1`; `DESIGN_REVIEW_CANVAS_PORT` moves the canvas server off 8765). It reseeds through `SEED_COMMAND` and sets the clock through its own `baseURL`, so it can run against a second stack.
+- **Notes:**
+  - One stylesheet, `apps/staff/src/screens/desk.css`, imported by the five screens; no shared file changed. A head row (`.desk-head`), canvas cards (`.desk-card`: `--w4-bg-row`, `--w4-line`, tile radius) and columns (`.desk-cols`) at 1024 px and up, one column below. On a desk screen a bare `.card` (ReportPanel, TipsPanel, DrawerPanel, NightChecks, Unmatched payments, the break-glass card) gets the card look; elsewhere it doesn't. Section titles inside cards are the canvas's mono small-caps labels.
+  - Room: the clock card (the minutes and rate in the display face, the stay-on or wrap-up line, party size, IDs, Scan ID, Move, Report a fault, Damage fee, No more alcohol), Calls as a pink card and Room notes under it; the running tab with Fix a sent drink and Add drinks in the middle; Present the check and the close-out steps on the right. The `<section class="tab">` no longer picks up the phone's bottom-tab style.
+  - Calendar: the days as tiles (the picked one outlined in yellow, a closed day pink-hatched), the picked day's bookings in a card beside them. Messages: inbox, the open conversation (staff replies in lime, inbound and automatic texts as grey bubbles) and the automatic texts in three columns; on a phone the empty pane and, inside a thread, the automatic texts hide. Reports: tonight's X/Z, the week and the tax quarter as figure cards, then the 8-week trend (lime bars) and the exceptions, then exports. Night: everything still open, the bar tabs as chips and Charge the remaining tabs in the canvas's pink card; then the X/Z report, tips and both drawers in three columns.
+  - Still different from the canvas: the built top bar and side menu stay (V-01). Room: the clock reads "161 min · $2.00 a minute", not "2:41:01 elapsed", and has no progress bar; no quick-add chips (the menu search stands in, spec F21); no "Text: stay as long as you like" (spec wording), no Room code / Host lock / Text Marcus buttons; the close-out column shows the spec's steps (Present the check first), not Tap card / Card on file / Cash / Split from the start. Calendar: a list of days ahead in 5 columns, not a month grid with weekday columns and busy-night bars; each booking is the catalog's one line, not time / name / status chip; no legend or "+ Big party" in the head. Messages: no avatars, times or search; the reply has no quick-reply chips; automatic texts show On/Off, not toggles with their wording (Admin → Texts owns those). Reports: no SALES / ROOM HOURS / NO-SHOWS / AVERAGE PARTY tiles, no rooms-by-hour chart and no best sellers (the API doesn't report them; spec N38 doesn't list them); the trend runs sideways with amounts. Night: no "The numbers / Every action" switch and no per-room Close out chips (the spec's checks list with Fix links stands in, F30).
+  - Captures were made against a separate stack (API 3103, staff 5183, database `west4_v03`, canvas 8775), then stopped and dropped.
 
 ## V-04 · Restyle the bar screens
 

@@ -20,6 +20,7 @@ import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
+import "./desk.css";
 
 /**
  * DeskRoom on the desktop and Room on the phone (M2-31; screens DeskRoom and
@@ -316,11 +317,18 @@ export function RoomScreen() {
   const faultTarget: FaultTarget = { roomId: room.room_id, roomName: room.name, hasSession: !!s };
 
   return (
-    <section className="screen room-screen">
-      <Link className="small" to="/tonight">
-        {t("room.back")}
-      </Link>
-      <h1>{room.name}</h1>
+    <section className="screen room-screen desk">
+      <div className="desk-head">
+        <Link className="small desk-back" to="/tonight">
+          {t("room.back")}
+        </Link>
+        <h1>{room.name}</h1>
+        {s?.guest_name && (
+          <p className="desk-sub">
+            {t("board.party", { name: s.guest_name, party: s.party_size })}
+          </p>
+        )}
+      </div>
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}
@@ -377,301 +385,315 @@ export function RoomScreen() {
           }}
         />
       )}
-      {s ? (
-        <>
-          {s.guest_name && <p>{t("board.party", { name: s.guest_name, party: s.party_size })}</p>}
-          <p className="big" aria-label={t("room.clock")}>
-            {t("room.rate", {
-              min: minutes,
-              rate: money(Math.round(s.hourly_cents / 60) as never),
-            })}
-          </p>
-          {s.stay_on_offer && s.close && (
-            <p className="notice">{t("session.stayOn", { time: short(s.close) })}</p>
-          )}
-          {s.wrap_up && room.next && (
-            <p className="notice error">
-              {t("room.wrapUp", { name: room.next.name, time: short(room.next.at) })}
-            </p>
-          )}
-          <section aria-label={t("room.tab")} className="tab">
-            <h2>{t("room.tab")}</h2>
-            <dl>
-              <dt>{t("room.roomTime")}</dt>
-              <dd>{money(s.room_time_cents as never)}</dd>
-              {lines
-                .filter((l) => !COMPUTED.has(l.kind))
-                .map((l) => (
-                  <div key={l.id} className="tab-line">
-                    <dt>{l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}</dt>
-                    <dd>{money(l.amount_cents as never)}</dd>
-                  </div>
-                ))}
-              <dt>{t("room.drinks")}</dt>
-              <dd>{money(drinks as never)}</dd>
-              <dt>
-                <strong>{t("room.tabSoFar")}</strong>
-              </dt>
-              <dd>
-                <strong>{money(s.tab_so_far_cents as never)}</strong>
-              </dd>
-            </dl>
-            <p className="small muted">{t("room.beforeTax")}</p>
-            {(s.min_spend_left_cents ?? 0) > 0 && (
+      <div className="desk-cols desk-room-cols">
+        <div className="desk-col">
+          {s && (
+            <div className="desk-card desk-clock">
+              <p className="desk-label">{t("room.clock")}</p>
+              <p className="big" aria-label={t("room.clock")}>
+                {t("room.rate", {
+                  min: minutes,
+                  rate: money(Math.round(s.hourly_cents / 60) as never),
+                })}
+              </p>
+              {s.stay_on_offer && s.close && (
+                <p className="notice">{t("session.stayOn", { time: short(s.close) })}</p>
+              )}
+              {s.wrap_up && room.next && (
+                <p className="notice error">
+                  {t("room.wrapUp", { name: room.next.name, time: short(room.next.at) })}
+                </p>
+              )}
+              <div className="party-size">
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={t("party.fewer")}
+                  disabled={s.party_size <= 1}
+                  onClick={() => void changeParty(s.party_size - 1)}
+                >
+                  −
+                </button>
+                <span>{t("party.size", { n: s.party_size })}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={t("party.more")}
+                  onClick={() => void changeParty(s.party_size + 1)}
+                >
+                  +
+                </button>
+              </div>
               <p className="small">
-                {t("minSpend.left", { amount: money(s.min_spend_left_cents as never) })}
+                {t("ids.chip", { checked: s.ids_checked, party: s.party_size })}
               </p>
-            )}
-            {s.deposit_cents > 0 && (
-              <p className="small">
-                {t("room.deposit", { amount: money(s.deposit_cents as never) })}
-              </p>
-            )}
-            {/* A bar tab moved in while the room has no card (M6-13): its hold, with its name. */}
-            {holds.map((h) => (
-              <p key={h.tab_id} className="small">
-                {t("moveTab.roomHold", { amount: money(h.cents as never), name: h.name })}
-              </p>
-            ))}
-          </section>
-          {presented && (
-            <section className="presented" aria-label={presented.label}>
-              <h2>{presented.label}</h2>
-              <dl>
-                <dt>{t("receipt.subtotal")}</dt>
-                <dd>{money(presented.subtotal_cents as never)}</dd>
-                <dt>{t("closeOut.tax")}</dt>
-                <dd>{money(presented.tax_cents as never)}</dd>
-                <dt>{t("closeOut.gratuity")}</dt>
-                <dd>{money(presented.gratuity_cents as never)}</dd>
-                <dt>
-                  <strong>{t("receipt.total")}</strong>
-                </dt>
-                <dd>
-                  <strong>{money(presented.total_cents as never)}</strong>
-                </dd>
-                {presented.deposit_cents > 0 && (
-                  <>
-                    <dt>{t("receipt.deposit")}</dt>
-                    <dd>−{money(presented.deposit_cents as never)}</dd>
-                  </>
+              {signedIn?.membership.modules.safety !== "off" && (
+                <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />
+              )}
+              <div className="actions">
+                <button type="button" className="secondary" onClick={() => setSheet("move")}>
+                  {t("move.button")}
+                </button>
+                <button type="button" className="secondary" onClick={() => setSheet("fault")}>
+                  {t("fault.report")}
+                </button>
+                {s.check_id && (
+                  <button type="button" className="secondary" onClick={() => setSheet("damage")}>
+                    {t("damage.button")}
+                  </button>
                 )}
-                <dt>
-                  <strong>{t("receipt.due")}</strong>
-                </dt>
-                <dd>
-                  <strong>{money(dueCents as never)}</strong>
-                </dd>
-              </dl>
-            </section>
-          )}
-          {s.check_id &&
-            checkStatus &&
-            signedIn?.membership.permissions.includes("payments.take") && (
-              <PresentCheck
+              </div>
+              <CutOffRoom
                 venueId={venueId}
-                checkId={s.check_id}
-                status={checkStatus}
-                canReopen={
-                  signedIn.membership.role === "owner" || signedIn.membership.role === "manager"
-                }
+                sessionId={s.id}
+                roomName={room.name}
+                timeZone={timeZone}
+                cutOff={s.cut_off}
+                canCutOff={signedIn?.membership.permissions.includes("cutoff.apply") ?? false}
                 onDone={() => void load()}
+                guests
               />
-            )}
-          {paidLines.length > 0 && (
-            <section className="paid-lines" aria-label={t("room.payments")}>
-              <h3>{t("room.payments")}</h3>
-              <ul>
-                {paidLines.map((p, i) => (
-                  <li key={i}>{paidLabel(p)}</li>
+            </div>
+          )}
+          {room.calls.length > 0 && (
+            <section className="desk-card alert-card" aria-label={t("calls.title")}>
+              <h2>{t("calls.title")}</h2>
+              <ul className="faults">
+                {room.calls.map((k) => (
+                  <li key={k.id}>
+                    {t(`calls.kind.${k.kind}`)}{" "}
+                    <button type="button" className="primary" onClick={() => void ack(k.id)}>
+                      {t("calls.onIt")}
+                    </button>
+                  </li>
                 ))}
               </ul>
             </section>
           )}
-          {s.check_id &&
-            (checkStatus === "finalized" || checkStatus === "partly_paid") &&
-            dueCents > 0 &&
-            signedIn?.membership.permissions.includes("payments.take") && (
-              <SplitPanel
-                venueId={venueId}
-                checkId={s.check_id}
-                split={split}
-                picked={share?.id ?? null}
-                onPick={setShare}
-                onChanged={() => void load()}
-              />
-            )}
-          {/* With a split, a share is picked first; without one, the check's amount due. */}
-          {s.check_id &&
-            (checkStatus === "finalized" ||
-              checkStatus === "partly_paid" ||
-              checkStatus === "paid") &&
-            (!split || share) &&
-            signedIn?.membership.permissions.includes("payments.take") && (
-              <TapPayment
-                key={`tap-${share?.id ?? "check"}`}
-                venueId={venueId}
-                checkId={s.check_id}
-                dueCents={share ? share.amount_cents : dueCents}
-                shareId={share?.id ?? null}
-                onDone={() => {
-                  // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
-                  setShare(null);
-                  setDone(t("pay.paid"));
-                  void load();
-                }}
-              />
-            )}
-          {s.check_id &&
-            onFile &&
-            (checkStatus === "finalized" ||
-              checkStatus === "partly_paid" ||
-              checkStatus === "paid") &&
-            !split &&
-            signedIn?.membership.permissions.includes("payments.take") && (
-              <CardOnFile
-                venueId={venueId}
-                checkId={s.check_id}
-                dueCents={dueCents}
-                card={onFile}
-                onDone={() => {
-                  setDone(t("pay.paid"));
-                  void load();
-                }}
-              />
-            )}
-          {s.check_id &&
-            (checkStatus === "finalized" || checkStatus === "partly_paid") &&
-            (!split || share) &&
-            signedIn?.membership.permissions.includes("payments.take") && (
-              <CashPanel
-                key={`cash-${share?.id ?? "check"}`}
-                venueId={venueId}
-                checkId={s.check_id}
-                dueCents={share ? share.amount_cents : dueCents}
-                shareId={share?.id ?? null}
-                onTaken={(taken) => {
-                  setShare(null);
-                  setCashTaken(taken);
-                  void load();
-                }}
-              />
-            )}
-          <CutOffRoom
-            venueId={venueId}
-            sessionId={s.id}
-            roomName={room.name}
-            timeZone={timeZone}
-            cutOff={s.cut_off}
-            canCutOff={signedIn?.membership.permissions.includes("cutoff.apply") ?? false}
-            onDone={() => void load()}
-            guests
-          />
-          {s.check_id && signedIn?.membership.permissions.includes("comps.reasonOnly") && (
-            <FixPanel
-              venueId={venueId}
-              checkId={s.check_id}
-              lines={lines}
-              pending={pendingFixes}
-              onDone={() => void load()}
-            />
+          {room.faults.length > 0 && (
+            <ul className="faults">
+              {room.faults.map((f) => (
+                <li key={f.id} className="small">
+                  {f.text}
+                </li>
+              ))}
+            </ul>
           )}
-          {s.check_id && signedIn?.membership.permissions.includes("orders.accept") && (
-            <AddDrinks
-              venueId={venueId}
-              checkId={s.check_id}
-              sessionId={s.id}
-              onSent={() => void load()}
-            />
-          )}
-          <div className="party-size">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={t("party.fewer")}
-              disabled={s.party_size <= 1}
-              onClick={() => void changeParty(s.party_size - 1)}
-            >
-              −
-            </button>
-            <span>{t("party.size", { n: s.party_size })}</span>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={t("party.more")}
-              onClick={() => void changeParty(s.party_size + 1)}
-            >
-              +
-            </button>
-          </div>
-          <p className="small">{t("ids.chip", { checked: s.ids_checked, party: s.party_size })}</p>
-          {signedIn?.membership.modules.safety !== "off" && (
-            <ScanId venueId={venueId} sessionId={s.id} onScanned={() => void load()} />
-          )}
+          <section className="desk-card" aria-label={t("room.notes")}>
+            <h2>{t("room.notes")}</h2>
+            <ul className="faults">
+              {room.notes.map((n) => (
+                <li key={n.id} className="small">
+                  {n.text}
+                </li>
+              ))}
+            </ul>
+            <form className="actions" onSubmit={(e) => void addNote(e)}>
+              <label className="grow">
+                {t("room.addNote")}
+                <input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+              </label>
+              <button type="submit" className="secondary" disabled={!note.trim()}>
+                {t("room.saveNote")}
+              </button>
+            </form>
+          </section>
+        </div>
+        {s ? (
+          <>
+            <div className="desk-col desk-card">
+              <section aria-label={t("room.tab")} className="tab">
+                <h2>{t("room.tab")}</h2>
+                <dl>
+                  <dt>{t("room.roomTime")}</dt>
+                  <dd>{money(s.room_time_cents as never)}</dd>
+                  {lines
+                    .filter((l) => !COMPUTED.has(l.kind))
+                    .map((l) => (
+                      <div key={l.id} className="tab-line">
+                        <dt>{l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}</dt>
+                        <dd>{money(l.amount_cents as never)}</dd>
+                      </div>
+                    ))}
+                  <dt>{t("room.drinks")}</dt>
+                  <dd>{money(drinks as never)}</dd>
+                  <dt>
+                    <strong>{t("room.tabSoFar")}</strong>
+                  </dt>
+                  <dd>
+                    <strong>{money(s.tab_so_far_cents as never)}</strong>
+                  </dd>
+                </dl>
+                <p className="small muted">{t("room.beforeTax")}</p>
+                {(s.min_spend_left_cents ?? 0) > 0 && (
+                  <p className="small">
+                    {t("minSpend.left", { amount: money(s.min_spend_left_cents as never) })}
+                  </p>
+                )}
+                {s.deposit_cents > 0 && (
+                  <p className="small">
+                    {t("room.deposit", { amount: money(s.deposit_cents as never) })}
+                  </p>
+                )}
+                {/* A bar tab moved in while the room has no card (M6-13): its hold, with its name. */}
+                {holds.map((h) => (
+                  <p key={h.tab_id} className="small">
+                    {t("moveTab.roomHold", { amount: money(h.cents as never), name: h.name })}
+                  </p>
+                ))}
+              </section>
+              {s.check_id && signedIn?.membership.permissions.includes("comps.reasonOnly") && (
+                <FixPanel
+                  venueId={venueId}
+                  checkId={s.check_id}
+                  lines={lines}
+                  pending={pendingFixes}
+                  onDone={() => void load()}
+                />
+              )}
+              {s.check_id && signedIn?.membership.permissions.includes("orders.accept") && (
+                <AddDrinks
+                  venueId={venueId}
+                  checkId={s.check_id}
+                  sessionId={s.id}
+                  onSent={() => void load()}
+                />
+              )}
+            </div>
+            <div className="desk-col desk-card desk-closeout">
+              {presented && (
+                <section className="presented" aria-label={presented.label}>
+                  <h2>{presented.label}</h2>
+                  <dl>
+                    <dt>{t("receipt.subtotal")}</dt>
+                    <dd>{money(presented.subtotal_cents as never)}</dd>
+                    <dt>{t("closeOut.tax")}</dt>
+                    <dd>{money(presented.tax_cents as never)}</dd>
+                    <dt>{t("closeOut.gratuity")}</dt>
+                    <dd>{money(presented.gratuity_cents as never)}</dd>
+                    <dt>
+                      <strong>{t("receipt.total")}</strong>
+                    </dt>
+                    <dd>
+                      <strong>{money(presented.total_cents as never)}</strong>
+                    </dd>
+                    {presented.deposit_cents > 0 && (
+                      <>
+                        <dt>{t("receipt.deposit")}</dt>
+                        <dd>−{money(presented.deposit_cents as never)}</dd>
+                      </>
+                    )}
+                    <dt>
+                      <strong>{t("receipt.due")}</strong>
+                    </dt>
+                    <dd>
+                      <strong>{money(dueCents as never)}</strong>
+                    </dd>
+                  </dl>
+                </section>
+              )}
+              {s.check_id &&
+                checkStatus &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <PresentCheck
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    status={checkStatus}
+                    canReopen={
+                      signedIn.membership.role === "owner" || signedIn.membership.role === "manager"
+                    }
+                    onDone={() => void load()}
+                  />
+                )}
+              {paidLines.length > 0 && (
+                <section className="paid-lines" aria-label={t("room.payments")}>
+                  <h3>{t("room.payments")}</h3>
+                  <ul>
+                    {paidLines.map((p, i) => (
+                      <li key={i}>{paidLabel(p)}</li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              {s.check_id &&
+                (checkStatus === "finalized" || checkStatus === "partly_paid") &&
+                dueCents > 0 &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <SplitPanel
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    split={split}
+                    picked={share?.id ?? null}
+                    onPick={setShare}
+                    onChanged={() => void load()}
+                  />
+                )}
+              {/* With a split, a share is picked first; without one, the check's amount due. */}
+              {s.check_id &&
+                (checkStatus === "finalized" ||
+                  checkStatus === "partly_paid" ||
+                  checkStatus === "paid") &&
+                (!split || share) &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <TapPayment
+                    key={`tap-${share?.id ?? "check"}`}
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    dueCents={share ? share.amount_cents : dueCents}
+                    shareId={share?.id ?? null}
+                    onDone={() => {
+                      // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
+                      setShare(null);
+                      setDone(t("pay.paid"));
+                      void load();
+                    }}
+                  />
+                )}
+              {s.check_id &&
+                onFile &&
+                (checkStatus === "finalized" ||
+                  checkStatus === "partly_paid" ||
+                  checkStatus === "paid") &&
+                !split &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <CardOnFile
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    dueCents={dueCents}
+                    card={onFile}
+                    onDone={() => {
+                      setDone(t("pay.paid"));
+                      void load();
+                    }}
+                  />
+                )}
+              {s.check_id &&
+                (checkStatus === "finalized" || checkStatus === "partly_paid") &&
+                (!split || share) &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <CashPanel
+                    key={`cash-${share?.id ?? "check"}`}
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    dueCents={share ? share.amount_cents : dueCents}
+                    shareId={share?.id ?? null}
+                    onTaken={(taken) => {
+                      setShare(null);
+                      setCashTaken(taken);
+                      void load();
+                    }}
+                  />
+                )}
+            </div>
+          </>
+        ) : (
           <div className="actions">
-            <button type="button" className="secondary" onClick={() => setSheet("move")}>
-              {t("move.button")}
-            </button>
             <button type="button" className="secondary" onClick={() => setSheet("fault")}>
               {t("fault.report")}
             </button>
-            {s.check_id && (
-              <button type="button" className="secondary" onClick={() => setSheet("damage")}>
-                {t("damage.button")}
-              </button>
-            )}
           </div>
-        </>
-      ) : (
-        <div className="actions">
-          <button type="button" className="secondary" onClick={() => setSheet("fault")}>
-            {t("fault.report")}
-          </button>
-        </div>
-      )}
-      {room.calls.length > 0 && (
-        <section aria-label={t("calls.title")}>
-          <h2>{t("calls.title")}</h2>
-          <ul className="faults">
-            {room.calls.map((k) => (
-              <li key={k.id}>
-                {t(`calls.kind.${k.kind}`)}{" "}
-                <button type="button" className="primary" onClick={() => void ack(k.id)}>
-                  {t("calls.onIt")}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {room.faults.length > 0 && (
-        <ul className="faults">
-          {room.faults.map((f) => (
-            <li key={f.id} className="small">
-              {f.text}
-            </li>
-          ))}
-        </ul>
-      )}
-      <section aria-label={t("room.notes")}>
-        <h2>{t("room.notes")}</h2>
-        <ul className="faults">
-          {room.notes.map((n) => (
-            <li key={n.id} className="small">
-              {n.text}
-            </li>
-          ))}
-        </ul>
-        <form className="actions" onSubmit={(e) => void addNote(e)}>
-          <label className="grow">
-            {t("room.addNote")}
-            <input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
-          </label>
-          <button type="submit" className="secondary" disabled={!note.trim()}>
-            {t("room.saveNote")}
-          </button>
-        </form>
-      </section>
+        )}
+      </div>
     </section>
   );
 }

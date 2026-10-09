@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Temporal } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
+import "./desk.css";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 
@@ -220,8 +221,10 @@ export function Calendar() {
 
   const current = days?.find((d) => d.business_date === day);
   return (
-    <section className="screen calendar">
-      <h1>{t("menu.calendar")}</h1>
+    <section className="screen calendar desk">
+      <div className="desk-head">
+        <h1>{t("menu.calendar")}</h1>
+      </div>
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}
@@ -233,56 +236,169 @@ export function Calendar() {
         </p>
       )}
       {days === null && !failed && <p role="status">{t("shell.loading")}</p>}
-      <ol className="days" aria-label={t("calendar.days")}>
-        {days?.map((d) => (
-          <li key={d.business_date}>
-            <button
-              type="button"
-              className={d.business_date === day ? "conversation current" : "conversation"}
-              aria-pressed={d.business_date === day}
-              onClick={() => {
-                setDay(d.business_date);
-                setBlocking(false);
-              }}
-            >
-              <span>{dayLabel(d.business_date)}</span>
-              <span className="small">
-                {d.closure === "closed"
-                  ? t("calendar.closed")
-                  : t("calendar.count", { count: d.bookings })}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      {day && (
-        <>
-          <h2>{dayLabel(day)}</h2>
-          <p className="small muted">{t("calendar.holds")}</p>
-          <div className="actions">
-            {canBook && current?.closure !== "closed" && (
-              <button type="button" className="primary" onClick={() => setAdding(true)}>
-                {t("calendar.new")}
+      <div className="desk-cols two">
+        <ol className="days" aria-label={t("calendar.days")}>
+          {days?.map((d) => (
+            <li key={d.business_date}>
+              <button
+                type="button"
+                className={[
+                  "conversation",
+                  d.business_date === day ? "current" : "",
+                  d.closure === "closed" ? "day-blocked" : d.bookings > 0 ? "day-busy" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-pressed={d.business_date === day}
+                onClick={() => {
+                  setDay(d.business_date);
+                  setBlocking(false);
+                }}
+              >
+                <span>{dayLabel(d.business_date)}</span>
+                <span className="small day-count">
+                  {d.closure === "closed"
+                    ? t("calendar.closed")
+                    : t("calendar.count", { count: d.bookings })}
+                </span>
               </button>
+            </li>
+          ))}
+        </ol>
+        {day && (
+          <div className="desk-card day-side">
+            <h2>{dayLabel(day)}</h2>
+            <p className="small muted">{t("calendar.holds")}</p>
+            <div className="actions">
+              {canBook && current?.closure !== "closed" && (
+                <button type="button" className="primary" onClick={() => setAdding(true)}>
+                  {t("calendar.new")}
+                </button>
+              )}
+              {canBlock && current?.closure !== "closed" && (
+                <button type="button" className="secondary" onClick={() => setBlocking(true)}>
+                  {t("calendar.block")}
+                </button>
+              )}
+            </div>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
             )}
-            {canBlock && current?.closure !== "closed" && (
-              <button type="button" className="secondary" onClick={() => setBlocking(true)}>
-                {t("calendar.block")}
-              </button>
+            {blocking && (
+              <div className="sheet" role="dialog" aria-label={t("calendar.block")}>
+                <h2>{t("calendar.blockTitle", { date: dayLabel(day) })}</h2>
+                <p>{t("calendar.affects", { count: bookings?.length ?? 0 })}</p>
+                <ul className="bookings-list">
+                  {bookings?.map((b) => (
+                    <li key={b.id} className="small">
+                      {t("phone.row", {
+                        time: time(b.starts_at, timeZone),
+                        name: b.guest_name,
+                        party: b.party_size,
+                        room: b.room_name,
+                        hours: hoursOf(b),
+                        deposit: money(b.deposit_cents as never),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+                <div className="actions">
+                  {(bookings?.length ?? 0) > 0 && (
+                    <button type="button" className="primary" onClick={() => void block(true)}>
+                      {t("calendar.cancelRefundAll")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={(bookings?.length ?? 0) > 0 ? "secondary" : "primary"}
+                    onClick={() => void block()}
+                  >
+                    {t("calendar.blockIt")}
+                  </button>
+                  <button type="button" onClick={() => setBlocking(false)}>
+                    {t("checkIn.cancel")}
+                  </button>
+                </div>
+              </div>
             )}
-          </div>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          {blocking && (
-            <div className="sheet" role="dialog" aria-label={t("calendar.block")}>
-              <h2>{t("calendar.blockTitle", { date: dayLabel(day) })}</h2>
-              <p>{t("calendar.affects", { count: bookings?.length ?? 0 })}</p>
-              <ul className="bookings-list">
-                {bookings?.map((b) => (
-                  <li key={b.id} className="small">
+            {adding && (
+              <form className="sheet" aria-label={t("calendar.new")} onSubmit={(e) => void book(e)}>
+                <h2>{t("calendar.new")}</h2>
+                <label>
+                  {t("waitlist.name")}
+                  <input
+                    value={name}
+                    maxLength={80}
+                    required
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </label>
+                <label>
+                  {t("waitlist.mobile")}
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </label>
+                <label>
+                  {t("checkIn.party")}
+                  <input
+                    type="number"
+                    min={1}
+                    value={party}
+                    required
+                    onChange={(e) => setParty(e.target.value)}
+                  />
+                </label>
+                <label>
+                  {t("calendar.time")}
+                  <input type="time" value={at} required onChange={(e) => setAt(e.target.value)} />
+                </label>
+                <label>
+                  {t("calendar.hours")}
+                  <select value={hours} onChange={(e) => setHours(e.target.value)}>
+                    {["1", "1.5", "2", "2.5", "3", "4"].map((h) => (
+                      <option key={h} value={h}>
+                        {t("calendar.hoursOption", { hours: h })}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("calendar.room")}
+                  <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+                    <option value="">{t("calendar.anyRoom")}</option>
+                    {free.map((r) => (
+                      <option key={r.room_id} value={r.room_id}>
+                        {r.all_night || !r.until
+                          ? t("move.freeAllNight", { room: r.name })
+                          : t("move.freeUntil", { room: r.name, time: time(r.until, timeZone) })}
+                      </option>
+                    ))}
+                    {/* A room not free then can still be chosen: the API refuses the overlap. */}
+                  </select>
+                </label>
+                <div className="actions">
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={!name.trim() || !party || !at}
+                  >
+                    {t("calendar.book")}
+                  </button>
+                  <button type="button" onClick={() => setAdding(false)}>
+                    {t("checkIn.cancel")}
+                  </button>
+                </div>
+              </form>
+            )}
+            {bookings === null ? (
+              <p role="status">{t("shell.loading")}</p>
+            ) : bookings.length === 0 ? (
+              <p className="empty">{t("calendar.none")}</p>
+            ) : (
+              <ol className="bookings-list" aria-label={t("calendar.dayBookings")}>
+                {bookings.map((b) => (
+                  <li key={b.id} aria-label={b.guest_name}>
                     {t("phone.row", {
                       time: time(b.starts_at, timeZone),
                       name: b.guest_name,
@@ -291,119 +407,18 @@ export function Calendar() {
                       hours: hoursOf(b),
                       deposit: money(b.deposit_cents as never),
                     })}
+                    {canBook && b.status === "pending" && (
+                      <button type="button" className="secondary" onClick={() => void sendLink(b)}>
+                        {t("calendar.sendLink")}
+                      </button>
+                    )}
                   </li>
                 ))}
-              </ul>
-              <div className="actions">
-                {(bookings?.length ?? 0) > 0 && (
-                  <button type="button" className="primary" onClick={() => void block(true)}>
-                    {t("calendar.cancelRefundAll")}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className={(bookings?.length ?? 0) > 0 ? "secondary" : "primary"}
-                  onClick={() => void block()}
-                >
-                  {t("calendar.blockIt")}
-                </button>
-                <button type="button" onClick={() => setBlocking(false)}>
-                  {t("checkIn.cancel")}
-                </button>
-              </div>
-            </div>
-          )}
-          {adding && (
-            <form className="sheet" aria-label={t("calendar.new")} onSubmit={(e) => void book(e)}>
-              <h2>{t("calendar.new")}</h2>
-              <label>
-                {t("waitlist.name")}
-                <input
-                  value={name}
-                  maxLength={80}
-                  required
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-              <label>
-                {t("waitlist.mobile")}
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </label>
-              <label>
-                {t("checkIn.party")}
-                <input
-                  type="number"
-                  min={1}
-                  value={party}
-                  required
-                  onChange={(e) => setParty(e.target.value)}
-                />
-              </label>
-              <label>
-                {t("calendar.time")}
-                <input type="time" value={at} required onChange={(e) => setAt(e.target.value)} />
-              </label>
-              <label>
-                {t("calendar.hours")}
-                <select value={hours} onChange={(e) => setHours(e.target.value)}>
-                  {["1", "1.5", "2", "2.5", "3", "4"].map((h) => (
-                    <option key={h} value={h}>
-                      {t("calendar.hoursOption", { hours: h })}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t("calendar.room")}
-                <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                  <option value="">{t("calendar.anyRoom")}</option>
-                  {free.map((r) => (
-                    <option key={r.room_id} value={r.room_id}>
-                      {r.all_night || !r.until
-                        ? t("move.freeAllNight", { room: r.name })
-                        : t("move.freeUntil", { room: r.name, time: time(r.until, timeZone) })}
-                    </option>
-                  ))}
-                  {/* A room not free then can still be chosen: the API refuses the overlap. */}
-                </select>
-              </label>
-              <div className="actions">
-                <button type="submit" className="primary" disabled={!name.trim() || !party || !at}>
-                  {t("calendar.book")}
-                </button>
-                <button type="button" onClick={() => setAdding(false)}>
-                  {t("checkIn.cancel")}
-                </button>
-              </div>
-            </form>
-          )}
-          {bookings === null ? (
-            <p role="status">{t("shell.loading")}</p>
-          ) : bookings.length === 0 ? (
-            <p className="empty">{t("calendar.none")}</p>
-          ) : (
-            <ol className="bookings-list" aria-label={t("calendar.dayBookings")}>
-              {bookings.map((b) => (
-                <li key={b.id} aria-label={b.guest_name}>
-                  {t("phone.row", {
-                    time: time(b.starts_at, timeZone),
-                    name: b.guest_name,
-                    party: b.party_size,
-                    room: b.room_name,
-                    hours: hoursOf(b),
-                    deposit: money(b.deposit_cents as never),
-                  })}
-                  {canBook && b.status === "pending" && (
-                    <button type="button" className="secondary" onClick={() => void sendLink(b)}>
-                      {t("calendar.sendLink")}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-        </>
-      )}
+              </ol>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

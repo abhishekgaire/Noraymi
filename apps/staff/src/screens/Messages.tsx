@@ -4,6 +4,7 @@ import { Temporal } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useClock, useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
+import "./desk.css";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 
@@ -174,7 +175,12 @@ function Thread({
       )}
       <ol className="texts">
         {data.messages.map((m) => (
-          <li key={m.id} className={m.direction === "inbound" ? "text in" : "text out"}>
+          <li
+            key={m.id}
+            className={
+              m.direction === "inbound" ? "text in" : m.automatic ? "text out auto" : "text out"
+            }
+          >
             <div className="small muted">
               {m.direction === "inbound"
                 ? name
@@ -274,8 +280,10 @@ export function Messages() {
   );
 
   return (
-    <section className={selected ? "screen messages with-thread" : "screen messages"}>
-      <h1>{t("menu.messages")}</h1>
+    <section className={selected ? "screen messages desk with-thread" : "screen messages desk"}>
+      <div className="desk-head">
+        <h1>{t("menu.messages")}</h1>
+      </div>
       {failed && (
         <p role="alert" className="error">
           {t("shell.error.cantReach")}
@@ -283,7 +291,7 @@ export function Messages() {
       )}
       {list === null && !failed && <p role="status">{t("shell.loading")}</p>}
       <div className="messages-layout">
-        <div className="threads">
+        <div className="threads desk-card">
           {list?.length === 0 && <p className="empty">{t("messages.none")}</p>}
           <ul className="conversation-list">
             {list?.map((c) => {
@@ -309,17 +317,8 @@ export function Messages() {
               );
             })}
           </ul>
-          <h2>{t("messages.texts")}</h2>
-          <ol className="texts-list">
-            {texts.map((x) => (
-              <li key={x.key} aria-label={t(`texts.name.${x.key}` as never)}>
-                <span>{t(`texts.name.${x.key}` as never)}</span>{" "}
-                <span className="small muted">{x.on ? t("texts.on") : t("texts.off")}</span>
-              </li>
-            ))}
-          </ol>
         </div>
-        <div className="thread-pane">
+        <div className="thread-pane desk-card">
           {selected ? (
             <Thread
               key={selected}
@@ -333,6 +332,17 @@ export function Messages() {
             <p className="muted desktop-only">{t("messages.pick")}</p>
           )}
         </div>
+        <aside className="auto-texts desk-card">
+          <h2>{t("messages.texts")}</h2>
+          <ol className="texts-list">
+            {texts.map((x) => (
+              <li key={x.key} aria-label={t(`texts.name.${x.key}` as never)}>
+                <span>{t(`texts.name.${x.key}` as never)}</span>{" "}
+                <span className="small muted">{x.on ? t("texts.on") : t("texts.off")}</span>
+              </li>
+            ))}
+          </ol>
+        </aside>
       </div>
     </section>
   );

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Link } from "react-router";
 import type { Cents } from "@west4/shared";
 import { api, stepUpToken } from "../api.js";
 import { useVenueTime } from "../clock.js";
 import { useT } from "../i18n.js";
+import "./desk.css";
 import { useSession } from "../session.js";
 
 /**
@@ -144,108 +145,114 @@ export function Reports() {
     );
   const best = Math.max(1, ...sales.weeks.map((w) => w.net_cents));
   return (
-    <section className="screen reports" aria-labelledby="reports-title">
-      <h1 id="reports-title">{t("menu.reports")}</h1>
+    <section className="screen reports desk" aria-labelledby="reports-title">
+      <div className="desk-head">
+        <h1 id="reports-title">{t("menu.reports")}</h1>
+      </div>
+      <div className="desk-cols three">
+        <section className="card desk-card report-kpi" aria-labelledby="tonight-title">
+          <h2 id="tonight-title">
+            {night.kind === "z" && night.closed
+              ? t("report.z", { n: night.closed.z_number })
+              : t("report.x")}
+          </h2>
+          <dl className="drawer-figures">
+            <div>
+              <dt>{t("report.net")}</dt>
+              <dd>{m(night.sales.net_cents)}</dd>
+            </div>
+            <div>
+              <dt>{t("myTips.gratuity")}</dt>
+              <dd>{m(night.gratuity.total_cents)}</dd>
+            </div>
+          </dl>
+          <Link to="/close-the-night" className="link">
+            {t("menu.closeNight")}
+          </Link>
+        </section>
 
-      <section className="card" aria-labelledby="tonight-title">
-        <h2 id="tonight-title">
-          {night.kind === "z" && night.closed
-            ? t("report.z", { n: night.closed.z_number })
-            : t("report.x")}
-        </h2>
-        <dl className="drawer-figures">
-          <div>
-            <dt>{t("report.net")}</dt>
-            <dd>{m(night.sales.net_cents)}</dd>
-          </div>
-          <div>
-            <dt>{t("myTips.gratuity")}</dt>
-            <dd>{m(night.gratuity.total_cents)}</dd>
-          </div>
-        </dl>
-        <Link to="/close-the-night" className="link">
-          {t("menu.closeNight")}
-        </Link>
-      </section>
+        <section className="card desk-card report-kpi" aria-labelledby="week-title">
+          <h2 id="week-title">
+            {t("reports.thisWeek", {
+              from: date(sales.this_week.start),
+              to: date(sales.this_week.end),
+            })}
+          </h2>
+          <ul className="tips-shares">
+            {sales.nights.map((n) => (
+              <li key={n.date} className="row">
+                <span>{date(n.date)}</span>
+                <span>{m(n.net_cents)}</span>
+              </li>
+            ))}
+          </ul>
+          <p>
+            <strong>{t("reports.weekTotal", { amount: m(sales.this_week.net_cents) })}</strong>
+          </p>
+          <p className="small muted">
+            {sales.reviews.review_ask_on ? t("reports.reviewsOn") : t("reports.reviewsOff")}
+          </p>
+        </section>
 
-      <section className="card" aria-labelledby="week-title">
-        <h2 id="week-title">
-          {t("reports.thisWeek", {
-            from: date(sales.this_week.start),
-            to: date(sales.this_week.end),
-          })}
-        </h2>
-        <ul className="tips-shares">
-          {sales.nights.map((n) => (
-            <li key={n.date} className="row">
-              <span>{date(n.date)}</span>
-              <span>{m(n.net_cents)}</span>
-            </li>
-          ))}
-        </ul>
-        <p>
-          <strong>{t("reports.weekTotal", { amount: m(sales.this_week.net_cents) })}</strong>
-        </p>
-        <p className="small muted">
-          {sales.reviews.review_ask_on ? t("reports.reviewsOn") : t("reports.reviewsOff")}
-        </p>
-      </section>
+        <section className="card desk-card report-kpi" aria-labelledby="quarter-title">
+          <h2 id="quarter-title">
+            {t("reports.taxQuarter", {
+              from: date(quarter.quarter.start),
+              to: date(quarter.quarter.end),
+            })}
+          </h2>
+          <p>{t("reports.taxSoFar", { amount: m(quarter.tax_cents) })}</p>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void download(`/reports/tax-quarter?date=${tonight}&format=csv`)}
+          >
+            {t("reports.downloadTax")}
+          </button>
+        </section>
+      </div>
+      <div className="desk-cols two">
+        <section className="card desk-card" aria-labelledby="trend-title">
+          <h2 id="trend-title">{t("reports.trends")}</h2>
+          <ul className="trend">
+            {sales.weeks.map((w) => (
+              <li key={w.start}>
+                <span className="small">{date(w.start)}</span>
+                <span
+                  className="bar"
+                  style={
+                    { "--share": `${Math.round((w.net_cents / best) * 100)}%` } as CSSProperties
+                  }
+                />
+                <span className="small">{m(w.net_cents)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="card" aria-labelledby="trend-title">
-        <h2 id="trend-title">{t("reports.trends")}</h2>
-        <ul className="trend">
-          {sales.weeks.map((w) => (
-            <li key={w.start}>
-              <span className="small">{date(w.start)}</span>
-              <span
-                className="bar"
-                style={{ width: `${Math.round((w.net_cents / best) * 100)}%` }}
-              />
-              <span className="small">{m(w.net_cents)}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+        <section className="card desk-card" aria-labelledby="exceptions-title">
+          <h2 id="exceptions-title">{t("reports.exceptions")}</h2>
+          {exceptions.length === 0 && <p className="muted">{t("reports.noExceptions")}</p>}
+          <ul className="tips-shares">
+            {exceptions.map((x, i) => (
+              <li key={i} className="row">
+                <span>
+                  {t(`reports.kind.${x.kind}` as never)} · {x.where} · {x.asked_by ?? ""}
+                  {x.waiting_for
+                    ? ` · ${t("drawer.waitingFor", { name: x.waiting_for })}`
+                    : x.approved_by
+                      ? ` · ${t("reports.approvedBy", { name: x.approved_by })}`
+                      : ""}
+                  {x.why ? <span className="small muted"> · {x.why}</span> : null}
+                </span>
+                <span>{m(x.amount_cents)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
 
-      <section className="card" aria-labelledby="exceptions-title">
-        <h2 id="exceptions-title">{t("reports.exceptions")}</h2>
-        {exceptions.length === 0 && <p className="muted">{t("reports.noExceptions")}</p>}
-        <ul className="tips-shares">
-          {exceptions.map((x, i) => (
-            <li key={i} className="row">
-              <span>
-                {t(`reports.kind.${x.kind}` as never)} · {x.where} · {x.asked_by ?? ""}
-                {x.waiting_for
-                  ? ` · ${t("drawer.waitingFor", { name: x.waiting_for })}`
-                  : x.approved_by
-                    ? ` · ${t("reports.approvedBy", { name: x.approved_by })}`
-                    : ""}
-                {x.why ? <span className="small muted"> · {x.why}</span> : null}
-              </span>
-              <span>{m(x.amount_cents)}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="card" aria-labelledby="quarter-title">
-        <h2 id="quarter-title">
-          {t("reports.taxQuarter", {
-            from: date(quarter.quarter.start),
-            to: date(quarter.quarter.end),
-          })}
-        </h2>
-        <p>{t("reports.taxSoFar", { amount: m(quarter.tax_cents) })}</p>
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => void download(`/reports/tax-quarter?date=${tonight}&format=csv`)}
-        >
-          {t("reports.downloadTax")}
-        </button>
-      </section>
-
-      <section className="card" aria-labelledby="exports-title">
+      <section className="card desk-card" aria-labelledby="exports-title">
         <h2 id="exports-title">{t("reports.exports")}</h2>
         <p className="small muted">{t("reports.exportsHint")}</p>
         <div className="actions">

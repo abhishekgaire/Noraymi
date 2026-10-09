@@ -2,16 +2,17 @@
  * Design review captures (V-01, V-08): the frozen canvas board beside the built screen, at the same sizes,
  * from a fresh demo seed at 10:41 PM. Off by default; run it with
  *   DESIGN_REVIEW=1 pnpm exec playwright test --project staff design-review
- * The side-by-side PNGs land in docs/design-review/v08/ for the founder (v01/ holds V-01's).
+ * The side-by-side PNGs land in docs/design-review/v08/ and v03/ for the founder (v01/ holds V-01's).
+ * DESIGN_REVIEW_CANVAS_PORT moves the canvas's own server off 8765.
  */
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import pg from "pg";
-import { freshNight } from "./night.js";
+import { freshNight, SEED_COMMAND, SEED_INSTANT } from "./night.js";
 
 const OUT = "docs/design-review/v08";
-const CANVAS_PORT = 8765;
+const CANVAS_PORT = Number(process.env["DESIGN_REVIEW_CANVAS_PORT"] ?? 8765);
 const ANDY = "andy@demo.west4.local";
 
 test.skip(!process.env["DESIGN_REVIEW"], "design review captures run only with DESIGN_REVIEW=1");
@@ -90,7 +91,7 @@ async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Clien
 }
 
 /** Two screenshots side by side on one dark sheet, each under its label. */
-async function sideBySide(page: Page, left: Buffer, right: Buffer, file: string) {
+async function sideBySide(page: Page, left: Buffer, right: Buffer, file: string, out = OUT) {
   const sheet = await page.context().newPage();
   const img = (b: Buffer) => `data:image/png;base64,${b.toString("base64")}`;
   await sheet.setContent(
@@ -101,7 +102,7 @@ async function sideBySide(page: Page, left: Buffer, right: Buffer, file: string)
       </div></body>`,
   );
   await sheet.waitForLoadState("load");
-  await sheet.screenshot({ path: `${OUT}/${file}`, fullPage: true });
+  await sheet.screenshot({ path: `${out}/${file}`, fullPage: true });
   await sheet.close();
 }
 
@@ -161,6 +162,58 @@ test("V-08 · the Board beside Board.dc.html at 1280, and the phone beside Staff
     const canvasPhoneFull = await shoot("Staff.dc.html", 390, 844, true);
     await sideBySide(page, canvasPhoneFull, builtPhoneFull, "board-phone-390-full.png");
     expect(readFileSync(`${OUT}/board-phone-390.png`).length).toBeGreaterThan(0);
+  } finally {
+    await db.end();
+  }
+});
+
+// V-03: the room tab and clock, Calendar, Messages, Reports and Close the night at 1280 × 800.
+// It reseeds through the API it is pointed at (baseURL), so it can run against a second stack.
+test("V-03 · the desk screens beside their canvas boards at 1280", async ({ page, request }) => {
+  test.setTimeout(240_000);
+  const out = "docs/design-review/v03";
+  mkdirSync(out, { recursive: true });
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
+  const clock = await request.post("/v1/ops/clock", { data: { server_time: SEED_INSTANT } });
+  expect(clock.ok()).toBe(true);
+  const db = new pg.Client({
+    connectionString: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+  });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const room9 = await db.query<{ id: string }>("select id from rooms where name = 'Room 9'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+
+    const canvasPage = await page.context().newPage();
+    await canvasPage.setViewportSize({ width: 1280, height: 800 });
+    const screens: [board: string, path: string, title: string, file: string][] = [
+      ["DeskRoom.dc.html", `/room/${room9.rows[0]!.id}`, "Room 9", "deskroom"],
+      ["DeskCalendar.dc.html", "/calendar", "Calendar", "deskcalendar"],
+      ["DeskMessages.dc.html", "/messages", "Messages", "deskmessages"],
+      ["DeskReports.dc.html", "/reports", "Reports", "deskreports"],
+      ["Night.dc.html", "/close-the-night", "Close the night", "night"],
+    ];
+    for (const [board, path, title, file] of screens) {
+      await canvasPage.goto(`http://localhost:${CANVAS_PORT}/${board}`);
+      await canvasPage.waitForLoadState("networkidle");
+      await canvasPage.waitForTimeout(800);
+      const canvasShot = await canvasPage.screenshot();
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+      // The canvas shows Marcus T.'s thread open.
+      if (file === "deskmessages") await page.getByRole("button", { name: "Marcus T." }).click();
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(1000);
+      await sideBySide(page, canvasShot, await page.screenshot(), `${file}-1280.png`, out);
+      const full = await page.screenshot({ fullPage: true });
+      await sideBySide(page, canvasShot, full, `${file}-1280-full.png`, out);
+    }
   } finally {
     await db.end();
   }
