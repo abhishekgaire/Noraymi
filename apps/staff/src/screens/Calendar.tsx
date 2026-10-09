@@ -175,12 +175,24 @@ export function Calendar() {
       );
     }
   };
-  const block = async () => {
+  const block = async (cancelAll = false) => {
     setError(null);
     try {
-      await api("POST", `/v1/venues/${venueId}/closures`, { date: day, kind: "closed" });
+      const made = await api<{ cancelled?: unknown[] }>("POST", `/v1/venues/${venueId}/closures`, {
+        date: day,
+        kind: "closed",
+        // M5-12: "Cancel and refund all": the venue cancels each booking and refunds it in full.
+        ...(cancelAll ? { cancel_bookings: true } : {}),
+      });
       setBlocking(false);
-      setDone(t("calendar.blockedDone", { date: dayLabel(day) }));
+      setDone(
+        cancelAll
+          ? t("calendar.cancelledDone", {
+              date: dayLabel(day),
+              count: made.cancelled?.length ?? 0,
+            })
+          : t("calendar.blockedDone", { date: dayLabel(day) }),
+      );
       await loadDays();
     } catch {
       setError(t("calendar.failed"));
@@ -264,7 +276,16 @@ export function Calendar() {
                 ))}
               </ul>
               <div className="actions">
-                <button type="button" className="primary" onClick={() => void block()}>
+                {(bookings?.length ?? 0) > 0 && (
+                  <button type="button" className="primary" onClick={() => void block(true)}>
+                    {t("calendar.cancelRefundAll")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={(bookings?.length ?? 0) > 0 ? "secondary" : "primary"}
+                  onClick={() => void block()}
+                >
                   {t("calendar.blockIt")}
                 </button>
                 <button type="button" onClick={() => setBlocking(false)}>

@@ -994,6 +994,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "calendar.affects": "Esta fecha tiene {count} reservas:",
   "calendar.blockIt": "Bloquear la fecha",
   "calendar.blockedDone": "{date} quedó bloqueado",
+  "calendar.cancelRefundAll": "Cancelar y reembolsar todas",
+  "calendar.cancelledDone":
+    "{date} está bloqueado · {count} reservas canceladas y reembolsadas por completo; a cada cliente le llega un texto cuando se hace su reembolso",
   "calendar.time": "Hora",
   "calendar.hours": "Duración",
   "calendar.hoursOption": "{hours} h",
@@ -2044,6 +2047,20 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "manage.refused.pay_difference_first": "Primero paga la diferencia pendiente",
   "manage.refused.call_venue": "Llámanos para cambiar esta reserva",
   "manage.refused.too_late": "La tolerancia ya pasó: llámanos",
+  "manage.cancel": "Cancelar la reserva",
+  "manage.cancelRefund": "Cancelas antes del {cutoff}: se devuelven {amount} a tu tarjeta.",
+  "manage.cancelKept":
+    "Ya pasó el límite para reembolsos ({cutoff}): según nuestra política nos quedamos {kept} del depósito y se devuelven {refund} a tu tarjeta.",
+  "manage.cancelKeptAll":
+    "Ya pasó el límite para reembolsos ({cutoff}): según nuestra política nos quedamos el depósito de {kept}.",
+  "manage.yesCancel": "Sí, cancelar",
+  "manage.keepIt": "Mantenerla",
+  "manage.cancelled": "Cancelada",
+  "manage.refundPending": "Reembolso pendiente · {amount}",
+  "manage.refunded": "Reembolsado · {amount}. Tarda de 5 a 10 días en verse en tu tarjeta.",
+  "manage.refundFailed": "El reembolso de {amount} no se pudo hacer. Te contactaremos.",
+  "manage.depositKept": "Depósito retenido según nuestra política · {amount}",
+  "manage.refused.not_cancellable": "Esta reserva no se puede cancelar aquí: llámanos",
   "site.book.lateRefund":
     "Tu pago llegó después de que venció tu reserva temporal y la sala ya estaba ocupada. Te reembolsamos {amount} completo.",
   "admin.section.barPos": "TPV de barra",

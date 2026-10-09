@@ -2568,6 +2568,28 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
     await dialog.getByRole("button", { name: "Block the date" }).click();
     await expect(page.getByRole("button", { name: /^Sat, Sep 26/ })).toContainText("Closed");
 
+    // M5-12: a date with a booking offers "Cancel and refund all"; the venue cancels it.
+    await page.getByRole("button", { name: /^Sun, Sep 27/ }).click();
+    await page.getByRole("button", { name: "New booking" }).click();
+    const sunday = page.getByRole("form", { name: "New booking" });
+    await sunday.getByLabel("Name").fill("Rae V.");
+    await sunday.getByLabel("Guests").fill("5");
+    await sunday.getByLabel("Time").fill("21:00");
+    await sunday.getByRole("button", { name: "Book it" }).click();
+    await expect(page.getByRole("status")).toHaveText("Booked Rae V.");
+    await page.getByRole("button", { name: "Block this date" }).click();
+    const sundayDialog = page.getByRole("dialog", { name: "Block this date" });
+    await expect(sundayDialog).toContainText("This date has 1 bookings:");
+    await sundayDialog.getByRole("button", { name: "Cancel and refund all" }).click();
+    await expect(page.getByRole("status")).toContainText(
+      "1 bookings cancelled and refunded in full",
+    );
+    const rae = await db.query<{ status: string; cancelled_via: string }>(
+      `select b.status, b.cancelled_via from bookings b join guests g on g.id = b.guest_id
+        where g.name = 'Rae V.'`,
+    );
+    expect(rae.rows).toEqual([{ status: "cancelled", cancelled_via: "venue" }]);
+
     const phone = await browser.newPage({
       storageState: await page.context().storageState(),
       viewport: { width: 390, height: 844 },

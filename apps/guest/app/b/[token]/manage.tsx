@@ -27,6 +27,12 @@ export interface ManageView {
   readonly grace_min: number;
   readonly can_change: boolean;
   readonly can_run_late: boolean;
+  /** M5-12: cancelling, what it would do now, and once cancelled the refund or the kept part. */
+  readonly can_cancel: boolean;
+  readonly cancel_preview: { refund_cents: number; kept_cents: number } | null;
+  readonly cancelled_via: string | null;
+  readonly refund: { amount_cents: number; status: "pending" | "refunded" | "failed" } | null;
+  readonly kept_cents: number;
 }
 
 interface Change {
@@ -75,6 +81,7 @@ export function Manage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [late, setLate] = useState<string | null>(m.running_late_until);
+  const [cancelling, setCancelling] = useState(false);
 
   const tier = t("en", `site.book.tier.${m.size_tier}` as MessageKey);
   const when = t("en", "manage.when", {
@@ -165,6 +172,19 @@ export function Manage({
     if ("reason" in answer) return setError(reasonWords(answer.reason));
     setLate(answer.running_late_until);
     onChanged(answer.booking);
+  }
+
+  async function cancelIt() {
+    setBusy(true);
+    setError(null);
+    const r = await fetch(path, { method: "DELETE" }).catch(() => null);
+    const body = (await r?.json().catch(() => null)) as {
+      booking?: ManageView;
+      error?: { details?: { reason?: string } };
+    } | null;
+    setBusy(false);
+    if (r?.ok && body?.booking) return onChanged(body.booking);
+    setError(reasonWords(body?.error?.details?.reason ?? "failed"));
   }
 
   async function loadTimes(date: string) {
@@ -361,6 +381,80 @@ export function Manage({
         <button type="button" className="button" disabled={busy} onClick={() => void runningLate()}>
           {t("en", "manage.runningLate")}
         </button>
+      )}
+
+      {!preview && m.can_cancel && !cancelling && (
+        <button type="button" className="button" onClick={() => setCancelling(true)}>
+          {t("en", "manage.cancel")}
+        </button>
+      )}
+      {!preview && cancelling && (
+        <div className="manage-preview" role="dialog" aria-label={t("en", "manage.cancel")}>
+          {m.cancel_preview &&
+            m.cancel_preview.kept_cents === 0 &&
+            m.cancel_preview.refund_cents > 0 && (
+              <p>
+                {t("en", "manage.cancelRefund", {
+                  amount: money(m.cancel_preview.refund_cents),
+                  cutoff: m.cutoff_words ?? "",
+                })}
+              </p>
+            )}
+          {m.cancel_preview && m.cancel_preview.kept_cents > 0 && (
+            <p>
+              {t(
+                "en",
+                m.cancel_preview.refund_cents > 0 ? "manage.cancelKept" : "manage.cancelKeptAll",
+                {
+                  kept: money(m.cancel_preview.kept_cents),
+                  refund: money(m.cancel_preview.refund_cents),
+                  cutoff: m.cutoff_words ?? "",
+                },
+              )}
+            </p>
+          )}
+          <button
+            type="button"
+            className="button primary"
+            disabled={busy}
+            onClick={() => void cancelIt()}
+          >
+            {t("en", "manage.yesCancel")}
+          </button>
+          <button
+            type="button"
+            className="button"
+            disabled={busy}
+            onClick={() => setCancelling(false)}
+          >
+            {t("en", "manage.keepIt")}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** A cancelled booking (M5-12): the refund as it goes ("Refund pending", then "Refunded") or what was kept. */
+export function Cancelled({ view }: { view: ManageView }) {
+  return (
+    <section aria-labelledby="cancelled-h" className="manage">
+      <h2 id="cancelled-h">{t("en", "manage.cancelled")}</h2>
+      {view.refund && (
+        <p role="status">
+          {t(
+            "en",
+            view.refund.status === "refunded"
+              ? "manage.refunded"
+              : view.refund.status === "pending"
+                ? "manage.refundPending"
+                : "manage.refundFailed",
+            { amount: money(view.refund.amount_cents) },
+          )}
+        </p>
+      )}
+      {view.kept_cents > 0 && (
+        <p>{t("en", "manage.depositKept", { amount: money(view.kept_cents) })}</p>
       )}
     </section>
   );

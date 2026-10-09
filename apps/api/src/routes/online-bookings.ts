@@ -22,7 +22,14 @@ import {
   onlineAvailability,
   saveDetails,
 } from "../bookings/online.js";
-import { changeBody, changeBooking, differencePayLink, linkedBooking } from "../bookings/manage.js";
+import {
+  changeBody,
+  changeBooking,
+  differencePayLink,
+  linkedBooking,
+  manageView,
+} from "../bookings/manage.js";
+import { guestCancels } from "../bookings/cancel.js";
 import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
 
 /**
@@ -34,6 +41,7 @@ import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
  *   POST /v1/public/bookings/{token}/details   { name, phone, email, marketing } (M5-08: the Details step)
  *   POST /v1/public/bookings/{token}/pay       Terms → Payment: a pay link to the booking's one deposit payment (M5-09),
  *                                              or, once confirmed, to a difference a change left owing (M5-11)
+ *   DELETE /v1/public/bookings/{token}         the guest cancels, by the refund cut-off and the accepted policy (M5-12)
  *   PATCH /v1/public/bookings/{token}          the manage page: { party_size?, business_date?, time?, offset?,
  *                                              running_late?, accept_keep?, preview? } (M5-11)
  * The CAPTCHA and daily limits join POST with M5-05 (blocked on M2-27). The hold and more-time
@@ -208,6 +216,26 @@ export function onlineBookingRoutes(
         if (linked?.status === "confirmed")
           return differencePayLink(c, venueId, linked, now, payAppUrl);
         return depositPayLink(c, venueId, hash, now, payAppUrl);
+      });
+    },
+  );
+
+  // The guest cancels (M5-12): by the refund cut-off and the accepted policy; works with the module off.
+  app.delete<{ Params: { token: string } }>(
+    "/v1/public/bookings/:token",
+    { config: payRoute },
+    async (request) => {
+      const { venueId, hash } = await byToken(request.params.token);
+      const now = options.clock.now();
+      return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
+        const linked = await linkedBooking(c, venueId, hash, now, true);
+        if (!linked) throw new ApiError("not_found", "no such booking");
+        const outcome = await guestCancels(c, venueId, linked.id, now);
+        return {
+          refund_cents: outcome.refundCents,
+          kept_cents: outcome.keptCents,
+          booking: await manageView(c, venueId, (await linkedBooking(c, venueId, hash, now))!, now),
+        };
       });
     },
   );

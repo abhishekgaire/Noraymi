@@ -1,11 +1,8 @@
-import { randomUUID } from "node:crypto";
 import {
   createPayLink,
   emitEvent,
-  enqueue,
   heldDeposits,
   insertPayment,
-  insertRefund,
   latestAttempt,
   listRooms,
   readSetting,
@@ -18,6 +15,7 @@ import {
 import {
   bookingGrid,
   businessDate,
+  cancelOutcome,
   changedCutoff,
   cutoffWords,
   deposit,
@@ -29,7 +27,7 @@ import {
 import { Temporal } from "@west4/shared";
 import { z } from "zod";
 import { ApiError } from "../http/errors.js";
-import { REFUND_RUN_KIND } from "../payments/refunds.js";
+import { acceptedRule, moneyStatus, refundHeld } from "./cancel.js";
 import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
 import { LINK_DAYS_AFTER, nightFacts } from "./online.js";
 
@@ -86,6 +84,7 @@ interface Linked {
   deposit_cents: number;
   refund_cutoff_at: string | null;
   running_late_until: string | null;
+  cancelled_via: string | null;
 }
 
 /** The booking behind a manage link (the booking's own, or a confirmation text's), until a day after it ends. */
@@ -100,7 +99,7 @@ export async function linkedBooking(
     `select b.id, b.status, b.party_size, b.size_tier, b.room_id, to_json(b.starts_at) #>> '{}' as starts_at,
             to_json(b.ends_at) #>> '{}' as ends_at, b.business_date::text, b.deposit_cents,
             to_json(b.refund_cutoff_at) #>> '{}' as refund_cutoff_at,
-            to_json(b.running_late_until) #>> '{}' as running_late_until
+            to_json(b.running_late_until) #>> '{}' as running_late_until, b.cancelled_via
        from bookings b
       where b.venue_id = $1
         and (b.manage_token_hash = $2
@@ -162,7 +161,36 @@ export async function manageView(c: Queryable, venueId: string, b: Linked, now: 
     grace_min: grace,
     can_change: confirmed && Temporal.Instant.compare(now, start) < 0,
     can_run_late: confirmed && Temporal.Instant.compare(now, start.add({ minutes: grace })) < 0,
+    // M5-12: cancelling until the start, and the refund ("Refund pending", then "Refunded") or kept part.
+    can_cancel: (confirmed || b.status === "pending") && Temporal.Instant.compare(now, start) < 0,
+    cancelled_via: b.cancelled_via,
+    // What cancelling now would do, by the cut-off and the accepted policy (the page says it first).
+    cancel_preview: confirmed ? await cancelPreview(c, venueId, b, held, cutoff, now) : null,
+    ...(await moneyStatus(c, venueId, b.id)),
   };
+}
+
+async function cancelPreview(
+  c: Queryable,
+  venueId: string,
+  b: Linked,
+  held: number,
+  cutoff: Temporal.Instant | null,
+  now: Temporal.Instant,
+) {
+  const policy = (
+    await c.query<{ policy_version_id: string | null }>(
+      "select policy_version_id from bookings where venue_id = $1 and id = $2",
+      [venueId, b.id],
+    )
+  ).rows[0]!;
+  const rule = await acceptedRule(c, venueId, { ...policy, business_date: b.business_date });
+  const out = cancelOutcome({
+    heldCents: held,
+    beforeCutoff: cutoff === null || Temporal.Instant.compare(now, cutoff) < 0,
+    late: rule?.late ?? "keep",
+  });
+  return { refund_cents: out.refundCents, kept_cents: out.keptCents };
 }
 
 /** A difference still waiting on the payment page: the booking's pending online payments. */
@@ -235,54 +263,6 @@ export async function differencePayLink(
   const owed = b.deposit_cents - (await heldOf(c, venueId, b.id));
   if (owed <= 0) throw refuse("nothing_owed", "the deposit is paid in full");
   return { pay_url: await differenceLink(c, venueId, b, owed, now, payAppUrl) };
-}
-
-/** The excess back by rule (Payment flows step 5), newest card payment first, through the refund job. */
-async function refundExcess(
-  c: Queryable,
-  venueId: string,
-  bookingId: string,
-  cents: number,
-  now: Temporal.Instant,
-) {
-  const card = (await heldDeposits(c, venueId, bookingId))
-    .filter((p) => p.method === "card_online" && p.held_cents > 0)
-    .reverse();
-  if (card.reduce((s, p) => s + p.held_cents, 0) < cents)
-    // An imported deposit paid through the old system is refunded there (M9-02): staff do it.
-    throw refuse("call_venue", "call the venue to change this booking");
-  const venue = await venueClock(c, venueId);
-  const night = businessDate(now, venue.timeZone, venue.dayCutover).businessDate.toString();
-  let left = cents;
-  for (const p of card) {
-    if (left === 0) break;
-    const amount = Math.min(left, p.held_cents);
-    const refundId = randomUUID();
-    await insertRefund(c, venueId, {
-      id: refundId,
-      paymentId: p.payment_id,
-      checkId: null,
-      bookingId,
-      amountCents: amount,
-      reason: REFUND_SMALLER_PARTY,
-      requestedBy: null,
-      automatic: true,
-      approvalId: null,
-      businessDate: night,
-      adjustsBusinessDate: null,
-      requestedAt: now.toString(),
-    });
-    await enqueue(c, {
-      venueId,
-      kind: REFUND_RUN_KIND,
-      pool: "critical",
-      dedupeKey: `${REFUND_RUN_KIND}:${refundId}`,
-      payload: { refund_id: refundId },
-      runAt: now,
-      maxAttempts: 5,
-    });
-    left -= amount;
-  }
 }
 
 /** `PATCH /v1/public/bookings/{token}`: one change, or with `preview` what it would do. */
@@ -420,7 +400,10 @@ export async function changeBooking(
       "you're past the refund cut-off: confirm that the deposit already paid stays",
       { stays_cents: change.staysCents, held_cents: held },
     );
-  if (change.refundCents > 0) await refundExcess(c, venueId, b.id, change.refundCents, now);
+  if (change.refundCents > 0)
+    await refundHeld(c, venueId, b.id, change.refundCents, REFUND_SMALLER_PARTY, now, {
+      strict: true,
+    });
   // An earlier difference not paid yet, never sent to Stripe, is replaced by this one (or by none).
   if (change.collectCents === 0)
     for (const p of await pendingTopUps(c, venueId, b.id)) {

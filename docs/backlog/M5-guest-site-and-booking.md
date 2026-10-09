@@ -327,7 +327,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-12 · Cancel by the refund cut-off, charge no-shows, and let the venue cancel
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5-11; M4-09, M4-21; M2 (Mark no-show, closures, the Calendar)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) steps 4 and 6; [Money rules](../spec/05-money-rules.md) rules 11 and 16; [API](../spec/08-api.md) (`DELETE /v1/public/bookings/{token}`, `POST /bookings/{b}/no-show`, `POST /closures`); [Song systems and texts](../spec/11-song-systems-texts.md) (Deposit refund and Payment link texts); [screens: Calendar note 4](../screens.md#calendar), [DeskCalendar note 4](../screens.md#deskcalendar)
@@ -338,13 +338,18 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The venue cancels: closing or blocking a booked date (`POST /closures`) lists the bookings it affects with "Cancel and refund all"; a cancellation by the venue always refunds in full, and the guests are texted.
   - Manage, cancel and refund status keep working with the booking module off.
 - **Acceptance:**
-  - [ ] Jae (booked Wed for Fri 11:00 PM) cancels on Thu at 10:00 PM: $50.00 is refunded automatically, the page shows "Refunded" once Stripe confirms, and the Deposit refund text goes out.
-  - [ ] Jae cancels on Fri at 10:41 PM, after Thu 11:00 PM: the $50.00 is kept as a `forfeit` line on a `fee` check with the next number, and nothing is refunded.
-  - [ ] The Nguyens, marked no-show after 11:15 PM, keep their $60.00 deposit as a forfeit.
-  - [ ] Blocking a date with three bookings lists them, and "Cancel and refund all" refunds each in full and texts each guest.
-  - [ ] Refund status on the manage page works with Online booking & deposits off.
+  - [x] Jae (booked Wed for Fri 11:00 PM) cancels on Thu at 10:00 PM: $50.00 is refunded automatically, the page shows "Refunded" once Stripe confirms, and the Deposit refund text goes out.
+  - [x] Jae cancels on Fri at 10:41 PM, after Thu 11:00 PM: the $50.00 is kept as a `forfeit` line on a `fee` check with the next number, and nothing is refunded.
+  - [x] The Nguyens, marked no-show after 11:15 PM, keep their $60.00 deposit as a forfeit.
+  - [x] Blocking a date with three bookings lists them, and "Cancel and refund all" refunds each in full and texts each guest.
+  - [x] Refund status on the manage page works with Online booking & deposits off.
 - **Tests:** sandbox refunds and an off-session no-show charge that fails (Stripe's test card that attaches but declines, 4000 0000 0000 0341); daylight-saving cut-off tests; end-to-end.
 - **Notes:** Spec gap: `noShow: "nothing"` doesn't say whether the deposit comes back. Since keep is its own option, the cautious default is that "nothing" refunds the deposit and charges nothing; flagged. Whether a kept deposit is taxable, and needs its own check number, is with the accountant (gate); it gets its own `fee` check number, as the spec says.
+  - Built (M5-12): `apps/api/src/bookings/cancel.ts` (guest cancel, venue cancel, no-show money, refund status), `DELETE /v1/public/bookings/{token}`, `cancel_bookings` on `POST /closures`, Mark no-show now settles the deposit, the manage page's Cancel and Cancelled states, and Calendar/DeskCalendar's "Cancel and refund all". Rules: `cancelOutcome` and `noShowOutcome` in `packages/rules/src/cancel-outcome.ts`. Migration 0132: `bookings.cancelled_via` ('guest' or 'venue') and `checks.opened_by` nullable (a fee check the system opens when a guest cancels late). Tests: `apps/api/src/routes/booking-cancel.int.test.ts` (fake Stripe, including the 0341 card that attaches then declines) and the e2e "Manage: Jae cancels after the cut-off…" and the Calendar test's Sunday block.
+  - "The accepted policy version" is read as the deposit setting in force when that policy version was published (its text is written from it); a booking with no acceptance follows its night's setting.
+  - Cautious defaults: `noShow: "nothing"` refunds the deposit (as flagged above); "first hour" is the first hour's room time for billable guests, with no tax or gratuity (whether a kept or charged no-show amount is taxable is with the accountant); "half" refunds half rounded half up to the cent; a guest can cancel until the booked start; a deposit that lands after a guest's or the venue's cancel is refunded in full by rule; an imported deposit paid through the old system can't be refunded by the guest's cancel (`call_venue`) and the venue's cancel reports it as `manual_refund_cents` for staff.
+  - The venue's cancel texts guests through the Deposit refund text as each refund lands; a booking with no deposit gets no text (the 14 texts have no "cancelled" text), so staff text them from Messages.
+  - Not run against Stripe's real sandbox here (fake Stripe only); the staff PATCH cancel from M2 still cancels without money.
 
 ### M5-13 · Send payment links for staff and big-party bookings, and save cards for cardHold
 

@@ -977,6 +977,9 @@ export const en = {
   "calendar.affects": "This date has {count} bookings:",
   "calendar.blockIt": "Block the date",
   "calendar.blockedDone": "{date} is blocked",
+  "calendar.cancelRefundAll": "Cancel and refund all",
+  "calendar.cancelledDone":
+    "{date} is blocked · {count} bookings cancelled and refunded in full, and the guests are texted as each refund goes through",
   "calendar.time": "Time",
   "calendar.hours": "Length",
   "calendar.hoursOption": "{hours} hr",
@@ -2009,6 +2012,20 @@ export const en = {
   "manage.refused.pay_difference_first": "Pay the difference you were asked for first",
   "manage.refused.call_venue": "Call us to change this booking",
   "manage.refused.too_late": "The grace has passed: call us",
+  "manage.cancel": "Cancel booking",
+  "manage.cancelRefund": "You're cancelling before {cutoff}: {amount} goes back to your card.",
+  "manage.cancelKept":
+    "You're past the refund cut-off ({cutoff}): {kept} of the deposit is kept per our policy, and {refund} goes back to your card.",
+  "manage.cancelKeptAll":
+    "You're past the refund cut-off ({cutoff}): the {kept} deposit is kept per our policy.",
+  "manage.yesCancel": "Yes, cancel",
+  "manage.keepIt": "Keep it",
+  "manage.cancelled": "Cancelled",
+  "manage.refundPending": "Refund pending · {amount}",
+  "manage.refunded": "Refunded · {amount}. It takes 5–10 days to show on your card.",
+  "manage.refundFailed": "The refund of {amount} didn't go through. We'll be in touch.",
+  "manage.depositKept": "Deposit kept per our policy · {amount}",
+  "manage.refused.not_cancellable": "This booking can't be cancelled here: call us",
   "site.book.lateRefund":
     "Your payment came in after your hold ran out, and the room had been taken. We've refunded {amount} in full.",
   "admin.section.barPos": "Bar POS",

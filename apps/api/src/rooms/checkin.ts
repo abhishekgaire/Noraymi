@@ -22,6 +22,7 @@ import {
 import { businessDate, minSpendFor, rateAt, type RoomForRate } from "@west4/rules";
 import { Temporal, type Clock } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { noShowMoney } from "../bookings/cancel.js";
 import { queueText } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { sealRoomCode } from "./room-code.js";
@@ -506,6 +507,8 @@ export async function markNoShow(ctx: Context, venueId: string, bookingId: strin
     );
     for (const b of block.rows) await releaseBlock(c, b.id);
     await updateBooking(c, venueId, bookingId, { status: "no_show" });
+    // The deposit by the accepted policy (M5-12): kept, charged up to the first hour, or refunded.
+    const money = await noShowMoney(c, venueId, bookingId, userId, now);
     await emitEvent(c, { venueId, type: "booking.updated", entityId: bookingId, entityVersion: 0 });
     await emitEvent(c, {
       venueId,
@@ -513,6 +516,13 @@ export async function markNoShow(ctx: Context, venueId: string, bookingId: strin
       entityId: booking.room_id,
       entityVersion: 0,
     });
-    return { booking: await bookingById(c, venueId, bookingId) };
+    return {
+      booking: await bookingById(c, venueId, bookingId),
+      deposit: {
+        refund_cents: money.refundCents,
+        kept_cents: money.keptCents,
+        charge_cents: money.chargeCents,
+      },
+    };
   });
 }

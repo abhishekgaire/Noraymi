@@ -53,7 +53,7 @@ export async function insertCheck(
     businessDate: string;
     roomSessionId?: string | null;
     bookingId?: string | null;
-    openedBy: string;
+    openedBy: string | null;
     openedAt?: string;
     training?: boolean;
     id?: string;

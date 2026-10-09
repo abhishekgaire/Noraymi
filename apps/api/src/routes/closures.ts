@@ -13,6 +13,7 @@ import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { page, parseListQuery } from "../http/paging.js";
+import { venueCancels } from "../bookings/cancel.js";
 
 interface VenueParams {
   venueId: string;
@@ -26,13 +27,17 @@ const closureBody = z
     opens: time.nullable().optional(),
     closes: time.nullable().optional(),
     note: z.string().max(500).nullable().optional(),
+    /** M5-12: "Cancel and refund all": the date's bookings are cancelled by the venue and refunded in full. */
+    cancel_bookings: z.boolean().optional(),
   })
   .strict();
 
 /**
  * Closures and each business date's hours (M1-12):
  *   GET  /v1/venues/{v}/closures?from=&to=&after=   special and closed dates, in date order
- *   POST /v1/venues/{v}/closures                   { date, kind, opens?, closes?, note? }
+ *   POST /v1/venues/{v}/closures                   { date, kind, opens?, closes?, note?, cancel_bookings? }
+ *        cancel_bookings (M5-12, a closed date only): each booking that night is cancelled by the venue and
+ *        refunded in full by rule, and its guest gets the Deposit refund text once Stripe confirms
  *   GET  /v1/venues/{v}/hours?business_date=        opens, closes, last call as instants, and open_now
  * GET /hours isn't in the API table; screens and jobs read "open now" from it (flagged in the ticket).
  */
@@ -87,6 +92,8 @@ export function closuresRoutes(app: FastifyInstance, options: { clock: Clock }):
           parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
         );
       const body = parsed.data;
+      if (body.cancel_bookings && body.kind !== "closed")
+        throw new ApiError("invalid_request", "only a closed date cancels its bookings");
       if (body.kind === "special" && body.opens == null && body.closes == null)
         throw new ApiError("invalid_request", "a special date needs an opening or a close");
       try {
@@ -106,7 +113,33 @@ export function closuresRoutes(app: FastifyInstance, options: { clock: Clock }):
             entityId: "closures",
             entityVersion: 0,
           });
-          return row;
+          if (!body.cancel_bookings) return row;
+          const affected = await c.query<{ id: string; guest_name: string | null }>(
+            `select b.id, g.name as guest_name from bookings b
+               left join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+              where b.venue_id = $1 and b.business_date = $2 and b.status in ('pending', 'confirmed')
+              order by b.starts_at, b.id`,
+            [request.venueId, body.date],
+          );
+          const cancelled = [];
+          for (const b of affected.rows) {
+            const done = await venueCancels(
+              c,
+              request.venueId!,
+              b.id,
+              request.principal.kind === "user" ? request.principal.userId : null,
+              options.clock.now(),
+            );
+            if (done)
+              cancelled.push({
+                booking_id: b.id,
+                guest_name: b.guest_name,
+                refund_cents: done.refundCents,
+                // An imported deposit paid through the old system is refunded there (M9-02).
+                manual_refund_cents: done.manualCents,
+              });
+          }
+          return { ...row, cancelled };
         });
         return reply.code(201).send(created);
       } catch (error) {

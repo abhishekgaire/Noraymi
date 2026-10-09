@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { t } from "@west4/shared";
 import { YourBill, type GuestBill } from "../../bill/your-bill";
-import { Manage, type ManageView } from "./manage";
+import { Cancelled, Manage, type ManageView } from "./manage";
 
 export interface BookingLink {
   readonly venue_name: string;
@@ -58,12 +58,17 @@ export function BookingBill({ token, initial }: { token: string; initial: Bookin
             return done.status;
           }}
         />
-      ) : link.manage && link.manage.status === "confirmed" ? (
+      ) : link.manage && link.manage.status === "cancelled" ? (
+        <Cancelled view={link.manage} />
+      ) : link.manage &&
+        (link.manage.status === "confirmed" || link.manage.status === "pending") ? (
         <Manage
           key={JSON.stringify(link.manage)}
           token={token}
           initial={link.manage}
-          onChanged={(manage) => setLink({ ...link, manage, party_size: manage.party_size })}
+          onChanged={(manage) =>
+            setLink({ ...link, manage, party_size: manage.party_size, status: manage.status })
+          }
         />
       ) : (
         <p role="status">{t("en", "bookingLink.noBill")}</p>

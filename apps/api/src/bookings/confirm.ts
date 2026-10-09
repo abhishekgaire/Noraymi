@@ -38,6 +38,7 @@ import type { VenueTextSettings } from "../texts/venue.js";
  */
 export const BOOKING_CONFIRMED_KIND = "booking.confirmed";
 export const LATE_ROOM_GONE = "Paid after the hold ran out, and the room was taken";
+export const PAID_AFTER_CANCEL = "Paid after the booking was cancelled";
 
 export async function settleDeposit(
   c: Queryable,
@@ -57,15 +58,20 @@ export async function settleDeposit(
       party_size: number;
       deposit_cents: number;
       cancelled_by: string | null;
+      cancelled_via: string | null;
     }>(
       `select id, status, room_id, to_json(starts_at) #>> '{}' as starts_at, to_json(ends_at) #>> '{}' as ends_at,
-              business_date::text, party_size, deposit_cents, cancelled_by
+              business_date::text, party_size, deposit_cents, cancelled_by, cancelled_via
          from bookings where venue_id = $1 and id = $2 for update`,
       [venueId, payment.booking_id],
     )
   ).rows[0];
+  if (!b) return null;
+  // Paid after the guest or the venue cancelled (M5-12): the whole payment back, by rule.
+  const cancelled = b.status === "cancelled" && b.cancelled_via !== null;
   // Only a booking waiting on this money: pending, or let go when its hold lapsed (never a guest's cancel).
-  if (!b || !(b.status === "pending" || (b.status === "cancelled" && !b.cancelled_by))) return null;
+  if (!cancelled && !(b.status === "pending" || (b.status === "cancelled" && !b.cancelled_by)))
+    return null;
   const hold = (
     await c.query<{ id: string }>(
       "select id from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'hold' for update",
@@ -73,7 +79,9 @@ export async function settleDeposit(
     )
   ).rows[0];
   let blocked = false;
-  if (hold) {
+  if (cancelled) {
+    // Never confirmed again: falls through to the refund below.
+  } else if (hold) {
     await c.query(
       "update room_blocks set kind = 'booking', expires_at = null where venue_id = $1 and id = $2",
       [venueId, hold.id],
@@ -106,7 +114,7 @@ export async function settleDeposit(
       checkId: null,
       bookingId: b.id,
       amountCents: paid.amount_cents,
-      reason: LATE_ROOM_GONE,
+      reason: cancelled ? PAID_AFTER_CANCEL : LATE_ROOM_GONE,
       requestedBy: null,
       automatic: true,
       approvalId: null,
