@@ -422,7 +422,7 @@ These come from the spec and apply to every ticket below, on top of the definiti
 
 ### M5-16 · Check accessibility: WCAG 2.2 AA in CI and a screen-reader pass
 
-- **Status:** todo
+- **Status:** blocked (the screen-reader pass needs a person with an iPhone and an Android phone)
 - **Size:** M
 - **Depends on:** M5-01 to M5-13; M3 (the room page and ordering); M2 (the waitlist page); M4-16, M4-18 (the bill and Pay my share)
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 14; [screens: N1](../screens.md#n1-booking-steps-after-the-price)
@@ -432,10 +432,22 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - The menu PDF is tagged.
   - A person does a screen-reader pass with VoiceOver on an iPhone and TalkBack on Android on booking, manage, the waitlist page and ordering, and records the findings; anything that blocks a task is fixed before the milestone closes.
 - **Acceptance:**
-  - [ ] The automated checks pass in CI, and a new violation fails the build.
-  - [ ] The screen-reader pass finds nothing that blocks booking, managing a booking, joining the waitlist or ordering.
+  - [x] The automated checks pass in CI, and a new violation fails the build.
+  - [ ] The screen-reader pass finds nothing that blocks booking, managing a booking, joining the waitlist or ordering. (Waiting on a person: the checklist is in Notes.)
 - **Tests:** axe in Playwright; a PDF tag check.
 - **Notes:** Every room-tablet action also works from a phone or through staff (Security 14).
+- **Built (M5-16):**
+  - `e2e/a11y-guest.spec.ts` (axe, WCAG 2.0/2.1/2.2 A and AA tags, in CI's guest smoke job) now also covers the venue page, the venue's menu, the bare `/book`, the old booking page and the status page (light and dark); the enquiry form with its error and sent; every booking step on a phone in light and dark (details with an error, the deposit policy, the payment page and a declined card, You're booked, a lapsed hold); a balance pay link before and after paying; the manage page with Change party size and the cancel question open; the waitlist offer page; Pay my share on a joined phone; and the receipt page. The earlier checks (join, room page in every state, ordering sheet, room tablet, waitlist, bill, home, parties, menu, Book, singer's queue) stay, as does the planted violation that proves a violation fails.
+  - A guard test lists every `page.tsx` under `apps/guest/app` and fails when a new guest page has no axe check. The bar's Up next TV (`/tv`) is listed as not a guest's page.
+  - Found and fixed: the waitlist offer's countdown was a live region that changed every second, so a screen reader would read it out every second. The visible clock is now hidden from screen readers, and a polite status says "Room 11 is ready · 10 minutes to claim it" once a minute, then "1 minute" (new strings `guestWait.offerAnnounce` and `guestWait.offerOneMinute`, English and Spanish). The booking hold's countdown already worked this way and has More time (M5-07). The two staff smoke tests that read the offer's status now read the visible clock and the spoken line.
+  - axe found no other violations on the new pages (contrast, names, labels, landmarks, 24 px targets).
+  - The menu PDF's tags are checked by `apps/api/src/jobs/menu-pdf.int.test.ts` (M3-05: struct tree with headings), unchanged.
+- **Screen-reader pass (for the founder or a reviewer):** on an iPhone with VoiceOver and an Android phone with TalkBack, against staging. Write each finding below with the phone, the page and what was heard. For each task, check that every button and field says what it is, the order of reading matches the screen, errors are read out when they appear, and nothing needs sight to finish:
+  1. Book: pick a date, guests and hours; hold a time; hear the hold's minutes and use More time at one minute; fill your details (try a bad number first); read the deposit policy; pay with the test card on the payment page; hear "You're booked".
+  2. Manage: open the link from the text; change the party size; say you're running late; open Cancel and back out.
+  3. Waitlist: scan the door QR or open the waitlist page; join; hear how many parties are ahead; when a room is offered, hear the room and the minutes left, once a minute.
+  4. Ordering: join a room with its code; add a Margarita with a flavor from the sheet; send the order; hear the status change; open the bill and Pay my share.
+  - Anything that blocks a task is fixed before M5 closes; then tick the second Acceptance line and set Status to done.
 
 ### M5-17 · Prove Jae & co.'s booking end to end, and the payment page checks
 

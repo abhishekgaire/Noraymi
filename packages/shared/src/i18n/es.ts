@@ -837,6 +837,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestWait.leave": "Salir de la lista",
   "guestWait.left": "Saliste de la lista de espera.",
   "guestWait.offer": "{room} está lista · {time} para reclamarla",
+  "guestWait.offerAnnounce": "{room} está lista · {n} minutos para reclamarla",
+  "guestWait.offerOneMinute": "{room} está lista · 1 minuto para reclamarla",
   "guestWait.decline": "Cederla",
   "guestWait.declined": "Cediste la sala.",
   "guestWait.seated": "¡Ya están dentro! Que se diviertan.",

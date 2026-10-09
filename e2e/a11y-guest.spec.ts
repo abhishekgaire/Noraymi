@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
+import { readdirSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
@@ -338,4 +339,302 @@ test("the singer's queue page passes: joining, a wrong code and a singer's own p
   } finally {
     await c.end();
   }
+});
+
+/** The Stripe side of the night on the fake Stripe, for the payment page (M5-09). */
+const stripeSeed = () =>
+  execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
+    cwd: "apps/api",
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      WEST4_ENV: "local",
+      DATABASE_URL: process.env["DATABASE_URL"] ?? "postgres://west4:west4@localhost:5432/west4",
+    },
+  });
+const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/** M5-16: the rest of the site, light and dark: the venue page, its menu, the moved page and the status page. */
+test("the venue page, its menu, the old booking page and the status page pass, light and dark", async ({
+  page,
+}) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const path of [
+      "/",
+      "/v/west4karaoke",
+      "/v/west4karaoke/menu",
+      "/book",
+      "/booking-moved",
+      "/status",
+    ]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      expect(await violations(page), `${path} (${colorScheme})`).toEqual([]);
+    }
+  }
+});
+
+/** M5-16: the parties page's enquiry form with its error, then sent. */
+test("the enquiry form passes with an error and once sent", async ({ page }) => {
+  await page.goto("/v/west4karaoke/parties");
+  const form = page.locator("form.enquiry");
+  await form.getByLabel("Your name").fill("Priya");
+  await form.getByLabel("Mobile number").fill("priya@example.com");
+  await form.getByLabel("Guests").fill("22");
+  await form.getByLabel("Date").fill("2026-10-10");
+  await form.getByRole("button", { name: "Send enquiry" }).click();
+  await expect(form.getByRole("alert")).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+  await form.getByLabel("Mobile number").fill("(646) 555-0142");
+  await form.getByRole("button", { name: "Send enquiry" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Sent." })).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+});
+
+/**
+ * M5-16: every booking step on a phone, light and dark: details with an error, the deposit policy,
+ * the payment page with a declined card, the confirmed booking, and a hold that ran out.
+ */
+test("every booking step passes: details, terms, the payment page, booked and a lapsed hold", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  stripeSeed();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const both = async (label: string) => {
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      expect(await violations(page), `${label} (${colorScheme})`).toEqual([]);
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  };
+  const book = async (time: string) => {
+    await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=5&hours=2");
+    await page.getByRole("button", { name: `Hold ${time} EDT` }).click();
+    await expect(page.getByRole("heading", { name: "Your details" })).toBeVisible();
+  };
+  await book("11 PM");
+  await page.getByLabel("Name").fill("Jae K.");
+  await page.getByLabel("Mobile number").fill("+44 20 7123 4567");
+  await page.getByLabel("Email").fill("jae@example.com");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.locator("p[role=alert]")).toBeVisible();
+  await both("details with an error");
+  await page.getByLabel("Mobile number").fill("(212) 555-0188");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "The deposit policy" })).toBeVisible();
+  await both("terms");
+  await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
+  await page.waitForURL(/^http:\/\/pay\.localhost:3001\/pay\//);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your deposit · $50.00");
+  await both("the payment page");
+  await page.getByRole("button", { name: "Try a declined test card" }).click();
+  await expect(page.locator("p[role=alert]")).toBeVisible();
+  await both("the payment page, declined");
+  await page.getByRole("button", { name: "Pay $50.00 deposit" }).click();
+  await page.waitForURL(/\/v\/west4karaoke\/book\/[A-Za-z0-9_-]{22}$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked");
+  await both("booked");
+
+  await book("9 PM");
+  expect(
+    (
+      await request.post(`${API}/v1/ops/clock`, { data: { server_time: "2026-09-26T03:05:00Z" } })
+    ).ok(),
+  ).toBe(true);
+  await page.reload();
+  await expect(page.getByText(/ran out/).first()).toBeVisible();
+  await both("a lapsed hold");
+});
+
+/** M5-16: a balance pay link on the payment page, before and after paying. */
+test("the payment page passes for a pay link, and once paid", async ({ page }) => {
+  test.setTimeout(90_000);
+  stripeSeed();
+  const c = db();
+  await c.connect();
+  try {
+    const token = randomBytes(16).toString("base64url");
+    await c.query(
+      `insert into pay_links (venue_id, token_hash, check_id, amount_cents, expires_at, purpose)
+       select c.venue_id, $1, c.id, 2500, now() + interval '1 day', 'balance'
+         from checks c join seed_ids s on s.row_id = c.id where s.slug = 'chk_room9'`,
+      [tokenHash(token)],
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`http://pay.localhost:3001/pay/${token}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pay $25.00");
+    expect(await violations(page)).toEqual([]);
+    await page.getByRole("button", { name: "Pay $25.00" }).click();
+    await expect(page.getByRole("status")).toHaveText("Paid $25.00 · thank you");
+    expect(await violations(page)).toEqual([]);
+  } finally {
+    await c.end();
+  }
+});
+
+/** M5-16: the manage page on Jae's booking, with Change party size and Cancel open. */
+test("the manage page passes, with a change and the cancel question open", async ({ page }) => {
+  const c = db();
+  await c.connect();
+  const token = randomBytes(16).toString("base64url");
+  try {
+    await c.query(
+      "update bookings set manage_token_hash = $1 where id = (select row_id from seed_ids where slug = 'bk_jae')",
+      [tokenHash(token)],
+    );
+  } finally {
+    await c.end();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/b/${token}`);
+  const manage = page.getByRole("region", { name: "Your booking" });
+  await expect(manage).toContainText("Deposit $50.00 paid");
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    expect(await violations(page), colorScheme).toEqual([]);
+  }
+  await manage.getByRole("button", { name: "Change party size" }).click();
+  await manage.getByRole("button", { name: "More guests" }).click();
+  await manage.getByRole("button", { name: "Update to 6 guests" }).click();
+  await expect(manage).toContainText("Your deposit becomes $60.00");
+  expect(await violations(page)).toEqual([]);
+  await page.goto(`/b/${token}`);
+  await manage.getByRole("button", { name: "Cancel booking" }).click();
+  await expect(page.getByRole("dialog", { name: "Cancel booking" })).toBeVisible();
+  expect(await violations(page)).toEqual([]);
+});
+
+/** M5-16: the waitlist offer's page, with its countdown announced once a minute rather than every second. */
+test("the waitlist offer passes, and its countdown isn't read out every second", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/v/west4karaoke/waitlist");
+  await page.getByLabel("Your name").fill("Ari");
+  await page.getByLabel("Mobile number").fill("2125550188");
+  await page.getByLabel("How many of you").fill("4");
+  await page.getByRole("button", { name: /Join/ }).click();
+  await expect(page).toHaveURL(/\/w\//);
+  const c = db();
+  await c.connect();
+  try {
+    await c.query(
+      `update waitlist_entries set status = 'offered', offer_expires_at = '2026-09-25T22:51:00-04:00',
+              offered_room_id = (select id from rooms where name = 'Room 11')
+        where id = (select id from waitlist_entries order by joined_at desc limit 1)`,
+    );
+  } finally {
+    await c.end();
+  }
+  await page.reload();
+  await expect(page.getByText(/Room 11 is ready · \d+:\d\d to claim it/)).toBeVisible();
+  const spoken = page.getByRole("status").filter({ hasText: "Room 11 is ready" });
+  await expect(spoken).toHaveText(/Room 11 is ready · \d+ minutes? to claim it/);
+  expect(await violations(page)).toEqual([]);
+});
+
+/** M5-16: Pay my share on a joined guest's phone after Present, and the receipt page. */
+test("Pay my share and the receipt page pass", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  const c = db();
+  await c.connect();
+  try {
+    const token = randomBytes(24).toString("base64url");
+    const andy = (
+      await c.query<{ user_id: string; id: string; venue_id: string }>(
+        "select m.user_id, m.id, m.venue_id from memberships m join users u on u.id = m.user_id where u.name like 'Andy%'",
+      )
+    ).rows[0]!;
+    await c.query(
+      `insert into auth_sessions (principal, user_id, membership_id, assurance, client, token_hash, started_at, last_seen_at, expires_at)
+       values ('staff', $1, $2, 'pin', 'web', $3, '2026-09-25T22:41:00-04:00', '2026-09-25T22:41:00-04:00', '2026-09-26T06:00:00-04:00')`,
+      [andy.user_id, andy.id, tokenHash(token)],
+    );
+    await c.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    const check = (
+      await c.query<{ id: string }>("select row_id as id from seed_ids where slug = 'chk_room9'")
+    ).rows[0]!.id;
+    expect(
+      (
+        await request.post(`${API}/v1/venues/${andy.venue_id}/checks/${check}/present`, {
+          headers: { authorization: `Bearer ${token}` },
+          data: {},
+        })
+      ).status(),
+    ).toBe(200);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const room9 = (await c.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/v/west4karaoke/room/${room9}`);
+    await page.getByLabel("Room code").fill("KX4M7");
+    await page.getByRole("button", { name: "Join" }).click();
+    const share = page
+      .getByRole("region", { name: "Your bill · #1042" })
+      .getByRole("group", { name: "Pay my share" });
+    await expect(share).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+    await share.getByLabel("Your name, for the bill").fill("Kevin");
+    await share.getByRole("button", { name: "An even share (1 of 12)" }).click();
+    await expect(share.getByText("Your share 1 of 12 · $41.55")).toBeVisible();
+    expect(await violations(page)).toEqual([]);
+
+    const receipt = randomBytes(18).toString("base64url");
+    await c.query(
+      `insert into receipts (venue_id, check_id, token_hash, channel, sent_at, expires_at)
+       select venue_id, id, $1, 'web', now(), now() + interval '30 days' from checks where id = $2`,
+      [tokenHash(receipt), check],
+    );
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await page.goto(`/receipt/${receipt}`);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      expect(await violations(page), colorScheme).toEqual([]);
+    }
+  } finally {
+    await c.end();
+  }
+});
+
+/**
+ * M5-16: every guest page is in this suite. A new page.tsx under apps/guest/app fails here until it
+ * gets an axe check above (or a reason it isn't a guest's page).
+ */
+test("every guest page has an accessibility check", () => {
+  const covered: Record<string, string> = {
+    "": "the site's home",
+    book: "the bare domain's Book page",
+    "booking-moved": "the old booking page",
+    menu: "the menu page",
+    status: "the status page",
+    "b/[token]": "manage and the booking link's bill",
+    "pay/[token]": "the payment page",
+    "r/[token]": "the room page from the host link",
+    "receipt/[token]": "the receipt page",
+    room: "the room page on a joined phone",
+    tablet: "the room tablet",
+    "v/[slug]": "the venue page",
+    "v/[slug]/book": "Book: Pick and Hold",
+    "v/[slug]/book/[token]": "Book: details, terms, booked and a lapsed hold",
+    "v/[slug]/menu": "the venue's menu page",
+    "v/[slug]/parties": "private parties and the enquiry form",
+    "v/[slug]/room/[roomId]": "joining a room, ordering and Pay my share",
+    "v/[slug]/sing": "the singer's queue page",
+    "v/[slug]/waitlist": "joining the waitlist",
+    "w/[token]": "a waitlist spot and its offer",
+    tv: "not a guest's page: the bar's Up next TV, a paired shared screen (M6-22)",
+  };
+  const pages: string[] = [];
+  const walk = (dir: string, rel: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(`${dir}/${e.name}`, rel ? `${rel}/${e.name}` : e.name);
+      else if (e.name === "page.tsx") pages.push(rel);
+    }
+  };
+  walk("apps/guest/app", "");
+  expect(pages.filter((p) => !(p in covered))).toEqual([]);
 });

@@ -826,6 +826,8 @@ export const en = {
   "guestWait.leave": "Leave the waitlist",
   "guestWait.left": "You've left the waitlist.",
   "guestWait.offer": "{room} is ready · {time} to claim it",
+  "guestWait.offerAnnounce": "{room} is ready · {n} minutes to claim it",
+  "guestWait.offerOneMinute": "{room} is ready · 1 minute to claim it",
   "guestWait.decline": "Give it away",
   "guestWait.declined": "You gave the room away.",
   "guestWait.seated": "You're in. Have fun!",

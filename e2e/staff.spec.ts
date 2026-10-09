@@ -2088,9 +2088,9 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     const offered = await page.request.post(`/v1/venues/${v}/waitlist/${jordan}/offer`);
     expect(offered.status(), await offered.text()).toBe(201);
     await guest.reload();
-    await expect(guest.getByRole("status")).toHaveText(
-      /^Room 2 is ready · (10:00|9:5\d) to claim it$/,
-    );
+    await expect(guest.getByText(/^Room 2 is ready · (10:00|9:5\d) to claim it$/)).toBeVisible();
+    // Spoken once a minute (M5-16).
+    await expect(guest.getByRole("status")).toHaveText("Room 2 is ready · 10 minutes to claim it");
     await expect(guest.getByRole("button", { name: "Give it away" })).toBeVisible();
     await guest.close();
   } finally {
@@ -2806,8 +2806,12 @@ for (const size of SIZES) {
           .getByRole("button", { name: "Offer a room" })
           .click();
         await guest.reload();
+        await expect(
+          guest.getByText(/^Room 2 is ready · (10:00|9:5\d) to claim it$/),
+        ).toBeVisible();
+        // Spoken once a minute (M5-16).
         await expect(guest.getByRole("status")).toHaveText(
-          /^Room 2 is ready · (10:00|9:5\d) to claim it$/,
+          "Room 2 is ready · 10 minutes to claim it",
         );
         await guest.close();
       } finally {

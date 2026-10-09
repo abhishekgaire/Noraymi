@@ -129,8 +129,17 @@ export function Spot({ token }: { token: string }) {
       )}
       {spot.status === "offered" && spot.offer && (
         <>
-          <p className="big" role="status">
+          <p className="big" aria-hidden="true">
             {t("en", "guestWait.offer", { room: spot.offer.room_name, time: clock })}
+          </p>
+          {/* Announced once a minute, not every second (M5-16). */}
+          <p className="visually-hidden" role="status" aria-live="polite">
+            {left !== null && left > 60
+              ? t("en", "guestWait.offerAnnounce", {
+                  room: spot.offer.room_name,
+                  n: Math.ceil(left / 60),
+                })
+              : t("en", "guestWait.offerOneMinute", { room: spot.offer.room_name })}
           </p>
           <button type="button" disabled={busy} onClick={() => void act("decline")}>
             {t("en", "guestWait.decline")}
