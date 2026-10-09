@@ -111,6 +111,15 @@ export function PhoneTonight() {
       return t("phone.status.late", { time: time(b.running_late_until, timeZone) });
     return t("phone.status.booked");
   };
+  /** The chip's colour (Staff.dc.html): lime seated, pink late, grey otherwise. */
+  const statusKind = (b: Booking): string =>
+    b.status === "checked_in" || b.status === "completed"
+      ? "seated"
+      : b.status === "no_show"
+        ? "no-show"
+        : b.running_late_until
+          ? "late"
+          : "booked";
   const act = async (path: string, body: unknown, line: string) => {
     try {
       await api("POST", `/v1/venues/${venueId}${path}`, body);
@@ -123,7 +132,7 @@ export function PhoneTonight() {
   };
 
   return (
-    <section className="screen">
+    <section className="screen phone-tonight">
       <h1>{t("menu.tonight")}</h1>
       {failed && (
         <p className="error" role="alert">
@@ -136,7 +145,7 @@ export function PhoneTonight() {
         </p>
       )}
       {board && (
-        <p aria-label={t("board.countsLabel")}>
+        <p className="phone-counts" aria-label={t("board.countsLabel")}>
           {t("phone.counts", {
             inUse: board.counts.in_use,
             open: board.counts.open,
@@ -289,7 +298,9 @@ export function PhoneTonight() {
                   deposit: money(b.deposit_cents as never),
                 })}
               </span>
-              <span className="small">{status(b)}</span>
+              <span className="status-chip" data-status={statusKind(b)}>
+                {status(b)}
+              </span>
             </button>
           </li>
         ))}
@@ -297,7 +308,7 @@ export function PhoneTonight() {
       <h2>{t("phone.byRoom")}</h2>
       <ul className="bookings-list" aria-label={t("phone.byRoom")}>
         {board?.rooms.map((r) => (
-          <li key={r.room_id} aria-label={r.name} className="small">
+          <li key={r.room_id} aria-label={r.name} className="small" data-kind={r.words.kind}>
             <strong>{r.name}</strong>{" "}
             {r.session
               ? r.session.guest_name
