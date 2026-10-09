@@ -187,7 +187,7 @@ Korean Sweet Chili Sauce · Ranch · BBQ · Honey Mustard · Nashville Hot · Ke
 `import/mapping.json` with `import/items.csv` and `import/choices.csv`, in the M9-04 menu importer's format ([runbook](../../runbooks/import.md#the-menu-m9-04)). Prices are written in dollars as given and read as integer cents by the importer. It's a venue file, not a seed: don't load it until the open points are answered and Sing Sing's venue exists, then run `pnpm db:import -- --venue <sing-sing> --mapping docs/venues/sing-sing/import/mapping.json --dry-run` first.
 
 - 179 priced lines making 104 items (variants: wine glass/bottle, beer bottle/draft, liquor shot/bottle, combo, tender, wing, popcorn and bucket sizes); 60 choices in 20 choice groups (soju flavor and sauce required; ramen add-ons and "Make it a meal" optional).
-- Drinks are station `bar`, tax category `drink`; food is station `kitchen`, tax category `food`. Food has no bar grid section.
+- Drinks are station `bar`, tax category `drink`; food is station `kitchen`, tax category `food`. Food has no bar grid section: it's sold from the Food section's row of categories (D100), and the import keeps the menu's own ten food categories: Burgers, Chicken Sandwiches, Fried Rice, Korean Ramen, Sides, Combos, Tenders (the tender combos with them), Wings, Popcorn Chicken and Buckets.
 - Checked on Oct 9, 2026 with a dry run against a throwaway database (not the demo one): the files parse, the promotion checks pass and the run reconciles.
 
 What the importer can't express, so it's left out:

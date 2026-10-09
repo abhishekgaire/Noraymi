@@ -56,12 +56,13 @@ Definition of done: see CLAUDE.md.
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Stations; [Data model](../spec/04-data-model.md) · Room orders
 - **Build:**
   - Migration: `menu_items.station` limited to `bar` and `kitchen`; `orders.station` and `orders.basket_id`; `order_items.kitchen_note` (up to 200 characters), `kitchen_note_allergy`, `kitchen_sent_at`, `kitchen_sent_by` and `package_id`; row-level security unchanged and a venue-wall test.
-  - Admin → Menu shows Station on each item only while the module is on.
+  - Admin → Menu shows Station on each item only while the module is on, and lets a manager rename and reorder the food categories (`menu_categories` name and sort), which the bar POS's food row and the guest menu's food sections follow (D100).
   - The order pipeline splits a basket or round with lines for both stations into one order per station sharing `basket_id`; options and variants follow their item.
 - **Acceptance:**
   - [ ] A basket of one food item and two drinks becomes two orders, one per station, with one `basket_id`.
   - [ ] An option on a food item stays on the kitchen order.
   - [ ] With the module off, a `kitchen` item can't be saved or ordered.
+  - [ ] Renaming a food category or moving it up in Admin → Menu changes its name and place on the bar POS's food row and the room page's food sections.
 - **Tests:** unit tests for the split; integration tests against Postgres with row-level security on; the migration linter.
 - **Notes:**
 
@@ -92,11 +93,12 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-02, K-03; M3-09, M3-11, M3-12
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food
 - **Build:**
-  - Food sections on the room page and tablet, only while Ordering from the room is on; an optional note on each food line ("Allergies or notes for the kitchen", draft wording flagged for the lawyer) with "This is an allergy"; two order cards, "Drinks" and "Food", in the existing guest words.
+  - Food on the room page and tablet under a "Food" heading, each of the menu's food categories (Admin → Menu's names and order) its own section, only while Ordering from the room is on; an optional note on each food line ("Allergies or notes for the kitchen", draft wording flagged for the lawyer) with "This is an allergy"; two order cards, "Drinks" and "Food", in the existing guest words.
   - Same again includes food.
   - After 4 AM, a food order keeps ringing while unaccepted alcohol is cancelled.
 - **Acceptance:**
   - [ ] A guest's mixed basket shows as two cards that each move through the guest words.
+  - [ ] The room page and the room tablet show a "Food" heading with each food category as its own section, in Admin → Menu's order; renaming or reordering a category there changes them.
   - [ ] Accept prints the food in the kitchen at once with each line's note, an allergy note boxed, and no Send to kitchen step.
   - [ ] The guest can cancel the food card while it's ringing, and nothing is charged.
   - [ ] At 4:00 AM on the simulated clock, the drinks card is cancelled as `alcohol_closed` and the food card keeps ringing.
@@ -111,7 +113,7 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** K-03; M3-07, M6-02, M6-03, M6-05, M6-15
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 2 and Changing a sent drink
 - **Build:**
-  - A Food section after the ten fixed sections, only while the module is on, so no drink moves.
+  - A Food section after the ten fixed sections, only while the module is on, so no drink moves. Tapping Food opens a second row of the menu's own food categories (Admin → Menu's names and order); a category shows only its items; search covers the whole menu. An item with choices opens them on tap (D100).
   - Food goes on the tab or check exactly when a drink would (a room tab's staff order at once; a bar tab's or quick sale's round at Send, or at Send to kitchen if that comes first, through the hold-raise check), and reads "Not sent".
   - "Send to kitchen (N)" at the bottom of the bar POS and the room tab on desktop and phone, active while unsent food exists; its confirmation lists only the unsent food lines, each with a note (up to 200 characters) and "This is an allergy"; a quick sale's confirmation asks for a name or label first.
   - `POST /checks/{c}/kitchen-sends` (idempotency key) marks the lines `kitchen_sent_at` and `kitchen_sent_by` and creates one kitchen print job in one transaction, refusing lines already sent; the lines then read "Sent · 11:42".
@@ -120,6 +122,9 @@ Definition of done: see CLAUDE.md.
   - English and Spanish strings for every new word.
 - **Acceptance:**
   - [ ] Turning the module on adds the Food section and leaves every drink in its slot.
+  - [ ] Tapping Food shows a row of the food categories from the test kitchen menu, in Admin → Menu's order; tapping one shows only its items; renaming or moving a category in Admin → Menu changes the row.
+  - [ ] Searching "fries" from any section finds French Fries.
+  - [ ] Tapping an item with a required choice (a sauce) opens its choices, and it can't go on the tab until one is picked; an optional choice (Make it a meal +$5.00) can be skipped.
   - [ ] Food added to Jess P.'s tab reads "Not sent", is on the tab, and prints nothing until Send to kitchen.
   - [ ] "Send to kitchen (N)" is active only while unsent food exists, and N counts the unsent food items.
   - [ ] The confirmation lists only the unsent food lines; a note on each prints under its line, and a note marked as an allergy prints boxed and bold.
