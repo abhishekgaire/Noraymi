@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useVenueTime } from "../clock.js";
 import { useEvents } from "../events.js";
+import "./desk.css";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CashPanel } from "./CashPanel.js";
@@ -129,25 +130,101 @@ export function CloseTheNight() {
 
   const remaining = night?.charge_remaining ?? { count: 0, total_cents: 0 };
   return (
-    <section className="screen close-night" aria-labelledby="night-title">
-      <h1 id="night-title">{t("menu.closeNight")}</h1>
-      {night && venueId && date && (
-        <NightChecks
-          venueId={venueId}
-          date={date}
-          timeZone={timeZone}
-          checks={night.checks}
-          closed={night.closed}
-          postsTo={night.late_money_posts_to}
-          onChanged={() => void load()}
-        />
-      )}
-      {venueId && date && (
-        <ReportPanel key={night?.closed ? "z" : "x"} venueId={venueId} date={date} />
-      )}
-      {venueId && date && <ReviewAfterOutage venueId={venueId} date={date} timeZone={timeZone} />}
-      {venueId && <UnmatchedPayments venueId={venueId} timeZone={timeZone} />}
-      {venueId && <BreakGlassCard venueId={venueId} />}
+    <section className="screen close-night desk" aria-labelledby="night-title">
+      <div className="desk-head">
+        <h1 id="night-title">{t("menu.closeNight")}</h1>
+      </div>
+      <div className="desk-card alert-card night-open">
+        {night && venueId && date && (
+          <NightChecks
+            venueId={venueId}
+            date={date}
+            timeZone={timeZone}
+            checks={night.checks}
+            closed={night.closed}
+            postsTo={night.late_money_posts_to}
+            onChanged={() => void load()}
+          />
+        )}
+        <section className="night-bar-tabs" aria-labelledby="night-tabs">
+          <h2 id="night-tabs">{t("night.barTabs")}</h2>
+          {night?.tab_cut_off_at && (
+            <p className="small">
+              {t("night.cutOffAt", { time: time(night.tab_cut_off_at, timeZone) })}
+            </p>
+          )}
+          {night?.bar_tabs.length === 0 ? (
+            <p className="muted">{t("night.noTabs")}</p>
+          ) : (
+            <ul className="night-tabs">
+              {night?.bar_tabs.map((tab) => (
+                <li key={tab.id} className="row night-tab">
+                  <span>
+                    <strong data-guest-text>{tab.name}</strong>
+                    {tab.card && (
+                      <span className="small" data-guest-text>
+                        {` · ${tab.card.brand} ··${tab.card.last4}`}
+                      </span>
+                    )}
+                  </span>
+                  <span>{money(tab.total_cents as never)}</span>
+                  {tab.waiting_for ? (
+                    <span className="badge-text">
+                      {t("rail.badge.waiting", { name: tab.waiting_for })}
+                      {" · "}
+                      {t("night.skipped")}
+                    </span>
+                  ) : tab.state === "tipping" ? (
+                    <span className="badge-text">{t("night.tipping")}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          {confirming ? (
+            <div className="confirm" role="group" aria-labelledby="night-confirm">
+              <p id="night-confirm">
+                <strong>{t("night.chargeRemaining")}</strong>
+              </p>
+              <p>{t("night.cards", { count: remaining.count })}</p>
+              <p>{t("night.inAll", { total: money(remaining.total_cents as never) })}</p>
+              <p className="small">{t("night.noTip")}</p>
+              <div className="actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => void charge()}
+                >
+                  {busy ? t("night.charging") : t("night.chargeThem")}
+                </button>
+                <button
+                  type="button"
+                  className="link"
+                  disabled={busy}
+                  onClick={() => setConfirming(false)}
+                >
+                  {t("night.back")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={remaining.count === 0}
+                onClick={() => {
+                  setDone(null);
+                  setConfirming(true);
+                }}
+              >
+                {t("night.chargeRemaining")}
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -158,84 +235,6 @@ export function CloseTheNight() {
           {done}
         </p>
       )}
-      <section className="card" aria-labelledby="night-tabs">
-        <h2 id="night-tabs">{t("night.barTabs")}</h2>
-        {night?.tab_cut_off_at && (
-          <p className="small">
-            {t("night.cutOffAt", { time: time(night.tab_cut_off_at, timeZone) })}
-          </p>
-        )}
-        {night?.bar_tabs.length === 0 ? (
-          <p className="muted">{t("night.noTabs")}</p>
-        ) : (
-          <ul className="night-tabs">
-            {night?.bar_tabs.map((tab) => (
-              <li key={tab.id} className="row night-tab">
-                <span>
-                  <strong data-guest-text>{tab.name}</strong>
-                  {tab.card && (
-                    <span className="small" data-guest-text>
-                      {` · ${tab.card.brand} ··${tab.card.last4}`}
-                    </span>
-                  )}
-                </span>
-                <span>{money(tab.total_cents as never)}</span>
-                {tab.waiting_for ? (
-                  <span className="badge-text">
-                    {t("rail.badge.waiting", { name: tab.waiting_for })}
-                    {" · "}
-                    {t("night.skipped")}
-                  </span>
-                ) : tab.state === "tipping" ? (
-                  <span className="badge-text">{t("night.tipping")}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-        {confirming ? (
-          <div className="confirm" role="group" aria-labelledby="night-confirm">
-            <p id="night-confirm">
-              <strong>{t("night.chargeRemaining")}</strong>
-            </p>
-            <p>{t("night.cards", { count: remaining.count })}</p>
-            <p>{t("night.inAll", { total: money(remaining.total_cents as never) })}</p>
-            <p className="small">{t("night.noTip")}</p>
-            <div className="actions">
-              <button
-                type="button"
-                className="primary"
-                disabled={busy}
-                onClick={() => void charge()}
-              >
-                {busy ? t("night.charging") : t("night.chargeThem")}
-              </button>
-              <button
-                type="button"
-                className="link"
-                disabled={busy}
-                onClick={() => setConfirming(false)}
-              >
-                {t("night.back")}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="actions">
-            <button
-              type="button"
-              className="primary"
-              disabled={remaining.count === 0}
-              onClick={() => {
-                setDone(null);
-                setConfirming(true);
-              }}
-            >
-              {t("night.chargeRemaining")}
-            </button>
-          </div>
-        )}
-      </section>
       {night && night.capture_failed.length > 0 && (
         <section className="card" aria-labelledby="night-failed">
           <h2 id="night-failed">{t("night.failedTabs")}</h2>
@@ -247,21 +246,29 @@ export function CloseTheNight() {
           </ul>
         </section>
       )}
-      {venueId && date && (
-        <div className="card">
-          <TipsPanel venueId={venueId} date={date} />
-        </div>
-      )}
-      {venueId && (
-        <div className="card">
-          <DrawerPanel
-            venueId={venueId}
-            canHandOver={
-              signedIn?.membership.role === "owner" || signedIn?.membership.role === "manager"
-            }
-          />
-        </div>
-      )}
+      <div className="desk-cols three night-cols">
+        {venueId && date && (
+          <ReportPanel key={night?.closed ? "z" : "x"} venueId={venueId} date={date} />
+        )}
+        {venueId && date && (
+          <div className="card">
+            <TipsPanel venueId={venueId} date={date} />
+          </div>
+        )}
+        {venueId && (
+          <div className="card">
+            <DrawerPanel
+              venueId={venueId}
+              canHandOver={
+                signedIn?.membership.role === "owner" || signedIn?.membership.role === "manager"
+              }
+            />
+          </div>
+        )}
+      </div>
+      {venueId && date && <ReviewAfterOutage venueId={venueId} date={date} timeZone={timeZone} />}
+      {venueId && <UnmatchedPayments venueId={venueId} timeZone={timeZone} />}
+      {venueId && <BreakGlassCard venueId={venueId} />}
     </section>
   );
 }

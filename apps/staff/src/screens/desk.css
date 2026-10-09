@@ -1,0 +1,590 @@
+/* The desk screens (V-03), after DeskRoom, DeskCalendar, DeskMessages, DeskReports and Night
+   (design/canvas, 1280 × 800): a head with the display title and a mono line, then cards in
+   columns at the front desk's width. One column on a phone. Only the shared tokens. */
+.screen.desk {
+  max-width: none;
+  font-size: var(--w4-text-base);
+}
+.desk-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--w4-line);
+}
+.desk-head h1 {
+  margin: 0;
+}
+.desk-head .grow {
+  flex: 1;
+}
+.desk-head .actions {
+  margin: 0;
+}
+.desk-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--w4-line-3);
+  border-radius: var(--w4-radius);
+  color: var(--w4-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.desk-sub,
+.desk-label {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  letter-spacing: 0.08em;
+  color: var(--w4-muted);
+  margin: 0;
+}
+.desk-label {
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  font-size: 12px;
+}
+.desk-card {
+  padding: 14px 16px;
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.desk-card > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.desk-card h2,
+.desk-card h3 {
+  font-family: var(--w4-font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+  margin: 0;
+}
+.desk-card.alert-card {
+  border-color: color-mix(in srgb, var(--w4-pink) 60%, transparent);
+  background: color-mix(in srgb, var(--w4-pink) 6%, var(--w4-bg-row));
+}
+.desk-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.desk-cols {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+/* Label and amount rows, amounts in mono on the right. */
+.desk-card dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  margin: 0;
+}
+.desk-card dd {
+  margin: 0;
+  text-align: end;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-md);
+}
+.desk-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* DeskRoom: the clock, the running tab and close-out in three columns. */
+.room-screen.desk .desk-clock .big {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+.room-screen.desk .desk-clock .notice {
+  color: var(--w4-lime);
+  font-weight: 600;
+}
+.room-screen.desk .desk-clock .notice.error {
+  color: var(--w4-pink);
+}
+.room-screen.desk .desk-clock .actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+}
+.room-screen.desk section.tab {
+  /* Not the phone's bottom tab of the same class name. */
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  text-align: start;
+  font-size: var(--w4-text-base);
+  font-weight: 400;
+}
+.room-screen.desk section.tab dl {
+  gap: 10px 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--w4-line);
+  margin-bottom: 10px;
+}
+.room-screen.desk section.tab h2 {
+  margin-bottom: 10px;
+}
+.room-screen.desk .presented {
+  border-bottom: 1px solid var(--w4-line);
+  padding-bottom: 12px;
+}
+.room-screen.desk .presented h2 {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+  color: var(--w4-text);
+  margin-bottom: 10px;
+}
+.room-screen.desk .presented dl > dd:last-of-type,
+.room-screen.desk section.tab dl > dd:last-of-type {
+  color: var(--w4-lime);
+}
+.desk-closeout button.primary {
+  width: 100%;
+}
+.desk-closeout .actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.room-screen.desk .faults li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+}
+.room-screen.desk .alert-card h2 {
+  color: var(--w4-pink);
+}
+.room-screen.desk .alert-card .faults li {
+  font-weight: 600;
+}
+.room-screen.desk .alert-card button.primary {
+  background: var(--w4-pink);
+  border-color: var(--w4-pink);
+}
+.room-screen.desk .desk-sub {
+  font-family: var(--w4-font-body);
+  font-size: var(--w4-text-base);
+  letter-spacing: 0;
+}
+.room-screen.desk section[aria-label] .faults li + li {
+  border-top: 1px solid var(--w4-line);
+}
+
+/* DeskCalendar: the days as a grid of tiles, the picked day's bookings beside them. */
+.calendar.desk .days {
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+.calendar.desk .days button {
+  width: 100%;
+  min-height: 84px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  text-align: start;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+  font-weight: 700;
+}
+.calendar.desk .days button[aria-pressed="true"] {
+  border: 2px solid var(--w4-yellow);
+  background: color-mix(in srgb, var(--w4-yellow) 8%, var(--w4-bg-row));
+}
+.calendar.desk .day-count {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  font-weight: 400;
+  color: var(--w4-muted);
+}
+.calendar.desk .day-busy {
+  border-color: color-mix(in srgb, var(--w4-lime) 40%, transparent);
+  background: color-mix(in srgb, var(--w4-lime) 5%, var(--w4-bg-row));
+}
+.calendar.desk .day-blocked {
+  border-color: color-mix(in srgb, var(--w4-pink) 50%, transparent);
+  color: var(--w4-pink);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--w4-pink) 14%, transparent) 0 6px,
+    transparent 6px 12px
+  );
+}
+.calendar.desk .bookings-list li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--w4-line);
+}
+.calendar.desk .day-side h2 {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 1.9rem;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  color: var(--w4-text);
+}
+
+/* DeskMessages: inbox, conversation, automatic texts. */
+.messages.desk .texts-list li {
+  margin: 0;
+}
+.messages.desk .conversation {
+  min-height: 0;
+}
+
+/* DeskReports and Night: numbers in cards, amounts in mono. */
+.desk-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.desk-kpi b {
+  display: block;
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--w4-lime);
+}
+.desk-bars {
+  display: grid;
+  gap: 6px;
+}
+.desk-bar {
+  height: 8px;
+  border-radius: var(--w4-radius-pill);
+  background: var(--w4-surface-2);
+  overflow: hidden;
+}
+.desk-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--w4-lime);
+  border-radius: inherit;
+}
+
+/* The panels these screens share with others (ReportPanel, TipsPanel, DrawerPanel, NightChecks…) carry
+   a bare "card" class; on a desk screen it is the canvas's card. */
+.screen.desk .card {
+  padding: 14px 16px;
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+  min-width: 0;
+}
+.screen.desk .card .card,
+.screen.desk .desk-card .card {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.screen.desk .card h2,
+.screen.desk .night-bar-tabs h2 {
+  font-family: var(--w4-font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+  margin: 0 0 10px;
+}
+.screen.desk .card dd,
+.screen.desk .tips-shares li > span:last-child,
+.screen.desk .night-tab > span:nth-child(2) {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-md);
+}
+.screen.desk .tips-shares li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--w4-line-faint);
+}
+.screen.desk .card .actions,
+.screen.desk .desk-card .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+/* Night: what is still open in the canvas's pink card; the numbers, tips and drawers in three. */
+.close-night.desk .night-open {
+  margin-bottom: 12px;
+}
+.close-night.desk .night-open .night-checks h2 {
+  font-family: var(--w4-font-body);
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+  letter-spacing: 0;
+  font-variant-caps: normal;
+  color: var(--w4-pink);
+}
+.close-night.desk .night-open .tips-shares li.warn > span:first-child {
+  color: var(--w4-text);
+}
+.close-night.desk .night-checks .tips-shares li {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.close-night.desk .night-checks .tips-shares li > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.close-night.desk .night-checks .tips-shares li > a {
+  flex: none;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+.close-night.desk .night-bar-tabs {
+  padding-top: 12px;
+  border-top: 1px solid var(--w4-line);
+}
+.close-night.desk .night-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.close-night.desk .night-tabs > .night-tab {
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius-sm);
+  padding: 6px 10px;
+  font-size: var(--w4-text-sm);
+  background: var(--w4-surface);
+}
+.close-night.desk .night-tabs > .night-tab:has(.badge-text) {
+  border-color: color-mix(in srgb, var(--w4-amber) 60%, transparent);
+  color: var(--w4-amber);
+}
+.close-night.desk .night-cols {
+  margin-bottom: 12px;
+}
+.close-night.desk > .card,
+.close-night.desk > section {
+  margin-bottom: 12px;
+}
+
+.reports.desk .tips-shares li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.reports.desk .tips-shares li > span:first-child {
+  flex: 1;
+}
+.reports.desk .actions input {
+  width: auto;
+}
+/* Reports: the three numbers as the canvas's figure cards, the trend as columns. */
+.reports.desk .desk-cols {
+  margin-bottom: 12px;
+}
+.reports.desk .report-kpi .drawer-figures div:first-child dd,
+.reports.desk .report-kpi strong {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 2.2rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--w4-lime);
+}
+.reports.desk .report-kpi strong {
+  display: block;
+  font-size: 1.7rem;
+}
+.reports.desk .trend li {
+  grid-template-columns: 6em 1fr 7em;
+}
+.reports.desk .trend .bar {
+  width: var(--share);
+  min-width: 2px;
+  height: 14px;
+  background: var(--w4-lime);
+  opacity: 1;
+  border-radius: 4px;
+}
+.reports.desk .trend li > span:last-child {
+  font-family: var(--w4-font-mono);
+  text-align: end;
+}
+
+/* Messages: inbox, the conversation, and the automatic texts. */
+.messages.desk .thread form.actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--w4-line);
+}
+.messages.desk .thread form.actions label {
+  flex: 1;
+  margin: 0;
+  color: var(--w4-muted);
+  font-size: var(--w4-text-sm);
+}
+.messages.desk .thread textarea {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: var(--w4-radius);
+  border: 1px solid var(--w4-line-3);
+  background: var(--w4-bg);
+  color: var(--w4-text);
+  font: inherit;
+  resize: vertical;
+}
+.messages.desk .thread form.actions button {
+  min-height: 48px;
+}
+.messages.desk .conversation {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  text-align: start;
+  padding: 10px 12px;
+  border-radius: var(--w4-radius-md);
+  border-color: var(--w4-line);
+  background: var(--w4-surface);
+}
+.messages.desk .conversation.current {
+  border-color: var(--w4-line-strong);
+  background: var(--w4-surface-2);
+}
+.messages.desk .conversation .badge {
+  justify-self: start;
+}
+.messages.desk .thread h2 {
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 1.9rem;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+  color: var(--w4-text);
+}
+.messages.desk .text {
+  border-radius: var(--w4-radius-md);
+  padding: 10px 12px;
+  background: var(--w4-surface);
+  border-color: var(--w4-line-2);
+}
+.messages.desk .text.out:not(.auto) {
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+.messages.desk .text.out:not(.auto) .muted {
+  color: var(--w4-on-accent);
+  opacity: 0.7;
+}
+.messages.desk .text .small {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+}
+.messages.desk .texts-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line);
+  font-weight: 600;
+}
+.messages.desk .texts-list li .muted {
+  font-family: var(--w4-font-mono);
+  font-weight: 400;
+}
+@media (max-width: 760px) {
+  .messages.desk.with-thread .auto-texts,
+  .messages.desk:not(.with-thread) .thread-pane {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .close-night.desk .night-open .night-checks .tips-shares {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+  }
+  .calendar.desk .days {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .messages.desk .messages-layout {
+    grid-template-columns: 280px minmax(0, 1fr) 300px;
+    gap: 12px;
+    align-items: start;
+  }
+  .desk-room-cols {
+    grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .desk-cols.two {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+  .desk-cols.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .desk-cols.messages-cols {
+    grid-template-columns: 280px minmax(0, 1fr) 300px;
+  }
+}
