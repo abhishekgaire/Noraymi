@@ -295,6 +295,15 @@ M5 and M6 both need only M4, so they can swap.
 
 **Size:** 2 weeks, then the 4-week gate.
 
+## Sing Sing first
+
+Oct 9, 2026 ([D98](decisions.md)): West 4 asked that the system go live first at **Sing Sing Karaoke, Astoria (Queens, NY)**, then at West 4. Sing Sing has the same rules, managers and kind of rooms and bar as West 4, with 6 rooms and a kitchen. Two things follow, both proposed and awaiting the founder's approval:
+
+- **The kitchen.** [K · Kitchen](backlog/K-kitchen.md) builds the draft [Kitchen and food](spec/16-kitchen.md) spec: food ordered like drinks, a ticket on a kitchen printer, runners, 86, food in packages and the allergy notice. No kitchen screen or coursing.
+- **A second go-live.** [S · Sing Sing go-live](backlog/S-sing-sing-go-live.md) lists the M9 work that must be done again for Sing Sing (imports, hardware, PINs and badges, the domain, 10DLC, licenses, its Stripe account, training and the trial, the outage drills and the gate). The M9 tickets themselves stay as they are, for West 4.
+
+Whether the gate's 4 weeks run at Sing Sing, at West 4 or at both is an [open question](spec/14-open-questions.md) for the founder.
+
 ## Admin by milestone
 
 Section names follow the canvas where it has them; Bar POS, Licenses and Console are new.
@@ -374,5 +383,5 @@ The should-have and nice-to-have items the blueprint cites:
 
 The [blueprint's build plan](blueprint.md#build-plan) lists each later phase in full. In short:
 
-- **Phase 2:** multi-location owner accounts, the setup wizard, the website builder (styles, section order, own domains) and the full control panel; rule packs for other counties and the multi-venue settings; the kitchen module (K14); song-system adapters, KaraFun first; Korean and Chinese screens; packages sold in the booking (K3); inventory counts (K7); the native-app decision for offline cards (K10), and with it one handheld for the order and the card (K15); booking conversion (K12); guests extending or moving themselves (K17); gift cards (K5) and guest profiles (K11); tips to the KJ and paid priority (K6); and the items marked phase 2 in the blueprint, such as holiday price rules, minimum spend credited against the room fee, allergen fields, room welfare timers, the signed cleaning checklist, the per-room volume cap, package headcount tiers and the $300,000 sales-tax alert.
+- **Phase 2:** multi-location owner accounts, the setup wizard, the website builder (styles, section order, own domains) and the full control panel; rule packs for other counties and the multi-venue settings; the kitchen display (K14; printed kitchen tickets move into phase 1 for Sing Sing, D98); song-system adapters, KaraFun first; Korean and Chinese screens; packages sold in the booking (K3); inventory counts (K7); the native-app decision for offline cards (K10), and with it one handheld for the order and the card (K15); booking conversion (K12); guests extending or moving themselves (K17); gift cards (K5) and guest profiles (K11); tips to the KJ and paid priority (K6); and the items marked phase 2 in the blueprint, such as holiday price rules, minimum spend credited against the room fee, allergen fields, room welfare timers, the signed cleaning checklist, the per-room volume cap, package headcount tiers and the $300,000 sales-tax alert.
 - **Phase 3, before the pilots:** noraebang readiness (K8); the Flushing items (K9: the commission report, WeChat Pay, and bottle keep only after the lawyer approves it); stored value, loyalty and campaigns; and events and ticketing (K18). K19 to K21 come later.

@@ -9,7 +9,7 @@ Phase 1 puts West 4 live on a backend built for many venues: one Postgres databa
 
 ## Scope and architecture
 
-Phase 1 ships what West 4 needs for a real Friday night, from rooms and bar tabs to payments, texts and close-out, on foundations built for many venues, so venue two needs setup, not a rewrite. Staff screens ship in English and Spanish. Phase 1 also ships a minimal internal Console for our own staff: support grants, emergency actions, two-person rule-pack publishing and the module allow-list. The setup wizard, the website builder, the full control panel, the kitchen module, and Korean and Chinese staff screens stay in phase 2, as the blueprint plans. [Milestones](../milestones.md) gives every phase 1 deliverable a milestone and lists what waits for later.
+Phase 1 ships what West 4 needs for a real Friday night, from rooms and bar tabs to payments, texts and close-out, on foundations built for many venues, so venue two needs setup, not a rewrite. Staff screens ship in English and Spanish. Phase 1 also ships a minimal internal Console for our own staff: support grants, emergency actions, two-person rule-pack publishing and the module allow-list. The setup wizard, the website builder, the full control panel, the kitchen display and the rest of the kitchen module, and Korean and Chinese staff screens stay in phase 2, as the blueprint plans; printed kitchen tickets come into phase 1 for Sing Sing Astoria, the first venue to go live ([D98](../decisions.md), [Kitchen and food](16-kitchen.md), a draft). [Milestones](../milestones.md) gives every phase 1 deliverable a milestone and lists what waits for later.
 
 ```mermaid
 flowchart LR
