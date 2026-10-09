@@ -9,7 +9,8 @@
       "default": "./dist/index.js"
     },
     "./design/tokens.css": "./src/design/tokens.css",
-    "./design/fonts.css": "./src/design/fonts.css"
+    "./design/fonts.css": "./src/design/fonts.css",
+    "./design/controls.css": "./src/design/controls.css"
   },
   "scripts": {
     "dev": "tsc -b --watch --preserveWatchOutput",

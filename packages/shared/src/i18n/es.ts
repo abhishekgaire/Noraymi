@@ -256,6 +256,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "admin.unsaved.other": "{count} cambios sin guardar",
   "admin.saveAndPublish": "Guardar y publicar",
   "admin.discard": "Descartar cambios",
+  "admin.changesNote":
+    "Cada cambio queda registrado con quién y cuándo. Nada llega al sitio web ni a las pantallas de las salas hasta que pulses Guardar y publicar.",
   "admin.published": "Publicado",
   "admin.publishFailed": "No se pudo publicar · nada cambió",
   "admin.hint.team": "Personas, roles, invitaciones, credenciales e idiomas",

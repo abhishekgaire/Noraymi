@@ -8,6 +8,9 @@ import "@west4/shared/design/fonts.css";
 import "@west4/shared/design/tokens.css";
 import "./styles.css";
 import "./phone.css";
+// After the app's styles, so the canvas form layer and Admin's look win their ties (V-05).
+import "@west4/shared/design/controls.css";
+import "./admin/admin.css";
 
 // Uncaught errors go to error tracking, scrubbed (M8-16).
 installErrorReporting();

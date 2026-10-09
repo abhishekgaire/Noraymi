@@ -1,0 +1,441 @@
+/* Admin, restyled to AdminDesk.dc.html (V-05): the settings column beside the app's rail, the open
+   section on the right under its display-face title, "Save and publish" in the header's corner.
+   Fields, switches, cards and row tables come from @west4/shared/design/controls.css (`w4-forms`).
+   Everything is scoped to .admin-screen, so no other screen changes. */
+.admin-screen.screen {
+  max-width: none;
+}
+
+/* The stub: a PIN or badge session, or a phone (screens.md · Admin). */
+.admin-screen .admin-stub {
+  max-width: 560px;
+  padding: 24px 0;
+}
+.admin-screen .admin-stub h1 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+}
+.admin-screen .admin-stub .notice {
+  padding: 18px 20px;
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius-lg);
+  background: var(--w4-bg-row);
+  color: var(--w4-text);
+  font-size: var(--w4-text-lg);
+  line-height: 1.5;
+}
+
+.admin-screen .admin {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  /* Flush with the rail and the top bar, as the canvas draws it. */
+  margin: -14px -20px;
+  min-height: calc(100vh - var(--topbar-h));
+}
+
+/* The settings column. */
+.admin-screen .admin-aside {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 10px;
+  border-right: 1px solid var(--w4-line);
+  background: var(--w4-bg-rail);
+  scrollbar-width: thin;
+}
+.admin-screen .admin-aside h1 {
+  margin: 0;
+  padding: 4px 12px 10px;
+  font-family: var(--w4-font-mono);
+  font-variation-settings: normal;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+.admin-screen .admin-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.admin-screen .admin-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--w4-radius);
+  background: transparent;
+  color: var(--w4-text);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.admin-screen .admin-link:hover {
+  background: var(--w4-line-faint);
+  color: var(--w4-text);
+}
+.admin-screen .admin-link.active {
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+.admin-screen .admin-link-name {
+  font-size: var(--w4-text-base);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.admin-screen .admin-link-hint {
+  font-size: var(--w4-text-xs);
+  line-height: 1.35;
+  color: inherit;
+  opacity: 0.7;
+}
+.admin-screen .admin-note {
+  margin: 14px 0 0;
+  padding: 12px;
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius);
+  background: var(--w4-bg-row);
+  color: var(--w4-muted);
+  font-size: var(--w4-text-xs);
+  line-height: 1.5;
+}
+
+/* The open section. */
+.admin-screen .admin-body {
+  min-width: 0;
+  padding: 0 24px 28px;
+  font-size: var(--w4-text-md);
+}
+.admin-screen .admin-body > section > h2:first-child {
+  margin: 0 -24px 20px;
+  padding: 16px 24px;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--w4-line);
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-size: 34px;
+  font-variant-caps: all-small-caps;
+  letter-spacing: -0.02em;
+  line-height: 0.88;
+}
+.admin-screen .admin-body h3 {
+  margin: 24px 0 8px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+/* All small caps sit low: the mono labels read about 1.3x the canvas's 10 px. */
+.admin-screen .admin-body h3,
+.admin-screen .admin-body thead th,
+.admin-screen .admin-body fieldset > legend {
+  font-size: 13px;
+}
+.admin-screen .admin-body p {
+  line-height: 1.5;
+}
+.admin-screen .admin-body .small {
+  font-size: var(--w4-text-sm);
+}
+.admin-screen .admin-body .muted {
+  color: var(--w4-muted);
+}
+.admin-screen .admin-body button {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--w4-radius);
+  font-size: var(--w4-text-md);
+  font-weight: 700;
+}
+.admin-screen .admin-body button.secondary,
+.admin-screen .admin-body button:not(.primary, .danger, .chip, .link) {
+  border-color: var(--w4-line-3);
+}
+.admin-screen .admin-body button.primary {
+  color: var(--w4-on-accent);
+}
+.admin-screen .admin-body .invite-form {
+  margin-top: 16px;
+  max-width: none;
+}
+.admin-screen .admin-body .notice {
+  color: var(--w4-cyan);
+}
+.admin-screen .admin-body .empty {
+  padding: 18px;
+  border: 1px dashed var(--w4-line-3);
+  border-radius: var(--w4-radius-tile);
+  text-align: center;
+}
+.admin-screen .admin-body .error {
+  color: var(--w4-pink);
+}
+.admin-screen .admin-body .pill {
+  border-radius: var(--w4-radius-pill);
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  letter-spacing: 0.08em;
+}
+.admin-screen .admin-body .switch-line {
+  gap: 12px;
+}
+
+/* Narrow content keeps the canvas's card widths instead of stretching across the screen. */
+.admin-screen .admin-body .hours-table {
+  max-width: 760px;
+}
+.admin-screen .admin-body input:is([type="number"], [type="time"], [type="date"]),
+.admin-screen .admin-body .field-line input,
+.admin-screen .admin-body .field-line select {
+  max-width: 240px;
+}
+
+/* Features: each module a card. */
+.admin-screen .module {
+  padding: 14px 16px;
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+}
+.admin-screen .module-head h3 {
+  margin: 0;
+  font-family: var(--w4-font-body);
+  font-size: var(--w4-text-base);
+  font-weight: 700;
+  font-variant-caps: normal;
+  letter-spacing: 0;
+  color: var(--w4-text);
+}
+.admin-screen .module-state button[aria-pressed="true"] {
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+.admin-screen .module-off h3 {
+  color: var(--w4-muted);
+}
+/* Segmented and chip choices: lime when chosen, as the canvas's seg2. */
+.admin-screen .admin-body button.chip.on,
+.admin-screen .admin-body button[aria-pressed="true"] {
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  color: var(--w4-on-accent);
+}
+
+/* Lists drawn as the canvas's rows. */
+.admin-screen :is(.licenses .license-list, .support-access .support-list) > li,
+.admin-screen .admin-body ul.list > li {
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius);
+  background: var(--w4-bg-row);
+}
+
+/* "Save and publish": in the header's corner, level with the section's title, and it stays
+   in view while the section scrolls. Zero height, so the title row never moves when it appears. */
+.admin-screen .admin-save {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: flex;
+  justify-content: flex-end;
+  overflow: visible;
+}
+.admin-screen .admin-save-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  max-width: 70%;
+  margin-top: 14px;
+  padding: 0 0 0 12px;
+  background: var(--w4-bg);
+  border-radius: var(--w4-radius);
+}
+.admin-screen .admin-save-count {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  letter-spacing: 0.1em;
+  color: var(--w4-muted);
+}
+.admin-screen .admin-save-bar .error {
+  flex-basis: 100%;
+  text-align: right;
+  font-size: var(--w4-text-sm);
+}
+.admin-screen .admin-save-bar button {
+  min-height: 44px;
+  padding: 0 18px;
+}
+
+/* The banners above a section: cards, not bare text. */
+.admin-screen :is(.rule-pack-notice, .plan-banner, .support-banner) {
+  margin: 16px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+}
+
+@media (max-width: 1023px) {
+  .admin-screen .admin {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+  }
+  .admin-screen .admin-aside {
+    position: static;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--w4-line);
+  }
+  .admin-screen .admin-body {
+    padding: 0 0 24px;
+  }
+  .admin-screen .admin-body > section > h2:first-child {
+    margin: 0 0 16px;
+    padding: 16px 0;
+  }
+  .admin-screen .admin-save {
+    height: auto;
+    padding-top: 8px;
+  }
+  .admin-screen .admin-save-bar {
+    max-width: none;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--w4-line-2);
+  }
+}
+/* The canvas reads Discard, then Save, left to right. */
+.admin-screen .admin-save-bar button.secondary {
+  order: 1;
+}
+.admin-screen .admin-save-bar button.primary {
+  order: 2;
+}
+.admin-screen .admin-save-bar .error {
+  order: 3;
+}
+
+/* Wide tables (Team, Devices, Menu) never break a word letter by letter: they scroll inside
+   their card instead, and the page itself never scrolls sideways. */
+.admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  scrollbar-width: thin;
+}
+.admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) :is(th, td) {
+  overflow-wrap: normal;
+  word-break: normal;
+  font-size: var(--w4-text-sm);
+}
+.admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) thead th {
+  white-space: nowrap;
+}
+.admin-screen .admin-body :is(.team-table, .devices-table, .menu-table) td {
+  min-width: 72px;
+}
+.admin-screen .admin-body button {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+/* A row's buttons sit side by side, as the canvas's row actions. */
+.admin-screen .admin-body td > .team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+/* Device states in the canvas's mono capitals. */
+.admin-screen .admin-body :is(.state-online, td.ok) {
+  font-family: var(--w4-font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-lime);
+}
+.admin-screen .admin-body button[aria-pressed="true"]:disabled {
+  opacity: 1;
+}
+
+/* A group of choices inside a field grid takes the whole row. */
+.admin-screen .admin-body .invite-fields > fieldset {
+  grid-column: 1 / -1;
+}
+/* Fields in a row line up on their boxes, however long their labels run. */
+.admin-screen .admin-body .invite-fields {
+  align-items: end;
+}
+
+/* Features: the canvas's grid of module cards. */
+.admin-screen .admin-body .module-list {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+.admin-screen .module-head {
+  flex-wrap: nowrap;
+}
+.admin-screen .module-head > div:first-child {
+  min-width: 0;
+}
+.admin-screen .module-head p {
+  font-size: var(--w4-text-xs);
+  color: var(--w4-muted);
+}
+.admin-screen .module-state {
+  flex: none;
+  gap: 4px;
+}
+.admin-screen .module-state button {
+  padding: 0 10px;
+  font-size: var(--w4-text-sm);
+}
+/* A pill is a label, not a control: the canvas's small mono chip. */
+.admin-screen .admin-body span.pill {
+  min-height: 0;
+  line-height: 1.4;
+  padding: 4px 10px;
+  color: var(--w4-muted);
+  border-color: var(--w4-line-3);
+  white-space: nowrap;
+}
+.admin-screen .module-hides {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--w4-line);
+}
+.admin-screen .module-hides dt {
+  font-size: var(--w4-text-sm);
+}
+.admin-screen .module-hides dd {
+  font-size: var(--w4-text-xs);
+  margin-bottom: 4px;
+}

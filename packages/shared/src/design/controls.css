@@ -1,0 +1,193 @@
+/* The canvas's form layer (V-05; AdminDesk.dc.html): fields, switches, cards and row tables.
+   A screen opts in by putting `w4-forms` on a container; nothing changes outside one.
+   Built only from tokens.css. Every control keeps a 44 px target (the canvas draws them ~36 px). */
+.w4-forms :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]), select, textarea),
+.w4-field {
+  min-height: 44px;
+  padding: 0 11px;
+  border: 1px solid var(--w4-line-3);
+  border-radius: var(--w4-radius-sm);
+  background: var(--w4-surface);
+  color: var(--w4-text);
+  font: inherit;
+  font-size: var(--w4-text-md);
+  color-scheme: dark;
+  transition: border-color 0.15s ease;
+}
+.w4-forms textarea,
+textarea.w4-field {
+  padding: 9px 11px;
+  line-height: 1.45;
+}
+.w4-forms :is(input, select, textarea):focus,
+.w4-field:focus {
+  border-color: var(--w4-lime);
+  outline: none;
+}
+.w4-forms :is(input, select, textarea):focus-visible,
+.w4-field:focus-visible {
+  box-shadow: 0 0 0 2px rgba(212, 255, 63, 0.25);
+}
+.w4-forms input::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+}
+.w4-forms input::placeholder,
+.w4-forms textarea::placeholder {
+  color: var(--w4-faint);
+}
+.w4-forms :is(label > span, .invite-fields label > span) {
+  color: var(--w4-muted);
+  font-size: var(--w4-text-sm);
+}
+.w4-forms input[type="radio"],
+.w4-forms input[type="checkbox"] {
+  accent-color: var(--w4-lime);
+  width: auto;
+  min-height: 0;
+  margin: 0;
+}
+/* A label around a choice is one row: the control, then its words; the row is the 44 px target. */
+.w4-forms label:has(> input:is([type="checkbox"], [type="radio"])) {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.w4-forms label:has(> input:is([type="checkbox"], [type="radio"])) > span {
+  min-width: 0;
+  margin: 0;
+  color: var(--w4-text);
+  font-size: var(--w4-text-md);
+}
+/* A radio choice: the canvas's bordered option, lime-edged when chosen. */
+.w4-forms label:has(> input[type="radio"]) {
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius);
+  background: var(--w4-surface);
+}
+.w4-forms label:has(> input[type="radio"]:checked) {
+  border-color: rgba(212, 255, 63, 0.55);
+  background: rgba(212, 255, 63, 0.07);
+}
+.w4-forms input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* A switch: a checkbox drawn as the canvas's 42 × 24 track, a dark knob, lime when on.
+   It stays a checkbox for screen readers; its label line carries the 44 px target. */
+.w4-switch,
+.w4-forms label > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: var(--w4-radius-pill);
+  background: rgba(244, 241, 234, 0.18);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.w4-switch::before,
+.w4-forms label > input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--w4-bg);
+  transition: transform 0.15s var(--w4-ease);
+}
+.w4-switch:checked,
+.w4-forms label > input[type="checkbox"]:checked {
+  background: var(--w4-lime);
+}
+.w4-switch:checked::before,
+.w4-forms label > input[type="checkbox"]:checked::before {
+  transform: translateX(18px);
+}
+.w4-switch:disabled,
+.w4-forms label > input[type="checkbox"]:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.w4-switch:focus-visible,
+.w4-forms label > input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--w4-text);
+  outline-offset: 2px;
+}
+.w4-forms .check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* A card: the canvas's settings panel. */
+.w4-card,
+.w4-forms :is(fieldset, .invite-form, .card) {
+  padding: var(--w4-space-7);
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+}
+.w4-forms fieldset > legend {
+  padding: 0 6px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+
+/* A row table: the canvas's rows, one card around the lot, mono column labels. */
+.w4-forms table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-tile);
+  background: var(--w4-bg-row);
+  overflow: hidden;
+  font-size: var(--w4-text-md);
+}
+.w4-forms :is(th, td) {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--w4-line);
+  text-align: left;
+  vertical-align: middle;
+}
+.w4-forms tbody tr:last-child > :is(th, td) {
+  border-bottom: 0;
+}
+.w4-forms thead th {
+  padding-top: 12px;
+  padding-bottom: 8px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-label);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+.w4-forms tbody th {
+  font-weight: 700;
+}
+.w4-forms tbody tr {
+  transition: background 0.15s ease;
+}
+.w4-forms tbody tr:hover {
+  background: var(--w4-line-faint);
+}

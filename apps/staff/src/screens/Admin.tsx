@@ -25,15 +25,17 @@ export function Admin() {
   const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches;
   return (
     <section className="screen admin-screen">
-      <h1>{t("menu.admin")}</h1>
       {assurance === "passkey" && state.status === "signedIn" ? (
         <AdminDraftProvider venueId={state.membership.venue_id}>
           <AdminDesk state={state} />
         </AdminDraftProvider>
       ) : (
-        <p className="notice" role="status">
-          {phone ? t("admin.needsPasskeyPhone") : t("admin.needsPasskey")}
-        </p>
+        <div className="admin-stub">
+          <h1>{t("menu.admin")}</h1>
+          <p className="notice" role="status">
+            {phone ? t("admin.needsPasskeyPhone") : t("admin.needsPasskey")}
+          </p>
+        </div>
       )}
     </section>
   );
@@ -44,30 +46,35 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   const sections = visibleSections(state.membership.permissions);
   return (
     <div className="admin">
-      <RulePackNotice venueId={state.membership.venue_id} />
-      <PlanBanner
-        venueId={state.membership.venue_id}
-        timeZone={state.membership.venue.time_zone}
-        owner={state.membership.permissions.includes("admin.payments")}
-      />
-      {state.membership.permissions.includes("admin.console") && (
-        <SupportBanner venueId={state.membership.venue_id} />
-      )}
-      <nav className="admin-nav" aria-label={t("admin.sections")}>
-        <ul>
-          {sections.map((s) => (
-            <li key={s.id}>
-              <NavLink to={s.path} className="admin-link">
-                <span className="admin-link-name">{t(s.labelKey)}</span>
-                <span className="admin-link-hint">{t(s.hintKey)}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <div className="admin-body">
-        <Outlet />
+      <aside className="admin-aside">
+        <h1>{t("menu.admin")}</h1>
+        <nav className="admin-nav" aria-label={t("admin.sections")}>
+          <ul>
+            {sections.map((s) => (
+              <li key={s.id}>
+                <NavLink to={s.path} className="admin-link">
+                  <span className="admin-link-name">{t(s.labelKey)}</span>
+                  <span className="admin-link-hint">{t(s.hintKey)}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <p className="admin-note">{t("admin.changesNote")}</p>
+      </aside>
+      {/* w4-forms: the canvas's fields, switches, cards and row tables in every section (V-05). */}
+      <div className="admin-body w4-forms">
         <SaveBar />
+        <RulePackNotice venueId={state.membership.venue_id} />
+        <PlanBanner
+          venueId={state.membership.venue_id}
+          timeZone={state.membership.venue.time_zone}
+          owner={state.membership.permissions.includes("admin.payments")}
+        />
+        {state.membership.permissions.includes("admin.console") && (
+          <SupportBanner venueId={state.membership.venue_id} />
+        )}
+        <Outlet />
       </div>
     </div>
   );
@@ -103,25 +110,27 @@ function SaveBar() {
   );
   return (
     <div className="admin-save" role="status">
-      {draft.dirty ? (
-        <>
-          <span>{tn("admin.unsaved", count)}</span>
-          <button
-            type="button"
-            className="primary"
-            disabled={draft.saving}
-            onClick={() => void draft.save()}
-          >
-            {t("admin.saveAndPublish")}
-          </button>
-          <button type="button" className="secondary" onClick={draft.discard}>
-            {t("admin.discard")}
-          </button>
-          {failed}
-        </>
-      ) : (
-        failed || <span>{t("admin.published")}</span>
-      )}
+      <div className="admin-save-bar">
+        {draft.dirty ? (
+          <>
+            <span className="admin-save-count">{tn("admin.unsaved", count)}</span>
+            <button
+              type="button"
+              className="primary"
+              disabled={draft.saving}
+              onClick={() => void draft.save()}
+            >
+              {t("admin.saveAndPublish")}
+            </button>
+            <button type="button" className="secondary" onClick={draft.discard}>
+              {t("admin.discard")}
+            </button>
+            {failed}
+          </>
+        ) : (
+          failed || <span className="admin-save-count">{t("admin.published")}</span>
+        )}
+      </div>
     </div>
   );
 }
