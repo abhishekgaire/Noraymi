@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { staffOrderWordsKey } from "@west4/shared";
+import { staffOrderWordsKey, unsentFood } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
+import { serverNowMs, useClock } from "../clock.js";
+import { useSession } from "../session.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useCutOffWords } from "./CutOff.js";
+import {
+  SendToKitchen,
+  UnsentReminder,
+  UnsentWarning,
+  type CheckFood,
+  type KitchenLine,
+  type KitchenNotes,
+} from "./SendToKitchen.js";
 
 /**
  * Adding drinks to a room from DeskRoom and the Room phone (M3-07; spec 10 ·
@@ -38,6 +48,8 @@ interface Item {
   readonly id: string;
   readonly name: string;
   readonly alcohol: boolean;
+  /** bar or kitchen (K-02): food waits as Not sent until Send to kitchen (K-05). */
+  readonly station?: string;
   readonly out_tonight: boolean;
   readonly variants: readonly Variant[];
   readonly groups: readonly Group[];
@@ -46,6 +58,17 @@ export interface DraftLine {
   readonly variant_id: string;
   readonly qty: number;
   readonly option_ids: readonly string[];
+  /** Food (K-05): when it was rung, on the venue's clock, and its note for the kitchen. */
+  readonly rung_at?: string | null;
+  readonly kitchen_note?: string | null;
+  readonly kitchen_note_allergy?: boolean;
+}
+interface CheckLine {
+  readonly id: number;
+  readonly kind: string;
+  readonly qty: number;
+  readonly description: string;
+  readonly kitchen?: CheckFood;
 }
 interface Order {
   readonly id: string;
@@ -72,16 +95,26 @@ export function AddDrinks(props: {
   onSent: () => void;
   /** The bar POS (M6-02) rings from its own grid: no search box here. */
   search?: boolean;
-  /** Each new request rings one of this variant, as a tap on the bar POS grid. */
-  ringRequest?: { readonly variantId: string; readonly n: number } | null;
+  /** Each new request rings one of this variant, as a tap on the bar POS grid; a food item's
+   *  choices picked in its pop-up come with it (K-05, D100). */
+  ringRequest?: {
+    readonly variantId: string;
+    readonly n: number;
+    readonly optionIds?: readonly string[];
+  } | null;
   /** Bumped when the server changed the draft for us (Repeat round, M6-03). */
   refresh?: number;
-  /** Quick sale (M6-05): Pay makes the sale from the lines instead of sending them to a check. */
-  onPay?: (lines: readonly DraftLine[]) => Promise<void>;
+  /** Quick sale (M6-05): Pay makes the sale from the lines instead of sending them to a check.
+   *  With `kitchen`, it's Send to kitchen coming first (K-05): the sale is made and its food sent. */
+  onPay?: (lines: readonly DraftLine[], kitchen?: { name: string | null }) => Promise<void>;
+  /** The unsent food count (K-05), for the warning before Close or Pay. */
+  onUnsentFood?: (count: number) => void;
+  /** Bumped to open the Send to kitchen confirmation from outside (the warning before Close). */
+  kitchenRequest?: number;
   /** A bar tab (M6-24): Send the singer a drink sends the round as a gift to a singer in the queue. */
   gift?: { readonly tabId: string; readonly timeZone: string } | undefined;
 }) {
-  const { t, money } = useT();
+  const { t, money, time } = useT();
   const { subscribe } = useEvents();
   const { venueId, checkId } = props;
   const [items, setItems] = useState<readonly Item[] | null>(null);
@@ -95,6 +128,17 @@ export function AddDrinks(props: {
   // A tab's hold (M6-07): a round waiting for a manager, or a raise being checked with Stripe.
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Kitchen & food (K-05): the reminder's minutes (null while the module is off), the check's food,
+  // and the warning before a quick sale is paid with food not sent.
+  const [warnMin, setWarnMin] = useState<number | null>(null);
+  const [checkLines, setCheckLines] = useState<readonly CheckLine[]>([]);
+  const [warnPay, setWarnPay] = useState(false);
+  const [kitchenOpen, setKitchenOpen] = useState(0);
+  const [kitchenDone, setKitchenDone] = useState<string | null>(null);
+  const { now } = useClock();
+  const { state: session } = useSession();
+  const venueTimeZone =
+    session.status === "signedIn" ? session.membership.venue.time_zone : "America/New_York";
   // Send the singer a drink (M6-24): the singers in tonight's queue, and the one this round is for.
   const [singers, setSingers] = useState<readonly { id: string; display_name: string }[]>([]);
   const [giftFor, setGiftFor] = useState("");
@@ -141,6 +185,20 @@ export function AddDrinks(props: {
     version.current = d.version;
     setLines(d.lines.map((l) => ({ ...l, option_ids: l.option_ids ?? [] })));
   }, [venueId, checkId]);
+  const loadKitchen = useCallback(async () => {
+    try {
+      const k = await api<{ unsent_warn_min: number }>("GET", `/v1/venues/${venueId}/kitchen`);
+      setWarnMin(k.unsent_warn_min);
+    } catch {
+      // Off (404 module_off) or unreachable: no Send to kitchen.
+      setWarnMin(null);
+    }
+  }, [venueId]);
+  const loadCheck = useCallback(async () => {
+    if (checkId === "quick") return;
+    const v = await api<{ lines: CheckLine[] }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
+    setCheckLines(v.lines);
+  }, [venueId, checkId]);
   const loadOrders = useCallback(async () => {
     if (!props.sessionId) return;
     const r = await api<{ orders: Order[] }>(
@@ -151,10 +209,10 @@ export function AddDrinks(props: {
   }, [venueId, props.sessionId]);
 
   useEffect(() => {
-    Promise.all([loadMenu(), loadDraft(), loadOrders()]).catch(() =>
+    Promise.all([loadMenu(), loadDraft(), loadOrders(), loadKitchen(), loadCheck()]).catch(() =>
       setError(t("shell.error.cantReach")),
     );
-  }, [loadMenu, loadDraft, loadOrders, t]);
+  }, [loadMenu, loadDraft, loadOrders, loadKitchen, loadCheck, t]);
   useEffect(
     () =>
       subscribe((events) => {
@@ -169,8 +227,15 @@ export function AddDrinks(props: {
         if (events.length === 0 || events.some((e) => e.type === "draft.updated")) void loadDraft();
         if (events.length === 0 || events.some((e) => e.type.startsWith("order.")))
           void loadOrders();
+        if (events.length === 0 || events.some((e) => e.type.startsWith("module.")))
+          void loadKitchen();
+        if (
+          events.length === 0 ||
+          events.some((e) => e.type === "check.updated" || e.type.startsWith("order."))
+        )
+          void loadCheck().catch(() => undefined);
       }),
-    [subscribe, loadMenu, loadDraft, loadOrders],
+    [subscribe, loadMenu, loadDraft, loadOrders, loadKitchen, loadCheck],
   );
 
   const byVariant = useMemo(() => {
@@ -209,14 +274,17 @@ export function AddDrinks(props: {
     return saving.current;
   };
 
-  const ring = (item: Item, variant: Variant) => {
+  const ring = (item: Item, variant: Variant, optionIds?: readonly string[]) => {
     // The usual is one tap: each choice's default is already set; a choice with none waits.
+    // Food picked in its pop-up comes with its choices, and the time it was rung (K-05).
+    const at = serverNowMs();
     const line: DraftLine = {
       variant_id: variant.id,
       qty: 1,
-      option_ids: item.groups.flatMap((g) =>
-        g.options.filter((o) => o.is_default).map((o) => o.id),
-      ),
+      option_ids:
+        optionIds ??
+        item.groups.flatMap((g) => g.options.filter((o) => o.is_default).map((o) => o.id)),
+      ...(item.station === "kitchen" && at !== null ? { rung_at: new Date(at).toISOString() } : {}),
     };
     const same = lines.findIndex((l) => sameLine(l, line));
     void save(
@@ -233,7 +301,7 @@ export function AddDrinks(props: {
     const found = byVariant.get(req.variantId);
     if (!found) return;
     lastRing.current = req.n;
-    ring(found.item, found.variant);
+    ring(found.item, found.variant, req.optionIds);
     // ring reads the latest lines; the request is the only trigger.
   }, [props.ringRequest, byVariant]);
   const setQty = (i: number, qty: number) =>
@@ -275,7 +343,142 @@ export function AddDrinks(props: {
     void save(previous, false);
   };
 
-  const send = async () => {
+  // Food (K-05): what's Not sent, in the draft and on the check, and the reminder on the venue's clock.
+  const kitchenOn = warnMin !== null;
+  const labelOf = (l: DraftLine) => {
+    const found = byVariant.get(l.variant_id);
+    if (!found) return "";
+    const base =
+      found.item.variants.length > 1
+        ? `${found.item.name} · ${found.variant.name}`
+        : found.item.name;
+    const opts = found.item.groups
+      .flatMap((g) => g.options)
+      .filter((o) => l.option_ids.includes(o.id))
+      .map((o) => o.name);
+    return [base, ...opts].join(" · ");
+  };
+  const draftFood = lines
+    .map((l, i) => ({ l, i }))
+    .filter(({ l }) => byVariant.get(l.variant_id)?.item.station === "kitchen");
+  const checkFood = checkLines.filter(
+    (l) => l.kitchen && !l.kitchen.sent_at && l.kitchen.open_qty > 0,
+  );
+  const kitchenLines: KitchenLine[] = kitchenOn
+    ? [
+        ...checkFood.map((l) => ({
+          key: `c:${l.id}`,
+          label: l.description,
+          qty: l.kitchen!.open_qty,
+          note: l.kitchen!.kitchen_note ?? "",
+          allergy: l.kitchen!.allergy,
+        })),
+        ...draftFood.map(({ l, i }) => ({
+          key: `d:${i}`,
+          label: labelOf(l),
+          qty: l.qty,
+          note: l.kitchen_note ?? "",
+          allergy: l.kitchen_note_allergy ?? false,
+        })),
+      ]
+    : [];
+  const unsent = unsentFood(
+    [
+      ...checkFood.map((l) => ({ qty: l.kitchen!.open_qty, rungAt: l.kitchen!.rung_at })),
+      ...draftFood.map(({ l }) => ({ qty: l.qty, rungAt: l.rung_at ?? null })),
+    ],
+    now?.epochMilliseconds ?? 0,
+    warnMin ?? 5,
+  );
+  const unsentCount = kitchenOn ? unsent.count : 0;
+  const onUnsentFood = props.onUnsentFood;
+  useEffect(() => onUnsentFood?.(unsentCount), [onUnsentFood, unsentCount]);
+
+  /**
+   * Send to kitchen: the draft's round goes on first (with the hold check on a tab; the sale itself on
+   * a quick sale), then one kitchen ticket for the food confirmed and the food that round put on.
+   */
+  const sendToKitchen = async ({ notes, name }: KitchenNotes) => {
+    setError(null);
+    setNotice(null);
+    setKitchenDone(null);
+    await saving.current;
+    const withNotes = lines.map((l, i) => {
+      const n = notes[`d:${i}`];
+      return n
+        ? {
+            ...l,
+            kitchen_note: n.note.trim() ? n.note.trim() : null,
+            kitchen_note_allergy: n.allergy && n.note.trim() !== "",
+          }
+        : l;
+    });
+    if (props.onPay) {
+      // A quick sale: Send to kitchen makes the sale, as Pay would, and sends its food.
+      await props.onPay(withNotes, { name });
+      return;
+    }
+    const before = new Set(checkLines.map((l) => l.id));
+    if (lines.length > 0) {
+      const answer = await api<{
+        status?: string;
+        waiting_for?: { name: string };
+        error?: { code?: string };
+      }>("POST", `/v1/venues/${venueId}/checks/${checkId}/orders`, {
+        client_order_id: crypto.randomUUID(),
+        lines: withNotes,
+      });
+      if (answer.error?.code === "payment_unknown") {
+        setNotice(t("rail.holdChecking"));
+        return;
+      }
+      if (answer.status === "approval_pending") {
+        setNotice(t("rail.holdDeclined.waiting", { name: answer.waiting_for?.name ?? "" }));
+        await loadDraft();
+        return;
+      }
+      setLines([]);
+      history.current = [];
+    }
+    const v = await api<{ lines: CheckLine[] }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
+    const picked = v.lines.filter(
+      (l) =>
+        l.kitchen &&
+        !l.kitchen.sent_at &&
+        l.kitchen.open_qty > 0 &&
+        (notes[`c:${l.id}`] !== undefined || !before.has(l.id)),
+    );
+    if (picked.length > 0) {
+      const r = await api<{ sent_at: string }>(
+        "POST",
+        `/v1/venues/${venueId}/checks/${checkId}/kitchen-sends`,
+        {
+          lines: picked.map((l) => {
+            const n = notes[`c:${l.id}`];
+            return n
+              ? {
+                  line_id: l.id,
+                  kitchen_note: n.note.trim() ? n.note.trim() : null,
+                  kitchen_note_allergy: n.allergy,
+                }
+              : { line_id: l.id };
+          }),
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      );
+      setKitchenDone(r.sent_at);
+    }
+    await Promise.all([loadDraft(), loadCheck(), loadOrders()]);
+    props.onSent();
+  };
+
+  const send = async (payAnyway = false) => {
+    // A quick sale paid with food not sent: the warning first, with Send to kitchen beside it.
+    if (props.onPay && !payAnyway && unsentCount > 0) {
+      setWarnPay(true);
+      return;
+    }
+    setWarnPay(false);
     setError(null);
     setSending(true);
     try {
@@ -417,6 +620,9 @@ export function AddDrinks(props: {
                 <li key={`${l.variant_id}-${i}`} className={`unsent-line ${held ? "amber" : ""}`}>
                   <div className="unsent-head">
                     <span data-guest-text>{`${l.qty} × ${label}`}</span>
+                    {kitchenOn && item.station === "kitchen" && (
+                      <span className="kitchen-ns">{t("kitchen.notSent")}</span>
+                    )}
                     <span>{money((unit * l.qty) as never)}</span>
                   </div>
                   <div className="unsent-controls">
@@ -504,6 +710,36 @@ export function AddDrinks(props: {
                       : t("drinks.send", { count })}
             </button>
           </div>
+        </div>
+      )}
+      {warnPay && (
+        <UnsentWarning
+          count={unsentCount}
+          anyway="pay"
+          onSend={() => {
+            setWarnPay(false);
+            setKitchenOpen((n) => n + 1);
+          }}
+          onAnyway={() => void send(true)}
+          onBack={() => setWarnPay(false)}
+        />
+      )}
+      {kitchenOn && (
+        <div className="kitchen-bar">
+          {unsent.warn && <UnsentReminder count={unsentCount} />}
+          <SendToKitchen
+            lines={kitchenLines}
+            needsName={checkId === "quick"}
+            openRequest={(props.kitchenRequest ?? 0) + kitchenOpen}
+            onSend={sendToKitchen}
+          />
+          {kitchenDone && (
+            <p className="small kitchen-done" role="status">
+              {t("kitchen.send.done", {
+                time: time(kitchenDone, venueTimeZone),
+              })}
+            </p>
+          )}
         </div>
       )}
       {notice ? (

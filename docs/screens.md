@@ -459,6 +459,8 @@ The staff app at desktop width. The bar and front-desk computers run it inside t
 
 [`Rail.dc.html`](../design/canvas/Rail.dc.html) · "D · Desktop app · Bar POS" · 1280 × 800
 
+Food on the bar POS (K-05) follows `FoodBar.dc.html`: Food after the ten sections, the food categories' row, the choices pop-up, Not sent and Sent · 11:42 badges, the amber reminder and Send to kitchen (N) with its confirmation. Where it differs: the confirmation's switch reads "This is an allergy" (spec 16 and the glossary) instead of the canvas's "Allergy"; food tiles use the grid's own button and list the category's items in menu order instead of a 4-column board; Delete (unsent) and Reprint (sent) sit beside each food line instead of in the tapped line's menu; the confirmation's footer ("Prints on: Kitchen printer · ready") isn't built.
+
 - **Becomes:** Staff app (React + Vite), desktop layout, inside the Electron desktop shell. The bar computer's home.
 - **Ships in:** [M6], [M8].
 - **Purpose:** The bar POS: quick sale, card-first tabs with growing holds, room orders across the top, and the tab's check.

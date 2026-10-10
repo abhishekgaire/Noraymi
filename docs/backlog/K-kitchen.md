@@ -124,7 +124,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-05 · Add food from the bar POS, bar tabs, quick sale and room tabs, and Send to kitchen
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K-03; M3-07, M6-02, M6-03, M6-05, M6-15
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Ordering food; [Staff screens and the bar POS](../spec/10-staff-screens-bar-pos.md) · rule 2 and Changing a sent drink
@@ -137,23 +137,28 @@ Definition of done: see CLAUDE.md.
   - The Not sent reminder: "N food items not sent to the kitchen" on the tab, sale or check after `kitchen.unsentWarnMin`, and the same warning before Close, Send & close or payment, with Send to kitchen beside it.
   - English and Spanish strings for every new word.
 - **Acceptance:**
-  - [ ] Turning the module on adds the Food section and leaves every drink in its slot.
-  - [ ] Tapping Food shows a row of the food categories from the test kitchen menu, in Admin → Menu's order; tapping one shows only its items; renaming or moving a category in Admin → Menu changes the row.
-  - [ ] Searching "fries" from any section finds French Fries.
-  - [ ] Tapping an item with a required choice (a sauce) opens its choices, and it can't go on the tab until one is picked; an optional choice (Make it a meal +$5.00) can be skipped.
-  - [ ] Food added to Jess P.'s tab reads "Not sent", is on the tab, and prints nothing until Send to kitchen.
-  - [ ] "Send to kitchen (N)" is active only while unsent food exists, and N counts the unsent food items.
-  - [ ] The confirmation lists only the unsent food lines; a note on each prints under its line, and a note marked as an allergy prints boxed and bold.
-  - [ ] Send prints one kitchen ticket reading "Bar · Jess P." with the items, options and notes, and the lines then read "Sent · 11:42" (simulated clock).
-  - [ ] A second Send to kitchen lists only food added since, and sending the same lines twice (two screens at once, or a retried request) prints one ticket.
-  - [ ] A quick sale's Send to kitchen asks for a name, and the ticket reads "Bar · Seat 3".
-  - [ ] Unsent food is removed with no reason or approval; sent food can't be removed except by a void, which follows the reason-only limit and asks a manager above it.
-  - [ ] Reprint on a sent ticket prints a copy stamped "REPRINT 2" and changes nothing on the check.
-  - [ ] Food left Not sent for 5 minutes on the simulated clock shows "1 food item not sent to the kitchen" on the tab, and closing or paying the tab shows the same warning first; with `unsentWarnMin` set to 10 it shows at 10.
-  - [ ] Adding food from Room 9's tab on a phone puts it on the check at once as Not sent, and Send to kitchen prints "Room 9" in the kitchen.
-  - [ ] Drinks rung with the food on a bar tab print no bar ticket while "Print tickets for drinks rung at the bar" is off (M6-29).
+  - [x] Turning the module on adds the Food section and leaves every drink in its slot.
+  - [x] Tapping Food shows a row of the food categories from the test kitchen menu, in Admin → Menu's order; tapping one shows only its items; renaming or moving a category in Admin → Menu changes the row.
+  - [x] Searching "fries" from any section finds French Fries.
+  - [x] Tapping an item with a required choice (a sauce) opens its choices, and it can't go on the tab until one is picked; an optional choice (Make it a meal +$5.00) can be skipped.
+  - [x] Food added to Jess P.'s tab reads "Not sent", is on the tab, and prints nothing until Send to kitchen.
+  - [x] "Send to kitchen (N)" is active only while unsent food exists, and N counts the unsent food items.
+  - [x] The confirmation lists only the unsent food lines; a note on each prints under its line, and a note marked as an allergy prints boxed and bold.
+  - [x] Send prints one kitchen ticket reading "Bar · Jess P." with the items, options and notes, and the lines then read "Sent · 11:42" (simulated clock).
+  - [x] A second Send to kitchen lists only food added since, and sending the same lines twice (two screens at once, or a retried request) prints one ticket.
+  - [x] A quick sale's Send to kitchen asks for a name, and the ticket reads "Bar · Seat 3".
+  - [x] Unsent food is removed with no reason or approval; sent food can't be removed except by a void, which follows the reason-only limit and asks a manager above it.
+  - [x] Reprint on a sent ticket prints a copy stamped "REPRINT 2" and changes nothing on the check.
+  - [x] Food left Not sent for 5 minutes on the simulated clock shows "1 food item not sent to the kitchen" on the tab, and closing or paying the tab shows the same warning first; with `unsentWarnMin` set to 10 it shows at 10.
+  - [x] Adding food from Room 9's tab on a phone puts it on the check at once as Not sent, and Send to kitchen prints "Room 9" in the kitchen.
+  - [x] Drinks rung with the food on a bar tab print no bar ticket while "Print tickets for drinks rung at the bar" is off (M6-29).
 - **Tests:** unit tests for the unsent count and the reminder's timing on the simulated clock; integration tests for the send route (no double send, idempotency, every principal, the venue wall); end-to-end tests on the bar POS and the staff phone; English and Spanish strings.
 - **Notes:** Bar food delivery was answered by the founder on Oct 9: a server takes the food to the guest by the name on the ticket, with no run in the app. Paying with food still Not sent is allowed after the warning; the warning only reminds.
+  - API: `POST /checks/{c}/kitchen-sends` (Idempotency-Key required; module `kitchen`, `orders.accept`) in `apps/api/src/kitchen/send.ts`: locks the lines, refuses a line already sent (409 `already_sent`), a drink (`not_food`) or a nameless quick sale (`name_required`), marks `kitchen_sent_at`/`kitchen_sent_by` and the confirmed note, and writes one kitchen print job on the check (`payload.line_ids`, `sent_by`, `sent_at`), all in one transaction. `POST /checks/{c}/lines/{l}/remove-unsent` writes a void line ("Not sent to the kitchen", no approval) and refuses sent food (`kitchen_sent`); `reasonOnlyUsed` leaves such voids out. Staff-rung food (`source = staff`) no longer prints at Accept; guest and replayed food still do. The check view gives each food line `kitchen` (sent_at, sent_by, rung_at, open_qty, note, allergy, job_id). Draft and quick-sale lines take `kitchen_note`, `kitchen_note_allergy` and `rung_at`. Migration 0137 grants app_rw update on only those four `order_items` columns.
+  - Staff app: Food chip after the ten sections and the food categories' row (Rail.tsx); `FoodChoices.tsx` (required choice before Add, optional skippable); `SendToKitchen.tsx` (button, confirmation, reminder, the warning before Close or Pay, Not sent/Sent marks with Delete and Reprint), used by AddDrinks (bar tab, room tab desktop and phone, quick sale), QuickSale's pay panel and RoomScreen. The reminder's clock is `unsentFood` in `packages/shared/src/kitchen-unsent.ts`.
+  - Cautious defaults (flagged for the founder): on a bar tab or a quick sale, Send to kitchen sends the whole round first (drinks too), since spec 16 says the food goes on "with the round"; on a quick sale it makes the sale, as Pay would, and the pay panel follows. Back to the sale is refused once a sale's food is sent (`kitchen_sent`), or the food could be sent twice. The warning before Close tab, Present/Pay on a room and Pay on a quick sale shows for any unsent food, without waiting for `unsentWarnMin`; the timed reminder is the one on the tab.
+  - Left for later: the "Kitchen" chip on the bar's ringing food cards (spec 16 · At the bar) is built with K-06, which changes the bar orders screen. Food moved between checks (Move) carries no Not sent mark on the other side.
+  - Tests: unit `packages/shared/src/kitchen-unsent.test.ts`; integration `routes/kitchen-sends.int.test.ts` (Jess P., quick sale Seat 3, Room 9, idempotency, two screens at once, removal, voids, REPRINT 2), walls and principals; e2e "the bar POS: food on Jess P.'s tab…" and "Room 9's tab on a phone…" in staff.spec.ts with `testKitchenMenu(db, { choices: true })`.
 
 ### K-06 · Run food: In the kitchen and Picked up on the runners' phones
 

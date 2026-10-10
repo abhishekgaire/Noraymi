@@ -25,6 +25,11 @@ const line = z
     qty: z.number().int().min(1).max(99),
     option_ids: z.array(id).max(10).optional(),
     notes: z.string().max(200).nullable().optional(),
+    // Food (K-05): a note for the kitchen and "This is an allergy", and when a draft line was rung
+    // (the Not sent reminder's clock); a round ignores rung_at.
+    kitchen_note: z.string().max(200).nullable().optional(),
+    kitchen_note_allergy: z.boolean().optional(),
+    rung_at: z.string().max(40).nullable().optional(),
   })
   .strict();
 const orderBody = z

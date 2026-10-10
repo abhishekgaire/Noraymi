@@ -161,6 +161,17 @@ export async function backToTheSale(
     throw new ApiError("invalid_request", "a payment on this sale is in progress or taken", {
       details: { reason: "paid" },
     });
+  // Food already sent to the kitchen is being made (K-05): the sale can't go back to unsent drinks,
+  // or the food would be sent twice; it's paid another way, or its lines are voided first.
+  const sent = await c.query(
+    `select 1 from order_items i join orders o on o.venue_id = i.venue_id and o.id = i.order_id
+      where i.venue_id = $1 and o.check_id = $2 and i.kitchen_sent_at is not null`,
+    [venueId, checkId],
+  );
+  if ((sent.rowCount ?? 0) > 0)
+    throw new ApiError("invalid_request", "food on this sale is already sent to the kitchen", {
+      details: { reason: "kitchen_sent" },
+    });
   await c.query("update checks set status = 'void' where venue_id = $1 and id = $2", [
     venueId,
     checkId,

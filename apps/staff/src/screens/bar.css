@@ -955,3 +955,30 @@
 .ticket-failed button {
   min-height: 44px;
 }
+
+/* The Food section's second row: the menu's food categories (K-05, D100; FoodBar.dc.html). */
+.rail .rail-food-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--w4-line-2);
+  border-radius: 12px;
+  background: var(--w4-bg-rail);
+}
+.rail .rail-food-row .eye {
+  color: var(--w4-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 6px;
+}
+.rail .rail-food-row .chip {
+  min-height: 44px;
+}
+.rail [data-section="food"] .slot button {
+  border-left-color: var(--w4-text);
+}

@@ -14,6 +14,7 @@ import { PLAN_LOOKUP_KEYS, ROOM_LOOKUP_KEY } from "../apps/api/src/stripe/billin
 import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 import { SEED_COMMAND, setClock as resetClock } from "./night.js";
+import { testKitchenMenu } from "./kitchen.js";
 import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
 /**
@@ -6130,6 +6131,169 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
     await expect(panel.getByRole("button", { name: /^Send/ })).toHaveCount(0);
     await expect(panel.getByRole("button", { name: /^Pick/ })).toHaveCount(0);
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Send to kitchen (K-05; Kitchen and food · Ordering food; D99, D100) with the test-only kitchen
+ * menu: Food after the ten sections, its row of food categories, a required sauce in the choices
+ * pop-up, food on Jess P.'s tab reading Not sent, one kitchen ticket with an allergy note, the
+ * reminder after 5 minutes on the simulated clock and the warning before Close tab.
+ */
+test("the bar POS: food on Jess P.'s tab is Not sent until Send to kitchen prints Bar · Jess P. once", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db, { choices: true });
+  const kitchenJobs = async () =>
+    (
+      await db.query<{
+        payload: {
+          room: string;
+          lines: { name: string; kitchen_note: string; allergy: boolean }[];
+        };
+      }>(
+        "select payload from print_jobs where station = 'kitchen' and reprint_of is null order by created_at",
+      )
+    ).rows;
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    const sections = page.getByRole("tablist", { name: "Sections" });
+    // Food comes after the ten fixed sections: no drink moves.
+    await expect(sections.getByRole("tab")).toHaveText([
+      "Favorites",
+      "Beer",
+      "Soju",
+      "Cocktails",
+      "Shots",
+      "Spirits",
+      "Wine",
+      "Soft drinks",
+      "Bottles",
+      "Buckets",
+      "Food",
+    ]);
+    await sections.getByRole("tab", { name: "Food" }).click();
+    const row = page.getByRole("tablist", { name: "Food categories" });
+    await expect(row.getByRole("tab")).toHaveText(["TEST Wings", "TEST Sides"]);
+    await row.getByRole("tab", { name: "TEST Sides" }).click();
+    const grid = page.locator(".rail-grid");
+    await expect(grid.getByRole("button")).toHaveText([/TEST French Fries/, /TEST side/]);
+
+    // Search covers the whole menu, food included.
+    await page.getByRole("searchbox", { name: "Search the menu" }).fill("fries");
+    await expect(grid.getByRole("button", { name: /TEST French Fries/ })).toBeVisible();
+    await page.getByRole("searchbox", { name: "Search the menu" }).fill("");
+
+    // A required sauce: the pop-up waits for it; the meal can be skipped.
+    await sections.getByRole("tab", { name: "Food" }).click();
+    await grid.getByRole("button", { name: /TEST chicken wings/ }).click();
+    const choices = page.getByRole("dialog", { name: "TEST chicken wings" });
+    await expect(choices.getByRole("button", { name: "Pick test sauce first" })).toBeDisabled();
+    await choices.getByRole("button", { name: "TEST soy garlic" }).click();
+    await choices.getByRole("button", { name: "Add · $10.99" }).click();
+    await expect(panel.locator(".unsent-line")).toContainText("1 × TEST chicken wings");
+    await expect(panel.locator(".unsent-line")).toContainText("Not sent");
+
+    // Send puts it on the tab, Not sent, and prints nothing in the kitchen.
+    const before = (await kitchenJobs()).length;
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    const onTab = page.getByRole("list", { name: "On the tab" });
+    await expect(
+      onTab.getByRole("listitem").filter({ hasText: "TEST chicken wings" }),
+    ).toContainText("Not sent");
+    expect((await kitchenJobs()).length).toBe(before);
+
+    // Send to kitchen (1): the note, marked as an allergy, then one ticket.
+    await panel.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    const confirm = page.getByRole("dialog", { name: "Send to kitchen" });
+    await confirm.getByLabel(/Note for the kitchen/).fill("peanuts");
+    await confirm.getByLabel("This is an allergy").check();
+    await expect(confirm).toContainText("ALLERGY: PEANUTS");
+    await confirm.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    await expect(
+      onTab.getByRole("listitem").filter({ hasText: "TEST chicken wings" }),
+    ).toContainText("Sent · 10:41 PM");
+    await expect(panel.getByRole("button", { name: "Send to kitchen (0)" })).toBeDisabled();
+    const jobs = await kitchenJobs();
+    expect(jobs.length).toBe(before + 1);
+    expect(jobs.at(-1)!.payload).toMatchObject({
+      room: "Bar · Jess P.",
+      lines: [{ name: "TEST chicken wings", kitchen_note: "peanuts", allergy: true }],
+    });
+
+    // Fries left Not sent: after 5 minutes on the venue's clock, the reminder; Close tab warns first.
+    await page.getByRole("searchbox", { name: "Search the menu" }).fill("fries");
+    await grid.getByRole("button", { name: /TEST French Fries/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await expect(panel.locator(".kitchen-reminder")).toHaveCount(0);
+    await resetClock("2026-09-26T02:47:00Z");
+    await page.reload();
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await expect(panel.locator(".kitchen-reminder")).toHaveText(
+      "1 food item not sent to the kitchen",
+    );
+    await panel.getByRole("button", { name: "Close tab", exact: true }).click();
+    const warning = page.getByRole("alertdialog", { name: "1 food item not sent to the kitchen" });
+    await expect(warning.getByRole("button", { name: "Close anyway" })).toBeVisible();
+    await warning.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    await page
+      .getByRole("dialog", { name: "Send to kitchen" })
+      .getByRole("button", { name: "Send to kitchen (1)" })
+      .click();
+    await expect(panel.getByRole("button", { name: "Send to kitchen (0)" })).toBeDisabled();
+    expect((await kitchenJobs()).length).toBe(before + 2);
+  } finally {
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
+/** Room 9's tab on a phone (K-05): food goes on the check at once as Not sent; Send prints Room 9. */
+test("Room 9's tab on a phone: food is Not sent on the check, and Send to kitchen prints Room 9", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db, { choices: true });
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/room/${room9}`);
+    const drinks = page.getByRole("region", { name: "Add drinks" });
+    await drinks.getByLabel("Search the menu").fill("fries");
+    await drinks.getByRole("button", { name: "TEST French Fries · $5.00" }).click();
+    await drinks.getByRole("button", { name: "Send 1 to the bar" }).click();
+    const tab = page.getByRole("region", { name: "Running tab" });
+    await expect(tab).toContainText("TEST French Fries");
+    await expect(tab).toContainText("Not sent");
+    await drinks.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    await page
+      .getByRole("dialog", { name: "Send to kitchen" })
+      .getByRole("button", { name: "Send to kitchen (1)" })
+      .click();
+    await expect(page.getByRole("dialog", { name: "Send to kitchen" })).toHaveCount(0);
+    await expect(tab).toContainText("Sent · 10:41 PM");
+    const job = await db.query<{ payload: { room: string } }>(
+      "select payload from print_jobs where station = 'kitchen' order by created_at desc limit 1",
+    );
+    expect(job.rows[0]!.payload.room).toBe("Room 9");
+  } finally {
+    await kitchen.restore();
     await db.end();
   }
 });

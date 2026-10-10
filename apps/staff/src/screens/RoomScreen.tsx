@@ -7,6 +7,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { FoodMark, UnsentReminder, type CheckFood } from "./SendToKitchen.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
@@ -87,6 +88,8 @@ interface Line {
   readonly qty: number;
   readonly amount_cents: number;
   readonly reverses_id?: number | null;
+  /** Food (K-05): Not sent, or Sent · 11:42. */
+  readonly kitchen?: CheckFood;
 }
 
 export function RoomScreen() {
@@ -110,6 +113,9 @@ export function RoomScreen() {
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const [room, setRoom] = useState<BoardRoom | null>(null);
   const [lines, setLines] = useState<readonly Line[]>([]);
+  // Food not sent to the kitchen (K-05): shown with Send to kitchen before the check is presented or paid.
+  const [unsentFood, setUnsentFood] = useState(0);
+  const [kitchenRequest, setKitchenRequest] = useState(0);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
   const [holds, setHolds] = useState<readonly { tab_id: string; name: string; cents: number }[]>(
     [],
@@ -511,7 +517,21 @@ export function RoomScreen() {
                     .filter((l) => !COMPUTED.has(l.kind))
                     .map((l) => (
                       <div key={l.id} className="tab-line">
-                        <dt>{l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}</dt>
+                        <dt>
+                          {l.qty > 1 ? `${l.qty} × ${l.description}` : l.description}
+                          {l.kitchen && s.check_id && (
+                            <FoodMark
+                              venueId={venueId}
+                              checkId={s.check_id}
+                              lineId={l.id}
+                              label={l.description}
+                              food={l.kitchen}
+                              timeZone={timeZone}
+                              canRemove
+                              onDone={() => void load()}
+                            />
+                          )}
+                        </dt>
                         <dd>{money(l.amount_cents as never)}</dd>
                       </div>
                     ))}
@@ -556,6 +576,8 @@ export function RoomScreen() {
                   venueId={venueId}
                   checkId={s.check_id}
                   sessionId={s.id}
+                  onUnsentFood={setUnsentFood}
+                  kitchenRequest={kitchenRequest}
                   onSent={() => void load()}
                 />
               )}
@@ -595,15 +617,30 @@ export function RoomScreen() {
               {s.check_id &&
                 checkStatus &&
                 signedIn?.membership.permissions.includes("payments.take") && (
-                  <PresentCheck
-                    venueId={venueId}
-                    checkId={s.check_id}
-                    status={checkStatus}
-                    canReopen={
-                      signedIn.membership.role === "owner" || signedIn.membership.role === "manager"
-                    }
-                    onDone={() => void load()}
-                  />
+                  <>
+                    {unsentFood > 0 && (
+                      <div className="kitchen-warning">
+                        <UnsentReminder count={unsentFood} />
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => setKitchenRequest((n) => n + 1)}
+                        >
+                          {t("kitchen.send.button", { n: unsentFood })}
+                        </button>
+                      </div>
+                    )}
+                    <PresentCheck
+                      venueId={venueId}
+                      checkId={s.check_id}
+                      status={checkStatus}
+                      canReopen={
+                        signedIn.membership.role === "owner" ||
+                        signedIn.membership.role === "manager"
+                      }
+                      onDone={() => void load()}
+                    />
+                  </>
                 )}
               {paidLines.length > 0 && (
                 <section className="paid-lines" aria-label={t("room.payments")}>

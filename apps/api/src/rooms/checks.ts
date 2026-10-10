@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { foodLines, type FoodLine } from "../kitchen/send.js";
 import {
   amountDue,
   amountDueBesideHolds,
@@ -73,6 +74,22 @@ export async function openRoomCheck(
   });
 }
 
+/** A food line's kitchen state on the check view (K-05); a drink has none. */
+const kitchenOf = (f: FoodLine | undefined) =>
+  f
+    ? {
+        kitchen: {
+          sent_at: f.sent_at,
+          sent_by: f.sent_by,
+          rung_at: f.rung_at,
+          open_qty: f.open_qty,
+          kitchen_note: f.kitchen_note,
+          allergy: f.allergy,
+          job_id: f.job_id,
+        },
+      }
+    : {};
+
 /** A check with its lines and the tab so far: room time so far (live, from its session) plus the lines. */
 export async function checkView(c: Queryable, venueId: string, id: string, now: Temporal.Instant) {
   const found = await checkById(c, venueId, id);
@@ -138,6 +155,8 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
       )
     ).rows.map((r) => [Number(r.id), { tab: r.tab, room: r.room }]),
   );
+  // Food (K-05): each food line's Not sent or "Sent · 11:42", for the tab, the room and the sale.
+  const food = new Map((await foodLines(c, venueId, id)).map((f) => [f.line_id, f]));
   // Card on file (M4-17): the deposit's card, and a charge waiting for the guest or a manager, if any.
   const saved = await savedCardFor(c, venueId, id);
   const waiting = saved
@@ -182,7 +201,7 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
                 ? { from_tab: m.tab, from_room: m.room }
                 : { to_tab: m.tab, to_room: m.room },
           }
-        : { ...l, alcohol: alcohol.has(l.id) };
+        : { ...l, alcohol: alcohol.has(l.id), ...kitchenOf(food.get(Number(l.id))) };
     }),
     holds: holds.map((h) => ({ tab_id: h.tab_id, name: h.name, cents: h.hold_cents })),
     pending_fixes: pending.rows.map((p) => ({

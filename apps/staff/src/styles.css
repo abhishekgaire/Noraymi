@@ -2848,3 +2848,136 @@ a.song-count {
   background: var(--w4-lime);
   color: var(--w4-on-accent);
 }
+
+/* Kitchen & food on staff screens (K-05; FoodBar.dc.html): Not sent in amber, Sent in lime, the
+   reminder as an amber bar, an allergy in pink, and Send to kitchen as the lime action. */
+.kchip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--w4-line-2);
+  color: var(--w4-text-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.kitchen-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  flex-wrap: wrap;
+}
+.kitchen-mark .link {
+  min-height: 44px;
+}
+.kitchen-ns,
+.kitchen-sent {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.kitchen-ns {
+  color: var(--w4-amber);
+  border: 1px solid var(--w4-amber);
+  background: rgba(255, 177, 61, 0.14);
+}
+.kitchen-sent {
+  color: var(--w4-lime);
+  background: rgba(212, 255, 63, 0.12);
+}
+.kitchen-reminder {
+  margin: 8px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--w4-amber);
+  color: var(--w4-on-accent);
+  font-weight: 700;
+}
+.kitchen-bar {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.kitchen-send {
+  min-height: 64px;
+  width: 100%;
+  font-size: 17px;
+  box-shadow: 0 0 0 3px rgba(212, 255, 63, 0.18);
+}
+.kitchen-warning {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--w4-amber);
+}
+.kitchen-warning .actions button,
+.kitchen-warning > button {
+  min-height: 44px;
+}
+.kitchen-sheet .kitchen-lines {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.kitchen-sheet .kitchen-lines li {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--w4-line-2);
+  background: var(--w4-surface);
+}
+.kitchen-sheet .kitchen-lines li.allergy {
+  border-color: var(--w4-pink);
+}
+.kitchen-sheet input:not([type="checkbox"]) {
+  min-height: 44px;
+}
+.kitchen-allergy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.kitchen-allergy input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--w4-pink);
+}
+.kitchen-allergy-hint {
+  color: var(--w4-pink);
+  font-weight: 700;
+}
+.kitchen-done {
+  color: var(--w4-lime);
+}
+.food-choices fieldset {
+  border: 0;
+  margin: 8px 0;
+  padding: 0;
+}
+.food-choices legend {
+  color: var(--w4-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.food-choices .choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.food-choices .chip {
+  min-height: 44px;
+}

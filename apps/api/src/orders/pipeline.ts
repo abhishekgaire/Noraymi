@@ -123,6 +123,9 @@ async function ticket(
   }
   for (const station of stations) {
     if (station === "kitchen") {
+      // Food staff ring waits as Not sent until Send to kitchen prints it (K-05; D99); a guest's
+      // food prints at Accept, because the guest already confirmed it. A remake always prints.
+      if (!remake && order.source === "staff") continue;
       const night = await nightOfNow(c, venueId, now);
       const kitchen = await readSetting(c, venueId, "kitchen", Temporal.PlainDate.from(night));
       await insertPrintJob(c, venueId, {

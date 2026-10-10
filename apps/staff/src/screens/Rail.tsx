@@ -16,6 +16,8 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { FoodChoices } from "./FoodChoices.js";
+import { FoodMark, UnsentWarning, type CheckFood } from "./SendToKitchen.js";
 import { alcoholStateAt } from "@west4/rules";
 import { useConnection } from "../connection.js";
 import { useQueue } from "../queue.js";
@@ -59,19 +61,31 @@ interface Option {
   readonly id: string;
   readonly name: string;
   readonly out_tonight: boolean;
+  readonly price_delta_cents?: number;
+  readonly is_default?: boolean;
 }
 interface Item {
   readonly id: string;
   readonly name: string;
   readonly button_name: string | null;
   readonly alcohol: boolean;
+  /** bar or kitchen (K-02): food sits under the Food section (K-05). */
+  readonly station?: string;
   readonly out_tonight: boolean;
   readonly variants: readonly Variant[];
   readonly groups: readonly {
     readonly id: string;
     readonly name: string;
+    readonly required?: boolean;
+    readonly min_choices?: number;
+    readonly max_choices?: number;
     readonly options: readonly Option[];
   }[];
+}
+interface Category {
+  readonly id: string;
+  readonly name: string;
+  readonly items: readonly Item[];
 }
 interface Tab {
   readonly id: string;
@@ -152,6 +166,8 @@ interface CheckLine {
   readonly amount_cents: number;
   readonly reverses_id: number | null;
   readonly alcohol?: boolean;
+  /** Food (K-05): Not sent, or Sent · 11:42. */
+  readonly kitchen?: CheckFood;
   /** A moved line names the other side (M6-13): "Moved from Jess P.'s bar tab", "Moved to Room 9". */
   readonly moved?: {
     readonly from_tab?: string | null;
@@ -247,7 +263,19 @@ export function Rail() {
   const [fixing, setFixing] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lines, setLines] = useState<readonly CheckLine[]>([]);
-  const [ringRequest, setRingRequest] = useState<{ variantId: string; n: number } | null>(null);
+  const [ringRequest, setRingRequest] = useState<{
+    variantId: string;
+    n: number;
+    optionIds?: readonly string[];
+  } | null>(null);
+  // Kitchen & food (K-05, D100): the menu's food categories, the one open under Food (null while a
+  // drink section is open), a food item's choices, and unsent food before Close tab.
+  const [categories, setCategories] = useState<readonly Category[]>([]);
+  const [foodCat, setFoodCat] = useState<string | null>(null);
+  const [foodChoice, setFoodChoice] = useState<Item | null>(null);
+  const [unsentFood, setUnsentFood] = useState(0);
+  const [warnClose, setWarnClose] = useState<string | null>(null);
+  const [kitchenRequest, setKitchenRequest] = useState(0);
   // The drinks panel goes away while a tab is closed, split or refunded, and comes back fresh: the last tap
   // on the grid must not ring again when it does (M6-12).
   useEffect(() => setRingRequest(null), [closingTab, splitting, refunding, movingTab]);
@@ -269,7 +297,7 @@ export function Rail() {
           `/v1/venues/${venueId}/pos/layouts?station=bar`,
         ),
         api<{
-          categories: { items: Item[] }[];
+          categories: Category[];
           alcohol: { state: string; changes_at?: string | null };
         }>("GET", `/v1/venues/${venueId}/menu`),
         api<{ tabs: Tab[] }>("GET", `/v1/venues/${venueId}/tabs`),
@@ -288,6 +316,7 @@ export function Rail() {
       setTerminal(term);
       setSections(layouts.tonight?.sections ?? null);
       setItems(menu.categories.flatMap((c) => c.items));
+      setCategories(menu.categories);
       setAlcoholHeard(menu.alcohol);
       setTabs(tabList.tabs);
       setRooms(board.rooms.filter((r) => r.session?.check_id));
@@ -555,6 +584,11 @@ export function Rail() {
       setError(t("queue.round.tabsOnly"));
       return;
     }
+    // Food with choices opens them on tap; a required one is picked before it goes on (D100).
+    if (item.station === "kitchen" && (item.variants.length > 1 || item.groups.length > 0)) {
+      setFoodChoice(item);
+      return;
+    }
     if (item.variants.length > 1) {
       setChoosing(item);
       return;
@@ -563,6 +597,8 @@ export function Rail() {
     if (v) setRingRequest((r) => ({ variantId: v.id, n: (r?.n ?? 0) + 1 }));
   };
 
+  // The menu's food categories, in Admin → Menu's order; none while Kitchen & food is off.
+  const food = categories.filter((c) => c.items.some((i) => i.station === "kitchen"));
   const q = query.trim().toLowerCase();
   const slots: (Item | null)[] = q
     ? items
@@ -571,7 +607,9 @@ export function Rail() {
             i.name.toLowerCase().includes(q) || (i.button_name ?? "").toLowerCase().includes(q),
         )
         .slice(0, 25)
-    : (sections?.[section] ?? []).map((id) => (id ? (byId.get(id) ?? null) : null));
+    : foodCat !== null
+      ? [...(food.find((c) => c.id === foodCat)?.items ?? [])]
+      : (sections?.[section] ?? []).map((id) => (id ? (byId.get(id) ?? null) : null));
 
   const f = find.trim().toLowerCase();
   const openTabs = tabs.filter((x) => x.open);
@@ -967,7 +1005,10 @@ export function Rail() {
             )}
           </nav>
 
-          <div className="rail-center" data-section={q ? undefined : section}>
+          <div
+            className="rail-center"
+            data-section={q ? undefined : foodCat !== null ? "food" : section}
+          >
             <div
               className="rail-sections"
               data-view
@@ -979,18 +1020,52 @@ export function Rail() {
                   key={s}
                   type="button"
                   role="tab"
-                  aria-selected={!q && s === section}
-                  className={!q && s === section ? "chip on" : "chip"}
+                  aria-selected={!q && foodCat === null && s === section}
+                  className={!q && foodCat === null && s === section ? "chip on" : "chip"}
                   data-section={s}
                   onClick={() => {
                     setSection(s);
+                    setFoodCat(null);
                     setQuery("");
                   }}
                 >
                   {t(`barPos.section.${s}`)}
                 </button>
               ))}
+              {/* Food, after the ten fixed sections, only while Kitchen & food is on (K-05, D100). */}
+              {food.length > 0 && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!q && foodCat !== null}
+                  className={!q && foodCat !== null ? "chip on" : "chip"}
+                  data-section="food"
+                  onClick={() => {
+                    setFoodCat(food[0]!.id);
+                    setQuery("");
+                  }}
+                >
+                  {t("kitchen.pos.food")}
+                </button>
+              )}
             </div>
+            {!q && foodCat !== null && (
+              <div className="rail-food-row" role="tablist" aria-label={t("kitchen.pos.foodRow")}>
+                <span className="eye">{t("kitchen.pos.food")} ›</span>
+                {food.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={c.id === foodCat}
+                    className={c.id === foodCat ? "chip on" : "chip"}
+                    onClick={() => setFoodCat(c.id)}
+                  >
+                    <span data-guest-text>{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="rail-tools">
               <input
                 type="search"
@@ -1019,7 +1094,13 @@ export function Rail() {
             )}
             <ol
               className="rail-grid"
-              aria-label={q ? t("rail.search") : t(`barPos.section.${section}`)}
+              aria-label={
+                q
+                  ? t("rail.search")
+                  : foodCat !== null
+                    ? (food.find((c) => c.id === foodCat)?.name ?? t("kitchen.pos.food"))
+                    : t(`barPos.section.${section}`)
+              }
             >
               {slots.map((item, i) => {
                 if (!item)
@@ -1054,6 +1135,16 @@ export function Rail() {
                 );
               })}
             </ol>
+            {foodChoice && (
+              <FoodChoices
+                item={foodChoice}
+                onCancel={() => setFoodChoice(null)}
+                onAdd={(variantId, optionIds) => {
+                  setRingRequest((r) => ({ variantId, optionIds, n: (r?.n ?? 0) + 1 }));
+                  setFoodChoice(null);
+                }}
+              />
+            )}
             {choosing && (
               <div className="sheet" role="dialog" aria-label={choosing.name}>
                 <h3 data-guest-text>{choosing.name}</h3>
@@ -1256,6 +1347,18 @@ export function Rail() {
                         ) : (
                           body
                         )}
+                        {l.kitchen && checkId && (
+                          <FoodMark
+                            venueId={venueId}
+                            checkId={checkId}
+                            lineId={l.id}
+                            label={l.description}
+                            food={l.kitchen}
+                            timeZone={timeZone}
+                            canRemove={fixOpen}
+                            onDone={() => void load()}
+                          />
+                        )}
                       </li>
                     );
                   })}
@@ -1397,13 +1500,31 @@ export function Rail() {
                         <button
                           type="button"
                           className="primary"
-                          onClick={() => setClosingTab(tab.id)}
+                          onClick={() =>
+                            // Food not sent yet: the warning first, with Send to kitchen (K-05).
+                            unsentFood > 0 ? setWarnClose(tab.id) : setClosingTab(tab.id)
+                          }
                         >
                           {t("closeTab.title")}
                         </button>
                       )}
                     </div>
                   )
+                )}
+                {tab && warnClose === tab.id && unsentFood > 0 && closingTab !== tab.id && (
+                  <UnsentWarning
+                    count={unsentFood}
+                    anyway="close"
+                    onSend={() => {
+                      setWarnClose(null);
+                      setKitchenRequest((n) => n + 1);
+                    }}
+                    onAnyway={() => {
+                      setWarnClose(null);
+                      setClosingTab(tab.id);
+                    }}
+                    onBack={() => setWarnClose(null)}
+                  />
                 )}
                 {leftOut && (
                   <p className="small" role="status">
@@ -1466,6 +1587,8 @@ export function Rail() {
                       search={false}
                       ringRequest={ringRequest}
                       gift={tab?.state === "open" ? { tabId: tab.id, timeZone } : undefined}
+                      onUnsentFood={setUnsentFood}
+                      kitchenRequest={kitchenRequest}
                       onSent={() => void load()}
                     />
                   )

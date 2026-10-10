@@ -214,6 +214,10 @@ export function tabRoutes(
               qty: z.number().int().min(1).max(99),
               option_ids: z.array(id).max(10).optional(),
               notes: z.string().max(200).nullable().optional(),
+              // Food rung on a quick sale (K-05): its note for the kitchen, and when it was rung.
+              kitchen_note: z.string().max(200).nullable().optional(),
+              kitchen_note_allergy: z.boolean().optional(),
+              rung_at: z.string().max(40).nullable().optional(),
             })
             .strict(),
         )

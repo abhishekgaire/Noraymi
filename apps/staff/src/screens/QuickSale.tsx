@@ -2,6 +2,12 @@ import { useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { AddDrinks, type DraftLine } from "./AddDrinks.js";
+import {
+  SendToKitchen,
+  UnsentReminder,
+  type CheckFood,
+  type KitchenNotes,
+} from "./SendToKitchen.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
 import { SongCredit } from "./SongCredit.js";
@@ -25,7 +31,16 @@ interface Sale {
     readonly kind: "fixed" | "percent";
     readonly choices_cents: readonly number[];
   } | null;
+  /** Its lines; food carries its kitchen state (K-05). */
+  readonly lines?: readonly {
+    readonly id: number;
+    readonly description: string;
+    readonly kitchen?: CheckFood;
+  }[];
 }
+/** The sale's food still Not sent (K-05). */
+const unsentOf = (sale: Sale | null) =>
+  (sale?.lines ?? []).filter((l) => l.kitchen && !l.kitchen.sent_at && l.kitchen.open_qty > 0);
 
 export function QuickSale({
   venueId,
@@ -34,7 +49,7 @@ export function QuickSale({
   onChanged,
 }: {
   venueId: string;
-  ringRequest: { variantId: string; n: number } | null;
+  ringRequest: { variantId: string; n: number; optionIds?: readonly string[] } | null;
   refresh: number;
   onChanged: () => void;
 }) {
@@ -57,14 +72,52 @@ export function QuickSale({
     }
   }
 
-  const pay = async (lines: readonly DraftLine[]) => {
+  const [kitchenSaid, setKitchenSaid] = useState(false);
+  /** One kitchen ticket for the sale's food, named "Bar · Seat 3" (K-05). */
+  const sendFood = async (
+    checkId: string,
+    name: string | null,
+    notes: KitchenNotes["notes"] = {},
+  ) => {
+    const now = await api<Sale>("GET", `/v1/venues/${venueId}/quick-sales/${checkId}`);
+    const food = unsentOf(now);
+    if (food.length > 0) {
+      await api(
+        "POST",
+        `/v1/venues/${venueId}/checks/${checkId}/kitchen-sends`,
+        {
+          name,
+          lines: food.map((l) => {
+            const n = notes[`c:${l.id}`];
+            return n
+              ? {
+                  line_id: l.id,
+                  kitchen_note: n.note.trim() || null,
+                  kitchen_note_allergy: n.allergy,
+                }
+              : { line_id: l.id };
+          }),
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      );
+      setKitchenSaid(true);
+    }
+    setSale(await api<Sale>("GET", `/v1/venues/${venueId}/quick-sales/${checkId}`));
+  };
+  const pay = async (lines: readonly DraftLine[], kitchen?: { name: string | null }) => {
     setError(null);
+    setKitchenSaid(false);
     const s = await api<Sale>("POST", `/v1/venues/${venueId}/quick-sales`, {
       client_order_id: crypto.randomUUID(),
       lines,
     });
     setSale(s);
     setUsed(ringRequest?.n ?? 0);
+    // Send to kitchen came first: the sale is made, then its food goes to the kitchen.
+    if (kitchen)
+      await sendFood(s.check_id, kitchen.name).catch((e: unknown) =>
+        setError(e instanceof ApiCallError ? e.message : t("kitchen.send.failed")),
+      );
     onChanged();
   };
   const back = async () => {
@@ -104,6 +157,28 @@ export function QuickSale({
         <p className="error" role="alert">
           {error}
         </p>
+      )}
+      {kitchenSaid && (
+        <p className="small kitchen-done" role="status">
+          {t("kitchen.sent")}
+        </p>
+      )}
+      {/* Food on the sale not sent yet (Pay anyway, or a send that failed): the reminder and the button. */}
+      {unsentOf(sale).length > 0 && (
+        <div className="kitchen-bar">
+          <UnsentReminder count={unsentOf(sale).reduce((n, l) => n + l.kitchen!.open_qty, 0)} />
+          <SendToKitchen
+            needsName
+            lines={unsentOf(sale).map((l) => ({
+              key: `c:${l.id}`,
+              label: l.description,
+              qty: l.kitchen!.open_qty,
+              note: l.kitchen!.kitchen_note ?? "",
+              allergy: l.kitchen!.allergy,
+            }))}
+            onSend={({ notes, name }) => sendFood(sale.check_id, name, notes)}
+          />
+        </div>
       )}
       {paid ? (
         <>

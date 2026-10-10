@@ -464,6 +464,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/payments/:paymentId/tap": {
         reader_id: "00000000-0000-4000-8000-000000000044",
       },
+      "POST /v1/venues/:venueId/checks/:checkId/kitchen-sends": { lines: [{ line_id: 1 }] },
       "POST /v1/venues/:venueId/checks/:checkId/orders": {
         lines: [{ variant_id: "00000000-0000-4000-8000-000000000001", qty: 1 }],
       },
