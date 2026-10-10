@@ -1515,3 +1515,14 @@ a {
   font-size: 12px;
   color: var(--text);
 }
+
+/* The allergy notice (K-08): the owner's words, English then Spanish. */
+.guest .allergy-notice {
+  margin: 12px 0;
+}
+.guest .allergy-notice p {
+  margin: 0;
+}
+.guest .allergy-notice p + p {
+  margin-top: 6px;
+}

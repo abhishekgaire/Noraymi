@@ -21,7 +21,9 @@ export async function menuPdfText(databaseUrl: string, slug: string, now: string
     ).rows[0];
     if (!venue) throw new Error(`no venue ${slug}`);
     const menu = await guestMenu(db, venue.id, Temporal.Instant.from(now));
-    const bytes = await htmlToPdf(menuHtml(venue.name, menu.categories, menu.packages));
+    const bytes = await htmlToPdf(
+      menuHtml(venue.name, menu.categories, menu.packages, menu.allergy_notice),
+    );
     const doc = await getDocument({ data: bytes }).promise;
     let text = "";
     for (let p = 1; p <= doc.numPages; p++) {

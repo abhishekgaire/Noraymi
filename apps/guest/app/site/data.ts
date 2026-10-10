@@ -116,6 +116,8 @@ export const hhmmWords = (hhmm: string) => {
 
 /** The guest menu (M5-03): the same list the room page and the PDF read. */
 export interface GuestMenu {
+  /** The allergy notice from Admin → Kitchen (K-08), while Kitchen & food is on; null otherwise. */
+  readonly allergy_notice?: { readonly en: string; readonly es: string } | null;
   readonly categories: readonly {
     readonly id: string;
     readonly name: string;

@@ -1,4 +1,4 @@
-import { readSetting, type Queryable } from "@west4/db";
+import { emitEvent, queueMenuPdf, readSetting, type Queryable } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import {
   KITCHEN_DEFAULTS,
@@ -8,6 +8,7 @@ import {
   type KitchenMissing,
   type KitchenSettings,
   type MessageKey,
+  type Temporal,
 } from "@west4/shared";
 
 /**
@@ -87,4 +88,28 @@ export async function kitchenOn(c: Queryable, venueId: string): Promise<boolean>
     [venueId],
   );
   return (r.rows[0]?.state ?? "off") !== "off";
+}
+
+/**
+ * The menus follow the kitchen (K-08): after a save of the `kitchen` key or the module switching,
+ * the room page and the room tablet refetch the menu (menu.changed) and the menu PDF renders again
+ * a few seconds later, so the allergy notice is on all four menus within a minute.
+ */
+export async function menusFollowKitchen(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+): Promise<void> {
+  await queueMenuPdf(c, venueId, now.add({ seconds: 5 }).toString());
+  await emitEvent(c, { venueId, type: "menu.changed", entityId: venueId });
+}
+
+/** The allergy notice every menu shows (K-08): only while the module is on and the notice is set. */
+export async function menuAllergyNotice(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+): Promise<{ en: string; es: string } | null> {
+  if (!(await kitchenOn(c, venueId))) return null;
+  return (await kitchenSettings(c, venueId, { now: () => now })).allergyNotice;
 }

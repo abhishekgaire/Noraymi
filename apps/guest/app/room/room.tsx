@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AllergyNotice } from "../allergy-notice";
 import { EventClient, guestOrderWords, newTraceparent, t, type MessageKey } from "@west4/shared";
 import { reporter } from "../telemetry";
 import { YourBill, type GuestBill, type ShareAnswer } from "../bill/your-bill";
@@ -129,6 +130,8 @@ interface GuestOrder {
 const KITCHEN_NOTE_MAX = 200;
 
 const REFRESH_MS = 10_000;
+/** The room tablet refetches the menu every third refresh: every 30 seconds. */
+const MENU_REFRESH_TICKS = 3;
 
 const money = (c: number) => `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
 const newOrderId = () => `room-${crypto.randomUUID()}`;
@@ -155,6 +158,7 @@ export function RoomPage({
 }: { api?: RoomApi; tablet?: boolean } = {}) {
   const [room, setRoom] = useState<RoomSession | null>(null);
   const [menu, setMenu] = useState<readonly Category[] | null>(null);
+  const [allergyNotice, setAllergyNotice] = useState<{ en: string; es: string } | null>(null);
   const [orders, setOrders] = useState<readonly GuestOrder[]>([]);
   const [bill, setBill] = useState<Bill | null>(null);
   const [rounds, setRounds] = useState<readonly Round[]>([]);
@@ -216,7 +220,13 @@ export function RoomPage({
     const r = await fetch(`/v1/public/venues/${encodeURIComponent(slug)}/menu`, {
       cache: "no-store",
     }).catch(() => null);
-    if (r?.ok) setMenu(((await r.json()) as { categories: Category[] }).categories);
+    if (!r?.ok) return;
+    const body = (await r.json()) as {
+      categories: Category[];
+      allergy_notice?: { en: string; es: string } | null;
+    };
+    setMenu(body.categories);
+    setAllergyNotice(body.allergy_notice ?? null);
   }, []);
 
   useEffect(() => {
@@ -241,7 +251,15 @@ export function RoomPage({
       });
       client.start();
     });
-    const timer = setInterval(() => void load(), REFRESH_MS);
+    // The tablet has no live channel, so its menu refreshes on a slower timer: an 86, a closed
+    // kitchen or a new allergy notice reaches it within a minute (K-07, K-08).
+    let ticks = 0;
+    const timer = setInterval(() => {
+      void load().then((s) => {
+        if (tablet && s && !s.available && ++ticks % MENU_REFRESH_TICKS === 0)
+          void loadMenu(s.venue.slug);
+      });
+    }, REFRESH_MS);
     return () => {
       clearInterval(timer);
       client?.stop();
@@ -798,6 +816,7 @@ export function RoomPage({
           {menu.filter((cat) => cat.food).map(menuSection)}
         </section>
       )}
+      <AllergyNotice notice={allergyNotice} label={t("en", "guestRoom.allergyNotice")} />
 
       {choosing && (
         <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="choose-h">

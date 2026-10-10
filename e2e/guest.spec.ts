@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { execSync } from "node:child_process";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
 import { API, DB, esc, GUEST, PAY } from "./stack.js";
@@ -528,6 +528,77 @@ test("food on the room page and tablet: a Food heading, an allergy note, and Dri
     ).toHaveText(["TEST Sides and more", "TEST Wings"]);
     await tablet.context().close();
   } finally {
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
+/**
+ * The allergy notice (K-08; Kitchen and food · The allergy notice): with Kitchen & food on and a
+ * notice saved in Admin → Kitchen (a test one, never anyone's real words), it shows on the website's
+ * menu page, the room page, the room tablet and the menu PDF, in English and Spanish.
+ */
+test("the allergy notice shows on the menu page, the room page, the room tablet and the menu PDF", async ({
+  browser,
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const { menuPdfText } = await import("../apps/api/src/menu/pdf-text.js");
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const kitchen = await testKitchenMenu(db);
+  const EN = "TEST ONLY · allergy notice";
+  const ES = "SOLO PRUEBA · aviso de alergias";
+  const saved = (
+    await db.query<{ version: number }>(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select v.id, 'kitchen', coalesce((select max(version) from venue_settings s where s.venue_id = v.id and s.key = 'kitchen'), 0) + 1,
+              $1, '2026-09-01'
+         from venues v where v.slug = 'west4karaoke' returning version`,
+      [JSON.stringify({ allergyNotice: { en: EN, es: ES }, lastOrder: null, unsentWarnMin: 5 })],
+    )
+  ).rows[0]!.version;
+  try {
+    const shows = async (where: Page, label: string) => {
+      const notice = where.getByRole("complementary", { name: "Allergy notice" });
+      await expect(notice, label).toContainText(EN, { timeout: 15_000 });
+      await expect(notice.locator('p[lang="es"]'), label).toHaveText(ES);
+    };
+    await page.goto("/v/west4karaoke/menu");
+    await shows(page, "the menu page");
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    const phone = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await phone.goto(`/v/west4karaoke/room/${room9}`);
+    await phone.getByLabel("Room code").fill("KX4M7");
+    await phone.getByRole("button", { name: "Join" }).click();
+    await shows(phone, "the room page");
+    await phone.context().close();
+
+    const code = randomBytes(4).toString("hex").toUpperCase();
+    await db.query(
+      `insert into device_pairing_codes (venue_id, code_hash, kind, name, room_id, expires_at)
+       select r.venue_id, $1, 'room_tablet', 'Tablet · ' || r.name, r.id, now() + interval '1 hour'
+         from rooms r where r.name = 'Room 9'`,
+      [createHash("sha256").update(code).digest("hex")],
+    );
+    const tablet = await (
+      await browser.newContext({ viewport: { width: 1024, height: 768 } })
+    ).newPage();
+    await tablet.goto("/tablet");
+    await tablet.getByLabel("Pairing code from Admin → Devices").fill(code);
+    await tablet.getByRole("button", { name: "Pair" }).click();
+    await shows(tablet, "the room tablet");
+    await tablet.context().close();
+
+    const pdf = await menuPdfText(DB, "west4karaoke", "2026-09-26T02:41:00Z");
+    expect(pdf).toContain(EN);
+    expect(pdf).toContain(ES);
+  } finally {
+    await db.query("delete from venue_settings where key = 'kitchen' and version = $1", [saved]);
     await kitchen.restore();
     await db.end();
   }

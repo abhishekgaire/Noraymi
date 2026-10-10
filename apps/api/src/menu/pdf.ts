@@ -26,6 +26,8 @@ export function menuHtml(
   venueName: string,
   categories: readonly PdfCategory[],
   packages: readonly { name: string; price_cents: number; hourly: boolean }[] = [],
+  /** The allergy notice from Admin → Kitchen (K-08), both languages; null while it isn't shown. */
+  allergyNotice: { readonly en: string; readonly es: string } | null = null,
 ): string {
   const sections = categories
     .filter((c) => c.items.length > 0)
@@ -65,6 +67,11 @@ export function menuHtml(
         )
         .join("")}</ul></section>`
     : "";
+  // The allergy notice (K-08; spec 16 · The allergy notice): the owner's words only, never ours,
+  // in English and then Spanish, at the top of the menu.
+  const notice = allergyNotice
+    ? `<aside class="allergy" aria-label="Allergy notice"><p>${escape(allergyNotice.en)}</p><p lang="es">${escape(allergyNotice.es)}</p></aside>`
+    : "";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escape(venueName)} · Menu</title>
 <style>
   body { font-family: "Noto Sans", Helvetica, Arial, sans-serif; color: #111; margin: 0; font-size: 11pt; }
@@ -76,7 +83,9 @@ export function menuHtml(
   .line { display: flex; justify-content: space-between; gap: 8pt; }
   .price { white-space: nowrap; }
   .desc, .choices { font-size: 9pt; color: #333; }
-</style></head><body><main><h1>${escape(venueName)} · Menu</h1>${sections}${packs}</main></body></html>`;
+  .allergy { border: 1.5pt solid #111; padding: 6pt 8pt; margin: 0 0 10pt; font-size: 10pt; }
+  .allergy p + p { margin-top: 4pt; }
+</style></head><body><main><h1>${escape(venueName)} · Menu</h1>${notice}${sections}${packs}</main></body></html>`;
 }
 
 /** Prints HTML to a tagged PDF with Chromium; MENU_PDF_CHROMIUM names a system Chromium (the API image). */

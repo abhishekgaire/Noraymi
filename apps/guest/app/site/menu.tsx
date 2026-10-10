@@ -1,5 +1,6 @@
 import { t, type MessageKey } from "@west4/shared";
 import { SiteFooter, SiteHeader, priceLines } from "./home";
+import { AllergyNotice } from "../allergy-notice";
 import { hhmmWords, minuteWords, money, type GuestMenu, type SiteView } from "./data";
 
 /**
@@ -38,6 +39,10 @@ export function MenuPage({
             </a>
           )}
         </section>
+        <AllergyNotice
+          notice={menu.allergy_notice}
+          label={t("en", "site.menuPage.allergyNotice")}
+        />
 
         {menu.happy_hours.length > 0 && (
           <section className="happy-hour" aria-labelledby="hh-h">

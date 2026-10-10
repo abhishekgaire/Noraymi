@@ -3,6 +3,7 @@ import { businessDate, displayPrice } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { alcoholNow } from "../orders/alcohol.js";
 import { creditPricePct } from "../payments/surcharge.js";
+import { menuAllergyNotice } from "../kitchen/module.js";
 import { livePromotions } from "./promotions.js";
 
 /**
@@ -28,6 +29,9 @@ export async function guestMenu(c: Queryable, venueId: string, now: Temporal.Ins
       }))
       .filter((cat) => cat.items.length > 0),
     alcohol: await alcoholNow(c, venueId, now),
+    // The allergy notice (K-08; spec 16 · The allergy notice): the owner's words from Admin →
+    // Kitchen, in English and Spanish, while Kitchen & food is on; null otherwise.
+    allergy_notice: await menuAllergyNotice(c, venueId, now),
     ...(await guestPromotions(c, venueId, now)),
   };
 }

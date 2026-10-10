@@ -31,7 +31,7 @@ export function makeMenuPdfHandler(
         menu: await guestMenu(c, job.venue_id, now),
       };
     });
-    const pdf = await render(menuHtml(name, menu.categories, menu.packages));
+    const pdf = await render(menuHtml(name, menu.categories, menu.packages, menu.allergy_notice));
     const key = `${job.venue_id}/menu_pdf/${job.id}.pdf`;
     await s3.send(
       new PutObjectCommand({ Bucket: bucket, Key: key, Body: pdf, ContentType: "application/pdf" }),

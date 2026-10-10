@@ -17,7 +17,12 @@ import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import type { Queryable } from "@west4/db";
 import { merchantCategoryPasses } from "../payments/go-live.js";
-import { kitchenNeeds, kitchenNeedsText, kitchenOrdersOpen } from "../kitchen/module.js";
+import {
+  kitchenNeeds,
+  kitchenNeedsText,
+  kitchenOrdersOpen,
+  menusFollowKitchen,
+} from "../kitchen/module.js";
 
 interface VenueParams {
   venueId: string;
@@ -133,6 +138,8 @@ export function modulesRoutes(
             });
         }
         await setModuleState(c, venueId, id, "on", updatedBy);
+        // Food and the allergy notice appear on every menu, the PDF included (K-08).
+        if (id === "kitchen") await menusFollowKitchen(c, venueId, options.clock.now());
         await emitEvent(c, {
           venueId,
           type: "settings.changed",
@@ -166,6 +173,8 @@ export function modulesRoutes(
         return { applied: false, needs_confirm: true as const, turns_off: dependents, question };
       }
       for (const m of [id, ...dependents]) await setModuleState(c, venueId, m, target, updatedBy);
+      if ([id, ...dependents].includes("kitchen"))
+        await menusFollowKitchen(c, venueId, options.clock.now());
       await emitEvent(c, {
         venueId,
         type: "settings.changed",

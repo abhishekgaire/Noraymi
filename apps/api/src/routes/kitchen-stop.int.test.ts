@@ -308,3 +308,46 @@ describe("Close the kitchen (K-07)", () => {
     }
   });
 });
+
+describe("the allergy notice on every menu (K-08)", () => {
+  const notice = async () =>
+    (await app.inject({ method: "GET", url: `/v1/public/venues/${slug}/menu` })).json()
+      .allergy_notice as unknown;
+
+  it("a save of the kitchen key puts the notice on the guest menu and queues the menu PDF at once", async () => {
+    await raw.query("delete from jobs where venue_id = $1 and kind = 'menu.pdf'", [venueId]);
+    as("abhishek", "owner", "passkey");
+    const saved = await staff("PUT", "/settings/kitchen", {
+      value: { allergyNotice: TEST_NOTICE, lastOrder: null, unsentWarnMin: 5 },
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(await notice()).toEqual(TEST_NOTICE);
+    const job = await raw.query<{ run_at: Date }>(
+      "select run_at from jobs where venue_id = $1 and kind = 'menu.pdf' and status = 'queued'",
+      [venueId],
+    );
+    expect(job.rows).toHaveLength(1);
+    // Within a minute of the save: the job runs five seconds later.
+    expect(job.rows[0]!.run_at.getTime() - Date.parse(SEED_NOW.toString())).toBeLessThan(60_000);
+    const changed = await raw.query(
+      "select 1 from venue_events where venue_id = $1 and type = 'menu.changed' and entity_id = $1::text",
+      [venueId],
+    );
+    expect(changed.rowCount).toBeGreaterThan(0);
+  });
+
+  it("with Kitchen & food off, no menu shows the notice", async () => {
+    await raw.query(
+      "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'kitchen'",
+      [venueId],
+    );
+    try {
+      expect(await notice()).toBeNull();
+    } finally {
+      await raw.query(
+        "update venue_modules set state = 'on' where venue_id = $1 and module_id = 'kitchen'",
+        [venueId],
+      );
+    }
+  });
+});

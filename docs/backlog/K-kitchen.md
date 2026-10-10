@@ -204,16 +204,22 @@ Definition of done: see CLAUDE.md.
 
 ### K-08 · Show the allergy notice on every menu
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** K-01; M3-05, M3-09, M5-01
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · The allergy notice
 - **Build:** the notice from `kitchen.allergyNotice` on the room page, the room tablet, the website menu page and the menu PDF, in the guest's language.
 - **Acceptance:**
-  - [ ] With the module on, the notice appears on all four menus within a minute of a save.
-  - [ ] The notice text is never written in the code or the seed.
+  - [x] With the module on, the notice appears on all four menus within a minute of a save.
+  - [x] The notice text is never written in the code or the seed.
 - **Tests:** end-to-end tests of the four menus; a unit test that the PDF includes it.
-- **Notes:** The wording, and whether PHL §1356 applies, are with the lawyer.
+- **Notes:**
+  - The wording, and whether PHL §1356 applies, are with the lawyer. No notice text is in the code or the seed: tests use "TEST ONLY · allergy notice" / "SOLO PRUEBA · aviso de alergias", and the seed leaves the key empty.
+  - The guest menu (`menu/guest-menu.ts`, read by the room page, the room tablet, the website's menu page and the PDF) answers `allergy_notice` from `kitchen.allergyNotice` while Kitchen & food is on, else null.
+  - Shown by `apps/guest/app/allergy-notice.tsx` after the Food section on the room page and tablet (one component) and under the title on the menu page; printed boxed at the top of the PDF (`menu/pdf.ts`).
+  - Cautious default: the guest web has no language switch (it's English only today), so "in the guest's language" shows both, English then Spanish marked `lang="es"`. When the guest web gets Spanish, show only the guest's language.
+  - Within a minute: saving the `kitchen` key, or turning the module on or off, emits `menu.changed` (the room page refetches) and queues the menu PDF five seconds later (`kitchen/module.ts` · `menusFollowKitchen`). The room tablet, which has no live channel, now refetches its menu every 30 seconds, which also carries 86s and Close the kitchen to it.
+  - Tests: unit `menu/pdf.test.ts`; integration `routes/kitchen-stop.int.test.ts` (save → notice on the guest menu, PDF queued, menu.changed; module off → none); e2e "the allergy notice shows on the menu page, the room page, the room tablet and the menu PDF" (guest.spec.ts).
 
 ### K-09 · Sell a package with food: tickets at once, the price divided across its lines
 
