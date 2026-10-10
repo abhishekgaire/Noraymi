@@ -513,7 +513,9 @@ export function AddDrinks(props: {
       setLines([]);
       history.current = [];
       setSent(true);
-      await Promise.all([loadDraft(), loadOrders()]);
+      // The check too (K-11): food just sent reads Not sent and counts in Send to kitchen (N) at
+      // once, without waiting for the event stream.
+      await Promise.all([loadDraft(), loadOrders(), loadCheck().catch(() => undefined)]);
       props.onSent();
     } catch (e) {
       const err = e as ApiCallError;

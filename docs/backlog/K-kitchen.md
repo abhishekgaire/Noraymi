@@ -264,13 +264,16 @@ Definition of done: see CLAUDE.md.
 
 ### K-11 · Prove a food night end to end
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** K-01 to K-10
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md)
 - **Build:** a Playwright run on the test kitchen menu: a guest's mixed basket, a bar tab with food sent with Send to kitchen (an allergy note, a second send of new food only, the Not sent reminder), a package, a failed kitchen ticket printed at the bar, a run with Picked up, 86 and Close the kitchen, and Close the night reconciling to the cent.
 - **Acceptance:**
-  - [ ] The run passes from a fresh seed with the test kitchen menu.
-  - [ ] Every new staff string exists in English and Spanish (`pnpm i18n:check`).
+  - [x] The run passes from a fresh seed with the test kitchen menu.
+  - [x] Every new staff string exists in English and Spanish (`pnpm i18n:check`).
 - **Tests:** the end-to-end run; `pnpm check --e2e`.
-- **Notes:**
+- **Notes:** Built as "a food night: Sing Sing's menu, a guest's basket, a bar tab, 86, Close the kitchen, a package and the Z" in `e2e/staff.spec.ts` (staff project, run with `pnpm e2e:isolated`). On a fresh seed it loads Sing Sing Karaoke's real menu (`docs/venues/sing-sing/import/`) through `db:import` into the e2e database's venue (the test venue; no live venue is touched), turns on Kitchen & food and Packages, and adds one TEST package (test price). Then: a guest's Mac & Cheese with an allergy note and a Bud Light, accepted at the bar (kitchen ticket with ALLERGY), the ticket failing and Print at the bar instead (REPRINT 2), In the kitchen then Picked up and Delivered on Runs; Jess P.'s tab sends Onion Rings with a note, then Coleslaw after the Not sent reminder, and only the new food goes the second time; the package on Room 9's tab divided $11.66 / $8.62 / $4.72 and its food sent; Cheese Sticks 86'd and Close the kitchen greying the food on the room page; the X report's Food $13.35; the night closed and the Z's food $13.35 and packages $25.00, to the cent.
+  - Close the night uses the same database shortcuts as the existing Close the night test (ending sessions, settling tabs) to reach the close quickly, so the e2e checks the Z to the cent but doesn't run the reconcile script; the food night reconciling to the cent through the API is `apps/api/src/reconcile/food-night.int.test.ts` (K-10).
+  - Fix found by the run: the room tab and bar POS's Add drinks reloads the check after a send, so food just sent counts in Send to kitchen (N) at once instead of waiting for the event stream (`AddDrinks.tsx`).
+  - Kitchen isn't a must-fix item in `docs/gate/must-fix.md`, so nothing changed there; S-03 in the Sing Sing backlog notes the importer already loads Sing Sing's menu in tests.

@@ -6466,6 +6466,288 @@ test("Close the kitchen on a manager's phone greys the food on the room page, an
 });
 
 /**
+ * A food night end to end (K-11; Kitchen and food): Sing Sing Karaoke's real menu, from
+ * docs/venues/sing-sing/import/, loaded through the importer into this run's test venue (the seed's
+ * venue in the e2e database, never a live one), Kitchen & food and Packages on. A guest's mixed
+ * basket with an allergy note is accepted at the bar: the kitchen ticket prints with the note, fails,
+ * and is printed at the bar instead; the runner taps Picked up then Delivered. Jess P.'s bar tab sends
+ * food with Send to kitchen, then only the new food, after the Not sent reminder. An 86 and Close
+ * the kitchen grey the food on the room page. A TEST package with food goes on Room 9's tab. The
+ * night closes and the Z report shows food on its own line, to the cent. (The reconcile script over a
+ * food night played through the API is apps/api/src/reconcile/food-night.int.test.ts.)
+ */
+test("a food night: Sing Sing's menu, a guest's basket, a bar tab, 86, Close the kitchen, a package and the Z", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(360_000);
+  const db = await dbClient();
+  try {
+    // Sing Sing's menu through the importer, as a venue's go-live loads it.
+    execSync(
+      "node packages/db/dist/import-cli.js --venue west4karaoke --mapping docs/venues/sing-sing/import/mapping.json",
+      { stdio: ["ignore", "ignore", "pipe"], env: { ...process.env, DATABASE_URL: DB } },
+    );
+    const v = await venueId(db);
+    await db.query(
+      "update venue_modules set allowed = true, state = 'on' where venue_id = $1 and module_id in ('kitchen', 'packages')",
+      [v],
+    );
+    const item = async (name: string) =>
+      (
+        await db.query<{ id: string }>(
+          "select id from menu_items where venue_id = $1 and name = $2 order by created_at desc limit 1",
+          [v, name],
+        )
+      ).rows[0]!.id;
+    // A TEST package (test price, not Sing Sing's): a Soju Mojito, a Classic Cheese and French Fries.
+    await db.query(
+      `insert into packages (venue_id, name, price_cents, contents, checked_pack_version)
+       values ($1, 'TEST burger night', 2500, $2, 'test')`,
+      [
+        v,
+        JSON.stringify([
+          { item_id: await item("Soju Mojito"), qty: 1 },
+          { item_id: await item("Classic Cheese"), qty: 1 },
+          { item_id: await item("French Fries"), qty: 1 },
+        ]),
+      ],
+    );
+    const kitchenJobs = async () =>
+      (
+        await db.query<{
+          id: string;
+          payload: {
+            room: string;
+            lines: { name: string; kitchen_note?: string; allergy?: boolean }[];
+          };
+        }>(
+          "select id, payload from print_jobs where station = 'kitchen' and reprint_of is null order by created_at",
+        )
+      ).rows;
+
+    // 1. A guest in Room 9 orders Mac & Cheese with an allergy note and a Bud Light.
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    const guest = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await guest.goto(`${GUEST}/v/west4karaoke/room/${room9}`);
+    await guest.getByLabel("Room code").fill("KX4M7");
+    await guest.getByRole("button", { name: "Join" }).click();
+    await guest.getByRole("button", { name: "Mac & Cheese · $4.45" }).click({ timeout: 20_000 });
+    await guest.getByRole("button", { name: "Bud Light · $8.00" }).click();
+    const cart = guest.getByRole("region", { name: "Your order · not sent yet" });
+    await cart
+      .getByLabel("Allergies or notes for the kitchen · Mac & Cheese")
+      .fill("TEST no dairy");
+    await cart.getByLabel("This is an allergy · Mac & Cheese").check();
+    await cart.getByRole("button", { name: "Send 2 to the bar · $12.45" }).click();
+    await expect(guest.locator(".order", { hasText: "1 × Mac & Cheese" })).toBeVisible();
+
+    // 2. Maya accepts both at the bar: the kitchen ticket prints with the allergy.
+    await signInMayaAtTheBar(page, request, db);
+    const waiting = page.getByRole("list", { name: "Room orders waiting" }).getByRole("listitem");
+    const food = waiting.filter({ hasText: "Mac & Cheese" });
+    await food.getByRole("button", { name: "Accept · print ticket" }).click();
+    await expect(food).toHaveCount(0);
+    // The guest's drinks are the newest card (oldest first); the seed's own Room 9 order stays.
+    const count = await waiting.count();
+    await waiting.last().getByRole("button", { name: "Accept · print ticket" }).click();
+    await expect(waiting).toHaveCount(count - 1);
+    const mac = (await kitchenJobs()).at(-1)!;
+    expect(mac.payload.room).toBe("Room 9");
+    expect(mac.payload.lines).toEqual([
+      expect.objectContaining({
+        name: "Mac & Cheese",
+        kitchen_note: "TEST no dairy",
+        allergy: true,
+      }),
+    ]);
+
+    // 3. Jess P.'s bar tab: Onion Rings sent with a note; then Coleslaw, and only it goes the second time.
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    const search = page.getByRole("searchbox", { name: "Search the menu" });
+    const grid = page.locator(".rail-grid");
+    await search.fill("onion rings");
+    await grid.getByRole("button", { name: /Onion Rings/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    const onTab = page.getByRole("list", { name: "On the tab" });
+    await expect(onTab.getByRole("listitem").filter({ hasText: "Onion Rings" })).toContainText(
+      "Not sent",
+    );
+    await panel.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    const confirm = page.getByRole("dialog", { name: "Send to kitchen" });
+    await confirm.getByLabel(/Note for the kitchen/).fill("extra crispy");
+    await confirm.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    await expect(panel.getByRole("button", { name: "Send to kitchen (0)" })).toBeDisabled();
+    await search.fill("coleslaw");
+    await grid.getByRole("button", { name: /Coleslaw/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await expect(onTab.getByRole("listitem").filter({ hasText: "Coleslaw" })).toContainText(
+      "Not sent",
+    );
+    // Left Not sent past 5 minutes on the venue's clock: the reminder.
+    await resetClock("2026-09-26T02:47:00Z");
+    await page.reload();
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await expect(panel.locator(".kitchen-reminder")).toHaveText(
+      "1 food item not sent to the kitchen",
+    );
+    await panel.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    await page
+      .getByRole("dialog", { name: "Send to kitchen" })
+      .getByRole("button", { name: "Send to kitchen (1)" })
+      .click();
+    await expect(panel.getByRole("button", { name: "Send to kitchen (0)" })).toBeDisabled();
+    const bar = (await kitchenJobs()).filter((j) => j.payload.room === "Bar · Jess P.");
+    expect(bar.map((j) => j.payload.lines.map((l) => l.name))).toEqual([
+      ["Onion Rings"],
+      ["Coleslaw"],
+    ]);
+
+    // 4. A TEST package on Room 9's tab: its food Not sent until Send to kitchen.
+    await page.goto(`/room/${room9}`);
+    const packages = page.getByRole("region", { name: "Packages" });
+    await packages.getByRole("button", { name: "Add a package" }).click();
+    await page
+      .getByRole("dialog", { name: "Choose a package" })
+      .getByRole("button", { name: /TEST burger night/ })
+      .click();
+    await page
+      .getByRole("dialog", { name: "TEST burger night" })
+      .getByRole("button", { name: "Add · $25.00" })
+      .click();
+    await expect(packages).toContainText(/TEST burger night\s*\$25\.00/);
+    // Regular $13.45, $9.95 and $5.45: $25.00 divided by largest remainder.
+    await expect(packages).toContainText(/Soju Mojito\s*\$11\.66/);
+    await expect(packages).toContainText(/Classic Cheese\s*\$8\.62/);
+    await expect(packages).toContainText(/French Fries\s*\$4\.72/);
+    await page
+      .getByRole("region", { name: "Add drinks" })
+      .getByRole("button", { name: "Send to kitchen (2)" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Send to kitchen" })
+      .getByRole("button", { name: "Send to kitchen (2)" })
+      .click();
+    await expect(page.getByRole("region", { name: "Running tab" })).toContainText(/Sent · /);
+
+    // 5. The guest's Mac & Cheese: In the kitchen at the bar, then Picked up and Delivered.
+    await page.goto("/bar-orders");
+    const making = page.getByRole("region", { name: "Being made" });
+    await expect(making.getByRole("listitem").filter({ hasText: "Mac & Cheese" })).toContainText(
+      /In the kitchen · ticket printed/,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/runs");
+    const run = page.getByRole("listitem").filter({ hasText: "Mac & Cheese" });
+    await run.getByRole("button", { name: "Picked up" }).click();
+    await expect(run).toContainText("On its way · Maya");
+    await run.getByRole("button", { name: "Delivered" }).click();
+    await expect(run).toHaveCount(0);
+
+    // 6. Andy: the kitchen ticket that didn't print goes to the bar; 86 Cheese Sticks; Close the kitchen.
+    await db.query(
+      "update print_jobs set status = 'failed', failed_at = now(), failure = 'not confirmed after three polls' where id = $1",
+      [mac.id],
+    );
+    const andy = await (
+      await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    ).newPage();
+    await signInAndy(andy, request, db);
+    await showAllAlerts(andy);
+    const alert = andy.locator(".alert", { hasText: "Room 9 · Kitchen ticket didn't print" });
+    await alert.getByRole("button", { name: "Print at the bar instead" }).click();
+    await expect(alert).toHaveCount(0);
+    const reprint = await db.query<{ station: string; n: number }>(
+      "select station, reprint_n as n from print_jobs where reprint_of = $1",
+      [mac.id],
+    );
+    expect(reprint.rows).toEqual([{ station: "bar", n: 2 }]);
+    // Maya 86es Cheese Sticks from the bar orders screen.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/bar-orders");
+    const outTonight = page.locator(".out-tonight");
+    await outTonight.getByLabel("86 an item").fill("Cheese Sticks");
+    await outTonight.getByRole("button", { name: "86", exact: true }).click();
+    await expect(outTonight.locator("li", { hasText: "Cheese Sticks" })).toBeVisible();
+    await guest.reload();
+    await expect(guest.getByRole("button", { name: "Cheese Sticks · 86'd tonight" })).toBeDisabled({
+      timeout: 15_000,
+    });
+    await andy.setViewportSize({ width: 390, height: 844 });
+    await andy.goto("/today");
+    const sw = andy.getByTestId("kitchen-switch");
+    await sw.getByRole("button", { name: "Close the kitchen" }).click();
+    await expect(sw.getByRole("status")).toHaveText("Kitchen closed");
+    await guest.reload();
+    await expect(guest.getByRole("button", { name: "Mac & Cheese · Kitchen closed" })).toBeDisabled(
+      {
+        timeout: 15_000,
+      },
+    );
+    await guest.context().close();
+
+    // 7. The X report shows food on its own line: $4.45 + $5.45 + $3.45; the package is under Packages.
+    await andy.setViewportSize({ width: 1280, height: 800 });
+    await andy.goto("/close-the-night");
+    const x = andy.getByRole("region", { name: "X report (running)" });
+    await expect(x).toContainText(/Food\s*\$13\.35/);
+
+    // 8. Close the night (the other fixes as in the Close the night test), and the Z to the cent.
+    await andy.context().close();
+    await setClock(request, "2026-09-26T08:12:00Z");
+    // Sat 4:12 AM: Andy signs in again on a fresh screen (an idle session locks).
+    const closer = await (
+      await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    ).newPage();
+    await signInAndy(closer, request, db);
+    for (const sql of [
+      "update room_sessions set ended_at = now() where venue_id = $1 and ended_at is null",
+      "update tabs set state = 'captured' where venue_id = $1 and state in ('open', 'tipping')",
+      "update shifts set ended_at = now() where venue_id = $1 and ended_at is null and membership_id not in (select m.id from memberships m join users u on u.id = m.user_id where u.name like 'Andy%')",
+      "update waitlist_entries set status = 'left' where venue_id = $1 and status in ('waiting', 'offered')",
+      "update orders set status = 'cancelled', cancel_reason = 'staff' where venue_id = $1 and status in ('ringing', 'held')",
+      "update approvals set status = 'declined' where venue_id = $1 and status = 'pending'",
+      "update room_states set state = 'available' where venue_id = $1 and state = 'cleaning'",
+      "update order_drafts set lines = '[]' where venue_id = $1",
+      "update drawer_sessions set state = 'counted', counted_cents = opening_cents, expected_cents = opening_cents, over_short_cents = 0 where venue_id = $1 and state = 'open'",
+    ])
+      await db.query(sql, [v]);
+    await setClock(request, "2026-09-26T08:31:00Z");
+    await closer.goto("/close-the-night");
+    const checks = closer.getByRole("region", { name: "Before closing" });
+    await checks.getByRole("button", { name: "Done" }).click();
+    await setClock(request, "2026-09-26T08:48:00Z");
+    await closer.reload();
+    await checks.getByRole("button", { name: "Close the night" }).click();
+    await checks
+      .getByRole("group", { name: "Close the night" })
+      .getByRole("button", { name: "Close the night" })
+      .click();
+    await expect(checks).toContainText("Night closed · 4:48 AM");
+    const z = await db.query<{ sales: { food_cents: number; packages_cents: number } }>(
+      "select totals->'report'->'sales' as sales from night_closes where venue_id = $1 and business_date = '2026-09-25'",
+      [v],
+    );
+    expect(z.rows[0]!.sales).toMatchObject({ food_cents: 1335, packages_cents: 2500 });
+    await closer.context().close();
+  } finally {
+    await db.query("update venues set kitchen_closed_until = null, kitchen_closed_by = null");
+    await db.end();
+  }
+});
+
+/**
  * Send the singer a drink (M6-24; D64): from Tariq A.'s tab, a Modelo for Jess P. rings the bar on
  * Tariq's tab with the ID reminder; one for Hana K. is refused with her cut-off in words.
  */
