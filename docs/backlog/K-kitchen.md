@@ -119,7 +119,7 @@ Definition of done: see CLAUDE.md.
   - API: the guest order line takes `kitchen_note` (up to 200 characters) and `kitchen_note_allergy`; a note on a drink is refused (`kitchen_note_not_food`), and "This is an allergy" counts only with a note. The guest order view now carries `station`. Same again copies food without its notes. The 4 AM stop already cancelled only alcohol orders, so the split food order keeps ringing (tested).
   - Room page and tablet (`apps/guest/app/room/room.tsx`, which the tablet shares): drink categories stay under Menu; food categories go under a Food heading in the menu's order; each food line in the basket has the note field and the allergy checkbox; each order card is titled Drinks or Food while the menu has food (West 4's page is unchanged). Spanish strings are in the catalog, as for the rest of the room page, which still renders English.
   - Bar orders: a food order shows no ID status, and its card shows each line's note ("ALLERGY: …" for an allergy).
-  - Left for later: the "Kitchen" chip on the bar's ringing cards (spec 16 · At the bar) isn't in any K ticket's Build; the allergy notice on the menus is K-08.
+  - Left for later: the "Kitchen" chip on the bar's ringing cards (spec 16 · At the bar) isn't in any K ticket's Build (built with K-06); the allergy notice on the menus is K-08.
   - Tests: `routes/kitchen-guest.int.test.ts`; e2e "food on the room page and tablet" (guest.spec.ts) and the food accessibility check (a11y-guest.spec.ts), both with the test kitchen menu in `e2e/kitchen.ts`, which puts the module back after.
 
 ### K-05 · Add food from the bar POS, bar tabs, quick sale and room tabs, and Send to kitchen
@@ -162,7 +162,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-06 · Run food: In the kitchen and Picked up on the runners' phones
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K-03; M3-15, M3-18
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Runners and delivery
@@ -171,11 +171,16 @@ Definition of done: see CLAUDE.md.
   - `POST /orders/{o}/pick-up` records Ready and the claim in one transaction, writing both events.
   - Returns and Remake as for drinks; a remake prints a kitchen ticket marked REMAKE.
 - **Acceptance:**
-  - [ ] Picked up moves an accepted food order to "On its way · Andy", and Delivered charges nothing.
-  - [ ] Picked up on an order that isn't accepted, or on staff-rung food that's still Not sent, is refused.
-  - [ ] A remake prints REMAKE in the kitchen and charges nothing again.
+  - [x] Picked up moves an accepted food order to "On its way · Andy", and Delivered charges nothing.
+  - [x] Picked up on an order that isn't accepted, or on staff-rung food that's still Not sent, is refused.
+  - [x] A remake prints REMAKE in the kitchen and charges nothing again.
 - **Tests:** unit tests for the step checks; integration tests for the route as every principal; an end-to-end run on a staff phone.
 - **Notes:**
+  - API: `POST /orders/{o}/pick-up` (module `kitchen`, `runs.carry`) in `orders/pipeline.ts` · `pickUpOrder`: moves accepted to on_the_way with `ready_by`/`ready_at` and `claimed_by`/`claimed_at` in one update and writes `order.ready` and `order.claimed`. The checks are `pickUpStep` in `packages/rules/src/orders.ts`: refused for drinks (`not_food`), bar-tab and quick-sale food (`no_run`), an order that isn't accepted (409, `status`), and staff-rung food still Not sent (`not_sent`). The order list gives `kitchen_sent_at` (Accept for a guest's food, Send to kitchen for staff's). Returns and Remake were already the drinks' path; a remake prints REMAKE in the kitchen and adds nothing to the check (tested).
+  - Screens: bar orders' Being made shows a room's food once its ticket printed as "In the kitchen · ticket printed · 0:42" with no Ready; Runs lists it with Picked up (no Couldn't serve until it's picked up). The "Kitchen" chip on the bar's food cards (spec 16 · At the bar, left over from K-04) is built here, on the ringing, Being made and Runs cards.
+  - Fixed from K-05: a guest's food on a room's check read "Not sent"; it now reads Sent at its Accept time (it printed then), can't be removed as unsent, and its voids count toward the reason-only limit.
+  - Server stays permissive on Ready for food (only the screens drop the button), as the ticket asks only for the button to go.
+  - Tests: unit `pickUpStep` (packages/rules/src/orders.test.ts); integration `routes/kitchen-runs.int.test.ts`; e2e "a food run: In the kitchen at the bar, Picked up then Delivered on a phone's Runs" (staff.spec.ts).
 
 ### K-07 · 86 food, close the kitchen, and the last-order time
 

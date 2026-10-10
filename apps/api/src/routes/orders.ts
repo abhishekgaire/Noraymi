@@ -5,7 +5,7 @@ import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { stepOrder, type StepInput } from "../orders/pipeline.js";
+import { pickUpOrder, stepOrder, type StepInput } from "../orders/pipeline.js";
 import { inVenueRefusing } from "../orders/alcohol.js";
 import { DEFAULT_AGING } from "../orders/escalation.js";
 import { venueClock } from "../rooms/assignment.js";
@@ -21,6 +21,7 @@ import { venueClock } from "../rooms/assignment.js";
  *   POST /v1/venues/{v}/orders/{o}/resolve  { resolution: void_not_made | void_made | remake }
  * A step from the wrong status answers 409 version_conflict with the order's status. A void over
  * the reason-only limit answers 202 approval_pending. Staff orders (`POST /checks/{c}/orders`) are M3-07.
+ *   POST /v1/venues/{v}/orders/{o}/pick-up   food (K-06): Ready and I've got it in one tap, at the kitchen
  */
 const who = (request: FastifyRequest) => {
   const p = request.principal;
@@ -153,4 +154,36 @@ export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       },
     );
   }
+
+  // Picked up (K-06; Kitchen and food · Runners and delivery): Ready and the claim in one transaction.
+  app.post<{ Params: { venueId: string; orderId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/orders/:orderId/pick-up",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "kitchen",
+        action: "runs.carry",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (
+        !z
+          .object({})
+          .strict()
+          .safeParse(request.body ?? {}).success
+      )
+        throw new ApiError("invalid_request", "Picked up takes no body");
+      if (!z.string().uuid().safeParse(request.params.orderId).success)
+        throw new ApiError("not_found", "no such order");
+      const me = who(request);
+      return request.inVenue((c) =>
+        pickUpOrder(c, request.venueId!, request.params.orderId, {
+          userId: me.userId,
+          deviceId: me.deviceId,
+          now: options.clock.now(),
+        }),
+      );
+    },
+  );
 }

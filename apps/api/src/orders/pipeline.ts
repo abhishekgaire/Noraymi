@@ -15,6 +15,7 @@ import {
 import {
   businessDate,
   orderStep,
+  pickUpStep,
   reasonOnly,
   type OrderStatus,
   type OrderStep,
@@ -546,3 +547,48 @@ executors.set("void", async (c, venueId, approval: ApprovalRow, ctx) => {
   });
   await announce(c, venueId, (await orderById(c, venueId, order.id))!, "order.resolved");
 });
+
+/**
+ * Picked up (K-06; Kitchen and food · Runners and delivery): at the kitchen the runner's one tap
+ * records Ready and I've got it together (`ready_at`, `claimed_by`, `claimed_at`), writing both
+ * events, so the order reads "On its way · Andy". Refused for drinks, for food with no run (a bar
+ * tab's or a quick sale's), for an order that isn't accepted, and for staff-rung food still Not sent.
+ */
+export async function pickUpOrder(
+  c: Queryable,
+  venueId: string,
+  orderId: string,
+  input: StepInput,
+): Promise<StepAnswer> {
+  const order = await orderById(c, venueId, orderId);
+  if (!order) throw new ApiError("not_found", "no such order");
+  const check = pickUpStep({
+    status: order.status as OrderStatus,
+    station: order.station,
+    hasRun: order.session_id !== null,
+    sentToKitchen: order.kitchen_sent_at !== null,
+  });
+  if (!check.ok)
+    throw new ApiError(
+      check.reason === "status" ? "version_conflict" : "invalid_request",
+      check.why,
+      { details: { reason: check.reason, status: order.status } },
+    );
+  const now = input.now.toString();
+  if (
+    !(await moveOrder(c, venueId, order.id, ["accepted"], {
+      status: "on_the_way",
+      ready_by: input.userId,
+      ready_at: now,
+      claimed_by: input.userId,
+      claimed_at: now,
+    }))
+  )
+    throw new ApiError("version_conflict", "someone else moved this order first; refresh", {
+      details: { status: order.status },
+    });
+  const done = (await orderById(c, venueId, order.id))!;
+  await announce(c, venueId, done, "order.ready");
+  await announce(c, venueId, done, "order.claimed");
+  return { status: "done", order: done };
+}

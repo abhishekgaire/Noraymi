@@ -3211,5 +3211,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.choices.size": "Tamaño · elige uno",
   "kitchen.choices.add": "Agregar · {price}",
   "kitchen.sent": "Enviado a la cocina",
+  "kitchen.run.inKitchen": "En la cocina · ticket impreso · {age}",
+  "kitchen.run.pickedUp": "Recogido",
   "kitchen.choices.needed": "Primero elige {group}",
 };

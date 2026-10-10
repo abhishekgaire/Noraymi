@@ -32,7 +32,9 @@ export async function reasonOnlyUsed(
         and not (l.kind = 'void' and exists (
               select 1 from live_check_lines r join order_items oi on oi.venue_id = r.venue_id and oi.id = r.source_id
                where r.venue_id = l.venue_id and r.id = l.reverses_id
-                 and oi.station = 'kitchen' and oi.kitchen_sent_at is null))
+                 and oi.station = 'kitchen' and oi.kitchen_sent_at is null
+                 and exists (select 1 from orders o where o.venue_id = oi.venue_id and o.id = oi.order_id
+                               and o.source = 'staff')))
         and case when exists (select 1 from shift) then l.added_at >= (select started_at from shift)
                  else l.business_date = $3 end`,
     [venueId, userId, businessDate],

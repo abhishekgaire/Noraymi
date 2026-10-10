@@ -48,14 +48,17 @@ export async function foodLines(
             l.qty - coalesce((select sum(x.qty) from check_lines x
                                where x.venue_id = l.venue_id and x.reverses_id = l.id), 0) as open_qty,
             to_json(l.added_at) #>> '{}' as rung_at,
-            to_json(oi.kitchen_sent_at) #>> '{}' as sent_at,
-            (select u.name from users u where u.id = oi.kitchen_sent_by) as sent_by,
+            -- A guest's food went to the kitchen at Accept, with no Send to kitchen (K-04).
+            to_json(coalesce(oi.kitchen_sent_at, case when o.source <> 'staff' then o.accepted_at end)) #>> '{}' as sent_at,
+            (select u.name from users u
+              where u.id = coalesce(oi.kitchen_sent_by, case when o.source <> 'staff' then o.accepted_by end)) as sent_by,
             oi.kitchen_note, oi.kitchen_note_allergy as allergy,
             (select j.id from print_jobs j
               where j.venue_id = l.venue_id and j.check_id = l.check_id and j.reprint_of is null
                 and j.payload->'line_ids' @> to_jsonb(l.id) limit 1) as job_id
        from check_lines l
        join order_items oi on oi.venue_id = l.venue_id and oi.id = l.source_id
+       join orders o on o.venue_id = oi.venue_id and o.id = oi.order_id
       where l.venue_id = $1 and l.check_id = $2 and l.kind = 'item' and oi.station = 'kitchen'
         ${opts.lineIds ? "and l.id = any($3::bigint[])" : ""}
       order by l.id

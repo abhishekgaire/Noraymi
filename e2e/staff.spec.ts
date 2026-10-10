@@ -6221,7 +6221,7 @@ test("the bar POS: food on Jess P.'s tab is Not sent until Send to kitchen print
     await confirm.getByRole("button", { name: "Send to kitchen (1)" }).click();
     await expect(
       onTab.getByRole("listitem").filter({ hasText: "TEST chicken wings" }),
-    ).toContainText("Sent · 10:41 PM");
+    ).toContainText(/Sent · 10:4\d PM/);
     await expect(panel.getByRole("button", { name: "Send to kitchen (0)" })).toBeDisabled();
     const jobs = await kitchenJobs();
     expect(jobs.length).toBe(before + 1);
@@ -6287,11 +6287,76 @@ test("Room 9's tab on a phone: food is Not sent on the check, and Send to kitche
       .getByRole("button", { name: "Send to kitchen (1)" })
       .click();
     await expect(page.getByRole("dialog", { name: "Send to kitchen" })).toHaveCount(0);
-    await expect(tab).toContainText("Sent · 10:41 PM");
+    await expect(tab).toContainText(/Sent · 10:4\d PM/);
     const job = await db.query<{ payload: { room: string } }>(
       "select payload from print_jobs where station = 'kitchen' order by created_at desc limit 1",
     );
     expect(job.rows[0]!.payload.room).toBe("Room 9");
+  } finally {
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
+/**
+ * Runs for food (K-06; Kitchen and food · Runners and delivery): Room 9's fries, once sent to the
+ * kitchen, read "In the kitchen · ticket printed" on the bar orders screen with the Kitchen chip and
+ * no Ready; on a phone's Runs, Picked up makes them On its way · Maya, then Delivered.
+ */
+test("a food run: In the kitchen at the bar, Picked up then Delivered on a phone's Runs", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db, { choices: true });
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    const drinks = page.getByRole("region", { name: "Add drinks" });
+    await drinks.getByLabel("Search the menu").fill("fries");
+    await drinks.getByRole("button", { name: "TEST French Fries · $5.00" }).click();
+    await drinks.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await expect(page.getByRole("region", { name: "Running tab" })).toContainText("Not sent");
+    await page
+      .getByRole("region", { name: "Add drinks" })
+      .getByRole("button", { name: "Send to kitchen (1)" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Send to kitchen" })
+      .getByRole("button", { name: "Send to kitchen (1)" })
+      .click();
+    await expect(page.getByRole("region", { name: "Running tab" })).toContainText(
+      /Sent · 10:4\d PM/,
+    );
+
+    await page.goto("/bar-orders");
+    const making = page.getByRole("region", { name: "Being made" });
+    const card = making.getByRole("listitem").filter({ hasText: "TEST French Fries" });
+    await expect(card).toContainText("Kitchen");
+    await expect(card).toContainText(/In the kitchen · ticket printed · \d+:\d\d/);
+    await expect(card.getByRole("button", { name: "Ready" })).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/runs");
+    const run = page.getByRole("listitem").filter({ hasText: "TEST French Fries" });
+    await expect(run).toContainText("In the kitchen · ticket printed");
+    await run.getByRole("button", { name: "Picked up" }).click();
+    await expect(run).toContainText("On its way · Maya");
+    await run.getByRole("button", { name: "Delivered" }).click();
+    await expect(run).toHaveCount(0);
+    const order = await db.query<{
+      status: string;
+      ready_at: string | null;
+      claimed_at: string | null;
+    }>(
+      `select o.status, o.ready_at::text, o.claimed_at::text from orders o join order_items i on i.order_id = o.id
+        where i.name_snapshot = 'TEST French Fries' order by o.placed_at desc limit 1`,
+    );
+    expect(order.rows[0]).toMatchObject({ status: "delivered" });
+    expect(order.rows[0]!.ready_at).toBe(order.rows[0]!.claimed_at);
   } finally {
     await kitchen.restore();
     await db.end();

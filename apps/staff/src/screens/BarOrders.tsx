@@ -29,6 +29,9 @@ interface Order {
   readonly source: string;
   /** The order's one station (K-02): a kitchen order is food, and shows no ID status (K-04). */
   readonly station?: string;
+  readonly session_id: string | null;
+  /** When a food order's kitchen ticket went (K-06): at Accept, or at Send to kitchen for staff's. */
+  readonly kitchen_sent_at?: string | null;
   readonly room_name: string | null;
   readonly guest_name: string | null;
   readonly party_size: number | null;
@@ -194,7 +197,13 @@ export function BarOrders() {
   const waiting = list.filter(
     (o) => (o.status === "ringing" || o.status === "held") && o.source !== "offline",
   );
-  const making = list.filter((o) => o.status === "accepted");
+  // Food shows here once its kitchen ticket prints, for a room only: staff-rung food that's Not sent
+  // has no run yet, and bar-tab and quick-sale food has none (K-06; it shows on its tab as Sent).
+  const making = list.filter(
+    (o) =>
+      o.status === "accepted" &&
+      (o.station !== "kitchen" || (o.session_id !== null && !!o.kitchen_sent_at)),
+  );
   const ready = list.filter((o) => o.status === "ready" || o.status === "on_the_way");
   const delivered = list.filter((o) => o.status === "delivered").reverse();
   const returned = list
@@ -232,6 +241,13 @@ export function BarOrders() {
     <li key={o.id} className={`bar-order ${tone}`} aria-label={`${o.room_name ?? ""} · ${what(o)}`}>
       <p className="bar-order-room">
         <strong>{o.room_name}</strong>
+        {/* A food order rings with the drinks, marked Kitchen (spec 16 · At the bar; K-06). */}
+        {o.station === "kitchen" && (
+          <>
+            {" "}
+            <span className="kchip">{t("kitchen.chip")}</span>
+          </>
+        )}
         {o.guest_name && o.party_size !== null && (
           <span className="muted">
             {" "}
@@ -350,23 +366,34 @@ export function BarOrders() {
                   card(
                     o,
                     <>
-                      <p className="status">
-                        {t("barOrders.accepted", {
-                          name: o.accepted_by_name ?? "",
-                          time: clock(o.accepted_at),
-                          room: o.room_name ?? "",
-                          ticket: t(
-                            `barOrders.ticket.${o.ticket_status === "printed" ? "printed" : o.ticket_status === "failed" ? "notPrinted" : "printing"}` as MessageKey,
-                          ),
-                        })}
-                      </p>
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => void step(o, "ready")}
-                      >
-                        {t("barOrders.ready")}
-                      </button>
+                      {o.station === "kitchen" ? (
+                        // Nobody at the bar sees the food: no Ready; the runner taps Picked up.
+                        <p className="status">
+                          {t("kitchen.run.inKitchen", {
+                            age: mmss(ageS(o.kitchen_sent_at ?? null)),
+                          })}
+                        </p>
+                      ) : (
+                        <>
+                          <p className="status">
+                            {t("barOrders.accepted", {
+                              name: o.accepted_by_name ?? "",
+                              time: clock(o.accepted_at),
+                              room: o.room_name ?? "",
+                              ticket: t(
+                                `barOrders.ticket.${o.ticket_status === "printed" ? "printed" : o.ticket_status === "failed" ? "notPrinted" : "printing"}` as MessageKey,
+                              ),
+                            })}
+                          </p>
+                          <button
+                            type="button"
+                            className="primary"
+                            onClick={() => void step(o, "ready")}
+                          >
+                            {t("barOrders.ready")}
+                          </button>
+                        </>
+                      )}
                     </>,
                   ),
                 )}

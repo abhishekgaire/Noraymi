@@ -3141,5 +3141,7 @@ export const en = {
   "kitchen.choices.size": "Size · pick one",
   "kitchen.choices.add": "Add · {price}",
   "kitchen.sent": "Sent to the kitchen",
+  "kitchen.run.inKitchen": "In the kitchen · ticket printed · {age}",
+  "kitchen.run.pickedUp": "Picked up",
   "kitchen.choices.needed": "Pick {group} first",
 } as const;

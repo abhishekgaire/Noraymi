@@ -32,6 +32,9 @@ interface Order {
   readonly returned_reason: string | null;
   readonly returned_by_name: string | null;
   readonly return_resolution: string | null;
+  /** Food (K-06): its station, and when its kitchen ticket went (null while Not sent). */
+  readonly station?: string;
+  readonly kitchen_sent_at?: string | null;
   readonly items: readonly {
     qty: number;
     name_snapshot: string;
@@ -65,7 +68,10 @@ export function Runs() {
     if (!venueId) return;
     try {
       const [r, back] = await Promise.all([
-        api<{ orders: Order[] }>("GET", `/v1/venues/${venueId}/orders?status=ready,on_the_way`),
+        api<{ orders: Order[] }>(
+          "GET",
+          `/v1/venues/${venueId}/orders?status=accepted,ready,on_the_way`,
+        ),
         seesReturns && night
           ? api<{ orders: Order[] }>(
               "GET",
@@ -73,7 +79,15 @@ export function Runs() {
             )
           : Promise.resolve({ orders: [] as Order[] }),
       ]);
-      setRuns(r.orders);
+      // A room's food shows from the moment its kitchen ticket prints, In the kitchen, for Picked up
+      // (K-06); bar-tab and quick-sale food has no run, and drinks being made stay at the bar.
+      setRuns(
+        r.orders.filter(
+          (o) =>
+            o.status !== "accepted" ||
+            (o.station === "kitchen" && o.session_id !== null && !!o.kitchen_sent_at),
+        ),
+      );
       setReturned(back.orders.filter((o) => !o.return_resolution).reverse());
     } catch {
       setError(t("shell.error.cantReach"));
@@ -118,7 +132,7 @@ export function Runs() {
       .map((i) => [`${i.qty} × ${i.name_snapshot}`, ...i.options.map((x) => x.name)].join(" · "))
       .join(", ");
   const ids = (o: Order) =>
-    o.party_size === null
+    o.party_size === null || o.station === "kitchen"
       ? null
       : o.ids_checked >= o.party_size
         ? t("ids.chip", { checked: o.ids_checked, party: o.party_size })
@@ -148,15 +162,36 @@ export function Runs() {
             >
               <p className="run-room">
                 <strong>{o.room_name}</strong>
+                {o.station === "kitchen" && (
+                  <>
+                    {" "}
+                    <span className="kchip">{t("kitchen.chip")}</span>
+                  </>
+                )}
               </p>
               <p className="run-what" data-guest-text>
                 {what(o)}
               </p>
               <p className="status">
-                {t(staffOrderWordsKey(o), { age: age(o.ready_at), name: o.claimed_by_name ?? "" })}
+                {o.status === "accepted"
+                  ? t("kitchen.run.inKitchen", { age: age(o.kitchen_sent_at ?? null) })
+                  : t(staffOrderWordsKey(o), {
+                      age: age(o.ready_at),
+                      name: o.claimed_by_name ?? "",
+                    })}
               </p>
               {ids(o) && <p className="small run-ids">{ids(o)}</p>}
               <div className="team-actions">
+                {/* Picked up: Ready and I've got it in one tap, at the kitchen (K-06). */}
+                {o.status === "accepted" && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => void act(`/orders/${o.id}/pick-up`)}
+                  >
+                    {t("kitchen.run.pickedUp")}
+                  </button>
+                )}
                 {o.status === "ready" && (
                   <button
                     type="button"
@@ -176,16 +211,18 @@ export function Runs() {
                       {t("runs.deliver")}
                     </button>
                   )}
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setReturning(returning === o.id ? null : o.id);
-                    setReason("no_id");
-                  }}
-                >
-                  {t("runs.return")}
-                </button>
+                {o.status !== "accepted" && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setReturning(returning === o.id ? null : o.id);
+                      setReason("no_id");
+                    }}
+                  >
+                    {t("runs.return")}
+                  </button>
+                )}
                 {o.session_id && o.party_size !== null && o.ids_checked < o.party_size && (
                   <button
                     type="button"

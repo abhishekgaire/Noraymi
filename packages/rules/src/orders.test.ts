@@ -3,6 +3,7 @@ import {
   ORDER_STATUSES,
   ORDER_STEPS,
   orderStep,
+  pickUpStep,
   type OrderStatus,
   type OrderStep,
 } from "./orders.js";
@@ -46,5 +47,38 @@ describe("orderStep", () => {
       ok: false,
       why: "the order is accepted; it can only be cancelled while it's ringing or held",
     });
+  });
+});
+
+describe("Picked up (K-06)", () => {
+  const food = {
+    status: "accepted" as const,
+    station: "kitchen",
+    hasRun: true,
+    sentToKitchen: true,
+  };
+  it("moves accepted food in the kitchen to on its way", () => {
+    expect(pickUpStep(food)).toEqual({ ok: true, to: "on_the_way" });
+  });
+  it("refuses an order that isn't accepted", () => {
+    for (const status of [
+      "ringing",
+      "held",
+      "ready",
+      "on_the_way",
+      "delivered",
+      "returned",
+    ] as const)
+      expect(pickUpStep({ ...food, status })).toMatchObject({ ok: false, reason: "status" });
+  });
+  it("refuses staff-rung food still Not sent", () => {
+    expect(pickUpStep({ ...food, sentToKitchen: false })).toMatchObject({
+      ok: false,
+      reason: "not_sent",
+    });
+  });
+  it("refuses drinks, and food for a bar tab or a quick sale, which has no run", () => {
+    expect(pickUpStep({ ...food, station: "bar" })).toMatchObject({ reason: "not_food" });
+    expect(pickUpStep({ ...food, hasRun: false })).toMatchObject({ reason: "no_run" });
   });
 });

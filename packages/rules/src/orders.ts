@@ -81,3 +81,48 @@ export function orderStep(from: OrderStatus, step: OrderStep): StepResult {
   if (!move.from.includes(from)) return { ok: false, why: `the order is ${from}; ${move.needs}` };
   return { ok: true, to: move.to === "same" ? from : move.to };
 }
+
+/**
+ * Picked up (K-06; Kitchen and food · Runners and delivery): the runner's one tap at the kitchen
+ * records Ready and I've got it together, so a food order goes from accepted to on its way. Only a
+ * room's food has a run (bar-tab and quick-sale food is taken by name, with no run), and staff-rung
+ * food has none until Send to kitchen prints it. Each refusal says why.
+ */
+export type PickUpResult =
+  | { readonly ok: true; readonly to: "on_the_way" }
+  | {
+      readonly ok: false;
+      readonly reason: "not_food" | "no_run" | "not_sent" | "status";
+      readonly why: string;
+    };
+
+export function pickUpStep(order: {
+  readonly status: OrderStatus;
+  readonly station: string;
+  /** The order is for a room (a session), so a runner carries it. */
+  readonly hasRun: boolean;
+  /** Its kitchen ticket has printed: at Accept for a guest's food, at Send to kitchen for staff's. */
+  readonly sentToKitchen: boolean;
+}): PickUpResult {
+  if (order.station !== "kitchen")
+    return { ok: false, reason: "not_food", why: "only food is picked up at the kitchen" };
+  if (!order.hasRun)
+    return {
+      ok: false,
+      reason: "no_run",
+      why: "food for a bar tab or a quick sale has no run: a server takes it by the name on the ticket",
+    };
+  if (order.status !== "accepted")
+    return {
+      ok: false,
+      reason: "status",
+      why: `the order is ${order.status}; it can only be picked up once it's accepted and in the kitchen`,
+    };
+  if (!order.sentToKitchen)
+    return {
+      ok: false,
+      reason: "not_sent",
+      why: "this food isn't sent to the kitchen yet: Send to kitchen first",
+    };
+  return { ok: true, to: "on_the_way" };
+}

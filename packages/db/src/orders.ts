@@ -77,6 +77,8 @@ export interface OrderRow {
   readonly returned_by_name: string | null;
   readonly cancelled_by_name: string | null;
   /** The order's latest ticket: its job and whether it printed. */
+  /** When a food order's kitchen ticket went: Accept for a guest's, Send to kitchen for staff's (K-06). */
+  readonly kitchen_sent_at: string | null;
   readonly ticket_job_id: string | null;
   readonly ticket_status: string | null;
   /** The approver a pending void of this returned order waits for (M3-25). */
@@ -132,6 +134,13 @@ const ORDER_COLS = [
   "o.decline_reason",
   "o.station",
   "o.basket_id",
+  // When a food order's kitchen ticket went (K-06): at Accept for a guest's order, at Send to kitchen
+  // for staff-rung food (null while any of it is Not sent); null for drinks.
+  `case when o.station <> 'kitchen' then null
+        when o.source = 'staff' then (
+          select case when bool_and(i.kitchen_sent_at is not null) then to_json(max(i.kitchen_sent_at)) #>> '{}' end
+            from order_items i where i.venue_id = o.venue_id and i.order_id = o.id)
+        else to_json(o.accepted_at) #>> '{}' end as kitchen_sent_at`,
   "o.version",
   "gg.name as guest_name",
   "s.party_size",
