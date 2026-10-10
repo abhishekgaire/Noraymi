@@ -180,7 +180,14 @@ const eventsOf = (
     ...(c.paused !== undefined ? { paused: c.paused } : {}),
   }));
 
-describe("pricing properties", () => {
+// Each property runs hundreds of generated nights against a minute-by-minute
+// reference: about 1-2.5 s apiece on an idle machine, several times that when
+// the full suite runs in parallel. The run counts stay (they are what covers
+// every rate mode, step, rounding and daylight-saving night), so the tests get
+// 30 s each instead of Vitest's 5 s default.
+const PROPERTY_TIMEOUT_MS = 30_000;
+
+describe("pricing properties", { timeout: PROPERTY_TIMEOUT_MS }, () => {
   it("room time by segments equals the minute-by-minute reference, in every rate mode, step and rounding", () => {
     fc.assert(
       fc.property(pricesArb, sessionArb, fc.boolean(), (prices, s, stepped) => {
