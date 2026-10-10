@@ -157,3 +157,4 @@ export type {
 export * from "./money-audit.js";
 export * from "./oncall-coverage.js";
 export * from "./gate-streak.js";
+export { pastLastOrder } from "./kitchen-last-order.js";

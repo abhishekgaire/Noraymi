@@ -378,12 +378,14 @@ export {
   queueMenuPdf,
   currentMenuPdf,
   orderableVariant,
+  kitchenStop,
   MenuRowMissing,
 } from "./menu.js";
 export type {
   MenuTable,
   MenuCategory,
   MenuItem,
+  KitchenStop,
   MenuVariant,
   MenuGroup,
   MenuOption,

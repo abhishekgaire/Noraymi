@@ -6364,6 +6364,55 @@ test("a food run: In the kitchen at the bar, Picked up then Delivered on a phone
 });
 
 /**
+ * Close the kitchen (K-07; Kitchen and food · 86 and closing the kitchen): Andy closes it from his
+ * phone; Room 9's room page greys the food as "Kitchen closed" while the drinks stay; Reopen the
+ * kitchen brings the food back the same night.
+ */
+test("Close the kitchen on a manager's phone greys the food on the room page, and Reopen brings it back", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db);
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.goto("/today");
+    const sw = page.getByTestId("kitchen-switch");
+    await sw.getByRole("button", { name: "Close the kitchen" }).click();
+    await expect(sw.getByRole("status")).toHaveText("Kitchen closed");
+    await expect(sw.getByRole("button", { name: "Reopen the kitchen" })).toBeVisible();
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    const guest = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 } })
+    ).newPage();
+    await guest.goto(`${GUEST}/v/west4karaoke/room/${room9}`);
+    await guest.getByLabel("Room code").fill("KX4M7");
+    await guest.getByRole("button", { name: "Join" }).click();
+    const wings = guest
+      .getByRole("region", { name: "Food" })
+      .getByRole("button", { name: "TEST wings · Kitchen closed" });
+    await expect(wings).toBeDisabled({ timeout: 15_000 });
+
+    await sw.getByRole("button", { name: "Reopen the kitchen" }).click();
+    await expect(sw.getByRole("button", { name: "Close the kitchen" })).toBeVisible();
+    await guest.reload();
+    await expect(guest.getByRole("button", { name: "TEST wings · $12.00" })).toBeEnabled({
+      timeout: 15_000,
+    });
+  } finally {
+    await db.query("update venues set kitchen_closed_until = null, kitchen_closed_by = null");
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
+/**
  * Send the singer a drink (M6-24; D64): from Tariq A.'s tab, a Modelo for Jess P. rings the bar on
  * Tariq's tab with the ID reminder; one for Hana K. is refused with her cut-off in words.
  */

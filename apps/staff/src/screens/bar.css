@@ -982,3 +982,15 @@
 .rail [data-section="food"] .slot button {
   border-left-color: var(--w4-text);
 }
+
+/* Close the kitchen and Reopen the kitchen (K-07), at the end of the Food row and on the phone. */
+.kitchen-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.kitchen-switch button {
+  min-height: 44px;
+}

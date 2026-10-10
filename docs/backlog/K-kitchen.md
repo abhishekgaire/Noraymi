@@ -184,17 +184,23 @@ Definition of done: see CLAUDE.md.
 
 ### K-07 · 86 food, close the kitchen, and the last-order time
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** K-02; M3-03
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · 86 and closing the kitchen
 - **Build:** 86 for food items, variants and options through the existing routes; Close the kitchen and Reopen the kitchen for managers; `kitchen.lastOrder` refusing new food orders after it, enforced on the server.
 - **Acceptance:**
-  - [ ] An 86'd food option greys out on the bar POS and the room page, and an order for it is refused by the server.
-  - [ ] Close the kitchen greys every food item and shows "Kitchen closed" on the guest menu; accepted orders still print.
-  - [ ] With `lastOrder` empty, food can be ordered whenever room ordering is open.
+  - [x] An 86'd food option greys out on the bar POS and the room page, and an order for it is refused by the server.
+  - [x] Close the kitchen greys every food item and shows "Kitchen closed" on the guest menu; accepted orders still print.
+  - [x] With `lastOrder` empty, food can be ordered whenever room ordering is open.
 - **Tests:** integration tests for every route that creates a food line; an end-to-end test of Close the kitchen.
-- **Notes:** The kitchen's hours are open with the founder.
+- **Notes:**
+  - The kitchen's hours are open with the founder. `lastOrder` stays empty by default (no limit: food follows room ordering), the cautious default in spec 16.
+  - 86 for food needed no new route: food is `menu_items`/`variants`/`options` like drinks, and `orders/place.ts` · `orderItemsFor` (the one path every food line takes: room page, room tablet, room tab, bar tab, quick sale, offline replay) already refused an 86'd item or choice.
+  - Close the kitchen: migration `0138_kitchen_closed.sql` adds `venues.kitchen_closed_until` and `kitchen_closed_by` (update granted to `app_rw`; venues already forces RLS). `POST /kitchen/close` sets it to the next cutover, `POST /kitchen/reopen` clears it (module `kitchen`, action `night.close`, so managers and the owner); the night close clears it too. It's a flag beside each item's own 86 rather than `out_until` on every item, so Reopen never brings back an item that was 86'd on its own.
+  - `packages/db` · `kitchenStop` answers "kitchen_closed", "last_order" (from `packages/rules` · `pastLastOrder`, the HH:MM read in tonight's business date) or null. `menuTree` marks every food item `out_tonight` with `kitchen_stop`; `orderableVariant` carries it and `orderItemsFor` refuses food with reason `kitchen_closed` or `last_order` (a replay records it as out_tonight). `GET /kitchen` answers `stop`. Drinks and the alcohol rules are untouched.
+  - Screens: `KitchenSwitch` (status chip and Close/Reopen for `night.close`) at the end of the bar POS's Food row and on the phone's Today; food greys as "Kitchen closed" on the bar POS, the room page and the website menu (also after the last order; the staff chip says "Kitchen closed · last order 1:30 AM"). The menu PDF ignores 86 and the kitchen state, as before.
+  - Tests: unit `packages/rules/src/kitchen-last-order.test.ts`; integration `routes/kitchen-stop.int.test.ts` (every food route × 86'd choice, last order, closed kitchen; accepted food still prints; reopen; ends at the cutover); e2e "Close the kitchen on a manager's phone…" (staff.spec.ts).
 
 ### K-08 · Show the allergy notice on every menu
 

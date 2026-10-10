@@ -124,6 +124,8 @@ export interface GuestMenu {
       readonly name: string;
       readonly description: string | null;
       readonly out_tonight: boolean;
+      /** Food only (K-07): the kitchen is closed or past its last order. */
+      readonly kitchen_stop?: string | null;
       readonly variants: readonly {
         readonly id: string;
         readonly name: string;

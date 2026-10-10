@@ -110,6 +110,10 @@ export async function closeNight(
     "update order_drafts set lines = '[]', version = version + 1, updated_at = $2 where venue_id = $1 and jsonb_array_length(lines) > 0",
     [venueId, now.toString()],
   );
+  await c.query(
+    "update venues set kitchen_closed_until = null, kitchen_closed_by = null where id = $1",
+    [venueId],
+  );
   for (const table of ["menu_items", "menu_variants", "menu_options"])
     await c.query(`update ${table} set out_until = null where venue_id = $1 and out_until > $2`, [
       venueId,

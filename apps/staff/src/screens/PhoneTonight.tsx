@@ -8,6 +8,7 @@ import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
 import { Link } from "react-router";
 import { RefundSheet } from "./RefundSheet.js";
+import { KitchenSwitch } from "./KitchenSwitch.js";
 
 /**
  * The staff phone's Tonight (M2-32; screens Staff): tonight's bookings in time
@@ -134,6 +135,8 @@ export function PhoneTonight() {
   return (
     <section className="screen phone-tonight">
       <h1>{t("menu.tonight")}</h1>
+      {/* Close the kitchen (K-07): the manager's phone; nothing while Kitchen & food is off. */}
+      <KitchenSwitch compact />
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}

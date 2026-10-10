@@ -1,5 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { Clock } from "@west4/shared";
+import { emitEvent, kitchenStop, type Queryable } from "@west4/db";
+import { businessDate, wallClock } from "@west4/rules";
+import type { Clock, Temporal } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -16,6 +18,9 @@ import { removeUnsentFood, sendToKitchen } from "../kitchen/send.js";
  *        kitchen_note_allergy? }], name? }: Send to kitchen (K-05): one kitchen ticket, the lines marked
  *        sent; a line already sent answers 409 version_conflict (already_sent). A quick sale needs a name.
  *   POST /v1/venues/{v}/checks/{c}/lines/{l}/remove-unsent   food that's Not sent, off with no reason
+ *   POST /v1/venues/{v}/kitchen/close    Close the kitchen (K-07): every food item out until the
+ *        night's end; accepted orders still print and run. Managers and the owner.
+ *   POST /v1/venues/{v}/kitchen/reopen   Reopen the kitchen the same night.
  */
 export function kitchenRoutes(app: FastifyInstance, options: { clock: Clock }): void {
   const read = route({
@@ -32,6 +37,8 @@ export function kitchenRoutes(app: FastifyInstance, options: { clock: Clock }): 
         return {
           allergy_notice: s.allergyNotice,
           last_order: s.lastOrder,
+          // Why the kitchen isn't taking orders now (K-07): "kitchen_closed", "last_order" or null.
+          stop: await kitchenStop(c, request.venueId!, options.clock.now().toString()),
           unsent_warn_min: s.unsentWarnMin,
           kitchen_printer: await hasKitchenPrinter(c, request.venueId!),
         };
@@ -124,4 +131,43 @@ export function kitchenRoutes(app: FastifyInstance, options: { clock: Clock }): 
       );
     },
   );
+
+  // Close the kitchen (K-07; spec 16 · 86 and closing the kitchen): until the next cutover, so the
+  // night close or a new business date ends it, and kept apart from each item's own 86.
+  const closeOrReopen = (closing: boolean) => async (request: FastifyRequest) =>
+    request.inVenue(async (c) => {
+      const venueId = request.venueId!;
+      const userId = who(request);
+      const now = options.clock.now();
+      const until = closing ? await nightEnd(c, venueId, now) : null;
+      await c.query(
+        "update venues set kitchen_closed_until = $2, kitchen_closed_by = $3 where id = $1",
+        [venueId, until, closing ? userId : null],
+      );
+      await emitEvent(c, { venueId, type: "menu.changed", entityId: venueId });
+      return {
+        closed: closing,
+        closed_until: until,
+        stop: await kitchenStop(c, venueId, now.toString()),
+      };
+    });
+  const manage = route({
+    principals: ["owner_manager", "staff"],
+    module: "kitchen",
+    action: "night.close",
+    idempotency: "optional",
+  });
+  app.post("/v1/venues/:venueId/kitchen/close", { config: manage }, closeOrReopen(true));
+  app.post("/v1/venues/:venueId/kitchen/reopen", { config: manage }, closeOrReopen(false));
+}
+
+/** The end of tonight's business date: the next cutover, as text. */
+async function nightEnd(c: Queryable, venueId: string, now: Temporal.Instant): Promise<string> {
+  const v = await c.query<{ time_zone: string; day_cutover: string }>(
+    "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
+    [venueId],
+  );
+  const { time_zone: tz, day_cutover: cut } = v.rows[0]!;
+  const bd = businessDate(now, tz, cut).businessDate;
+  return wallClock(bd.add({ days: 1 }), cut, tz, cut).toString();
 }

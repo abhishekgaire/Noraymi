@@ -1,6 +1,13 @@
-import { promotionChecks, type Promotable, type PromotionRefusal } from "@west4/rules";
+import {
+  businessDate,
+  pastLastOrder,
+  promotionChecks,
+  type Promotable,
+  type PromotionRefusal,
+} from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { rulePackFor } from "./rule-packs.js";
+import { readSetting } from "./settings.js";
 import type { Queryable } from "./tenancy.js";
 
 /**
@@ -137,6 +144,8 @@ export interface MenuItem {
   readonly station: string;
   readonly shown: boolean;
   readonly out_tonight: boolean;
+  /** Food only (K-07): why the kitchen isn't taking orders right now, or null. Drinks: null. */
+  readonly kitchen_stop?: KitchenStop | null;
   readonly variants: MenuVariant[];
   readonly groups: MenuGroup[];
 }
@@ -146,6 +155,35 @@ export interface MenuCategory {
   readonly sort: number;
   readonly tax_category: string;
   readonly items: MenuItem[];
+}
+
+/** Why food can't be ordered now: a manager closed the kitchen, or the last order time passed. */
+export type KitchenStop = "kitchen_closed" | "last_order";
+
+/**
+ * Whether the kitchen is taking orders at `now` (K-07; spec 16 · 86 and closing the kitchen):
+ * "kitchen_closed" while a manager's Close the kitchen stands, "last_order" once tonight's
+ * `kitchen.lastOrder` has passed (empty: no limit), else null. Alcohol rules are separate.
+ */
+export async function kitchenStop(
+  client: Queryable,
+  venueId: string,
+  now: string,
+): Promise<KitchenStop | null> {
+  const v = await client.query<{ closed: boolean; time_zone: string; day_cutover: string }>(
+    `select coalesce(kitchen_closed_until > $2::timestamptz, false) as closed, time_zone,
+            to_char(day_cutover, 'HH24:MI') as day_cutover
+       from venues where id = $1`,
+    [venueId, now],
+  );
+  const venue = v.rows[0];
+  if (!venue) return null;
+  if (venue.closed) return "kitchen_closed";
+  const date = businessDate(now, venue.time_zone, venue.day_cutover).businessDate;
+  const setting = await readSetting(client, venueId, "kitchen", date);
+  return pastLastOrder(now, setting?.value.lastOrder ?? null, venue.time_zone, venue.day_cutover)
+    ? "last_order"
+    : null;
 }
 
 /**
@@ -221,12 +259,19 @@ export async function menuTree(
         ).rows.map((r) => r.category_id),
       )
     : new Set<string>();
+  // A closed kitchen or a passed last order greys every food item (K-07); Admin → Menu shows the
+  // items' own 86 only, so a manager edits what's really set.
+  const stop =
+    kitchenOff || options.includeKitchen === true ? null : await kitchenStop(client, venueId, now);
   return cats.rows
     .filter((cat) => !hidden.has(cat.id))
     .map((cat) => ({
       ...cat,
       items: (itemsByCat.get(cat.id) ?? []).map((item) => ({
         ...item,
+        ...(item.station === "kitchen"
+          ? { out_tonight: item.out_tonight || stop !== null, kitchen_stop: stop }
+          : {}),
         variants: (variantsByItem.get(item.id) ?? []).map(({ item_id: _, ...v }) => v),
         groups: (groupsByItem.get(item.id) ?? []).map(({ item_id: _, ...g }) => ({
           ...g,
@@ -335,6 +380,8 @@ export interface OrderableVariant {
   readonly shown: boolean;
   readonly tax_category: string;
   readonly out_tonight: boolean;
+  /** Food only (K-07): the kitchen isn't taking orders now, and why. Drinks: null. */
+  readonly kitchen_stop: KitchenStop | null;
   readonly groups: readonly {
     readonly id: string;
     readonly name: string;
@@ -356,7 +403,7 @@ export async function orderableVariant(
   variantId: string,
   now: string,
 ): Promise<OrderableVariant | null> {
-  const r = await client.query<Omit<OrderableVariant, "groups">>(
+  const r = await client.query<Omit<OrderableVariant, "groups" | "kitchen_stop">>(
     `select v.id as variant_id, v.name as variant_name, v.price_cents,
             (select count(*)::int from menu_variants x where x.venue_id = v.venue_id and x.item_id = v.item_id) as variant_count,
             i.id as item_id, i.name as item_name, i.alcohol, i.station, i.shown, c.tax_category,
@@ -392,6 +439,7 @@ export async function orderableVariant(
   );
   return {
     ...row,
+    kitchen_stop: row.station === "kitchen" ? await kitchenStop(client, venueId, now) : null,
     groups: groups.rows.map((g) => ({
       ...g,
       options: options.rows.filter((o) => o.group_id === g.id).map(({ group_id: _, ...o }) => o),

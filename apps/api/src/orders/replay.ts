@@ -82,7 +82,12 @@ export function reasonOf(e: unknown): ReplayReason | null {
   if (e.code === "alcohol_closed") return "alcohol_closed";
   if (e.code === "cut_off") return "cut_off";
   const detail = (e.details as { reason?: string } | undefined)?.reason;
-  if (e.code === "invalid_request" && detail === "out_tonight") return "out_tonight";
+  // A closed kitchen or a passed last order (K-07) reads like an 86: out for tonight.
+  if (
+    e.code === "invalid_request" &&
+    (detail === "out_tonight" || detail === "kitchen_closed" || detail === "last_order")
+  )
+    return "out_tonight";
   if (e.code === "invalid_request") return "not_on_menu";
   return null;
 }

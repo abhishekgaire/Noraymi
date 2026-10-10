@@ -17,6 +17,7 @@ import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { FoodChoices } from "./FoodChoices.js";
+import { KitchenSwitch } from "./KitchenSwitch.js";
 import { FoodMark, UnsentWarning, type CheckFood } from "./SendToKitchen.js";
 import { alcoholStateAt } from "@west4/rules";
 import { useConnection } from "../connection.js";
@@ -72,6 +73,8 @@ interface Item {
   /** bar or kitchen (K-02): food sits under the Food section (K-05). */
   readonly station?: string;
   readonly out_tonight: boolean;
+  /** Food only (K-07): the kitchen is closed or past its last order, so it's out for now. */
+  readonly kitchen_stop?: "kitchen_closed" | "last_order" | null;
   readonly variants: readonly Variant[];
   readonly groups: readonly {
     readonly id: string;
@@ -1064,6 +1067,7 @@ export function Rail() {
                     <span data-guest-text>{c.name}</span>
                   </button>
                 ))}
+                <KitchenSwitch />
               </div>
             )}
             <div className="rail-tools">
@@ -1106,9 +1110,11 @@ export function Rail() {
                 if (!item)
                   return <li key={`empty-${i}`} className="slot empty" aria-hidden="true" />;
                 const refused = item.alcohol && noAlcohol !== null && !eightySix;
+                // A closed kitchen (K-07) greys food with its own reason, and isn't an 86 to undo.
+                const stopped = Boolean(item.kitchen_stop);
                 const out =
                   item.out_tonight || item.variants.every((v) => v.out_tonight) || refused;
-                const why = refused ? noAlcohol : t("drinks.out");
+                const why = refused ? noAlcohol : stopped ? t("kitchen.closed") : t("drinks.out");
                 const name = item.button_name ?? item.name;
                 const price = item.variants[0]?.price_cents ?? 0;
                 return (
@@ -1120,7 +1126,7 @@ export function Rail() {
                     <button
                       type="button"
                       data-queue={queueOpen ? "" : undefined}
-                      disabled={(out && !eightySix) || refused}
+                      disabled={(out && !eightySix) || refused || stopped}
                       aria-label={out ? `${name} · ${why}` : `${name} · ${money(price as never)}`}
                       onClick={() => tapItem(item)}
                     >

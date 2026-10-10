@@ -91,6 +91,8 @@ interface Item {
   readonly alcohol: boolean;
   readonly description: string | null;
   readonly out_tonight: boolean;
+  /** Food only (K-07): the kitchen is closed or past its last order. */
+  readonly kitchen_stop?: string | null;
   readonly variants: readonly Variant[];
   readonly groups: readonly Group[];
 }
@@ -428,21 +430,19 @@ export function RoomPage({
             item.variants.map((v) => {
               const out = item.out_tonight || v.out_tonight;
               const name = item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name;
+              // A closed kitchen reads "Kitchen closed", not 86'd (K-07).
+              const why = t("en", item.kitchen_stop ? "guestRoom.kitchenClosed" : "guestRoom.out");
               return (
                 <li key={v.id}>
                   <button
                     type="button"
                     className={out ? "menu-item out" : "menu-item"}
                     disabled={out}
-                    aria-label={
-                      out
-                        ? `${name} · ${t("en", "guestRoom.out")}`
-                        : `${name} · ${money(v.price_cents)}`
-                    }
+                    aria-label={out ? `${name} · ${why}` : `${name} · ${money(v.price_cents)}`}
                     onClick={() => tap(item, v)}
                   >
                     <span>{name}</span>
-                    <span>{out ? t("en", "guestRoom.out") : money(v.price_cents)}</span>
+                    <span>{out ? why : money(v.price_cents)}</span>
                   </button>
                 </li>
               );

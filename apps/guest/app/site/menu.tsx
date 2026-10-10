@@ -84,7 +84,14 @@ export function MenuPage({
                       <p className="line">
                         <span className="name">{name}</span>{" "}
                         <span className="price">
-                          {out ? t("en", "site.menuPage.out") : money(v.price_cents)}
+                          {out
+                            ? t(
+                                "en",
+                                item.kitchen_stop
+                                  ? "site.menuPage.kitchenClosed"
+                                  : "site.menuPage.out",
+                              )
+                            : money(v.price_cents)}
                         </span>
                       </p>
                       {item.description && v === item.variants[0] && (

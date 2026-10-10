@@ -171,6 +171,16 @@ export async function orderItemsFor(
       throw new ApiError("invalid_request", `${name} isn't on the menu`, {
         details: { reason: "kitchen_off", variant_id: v.variant_id },
       });
+    // A closed kitchen, or tonight's last order passed, refuses new food (K-07). Alcohol rules
+    // don't touch food, and food doesn't change them.
+    if (v.kitchen_stop)
+      throw new ApiError(
+        "invalid_request",
+        v.kitchen_stop === "kitchen_closed"
+          ? `The kitchen is closed: ${name} can't be ordered now`
+          : `The kitchen's last order has passed: ${name} can't be ordered now`,
+        { details: { reason: v.kitchen_stop, variant_id: v.variant_id } },
+      );
     // A note for the kitchen goes on food only: a drink's ticket never reaches the kitchen.
     if (line.kitchen_note?.trim() && v.station !== "kitchen")
       throw new ApiError(
@@ -374,7 +384,7 @@ export async function sameAgainRounds(
       }
       const optionIds: string[] = [];
       let missing = false;
-      let out = v.out_tonight;
+      let out = v.out_tonight || v.kitchen_stop !== null;
       let extra = 0;
       for (const o of item.options) {
         const match = v.groups
