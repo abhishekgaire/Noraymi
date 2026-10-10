@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { newYorkCountyTaxed } from "@west4/shared";
+import { newYorkCountyFood, newYorkCountyTaxed } from "@west4/shared";
 import {
   canPresentCheck,
   cardFee,
@@ -36,6 +36,10 @@ const { cases } = JSON.parse(
   }[];
 };
 const tax = salesTaxRule(newYorkCountyTaxed);
+// K-10: food at the drinks rate, the cautious default (spec 16 · Tax), from rule pack 2026.10.1.
+const foodTax = salesTaxRule(newYorkCountyFood);
+const taxFor = (c: { inputs: { rule_pack_version?: string } }) =>
+  c.inputs.rule_pack_version === newYorkCountyFood.version ? foodTax : tax;
 const toLines = (
   lines: { kind: string; tax_category: TaxCategory | null; cents: number }[],
 ): TotalsLine[] =>
@@ -54,14 +58,14 @@ const asCase = (t: ReturnType<typeof checkTotals>) => ({
 const group = (...names: string[]) => cases.filter((c) => names.includes(c.group));
 
 describe("check_totals, from the money cases", () => {
-  const totalsCases = group("room9_close_out", "tax_and_gratuity", "bar_tabs").filter(
+  const totalsCases = group("room9_close_out", "tax_and_gratuity", "bar_tabs", "food_tax").filter(
     (c) => c.function === "check_totals",
   );
   it("has the cases the ticket names", () => expect(totalsCases.length).toBeGreaterThanOrEqual(10));
   for (const c of totalsCases)
     it(c.id, () => {
       const t = checkTotals(toLines(c.inputs.lines), {
-        tax,
+        tax: taxFor(c),
         gratuityPct: c.inputs.gratuity_applies ? 20 : null,
         depositCents: c.inputs.deposit_cents,
       });

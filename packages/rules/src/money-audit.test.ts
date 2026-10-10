@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { newYorkCountyTaxed, percentOf, cents } from "@west4/shared";
+import { newYorkCountyFood, newYorkCountyTaxed, percentOf, cents } from "@west4/shared";
 import { salesTaxRule, splitEven, payMyShareEven, type TaxCategory } from "./check-totals.js";
 import { poolShares } from "./tip-pool.js";
 import {
@@ -21,6 +21,8 @@ const { cases } = JSON.parse(
   readFileSync(path.resolve(here, "../../../seed/money-cases.json"), "utf8"),
 ) as { cases: { id: string; group: string; function: string; inputs: any; expected: any }[] };
 const tax = salesTaxRule(newYorkCountyTaxed);
+// K-10: the food_tax cases run on rule pack 2026.10.1, food taxed at the drinks rate.
+const foodTax = salesTaxRule(newYorkCountyFood);
 const night = "2026-09-25";
 const lines = (ls: { kind: string; tax_category: TaxCategory | null; cents: number }[]) =>
   ls.map((l): AuditLine => ({ kind: l.kind, taxCategory: l.tax_category, cents: l.cents }));
@@ -67,6 +69,7 @@ const THROUGH_THE_AUDIT = new Set([
   "deposits",
   "z_report",
   "tips",
+  "food_tax",
 ]);
 const AS_STORED_INPUTS = new Set([
   "room_time",
@@ -93,6 +96,7 @@ describe("the money cases, every group, through the audit (M9-15)", () => {
       expect(
         auditCheck(
           check({
+            tax: c.inputs.rule_pack_version === newYorkCountyFood.version ? foodTax : tax,
             lines: ok,
             gratuityPct: pct,
             status: "paid",
@@ -106,7 +110,8 @@ describe("the money cases, every group, through the audit (M9-15)", () => {
         ),
       ).toEqual([]);
       const off = stored(net, c.expected.tax_cents + 1, c.expected.gratuity_cents);
-      expect(auditCheck(check({ lines: off, gratuityPct: pct }))).toEqual([
+      const offTax = c.inputs.rule_pack_version === newYorkCountyFood.version ? foodTax : tax;
+      expect(auditCheck(check({ tax: offTax, lines: off, gratuityPct: pct }))).toEqual([
         expect.objectContaining({ kind: "tax", diffCents: 1, expectedCents: c.expected.tax_cents }),
       ]);
     });

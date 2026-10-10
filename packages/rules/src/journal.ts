@@ -14,6 +14,7 @@ import type { ReportLine } from "./night-report.js";
 export const ACCOUNTS = [
   "sales_room_time",
   "sales_drinks",
+  "sales_food",
   "sales_packages",
   "sales_songs",
   "sales_damage",
@@ -91,7 +92,11 @@ function salesAccount(l: ReportLine): Account {
     case "item":
     case "transfer_in":
     case "transfer_out":
-      return l.is_package ? "sales_packages" : "sales_drinks";
+      return l.is_package
+        ? "sales_packages"
+        : l.tax_category === "food"
+          ? "sales_food"
+          : "sales_drinks";
     case "song":
       return "sales_songs";
     case "damage":
@@ -113,8 +118,9 @@ function salesAccount(l: ReportLine): Account {
         case "damage":
           return "sales_damage";
         case "drink":
-        case "food":
           return "sales_drinks";
+        case "food":
+          return "sales_food";
         default:
           return "sales_fees";
       }

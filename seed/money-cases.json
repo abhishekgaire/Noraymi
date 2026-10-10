@@ -141,7 +141,7 @@
       }
     ],
     "counts": {
-      "cases": 109,
+      "cases": 113,
       "by_group": {
         "room9_close_out": 6,
         "tab_so_far": 8,
@@ -159,7 +159,8 @@
         "reason_only_limits": 8,
         "approvals": 3,
         "tax_and_gratuity": 3,
-        "package_lines": 5
+        "package_lines": 5,
+        "food_tax": 4
       }
     }
   },
@@ -1862,6 +1863,130 @@
         "by_tax_category_cents": {"drink": 2501, "food": 2500}
       },
       "notes": "Test prices, not any venue's. Equal halves of $50.01: the leftover cent goes to the first part."
+    },
+    {
+      "id": "food_tax_room_check",
+      "group": "food_tax",
+      "title": "A room check with food: food taxed at the drinks rate, the tax shared across room time, drinks and food",
+      "function": "check_totals",
+      "spec": ["docs/spec/16-kitchen.md · Tax", "docs/spec/05-money-rules.md rules 1, 8 and 9"],
+      "source": "spec 16 cautious default; derived by script (K-10)",
+      "test_data": true,
+      "inputs": {
+        "rule_pack_version": "2026.10.1",
+        "lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 10000, "note": "test room time"},
+          {"kind": "item", "tax_category": "drink", "cents": 2400, "note": "2 x test beer"},
+          {"kind": "item", "tax_category": "food", "cents": 1800, "note": "test wings"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": true
+      },
+      "expected": {
+        "subtotal_cents": 14200,
+        "tax_base_cents": 14200,
+        "tax_cents": 1260,
+        "tax_by_category_cents": {"room_time": 887, "drink": 213, "food": 160},
+        "gratuity_base_cents": 14200,
+        "gratuity_cents": 2840,
+        "total_cents": 18300,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 18300
+      },
+      "notes": "Test prices, not any venue's. The food rate is open with the accountant. Cautious default (spec 16 · Tax): food at the drinks rate, 8.875%, once on the whole base: 14200 x 8.875% = 1260.25 -> 1260, shared 887 / 213 / 160 by largest remainder. Food is in the gratuity base like any item."
+    },
+    {
+      "id": "food_tax_bar_tab",
+      "group": "food_tax",
+      "title": "A bar tab with only food: taxed once, no gratuity",
+      "function": "check_totals",
+      "spec": ["docs/spec/16-kitchen.md · Tax", "docs/spec/05-money-rules.md rules 1, 8 and 9"],
+      "source": "spec 16 cautious default; derived by script (K-10)",
+      "test_data": true,
+      "inputs": {
+        "rule_pack_version": "2026.10.1",
+        "lines": [
+          {"kind": "item", "tax_category": "food", "cents": 1099, "note": "test chicken wings"},
+          {"kind": "item", "tax_category": "food", "cents": 500, "note": "test fries"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 1599,
+        "tax_base_cents": 1599,
+        "tax_cents": 142,
+        "tax_by_category_cents": {"food": 142},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 1741,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 1741
+      },
+      "notes": "Test prices, not any venue's. The food rate is open with the accountant. 1599 x 8.875% = 141.91 -> 142."
+    },
+    {
+      "id": "food_tax_comp_nets",
+      "group": "food_tax",
+      "title": "A comped food line nets out of the food base before tax",
+      "function": "check_totals",
+      "spec": ["docs/spec/16-kitchen.md · Tax", "docs/spec/05-money-rules.md rules 1, 8 and 9"],
+      "source": "spec 16 cautious default; derived by script (K-10)",
+      "test_data": true,
+      "inputs": {
+        "rule_pack_version": "2026.10.1",
+        "lines": [
+          {"kind": "item", "tax_category": "food", "cents": 1200, "note": "test wings"},
+          {"kind": "comp", "tax_category": "food", "cents": -1200, "note": "COMP test wings, made"},
+          {"kind": "item", "tax_category": "drink", "cents": 1300, "note": "test cocktail"}
+        ],
+        "deposit_cents": 0,
+        "gratuity_applies": false
+      },
+      "expected": {
+        "subtotal_cents": 1300,
+        "tax_base_cents": 1300,
+        "tax_cents": 115,
+        "tax_by_category_cents": {"food": 0, "drink": 115},
+        "gratuity_base_cents": 0,
+        "gratuity_cents": 0,
+        "total_cents": 1415,
+        "deposit_cents": 0,
+        "left_to_pay_cents": 1415
+      },
+      "notes": "Test prices, not any venue's. The food rate is open with the accountant. Food nets to $0.00 (its tax share is $0.00), so all of 1300 x 8.875% = 115.375 -> 115 is on drinks."
+    },
+    {
+      "id": "food_tax_package_mix",
+      "group": "food_tax",
+      "title": "A $30.00 package split across a beer and two food lines, on a room check with a deposit",
+      "function": "check_totals",
+      "spec": ["docs/spec/16-kitchen.md · Tax", "docs/spec/05-money-rules.md rules 1, 8 and 9"],
+      "source": "spec 16 cautious default; derived by script (K-10)",
+      "test_data": true,
+      "inputs": {
+        "rule_pack_version": "2026.10.1",
+        "lines": [
+          {"kind": "room_time", "tax_category": "room_time", "cents": 6000, "note": "test room time"},
+          {"kind": "item", "tax_category": "drink", "cents": 1081, "note": "package · test beer"},
+          {"kind": "item", "tax_category": "food", "cents": 600, "note": "package · test fries"},
+          {"kind": "item", "tax_category": "food", "cents": 1319, "note": "package · test wings"}
+        ],
+        "deposit_cents": 2000,
+        "gratuity_applies": true
+      },
+      "expected": {
+        "subtotal_cents": 9000,
+        "tax_base_cents": 9000,
+        "tax_cents": 799,
+        "tax_by_category_cents": {"room_time": 533, "drink": 96, "food": 170},
+        "gratuity_base_cents": 9000,
+        "gratuity_cents": 1800,
+        "total_cents": 11599,
+        "deposit_cents": 2000,
+        "left_to_pay_cents": 9599
+      },
+      "notes": "Test prices, not any venue's. The food rate is open with the accountant. The package's lines (K-09) are taxed by their own categories. Base 9000 x 8.875% = 798.75 -> 799."
     }
   ]
 }

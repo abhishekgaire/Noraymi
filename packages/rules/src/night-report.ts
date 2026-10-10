@@ -26,6 +26,8 @@ export interface SalesReport {
     readonly room_time_cents: number;
     readonly drinks_room_checks_cents: number;
     readonly drinks_bar_tabs_cents: number;
+    /** Food (K-10): items with tax category food, rooms and bar together; a package's food is in packages. */
+    readonly food_cents: number;
     readonly packages_cents: number;
     readonly songs_cents: number;
     readonly damage_cents: number;
@@ -64,6 +66,7 @@ export function salesReport(lines: readonly ReportLine[]): SalesReport {
   let roomTime = 0;
   let drinksRoom = 0;
   let drinksBar = 0;
+  let food = 0;
   let packages = 0;
   let songs = 0;
   let damage = 0;
@@ -91,6 +94,7 @@ export function salesReport(lines: readonly ReportLine[]): SalesReport {
         break;
       case "item":
         if (l.is_package) packages += a;
+        else if (l.tax_category === "food") food += a;
         else if (l.check_kind === "room") drinksRoom += a;
         else drinksBar += a;
         break;
@@ -152,6 +156,7 @@ export function salesReport(lines: readonly ReportLine[]): SalesReport {
     roomTime +
     drinksRoom +
     drinksBar +
+    food +
     packages +
     songs +
     damage +
@@ -177,6 +182,7 @@ export function salesReport(lines: readonly ReportLine[]): SalesReport {
       room_time_cents: roomTime,
       drinks_room_checks_cents: drinksRoom,
       drinks_bar_tabs_cents: drinksBar,
+      food_cents: food,
       packages_cents: packages,
       songs_cents: songs,
       damage_cents: damage,

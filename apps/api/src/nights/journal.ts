@@ -23,6 +23,7 @@ import { nightLines, type NightReport } from "./report.js";
 export const ACCOUNT_NAMES: Readonly<Record<Account, string>> = {
   sales_room_time: "Sales · Room time",
   sales_drinks: "Sales · Drinks",
+  sales_food: "Sales · Food",
   sales_packages: "Sales · Packages",
   sales_songs: "Sales · Songs",
   sales_damage: "Sales · Damage fees",

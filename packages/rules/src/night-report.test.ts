@@ -112,3 +112,28 @@ describe("the night's report", () => {
     expect(r.sales).toMatchObject({ refunds_cents: -1200, net_cents: 48000 - 1200 });
   });
 });
+
+describe("food on its own line (K-10)", () => {
+  const food = (id: string, kind: ReportLine["check_kind"], cents: number): ReportLine => ({
+    ...line(id, kind, "item", cents),
+    tax_category: "food",
+  });
+  it("puts food sales on their own line, out of drinks; a package's food stays under Packages", () => {
+    const r = salesReport([
+      line("r1", "room", "room_time", 10000),
+      { ...line("r1", "room", "item", 2400), tax_category: "drink" },
+      food("r1", "room", 1800),
+      food("t1", "bar", 1599),
+      { ...food("r1", "room", 600), is_package: true },
+      { ...line("t1", "bar", "void", -500), tax_category: "food" },
+    ]);
+    expect(r.sales).toMatchObject({
+      food_cents: 1800 + 1599,
+      drinks_room_checks_cents: 2400,
+      drinks_bar_tabs_cents: 0,
+      packages_cents: 600,
+      voids_cents: -500,
+      net_cents: 10000 + 2400 + 1800 + 1599 + 600 - 500,
+    });
+  });
+});

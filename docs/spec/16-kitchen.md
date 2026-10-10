@@ -86,7 +86,7 @@ The spec doesn't yet say how a package's contents reach the room: phase 1 has pa
 
 ### Tax
 
-Food lines use the tax category `food`, which the [money rules](05-money-rules.md) and `check_lines.tax_category` already have. Phase 1 has no rate for it. The cautious default taxes food at the same rate as drinks in the rule pack (8.875% in New York City), so nothing is under-collected, and the gratuity base includes food like any item (Money rules 9). Flagged for the accountant: how prepared food is taxed in New York City, and how a package mixing food and drinks is split for tax.
+Food lines use the tax category `food`, which the [money rules](05-money-rules.md) and `check_lines.tax_category` already have. Phase 1 has no rate for it. The cautious default taxes food at the same rate as drinks in the rule pack (8.875% in New York City), so nothing is under-collected, and the gratuity base includes food like any item (Money rules 9). Flagged for the accountant: how prepared food is taxed in New York City, and how a package mixing food and drinks is split for tax. The default is rule pack version 2026.10.1 (food among the taxed categories), so the answer becomes a new pack version. Food shows on its own line in the Z report ("Food") and the journal ("Sales · Food"); a package's food stays under Packages.
 
 ### The allergy notice
 

@@ -51,6 +51,7 @@ export function ReportPanel({ venueId, date: night }: { venueId: string; date: s
     [t("report.roomTime"), report.sales["room_time_cents"]],
     [t("report.drinksRooms"), report.sales["drinks_room_checks_cents"]],
     [t("report.drinksBar"), report.sales["drinks_bar_tabs_cents"]],
+    [t("report.food"), report.sales["food_cents"]],
     [t("report.comps"), report.sales["comps_cents"]],
     [t("report.refunds"), report.sales["refunds_cents"]],
     [t("report.net"), report.sales["net_cents"]],

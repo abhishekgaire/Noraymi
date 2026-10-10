@@ -369,6 +369,7 @@ export function reportPrintLines(r: NightReport, money: (cents: number) => strin
   amt("Room time", r.sales.room_time_cents);
   amt("Drinks · room checks", r.sales.drinks_room_checks_cents);
   amt("Drinks · bar tabs", r.sales.drinks_bar_tabs_cents);
+  amt("Food", r.sales.food_cents);
   amt("Packages", r.sales.packages_cents);
   amt("Songs", r.sales.songs_cents);
   amt("Damage fees", r.sales.damage_cents);

@@ -246,16 +246,21 @@ Definition of done: see CLAUDE.md.
 
 ### K-10 · Tax food and report it
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** K-02; M4 (check revisions), M7-13, M7-15, M7-17
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Tax; [Money rules](../spec/05-money-rules.md) rules 8 and 9
 - **Build:** a `food` rate in the rule pack at the drinks rate as the cautious default; food in the Z report, the journal and the tax-quarter report by category; food in the gratuity base like any item.
 - **Acceptance:**
-  - [ ] A check with food taxes it once per rate and shares tax by largest remainder, written test-first as new money cases.
-  - [ ] The Z report and the journal show food sales on their own line, and the reconcile script still balances to the cent.
+  - [x] A check with food taxes it once per rate and shares tax by largest remainder, written test-first as new money cases.
+  - [x] The Z report and the journal show food sales on their own line, and the reconcile script still balances to the cent.
 - **Tests:** unit tests first from new money cases; the reconcile script over a night with food.
 - **Notes:** The food rate is open with the accountant.
+  - Cautious default (flagged for the accountant): rule pack `us-ny-new-york-county` version 2026.10.1 (`newYorkCountyFood` in `packages/shared/src/rule-pack.ts`, a built-in pack the bootstrap loads) adds `food` to the taxed categories at the drinks rate, 8.875%; no new rate was invented. Tax stays once per rate on the whole base and is shared across categories by largest remainder; food is in the gratuity base like any item (it already was).
+  - Tests first: 4 new `food_tax` money cases (`check_totals`, test prices, `rule_pack_version: "2026.10.1"`), run by `check-totals.test.ts` and the money audit. A food category netted to $0.00 by a comp keeps a $0.00 tax share, as the rules already write it.
+  - Reports: `food_cents` in the X/Z sales (`packages/rules/src/night-report.ts`; the printed Z's "Food" line, the staff report panel's "Food"/"Comida"); the journal's `sales_food` account ("Sales · Food", also in Export for QuickBooks' account mapping), voids of food net against it. A package's food stays under Packages / `sales_packages`. The tax-quarter report already groups by category from the pack, so food appears there once taxed.
+  - Integration: `apps/api/src/reconcile/food-night.int.test.ts` plays the seed's Friday with test food on Room 9 and Jess P.'s tab to its close; the reconcile script balances to the cent, Room 9's tax lines carry pack 2026.10.1 and the whole base, and the Z and journal show food $17.00.
+  - Other integration tests publish packs 2026.09 and 2026.10 themselves, so their figures don't change. The local demo database gets 2026.10.1 the next time the bootstrap runs; West 4's demo night has no food, so its totals don't change.
 
 ### K-11 · Prove a food night end to end
 

@@ -14,6 +14,7 @@ import { useT } from "../../i18n.js";
 const ACCOUNTS = [
   "sales_room_time",
   "sales_drinks",
+  "sales_food",
   "sales_packages",
   "sales_songs",
   "sales_damage",

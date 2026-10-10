@@ -33,6 +33,7 @@ export type {
 export {
   newYorkCounty,
   newYorkCountyTaxed,
+  newYorkCountyFood,
   builtInRulePacks,
   canonicalJson,
   rulePackChanges,

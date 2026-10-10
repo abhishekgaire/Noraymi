@@ -136,7 +136,26 @@ export const newYorkCountyTaxed: RulePack = {
   salesTax: { ...newYorkCounty.salesTax, taxedCategories: ["room_time", "drink", "damage"] },
 };
 
-export const builtInRulePacks: readonly RulePack[] = [newYorkCounty, newYorkCountyTaxed];
+/**
+ * Version 2026.10.1 (K-10; spec 16 · Tax): food joins the taxed categories at the same rate as drinks,
+ * the cautious default so nothing is under-collected. How prepared food is taxed in New York City, and
+ * how a package mixing food and drinks is split for tax, are open with the accountant (spec 14); the
+ * answer becomes a new version.
+ */
+export const newYorkCountyFood: RulePack = {
+  ...newYorkCountyTaxed,
+  version: "2026.10.1",
+  salesTax: {
+    ...newYorkCountyTaxed.salesTax,
+    taxedCategories: ["room_time", "drink", "food", "damage"],
+  },
+};
+
+export const builtInRulePacks: readonly RulePack[] = [
+  newYorkCounty,
+  newYorkCountyTaxed,
+  newYorkCountyFood,
+];
 
 /**
  * Canonical JSON: keys sorted at every level, no whitespace, so the same pack

@@ -105,6 +105,10 @@ describe("the nightly journal", () => {
       ["tax", { jurisdiction_code: "NY-NYC" }, "sales_tax_payable"],
       ["gratuity", {}, "gratuity_payable"],
       ["void", { tax_category: "drink" }, "sales_drinks"],
+      // Food (K-10): its own sales account; a package's food stays in packages.
+      ["item", { tax_category: "food" }, "sales_food"],
+      ["item", { tax_category: "food", is_package: true }, "sales_packages"],
+      ["void", { tax_category: "food" }, "sales_food"],
     ];
     for (const [kind, extra, account] of kinds) {
       const j = nightJournal({
