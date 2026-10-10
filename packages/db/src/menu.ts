@@ -285,14 +285,17 @@ export async function menuTree(
 export async function promoMenu(
   client: Queryable,
   venueId: string,
-): Promise<Record<string, { name: string; alcohol: boolean; regularCents: number }>> {
+): Promise<
+  Record<string, { name: string; alcohol: boolean; regularCents: number; food: boolean }>
+> {
   const r = await client.query<{
     id: string;
     name: string;
     alcohol: boolean;
+    food: boolean;
     price: number | null;
   }>(
-    `select i.id, i.name, i.alcohol,
+    `select i.id, i.name, i.alcohol, i.station = 'kitchen' as food,
             (select v.price_cents from menu_variants v where v.venue_id = i.venue_id and v.item_id = i.id
               order by v.sort, v.name, v.id limit 1) as price
        from menu_items i where i.venue_id = $1`,
@@ -301,7 +304,7 @@ export async function promoMenu(
   return Object.fromEntries(
     r.rows.map((row) => [
       row.id,
-      { name: row.name, alcohol: row.alcohol, regularCents: row.price ?? 0 },
+      { name: row.name, alcohol: row.alcohol, regularCents: row.price ?? 0, food: row.food },
     ]),
   );
 }

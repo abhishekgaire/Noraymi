@@ -74,6 +74,8 @@ const AS_STORED_INPUTS = new Set([
   "business_date",
   "reason_only_limits",
   "approvals",
+  // A package's lines (K-09) are stored as item lines, each its share of the package price.
+  "package_lines",
 ]);
 
 describe("the money cases, every group, through the audit (M9-15)", () => {

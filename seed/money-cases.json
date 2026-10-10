@@ -49,7 +49,8 @@
       "tip_review": "tab_total_cents, tip_cents, entered_after_minutes, limits -> needs_approval and why",
       "tip_pool": "pool_cents, minutes by person -> shares by largest remainder",
       "tip_choices": "drinks_before_tax_cents -> the three choices the reader shows (in expected only)",
-      "can_present_check": "orders -> whether Present the check is allowed"
+      "can_present_check": "orders -> whether Present the check is allowed",
+      "package_line_shares": "a package's price and its units' regular prices -> each line's share, by largest remainder (K-09; test prices)"
     },
     "properties": [
       "Split shares and tip shares always add up to the amount, and no two differ by more than 1 cent.",
@@ -140,7 +141,7 @@
       }
     ],
     "counts": {
-      "cases": 104,
+      "cases": 109,
       "by_group": {
         "room9_close_out": 6,
         "tab_so_far": 8,
@@ -157,7 +158,8 @@
         "refunds": 3,
         "reason_only_limits": 8,
         "approvals": 3,
-        "tax_and_gratuity": 3
+        "tax_and_gratuity": 3,
+        "package_lines": 5
       }
     }
   },
@@ -1750,6 +1752,116 @@
       },
       "notes": "3600 x 8.875% = 319.50 -> 320. Rounding each line first (106.5 -> 107, three times) would give 321, which is wrong.",
       "must_not_equal": {"tax_cents": 321}
+    },
+    {
+      "id": "package_food_and_drinks_10000",
+      "group": "package_lines",
+      "title": "A $100.00 package: two beers, wings and fries, divided by their regular prices",
+      "function": "package_line_shares",
+      "spec": ["docs/spec/16-kitchen.md · Food in packages", "docs/spec/05-money-rules.md rule 1"],
+      "source": "spec 16 and rule 1; derived by script (K-09)",
+      "test_data": true,
+      "inputs": {
+        "price_cents": 10000,
+        "units": [
+          {"name": "Beer", "regular_cents": 800, "tax_category": "drink"},
+          {"name": "Beer", "regular_cents": 800, "tax_category": "drink"},
+          {"name": "Wings", "regular_cents": 1400, "tax_category": "food"},
+          {"name": "Fries", "regular_cents": 700, "tax_category": "food"}
+        ]
+      },
+      "expected": {
+        "shares_cents": [2162, 2162, 3784, 1892],
+        "by_tax_category_cents": {"drink": 4324, "food": 5676}
+      },
+      "notes": "Test prices, not any venue's. Regular prices add to $37.00. Floors 2162+2162+3783+1891 = 9998; the 2 leftover cents go to the largest remainders, Fries then Wings. Drinks $43.24, food $56.76."
+    },
+    {
+      "id": "package_tie_goes_to_first",
+      "group": "package_lines",
+      "title": "$10.00 across three items at the same regular price: the tie goes to the first",
+      "function": "package_line_shares",
+      "spec": ["docs/spec/16-kitchen.md · Food in packages", "docs/spec/05-money-rules.md rule 1"],
+      "source": "spec 16 and rule 1; derived by script (K-09)",
+      "test_data": true,
+      "inputs": {
+        "price_cents": 1000,
+        "units": [
+          {"name": "Nachos", "regular_cents": 500, "tax_category": "food"},
+          {"name": "Soda", "regular_cents": 500, "tax_category": "drink"},
+          {"name": "Soda", "regular_cents": 500, "tax_category": "drink"}
+        ]
+      },
+      "expected": {
+        "shares_cents": [334, 333, 333],
+        "by_tax_category_cents": {"food": 334, "drink": 666}
+      },
+      "notes": "Test prices, not any venue's. Each exact share is $3.33 1/3; the leftover cent goes to the first part."
+    },
+    {
+      "id": "package_zero_priced_line",
+      "group": "package_lines",
+      "title": "A $0.00 refill in a $30.00 package gets nothing; the rest is divided",
+      "function": "package_line_shares",
+      "spec": ["docs/spec/16-kitchen.md · Food in packages", "docs/spec/05-money-rules.md rule 1"],
+      "source": "spec 16 and rule 1; derived by script (K-09)",
+      "test_data": true,
+      "inputs": {
+        "price_cents": 3000,
+        "units": [
+          {"name": "Wings", "regular_cents": 1000, "tax_category": "food"},
+          {"name": "Soda refill", "regular_cents": 0, "tax_category": "drink"},
+          {"name": "Burger", "regular_cents": 1000, "tax_category": "food"}
+        ]
+      },
+      "expected": {
+        "shares_cents": [1500, 0, 1500],
+        "by_tax_category_cents": {"food": 3000, "drink": 0}
+      },
+      "notes": "Test prices, not any venue's. A line whose regular price is $0.00 gets a $0.00 share."
+    },
+    {
+      "id": "package_all_zero_even",
+      "group": "package_lines",
+      "title": "Every line at $0.00 regular: the price is divided evenly, leftover to the first parts",
+      "function": "package_line_shares",
+      "spec": ["docs/spec/16-kitchen.md · Food in packages", "docs/spec/05-money-rules.md rule 1"],
+      "source": "spec 16 and rule 1; derived by script (K-09)",
+      "test_data": true,
+      "inputs": {
+        "price_cents": 1001,
+        "units": [
+          {"name": "Pick A", "regular_cents": 0, "tax_category": "food"},
+          {"name": "Pick B", "regular_cents": 0, "tax_category": "food"},
+          {"name": "Soda", "regular_cents": 0, "tax_category": "drink"}
+        ]
+      },
+      "expected": {
+        "shares_cents": [334, 334, 333],
+        "by_tax_category_cents": {"food": 668, "drink": 333}
+      },
+      "notes": "Test prices, not any venue's. No regular price to go by, so the price is divided evenly (cautious default): 334 + 334 + 333."
+    },
+    {
+      "id": "package_above_regular",
+      "group": "package_lines",
+      "title": "A package priced above its contents' regular prices still adds up",
+      "function": "package_line_shares",
+      "spec": ["docs/spec/16-kitchen.md · Food in packages", "docs/spec/05-money-rules.md rule 1"],
+      "source": "spec 16 and rule 1; derived by script (K-09)",
+      "test_data": true,
+      "inputs": {
+        "price_cents": 5001,
+        "units": [
+          {"name": "Pitcher", "regular_cents": 2000, "tax_category": "drink"},
+          {"name": "Platter", "regular_cents": 2000, "tax_category": "food"}
+        ]
+      },
+      "expected": {
+        "shares_cents": [2501, 2500],
+        "by_tax_category_cents": {"drink": 2501, "food": 2500}
+      },
+      "notes": "Test prices, not any venue's. Equal halves of $50.01: the leftover cent goes to the first part."
     }
   ]
 }

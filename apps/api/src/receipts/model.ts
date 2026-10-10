@@ -128,6 +128,18 @@ export async function receiptModel(
   const rates = [...new Set(segments.map((s) => s.hourly_cents))].map((h) => money(h)).join(" → ");
   const minutes = Number(rev?.billing_basis?.["minutes"] ?? 0);
   const lines: ReceiptLine[] = [];
+  // A package's lines carry its name (K-09; spec 16 · Food in packages): "Party pack · Wings".
+  const packageOf = new Map(
+    (
+      await c.query<{ id: string; name: string }>(
+        `select l.id, p.name from check_lines l
+           join order_items oi on oi.venue_id = l.venue_id and oi.id = l.source_id
+           join packages p on p.venue_id = oi.venue_id and p.id = oi.package_id
+          where l.venue_id = $1 and l.check_id = $2 and l.kind = 'item'`,
+        [venueId, checkId],
+      )
+    ).rows.map((r) => [Number(r.id), r.name]),
+  );
   // Room time first, then everything else in the order it was added.
   const ordered = [
     ...standing.filter((l) => l.kind === "room_time" || l.kind === "min_spend"),
@@ -147,7 +159,9 @@ export async function receiptModel(
             ? t("en", "receipt.void", { item: l.description })
             : l.kind === "card_surcharge"
               ? t("en", "receipt.surcharge")
-              : `${qty}${l.description}`;
+              : packageOf.has(Number(l.id))
+                ? `${qty}${packageOf.get(Number(l.id))} · ${l.description}`
+                : `${qty}${l.description}`;
     lines.push({ label, amount_cents: Number(l.amount_cents) });
   }
   const totals: ReceiptLine[] = [];

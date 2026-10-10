@@ -155,6 +155,19 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
       )
     ).rows.map((r) => [Number(r.id), { tab: r.tab, room: r.room }]),
   );
+  // Packages (K-09): a package's lines are grouped under its name on the bill.
+  const inPackage = new Map(
+    (
+      await c.query<{ id: string; package_id: string; name: string }>(
+        `select l.id, p.id as package_id, p.name
+           from check_lines l
+           join order_items oi on oi.venue_id = l.venue_id and oi.id = l.source_id
+           join packages p on p.venue_id = oi.venue_id and p.id = oi.package_id
+          where l.venue_id = $1 and l.check_id = $2 and l.kind = 'item'`,
+        [venueId, id],
+      )
+    ).rows.map((r) => [Number(r.id), { id: r.package_id, name: r.name }]),
+  );
   // Food (K-05): each food line's Not sent or "Sent · 11:42", for the tab, the room and the sale.
   const food = new Map((await foodLines(c, venueId, id)).map((f) => [f.line_id, f]));
   // Card on file (M4-17): the deposit's card, and a charge waiting for the guest or a manager, if any.
@@ -201,7 +214,12 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
                 ? { from_tab: m.tab, from_room: m.room }
                 : { to_tab: m.tab, to_room: m.room },
           }
-        : { ...l, alcohol: alcohol.has(l.id), ...kitchenOf(food.get(Number(l.id))) };
+        : {
+            ...l,
+            alcohol: alcohol.has(l.id),
+            ...kitchenOf(food.get(Number(l.id))),
+            ...(inPackage.has(Number(l.id)) ? { package: inPackage.get(Number(l.id)) } : {}),
+          };
     }),
     holds: holds.map((h) => ({ tab_id: h.tab_id, name: h.name, cents: h.hold_cents })),
     pending_fixes: pending.rows.map((p) => ({

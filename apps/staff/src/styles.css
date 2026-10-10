@@ -2981,3 +2981,19 @@ a.song-count {
 .food-choices .chip {
   min-height: 44px;
 }
+
+/* A package on a room's tab (K-09): its lines grouped under its name. */
+.add-package {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.add-package .choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.add-package .package-group ul {
+  margin: 0;
+  padding-left: 16px;
+}

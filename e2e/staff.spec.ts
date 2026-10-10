@@ -14,7 +14,7 @@ import { PLAN_LOOKUP_KEYS, ROOM_LOOKUP_KEY } from "../apps/api/src/stripe/billin
 import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 import { SEED_COMMAND, setClock as resetClock } from "./night.js";
-import { testKitchenMenu } from "./kitchen.js";
+import { testKitchenMenu, testPackage } from "./kitchen.js";
 import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
 /**
@@ -6293,6 +6293,59 @@ test("Room 9's tab on a phone: food is Not sent on the check, and Send to kitche
     );
     expect(job.rows[0]!.payload.room).toBe("Room 9");
   } finally {
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
+/**
+ * A package with food (K-09; Kitchen and food · Food in packages): added from Room 9's tab with the
+ * wings' sauce picked, its lines read under its name and add up to its $30.00; the Modelo's bar
+ * ticket prints at once and the food reads Not sent until Send to kitchen.
+ */
+test("Room 9's tab: a package with food, its drinks printed at once and its food Not sent", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db, { choices: true });
+  const pack = await testPackage(db);
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    const packages = page.getByRole("region", { name: "Packages" });
+    await packages.getByRole("button", { name: "Add a package" }).click();
+    await page
+      .getByRole("dialog", { name: "Choose a package" })
+      .getByRole("button", { name: /TEST party pack/ })
+      .click();
+    const sheet = page.getByRole("dialog", { name: "TEST party pack" });
+    await expect(sheet.getByRole("button", { name: "Add · $30.00" })).toBeDisabled();
+    await sheet.getByRole("button", { name: "TEST soy garlic" }).click();
+    await sheet.getByRole("button", { name: "Add · $30.00" }).click();
+    await expect(packages).toContainText(/TEST party pack\s*\$30\.00/);
+    const lines = await db.query<{ amount_cents: string; tax_category: string }>(
+      `select l.amount_cents, l.tax_category from check_lines l
+         join order_items oi on oi.id = l.source_id where oi.package_id = $1`,
+      [pack.id],
+    );
+    expect(lines.rows.reduce((s, l) => s + Number(l.amount_cents), 0)).toBe(3000);
+    const bar = await db.query(
+      `select 1 from print_jobs j join order_items oi on oi.order_id = j.order_id
+        where oi.package_id = $1 and j.station = 'bar'`,
+      [pack.id],
+    );
+    expect(bar.rowCount).toBeGreaterThan(0);
+    await expect(page.getByRole("region", { name: "Running tab" })).toContainText("Not sent");
+    const kitchenJobs = await db.query(
+      "select 1 from print_jobs where station = 'kitchen' and check_id = (select check_id from room_sessions s join rooms r on r.id = s.room_id where r.name = 'Room 9' and s.ended_at is null limit 1)",
+    );
+    expect(kitchenJobs.rowCount).toBe(0);
+  } finally {
+    await pack.restore();
     await kitchen.restore();
     await db.end();
   }

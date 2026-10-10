@@ -223,7 +223,7 @@ Definition of done: see CLAUDE.md.
 
 ### K-09 · Sell a package with food: tickets at once, the price divided across its lines
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K-03, K-05; M3-02
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Food in packages; [Money rules](../spec/05-money-rules.md) rule 1
@@ -232,11 +232,17 @@ Definition of done: see CLAUDE.md.
   - The package price divided across its contents by their regular prices, largest remainder, each line with its own tax category and `package_id`, grouped under the package's name on the bill.
   - The promotion checks refuse an hourly package with food.
 - **Acceptance:**
-  - [ ] A package's lines add up to its price to the cent, written test-first as new money cases.
-  - [ ] Adding the package prints its drinks at the bar at once, and its food reads Not sent until Send to kitchen prints it in the kitchen.
-  - [ ] An hourly package with food can't be saved.
+  - [x] A package's lines add up to its price to the cent, written test-first as new money cases.
+  - [x] Adding the package prints its drinks at the bar at once, and its food reads Not sent until Send to kitchen prints it in the kitchen.
+  - [x] An hourly package with food can't be saved.
 - **Tests:** unit tests first from new `seed/money-cases.json` groups for packages with food (test prices, marked as test data); integration and end-to-end tests.
 - **Notes:** When package food fires, and how a package is split for tax, are open with the founder and the accountant; until then package food follows Send to kitchen (D99).
+  - Built: `packageLineShares` in `packages/rules/src/package-lines.ts` (largest remainder by regular price; every line at $0.00 regular divides evenly, a cautious default), tested first from the new `package_lines` money cases (5, test prices, `test_data: true`). The promotion checks refuse an hourly package with food (`hourly_includes_food`); `promoMenu` now marks kitchen items as food.
+  - API (`apps/api/src/routes/package-sales.ts`, module `packages`, `orders.accept`): `GET /package-menu` lists the packages staff can sell, each unit with its choices; `POST /checks/{c}/packages` `{ package_id, client_order_id?, picks? }` makes one staff order through `placeStaffOrder`, accepted at once. One line per unit (qty 1), each priced at its share (choices keep their names at +$0.00) with `order_items.package_id`. Room checks always print their bar ticket, so the drinks print at once; staff-rung food reads Not sent until Send to kitchen (D99). The promotion checks run again at the sale; an 86'd item, a closed kitchen and the alcohol rules refuse it as for any staff order.
+  - Cautious defaults: a package goes on a room's tab only (`room_only` on a bar tab or quick sale); an hourly or private-function package isn't sold on a tab; a content entry with no fixed quantity (a refill) is one line; staff may sell a package that isn't shown on the website. When package food fires and how a mixed package is split for tax stay open (spec 14).
+  - Grouping: the check view gives a package line `package: { id, name }`; the room screen lists them under the package's name ("On this tab"); the receipt labels them "Party pack · Wings". The Z report counts them under Packages (`is_package` now includes order lines with a package).
+  - Staff app: `AddPackage.tsx` on the room screen, English and Spanish strings (`packages.*`).
+  - Tests: unit `package-lines.test.ts`, `promotions.test.ts`; integration `routes/package-sales.int.test.ts`, walls and principals; e2e "Room 9's tab: a package with food…" in staff.spec.ts (`testPackage` in e2e/kitchen.ts).
 
 ### K-10 · Tax food and report it
 

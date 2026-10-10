@@ -97,6 +97,7 @@ import { approvalRoutes } from "./routes/approvals.js";
 import { menuRoutes } from "./routes/menu.js";
 import { orderRoutes } from "./routes/orders.js";
 import { draftRoutes } from "./routes/drafts.js";
+import { packageSaleRoutes } from "./routes/package-sales.js";
 import { roomGuestAuthenticator, roomJoinRoutes } from "./routes/room-join.js";
 import { roomOrderRoutes } from "./routes/room-orders.js";
 import { cutOffRoutes } from "./routes/cut-off.js";
@@ -394,6 +395,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       });
       orderRoutes(scope, { clock });
       draftRoutes(scope, { clock, pool: gatePoolRef!, stripe });
+      packageSaleRoutes(scope, { clock });
       filesRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
       menuRoutes(scope, { clock, pool: gatePoolRef!, s3: () => (s3 ??= makeS3()) });
       checkInRoutes(scope, {

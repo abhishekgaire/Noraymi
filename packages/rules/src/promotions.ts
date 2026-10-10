@@ -13,6 +13,8 @@ export interface PromoMenuItem {
   readonly name: string;
   readonly alcohol: boolean;
   readonly regularCents: number;
+  /** Made in the kitchen (station kitchen, K-09). */
+  readonly food?: boolean;
 }
 export type PromoMenu = Readonly<Record<string, PromoMenuItem>>;
 
@@ -54,6 +56,7 @@ export type Promotable =
 export type PromotionRefusalCode =
   | "alcohol_quantity_not_fixed"
   | "hourly_includes_alcohol"
+  | "hourly_includes_food"
   | "below_half_price"
   | "free_alcohol"
   | "private_function_not_cleared"
@@ -101,6 +104,10 @@ export function promotionChecks(
       }
       if (thing.hourly && !rules.hourlyAlcohol && items.some(({ item }) => item?.alcohol)) {
         refuse("hourly_includes_alcohol", `${thing.name}: an hourly price can't include alcohol.`);
+      }
+      // A package's food prints once (spec 16 · Food in packages), so an hourly one can't include it.
+      if (thing.hourly && items.some(({ item }) => item?.food)) {
+        refuse("hourly_includes_food", `${thing.name}: an hourly package can't include food.`);
       }
       if (thing.privateFunctionOnly && !rules.privateFunctionException) {
         refuse(

@@ -69,6 +69,7 @@ export type {
 export { orderStep, pickUpStep, ORDER_STATUSES, ORDER_STEPS } from "./orders.js";
 export type { OrderStatus, OrderStep, PickUpResult, StepResult } from "./orders.js";
 export * from "./check-totals.js";
+export * from "./package-lines.js";
 export * from "./cash.js";
 export * from "./site.js";
 export * from "./policy.js";

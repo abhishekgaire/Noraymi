@@ -7,6 +7,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
+import { AddPackage } from "./AddPackage.js";
 import { FoodMark, UnsentReminder, type CheckFood } from "./SendToKitchen.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
@@ -579,6 +580,14 @@ export function RoomScreen() {
                   onUnsentFood={setUnsentFood}
                   kitchenRequest={kitchenRequest}
                   onSent={() => void load()}
+                />
+              )}
+              {s.check_id && signedIn?.membership.permissions.includes("orders.accept") && (
+                <AddPackage
+                  venueId={venueId}
+                  checkId={s.check_id}
+                  lines={lines}
+                  onAdded={() => void load()}
                 />
               )}
             </div>

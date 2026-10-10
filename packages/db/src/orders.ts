@@ -263,6 +263,8 @@ export interface NewOrder {
     /** A food line's note for the kitchen, and whether it's an allergy (K-03, K-04). */
     readonly kitchenNote?: string | null;
     readonly kitchenNoteAllergy?: boolean;
+    /** The package the line came in (K-09). */
+    readonly packageId?: string | null;
   }[];
 }
 
@@ -295,8 +297,8 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
   for (const [n, item] of o.items.entries()) {
     await c.query(
       `insert into order_items (id, venue_id, order_id, variant_id, item_id, options, qty, unit_cents,
-         name_snapshot, alcohol, tax_category, station, notes, sort, kitchen_note, kitchen_note_allergy)
-       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+         name_snapshot, alcohol, tax_category, station, notes, sort, kitchen_note, kitchen_note_allergy, package_id)
+       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         item.id ?? null,
         venueId,
@@ -314,6 +316,7 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
         n,
         item.kitchenNote?.trim() ? item.kitchenNote.trim() : null,
         Boolean(item.kitchenNote?.trim()) && item.kitchenNoteAllergy === true,
+        item.packageId ?? null,
       ],
     );
   }

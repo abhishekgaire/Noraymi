@@ -7,7 +7,7 @@ const menu: PromoMenu = {
   marg: { name: "Margarita", alcohol: true, regularCents: 1300 },
   jager: { name: "Jäger Bomb", alcohol: true, regularCents: 1200 },
   coke: { name: "Coke", alcohol: false, regularCents: 400 },
-  wings: { name: "Wings", alcohol: false, regularCents: 1400 },
+  wings: { name: "Wings", alcohol: false, regularCents: 1400, food: true },
 };
 const codes = (r: ReturnType<typeof promotionChecks>) => r.map((x) => x.code);
 
@@ -149,6 +149,41 @@ describe("price rules", () => {
       pack,
     );
     expect(codes(r)).toEqual(["hourly_includes_alcohol"]);
+  });
+});
+
+describe("packages with food (K-09)", () => {
+  it("refuses an hourly package with food: its food prints once", () => {
+    const r = promotionChecks(
+      {
+        kind: "package",
+        name: "Wings by the hour",
+        priceCents: 3000,
+        hourly: true,
+        contents: [{ itemId: "wings", qty: 1 }],
+      },
+      menu,
+      pack,
+    );
+    expect(codes(r)).toEqual(["hourly_includes_food"]);
+    expect(r[0]?.message).toMatch(/Wings by the hour/);
+  });
+
+  it("allows a fixed-price package with food and a fixed quantity of drinks", () => {
+    const r = promotionChecks(
+      {
+        kind: "package",
+        name: "Party pack",
+        priceCents: 10000,
+        contents: [
+          { itemId: "jager", qty: 2 },
+          { itemId: "wings", qty: 1 },
+        ],
+      },
+      menu,
+      pack,
+    );
+    expect(r).toEqual([]);
   });
 });
 

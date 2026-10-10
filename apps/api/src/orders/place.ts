@@ -9,8 +9,8 @@ import {
   type OrderRow,
   type Queryable,
 } from "@west4/db";
-import { businessDate } from "@west4/rules";
-import type { Temporal } from "@west4/shared";
+import { businessDate, packageLineShares } from "@west4/rules";
+import { cents, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { kitchenOn } from "../kitchen/module.js";
@@ -57,6 +57,11 @@ export async function placeStaffOrder(
     keepDraft?: boolean;
     /** A gift order (M6-24): the singer it's for and their check, whose cut-off it checks. */
     gift?: GiftFor | null;
+    /**
+     * A package (K-09): every line is one unit (qty 1), and the package's price is divided across
+     * them by their regular prices (choices included), largest remainder, so they add up to it.
+     */
+    package?: { readonly id: string; readonly priceCents: number } | null;
   },
 ): Promise<OrderRow> {
   // A retried send with the same client_order_id answers the order it made the first time.
@@ -78,7 +83,26 @@ export async function placeStaffOrder(
     throw new ApiError("ordering_closed", "this check is closed to new orders");
   if (input.lines.length === 0) throw new ApiError("invalid_request", "nothing to send");
 
-  const items = await orderItemsFor(c, venueId, input.lines, input.now);
+  const regular = await orderItemsFor(c, venueId, input.lines, input.now);
+  const pkg = input.package;
+  const shares = pkg
+    ? packageLineShares(
+        cents(pkg.priceCents),
+        regular.map((i) => ({
+          regularCents: i.unitCents + i.options.reduce((sum, o) => sum + o.price_delta_cents, 0),
+        })),
+      )
+    : null;
+  // A package line's price is its share; its choices keep their names and add nothing more.
+  const items = shares
+    ? regular.map((i, n) => ({
+        ...i,
+        qty: 1,
+        unitCents: shares[n]!,
+        options: i.options.map((o) => ({ ...o, price_delta_cents: 0 })),
+        packageId: pkg!.id,
+      }))
+    : regular;
   const alcoholItems = items.map((i) => ({ name: i.name, alcohol: i.alcohol }));
   // A gift is checked first against the singer it's for (M6-24): the window, then their tab's or
   // room's cut-off, so the refusal is logged on the check it's about.

@@ -119,3 +119,54 @@ export async function testKitchenMenu(
     },
   };
 }
+
+/**
+ * A test-only package with food (K-09), on the test kitchen menu (call testKitchenMenu with choices
+ * first): TEST party pack, $30.00, with a Modelo, TEST French Fries and TEST chicken wings (whose
+ * sauce is picked when it's added). The seed wipes packages; `restore` puts the Packages module back.
+ */
+export async function testPackage(
+  db: pg.Client,
+): Promise<{ id: string; restore: () => Promise<void> }> {
+  const venue = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  const itemId = async (name: string) =>
+    (
+      await db.query<{ id: string }>(
+        "select id from menu_items where venue_id = $1 and name = $2 order by created_at limit 1",
+        [venue, name],
+      )
+    ).rows[0]!.id;
+  const contents = [
+    { item_id: await itemId("Modelo"), qty: 1 },
+    { item_id: await itemId("TEST French Fries"), qty: 1 },
+    { item_id: await itemId("TEST chicken wings"), qty: 1 },
+  ];
+  const id = (
+    await db.query<{ id: string }>(
+      `insert into packages (venue_id, name, price_cents, contents, checked_pack_version)
+       values ($1, 'TEST party pack', 3000, $2, 'test') returning id`,
+      [venue, JSON.stringify(contents)],
+    )
+  ).rows[0]!.id;
+  const was = (
+    await db.query<{ allowed: boolean; state: string }>(
+      "select allowed, state from venue_modules where venue_id = $1 and module_id = 'packages'",
+      [venue],
+    )
+  ).rows[0]!;
+  await db.query(
+    "update venue_modules set allowed = true, state = 'on' where venue_id = $1 and module_id = 'packages'",
+    [venue],
+  );
+  return {
+    id,
+    restore: async () => {
+      await db.query(
+        "update venue_modules set allowed = $2, state = $3 where venue_id = $1 and module_id = 'packages'",
+        [venue, was.allowed, was.state],
+      );
+    },
+  };
+}

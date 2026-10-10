@@ -108,7 +108,9 @@ export async function nightLines(
     await c.query<ReportLine & { amount_cents: string; taxable_base_cents: string | null }>(
       `select l.check_id, k.kind as check_kind, l.kind, l.amount_cents::text, l.tax_category, l.jurisdiction_code,
               l.tax_rate::text, l.taxable_base_cents::text, l.description,
-              exists (select 1 from packages p where p.venue_id = l.venue_id and p.id = l.source_id) as is_package
+              (exists (select 1 from packages p where p.venue_id = l.venue_id and p.id = l.source_id)
+                or exists (select 1 from order_items oi where oi.venue_id = l.venue_id and oi.id = l.source_id
+                             and oi.package_id is not null)) as is_package
          from live_check_lines l join live_checks k on k.venue_id = l.venue_id and k.id = l.check_id
         where l.venue_id = $1 and l.business_date = $2::date and l.adjusts_business_date is null`,
       [venueId, date],
