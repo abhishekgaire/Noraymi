@@ -368,6 +368,7 @@ The staff app at desktop width. The bar and front-desk computers run it inside t
 20. **Training band (F39).** The canvas has none. Build the permanent band "TRAINING · not real money" and a "Demo: training mode" toggle ([N30](#n30-training-band)). *Decided in [FB 4.14]. Spec: [Security and data retention][spec-12].*
 21. **Minimum spend (K4).** The canvas tile shows nothing. Where a venue sets a minimum, the tile shows "$84 to your minimum". At West 4 it is off, so the tile shows nothing. *Decided in [FB 4.12].*
 22. **Room panel and "Show all" (V-08, founder-approved).** Build the canvas's small tiles (5 columns at 1280) and its right-hand room panel: one tap on a tile opens that room's clock, tab, calls, controls (everything notes 1 to 21 put on a tile), tab so far and room notes. With no room open, the panel says "Tap a room to see its clock, tab and controls here." The alerts show the 3 most urgent, then "Show all N" and "Show only the 3 most urgent". The minimum-spend line (note 21) moves to the panel. *Decided by the founder, Oct 9, 2026 (V-08).*
+23. **The age policy (D108).** The canvas has none. Where a venue is all ages until a time (Admin → Safety), build the amber alert "21+ from 8:00 PM · check IDs at the door and in the rooms" at the switch, for half an hour. At West 4 (21 and over all night) there is none. *Spec: [Settings][spec-03].*
 
 ### AdminDesk
 
@@ -1233,6 +1234,8 @@ The license register: ASCAP, BMI, SESAC and GMR, and local licenses. Each has a 
 - **Findings:** F25, F51.
 
 The occupancy limit (`safety.occupancyLimit`, empty at West 4) and when the Board warns (`warnAtPct`, 90). In M8 it adds the help alert and the incident log settings ([N20](#n20-help-alert-manager-needed-pin-and-incident-log)).
+
+The age policy (D108): "21 and over" (the default, West 4) or "All ages until [time], then 21 and over", with the time picked by the venue and never filled in; until it is, the policy stays 21 and over.
 
 *Decided in [FB 4.10]. Spec: [Settings, rule packs and modules][spec-03].*
 

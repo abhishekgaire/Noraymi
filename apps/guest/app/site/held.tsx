@@ -1,6 +1,6 @@
 import { cents, formatMoney, t, type MessageKey } from "@west4/shared";
 import { SiteFooter, SiteHeader } from "./home";
-import { clockWords, dateWords, type HeldBooking, type SiteView } from "./data";
+import { clockFull, clockWords, dateWords, type HeldBooking, type SiteView } from "./data";
 import { Countdown } from "./countdown";
 import { QuoteSummary } from "./quote";
 import { DetailsForm } from "./details-form";
@@ -78,6 +78,11 @@ function Confirmed({
       {held.cutoff_words && (
         <p className="cutoff">{t("en", "site.book.cutoff", { cutoff: held.cutoff_words })}</p>
       )}
+      {held.age_21_from && (
+        <p className="age-note" role="note">
+          {t("en", "site.book.age21After", { time: clockFull(held.age_21_from, held.time_zone) })}
+        </p>
+      )}
       {held.gratuity_pct > 0 && (
         <p>{t("en", "site.book.gratuityLine", { pct: held.gratuity_pct })}</p>
       )}
@@ -151,6 +156,13 @@ export function HeldPage({
                 n: hours,
               })}
             </p>
+            {held.age_21_from && (
+              <p className="age-note" role="note">
+                {t("en", "site.book.age21After", {
+                  time: clockFull(held.age_21_from, held.time_zone),
+                })}
+              </p>
+            )}
             {held.status === "pending" && held.seconds_left !== null && (
               <Countdown
                 token={token}

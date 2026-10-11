@@ -893,6 +893,14 @@ export const en = {
   "waitlist.noRoom": "No room fits this party for an hour",
   "admin.section.safety": "Safety",
   "admin.hint.safety": "The occupancy limit and when the board warns",
+  // The age policy (D108), in Admin → Safety.
+  "safety.age": "Age policy",
+  "safety.age.over21": "21 and over",
+  "safety.age.allAges": "All ages until a time, then 21 and over",
+  "safety.age.until": "All ages until",
+  "safety.age.pickTime": "Pick the time. Until you do, it stays 21 and over.",
+  "safety.age.hint":
+    "The website and the booking pages say it, and the board reminds the door at the switch. Alcohol still needs each guest's ID.",
   "safety.limit": "Occupancy limit",
   "safety.limit.empty": "Not set",
   "safety.limit.hint":
@@ -1406,6 +1414,8 @@ export const en = {
   "cutOff.failed": "That didn't go through. Try again.",
   // The clear-out check (M3-23).
   "clearOut.push": "Clear-out check: walk every room and the bar · no drinks left out",
+  // The age policy (D108): the board at the switch to 21 and over.
+  "alert.age": "21+ from {time} · check IDs at the door and in the rooms",
   "alert.clearOut": "Walk every room and the bar · no drinks left out",
   "alert.clearOut.done": "Clear-out check · {name} · {time}",
   "alert.clearOut.button": "Done",
@@ -1845,6 +1855,14 @@ export const en = {
   "site.tier.medium": "medium room",
   "site.tier.large": "large room",
   "site.tier.vip": "VIP room",
+  // The age policy (D108) on the website and the booking pages.
+  "site.findUs.age": "Age",
+  "site.age.over21": "21 and over",
+  "site.age.allAgesUntil": "All ages until {time}, then 21 and over with a physical ID",
+  "site.footer.allAges": "All ages until {time} · 21+ after · {address}",
+  "site.book.age.over21": "21 and over · bring ID",
+  "site.book.age.allAgesUntil": "All ages until {time}, then 21 and over · bring ID",
+  "site.book.age21After": "21+ after {time} · bring ID",
   "site.footer.age": "21+ · {address}",
   "site.parties.plan": "Plan a party",
   "site.parties.call": "Call {phone}",

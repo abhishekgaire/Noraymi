@@ -4,7 +4,7 @@ import { agingFor, secondsSince } from "../orders/escalation.js";
 import { barLostSince, venueOpenNow } from "./bar-presence.js";
 import { alcoholNow } from "../orders/alcohol.js";
 import { clearOutFor } from "./clear-out.js";
-import { businessDate } from "@west4/rules";
+import { ageSwitchAt, businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
 import { openCalls } from "./calls.js";
@@ -232,9 +232,12 @@ export async function board(
  * reading of the seed's order, flagged). Room-order alerts join in M3.
  */
 const COLOR_ORDER = ["pink", "amber", "lime", "grey"] as const;
+/** How long the board shows the switch to 21 and over (D108). */
+const AGE_ALERT_MIN = 30;
 const KIND_ORDER = [
   "no_bar",
   "clear_out",
+  "age",
   "needed_now",
   "call",
   "order",
@@ -347,6 +350,20 @@ async function boardAlerts(
             business_date: clear.business_date,
           },
     );
+
+  // The age policy (D108): at the switch to 21 and over ("21+ from 8:00 PM · check IDs at the door
+  // and in the rooms"), amber for half an hour while the venue is open. Words only: the alcohol
+  // rules check IDs per guest on the server whatever the policy.
+  const night = businessDate(now, v.timeZone, v.dayCutover).businessDate;
+  const safety = await readSetting(c, venueId, "safety", night);
+  const at21 = ageSwitchAt(night, safety?.value.allAgesUntil, v.timeZone, v.dayCutover);
+  if (
+    at21 &&
+    Temporal.Instant.compare(now, at21) >= 0 &&
+    Temporal.Instant.compare(now, at21.add({ minutes: AGE_ALERT_MIN })) < 0 &&
+    (await venueOpenNow(c, venueId, now))
+  )
+    out.push({ kind: "age", color: "amber", since: at21.toString(), at: at21.toString() });
 
   // No bar device connected during opening hours (M3-17): pink, first, until one connects.
   const lost = await barLostSince(c, venueId);

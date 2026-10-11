@@ -269,6 +269,13 @@ export const safetySchema = z
   .object({
     occupancyLimit: z.number().int().positive().nullable(),
     warnAtPct: z.number().min(0).max(100),
+    /**
+     * The venue's age policy (D108): absent or null, 21 and over all night (West 4); a wall-clock
+     * time, all ages until then and 21 and over after ("20:00" at Sing Sing, per its website). It
+     * words the website, the booking pages and the board's alert at the switch; the alcohol rules
+     * (an ID check per guest, on the server) never change with it.
+     */
+    allAgesUntil: time.nullable().optional(),
   })
   .strict();
 export const languagesSchema = z.object({ staff: z.array(z.enum(["en", "es"])).min(1) }).strict();

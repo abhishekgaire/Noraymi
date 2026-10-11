@@ -905,6 +905,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "waitlist.noRoom": "Ninguna sala sirve a este grupo por una hora",
   "admin.section.safety": "Seguridad",
   "admin.hint.safety": "El aforo y cuándo avisa el tablero",
+  // The age policy (D108), in Admin → Safety.
+  "safety.age": "Política de edad",
+  "safety.age.over21": "Solo mayores de 21",
+  "safety.age.allAges": "Todas las edades hasta una hora, luego solo mayores de 21",
+  "safety.age.until": "Todas las edades hasta las",
+  "safety.age.pickTime": "Elige la hora. Hasta entonces, sigue siendo solo mayores de 21.",
+  "safety.age.hint":
+    "El sitio web y las páginas de reservas lo dicen, y el tablero avisa a la puerta al cambio. El alcohol sigue necesitando la ID de cada invitado.",
   "safety.limit": "Aforo máximo",
   "safety.limit.empty": "Sin definir",
   "safety.limit.hint":
@@ -1430,6 +1438,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cutOff.failed": "No se pudo. Inténtalo de nuevo.",
   // The clear-out check (M3-23).
   "clearOut.push": "Revisión de cierre: recorre cada sala y la barra · que no quede ninguna bebida",
+  // The age policy (D108): the board at the switch to 21 and over.
+  "alert.age": "21+ desde las {time} · revisen las IDs en la puerta y en las salas",
   "alert.clearOut": "Recorre cada sala y la barra · que no quede ninguna bebida",
   "alert.clearOut.done": "Revisión de cierre · {name} · {time}",
   "alert.clearOut.button": "Hecho",
@@ -1876,6 +1886,16 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.tier.medium": "sala mediana",
   "site.tier.large": "sala grande",
   "site.tier.vip": "sala VIP",
+  // The age policy (D108) on the website and the booking pages.
+  "site.findUs.age": "Edad",
+  "site.age.over21": "Solo mayores de 21",
+  "site.age.allAgesUntil":
+    "Todas las edades hasta las {time}, luego solo mayores de 21 con ID física",
+  "site.footer.allAges": "Todas las edades hasta las {time} · 21+ después · {address}",
+  "site.book.age.over21": "Solo mayores de 21 · trae tu ID",
+  "site.book.age.allAgesUntil":
+    "Todas las edades hasta las {time}, luego solo mayores de 21 · trae tu ID",
+  "site.book.age21After": "21+ después de las {time} · trae tu ID",
   "site.footer.age": "21+ · {address}",
   "site.parties.plan": "Planear una fiesta",
   "site.parties.call": "Llamar al {phone}",

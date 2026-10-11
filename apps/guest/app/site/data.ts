@@ -32,6 +32,8 @@ export interface SiteView {
     readonly weekly: readonly { day: number; opens: string; closes: string }[];
   };
   readonly phone: string | null;
+  /** The age policy (D108): null is 21 and over all night; a time, all ages until then. */
+  readonly age?: { readonly all_ages_until: string | null };
   readonly prices: {
     readonly wording: "plusTaxAndGratuity" | "allIn";
     readonly gratuity_pct: number;
@@ -106,6 +108,21 @@ export const clockWords = (iso: string, timeZone: string) =>
   new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true })
     .format(new Date(iso))
     .replace(":00 ", " ");
+
+/** "20:00" → "8:00 PM", with its minutes (the age policy's switch, D108). */
+export const hhmmClock = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number) as [number, number];
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+};
+
+/** An instant on the venue's clock, with its minutes: "8:00 PM". */
+export const clockFull = (iso: string, timeZone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
 
 /** "16:00" → "4 PM". */
 export const hhmmWords = (hhmm: string) => {
@@ -210,6 +227,8 @@ export interface Availability {
   readonly min_guests: number;
   readonly billable_guests: number;
   readonly limits: { min_hours: number; max_hours: number; max_guests: number };
+  /** The age policy (D108), stated on the booking page. */
+  readonly all_ages_until?: string | null;
   readonly price_wording: "plusTaxAndGratuity" | "allIn";
   readonly tax_pct: string;
   readonly gratuity_pct: number;
@@ -267,6 +286,8 @@ export interface HeldBooking {
   readonly accepted: { policy_version_id: string; at: string } | null;
   /** The marketing box's exact words; null while Marketing texts is off. */
   readonly marketing_box: { id: string; text: string } | null;
+  /** D108: when 21 and over starts, if the booking runs past it ("21+ after 8:00 PM · bring ID"). */
+  readonly age_21_from?: string | null;
   readonly price_wording: "plusTaxAndGratuity" | "allIn";
   readonly tax_pct: string;
   readonly gratuity_pct: number;

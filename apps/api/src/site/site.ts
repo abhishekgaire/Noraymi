@@ -74,7 +74,7 @@ export async function siteView(
     )
   ).rows[0]!;
   const tonight = businessDate(now, venue.time_zone, venue.day_cutover).businessDate;
-  const [hours, prices, pay, phone, website, closure, pack] = [
+  const [hours, prices, pay, phone, website, closure, pack, safety] = [
     await readSetting(c, venueId, "hours", tonight),
     await readSetting(c, venueId, "prices", tonight),
     await readSetting(c, venueId, "pay", tonight),
@@ -82,6 +82,7 @@ export async function siteView(
     await readSetting(c, venueId, "website", tonight),
     await closureOn(c, venueId, tonight.toString()),
     await rulePackFor(c, venue.rule_pack_id ?? "us-ny-new-york-county", tonight),
+    await readSetting(c, venueId, "safety", tonight),
   ];
   if (!hours || !prices || !pay) throw new ApiError("internal", "the venue's settings aren't set");
 
@@ -213,6 +214,8 @@ export async function siteView(
       weekly: hours.value.weekly,
     },
     phone: phone?.value.callNumber ?? null,
+    // The age policy (D108): null is 21 and over all night; a time, all ages until then.
+    age: { all_ages_until: safety?.value.allAgesUntil ?? null },
     prices: {
       wording,
       gratuity_pct: gratuityPct,

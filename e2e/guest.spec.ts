@@ -129,6 +129,52 @@ test("all in, and booking off: every price line changes, and the hero reads Call
 });
 
 /**
+ * The venue age policy (D108): West 4 is 21 and over; a venue that's all ages until a time (Sing
+ * Sing, 8:00 PM, per its website) says so on the site and the Book page, and a booking that runs
+ * past the switch reads "21+ after … · bring ID". Here West 4 tries all ages until 11:30 PM, so
+ * Jae's 11 PM booking runs past it.
+ */
+test("the age policy: 21 and over at West 4, then all ages until 11:30 PM on the site, Book and Jae's booking", async ({
+  page,
+}) => {
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const token = randomBytes(16).toString("base64url");
+  try {
+    await page.goto("/");
+    await expect(page.locator(".site-footer")).toContainText("21+ · ");
+    await expect(page.locator("dt", { hasText: "Age" }).locator("+ dd")).toHaveText("21 and over");
+
+    await db.query(
+      `update venue_settings set value = value || '{"allAgesUntil": "23:30"}' where key = 'safety'`,
+    );
+    await db.query(
+      `update bookings set manage_token_hash = $1
+        where id = (select row_id from seed_ids where slug = 'bk_jae')`,
+      [createHash("sha256").update(token).digest("hex")],
+    );
+    await page.goto("/");
+    await expect(page.locator("dt", { hasText: "Age" }).locator("+ dd")).toHaveText(
+      "All ages until 11:30 PM, then 21 and over with a physical ID",
+    );
+    await expect(page.locator(".site-footer")).toContainText(
+      "All ages until 11:30 PM · 21+ after · ",
+    );
+    await page.goto("/book");
+    await expect(page.locator(".age-note")).toHaveText(
+      "All ages until 11:30 PM, then 21 and over · bring ID",
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/b/${token}`);
+    const manage = page.getByRole("region", { name: "Your booking" });
+    await expect(manage).toContainText("A small room · Fri, Sep 25 · 11 PM · 5 guests");
+    await expect(manage.locator(".age-note")).toHaveText("21+ after 11:30 PM · bring ID");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * The waitlist page behind the door QR (M2-25), on a phone, from a fresh load
  * of the demo seed: a party of 4 joins fourth and reads "3 parties ahead",
  * then leaves.

@@ -13,6 +13,11 @@ import { IncidentLog } from "../Incidents.js";
  * and publish. With Safety & ID records on, it also shows the help alert (who
  * gets it: every manager and owner; no settings keys of its own, M8-08) and
  * the incident log.
+ *
+ * The age policy (D108): "21 and over" (the default, West 4) or "All ages until [time], then 21
+ * and over" (Sing Sing, 8:00 PM). The time is the venue's own and never filled in for it; until
+ * one is picked, the policy stays 21 and over. It words the website, the booking pages and the
+ * board's alert at the switch; the alcohol rules never change with it.
  */
 export function Safety() {
   const { t } = useT();
@@ -24,6 +29,8 @@ export function Safety() {
   const safetyOn = state.status === "signedIn" && state.membership.modules.safety !== "off";
   const [saved, setSaved] = useState<SafetySettings | null>(null);
   const [failed, setFailed] = useState(false);
+  // "All ages until" picked before its time is: the saved policy stays 21 and over until one is.
+  const [allAgesPicked, setAllAgesPicked] = useState(false);
 
   const load = useCallback(async () => {
     setSaved(
@@ -84,6 +91,50 @@ export function Safety() {
             />
             <span className="small muted">{t("safety.warnAt.hint")}</span>
           </label>
+          <fieldset className="age-policy">
+            <legend>{t("safety.age")}</legend>
+            <label>
+              <input
+                type="radio"
+                name="agePolicy"
+                checked={!current.allAgesUntil && !allAgesPicked}
+                onChange={() => {
+                  setAllAgesPicked(false);
+                  draft.set("safety", { ...current, allAgesUntil: null });
+                }}
+              />{" "}
+              {t("safety.age.over21")}
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="agePolicy"
+                checked={Boolean(current.allAgesUntil) || allAgesPicked}
+                onChange={() => setAllAgesPicked(true)}
+              />{" "}
+              {t("safety.age.allAges")}
+            </label>
+            {(Boolean(current.allAgesUntil) || allAgesPicked) && (
+              <label>
+                <span>{t("safety.age.until")}</span>
+                <input
+                  type="time"
+                  aria-label={t("safety.age.until")}
+                  value={current.allAgesUntil ?? ""}
+                  onChange={(e) =>
+                    draft.set("safety", {
+                      ...current,
+                      allAgesUntil: /^\d\d:\d\d$/.test(e.target.value) ? e.target.value : null,
+                    })
+                  }
+                />
+                {!current.allAgesUntil && (
+                  <span className="small muted">{t("safety.age.pickTime")}</span>
+                )}
+              </label>
+            )}
+            <span className="small muted">{t("safety.age.hint")}</span>
+          </fieldset>
         </div>
       )}
       {safetyOn && venueId && (

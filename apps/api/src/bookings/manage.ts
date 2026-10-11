@@ -14,6 +14,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import {
+  bookingAgeSwitch,
   bookingGrid,
   businessDate,
   cancelOutcome,
@@ -145,6 +146,15 @@ export async function manageView(c: Queryable, venueId: string, b: Linked, now: 
     business_date: b.business_date,
     starts_at: b.starts_at,
     ends_at: b.ends_at,
+    // "21+ after 8:00 PM · bring ID" (D108): when the booking runs past the switch to 21 and over.
+    age_21_from:
+      bookingAgeSwitch(
+        start,
+        b.ends_at,
+        n?.allAgesUntil ?? null,
+        venue.timeZone,
+        venue.dayCutover,
+      )?.toString() ?? null,
     time: hhmm(start, venue.timeZone),
     minutes: Math.round(
       Temporal.Instant.from(b.ends_at).since(start, { largestUnit: "minutes" }).minutes,

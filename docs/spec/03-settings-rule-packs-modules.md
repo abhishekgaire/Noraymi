@@ -24,7 +24,7 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `phone` | The number guests call and the number texts come from |
 | `website` | How the site words prices |
 | `messages` | When the reminder and offer-expiring texts go out |
-| `safety` | The occupancy limit and when the board warns (empty at West 4, and never guessed) |
+| `safety` | The occupancy limit and when the board warns (empty at West 4, and never guessed), and the age policy (D108): 21 and over, or all ages until a time and 21 and over after |
 | `languages` | The staff languages a venue offers: English and Spanish in phase 1 |
 | `kitchen` | Kitchen & food: the allergy notice in English and Spanish (empty keeps the module off), the kitchen's last order time (empty follows room ordering) and `unsentWarnMin`, how long staff-rung food may sit Not sent before the reminder (5 by default, 1 to 60). A venue that never saved it reads these defaults ([Kitchen and food](16-kitchen.md) · The Kitchen module) |
 
@@ -188,6 +188,11 @@ type SafetySettings = {
   occupancyLimit: number | null;     // the posted limit from the certificate of occupancy or place of assembly permit.
                                      // null at West 4: the board shows "Limit not set · Admin → Safety". Never guessed or defaulted
   warnAtPct: number;                 // 90: the board warns when everyone inside reaches this share of the limit
+  allAgesUntil?: string | null;      // the age policy (D108): absent or null, 21 and over all night (West 4); "20:00", all ages
+                                     // until 8:00 PM, then 21 and over (Sing Sing, per its website). Read in the business date like
+                                     // last call. The website and the Book page state it; a booking running past it reads "21+ after
+                                     // 8:00 PM · bring ID"; the board shows "21+ from 8:00 PM · check IDs at the door and in the
+                                     // rooms" for half an hour from the switch. The alcohol rules never change with it. Never guessed
 };
 
 type LanguageSettings = {

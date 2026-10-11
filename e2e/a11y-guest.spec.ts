@@ -353,6 +353,28 @@ test("the Book page and a held booking pass", async ({ page }) => {
   expect(await violations(page)).toEqual([]);
 });
 
+/** The age policy (D108): all ages until 11:30 PM on the home and Book pages, and on a held 11 PM booking. */
+test("the age policy's words pass on the home page, Book and a held booking", async ({ page }) => {
+  const client = db();
+  await client.connect();
+  try {
+    await client.query(
+      `update venue_settings set value = value || '{"allAgesUntil": "23:30"}' where key = 'safety'`,
+    );
+  } finally {
+    await client.end();
+  }
+  await page.goto("/");
+  await expect(page.locator(".site-footer")).toContainText("All ages until 11:30 PM");
+  expect(await violations(page)).toEqual([]);
+  await page.goto("/v/west4karaoke/book?date=2026-10-02&guests=5&hours=2");
+  await expect(page.locator(".age-note")).toContainText("All ages until 11:30 PM");
+  expect(await violations(page)).toEqual([]);
+  await page.getByRole("button", { name: "Hold 11 PM EDT" }).click();
+  await expect(page.locator(".age-note")).toHaveText("21+ after 11:30 PM · bring ID");
+  expect(await violations(page)).toEqual([]);
+});
+
 /** The singer's queue page (M6-20): the join step, the code step with a wrong code, and Sofia R.'s page, light and dark. */
 test("the singer's queue page passes: joining, a wrong code and a singer's own page", async ({
   page,

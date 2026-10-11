@@ -79,6 +79,12 @@ export type Alert =
       readonly kitchen?: boolean;
     }
   | {
+      /** The switch to 21 and over (D108): "21+ from 8:00 PM · check IDs at the door and in the rooms". */
+      readonly kind: "age";
+      readonly color: string;
+      readonly at: string;
+    }
+  | {
       readonly kind: "code";
       readonly color: string;
       readonly session_id: string;
@@ -178,6 +184,14 @@ export function Alerts({
         });
       case "code":
         return t("alert.code", { room: a.room_name });
+      case "age":
+        return t("alert.age", {
+          time: new Intl.DateTimeFormat(locale === "es" ? "es-US" : "en-US", {
+            timeZone,
+            hour: "numeric",
+            minute: "2-digit",
+          }).format(new Date(a.at)),
+        });
       case "clear_out":
         return a.done
           ? t("alert.clearOut.done", {

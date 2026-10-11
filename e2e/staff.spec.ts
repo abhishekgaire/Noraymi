@@ -2334,6 +2334,61 @@ test("the headcount: 93 inside, limit not set, the door counter, and Admin → S
 });
 
 /**
+ * The venue age policy (D108): Admin → Safety reads "21 and over" at West 4; Andy sets "All ages
+ * until 8:00 PM, then 21 and over" (Sing Sing's policy, per its website) at 8:00 PM, and the board
+ * shows "21+ from 8:00 PM · check IDs at the door and in the rooms" at once, in both languages.
+ */
+test("Admin → Safety: all ages until 8:00 PM, and the board's 21+ alert at the switch", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  try {
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T00:00:30Z" } })).ok(),
+    ).toBe(true);
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    const band = page.getByRole("list", { name: "Alerts" });
+    await expect(band).not.toContainText("21+ from");
+
+    await page.goto("/admin/safety");
+    const age = page.getByRole("group", { name: "Age policy" });
+    await expect(age.getByRole("radio", { name: "21 and over", exact: true })).toBeChecked();
+    await age.getByRole("radio", { name: "All ages until a time, then 21 and over" }).check();
+    await expect(age).toContainText("Pick the time. Until you do, it stays 21 and over.");
+    await age.getByLabel("All ages until", { exact: true }).fill("20:00");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const saved = (
+      await db.query<{ value: { allAgesUntil: string | null } }>(
+        "select value from venue_settings where key = 'safety' order by version desc limit 1",
+      )
+    ).rows[0]!.value;
+    expect(saved.allAgesUntil).toBe("20:00");
+    expect(await clippedText(page)).toEqual([]);
+
+    await page.goto("/");
+    await expect(band).toContainText("21+ from 8:00 PM · check IDs at the door and in the rooms");
+    await db.query("update memberships set locale = 'es'");
+    await page.reload();
+    await expect(page.getByRole("list", { name: "Avisos" })).toContainText(
+      "21+ desde las 8:00 p.m. · revisen las IDs en la puerta y en las salas",
+    );
+  } finally {
+    await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
  * The Tonight board read against the seed file (M2-29): from a fresh load at
  * 10:41 PM, every tile's words, every "Room time so far" and "Tab so far" to
  * the cent, and the counts.

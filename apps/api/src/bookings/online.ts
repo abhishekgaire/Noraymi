@@ -17,6 +17,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import {
+  bookingAgeSwitch,
   bookingGrid,
   bookingQuote,
   businessDate,
@@ -59,6 +60,8 @@ interface Night {
   readonly taxRatePct: string;
   readonly gratuityPct: number;
   readonly wording: "plusTaxAndGratuity" | "allIn";
+  /** The age policy (D108): all ages until this wall-clock time, then 21 and over; null, 21+ all night. */
+  readonly allAgesUntil: string | null;
 }
 
 export async function nightFacts(
@@ -75,12 +78,13 @@ export async function nightFacts(
         [venueId],
       )
     ).rows[0]?.rule_pack_id ?? "us-ny-new-york-county";
-  const [prices, deposit, pay, website, pack] = await Promise.all([
+  const [prices, deposit, pay, website, pack, safety] = await Promise.all([
     readSetting(c, venueId, "prices", on),
     readSetting(c, venueId, "deposit", on),
     readSetting(c, venueId, "pay", on),
     readSetting(c, venueId, "website", on),
     rulePackFor(c, packId, on),
+    readSetting(c, venueId, "safety", on),
   ]);
   if (!prices || !deposit || !pay)
     throw new ApiError("invalid_request", "this venue's prices and deposit aren't set");
@@ -93,6 +97,7 @@ export async function nightFacts(
     taxRatePct: pack ? pctOf(pack.pack.salesTax.rate) : "0",
     gratuityPct: g.auto === "rooms" || g.auto === "all" ? g.pct : 0,
     wording: website?.value.priceWording ?? "plusTaxAndGratuity",
+    allAgesUntil: safety?.value.allAgesUntil ?? null,
   };
 }
 
@@ -142,6 +147,8 @@ export async function onlineAvailability(
     price_wording: n.wording,
     tax_pct: n.taxRatePct,
     gratuity_pct: n.gratuityPct,
+    // The age policy (D108), stated on the booking page.
+    all_ages_until: n.allAgesUntil,
   };
   // Too many for a room booked online: the enquiry form takes them.
   if (query.guests > limits.maxGuests || query.guests > largest)
@@ -397,6 +404,15 @@ export async function heldBooking(
     price_wording: n.wording,
     tax_pct: n.taxRatePct,
     gratuity_pct: n.gratuityPct,
+    // "21+ after 8:00 PM · bring ID" (D108): when the booking runs past the switch to 21 and over.
+    age_21_from:
+      bookingAgeSwitch(
+        start,
+        b.ends_at,
+        n.allAgesUntil,
+        venue.timeZone,
+        venue.dayCutover,
+      )?.toString() ?? null,
     quote: quoteJson(q),
     // M5-13: a venue that takes no deposit saves the card instead (cardHold).
     card_hold: n.deposit.on && n.deposit.mode === "cardHold" && q.depositCents === 0,

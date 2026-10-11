@@ -147,6 +147,8 @@ export function checkSafety(safety: SettingsValue<"safety">): string[] {
       "The occupancy limit is the posted whole number from the certificate of occupancy, or left empty.",
     );
   }
+  if (safety.allAgesUntil != null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(safety.allAgesUntil))
+    reasons.push("All ages until takes a time, or is left empty for 21 and over all night.");
   return reasons;
 }
 

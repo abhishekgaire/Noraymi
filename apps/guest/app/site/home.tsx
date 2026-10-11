@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { t, type MessageKey } from "@west4/shared";
-import { clockWords, hhmmWords, money, phoneLabel, type SiteView } from "./data";
+import { clockWords, hhmmClock, hhmmWords, money, phoneLabel, type SiteView } from "./data";
 import { SongSearch } from "./song-search";
 
 /**
@@ -66,10 +66,23 @@ export function SiteHeader({ site, base }: { site: SiteView; base: string }) {
   );
 }
 
+/** The venue's age policy in words (D108): "21 and over", or all ages until the switch. */
+export function ageWords(site: SiteView): string {
+  const until = site.age?.all_ages_until;
+  return until
+    ? t("en", "site.age.allAgesUntil", { time: hhmmClock(until) })
+    : t("en", "site.age.over21");
+}
+
 export function SiteFooter({ site, base }: { site: SiteView; base: string }) {
+  const until = site.age?.all_ages_until;
   return (
     <footer className="site-footer">
-      <p>{t("en", "site.footer.age", { address: addressLine(site) })}</p>
+      <p>
+        {until
+          ? t("en", "site.footer.allAges", { time: hhmmClock(until), address: addressLine(site) })
+          : t("en", "site.footer.age", { address: addressLine(site) })}
+      </p>
       {site.phone && (
         <p>
           <a href={`tel:${site.phone}`}>{phoneLabel(site.phone)}</a>
@@ -332,6 +345,8 @@ export function Home({ site, base, path }: { site: SiteView; base: string; path:
               </dd>
               <dt>{t("en", "site.findUs.rightNow")}</dt>
               <dd>{openLine(site)}</dd>
+              <dt>{t("en", "site.findUs.age")}</dt>
+              <dd>{ageWords(site)}</dd>
               {c.findUs.social.map((s) => (
                 <Fragment key={s.label}>
                   <dt>{s.label}</dt>

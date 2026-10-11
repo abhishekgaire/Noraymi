@@ -1,6 +1,6 @@
 import { t } from "@west4/shared";
 import { SiteFooter, SiteHeader } from "./home";
-import { dateWords, hhmmWords, type Availability, type SiteView } from "./data";
+import { dateWords, hhmmClock, hhmmWords, type Availability, type SiteView } from "./data";
 import { HoldButton } from "./hold-button";
 import { QuoteSummary } from "./quote";
 
@@ -103,6 +103,12 @@ function Pick({
           })}
         </p>
       )}
+
+      <p className="age-note">
+        {pick.all_ages_until
+          ? t("en", "site.book.age.allAgesUntil", { time: hhmmClock(pick.all_ages_until) })
+          : t("en", "site.book.age.over21")}
+      </p>
 
       {pick.too_big ? (
         <section aria-labelledby="too-big-h">

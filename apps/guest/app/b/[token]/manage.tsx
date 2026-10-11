@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cents, formatMoney, t, type MessageKey } from "@west4/shared";
-import { clockWords, dateWords, hhmmWords } from "../../site/data";
+import { clockFull, clockWords, dateWords, hhmmWords } from "../../site/data";
 import { PayButton } from "../../site/pay-button";
 
 /** The manage view the booking link carries (M5-11; GET /v1/public/bookings/{token} · manage). */
@@ -12,6 +12,8 @@ export interface ManageView {
   readonly slug: string;
   readonly business_date: string;
   readonly starts_at: string;
+  /** D108: when 21 and over starts, if the booking runs past it ("21+ after 8:00 PM · bring ID"). */
+  readonly age_21_from?: string | null;
   readonly time: string;
   readonly minutes: number;
   readonly time_zone: string;
@@ -240,6 +242,11 @@ export function Manage({
     <section aria-labelledby="manage-h" className="manage">
       <h2 id="manage-h">{t("en", "manage.title")}</h2>
       <p className="lead">{t("en", "site.book.confirmedWhat", { tier, when })}</p>
+      {m.age_21_from && (
+        <p className="age-note" role="note">
+          {t("en", "site.book.age21After", { time: clockFull(m.age_21_from, m.time_zone) })}
+        </p>
+      )}
       {m.status === "pending" && m.pay && (
         <div className="terms" aria-label={t("en", "site.book.terms")}>
           <p>
