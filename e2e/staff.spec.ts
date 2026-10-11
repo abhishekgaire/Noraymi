@@ -4178,6 +4178,31 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
     await expect(page.getByRole("alert")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Open the Stripe Dashboard" })).toBeVisible();
     expect(await clippedText(page)).toEqual([]);
+    // D104: refund alerts are the owner's; empty, every refund alerts.
+    await expect(page.getByRole("heading", { name: "Refund alerts" })).toBeVisible();
+    const over = page.getByLabel("Alert me about refunds over");
+    await expect(over).toHaveValue("");
+    await expect(over).toHaveAttribute("placeholder", "Every refund");
+    await expect(page.getByText("Only the owner can change this.", { exact: false })).toBeVisible();
+
+    // D104: erasing a guest from Admin → Texts finds them by an exact phone, and a booking still
+    // ahead (Marcus T. in Room 9) asks before erasing; Cancel leaves him as he was.
+    await page.goto("/admin/texts");
+    await expect(page.getByRole("heading", { name: "Erase a guest" })).toBeVisible();
+    await page.getByLabel("Guest's phone or email, exactly").fill("(917) 555-0187");
+    await page.getByRole("button", { name: "Find", exact: true }).click();
+    await expect(page.getByText("Bookings still ahead: 1")).toBeVisible();
+    await page.getByRole("button", { name: "Erase", exact: true }).click();
+    await expect(page.getByRole("alertdialog")).toContainText(
+      "Marcus T. has a booking still ahead (1). Erasing keeps it",
+    );
+    const eraseBox = await page.getByRole("button", { name: "Erase for good" }).boundingBox();
+    expect(eraseBox!.height).toBeGreaterThanOrEqual(44);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    await page.getByLabel("Guest's phone or email, exactly").fill("nobody@example.com");
+    await page.getByRole("button", { name: "Find", exact: true }).click();
+    await expect(page.getByText("No guest has that phone or email")).toBeVisible();
 
     await page.goto("/admin/connections");
     await expect(page.getByRole("listitem", { name: "Stripe · card payments" })).toContainText(

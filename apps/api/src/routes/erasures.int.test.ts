@@ -44,12 +44,15 @@ const texts = new FakeVenueClient();
 const secretKey = Buffer.from("e".repeat(64), "hex");
 const account = "acct_erase";
 
-const post = (who: string, path: string) =>
+const post = (who: string, path: string, payload?: object) =>
   app.inject({
     method: "POST",
     url: `/v1/venues/${venueId}${path}`,
     headers: { "x-test-as": who },
+    ...(payload ? { payload } : {}),
   });
+const get = (who: string, path: string) =>
+  app.inject({ method: "GET", url: `/v1/venues/${venueId}${path}`, headers: { "x-test-as": who } });
 const one = async <T>(sql: string, params: unknown[] = []) =>
   (await raw.query(sql, params)).rows[0] as T;
 
@@ -200,6 +203,23 @@ afterAll(async () => {
   await raw?.end();
   await fake?.stop();
   await db?.drop();
+});
+
+describe("GET /guests (finding the guest to erase, D104)", () => {
+  it("finds a guest by an exact phone or email only, for owners and managers", async () => {
+    for (const who of ["maya", "diego", "andyPin"])
+      expect((await get(who, `/guests?phone=%2B12125550912`)).statusCode, who).toBe(403);
+    const byPhone = await get("andy", `/guests?phone=${encodeURIComponent("(212) 555-0912")}`);
+    expect(byPhone.statusCode, byPhone.body).toBe(200);
+    expect(byPhone.json().guests).toEqual([
+      expect.objectContaining({ id: hal, name: "Hal D.", upcoming_bookings: 0 }),
+    ]);
+    const byEmail = await get("andy", `/guests?email=HAL%40example.com`);
+    expect(byEmail.json().guests.map((g: { id: string }) => g.id)).toEqual([hal]);
+    expect((await get("andy", `/guests?phone=%2B1212555`)).json().guests).toEqual([]);
+    expect((await get("andy", `/guests?phone=555`)).statusCode).toBe(400);
+    expect((await get("andy", `/guests`)).statusCode).toBe(400);
+  });
 });
 
 describe("POST /guests/{g}/erase", () => {
@@ -380,7 +400,16 @@ describe("POST /guests/{g}/erase", () => {
     expect(before.check.length).toBe(1);
     expect(before.audit.length).toBeGreaterThan(0);
 
-    expect((await post("abhishek", `/guests/${marcus}/erase`)).statusCode).toBe(200);
+    // Marcus T. is in Room 9 tonight (D104): erasing him asks for confirmation first.
+    const held = await post("abhishek", `/guests/${marcus}/erase`);
+    expect(held.statusCode).toBe(409);
+    expect(held.json().error).toMatchObject({
+      code: "upcoming_booking",
+      details: { upcoming_bookings: 1 },
+    });
+    expect(
+      (await post("abhishek", `/guests/${marcus}/erase`, { confirm_upcoming: true })).statusCode,
+    ).toBe(200);
     await runJobs();
     const after = await snapshot();
     expect(after).toEqual(before);

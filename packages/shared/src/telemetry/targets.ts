@@ -79,15 +79,24 @@ export interface WindowCounts {
   readonly total: number;
 }
 
+/**
+ * The fewest bad events in an alert's long window before it may fire (D102): with few attempts
+ * at a quiet hour one failure on our side already burns at 14.4x, so a page also needs this many.
+ * Common practice for burn-rate alerts on low traffic; `PAGING_BURN_MIN_FAILURES` changes it.
+ */
+export const BURN_MIN_BAD = 3;
+
 /** Which burn alerts fire for one target, given each window's counts (keyed by minutes). */
 export function firingBurnAlerts(
   objective: number,
   windows: Readonly<Record<number, WindowCounts>>,
+  minBad: number = BURN_MIN_BAD,
 ): (typeof BURN_ALERTS)[number][] {
   return BURN_ALERTS.filter((a) => {
     const long = windows[a.longMinutes];
     const short = windows[a.shortMinutes];
     if (!long || !short) return false;
+    if (long.bad < minBad) return false;
     return (
       burnRate(long.bad, long.total, objective) >= a.rate &&
       burnRate(short.bad, short.total, objective) >= a.rate

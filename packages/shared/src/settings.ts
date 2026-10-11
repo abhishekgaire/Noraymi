@@ -117,7 +117,8 @@ const cardFeeSchema = z.discriminatedUnion("mode", [
       noticeSentOn: isoDate.nullable(),
     })
     .strict(),
-  z.object({ mode: z.literal("discount"), pct: z.number().nonnegative() }).strict(),
+  /** A cash discount off the listed (card) price, 0 to 10% (D105): 0 is no discount until set. */
+  z.object({ mode: z.literal("discount"), pct: z.number().nonnegative().max(10) }).strict(),
 ]);
 
 export const paySchema = z
@@ -215,10 +216,10 @@ export const posSchema = z
     chime: z.boolean(),
     muteSec: z.number().nonnegative(),
     /**
-     * Refunds over this amount alert the owner (spec 02 · On the record; M8-19). No venue has a
-     * value yet, so while it's absent every refund alerts (the cautious default).
+     * Refunds over this amount alert the owner (spec 02 · On the record; M8-19; D104). Only the owner
+     * sets it, in Admin → Payments, up to $10,000.00; while it's absent every refund alerts.
      */
-    refundAlertOverCents: cents.optional(),
+    refundAlertOverCents: cents.max(1_000_000).optional(),
   })
   .strict();
 

@@ -339,7 +339,12 @@ describe("alert rules under forced conditions", () => {
     await attempt(10, "failed", "card_declined");
     await sweep();
     expect(await livePages("payment-failures")).toHaveLength(0);
+    // D102: one or two failures on our side at a quiet hour don't page; the third does.
     await attempt(11, "failed", "api_connection_error");
+    await attempt(12, "failed", "api_connection_error");
+    await sweep();
+    expect(await livePages("payment-failures")).toHaveLength(0);
+    await attempt(13, "failed", "api_connection_error");
     await sweep();
     expect(await livePages("payment-failures")).toHaveLength(1);
     await raw.query("delete from payment_attempts where payment_id = $1", [pay.rows[0]!.id]);

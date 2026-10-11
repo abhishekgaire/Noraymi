@@ -124,3 +124,17 @@ describe("SNS messages to the alarm hook", () => {
     expect(readAlarm("not json")).toEqual({ kind: "unknown" });
   });
 });
+
+describe("the burn-rate pages' minimum (D102)", () => {
+  it("reads PAGING_BURN_MIN_FAILURES as 1 to 100, else 3", async () => {
+    const { burnMinFailures } = await import("./alert-sweep.js");
+    expect(burnMinFailures(undefined)).toBe(3);
+    expect(burnMinFailures("")).toBe(3);
+    expect(burnMinFailures("5")).toBe(5);
+    expect(burnMinFailures("1")).toBe(1);
+    expect(burnMinFailures("0")).toBe(3);
+    expect(burnMinFailures("2.5")).toBe(3);
+    expect(burnMinFailures("101")).toBe(3);
+    expect(burnMinFailures("lots")).toBe(3);
+  });
+});

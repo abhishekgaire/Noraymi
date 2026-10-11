@@ -4,6 +4,7 @@ import { useAdminDraft } from "../../admin/draft.js";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { EraseGuest } from "./EraseGuest.js";
 
 /**
  * Admin → Texts (M2-10; spec 11 · The automatic texts): exactly the 14 texts
@@ -176,6 +177,7 @@ export function Texts() {
           </ol>
         </>
       )}
+      {venueId && <EraseGuest venueId={venueId} />}
     </section>
   );
 }

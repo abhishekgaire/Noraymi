@@ -211,3 +211,27 @@ describe("Admin → Bar POS settings", () => {
     expect(await pos("2026-09-26")).toMatchObject({ layouts: { bar: 2 }, wipeLockSec: 5 });
   });
 });
+
+describe("the refund alert's amount (D104)", () => {
+  it("only the owner sets it, up to $10,000.00; a manager still saves the rest of the pos key", async () => {
+    as("andy", "manager");
+    const before = (await call("GET", "/settings/pos")).json().value as Record<string, unknown>;
+    expect(before["refundAlertOverCents"]).toBeUndefined();
+    const refused = await save({ pos: { ...before, refundAlertOverCents: 5000 } });
+    expect(refused.statusCode, refused.body).toBe(403);
+    expect((await save({ pos: { ...before, muteSec: 50 } })).statusCode).toBe(200);
+    as("abhishek", "owner");
+    const now = (await call("GET", "/settings/pos")).json().value as Record<string, unknown>;
+    expect((await save({ pos: { ...now, refundAlertOverCents: 1_000_001 } })).statusCode).toBe(400);
+    const set = await save({ pos: { ...now, refundAlertOverCents: 5000 } });
+    expect(set.statusCode, set.body).toBe(200);
+    expect((await call("GET", "/settings/pos")).json().value.refundAlertOverCents).toBe(5000);
+    // The manager's next save carries the owner's amount unchanged, so it goes through.
+    as("andy", "manager");
+    const later = (await call("GET", "/settings/pos")).json().value as Record<string, unknown>;
+    expect((await save({ pos: { ...later, muteSec: 55 } })).statusCode).toBe(200);
+    const cleared = { ...later };
+    delete cleared["refundAlertOverCents"];
+    expect((await save({ pos: cleared })).statusCode).toBe(403);
+  });
+});

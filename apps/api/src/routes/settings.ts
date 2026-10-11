@@ -96,6 +96,20 @@ export function settingsRoutes(
       throw new ApiError("internal", `no usable rule pack ${packId} for ${today.toString()}`);
     // A card-fee change asks for the passkey again (M4-26; Tenancy and access), once the rule pack's
     // checks pass, so a refused fee says why rather than asking for the passkey first.
+    // The refund alert's amount is the owner's (D104): the alert watches refunds for the owner, so a
+    // manager can save the rest of the pos key but not change it.
+    if ("pos" in values) {
+      const next = (values["pos"] as { refundAlertOverCents?: unknown } | null)
+        ?.refundAlertOverCents;
+      const current = await request.inVenue((c) => readSetting(c, request.venueId!, "pos", today));
+      if (canonical(next) !== canonical(current?.value.refundAlertOverCents)) {
+        const p = request.principal;
+        const here =
+          p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
+        if (here?.role !== "owner")
+          throw new ApiError("forbidden", "only the owner sets which refunds alert the owner");
+      }
+    }
     if ("pay" in values) {
       const parsed = settingsSchemas.pay.safeParse(values["pay"]);
       const reasons = parsed.success

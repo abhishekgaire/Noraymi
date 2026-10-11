@@ -116,6 +116,9 @@ export function CardFee() {
                 />
               </label>
             )}
+            {current.cardFee.mode === "discount" && (
+              <p className="small muted">{t("cardFeeAdmin.discount.hint")}</p>
+            )}
             {current.cardFee.mode === "surcharge" && (
               <label>
                 <span>{t("cardFeeAdmin.notice")}</span>

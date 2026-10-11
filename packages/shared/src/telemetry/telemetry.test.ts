@@ -244,6 +244,15 @@ describe("targets", () => {
       30: { bad: 2, total: 500 },
     });
     expect(fast.map((a) => a.longMinutes)).toEqual([60]);
+    // D102: a quiet hour's one or two failures burn fast but don't page until there are three.
+    const quiet = (bad: number) =>
+      firingBurnAlerts(0.995, { 60: { bad, total: 10 }, 5: { bad, total: 10 } });
+    expect(quiet(1)).toEqual([]);
+    expect(quiet(2)).toEqual([]);
+    expect(quiet(3).map((a) => a.longMinutes)).toEqual([60]);
+    expect(
+      firingBurnAlerts(0.995, { 60: { bad: 1, total: 10 }, 5: { bad: 1, total: 10 } }, 1),
+    ).toHaveLength(1);
     expect(p95([100, 200, 300, 400, 5000])).toBe(5000);
     expect(p95(Array.from({ length: 100 }, (_, i) => i + 1))).toBe(95);
   });

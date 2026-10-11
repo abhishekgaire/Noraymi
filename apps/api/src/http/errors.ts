@@ -24,6 +24,8 @@ export const ERROR_STATUS = {
   room_not_free: 409,
   over_amount_due: 422,
   balance_owed: 409,
+  /** Erasing a guest with a booking still ahead (D104): the details give the count; send confirm_upcoming. */
+  upcoming_booking: 409,
   over_refundable: 422,
   key_reused: 422,
   approval_pending: 202,

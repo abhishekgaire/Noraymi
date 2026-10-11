@@ -545,6 +545,7 @@ Food on the bar POS (K-05) follows `FoodBar.dc.html`: Food after the ten section
 3. **Threads (F33, C28).** The canvas puts "running late" on Sam O. here but Dana on the phone, and names the waitlist party "Priya K." (party of 6). Build the seed: Sam O. "running 15 late" at 10:24 PM, and Nadia K. (6) on the waitlist. *Decided in [FB 3a] and [FB 3c]. See: [Demo seed][see-seed].*
 4. **Free-text links (F55).** The canvas reply box ("Reply as West 4") takes any text, links included. Build the rule: free text is allowed only as a reply in an open service conversation, and links and promotions are blocked there. A payment link goes out through the Payment link text. *Spec: [Song systems and texts][spec-11].*
 5. **Stay wording (F41, C32).** The canvas Booked time ending text says "stay as long as you like". Build "…you can stay on by the minute until we close at 4 AM." *Decided in [FB 3i] and [FB 4.17]. Spec: [Song systems and texts][spec-11].*
+6. **Erase a guest (D104).** Not on the canvas. Admin → Texts ends with Erase a guest: the guest's exact phone or email, Find, each match with "Bookings still ahead: N" when there is one, Erase, then a confirmation in place (a plainer one when a booking is still ahead), "Erase for good" and Cancel. *Spec: [Security and data retention](spec/12-security-retention.md) · Erasing a guest.*
 
 ### DeskReports
 
@@ -1247,6 +1248,7 @@ Payments (owner only) is the Stripe account and payouts, and our plan from M8. T
 - **Disputes.** `charge.dispute.created` opens an item with the evidence already gathered: the itemized receipt PDF, the room clock times, the booking and the policy version the guest accepted, damage photos, and who served. The manager submits before Stripe's due date.
 - **Payouts.** Each payout is matched to our payments. Anything still unmatched goes to Unmatched payments.
 - **Unmatched payments.** A list a manager works through from Close the night. Each payment shows its amount, card and time, and the manager picks the check it belongs to. Break-glass card payments land here.
+- **Refund alerts.** "Alert me about refunds over" (`pos.refundAlertOverCents`), the owner's alone: empty shows "Every refund", up to $10,000.00 ([D104](decisions.md)).
 
 *Spec: [Stripe setup][spec-06], [API][spec-08].*
 

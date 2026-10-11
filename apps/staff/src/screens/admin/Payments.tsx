@@ -6,6 +6,7 @@ import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { GoLive } from "./GoLive.js";
 import { OurPlan } from "./OurPlan.js";
+import { RefundAlerts } from "./RefundAlerts.js";
 
 /**
  * Admin → Payments (M4-01; screens N37; Stripe setup 1, 2 and 7), the
@@ -148,6 +149,7 @@ export function Payments() {
           )}
         </>
       )}
+      {venueId && <RefundAlerts venueId={venueId} />}
       {venueId && (
         <OurPlan
           venueId={venueId}

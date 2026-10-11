@@ -1,6 +1,7 @@
 import type pg from "pg";
 import { withVenue, type Queryable, type Sweep } from "@west4/db";
 import {
+  BURN_MIN_BAD,
   TARGETS,
   cardOutcome,
   firingBurnAlerts,
@@ -219,6 +220,15 @@ const add = (a: Counts, b: Counts): Counts => {
   return out;
 };
 
+/**
+ * The fewest failures on our side before a burn-rate page (D102): `PAGING_BURN_MIN_FAILURES`, a
+ * whole number from 1 to 100, else the default of 3.
+ */
+export function burnMinFailures(raw: string | undefined): number {
+  const n = raw === undefined || raw.trim() === "" ? NaN : Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 100 ? n : BURN_MIN_BAD;
+}
+
 /** The sweep's checks over every venue, then the burn rates over the venues open now. */
 export async function findFirings(pool: pg.Pool, now: Temporal.Instant): Promise<Firing[]> {
   const venues = await pool.query<{ id: string; time_zone: string; day_cutover: string }>(
@@ -235,8 +245,9 @@ export async function findFirings(pool: pg.Pool, now: Temporal.Instant): Promise
     card = add(card, found.card);
     alarm = add(alarm, found.alarm);
   }
+  const minBad = burnMinFailures(process.env["PAGING_BURN_MIN_FAILURES"]);
   const pages = (objective: number, counts: Counts) =>
-    firingBurnAlerts(objective, counts).filter((a) => a.severity === "page");
+    firingBurnAlerts(objective, counts, minBad).filter((a) => a.severity === "page");
   const cardBurn = pages(TARGETS.cardPayments.objective, card)[0];
   if (cardBurn)
     firings.push({

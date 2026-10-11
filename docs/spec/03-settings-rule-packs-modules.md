@@ -67,9 +67,10 @@ type DepositRule = {
   on: boolean;
   mode: "firstHour" | "perPerson" | "flat" | "percent" | "cardHold";   // cardHold saves a card and charges nothing
   value: number;                 // cents for perPerson and flat, percent for percent
-  refundHours: number;           // full refund if cancelled this far ahead of the first confirmed start
-  late: "keep" | "half" | "refund";
-  noShow: "keep" | "firstHour" | "nothing";   // firstHour charges up to one hour in total, deposit included
+  refundHours: number;           // full refund if cancelled this far ahead of the first confirmed start, in elapsed hours (D103)
+  late: "keep" | "half" | "refund";           // half: half the deposit back, rounded half up to the cent (D103)
+  noShow: "keep" | "firstHour" | "nothing";   // firstHour charges up to one hour in total, deposit included;
+                                              // nothing refunds the deposit and charges nothing (D103)
   graceMin: number;              // 15 at West 4: a booking can be marked a no-show after this
   bigParty: { fromGuests: number; deposit: { kind: "flat"; cents: number } | { kind: "pct"; pct: number };
               refundHours: number } | null;
@@ -79,7 +80,7 @@ type DepositRule = {
 type CardFee =
   | { mode: "off" }
   | { mode: "surcharge"; pct: number; noticeSentOn: string | null }   // credit only; one rate, capped at the in-person card cost
-  | { mode: "discount"; pct: number };
+  | { mode: "discount"; pct: number };   // 0 to 10; the venue's own rate, 0 (no discount) until a manager sets it (D105)
 
 type PaySettings = {
   cardFee: CardFee;                                  // off at West 4
@@ -138,6 +139,8 @@ type PosSettings = {                                        // the same shape as
                                                             // 30, 120, 240, 360: the board alerts at amber, the manager on duty is told at pink
   chime: boolean;                                           // true: a backup to the colors
   muteSec: number;                                          // 60
+  refundAlertOverCents?: number;                            // refunds over this alert the owner; absent (every refund) by default;
+                                                            // the owner's alone, in Admin → Payments, up to 1000000 (D104)
 };                                                          // tip choices come from pay.tipScreen: 18, 20, 22% at West 4
 
 type OrderingSettings = {
