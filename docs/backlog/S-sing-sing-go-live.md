@@ -34,6 +34,6 @@ Definition of done: see CLAUDE.md.
 | S-09 · Train Sing Sing's team and run the timed staff trial | M9-10, M9-11, M9-12 | The rush script adds food orders, Picked up and a failed kitchen ticket; the Spanish review covers the kitchen strings | todo |
 | S-10 · Move Sing Sing's website and domain | M9-09 | Only if Sing Sing has a site and domain to move; which domain is Sing Sing's to say | todo |
 | S-11 · Collect Sing Sing's sign-offs | M9-13, M9-14 | The kitchen questions in [Open technical questions](../spec/14-open-questions.md) (the allergy notice, food tax, the Food Protection Certificate) on top of the gate's ten | todo |
-| S-12 · Go live at Sing Sing and run its live nights | M9-15, M9-16, M9-17 | On-call covering Sing Sing's opening hours, and the reconcile script every night; whether the gate's 4 weeks run here, at West 4 or at both is open with the founder | todo |
+| S-12 · Go live at Sing Sing and run its live nights | M9-15, M9-16, M9-17 | On-call covering Sing Sing's opening hours, and the reconcile script every night; the gate's 4 weeks run here first, then at West 4 in turn ([D106](../decisions.md)) | todo |
 
 West 4's own M9 then runs as written, after Sing Sing, reusing what Sing Sing proved.
