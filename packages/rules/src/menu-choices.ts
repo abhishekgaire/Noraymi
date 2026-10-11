@@ -138,3 +138,38 @@ const refuse = (reason: ChoiceRefusal, group: string | null): PricedChoices => (
   reason,
   group,
 });
+
+/** A line still on the check: its price each and how many aren't voided or comped yet. */
+export interface OpenLine {
+  readonly id: number;
+  readonly unitCents: number;
+  readonly openQty: number;
+}
+
+/** A negative line to write: which line it reverses, how many, and the (negative) amount. */
+export interface ReverseLine {
+  readonly id: number;
+  readonly qty: number;
+  readonly amountCents: number;
+}
+
+/**
+ * Voiding, comping or removing a line takes its components with it (K-12; spec 16 · Meals, combos
+ * and sauces; Money rules 7): the same quantity of each component still on the check, each at the
+ * price it was sold at, so the meal's price comes off on the lines it was divided onto and what
+ * stays still adds up. A component already off the check is never reversed twice. The lines come
+ * back parent first, then each component in order.
+ */
+export function reverseWithParts(
+  parent: OpenLine,
+  parts: readonly OpenLine[],
+  qty: number,
+): { readonly lines: readonly ReverseLine[]; readonly totalCents: number } {
+  if (!Number.isInteger(qty) || qty <= 0 || qty > parent.openQty)
+    throw new RangeError(`can't reverse ${qty} of ${parent.openQty}`);
+  const lines = [parent, ...parts].flatMap((l, i) => {
+    const q = i === 0 ? qty : Math.min(qty, l.openQty);
+    return q > 0 ? [{ id: l.id, qty: q, amountCents: -(l.unitCents * q) || 0 }] : [];
+  });
+  return { lines, totalCents: lines.reduce((s, l) => s + l.amountCents, 0) };
+}

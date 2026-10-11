@@ -1381,6 +1381,7 @@ export const en = {
   "fix.comped": "Comped: {line}",
   "fix.voided": "Voided: {line}",
   "fix.waiting": "Waiting for {name}",
+  "fix.withParts": "Comes off with {parts}",
   "fix.failed": "That didn't go through. Try again.",
   "fix.reasons": "A reason",
   "fix.reason.rang": "Rang it wrong",

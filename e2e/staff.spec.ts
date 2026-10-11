@@ -6326,6 +6326,100 @@ test("Room 9's tab on a phone: food is Not sent on the check, and Send to kitche
 });
 
 /**
+ * Voiding a meal takes its parts with it (K-12; Money rules 7): a TEST burger made a meal (+$5.00)
+ * whose side is TEST French Fries, a component on its own line. The fix panel names the fries, and
+ * one VOID takes the burger and its fries off together.
+ */
+test("Room 9's tab: VOID on a TEST burger made a meal takes its fries off with it", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db, { choices: true });
+  try {
+    const venue = await venueId(db);
+    const fries = (
+      await db.query<{ id: string }>(
+        `select v.id from menu_variants v join menu_items i on i.id = v.item_id
+          where i.venue_id = $1 and i.name = 'TEST French Fries'`,
+        [venue],
+      )
+    ).rows[0]!.id;
+    const cat = (
+      await db.query<{ id: string }>(
+        "select id from menu_categories where venue_id = $1 and name = 'TEST Wings'",
+        [venue],
+      )
+    ).rows[0]!.id;
+    const burger = (
+      await db.query<{ id: string }>(
+        "insert into menu_items (venue_id, category_id, name, station) values ($1, $2, 'TEST burger', 'kitchen') returning id",
+        [venue, cat],
+      )
+    ).rows[0]!.id;
+    await db.query(
+      "insert into menu_variants (venue_id, item_id, name, price_cents) values ($1, $2, 'Regular', 995)",
+      [venue, burger],
+    );
+    const group = async (name: string, required: boolean, when: string | null) =>
+      (
+        await db.query<{ id: string }>(
+          `insert into modifier_groups (venue_id, item_id, name, required, min_choices, when_option_id)
+           values ($1, $2, $3, $4, $5, $6) returning id`,
+          [venue, burger, name, required, required ? 1 : 0, when],
+        )
+      ).rows[0]!.id;
+    const mealGroup = await group("TEST meal", false, null);
+    const meal = (
+      await db.query<{ id: string }>(
+        "insert into menu_options (venue_id, item_id, group_id, name, price_delta_cents) values ($1, $2, $3, 'TEST make it a meal', 500) returning id",
+        [venue, burger, mealGroup],
+      )
+    ).rows[0]!.id;
+    const side = await group("TEST meal side", true, meal);
+    await db.query(
+      "insert into menu_options (venue_id, item_id, group_id, name, component_variant_id) values ($1, $2, $3, 'TEST French Fries', $4)",
+      [venue, burger, side, fries],
+    );
+
+    await signInMayaAtTheBar(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/room/${room9}`);
+    const drinks = page.getByRole("region", { name: "Add drinks" });
+    await drinks.getByLabel("Search the menu").fill("burger");
+    await drinks.getByRole("button", { name: /TEST burger/ }).click();
+    await drinks
+      .getByRole("combobox", { name: "TEST burger · TEST meal", exact: true })
+      .selectOption({ label: "TEST make it a meal +$5.00" });
+    await drinks
+      .getByRole("combobox", { name: "TEST burger · TEST meal side" })
+      .selectOption({ label: "TEST French Fries" });
+    await drinks.getByRole("button", { name: "Send 1 to the bar" }).click();
+    const tab = page.getByRole("region", { name: "Running tab" });
+    await expect(tab).toContainText("TEST burger · TEST French Fries");
+
+    const fix = page.getByRole("region", { name: "Fix a sent drink" });
+    await fix.getByRole("button", { name: "Fix · TEST burger · TEST make it a meal" }).click();
+    await expect(fix.getByTestId("fix-parts")).toHaveText(
+      "Comes off with TEST burger · TEST French Fries",
+    );
+    await fix.getByLabel("Reason", { exact: true }).fill("Rang the wrong room");
+    await fix.getByRole("button", { name: /^VOID/ }).click();
+    await expect(tab).toContainText("VOID · TEST burger · TEST make it a meal-$9.95");
+    await expect(tab).toContainText("VOID · TEST burger · TEST French Fries-$5.00");
+    // Nothing of the meal is left to fix.
+    await expect(fix.getByRole("button", { name: /TEST burger/ })).toHaveCount(0);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
+/**
  * A package with food (K-09; Kitchen and food · Food in packages): added from Room 9's tab with the
  * wings' sauce picked, its lines read under its name and add up to its $30.00; the Modelo's bar
  * ticket prints at once and the food reads Not sent until Send to kitchen.

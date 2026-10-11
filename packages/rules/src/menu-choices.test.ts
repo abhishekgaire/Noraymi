@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { priceChoices, type ChoiceGroupRule } from "./menu-choices.js";
+import { priceChoices, reverseWithParts, type ChoiceGroupRule } from "./menu-choices.js";
 
 // K-12: a line's choices priced (spec 16 · Meals, combos and sauces; Money rules 1): included
 // picks, extra picks, choices on some sizes only, groups a choice opens, and components (another
@@ -200,5 +200,53 @@ describe("menu_choices", () => {
       reason: "not_a_choice",
       group: null,
     });
+  });
+});
+
+// Voiding, comping or removing a line takes its components with it (K-12; Money rules 7): the same
+// quantity of each part still on the check, at the price it was sold at, so a meal's split holds.
+interface OpenLine {
+  id: number;
+  unit_cents: number;
+  open_qty: number;
+}
+const voids = (
+  JSON.parse(readFileSync(path.resolve(here, "../../../seed/money-cases.json"), "utf8")) as {
+    cases: {
+      id: string;
+      group: string;
+      inputs: { parent: OpenLine; parts: OpenLine[]; qty: number };
+      expected: { lines: { id: number; qty: number; amount_cents: number }[]; total_cents: number };
+    }[];
+  }
+).cases.filter((c) => c.group === "menu_choices_void");
+const open = (l: OpenLine) => ({ id: l.id, unitCents: l.unit_cents, openQty: l.open_qty });
+
+describe("menu_choices_void", () => {
+  it("has its cases", () => expect(voids.length).toBeGreaterThanOrEqual(4));
+  for (const c of voids) {
+    it(c.id, () => {
+      const r = reverseWithParts(open(c.inputs.parent), c.inputs.parts.map(open), c.inputs.qty);
+      expect(r.lines.map((l) => ({ id: l.id, qty: l.qty, amount_cents: l.amountCents }))).toEqual(
+        c.expected.lines,
+      );
+      expect(r.totalCents).toBe(c.expected.total_cents);
+    });
+  }
+  it("refuses more than is left on the parent, or nothing", () => {
+    const burger = { id: 1, unitCents: 995, openQty: 1 };
+    expect(() => reverseWithParts(burger, [], 2)).toThrow(RangeError);
+    expect(() => reverseWithParts(burger, [], 0)).toThrow(RangeError);
+  });
+  it("what's voided and what stays add up to what was sold", () => {
+    for (let n = 1; n <= 5; n++)
+      for (let q = 1; q <= n; q++) {
+        const parts = [
+          { id: 2, unitCents: 319, openQty: n },
+          { id: 3, unitCents: 181, openQty: n },
+        ];
+        const r = reverseWithParts({ id: 1, unitCents: 995, openQty: n }, parts, q);
+        expect(1495 * n + r.totalCents).toBe(1495 * (n - q));
+      }
   });
 });

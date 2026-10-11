@@ -168,6 +168,20 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
       )
     ).rows.map((r) => [Number(r.id), { id: r.package_id, name: r.name }]),
   );
+  // Components (K-12): a meal's fries and Coke name the line they came with, which they come off with.
+  const partOf = new Map(
+    (
+      await c.query<{ id: string; parent: string }>(
+        `select p.id, l.id as parent
+           from check_lines p
+           join order_items oi on oi.venue_id = p.venue_id and oi.id = p.source_id
+           join check_lines l on l.venue_id = p.venue_id and l.check_id = p.check_id
+                             and l.source_id = oi.parent_item_id and l.kind = 'item'
+          where p.venue_id = $1 and p.check_id = $2 and p.kind = 'item'`,
+        [venueId, id],
+      )
+    ).rows.map((r) => [Number(r.id), Number(r.parent)]),
+  );
   // Food (K-05): each food line's Not sent or "Sent · 11:42", for the tab, the room and the sale.
   const food = new Map((await foodLines(c, venueId, id)).map((f) => [f.line_id, f]));
   // Card on file (M4-17): the deposit's card, and a charge waiting for the guest or a manager, if any.
@@ -219,6 +233,7 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
             alcohol: alcohol.has(l.id),
             ...kitchenOf(food.get(Number(l.id))),
             ...(inPackage.has(Number(l.id)) ? { package: inPackage.get(Number(l.id)) } : {}),
+            ...(partOf.has(Number(l.id)) ? { part_of: partOf.get(Number(l.id)) } : {}),
           };
     }),
     holds: holds.map((h) => ({ tab_id: h.tab_id, name: h.name, cents: h.hold_cents })),

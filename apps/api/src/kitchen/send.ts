@@ -1,14 +1,7 @@
-import {
-  addCheckLine,
-  emitEvent,
-  insertPrintJob,
-  type OrderComponent,
-  type Queryable,
-} from "@west4/db";
-import { businessDate } from "@west4/rules";
+import { emitEvent, insertPrintJob, type OrderComponent, type Queryable } from "@west4/db";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
-import { venueClock } from "../rooms/assignment.js";
+import { lineParts, writeWithParts } from "../rooms/fix.js";
 import { kitchenOn } from "./module.js";
 import { ticketItems } from "../orders/ticket-items.js";
 
@@ -294,29 +287,43 @@ export async function removeUnsentFood(
     throw new ApiError("invalid_request", "this line is already off the check", {
       details: { reason: "removed" },
     });
+  // Its components (K-12: a meal's fries and Coke) come off with it, in the same action. A food
+  // component the kitchen already has comes off only by the fix panel's void, with the line.
+  const parts = (await lineParts(c, venueId, input.checkId, input.lineId)).filter(
+    (x) => x.openQty > 0,
+  );
+  if (parts.some((x) => x.station === "kitchen" && x.kitchenSent))
+    throw new ApiError("invalid_request", "part of this is sent: void it from the fix panel", {
+      details: { reason: "kitchen_sent" },
+    });
   const line = (
     await c.query<{ description: string; unit_cents: string; tax_category: string | null }>(
       "select description, unit_cents, tax_category from check_lines where venue_id = $1 and id = $2",
       [venueId, input.lineId],
     )
   ).rows[0]!;
-  const v = await venueClock(c, venueId);
-  const night = businessDate(input.now, v.timeZone, v.dayCutover).businessDate.toString();
-  const id = await addCheckLine(c, venueId, input.checkId, {
-    kind: "void",
-    description: `VOID · ${line.description}`,
-    qty: f.open_qty,
-    unitCents: -Number(line.unit_cents),
-    amountCents: -Number(line.unit_cents) * f.open_qty,
-    taxCategory: line.tax_category,
-    businessDate: night,
-    reversesId: input.lineId,
-    made: false,
-    reason: "Not sent to the kitchen",
-    addedBy: input.userId,
-    approvedBy: null,
-    addedAt: input.now.toString(),
-  });
+  const id = await writeWithParts(
+    c,
+    venueId,
+    input.checkId,
+    {
+      id: input.lineId,
+      description: line.description,
+      unitCents: Number(line.unit_cents),
+      taxCategory: line.tax_category,
+      openQty: f.open_qty,
+    },
+    parts,
+    {
+      kind: "void",
+      qty: f.open_qty,
+      made: false,
+      reason: "Not sent to the kitchen",
+      addedBy: input.userId,
+      approvedBy: null,
+      at: input.now,
+    },
+  );
   await emitEvent(c, { venueId, type: "check.updated", entityId: input.checkId, entityVersion: 0 });
   return { line_id: id };
 }

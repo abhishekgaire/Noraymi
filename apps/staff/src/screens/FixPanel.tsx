@@ -25,6 +25,8 @@ export interface FixLine {
   readonly reverses_id?: number | null;
   /** Whether it's alcohol, so Move greys out cut-off tabs for it (M6-13). */
   readonly alcohol?: boolean;
+  /** A component (K-12: a meal's fries): the line it came with, which it comes off with. */
+  readonly part_of?: number;
 }
 /** Another open tab a line can move onto (the bar POS, M6-13). */
 export interface MoveTarget {
@@ -103,6 +105,8 @@ export function FixPanel(props: {
   const reversed = (id: number) =>
     props.lines.filter((l) => l.reverses_id === id).reduce((n, l) => n + l.qty, 0);
   const fixable = props.lines.filter((l) => isFixable(l, props.lines));
+  // A meal's or combo's parts (K-12) come off with it, in the same comp or void.
+  const parts = open ? fixable.filter((l) => l.part_of === open.id) : [];
   // A line picked from outside starts fresh: made, the whole of what's left, no reason.
   const openId = open?.id ?? null;
   // Reset while rendering (not in an effect), so nothing typed right after the tap is overwritten.
@@ -213,6 +217,14 @@ export function FixPanel(props: {
             <strong data-guest-text>
               {open.qty > 1 ? `${open.qty} × ${open.description}` : open.description}
             </strong>
+            {parts.length > 0 && (
+              <>
+                <br />
+                <span className="small" data-testid="fix-parts">
+                  {t("fix.withParts", { parts: parts.map((l) => l.description).join(", ") })}
+                </span>
+              </>
+            )}
           </p>
           {moving && props.moveTabs && (
             <fieldset className="day-picks move-targets">

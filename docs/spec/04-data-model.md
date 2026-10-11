@@ -235,10 +235,12 @@ create table check_lines (
   rule_pack_version  text,                             -- on tax lines
   added_at           timestamptz not null default now(),
   moved_check_id     uuid,                             -- transfer_in and transfer_out (M6-13): the check on the other side of a move
+  part_of_id         bigint,                           -- a component's comp or void written with its line's (K-12): that line's comp or void
   unique (venue_id, id),
   foreign key (venue_id, check_id) references checks (venue_id, id),
   foreign key (venue_id, reverses_id) references check_lines (venue_id, id),
-  foreign key (venue_id, moved_check_id) references checks (venue_id, id)
+  foreign key (venue_id, moved_check_id) references checks (venue_id, id),
+  foreign key (venue_id, part_of_id) references check_lines (venue_id, id)
 );
 
 create table payments (

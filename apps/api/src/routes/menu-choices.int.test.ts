@@ -5,6 +5,7 @@ import { generateSigningKey, loadDemoSeed, publishRulePack, seedHostToken } from
 import { createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { SEED_NOW, SimulatedClock, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
+import { executors } from "../approvals/service.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
 
@@ -55,6 +56,7 @@ interface ViewLine {
   amount_cents: number;
   tax_category?: string | null;
   kitchen?: { sent_at: string | null; open_qty: number } | null;
+  part_of?: number;
 }
 const linesOf = async (check: string) => {
   const r = await call("GET", `/checks/${check}`);
@@ -438,6 +440,163 @@ describe("a +$5.00 meal, a combo and sauces on Room 9 (K-12)", () => {
     expect([last.description, last.amount_cents]).toEqual([
       "TEST Tenders · BBQ, Ranch, Sweet Chili",
       1149,
+    ]);
+  });
+});
+
+describe("voiding a meal takes its parts with it (K-12; Money rules 7)", () => {
+  // Rings `qty` TEST meals (burger, fries, Coke) on Room 9 and answers their three lines.
+  const ringMeals = async (qty: number) => {
+    as("maya", "bartender", "pin");
+    const room = ids["chk_room9"]!;
+    const before = (await linesOf(room)).length;
+    const r = await call("POST", `/checks/${room}/orders`, {
+      client_order_id: `k12-void-${++n}`,
+      lines: [
+        {
+          variant_id: m["TEST Burger/Regular"],
+          qty,
+          option_ids: [m["meal"], m["burger/fries"], m["burger/coke"]],
+        },
+      ],
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    const added = (await linesOf(room)).slice(before);
+    const find = (end: string) => added.find((l) => l.description.endsWith(end))!;
+    return {
+      room,
+      burger: find("Add fries + drink"),
+      fries: find("TEST Fries"),
+      coke: find("TEST Coke"),
+    };
+  };
+  const reversals = async (lineIds: number[]) =>
+    (
+      await owner.query<{
+        id: string;
+        reverses_id: string;
+        kind: string;
+        qty: string;
+        amount_cents: string;
+        part_of_id: string | null;
+        reason: string;
+      }>(
+        `select id, reverses_id, kind, qty, amount_cents, part_of_id, reason from check_lines
+          where reverses_id = any($1::bigint[]) order by id`,
+        [lineIds],
+      )
+    ).rows;
+
+  it("a reason-only void of the burger voids its fries and Coke too: one action, $14.95 back", async () => {
+    const meal = await ringMeals(1);
+    // The check names each part's line, so the fix panel can say what comes off with it.
+    expect([meal.fries.part_of, meal.coke.part_of, meal.burger.part_of]).toEqual([
+      meal.burger.id,
+      meal.burger.id,
+      undefined,
+    ]);
+    const r = await call(
+      "POST",
+      `/checks/${meal.room}/lines/${meal.burger.id}/void`,
+      { reason: "TEST wrong table", made: false },
+      `k12-void-${++n}`,
+    );
+    expect(r.statusCode, r.body).toBe(201);
+    const back = await reversals([meal.burger.id, meal.fries.id, meal.coke.id]);
+    expect(back.map((x) => [Number(x.reverses_id), x.kind, Number(x.amount_cents)])).toEqual([
+      [meal.burger.id, "void", -995],
+      [meal.coke.id, "void", -181],
+      [meal.fries.id, "void", -319],
+    ]);
+    const head = back[0]!;
+    expect(head.part_of_id).toBeNull();
+    expect(back.slice(1).map((x) => x.part_of_id)).toEqual([head.id, head.id]);
+    expect(back.every((x) => x.reason === "TEST wrong table")).toBe(true);
+
+    // The exceptions report shows one entry, at the whole amount, naming the parts.
+    as("abhishek", "owner");
+    const report = await call("GET", "/reports/exceptions?date=2026-09-25");
+    expect(report.statusCode, report.body).toBe(200);
+    const mine = (
+      report.json() as { exceptions: { what: string; why: string; amount_cents: number }[] }
+    ).exceptions.filter((x) => x.why === "TEST wrong table");
+    expect(mine.map((x) => [x.what, x.amount_cents])).toEqual([
+      ["VOID · TEST Burger · Add fries + drink + TEST Coke + TEST Fries", 1495],
+    ]);
+  });
+
+  it("a part voided alone stays allowed, and isn't voided twice with its burger", async () => {
+    const meal = await ringMeals(1);
+    const alone = await call(
+      "POST",
+      `/checks/${meal.room}/lines/${meal.coke.id}/void`,
+      { reason: "TEST spilled", made: true },
+      `k12-void-${++n}`,
+    );
+    expect(alone.statusCode, alone.body).toBe(201);
+    const r = await call(
+      "POST",
+      `/checks/${meal.room}/lines/${meal.burger.id}/comp`,
+      { reason: "TEST took too long", made: true },
+      `k12-void-${++n}`,
+    );
+    expect(r.statusCode, r.body).toBe(201);
+    const back = await reversals([meal.burger.id, meal.fries.id, meal.coke.id]);
+    expect(back.map((x) => [Number(x.reverses_id), x.kind, Number(x.amount_cents)])).toEqual([
+      [meal.coke.id, "void", -181],
+      [meal.burger.id, "comp", -995],
+      [meal.fries.id, "comp", -319],
+    ]);
+  });
+
+  it("over the limit, one approval for the whole meal names its parts, and approving writes them all", async () => {
+    const meal = await ringMeals(2);
+    // 2 x $14.95 = $29.90, over the $25.00 reason-only limit.
+    const r = await call(
+      "POST",
+      `/checks/${meal.room}/lines/${meal.burger.id}/void`,
+      { reason: "TEST over limit", made: false },
+      `k12-void-${++n}`,
+    );
+    expect(r.statusCode, r.body).toBe(202);
+    const asked = (
+      await owner.query(
+        "select * from approvals where reason = 'TEST over limit' and status = 'pending'",
+      )
+    ).rows;
+    expect(asked).toHaveLength(1);
+    expect(Number(asked[0].amount_cents)).toBe(2990);
+    expect(asked[0].payload.description).toBe(
+      "TEST Burger · Add fries + drink + TEST Coke + TEST Fries",
+    );
+    expect(await reversals([meal.burger.id])).toEqual([]);
+    // The approver's phone runs the void (approvals.int.test.ts covers the phone itself).
+    await executors.get("void")!(owner, venueId, asked[0], {
+      approverId: ids["andy"]!,
+      at: clock.now(),
+    });
+    const back = await reversals([meal.burger.id, meal.fries.id, meal.coke.id]);
+    expect(back.map((x) => [Number(x.qty), Number(x.amount_cents)])).toEqual([
+      [2, -1990],
+      [2, -362],
+      [2, -638],
+    ]);
+  });
+
+  it("Remove on a meal that's Not sent takes its fries and Coke off with it", async () => {
+    const meal = await ringMeals(1);
+    const r = await call(
+      "POST",
+      `/checks/${meal.room}/lines/${meal.burger.id}/remove-unsent`,
+      undefined,
+      `k12-void-${++n}`,
+    );
+    expect(r.statusCode, r.body).toBe(200);
+    const back = await reversals([meal.burger.id, meal.fries.id, meal.coke.id]);
+    expect(back.map((x) => [Number(x.reverses_id), Number(x.amount_cents), x.reason])).toEqual([
+      [meal.burger.id, -995, "Not sent to the kitchen"],
+      [meal.coke.id, -181, "Not sent to the kitchen"],
+      [meal.fries.id, -319, "Not sent to the kitchen"],
     ]);
   });
 });

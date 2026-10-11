@@ -1405,6 +1405,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "fix.comped": "Cortesía: {line}",
   "fix.voided": "Anulada: {line}",
   "fix.waiting": "Esperando a {name}",
+  "fix.withParts": "Sale junto con {parts}",
   "fix.failed": "No se pudo. Inténtalo de nuevo.",
   "fix.reasons": "Un motivo",
   "fix.reason.rang": "Lo marqué mal",

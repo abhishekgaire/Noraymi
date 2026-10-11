@@ -245,8 +245,13 @@ export function reportRoutes(app: FastifyInstance, options: { clock: Clock }): v
         const date = (await dateOf(c, request, request.query.date)).toString();
         const r = await c.query<{ name: string; what: string; n: string; cents: string }>(
           `select u.name, x.what, count(*)::text as n, coalesce(sum(x.cents), 0)::text as cents from (
-              select l.added_by as who, l.kind as what, l.amount_cents as cents from live_check_lines l
+              -- A meal comped or voided with its parts (K-12) is one action, at the whole amount.
+              select l.added_by as who, l.kind as what,
+                     l.amount_cents + coalesce((select sum(p.amount_cents) from live_check_lines p
+                                                 where p.venue_id = l.venue_id and p.part_of_id = l.id), 0) as cents
+                from live_check_lines l
                where l.venue_id = $1 and l.business_date = $2::date and l.kind in ('comp', 'void')
+                 and l.part_of_id is null
               union all
               select f.requested_by, 'refund_asked', f.amount_cents from refunds f
                where f.venue_id = $1 and f.business_date = $2::date
@@ -301,15 +306,25 @@ export function reportRoutes(app: FastifyInstance, options: { clock: Clock }): v
           approved: string | null;
           cents: string;
         }>(
-          `select to_json(l.added_at) #>> '{}' as at, l.kind, ${where} as where, l.description as what, l.reason as why,
+          `select to_json(l.added_at) #>> '{}' as at, l.kind, ${where} as where,
+                  -- A meal with its parts (K-12) is one entry naming them: "VOID · Classic Cheese + French Fries + Coke".
+                  l.description || coalesce((select string_agg(' + ' || coalesce(oi.component->>'name', r.description), '' order by p.id)
+                                               from live_check_lines p
+                                               join check_lines r on r.venue_id = p.venue_id and r.id = p.reverses_id
+                                               left join order_items oi on oi.venue_id = r.venue_id and oi.id = r.source_id
+                                              where p.venue_id = l.venue_id and p.part_of_id = l.id), '') as what,
+                  l.reason as why,
                   au.name as asked,
                   (select pu.name from approvals a join users pu on pu.id = a.approver_id
                     where a.venue_id = l.venue_id and a.kind = l.kind and a.status = 'approved'
-                      and a.target_id = l.check_id and a.amount_cents = abs(l.amount_cents) limit 1) as approved,
-                  l.amount_cents::text as cents
+                      and a.target_id = l.check_id and a.amount_cents = abs(t.cents) limit 1) as approved,
+                  t.cents::text as cents
              from live_check_lines l join live_checks k on k.venue_id = l.venue_id and k.id = l.check_id
+             cross join lateral (select l.amount_cents + coalesce((select sum(p.amount_cents) from live_check_lines p
+                                  where p.venue_id = l.venue_id and p.part_of_id = l.id), 0) as cents) t
              left join users au on au.id = l.added_by
-            where l.venue_id = $1 and l.business_date = $2::date and l.kind in ('comp', 'void')`,
+            where l.venue_id = $1 and l.business_date = $2::date and l.kind in ('comp', 'void')
+              and l.part_of_id is null`,
           [venueId, date],
         );
         // Asked and not done: comps, voids and refunds still waiting, or declined.

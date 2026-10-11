@@ -1,6 +1,6 @@
 import { syncCheckCredits } from "../songs/queue.js";
 import { addCheckLine, emitEvent, readSetting, reasonOnlyUsed, type Queryable } from "@west4/db";
-import { businessDate, reasonOnly } from "@west4/rules";
+import { businessDate, reasonOnly, reverseWithParts } from "@west4/rules";
 import { cents, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import {
@@ -20,6 +20,11 @@ import { venueClock } from "./assignment.js";
  * either limit it waits for a manager other than the requester, on their own
  * phone (a manager's own request goes to an owner), and the line is written
  * only when they approve.
+ *
+ * A line with components (K-12: a meal's fries and Coke, a combo's side and soda) takes them with
+ * it in the same action: one reason, one approval for the whole amount, and each component's comp
+ * or void pointing at the line's (`part_of_id`), so the reports show one entry naming them. A
+ * component on its own can still be comped or voided alone.
  */
 export interface FixPayload {
   readonly check_id: string;
@@ -54,7 +59,106 @@ async function lineToFix(c: Queryable, venueId: string, checkId: string, lineId:
   return r.rows[0] ?? null;
 }
 
-/** Writes the comp or void line itself (reason-only, or approved). */
+/**
+ * A line's components still on the same check (K-12), in the order they were rung, with how many
+ * of each aren't comped, voided or moved yet.
+ */
+export async function lineParts(c: Queryable, venueId: string, checkId: string, lineId: number) {
+  const r = await c.query<{
+    id: string;
+    description: string;
+    name: string;
+    unit_cents: string;
+    tax_category: string | null;
+    open_qty: string;
+    station: string;
+    kitchen_sent: boolean;
+  }>(
+    `select p.id, p.description, coalesce(oi.component->>'name', p.description) as name,
+            p.unit_cents, p.tax_category, oi.station, oi.kitchen_sent_at is not null as kitchen_sent,
+            p.qty - coalesce((select sum(x.qty) from check_lines x
+                               where x.venue_id = p.venue_id and x.reverses_id = p.id), 0) as open_qty
+       from check_lines l
+       join order_items oi on oi.venue_id = l.venue_id and oi.parent_item_id = l.source_id
+       join check_lines p on p.venue_id = l.venue_id and p.check_id = l.check_id
+                         and p.source_id = oi.id and p.kind = 'item'
+      where l.venue_id = $1 and l.check_id = $2 and l.id = $3 and l.kind = 'item'
+      order by p.id`,
+    [venueId, checkId, lineId],
+  );
+  return r.rows.map((x) => ({
+    id: Number(x.id),
+    description: x.description,
+    name: x.name,
+    unitCents: Number(x.unit_cents),
+    taxCategory: x.tax_category,
+    openQty: Number(x.open_qty),
+    station: x.station,
+    kitchenSent: x.kitchen_sent,
+  }));
+}
+export type LinePart = Awaited<ReturnType<typeof lineParts>>[number];
+
+/**
+ * Writes a line's comp or void and its components' (K-12) as one action: the line's first, each
+ * component's pointing at it. Returns the line's comp or void.
+ */
+export async function writeWithParts(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+  line: {
+    id: number;
+    description: string;
+    unitCents: number;
+    taxCategory: string | null;
+    openQty: number;
+  },
+  parts: readonly LinePart[],
+  w: {
+    kind: "comp" | "void";
+    qty: number;
+    made: boolean;
+    reason: string;
+    addedBy: string;
+    approvedBy: string | null;
+    at: Temporal.Instant;
+  },
+): Promise<number> {
+  const v = await venueClock(c, venueId);
+  const night = businessDate(w.at, v.timeZone, v.dayCutover).businessDate.toString();
+  const label = w.kind === "void" ? "VOID" : "COMP";
+  const plan = reverseWithParts(line, parts, w.qty);
+  const byId = new Map<
+    number,
+    { description: string; unitCents: number; taxCategory: string | null }
+  >([line, ...parts].map((l) => [l.id, l]));
+  let first = 0;
+  for (const x of plan.lines) {
+    const l = byId.get(x.id)!;
+    const id = await addCheckLine(c, venueId, checkId, {
+      kind: w.kind,
+      description: `${label} · ${l.description}`,
+      qty: x.qty,
+      unitCents: -l.unitCents,
+      amountCents: x.amountCents,
+      taxCategory: l.taxCategory,
+      businessDate: night,
+      reversesId: x.id,
+      made: w.made,
+      reason: w.reason,
+      addedBy: w.addedBy,
+      approvedBy: w.approvedBy,
+      addedAt: w.at.toString(),
+      partOfId: first || null,
+      withPartsCents: first ? null : plan.totalCents,
+    });
+    first ||= id;
+  }
+  return first;
+}
+
+/** Writes the comp or void line itself (reason-only, or approved), with its components. */
 export async function writeFixLine(
   c: Queryable,
   venueId: string,
@@ -65,24 +169,29 @@ export async function writeFixLine(
   const qty = p.qty ?? Number(line?.qty ?? 0);
   if (!line || line.status !== "open" || Number(line.reversed) + qty > Number(line.qty))
     throw new TargetGone();
-  const v = await venueClock(c, venueId);
-  const night = businessDate(who.at, v.timeZone, v.dayCutover).businessDate.toString();
-  const label = p.kind === "void" ? "VOID" : "COMP";
-  const id = await addCheckLine(c, venueId, p.check_id, {
-    kind: p.kind,
-    description: `${label} · ${line.description}`,
-    qty,
-    unitCents: -Number(line.unit_cents),
-    amountCents: -Number(line.unit_cents) * qty,
-    taxCategory: line.tax_category,
-    businessDate: night,
-    reversesId: Number(line.id),
-    made: p.made,
-    reason: who.reason,
-    addedBy: who.addedBy,
-    approvedBy: who.approvedBy,
-    addedAt: who.at.toString(),
-  });
+  const parts = await lineParts(c, venueId, p.check_id, p.line_id);
+  const id = await writeWithParts(
+    c,
+    venueId,
+    p.check_id,
+    {
+      id: Number(line.id),
+      description: line.description,
+      unitCents: Number(line.unit_cents),
+      taxCategory: line.tax_category,
+      openQty: Number(line.qty) - Number(line.reversed),
+    },
+    parts,
+    {
+      kind: p.kind,
+      qty,
+      made: p.made,
+      reason: who.reason,
+      addedBy: who.addedBy,
+      approvedBy: who.approvedBy,
+      at: who.at,
+    },
+  );
   // A comped or voided drink on a singer's tab takes back the credit it earned, if not yet spent (M6-18).
   await syncCheckCredits(c, venueId, p.check_id, who.at);
   await emitEvent(c, { venueId, type: "check.updated", entityId: p.check_id, entityVersion: 0 });
@@ -129,7 +238,19 @@ export async function fixLine(
   if (pending.rowCount)
     throw new ApiError("approval_pending", "this line is already waiting for approval");
 
-  const amount = Number(line.unit_cents) * qty;
+  // The line and its components (K-12) are one comp or void: the limit and the approval see the whole.
+  const parts = (await lineParts(c, venueId, input.checkId, input.lineId)).filter(
+    (x) => x.openQty > 0,
+  );
+  const amount = -reverseWithParts(
+    {
+      id: input.lineId,
+      unitCents: Number(line.unit_cents),
+      openQty: Number(line.qty) - Number(line.reversed),
+    },
+    parts,
+    qty,
+  ).totalCents;
   const v = await venueClock(c, venueId);
   const night = businessDate(input.now, v.timeZone, v.dayCutover).businessDate;
   const pos = await readSetting(c, venueId, "pos", night);
@@ -149,7 +270,12 @@ export async function fixLine(
       targetId: input.checkId,
       amountCents: amount,
       reason,
-      payload: { ...payload, description: line.description },
+      payload: {
+        ...payload,
+        // The approver sees the parts named: "Classic Cheese + French Fries + Coke".
+        description: [line.description, ...parts.map((x) => x.name)].join(" + "),
+        ...(parts.length ? { parts: parts.map((x) => x.id) } : {}),
+      },
       requestedBy: input.userId,
       requestedDeviceId: input.deviceId,
       now: input.now,

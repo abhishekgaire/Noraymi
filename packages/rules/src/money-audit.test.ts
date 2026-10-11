@@ -81,6 +81,8 @@ const AS_STORED_INPUTS = new Set([
   "package_lines",
   // A line's choices and components (K-12) are stored as item lines, each at its price.
   "menu_choices",
+  // A line voided with its components (K-12) is stored as void lines, each at its line's price.
+  "menu_choices_void",
 ]);
 
 describe("the money cases, every group, through the audit (M9-15)", () => {
