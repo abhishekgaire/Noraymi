@@ -182,9 +182,9 @@ The founder said on Oct 9, 2026 that the menu's prices already include the credi
 
 ## Open points (ask the manager before go-live)
 
-1. **Add fries + drink +$5** (burgers, chicken sandwiches, fried rice, wings) is imported as an optional "Make it a meal" choice at +$5.00. Which drink it includes (any soft drink? beer?) and whether the fries can be swapped for another side isn't given.
-2. **Sauce choice** for Combo, Tenders and Bucket is imported as a required "Sauce" choice of one, at no charge. How many sauces come with a bigger order (10 PC tenders, a 10 PC bucket) and the price of an extra sauce aren't given. Wings list no sauce on the menu; the food boards show one on wings as the founder's example, so confirm whether wings take a sauce.
-3. **Sides and sodas inside combos** ("+ 1 Side", "+ 2 Sides", "+ 1 Soda") aren't given as choices: which sides and sodas qualify, and whether a pricier side costs extra, is to be confirmed. The import sells each combo as a priced variant only.
+1. **Add fries + drink +$5** (burgers, chicken sandwiches, fried rice, wings) is imported as an optional "Make it a meal" choice at +$5.00 that opens "Meal side" (any of the eight sides, French Fries first) and "Meal drink" (any soft drink), each sold as its own line with the $5.00 divided between them by their regular prices (K-12). Which drink it includes (any soft drink? beer?) and whether the fries can be swapped for another side isn't given.
+2. **Sauce choice** for Combo, Tenders and Bucket is imported as a required "Sauce" choice of one, one included, at no charge; the extra-sauce price is left empty, so no extra sauce is offered until the manager sets the most picks and the extra price in Admin → Menu (K-12). Wings get the same sauces as an optional choice of one, to confirm. How many sauces come with a bigger order (10 PC tenders, a 10 PC bucket) and the price of an extra sauce aren't given. Wings list no sauce on the menu; the food boards show one on wings as the founder's example, so confirm whether wings take a sauce.
+3. **Sides and sodas inside combos** ("+ 1 Side", "+ 2 Sides", "+ 1 Soda") are imported as "Side", "Second side" and "Soda" choices on the sizes that include them, any side and any soft drink at no charge (K-12). Whether a pricier side costs extra is to be confirmed.
 4. **Beer: draft or bottle.** The menu gives one bottle price ($7.25) and one draft price ($9.32) for all 18 beers; the import offers both for every beer. Which beers are actually on draft (White Claw and Stella 0 likely aren't) is to be confirmed, and Stella 0 and Heineken 0 are imported as not alcohol.
 5. **Liquor: shots and bottles.** Each spirit is imported with a Shot and a Bottle variant at the listed prices. Confirm that bottles are bottle service (sold whole in a room) and whether a shot is a standard pour; mixers aren't priced.
 6. **Ramen add-ons** are imported on the three ramens (Shin, Buldak, Jjajang), up to all three. Whether they also go on Cheese Tteokbokki is to be confirmed.
@@ -197,7 +197,7 @@ The founder said on Oct 9, 2026 that the menu's prices already include the credi
 - Drinks are station `bar`, tax category `drink`; food is station `kitchen`, tax category `food`. Food has no bar grid section: it's sold from the Food section's row of categories (D100), and the import keeps the menu's own ten food categories: Burgers, Chicken Sandwiches, Fried Rice, Korean Ramen, Sides, Combos, Tenders (the tender combos with them), Wings, Popcorn Chicken and Buckets.
 - Checked on Oct 9, 2026 with a dry run against a throwaway database (not the demo one): the files parse, the promotion checks pass and the run reconciles.
 
-What the importer can't express, so it's left out:
+What the importer couldn't express before K-12 (now it can: meals and combo picks as components, descriptions, choices on some sizes, included and extra picks, and bar grid sections of up to four pages, so every spirit is placed):
 
 - A choice that adds a whole item (the drink and fries of "Make it a meal", a combo's side and soda): only a named choice with a price change.
 - Ingredients and descriptions (for example "Best seller", the cocktail ingredients): the menu file has no description column.

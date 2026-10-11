@@ -63,7 +63,7 @@ export function withCreditPrices<T extends { items: readonly unknown[] }>(
     items: cat.items.map((raw) => {
       const item = raw as {
         variants: { price_cents: number }[];
-        groups: { options: { price_delta_cents: number }[] }[];
+        groups: { extra_choice_cents?: number; options: { price_delta_cents: number }[] }[];
       };
       return {
         ...item,
@@ -73,6 +73,10 @@ export function withCreditPrices<T extends { items: readonly unknown[] }>(
         })),
         groups: item.groups.map((g) => ({
           ...g,
+          // An extra pick's price (K-12) shows at its credit price too.
+          ...(g.extra_choice_cents !== undefined
+            ? { extra_choice_cents: displayPrice(g.extra_choice_cents, pct) }
+            : {}),
           options: g.options.map((o) => ({
             ...o,
             price_delta_cents: displayPrice(o.price_delta_cents, pct),

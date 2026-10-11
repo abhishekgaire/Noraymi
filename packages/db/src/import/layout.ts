@@ -1,4 +1,10 @@
-import { emptyPosLayout, POS_SECTIONS, POS_SLOTS, type PosLayoutSections } from "@west4/shared";
+import {
+  addToSection,
+  emptyPosLayout,
+  POS_SECTIONS,
+  POS_SLOTS,
+  type PosLayoutSections,
+} from "@west4/shared";
 import type { Temporal } from "@west4/shared";
 import { PosLayoutRefused, publishPosLayout } from "../pos-layouts.js";
 import type { Queryable } from "../tenancy.js";
@@ -44,13 +50,13 @@ export function placeItems(
       notPlaced.push({ item: item.name, why: "no bar grid section for its category" });
       continue;
     }
-    const slots = sections[item.section]!;
-    const free = slots.indexOf(null);
-    if (free < 0) {
+    // A full section grows a page, up to four (K-12).
+    const slots = addToSection(sections[item.section]!, item.id);
+    if (!slots) {
       notPlaced.push({ item: item.name, why: `the ${item.section} section is full` });
       continue;
     }
-    slots[free] = item.id;
+    sections[item.section] = slots;
     already.add(item.id);
     placed += 1;
   }

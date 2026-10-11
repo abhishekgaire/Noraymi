@@ -40,7 +40,7 @@ Other statuses (seated, finished, cancelled, no-show) are kept as history: the b
 The menu goes in through the same save path as Admin → Menu, so the rule pack's promotion checks run on every item and package:
 
 - **`menu`**: one row per thing sold. Rows that share `item_ref` are one item's variants (a pint and a pitcher); without it, each row is its own item. The rows of one item must agree on its name, category, alcohol flag, button name, station and grid section, and the rows of one category on its tax category (`drink` or `food`; required, from the export or the mapping's `defaults`, never guessed). `button_name` is the short label on the bar POS grid (24 characters at most); `station` is `bar` by default.
-- **`modifiers`**: one row per choice in a modifier group of an item (`item_ref`, `group`, `name`, `price_delta`, `required`, `min_choices`, `max_choices`, `is_default`).
+- **`modifiers`**: one row per choice in a modifier group of an item (`item_ref`, `group`, `name`, `price_delta`, `required`, `min_choices`, `max_choices`, `is_default`). K-12 adds, per group: `included` (picks the price includes), `extra_price` (each pick past them), `variants` (the menu lines the group is for, by their legacy refs, `A; B`), `when` (the legacy ref of the choice that opens the group, on an earlier line); and per choice: `component` (the legacy ref of the menu line the choice is, a side or a soda, sold as its own line). Every row of a group must agree on its group settings. A full bar grid section grows a page, up to four.
 - **`packages`**: `name`, `price`, `hourly`, `private_function_only`, `shown`, and `contents` as `ITEM:qty; ITEM` (no quantity means as many as the guests want).
 
 **Promotion checks first.** Before a live run commits anything, the whole menu is loaded and checked in a transaction that's rolled back. An item or package the checks refuse (free alcohol, an hourly package with alcohol, alcohol in a package without a fixed quantity, a private-function package the pack doesn't allow) stops the import with `file:line the rule pack's promotion checks refuse "<name>": <reason>`, and nothing loads. Fix it with the owner (a real price, a fixed quantity) and run again.
@@ -122,8 +122,8 @@ One mapping per source system and export layout. When the venue's export changes
 | --- | --- | --- |
 | `guests` | legacy_ref, name | phone, email, locale |
 | `people` | legacy_ref, name, role (owner, manager, bartender, front_desk, staff) | email, phone, locale |
-| `menu` | legacy_ref, name, category, price, alcohol, tax_category (drink, food) | item_ref, station (default `bar`), pos_section, button_name, variant (default `Regular`), sort |
-| `modifiers` | legacy_ref, item_ref, group, name | price_delta, required, min_choices, max_choices, is_default, sort |
+| `menu` | legacy_ref, name, category, price, alcohol, tax_category (drink, food) | item_ref, station (default `bar`), pos_section, button_name, variant (default `Regular`), sort, description |
+| `modifiers` | legacy_ref, item_ref, group, name | price_delta, required, min_choices, max_choices, is_default, sort, included, extra_price, variants, when, component |
 | `packages` | legacy_ref, name, price | hourly, private_function_only, contents, shown |
 | `policies` | legacy_ref, text | refund_hours, published_at |
 | `bookings` | legacy_ref, guest_ref, room (a room name), party_size, starts_at, ends_at | deposit, status (default `confirmed`), policy_ref, accepted_at |

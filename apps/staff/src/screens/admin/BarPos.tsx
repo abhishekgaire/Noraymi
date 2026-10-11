@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { POS_SECTIONS, addToSection, type PosLayoutSections, type PosSection } from "@west4/shared";
+import {
+  POS_SECTIONS,
+  POS_SLOTS,
+  addToSection,
+  sectionPages,
+  trimSection,
+  type PosLayoutSections,
+  type PosSection,
+} from "@west4/shared";
 import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -7,9 +15,11 @@ import { BarPosSettings } from "./BarPosSettings.js";
 
 /**
  * Admin → Bar POS · Layout (M6-01; screens N33; Staff screens and the bar POS
- * · rule 2): the station's ten sections, 25 fixed slots each, every item by
- * its button name. Adding an item takes the first empty slot and nothing
- * else moves; a slot can be emptied. Save keeps a draft; Publish starts it at
+ * · rule 2): the station's ten sections, pages of 25 fixed slots each, every
+ * item by its button name. Adding an item takes the first empty slot and
+ * nothing else moves; a full section grows a page, up to four (K-12), which
+ * the bar POS reaches with More; a slot can be emptied, and empty pages at the
+ * end are dropped on save. Save keeps a draft; Publish starts it at
  * the next business date ("Starts Sat Sep 26"), and tonight keeps its buttons.
  * The rest of the section (limits, locks, tip path, order aging, tabs) is
  * BarPosSettings (M6-25), saved through Save and publish.
@@ -73,9 +83,12 @@ export function BarPos() {
     setNote(null);
     setProblem(null);
     try {
+      const trimmed = Object.fromEntries(
+        POS_SECTIONS.map((s) => [s, trimSection(sections[s])]),
+      ) as PosLayoutSections;
       const l = await api<Layouts>("POST", `/v1/venues/${venueId}/pos/layouts`, {
         station: "bar",
-        sections,
+        sections: trimmed,
       });
       take(l);
       setNote(t("barPos.saved"));
@@ -132,27 +145,42 @@ export function BarPos() {
               </button>
             ))}
           </div>
-          <ol className="slots" aria-label={t(`barPos.section.${section}`)}>
-            {slots.map((id, i) => (
-              <li key={i} className={id ? "slot" : "slot empty"}>
-                {id ? (
-                  <>
-                    <span data-guest-text>{label(id)}</span>
-                    <button
-                      type="button"
-                      className="link"
-                      aria-label={t("barPos.clearSlot", { name: label(id) })}
-                      onClick={() => set(slots.map((x, j) => (j === i ? null : x)))}
-                    >
-                      ×
-                    </button>
-                  </>
-                ) : (
-                  <span className="muted">{t("barPos.empty")}</span>
-                )}
-              </li>
-            ))}
-          </ol>
+          {sectionPages(slots).map((page, p, all) => (
+            <div key={p}>
+              {all.length > 1 && <h4>{t("rail.page.of", { n: p + 1, total: all.length })}</h4>}
+              <ol
+                className="slots"
+                aria-label={
+                  all.length > 1
+                    ? `${t(`barPos.section.${section}`)} · ${t("rail.page.of", { n: p + 1, total: all.length })}`
+                    : t(`barPos.section.${section}`)
+                }
+              >
+                {page.map((id, k) => {
+                  const i = p * POS_SLOTS + k;
+                  return (
+                    <li key={i} className={id ? "slot" : "slot empty"}>
+                      {id ? (
+                        <>
+                          <span data-guest-text>{label(id)}</span>
+                          <button
+                            type="button"
+                            className="link"
+                            aria-label={t("barPos.clearSlot", { name: label(id) })}
+                            onClick={() => set(slots.map((x, j) => (j === i ? null : x)))}
+                          >
+                            ×
+                          </button>
+                        </>
+                      ) : (
+                        <span className="muted">{t("barPos.empty")}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ))}
           <div className="actions">
             <label>
               <span>{t("barPos.add")}</span>

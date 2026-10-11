@@ -6,6 +6,16 @@ import { EventClient, guestOrderWords, newTraceparent, t, type MessageKey } from
 import { reporter } from "../telemetry";
 import { YourBill, type GuestBill, type ShareAnswer } from "../bill/your-bill";
 import { eventsOrigin } from "../live";
+import {
+  complete,
+  defaultPicks,
+  keepOpen,
+  least,
+  most,
+  openGroups,
+  unitWithPicks,
+  type ChoiceGroup,
+} from "./choices";
 
 /**
  * The room page on a joined guest's phone (M3-08, M3-09; screens Order notes
@@ -67,19 +77,7 @@ const clockTime = (iso: string, timeZone: string) => {
   }).format(new Date(iso));
   return parts.replace(":00 ", " ");
 };
-interface Option {
-  readonly id: string;
-  readonly name: string;
-  readonly price_delta_cents: number;
-  readonly is_default: boolean;
-  readonly out_tonight: boolean;
-}
-interface Group {
-  readonly id: string;
-  readonly name: string;
-  readonly required: boolean;
-  readonly options: readonly Option[];
-}
+type Group = ChoiceGroup;
 interface Variant {
   readonly id: string;
   readonly name: string;
@@ -135,9 +133,14 @@ const MENU_REFRESH_TICKS = 3;
 
 const money = (c: number) => `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
 const newOrderId = () => `room-${crypto.randomUUID()}`;
-/** A choice the bar can't guess: required, with no default. */
-const mustChoose = (item: Item) =>
-  item.groups.some((g) => g.required && !g.options.some((o) => o.is_default));
+/**
+ * When the sheet opens: a choice the bar can't guess (required, with no default) for this size, or
+ * food with any choice for it (K-12: make it a meal, sauces, add-ons).
+ */
+const mustChoose = (item: Item, variant: Variant, food: boolean) =>
+  openGroups(item.groups, variant.id, defaultPicks(item.groups, variant.id)).some(
+    (g) => food || g.options.filter((o) => o.is_default && !o.out_tonight).length < least(g),
+  );
 
 /** How the page calls the room routes: a phone's plain fetch with its cookie, or a tablet's signed one. */
 export type RoomApi = (
@@ -173,7 +176,7 @@ export function RoomPage({
   const [choosing, setChoosing] = useState<{
     item: Item;
     variant: Variant;
-    picks: Record<string, string>;
+    picks: readonly string[];
   } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -272,7 +275,8 @@ export function RoomPage({
       item.variants.length > 1 ? `${item.name} · ${variant.name}` : item.name,
       ...options.map((o) => o.name),
     ].join(" · ");
-    const unit = variant.price_cents + options.reduce((s, o) => s + o.price_delta_cents, 0);
+    // With its extras and components (K-12); the bar's price is the server's.
+    const unit = unitWithPicks(variant.price_cents, item.groups, variant.id, optionIds);
     const food = foodItems.has(item.id);
     setCart((lines) => {
       const same = lines.findIndex(
@@ -296,17 +300,10 @@ export function RoomPage({
     });
   };
   const tap = (item: Item, variant: Variant) => {
-    const defaults = item.groups.flatMap((g) =>
-      g.options.filter((o) => o.is_default).map((o) => o.id),
-    );
-    if (mustChoose(item)) {
-      const picks: Record<string, string> = {};
-      for (const g of item.groups) {
-        const d = g.options.find((o) => o.is_default);
-        if (d) picks[g.id] = d.id;
-      }
-      setChoosing({ item, variant, picks });
-    } else add(item, variant, defaults);
+    const defaults = defaultPicks(item.groups, variant.id);
+    if (mustChoose(item, variant, foodItems.has(item.id)))
+      setChoosing({ item, variant, picks: defaults });
+    else add(item, variant, defaults);
   };
   const setNote = (i: number, note: Partial<Pick<CartLine, "kitchen_note" | "allergy">>) =>
     setCart((lines) => lines.map((l, j) => (j === i ? { ...l, ...note } : l)));
@@ -457,9 +454,20 @@ export function RoomPage({
                     className={out ? "menu-item out" : "menu-item"}
                     disabled={out}
                     aria-label={out ? `${name} · ${why}` : `${name} · ${money(v.price_cents)}`}
+                    aria-describedby={
+                      item.description && v === item.variants[0] ? `desc-${item.id}` : undefined
+                    }
                     onClick={() => tap(item, v)}
                   >
-                    <span>{name}</span>
+                    <span>
+                      {name}
+                      {/* The item's description (K-12): on the menu, never on a ticket. */}
+                      {item.description && v === item.variants[0] && (
+                        <small className="desc" id={`desc-${item.id}`}>
+                          {item.description}
+                        </small>
+                      )}
+                    </span>
                     <span>{out ? why : money(v.price_cents)}</span>
                   </button>
                 </li>
@@ -822,39 +830,85 @@ export function RoomPage({
         <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="choose-h">
           <h2 id="choose-h">{choosing.item.name}</h2>
           <p>{t("en", "guestRoom.which")}</p>
-          {choosing.item.groups.map((g) => (
-            <fieldset key={g.id}>
-              <legend>{g.name}</legend>
-              {g.options.map((o) => (
-                <label key={o.id} className={o.out_tonight ? "out" : undefined}>
-                  <input
-                    type="radio"
-                    name={g.id}
-                    value={o.id}
-                    disabled={o.out_tonight}
-                    checked={choosing.picks[g.id] === o.id}
-                    onChange={() =>
-                      setChoosing({ ...choosing, picks: { ...choosing.picks, [g.id]: o.id } })
-                    }
-                  />
-                  {o.out_tonight
-                    ? `${o.name} · ${t("en", "guestRoom.out")}`
-                    : o.price_delta_cents > 0
-                      ? `${o.name} +${money(o.price_delta_cents)}`
-                      : o.name}
-                </label>
-              ))}
-            </fieldset>
-          ))}
+          {openGroups(choosing.item.groups, choosing.variant.id, choosing.picks).map((g) => {
+            // A radio for a required pick of one; checkboxes otherwise, so an add-on comes off again.
+            const single = most(g) === 1;
+            const one = single && least(g) === 1;
+            const mine = g.options.filter((o) => choosing.picks.includes(o.id)).length;
+            const pick = (id: string, on: boolean) => {
+              const others = single
+                ? choosing.picks.filter((x) => !g.options.some((o) => o.id === x))
+                : choosing.picks.filter((x) => x !== id);
+              setChoosing({
+                ...choosing,
+                picks: keepOpen(
+                  choosing.item.groups,
+                  choosing.variant.id,
+                  on ? [...others, id] : others,
+                ),
+              });
+            };
+            return (
+              <fieldset key={g.id}>
+                <legend>{g.name}</legend>
+                {(!one || g.included_choices != null) && (
+                  <p className="hint">
+                    {[
+                      least(g) === most(g)
+                        ? t("en", "guestRoom.choice.pick", { count: String(most(g)) })
+                        : t("en", "guestRoom.choice.upTo", { count: String(most(g)) }),
+                      ...(g.included_choices != null && (g.extra_choice_cents ?? 0) > 0
+                        ? [
+                            t("en", "guestRoom.choice.included", {
+                              count: String(g.included_choices),
+                              price: money(g.extra_choice_cents ?? 0),
+                            }),
+                          ]
+                        : []),
+                    ].join(" · ")}
+                  </p>
+                )}
+                {g.options.map((o) => {
+                  const on = choosing.picks.includes(o.id);
+                  return (
+                    <label key={o.id} className={o.out_tonight ? "out" : undefined}>
+                      <input
+                        type={one ? "radio" : "checkbox"}
+                        name={g.id}
+                        value={o.id}
+                        disabled={o.out_tonight || (!single && !on && mine >= most(g))}
+                        checked={on}
+                        onChange={(e) => pick(o.id, one ? true : e.target.checked)}
+                      />
+                      {o.out_tonight
+                        ? `${o.name} · ${t("en", "guestRoom.out")}`
+                        : o.price_delta_cents > 0
+                          ? `${o.name} +${money(o.price_delta_cents)}`
+                          : o.name}
+                    </label>
+                  );
+                })}
+              </fieldset>
+            );
+          })}
           <button
             type="button"
-            disabled={choosing.item.groups.some((g) => g.required && !choosing.picks[g.id])}
+            disabled={!complete(choosing.item.groups, choosing.variant.id, choosing.picks)}
             onClick={() => {
-              add(choosing.item, choosing.variant, Object.values(choosing.picks));
+              add(choosing.item, choosing.variant, choosing.picks);
               setChoosing(null);
             }}
           >
-            {t("en", "guestRoom.add")}
+            {t("en", "guestRoom.addFor", {
+              total: money(
+                unitWithPicks(
+                  choosing.variant.price_cents,
+                  choosing.item.groups,
+                  choosing.variant.id,
+                  choosing.picks,
+                ),
+              ),
+            })}
           </button>
           <button type="button" className="secondary" onClick={() => setChoosing(null)}>
             {t("en", "guestRoom.notNow")}

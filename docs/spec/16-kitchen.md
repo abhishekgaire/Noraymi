@@ -75,6 +75,18 @@ The founder's servers are runners in the spec's words (the Staff role, or anyone
 - **86 a food item or option.** Food uses the existing 86 ([Staff screens and the bar POS](10-staff-screens-bar-pos.md) · 86 from the bar POS, and `menu_items.out_until`, `menu_variants.out_until` and `menu_options.out_until`): it greys out on every staff screen and the guest menu, marked "86'd tonight", until someone taps it again or the night closes. The same roles that 86 a drink can 86 food.
 - **Close the kitchen.** A manager's "Close the kitchen" (bar POS and the manager's phone) marks every kitchen item out until close, and the guest menu shows food as "Kitchen closed". Orders already accepted still print and run. "Reopen the kitchen" undoes it the same night.
 
+### Meals, combos and sauces
+
+K-12, D107. Every setting here is the manager's, in Admin → Menu, on a choice group or a choice:
+
+- **Included picks and extras.** A group can include a number of picks; each pick past them costs the group's extra price on top of the choice's own price ("1 sauce included, each extra $0.75"). Picks are counted in the menu's order, so the price doesn't depend on the order they were tapped in. Empty: the group doesn't limit them.
+- **Some sizes only.** A group can apply to some of an item's sizes ("Soda" on a combo's "+ 1 Side + 1 Soda" only); it isn't shown or accepted on the others.
+- **A group a choice opens.** A group can open only once another choice of the item is picked: "Make it a meal" (+$5.00) opens "Meal side" and "Meal drink".
+- **Components.** A choice can be another menu item (a side, a soda). It's sold as its own line, with that item's station, tax category and alcohol flag, after the line it came with. Its price is the choice's own price change, plus its share of the price of the choice that opened its group, divided across every component that choice opened by their regular prices, largest remainder (Money rules 1, as packages divide theirs): a $5.00 meal of fries ($5.45) and a Coke ($3.10) is $3.19 of food and $1.81 of drink, and the burger keeps its own price. A combo's included side and soda are components at $0.00, so the combo's price stays on the combo. A component can't be an item that needs a choice of its own.
+- **Tickets.** A component prints on its station's ticket: under its line as "+ Fries" when both are on the same ticket, or as its own line "with Classic Cheese" when its line is on the other station's (a meal's soda goes to the bar like any drink). Send to kitchen on a line sends its food components with it.
+- **On the check.** A component's line reads after the line it came with, "Classic Cheese · Coke", and is taxed by its own category. The alcohol rules check a component like any line.
+- **Descriptions.** An item's description shows under its name on the room page, the website menu and the menu PDF, never on a ticket.
+
 ### Food in packages
 
 The spec doesn't yet say how a package's contents reach the room: phase 1 has packages on the staff menus and the promotion checks, but no step that turns a sold package into tickets. This draft fills that gap the simplest way, for drinks and food alike.

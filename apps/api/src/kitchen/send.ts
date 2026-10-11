@@ -1,9 +1,16 @@
-import { addCheckLine, emitEvent, insertPrintJob, type Queryable } from "@west4/db";
+import {
+  addCheckLine,
+  emitEvent,
+  insertPrintJob,
+  type OrderComponent,
+  type Queryable,
+} from "@west4/db";
 import { businessDate } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { kitchenOn } from "./module.js";
+import { ticketItems } from "../orders/ticket-items.js";
 
 /**
  * Send to kitchen (K-05; Kitchen and food · Ordering food, D99). Food staff ring goes on the check
@@ -24,6 +31,8 @@ export interface FoodLine {
   readonly allergy: boolean;
   /** The kitchen ticket that carried it, for Reprint. */
   readonly job_id: string | null;
+  /** A component's line (K-12): the order item it came with; it goes to the kitchen with it. */
+  readonly parent_item_id: string | null;
 }
 
 /** The check's food lines (item lines whose order item is station kitchen), in order. */
@@ -43,8 +52,9 @@ export async function foodLines(
     kitchen_note: string | null;
     allergy: boolean;
     job_id: string | null;
+    parent_item_id: string | null;
   }>(
-    `select l.id as line_id, oi.id as order_item_id,
+    `select l.id as line_id, oi.id as order_item_id, oi.parent_item_id,
             l.qty - coalesce((select sum(x.qty) from check_lines x
                                where x.venue_id = l.venue_id and x.reverses_id = l.id), 0) as open_qty,
             to_json(l.added_at) #>> '{}' as rung_at,
@@ -75,6 +85,7 @@ export async function foodLines(
     kitchen_note: x.kitchen_note,
     allergy: x.allergy,
     job_id: x.job_id,
+    parent_item_id: x.parent_item_id,
   }));
 }
 
@@ -141,12 +152,25 @@ export async function sendToKitchen(
     throw new ApiError("ordering_closed", "this check is void", {
       details: { reason: "void" },
     });
-  const ids = [...new Set(input.lines.map((l) => l.line_id))];
-  if (ids.length === 0 || ids.length !== input.lines.length)
+  const asked = [...new Set(input.lines.map((l) => l.line_id))];
+  if (asked.length === 0 || asked.length !== input.lines.length)
     throw new ApiError("invalid_request", "send each food line once");
   // The lines are locked first, so two screens sending at once print one ticket.
-  const found = await foodLines(c, venueId, input.checkId, { lock: true, lineIds: ids });
-  if (found.length !== ids.length)
+  const all = await foodLines(c, venueId, input.checkId, { lock: true });
+  const picked = all.filter((f) => asked.includes(f.line_id));
+  // A line's food components (K-12: a meal's fries, a combo's sides) go with it, under it.
+  const parts = all.filter(
+    (f) =>
+      !asked.includes(f.line_id) &&
+      f.parent_item_id !== null &&
+      picked.some((p) => p.order_item_id === f.parent_item_id) &&
+      f.sent_at === null &&
+      f.open_qty > 0,
+  );
+  const found = [...picked, ...parts];
+  const ids = found.map((f) => f.line_id);
+  const lines: SendLine[] = [...input.lines, ...parts.map((f) => ({ line_id: f.line_id }))];
+  if (picked.length !== asked.length)
     throw new ApiError("invalid_request", "only food on this check goes to the kitchen", {
       details: { reason: "not_food" },
     });
@@ -161,7 +185,7 @@ export async function sendToKitchen(
     await c.query<{ name: string }>("select name from users where id = $1", [input.userId])
   ).rows[0]?.name;
   const at = input.now.toString();
-  for (const l of input.lines) {
+  for (const l of lines) {
     const f = found.find((x) => x.line_id === l.line_id)!;
     const note =
       l.kitchen_note === undefined
@@ -186,8 +210,12 @@ export async function sendToKitchen(
     notes: string | null;
     kitchen_note: string | null;
     kitchen_note_allergy: boolean;
+    item_id: string;
+    parent_item_id: string | null;
+    component: OrderComponent | null;
   }>(
     `select l.id, oi.name_snapshot, oi.options, oi.notes, oi.kitchen_note, oi.kitchen_note_allergy,
+            oi.id as item_id, oi.parent_item_id, oi.component,
             l.qty - coalesce((select sum(x.qty) from check_lines x
                                where x.venue_id = l.venue_id and x.reverses_id = l.id), 0) as qty
        from check_lines l join order_items oi on oi.venue_id = l.venue_id and oi.id = l.source_id
@@ -208,10 +236,17 @@ export async function sendToKitchen(
       sent_at: at,
       ...(check.training ? { training: true } : {}),
       line_ids: ids,
-      lines: items.rows.map((i) => ({
-        qty: Number(i.qty),
+      lines: ticketItems(
+        items.rows.map((i) => ({
+          ...i,
+          id: i.item_id,
+          qty: Number(i.qty),
+          options: i.options ?? [],
+        })),
+      ).map(({ item: i, options }) => ({
+        qty: i.qty,
         name: i.name_snapshot,
-        options: (i.options ?? []).map((o) => o.name),
+        options,
         notes: i.notes,
         kitchen_note: i.kitchen_note,
         allergy: i.kitchen_note_allergy,

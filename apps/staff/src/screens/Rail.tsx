@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   POS_SECTIONS,
+  sectionPages,
   Temporal,
   staffOrderWordsKey,
   type PosLayoutSections,
@@ -17,6 +18,7 @@ import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { FoodChoices } from "./FoodChoices.js";
+import { needsSheet, type ChoiceGroupLike } from "./choices.js";
 import { KitchenSwitch } from "./KitchenSwitch.js";
 import { FoodMark, UnsentWarning, type CheckFood } from "./SendToKitchen.js";
 import { alcoholStateAt } from "@west4/rules";
@@ -76,14 +78,7 @@ interface Item {
   /** Food only (K-07): the kitchen is closed or past its last order, so it's out for now. */
   readonly kitchen_stop?: "kitchen_closed" | "last_order" | null;
   readonly variants: readonly Variant[];
-  readonly groups: readonly {
-    readonly id: string;
-    readonly name: string;
-    readonly required?: boolean;
-    readonly min_choices?: number;
-    readonly max_choices?: number;
-    readonly options: readonly Option[];
-  }[];
+  readonly groups: readonly (ChoiceGroupLike & { readonly options: readonly Option[] })[];
 }
 interface Category {
   readonly id: string;
@@ -248,6 +243,8 @@ export function Rail() {
   )?.businessDate.toString();
 
   const [section, setSection] = useState<PosSection>("favorites");
+  // A section longer than 25 slots shows a page at a time, with More (K-12).
+  const [page, setPage] = useState(0);
   const [query, setQuery] = useState("");
   const [find, setFind] = useState("");
   const [filter, setFilter] = useState<"all" | "mine" | "rooms">("all");
@@ -592,6 +589,11 @@ export function Rail() {
       setFoodChoice(item);
       return;
     }
+    // A drink whose choices depend on its size or another choice, or take many picks (K-12).
+    if (needsSheet(item.groups)) {
+      setFoodChoice(item);
+      return;
+    }
     if (item.variants.length > 1) {
       setChoosing(item);
       return;
@@ -603,6 +605,9 @@ export function Rail() {
   // The menu's food categories, in Admin → Menu's order; none while Kitchen & food is off.
   const food = categories.filter((c) => c.items.some((i) => i.station === "kitchen"));
   const q = query.trim().toLowerCase();
+  const pages = sectionPages(sections?.[section] ?? []);
+  const shownPage = Math.min(page, pages.length - 1);
+  const paged = !q && foodCat === null && pages.length > 1;
   const slots: (Item | null)[] = q
     ? items
         .filter(
@@ -612,7 +617,7 @@ export function Rail() {
         .slice(0, 25)
     : foodCat !== null
       ? [...(food.find((c) => c.id === foodCat)?.items ?? [])]
-      : (sections?.[section] ?? []).map((id) => (id ? (byId.get(id) ?? null) : null));
+      : (pages[shownPage] ?? []).map((id) => (id ? (byId.get(id) ?? null) : null));
 
   const f = find.trim().toLowerCase();
   const openTabs = tabs.filter((x) => x.open);
@@ -1028,6 +1033,7 @@ export function Rail() {
                   data-section={s}
                   onClick={() => {
                     setSection(s);
+                    setPage(0);
                     setFoodCat(null);
                     setQuery("");
                   }}
@@ -1141,9 +1147,33 @@ export function Rail() {
                 );
               })}
             </ol>
+            {paged && (
+              <div className="rail-pages" role="group" aria-label={t(`barPos.section.${section}`)}>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={shownPage === 0}
+                  onClick={() => setPage(shownPage - 1)}
+                >
+                  {t("rail.page.back")}
+                </button>
+                <span className="small" role="status">
+                  {t("rail.page.of", { n: shownPage + 1, total: pages.length })}
+                </span>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={shownPage >= pages.length - 1}
+                  onClick={() => setPage(shownPage + 1)}
+                >
+                  {t("rail.page.more")}
+                </button>
+              </div>
+            )}
             {foodChoice && (
               <FoodChoices
                 item={foodChoice}
+                drink={foodChoice.station !== "kitchen"}
                 onCancel={() => setFoodChoice(null)}
                 onAdd={(variantId, optionIds) => {
                   setRingRequest((r) => ({ variantId, optionIds, n: (r?.n ?? 0) + 1 }));

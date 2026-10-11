@@ -84,6 +84,8 @@ export interface MenuRecord extends Base {
   readonly station: string;
   /** The bar POS grid section, when the export or mapping names one. */
   readonly posSection: string | null;
+  /** What the guest menus show under the item's name (K-12); null when the export has none. */
+  readonly description: string | null;
 }
 export interface ModifierRecord extends Base {
   readonly itemRef: string;
@@ -95,6 +97,15 @@ export interface ModifierRecord extends Base {
   readonly maxChoices: number;
   readonly isDefault: boolean;
   readonly sort: number;
+  /** K-12: the group's included picks (null: not limited) and each extra pick's price. */
+  readonly includedChoices: number | null;
+  readonly extraChoiceCents: number;
+  /** K-12: the menu lines (variants) the group is for; empty: every size. */
+  readonly variantRefs: readonly string[];
+  /** K-12: the choice that opens the group, by its legacy ref; null: always open. */
+  readonly whenRef: string | null;
+  /** K-12: the menu line this choice is (a side, a soda), by its legacy ref; null: a plain choice. */
+  readonly componentRef: string | null;
 }
 export interface PackageRecord extends Base {
   readonly name: string;
@@ -412,6 +423,7 @@ export function prepareImport(
           sort: opt("sort", (s) => parseWholeNumber(s, 0, 100000)) ?? row.line,
           station,
           posSection: oneOf("pos_section", new Set(POS_SECTIONS)) ?? null,
+          description: text("description", 500) ?? null,
         };
       } else if (kind === "modifiers") {
         ref = text("legacy_ref");
@@ -420,6 +432,11 @@ export function prepareImport(
         const minChoices = opt("min_choices", (s) => parseWholeNumber(s, 0, 50)) ?? 0;
         const maxChoices = opt("max_choices", (s) => parseWholeNumber(s, 1, 50)) ?? 1;
         if (minChoices > maxChoices) rowProblems.push("min_choices is more than max_choices");
+        const includedChoices = opt("included", (s) => parseWholeNumber(s, 0, 50));
+        if (includedChoices !== null && includedChoices > maxChoices)
+          rowProblems.push("included is more than max_choices");
+        const extraChoiceCents = opt("extra_price", money) ?? 0;
+        nonNegative("extra_price", extraChoiceCents);
         record = {
           itemRef: text("item_ref", 200),
           group: text("group", 80),
@@ -430,6 +447,14 @@ export function prepareImport(
           maxChoices,
           isDefault: opt("is_default", parseYesNo) ?? false,
           sort: opt("sort", (s) => parseWholeNumber(s, 0, 100000)) ?? row.line,
+          includedChoices,
+          extraChoiceCents,
+          variantRefs: (text("variants", 2000) ?? "")
+            .split(";")
+            .map((x) => x.trim())
+            .filter((x) => x !== ""),
+          whenRef: text("when", 200) ?? null,
+          componentRef: text("component", 200) ?? null,
         };
       } else if (kind === "packages") {
         ref = text("legacy_ref");

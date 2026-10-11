@@ -35,6 +35,7 @@ import { venueClock } from "../rooms/assignment.js";
 import { writeFixLine, type FixPayload } from "../rooms/fix.js";
 import { alcoholNow, checkAlcohol, checkGiftAlcohol } from "./alcohol.js";
 import { printsBarTicket } from "./print-rule.js";
+import { ticketItems } from "./ticket-items.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -72,8 +73,13 @@ const RETURN_WORDS: Record<ReturnReason, string> = {
 };
 
 const optionText = (item: OrderRow["items"][number]) => item.options.map((o) => o.name).join(", ");
-const lineName = (item: OrderRow["items"][number]) =>
-  item.options.length > 0 ? `${item.name_snapshot} · ${optionText(item)}` : item.name_snapshot;
+/** A line's name on the check: a component (K-12) is named after the line it came with. */
+const lineName = (item: OrderRow["items"][number]) => {
+  const own =
+    item.options.length > 0 ? `${item.name_snapshot} · ${optionText(item)}` : item.name_snapshot;
+  return item.component ? `${item.component.parent} · ${own}` : own;
+};
+
 const unitWithOptions = (item: OrderRow["items"][number]) =>
   item.unit_cents + item.options.reduce((s, o) => s + o.price_delta_cents, 0);
 
@@ -157,14 +163,14 @@ async function ticket(
         // A gift (M6-24) names the singer it's for; the bartender checks their ID at hand-off.
         ...(order.source === "gift" ? { gift_for: order.gift_for_name } : {}),
         ...(training ? { training: true } : {}),
-        lines: order.items
-          .filter((i) => i.station === station)
-          .map((i) => ({
+        lines: ticketItems(order.items.filter((i) => i.station === station)).map(
+          ({ item: i, options }) => ({
             qty: i.qty,
             name: i.name_snapshot,
-            options: i.options.map((o) => o.name),
+            options,
             notes: i.notes,
-          })),
+          }),
+        ),
       },
     });
   }
@@ -190,16 +196,16 @@ export function kitchenPayload(
     accepted_at: order.accepted_at,
     ...(replayed && opts.afterOutage ? { after_outage: true } : {}),
     ...(opts.training ? { training: true } : {}),
-    lines: order.items
-      .filter((i) => i.station === "kitchen")
-      .map((i) => ({
+    lines: ticketItems(order.items.filter((i) => i.station === "kitchen")).map(
+      ({ item: i, options }) => ({
         qty: i.qty,
         name: i.name_snapshot,
-        options: i.options.map((o) => o.name),
+        options,
         notes: i.notes,
         kitchen_note: i.kitchen_note,
         allergy: i.kitchen_note_allergy,
-      })),
+      }),
+    ),
   };
 }
 

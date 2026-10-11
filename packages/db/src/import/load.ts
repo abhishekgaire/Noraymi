@@ -226,22 +226,54 @@ async function preflight(c: pg.ClientBase, p: Prepared): Promise<Problem[]> {
   );
   const itemRefs = new Set([...items.keys(), ...earlierItems.rows.map((r) => r.legacy_ref)]);
   const groups = new Map<string, string>();
+  const lines = new Map(p.menu.map((m) => [m.legacyRef, m]));
+  const choicesSeen = new Map<string, Prepared["modifiers"][number]>();
+  // An item with a required choice can't be a component: its line carries no choices (K-12).
+  const needsChoice = new Set(
+    p.modifiers.filter((x) => x.required || x.minChoices > 0).map((x) => x.itemRef),
+  );
   for (const x of p.modifiers) {
+    const at = { file: x.file, line: x.line };
     if (!itemRefs.has(x.itemRef))
-      problems.push({
-        file: x.file,
-        line: x.line,
-        message: `item "${x.itemRef}" isn't in the menu file`,
-      });
+      problems.push({ ...at, message: `item "${x.itemRef}" isn't in the menu file` });
     const key = `${x.itemRef}|${x.group.toLowerCase()}`;
-    const shape = [x.required, x.minChoices, x.maxChoices].join("|");
+    const shape = groupShape(x);
     if (groups.has(key) && groups.get(key) !== shape)
       problems.push({
-        file: x.file,
-        line: x.line,
-        message: `choice group "${x.group}" is required or counted differently on another line`,
+        ...at,
+        message: `choice group "${x.group}" is required, counted, sized or opened differently on another line`,
       });
     else groups.set(key, shape);
+    // K-12: a group's sizes are its item's lines; the choice that opens it is an earlier choice of
+    // the same item in another group; a component is another item's line that needs no choice.
+    for (const v of x.variantRefs)
+      if (lines.get(v)?.itemRef !== x.itemRef)
+        problems.push({ ...at, message: `size "${v}" isn't a line of item "${x.itemRef}"` });
+    if (x.whenRef !== null) {
+      const opener = choicesSeen.get(x.whenRef);
+      if (
+        !opener ||
+        opener.itemRef !== x.itemRef ||
+        opener.group.toLowerCase() === x.group.toLowerCase()
+      )
+        problems.push({
+          ...at,
+          message: `"${x.whenRef}" isn't an earlier choice of item "${x.itemRef}" in another group`,
+        });
+    }
+    if (x.componentRef !== null) {
+      const part = lines.get(x.componentRef);
+      if (!part)
+        problems.push({ ...at, message: `component "${x.componentRef}" isn't in the menu file` });
+      else if (part.itemRef === x.itemRef)
+        problems.push({ ...at, message: "a choice can't be the item it belongs to" });
+      else if (needsChoice.has(part.itemRef))
+        problems.push({
+          ...at,
+          message: `component "${x.componentRef}" needs a choice of its own`,
+        });
+    }
+    choicesSeen.set(x.legacyRef, x);
   }
   for (const x of p.packages)
     for (const k of x.contents)
@@ -311,7 +343,35 @@ const MENU_KINDS: ReadonlySet<Kind> = new Set(["menu", "modifiers", "packages"])
 
 /** An item's own values: rows of one item must agree on them, and a re-run compares them. */
 const itemHash = (m: Prepared["menu"][number]) =>
-  sha256(JSON.stringify([m.name, m.category, m.alcohol, m.buttonName, m.station, m.posSection]));
+  sha256(
+    JSON.stringify([
+      m.name,
+      m.category,
+      m.alcohol,
+      m.buttonName,
+      m.station,
+      m.posSection,
+      // K-12: a description joins the hash only when given, so earlier runs' hashes still match.
+      ...(m.description ? [m.description] : []),
+    ]),
+  );
+
+/**
+ * A choice group's own values (M9-04, K-12): rows of one group must agree on them, and a re-run
+ * compares them. The K-12 settings join only when set, so earlier runs' hashes still match.
+ */
+const groupShape = (x: Prepared["modifiers"][number]) =>
+  [
+    x.required,
+    x.minChoices,
+    x.maxChoices,
+    ...(x.includedChoices !== null ||
+    x.extraChoiceCents !== 0 ||
+    x.variantRefs.length > 0 ||
+    x.whenRef !== null
+      ? [x.includedChoices ?? "", x.extraChoiceCents, x.variantRefs.join(";"), x.whenRef ?? ""]
+      : []),
+  ].join("|");
 
 const KIND_OF: Record<Kind, RefKind> = {
   guests: "guest",
@@ -550,6 +610,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
               category_id: await refId(c, "menu_category", m.category.toLowerCase()),
               name: m.name,
               button_name: m.buttonName,
+              description: m.description,
               alcohol: m.alcohol,
               station: m.station,
               sort: m.sort,
@@ -613,10 +674,12 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
             key,
             "modifier_groups",
             groupId,
-            [x.required, x.minChoices, x.maxChoices].join("|"),
+            groupShape(x),
           );
           const itemId = await refId(c, "menu_item", x.itemRef);
           if (g === "new") {
+            const sizes: string[] = [];
+            for (const v of x.variantRefs) sizes.push(await refId(c, "menu_variant", v));
             await insertMenuRow(c, "modifier_groups", venue.id, {
               id: groupId,
               item_id: itemId,
@@ -625,6 +688,10 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
               min_choices: x.minChoices,
               max_choices: x.maxChoices,
               sort: x.sort,
+              included_choices: x.includedChoices,
+              extra_choice_cents: x.extraChoiceCents,
+              variant_ids: sizes.length > 0 ? sizes : null,
+              when_option_id: x.whenRef ? await refId(c, "menu_option", x.whenRef) : null,
             });
           }
           const optionId = randomUUID();
@@ -647,6 +714,9 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
               price_delta_cents: x.priceDeltaCents,
               is_default: x.isDefault,
               sort: x.sort,
+              component_variant_id: x.componentRef
+                ? await refId(c, "menu_variant", x.componentRef)
+                : null,
             });
             menuChanged = true;
           }

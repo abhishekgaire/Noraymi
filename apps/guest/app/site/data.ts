@@ -137,6 +137,10 @@ export interface GuestMenu {
       readonly groups: readonly {
         readonly id: string;
         readonly name: string;
+        /** K-12: included picks and each extra's price, and the sizes the group is for (null: all). */
+        readonly included_choices?: number | null;
+        readonly extra_choice_cents?: number;
+        readonly variant_ids?: readonly string[] | null;
         readonly options: readonly {
           readonly id: string;
           readonly name: string;

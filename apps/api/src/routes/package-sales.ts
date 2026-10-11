@@ -150,9 +150,20 @@ export function packageSaleRoutes(app: FastifyInstance, options: { clock: Clock 
                 required: g.required,
                 min_choices: g.min_choices,
                 max_choices: g.max_choices,
+                // K-12: the group's included and extra picks, its sizes and the choice that opens it.
+                included_choices: g.included_choices,
+                extra_choice_cents: g.extra_choice_cents,
+                variant_ids: g.variant_ids,
+                when_option_id: g.when_option_id,
                 options: g.options
                   .filter((o) => !o.out_tonight)
-                  .map((o) => ({ id: o.id, name: o.name })),
+                  .map((o) => ({
+                    id: o.id,
+                    name: o.name,
+                    price_delta_cents: o.price_delta_cents,
+                    out_tonight: o.out_tonight,
+                    component: o.component,
+                  })),
               })),
             });
           }

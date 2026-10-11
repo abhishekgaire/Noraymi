@@ -90,9 +90,13 @@ export async function saveLayoutDraft(
 ) {
   const parsed = posLayoutSectionsSchema.safeParse(input.sections);
   if (!parsed.success)
-    throw new ApiError("invalid_request", "ten sections of 25 slots, each an item id or empty", {
-      details: { reason: "shape" },
-    });
+    throw new ApiError(
+      "invalid_request",
+      "ten sections of one to four pages of 25 slots, each an item id or empty",
+      {
+        details: { reason: "shape" },
+      },
+    );
   const ids = [
     ...new Set(
       Object.values(parsed.data)

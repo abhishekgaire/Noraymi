@@ -1494,6 +1494,18 @@ main select {
 .rail-grid .slot {
   min-height: 100px;
 }
+/* A section's pages (K-12): Back, page n of m, More. */
+.rail-pages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+.rail-pages button {
+  min-height: 44px;
+  min-width: 88px;
+}
 .rail-grid .slot button {
   width: 100%;
   min-height: 100px;

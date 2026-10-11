@@ -277,3 +277,26 @@ Definition of done: see CLAUDE.md.
   - Close the night uses the same database shortcuts as the existing Close the night test (ending sessions, settling tabs) to reach the close quickly, so the e2e checks the Z to the cent but doesn't run the reconcile script; the food night reconciling to the cent through the API is `apps/api/src/reconcile/food-night.int.test.ts` (K-10).
   - Fix found by the run: the room tab and bar POS's Add drinks reloads the check after a send, so food just sent counts in Send to kitchen (N) at once instead of waiting for the event stream (`AddDrinks.tsx`).
   - Kitchen isn't a must-fix item in `docs/gate/must-fix.md`, so nothing changed there; S-03 in the Sing Sing backlog notes the importer already loads Sing Sing's menu in tests.
+
+### K-12 · Make menu choices modular: meals, combos, sauces, descriptions
+
+- **Status:** done
+- **Size:** M
+- **Depends on:** K-02, K-05, K-09; M6-01; M9-04
+- **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Meals, combos and sauces; [Data model](../spec/04-data-model.md) · Menu, orders and songs; [Staff screens](../spec/10-staff-screens-bar-pos.md) rule 2; [Money rules](../spec/05-money-rules.md) rule 1; D107
+- **Build:** what Sing Sing's menu needs and the old model couldn't express, every setting the manager's in Admin → Menu (the founder's rule of Oct 11: settle by common practice, make it settable): included picks and an extra pick's price, groups on some sizes only, groups a choice opens, choices that are other menu items (components); descriptions on the guest menus; bar POS sections longer than 25 slots; the importer and Sing Sing's import files using them.
+- **Acceptance:**
+  - [x] A +$5.00 meal on a burger sells the burger at its price and the side and soda as their own lines, the $5.00 divided by their regular prices to the cent, each taxed by its category, written test-first as money cases.
+  - [x] A combo's side prints under the combo on the kitchen ticket, its soda prints at the bar, and a soda on a size that has none is refused.
+  - [x] Sauces: one included, each extra at the manager's price.
+  - [x] Every spirit of Sing Sing's 44 is on the bar grid, reachable through More.
+  - [x] Sing Sing's import files load meals, combo picks, sauces, descriptions and per-size choices; a dry run reconciles.
+- **Tests:** unit `packages/rules/src/menu-choices.test.ts` (12 `menu_choices` money cases, test prices), `packages/shared/src/pos.test.ts`, `apps/staff/src/screens/choices.test.ts`, `apps/guest/app/room/choices.test.ts`, import unit tests; integration `apps/api/src/routes/menu-choices.int.test.ts`, the kitchen, package, imported-menu, restore and import suites, walls and principals; Playwright: the K-11 food night, Admin → Menu, Admin → Bar POS, the bar POS and guest a11y specs (isolated).
+- **Notes:**
+  - Model (migration 0139): `modifier_groups.included_choices`, `extra_choice_cents`, `variant_ids`, `when_option_id`; `menu_options.component_variant_id`; `order_items.parent_item_id` and `component` (`{ group, name, parent }`). The group ↔ choice and line ↔ line foreign keys are deferrable (a restore writes groups before choices). No new table, so no new wall; no new route (Admin's menu routes take the new fields).
+  - Pricing: `priceChoices` in `packages/rules/src/menu-choices.ts`, used by orders, Same again and the staff screens (the guest app keeps a copy in `apps/guest/app/room/choices.ts`, tested). Picks count in menu order; an opening choice's price goes to the components it opened by regular price (all $0.00: evenly), else stays on the line.
+  - Tickets: `ticketItems` (`apps/api/src/orders/ticket-items.ts`) nests a component as "+ Fries" under its line on the same ticket, or "with Classic Cheese" on the other station's. Send to kitchen on a line sends its unsent food components with it. The check names a component "Classic Cheese · Coke".
+  - Bar POS: a section is one to four pages of 25 (`POS_PAGES_MAX`); Admin → Bar POS grows a page when one fills and drops empty trailing pages; the bar POS shows More and Back. The import places items the same way, so no spirit is left off the grid.
+  - Importer: `description` on menu lines; `included`, `extra_price`, `variants`, `when`, `component` on choices (runbook updated). Dry run of Sing Sing's files on a throwaway database (`west4_k12_dryrun`, not `west4`): 179 lines, 295 choices, the bar grid placed 75 items with none left off, reconciles.
+  - Cautious defaults, flagged in Sing Sing's menu.md: a meal's side is any side (French Fries first) and its drink any soft drink; combo sides and sodas any, at no charge; one sauce included and no extra sauce until the manager sets its price; wings' sauce optional, to confirm; ramen add-ons stay off Cheese Tteokbokki.
+  - Not done: voiding a line doesn't void its components with it (each is its own line, voided like any); the staff Add drinks inline selects change one pick per group, and items with several picks or components go through the choices sheet.
