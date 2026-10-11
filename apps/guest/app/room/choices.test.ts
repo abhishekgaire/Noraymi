@@ -59,4 +59,27 @@ describe("the room page's choices (K-12)", () => {
     expect(unitWithPicks(995, groups, "small", ["m", "rings"])).toBe(1595);
     expect(unitWithPicks(999, groups, "big", ["chili", "ranch", "bbq"])).toBe(1149);
   });
+  it("prices a meal's components by the shared rule the server charges with", () => {
+    const meal: ChoiceGroup[] = [
+      { id: "meal", name: "Make it a meal", required: false, options: [opt("m", 500)] },
+      {
+        id: "side",
+        name: "Meal side",
+        required: true,
+        when_option_id: "m",
+        options: [{ ...opt("fries"), component: { price_cents: 600 } }],
+      },
+      {
+        id: "drink",
+        name: "Meal drink",
+        required: true,
+        when_option_id: "m",
+        options: [{ ...opt("coke"), component: { price_cents: 300 } }],
+      },
+    ];
+    // The burger stays $9.95; the $5.00 goes to the fries and the Coke.
+    expect(unitWithPicks(995, meal, "small", ["m", "fries", "coke"])).toBe(1495);
+    // Picks not complete yet: what's picked so far, by the same rule.
+    expect(unitWithPicks(995, meal, "small", ["m", "fries"])).toBe(1495);
+  });
 });

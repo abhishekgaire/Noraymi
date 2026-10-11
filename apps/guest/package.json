@@ -12,6 +12,7 @@
     "check:domain": "tsx scripts/check-domain.ts"
   },
   "dependencies": {
+    "@west4/rules": "workspace:*",
     "@west4/shared": "workspace:*",
     "next": "16.3.8",
     "qrcode-generator": "^2.0.4",

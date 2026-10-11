@@ -342,6 +342,9 @@ importers:
 
   apps/guest:
     dependencies:
+      '@west4/rules':
+        specifier: workspace:*
+        version: link:../../packages/rules
       '@west4/shared':
         specifier: workspace:*
         version: link:../../packages/shared

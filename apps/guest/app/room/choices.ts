@@ -2,9 +2,10 @@
  * A line's choices on the room page (K-12; spec 16 · Meals, combos and sauces): which groups are
  * open for a size and the picks so far, whether the picks are complete, and the line's price for
  * the basket. A preview only: the server prices the order with packages/rules (menu-choices.ts),
- * and this follows the same rule (included picks counted in menu order, each extra at the
- * group's price, components at their own price; a meal's price stays in the total either way).
+ * and the basket's price comes from that same function.
  */
+import { priceChoices } from "@west4/rules";
+
 export interface ChoiceOption {
   readonly id: string;
   readonly name: string;
@@ -85,23 +86,39 @@ export function defaultPicks(groups: readonly ChoiceGroup[], variantId: string):
   }
 }
 
-/** The line's unit price with its picks: the size, each pick's change, extras past the included. */
+/**
+ * The line's unit price with its picks and components, by the one shared rule the server charges
+ * with (packages/rules priceChoices). While the picks aren't complete yet, the preview prices what
+ * is picked so far by the same rule, without the least-picks check.
+ */
 export function unitWithPicks(
   priceCents: number,
   groups: readonly ChoiceGroup[],
   variantId: string,
   picked: readonly string[],
 ): number {
-  let cents = priceCents;
-  for (const g of openGroups(groups, variantId, picked)) {
-    let n = 0;
-    for (const o of g.options) {
-      if (!picked.includes(o.id)) continue;
-      const extra =
-        g.included_choices != null && n >= g.included_choices ? (g.extra_choice_cents ?? 0) : 0;
-      cents += o.price_delta_cents + extra;
-      n += 1;
-    }
-  }
-  return cents;
+  const r = priceChoices({
+    variantId,
+    priceCents,
+    chosen: keepOpen(groups, variantId, picked),
+    groups: groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      required: false,
+      minChoices: 0,
+      maxChoices: most(g),
+      includedChoices: g.included_choices ?? null,
+      extraChoiceCents: g.extra_choice_cents ?? 0,
+      variantIds: g.variant_ids ?? null,
+      whenOptionId: g.when_option_id ?? null,
+      options: g.options.map((o) => ({
+        id: o.id,
+        name: o.name,
+        priceDeltaCents: o.price_delta_cents,
+        component: o.component ? { regularCents: o.component.price_cents } : null,
+      })),
+    })),
+  });
+  if (!r.ok) return priceCents;
+  return r.parentUnitCents + r.choices.reduce((s, c) => s + (c.component ? c.lineCents : 0), 0);
 }
