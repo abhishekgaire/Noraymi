@@ -6,10 +6,13 @@ import {
   orderById,
   type NewOrder,
   orderableVariant,
+  type OrderableVariant,
+  type OrderComponent,
   type OrderRow,
   type Queryable,
 } from "@west4/db";
-import { businessDate, packageLineShares } from "@west4/rules";
+import { randomUUID } from "node:crypto";
+import { businessDate, packageLineShares, priceChoices, type ChoiceRefusal } from "@west4/rules";
 import { cents, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
@@ -181,7 +184,7 @@ export async function orderItemsFor(
   now: Temporal.Instant,
 ): Promise<NewOrder["items"][number][]> {
   const nowIso = new Date(now.epochMilliseconds).toISOString();
-  const items = [];
+  const items: NewOrder["items"][number][] = [];
   let kitchen: boolean | undefined;
   for (const line of lines) {
     const v = await orderableVariant(c, venueId, line.variant_id, nowIso);
@@ -217,44 +220,32 @@ export async function orderItemsFor(
         details: { reason: "out_tonight", variant_id: v.variant_id },
       });
     const chosen = [...new Set(line.option_ids ?? [])];
-    const options: { group: string; name: string; price_delta_cents: number }[] = [];
     for (const optionId of chosen) {
-      const group = v.groups.find((g) => g.options.some((o) => o.id === optionId));
-      if (!group)
-        throw new ApiError("invalid_request", `that choice isn't one of ${name}'s`, {
-          details: { reason: "not_a_choice", option_id: optionId },
-        });
-      const option = group.options.find((o) => o.id === optionId)!;
-      if (option.out_tonight)
+      const option = v.groups.flatMap((g) => g.options).find((o) => o.id === optionId);
+      if (option?.out_tonight)
         throw new ApiError("invalid_request", `${name} · ${option.name} is 86'd tonight`, {
           details: { reason: "out_tonight", option_id: optionId },
         });
-      options.push({
-        group: group.name,
-        name: option.name,
-        price_delta_cents: option.price_delta_cents,
-      });
-    }
-    for (const g of v.groups) {
-      const picked = g.options.filter((o) => chosen.includes(o.id)).length;
-      const least = Math.max(g.min_choices, g.required ? 1 : 0);
-      if (picked < least)
-        throw new ApiError("invalid_request", `Pick ${g.name.toLowerCase()} for ${name}`, {
-          details: { reason: "choice_missing", variant_id: v.variant_id, group: g.name },
+      // A component that's food needs Kitchen & food on, like any food (K-02).
+      if (option?.component?.station === "kitchen" && !(kitchen ??= await kitchenOn(c, venueId)))
+        throw new ApiError("invalid_request", `${name} · ${option.name} isn't on the menu`, {
+          details: { reason: "kitchen_off", option_id: optionId },
         });
-      if (picked > g.max_choices)
-        throw new ApiError(
-          "invalid_request",
-          `${name} takes at most ${g.max_choices} ${g.name.toLowerCase()}`,
-          {
-            details: { reason: "too_many_choices", group: g.name },
-          },
-        );
     }
+    // The choices checked and priced (K-12): sizes, the groups a choice opens, included and extra
+    // picks, and components priced as their own lines.
+    const priced = priceChoices(choiceRules(v, chosen));
+    if (!priced.ok)
+      throw choiceRefused(priced.reason, priced.group, name, v.variant_id, v.groups, chosen);
+    const parentId = randomUUID();
     items.push({
+      id: parentId,
       variantId: v.variant_id,
       itemId: v.item_id,
-      options,
+      // The line's plain choices with what each adds; components are lines of their own.
+      options: priced.choices
+        .filter((x) => !x.component)
+        .map((x) => ({ group: x.groupName, name: x.name, price_delta_cents: x.lineCents })),
       qty: line.qty,
       unitCents: v.price_cents,
       name,
@@ -265,6 +256,26 @@ export async function orderItemsFor(
       kitchenNote: line.kitchen_note?.trim() ? line.kitchen_note.trim() : null,
       kitchenNoteAllergy: Boolean(line.kitchen_note?.trim()) && line.kitchen_note_allergy === true,
     });
+    // Each component: its own line, station and tax category, at its price, after its parent.
+    for (const x of priced.choices.filter((p) => p.component)) {
+      const part = v.groups.flatMap((g) => g.options).find((o) => o.id === x.optionId)!.component!;
+      items.push({
+        variantId: part.variant_id,
+        itemId: part.item_id,
+        options: [],
+        qty: line.qty,
+        unitCents: x.lineCents,
+        name: part.name,
+        alcohol: part.alcohol,
+        taxCategory: part.tax_category,
+        station: part.station,
+        notes: null,
+        kitchenNote: null,
+        kitchenNoteAllergy: false,
+        parentItemId: parentId,
+        component: { group: x.groupName, name: x.name, parent: name },
+      });
+    }
   }
 
   return items;
@@ -353,6 +364,71 @@ export async function placeRoomOrder(
   return orders;
 }
 
+/** A variant's choice groups as the pricing rule takes them (K-12). */
+function choiceRules(v: OrderableVariant, chosen: readonly string[]) {
+  return {
+    variantId: v.variant_id,
+    priceCents: v.price_cents,
+    chosen,
+    groups: v.groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      required: g.required,
+      minChoices: g.min_choices,
+      maxChoices: g.max_choices,
+      includedChoices: g.included_choices,
+      extraChoiceCents: g.extra_choice_cents,
+      variantIds: g.variant_ids,
+      whenOptionId: g.when_option_id,
+      options: g.options.map((o) => ({
+        id: o.id,
+        name: o.name,
+        priceDeltaCents: o.price_delta_cents,
+        component: o.component ? { regularCents: o.component.price_cents } : null,
+      })),
+    })),
+  };
+}
+
+/** A refused choice, worded as the order screens show it (the reasons are unchanged from M3-07). */
+function choiceRefused(
+  reason: ChoiceRefusal,
+  group: string | null,
+  name: string,
+  variantId: string,
+  groups: OrderableVariant["groups"],
+  chosen: readonly string[],
+): ApiError {
+  const lower = (group ?? "").toLowerCase();
+  switch (reason) {
+    case "not_a_choice":
+      return new ApiError("invalid_request", `that choice isn't one of ${name}'s`, {
+        details: {
+          reason,
+          option_id: chosen.find((id) => !groups.some((g) => g.options.some((o) => o.id === id))),
+        },
+      });
+    case "not_this_size":
+      return new ApiError("invalid_request", `${name} doesn't take ${lower}`, {
+        details: { reason, variant_id: variantId, group },
+      });
+    case "not_unlocked":
+      return new ApiError("invalid_request", `${group ?? ""} goes with another choice of ${name}`, {
+        details: { reason, variant_id: variantId, group },
+      });
+    case "choice_missing":
+      return new ApiError("invalid_request", `Pick ${lower} for ${name}`, {
+        details: { reason, variant_id: variantId, group },
+      });
+    case "too_many_choices": {
+      const max = groups.find((g) => g.name === group)?.max_choices ?? 1;
+      return new ApiError("invalid_request", `${name} takes at most ${max} ${lower}`, {
+        details: { reason, group },
+      });
+    }
+  }
+}
+
 export interface AgainRound {
   readonly order_id: string;
   readonly delivered_at: string | null;
@@ -398,7 +474,15 @@ export async function sameAgainRounds(
     const order = (await orderById(c, venueId, id))!;
     const lines: AgainRound["lines"][number][] = [];
     const leftOut: AgainRound["left_out"][number][] = [];
+    // A component (K-12) is ordered again as its line's choice, wherever its line printed.
+    const parts = await c.query<{ parent_item_id: string; component: OrderComponent }>(
+      `select parent_item_id, component from order_items
+        where venue_id = $1 and parent_item_id = any($2::uuid[]) and component is not null
+        order by sort, id`,
+      [venueId, order.items.map((i) => i.id)],
+    );
     for (const item of order.items) {
+      if (item.parent_item_id) continue;
       const v = item.variant_id
         ? await orderableVariant(c, venueId, item.variant_id, nowIso)
         : null;
@@ -409,21 +493,25 @@ export async function sameAgainRounds(
       const optionIds: string[] = [];
       let missing = false;
       let out = v.out_tonight || v.kitchen_stop !== null;
-      let extra = 0;
-      for (const o of item.options) {
+      const picks = [
+        ...item.options,
+        ...parts.rows.filter((p) => p.parent_item_id === item.id).map((p) => p.component),
+      ];
+      for (const o of picks) {
         const match = v.groups
           .find((g) => g.name === o.group)
           ?.options.find((x) => x.name === o.name);
         if (!match) missing = true;
         else {
           optionIds.push(match.id);
-          extra += match.price_delta_cents;
           out ||= match.out_tonight;
         }
       }
       const name = v.variant_count > 1 ? `${v.item_name} · ${v.variant_name}` : v.item_name;
-      const full = [name, ...item.options.map((o) => o.name)].join(" · ");
-      if (missing) leftOut.push({ name: full, reason: "not_on_menu" });
+      const full = [name, ...picks.map((o) => o.name)].join(" · ");
+      // Priced from today's menu with its components, as the order would be (K-12).
+      const priced = missing ? null : priceChoices(choiceRules(v, optionIds));
+      if (missing || !priced?.ok) leftOut.push({ name: full, reason: "not_on_menu" });
       else if (v.alcohol && block) leftOut.push({ name: full, reason: block });
       else if (out) leftOut.push({ name: full, reason: "out_tonight" });
       else
@@ -432,8 +520,10 @@ export async function sameAgainRounds(
           qty: item.qty,
           option_ids: optionIds,
           name,
-          options: item.options.map((o) => o.name),
-          unit_cents: v.price_cents + extra,
+          options: picks.map((o) => o.name),
+          unit_cents:
+            priced.parentUnitCents +
+            priced.choices.reduce((sum, x) => sum + (x.component ? x.lineCents : 0), 0),
         });
     }
     if (lines.length === 0) continue;

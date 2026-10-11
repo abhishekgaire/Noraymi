@@ -82,6 +82,11 @@ const BODIES = {
       required: z.boolean().optional(),
       min_choices: z.number().int().min(0).max(20).optional(),
       max_choices: z.number().int().min(1).max(20).optional(),
+      // K-12: included picks and each extra pick's price, the sizes it's for, the choice that opens it.
+      included_choices: z.number().int().min(0).max(20).nullable().optional(),
+      extra_choice_cents: money.optional(),
+      variant_ids: z.array(id).min(1).max(50).nullable().optional(),
+      when_option_id: id.nullable().optional(),
       sort: sort.optional(),
     })
     .strict(),
@@ -91,6 +96,8 @@ const BODIES = {
       name: z.string().trim().min(1).max(80),
       price_delta_cents: money.optional(),
       is_default: z.boolean().optional(),
+      // K-12: the choice is another menu item (a side, a soda), sold as its own line.
+      component_variant_id: id.nullable().optional(),
       sort: sort.optional(),
     })
     .strict(),
@@ -155,6 +162,67 @@ function present(row: Record<string, unknown>, now: string): Record<string, unkn
   return "out_until" in row
     ? { ...rest, out_tonight: out instanceof Date && out.toISOString() > now }
     : rest;
+}
+
+/**
+ * A choice group's and a choice's references, checked on the saved row (K-12), so a patch is
+ * checked against the row it changes: a group's sizes are its item's, the choice that opens it is
+ * another group's choice of the same item, and a component is a size of another item that needs
+ * no choice of its own (its line carries none). A refusal rolls the save back.
+ */
+async function checkChoiceRefs(
+  c: Queryable,
+  venueId: string,
+  table: MenuTable,
+  row: Record<string, unknown>,
+): Promise<void> {
+  if (table === "modifier_groups") {
+    const sizes = row["variant_ids"] as string[] | null;
+    if (sizes && sizes.length > 0) {
+      const r = await c.query<{ n: number }>(
+        "select count(*)::int as n from menu_variants where venue_id = $1 and item_id = $2 and id = any($3::uuid[])",
+        [venueId, row["item_id"], sizes],
+      );
+      if (r.rows[0]!.n !== new Set(sizes).size)
+        throw new ApiError("invalid_request", "a choice group's sizes must be its item's", {
+          details: { reason: "not_this_items_size" },
+        });
+    }
+    const when = row["when_option_id"] as string | null;
+    if (when) {
+      const r = await c.query<{ item_id: string; group_id: string }>(
+        "select item_id, group_id from menu_options where venue_id = $1 and id = $2",
+        [venueId, when],
+      );
+      const o = r.rows[0];
+      if (!o || o.item_id !== row["item_id"] || o.group_id === row["id"])
+        throw new ApiError(
+          "invalid_request",
+          "a group opens with a choice from another group of the same item",
+          { details: { reason: "bad_opening_choice" } },
+        );
+    }
+  }
+  if (table === "menu_options" && row["component_variant_id"]) {
+    const r = await c.query<{ item_id: string; needs_choice: boolean }>(
+      `select v.item_id, exists (select 1 from modifier_groups g where g.venue_id = v.venue_id and g.item_id = v.item_id
+                                   and (g.required or g.min_choices > 0)) as needs_choice
+         from menu_variants v where v.venue_id = $1 and v.id = $2`,
+      [venueId, row["component_variant_id"]],
+    );
+    const v = r.rows[0];
+    if (!v) throw new ApiError("invalid_request", "no such menu item for the choice");
+    if (v.item_id === row["item_id"])
+      throw new ApiError("invalid_request", "a choice can't be the item it belongs to", {
+        details: { reason: "component_is_itself" },
+      });
+    if (v.needs_choice)
+      throw new ApiError(
+        "invalid_request",
+        "a choice can't be an item that needs a choice of its own",
+        { details: { reason: "component_needs_choice" } },
+      );
+  }
 }
 
 export function menuRoutes(
@@ -297,6 +365,7 @@ export function menuRoutes(
       }
       if (table === "price_rules" && (row["pct_off"] == null) === (row["price_cents"] == null))
         throw new ApiError("invalid_request", "a price rule needs pct_off or price_cents");
+      await checkChoiceRefs(c, venueId, table, row);
       const version = await check(c, venueId, await thingsFor(c, venueId, table, row));
       if (version !== null && (table === "packages" || table === "price_rules"))
         row = await patchMenuRow(c, table, venueId, String(row["id"]), {

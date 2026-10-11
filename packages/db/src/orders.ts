@@ -23,6 +23,16 @@ export interface OrderItemRow {
   /** A food line's note for the kitchen (K-03, K-04): on the kitchen ticket only, boxed when it's an allergy. */
   readonly kitchen_note: string | null;
   readonly kitchen_note_allergy: boolean;
+  /** A component's line (K-12): the line it came with, and the choice it was. */
+  readonly parent_item_id: string | null;
+  readonly component: OrderComponent | null;
+}
+
+/** What a component's line (K-12) remembers: the choice it was, and the name of the line it came with. */
+export interface OrderComponent {
+  readonly group: string;
+  readonly name: string;
+  readonly parent: string;
 }
 
 export interface OrderRow {
@@ -172,7 +182,7 @@ async function withItems(
   if (rows.length === 0) return [];
   const items = await c.query<OrderItemRow & { order_id: string }>(
     `select id, order_id, variant_id, item_id, options, qty, unit_cents, name_snapshot, alcohol, tax_category, station, notes,
-            kitchen_note, kitchen_note_allergy
+            kitchen_note, kitchen_note_allergy, parent_item_id, component
        from order_items where venue_id = $1 and order_id = any($2::uuid[]) order by sort, id`,
     [venueId, rows.map((r) => r.id)],
   );
@@ -265,6 +275,9 @@ export interface NewOrder {
     readonly kitchenNoteAllergy?: boolean;
     /** The package the line came in (K-09). */
     readonly packageId?: string | null;
+    /** A component's line (K-12): the line it came with (its `id`), and the choice it was. */
+    readonly parentItemId?: string | null;
+    readonly component?: OrderComponent | null;
   }[];
 }
 
@@ -297,8 +310,10 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
   for (const [n, item] of o.items.entries()) {
     await c.query(
       `insert into order_items (id, venue_id, order_id, variant_id, item_id, options, qty, unit_cents,
-         name_snapshot, alcohol, tax_category, station, notes, sort, kitchen_note, kitchen_note_allergy, package_id)
-       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+         name_snapshot, alcohol, tax_category, station, notes, sort, kitchen_note, kitchen_note_allergy, package_id,
+         parent_item_id, component)
+       values (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+               $18, $19)`,
       [
         item.id ?? null,
         venueId,
@@ -317,6 +332,8 @@ export async function insertOrder(c: Queryable, venueId: string, o: NewOrder): P
         item.kitchenNote?.trim() ? item.kitchenNote.trim() : null,
         Boolean(item.kitchenNote?.trim()) && item.kitchenNoteAllergy === true,
         item.packageId ?? null,
+        item.parentItemId ?? null,
+        item.component ? JSON.stringify(item.component) : null,
       ],
     );
   }

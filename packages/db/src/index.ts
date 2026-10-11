@@ -389,6 +389,7 @@ export type {
   MenuVariant,
   MenuGroup,
   MenuOption,
+  MenuComponent,
   OrderableVariant,
 } from "./menu.js";
 export {
@@ -400,7 +401,7 @@ export {
   moveOrder,
   insertPrintJob,
 } from "./orders.js";
-export type { OrderRow, OrderItemRow, NewOrder } from "./orders.js";
+export type { OrderRow, OrderItemRow, OrderComponent, NewOrder } from "./orders.js";
 export { draftFor, saveDraft, clearDraft } from "./drafts.js";
 export type { DraftRow } from "./drafts.js";
 export {

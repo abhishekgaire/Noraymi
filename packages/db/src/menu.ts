@@ -113,12 +113,26 @@ export async function listMenuRows(
   return r.rows;
 }
 
+/** A choice that is another menu item (K-12): a side or a soda, sold as its own line. */
+export interface MenuComponent {
+  readonly item_id: string;
+  readonly variant_id: string;
+  /** The item's name, with the size when it has more than one ("Fries", "Beer · Draft"). */
+  readonly name: string;
+  readonly station: string;
+  readonly tax_category: string;
+  readonly alcohol: boolean;
+  /** Its regular price: the variant's. */
+  readonly price_cents: number;
+}
 export interface MenuOption {
   readonly id: string;
   readonly name: string;
   readonly price_delta_cents: number;
   readonly is_default: boolean;
   readonly out_tonight: boolean;
+  readonly component_variant_id: string | null;
+  readonly component: MenuComponent | null;
 }
 export interface MenuGroup {
   readonly id: string;
@@ -126,6 +140,13 @@ export interface MenuGroup {
   readonly required: boolean;
   readonly min_choices: number;
   readonly max_choices: number;
+  /** K-12: picks the price includes (null: not priced by the group), and each extra pick's price. */
+  readonly included_choices: number | null;
+  readonly extra_choice_cents: number;
+  /** K-12: the sizes the group applies to (null: every size). */
+  readonly variant_ids: string[] | null;
+  /** K-12: the choice of this item that opens the group (null: always open). */
+  readonly when_option_id: string | null;
   readonly options: MenuOption[];
 }
 export interface MenuVariant {
@@ -228,12 +249,12 @@ export async function menuTree(
       [venueId, now],
     ),
     client.query<Omit<MenuGroup, "options"> & { item_id: string }>(
-      `select id, item_id, name, required, min_choices, max_choices
+      `select id, item_id, name, required, min_choices, max_choices, included_choices, extra_choice_cents, variant_ids, when_option_id
          from modifier_groups where venue_id = $1 order by sort, name, id`,
       [venueId],
     ),
-    client.query<MenuOption & { group_id: string }>(
-      `select id, group_id, name, price_delta_cents, is_default, ${out("out_until")}
+    client.query<Omit<MenuOption, "component"> & { group_id: string }>(
+      `select id, group_id, name, price_delta_cents, is_default, component_variant_id, ${out("out_until")}
          from menu_options where venue_id = $1 order by sort, name, id`,
       [venueId, now],
     ),
@@ -243,6 +264,7 @@ export async function menuTree(
     for (const row of rows) m.set(row[key], [...(m.get(row[key]) ?? []), row]);
     return m;
   };
+  const components = await menuComponents(client, venueId, now);
   const optsByGroup = byKey(opts.rows, "group_id");
   const groupsByItem = byKey(groups.rows, "item_id");
   const variantsByItem = byKey(variants.rows, "item_id");
@@ -275,10 +297,57 @@ export async function menuTree(
         variants: (variantsByItem.get(item.id) ?? []).map(({ item_id: _, ...v }) => v),
         groups: (groupsByItem.get(item.id) ?? []).map(({ item_id: _, ...g }) => ({
           ...g,
-          options: (optsByGroup.get(g.id) ?? []).map(({ group_id: __, ...o }) => o),
+          options: (optsByGroup.get(g.id) ?? []).map(({ group_id: __, ...o }) => {
+            const part = o.component_variant_id
+              ? components.get(o.component_variant_id)
+              : undefined;
+            // A component that's 86'd (or its kitchen stopped or off) greys the choice out too.
+            const partOut =
+              (part?.out_tonight ?? false) || (kitchenOff && part?.station === "kitchen");
+            return {
+              ...o,
+              out_tonight: o.out_tonight || partOut,
+              component: part ? withoutOut(part) : null,
+            };
+          }),
         })),
       })),
     }));
+}
+
+const withoutOut = ({ out_tonight: _, ...c }: MenuComponent & { out_tonight: boolean }) => c;
+
+/**
+ * Every variant a choice names as its component (K-12), with what its line copies and whether
+ * it's out at `now`: 86'd, or food while the kitchen is stopped (K-07).
+ */
+async function menuComponents(
+  client: Queryable,
+  venueId: string,
+  now: string,
+): Promise<Map<string, MenuComponent & { out_tonight: boolean }>> {
+  const r = await client.query<MenuComponent & { out_tonight: boolean }>(
+    `select v.id as variant_id, i.id as item_id,
+            case when (select count(*) from menu_variants x where x.venue_id = v.venue_id and x.item_id = v.item_id) > 1
+                 then i.name || ' · ' || v.name else i.name end as name,
+            i.station, c.tax_category, i.alcohol, v.price_cents,
+            (coalesce(i.out_until > $2::timestamptz, false) or coalesce(v.out_until > $2::timestamptz, false)) as out_tonight
+       from menu_variants v
+       join menu_items i on i.venue_id = v.venue_id and i.id = v.item_id
+       join menu_categories c on c.venue_id = i.venue_id and c.id = i.category_id
+      where v.venue_id = $1
+        and v.id in (select component_variant_id from menu_options where venue_id = $1 and component_variant_id is not null)`,
+    [venueId, now],
+  );
+  const stop = r.rows.some((x) => x.station === "kitchen")
+    ? await kitchenStop(client, venueId, now)
+    : null;
+  return new Map(
+    r.rows.map((x) => [
+      x.variant_id,
+      { ...x, out_tonight: x.out_tonight || (x.station === "kitchen" && stop !== null) },
+    ]),
+  );
 }
 
 /** What the promotion checks need: each item's name, alcohol flag and regular price (its first variant). */
@@ -385,17 +454,23 @@ export interface OrderableVariant {
   readonly out_tonight: boolean;
   /** Food only (K-07): the kitchen isn't taking orders now, and why. Drinks: null. */
   readonly kitchen_stop: KitchenStop | null;
+  /** Every choice group of the item, those for other sizes included (the order checks them). */
   readonly groups: readonly {
     readonly id: string;
     readonly name: string;
     readonly required: boolean;
     readonly min_choices: number;
     readonly max_choices: number;
+    readonly included_choices: number | null;
+    readonly extra_choice_cents: number;
+    readonly variant_ids: readonly string[] | null;
+    readonly when_option_id: string | null;
     readonly options: readonly {
       readonly id: string;
       readonly name: string;
       readonly price_delta_cents: number;
       readonly out_tonight: boolean;
+      readonly component: MenuComponent | null;
     }[];
   }[];
 }
@@ -419,14 +494,10 @@ export async function orderableVariant(
   );
   const row = r.rows[0];
   if (!row) return null;
-  const groups = await client.query<{
-    id: string;
-    name: string;
-    required: boolean;
-    min_choices: number;
-    max_choices: number;
-  }>(
-    "select id, name, required, min_choices, max_choices from modifier_groups where venue_id = $1 and item_id = $2 order by sort, name, id",
+  const groups = await client.query<Omit<OrderableVariant["groups"][number], "options">>(
+    `select id, name, required, min_choices, max_choices, included_choices, extra_choice_cents,
+            variant_ids, when_option_id
+       from modifier_groups where venue_id = $1 and item_id = $2 order by sort, name, id`,
     [venueId, row.item_id],
   );
   const options = await client.query<{
@@ -435,17 +506,31 @@ export async function orderableVariant(
     name: string;
     price_delta_cents: number;
     out_tonight: boolean;
+    component_variant_id: string | null;
   }>(
-    `select id, group_id, name, price_delta_cents, coalesce(out_until > $3::timestamptz, false) as out_tonight
+    `select id, group_id, name, price_delta_cents, component_variant_id,
+            coalesce(out_until > $3::timestamptz, false) as out_tonight
        from menu_options where venue_id = $1 and item_id = $2 order by sort, name, id`,
     [venueId, row.item_id, now],
   );
+  const components = options.rows.some((o) => o.component_variant_id)
+    ? await menuComponents(client, venueId, now)
+    : new Map<string, MenuComponent & { out_tonight: boolean }>();
   return {
     ...row,
     kitchen_stop: row.station === "kitchen" ? await kitchenStop(client, venueId, now) : null,
     groups: groups.rows.map((g) => ({
       ...g,
-      options: options.rows.filter((o) => o.group_id === g.id).map(({ group_id: _, ...o }) => o),
+      options: options.rows
+        .filter((o) => o.group_id === g.id)
+        .map(({ group_id: _, component_variant_id: part, ...o }) => {
+          const c = part ? components.get(part) : undefined;
+          return {
+            ...o,
+            out_tonight: o.out_tonight || (c?.out_tonight ?? false),
+            component: c ? withoutOut(c) : null,
+          };
+        }),
     })),
   };
 }

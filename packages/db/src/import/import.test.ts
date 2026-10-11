@@ -305,10 +305,15 @@ describe("the bar grid for an imported menu (M9-04)", () => {
     expect(base.beer[1]).toBeNull();
   });
 
-  it("lists an item whose section is full", () => {
+  it("grows a full section by a page (K-12), and lists an item once all four are full", () => {
     const base = emptyPosLayout();
     base.wine.fill("x");
-    expect(placeItems(base, [{ id: "w", name: "Red", section: "wine" }]).notPlaced).toEqual([
+    const grown = placeItems(base, [{ id: "w", name: "Red", section: "wine" }]);
+    expect(grown.notPlaced).toEqual([]);
+    expect(grown.sections.wine).toHaveLength(50);
+    expect(grown.sections.wine[25]).toBe("w");
+    const full = { ...emptyPosLayout(), wine: Array<string | null>(100).fill("x") };
+    expect(placeItems(full, [{ id: "w", name: "Red", section: "wine" }]).notPlaced).toEqual([
       { item: "Red", why: "the wine section is full" },
     ]);
   });

@@ -16,7 +16,8 @@
         "alcohol": "Alcohol",
         "tax_category": "Tax",
         "station": "Station",
-        "pos_section": "Grid"
+        "pos_section": "Grid",
+        "description": "Description"
       }
     },
     "modifiers": {
@@ -30,7 +31,13 @@
         "price_delta": "Extra",
         "required": "Required",
         "min_choices": "Min",
-        "max_choices": "Max"
+        "max_choices": "Max",
+        "is_default": "Default",
+        "included": "Included",
+        "extra_price": "Extra pick price",
+        "variants": "Sizes",
+        "when": "When",
+        "component": "Item"
       }
     }
   }

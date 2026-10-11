@@ -36,12 +36,38 @@ export const FIELDS: Record<Kind, { required: readonly string[]; optional: reado
   // The tax category is the export's or the mapping's default, never guessed (M9-04).
   menu: {
     required: ["legacy_ref", "name", "category", "price", "alcohol", "tax_category"],
-    optional: ["button_name", "variant", "sort", "item_ref", "station", "pos_section"],
+    optional: [
+      "button_name",
+      "variant",
+      "sort",
+      "item_ref",
+      "station",
+      "pos_section",
+      // K-12: what the guest menus show under the item's name.
+      "description",
+    ],
   },
-  /** One row per choice in a modifier group of an item (M9-04). */
+  /**
+   * One row per choice in a modifier group of an item (M9-04). K-12: a group's included picks and
+   * each extra pick's price, the sizes it's for (the menu lines' legacy refs, "A; B"), the choice
+   * that opens it (a choice's legacy ref, on an earlier line); a choice's component (the legacy
+   * ref of the menu line it is).
+   */
   modifiers: {
     required: ["legacy_ref", "item_ref", "group", "name"],
-    optional: ["price_delta", "required", "min_choices", "max_choices", "is_default", "sort"],
+    optional: [
+      "price_delta",
+      "required",
+      "min_choices",
+      "max_choices",
+      "is_default",
+      "sort",
+      "included",
+      "extra_price",
+      "variants",
+      "when",
+      "component",
+    ],
   },
   /** Packages, checked against the rule pack on save like Admin's (M9-04). Contents: "ITEM:2; ITEM2". */
   packages: {

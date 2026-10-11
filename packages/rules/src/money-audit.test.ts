@@ -79,6 +79,8 @@ const AS_STORED_INPUTS = new Set([
   "approvals",
   // A package's lines (K-09) are stored as item lines, each its share of the package price.
   "package_lines",
+  // A line's choices and components (K-12) are stored as item lines, each at its price.
+  "menu_choices",
 ]);
 
 describe("the money cases, every group, through the audit (M9-15)", () => {

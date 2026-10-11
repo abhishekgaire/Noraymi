@@ -5,6 +5,16 @@ import { serverNowMs, useClock } from "../clock.js";
 import { useSession } from "../session.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
+import {
+  choiceLabel,
+  defaultPicks,
+  missingGroup,
+  needsPick,
+  openGroups,
+  prunePicks,
+  unitWithChoices,
+  type ChoiceGroupLike,
+} from "./choices.js";
 import { useCutOffWords } from "./CutOff.js";
 import {
   SendToKitchen,
@@ -32,9 +42,7 @@ interface Option {
   readonly is_default: boolean;
   readonly out_tonight: boolean;
 }
-interface Group {
-  readonly id: string;
-  readonly name: string;
+interface Group extends ChoiceGroupLike {
   readonly required: boolean;
   readonly options: readonly Option[];
 }
@@ -281,9 +289,7 @@ export function AddDrinks(props: {
     const line: DraftLine = {
       variant_id: variant.id,
       qty: 1,
-      option_ids:
-        optionIds ??
-        item.groups.flatMap((g) => g.options.filter((o) => o.is_default).map((o) => o.id)),
+      option_ids: optionIds ?? defaultPicks(item.groups, variant.id),
       ...(item.station === "kitchen" && at !== null ? { rung_at: new Date(at).toISOString() } : {}),
     };
     const same = lines.findIndex((l) => sameLine(l, line));
@@ -310,16 +316,17 @@ export function AddDrinks(props: {
         ? lines.filter((_, j) => j !== i)
         : lines.map((l, j) => (j === i ? { ...l, qty } : l)),
     );
+  // A choice that closes a group (K-12: the meal taken off) drops that group's picks too.
   const choose = (i: number, group: Group, optionId: string) =>
     void save(
       lines.map((l, j) =>
         j === i
           ? {
               ...l,
-              option_ids: [
+              option_ids: prunePicks(byVariant.get(l.variant_id)?.item.groups ?? [], l.variant_id, [
                 ...l.option_ids.filter((o) => !group.options.some((x) => x.id === o)),
                 ...(optionId ? [optionId] : []),
-              ],
+              ]),
             }
           : l,
       ),
@@ -329,9 +336,7 @@ export function AddDrinks(props: {
   const missing = lines
     .map((l) => {
       const found = byVariant.get(l.variant_id);
-      const group = found?.item.groups.find(
-        (g) => g.required && !g.options.some((o) => l.option_ids.includes(o.id)),
-      );
+      const group = found ? missingGroup(found.item.groups, l.variant_id, l.option_ids) : undefined;
       return found && group ? { name: found.item.name, group: group.name.toLowerCase() } : null;
     })
     .find((x) => x !== null);
@@ -609,15 +614,9 @@ export function AddDrinks(props: {
               if (!found) return null;
               const { item, variant } = found;
               const label = item.variants.length > 1 ? `${item.name} · ${variant.name}` : item.name;
-              const held = item.groups.some(
-                (g) => g.required && !g.options.some((o) => l.option_ids.includes(o.id)),
-              );
-              const unit =
-                variant.price_cents +
-                item.groups
-                  .flatMap((g) => g.options)
-                  .filter((o) => l.option_ids.includes(o.id))
-                  .reduce((s, o) => s + o.price_delta_cents, 0);
+              const held = missingGroup(item.groups, variant.id, l.option_ids) !== undefined;
+              // The order's price, components and extra picks included (K-12).
+              const unit = unitWithChoices(item.groups, variant, l.option_ids);
               return (
                 <li key={`${l.variant_id}-${i}`} className={`unsent-line ${held ? "amber" : ""}`}>
                   <div className="unsent-head">
@@ -644,7 +643,7 @@ export function AddDrinks(props: {
                     >
                       +
                     </button>
-                    {item.groups.map((g) => {
+                    {openGroups(item.groups, variant.id, l.option_ids).map((g) => {
                       const picked = g.options.find((o) => l.option_ids.includes(o.id));
                       return (
                         <select
@@ -654,17 +653,17 @@ export function AddDrinks(props: {
                           onChange={(e) => choose(i, g, e.target.value)}
                         >
                           <option value="">
-                            {g.required
+                            {needsPick(g)
                               ? t("drinks.pick", { group: g.name.toLowerCase() })
                               : t("drinks.none", { group: g.name.toLowerCase() })}
                           </option>
                           {g.options.map((o) => (
                             <option key={o.id} value={o.id} disabled={o.out_tonight}>
                               {o.out_tonight
-                                ? `${o.name} · ${t("drinks.out")}`
+                                ? `${choiceLabel(o)} · ${t("drinks.out")}`
                                 : o.price_delta_cents > 0
-                                  ? `${o.name} +${money(o.price_delta_cents as never)}`
-                                  : o.name}
+                                  ? `${choiceLabel(o)} +${money(o.price_delta_cents as never)}`
+                                  : choiceLabel(o)}
                             </option>
                           ))}
                         </select>

@@ -20,11 +20,20 @@ interface Option {
   readonly price_delta_cents: number;
   readonly is_default: boolean;
   readonly out_tonight: boolean;
+  /** K-12: the choice is another menu item (a side, a soda), sold as its own line. */
+  readonly component_variant_id?: string | null;
 }
 interface Group {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
+  readonly min_choices?: number;
+  readonly max_choices?: number;
+  /** K-12: picks included, each extra pick's price, the sizes it's for, the choice that opens it. */
+  readonly included_choices?: number | null;
+  readonly extra_choice_cents?: number;
+  readonly variant_ids?: readonly string[] | null;
+  readonly when_option_id?: string | null;
   readonly options: readonly Option[];
 }
 interface Variant {
@@ -519,25 +528,62 @@ function ItemEditor(props: {
       id: g.id as string | null,
       name: g.name,
       required: g.required,
+      max: String(g.max_choices ?? 1),
+      included: g.included_choices == null ? "" : String(g.included_choices),
+      extraPick: centsText(g.extra_choice_cents ?? 0),
+      sizes: [...(g.variant_ids ?? [])],
+      when: g.when_option_id ?? "",
       options: g.options.map((o) => ({
         id: o.id as string | null,
         name: o.name,
         extra: centsText(o.price_delta_cents),
         isDefault: o.is_default,
+        component: o.component_variant_id ?? "",
       })),
     })),
   );
+  // K-12: another item's size a choice can be (a side, a soda), named "Item · Size".
+  const parts = props.categories.flatMap((c) =>
+    c.items
+      .filter((i) => i.id !== item.id)
+      .flatMap((i) =>
+        i.variants.map((v) => ({
+          id: v.id,
+          label: i.variants.length > 1 ? `${i.name} · ${v.name}` : i.name,
+        })),
+      ),
+  );
+  // The saved choices of this item's other groups, which can open a group.
+  const openers = (groupId: string | null) =>
+    item.groups
+      .filter((g) => g.id !== groupId)
+      .flatMap((g) => g.options.map((o) => ({ id: o.id, label: `${g.name} · ${o.name}` })));
+  const whole = (s: string, least: number) =>
+    /^\d{1,2}$/.test(s.trim()) && Number(s) >= least && Number(s) <= 20;
   const [invalid, setInvalid] = useState(false);
+  const [invalidCount, setInvalidCount] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const priced = variants.map((v) => ({ ...v, cents: dollarsToCents(v.price) }));
     const extras = groups.map((g) => g.options.map((o) => dollarsToCents(o.extra)));
-    if (priced.some((v) => v.cents === null) || extras.flat().some((c) => c === null)) {
+    const extraPicks = groups.map((g) => dollarsToCents(g.extraPick));
+    if (
+      priced.some((v) => v.cents === null) ||
+      extras.flat().some((c) => c === null) ||
+      extraPicks.some((c) => c === null)
+    ) {
       setInvalid(true);
       return;
     }
+    if (
+      groups.some((g) => !whole(g.max, 1) || (g.included.trim() !== "" && !whole(g.included, 0)))
+    ) {
+      setInvalidCount(true);
+      return;
+    }
     setInvalid(false);
+    setInvalidCount(false);
     const saves: Save[] = [];
     const itemBody: Record<string, unknown> = {};
     if (name.trim() !== item.name) itemBody["name"] = name.trim();
@@ -574,19 +620,21 @@ function ItemEditor(props: {
         cents: extras[gi]![oi]!,
       }));
       const ref = `@group${gi}`;
+      const settings = {
+        name: g.name.trim(),
+        required: g.required,
+        min_choices: g.required ? 1 : 0,
+        max_choices: Number(g.max),
+        included_choices: g.included.trim() === "" ? null : Number(g.included),
+        extra_choice_cents: extraPicks[gi]!,
+        variant_ids: g.sizes.length > 0 ? g.sizes : null,
+        when_option_id: g.when || null,
+      };
       saves.push({
         ...(was ? {} : { as: ref }),
         method: was ? "PATCH" : "POST",
         path: was ? `/menu/modifier-groups/${was.id}` : "/menu/modifier-groups",
-        body: was
-          ? { name: g.name.trim(), required: g.required, min_choices: g.required ? 1 : 0 }
-          : {
-              item_id: item.id,
-              name: g.name.trim(),
-              required: g.required,
-              min_choices: g.required ? 1 : 0,
-              max_choices: 1,
-            },
+        body: was ? settings : { item_id: item.id, ...settings },
       });
       for (const o of options) {
         const old = was?.options.find((x) => x.id === o.id);
@@ -594,6 +642,7 @@ function ItemEditor(props: {
           name: o.name.trim(),
           price_delta_cents: o.cents,
           is_default: o.isDefault,
+          component_variant_id: o.component || null,
         };
         if (!old)
           saves.push({
@@ -604,7 +653,8 @@ function ItemEditor(props: {
         else if (
           old.name !== body.name ||
           old.price_delta_cents !== body.price_delta_cents ||
-          old.is_default !== body.is_default
+          old.is_default !== body.is_default ||
+          (old.component_variant_id ?? null) !== body.component_variant_id
         )
           saves.push({ method: "PATCH", path: `/menu/options/${old.id}`, body });
       }
@@ -727,6 +777,70 @@ function ItemEditor(props: {
               />
               <span>{t("menuAdmin.group.required")}</span>
             </label>
+            <div className="invite-fields">
+              <label>
+                <span>{t("menuAdmin.group.max")}</span>
+                <input
+                  inputMode="numeric"
+                  value={g.max}
+                  aria-invalid={!whole(g.max, 1)}
+                  onChange={(e) => setGroup({ max: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>{t("menuAdmin.group.included")}</span>
+                <input
+                  inputMode="numeric"
+                  value={g.included}
+                  aria-invalid={g.included.trim() !== "" && !whole(g.included, 0)}
+                  onChange={(e) => setGroup({ included: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>{t("menuAdmin.group.extraPick")}</span>
+                <input
+                  inputMode="decimal"
+                  value={g.extraPick}
+                  disabled={g.included.trim() === ""}
+                  aria-invalid={dollarsToCents(g.extraPick) === null}
+                  onChange={(e) => setGroup({ extraPick: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>{t("menuAdmin.group.when")}</span>
+                <select value={g.when} onChange={(e) => setGroup({ when: e.target.value })}>
+                  <option value="">{t("menuAdmin.group.when.always")}</option>
+                  {openers(g.id).map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {t("menuAdmin.group.when.option", { choice: o.label })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <p className="small muted">{t("menuAdmin.group.included.hint")}</p>
+            {item.variants.length > 1 && (
+              <fieldset className="menu-sizes">
+                <legend>{t("menuAdmin.group.sizes")}</legend>
+                <p className="small muted">{t("menuAdmin.group.sizes.all")}</p>
+                {item.variants.map((v) => (
+                  <label key={v.id} className="switch-line">
+                    <input
+                      type="checkbox"
+                      checked={g.sizes.includes(v.id)}
+                      onChange={(e) =>
+                        setGroup({
+                          sizes: e.target.checked
+                            ? [...g.sizes, v.id]
+                            : g.sizes.filter((x) => x !== v.id),
+                        })
+                      }
+                    />
+                    <span data-guest-text>{v.name}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             {g.options.map((o, oi) => {
               const setOption = (next: Partial<(typeof g.options)[number]>) =>
                 setGroup({
@@ -754,6 +868,20 @@ function ItemEditor(props: {
                       onChange={(e) => setOption({ extra: e.target.value })}
                     />
                   </label>
+                  <label>
+                    <span>{t("menuAdmin.option.component")}</span>
+                    <select
+                      value={o.component}
+                      onChange={(e) => setOption({ component: e.target.value })}
+                    >
+                      <option value="">{t("menuAdmin.option.component.none")}</option>
+                      {parts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="switch-line">
                     <input
                       type="checkbox"
@@ -770,19 +898,38 @@ function ItemEditor(props: {
               className="secondary"
               onClick={() =>
                 setGroup({
-                  options: [...g.options, { id: null, name: "", extra: "0.00", isDefault: false }],
+                  options: [
+                    ...g.options,
+                    { id: null, name: "", extra: "0.00", isDefault: false, component: "" },
+                  ],
                 })
               }
             >
               {t("menuAdmin.option.add")}
             </button>
+            <p className="small muted">{t("menuAdmin.option.component.hint")}</p>
           </fieldset>
         );
       })}
       <button
         type="button"
         className="secondary"
-        onClick={() => setGroups([...groups, { id: null, name: "", required: false, options: [] }])}
+        onClick={() =>
+          setGroups([
+            ...groups,
+            {
+              id: null,
+              name: "",
+              required: false,
+              max: "1",
+              included: "",
+              extraPick: "0.00",
+              sizes: [],
+              when: "",
+              options: [],
+            },
+          ])
+        }
       >
         {t("menuAdmin.group.add")}
       </button>
@@ -790,6 +937,11 @@ function ItemEditor(props: {
       {invalid && (
         <p className="error" role="alert">
           {t("menuAdmin.invalidPrice")}
+        </p>
+      )}
+      {invalidCount && (
+        <p className="error" role="alert">
+          {t("menuAdmin.invalidCount")}
         </p>
       )}
       <div className="team-actions">

@@ -102,10 +102,25 @@ export function MenuPage({
                       {item.description && v === item.variants[0] && (
                         <p className="desc">{item.description}</p>
                       )}
-                      {v === item.variants[0] &&
-                        item.groups.map((g) => (
+                      {/* A group shows under the sizes it's for: every size's under the first (K-12). */}
+                      {item.groups
+                        .filter((g) =>
+                          g.variant_ids ? g.variant_ids.includes(v.id) : v === item.variants[0],
+                        )
+                        .map((g) => (
                           <p key={g.id} className="choices">
-                            {g.name}:{" "}
+                            {g.name}
+                            {g.included_choices != null && (g.extra_choice_cents ?? 0) > 0 && (
+                              <>
+                                {" ("}
+                                {t("en", "guestRoom.choice.included", {
+                                  count: String(g.included_choices),
+                                  price: money(g.extra_choice_cents ?? 0),
+                                })}
+                                {")"}
+                              </>
+                            )}
+                            :{" "}
                             {g.options
                               .map((o) =>
                                 o.out_tonight

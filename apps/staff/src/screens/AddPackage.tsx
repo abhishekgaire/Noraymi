@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import {
+  choiceLabel,
+  missingGroup,
+  needsPick,
+  openGroups,
+  togglePick,
+  type ChoiceGroupLike,
+} from "./choices.js";
 
 /**
  * A package on a room's tab (K-09; spec 16 · Food in packages). [Add a package] lists the packages
@@ -9,16 +17,15 @@ import { useT } from "../i18n.js";
  * until Send to kitchen. The tab lists the package's lines under its name. Shown only while the
  * Packages module is on and the venue has a package to sell.
  */
-interface Group {
-  readonly id: string;
-  readonly name: string;
+interface Group extends ChoiceGroupLike {
   readonly required: boolean;
   readonly min_choices: number;
   readonly max_choices: number;
-  readonly options: readonly { readonly id: string; readonly name: string }[];
 }
 interface Content {
   readonly item_id: string;
+  /** The size the package sells (K-12: a group for some sizes only); absent: every group applies. */
+  readonly variant_id?: string;
   readonly name: string | null;
   readonly qty: number;
   readonly food: boolean;
@@ -39,7 +46,10 @@ export interface PackageLine {
   readonly package?: { readonly id: string; readonly name: string } | undefined;
 }
 
-const needs = (g: Group) => g.required || g.min_choices > 0;
+/** A content's groups as its size sees them (K-12). */
+const groupsOf = (c: Content): Group[] =>
+  c.variant_id ? [...c.groups] : c.groups.map((g) => ({ ...g, variant_ids: null }));
+const sizeOf = (c: Content) => c.variant_id ?? "";
 
 export function AddPackage(props: {
   venueId: string;
@@ -73,18 +83,11 @@ export function AddPackage(props: {
     if (l.kind === "item" && l.package)
       grouped.set(l.package.name, [...(grouped.get(l.package.name) ?? []), l]);
 
-  const toggle = (n: number, g: Group, id: string) => {
-    const mine = picks[n] ?? [];
-    const inGroup = mine.filter((p) => g.options.some((o) => o.id === p));
-    let next: readonly string[];
-    if (mine.includes(id)) next = mine.filter((p) => p !== id);
-    else if (g.max_choices <= 1) next = [...mine.filter((p) => !inGroup.includes(p)), id];
-    else if (inGroup.length >= g.max_choices) return;
-    else next = [...mine, id];
-    setPicks({ ...picks, [n]: next });
-  };
-  const missing = chosen?.contents.some((c, n) =>
-    c.groups.some((g) => needs(g) && !g.options.some((o) => (picks[n] ?? []).includes(o.id))),
+  // A choice that opens a group (K-12) shows it; one that closes it drops its picks.
+  const toggle = (n: number, c: Content, g: Group, id: string) =>
+    setPicks({ ...picks, [n]: togglePick(groupsOf(c), sizeOf(c), picks[n] ?? [], g, id) });
+  const missing = chosen?.contents.some(
+    (c, n) => missingGroup(groupsOf(c), sizeOf(c), picks[n] ?? []) !== undefined,
   );
   const sellable = (p: Pkg) => p.contents.every((c) => c.available);
 
@@ -187,10 +190,10 @@ export function AddPackage(props: {
             ))}
           </ul>
           {chosen.contents.flatMap((c, n) =>
-            c.groups.map((g) => (
+            openGroups(groupsOf(c), sizeOf(c), picks[n] ?? []).map((g) => (
               <fieldset key={`${n}:${g.id}`}>
                 <legend>
-                  {needs(g)
+                  {needsPick(g)
                     ? t("kitchen.choices.pickOne", { group: g.name })
                     : t("kitchen.choices.optional", { group: g.name })}{" "}
                   · <span data-guest-text>{t("packages.pick", { name: c.name ?? "" })}</span>
@@ -202,9 +205,9 @@ export function AddPackage(props: {
                       type="button"
                       className={(picks[n] ?? []).includes(o.id) ? "chip on" : "chip"}
                       aria-pressed={(picks[n] ?? []).includes(o.id)}
-                      onClick={() => toggle(n, g, o.id)}
+                      onClick={() => toggle(n, c, g, o.id)}
                     >
-                      <span data-guest-text>{o.name}</span>
+                      <span data-guest-text>{choiceLabel(o)}</span>
                     </button>
                   ))}
                 </div>

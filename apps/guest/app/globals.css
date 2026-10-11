@@ -339,6 +339,14 @@ a {
   color: var(--text);
   box-shadow: none;
 }
+/* An item's description on the room menu (K-12), under its name. */
+.guest .menu-item .desc {
+  display: block;
+  margin: 2px 0 6px;
+  font-size: 0.85em;
+  font-weight: normal;
+  color: var(--text-2);
+}
 .guest .menu-item:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--text);

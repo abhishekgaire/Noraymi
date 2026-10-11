@@ -1,10 +1,24 @@
 import { useState } from "react";
 import { useT } from "../i18n.js";
+import {
+  choiceLabel,
+  defaultPicks,
+  missingGroup,
+  needsPick,
+  openGroups,
+  prunePicks,
+  togglePick,
+  unitWithChoices,
+  type ChoiceGroupLike,
+} from "./choices.js";
 
 /**
  * A food item's choices on the bar POS (K-05, D100; FoodBar.dc.html · "Wings · choices pop up on
  * tap"): the size, then each group of choices. A required choice must be picked before Add; an
  * optional one ("Make it a meal") can be skipped. A group lets as many choices as its max allows.
+ * K-12: a group shows only for its sizes and once the choice that opens it is picked ("Make it a
+ * meal" opens the side and the drink); included picks and the extra price show under its name;
+ * the price is the order's, components included.
  */
 export interface ChoiceItem {
   readonly id: string;
@@ -15,26 +29,13 @@ export interface ChoiceItem {
     readonly price_cents: number;
     readonly out_tonight: boolean;
   }[];
-  readonly groups: readonly {
-    readonly id: string;
-    readonly name: string;
-    readonly required?: boolean;
-    readonly min_choices?: number;
-    readonly max_choices?: number;
-    readonly options: readonly {
-      readonly id: string;
-      readonly name: string;
-      readonly out_tonight: boolean;
-      readonly price_delta_cents?: number;
-      readonly is_default?: boolean;
-    }[];
-  }[];
+  readonly groups: readonly ChoiceGroupLike[];
 }
-
-const needs = (g: ChoiceItem["groups"][number]) => g.required === true || (g.min_choices ?? 0) > 0;
 
 export function FoodChoices(props: {
   item: ChoiceItem;
+  /** A drink with choices (K-12: sizes, many picks) opens the same sheet, without the food chip. */
+  drink?: boolean;
   onAdd: (variantId: string, optionIds: readonly string[]) => void;
   onCancel: () => void;
 }) {
@@ -45,34 +46,21 @@ export function FoodChoices(props: {
       ? item.variants[0]!.id
       : (item.variants.find((v) => !v.out_tonight)?.id ?? ""),
   );
-  const [picked, setPicked] = useState<readonly string[]>(
-    item.groups.flatMap((g) =>
-      g.options.filter((o) => o.is_default && !o.out_tonight).map((o) => o.id),
-    ),
-  );
-  const toggle = (g: ChoiceItem["groups"][number], id: string) => {
-    const max = g.max_choices ?? 1;
-    const inGroup = picked.filter((p) => g.options.some((o) => o.id === p));
-    if (picked.includes(id)) return setPicked(picked.filter((p) => p !== id));
-    // One choice: picking another replaces it. More: up to the group's max.
-    if (max <= 1) return setPicked([...picked.filter((p) => !inGroup.includes(p)), id]);
-    if (inGroup.length >= max) return;
-    setPicked([...picked, id]);
+  const [picked, setPicked] = useState<readonly string[]>(defaultPicks(item.groups, variant));
+  // One choice: picking another replaces it. More: up to the group's max. A closed group's picks drop.
+  const toggle = (g: ChoiceGroupLike, id: string) =>
+    setPicked(togglePick(item.groups, variant, picked, g, id));
+  const pickSize = (id: string) => {
+    setVariant(id);
+    setPicked(prunePicks(item.groups, id, picked));
   };
-  const missing = item.groups.find(
-    (g) => needs(g) && !g.options.some((o) => picked.includes(o.id)),
-  );
+  const missing = missingGroup(item.groups, variant, picked);
   const v = item.variants.find((x) => x.id === variant);
-  const price =
-    (v?.price_cents ?? 0) +
-    item.groups
-      .flatMap((g) => g.options)
-      .filter((o) => picked.includes(o.id))
-      .reduce((s, o) => s + (o.price_delta_cents ?? 0), 0);
+  const price = v ? unitWithChoices(item.groups, v, picked) : 0;
   return (
     <div className="sheet food-choices" role="dialog" aria-label={item.name}>
       <h3 data-guest-text>
-        {item.name} <span className="kchip">{t("kitchen.chip")}</span>
+        {item.name} {!props.drink && <span className="kchip">{t("kitchen.chip")}</span>}
       </h3>
       {item.variants.length > 1 && (
         <fieldset>
@@ -85,7 +73,7 @@ export function FoodChoices(props: {
                 className={x.id === variant ? "chip on" : "chip"}
                 aria-pressed={x.id === variant}
                 disabled={x.out_tonight}
-                onClick={() => setVariant(x.id)}
+                onClick={() => pickSize(x.id)}
               >
                 <span data-guest-text>{x.name}</span>{" "}
                 {x.out_tonight ? t("drinks.out") : money(x.price_cents as never)}
@@ -94,15 +82,25 @@ export function FoodChoices(props: {
           </div>
         </fieldset>
       )}
-      {item.groups.map((g) => (
+      {openGroups(item.groups, variant, picked).map((g) => (
         <fieldset key={g.id}>
           <legend>
-            {needs(g)
+            {needsPick(g)
               ? (g.max_choices ?? 1) > 1
                 ? t("kitchen.choices.pickUpTo", { group: g.name, n: g.max_choices ?? 1 })
                 : t("kitchen.choices.pickOne", { group: g.name })
               : t("kitchen.choices.optional", { group: g.name })}
           </legend>
+          {g.included_choices != null && (
+            <p className="hint">
+              {(g.extra_choice_cents ?? 0) > 0
+                ? t("kitchen.choices.included", {
+                    n: g.included_choices,
+                    price: money((g.extra_choice_cents ?? 0) as never),
+                  })
+                : t("kitchen.choices.includedOnly", { n: g.included_choices })}
+            </p>
+          )}
           <div className="choice-row">
             {g.options.map((o) => (
               <button
@@ -113,7 +111,7 @@ export function FoodChoices(props: {
                 disabled={o.out_tonight}
                 onClick={() => toggle(g, o.id)}
               >
-                <span data-guest-text>{o.name}</span>
+                <span data-guest-text>{choiceLabel(o)}</span>
                 {o.out_tonight
                   ? ` · ${t("drinks.out")}`
                   : (o.price_delta_cents ?? 0) > 0
