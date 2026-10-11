@@ -18,11 +18,18 @@ const vendorPool = new pg.Pool({
   application_name: "west4-vendor-calls",
 });
 setVendorObserver(databaseVendorObserver(vendorPool, makeClock(config, vendorPool)));
+// The browser tests flip modules straight in the database between tests, which the module cache
+// wouldn't see for a few seconds: locally, MODULE_CACHE_MS=0 reads every venue's modules afresh.
+const moduleCacheMs =
+  config.env === "local" && process.env["MODULE_CACHE_MS"] !== undefined
+    ? Number(process.env["MODULE_CACHE_MS"])
+    : undefined;
 const app = buildApp({
   logger: true,
   config,
   email: loadEmailSettings(config.env),
   push: loadPushSettings(config.env),
+  ...(moduleCacheMs !== undefined && Number.isFinite(moduleCacheMs) ? { moduleCacheMs } : {}),
 });
 
 app.listen({ port: config.port, host: config.host }).catch((error: unknown) => {

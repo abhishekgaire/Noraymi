@@ -111,23 +111,27 @@ test("an IPC message from an unexpected frame is refused; the token is kept in n
     // A page that isn't ours (the API's origin, not the staff app's), with the same preload:
     // the bridge is there, and the main process refuses it by its sender.
     const preload = path.join(desktopDir, "dist", "preload.cjs");
-    const refused = await app.evaluate(async ({ BrowserWindow }, preloadPath) => {
-      const stranger = new BrowserWindow({
-        show: false,
-        webPreferences: {
-          preload: preloadPath,
-          contextIsolation: true,
-          sandbox: true,
-          nodeIntegration: false,
-        },
-      });
-      await stranger.loadURL(`${API}/v1/health`);
-      const answer = await stranger.webContents.executeJavaScript(
-        `(() => { try { return window.west4.token.get().then(() => "allowed", (e) => String(e)); } catch (e) { return "no bridge: " + String(e); } })()`,
-      );
-      stranger.destroy();
-      return answer as string;
-    }, preload);
+    // The closure runs in Electron's main process, so the URL goes in as an argument.
+    const refused = await app.evaluate(
+      async ({ BrowserWindow }, { preloadPath, healthUrl }) => {
+        const stranger = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            preload: preloadPath,
+            contextIsolation: true,
+            sandbox: true,
+            nodeIntegration: false,
+          },
+        });
+        await stranger.loadURL(healthUrl);
+        const answer = await stranger.webContents.executeJavaScript(
+          `(() => { try { return window.west4.token.get().then(() => "allowed", (e) => String(e)); } catch (e) { return "no bridge: " + String(e); } })()`,
+        );
+        stranger.destroy();
+        return answer as string;
+      },
+      { preloadPath: preload, healthUrl: `${API}/v1/health` },
+    );
     expect(refused).toMatch(/refused/);
   } finally {
     await app.close();

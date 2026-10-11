@@ -112,8 +112,14 @@ const scheduler = new Scheduler(pool, {
 // sweeps days later than the night: the 4:30 AM tab cut-off charging every open tab, the 4 AM stop.
 await clock.refresh?.();
 for (const worker of workers) worker.start();
-scheduler.start();
-log(`worker up · env ${config.env} · pools critical, normal, bulk · scheduler polling`);
+// The isolated browser-test stack works the queue without the scheduler (WORKER_SCHEDULER=off, local
+// only): its tests move the simulated clock between nights, and a sweep run on a clock a moment
+// stale would act on the next test's fresh night. A test that needs the sweeps starts its own.
+const schedulerOff = config.env === "local" && process.env["WORKER_SCHEDULER"] === "off";
+if (!schedulerOff) scheduler.start();
+log(
+  `worker up · env ${config.env} · pools critical, normal, bulk · ${schedulerOff ? "no scheduler" : "scheduler polling"}`,
+);
 
 // The stored clock is re-read every few seconds so a move in staging reaches every process.
 const refresh = setInterval(() => {

@@ -767,8 +767,11 @@ export function tabRoutes(
       if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
       const venueId = request.venueId!;
       const now = options.clock.now();
+      // The reopen commits on its own, then the rail is read in a second transaction: reading every
+      // tab's amount due locks each check in turn, and holding the reopened tab and check while doing
+      // it deadlocked with a check view read at the same moment.
+      await request.inVenue((c) => reopenTab(c, venueId, tabId, { now }));
       return request.inVenue(async (c) => {
-        await reopenTab(c, venueId, tabId, { now });
         const tab = (await listTabs(c, venueId, now, { membershipId: null })).find(
           (x) => x.id === tabId,
         );

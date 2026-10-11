@@ -20,6 +20,34 @@ const ci = !!process.env["CI"];
 // (E2E_ISOLATED=1, `pnpm e2e:isolated`): that stack starts its own, beside a running demo.
 const reuseExistingServer = !ci && !isolated;
 
+// The API's settings; the isolated stack's job worker gets the same ones.
+const apiEnv: Record<string, string> = {
+  PORT: String(ports.api),
+  WEST4_ENV: process.env["WEST4_ENV"] ?? "local",
+  ALLOW_STAGING_FEATURES: process.env["ALLOW_STAGING_FEATURES"] ?? "true",
+  DATABASE_URL: DB,
+  APP_DATABASE_URL: APP_DB,
+  // Passkeys (M1-19): the smoke test's page lives on the API's own origin.
+  WEBAUTHN_RP_ID: process.env["WEBAUTHN_RP_ID"] ?? "localhost",
+  WEBAUTHN_ORIGINS:
+    (isolated ? undefined : process.env["WEBAUTHN_ORIGINS"]) ?? `${API_LOCAL},${STAFF}`,
+  // Photos go straight from the browser to the local store (M2-21), as in the integration tests.
+  S3_ENDPOINT: process.env["S3_ENDPOINT"] ?? "http://localhost:9000",
+  S3_REGION: process.env["S3_REGION"] ?? "us-east-1",
+  S3_ACCESS_KEY_ID: process.env["S3_ACCESS_KEY_ID"] ?? "west4",
+  S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
+  S3_BUCKET_FILES: process.env["S3_BUCKET_FILES"] ?? "west4-files",
+  // Stripe's hosted pages send the owner back here (M4-01).
+  STAFF_APP_URL: (isolated ? undefined : process.env["STAFF_APP_URL"]) ?? STAFF,
+  CONSOLE_URL: CONSOLE,
+  GUEST_APP_URL: GUEST,
+  PAY_APP_URL: PAY,
+  STRIPE_API_BASE: STRIPE,
+  GOOGLE_API_BASE: GOOGLE,
+  // Tests turn modules on and off straight in the database (testKitchenMenu, the seed): no cache.
+  MODULE_CACHE_MS: "0",
+};
+
 // One smoke test per app (M1-01). Each web app gets its dev server; the
 // desktop test launches Electron itself and points it at the staff server.
 // Every port, URL and the database come from e2e/stack.ts.
@@ -49,7 +77,12 @@ export default defineConfig({
       // The fake Stripe (M4-01): no keys load in the smoke tests, so every Stripe call goes here.
       // In isolated mode its database is created (if missing) and migrated first.
       command: `${isolated ? "node scripts/e2e-db.mjs && " : ""}pnpm --filter @west4/api stripe:fake`,
-      env: { STRIPE_FAKE_PORT: String(ports.stripe), STRIPE_FAKE_HOOKS: `${API}/v1/hooks/stripe` },
+      env: {
+        STRIPE_FAKE_PORT: String(ports.stripe),
+        STRIPE_FAKE_HOOKS: `${API}/v1/hooks/stripe`,
+        // e2e-db.mjs lets this stack's staff and guest apps upload to the local bucket.
+        ...(isolated ? { E2E_BUCKET_ORIGINS: `${STAFF},${GUEST}` } : {}),
+      },
       url: `${STRIPE}/fake/health`,
       reuseExistingServer,
       timeout: 120_000,
@@ -66,34 +99,26 @@ export default defineConfig({
       // dev:test never reads .env, so the smoke tests can't pick up real credentials.
       command: "pnpm --filter @west4/api dev:test",
       // The simulated clock (server_time 10:41 PM after a seed load) needs the staging switch and the database.
-      env: {
-        PORT: String(ports.api),
-        WEST4_ENV: process.env["WEST4_ENV"] ?? "local",
-        ALLOW_STAGING_FEATURES: process.env["ALLOW_STAGING_FEATURES"] ?? "true",
-        DATABASE_URL: DB,
-        APP_DATABASE_URL: APP_DB,
-        // Passkeys (M1-19): the smoke test's page lives on the API's own origin.
-        WEBAUTHN_RP_ID: process.env["WEBAUTHN_RP_ID"] ?? "localhost",
-        WEBAUTHN_ORIGINS:
-          (isolated ? undefined : process.env["WEBAUTHN_ORIGINS"]) ?? `${API_LOCAL},${STAFF}`,
-        // Photos go straight from the browser to the local store (M2-21), as in the integration tests.
-        S3_ENDPOINT: process.env["S3_ENDPOINT"] ?? "http://localhost:9000",
-        S3_REGION: process.env["S3_REGION"] ?? "us-east-1",
-        S3_ACCESS_KEY_ID: process.env["S3_ACCESS_KEY_ID"] ?? "west4",
-        S3_SECRET_ACCESS_KEY: process.env["S3_SECRET_ACCESS_KEY"] ?? "west4secret",
-        S3_BUCKET_FILES: process.env["S3_BUCKET_FILES"] ?? "west4-files",
-        // Stripe's hosted pages send the owner back here (M4-01).
-        STAFF_APP_URL: (isolated ? undefined : process.env["STAFF_APP_URL"]) ?? STAFF,
-        CONSOLE_URL: CONSOLE,
-        GUEST_APP_URL: GUEST,
-        PAY_APP_URL: PAY,
-        STRIPE_API_BASE: STRIPE,
-        GOOGLE_API_BASE: GOOGLE,
-      },
+      env: apiEnv,
       url: `${API}/v1/health`,
       reuseExistingServer,
       timeout: 120_000,
     },
+    // The job worker (webhook events, sends, sweeps). With a demo running, the demo's own worker
+    // works the queue of the shared database; the isolated stack has its own database, so it runs
+    // its own worker with the API's settings: the job pools only, no scheduled sweeps (a test that
+    // needs them starts a full worker itself).
+    ...(isolated
+      ? [
+          {
+            command: "pnpm --filter @west4/api exec tsx src/worker.ts",
+            env: { ...apiEnv, WORKER_SCHEDULER: "off" },
+            wait: { stdout: /worker up/ },
+            reuseExistingServer: false,
+            timeout: 120_000,
+          },
+        ]
+      : []),
     {
       command: `pnpm --filter @west4/staff exec vite --port ${ports.staff} --strictPort`,
       env: { STAFF_API_URL: API },
