@@ -13,7 +13,7 @@ import { StripeClient } from "../apps/api/src/stripe/client.js";
 import { PLAN_LOOKUP_KEYS, ROOM_LOOKUP_KEY } from "../apps/api/src/stripe/billing.js";
 import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
-import { SEED_COMMAND, setClock as resetClock } from "./night.js";
+import { SEED_COMMAND, advanceClock, setClock as resetClock } from "./night.js";
 import { testKitchenMenu, testPackage } from "./kitchen.js";
 import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
@@ -6235,7 +6235,9 @@ test("the bar POS: food on Jess P.'s tab is Not sent until Send to kitchen print
     await grid.getByRole("button", { name: /TEST French Fries/ }).click();
     await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
     await expect(panel.locator(".kitchen-reminder")).toHaveCount(0);
-    await resetClock("2026-09-26T02:47:00Z");
+    // Just past the 5-minute reminder, counted from the clock's own "now" (it keeps ticking during
+    // the run); a longer jump would trip the bar computer's idle lock.
+    await advanceClock(6);
     await page.reload();
     await page
       .getByRole("list", { name: "Bar tabs" })
@@ -6593,7 +6595,9 @@ test("a food night: Sing Sing's menu, a guest's basket, a bar tab, 86, Close the
       "Not sent",
     );
     // Left Not sent past 5 minutes on the venue's clock: the reminder.
-    await resetClock("2026-09-26T02:47:00Z");
+    // Just past the 5-minute reminder, counted from the clock's own "now" (it keeps ticking during
+    // the run); a longer jump would trip the bar computer's idle lock.
+    await advanceClock(6);
     await page.reload();
     await page
       .getByRole("list", { name: "Bar tabs" })
@@ -6701,7 +6705,8 @@ test("a food night: Sing Sing's menu, a guest's basket, a bar tab, 86, Close the
     await andy.setViewportSize({ width: 1280, height: 800 });
     await andy.goto("/close-the-night");
     const x = andy.getByRole("region", { name: "X report (running)" });
-    await expect(x).toContainText(/Food\s*\$13\.35/);
+    // The report loads after the page; give it the same 15 s as the other slow loads here.
+    await expect(x).toContainText(/Food\s*\$13\.35/, { timeout: 15_000 });
 
     // 8. Close the night (the other fixes as in the Close the night test), and the Z to the cent.
     await andy.context().close();

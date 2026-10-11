@@ -27,6 +27,18 @@ export async function setClock(iso: string = SEED_INSTANT): Promise<void> {
   if (!r.ok) throw new Error(`the simulated clock didn't move (${r.status})`);
 }
 
+/**
+ * Moves the simulated clock forward from wherever it is now. The clock keeps ticking while a
+ * spec runs, so a fixed instant can land before "now"; a long jump can trip the bar computer's
+ * idle lock instead. Reads the API's own time (every response carries server_time).
+ */
+export async function advanceClock(minutes: number): Promise<void> {
+  const r = await fetch(`${API}/v1/health`);
+  if (!r.ok) throw new Error(`the API's clock couldn't be read (${r.status})`);
+  const { server_time } = (await r.json()) as { server_time: string };
+  await setClock(new Date(Date.parse(server_time) + minutes * 60_000).toISOString());
+}
+
 /** A fresh load of the demo seed, with the API's clock at the seed's 10:41 PM straight away. */
 export async function freshNight(): Promise<void> {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
