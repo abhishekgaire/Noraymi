@@ -66,7 +66,28 @@ describe("the M1 part of the demo seed", () => {
       [first.venueId],
     );
     const by = Object.fromEntries(r.rows.map((row) => [row.key, row.value]));
-    expect(Object.keys(by)).toHaveLength(18); // kitchen and publicForms: the spec defaults
+    // kitchen and publicForms: the spec defaults
+    expect(Object.keys(by).sort()).toEqual([
+      "alerts",
+      "barMode",
+      "contacts",
+      "deposit",
+      "drawer",
+      "hours",
+      "kitchen",
+      "languages",
+      "messages",
+      "ordering",
+      "pay",
+      "phone",
+      "pos",
+      "prices",
+      "publicForms",
+      "rooms",
+      "safety",
+      "tabs",
+      "website",
+    ]);
     expect((by["prices"]!["billing"] as { incrementMin: number }).incrementMin).toBe(1);
     expect(by["prices"]!["minSpend"]).toEqual([]);
     expect(by["tabs"]!["flagOverCents"]).toBe(60000);
