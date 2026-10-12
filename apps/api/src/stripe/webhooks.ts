@@ -1,4 +1,5 @@
 import { checkoutEventHandlers } from "../billing/checkout.js";
+import { whenCardPaymentsOn } from "./connect.js";
 import { planEventHandlers } from "../billing/plan.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type pg from "pg";
@@ -119,6 +120,8 @@ export interface StripeEventContext {
   /** From the training endpoint (M7-04): it may only touch practice payments, and live ones only live. */
   readonly training: boolean;
   readonly now: Temporal.Instant;
+  /** The payment page's origin (M4-15), whose domain is registered once card payments are on (O-05). */
+  readonly payAppUrl: string | null;
   /** A short transaction with the venue set. */
   readonly inVenue: <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
 }
@@ -130,7 +133,10 @@ export const stripeEventHandlers = new Map<string, StripeEventHandler>([
   [
     "account.updated",
     async (ctx) => {
-      await syncAccount(ctx.inVenue, ctx.stripe, ctx.venueId, ctx.now.toString());
+      const status = await syncAccount(ctx.inVenue, ctx.stripe, ctx.venueId, ctx.now.toString());
+      // Card payments on (O-05): the Terminal Location and the payment page's domain follow.
+      if (status?.cardPaymentsEnabled && !ctx.training)
+        await whenCardPaymentsOn(ctx.inVenue, ctx.stripe, ctx.venueId, ctx.now, ctx.payAppUrl);
     },
   ],
   // Our plan billing (M8-15): our own account's subscription and invoice events.
@@ -139,7 +145,11 @@ export const stripeEventHandlers = new Map<string, StripeEventHandler>([
 ]);
 
 /** The `stripe.event` job: apply the stored event once, then mark it processed. */
-export function makeStripeEventHandler(pool: pg.Pool, stripe: StripeClient): JobHandler {
+export function makeStripeEventHandler(
+  pool: pg.Pool,
+  stripe: StripeClient,
+  options: { payAppUrl?: string | null } = {},
+): JobHandler {
   return async (job) => {
     const venueId = job.job.venue_id;
     const rowId = (job.job.payload as { webhook_event_id?: string }).webhook_event_id;
@@ -155,6 +165,7 @@ export function makeStripeEventHandler(pool: pg.Pool, stripe: StripeClient): Job
       event,
       training: event.endpoint === "training",
       now: job.clock.now(),
+      payAppUrl: options.payAppUrl ?? null,
       inVenue: (work) => withVenue(pool, { venueId, requestId: `stripe:${event.event_id}` }, work),
     });
     await job.step((c) => markStripeEventProcessed(c, venueId, rowId));

@@ -17,6 +17,7 @@ import { Dialog, useSheetDialog } from "../../layout/Dialog.js";
 import { useT } from "../../i18n.js";
 import { homeFor } from "../../navigation.js";
 import { useSession } from "../../session.js";
+import { CardStep } from "./CardStep.js";
 import { PlanStep } from "./PlanStep.js";
 import { VenueForm } from "./Venue.js";
 import "./setup.css";
@@ -376,6 +377,8 @@ function StepBody({
     );
   // Step 2's plans, promo code and Start plan (O-04).
   if (step.id === "plan") return <PlanStep onSaved={onSaved} />;
+  // Step 3's Connect with Stripe (O-05).
+  if (step.id === "card") return <CardStep onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (

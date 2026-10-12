@@ -131,7 +131,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-05 · Step 3, Card payments: Connect with Stripe
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-02; M4-01 (the Stripe client, `stripe:create-account`), M4-03 (webhooks)
 - **Spec:** [Stripe setup](../spec/06-stripe-setup.md) 1, 2 and 10; [Owner onboarding](../spec/17-onboarding.md) · Step details 3
@@ -140,10 +140,17 @@ Definition of done: see CLAUDE.md.
   - The step's states from `account.updated`: Not connected, Waiting for Stripe…, Stripe needs more from you, Connected · card payments on; a second venue of the organization shows Connected through its organization.
   - Once card payments are on, the payment-method domain and the Terminal Location are made, as `stripe:create-account` does today.
 - **Acceptance:**
-  - [ ] Connect with Stripe on the fake Stripe makes one account, and pressing it twice makes no second account.
-  - [ ] `account.updated` with card payments enabled marks the step done; without, the step needs attention with Continue with Stripe.
-  - [ ] No key is pasted or stored from the owner; only `organizations.stripe_account_id`.
+  - [x] Connect with Stripe on the fake Stripe makes one account, and pressing it twice makes no second account.
+  - [x] `account.updated` with card payments enabled marks the step done; without, the step needs attention with Continue with Stripe.
+  - [x] No key is pasted or stored from the owner; only `organizations.stripe_account_id`.
 - **Tests:** integration tests on the fake Stripe and, in staging, the sandbox; the wall suite for the new route.
+- **Notes:**
+  - Built: `apps/api/src/routes/stripe-connect.ts` (`GET` and `POST /payments/stripe/connect`, the owner's only: the account made with the legal name and the owner's own email under the ops command's key `org:{id}:create-account`, then an Account Link whose return and refresh URLs come back to `/set-up/card`); `apps/api/src/stripe/connect.ts` (after `account.updated` says card payments are on: the payment page's domain, then the Terminal Configuration and Location); migration `0146_stripe_connect.sql` (the owner's role may set `organizations.stripe_account_id`; the route sets it only while it's empty); the staff step `apps/staff/src/screens/admin/CardStep.tsx` (Not connected, Waiting for Stripe…, Stripe needs more from you with Continue with Stripe, Connected through the organization).
+  - Cautious default: the Terminal Location needs the venue's tip screen (`pay.tipScreen`), which we never choose for it. Until the owner saves it, card payments on registers only the payment page's domain, and the Location is made at the first reader's registration as before (M4-02). A local payment page host (localhost) is never registered.
+  - "Connected through {legal name}" shows for every venue, not only a second one: the account is always the organization's, and a venue's API role can't see the organization's other venues.
+  - Admin → Payments still has its own Continue onboarding link (M4-01); it now works for owner-connected accounts too.
+  - Staging's sandbox run is left for the go-live checks (the fake covers the flow here).
+  - Tests: `apps/api/src/routes/stripe-connect.int.test.ts` (5) and the Playwright test in `e2e/setup.staff.spec.ts`; the wall and principal suites cover the new routes.
 
 ### O-06 · Steps 4 and 5: rooms and prices, hours, kitchen times, the age policy
 

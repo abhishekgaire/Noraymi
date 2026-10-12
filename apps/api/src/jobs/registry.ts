@@ -133,7 +133,11 @@ export function makeHandlers({
   google,
 }: HandlerDeps): Record<"critical" | "normal" | "bulk", Record<string, JobHandler>> {
   const stripeEvents = stripe
-    ? { [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client) }
+    ? {
+        [STRIPE_EVENT_KIND]: makeStripeEventHandler(stripe.pool, stripe.client, {
+          payAppUrl: stripe.payAppUrl ?? null,
+        }),
+      }
     : {};
   return {
     // Card payments (M4-05): the run and the polling while a result is unknown.

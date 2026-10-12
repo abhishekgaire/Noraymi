@@ -19,10 +19,17 @@ export class NoStripeAccount extends Error {
   }
 }
 
+/** The venue hasn't saved its tip screen (pay.tipScreen): the Terminal Configuration waits for it. */
+export class NoTipScreen extends Error {
+  constructor() {
+    super("pay.tipScreen isn't set");
+  }
+}
+
 async function tipScreen(inVenue: InVenue, venueId: string, today: Temporal.PlainDate) {
   const pay = await inVenue((c) => readSetting(c, venueId, "pay", today));
   const tip = (pay?.value as PaySettings | undefined)?.tipScreen;
-  if (!tip) throw new Error("pay.tipScreen isn't set");
+  if (!tip) throw new NoTipScreen();
   return tip;
 }
 

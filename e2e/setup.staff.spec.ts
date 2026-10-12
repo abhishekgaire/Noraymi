@@ -185,7 +185,7 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
   }
 });
 
-test("Your plan: prices from Stripe, a promo code, and Start plan through Stripe Checkout (O-04)", async ({
+test("Your plan through Stripe Checkout (O-04), then Connect with Stripe (O-05)", async ({
   page,
   request,
 }) => {
@@ -269,6 +269,19 @@ test("Your plan: prices from Stripe, a promo code, and Start plan through Stripe
       [venue.rows[0]!.id],
     );
     expect(sub.rows[0]).toEqual({ plan: "rooms", room_quantity: 0 });
+
+    // Step 3 (O-05): Connect with Stripe opens Stripe's hosted onboarding, which comes back to the
+    // step; account.updated with card payments on marks it done, connected through the organization.
+    await rail.getByRole("button", { name: /Card payments/ }).click();
+    await expect(
+      page.getByText("Not connected · Stripe takes your cards and pays your bank"),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Connect with Stripe" }).click();
+    await expect(page).toHaveURL(/\/set-up\/card\?stripe=back$/);
+    await expect(
+      page.getByText(`Connected through E2E Plan ${n} LLC · card payments on`),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(rail.getByRole("button", { name: /Card payments/ })).toContainText("Done");
   } finally {
     await db.end();
   }
