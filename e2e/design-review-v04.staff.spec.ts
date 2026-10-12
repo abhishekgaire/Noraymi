@@ -10,6 +10,7 @@ import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import pg from "pg";
 import { SEED_COMMAND, SEED_INSTANT } from "./night.js";
+import { brokenWords, clippedPlaceholders, clippedText } from "./layout.js";
 import { CANVAS, DB, ports } from "./stack.js";
 
 const OUT = "docs/design-review/v04";
@@ -157,6 +158,12 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
       "rail-1280-full.png",
     );
 
+    // The founder's MacBook (about 2000 × 1130): the room order cards across the top keep their
+    // words whole, text on top and the buttons in a row underneath.
+    await page.setViewportSize({ width: 2000, height: 1130 });
+    await page.waitForTimeout(300);
+    await sideBySide(page, canvasRail, await page.screenshot(), "rail-2000.png");
+
     // The bar orders screen: its own 900 × 640 window at the bar.
     await page.setViewportSize({ width: 900, height: 640 });
     await page.goto("/bar-orders");
@@ -217,6 +224,30 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
         return out;
       });
       expect(clipped, `${path} at ${width}`).toEqual([]);
+    }
+
+    // The bar POS with ringing room orders, the bar orders screen and the Board's order alerts, at
+    // the bar computer's, a laptop's and a big screen's sizes, in Spanish then English: no word
+    // broken mid-word, nothing cut off, every placeholder fits its field.
+    for (const lang of ["es", "en"] as const) {
+      if (lang === "en") await page.getByRole("button", { name: "Cambiar a English" }).click();
+      for (const [width, height] of [
+        [1280, 800],
+        [1440, 900],
+        [2000, 1130],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        for (const path of ["/bar", "/bar-orders", "/tonight"]) {
+          await page.goto(path);
+          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+          if (path === "/bar") await expect(page.locator(".rail-order").first()).toBeVisible();
+          await page.waitForTimeout(300);
+          const where = `${path} at ${width} × ${height} (${lang})`;
+          expect(await brokenWords(page), where).toEqual([]);
+          expect(await clippedText(page), where).toEqual([]);
+          expect(await clippedPlaceholders(page), where).toEqual([]);
+        }
+      }
     }
   } finally {
     await db.end();

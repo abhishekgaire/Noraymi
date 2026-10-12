@@ -16,6 +16,7 @@ import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/job
 import { SEED_COMMAND, advanceClock, setClock as resetClock } from "./night.js";
 import { testKitchenMenu, testPackage } from "./kitchen.js";
 import { stubTurnstile } from "./turnstile.js";
+import { brokenWords, clippedPlaceholders, clippedText } from "./layout.js";
 import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
 /**
@@ -219,27 +220,6 @@ async function showAllAlerts(page: Page) {
   await page.getByRole("button", { name: /^Show all \d+$/ }).click();
 }
 
-async function clippedText(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const clipped: string[] = [];
-    if (document.documentElement.scrollWidth > window.innerWidth + 1)
-      clipped.push("page scrolls sideways");
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
-      const text = el.textContent?.trim() ?? "";
-      if (text === "") continue;
-      const style = getComputedStyle(el);
-      if (style.display === "none" || style.visibility === "hidden") continue;
-      // A strip meant to scroll sideways (the phone's tab bar) isn't cut-off text.
-      if (el.dataset["scroll"] === "x") continue;
-      const hides = style.overflowX !== "visible" || style.textOverflow === "ellipsis";
-      if (hides && el.scrollWidth > el.clientWidth + 1) {
-        clipped.push(`${el.tagName.toLowerCase()}.${el.className}: "${text.slice(0, 40)}"`);
-      }
-    }
-    return clipped;
-  });
-}
-
 test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every screen fits at 390 and 1280", async ({
   page,
   request,
@@ -309,6 +289,8 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
           await page.getByRole("button", { name: "Abrir el menú" }).click();
         }
         expect(await clippedText(page), `${path} at ${width}px`).toEqual([]);
+        expect(await brokenWords(page), `${path} at ${width}px`).toEqual([]);
+        expect(await clippedPlaceholders(page), `${path} at ${width}px`).toEqual([]);
       }
     }
 
@@ -736,6 +718,8 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
         ).toBe(false);
       }
       expect(await clippedText(page), path).toEqual([]);
+      expect(await brokenWords(page), path).toEqual([]);
+      expect(await clippedPlaceholders(page), path).toEqual([]);
     }
     await page.getByRole("button", { name: "Cambiar a English" }).click();
 
@@ -10139,23 +10123,14 @@ test("the Spanish review: every staff route in Spanish at 390 and 1440, screensh
           .replace(/\/[0-9a-f-]{36}$/, "/room-9")
           .replace(/^\//, "")
           .replace(/\//g, "-")}-${size.name}.png`;
-        for (const c of await clippedText(page)) {
-          // Name what pushes the page sideways, deepest first.
-          const wide =
-            c === "page scrolls sideways"
-              ? await page.evaluate(() =>
-                  Array.from(document.querySelectorAll<HTMLElement>("body *"))
-                    .filter(
-                      (el) =>
-                        el.getBoundingClientRect().right > window.innerWidth + 1 &&
-                        !el.closest("[data-scroll]"),
-                    )
-                    .slice(-3)
-                    .map((el) => `${el.tagName.toLowerCase()}.${el.className}`)
-                    .join(", "),
-                )
-              : "";
-          clipped.push(`${route} at ${size.width}: ${c}${wide ? ` (${wide})` : ""}`);
+        // clippedText names what pushes the page sideways; brokenWords catches a squeezed box
+        // wrapping a word a letter at a time; clippedPlaceholders a hint wider than its field.
+        for (const c of [
+          ...(await clippedText(page)),
+          ...(await brokenWords(page)),
+          ...(await clippedPlaceholders(page)),
+        ]) {
+          clipped.push(`${route} at ${size.width}: ${c}`);
         }
         await page.screenshot({ path: `${out}/${name}`, fullPage: true });
         index.push(`| ${route.replace(room9, "room-9")} | ${size.name} | [${name}](${name}) | |`);
