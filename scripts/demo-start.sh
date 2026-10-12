@@ -4,9 +4,16 @@
 #   - the API, its job worker, the staff app and the guest site, with the demo settings the
 #     tests use (your .env isn't read, so no real Twilio or Stripe key is ever loaded),
 #   - then scripts/demo-local.sh: a fresh seed at 10:41 PM and your invite links.
+# --sing-sing also makes the Sing Sing demo venue with the kitchen on (passed to demo-local.sh).
 # Logs go to .demo-logs/. Press Ctrl+C to stop everything.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+for arg; do
+  case "$arg" in
+    --sing-sing) ;;
+    *) echo "Unknown option: $arg (the only option is --sing-sing)" >&2; exit 1 ;;
+  esac
+done
 mkdir -p .demo-logs
 
 for port in 3000 3001 5173; do
@@ -46,11 +53,11 @@ for _ in $(seq 1 60); do
   printf "."; sleep 2
 done
 echo
-scripts/demo-local.sh
+scripts/demo-local.sh ${1+"$@"}
 cat <<'MSG'
 
 Ready. Open these in Chrome:
-  Staff app (Tonight, Admin…)   http://localhost:5173
+  Staff app (Rooms, Admin…)     http://localhost:5173
   Guest waitlist page           http://localhost:3001/v/west4karaoke/waitlist
   Local email inbox (codes)     http://localhost:8025
 Sign-in codes texted or emailed: scripts/demo-codes.sh (in a second terminal)
