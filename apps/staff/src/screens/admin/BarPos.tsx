@@ -150,6 +150,7 @@ export function BarPos() {
               {all.length > 1 && <h4>{t("rail.page.of", { n: p + 1, total: all.length })}</h4>}
               <ol
                 className="slots"
+                data-scroll="x"
                 aria-label={
                   all.length > 1
                     ? `${t(`barPos.section.${section}`)} · ${t("rail.page.of", { n: p + 1, total: all.length })}`

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   localeNames,
   locales,
@@ -14,6 +14,23 @@ import { roleKey, useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { useVenueTime } from "../../clock.js";
 import { PunchesTonight } from "./PunchesTonight.js";
+
+/**
+ * An email that may wrap after its "@" and dots, never mid-word, so the Team table's first
+ * column can be narrow without breaking "andy@demo.west4.local" a letter at a time.
+ */
+function BreakableEmail({ value }: { value: string }) {
+  return (
+    <>
+      {value.split(/(?<=[@.])/).map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 && <wbr />}
+          {part}
+        </Fragment>
+      ))}
+    </>
+  );
+}
 
 /**
  * Admin → Team (M1-31, owner only; spec 02 · Roles, Languages, Offboarding;
@@ -357,212 +374,220 @@ export function Team() {
       {people === null ? (
         <p role="status">{t("shell.loading")}</p>
       ) : (
-        <table className="team-table">
-          <thead>
-            <tr>
-              <th>{t("team.person")}</th>
-              <th>{t("team.role")}</th>
-              <th>{t("team.status")}</th>
-              <th>{t("team.waiting")}</th>
-              <th>{t("team.language")}</th>
-              <th>{t("team.training")}</th>
-              <th>{t("team.tips")}</th>
-              <th>{t("team.badges")}</th>
-              <th>{t("team.actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {people.map((person) => {
-              const gone = person.status === "deactivated";
-              const self = person.membership_id === myMembership;
-              const working = busy === person.membership_id;
-              return (
-                <tr key={person.membership_id} className={gone ? "gone" : ""}>
-                  <td>
-                    <div className="tile-name">{person.name}</div>
-                    {person.email && <div className="tile-role">{person.email}</div>}
-                  </td>
-                  <td>
-                    <select
-                      aria-label={t("team.role")}
-                      value={person.role}
-                      disabled={gone || self || working}
-                      title={self ? t("team.cantChangeOwnRole") : undefined}
-                      onChange={(e) => void setRole(person, e.target.value as Role)}
-                    >
-                      {roles.map((role) => (
-                        <option key={role} value={role}>
-                          {t(roleKey[role])}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>{statusOf(person)}</td>
-                  <td data-testid="waiting">
-                    {gone
-                      ? "—"
-                      : person.waiting.length === 0
-                        ? t("team.waiting.ready")
-                        : person.waiting.map((w) => t(waitingKey[w])).join(" · ")}
-                  </td>
-                  <td>
-                    <select
-                      aria-label={t("team.language")}
-                      value={person.locale}
-                      disabled={gone || working}
-                      onChange={(e) => void setLanguage(person, e.target.value as Locale)}
-                    >
-                      {locales.map((l) => (
-                        <option key={l} value={l}>
-                          {localeNames[l]}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <label className="switch-line">
-                      <input
-                        type="checkbox"
-                        aria-label={t("team.training.for", { name: person.name })}
-                        checked={person.training}
-                        disabled={gone || working}
-                        onChange={(e) => void setTraining(person, e.target.checked)}
-                      />
-                      <span>{person.training ? t("training.mark") : t("team.training.off")}</span>
-                    </label>
-                  </td>
-                  <td>
-                    {person.role === "owner" || person.role === "manager" ? (
-                      <span className="small muted">{t("team.tips.never")}</span>
-                    ) : (
-                      <>
-                        <label className="switch-line">
-                          <input
-                            type="checkbox"
-                            aria-label={t("team.tips.for", { name: person.name })}
-                            checked={person.tip_eligible}
-                            disabled={gone || working}
-                            onChange={(e) =>
-                              void setTips(person, { tip_eligible: e.target.checked })
-                            }
-                          />
-                          <span>
-                            {person.tip_eligible ? t("team.tips.shares") : t("team.tips.off")}
-                          </span>
-                        </label>
-                        <input
-                          aria-label={t("team.tips.occupation", { name: person.name })}
-                          placeholder={t("team.tips.occupationHint")}
-                          defaultValue={person.occupation_code ?? ""}
-                          disabled={gone || working}
-                          onBlur={(e) => {
-                            const v = e.target.value.trim() || null;
-                            if (v !== person.occupation_code)
-                              void setTips(person, { occupation_code: v });
-                          }}
-                        />
-                      </>
-                    )}
-                  </td>
-                  <td>
-                    <ul className="badge-list">
-                      {person.badges.map((badge) => (
-                        <li key={badge.id}>
-                          <span>
-                            {badge.disabled_at
-                              ? t("team.badge.off")
-                              : t("team.badge.paired", { label: badge.label })}
-                          </span>
-                          {!badge.disabled_at && !gone && (
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => void switchOff(badge)}
-                            >
-                              {t("team.badge.switchOff")}
-                            </button>
-                          )}
-                        </li>
-                      ))}
-                      {person.badges.length === 0 && (
-                        <li className="muted">{t("team.badges.none")}</li>
+        <div className="table-scroll" data-scroll="x">
+          <table className="team-table">
+            <thead>
+              <tr>
+                <th>{t("team.person")}</th>
+                <th>{t("team.role")}</th>
+                <th>{t("team.status")}</th>
+                <th>{t("team.waiting")}</th>
+                <th>{t("team.language")}</th>
+                <th>{t("team.training")}</th>
+                <th>{t("team.tips")}</th>
+                <th>{t("team.badges")}</th>
+                <th>{t("team.actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((person) => {
+                const gone = person.status === "deactivated";
+                const self = person.membership_id === myMembership;
+                const working = busy === person.membership_id;
+                return (
+                  <tr key={person.membership_id} className={gone ? "gone" : ""}>
+                    <td>
+                      <div className="tile-name">{person.name}</div>
+                      {person.email && (
+                        <div className="tile-role">
+                          <BreakableEmail value={person.email} />
+                        </div>
                       )}
-                    </ul>
-                    {gone ? null : pairing?.membershipId === person.membership_id ? (
-                      <p className="notice" role="status">
-                        {t("team.badge.waiting")}
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void shell?.badge.cancelPair()}
-                        >
-                          {t("team.badge.cancel")}
-                        </button>
-                      </p>
-                    ) : (
-                      <button
-                        type="button"
-                        className="primary"
-                        disabled={!shell || device !== "shared" || pairing !== null}
-                        onClick={() => void pair(person)}
+                    </td>
+                    <td>
+                      <select
+                        aria-label={t("team.role")}
+                        value={person.role}
+                        disabled={gone || self || working}
+                        title={self ? t("team.cantChangeOwnRole") : undefined}
+                        onChange={(e) => void setRole(person, e.target.value as Role)}
                       >
-                        {t("team.badge.pair")}
-                      </button>
-                    )}
-                  </td>
-                  <td>
-                    {!gone && (
-                      <div className="team-actions">
-                        <button
-                          type="button"
-                          className="secondary"
-                          disabled={working}
-                          onClick={() => void resetPin(person)}
-                        >
-                          {person.status === "invited" ? t("team.resendLink") : t("team.resetPin")}
-                        </button>
-                        {!self && confirming !== person.membership_id && (
+                        {roles.map((role) => (
+                          <option key={role} value={role}>
+                            {t(roleKey[role])}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>{statusOf(person)}</td>
+                    <td data-testid="waiting">
+                      {gone
+                        ? "—"
+                        : person.waiting.length === 0
+                          ? t("team.waiting.ready")
+                          : person.waiting.map((w) => t(waitingKey[w])).join(" · ")}
+                    </td>
+                    <td>
+                      <select
+                        aria-label={t("team.language")}
+                        value={person.locale}
+                        disabled={gone || working}
+                        onChange={(e) => void setLanguage(person, e.target.value as Locale)}
+                      >
+                        {locales.map((l) => (
+                          <option key={l} value={l}>
+                            {localeNames[l]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <label className="switch-line">
+                        <input
+                          type="checkbox"
+                          aria-label={t("team.training.for", { name: person.name })}
+                          checked={person.training}
+                          disabled={gone || working}
+                          onChange={(e) => void setTraining(person, e.target.checked)}
+                        />
+                        <span>{person.training ? t("training.mark") : t("team.training.off")}</span>
+                      </label>
+                    </td>
+                    <td>
+                      {person.role === "owner" || person.role === "manager" ? (
+                        <span className="small muted">{t("team.tips.never")}</span>
+                      ) : (
+                        <>
+                          <label className="switch-line">
+                            <input
+                              type="checkbox"
+                              aria-label={t("team.tips.for", { name: person.name })}
+                              checked={person.tip_eligible}
+                              disabled={gone || working}
+                              onChange={(e) =>
+                                void setTips(person, { tip_eligible: e.target.checked })
+                              }
+                            />
+                            <span>
+                              {person.tip_eligible ? t("team.tips.shares") : t("team.tips.off")}
+                            </span>
+                          </label>
+                          <input
+                            aria-label={t("team.tips.occupation", { name: person.name })}
+                            placeholder={t("team.tips.occupationHint")}
+                            defaultValue={person.occupation_code ?? ""}
+                            disabled={gone || working}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim() || null;
+                              if (v !== person.occupation_code)
+                                void setTips(person, { occupation_code: v });
+                            }}
+                          />
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <ul className="badge-list">
+                        {person.badges.map((badge) => (
+                          <li key={badge.id}>
+                            <span>
+                              {badge.disabled_at
+                                ? t("team.badge.off")
+                                : t("team.badge.paired", { label: badge.label })}
+                            </span>
+                            {!badge.disabled_at && !gone && (
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => void switchOff(badge)}
+                              >
+                                {t("team.badge.switchOff")}
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                        {person.badges.length === 0 && (
+                          <li className="muted">{t("team.badges.none")}</li>
+                        )}
+                      </ul>
+                      {gone ? null : pairing?.membershipId === person.membership_id ? (
+                        <p className="notice" role="status">
+                          {t("team.badge.waiting")}
                           <button
                             type="button"
-                            className="secondary danger"
-                            disabled={working}
-                            onClick={() => setConfirming(person.membership_id)}
+                            className="secondary"
+                            onClick={() => void shell?.badge.cancelPair()}
                           >
-                            {t("team.deactivate")}
+                            {t("team.badge.cancel")}
                           </button>
-                        )}
-                        {confirming === person.membership_id && (
-                          <p className="notice" role="alertdialog">
-                            {t("team.deactivate.confirm", { name: person.name })}
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={!shell || device !== "shared" || pairing !== null}
+                          onClick={() => void pair(person)}
+                        >
+                          {t("team.badge.pair")}
+                        </button>
+                      )}
+                    </td>
+                    <td>
+                      {!gone && (
+                        <div className="team-actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={working}
+                            onClick={() => void resetPin(person)}
+                          >
+                            {person.status === "invited"
+                              ? t("team.resendLink")
+                              : t("team.resetPin")}
+                          </button>
+                          {!self && confirming !== person.membership_id && (
                             <button
                               type="button"
-                              className="primary"
-                              onClick={() => void deactivate(person)}
+                              className="secondary danger"
+                              disabled={working}
+                              onClick={() => setConfirming(person.membership_id)}
                             >
-                              {t("team.confirm")}
+                              {t("team.deactivate")}
                             </button>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => setConfirming(null)}
-                            >
-                              {t("team.badge.cancel")}
-                            </button>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {note?.membershipId === person.membership_id && (
-                      <p className="small" role="status">
-                        {t(note.key, note.params)}
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                          )}
+                          {confirming === person.membership_id && (
+                            <p className="notice" role="alertdialog">
+                              {t("team.deactivate.confirm", { name: person.name })}
+                              <button
+                                type="button"
+                                className="primary"
+                                onClick={() => void deactivate(person)}
+                              >
+                                {t("team.confirm")}
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => setConfirming(null)}
+                              >
+                                {t("team.badge.cancel")}
+                              </button>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {note?.membershipId === person.membership_id && (
+                        <p className="small" role="status">
+                          {t(note.key, note.params)}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {frontDeskBar !== null && (
         <label className="switch-line">

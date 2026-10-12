@@ -26,7 +26,10 @@ body,
   color: var(--text);
   font: 16px/1.4 var(--w4-font-body);
   -webkit-font-smoothing: antialiased;
-  overflow-wrap: anywhere;
+  /* break-word, not anywhere: a long word still breaks rather than overflow, but it no longer
+     lets a flex or grid item shrink to a letter per line ("Ro / o / m / 5"), because break-word
+     doesn't lower an element's min-content width. */
+  overflow-wrap: break-word;
 }
 /* Screen titles in the canvas's display face (see .w4-display in the tokens). */
 h1 {
@@ -280,6 +283,8 @@ form {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  /* A flex row drops the space between the word and its count: the gap keeps them apart. */
+  gap: 8px;
   width: 100%;
   padding: 0 12px;
   border: 1px solid transparent;
@@ -296,6 +301,14 @@ form {
 .menu-link:focus-visible {
   background: var(--w4-line-faint);
   color: var(--text);
+}
+/* The count sits at the right end of its row, as the canvas's side menu has it. */
+.menu-link .badge {
+  margin-left: auto;
+  flex: none;
+}
+.tab .badge {
+  margin-left: 4px;
 }
 .menu-link.active {
   background: var(--accent);
@@ -425,6 +438,12 @@ form {
 .tab.active {
   color: var(--accent);
   font-weight: 600;
+}
+/* A wide table scrolls inside its card when the columns need more room than the card has, so
+   its words stay whole and the page itself never scrolls sideways. */
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 .team-table {
   width: 100%;
@@ -1346,7 +1365,16 @@ main select {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  overflow-wrap: anywhere;
+  /* A long name takes its own line and the × goes under it; words are never split. */
+  flex-wrap: wrap;
+}
+/* On a phone the five columns keep their places and the grid scrolls sideways inside the card,
+   so a name isn't squeezed to a letter per line. */
+@media (max-width: 600px) {
+  .bar-pos .slots {
+    grid-template-columns: repeat(5, minmax(112px, 1fr));
+    overflow-x: auto;
+  }
 }
 .bar-pos .slot.empty {
   border-style: dashed;

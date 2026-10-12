@@ -218,61 +218,69 @@ export function Menu() {
                   }
                 />
               )}
-              <table className="team-table menu-table">
-                <thead>
-                  <tr>
-                    <th>{t("menuAdmin.col.item")}</th>
-                    <th>{t("menuAdmin.col.button")}</th>
-                    <th>{t("menuAdmin.col.price")}</th>
-                    <th>{t("menuAdmin.col.alcohol")}</th>
-                    {kitchenOn && <th>{t("menuAdmin.col.station")}</th>}
-                    <th>{t("menuAdmin.col.shown")}</th>
-                    <th>{t("menuAdmin.col.tonight")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cat.items.map((item) => (
-                    <ItemRows
-                      key={item.id}
-                      item={item}
-                      categories={categories}
-                      kitchenOn={kitchenOn}
-                      open={editing === item.id}
-                      onEdit={() => setEditing(editing === item.id ? null : item.id)}
-                      onEightySix={(out) =>
-                        void run(
-                          () =>
-                            api("POST", `/v1/venues/${venueId}/menu/items/${item.id}/out-tonight`, {
-                              out,
-                            }),
-                          out
-                            ? t("menuAdmin.86.done", { name: item.name })
-                            : t("menuAdmin.86.back", { name: item.name }),
-                        )
-                      }
-                      onSave={async (saves) => {
-                        const ok = await run(
-                          async () => {
-                            const made: Record<string, string> = {};
-                            for (const s of saves) {
-                              const body = Object.fromEntries(
-                                Object.entries(s.body).map(([k, v]) => [
-                                  k,
-                                  typeof v === "string" && v.startsWith("@") ? made[v] : v,
-                                ]),
-                              );
-                              const answer = (await call(s.method, s.path, body)) as { id: string };
-                              if (s.as) made[s.as] = answer.id;
-                            }
-                          },
-                          t("menuAdmin.saved", { name: item.name }),
-                        );
-                        if (ok) setEditing(null);
-                      }}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              <div className="table-scroll" data-scroll="x">
+                <table className="team-table menu-table">
+                  <thead>
+                    <tr>
+                      <th>{t("menuAdmin.col.item")}</th>
+                      <th>{t("menuAdmin.col.button")}</th>
+                      <th>{t("menuAdmin.col.price")}</th>
+                      <th>{t("menuAdmin.col.alcohol")}</th>
+                      {kitchenOn && <th>{t("menuAdmin.col.station")}</th>}
+                      <th>{t("menuAdmin.col.shown")}</th>
+                      <th>{t("menuAdmin.col.tonight")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cat.items.map((item) => (
+                      <ItemRows
+                        key={item.id}
+                        item={item}
+                        categories={categories}
+                        kitchenOn={kitchenOn}
+                        open={editing === item.id}
+                        onEdit={() => setEditing(editing === item.id ? null : item.id)}
+                        onEightySix={(out) =>
+                          void run(
+                            () =>
+                              api(
+                                "POST",
+                                `/v1/venues/${venueId}/menu/items/${item.id}/out-tonight`,
+                                {
+                                  out,
+                                },
+                              ),
+                            out
+                              ? t("menuAdmin.86.done", { name: item.name })
+                              : t("menuAdmin.86.back", { name: item.name }),
+                          )
+                        }
+                        onSave={async (saves) => {
+                          const ok = await run(
+                            async () => {
+                              const made: Record<string, string> = {};
+                              for (const s of saves) {
+                                const body = Object.fromEntries(
+                                  Object.entries(s.body).map(([k, v]) => [
+                                    k,
+                                    typeof v === "string" && v.startsWith("@") ? made[v] : v,
+                                  ]),
+                                );
+                                const answer = (await call(s.method, s.path, body)) as {
+                                  id: string;
+                                };
+                                if (s.as) made[s.as] = answer.id;
+                              }
+                            },
+                            t("menuAdmin.saved", { name: item.name }),
+                          );
+                          if (ok) setEditing(null);
+                        }}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
           <AddCategory onAdd={(body) => run(() => call("POST", "/menu/categories", body))} />
@@ -301,40 +309,44 @@ export function Menu() {
               {packages.length === 0 ? (
                 <p className="muted">{t("menuAdmin.packages.none")}</p>
               ) : (
-                <table className="team-table menu-table packages-table">
-                  <tbody>
-                    {packages.map((p) => (
-                      <tr key={p.id} className={p.shown ? "" : "gone"}>
-                        <td>
-                          <div className="tile-name">{p.name}</div>
-                          <div className="tile-role">
-                            {p.contents
-                              .map((c) =>
-                                c.qty === null
-                                  ? t("menuAdmin.package.unlimited", { name: itemName(c.item_id) })
-                                  : `${c.qty} × ${itemName(c.item_id)}`,
-                              )
-                              .join(", ")}
-                          </div>
-                        </td>
-                        <td>
-                          {p.hourly
-                            ? t("menuAdmin.perHour", { price: money(p.price_cents) })
-                            : money(p.price_cents)}
-                        </td>
-                        <td>
-                          <ShownToggle
-                            name={p.name}
-                            shown={p.shown}
-                            onChange={(shown) =>
-                              void run(() => call("PATCH", `/packages/${p.id}`, { shown }))
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll" data-scroll="x">
+                  <table className="team-table menu-table packages-table">
+                    <tbody>
+                      {packages.map((p) => (
+                        <tr key={p.id} className={p.shown ? "" : "gone"}>
+                          <td>
+                            <div className="tile-name">{p.name}</div>
+                            <div className="tile-role">
+                              {p.contents
+                                .map((c) =>
+                                  c.qty === null
+                                    ? t("menuAdmin.package.unlimited", {
+                                        name: itemName(c.item_id),
+                                      })
+                                    : `${c.qty} × ${itemName(c.item_id)}`,
+                                )
+                                .join(", ")}
+                            </div>
+                          </td>
+                          <td>
+                            {p.hourly
+                              ? t("menuAdmin.perHour", { price: money(p.price_cents) })
+                              : money(p.price_cents)}
+                          </td>
+                          <td>
+                            <ShownToggle
+                              name={p.name}
+                              shown={p.shown}
+                              onChange={(shown) =>
+                                void run(() => call("PATCH", `/packages/${p.id}`, { shown }))
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
               <AddPackage
                 items={allItems}
@@ -350,45 +362,47 @@ export function Menu() {
               {rules.length === 0 ? (
                 <p className="muted">{t("menuAdmin.rules.none")}</p>
               ) : (
-                <table className="team-table menu-table rules-table">
-                  <tbody>
-                    {rules.map((r) => (
-                      <tr key={r.id} className={r.shown ? "" : "gone"}>
-                        <td>
-                          <div className="tile-name">{r.name}</div>
-                          <div className="tile-role">
-                            {t(`menuAdmin.kind.${r.kind}` as MessageKey)} ·{" "}
-                            {r.target.item_ids.map(itemName).join(", ")}
-                          </div>
-                        </td>
-                        <td>
-                          {r.days.map((d) => t(`day.${d}` as MessageKey)).join(" ")}
-                          {r.from_min !== null && ` · ${hhmm(r.from_min)}`}
-                          {r.to_min !== null && `–${hhmm(r.to_min)}`}
-                        </td>
-                        <td>
-                          {r.price_cents !== null
-                            ? (r.target.qty ?? 1) > 1
-                              ? t("menuAdmin.rule.forPrice", {
-                                  qty: r.target.qty ?? 1,
-                                  price: money(r.price_cents),
-                                })
-                              : money(r.price_cents)
-                            : t("menuAdmin.rule.pctOff", { pct: r.pct_off ?? 0 })}
-                        </td>
-                        <td>
-                          <ShownToggle
-                            name={r.name}
-                            shown={r.shown}
-                            onChange={(shown) =>
-                              void run(() => call("PATCH", `/price-rules/${r.id}`, { shown }))
-                            }
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll" data-scroll="x">
+                  <table className="team-table menu-table rules-table">
+                    <tbody>
+                      {rules.map((r) => (
+                        <tr key={r.id} className={r.shown ? "" : "gone"}>
+                          <td>
+                            <div className="tile-name">{r.name}</div>
+                            <div className="tile-role">
+                              {t(`menuAdmin.kind.${r.kind}` as MessageKey)} ·{" "}
+                              {r.target.item_ids.map(itemName).join(", ")}
+                            </div>
+                          </td>
+                          <td>
+                            {r.days.map((d) => t(`day.${d}` as MessageKey)).join(" ")}
+                            {r.from_min !== null && ` · ${hhmm(r.from_min)}`}
+                            {r.to_min !== null && `–${hhmm(r.to_min)}`}
+                          </td>
+                          <td>
+                            {r.price_cents !== null
+                              ? (r.target.qty ?? 1) > 1
+                                ? t("menuAdmin.rule.forPrice", {
+                                    qty: r.target.qty ?? 1,
+                                    price: money(r.price_cents),
+                                  })
+                                : money(r.price_cents)
+                              : t("menuAdmin.rule.pctOff", { pct: r.pct_off ?? 0 })}
+                          </td>
+                          <td>
+                            <ShownToggle
+                              name={r.name}
+                              shown={r.shown}
+                              onChange={(shown) =>
+                                void run(() => call("PATCH", `/price-rules/${r.id}`, { shown }))
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
               <AddRule
                 items={allItems}

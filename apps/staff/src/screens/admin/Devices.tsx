@@ -155,117 +155,123 @@ export function Devices() {
               })}
             </p>
           )}
-          <table className="team-table devices-table">
-            <thead>
-              <tr>
-                <th>{t("devices.col.device")}</th>
-                <th>{t("devices.col.kind")}</th>
-                <th>{t("devices.col.where")}</th>
-                <th>{t("devices.col.state")}</th>
-                <th>{t("devices.col.lastSeen")}</th>
-                <th>{t("devices.col.actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {devices.map((d) => (
-                <tr key={d.id} className={d.online ? "" : "gone"}>
-                  <td>
-                    {renaming?.id === d.id ? (
-                      <form
-                        className="field-line"
-                        onSubmit={(e: FormEvent) => {
-                          e.preventDefault();
-                          void rename(d, renaming.name);
-                        }}
-                      >
-                        <input
-                          aria-label={t("devices.pair.name")}
-                          value={renaming.name}
-                          maxLength={80}
-                          required
-                          onChange={(e) => setRenaming({ id: d.id, name: e.target.value })}
-                        />
-                        <button type="submit" className="primary">
-                          {t("devices.rename")}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => setRenaming(null)}
+          <div className="table-scroll" data-scroll="x">
+            <table className="team-table devices-table">
+              <thead>
+                <tr>
+                  <th>{t("devices.col.device")}</th>
+                  <th>{t("devices.col.kind")}</th>
+                  <th>{t("devices.col.where")}</th>
+                  <th>{t("devices.col.state")}</th>
+                  <th>{t("devices.col.lastSeen")}</th>
+                  <th>{t("devices.col.actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {devices.map((d) => (
+                  <tr key={d.id} className={d.online ? "" : "gone"}>
+                    <td>
+                      {renaming?.id === d.id ? (
+                        <form
+                          className="field-line"
+                          onSubmit={(e: FormEvent) => {
+                            e.preventDefault();
+                            void rename(d, renaming.name);
+                          }}
                         >
-                          {t("team.badge.cancel")}
-                        </button>
-                      </form>
-                    ) : (
-                      <div className="tile-name">{d.name}</div>
-                    )}
-                    {note?.id === d.id && (
-                      <div className="small" role="status">
-                        {t(note.key)}
-                      </div>
-                    )}
-                  </td>
-                  <td>{t(`devices.kind.${d.kind}` as MessageKey)}</td>
-                  <td>{t(whereKey[d.kind])}</td>
-                  <td>
-                    <span className={d.online ? "state-online" : "muted"}>
-                      {d.online
-                        ? t("devices.online")
-                        : d.last_seen_at
-                          ? t("devices.offline")
-                          : t("devices.neverSeen")}
-                    </span>
-                    {d.kind === "router" && typeof d.network?.cellular_backup === "boolean" && (
-                      <div className="small muted">
-                        {t(
-                          d.network.cellular_backup
-                            ? "devices.backupInternet.on"
-                            : "devices.backupInternet.off",
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td className="muted">{d.last_seen_at ? seen(d.last_seen_at) : "—"}</td>
-                  <td>
-                    <div className="team-actions">
-                      {renaming?.id !== d.id && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => setRenaming({ id: d.id, name: d.name })}
-                        >
-                          {t("devices.rename")}
-                        </button>
-                      )}
-                      {confirming === d.id ? (
-                        <p className="notice" role="alertdialog">
-                          {t("devices.revoke.confirm", { name: d.name })}
-                          <button type="button" className="primary" onClick={() => void revoke(d)}>
-                            {t("team.confirm")}
+                          <input
+                            aria-label={t("devices.pair.name")}
+                            value={renaming.name}
+                            maxLength={80}
+                            required
+                            onChange={(e) => setRenaming({ id: d.id, name: e.target.value })}
+                          />
+                          <button type="submit" className="primary">
+                            {t("devices.rename")}
                           </button>
                           <button
                             type="button"
                             className="secondary"
-                            onClick={() => setConfirming(null)}
+                            onClick={() => setRenaming(null)}
                           >
                             {t("team.badge.cancel")}
                           </button>
-                        </p>
+                        </form>
                       ) : (
-                        <button
-                          type="button"
-                          className="secondary danger"
-                          onClick={() => setConfirming(d.id)}
-                        >
-                          {t("devices.revoke")}
-                        </button>
+                        <div className="tile-name">{d.name}</div>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      {note?.id === d.id && (
+                        <div className="small" role="status">
+                          {t(note.key)}
+                        </div>
+                      )}
+                    </td>
+                    <td>{t(`devices.kind.${d.kind}` as MessageKey)}</td>
+                    <td>{t(whereKey[d.kind])}</td>
+                    <td>
+                      <span className={d.online ? "state-online" : "muted"}>
+                        {d.online
+                          ? t("devices.online")
+                          : d.last_seen_at
+                            ? t("devices.offline")
+                            : t("devices.neverSeen")}
+                      </span>
+                      {d.kind === "router" && typeof d.network?.cellular_backup === "boolean" && (
+                        <div className="small muted">
+                          {t(
+                            d.network.cellular_backup
+                              ? "devices.backupInternet.on"
+                              : "devices.backupInternet.off",
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="muted">{d.last_seen_at ? seen(d.last_seen_at) : "—"}</td>
+                    <td>
+                      <div className="team-actions">
+                        {renaming?.id !== d.id && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setRenaming({ id: d.id, name: d.name })}
+                          >
+                            {t("devices.rename")}
+                          </button>
+                        )}
+                        {confirming === d.id ? (
+                          <p className="notice" role="alertdialog">
+                            {t("devices.revoke.confirm", { name: d.name })}
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={() => void revoke(d)}
+                            >
+                              {t("team.confirm")}
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => setConfirming(null)}
+                            >
+                              {t("team.badge.cancel")}
+                            </button>
+                          </p>
+                        ) : (
+                          <button
+                            type="button"
+                            className="secondary danger"
+                            onClick={() => setConfirming(d.id)}
+                          >
+                            {t("devices.revoke")}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
       <PairForm venueId={venueId} timeZone={timeZone} onMade={load} />
@@ -899,7 +905,6 @@ function RouterCard({
             <input
               value={link.wired_owner ?? ""}
               maxLength={100}
-              placeholder={t("router.link.ownerHint")}
               onChange={(e) => field("wired_owner", e.target.value)}
             />
           </label>
@@ -908,7 +913,6 @@ function RouterCard({
             <input
               value={link.lte_owner ?? ""}
               maxLength={100}
-              placeholder={t("router.link.ownerHint")}
               onChange={(e) => field("lte_owner", e.target.value)}
             />
           </label>

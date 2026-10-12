@@ -113,98 +113,102 @@ export function Rooms() {
         <p role="status">{t("shell.loading")}</p>
       ) : (
         <>
-          <table className="team-table">
-            <thead>
-              <tr>
-                <th>{t("rooms.col.room")}</th>
-                <th>{t("rooms.col.size")}</th>
-                <th>{t("rooms.col.capacity")}</th>
-                <th>{t("rooms.col.cleaning")}</th>
-                <th>{t("rooms.col.online")}</th>
-                <th>{t("rooms.col.state")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rooms.map((room) => {
-                const off = room.state === "out_of_service";
-                return (
-                  <tr key={room.id} className={off ? "gone" : ""}>
-                    <td>
-                      <div className="tile-name">{room.name}</div>
-                      {room.is_vip && <div className="tile-role">{t("rooms.vip")}</div>}
-                    </td>
-                    <td>{tier(room.size_tier)}</td>
-                    <td>
-                      {t("rooms.capacity", { min: room.capacity_min, max: room.capacity_max })}
-                    </td>
-                    <td>
-                      {room.cleaning_min === null
-                        ? t("rooms.cleaningDefault", { min: current.cleaningMin })
-                        : t("rooms.cleaningMin", { min: room.cleaning_min })}
-                    </td>
-                    <td>
-                      <label className="switch-line">
-                        <input
-                          type="checkbox"
-                          aria-label={`${room.name} · ${t("rooms.col.online")}`}
-                          checked={room.bookable_online}
-                          onChange={(e) => void patch(room, { bookable_online: e.target.checked })}
-                        />
-                        <span>
-                          {room.bookable_online ? t("rooms.bookable") : t("rooms.notBookable")}
-                        </span>
-                      </label>
-                    </td>
-                    <td>
-                      <div className="team-actions">
-                        <span className={off ? "muted" : "state-online"}>
-                          {off
-                            ? room.state_reason === SWITCHED_OFF
-                              ? t("rooms.switchedOff")
-                              : (room.state_reason ?? t("rooms.off"))
-                            : t("rooms.on")}
-                        </span>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => void switchRoom(room, off)}
-                        >
-                          {off ? t("rooms.switchOn") : t("rooms.switchOff")}
-                        </button>
-                        {confirming === room.id ? (
-                          <p className="notice" role="alertdialog">
-                            {t("rooms.archive.confirm", { name: room.name })}
-                            <button
-                              type="button"
-                              className="primary"
-                              onClick={() => void archive(room)}
-                            >
-                              {t("team.confirm")}
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => setConfirming(null)}
-                            >
-                              {t("team.badge.cancel")}
-                            </button>
-                          </p>
-                        ) : (
+          <div className="table-scroll" data-scroll="x">
+            <table className="team-table">
+              <thead>
+                <tr>
+                  <th>{t("rooms.col.room")}</th>
+                  <th>{t("rooms.col.size")}</th>
+                  <th>{t("rooms.col.capacity")}</th>
+                  <th>{t("rooms.col.cleaning")}</th>
+                  <th>{t("rooms.col.online")}</th>
+                  <th>{t("rooms.col.state")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.map((room) => {
+                  const off = room.state === "out_of_service";
+                  return (
+                    <tr key={room.id} className={off ? "gone" : ""}>
+                      <td>
+                        <div className="tile-name">{room.name}</div>
+                        {room.is_vip && <div className="tile-role">{t("rooms.vip")}</div>}
+                      </td>
+                      <td>{tier(room.size_tier)}</td>
+                      <td>
+                        {t("rooms.capacity", { min: room.capacity_min, max: room.capacity_max })}
+                      </td>
+                      <td>
+                        {room.cleaning_min === null
+                          ? t("rooms.cleaningDefault", { min: current.cleaningMin })
+                          : t("rooms.cleaningMin", { min: room.cleaning_min })}
+                      </td>
+                      <td>
+                        <label className="switch-line">
+                          <input
+                            type="checkbox"
+                            aria-label={`${room.name} · ${t("rooms.col.online")}`}
+                            checked={room.bookable_online}
+                            onChange={(e) =>
+                              void patch(room, { bookable_online: e.target.checked })
+                            }
+                          />
+                          <span>
+                            {room.bookable_online ? t("rooms.bookable") : t("rooms.notBookable")}
+                          </span>
+                        </label>
+                      </td>
+                      <td>
+                        <div className="team-actions">
+                          <span className={off ? "muted" : "state-online"}>
+                            {off
+                              ? room.state_reason === SWITCHED_OFF
+                                ? t("rooms.switchedOff")
+                                : (room.state_reason ?? t("rooms.off"))
+                              : t("rooms.on")}
+                          </span>
                           <button
                             type="button"
-                            className="secondary danger"
-                            onClick={() => setConfirming(room.id)}
+                            className="secondary"
+                            onClick={() => void switchRoom(room, off)}
                           >
-                            {t("rooms.archive")}
+                            {off ? t("rooms.switchOn") : t("rooms.switchOff")}
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {confirming === room.id ? (
+                            <p className="notice" role="alertdialog">
+                              {t("rooms.archive.confirm", { name: room.name })}
+                              <button
+                                type="button"
+                                className="primary"
+                                onClick={() => void archive(room)}
+                              >
+                                {t("team.confirm")}
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => setConfirming(null)}
+                              >
+                                {t("team.badge.cancel")}
+                              </button>
+                            </p>
+                          ) : (
+                            <button
+                              type="button"
+                              className="secondary danger"
+                              onClick={() => setConfirming(room.id)}
+                            >
+                              {t("rooms.archive")}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           <h3>{t("rooms.settings")}</h3>
           <div className="invite-fields">

@@ -888,7 +888,7 @@ export function Rail() {
                 type="search"
                 data-view
                 value={find}
-                placeholder={t("rail.find")}
+                placeholder={t("rail.find.placeholder")}
                 aria-label={t("rail.find")}
                 onChange={(e) => setFind(e.target.value)}
               />

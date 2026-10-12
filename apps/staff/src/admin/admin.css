@@ -393,7 +393,14 @@
   flex-wrap: nowrap;
 }
 .admin-screen .module-head > div:first-child {
-  min-width: 0;
+  /* Never narrower than its longest word: the controls beside it give way instead. */
+  min-width: min-content;
+}
+/* On a phone the state buttons go under the name, so the name isn't squeezed to a few letters. */
+@media (max-width: 600px) {
+  .admin-screen .module-head {
+    flex-wrap: wrap;
+  }
 }
 .admin-screen .module-head p {
   font-size: var(--w4-text-xs);
@@ -431,4 +438,10 @@
 .admin-screen .module-hides dd {
   font-size: var(--w4-text-xs);
   margin-bottom: 4px;
+}
+
+/* A text field in a table row is wide enough for its placeholder ("Ocupación (opcional)"); the
+   table scrolls inside its card when that makes it wider than the card. */
+.admin-screen .admin-body .team-table td input:not([type="checkbox"], [type="radio"]) {
+  min-width: 11rem;
 }

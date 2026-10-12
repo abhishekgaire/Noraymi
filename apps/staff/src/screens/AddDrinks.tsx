@@ -605,6 +605,10 @@ export function AddDrinks(props: {
         </ul>
       )}
 
+      {/* The bar POS has no search here: say what to do instead of an empty panel. */}
+      {lines.length === 0 && props.search === false && (
+        <p className="muted small">{t("drinks.empty")}</p>
+      )}
       {lines.length > 0 && (
         <div className="unsent" aria-label={t("drinks.unsent")}>
           <h4>{t("drinks.unsent")}</h4>

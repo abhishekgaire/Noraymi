@@ -134,21 +134,23 @@
   order: 10;
   flex: 1 1 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+  /* Each card holds its three buttons in one row, so it never gets narrower than they need. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
   gap: 8px;
   overflow: visible;
 }
 .rail .rail-orders:empty {
   display: none;
 }
+/* A card: the room, its state and age on one line, the items under it, then the buttons in a row
+   (Rail.dc.html's compact cards). The text never shares a row with the buttons, so a wide button
+   row can't squeeze it to a letter per line. */
 .rail .rail-order {
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 10px;
-  row-gap: 2px;
-  padding: 7px 7px 7px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 10px 12px;
   border-radius: var(--w4-radius-md);
   background: var(--w4-surface);
   border: 2px solid var(--w4-cyan);
@@ -169,13 +171,16 @@
   color: var(--w4-muted);
 }
 .rail .rail-order-head {
-  grid-column: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 2px 8px;
+  gap: 2px 10px;
   font-size: 14px;
+}
+.rail .rail-order-head strong,
+.rail .rail-order-head .age {
+  white-space: nowrap;
 }
 .rail .rail-order-head .age {
   font-family: var(--w4-font-mono);
@@ -184,20 +189,22 @@
   color: var(--tone);
 }
 .rail .rail-order .what {
-  grid-column: 1;
   font-size: var(--w4-text-sm);
   color: var(--w4-text-2);
 }
 .rail .rail-order .actions {
-  grid-column: 2;
-  grid-row: 1 / span 2;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  margin-top: 4px;
 }
 .rail .rail-order .actions button {
   min-height: 52px;
   padding: 0 12px;
   font-size: var(--w4-text-md);
+}
+.rail .rail-order .actions button.primary {
+  flex: 1 1 auto;
 }
 .rail .rail-order form {
   grid-column: 1 / -1;
@@ -249,6 +256,14 @@
   border: 1px solid var(--w4-line-3);
   border-radius: var(--w4-radius);
   font-size: var(--w4-text-base);
+}
+/* The short placeholder fits the 204 px column in English and Spanish; the field's name stays
+   the long "Find a name, room or card's last four". */
+.rail .rail-left input[type="search"] {
+  padding-inline: 10px;
+}
+.rail .rail-left input[type="search"]::placeholder {
+  font-size: var(--w4-text-md);
 }
 .rail .rail-left input[type="search"]:focus,
 .rail .rail-tools input[type="search"]:focus {
@@ -610,6 +625,13 @@
   .shell:has(.rail) .content {
     padding: 10px 12px;
   }
+  /* In the slim menu the links give their padding to the words, so "Close the night" stays on one line. */
+  .shell:has(.rail) .side {
+    padding-inline: 8px;
+  }
+  .shell:has(.rail) .side .menu-link {
+    padding-inline: 8px;
+  }
   /* The POS fills the window, as on the canvas: the tab list, the menu and the tab scroll on their
      own, so the header and the room orders never scroll away. */
   .rail {
@@ -646,14 +668,6 @@
   .rail .rail-right {
     border-left: 0;
     border-top: 1px solid var(--w4-line);
-  }
-  .rail .rail-order {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .rail .rail-order .actions {
-    grid-column: 1;
-    grid-row: auto;
-    flex-wrap: wrap;
   }
   .rail .rail-grid {
     grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
@@ -993,4 +1007,11 @@
 }
 .kitchen-switch button {
   min-height: 44px;
+}
+
+/* After the 1024 px rule: on a wider screen (a laptop at 1600 and up) the menu keeps its usual 200 px. */
+@media (min-width: 1600px) {
+  .shell:has(.rail) {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
 }

@@ -85,48 +85,50 @@ export function Hours() {
         <>
           <h3>{t("hours.weekly")}</h3>
           <p className="small muted">{t("hours.afterMidnight")}</p>
-          <table className="hours-table">
-            <thead>
-              <tr>
-                <th>{t("hours.day")}</th>
-                <th>{t("hours.opens")}</th>
-                <th>{t("hours.closes")}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {WEEK.map((day) => {
-                const row = rowFor(day);
-                const name = t(`day.${day}` as MessageKey);
-                return (
-                  <tr key={day}>
-                    <th scope="row">{name}</th>
-                    <td>
-                      <input
-                        type="time"
-                        aria-label={`${name} · ${t("hours.opens")}`}
-                        value={row?.opens ?? ""}
-                        onChange={(e) => setDay(day, "opens", e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="time"
-                        aria-label={`${name} · ${t("hours.closes")}`}
-                        value={row?.closes ?? ""}
-                        onChange={(e) => setDay(day, "closes", e.target.value)}
-                      />
-                    </td>
-                    <td className="muted">
-                      {row
-                        ? t("hours.range", { opens: clock(row.opens), closes: clock(row.closes) })
-                        : t("hours.kind.closed")}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-scroll" data-scroll="x">
+            <table className="hours-table">
+              <thead>
+                <tr>
+                  <th>{t("hours.day")}</th>
+                  <th>{t("hours.opens")}</th>
+                  <th>{t("hours.closes")}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {WEEK.map((day) => {
+                  const row = rowFor(day);
+                  const name = t(`day.${day}` as MessageKey);
+                  return (
+                    <tr key={day}>
+                      <th scope="row">{name}</th>
+                      <td>
+                        <input
+                          type="time"
+                          aria-label={`${name} · ${t("hours.opens")}`}
+                          value={row?.opens ?? ""}
+                          onChange={(e) => setDay(day, "opens", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="time"
+                          aria-label={`${name} · ${t("hours.closes")}`}
+                          value={row?.closes ?? ""}
+                          onChange={(e) => setDay(day, "closes", e.target.value)}
+                        />
+                      </td>
+                      <td className="muted">
+                        {row
+                          ? t("hours.range", { opens: clock(row.opens), closes: clock(row.closes) })
+                          : t("hours.kind.closed")}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           <h3>{t("hours.lastCall")}</h3>
           <p className="small muted">{t("hours.lastCall.hint")}</p>
@@ -152,28 +154,30 @@ export function Hours() {
           ) : closures.length === 0 ? (
             <p className="empty">{t("hours.special.none")}</p>
           ) : (
-            <table className="hours-table">
-              <thead>
-                <tr>
-                  <th>{t("hours.special.date")}</th>
-                  <th>{t("hours.special.kind")}</th>
-                  <th>{t("hours.opens")}</th>
-                  <th>{t("hours.closes")}</th>
-                  <th>{t("hours.special.note")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {closures.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.date}</td>
-                    <td>{t(`hours.kind.${c.kind}` as MessageKey)}</td>
-                    <td>{c.opens ? clock(c.opens) : "—"}</td>
-                    <td>{c.closes ? clock(c.closes) : "—"}</td>
-                    <td>{c.note ?? ""}</td>
+            <div className="table-scroll" data-scroll="x">
+              <table className="hours-table">
+                <thead>
+                  <tr>
+                    <th>{t("hours.special.date")}</th>
+                    <th>{t("hours.special.kind")}</th>
+                    <th>{t("hours.opens")}</th>
+                    <th>{t("hours.closes")}</th>
+                    <th>{t("hours.special.note")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {closures.map((c) => (
+                    <tr key={c.id}>
+                      <td>{c.date}</td>
+                      <td>{t(`hours.kind.${c.kind}` as MessageKey)}</td>
+                      <td>{c.opens ? clock(c.opens) : "—"}</td>
+                      <td>{c.closes ? clock(c.closes) : "—"}</td>
+                      <td>{c.note ?? ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <SpecialDateForm venueId={venueId} clock={clock} onAdded={load} />
         </>
