@@ -965,6 +965,9 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       // Queued and finished jobs (M6-09): the seed's ids are the same on every load, so a job left from the
       // last night (a payment run keyed by its payment and attempt) would swallow tonight's as a duplicate.
       "jobs",
+      // The public forms' daily uses (M2-27): counted per business date, and the seed's night is always
+      // Sep 25, so uses left from the last load would count against tonight's limits.
+      "public_form_uses",
       "drawer_moves",
       "staff_banks",
       "drawer_sessions",

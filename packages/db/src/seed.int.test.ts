@@ -279,4 +279,21 @@ describe("reloading while the night runs", () => {
     const r = await owner.query<{ n: number }>("select count(*)::int as n from pages");
     expect(r.rows[0]?.n).toBe(0);
   });
+
+  it("starts the public forms' daily limits from nothing: the last load's uses are gone", async () => {
+    const venueId = second.venueId;
+    await owner.query("begin");
+    await owner.query("select set_config('app.venue_id', $1, true)", [venueId]);
+    await owner.query(
+      `insert into public_form_uses (venue_id, form, counted_on) values ($1, 'waitlist', '2026-09-25')`,
+      [venueId],
+    );
+    await owner.query("commit");
+    await loadDemoSeed({ databaseUrl: db.url, env: { WEST4_ENV: "local" } });
+    await owner.query("begin");
+    await owner.query("select set_config('app.venue_id', $1, true)", [venueId]);
+    const r = await owner.query<{ n: number }>("select count(*)::int as n from public_form_uses");
+    await owner.query("commit");
+    expect(r.rows[0]?.n).toBe(0);
+  });
 });
