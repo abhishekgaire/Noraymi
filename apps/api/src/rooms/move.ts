@@ -3,7 +3,6 @@ import {
   emitEvent,
   listRooms,
   RoomNotFree,
-  setBlockEnd,
   setRoomState,
   type Queryable,
 } from "@west4/db";
@@ -14,7 +13,7 @@ import { moveOptions } from "./assignment.js";
 import { sendToCleaning } from "./cleaning.js";
 import { hashRoomCode, newRoomCode, priceContext } from "./checkin.js";
 import { sealRoomCode } from "./room-code.js";
-import { sessionBlock } from "./sessions.js";
+import { endSessionBlock, sessionBlock } from "./sessions.js";
 
 /**
  * A room move (M2-18; screens N12; spec 04 · Room assignment; spec 08 · Board
@@ -136,7 +135,7 @@ export async function moveSession(
 
   // The blocks: the old room's ends now and goes to cleaning until its next booking; the session runs on in the new room.
   const block = await sessionBlock(c, venueId, s.id);
-  if (block) await setBlockEnd(c, venueId, block.id, input.now);
+  if (block) await endSessionBlock(c, venueId, block, input.now);
   try {
     await addBlock(c, {
       venueId,

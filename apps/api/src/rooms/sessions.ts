@@ -187,12 +187,28 @@ async function sessionOrThrow(c: Queryable, venueId: string, id: string) {
 
 /** The session's current block: the latest, since a move ends the old room's and opens one in the new room. */
 export async function sessionBlock(c: Queryable, venueId: string, sessionId: string) {
-  const r = await c.query<{ id: string; ends_at: string | null }>(
-    `select id, ${iso("upper(period)")} as ends_at from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'session'
+  const r = await c.query<{ id: string; starts_at: string; ends_at: string | null }>(
+    `select id, ${iso("lower(period)")} as starts_at, ${iso("upper(period)")} as ends_at from room_blocks where venue_id = $1 and ref_id = $2 and kind = 'session'
       order by lower(period) desc limit 1`,
     [venueId, sessionId],
   );
   return r.rows[0] ?? null;
+}
+
+/**
+ * Ends a session's block at `now`. A block that starts at `now` or later (the party was seated and
+ * moved or ended in the same clock tick) never held the room, so it goes: ending it there would
+ * leave an empty range, which room_blocks refuses.
+ */
+export async function endSessionBlock(
+  c: Queryable,
+  venueId: string,
+  block: { id: string; starts_at: string },
+  now: Temporal.Instant,
+): Promise<void> {
+  if (Temporal.Instant.compare(Temporal.Instant.from(block.starts_at), now) >= 0)
+    await releaseBlock(c, block.id);
+  else await setBlockEnd(c, venueId, block.id, now);
 }
 
 /** Ends a session: the clock stops, the room goes to cleaning until staff mark it clean or the next booking. */
@@ -220,7 +236,7 @@ export async function endSession(
     return;
   }
   const block = await sessionBlock(c, venueId, id);
-  if (block) await setBlockEnd(c, venueId, block.id, now);
+  if (block) await endSessionBlock(c, venueId, block, now);
   await sendToCleaning(c, venueId, s.room_id, { now, userId });
 }
 

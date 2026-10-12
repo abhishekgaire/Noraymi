@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import pg from "pg";
 import { loadDemoSeed } from "@west4/db";
 import { createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
-import { SEED_NOW, SimulatedClock, Temporal } from "@west4/shared";
+import { FrozenClock, SEED_NOW, Temporal } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
@@ -15,7 +15,8 @@ let raw: pg.Client;
 let app: FastifyInstance;
 let venueId = "";
 let ids: Record<string, string> = {};
-const clock = new SimulatedClock(SEED_NOW);
+// Frozen at 10:41:00 sharp: a walk-in seated now and moved now share the instant its block starts.
+const clock = new FrozenClock(SEED_NOW);
 const at = (hhmm: string) => Temporal.Instant.from(`2026-09-25T${hhmm}:00-04:00`);
 const req = (method: "GET" | "POST", path: string, payload?: unknown) =>
   app.inject({
@@ -160,5 +161,60 @@ describe("the move sheet", () => {
       [ids["sess_room7"], ids["room_7"]],
     );
     expect(events.rowCount).toBe(1);
+  });
+});
+
+describe("a walk-in moved in the minute it was seated", () => {
+  it("moves without a database error: its first room's block goes rather than ending empty, and the bill counts no minutes there", async () => {
+    // The clock is frozen at 10:41:00 sharp, the instant the walk-in's block starts.
+    let seat = null;
+    for (let n = 1; n <= 14 && seat?.statusCode !== 201; n++)
+      seat = await req("POST", `/rooms/${ids[`room_${n}`]}/sessions`, {
+        party_size: 2,
+        ids_checked: 2,
+        minutes: 60,
+      });
+    expect(seat!.statusCode, seat!.body).toBe(201);
+    const { session_id: sessionId, room_id: firstRoom } = seat!.json<{
+      session_id: string;
+      room_id: string;
+    }>();
+    // Room 13 finishes cleaning, so there's somewhere to go.
+    await raw.query("delete from room_blocks where room_id = $1 and kind = 'cleaning'", [
+      ids["room_13"],
+    ]);
+    await raw.query("update room_states set state = 'available' where room_id = $1", [
+      ids["room_13"],
+    ]);
+    const r = await req("POST", `/sessions/${sessionId}/move`, { room_id: ids["room_13"] });
+    expect(r.statusCode, r.body).toBe(200);
+
+    const blocks = await raw.query<{ room_id: string }>(
+      "select room_id from room_blocks where ref_id = $1 and kind = 'session'",
+      [sessionId],
+    );
+    expect(blocks.rows.map((b) => b.room_id)).toEqual([ids["room_13"]]);
+    const segments = await raw.query<{ room_id: string; minutes: number }>(
+      `select room_id, extract(epoch from coalesce(ended_at, started_at) - started_at)::int / 60 as minutes
+         from session_segments where session_id = $1 order by ended_at nulls last`,
+      [sessionId],
+    );
+    expect(segments.rows).toEqual([
+      { room_id: firstRoom, minutes: 0 },
+      { room_id: ids["room_13"], minutes: 0 },
+    ]);
+    for (const path of [`/sessions/${sessionId}`, "/board", "/rooms/availability"]) {
+      const g = await req("GET", path);
+      expect(g.statusCode, `${path} ${g.body.slice(0, 300)}`).toBe(200);
+    }
+
+    // Ending it in that same instant works too: the new room's block goes the same way.
+    const end = await req("POST", `/sessions/${sessionId}/end`, {});
+    expect(end.statusCode, end.body).toBe(200);
+    const left = await raw.query(
+      "select 1 from room_blocks where ref_id = $1 and kind = 'session'",
+      [sessionId],
+    );
+    expect(left.rowCount).toBe(0);
   });
 });
