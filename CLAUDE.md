@@ -20,6 +20,7 @@ A POS and operations platform for karaoke venues, built for many venues from day
 | Why something is the way it is | `docs/decisions.md` (D1–D85, newest first) |
 | Product scope and phases | `docs/blueprint.md` |
 | Questions still open, and who answers them | `docs/spec/14-open-questions.md` |
+| What still needs a person (decisions, accounts, advisers, on-site work) | `docs/todo.md` |
 | How the screens look | `design/canvas/`. See `design/README.md` to open it. |
 
 `docs/archive/` holds the reviews and research the decisions came from. It's history, not instructions.
