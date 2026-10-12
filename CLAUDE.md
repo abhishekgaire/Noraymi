@@ -119,6 +119,9 @@ pnpm dev                # build the packages, then run all five apps: API 3000, 
 scripts/demo-start.sh   # local only: start everything in demo mode (no .env, no real keys), a fresh night at 10:41 PM and invite links; Ctrl+C stops it (docs/local-testing.md)
 scripts/demo-local.sh   # local only: reset the night to 10:41 PM and print new owner and manager invite links
 scripts/demo-codes.sh   # local only: the newest sign-in codes the app texted or emailed
+scripts/demo-start.sh --sing-sing   # (also demo-local.sh) adds Sing Sing Astoria as a second venue (slug singsing): 6 rooms, kitchen on, card behind the bar, its menu imported
+node scripts/demo-text.mjs "STOP" [+1phone] [--venue singsing]   # local only: a guest's text in (signed like Twilio's), for STOP/HELP and the inbox
+node scripts/demo-links.mjs   # local only: the night's guest links (Jae's manage link, Room 9's host link); demo-local.sh prints them
 pnpm check              # lint, i18n, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)
 pnpm lint && pnpm typecheck && pnpm test
 pnpm i18n:check          # every staff string exists in English and Spanish with the same placeholders; names any missing key
