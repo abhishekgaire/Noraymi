@@ -134,7 +134,18 @@ const cardFeeSchema = z.discriminatedUnion("mode", [
     })
     .strict(),
   /** A cash discount off the listed (card) price, 0 to 10% (D105): 0 is no discount until set. */
-  z.object({ mode: z.literal("discount"), pct: z.number().nonnegative().max(10) }).strict(),
+  z
+    .object({
+      mode: z.literal("discount"),
+      pct: z.number().nonnegative().max(10),
+      /**
+       * With the Kitchen module (O-09; spec 17 · Step details 7): whether food prices already
+       * include the card fee. False means food prices are cash prices, which the discount never
+       * applies to. Missing reads true.
+       */
+      foodIncludesFee: z.boolean().optional(),
+    })
+    .strict(),
 ]);
 
 export const paySchema = z

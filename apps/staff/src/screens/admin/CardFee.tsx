@@ -33,6 +33,8 @@ export function CardFee() {
   const { state } = useSession();
   const draft = useAdminDraft();
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
+  const kitchenAllowed =
+    state.status === "signedIn" && (state.membership.modules_allowed ?? []).includes("kitchen");
   const [saved, setSaved] = useState<Pay | null>(null);
   const [today, setToday] = useState<string | null>(null);
   const [pack, setPack] = useState<Pack | null>(null);
@@ -118,6 +120,16 @@ export function CardFee() {
             )}
             {current.cardFee.mode === "discount" && (
               <p className="small muted">{t("cardFeeAdmin.discount.hint")}</p>
+            )}
+            {current.cardFee.mode === "discount" && kitchenAllowed && (
+              // O-09: food prices already include the card fee, or are cash prices the discount skips.
+              <FoodIncludesFee
+                value={current.cardFee.foodIncludesFee ?? true}
+                onChange={(foodIncludesFee) =>
+                  current.cardFee.mode === "discount" &&
+                  set({ ...current, cardFee: { ...current.cardFee, foodIncludesFee } })
+                }
+              />
             )}
             {current.cardFee.mode === "surcharge" && (
               <label>
@@ -313,5 +325,32 @@ export function CardFee() {
         </>
       )}
     </section>
+  );
+}
+
+/** Whether food prices include the card fee (O-09; spec 17 · Step details 7): shown with the Kitchen module. */
+export function FoodIncludesFee({
+  value,
+  onChange,
+}: {
+  value: boolean | null;
+  onChange: (value: boolean) => void;
+}) {
+  const { t } = useT();
+  return (
+    <div role="radiogroup" aria-label={t("cardFeeAdmin.food")}>
+      <p className="small">{t("cardFeeAdmin.food")}</p>
+      {([true, false] as const).map((v) => (
+        <label key={String(v)}>
+          <input
+            type="radio"
+            name="food-includes-fee"
+            checked={value === v}
+            onChange={() => onChange(v)}
+          />
+          <span>{t(v ? "cardFeeAdmin.food.includes" : "cardFeeAdmin.food.cashPrices")}</span>
+        </label>
+      ))}
+    </div>
   );
 }

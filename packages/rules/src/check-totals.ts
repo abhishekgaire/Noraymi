@@ -325,6 +325,47 @@ export function cardFee(input: {
 }
 
 /**
+ * A cash discount on cash taken (Money rules 10; M4-25, O-09): a percent of the cash, half up, and
+ * a matching tax reduction (the tax rate on the discount, half up). With `foodIncludesFee` false,
+ * food prices are cash prices already: the cash splits between the check's food and the rest by
+ * largest remainder (weights are their pre-tax amounts), and only the rest is discounted. The food
+ * part and the discounted part add up to the cash; the cash pays it less the discount and its tax.
+ */
+export function cashDiscount(input: {
+  readonly amountCents: number;
+  readonly pct: number | string;
+  readonly taxRatePct: number | string;
+  readonly foodIncludesFee: boolean;
+  readonly foodWeightCents: number;
+  readonly otherWeightCents: number;
+}): {
+  excludedFoodCents: Cents;
+  discountedPartCents: Cents;
+  discountCents: Cents;
+  taxOffCents: Cents;
+  cashPaysCents: Cents;
+} {
+  const amount = cents(input.amountCents);
+  const food = Math.max(0, input.foodWeightCents);
+  const other = Math.max(0, input.otherWeightCents);
+  const [excluded, base] =
+    input.foodIncludesFee || food === 0 || amount === 0
+      ? [cents(0), amount]
+      : other === 0
+        ? [amount, cents(0)]
+        : (divideByWeights(amount, [food, other]) as [Cents, Cents]);
+  const discount = base > 0 ? percent(base, input.pct) : cents(0);
+  const taxOff = discount > 0 ? percent(discount, input.taxRatePct) : cents(0);
+  return {
+    excludedFoodCents: excluded,
+    discountedPartCents: base,
+    discountCents: discount,
+    taxOffCents: taxOff,
+    cashPaysCents: cents(amount - discount - taxOff),
+  };
+}
+
+/**
  * The price every screen shows (Money rules 10; M4-25): with a card surcharge on, the credit price
  * (the price plus the surcharge, half up), so a guest never meets a fee they weren't shown; otherwise
  * the price itself. One function for the site, the room page, the bar and the menu PDF.

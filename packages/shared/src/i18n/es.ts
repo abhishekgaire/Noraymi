@@ -1855,6 +1855,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cardFeeAdmin.pct": "Porcentaje",
   "cardFeeAdmin.discount.hint":
     "El descuento en efectivo de tu local, sobre el precio con tarjeta. En 0 no hay descuento y el efectivo paga el precio indicado. Consulta a tu abogado antes de activarlo.",
+  "cardFeeAdmin.food": "Precios de comida y el descuento en efectivo",
+  "cardFeeAdmin.food.includes":
+    "Los precios de comida incluyen el cargo por tarjeta · el descuento también aplica a la comida",
+  "cardFeeAdmin.food.cashPrices":
+    "Los precios de comida son precios en efectivo · el descuento nunca aplica a la comida",
   "refundAlerts.title": "Avisos de reembolsos",
   "refundAlerts.label": "Avisarme de reembolsos de más de",
   "refundAlerts.placeholder": "Todos los reembolsos",
@@ -3542,6 +3547,19 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.deposits.finish": "Termina las respuestas del depósito, o bórralas, antes de seguir",
   "onboarding.deposits.largestPartyLater":
     "El grupo más grande en línea se define con los precios en el paso 4",
+  "onboarding.yes": "Sí",
+  "onboarding.no": "No",
+  "onboarding.money.hint":
+    "Tu descuento en efectivo, la propina automática y las propinas, y luego tus cajas. No se elige nada por ti; un cambio de caja empieza el siguiente día de negocio.",
+  "onboarding.money.finish": "Termina las respuestas de pagos y cajas, o bórralas, antes de seguir",
+  "onboarding.money.discountRate": "Descuento en efectivo (%) · vacío es sin descuento",
+  "onboarding.money.threshold": "Por debajo de este monto, ofrece propinas fijas ($)",
+  "onboarding.money.fixed": "Propina fija {n} ($)",
+  "onboarding.money.overPct": "Marcar una propina de más de (%)",
+  "onboarding.money.overAmount": "Marcar una propina de más de ($)",
+  "onboarding.money.lateHours": "Marcar una propina registrada con estas horas de retraso",
+  "onboarding.money.roomHold": "Retener una tarjeta al registrar la sala",
+  "onboarding.money.roomHoldAmount": "Monto de la retención de sala ($)",
   "onboarding.step.card.title": "Pagos con tarjeta",
   "onboarding.step.card.hint": "Conecta con Stripe para cobrar con tarjeta",
   "onboarding.step.rooms.title": "Salas y precios",

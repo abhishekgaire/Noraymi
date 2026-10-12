@@ -220,16 +220,21 @@ Definition of done: see CLAUDE.md.
 
 ### O-09 · Step 7: the cash discount, food and the card fee, gratuity and drawers
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** O-02; M4 (the card fee), M7 (drawers), K-10 (food tax)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 7; [Money rules](../spec/05-money-rules.md) rule 10
 - **Build:**
   - The step reuses Admin → Payments and Admin → Cash drawers. New: `pay.cardFee.foodIncludesFee` in discount mode; with false, the discount never applies to kitchen items.
 - **Acceptance:**
-  - [ ] Write the money cases first: a cash discount on a mixed drinks and food check, with `foodIncludesFee` true and false, rounding half up, the parts adding up.
-  - [ ] The step's answers show in Admin; a drawer change starts at the next business date.
+  - [x] Write the money cases first: a cash discount on a mixed drinks and food check, with `foodIncludesFee` true and false, rounding half up, the parts adding up.
+  - [x] The step's answers show in Admin; a drawer change starts at the next business date.
 - **Tests:** unit tests in `packages/rules` from the new `seed/money-cases.json` group; integration tests.
+- **Notes:**
+  - Built: the `cash_discount` group in `seed/money-cases.json` (4 cases: food including the fee, food at cash prices, a part payment split by largest remainder, a half cent rounding up), written first, then `cashDiscount` in `packages/rules/src/check-totals.ts`; `applyCashDiscount` (`apps/api/src/payments/surcharge.ts`) now uses it with `pay.cardFee.foodIncludesFee` (new, optional, missing reads true) and the check's pre-tax food and other lines. Admin → Card fee & gratuity asks the food question in discount mode with Kitchen & food allowed. The wizard's `MoneyStep.tsx` shows Admin's Card fee & gratuity and Cash drawers once saved, and first-time forms otherwise.
+  - Cautious defaults: the `pay` and `drawer` keys can't be saved in parts, so the first-time step also asks the tip screen (and its percents, fixed amounts and threshold when on), tip review, the pool, Pay my share and a room hold, and the drawer's counts, each empty until chosen; with house drawers the unused per-person answers save as bartenders and no count-later. An empty discount rate is off (spec 17). The discount keeps M4-25's arithmetic (the rate on the cash, then the tax rate on the discount). Spec 05 rule 10 and spec 17 step 7 say so.
+  - A drawer change starting at the next business date is Admin's own behaviour, tested in `apps/api/src/routes/settings.int.test.ts`; the step saves through the same route.
+  - Tests: `packages/rules/src/check-totals.test.ts` (the group; the parts add up), `money-audit.test.ts` (the group known), `apps/api/src/payments/cash-discount.int.test.ts` (row-level security on; food at cash prices and food including the fee, the stored lines), and step 7 in `e2e/setup.staff.spec.ts`.
 
 ### O-10 · Step 8: the menu by hand, by spreadsheet or by request
 

@@ -20,6 +20,7 @@ import { useSession } from "../../session.js";
 import { CardStep } from "./CardStep.js";
 import { DepositsStep } from "./DepositsStep.js";
 import { HoursStep } from "./HoursStep.js";
+import { MoneyStep } from "./MoneyStep.js";
 import { RoomsStep } from "./RoomsStep.js";
 import { PlanStep } from "./PlanStep.js";
 import { VenueForm } from "./Venue.js";
@@ -389,6 +390,8 @@ function StepBody({
   // Step 6 (O-07): Admin's deposits and the four walk-in choices.
   if (step.id === "deposits" && step.mark !== "not_used")
     return <DepositsStep registerSave={registerSave} onSaved={onSaved} />;
+  // Step 7 (O-09): the cash discount, food and the card fee, gratuity and the drawers.
+  if (step.id === "money") return <MoneyStep registerSave={registerSave} onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (

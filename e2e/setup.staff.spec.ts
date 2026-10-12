@@ -336,8 +336,42 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await page.getByLabel("Keep the card behind the bar").check();
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(rail.getByRole("button", { name: /Deposits and check-in/ })).toContainText("Done");
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Money at the counter" }),
+    ).toBeVisible();
+
+    // Step 7 (O-09): nothing chosen; a half-answered form waits; then the answers save and show
+    // in Admin → Card fee & gratuity and Admin → Cash drawers. No Kitchen: no food question.
+    await expect(page.getByLabel("Cash discount (%) · empty is no discount")).toHaveValue("");
+    await page.getByLabel("Cash discount (%) · empty is no discount").fill("3");
+    await expect(
+      page.getByRole("radiogroup", { name: "Food prices and the cash discount" }),
+    ).toHaveCount(0);
+    await page.getByLabel("Added to").selectOption("off");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("Finish the payments and drawer answers")).toBeVisible();
+    await page.getByLabel("Ask for a tip on the reader").selectOption("no");
+    await page.getByLabel("Flag a tip over (%)").fill("30");
+    await page.getByLabel("Flag a tip over ($)").fill("60");
+    await page.getByLabel("Flag a tip entered this many hours late").fill("3");
+    await page.getByLabel("How the pool splits").selectOption("hours");
+    await page.getByLabel(/^Pay my share/).selectOption("no");
+    await page.getByLabel("Hold a card at room check-in").selectOption("no");
+    await page.getByLabel("Drawer model").selectOption("house");
+    await page.getByLabel("Starting bank, $").fill("250");
+    await page.getByLabel("A count off by more than this needs a note, $").fill("10");
+    await page.getByLabel("Second counter").selectOption("never");
+    await page.getByLabel("Paid-outs need approval over, $").fill("40");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(rail.getByRole("button", { name: /Money at the counter/ })).toContainText("Done");
+
     await page.goto("/admin/deposits");
     await expect(page.getByLabel("Keep the card behind the bar")).toBeChecked();
+    await page.goto("/admin/card-fee");
+    await expect(page.getByLabel("Percent", { exact: true })).toHaveValue("3");
+    await expect(page.getByLabel("How the pool splits")).toHaveValue("hours");
+    await page.goto("/admin/cash-drawers");
+    await expect(page.getByLabel("Starting bank, $")).toHaveValue("250");
   } finally {
     await db.end();
   }

@@ -1820,6 +1820,11 @@ export const en = {
   "cardFeeAdmin.pct": "Percent",
   "cardFeeAdmin.discount.hint":
     "Your venue's own cash discount, off the listed card price. At 0 there's no discount, and cash pays the listed price. Ask your lawyer before turning it on.",
+  "cardFeeAdmin.food": "Food prices and the cash discount",
+  "cardFeeAdmin.food.includes":
+    "Food prices include the card fee · the discount applies to food too",
+  "cardFeeAdmin.food.cashPrices":
+    "Food prices are cash prices · the discount never applies to food",
   "refundAlerts.title": "Refund alerts",
   "refundAlerts.label": "Alert me about refunds over",
   "refundAlerts.placeholder": "Every refund",
@@ -3460,6 +3465,20 @@ export const en = {
   "onboarding.deposits.finish": "Finish the deposit answers, or clear them, before you go on",
   "onboarding.deposits.largestPartyLater":
     "The largest party online is set with the prices in step 4",
+  "onboarding.yes": "Yes",
+  "onboarding.no": "No",
+  "onboarding.money.hint":
+    "Your cash discount, the gratuity and tips, then your cash drawers. Nothing is chosen for you; a drawer change starts the next business date.",
+  "onboarding.money.finish":
+    "Finish the payments and drawer answers, or clear them, before you go on",
+  "onboarding.money.discountRate": "Cash discount (%) · empty is no discount",
+  "onboarding.money.threshold": "Below this amount, offer fixed tips ($)",
+  "onboarding.money.fixed": "Fixed tip {n} ($)",
+  "onboarding.money.overPct": "Flag a tip over (%)",
+  "onboarding.money.overAmount": "Flag a tip over ($)",
+  "onboarding.money.lateHours": "Flag a tip entered this many hours late",
+  "onboarding.money.roomHold": "Hold a card at room check-in",
+  "onboarding.money.roomHoldAmount": "Room hold amount ($)",
   "onboarding.step.card.title": "Card payments",
   "onboarding.step.card.hint": "Connect with Stripe to take cards",
   "onboarding.step.rooms.title": "Rooms and prices",

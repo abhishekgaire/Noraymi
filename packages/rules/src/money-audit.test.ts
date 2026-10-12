@@ -83,6 +83,8 @@ const AS_STORED_INPUTS = new Set([
   "menu_choices",
   // A line voided with its components (K-12) is stored as void lines, each at its line's price.
   "menu_choices_void",
+  // A cash discount (O-09) is stored as its cash_discount and tax lines, each as the rule gives it.
+  "cash_discount",
 ]);
 
 describe("the money cases, every group, through the audit (M9-15)", () => {

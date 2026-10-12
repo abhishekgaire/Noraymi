@@ -6,6 +6,7 @@ import { newYorkCountyFood, newYorkCountyTaxed } from "@west4/shared";
 import {
   canPresentCheck,
   cardFee,
+  cashDiscount,
   checkRevision,
   checkTotals,
   depositVsCheck,
@@ -175,6 +176,37 @@ describe("the other money cases", () => {
         card_pays_with_tax_on_fee_cents: r.cardPaysWithTaxOnFeeCents,
       }).toEqual(c.expected);
     });
+  // O-09: a cash discount on a drinks-and-food check, with food's prices including the fee or not.
+  for (const c of group("cash_discount"))
+    it(c.id, () => {
+      const r = cashDiscount({
+        amountCents: c.inputs.amount_cents,
+        pct: c.inputs.pct,
+        taxRatePct: c.inputs.tax_rate_pct,
+        foodIncludesFee: c.inputs.food_includes_fee,
+        foodWeightCents: c.inputs.food_weight_cents,
+        otherWeightCents: c.inputs.other_weight_cents,
+      });
+      expect({
+        excluded_food_cents: r.excludedFoodCents,
+        discounted_part_cents: r.discountedPartCents,
+        discount_cents: r.discountCents,
+        tax_off_cents: r.taxOffCents,
+        cash_pays_cents: r.cashPaysCents,
+      }).toEqual(c.expected);
+      // The parts always add up.
+      expect(r.excludedFoodCents + r.discountedPartCents).toBe(c.inputs.amount_cents);
+      expect(r.cashPaysCents + r.discountCents + r.taxOffCents).toBe(c.inputs.amount_cents);
+    });
+  it("a cash discount group exists, with food in and out of the fee", () => {
+    const g = group("cash_discount");
+    expect(
+      g.some((c) => c.inputs.food_includes_fee === true && c.inputs.food_weight_cents > 0),
+    ).toBe(true);
+    expect(
+      g.some((c) => c.inputs.food_includes_fee === false && c.inputs.food_weight_cents > 0),
+    ).toBe(true);
+  });
   for (const c of cases.filter((x) => x.id === "deposit_larger_than_check_forfeit"))
     it(c.id, () => {
       // The check's own lines total what the case says: forfeit lines are fee, untaxed.
