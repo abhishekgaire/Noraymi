@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KitchenSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api } from "../../api.js";
@@ -23,17 +23,25 @@ export function Kitchen() {
   const [notice, setNotice] = useState<{ en: string; es: string } | null>(null);
   const [minutes, setMinutes] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const value = (
-      await api<{ value: KitchenSettings }>("GET", `/v1/venues/${venueId}/settings/kitchen`)
-    ).value;
-    setSaved(value);
-    setNotice(null);
-    setMinutes(null);
-  }, [venueId]);
+  // What's being typed is dropped only when the draft is saved or discarded (a new version), not
+  // when a load for the same version lands late, after the person has started typing.
+  const typedFor = useRef<number | null>(null);
+  const load = useCallback(
+    async (version: number) => {
+      const value = (
+        await api<{ value: KitchenSettings }>("GET", `/v1/venues/${venueId}/settings/kitchen`)
+      ).value;
+      setSaved(value);
+      if (typedFor.current === version) return;
+      typedFor.current = version;
+      setNotice(null);
+      setMinutes(null);
+    },
+    [venueId],
+  );
   useEffect(() => {
     if (!venueId) return;
-    load().catch(() => setFailed(true));
+    load(draft.version).catch(() => setFailed(true));
   }, [venueId, load, draft.version]);
 
   const current = (draft.values["kitchen"] as KitchenSettings | undefined) ?? saved;

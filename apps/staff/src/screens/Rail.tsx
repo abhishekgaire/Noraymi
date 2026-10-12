@@ -184,6 +184,9 @@ type Picked = { kind: "tab"; id: string } | { kind: "room"; id: string } | { kin
 type Badge = { readonly label: string; readonly tone: "bad" | "warn" | "ok" };
 
 /** The signed-in person's initials for the avatar beside their name (V-04, as on Rail.dc.html). */
+/** No lines yet: the picked tab's are still loading. */
+const NO_LINES: readonly CheckLine[] = [];
+
 function initials(name: string): string {
   return name
     .split(/\s+/)
@@ -262,7 +265,11 @@ export function Rail() {
   /** The sent drink tapped on the tab, for Void, Comp or Move (M6-15). */
   const [fixing, setFixing] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [lines, setLines] = useState<readonly CheckLine[]>([]);
+  // The lines and the check they were loaded for, so a tab just picked never shows the last one's lines.
+  const [lineState, setLineState] = useState<{
+    readonly checkId: string | null | undefined;
+    readonly lines: readonly CheckLine[];
+  }>({ checkId: undefined, lines: [] });
   const [ringRequest, setRingRequest] = useState<{
     variantId: string;
     n: number;
@@ -433,10 +440,11 @@ export function Rail() {
         : undefined;
   // Another tab or room starts with no drink being fixed.
   useEffect(() => setFixing(null), [checkId]);
+  const lines = lineState.checkId === checkId ? lineState.lines : NO_LINES;
   const loadLines = useCallback(async () => {
     if (!checkId) {
       setHolds([]);
-      return setLines([]);
+      return setLineState({ checkId, lines: [] });
     }
     try {
       const v = await api<{
@@ -444,11 +452,11 @@ export function Rail() {
         holds?: MovedHold[];
         pending_fixes?: PendingFix[];
       }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
-      setLines(v.lines);
+      setLineState({ checkId, lines: v.lines });
       setHolds(v.holds ?? []);
       setPendingFixes(v.pending_fixes ?? []);
     } catch {
-      setLines([]);
+      setLineState({ checkId, lines: [] });
       setHolds([]);
     }
   }, [venueId, checkId]);
