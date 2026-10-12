@@ -97,6 +97,8 @@ Most screens change shape on a phone. In Chrome, press **Cmd + Option + I** to o
 
 ## 5. A tour: what to try, screen by screen
 
+For a complete, step-by-step test of every feature built so far (payments, booking, the bar POS, the kitchen, closing the night, Admin, offline and the rest), follow [the manual test guide](manual-test.md).
+
 Everything below starts from a fresh night at 10:41 PM.
 
 ### Tonight (the board)

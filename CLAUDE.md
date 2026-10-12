@@ -15,6 +15,7 @@ A POS and operations platform for karaoke venues, built for many venues from day
 | The exact words staff and guests see | `docs/glossary.md`. The spec's vocabulary table is in `docs/spec/10-staff-screens-bar-pos.md`. |
 | The one Friday night that staging and every test use | `docs/demo-seed.md` and `seed/west4-friday.json` |
 | The mock Friday, run by hand in staging | `docs/mock-friday.md` |
+| Testing every feature by hand in the local demo, step by step | `docs/manual-test.md` |
 | Expected money results the rules must reproduce | `seed/money-cases.json` |
 | Why something is the way it is | `docs/decisions.md` (D1–D85, newest first) |
 | Product scope and phases | `docs/blueprint.md` |
