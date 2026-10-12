@@ -71,6 +71,8 @@ export default defineConfig({
     { name: "console", testMatch: /console\.spec\.ts/, use: { baseURL: CONSOLE } },
     { name: "guest", testMatch: /guest\.spec\.ts/, use: { baseURL: GUEST } },
     { name: "desktop", testMatch: /desktop\.spec\.ts/ },
+    // O-14's brand-new venue stays in the database, so it's onboarded after everything else.
+    { name: "onboard", testMatch: /onboard\.spec\.ts/, use: { baseURL: STAFF } },
   ],
   webServer: [
     {

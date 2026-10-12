@@ -1030,12 +1030,12 @@ test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00
   const lastCall = async () =>
     (
       await db.query<{ last_call: string | null }>(
-        "select value->>'lastCall' as last_call from venue_settings where key = 'hours' order by version desc limit 1",
+        "select value->>'lastCall' as last_call from venue_settings where venue_id = (select id from venues where slug = 'west4karaoke') and key = 'hours' order by version desc limit 1",
       )
     ).rows[0]!.last_call;
   const baseVersion = (
     await db.query<{ v: number }>(
-      "select coalesce(max(version), 0)::int as v from venue_settings where key = 'hours'",
+      "select coalesce(max(version), 0)::int as v from venue_settings where venue_id = (select id from venues where slug = 'west4karaoke') and key = 'hours'",
     )
   ).rows[0]!.v;
   try {
@@ -1108,9 +1108,10 @@ test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00
     expect(hours.closes).toMatch(/^2026-12-24T23:00:00/);
   } finally {
     await db.query("delete from closures where date = '2026-12-24'");
-    await db.query("delete from venue_settings where key = 'hours' and version > $1", [
-      baseVersion,
-    ]);
+    await db.query(
+      "delete from venue_settings where venue_id = (select id from venues where slug = 'west4karaoke') and key = 'hours' and version > $1",
+      [baseVersion],
+    );
     await db.end();
   }
 });
@@ -6005,7 +6006,7 @@ test("Go-live checklist: the merchant category, Andy and Abhishek confirmed, and
         await box.click();
         await expect(box).toBeChecked();
       }
-    await expect(list.getByRole("status")).toHaveText("Passes: West 4 is ready to take payments");
+    await expect(list.getByRole("status")).toHaveText("Passes: ready to take payments");
     await expect(list.getByText(/^Confirmed by Abhishek/).first()).toBeVisible();
   } finally {
     await db.end();
