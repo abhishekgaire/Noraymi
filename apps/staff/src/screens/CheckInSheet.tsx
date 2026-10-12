@@ -3,6 +3,7 @@ import { checkNumberLabel, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { useSheetDialog } from "../layout/Dialog.js";
+import { HeldCardTake } from "./HeldCardTake.js";
 import { RoomCardTap } from "./RoomCardTap.js";
 
 /**
@@ -71,6 +72,8 @@ export function CheckInSheet({
   const [error, setError] = useState<string | null>(null);
   // Card on the tab (D112): once seated, the sheet asks for the card before it's done.
   const [cardFor, setCardFor] = useState<{ checkId: string; line: string } | null>(null);
+  // Keep the card behind the bar (O-08): the name on the card and its last 4, once seated.
+  const [heldFor, setHeldFor] = useState<{ checkId: string; line: string } | null>(null);
 
   const load = useCallback(async () => {
     const q = new URLSearchParams();
@@ -133,6 +136,8 @@ export function CheckInSheet({
         }) + (seated.text === "not_sent" ? ` · ${t("checkIn.textNotSent")}` : "");
       if (target.kind === "walk_in" && preview.walk_in === "cardOnTab")
         setCardFor({ checkId: seated.check_id, line });
+      else if (target.kind === "walk_in" && preview.walk_in === "cardBehindBar")
+        setHeldFor({ checkId: seated.check_id, line });
       else onDone(line);
     } catch (err) {
       setError(
@@ -151,6 +156,16 @@ export function CheckInSheet({
       : t("checkIn.walkInTitle", { room: target.roomName });
   const dlg = useSheetDialog(title);
 
+  if (heldFor)
+    return (
+      <HeldCardTake
+        venueId={venueId}
+        checkId={heldFor.checkId}
+        roomName={target.kind === "walk_in" ? target.roomName : ""}
+        seatedLine={heldFor.line}
+        onDone={onDone}
+      />
+    );
   if (cardFor)
     return (
       <RoomCardTap

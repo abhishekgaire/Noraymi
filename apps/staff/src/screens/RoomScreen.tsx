@@ -133,6 +133,8 @@ export function RoomScreen() {
   // screen reads the check once when the session is gone and offers the receipt (M4-20).
   const lastCheck = useRef<string | null>(null);
   const [paidCheck, setPaidCheck] = useState<string | null>(null);
+  // A card kept behind the bar (O-08): close-out ends with "Give the card back".
+  const [held, setHeld] = useState<HeldCard | null>(null);
   const [refunding, setRefunding] = useState(false);
   const paidWords = useRef("");
   paidWords.current = t("pay.paid");
@@ -164,6 +166,7 @@ export function RoomScreen() {
                 amount_due_cents?: number;
                 split?: Split | null;
                 on_file?: OnFile | null;
+                held_card?: HeldCard | null;
                 payments?: PaidLine[];
                 deposit_cents?: number;
                 check?: { status: string; label?: string };
@@ -199,6 +202,7 @@ export function RoomScreen() {
         );
         const file = ("on_file" in check ? check.on_file : null) ?? null;
         setOnFile(file);
+        setHeld(("held_card" in check ? check.held_card : null) ?? null);
         lastCheck.current = r.session.check_id;
         if (check.check?.status === "paid") setPaidCheck(r.session.check_id);
       } else {
@@ -207,10 +211,11 @@ export function RoomScreen() {
         const last = lastCheck.current;
         lastCheck.current = null;
         if (last) {
-          const c = await api<{ check: { status: string } }>(
+          const c = await api<{ check: { status: string }; held_card?: HeldCard | null }>(
             "GET",
             `/v1/venues/${venueId}/checks/${last}`,
           );
+          setHeld(c.held_card ?? null);
           if (c.check.status === "paid") {
             setDone(paidWords.current);
             setPaidCheck(last);
@@ -347,6 +352,14 @@ export function RoomScreen() {
         </p>
       )}
       {cashTaken && <CashResult venueId={venueId} taken={cashTaken} />}
+      {held && !paidCheck && !held.returned && held.name && held.last4 && (
+        <p className="small" data-guest-text>
+          {t("heldCard.chip", { name: held.name.toUpperCase(), last4: held.last4 })}
+        </p>
+      )}
+      {paidCheck && held && (
+        <GiveCardBack venueId={venueId} checkId={paidCheck} held={held} onReturned={setHeld} />
+      )}
       {paidCheck && <ReceiptStep venueId={venueId} checkId={paidCheck} roomName={room.name} />}
       {paidCheck && signedIn?.membership.permissions.includes("refunds.request") && (
         <button type="button" className="secondary" onClick={() => setRefunding(true)}>
@@ -741,5 +754,68 @@ export function RoomScreen() {
         )}
       </div>
     </section>
+  );
+}
+
+interface HeldCard {
+  readonly name: string | null;
+  readonly last4: string | null;
+  readonly returned: boolean;
+}
+
+/** The end of close-out with a card behind the bar (O-08; D116): give it back, then Returned. */
+function GiveCardBack({
+  venueId,
+  checkId,
+  held,
+  onReturned,
+}: {
+  venueId: string;
+  checkId: string;
+  held: HeldCard;
+  onReturned: (held: HeldCard) => void;
+}) {
+  const { t } = useT();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (held.returned)
+    return (
+      <p className="notice" role="status">
+        {t("heldCard.returnedDone")}
+      </p>
+    );
+  return (
+    <div className="card give-card-back" role="group" aria-label={t("heldCard.giveBack")}>
+      <h2>{t("heldCard.giveBack")}</h2>
+      <p data-guest-text>
+        {t("heldCard.giveBackHint", {
+          name: (held.name ?? "").toUpperCase(),
+          last4: held.last4 ?? "",
+        })}
+      </p>
+      {failed && (
+        <p className="error" role="alert">
+          {t("shell.error.cantReach")}
+        </p>
+      )}
+      <button
+        type="button"
+        className="primary"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setFailed(false);
+          api<{ held_card: HeldCard }>(
+            "POST",
+            `/v1/venues/${venueId}/checks/${checkId}/held-card/returned`,
+          )
+            .then((r) => onReturned(r.held_card))
+            .catch(() => setFailed(true))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {t("heldCard.returned")}
+      </button>
+    </div>
   );
 }

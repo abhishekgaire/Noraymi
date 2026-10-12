@@ -187,6 +187,26 @@ describe("Close the night", () => {
   });
 
   it("closes once every check is fixed: Z 1, the manager clocked out, 86s and Closed tonight cleared; a capture-failed tab doesn't block", async () => {
+    // A card kept behind the bar and never given back (O-08): listed, never blocking.
+    const room9Check = (
+      await owner.query<{ id: string }>(
+        `select k.id from checks k join room_sessions s on s.venue_id = k.venue_id and s.id = k.room_session_id
+           join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+          where k.venue_id = $1 and r.name = 'Room 9' and s.ended_at is null`,
+        [venueId],
+      )
+    ).rows[0]!.id;
+    await owner.query(
+      `insert into check_held_cards (venue_id, check_id, business_date, guest_name, last4, taken_by, taken_at)
+       values ($1, $2, $3, 'M. Torres', '4242', $4, now())`,
+      [venueId, room9Check, FRI, ids["andy"]],
+    );
+    const held = (await night()).checks.find((c: { id: string }) => c.id === "held_cards");
+    expect(held).toMatchObject({
+      count: 1,
+      blocking: false,
+      names: ["Room 9 · M. TORRES ···· 4242"],
+    });
     // Each fix, as the screens would make it.
     await owner.query(
       "update room_sessions set ended_at = now() where venue_id = $1 and ended_at is null",
@@ -278,6 +298,15 @@ describe("Close the night", () => {
     ).toBe(0);
     const tabs = (await get("/tabs")).json() as { tabs: { state: string }[] };
     expect(tabs.tabs.filter((t) => t.state === "captured")).toEqual([]);
+    // The close cleared the card's name and last 4; who took it, and when, stay.
+    expect(
+      (
+        await owner.query(
+          "select guest_name, last4, taken_by, cleared_at is not null as cleared from check_held_cards where check_id = $1",
+          [room9Check],
+        )
+      ).rows,
+    ).toEqual([{ guest_name: null, last4: null, taken_by: ids["andy"], cleared: true }]);
     // The pool closed with it.
     expect(
       (

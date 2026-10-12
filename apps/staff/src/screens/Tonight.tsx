@@ -80,6 +80,8 @@ interface BoardRoom {
     /** What's left to the minimum spend (M4-27); null with none. */
     readonly min_spend_left_cents?: number | null;
     readonly deposit_cents: number;
+    /** A card kept behind the bar and not given back yet (O-08). */
+    readonly held_card?: { readonly name: string; readonly last4: string } | null;
   } | null;
 }
 
@@ -618,6 +620,14 @@ export function Tonight() {
               <div className="small muted">
                 {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
               </div>
+              {r.session.held_card && (
+                <div className="small" data-guest-text>
+                  {t("heldCard.chip", {
+                    name: r.session.held_card.name.toUpperCase(),
+                    last4: r.session.held_card.last4,
+                  })}
+                </div>
+              )}
               {r.session.deposit_cents > 0 && (
                 <div className="small muted">
                   {t("board.deposit", { amount: money(r.session.deposit_cents as never) })}
@@ -753,6 +763,14 @@ export function Tonight() {
           <span className={r.tone === "red" ? "tile-words error" : "tile-words"}>
             {wordsText(ticking(r.words, s?.booked_end_at))}
           </span>
+          {r.session?.held_card && (
+            <span className="tile-chip" data-guest-text>
+              {t("heldCard.chip", {
+                name: r.session.held_card.name.toUpperCase(),
+                last4: r.session.held_card.last4,
+              })}
+            </span>
+          )}
           {(minutes !== null || r.session) && (
             <span className="tile-foot">
               <span>{minutes !== null ? t("session.minutes", { min: minutes }) : ""}</span>

@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { heldCardsOf } from "./held-card.js";
 import { foodLines, type FoodLine } from "../kitchen/send.js";
 import {
   amountDue,
@@ -207,6 +208,8 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
           payment_id: waiting?.id ?? null,
         }
       : null,
+    // A card kept behind the bar (O-08; D116): close-out ends with "Give the card back".
+    held_card: (await heldCardsOf(c, venueId, [id])).get(id) ?? null,
     // The open split, if any (M4-14): it survives leaving the screen and switching devices.
     split: await openSplit(c, venueId, id),
     deposit_cents: deposits.reduce((sum, d) => sum + d.amount_cents, 0),

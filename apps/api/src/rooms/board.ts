@@ -1,4 +1,5 @@
 import { failedTickets, readSetting, roomNotes, type Queryable } from "@west4/db";
+import { heldCardsOf } from "./held-card.js";
 import { managerOnDutyAt } from "../approvals/service.js";
 import { agingFor, secondsSince } from "../orders/escalation.js";
 import { barLostSince, venueOpenNow } from "./bar-presence.js";
@@ -61,6 +62,8 @@ export async function board(
       )
     ).rows.map((r) => [r.check_id, r.cents]),
   );
+  // A card kept behind the bar (O-08; D116): on the tile until it's given back.
+  const held = await heldCardsOf(c, venueId, checkIds);
   // Minimum spend (Money rules 6; M4-27; off at West 4): each session's minimum, and its check's spend
   // toward it (items and songs after comps and voids).
   const minimums = new Map(
@@ -166,6 +169,12 @@ export async function board(
               return m?.min ? Math.max(0, m.min - m.spend) : null;
             })(),
             deposit_cents: booking?.deposit_cents ?? 0,
+            held_card: (() => {
+              const h = s.check_id ? held.get(s.check_id) : undefined;
+              return h && !h.returned && h.name && h.last4
+                ? { name: h.name, last4: h.last4 }
+                : null;
+            })(),
             booked_end_at: s.booked_end_at,
             paused: s.segments.at(-1)?.paused ?? false,
             hourly_cents: s.segments.at(-1)?.hourly_cents ?? 0,

@@ -7,6 +7,7 @@ import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
 import { fixLine } from "../rooms/fix.js";
 import { finalizeCheck } from "../rooms/finalize.js";
+import { parseHeldCard, returnHeldCard, takeHeldCard } from "../rooms/held-card.js";
 import { presentCheck, reopenCheck } from "../rooms/present.js";
 
 /** M2 adds damage lines only; items come with ordering in M3. */
@@ -97,6 +98,53 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
         throw new ApiError("forbidden", "a manager reopens a check");
       await request.inVenue((c) => reopenCheck(c, request.venueId!, request.params.checkId));
       return { status: "reopened" };
+    },
+  );
+
+  // Keep the card behind the bar (O-08; D116): the name on the card and its last 4, no reader,
+  // nothing charged; then Returned at close-out. The body is never echoed in an error or a log.
+  const heldCardRoute = route({
+    principals: ["owner_manager", "staff"],
+    module: "core",
+    action: "payments.take",
+    idempotency: "optional",
+  });
+  const heldCheck = (k: string) => {
+    if (!z.string().uuid().safeParse(k).success) throw new ApiError("not_found", "no such check");
+    return k;
+  };
+  const personOf = (p: { kind: string; userId?: string }) => {
+    if (p.kind !== "user" || !p.userId) throw new ApiError("forbidden", "this is a person's work");
+    return p.userId;
+  };
+  app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/held-card",
+    { config: heldCardRoute },
+    async (request, reply) => {
+      const checkId = heldCheck(request.params.checkId);
+      const card = parseHeldCard(request.body);
+      if (!card)
+        throw new ApiError(
+          "invalid_request",
+          "send { name, last4 }: the name on the card (no digits) and exactly its last 4 digits",
+        );
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      const held = await request.inVenue((c) =>
+        takeHeldCard(c, request.venueId!, checkId, card, by, options.clock.now()),
+      );
+      return reply.code(201).send({ held_card: held });
+    },
+  );
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/held-card/returned",
+    { config: heldCardRoute },
+    async (request) => {
+      const checkId = heldCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      const held = await request.inVenue((c) =>
+        returnHeldCard(c, request.venueId!, checkId, by, options.clock.now()),
+      );
+      return { held_card: held };
     },
   );
 

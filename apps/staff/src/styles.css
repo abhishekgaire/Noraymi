@@ -2388,6 +2388,18 @@ a.song-count {
   line-height: 1.3;
   color: var(--tile-soft);
 }
+.room-clocks.board .tile-chip {
+  align-self: flex-start;
+  font-size: var(--w4-text-label);
+  font-weight: 600;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 .room-clocks.board .tile-foot {
   margin-top: auto;
   display: flex;

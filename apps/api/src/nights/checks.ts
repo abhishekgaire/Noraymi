@@ -24,7 +24,8 @@ export type CheckId =
   | "clear_out"
   | "drawers"
   | "slips"
-  | "capture_failed";
+  | "capture_failed"
+  | "held_cards";
 
 export interface NightCheck {
   readonly id: CheckId;
@@ -194,6 +195,24 @@ export async function nightChecks(
       [venueId],
     ),
     "/close-the-night",
+    false,
+  );
+  // Cards kept behind the bar and not given back (O-08; D116): "Room 9 · M. TORRES ···· 4242".
+  add(
+    "held_cards",
+    await count(
+      c,
+      `select coalesce(r.name, '') || ' · ' || upper(h.guest_name) || ' ···· ' || h.last4 as name
+         from check_held_cards h
+         join checks k on k.venue_id = h.venue_id and k.id = h.check_id
+         left join room_sessions s on s.venue_id = k.venue_id and s.id = k.room_session_id
+         left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+        where h.venue_id = $1 and h.returned_at is null and h.cleared_at is null
+          and h.business_date <= $2::date and not k.training
+        order by h.taken_at`,
+      [venueId, date],
+    ),
+    "/tonight",
     false,
   );
   return checks;

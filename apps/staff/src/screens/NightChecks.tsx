@@ -24,7 +24,8 @@ export interface Check {
     | "clear_out"
     | "drawers"
     | "slips"
-    | "capture_failed";
+    | "capture_failed"
+    | "held_cards";
   readonly count: number;
   readonly blocking: boolean;
   readonly names: readonly string[];
@@ -105,7 +106,7 @@ export function NightChecks({
       )}
       <ul className="tips-shares">
         {checks
-          .filter((c) => c.id !== "capture_failed" || c.count > 0)
+          .filter((c) => (c.id !== "capture_failed" && c.id !== "held_cards") || c.count > 0)
           .map((c) => (
             <li key={c.id} className={`row ${c.blocking ? "warn" : ""}`}>
               <span>

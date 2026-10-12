@@ -197,7 +197,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-08 · Keep the card behind the bar at a walk-in check-in
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-07; M2-11 (check-in and walk-ins), M4 (close-out), M7 (Close the night)
 - **Spec:** [Staff screens](../spec/10-staff-screens-bar-pos.md) · Check in; [Settings](../spec/03-settings-rule-packs-modules.md) · `DepositRule.walkIn`; [D116](../decisions.md)
@@ -207,11 +207,16 @@ Definition of done: see CLAUDE.md.
   - Close the night lists any card not returned ("Cards still behind the bar"); the name and last 4 are cleared at the business date's close, keeping only who took and returned it and when.
   - Skip the card is allowed, with the reason, like D112's.
 - **Acceptance:**
-  - [ ] With Keep the card behind the bar, a walk-in check-in saves the name and last 4 and nothing reaches Stripe.
-  - [ ] A field that isn't 4 digits is refused; a full card number is never accepted anywhere.
-  - [ ] Close-out asks to give the card back, and Close the night lists a card not returned.
-  - [ ] After the close, the name and last 4 are gone from the row.
+  - [x] With Keep the card behind the bar, a walk-in check-in saves the name and last 4 and nothing reaches Stripe.
+  - [x] A field that isn't 4 digits is refused; a full card number is never accepted anywhere.
+  - [x] Close-out asks to give the card back, and Close the night lists a card not returned.
+  - [x] After the close, the name and last 4 are gone from the row.
 - **Tests:** integration tests against Postgres with row-level security on; the wall suite; a Playwright test of a walk-in from check-in to close-out; a log test that the name and last 4 never reach a log.
+- **Notes:**
+  - Built: migration `0147_check_held_cards.sql` (forced row-level security, one card a check, last 4 exactly four digits, the closed-night guard, and the audit log redacting the name and last 4); `apps/api/src/rooms/held-card.ts` with `POST /checks/{c}/held-card` (`{ name, last4 }` only: a name with any digit, a last 4 that isn't four digits or any extra field is refused, and the body is never echoed) and `POST /checks/{c}/held-card/returned`; `held_card` on the board's session and on the check; Close the night's new non-blocking check `held_cards` ("Cards still behind the bar · 1", naming "Room 9 · M. TORRES ···· 4242"); `closeNight` clears the name and last 4 for its business date and earlier. Staff: `HeldCardTake.tsx` after Seat them, the tile chip and room panel line in `Tonight.tsx`, and close-out's "Give the card back" with Returned in `RoomScreen.tsx`. Sing Sing's venue.md now reads Keep the card behind the bar; spec 10's Check in and the glossary say so.
+  - Cautious defaults: Skip the card works as D112's does (no reason asked, nothing stored), since D112 stores none; "Give the card back" shows once the check is paid, before the receipt step; the API doesn't refuse a payment while the card is still held (staff are reminded, and Close the night lists it). A room moved keeps its check, so its card (tested).
+  - For the founder: moving a walk-in in the same minute it was seated fails with a database error (a zero-length room block, `room_blocks_period_check`); the test moves it five minutes later. Separately, `packages/db/src/seed.int.test.ts` already failed before this ticket (19 settings keys where it expects 18).
+  - Tests: `apps/api/src/routes/held-card.int.test.ts` (the walk-in from check-in to Returned, refused fields, nothing to Stripe, room move, Close the night's list, the audit log and the app log free of the name and last 4), `night-close.int.test.ts` (listed, never blocking, cleared at the close), `night-closes.int.test.ts` (the guard), the wall suite, and the Playwright test "O-08 · Keep the card behind the bar" in `e2e/staff.spec.ts`.
 
 ### O-09 · Step 7: the cash discount, food and the card fee, gratuity and drawers
 

@@ -1768,6 +1768,87 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
 });
 
 /**
+ * Keep the card behind the bar (O-08; D116). From a fresh seed at 10:41 PM: Andy picks "Keep the
+ * card behind the bar" in Admin → Deposits & cancelling; a walk-in on Room 11 is seated, then the
+ * name on the guest's card and its last 4 are typed (a full number never fits the field); the tile
+ * shows "Card behind the bar · NIA BROOKS ···· 4242". Close-out takes cash, then ends with "Give
+ * the card back" and Returned; nothing reaches Stripe.
+ */
+test("O-08 · Keep the card behind the bar, from the walk-in check-in to close-out", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 2000, height: 1130 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/deposits");
+    await page
+      .getByRole("radiogroup", { name: "At a walk-in check-in" })
+      .getByLabel("Keep the card behind the bar")
+      .check();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+
+    await page.goto("/tonight");
+    const room11 = await openRoom(page, "Room 11");
+    await room11.getByRole("button", { name: "+ Walk-in" }).click();
+    const dialog = page.getByRole("dialog", { name: "Walk-in · Room 11" });
+    await expect(dialog).toContainText(
+      "5 · Card behind the bar · note the name on the card and its last 4",
+    );
+    await dialog.getByLabel("1 · Guests").fill("4");
+    await dialog.getByRole("button", { name: "Seat them" }).click();
+    const held = page.getByRole("dialog", { name: "Card behind the bar · Room 11" });
+    await held.getByLabel("Name on the card").fill("Nia Brooks");
+    // The field takes 4 digits only: a full card number is cut to its first 4 and never sent whole.
+    await held.getByLabel("Last 4 digits").fill("4242424242424242");
+    await expect(held.getByLabel("Last 4 digits")).toHaveValue("4242");
+    for (const button of await held.getByRole("button").all())
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await held.getByRole("button", { name: "Save the card" }).click();
+    await expect(held).toHaveCount(0);
+    await expect(
+      page.getByText(/Room 11 .* · Card behind the bar · NIA BROOKS ···· 4242$/),
+    ).toBeVisible();
+    await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).toContainText(
+      "Card behind the bar · NIA BROOKS ···· 4242",
+    );
+    expect(
+      (await db.query("select 1 from check_cards c join checks k on k.id = c.check_id")).rowCount,
+    ).toBe(0);
+
+    // Close-out, half an hour later: cash, then Give the card back.
+    await setClock(request, "2026-09-26T03:11:00Z");
+    const room = (await db.query<{ id: string }>("select id from rooms where name = 'Room 11'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room}`);
+    await expect(page.getByText("Card behind the bar · NIA BROOKS ···· 4242")).toBeVisible();
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const cash = page.getByRole("region", { name: "Cash" });
+    await cash.getByRole("button", { name: /^Exact \$/ }).click();
+    await cash.getByRole("button", { name: /^Take \$[\d.,]+ in cash$/ }).click();
+    const giveBack = page.getByRole("group", { name: "Give the card back" });
+    await expect(giveBack).toContainText("NIA BROOKS ···· 4242");
+    await giveBack.getByRole("button", { name: "Returned" }).click();
+    await expect(page.getByText("Card given back")).toBeVisible();
+    const row = await db.query<{ returned: boolean }>(
+      "select returned_at is not null as returned from check_held_cards",
+    );
+    expect(row.rows).toEqual([{ returned: true }]);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * ID checks (M2-12). Room 1 reads "ID ✓ 3 of 4 · the runner checks the last
  * ID" and Room 5 "ID ✓ 4 of 4", with a Scan ID button. With Safety & ID
  * records off, the button is gone and the count stays.

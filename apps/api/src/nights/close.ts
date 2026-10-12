@@ -6,6 +6,7 @@ import {
   recordPunch,
   type Queryable,
 } from "@west4/db";
+import { clearHeldCards } from "../rooms/held-card.js";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
@@ -105,6 +106,8 @@ export async function closeNight(
       report: { ...z, closed: { z_number: 0, closed_at: now.toString(), closed_by: closer } },
     },
   });
+  // Cards kept behind the bar (O-08; D116): the name and last 4 go; who took and returned them stays.
+  await clearHeldCards(c, venueId, date, now);
   // Unsent drinks left are cleared, and tonight's 86s end.
   await c.query(
     "update order_drafts set lines = '[]', version = version + 1, updated_at = $2 where venue_id = $1 and jsonb_array_length(lines) > 0",
