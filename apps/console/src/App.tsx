@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { t, type Locale, type MessageKey } from "@west4/shared";
 import { SetupRequests } from "./SetupRequests.js";
+import { VenueContacts, type VenueContact } from "./VenueContacts.js";
 import { SupportAccess } from "./SupportAccess.js";
 import { EmergencyActions } from "./EmergencyActions.js";
 import { Pages } from "./Pages.js";
@@ -62,6 +63,8 @@ interface VenueDetail {
     phase1: boolean;
   }[];
   flags: Record<string, boolean>;
+  /** The venue's own on-call and breach contacts (D115; O-11): who our on-call calls. */
+  contacts?: VenueContact[];
 }
 
 type Screen =
@@ -506,6 +509,7 @@ function Venues({
                 Turn on
               </button>
             </form>
+            <VenueContacts contacts={open.contacts ?? []} />
             <SetupRequests key={`requests-${open.venue.id}`} venue={open.venue} />
             <SupportAccess key={open.venue.id} venue={open.venue} />
             <EmergencyActions

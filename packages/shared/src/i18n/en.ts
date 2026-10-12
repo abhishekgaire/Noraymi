@@ -195,6 +195,8 @@ export const en = {
   "text.phoneCode": "{venue}: your staff app code is {code}. It expires in {minutes} minutes.",
   "text.pinResetLink":
     "{venue}: set a new PIN for the staff app here: {url} · The link works once and expires in {hours} hours.",
+  "text.inviteLink":
+    "{venue}: {inviter} invited you to the staff app. Confirm your phone and set your PIN here: {url} · The link works once and expires in {hours} hours.",
   // The invite link on the person's own phone (N25 Set your PIN).
   "invite.title": "Join {venue}",
   "invite.hello": "Hi {name} · you're joining as {role}",
@@ -3514,6 +3516,37 @@ export const en = {
   "onboarding.menu.allergy": "Allergy notice",
   "onboarding.menu.allergy.hint":
     "Your own words, on every menu. Until it's written in both languages, Kitchen & food stays off.",
+  "team.invite.phone": "Mobile phone",
+  "team.invite.badPhone": "Type a US mobile number, 10 digits",
+  "team.invite.phoneOrEmail": "Add a mobile phone or an email",
+  "contacts.title": "Contacts",
+  "contacts.onCall.hint":
+    "When something goes wrong that touches your venue (a stuck payment, an outage, a security alert), our on-call calls your first responder in their hours, then the second.",
+  "contacts.onCall.first": "First on call",
+  "contacts.onCall.second": "Second on call",
+  "contacts.person": "Who",
+  "contacts.nobody": "Nobody yet",
+  "contacts.notActive": "No longer an active owner or manager",
+  "contacts.days": "Days",
+  "contacts.from": "From",
+  "contacts.to": "Until",
+  "contacts.breach": "Breach contact",
+  "contacts.breach.hint":
+    "If your guests' or staff's data is ever exposed, we tell you within 72 hours: the owner and this person, who runs your side of it.",
+  "contacts.breach.primary": "Breach contact",
+  "contacts.breach.backup": "Backup",
+  "contacts.noLeads":
+    "Only an active owner or manager can be named. Invite a manager above; they can be named once they've set their PIN.",
+  "contacts.needHours": "Pick the days and both times for each person on call",
+  "contacts.refused": "Only an active owner or manager can be named",
+  "contacts.save": "Save contacts",
+  "contacts.saved": "Contacts saved",
+  "onboarding.team.people": "Your team",
+  "onboarding.team.nobody": "Nobody invited yet",
+  "onboarding.team.pinSet": "PIN set",
+  "onboarding.team.invited": "Invited · hasn't set a PIN yet",
+  "onboarding.team.noPin": "No PIN yet",
+  "onboarding.team.openTeam": "Open Team",
   "onboarding.money.hint":
     "Your cash discount, the gratuity and tips, then your cash drawers. Nothing is chosen for you; a drawer change starts the next business date.",
   "onboarding.money.finish":

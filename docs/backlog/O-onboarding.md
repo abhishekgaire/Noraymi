@@ -259,7 +259,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-11 · Step 9: team invites and the venue's on-call and breach contacts
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-02; M1-23 (invites), M1-31 (Admin → Team), M8-17 (paging runbooks), M8-19 (the breach runbook)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 9; [D115](../decisions.md)
@@ -268,10 +268,14 @@ Definition of done: see CLAUDE.md.
   - `contacts.onCall` (first and second, with days and hours) and `contacts.breach` (primary and backup), owner only, in the step and Admin → Venue → Contacts; only an active owner or manager can be picked; deactivating one clears the slot and flags the checklist.
   - Our runbooks and the Console's venue page show the venue's contacts; the breach notice goes to the owner and the breach contact.
 - **Acceptance:**
-  - [ ] Inviting a manager by phone sends the invite; the step is done once a manager has set a PIN and both contacts are named.
-  - [ ] Deactivating the breach contact empties the slot and the checklist needs attention.
-  - [ ] Our platform rota (`oncall_rota`) is untouched by anything here.
+  - [x] Inviting a manager by phone sends the invite; the step is done once a manager has set a PIN and both contacts are named.
+  - [x] Deactivating the breach contact empties the slot and the checklist needs attention.
+  - [x] Our platform rota (`oncall_rota`) is untouched by anything here.
 - **Tests:** integration tests; the wall suite for `contacts`; Spanish strings.
+- **Notes:**
+  - Built: `POST /team/invite` takes a phone (`phone_e164`, a US mobile), an email or both; a phone gets the link by text (`invite_link`, English and Spanish), and the person confirms their phone and sets their own PIN as in M1-23. Admin → Team's invite form has the phone field and is shared with the step (`TeamStep.tsx`), which lists who has set a PIN. The contacts form (`Contacts.tsx`) is in the step (saved by Continue) and in Admin → Venue → Contacts (its own Save); it saves `onCall` and `breach` onto the newest `contacts`, and Admin → Venue's booking inbox now does the same, so neither overwrites the other. `clearContactSlots` (`packages/db/src/contacts.ts`) empties a person's slots in a new version of `contacts` when they're deactivated or their role stops being owner or manager. The Console's venue page lists **Venue contacts** (`venueContacts`; phone only once confirmed), and the on-call and breach runbooks call them. Tests: `setup-team.int.test.ts` (as `app_rw`, with the venue wall for `contacts` and an untouched `oncall_rota`) and step 9 in `e2e/setup.staff.spec.ts`.
+  - Fixed on the way: inviting anyone failed outside the superuser test databases. As `app_rw`, `insert into users … returning id` needs the new user to be a member already (`users_visible`), so Admin → Team's invite answered 500 in the demo and staging; the id is now made before the insert.
+  - Cautious defaults: an on-call slot needs its days and both times before Continue saves it; a slot's person who's no longer an active owner or manager shows as such until changed. The breach notice itself is our runbook's job (`docs/runbooks/breach.md` now names the owner and the breach contact); nothing sends it automatically.
 
 ### O-12 · Steps 10 and 11: licenses, texts registration, website and the old system's files
 

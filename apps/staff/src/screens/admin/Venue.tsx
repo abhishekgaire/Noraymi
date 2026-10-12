@@ -9,6 +9,7 @@ import { api, ApiCallError } from "../../api.js";
 import { useConnection } from "../../connection.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { VenueContacts } from "./Contacts.js";
 import "./setup.css";
 
 /**
@@ -139,10 +140,16 @@ export function VenueForm({
           value: { callNumber: phone, textNumber: base.phone?.textNumber ?? null },
         });
       const emails = form.emails.map((e) => e.trim().toLowerCase()).filter(Boolean);
-      if (emails.join(",") !== base.contacts.bookingEmails.join(","))
+      if (emails.join(",") !== base.contacts.bookingEmails.join(",")) {
+        // The newest contacts, so on-call and breach names saved since this form loaded stay.
+        const fresh = await api<{ value: ContactsSettings }>(
+          "GET",
+          `/v1/venues/${venueId}/settings/contacts`,
+        );
         await api("PUT", `/v1/venues/${venueId}/settings/contacts`, {
-          value: { ...base.contacts, bookingEmails: emails },
+          value: { ...(fresh.value ?? base.contacts), bookingEmails: emails },
         });
+      }
       await load();
       setMessage({ kind: "ok", text: t("venue.saved") });
       onSaved?.();
@@ -312,10 +319,14 @@ export function VenueForm({
 /** Admin → Venue. */
 export function Venue() {
   const { t } = useT();
+  const { state } = useSession();
+  const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   return (
     <section className="venue">
       <h2>{t("admin.section.venue")}</h2>
       <VenueForm />
+      {/* Contacts (O-11; D115): the owner's alone, as the whole section is. */}
+      {venueId && <VenueContacts venueId={venueId} />}
     </section>
   );
 }

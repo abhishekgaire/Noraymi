@@ -41,6 +41,22 @@ export const textJobPayload = z.discriminatedUnion("template", [
         .strict(),
     })
     .strict(),
+  // A staff invite sent to a phone (O-11; spec 17 · Step details 9): the person confirms it and sets their PIN.
+  z
+    .object({
+      template: z.literal("invite_link"),
+      to: e164,
+      locale: z.enum(["en", "es"]),
+      data: z
+        .object({
+          venueName: z.string().min(1),
+          inviterName: z.string().max(80),
+          url: z.string().url(),
+          hours: z.number().int().positive(),
+        })
+        .strict(),
+    })
+    .strict(),
   // The manager on duty, when a room's order has waited 6 minutes unaccepted (M3-16).
   z
     .object({
@@ -73,6 +89,13 @@ export function renderText(payload: TextJobPayload): string {
     case "pin_reset_link":
       return t(locale, "text.pinResetLink", {
         venue: payload.data.venueName,
+        url: payload.data.url,
+        hours: payload.data.hours,
+      });
+    case "invite_link":
+      return t(locale, "text.inviteLink", {
+        venue: payload.data.venueName,
+        inviter: payload.data.inviterName,
         url: payload.data.url,
         hours: payload.data.hours,
       });

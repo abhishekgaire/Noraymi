@@ -379,6 +379,31 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await expect(page.getByText("Saved: 179 new menu lines")).toBeVisible();
     await expect(rail.getByRole("button", { name: /Menu/ })).toContainText("Done");
 
+    // Step 9 (O-11): a manager invited by phone; the owner names herself on call and for breaches.
+    // Until a manager sets their PIN the step needs attention, and the contacts show in Admin → Venue.
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Team and contacts" })).toBeVisible();
+    await page.getByLabel("Name", { exact: true }).fill("Andy Park");
+    await page.getByLabel("Mobile phone").fill("(212) 555-0188");
+    await page.getByLabel("Role").selectOption("manager");
+    await page.getByRole("button", { name: "Send the invite" }).click();
+    await expect(page.getByText("Invite sent to +12125550188")).toBeVisible();
+    await expect(page.getByText(/Andy Park · Manager/)).toBeVisible();
+    await page.getByLabel("Who").first().selectOption({ label: "Mina Cho · Owner" });
+    await page.getByRole("checkbox", { name: "Fri" }).check();
+    await page.getByRole("checkbox", { name: "Sat" }).check();
+    await page.getByLabel("First on call · From").fill("18:00");
+    await page.getByLabel("First on call · Until").fill("04:00");
+    await page
+      .getByRole("combobox", { name: "Breach contact" })
+      .selectOption({ label: "Mina Cho · Owner" });
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(rail.getByRole("button", { name: /Team and contacts/ })).toContainText(
+      "Needs attention",
+    );
+    await page.goto("/admin/venue");
+    await expect(page.getByRole("combobox", { name: "Breach contact" })).toHaveValue(/.+/);
+
     await page.goto("/admin/deposits");
     await expect(page.getByLabel("Keep the card behind the bar")).toBeChecked();
     await page.goto("/admin/card-fee");

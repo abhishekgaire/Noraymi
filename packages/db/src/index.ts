@@ -206,6 +206,7 @@ export {
 } from "./badges.js";
 export type { BadgeRow } from "./badges.js";
 export { offboardMembership } from "./team.js";
+export { clearContactSlots, venueContacts, withoutMember, type ContactLine } from "./contacts.js";
 export type { Offboarded } from "./team.js";
 export {
   addConsoleKey,

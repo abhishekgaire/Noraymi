@@ -1,5 +1,5 @@
 import { openWhileReadOnly } from "../http/plan-gate.js";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import {
   sha256Hex,
   type Queryable,
   pinDigitsFor,
+  clearContactSlots,
 } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import { businessDate } from "@west4/rules";
@@ -33,14 +34,21 @@ export const INVITE_HOURS = 48;
 
 type VenueParams = { venueId: string };
 
+// A phone, an email or both (O-11): a phone gets the link by text, an email by email. The phone is
+// only where the link goes; the person confirms their own phone when they open it (M1-23).
 const inviteBody = z
   .object({
     name: z.string().trim().min(1).max(80),
-    email: z.string().trim().email().max(254),
+    email: z.string().trim().email().max(254).optional(),
+    phone_e164: z
+      .string()
+      .regex(/^\+1[2-9]\d{9}$/)
+      .optional(),
     role: z.enum(["owner", "manager", "bartender", "front_desk", "staff"]),
     locale: z.enum(["en", "es"]).optional(),
   })
-  .strict();
+  .strict()
+  .refine((b) => b.email !== undefined || b.phone_e164 !== undefined);
 
 const patchBody = z
   .object({
@@ -206,7 +214,7 @@ export function teamRoutes(
       if (p.kind !== "user") throw new ApiError("forbidden", "you can't call this");
       const parsed = inviteBody.safeParse(request.body);
       if (!parsed.success)
-        throw new ApiError("invalid_request", "send { name, email, role, locale? }");
+        throw new ApiError("invalid_request", "send { name, phone_e164 or email, role, locale? }");
       const body = parsed.data;
       const venueId = request.venueId!;
       const expiresAt = options.clock.now().add({ hours: INVITE_HOURS });
@@ -215,14 +223,18 @@ export function teamRoutes(
         const inviter = await c.query<{ name: string }>("select name from users where id = $1", [
           p.userId,
         ]);
-        const user = await c.query<{ id: string }>(
-          "insert into users (name, email) values ($1, $2) returning id",
-          [body.name, body.email],
-        );
+        // The id is made here: as app_rw, RETURNING the new user would need it to be a member
+        // already (users_visible), so the insert failed outside the superuser test databases.
+        const userId = randomUUID();
+        await c.query("insert into users (id, name, email) values ($1, $2, $3)", [
+          userId,
+          body.name,
+          body.email ?? null,
+        ]);
         const membership = await c.query<{ id: string }>(
           `insert into memberships (venue_id, user_id, role, status, pin_digits, locale)
            values ($1, $2, $3, 'invited', $4, $5) returning id`,
-          [venueId, user.rows[0]!.id, body.role, pinDigitsFor(body.role), body.locale ?? "en"],
+          [venueId, userId, body.role, pinDigitsFor(body.role), body.locale ?? "en"],
         );
         const membershipId = membership.rows[0]!.id;
         const inviteId = await createInvite(c, {
@@ -232,26 +244,49 @@ export function teamRoutes(
           createdBy: p.userId,
           expiresAt: expiresAt.toString(),
         });
-        await enqueueEmail(c, options.email, {
-          venueId,
-          runAt: options.clock.now(),
-          to: body.email,
-          locale: body.locale ?? "en",
-          template: "invite",
-          data: {
-            venueName: await venueName(c, venueId),
-            inviteeName: body.name,
-            inviterName: inviter.rows[0]?.name ?? "",
-            inviteUrl: `${appUrl()}/invite/${token}`,
-            expiresHours: INVITE_HOURS,
-          },
-        });
-        return { membershipId, inviteId };
+        const name = await venueName(c, venueId);
+        const inviteUrl = `${appUrl()}/invite/${token}`;
+        const sentBy: ("text" | "email")[] = [];
+        if (body.phone_e164) {
+          await enqueueText(c, {
+            venueId,
+            runAt: options.clock.now(),
+            template: "invite_link",
+            to: body.phone_e164,
+            locale: body.locale ?? "en",
+            data: {
+              venueName: name,
+              inviterName: inviter.rows[0]?.name ?? "",
+              url: inviteUrl,
+              hours: INVITE_HOURS,
+            },
+          });
+          sentBy.push("text");
+        }
+        if (body.email) {
+          await enqueueEmail(c, options.email, {
+            venueId,
+            runAt: options.clock.now(),
+            to: body.email,
+            locale: body.locale ?? "en",
+            template: "invite",
+            data: {
+              venueName: name,
+              inviteeName: body.name,
+              inviterName: inviter.rows[0]?.name ?? "",
+              inviteUrl,
+              expiresHours: INVITE_HOURS,
+            },
+          });
+          sentBy.push("email");
+        }
+        return { membershipId, inviteId, sentBy };
       });
       return reply.code(201).send({
         membership_id: made.membershipId,
         invite_id: made.inviteId,
         expires_at: expiresAt.toString(),
+        sent_by: made.sentBy,
       });
     },
   );
@@ -447,6 +482,12 @@ export function teamRoutes(
               options.clock.now().toString(),
             ],
           );
+        // Only an owner or a manager holds a contact slot (D115): a new role empties theirs.
+        if (role !== "owner" && role !== "manager")
+          await clearContactSlots(c, venueId, request.params.m, {
+            savedBy: p.userId,
+            at: options.clock.now(),
+          });
         let pinResetSentBy: "text" | "email" | null = null;
         if (digitsChange && row.status === "active") {
           pinResetSentBy = await sendPinLink(
@@ -498,6 +539,11 @@ export function teamRoutes(
       const done = await request.inVenue(async (c) => {
         const result = await offboardMembership(c, { venueId, membershipId: request.params.m, at });
         if (!result) throw new ApiError("not_found", "no such active person at this venue");
+        // Their on-call and breach slots empty, and the setup checklist shows the team step (D115).
+        await clearContactSlots(c, venueId, request.params.m, {
+          savedBy: p.userId,
+          at: options.clock.now(),
+        });
         await emitEvent(c, {
           venueId,
           type: "membership.deactivated",

@@ -9,6 +9,7 @@ import {
   emitEvent,
   listDevices,
   listSetupRequests,
+  venueContacts,
   publishRulePackDraft,
   requestSupportGrant,
   revokeSupportGrant,
@@ -143,8 +144,14 @@ export function consoleRoutes(
     const staff = staffOf(request);
     const venue = await venueOrThrow(request.params.v);
     const context = { venueId: venue.id, userId: staff.id, requestId: request.requestId };
-    const [modules, flags, devices] = await app.db.withVenue(context, (c) =>
-      Promise.all([venueModules(c, venue.id), venueFlags(c, venue.id), listDevices(c, venue.id)]),
+    const [modules, flags, devices, contacts] = await app.db.withVenue(context, (c) =>
+      Promise.all([
+        venueModules(c, venue.id),
+        venueFlags(c, venue.id),
+        listDevices(c, venue.id),
+        // The venue's own on-call and breach contacts (D115; O-11): who our on-call calls.
+        venueContacts(c, venue.id),
+      ]),
     );
     return {
       venue,
@@ -160,6 +167,7 @@ export function consoleRoutes(
         };
       }),
       flags,
+      contacts,
     };
   });
 

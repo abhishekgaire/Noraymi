@@ -196,6 +196,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "{venue}: tu código para la app del personal es {code}. Caduca en {minutes} minutos.",
   "text.pinResetLink":
     "{venue}: elige un PIN nuevo para la app del personal aquí: {url} · El enlace funciona una vez y caduca en {hours} horas.",
+  "text.inviteLink":
+    "{venue}: {inviter} te invitó a la app del personal. Confirma tu teléfono y elige tu PIN aquí: {url} · El enlace funciona una vez y caduca en {hours} horas.",
   "invite.title": "Únete a {venue}",
   "invite.hello": "Hola {name} · entras como {role}",
   "invite.phone": "Tu número de móvil",
@@ -3598,6 +3600,37 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.menu.allergy": "Aviso de alergias",
   "onboarding.menu.allergy.hint":
     "Tus propias palabras, en cada menú. Hasta que esté escrito en los dos idiomas, Cocina y comida sigue apagado.",
+  "team.invite.phone": "Teléfono móvil",
+  "team.invite.badPhone": "Escribe un móvil de EE. UU., 10 dígitos",
+  "team.invite.phoneOrEmail": "Añade un teléfono móvil o un correo",
+  "contacts.title": "Contactos",
+  "contacts.onCall.hint":
+    "Cuando algo sale mal y afecta a tu local (un pago atascado, una caída, una alerta de seguridad), nuestra guardia llama a tu primer responsable en su horario, y luego al segundo.",
+  "contacts.onCall.first": "Primero de guardia",
+  "contacts.onCall.second": "Segundo de guardia",
+  "contacts.person": "Quién",
+  "contacts.nobody": "Nadie todavía",
+  "contacts.notActive": "Ya no es dueño ni gerente activo",
+  "contacts.days": "Días",
+  "contacts.from": "Desde",
+  "contacts.to": "Hasta",
+  "contacts.breach": "Contacto ante filtraciones",
+  "contacts.breach.hint":
+    "Si alguna vez se exponen datos de tus clientes o de tu personal, te avisamos en 72 horas: al dueño y a esta persona, que se encarga de tu parte.",
+  "contacts.breach.primary": "Contacto ante filtraciones",
+  "contacts.breach.backup": "Suplente",
+  "contacts.noLeads":
+    "Solo se puede nombrar a un dueño o gerente activo. Invita a un gerente arriba; se le puede nombrar cuando haya elegido su PIN.",
+  "contacts.needHours": "Elige los días y las dos horas de cada persona de guardia",
+  "contacts.refused": "Solo se puede nombrar a un dueño o gerente activo",
+  "contacts.save": "Guardar contactos",
+  "contacts.saved": "Contactos guardados",
+  "onboarding.team.people": "Tu equipo",
+  "onboarding.team.nobody": "Todavía no has invitado a nadie",
+  "onboarding.team.pinSet": "PIN elegido",
+  "onboarding.team.invited": "Invitado · todavía no eligió su PIN",
+  "onboarding.team.noPin": "Sin PIN todavía",
+  "onboarding.team.openTeam": "Abrir Equipo",
   "onboarding.money.hint":
     "Tu descuento en efectivo, la propina automática y las propinas, y luego tus cajas. No se elige nada por ti; un cambio de caja empieza el siguiente día de negocio.",
   "onboarding.money.finish": "Termina las respuestas de pagos y cajas, o bórralas, antes de seguir",

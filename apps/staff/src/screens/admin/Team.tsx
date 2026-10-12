@@ -631,10 +631,22 @@ export function Team() {
   );
 }
 
-function InviteForm({ venueId, onSent }: { venueId: string; onSent: () => Promise<void> }) {
+/** A US mobile typed any way ("(917) 555-0144", "917-555-0144") as E.164, or null. */
+const usE164 = (typed: string): string | null => {
+  const digits = typed.replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  return /^[2-9]\d{9}$/.test(ten) ? `+1${ten}` : null;
+};
+
+/**
+ * Invite someone (M1-23; O-11): by phone, by email or both. A phone gets the link by text; they
+ * confirm their phone and set their own PIN on it. Admin → Team and the wizard's team step share it.
+ */
+export function InviteForm({ venueId, onSent }: { venueId: string; onSent: () => Promise<void> }) {
   const { t } = useT();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState<Role>("staff");
   const [locale, setLocale] = useState<Locale>("en");
   const [sending, setSending] = useState(false);
@@ -642,18 +654,37 @@ function InviteForm({ venueId, onSent }: { venueId: string; onSent: () => Promis
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    const e164 = phone.trim() ? usE164(phone) : null;
+    if ((phone.trim() && !e164) || (!e164 && !email.trim())) {
+      setMessage({
+        kind: "error",
+        key: phone.trim() ? "team.invite.badPhone" : "team.invite.phoneOrEmail",
+      });
+      return;
+    }
     setSending(true);
     setMessage(null);
     try {
       await api(
         "POST",
         `/v1/venues/${venueId}/team/invite`,
-        { name: name.trim(), email: email.trim(), role, locale },
+        {
+          name: name.trim(),
+          ...(email.trim() ? { email: email.trim() } : {}),
+          ...(e164 ? { phone_e164: e164 } : {}),
+          role,
+          locale,
+        },
         { stepUp: await stepUpToken() },
       );
-      setMessage({ kind: "ok", key: "team.invite.sent", params: { email: email.trim() } });
+      setMessage({
+        kind: "ok",
+        key: "team.invite.sent",
+        params: { email: [e164, email.trim()].filter(Boolean).join(" · ") },
+      });
       setName("");
       setEmail("");
+      setPhone("");
       await onSent();
     } catch (err) {
       const code = (err as ApiCallError)?.code;
@@ -678,11 +709,21 @@ function InviteForm({ venueId, onSent }: { venueId: string; onSent: () => Promis
           <input value={name} required maxLength={80} onChange={(e) => setName(e.target.value)} />
         </label>
         <label>
+          <span>{t("team.invite.phone")}</span>
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            value={phone}
+            maxLength={20}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </label>
+        <label>
           <span>{t("team.invite.email")}</span>
           <input
             type="email"
             value={email}
-            required
             maxLength={254}
             onChange={(e) => setEmail(e.target.value)}
           />

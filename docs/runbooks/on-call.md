@@ -28,6 +28,7 @@ The first responder gets "[TEST] Test page from …" within 30 seconds. Don't ac
 
 1. Acknowledge it in the Console (Pages). That stops the escalation; it doesn't fix anything.
 2. Open the runbook the page names. Every alert has one in this folder.
+   When it touches one venue (a stuck payment, an outage, a security alert), call that venue's own responder: the Console's venue page lists **Venue contacts**, the first and second on call with the days and hours each answers (venue time), which the owner names in Set up your venue or Admin → Venue → Contacts (D115). They aren't our rota: `oncall_rota` stays our own staff.
 3. Work from the Console: a support grant the venue's owner approves (read-only, masked), or the emergency path (re-sync a payment, cancel a reader action, requeue a print, close a stuck night), which needs a second approver on our side.
 4. If guests are affected, post it on the status page: `pnpm --filter @west4/api status:set -- --part payments --state degraded --note "…" --by "<you>"`, and clear it after.
 

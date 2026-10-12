@@ -23,6 +23,7 @@ import { HoursStep } from "./HoursStep.js";
 import { MenuStep } from "./MenuStep.js";
 import { MoneyStep } from "./MoneyStep.js";
 import { RoomsStep } from "./RoomsStep.js";
+import { TeamStep } from "./TeamStep.js";
 import { PlanStep } from "./PlanStep.js";
 import { VenueForm } from "./Venue.js";
 import "./setup.css";
@@ -395,6 +396,8 @@ function StepBody({
   if (step.id === "money") return <MoneyStep registerSave={registerSave} onSaved={onSaved} />;
   // Step 8 (O-10): the menu by hand, by spreadsheet or by request, and the allergy notice.
   if (step.id === "menu") return <MenuStep registerSave={registerSave} onSaved={onSaved} />;
+  // Step 9 (O-11): invites, who has set a PIN, and the venue's on-call and breach contacts.
+  if (step.id === "team") return <TeamStep registerSave={registerSave} onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (
