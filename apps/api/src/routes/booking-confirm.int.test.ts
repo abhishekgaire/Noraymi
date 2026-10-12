@@ -35,8 +35,19 @@ const WED = Temporal.Instant.from("2026-09-23T20:00:00Z");
 const clock = new FrozenClock(WED);
 const details = { name: "Jae K.", phone: "+12125550188", email: "jae@example.com" };
 
+// A booking hold carries the security check's token (M5-05): the test widget's dummy token.
 const post = (url: string, payload?: object) =>
-  api.inject({ method: "POST", url, ...(payload ? { payload } : {}) });
+  api.inject({
+    method: "POST",
+    url,
+    ...(payload
+      ? {
+          payload: url.endsWith("/bookings")
+            ? { ...payload, captcha_token: "XXXX.DUMMY.TOKEN.XXXX" }
+            : payload,
+        }
+      : {}),
+  });
 const hold = (url: string) => api.inject({ method: "GET", url });
 async function paying(body: object) {
   const held = await post("/v1/public/venues/west4karaoke/bookings", body);

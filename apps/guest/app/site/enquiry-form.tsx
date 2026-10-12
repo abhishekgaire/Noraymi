@@ -1,6 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { t } from "@west4/shared";
+import { captchaRefusal, useCaptcha } from "../captcha";
 
 /**
  * The private-party enquiry form (M5-04; screens Parties note 1): a name, a
@@ -17,6 +18,8 @@ export function EnquiryForm({ slug, today }: { slug: string; today: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  // The security check (M5-05): its token goes with the enquiry; past a daily limit, call instead.
+  const captcha = useCaptcha("enquiry");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,22 +41,25 @@ export function EnquiryForm({ slug, today }: { slug: string; today: string }) {
           party_size: Number(party),
           date,
           message: message.trim(),
+          captcha_token: captcha.token ?? "",
         }),
       });
+      captcha.reset();
       if (r.ok) {
         setSent(true);
         return;
       }
       const body = (await r.json().catch(() => ({}))) as {
-        error?: { details?: { reason?: string } };
+        error?: { code?: string; details?: { reason?: string } };
       };
       const reason = body.error?.details?.reason;
       setError(
-        reason === "phone"
-          ? t("en", "site.enquiry.badPhone")
-          : reason === "date_past"
-            ? t("en", "site.enquiry.pastDate")
-            : t("en", "site.enquiry.failed"),
+        captchaRefusal(body, "guestLimit.enquiry") ??
+          (reason === "phone"
+            ? t("en", "site.enquiry.badPhone")
+            : reason === "date_past"
+              ? t("en", "site.enquiry.pastDate")
+              : t("en", "site.enquiry.failed")),
       );
     } catch {
       setError(t("en", "site.enquiry.failed"));
@@ -132,8 +138,9 @@ export function EnquiryForm({ slug, today }: { slug: string; today: string }) {
         {t("en", "site.enquiry.message")}
         <textarea value={message} maxLength={1000} onChange={(e) => setMessage(e.target.value)} />
       </label>
+      {captcha.widget}
       {error && <p role="alert">{error}</p>}
-      <button type="submit" className="button" disabled={busy}>
+      <button type="submit" className="button" disabled={busy || !captcha.token}>
         {busy ? t("en", "site.enquiry.sending") : t("en", "site.enquiry.send")}
       </button>
       <p className="small">{t("en", "site.enquiry.nothingToPay")}</p>

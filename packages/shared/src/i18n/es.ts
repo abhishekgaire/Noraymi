@@ -847,6 +847,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Llegaste al límite de hoy para unirte a la lista de espera desde este teléfono o red. Pide al anfitrión en la puerta que te agregue.",
   "guestLimit.singer":
     "Llegaste al límite de hoy de códigos para este número o teléfono. Pide al bartender que te agregue a la cola.",
+  "guestLimit.booking":
+    "Llegaste al límite de hoy de reservas en línea desde este teléfono o red. Llámanos para reservar.",
+  "guestLimit.enquiry":
+    "Llegaste al límite de hoy de consultas para fiestas desde este teléfono o red. Llámanos.",
   "guestWait.billsAs": "Un grupo de {party} se cobra como {bills} los {day}.",
   "guestWait.ahead.none": "Eres el siguiente",
   "guestWait.ahead.one": "1 grupo delante",
@@ -924,7 +928,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "admin.section.safety": "Seguridad",
   "admin.hint.safety": "El aforo y cuándo avisa el tablero",
   "admin.section.publicForms": "Protección contra spam",
-  "admin.hint.publicForms": "Límites diarios de la lista de espera y los códigos por mensaje",
+  "admin.hint.publicForms":
+    "Límites diarios de la lista de espera, los códigos, las reservas y las consultas",
   "publicForms.lead":
     "Cada formulario público tiene una verificación de seguridad (Cloudflare Turnstile) que confirma el servidor. Estos límites marcan cuántas veces un número, un dispositivo o una red pueden usar un formulario en una fecha de negocio.",
   "publicForms.form": "Formulario",
@@ -933,6 +938,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "publicForms.perIp": "Por red (dirección IP)",
   "publicForms.waitlist": "Lista de espera (QR de la puerta)",
   "publicForms.phoneCode": "Códigos por mensaje (invitaciones, cantantes)",
+  "publicForms.booking": "Reservas en línea (la reserva temporal; el teléfono en Tus datos)",
+  "publicForms.enquiry": "Consultas para fiestas",
   "publicForms.perDay": "{n} al día",
   "publicForms.hint":
     "A quien pase un límite se le pide hablar con el anfitrión o intentarlo mañana. Deja alto el límite por red: los clientes en el Wi-Fi del local comparten una.",

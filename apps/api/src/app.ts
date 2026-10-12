@@ -379,9 +379,14 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       let s3: S3Settings | null = null;
       siteRoutes(scope, { pool: gatePoolRef!, clock, s3: () => (s3 ??= makeS3()) });
       siteVersionsRoutes(scope, { clock, s3: () => (s3 ??= makeS3()) });
-      enquiriesRoutes(scope, { pool: gatePoolRef!, clock });
+      enquiriesRoutes(scope, { pool: gatePoolRef!, clock, forms });
       policyRoutes(scope, { pool: gatePoolRef! });
-      onlineBookingRoutes(scope, { pool: gatePoolRef!, clock, payAppUrl: config.payAppUrl });
+      onlineBookingRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        payAppUrl: config.payAppUrl,
+        forms,
+      });
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
       tabHandOverRoutes(scope, { clock });

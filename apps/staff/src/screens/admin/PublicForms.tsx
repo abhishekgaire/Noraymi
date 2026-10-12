@@ -18,7 +18,7 @@ import { useSession } from "../../session.js";
  * settings. A form the venue hasn't set shows the defaults. Saved through Save
  * and publish, by an owner or a manager.
  */
-const FORMS: readonly PublicForm[] = ["waitlist", "phoneCode"];
+const FORMS: readonly PublicForm[] = ["waitlist", "phoneCode", "booking", "enquiry"];
 const FIELDS: readonly (keyof FormLimits)[] = ["perPhone", "perDevice", "perIp"];
 
 export function PublicForms() {

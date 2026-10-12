@@ -17,7 +17,11 @@ const clock = new SimulatedClock(SEED_NOW);
 const availability = (q: string) =>
   api.inject({ method: "GET", url: `/v1/public/venues/west4karaoke/availability?${q}` });
 const hold = (payload: object) =>
-  api.inject({ method: "POST", url: "/v1/public/venues/west4karaoke/bookings", payload });
+  api.inject({
+    method: "POST",
+    url: "/v1/public/venues/west4karaoke/bookings",
+    payload: { ...payload, captcha_token: "XXXX.DUMMY.TOKEN.XXXX" },
+  });
 // The next Friday: tonight (Sep 25) every small room is taken from 11 PM, so a hold would get a medium one.
 const jae = { business_date: "2026-10-02", time: "23:00", hours: 2, party_size: 5 };
 

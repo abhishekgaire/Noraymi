@@ -162,7 +162,7 @@ Public pages that anyone with a link can open, server-rendered with Next.js on W
 
 **Build notes**
 
-1. **Phone or email (C37).** The canvas enquiry form takes "phone or email", but the inbox is texts only and enquiries land in Messages. Build the form to take a mobile number and say "We reply by text". If an email-only enquiry must be allowed, someone has to decide how it gets answered before M5. *Not decided in the fix brief. Spec: [API][spec-08], [Song systems and texts][spec-11].*
+1. **Phone or email (C37).** The canvas enquiry form takes "phone or email", but the inbox is texts only and enquiries land in Messages. Build the form to take a mobile number and say "We reply by text". If an email-only enquiry must be allowed, someone has to decide how it gets answered before M5. *Not decided in the fix brief. Spec: [API][spec-08], [Song systems and texts][spec-11].* The form also has the security check above Send (D109), which Send waits for; past a daily limit it reads "You've reached today's limit for party enquiries from this phone or network. Call us instead."
 2. **Packages.** The canvas lists five drink packages ($70 to $680) that guests order once they're in the room. Build them as menu items ordered from the room. The booking takes only the deposit; selling packages in the booking is phase 2 (K3). *Spec: [Settings, rule packs and modules][spec-03].*
 
 ## Guest phone (1)
@@ -410,7 +410,7 @@ The staff app at desktop width. The bar and front-desk computers run it inside t
 27. **Bar mode (K6, C10).** The canvas has no section for bar mode, though Features shows it on. Build Admin → Bar mode ([N34](#n34-admin--bar-mode)). *Decided in [FB 4.11]. Spec: [Song systems and texts][spec-11].*
 28. **Payments and disputes (F53).** The canvas has none of Admin → Payments, the disputes inbox or Unmatched payments. Build them ([N37](#n37-admin--payments-disputes-and-unmatched-payments)). *Spec: [Stripe setup][spec-06], [API][spec-08].*
 29. **Admin → Console (C8).** The canvas has no place where the owner approves support access. Build Admin → Console for owners ([N39](#n39-admin--console)). *Spec: [Tenancy and access][spec-02], [API][spec-08].*
-30. **Spam protection (D109).** The canvas has none. Build Admin → Spam protection: the public forms' daily limits per phone number, device and network (IP address), for the waitlist page and texted codes (booking and enquiries with M5-05), each a whole number from 1 to 1,000 a business date, with the defaults shown until the venue sets its own. The security check itself has no setting. *Spec: [Settings][spec-03], [Security and data retention][spec-12].*
+30. **Spam protection (D109).** The canvas has none. Build Admin → Spam protection: the public forms' daily limits per phone number, device and network (IP address), for the waitlist page, texted codes, online booking and party enquiries, each a whole number from 1 to 1,000 a business date, with the defaults shown until the venue sets its own. The security check itself has no setting. *Spec: [Settings][spec-03], [Security and data retention][spec-12].*
 
 ### Night
 
@@ -683,7 +683,7 @@ Screens and states a guest sees on the website, on their phone or on a room tabl
 
 The canvas stops at "Pay $X deposit". Build every step after it as a state of the Book page. A slot chosen in Pick holds a real room for 10 minutes, and a countdown shows on every later step. Each booking has one PaymentIntent, reused on every retry.
 
-- **Pick.** Date, party size with the billable minimum shown ("Fri & Sat bill at least 4 · you pay for 4"), time and length. The form has a CAPTCHA checked on the server and daily limits per phone number, IP address and device.
+- **Pick.** Date, party size with the billable minimum shown ("Fri & Sat bill at least 4 · you pay for 4"), time and length. The form has a CAPTCHA checked on the server and daily limits per phone number, IP address and device: built (D109) as one security-check widget above the start times, whose token every time's button sends; the times wait for the check, and past a limit the page reads "You've reached today's limit for online bookings from this phone or network. Call us to book." (the per-phone limit at Your details).
 - **Details.** Name, mobile and email. A line says the confirmation and reminders come by text to that number. An unticked box for marketing texts, separate from the booking.
 - **Terms.** The policy version above the pay button: the deposit comes off the bill; the card is saved, and the rest of the tab and a no-show charge can go on it later, with how each amount is worked out and when; the refund cut-off; and "A 20% gratuity is added to room tabs."
 - **Payment.** The payment page on its own origin, with the Payment Element (Apple Pay, Google Pay or card) and "Pay $50 deposit" for Jae & co. (5 guests at $10). Paying stores the policy version and its hash, the time, the IP address and the browser.

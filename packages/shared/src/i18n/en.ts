@@ -835,6 +835,10 @@ export const en = {
     "You've reached today's limit for joining the waitlist from this phone or network. Ask the host at the door to add you.",
   "guestLimit.singer":
     "You've reached today's limit for codes from this number or phone. Ask the bartender to add you to the queue.",
+  "guestLimit.booking":
+    "You've reached today's limit for online bookings from this phone or network. Call us to book.",
+  "guestLimit.enquiry":
+    "You've reached today's limit for party enquiries from this phone or network. Call us instead.",
   "guestWait.billsAs": "A party of {party} bills as {bills} on {day}.",
   "guestWait.ahead.none": "You're next",
   "guestWait.ahead.one": "1 party ahead",
@@ -911,7 +915,7 @@ export const en = {
   "admin.section.safety": "Safety",
   "admin.hint.safety": "The occupancy limit and when the board warns",
   "admin.section.publicForms": "Spam protection",
-  "admin.hint.publicForms": "Daily limits on the waitlist page and texted codes",
+  "admin.hint.publicForms": "Daily limits on the waitlist, texted codes, booking and enquiries",
   "publicForms.lead":
     "Every public form has a security check (Cloudflare Turnstile) that the server confirms. These limits cap how often one phone number, one device or one network can use a form in a business date.",
   "publicForms.form": "Form",
@@ -920,6 +924,8 @@ export const en = {
   "publicForms.perIp": "Per network (IP address)",
   "publicForms.waitlist": "Waitlist page (door QR)",
   "publicForms.phoneCode": "Texted codes (staff invites, singers)",
+  "publicForms.booking": "Online booking (a hold; the phone at Your details)",
+  "publicForms.enquiry": "Party enquiries",
   "publicForms.perDay": "{n} a day",
   "publicForms.hint":
     "A guest past a limit is asked to see the host, or to try again tomorrow. Keep the network limit high: guests on the venue's Wi-Fi share one.",

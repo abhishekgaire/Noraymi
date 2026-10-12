@@ -11,6 +11,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import type { Clock } from "@west4/shared";
+import type { PublicFormGuard } from "../captcha/guard.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import {
@@ -44,8 +45,9 @@ import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
  *   DELETE /v1/public/bookings/{token}         the guest cancels, by the refund cut-off and the accepted policy (M5-12)
  *   PATCH /v1/public/bookings/{token}          the manage page: { party_size?, business_date?, time?, offset?,
  *                                              running_late?, accept_keep?, preview? } (M5-11)
- * The CAPTCHA and daily limits join POST with M5-05 (blocked on M2-27). The hold and more-time
- * routes are the cautious default (the API table names only availability and POST bookings).
+ * POST carries `captcha_token`: Cloudflare Turnstile, then the daily limits per IP address and device;
+ * Details adds the per-phone limit (M5-05, D109). The hold and more-time routes are the cautious
+ * default (the API table names only availability and POST bookings).
  */
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const holdBody = z
@@ -63,7 +65,7 @@ const holdBody = z
 
 export function onlineBookingRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; payAppUrl: string | null },
+  options: { pool: pg.Pool; clock: Clock; payAppUrl: string | null; forms: PublicFormGuard },
 ) {
   const proxyHops = loadTrustedProxyHops();
   const publicRoute = route({ principals: ["public"], module: "core", idempotency: "none" });
@@ -135,17 +137,30 @@ export function onlineBookingRoutes(
     "/v1/public/venues/:slug/bookings",
     { config: holdRoute },
     async (request, reply) => {
-      const parsed = holdBody.safeParse(request.body);
+      const { token: captcha, body } = options.forms.split(request.body);
+      const parsed = holdBody.safeParse(body);
       if (!parsed.success)
         throw new ApiError(
           "invalid_request",
-          "send { business_date, time, offset?, hours, party_size }",
+          "send { business_date, time, offset?, hours, party_size, captcha_token }",
         );
       const { run, venueId } = await bookingVenue(request.params.slug, request.requestId);
+      // The CAPTCHA with Cloudflare before the transaction; the daily limits inside it (M5-05).
+      const caller = await options.forms.check(request, reply, captcha);
       const now = options.clock.now();
       const held = await run(async (c) => {
         const { token } = await holdBooking(c, venueId, now, parsed.data);
-        return { token, booking: await heldBooking(c, venueId, payTokenHash(token), now) };
+        const booking = await heldBooking(c, venueId, payTokenHash(token), now);
+        // Past a limit the hold rolls back with the refusal.
+        await options.forms.use(
+          c,
+          venueId,
+          "booking",
+          caller,
+          { phoneE164: null, subjectId: booking.id },
+          now,
+        );
+        return { token, booking };
       });
       reply.header("Cache-Control", "no-store");
       return reply.code(201).send(held);
@@ -206,6 +221,9 @@ export function onlineBookingRoutes(
       const ip = publicIpOf(request.ip, request.headers["x-forwarded-for"], proxyHops);
       return withVenue(options.pool, { venueId, requestId: request.requestId }, async (c) => {
         await takingNewBookings(c, venueId);
+        // The daily limit per phone number, now that the booking has one (M5-05).
+        const held = await heldBooking(c, venueId, hash, now);
+        await options.forms.phoneLater(c, venueId, "booking", held.id, parsed.data.phone, now);
         await saveDetails(c, venueId, hash, now, parsed.data, ip);
         return heldBooking(c, venueId, hash, now);
       });

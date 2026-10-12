@@ -4,6 +4,7 @@ import pg from "pg";
 import { checkPayPage } from "../apps/guest/pay-check.js";
 import { SEED_COMMAND, SEED_INSTANT, setClock } from "./night.js";
 import { API, DB, esc, GUEST, PAY_HOST, ports } from "./stack.js";
+import { stubTurnstile } from "./turnstile.js";
 
 /**
  * M5-17: Jae & co.'s booking end to end, the M5 done-when on the fake Stripe. The seed already holds
@@ -44,6 +45,10 @@ const dropJae = `
        r as (delete from room_blocks where kind = 'booking' and ref_id = (select id from b))
   select 1`;
 
+// The security check's widget (M5-05) is a stand-in here: no call to Cloudflare.
+test.beforeEach(async ({ context }) => {
+  await stubTurnstile(context);
+});
 test.beforeEach(async ({ request }) => {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {

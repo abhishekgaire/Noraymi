@@ -33,7 +33,7 @@ const hold = async (body: object = jae) => {
   const r = await api.inject({
     method: "POST",
     url: "/v1/public/venues/west4karaoke/bookings",
-    payload: body,
+    payload: { ...body, captcha_token: "XXXX.DUMMY.TOKEN.XXXX" },
   });
   expect(r.statusCode, r.body).toBe(201);
   return r.json<{ token: string; booking: { id: string } }>();

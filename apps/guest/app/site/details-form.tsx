@@ -45,6 +45,9 @@ export function DetailsForm({
           error?: { details?: { reason?: string } };
         } | null;
         if (body?.error?.details?.reason === "hold_over") window.location.reload();
+        // Past the daily limit for this number (M5-05): call to book instead.
+        else if (body?.error?.details?.reason === "daily_limit")
+          setError(t("en", "guestLimit.booking"));
         else setError(t("en", "site.book.detailsFailed"));
         return;
       }

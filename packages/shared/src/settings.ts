@@ -297,6 +297,10 @@ export const publicFormsSchema = z
   .object({
     waitlist: formLimitsSchema.optional(),
     phoneCode: formLimitsSchema.optional(),
+    /** Online booking (M5-05): IP address and device at the hold, the phone number at Details. */
+    booking: formLimitsSchema.optional(),
+    /** Private-party enquiries (M5-05). */
+    enquiry: formLimitsSchema.optional(),
   })
   .strict();
 
@@ -376,6 +380,8 @@ export type PublicForm = keyof PublicFormsSettings;
 export const PUBLIC_FORM_DEFAULTS: Record<PublicForm, FormLimits> = {
   waitlist: { perPhone: 3, perIp: 50, perDevice: 5 },
   phoneCode: { perPhone: 5, perIp: 30, perDevice: 10 },
+  booking: { perPhone: 5, perIp: 20, perDevice: 10 },
+  enquiry: { perPhone: 3, perIp: 10, perDevice: 5 },
 };
 
 /** The `kitchen` key until a venue saves one (spec 16): no notice, no last order, 5 minutes. */

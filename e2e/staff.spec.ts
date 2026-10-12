@@ -15,7 +15,7 @@ import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 import { SEED_COMMAND, advanceClock, setClock as resetClock } from "./night.js";
 import { testKitchenMenu, testPackage } from "./kitchen.js";
-import { stubTurnstile } from "./turnstile.js";
+import { stubTurnstile, TEST_TOKEN } from "./turnstile.js";
 import { brokenWords, clippedPlaceholders, clippedText } from "./layout.js";
 import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
@@ -5837,6 +5837,8 @@ test("a party enquiry for 22 lands in Messages unread; a reply with a link point
         party_size: 22,
         date: "2026-10-10",
         message: "Office party, about 22 of us, from 8 PM.",
+        // The security check's token (M5-05): the test widget's dummy token.
+        captcha_token: TEST_TOKEN,
       },
     });
     expect(sent.status()).toBe(201);

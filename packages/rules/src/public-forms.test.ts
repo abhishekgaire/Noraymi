@@ -9,6 +9,9 @@ describe("the public forms' daily limits", () => {
   it("the defaults: waitlist 3 a phone, 5 a device, 50 an IP; phone codes 5, 10 and 30", () => {
     expect(PUBLIC_FORM_DEFAULTS.waitlist).toEqual(waitlist);
     expect(PUBLIC_FORM_DEFAULTS.phoneCode).toEqual({ perPhone: 5, perIp: 30, perDevice: 10 });
+    // M5-05: online booking 5 a phone, 10 a device, 20 a network; enquiries 3, 5 and 10.
+    expect(PUBLIC_FORM_DEFAULTS.booking).toEqual({ perPhone: 5, perIp: 20, perDevice: 10 });
+    expect(PUBLIC_FORM_DEFAULTS.enquiry).toEqual({ perPhone: 3, perIp: 10, perDevice: 5 });
   });
 
   it("a form the venue hasn't set reads its default; a set one reads the venue's", () => {

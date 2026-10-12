@@ -274,6 +274,8 @@ describe("the daily limits per phone number, device and IP address", () => {
       value: {
         waitlist: { perPhone: 3, perIp: 50, perDevice: 5 },
         phoneCode: { perPhone: 5, perIp: 30, perDevice: 10 },
+        booking: { perPhone: 5, perIp: 20, perDevice: 10 },
+        enquiry: { perPhone: 3, perIp: 10, perDevice: 5 },
       },
     });
     const own = {
@@ -291,6 +293,123 @@ describe("the daily limits per phone number, device and IP address", () => {
     ip = "198.51.100.40";
     const r = await doorJoin("+12125550187");
     expect(r.statusCode).toBe(429);
+  });
+});
+
+/** M5-05: the same check and limits on online booking (hold, then Details) and on enquiries. */
+describe("booking and enquiries", () => {
+  const jae = { business_date: "2026-10-02", time: "23:00", hours: 2, party_size: 5 };
+  const hold = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+    app.inject({
+      method: "POST",
+      url: `/v1/public/venues/${slug}/bookings`,
+      headers: { authorization: "", "x-forwarded-for": ip, ...headers },
+      payload: body as never,
+    });
+  const details = (token: string, phone: string) =>
+    app.inject({
+      method: "POST",
+      url: `/v1/public/bookings/${token}/details`,
+      headers: { authorization: "", "x-forwarded-for": ip },
+      payload: { name: "Jae", phone, email: "jae@example.com", marketing: false },
+    });
+  const enquire = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+    app.inject({
+      method: "POST",
+      url: `/v1/public/venues/${slug}/enquiries`,
+      headers: { authorization: "", "x-forwarded-for": ip, ...headers },
+      payload: body as never,
+    });
+  const priya = (phone: string) => ({
+    name: "Priya",
+    phone,
+    party_size: 22,
+    date: "2026-10-10",
+    captcha_token: TOKEN,
+  });
+  const holds = async () =>
+    Number((await raw.query<{ n: string }>("select count(*) as n from bookings")).rows[0]!.n);
+
+  it("a booking hold without a valid token is refused by the server, and no room is held", async () => {
+    const before = await holds();
+    const none = await hold(jae);
+    expect(none.statusCode).toBe(403);
+    expect(none.json()).toMatchObject({ error: { code: "captcha_failed" } });
+    expect((await hold({ ...jae, captcha_token: "forged" })).statusCode).toBe(403);
+    expect(await holds()).toBe(before);
+    expect((await hold({ ...jae, captcha_token: TOKEN })).statusCode).toBe(201);
+  });
+
+  it("per IP address and per device at the hold: the limit's last hold passes, the next is refused with the reason", async () => {
+    await setLimits({ booking: { perPhone: 5, perIp: 2, perDevice: 10 } });
+    expect((await hold({ ...jae, captcha_token: TOKEN })).statusCode).toBe(201);
+    expect((await hold({ ...jae, time: "22:00", captcha_token: TOKEN })).statusCode).toBe(201);
+    const third = await hold({ ...jae, time: "21:00", captcha_token: TOKEN });
+    expect(third.statusCode).toBe(429);
+    expect(third.json()).toMatchObject({
+      error: { code: "daily_limit", details: { limit: "ip" } },
+    });
+    await setLimits({ booking: { perPhone: 5, perIp: 50, perDevice: 1 } });
+    ip = "198.51.100.50";
+    const first = await hold({ ...jae, captcha_token: TOKEN });
+    expect(first.statusCode).toBe(201);
+    const cookie = deviceCookie(first)!;
+    ip = "198.51.100.51";
+    const again = await hold({ ...jae, time: "22:00", captcha_token: TOKEN }, { cookie });
+    expect(again.statusCode).toBe(429);
+    expect(again.json()).toMatchObject({ error: { details: { limit: "device" } } });
+  });
+
+  it("per phone number at Details: a second booking's Details with the same number past the limit is refused", async () => {
+    await setLimits({ booking: { perPhone: 1, perIp: 50, perDevice: 10 } });
+    const a = await hold({ ...jae, captcha_token: TOKEN });
+    expect(a.statusCode, a.body).toBe(201);
+    const first = await details(a.json<{ token: string }>().token, "+12125550177");
+    expect(first.statusCode, first.body).toBe(200);
+    // The same booking's Details again is the same use, not a second one.
+    expect((await details(a.json<{ token: string }>().token, "+12125550177")).statusCode).toBe(200);
+    ip = "198.51.100.60";
+    const b = await hold({ ...jae, time: "22:00", captcha_token: TOKEN });
+    expect(b.statusCode, b.body).toBe(201);
+    const second = await details(b.json<{ token: string }>().token, "+12125550177");
+    expect(second.statusCode).toBe(429);
+    expect(second.json()).toMatchObject({
+      error: { code: "daily_limit", details: { reason: "daily_limit", limit: "phone" } },
+    });
+    expect((await details(b.json<{ token: string }>().token, "+12125550178")).statusCode).toBe(200);
+    // The next business date it works again.
+    clock.set(SEED_NOW.add({ hours: 24 }));
+    const c = await hold({ ...jae, captcha_token: TOKEN });
+    expect(c.statusCode, c.body).toBe(201);
+    expect((await details(c.json<{ token: string }>().token, "+12125550177")).statusCode).toBe(200);
+  });
+
+  it("an enquiry without a token is refused; past the default 3 a phone, the fourth is refused", async () => {
+    const none = await enquire({ ...priya("+16465550150"), captcha_token: undefined });
+    expect(none.statusCode).toBe(403);
+    for (let i = 0; i < 3; i += 1) {
+      ip = `198.51.100.${70 + i}`;
+      const r = await enquire(priya("+16465550151"));
+      expect(r.statusCode, r.body).toBe(201);
+    }
+    ip = "198.51.100.79";
+    const fourth = await enquire(priya("+16465550151"));
+    expect(fourth.statusCode).toBe(429);
+    expect(fourth.json()).toMatchObject({ error: { details: { limit: "phone" } } });
+  });
+
+  it("per device and per IP address on enquiries, at the venue's limits", async () => {
+    await setLimits({ enquiry: { perPhone: 3, perIp: 2, perDevice: 1 } });
+    const one = await enquire(priya("+16465550152"));
+    expect(one.statusCode).toBe(201);
+    const cookie = deviceCookie(one)!;
+    ip = "198.51.100.80";
+    const dev = await enquire(priya("+16465550153"), { cookie });
+    expect(dev.json()).toMatchObject({ error: { details: { limit: "device" } } });
+    expect((await enquire(priya("+16465550154"))).statusCode).toBe(201);
+    expect((await enquire(priya("+16465550155"))).statusCode).toBe(201);
+    const net = await enquire(priya("+16465550156"));
+    expect(net.json()).toMatchObject({ error: { details: { limit: "ip" } } });
   });
 });
 

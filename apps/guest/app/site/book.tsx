@@ -2,6 +2,7 @@ import { t } from "@west4/shared";
 import { SiteFooter, SiteHeader } from "./home";
 import { dateWords, hhmmClock, hhmmWords, type Availability, type SiteView } from "./data";
 import { HoldButton } from "./hold-button";
+import { HoldCaptcha } from "./hold-captcha";
 import { QuoteSummary } from "./quote";
 
 /**
@@ -127,30 +128,32 @@ function Pick({
           {free.length === 0 ? (
             <p role="status">{t("en", "site.book.none")}</p>
           ) : (
-            <ul className="slots">
-              {pick.slots.map((s) => (
-                <li key={s.start}>
-                  {s.free ? (
-                    <HoldButton
-                      slug={site.venue.slug}
-                      base={base}
-                      date={pick.business_date}
-                      time={s.time}
-                      zone={s.zone}
-                      offset={s.offset}
-                      hours={pick.hours}
-                      guests={pick.guests}
-                      label={hhmmWords(s.time)}
-                    />
-                  ) : (
-                    <span className="slot taken">
-                      {hhmmWords(s.time)} <span className="small">{s.zone}</span> ·{" "}
-                      {t("en", "site.book.taken")}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <HoldCaptcha>
+              <ul className="slots">
+                {pick.slots.map((s) => (
+                  <li key={s.start}>
+                    {s.free ? (
+                      <HoldButton
+                        slug={site.venue.slug}
+                        base={base}
+                        date={pick.business_date}
+                        time={s.time}
+                        zone={s.zone}
+                        offset={s.offset}
+                        hours={pick.hours}
+                        guests={pick.guests}
+                        label={hhmmWords(s.time)}
+                      />
+                    ) : (
+                      <span className="slot taken">
+                        {hhmmWords(s.time)} <span className="small">{s.zone}</span> ·{" "}
+                        {t("en", "site.book.taken")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </HoldCaptcha>
           )}
         </section>
       )}

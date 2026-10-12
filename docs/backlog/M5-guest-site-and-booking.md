@@ -143,11 +143,11 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - Built: migration 0073 (`enquiries`, and `enquiry` as a conversation context); `POST /v1/public/venues/{slug}/enquiries` (website module) finds or makes the guest by mobile number, opens a conversation of its own, puts the guest's message in as its first incoming text (so it's unread, opens the 24-hour reply window, and is assigned to the manager on duty), and sends `message.received`; `GET /v1/venues/{v}/enquiries` (owner, manager and staff with Messages) lists them newest first. The thread shows "Party enquiry · 22 guests · Sat, Oct 10" above the texts.
   - The form takes a name, a US mobile number (+1 only), guests, a date (tonight or later, on the venue's clock) and anything else. An address with "@" is refused in the form and by the server ("We reply by text…"). The canvas's occasion chips aren't built: `enquiries` has no field for them, and the guest can say it in the message (flagged).
   - A reply with a link was already refused (M2-30); its message now points to the Payment link text. The button that sends it from the thread comes with M5-13.
-  - **Not built here: the CAPTCHA and daily limits.** They're M5-05, which waits on M2-27 (blocked on the founder: the CAPTCHA provider and the limit numbers). Until then the route runs without them, like the waitlist page.
+  - The CAPTCHA and daily limits came later with M5-05 (D109).
 
 ### M5-05 · Guard booking and enquiries with the CAPTCHA and daily limits
 
-- **Status:** blocked
+- **Status:** done
 - **Size:** S
 - **Depends on:** M2 (the server-checked CAPTCHA and daily limits)
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 8; [Payment flows](../spec/07-payment-flows.md#deposit-when-booking-online) step 1; [API](../spec/08-api.md) (Bookings, Enquiries)
@@ -156,12 +156,15 @@ These come from the spec and apply to every ticket below, on top of the definiti
   - One PaymentIntent per booking: a unique link from each booking to its deposit payment, which every retry reuses (M5-09).
   - Only +1 numbers.
 - **Acceptance:**
-  - [ ] A booking without a valid CAPTCHA token is refused by the server.
-  - [ ] Past the daily limit for one phone number, IP address or device, a new booking is refused with the reason.
+  - [x] A booking without a valid CAPTCHA token is refused by the server. (`public-forms.int.test.ts`)
+  - [x] Past the daily limit for one phone number, IP address or device, a new booking is refused with the reason. (`public-forms.int.test.ts` drives each limit to its edge, for booking and enquiries)
+  - [ ] Real Turnstile keys in staging and production: the founder's (see M2-27); until then the test keys stop no bot.
   - [x] Five payment retries on one booking leave one PaymentIntent in Stripe. (Built and tested with M5-09: `booking-deposit.int.test.ts`.)
 - **Tests:** integration; a test that drives each limit to its edge.
 - **Notes:** Radar rules and our per-venue decline-rate alarm (Security 8) come with watching production in M8.
-  - Blocked with M2-27 on the founder: which CAPTCHA provider, and the daily limits per phone number, IP address and device. Nothing is invented meanwhile. The other two lines don't wait: one PaymentIntent per booking is built with the deposit payment (M5-09), and booking takes +1 numbers only (M5-08), as enquiries already do (M5-04).
+  - Unblocked Oct 11, 2026 with M2-27 (D109: Cloudflare Turnstile; the limits are `publicForms` settings). Built on M2-27's guard (`apps/api/src/captcha/guard.ts`): `POST /v1/public/venues/{slug}/bookings` and `POST /v1/public/venues/{slug}/enquiries` take `captcha_token`, checked with siteverify before the transaction. A hold has no phone number yet, so it counts per IP address and device and records the use with the booking's id; Details (`/v1/public/bookings/{token}/details`) then checks the business date's other bookings with that number and puts the number on the use (a booking's Details sent again is still one booking). A refused hold rolls back with its room. Defaults: booking 5 a phone, 10 a device, 20 a network; enquiries 3, 5 and 10; both in Admin → Spam protection.
+  - Screens: Book has one widget above the start times, shared by every time's button (`apps/guest/app/site/hold-captcha.tsx`); the enquiry form has its own above Send. Past a limit: "You've reached today's limit for online bookings from this phone or network. Call us to book." and "... for party enquiries ... Call us instead."
+  - The other two lines don't wait: one PaymentIntent per booking is built with the deposit payment (M5-09), and booking takes +1 numbers only (M5-08), as enquiries already do (M5-04).
 
 ### M5-06 · Build Admin → Deposits & cancelling, with the policy guests accept
 

@@ -9,8 +9,8 @@ import type { CaptchaVerifier } from "./turnstile.js";
 
 /**
  * The public forms' guard (M2-27, D109; Security 8), one place for every
- * public form: the waitlist join from the door QR and every phone-code send
- * (a staff invite, a singer) now; a booking hold and an enquiry with M5-05.
+ * public form: the waitlist join from the door QR, every phone-code send (a
+ * staff invite, a singer), a booking hold (its phone at Details) and an enquiry.
  *
  *   1. `split` takes `captcha_token` out of the body, so each route's own
  *      strict schema reads the rest.
@@ -32,6 +32,8 @@ const DEVICE_COOKIE_DAYS = 365;
 const FORM_ROW: Record<PublicForm, string> = {
   waitlist: "waitlist",
   phoneCode: "phone_code",
+  booking: "booking",
+  enquiry: "enquiry",
 };
 
 export interface FormCaller {
@@ -48,6 +50,19 @@ export interface PublicFormGuard {
     form: PublicForm,
     caller: FormCaller,
     who: { phoneE164: string | null; subjectId?: string | null },
+    now: Temporal.Instant,
+  ): Promise<void>;
+  /**
+   * A form that learns the phone number on a later step (a booking's Details, M5-05): the
+   * business date's other uses with that number against the per-phone limit, then the number
+   * goes onto this use's row.
+   */
+  phoneLater(
+    c: Queryable,
+    venueId: string,
+    form: PublicForm,
+    subjectId: string,
+    phoneE164: string,
     now: Temporal.Instant,
   ): Promise<void>;
 }
@@ -86,7 +101,52 @@ export function makePublicFormGuard(options: {
     return id;
   };
 
+  const dayAndLimits = async (
+    c: Queryable,
+    venueId: string,
+    form: PublicForm,
+    now: Temporal.Instant,
+  ) => {
+    const venue = await c.query<{ time_zone: string; day_cutover: string }>(
+      "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
+      [venueId],
+    );
+    const v = venue.rows[0];
+    if (!v) throw new ApiError("not_found", "no such venue");
+    const date = businessDate(now, v.time_zone, v.day_cutover).businessDate;
+    const limits = formLimits((await readSetting(c, venueId, "publicForms", date))?.value, form);
+    // One form's uses at a venue are counted one at a time, so two at once can't both take the last place.
+    await c.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `public-form:${venueId}:${form}`,
+    ]);
+    return { date: date.toString(), limits };
+  };
+  const refuse = (hit: string) =>
+    new ApiError(
+      "daily_limit",
+      `today's limit for this ${hit === "ip" ? "network" : hit} is reached`,
+      { details: { reason: "daily_limit", limit: hit } },
+    );
+
   return {
+    async phoneLater(c, venueId, form, subjectId, phoneE164, now) {
+      const { date, limits } = await dayAndLimits(c, venueId, form, now);
+      const phoneHash = hash("phone", phoneE164);
+      const others = await c.query<{ n: number }>(
+        `select count(distinct subject_id)::int as n from public_form_uses
+          where venue_id = $1 and form = $2 and counted_on = $3 and phone_hash = $4
+            and subject_id is distinct from $5`,
+        [venueId, FORM_ROW[form], date, phoneHash, subjectId],
+      );
+      if (dailyLimitHit({ phone: others.rows[0]!.n, ip: null, device: null }, limits))
+        throw refuse("phone");
+      await c.query(
+        `update public_form_uses set phone_hash = $4
+          where venue_id = $1 and form = $2 and subject_id = $3`,
+        [venueId, FORM_ROW[form], subjectId, phoneHash],
+      );
+    },
+
     split(body) {
       if (!body || typeof body !== "object" || Array.isArray(body)) return { token: "", body };
       const { captcha_token: token, ...rest } = body as Record<string, unknown>;
@@ -117,26 +177,15 @@ export function makePublicFormGuard(options: {
     },
 
     async use(c, venueId, form, caller, who, now) {
-      const venue = await c.query<{ time_zone: string; day_cutover: string }>(
-        "select time_zone, to_char(day_cutover, 'HH24:MI') as day_cutover from venues where id = $1",
-        [venueId],
-      );
-      const v = venue.rows[0];
-      if (!v) throw new ApiError("not_found", "no such venue");
-      const date = businessDate(now, v.time_zone, v.day_cutover).businessDate;
-      const limits = formLimits((await readSetting(c, venueId, "publicForms", date))?.value, form);
+      const { date, limits } = await dayAndLimits(c, venueId, form, now);
       const phoneHash = who.phoneE164 ? hash("phone", who.phoneE164) : null;
-      // One form's uses at a venue are counted one at a time, so two at once can't both take the last place.
-      await c.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [
-        `public-form:${venueId}:${form}`,
-      ]);
       const counts = await c.query<{ phone: number; ip: number; device: number }>(
         `select count(*) filter (where phone_hash = $4)::int as phone,
                 count(*) filter (where ip_hash = $5)::int as ip,
                 count(*) filter (where device_hash = $6)::int as device
            from public_form_uses
           where venue_id = $1 and form = $2 and counted_on = $3`,
-        [venueId, FORM_ROW[form], date.toString(), phoneHash, caller.ipHash, caller.deviceHash],
+        [venueId, FORM_ROW[form], date, phoneHash, caller.ipHash, caller.deviceHash],
       );
       const n = counts.rows[0]!;
       const hit = dailyLimitHit(
@@ -147,21 +196,14 @@ export function makePublicFormGuard(options: {
         },
         limits,
       );
-      if (hit)
-        throw new ApiError(
-          "daily_limit",
-          `today's limit for this ${hit === "ip" ? "network" : hit} is reached`,
-          {
-            details: { reason: "daily_limit", limit: hit },
-          },
-        );
+      if (hit) throw refuse(hit);
       await c.query(
         `insert into public_form_uses (venue_id, form, counted_on, phone_hash, ip_hash, device_hash, subject_id)
          values ($1, $2, $3, $4, $5, $6, $7)`,
         [
           venueId,
           FORM_ROW[form],
-          date.toString(),
+          date,
           phoneHash,
           caller.ipHash,
           caller.deviceHash,

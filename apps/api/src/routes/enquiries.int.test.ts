@@ -16,7 +16,11 @@ let venueId: string;
 let ids: Record<string, string>;
 let who: Principal | undefined;
 const enquire = (payload: object) =>
-  api.inject({ method: "POST", url: "/v1/public/venues/west4karaoke/enquiries", payload });
+  api.inject({
+    method: "POST",
+    url: "/v1/public/venues/west4karaoke/enquiries",
+    payload: { ...payload, captcha_token: "XXXX.DUMMY.TOKEN.XXXX" },
+  });
 const call = (method: "GET" | "POST", path: string, payload?: object) =>
   api.inject({ method, url: `/v1/venues/${venueId}${path}`, ...(payload ? { payload } : {}) });
 const party = {

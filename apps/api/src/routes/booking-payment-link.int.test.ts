@@ -31,8 +31,19 @@ const FRI_1041 = Temporal.Instant.from("2026-09-26T02:41:00Z");
 const clock = new FrozenClock(FRI_1041);
 const who: Record<string, Principal> = {};
 
+// A booking hold carries the security check's token (M5-05): the test widget's dummy token.
 const post = (url: string, payload?: object) =>
-  api.inject({ method: "POST", url, ...(payload ? { payload } : {}) });
+  api.inject({
+    method: "POST",
+    url,
+    ...(payload
+      ? {
+          payload: url.endsWith("/bookings")
+            ? { ...payload, captcha_token: "XXXX.DUMMY.TOKEN.XXXX" }
+            : payload,
+        }
+      : {}),
+  });
 const staff = (url: string, payload?: object) =>
   api.inject({
     method: "POST",
