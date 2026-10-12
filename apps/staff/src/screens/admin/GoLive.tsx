@@ -31,7 +31,7 @@ interface Checklist {
   readonly passes: boolean;
 }
 
-export function GoLive({ venueId }: { venueId: string }) {
+export function GoLive({ venueId, onChange }: { venueId: string; onChange?: () => void }) {
   const { t, date } = useT();
   const [list, setList] = useState<Checklist | null>(null);
   const [expected, setExpected] = useState("");
@@ -58,6 +58,7 @@ export function GoLive({ venueId }: { venueId: string }) {
           expected: expected.trim() || null,
         }),
       );
+      onChange?.();
     } catch {
       setFailed(true);
     }
@@ -70,6 +71,7 @@ export function GoLive({ venueId }: { venueId: string }) {
           confirmed: on,
         }),
       );
+      onChange?.();
     } catch {
       setFailed(true);
     }

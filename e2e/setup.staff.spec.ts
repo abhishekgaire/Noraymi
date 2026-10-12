@@ -421,6 +421,40 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await page.getByRole("button", { name: "Save the answer" }).click();
     await expect(page.getByText(/^Answered no/)).toBeVisible();
 
+    // Step 12 (O-13): nothing paired yet; the song system is None; pairing is Admin's own flow.
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Devices and checks" })).toBeVisible();
+    const paired = page.getByRole("list", { name: "What's paired" });
+    await expect(paired).toContainText("Card readersNone yet");
+    await expect(paired).toContainText(
+      "None · a song system connects only through a partnership with its maker",
+    );
+    await page.getByRole("link", { name: "Open Admin → Printers & devices" }).click();
+    await expect(page).toHaveURL(/\/admin\/devices$/);
+    await page.getByLabel("Name staff pick").fill("Bar S710");
+    await page.getByLabel("Registration code").fill("simulated-s710");
+    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await expect(page.getByText("Bar S710 is registered")).toBeVisible();
+    await page.getByLabel("Printer name").fill("Bar printer");
+    await page.getByLabel("Station").selectOption("bar");
+    await page.getByRole("button", { name: "Add a printer" }).click();
+    await page.getByLabel("Drawer name").fill("Bar drawer");
+    await page.getByLabel("On the kick port of").selectOption({ label: "Bar printer" });
+    await page.getByRole("button", { name: "Add the drawer" }).click();
+    await expect(page.getByText("On Bar printer's kick port")).toBeVisible();
+    await page.goto("/set-up/devices");
+    await expect(paired).toContainText("Bar S710");
+    await expect(paired).toContainText("Bar printer · Bar drawer");
+    const golive = page.getByRole("region", { name: "Go-live checklist" });
+    await expect(async () => {
+      await golive.getByLabel("The category we expect").fill("5813");
+      await golive.getByRole("button", { name: "Save the category" }).click();
+      await expect(golive.getByText("Checked: Stripe has 5813")).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(rail.getByRole("button", { name: /Devices and checks/ })).toContainText("Done");
+    // Andy hasn't set his PIN, so the venue isn't ready and Finish setup stays off.
+    await expect(page.getByRole("button", { name: "Finish setup" })).toBeDisabled();
+
     await page.goto("/admin/venue");
     await expect(page.getByRole("combobox", { name: "Breach contact" })).toHaveValue(/.+/);
 

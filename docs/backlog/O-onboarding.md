@@ -300,16 +300,24 @@ Definition of done: see CLAUDE.md.
 
 ### O-13 · Step 12: devices, the go-live checks and Finish setup
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** O-02; M1-15 (pairing), M3-13, M3-14 (printers), M4-02 (readers), M4-29 (the go-live checklist)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 12
 - **Build:**
   - What's paired, linked to Admin → Printers & devices; the M4-29 checklist for any venue; the song system (`none` without a partnership); the checklist and Finish setup.
 - **Acceptance:**
-  - [ ] With a simulated reader registered, a receipt printer with a drawer paired and the merchant category set, the step is done.
-  - [ ] Finish setup with every required step done stamps the venue and turns on only the modules ticked.
+  - [x] With a simulated reader registered, a receipt printer with a drawer paired and the merchant category set, the step is done.
+  - [x] Finish setup with every required step done stamps the venue and turns on only the modules ticked.
 - **Tests:** integration tests on the fake Stripe's simulated readers; a Playwright test.
+- **Notes:**
+  - Built: step 12 (`apps/staff/src/screens/admin/DevicesStep.tsx`) lists what's paired from the same rows Admin reads (card readers, printers with the drawer on each, badge readers as optional), says the song system is None until a partnership exists, links to Admin → Printers & devices, and runs the M4-29 go-live checklist (`GoLive`, which now tells the wizard to re-read the checklist after each save). The checklist and Finish setup below it were already the shell's (O-02); Finish setup stamps `venues.setup_completed_at` and turns on only the ticked modules through `PATCH /modules/{id}`.
+  - Gap closed: no route made a cash drawer (only the seed did), so a new venue could never have "a receipt printer with a drawer" without SQL. `POST /v1/venues/{v}/drawers` (`{ name, printer_device_id }`, owner or manager with Admin access; a live bar or front-desk printer of this venue, one drawer per printer) and an "Add a cash drawer" form in Admin → Printers & devices → Cash drawers; spec 08's Drawer row names it. `GET /devices` now carries each printer's station.
+  - Gap closed: registering a reader on a venue that hasn't chosen its reader tip screen (`pay.tipScreen`, step 7) answered 500. It now answers 400 with `reason: "tip_screen"` and the screen says to choose it first in step 7 or Admin → Payments; we still never pick a tip screen for a venue (the existing rule in `connect.ts`).
+  - The setup checklist counts only live readers: training mode's sandbox readers no longer satisfy "one card reader".
+  - "Passes: West 4 is ready to take payments" named West 4 for every venue; it now reads "Passes: ready to take payments".
+  - Tests: `apps/api/src/routes/setup-devices.int.test.ts` (fake Stripe: a simulated S710 refused before the tip screen, then registered; a CloudPRNT printer with its drawer; the merchant category matched; the step done; a kitchen printer and another venue's printer refused for a drawer; Finish setup stamps and leaves the modules alone until the ticked one is switched on); step 12 in `e2e/setup.staff.spec.ts` through the Admin screens.
+
 
 ### O-14 · Onboard a new venue from scratch in the demo, then enter Sing Sing's values
 

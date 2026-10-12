@@ -19,6 +19,7 @@ import { homeFor } from "../../navigation.js";
 import { useSession } from "../../session.js";
 import { CardStep } from "./CardStep.js";
 import { DepositsStep } from "./DepositsStep.js";
+import { DevicesStep } from "./DevicesStep.js";
 import { HoursStep } from "./HoursStep.js";
 import { LicensesStep } from "./LicensesStep.js";
 import { MenuStep } from "./MenuStep.js";
@@ -403,6 +404,8 @@ function StepBody({
   // Steps 10 and 11 (O-12): the license register; texts, the website and the old system's files.
   if (step.id === "licenses") return <LicensesStep onSaved={onSaved} />;
   if (step.id === "texts") return <TextsStep onSaved={onSaved} />;
+  // Step 12 (O-13): what's paired, the song system and the go-live checks; the checklist follows.
+  if (step.id === "devices") return <DevicesStep missing={step.missing} onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (

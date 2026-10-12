@@ -34,6 +34,7 @@ interface Device {
   readonly online: boolean;
   readonly revoked_at: string | null;
   readonly network: { cellular_backup?: boolean; on_backup_now?: boolean } | null;
+  readonly station?: string | null;
 }
 
 /** The spec's order of places: bar, front desk, rooms, around the venue, people. */
@@ -281,7 +282,10 @@ export function Devices() {
         onAdded={load}
       />
       <Readers venueId={venueId} />
-      <Drawers venueId={venueId} />
+      <Drawers
+        venueId={venueId}
+        printers={(devices ?? []).filter((d) => d.kind === "printer" && !d.revoked_at)}
+      />
       <Routers venueId={venueId} />
     </section>
   );
@@ -337,7 +341,11 @@ function Readers({ venueId }: { venueId: string }) {
     } catch (err) {
       const details = (err as ApiCallError)?.details as { reason?: string } | undefined;
       setError(
-        details?.reason === "unsupported_reader" ? t("readers.unsupported") : t("readers.failed"),
+        details?.reason === "unsupported_reader"
+          ? t("readers.unsupported")
+          : details?.reason === "tip_screen"
+            ? t("readers.tipScreenFirst")
+            : t("readers.failed"),
       );
     } finally {
       setBusy(false);
@@ -611,10 +619,21 @@ interface Drawer {
   readonly opening_cents: number | null;
 }
 
-function Drawers({ venueId }: { venueId: string }) {
+export function Drawers({
+  venueId,
+  printers,
+  onAdded,
+}: {
+  venueId: string;
+  printers: readonly { id: string; name: string; station?: string | null }[];
+  onAdded?: () => void;
+}) {
   const { t, money } = useT();
   const [drawers, setDrawers] = useState<readonly Drawer[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [name, setName] = useState("");
+  const [printerId, setPrinterId] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
   const load = useCallback(async () => {
     setDrawers((await api<{ drawers: Drawer[] }>("GET", `/v1/venues/${venueId}/drawers`)).drawers);
   }, [venueId]);
@@ -624,6 +643,28 @@ function Drawers({ venueId }: { venueId: string }) {
   const open = async (id: string) => {
     await api("POST", `/v1/venues/${venueId}/drawers/${id}/open`).catch(() => setFailed(true));
     await load();
+  };
+  // A drawer goes on a bar or front-desk receipt printer's kick port, one per printer (O-13).
+  const free = printers.filter(
+    (p) =>
+      (p.station === "bar" || p.station === "front_desk") &&
+      !(drawers ?? []).some((d) => d.printer === p.name),
+  );
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    setAddError(null);
+    try {
+      await api("POST", `/v1/venues/${venueId}/drawers`, {
+        name: name.trim(),
+        printer_device_id: printerId || free[0]?.id,
+      });
+      setName("");
+      setPrinterId("");
+      await load();
+      onAdded?.();
+    } catch {
+      setAddError(t("drawers.addFailed"));
+    }
   };
   return (
     <section className="drawers" aria-labelledby="drawers-h">
@@ -656,6 +697,48 @@ function Drawers({ venueId }: { venueId: string }) {
             </li>
           ))}
         </ul>
+      )}
+      {drawers !== null && (
+        <form className="drawer-add" onSubmit={(e) => void add(e)}>
+          <h4>{t("drawers.add")}</h4>
+          {free.length === 0 ? (
+            <p className="muted small">{t("drawers.add.noPrinter")}</p>
+          ) : (
+            <>
+              <label>
+                {t("drawers.add.name")}
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("drawers.add.namePlaceholder")}
+                  required
+                  maxLength={60}
+                />
+              </label>
+              <label>
+                {t("drawers.add.printer")}
+                <select
+                  value={printerId || free[0]!.id}
+                  onChange={(e) => setPrinterId(e.target.value)}
+                >
+                  {free.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className="secondary" disabled={!name.trim()}>
+                {t("drawers.add.submit")}
+              </button>
+            </>
+          )}
+          {addError && (
+            <p className="error" role="alert">
+              {addError}
+            </p>
+          )}
+        </form>
       )}
     </section>
   );

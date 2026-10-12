@@ -1645,6 +1645,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "readers.registered": "{name} está registrado",
   "readers.failed":
     "No se pudo registrar el lector. Revisa el código que muestra e inténtalo de nuevo.",
+  "readers.tipScreenFirst":
+    "Elige primero la pantalla de propinas del lector: Admin → Pagos, o el paso 7 de Configura tu local (Dinero en el mostrador).",
   "readers.unsupported": "Aquí solo funcionan el S710, el S700 y el WisePOS E.",
   "payments.needs.count": "Faltan {count} cosas por completar en la configuración de Stripe",
   "guestRoom.billReady": "Tu cuenta está lista · ya no se toman pedidos",
@@ -1694,6 +1696,14 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "drawers.open": "Abierto · fondo inicial de {amount}",
   "drawers.closed": "Sin sesión abierta",
   "drawers.openNow": "Abrir la sesión del cajón",
+  "drawers.add": "Añadir un cajón de efectivo",
+  "drawers.add.name": "Nombre del cajón",
+  "drawers.add.namePlaceholder": "Cajón de la barra",
+  "drawers.add.printer": "En el puerto de apertura de",
+  "drawers.add.noPrinter":
+    "Añade primero una impresora de recibos de la barra o de la recepción; el cajón se abre por su puerto.",
+  "drawers.add.submit": "Añadir el cajón",
+  "drawers.addFailed": "No se pudo añadir el cajón. Puede que esa impresora ya tenga uno.",
   "split.title": "Dividir",
   "split.ways": "En cuántas partes",
   "split.even": "Dividir en partes iguales",
@@ -3635,6 +3645,18 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "La licencia de alcohol hace falta antes de abrir; si falta una licencia de música (ASCAP, BMI, SESAC, GMR) solo es un aviso. El archivo y los recordatorios de renovación de cada licencia están en Admin → Licencias.",
   "onboarding.licenses.kitchen":
     "Sirves comida: añade el permiso del departamento de salud, y a quienes tienen el Food Protection Certificate como Otra.",
+  "onboarding.devices.intro":
+    "Los lectores de tarjetas, las impresoras de recibos y sus cajones se configuran en Admin → Impresoras y dispositivos. Antes de abrir necesitas un lector de tarjetas, una impresora de recibos con cajón y la comprobación de la categoría comercial. Un lector de tarjetas se registra cuando la pantalla de propinas está elegida en el paso 7.",
+  "onboarding.devices.paired": "Lo que está vinculado",
+  "onboarding.devices.readers": "Lectores de tarjetas",
+  "onboarding.devices.printers": "Impresoras",
+  "onboarding.devices.printerWithDrawer": "{printer} · {drawer}",
+  "onboarding.devices.badgeReaders": "Lectores de credenciales",
+  "onboarding.devices.none": "Ninguno todavía",
+  "onboarding.devices.optional": "Ninguno · opcional",
+  "onboarding.devices.songSystem": "Sistema de canciones",
+  "onboarding.devices.songSystem.none":
+    "Ninguno · un sistema de canciones solo se conecta mediante un acuerdo con su fabricante",
   "onboarding.texts.intro":
     "Todo opcional. Mensajes, tu sitio web y los datos de tu sistema anterior.",
   "onboarding.texts.title": "Mensajes",

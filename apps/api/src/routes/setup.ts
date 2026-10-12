@@ -125,7 +125,8 @@ export async function setupFacts(c: Queryable, venueId: string): Promise<SetupFa
     },
     devices: {
       reader: await one(
-        "select 1 from devices where venue_id = $1 and kind = 'reader' and revoked_at is null",
+        // Training mode's sandbox readers (M7-04) don't take real cards, so they don't count.
+        "select 1 from devices where venue_id = $1 and kind = 'reader' and revoked_at is null and not sandbox",
       ),
       receiptPrinterWithDrawer: await one(
         `select 1 from cash_drawers d join devices p on p.venue_id = d.venue_id and p.id = d.printer_device_id

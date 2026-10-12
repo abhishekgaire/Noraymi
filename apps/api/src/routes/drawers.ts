@@ -462,6 +462,59 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
     },
   );
 
+  // Admin → Printers & devices (O-13; spec 17 · Step details 12): a drawer on a receipt printer's
+  // kick port. The printer is a live bar or front-desk printer of this venue, and has one drawer.
+  const drawerBody = z
+    .object({ name: z.string().trim().min(1).max(60), printer_device_id: z.string().uuid() })
+    .strict();
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/drawers",
+    {
+      config: route({
+        principals: ["owner_manager"],
+        module: "core",
+        action: "admin.access",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = drawerBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { name, printer_device_id }");
+      const venueId = request.venueId!;
+      const made = await request.inVenue(async (c) => {
+        const printer = (
+          await c.query<{ station: string | null }>(
+            `select station from devices
+              where venue_id = $1 and id = $2 and kind = 'printer' and revoked_at is null`,
+            [venueId, parsed.data.printer_device_id],
+          )
+        ).rows[0];
+        if (!printer) throw new ApiError("not_found", "no such printer here");
+        if (printer.station !== "bar" && printer.station !== "front_desk")
+          throw new ApiError(
+            "invalid_request",
+            "a cash drawer goes on a bar or front-desk receipt printer",
+          );
+        const taken = await c.query(
+          "select 1 from cash_drawers where venue_id = $1 and printer_device_id = $2",
+          [venueId, parsed.data.printer_device_id],
+        );
+        if (taken.rowCount)
+          throw new ApiError("invalid_request", "that printer already has a drawer", {
+            status: 409,
+          });
+        const r = await c.query<{ id: string }>(
+          `insert into cash_drawers (venue_id, name, station, printer_device_id)
+             values ($1, $2, $3, $4) returning id`,
+          [venueId, parsed.data.name, printer.station, parsed.data.printer_device_id],
+        );
+        return r.rows[0]!.id;
+      });
+      return reply.code(201).send({ id: made });
+    },
+  );
+
   app.post<{ Params: { venueId: string; d: string } }>(
     "/v1/venues/:venueId/drawers/:d/open",
     {

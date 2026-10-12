@@ -21,7 +21,7 @@ import {
   readerModel,
   retrieveReader,
 } from "../stripe/terminal.js";
-import { NoStripeAccount, ensureTerminal } from "../stripe/terminal-setup.js";
+import { NoStripeAccount, NoTipScreen, ensureTerminal } from "../stripe/terminal-setup.js";
 import { stripeFailure } from "./payments-admin.js";
 
 /**
@@ -115,6 +115,13 @@ export function readerRoutes(
           practice,
         );
       } catch (e) {
+        // The reader's tip screen is the venue's own choice (pay.tipScreen); we never pick one for it.
+        if (e instanceof NoTipScreen)
+          throw new ApiError(
+            "invalid_request",
+            "choose the reader's tip screen in Admin → Payments before registering a reader",
+            { details: { reason: "tip_screen" } },
+          );
         if (e instanceof NoStripeAccount)
           throw new ApiError(
             "invalid_request",

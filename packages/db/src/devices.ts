@@ -61,6 +61,8 @@ export interface DeviceListRow extends DeviceRow {
   readonly app_version: string | null;
   /** The router's `{ cellular_backup, on_backup_now }` and whatever else a device reports (spec 09). */
   readonly network: Record<string, unknown> | null;
+  /** A printer's station (bar, front_desk, kitchen); null for other devices. */
+  readonly station: string | null;
 }
 
 const COLS =
@@ -156,7 +158,7 @@ export async function listDevices(client: Queryable, venueId: string): Promise<D
     `select d.id, d.kind, d.name, d.room_id, d.user_id, d.training,
             d.disabled_at::text, d.revoked_at::text, d.created_at::text,
             h.last_seen_at::text, (h.last_seen_at is not null and h.offline_since is null) as online,
-            h.clock_skew_ms, h.app_version, h.network
+            h.clock_skew_ms, h.app_version, h.network, d.station
        from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
       where d.venue_id = $1 and not d.sandbox order by d.kind, d.name`,
     [venueId],
