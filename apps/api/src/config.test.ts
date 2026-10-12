@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "./config.js";
 import { LOCAL_DEV_AUTH_KEY } from "@west4/db";
+import { SITEVERIFY_URL, TURNSTILE_TEST } from "./captcha/turnstile.js";
+
+/** Real-looking Turnstile keys: production refuses to start without a pair (M2-27). */
+const TURNSTILE = {
+  TURNSTILE_SITE_KEY: "0x4AAAAAAAsite-key-example",
+  TURNSTILE_SECRET_KEY: "0x4AAAAAAAsecret-key-example",
+};
 
 describe("loadConfig · the staging switch", () => {
   it("a production build started with the staging switch refuses to start", () => {
@@ -34,6 +41,7 @@ describe("loadConfig · the staging switch", () => {
       AUTH_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       WEBAUTHN_RP_ID: "staff.example.com",
       WEBAUTHN_ORIGINS: "https://staff.example.com",
+      ...TURNSTILE,
     });
     expect(config.env).toBe("production");
     expect(config.allowStagingFeatures).toBe(false);
@@ -79,6 +87,7 @@ describe("loadConfig · sign-in (M1-19)", () => {
       AUTH_SECRET_KEY: KEY,
       WEBAUTHN_RP_ID: "staff.example.com",
       WEBAUTHN_ORIGINS: "https://staff.example.com, https://app.example.com",
+      ...TURNSTILE,
     });
     expect(c.auth.origins).toEqual(["https://staff.example.com", "https://app.example.com"]);
     expect(c.auth.cookieSecure).toBe(true);
@@ -144,5 +153,46 @@ describe("loadConfig · the Console (M1-35)", () => {
     expect(() => loadConfig({ ...base, CONSOLE_URL: "console.example.com" })).toThrow(
       /CONSOLE_URL/,
     );
+  });
+});
+
+describe("loadConfig · the public forms' CAPTCHA (M2-27)", () => {
+  const PROD = {
+    WEST4_ENV: "production",
+    AUTH_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    WEBAUTHN_RP_ID: "staff.example.com",
+    WEBAUTHN_ORIGINS: "https://staff.example.com",
+  };
+  it("local and staging run on Cloudflare's always-pass test keys until real ones are set", () => {
+    expect(loadConfig({}).captcha).toEqual({
+      siteKey: TURNSTILE_TEST.passSiteKey,
+      secretKey: TURNSTILE_TEST.passSecret,
+      verifyUrl: SITEVERIFY_URL,
+    });
+    expect(
+      loadConfig({ WEST4_ENV: "staging", AUTH_SECRET_KEY: PROD.AUTH_SECRET_KEY, ...TURNSTILE })
+        .captcha.siteKey,
+    ).toBe(TURNSTILE.TURNSTILE_SITE_KEY);
+  });
+  it("production needs real keys, never test ones, and checks only with Cloudflare", () => {
+    expect(() => loadConfig(PROD)).toThrow(
+      /TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are not set/,
+    );
+    expect(() =>
+      loadConfig({
+        ...PROD,
+        TURNSTILE_SITE_KEY: TURNSTILE_TEST.passSiteKey,
+        TURNSTILE_SECRET_KEY: TURNSTILE_TEST.passSecret,
+      }),
+    ).toThrow(/test keys never run in production/);
+    expect(() => loadConfig({ ...PROD, ...TURNSTILE, TURNSTILE_VERIFY_URL: "http://x" })).toThrow(
+      /TURNSTILE_VERIFY_URL is for tests/,
+    );
+    expect(loadConfig({ ...PROD, ...TURNSTILE }).captcha.secretKey).toBe(
+      TURNSTILE.TURNSTILE_SECRET_KEY,
+    );
+  });
+  it("one key without the other is a mistake anywhere", () => {
+    expect(() => loadConfig({ TURNSTILE_SITE_KEY: "0x4AAAAAAAsite" })).toThrow(/set together/);
   });
 });

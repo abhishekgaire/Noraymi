@@ -160,6 +160,8 @@ pnpm --filter @west4/desktop rebuild-native   # build the USB NFC reader's PC/SC
 pnpm --filter @west4/desktop build   # package the desktop app with electron-builder; signed and notarised only when the certificates are in the environment (apps/desktop/electron-builder.yml)
 ```
 
+The public forms' CAPTCHA is Cloudflare Turnstile (D109): `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` come only from the environment; unset outside production (local, the demo, staging, the tests), the API uses Cloudflare's always-pass test keys and answers them without calling out, and production refuses to start without real keys. Browser tests answer the widget's script with a stand-in (`e2e/turnstile.ts`).
+
 Copy `.env.example` to `.env` for local values; the API's dev server reads it when it exists, and variables already set win. `DATABASE_URL` is the table owner (migrations); `APP_DATABASE_URL` is `app_rw`, what the API connects as. The API and guest images build with `docker build -f apps/<app>/Dockerfile .` from the repo root.
 
 Staging runs on AWS (`infra/README.md`). Infrastructure changes are `terraform plan` then `terraform apply` in `infra/staging`, from a laptop with the admin profile. Merging to `main` deploys the application code through `.github/workflows/deploy-staging.yml`.

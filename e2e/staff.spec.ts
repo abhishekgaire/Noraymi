@@ -15,6 +15,7 @@ import { fakeStripeSettings } from "../apps/api/src/stripe/settings.js";
 import { loadVendorHealthSettings, sweepVendorHealth } from "../apps/api/src/jobs/vendor-health.js";
 import { SEED_COMMAND, advanceClock, setClock as resetClock } from "./night.js";
 import { testKitchenMenu, testPackage } from "./kitchen.js";
+import { stubTurnstile } from "./turnstile.js";
 import { API, API_LOCAL, APP_DB, CONSOLE, DB, esc, GUEST, PAY, STAFF, STRIPE } from "./stack.js";
 
 /**
@@ -44,6 +45,7 @@ const ADMIN_SECTIONS = [
   "/admin/card-fee",
   "/admin/cash-drawers",
   "/admin/website",
+  "/admin/spam-protection",
   "/admin/deposits",
   "/admin/bar-pos",
   "/admin/bar-mode",
@@ -2251,6 +2253,7 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
       .slug;
     const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await stubTurnstile(guest);
     await guest.goto(`${GUEST}/v/${slug}/waitlist`);
     await guest.getByLabel("Your name").fill("Jordan L.");
     await guest.getByLabel("Mobile number").fill("2125550145");
@@ -2384,6 +2387,54 @@ test("Admin → Safety: all ages until 8:00 PM, and the board's 21+ alert at the
     );
   } finally {
     await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
+ * Admin → Spam protection (M2-27, D109): Andy reads the public forms' daily limits (the defaults:
+ * the waitlist 3 a phone, 5 a device, 50 a network; texted codes 5, 10 and 30) and lowers the
+ * waitlist's per-phone limit to 2. Save and publish stores it, in force at once.
+ */
+test("Admin → Spam protection: the daily limits' defaults, and Andy sets 2 joins a phone", async ({
+  page,
+  request,
+}) => {
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ANDY);
+    await page.getByLabel("Email").fill(ANDY);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await page.goto("/admin/spam-protection");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Spam protection");
+    const waitlist = page.getByRole("group", { name: "Waitlist page (door QR)" });
+    const codes = page.getByRole("group", { name: "Texted codes (staff invites, singers)" });
+    await expect(waitlist.getByLabel("Waitlist page (door QR) · Per phone number")).toHaveValue(
+      "3",
+    );
+    await expect(waitlist.getByLabel("Waitlist page (door QR) · Per device")).toHaveValue("5");
+    await expect(
+      waitlist.getByLabel("Waitlist page (door QR) · Per network (IP address)"),
+    ).toHaveValue("50");
+    await expect(
+      codes.getByLabel("Texted codes (staff invites, singers) · Per phone number"),
+    ).toHaveValue("5");
+    await waitlist.getByLabel("Waitlist page (door QR) · Per phone number").fill("2");
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const saved = (
+      await db.query<{ value: { waitlist: { perPhone: number } } }>(
+        "select value from venue_settings where key = 'publicForms' order by version desc limit 1",
+      )
+    ).rows[0]!.value;
+    expect(saved.waitlist.perPhone).toBe(2);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
     await db.end();
   }
 });
@@ -3028,6 +3079,7 @@ for (const size of SIZES) {
         const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
           .slug;
         const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
+        await stubTurnstile(guest);
         await guest.goto(`${GUEST}/v/${slug}/waitlist`);
         await guest.getByLabel("Your name").fill("Jordan L.");
         await guest.getByLabel("Mobile number").fill("2125550145");
@@ -7318,6 +7370,7 @@ test("Singer alerts: Ben T. turns alerts on, and Kira's start makes him up next 
         )
       ).rows[0]!.id;
     const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await stubTurnstile(ben);
     await ben.grantPermissions(["notifications"], { origin: GUEST });
     await ben.addInitScript(() => {
       const fake = {
@@ -7970,6 +8023,7 @@ test("The KJ song queue and the Up next TV: Started on Jess P. reaches the TV an
 
     // Ben T. on his queue page.
     const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await stubTurnstile(ben);
     const phone = await ben.newPage();
     await phone.goto(`${GUEST}/v/west4karaoke/sing`);
     await phone.getByLabel("Your name on the TV").fill("Ben");
@@ -8089,6 +8143,7 @@ test("The songbook: a CSV loads in Admin → Bar mode, line 12's missing title i
 
     // Ben T. on his queue page searches the songbook.
     const ben = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await stubTurnstile(ben);
     const phone = await ben.newPage();
     await phone.goto(`${GUEST}/v/west4karaoke/sing`);
     await phone.getByLabel("Your name on the TV").fill("Ben");

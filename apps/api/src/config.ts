@@ -5,6 +5,7 @@ import {
   generateSigningKey,
   parseAuthSecretKey,
 } from "@west4/db";
+import { loadCaptchaConfig, type CaptchaConfig } from "./captcha/turnstile.js";
 
 export type West4Env = "local" | "staging" | "production";
 
@@ -34,6 +35,8 @@ export interface Config {
   readonly console: ConsoleConfig | null;
   /** RULE_PACK_SIGNING_KEY: the key service's Ed25519 private key (PEM); local makes a throwaway one. */
   readonly rulePackSigningKey: string | null;
+  /** The public forms' CAPTCHA (M2-27): Turnstile's keys, Cloudflare's test keys outside production. */
+  readonly captcha: CaptchaConfig;
 }
 
 /**
@@ -98,6 +101,7 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     rulePackSigningKey:
       source["RULE_PACK_SIGNING_KEY"] ||
       (env === "local" ? generateSigningKey().privateKeyPem : null),
+    captcha: loadCaptchaConfig(env, source),
   };
 }
 

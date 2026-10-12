@@ -29,6 +29,7 @@ describe("the Admin sections", () => {
       "barPos",
       "barMode",
       "deposits",
+      "publicForms",
       "website",
       "console",
     ]);
@@ -53,6 +54,7 @@ describe("the Admin sections", () => {
       "barPos",
       "barMode",
       "deposits",
+      "publicForms",
       "website",
     ]);
     expect(manager).not.toContain("team");

@@ -222,6 +222,7 @@ describe("offering a waiting party a room", () => {
   it("after Sam O.'s no-show at 10:45 PM, the fourth party's page reads Room 2 is ready · 10:00 to claim it", async () => {
     await reseed();
     const joined = await pub("POST", `/v1/public/venues/${slug}/waitlist`, {
+      captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
       name: "Jordan L.",
       phone: "+12125550145",
       party_size: 4,

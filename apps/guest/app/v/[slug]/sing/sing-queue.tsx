@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { EventClient, t } from "@west4/shared";
 import { eventsOrigin } from "../../../live";
+import { captchaRefusal, useCaptcha } from "../../../captcha";
 
 interface SingerSong {
   readonly id: string;
@@ -298,20 +299,29 @@ function Join({ api, onJoined }: { api: string; onJoined: () => void }) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The security check (M2-27): every code request, the first and a new one, carries a fresh token.
+  const captcha = useCaptcha("singer_code");
 
   const ask = async (e?: FormEvent) => {
     e?.preventDefault();
     setBusy(true);
     setError(null);
-    // M2-27: the CAPTCHA's answer joins this request once a provider is chosen.
     const r = await fetch(`${api}/singers`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ display_name: name.trim(), phone_e164: toE164(phone) }),
+      body: JSON.stringify({
+        display_name: name.trim(),
+        phone_e164: toE164(phone),
+        captcha_token: captcha.token ?? "",
+      }),
     }).catch(() => null);
     setBusy(false);
+    captcha.reset();
     if (!r?.ok) {
-      setError(t("en", "guestSing.sendFailed"));
+      const body = r
+        ? ((await r.json().catch(() => null)) as { error?: { code?: string } } | null)
+        : null;
+      setError(captchaRefusal(body, "guestLimit.singer") ?? t("en", "guestSing.sendFailed"));
       return;
     }
     setSent(true);
@@ -370,8 +380,9 @@ function Join({ api, onJoined }: { api: string; onJoined: () => void }) {
               onChange={(e) => setPhone(e.target.value)}
             />
           </label>
+          {captcha.widget}
           {error && <p role="alert">{error}</p>}
-          <button type="submit" disabled={busy || !name.trim() || !phone}>
+          <button type="submit" disabled={busy || !name.trim() || !phone || !captcha.token}>
             {busy ? t("en", "guestSing.sending") : t("en", "guestSing.sendCode")}
           </button>
         </form>
@@ -392,7 +403,13 @@ function Join({ api, onJoined }: { api: string; onJoined: () => void }) {
           <button type="submit" disabled={busy || code.length !== 6}>
             {busy ? t("en", "guestSing.confirming") : t("en", "guestSing.confirm")}
           </button>
-          <button type="button" className="secondary" disabled={busy} onClick={() => void ask()}>
+          {captcha.widget}
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy || !captcha.token}
+            onClick={() => void ask()}
+          >
             {t("en", "guestSing.newCode")}
           </button>
         </form>

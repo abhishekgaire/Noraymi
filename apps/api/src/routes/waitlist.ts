@@ -11,6 +11,7 @@ import {
   withVenue,
 } from "@west4/db";
 import type { Clock } from "@west4/shared";
+import type { PublicFormGuard } from "../captcha/guard.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { seatWalkIn, type CheckInSettings } from "../rooms/checkin.js";
@@ -36,7 +37,8 @@ import {
  *   POST  /v1/venues/{v}/waitlist/{w}/remove
  *   POST  /v1/venues/{v}/waitlist/{w}/text         the entry's conversation, to open in Messages
  * Public, the door QR and the guest's link:
- *   POST  /v1/public/venues/{slug}/waitlist        { name, phone, party_size } → a link token
+ *   POST  /v1/public/venues/{slug}/waitlist        { name, phone, party_size, captcha_token } → a link token
+ *                                                  (Turnstile checked, then the daily limits: M2-27)
  *   GET   /v1/public/waitlist/{token}              the place in line
  *   PATCH /v1/public/waitlist/{token}              { action: "leave" | "decline" }
  */
@@ -59,7 +61,7 @@ const doorBody = z
 
 export function waitlistRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; settings: CheckInSettings },
+  options: { pool: pg.Pool; clock: Clock; settings: CheckInSettings; forms: PublicFormGuard },
 ): void {
   const texts = options.settings.texts;
   const read = route({
@@ -262,15 +264,26 @@ export function waitlistRoutes(
     "/v1/public/venues/:slug/waitlist",
     { config: publicRoute },
     async (request, reply) => {
-      const parsed = doorBody.safeParse(request.body);
+      const { token: captcha, body } = options.forms.split(request.body);
+      const parsed = doorBody.safeParse(body);
       if (!parsed.success) throw bad();
       const venueId = await resolveVenueSlug(options.pool, request.params.slug);
       if (!venueId) throw new ApiError("not_found", "no such venue");
+      // The CAPTCHA (M2-27), checked with Cloudflare before the transaction; the daily limits inside it.
+      const caller = await options.forms.check(request, reply, captcha);
       const now = options.clock.now();
       const result = await withVenue(
         options.pool,
         { venueId, requestId: request.requestId },
         async (c) => {
+          await options.forms.use(
+            c,
+            venueId,
+            "waitlist",
+            caller,
+            { phoneE164: parsed.data.phone },
+            now,
+          );
           const { entryId, token } = await joinWaitlist(c, venueId, {
             name: parsed.data.name,
             phone: parsed.data.phone,

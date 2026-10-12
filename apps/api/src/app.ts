@@ -88,6 +88,9 @@ import { supportGrantRoutes } from "./routes/support-grants.js";
 import { emergencyConsoleRoutes, emergencyVenueRoutes } from "./console/emergency.js";
 import { conversationRoutes } from "./routes/conversations.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
+import { captchaRoutes } from "./routes/captcha.js";
+import { makePublicFormGuard } from "./captcha/guard.js";
+import { turnstileVerifier, type CaptchaVerifier } from "./captcha/turnstile.js";
 import { headcountRoutes } from "./routes/headcount.js";
 import { trialRoutes } from "./routes/trial.js";
 import { connectionRoutes } from "./routes/connection.js";
@@ -141,6 +144,8 @@ export interface AppOptions {
   readonly google?: GoogleClient;
   /** The alarm hook's topic and signature checks (M8-17); tests pass their own. */
   readonly alarmHook?: Pick<AlarmHookOptions, "topicArn" | "getCert" | "confirm">;
+  /** The CAPTCHA check (M2-27). Defaults to Turnstile with the config's keys; tests pass their own. */
+  readonly captcha?: CaptchaVerifier;
 }
 
 /** server_time is shown in New York time, the platform's home zone (spec conventions · Time zone). */
@@ -280,6 +285,14 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         texts: loadVenueTextSettings(config.env),
         email: options.email ?? { allowList: null },
       };
+      // The public forms' CAPTCHA and daily limits (M2-27): one guard for every public form.
+      const forms = makePublicFormGuard({
+        verify: options.captcha ?? turnstileVerifier(config.captcha),
+        secretKey: config.auth.secretKey,
+        cookieSecure: config.auth.cookieSecure,
+        cookieSameSite: config.auth.cookieSameSite,
+      });
+      captchaRoutes(scope, { siteKey: config.captcha.siteKey });
       authRoutes(scope, {
         pool: gatePoolRef!,
         clock,
@@ -373,7 +386,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
       tabHandOverRoutes(scope, { clock });
       songRoutes(scope, { clock, pool: gatePoolRef!, stripe, s3: () => (s3 ??= makeS3()) });
-      publicSongRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth });
+      publicSongRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth, forms });
       nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       unmatchedRoutes(scope, { clock, pool: gatePoolRef! });
       exportRoutes(scope, { clock, email: () => options.email ?? { allowList: null } });
@@ -406,6 +419,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       waitlistRoutes(scope, {
         pool: gatePoolRef!,
         clock,
+        forms,
         settings: { texts: loadVenueTextSettings(config.env), guestAppUrl: config.guestAppUrl },
       });
       twilioHookRoutes(scope, {
@@ -432,7 +446,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         email: options.email ?? { allowList: null },
         staffAppUrl: config.staffAppUrl,
       });
-      invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey });
+      invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey, forms });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
       badgeRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
       // The Console (M1-35) exists only where CONSOLE_URL names its hostname.

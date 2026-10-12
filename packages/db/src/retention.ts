@@ -102,6 +102,12 @@ export const RETENTION_POLICY: readonly RetentionRule[] = [
     what: "30 days, with the logs and traces they point at (M8-16)",
   },
   {
+    kind: "public_form_uses",
+    action: "delete",
+    after: { days: 7 },
+    what: "7 days: the daily limits' keyed hashes (M2-27)",
+  },
+  {
     kind: "unattached_uploads",
     action: "delete",
     after: { hours: 24 },
@@ -329,6 +335,10 @@ export async function removeExpired(
     venueId,
     at(cut["order_traces"]!),
   ]);
+  const formUses = await c.query(
+    "delete from public_form_uses where venue_id = $1 and created_at < $2",
+    [venueId, at(cut["public_form_uses"]!)],
+  );
   const singers = await removeSingers(c, venueId, cut, now);
   await c.query(
     `delete from incident_notes where venue_id = $1 and incident_id in
@@ -345,6 +355,7 @@ export async function removeExpired(
     idempotency_keys: n(keys),
     venue_events: n(events),
     order_traces: n(traces),
+    public_form_uses: n(formUses),
     unattached_uploads: Number(uploads.rows[0]?.n ?? 0),
     ...singers,
     incidents: n(incidents),

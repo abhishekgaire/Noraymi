@@ -149,7 +149,7 @@ Public pages that anyone with a link can open, server-rendered with Next.js on W
 1. **Place in line (F43, F33).** The canvas hard-codes "2 parties ahead" while 3 are waiting. Build the place from the live list. In the demo the guest joins as the 4th party (a party of 4) and the page says "3 parties ahead". *Decided in [FB 3c]. Spec: [API][spec-08].*
 2. **The ready screen names the offered room (F4, F43).** The canvas names Room 4, which is off tonight, for small parties, and Room 8, booked at 11:00, for medium ones. Build it from the offer: the room staff chose, its 10-minute countdown, and "give it away". The demo reads "Room 2 is ready · 10:00 to claim it", because Sam O. no-showed at 10:45. *Decided in [FB 3c] and [FB 4.3]. Spec: [Staff screens and the bar POS][spec-10].*
 3. **A party of 3 (F32).** The canvas refuses 3 on a Friday. Build 3 as allowed, with "bills as 4 on Friday" (Chris P. is a party of 3, quoted 40 min). *Decided in [FB 3c]. Spec: [Money rules][spec-05].*
-4. **CAPTCHA (F43).** The canvas has no CAPTCHA on the join form. Build one checked on the server, with daily limits per phone number, IP address and device. *Spec: [Security and data retention][spec-12], [API][spec-08].*
+4. **CAPTCHA (F43).** The canvas has no CAPTCHA on the join form. Build one checked on the server, with daily limits per phone number, IP address and device. Built (D109): Cloudflare Turnstile's widget above Join the waitlist, which stays off until the check passes ("Checking you're a person. This takes a moment."); past a limit the page reads "You've reached today's limit for joining the waitlist from this phone or network. Ask the host at the door to add you." The limits are Admin → Spam protection's. *Spec: [Security and data retention][spec-12], [API][spec-08].*
 5. **Sing at the bar while you wait (F6).** The canvas links to the home page's bar section. Build the link to the singer's queue page ([N9](#n9-the-singers-queue-page)). *Decided in [FB 4.11]. Spec: [Song systems and texts][spec-11].*
 
 ### Parties
@@ -410,6 +410,7 @@ The staff app at desktop width. The bar and front-desk computers run it inside t
 27. **Bar mode (K6, C10).** The canvas has no section for bar mode, though Features shows it on. Build Admin → Bar mode ([N34](#n34-admin--bar-mode)). *Decided in [FB 4.11]. Spec: [Song systems and texts][spec-11].*
 28. **Payments and disputes (F53).** The canvas has none of Admin → Payments, the disputes inbox or Unmatched payments. Build them ([N37](#n37-admin--payments-disputes-and-unmatched-payments)). *Spec: [Stripe setup][spec-06], [API][spec-08].*
 29. **Admin → Console (C8).** The canvas has no place where the owner approves support access. Build Admin → Console for owners ([N39](#n39-admin--console)). *Spec: [Tenancy and access][spec-02], [API][spec-08].*
+30. **Spam protection (D109).** The canvas has none. Build Admin → Spam protection: the public forms' daily limits per phone number, device and network (IP address), for the waitlist page and texted codes (booking and enquiries with M5-05), each a whole number from 1 to 1,000 a business date, with the defaults shown until the venue sets its own. The security check itself has no setting. *Spec: [Settings][spec-03], [Security and data retention][spec-12].*
 
 ### Night
 
@@ -1064,7 +1065,7 @@ Clock-in asks for the duty (Bar, Front desk, Runner or Manager), and the tip poo
 
 Each person chooses their own PIN from the invite link on their own phone: 4 digits for staff and 6 for owners and managers. Common PINs such as 1234, 1111 and 2580 are refused. A reset sends a new link. Nobody sets or sees another person's PIN, and a PIN is never texted, emailed or shown.
 
-- **Invite.** A link, then a phone number confirmed once with a code.
+- **Invite.** A link, then a phone number confirmed once with a code. The code request has the security check (Cloudflare Turnstile) and the daily limits on texted codes (D109).
 - **Choose.** A PIN, and the language ("English · Español").
 - **Badge.** Pair the badge in Admin → Team by tapping it on the reader.
 - **Before go-live.** M9 checks that nobody is waiting: everyone has set a new PIN and paired a badge. No PINs are imported.

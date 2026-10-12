@@ -84,6 +84,7 @@ const screens = [
   "/admin/menu",
   "/admin/phone",
   "/admin/texts",
+  "/admin/spam-protection",
   "/nowhere",
 ];
 

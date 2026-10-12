@@ -603,6 +603,8 @@ export function mapSeedSettings(
   return {
     // West 4 has no kitchen: absent, the key loads its spec default (no notice, 5 minutes).
     kitchen: s["kitchen"],
+    // The public forms' daily limits (D109): the seed carries none, so the defaults load.
+    publicForms: s["publicForms"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,

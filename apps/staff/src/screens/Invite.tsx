@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { makeDeviceKey, pinProblem, type MessageKey, type Role } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
+import { useCaptcha } from "../captcha.js";
 import { roleKey, useT } from "../i18n.js";
 import { storeDevice } from "../device.js";
 import { useSession } from "../session.js";
@@ -52,6 +53,8 @@ export function Invite() {
   const [pinAgain, setPinAgain] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The security check on the phone-code request (M2-27).
+  const captcha = useCaptcha("invite_code");
 
   useEffect(() => {
     let live = true;
@@ -91,7 +94,24 @@ export function Invite() {
   const sendCode = (event: FormEvent) => {
     event.preventDefault();
     void run(async () => {
-      await api("POST", `/v1/invites/${encodeURIComponent(token)}/phone`, { phone_e164: phone });
+      try {
+        await api("POST", `/v1/invites/${encodeURIComponent(token)}/phone`, {
+          phone_e164: phone,
+          captcha_token: captcha.token ?? "",
+        });
+      } catch (e) {
+        captcha.reset();
+        if (e instanceof ApiCallError && e.code === "daily_limit") {
+          setError(t("invite.dailyLimit"));
+          return;
+        }
+        if (e instanceof ApiCallError && e.code.startsWith("captcha_")) {
+          setError(t("invite.captchaFailed"));
+          return;
+        }
+        throw e;
+      }
+      captcha.reset();
       setStep({ kind: "code", phone });
     });
   };
@@ -224,7 +244,8 @@ export function Invite() {
             />
           </label>
           <p className="muted">{t("invite.phoneHint")}</p>
-          <button type="submit" className="primary" disabled={busy}>
+          {captcha.widget}
+          <button type="submit" className="primary" disabled={busy || !captcha.token}>
             {t("invite.sendCode")}
           </button>
         </form>

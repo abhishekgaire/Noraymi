@@ -27,6 +27,7 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `safety` | The occupancy limit and when the board warns (empty at West 4, and never guessed), and the age policy (D108): 21 and over, or all ages until a time and 21 and over after |
 | `languages` | The staff languages a venue offers: English and Spanish in phase 1 |
 | `kitchen` | Kitchen & food: the allergy notice in English and Spanish (empty keeps the module off), the kitchen's last order time (empty follows room ordering) and `unsentWarnMin`, how long staff-rung food may sit Not sent before the reminder (5 by default, 1 to 60). A venue that never saved it reads these defaults ([Kitchen and food](16-kitchen.md) · The Kitchen module) |
+| `publicForms` | The public forms' daily limits (D109, Admin → Spam protection): per phone number, device and network (IP address), counted per business date, for the waitlist page and texted codes (and booking and enquiries, M5-05). A form left out reads its default. The security check itself (Cloudflare Turnstile) has no setting: it's always on |
 
 The money and time shapes:
 
@@ -194,6 +195,12 @@ type SafetySettings = {
                                      // 8:00 PM · bring ID"; the board shows "21+ from 8:00 PM · check IDs at the door and in the
                                      // rooms" for half an hour from the switch. The alcohol rules never change with it. Never guessed
 };
+
+type FormLimits = { perPhone: number; perDevice: number; perIp: number };  // whole numbers from 1 to 1,000 a business date
+type PublicFormsSettings = {         // D109; a form left out reads its default
+  waitlist?: FormLimits;             // the door QR's join: 3 a phone, 5 a device, 50 a network
+  phoneCode?: FormLimits;            // texted codes, staff invites and singers together: 5, 10 and 30
+};                                   // a network is loosest: the venue's guest Wi-Fi and a carrier put many guests behind one address
 
 type LanguageSettings = {
   staff: ("en" | "es")[];            // ["en", "es"] at West 4: offered on sign-in and in Admin → Team. Each person's pick is

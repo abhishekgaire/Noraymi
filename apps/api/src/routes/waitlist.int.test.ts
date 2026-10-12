@@ -96,6 +96,7 @@ describe("the waitlist", () => {
   let token = "";
   it("a guest who joins from the door QR as a party of 4 is fourth: 3 parties ahead", async () => {
     const r = await pub("POST", `/v1/public/venues/${slug}/waitlist`, {
+      captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
       name: "Jordan L.",
       phone: "+12125550145",
       party_size: 4,
@@ -122,6 +123,7 @@ describe("the waitlist", () => {
     expect(hashed.rows[0]!.link_token_hash).not.toContain(token);
     // A party of 3 joins too: allowed, and it bills as 4 on Friday.
     const three = await pub("POST", `/v1/public/venues/${slug}/waitlist`, {
+      captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
       name: "Kim S.",
       phone: "+12125550146",
       party_size: 3,
@@ -130,6 +132,7 @@ describe("the waitlist", () => {
     expect(
       (
         await pub("POST", `/v1/public/venues/${slug}/waitlist`, {
+          captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
           name: "Kim S.",
           phone: "+12125550146",
           party_size: 3,

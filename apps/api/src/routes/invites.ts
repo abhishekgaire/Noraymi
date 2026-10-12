@@ -18,6 +18,7 @@ import {
   type InviteByToken,
 } from "@west4/db";
 import { pinProblem, type Clock } from "@west4/shared";
+import type { PublicFormGuard } from "../captcha/guard.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { enqueueText } from "../jobs/send-text.js";
@@ -26,7 +27,8 @@ import { enqueueText } from "../jobs/send-text.js";
  * The invite link on the person's own phone (M1-23, spec 02 · PINs, N25).
  * No session: the token is the key, hashed before it's looked up, and every
  * route here is rate-limited and sends no-store headers. The steps: confirm
- * the phone number with a texted code (once), choose a PIN and the language,
+ * the phone number with a texted code (once, behind the CAPTCHA and the daily
+ * limits on phone codes, M2-27), choose a PIN and the language,
  * and claim the phone as the person's staff_phone. Owners and managers get a
  * one-time code to enrol a passkey through /v1/auth/enroll.
  */
@@ -52,7 +54,7 @@ const sixDigits = () => String(randomInt(0, 1_000_000)).padStart(6, "0");
 
 export function invitesRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; pepper: Buffer },
+  options: { pool: pg.Pool; clock: Clock; pepper: Buffer; forms: PublicFormGuard },
 ): void {
   const publicToken = route({
     principals: ["public"],
@@ -98,15 +100,27 @@ export function invitesRoutes(
     "/v1/invites/:token/phone",
     { config: publicToken },
     async (request, reply) => {
-      const parsed = phoneBody.safeParse(request.body);
-      if (!parsed.success) throw new ApiError("invalid_request", "send { phone_e164 }");
+      const { token: captcha, body } = options.forms.split(request.body);
+      const parsed = phoneBody.safeParse(body);
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send { phone_e164, captcha_token }");
       const invite = await openInvite(request.params.token);
+      // The CAPTCHA, then the daily limits on phone codes (M2-27), before any text.
+      const caller = await options.forms.check(request, reply, captcha);
       const code = sixDigits();
       const now = options.clock.now();
       await withVenue(
         options.pool,
         { venueId: invite.venueId, userId: invite.userId, requestId: request.requestId },
         async (c) => {
+          await options.forms.use(
+            c,
+            invite.venueId,
+            "phoneCode",
+            caller,
+            { phoneE164: parsed.data.phone_e164 },
+            now,
+          );
           await createPhoneCode(c, {
             venueId: invite.venueId,
             membershipId: invite.membershipId,

@@ -5,6 +5,7 @@ import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
 import { API, DB, esc, GUEST, PAY } from "./stack.js";
 import { testKitchenMenu } from "./kitchen.js";
+import { stubTurnstile } from "./turnstile.js";
 
 // Put the shared clock back for whatever spec runs next, in this project or another.
 test.afterEach(async () => {
@@ -16,6 +17,10 @@ test.afterEach(async () => {
  * the test before it did (M2-35): the seed's tables, and the API's simulated
  * clock.
  */
+// The security check's widget (M2-27) is a stand-in here: no call to Cloudflare.
+test.beforeEach(async ({ context }) => {
+  await stubTurnstile(context);
+});
 test.beforeEach(async ({ request }) => {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   const clock = await request.post(`${API}/v1/ops/clock`, {
@@ -216,6 +221,25 @@ test("the door QR on a phone: a party of 4 joins fourth, 3 parties ahead, then l
     expect(scroll).toBeLessThanOrEqual(390);
     await page.getByRole("button", { name: "Leave the waitlist" }).click();
     await expect(page.getByRole("status")).toHaveText("You've left the waitlist.");
+
+    // M2-27: the venue's daily limit set to 1 join a phone, Jordan's second join today is refused
+    // with the reason and where to go instead; nothing is added.
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select id, 'publicForms', 99, $1, '2026-01-01' from venues where slug = $2`,
+      [JSON.stringify({ waitlist: { perPhone: 1, perIp: 50, perDevice: 5 } }), slug],
+    );
+    await page.goto(`/v/${slug}/waitlist`);
+    await page.getByLabel("Your name").fill("Jordan L.");
+    await page.getByLabel("Mobile number").fill("(212) 555-0145");
+    await page.getByLabel("How many of you").fill("4");
+    await page.getByRole("button", { name: "Join the waitlist" }).click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "You've reached today's limit" }),
+    ).toHaveText(
+      "You've reached today's limit for joining the waitlist from this phone or network. Ask the host at the door to add you.",
+    );
+    await expect(page).toHaveURL(new RegExp(`/v/${slug}/waitlist$`));
   } finally {
     await db.end();
   }

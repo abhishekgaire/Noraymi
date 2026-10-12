@@ -184,6 +184,14 @@ export const adminSections: readonly AdminSection[] = [
     shipped: true,
   },
   {
+    id: "publicForms",
+    path: "/admin/spam-protection",
+    labelKey: "admin.section.publicForms",
+    hintKey: "admin.hint.publicForms",
+    action: "admin.access",
+    shipped: true,
+  },
+  {
     id: "website",
     path: "/admin/website",
     labelKey: "admin.section.website",

@@ -280,6 +280,26 @@ export const safetySchema = z
   .strict();
 export const languagesSchema = z.object({ staff: z.array(z.enum(["en", "es"])).min(1) }).strict();
 
+/** One public form's daily limits: how many uses a business date allows per phone number, IP address and device. */
+export const formLimitsSchema = z
+  .object({
+    perPhone: z.number().int().min(1).max(1000),
+    perIp: z.number().int().min(1).max(1000),
+    perDevice: z.number().int().min(1).max(1000),
+  })
+  .strict();
+/**
+ * The public forms' daily limits (M2-27, D109; Security 8), set by an owner or a manager in
+ * Admin → Spam protection. A form left out reads its default (PUBLIC_FORM_DEFAULTS). The
+ * server-checked CAPTCHA (Cloudflare Turnstile) has no settings: it is always on.
+ */
+export const publicFormsSchema = z
+  .object({
+    waitlist: formLimitsSchema.optional(),
+    phoneCode: formLimitsSchema.optional(),
+  })
+  .strict();
+
 const noticeText = z.string().trim().min(1).max(1000);
 /**
  * Kitchen & food (spec 16 · The Kitchen module; K-01). `allergyNotice` is the notice on every menu,
@@ -318,6 +338,7 @@ export const settingsSchemas = {
   safety: safetySchema,
   languages: languagesSchema,
   kitchen: kitchenSchema,
+  publicForms: publicFormsSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -343,6 +364,19 @@ export type MessageSettings = z.infer<typeof messagesSchema>;
 export type SafetySettings = z.infer<typeof safetySchema>;
 export type LanguageSettings = z.infer<typeof languagesSchema>;
 export type KitchenSettings = z.infer<typeof kitchenSchema>;
+export type FormLimits = z.infer<typeof formLimitsSchema>;
+export type PublicFormsSettings = z.infer<typeof publicFormsSchema>;
+export type PublicForm = keyof PublicFormsSettings;
+
+/**
+ * The daily limits until a venue sets its own (D109), from common practice for public sign-up
+ * forms and texted codes: tight per phone number, looser per device, and loosest per IP address,
+ * because a venue's guest Wi-Fi and a phone carrier put many guests behind one address.
+ */
+export const PUBLIC_FORM_DEFAULTS: Record<PublicForm, FormLimits> = {
+  waitlist: { perPhone: 3, perIp: 50, perDevice: 5 },
+  phoneCode: { perPhone: 5, perIp: 30, perDevice: 10 },
+};
 
 /** The `kitchen` key until a venue saves one (spec 16): no notice, no last order, 5 minutes. */
 export const KITCHEN_DEFAULTS: KitchenSettings = {
@@ -352,7 +386,10 @@ export const KITCHEN_DEFAULTS: KitchenSettings = {
 };
 
 /** Keys every venue reads with a default until it saves its own (a venue made before the key existed). */
-export const settingsDefaults: Partial<SettingsMap> = { kitchen: KITCHEN_DEFAULTS };
+export const settingsDefaults: Partial<SettingsMap> = {
+  kitchen: KITCHEN_DEFAULTS,
+  publicForms: PUBLIC_FORM_DEFAULTS,
+};
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;
 export type SettingsMap = { [K in SettingsKey]: SettingsValue<K> };

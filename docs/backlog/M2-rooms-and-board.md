@@ -639,19 +639,23 @@ Definition of done: see CLAUDE.md.
 
 ### M2-27 · Add the server-checked CAPTCHA and daily limits to the waitlist page and phone codes
 
-- **Status:** blocked
+- **Status:** done
 - **Size:** S
 - **Depends on:** M1-23, M2-25
 - **Spec:** [Security and data retention](../spec/12-security-retention.md) 8; [API](../spec/08-api.md) · Waitlist (public routes check a CAPTCHA); [Waitlist](../screens.md#waitlist) note 4
 - **Build:** a CAPTCHA checked on the server on `POST /v1/public/venues/{slug}/waitlist` and on every phone-code send (staff invites now, singers in M6), and daily limits per phone number, IP address and device on both, kept in one place in the code.
 - **Acceptance:**
-  - [ ] A waitlist join without a valid CAPTCHA token is refused, and so is a phone-code request.
-  - [ ] Past the daily limit, another join from the same phone number, IP address or device is refused, and the next day it works again.
-- **Tests:** integration tests with the provider's test keys.
-- **Notes:** The spec names no CAPTCHA provider and no limit numbers; the founder picks the provider and sets the numbers (flagged). Booking and enquiries get the same checks in M5.
-  - Blocked on the founder (asked): which CAPTCHA provider (for example Cloudflare Turnstile or hCaptcha, both with server-side checks and test keys), and the daily limits per phone number, IP address and device. Nothing is invented meanwhile; the waitlist page and phone codes run without them until then.
-  - The singer's phone-code request (`POST /v1/public/venues/{slug}/singers`, M6-20) is the M6 send this ticket covers: its handler in `apps/api/src/routes/songs-public.ts` marks where the check goes, and the queue page's join form (`apps/guest/app/v/[slug]/sing/sing-queue.tsx`) where the CAPTCHA's answer joins the request.
-
+  - [x] A waitlist join without a valid CAPTCHA token is refused, and so is a phone-code request. (`public-forms.int.test.ts`, `team.int.test.ts`)
+  - [x] Past the daily limit, another join from the same phone number, IP address or device is refused, and the next day it works again. (`public-forms.int.test.ts`, `packages/rules/src/public-forms.test.ts`, the door QR test in `e2e/guest.spec.ts`)
+  - [ ] Real Turnstile keys in staging and production: waits on the founder (a free Cloudflare account, a Turnstile widget for the site's and the staff app's hostnames, and the two keys set on the API). Until then staging runs Cloudflare's always-pass test keys, which stop no bot; production refuses to start without real keys.
+- **Tests:** integration tests with the provider's test keys; a stand-in for siteverify (never Cloudflare); unit tests for the limits; Playwright with the widget's script answered by a stand-in.
+- **Notes:** Unblocked Oct 11, 2026: the founder chose Cloudflare Turnstile, and the limits as manager settings with sensible defaults (D109).
+  - Built: `apps/api/src/captcha/turnstile.ts` (keys from `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`; unset outside production, Cloudflare's always-pass test keys, answered as Cloudflare documents them without calling out; any other key goes to siteverify with an idempotency key and a 5-second timeout; production refuses test keys, no keys or a `TURNSTILE_VERIFY_URL`) and `apps/api/src/captcha/guard.ts`, the one place for every public form: `captcha_token` out of the body, siteverify before the transaction, then inside the venue's transaction the business date's uses per phone, IP address and device (the `west4_device` cookie, 128 bits, HttpOnly, set when missing) against the limits, and the use recorded. Table `public_form_uses` (migration 0141, forced row-level security, keyed hashes only, deleted by the retention job after 7 days; its date column is `counted_on`, not `business_date`, so the closed-night guard doesn't stop the door QR between a close and the cutover). Errors `captcha_failed` (403), `captcha_unavailable` (503, retryable: nothing made) and `daily_limit` (429, `details.limit`). `GET /v1/public/captcha` gives the widget its site key, so the key lives only in the API's environment.
+  - On: `POST /v1/public/venues/{slug}/waitlist`, `POST /v1/public/venues/{slug}/singers` (M6-20's code request) and `POST /v1/invites/{token}/phone` (staff invites). Singers and invites share the `phoneCode` limit.
+  - Settings: `publicForms` (spec 03), Admin → Spam protection (`apps/staff/src/screens/admin/PublicForms.tsx`, English and Spanish), owner or manager. Defaults by common practice: the waitlist 3 a phone, 5 a device, 50 a network (guests on the venue's Wi-Fi share one address); texted codes 5, 10 and 30.
+  - Screens: the widget (`apps/guest/app/captcha.tsx`, `apps/staff/src/captcha.tsx`) loads its script from challenges.cloudflare.com only on a page that shows it; the send button waits for the check. Past a limit the waitlist page sends the guest to the host, and the queue page to the bartender. The guest pages other than the payment page send no Content-Security-Policy today, so there's nothing to widen; the payment page's policy is unchanged and never loads the widget.
+  - Cautious defaults: the limits count accepted uses only (a refused or failed send costs nothing), a business date at a time; a device that drops its cookie is still counted by phone and network.
+  - Founder: create a free Cloudflare account, add a Turnstile widget (Managed) for the guest site's and the staff app's hostnames, and set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` on the API in staging (`infra/staging/ecs.tf`, the secret through Secrets Manager) and later production.
 
 ### M2-28 · Count the headcount with the door counter, and build Admin → Safety
 

@@ -7,6 +7,7 @@ import pg from "pg";
 import { SEED_COMMAND, setClock } from "./night.js";
 import { API, DB, esc, PAY } from "./stack.js";
 import { testKitchenMenu } from "./kitchen.js";
+import { stubTurnstile } from "./turnstile.js";
 
 /**
  * Accessibility checks for the guest web (M3-24; spec 12 · 14): WCAG 2.2 AA,
@@ -34,6 +35,10 @@ test.afterEach(async () => {
   await setClock();
 });
 
+// The security check's widget (M2-27) is a stand-in here: no call to Cloudflare.
+test.beforeEach(async ({ context }) => {
+  await stubTurnstile(context);
+});
 test.beforeEach(async ({ request }) => {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   expect(

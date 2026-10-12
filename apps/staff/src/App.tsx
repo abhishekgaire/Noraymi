@@ -29,6 +29,7 @@ import { CardFee } from "./screens/admin/CardFee.js";
 import { Connections } from "./screens/admin/Connections.js";
 import { Texts } from "./screens/admin/Texts.js";
 import { Safety } from "./screens/admin/Safety.js";
+import { PublicForms } from "./screens/admin/PublicForms.js";
 import { Licenses } from "./screens/admin/Licenses.js";
 import { SupportAccess } from "./screens/admin/SupportAccess.js";
 import { EmergencyActions } from "./screens/admin/EmergencyActions.js";
@@ -160,6 +161,7 @@ export function StaffRoutes() {
           <Route path="kitchen" element={<Kitchen />} />
           <Route path="texts" element={<Texts />} />
           <Route path="safety" element={<Safety />} />
+          <Route path="spam-protection" element={<PublicForms />} />
           <Route path="licenses" element={<Licenses />} />
           <Route
             path="console"

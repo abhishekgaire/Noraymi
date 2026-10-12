@@ -44,7 +44,7 @@ describe("settings mapping", () => {
   ) as Record<string, Record<string, unknown>>;
 
   it("every key passes spec 03's schema", () => {
-    expect(Object.keys(parsed)).toHaveLength(17);
+    expect(Object.keys(parsed)).toHaveLength(18);
     expect(parsed["kitchen"]).toEqual({ allergyNotice: null, lastOrder: null, unsentWarnMin: 5 });
   });
 

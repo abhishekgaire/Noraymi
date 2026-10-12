@@ -33,6 +33,12 @@ export const ERROR_STATUS = {
   reader_busy: 409,
   reader_offline: 503,
   rate_limited: 429,
+  /** A public form past one of the venue's daily limits (M2-27): the details name it (phone, device or ip). */
+  daily_limit: 429,
+  /** A public form whose CAPTCHA token Turnstile refused, or that came without one (M2-27). */
+  captcha_failed: 403,
+  /** Turnstile's siteverify couldn't be reached or answered oddly (M2-27): nothing was made; try again. */
+  captcha_unavailable: 503,
   /** Stripe refused or couldn't be reached for something that isn't a payment (M4-01). */
   stripe_error: 502,
   /** Google refused or couldn't be reached while connecting Business Profile (M5-15). */
@@ -49,6 +55,7 @@ const RETRYABLE: ReadonlySet<ErrorCode> = new Set([
   "reader_busy",
   "reader_offline",
   "rate_limited",
+  "captcha_unavailable",
   "internal",
   "stripe_error",
 ]);

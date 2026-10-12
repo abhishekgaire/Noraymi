@@ -79,7 +79,10 @@ async function invite(name: string, email: string, role: string) {
 }
 
 async function confirmPhone(token: string, phone: string) {
-  const sent = await post(`/v1/invites/${token}/phone`, { phone_e164: phone });
+  const sent = await post(`/v1/invites/${token}/phone`, {
+    phone_e164: phone,
+    captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+  });
   expect(sent.statusCode, sent.body).toBe(200);
   const text = await latestJob("text.send", phone);
   const code = (text["data"] as { code: string }).code;
@@ -158,7 +161,19 @@ describe("invites, phone codes and PINs", () => {
   it("confirms his number with a texted code: a wrong code fails, and the PIN step waits for it", async () => {
     const early = await post(`/v1/invites/${diego.token}/finish`, { pin: "6358", locale: "en" });
     expect(early.statusCode).toBe(403);
-    const sent = await post(`/v1/invites/${diego.token}/phone`, { phone_e164: DIEGO_PHONE });
+    // No CAPTCHA token, or a wrong one, sends nothing (M2-27).
+    const bare = await post(`/v1/invites/${diego.token}/phone`, { phone_e164: DIEGO_PHONE });
+    expect(bare.statusCode).toBe(403);
+    expect(bare.json()).toMatchObject({ error: { code: "captcha_failed" } });
+    const forged = await post(`/v1/invites/${diego.token}/phone`, {
+      phone_e164: DIEGO_PHONE,
+      captcha_token: "forged",
+    });
+    expect(forged.statusCode).toBe(403);
+    const sent = await post(`/v1/invites/${diego.token}/phone`, {
+      phone_e164: DIEGO_PHONE,
+      captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+    });
     expect(sent.statusCode, sent.body).toBe(200);
     const wrong = await post(`/v1/invites/${diego.token}/phone/verify`, {
       phone_e164: DIEGO_PHONE,
@@ -308,7 +323,12 @@ describe("invites, phone codes and PINs", () => {
     clock.advance({ hours: 49 });
     expect(json(await get(`/v1/invites/${late.token}`))["state"]).toBe("expired");
     expect(
-      (await post(`/v1/invites/${late.token}/phone`, { phone_e164: "+12125550126" })).statusCode,
+      (
+        await post(`/v1/invites/${late.token}/phone`, {
+          phone_e164: "+12125550126",
+          captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+        })
+      ).statusCode,
     ).toBe(403);
     const jobs = await owner.query<{ payload: unknown }>(
       "select payload from jobs where kind in ('email.send', 'text.send')",

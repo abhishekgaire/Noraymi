@@ -35,7 +35,7 @@ async function signIn(name: string, phone: string): Promise<string> {
   const asked = await api.inject({
     method: "POST",
     url: `${base}/singers`,
-    payload: { display_name: name, phone_e164: phone },
+    payload: { display_name: name, phone_e164: phone, captcha_token: "XXXX.DUMMY.TOKEN.XXXX" },
   });
   expect(asked.statusCode, asked.body).toBe(202);
   const ok = await api.inject({
@@ -136,7 +136,12 @@ describe("the queue page", () => {
     const asked = await api.inject({
       method: "POST",
       url: `${base}/singers`,
-      payload: { display_name: "Priya", phone_e164: phone, locale: "es" },
+      payload: {
+        display_name: "Priya",
+        phone_e164: phone,
+        locale: "es",
+        captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+      },
     });
     expect(asked.statusCode, asked.body).toBe(202);
     const code = await codeFor(phone);
@@ -224,7 +229,11 @@ describe("the queue page", () => {
       const r = await api.inject({
         method: "POST",
         url: `${base}/singers`,
-        payload: { display_name: "Late", phone_e164: "+16465550178" },
+        payload: {
+          display_name: "Late",
+          phone_e164: "+16465550178",
+          captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+        },
       });
       expect(r.statusCode).toBe(404);
       expect((await api.inject({ method: "GET", url: `${base}/queue` })).statusCode).toBe(404);

@@ -180,6 +180,13 @@ export const en = {
   "invite.phoneHint": "We text a code to confirm it, once.",
   "invite.sendCode": "Text me a code",
   "invite.codeSent": "We texted a code to {phone}",
+  "invite.captcha": "Security check",
+  "invite.captchaWaiting": "Checking you're a person. This takes a moment.",
+  "invite.captchaUnavailable":
+    "The security check didn't load. Check your connection and refresh the page.",
+  "invite.captchaFailed": "The security check didn't pass. Try again.",
+  "invite.dailyLimit":
+    "Too many codes for this number or phone today. Try again tomorrow, or ask your manager.",
   "invite.code": "The code from the text",
   "invite.confirm": "Confirm",
   "invite.wrongCode": "That code didn't work",
@@ -818,6 +825,16 @@ export const en = {
   "guestWait.joining": "Joining…",
   "guestWait.failed": "Couldn't add you. Check the number and try again.",
   "guestWait.already": "That number is already on the waitlist.",
+  "guestCaptcha.label": "Security check",
+  "guestCaptcha.waiting": "Checking you're a person. This takes a moment.",
+  "guestCaptcha.unavailable":
+    "The security check didn't load. Check your connection and refresh the page.",
+  "guestCaptcha.failed": "The security check didn't pass. Try again.",
+  "guestCaptcha.busy": "We couldn't finish the security check. Try again in a moment.",
+  "guestLimit.waitlist":
+    "You've reached today's limit for joining the waitlist from this phone or network. Ask the host at the door to add you.",
+  "guestLimit.singer":
+    "You've reached today's limit for codes from this number or phone. Ask the bartender to add you to the queue.",
   "guestWait.billsAs": "A party of {party} bills as {bills} on {day}.",
   "guestWait.ahead.none": "You're next",
   "guestWait.ahead.one": "1 party ahead",
@@ -893,6 +910,19 @@ export const en = {
   "waitlist.noRoom": "No room fits this party for an hour",
   "admin.section.safety": "Safety",
   "admin.hint.safety": "The occupancy limit and when the board warns",
+  "admin.section.publicForms": "Spam protection",
+  "admin.hint.publicForms": "Daily limits on the waitlist page and texted codes",
+  "publicForms.lead":
+    "Every public form has a security check (Cloudflare Turnstile) that the server confirms. These limits cap how often one phone number, one device or one network can use a form in a business date.",
+  "publicForms.form": "Form",
+  "publicForms.perPhone": "Per phone number",
+  "publicForms.perDevice": "Per device",
+  "publicForms.perIp": "Per network (IP address)",
+  "publicForms.waitlist": "Waitlist page (door QR)",
+  "publicForms.phoneCode": "Texted codes (staff invites, singers)",
+  "publicForms.perDay": "{n} a day",
+  "publicForms.hint":
+    "A guest past a limit is asked to see the host, or to try again tomorrow. Keep the network limit high: guests on the venue's Wi-Fi share one.",
   // The age policy (D108), in Admin → Safety.
   "safety.age": "Age policy",
   "safety.age.over21": "21 and over",

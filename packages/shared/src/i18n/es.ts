@@ -180,6 +180,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "invite.phoneHint": "Te enviamos un código por mensaje para confirmarlo, una sola vez.",
   "invite.sendCode": "Enviarme un código",
   "invite.codeSent": "Enviamos un código al {phone}",
+  "invite.captcha": "Verificación de seguridad",
+  "invite.captchaWaiting": "Comprobando que eres una persona. Tarda un momento.",
+  "invite.captchaUnavailable":
+    "La verificación de seguridad no cargó. Revisa tu conexión y recarga la página.",
+  "invite.captchaFailed": "La verificación de seguridad no pasó. Inténtalo de nuevo.",
+  "invite.dailyLimit":
+    "Demasiados códigos para este número o teléfono hoy. Inténtalo mañana o pregunta a tu gerente.",
   "invite.code": "El código del mensaje",
   "invite.confirm": "Confirmar",
   "invite.wrongCode": "Ese código no funcionó",
@@ -829,6 +836,17 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestWait.joining": "Uniéndote…",
   "guestWait.failed": "No pudimos agregarte. Revisa el número e inténtalo de nuevo.",
   "guestWait.already": "Ese número ya está en la lista de espera.",
+  "guestCaptcha.label": "Verificación de seguridad",
+  "guestCaptcha.waiting": "Comprobando que eres una persona. Tarda un momento.",
+  "guestCaptcha.unavailable":
+    "La verificación de seguridad no cargó. Revisa tu conexión y recarga la página.",
+  "guestCaptcha.failed": "La verificación de seguridad no pasó. Inténtalo de nuevo.",
+  "guestCaptcha.busy":
+    "No pudimos terminar la verificación de seguridad. Inténtalo de nuevo en un momento.",
+  "guestLimit.waitlist":
+    "Llegaste al límite de hoy para unirte a la lista de espera desde este teléfono o red. Pide al anfitrión en la puerta que te agregue.",
+  "guestLimit.singer":
+    "Llegaste al límite de hoy de códigos para este número o teléfono. Pide al bartender que te agregue a la cola.",
   "guestWait.billsAs": "Un grupo de {party} se cobra como {bills} los {day}.",
   "guestWait.ahead.none": "Eres el siguiente",
   "guestWait.ahead.one": "1 grupo delante",
@@ -905,6 +923,19 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "waitlist.noRoom": "Ninguna sala sirve a este grupo por una hora",
   "admin.section.safety": "Seguridad",
   "admin.hint.safety": "El aforo y cuándo avisa el tablero",
+  "admin.section.publicForms": "Protección contra spam",
+  "admin.hint.publicForms": "Límites diarios de la lista de espera y los códigos por mensaje",
+  "publicForms.lead":
+    "Cada formulario público tiene una verificación de seguridad (Cloudflare Turnstile) que confirma el servidor. Estos límites marcan cuántas veces un número, un dispositivo o una red pueden usar un formulario en una fecha de negocio.",
+  "publicForms.form": "Formulario",
+  "publicForms.perPhone": "Por número de teléfono",
+  "publicForms.perDevice": "Por dispositivo",
+  "publicForms.perIp": "Por red (dirección IP)",
+  "publicForms.waitlist": "Lista de espera (QR de la puerta)",
+  "publicForms.phoneCode": "Códigos por mensaje (invitaciones, cantantes)",
+  "publicForms.perDay": "{n} al día",
+  "publicForms.hint":
+    "A quien pase un límite se le pide hablar con el anfitrión o intentarlo mañana. Deja alto el límite por red: los clientes en el Wi-Fi del local comparten una.",
   // The age policy (D108), in Admin → Safety.
   "safety.age": "Política de edad",
   "safety.age.over21": "Solo mayores de 21",

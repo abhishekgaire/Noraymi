@@ -195,14 +195,13 @@ M2 covers rooms, the board, check-in, the waitlist, texts and the calendar. M3 a
 
 - **M4:** presenting the check, paying, receipts.
 - **M5:** the public website, online booking and deposits.
-- **M2-27** (the CAPTCHA and daily limits on the waitlist page) waits for your choice of provider and limits.
 
 ## 9. If something goes wrong
 
-| What you see | What to do |
-| --- | --- |
-| "Port … is already in use" | An earlier run is still going. Close its Terminal window, or restart the Mac. |
-| A page says it can't reach the server | Check the Terminal running `demo-start.sh` is still open and says Ready. |
-| Touch ID doesn't appear | Use Chrome, and make sure you're on `localhost`, not `127.0.0.1`. |
-| "That link was already used" | Run `scripts/demo-local.sh` for new invite links. |
-| Something looks wrong on a screen | The logs are in the `.demo-logs` folder: `api.log`, `staff.log`, `guest.log` and `worker.log`. |
+| What you see                          | What to do                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| "Port … is already in use"           | An earlier run is still going. Close its Terminal window, or restart the Mac.                           |
+| A page says it can't reach the server | Check the Terminal running`demo-start.sh` is still open and says Ready.                               |
+| Touch ID doesn't appear               | Use Chrome, and make sure you're on`localhost`, not `127.0.0.1`.                                    |
+| "That link was already used"          | Run`scripts/demo-local.sh` for new invite links.                                                      |
+| Something looks wrong on a screen     | The logs are in the`.demo-logs` folder: `api.log`, `staff.log`, `guest.log` and `worker.log`. |

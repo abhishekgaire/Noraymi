@@ -5,6 +5,7 @@ import { resolveVenueSlug, withVenue, type Queryable } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import type { AuthConfig } from "../config.js";
 import type { Authenticator } from "../http/conventions.js";
+import type { PublicFormGuard } from "../captcha/guard.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import {
@@ -33,9 +34,8 @@ import { catalogSong, hasCatalog, searchSongs } from "../songs/songbook.js";
  *                                                 subscription for the singer alerts (M6-21)
  * The live channel takes the same cookie: a singer follows `song_queue.updated` on /v1/venues/{v}/events.
  *
- * Not built yet, and joining here when M2-27 lands: the server-checked CAPTCHA and the daily limits on
- * phone codes per number, IP address and device. The provider and the numbers wait on the founder
- * (M2-27, M5-05), so these routes run as the waitlist's door route does today, without them.
+ * A code request carries `captcha_token`: Cloudflare Turnstile is checked, then the daily limits on
+ * phone codes per number, IP address and device (M2-27, D109; captcha/guard.ts).
  */
 export const SINGER_COOKIE = "west4_singer";
 const SINGER_COOKIE_HOURS = 24 * 30;
@@ -99,7 +99,7 @@ const phone = z.string().regex(/^\+1[2-9]\d{2}[2-9]\d{6}$/);
 
 export function publicSongRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; auth: AuthConfig },
+  options: { pool: pg.Pool; clock: Clock; auth: AuthConfig; forms: PublicFormGuard },
 ): void {
   const open = route({
     principals: ["public"],
@@ -148,18 +148,29 @@ export function publicSongRoutes(
     "/v1/public/venues/:slug/singers",
     { config: open },
     async (request, reply) => {
-      const parsed = joinBody.safeParse(request.body);
+      const { token: captcha, body } = options.forms.split(request.body);
+      const parsed = joinBody.safeParse(body);
       if (!parsed.success)
         throw new ApiError("invalid_request", "send { display_name, phone_e164 } with a US number");
-      // M2-27: the server-checked CAPTCHA and the daily limits on phone codes go here, before any text.
-      await inVenue(request, true, (c, venueId) =>
-        requestSingerCode(c, venueId, {
+      // The CAPTCHA, then the daily limits on phone codes (M2-27), before any text.
+      const caller = await options.forms.check(request, reply, captcha);
+      const now = options.clock.now();
+      await inVenue(request, true, async (c, venueId) => {
+        await options.forms.use(
+          c,
+          venueId,
+          "phoneCode",
+          caller,
+          { phoneE164: parsed.data.phone_e164 },
+          now,
+        );
+        await requestSingerCode(c, venueId, {
           displayName: parsed.data.display_name,
           phoneE164: parsed.data.phone_e164,
           locale: parsed.data.locale ?? "en",
-          now: options.clock.now(),
-        }),
-      );
+          now,
+        });
+      });
       return reply.code(202).send({ code_sent: true });
     },
   );
