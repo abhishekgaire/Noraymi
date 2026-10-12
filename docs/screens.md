@@ -37,7 +37,7 @@ Sep 29, 2026 · the 27 boards of the design canvas, what each one becomes in the
 | [`Reports.dc.html`](#reports) | M · Reports | 390 × 1180 | Staff app, phone layout | [M7] |
 | [`Admin.dc.html`](#admin) | M · Admin · moved to the desktop app | 390 × 760 | Staff app, phone layout | [M1] |
 | **Desktop app** | | | | |
-| [`Board.dc.html`](#board) | D · Desktop app · Tonight board | 1280 × 800 | Staff app in the Electron shell | [M2], [M3], [M8] |
+| [`Board.dc.html`](#board) | D · Desktop app · Tonight board (the staff app's Rooms, D111) | 1280 × 800 | Staff app in the Electron shell | [M2], [M3], [M8] |
 | [`AdminDesk.dc.html`](#admindesk) | D · Desktop app · Admin | 1280 × 800 | Staff app, desktop layout (Admin) | [M1], [M3], [M4], [M5], [M6], [M7], [M8] |
 | [`Night.dc.html`](#night) | D · Desktop app · Close the night | 1280 × 800 | Staff app in the Electron shell | [M7], [M8] |
 | [`Bar.dc.html`](#bar) | D · Bar orders screen · room orders by age | 900 × 640 | Staff app in the Electron shell | [M3], [M8] |
@@ -842,7 +842,7 @@ One sheet, the same wherever it opens (`POST /bookings/{b}/check-in {party_size,
 - **2 IDs.** Checked "x of n", plus "The runner checks the rest". The board's "ID ✓ 4 of 4" reads from it.
 - **3 Room.** Confirmed or changed.
 - **4 Clock.** Start now, or at the booked time.
-- **5 Deposit.** Applied to the check (−$40 for Sam O.). For a walk-in, what Admin → Deposits & cancelling says a walk-in takes (D112): "No deposit" (Take a deposit, West 4's), "Card on the tab · the guest taps a card once they're seated" or "Nothing taken at check-in". With a card on the tab, Seat them seats the party and the dialog turns to "Card on the tab · Room 11": the consent line to read out, Read to guest ✓, "Tap, dip or swipe on the front-desk reader", then "Card on the tab · Visa ···4242" on the done line. A decline or a missing or offline reader offers Tap again or Skip the card; the party stays seated either way, and nothing is charged.
+- **5 Deposit.** Applied to the check (−$40 for Sam O.). For a walk-in, what Admin → Deposits & cancelling says a walk-in takes (D112): "No deposit" (Take a deposit, West 4's), "Card on the tab · the guest taps a card once they're seated", "Card behind the bar · note the name on the card and its last 4" (D116) or "Nothing taken at check-in". With a card on the tab, Seat them seats the party and the dialog turns to "Card on the tab · Room 11": the consent line to read out, Read to guest ✓, "Tap, dip or swipe on the front-desk reader", then "Card on the tab · Visa ···4242" on the done line. A decline or a missing or offline reader offers Tap again or Skip the card; the party stays seated either way, and nothing is charged. With the card behind the bar, Seat them seats the party and the dialog turns to "Card behind the bar · Room 11": Name on the card, Last 4 digits and Save the card (a full number is refused), then "Card behind the bar · M. TORRES ···· 4242" on the done line and the tile; Skip the card reads "No card behind the bar". No reader and nothing charged; close-out ends with Give the card back and Returned.
 - **6 Room code.** A new 5-character code is texted to the host with the join link.
 
 *Decided in [FB 4.2]. Spec: [Staff screens and the bar POS][spec-10], [API][spec-08].*

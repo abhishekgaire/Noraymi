@@ -50,7 +50,7 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 22. [The status page](#22-the-status-page)
 23. [Spanish review](#23-spanish-review)
 24. [Accessibility quick checks](#24-accessibility-quick-checks)
-25. [CAPTCHA and daily limits (being built now)](#25-captcha-and-daily-limits-being-built-now)
+25. [CAPTCHA and daily limits](#25-captcha-and-daily-limits)
 26. [What you can't test locally](#26-what-you-cant-test-locally)
 27. [Printable checklist](#27-printable-checklist)
 
@@ -73,6 +73,8 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 3. Wait for **Ready**. Leave this window open: the app runs only while it's open. **Ctrl+C** in this window stops everything.
 
 The start script prints two **invite links**, one for Abhishek (owner) and one for Andy (manager).
+
+To test the kitchen (section 11), start it as `scripts/demo-start.sh --sing-sing` instead: it also makes Sing Sing, a second demo venue with Kitchen & food on, and prints its own invite links.
 
 **The addresses** (always use Chrome, and always `localhost`, never `127.0.0.1`, or Touch ID won't work):
 
@@ -189,7 +191,20 @@ Nothing ever reaches a real phone or inbox.
 
 - **Emails** (codes, receipts, payroll copies, alerts to the owner): http://localhost:8025.
 - **Sign-in codes:** `scripts/demo-codes.sh` in a second Terminal window.
-- **Every text the app writes** (Room code, Room ready, Running late, confirmations, payment links, receipts): the **Messages** screen in the staff app. Links inside those texts (for example the room host link `/r/…` or a booking's manage link `/b/…`) can be copied from there and opened in a phone-size window.
+- **Every text the app writes** (Room code, Room ready, Running late, confirmations, payment links, receipts): the **Messages** screen in the staff app. Links inside the texts the app sends while you test (for example the room host link `/r/…` in a Room code text after a check-in, or a booking's manage link `/b/…` after an online booking) can be copied from there and opened in a phone-size window.
+- **The night's own guest links:** the texts already in the demo night carry no links, so the reset script (0.9) prints two at its end: `Room 9 host link (Marcus T.): http://localhost:3001/r/…` and `Jae & co.'s manage link: http://localhost:3001/b/…`. To print them again (a new manage link each time; the last one stops working):
+
+  ```
+  cd ~/Downloads/west4-karaoke
+  node scripts/demo-links.mjs
+  ```
+
+- **A guest texting the venue** (STOP, HELP, "running late"): there's no real phone, so a command sends the text in, as Twilio would (section 13):
+
+  ```
+  cd ~/Downloads/west4-karaoke
+  node scripts/demo-text.mjs "STOP"
+  ```
 
 ### 0.9 Resetting the night
 
@@ -198,7 +213,7 @@ cd ~/Downloads/west4-karaoke
 scripts/demo-local.sh
 ```
 
-This puts the night back to 10:41 PM with fresh data and prints new invite links. **It signs everyone out and removes your passkeys**, so redo 0.2 to 0.4 afterwards. Restarting `scripts/demo-start.sh` does the same.
+This puts the night back to 10:41 PM with fresh data and prints new invite links, then Room 9's host link and Jae & co.'s manage link (0.8). **It signs everyone out and removes your passkeys**, so redo 0.2 to 0.4 afterwards. Restarting `scripts/demo-start.sh` does the same.
 
 Don't run `pnpm e2e` while the demo is open: it reloads the same database. Use `pnpm e2e:isolated` if you need the automated tests.
 
@@ -224,7 +239,7 @@ WEST4_FAKE_PRINTER=1 WEST4_FAKE_PRINTER_DIR="$PWD/.demo-logs/printer" WEST4_FAKE
 
 - A window opens with the staff app (http://localhost:5173). Pair it as the bar computer (0.4).
 - `WEST4_FAKE_PRINTER=1` gives it a **virtual USB printer**. Each ticket it "prints" is saved as `ticket-1.bin`, `ticket-2.bin`… in `.demo-logs/printer`. To read one roughly: `strings .demo-logs/printer/ticket-1.bin`.
-- To "unplug" the virtual printer, open the window's developer tools (View → Toggle Developer Tools, if the menu bar shows it) and in the Console tab type `west4.fakePlug(false)`. `west4.fakePlug(true)` plugs it back.
+- To "unplug" the virtual printer: click the desktop app's window ("West 4 Staff"), then in the menu bar at the top of the Mac's screen choose **View → Toggle Developer Tools** (or press **Alt + Cmd + I**). In the **Console** tab, type `await west4.fakePlug(false)` and press Return. `await west4.fakePlug(true)` plugs it back. It only works when the app was started with `WEST4_FAKE_PRINTER=1` (otherwise: "refused: no virtual printer").
 - `WEST4_FAKE_READER=1` gives it an emulated badge reader. A real badge tap can't be done by hand without hardware; sign in with PINs instead.
 
 The optional `pnpm --filter @west4/desktop rebuild-native` builds the real USB reader support. You don't need it for the demo.
@@ -238,7 +253,7 @@ cd ~/Downloads/west4-karaoke
 docker compose exec -T postgres psql -U west4 -d west4 -Atc "select name, id from rooms order by name"
 ```
 
-Copy the id next to "Room 9". (The easier way into a room as the host is the link in Room 9's Room code text, in Messages.)
+Copy the id next to "Room 9". (The easier way into Room 9 as the host is its host link, printed by the reset script; see 0.8.)
 
 ---
 
@@ -341,6 +356,12 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 3. Enter a party and press **Seat them**.
 4. Try a party too big for the room: "That room isn't free for this party".
 5. Card on the tab (D112): in Admin → Deposits & cancelling, under **At a walk-in check-in**, pick **Put a card on the tab** and Save and publish. + Walk-in on a free room: step 5 reads "Card on the tab · the guest taps a card once they're seated". **Seat them**, then the dialog shows the consent line; press **Read to guest ✓** and tap a test card on the front-desk reader (demo: `scripts/demo-start.sh` runs the fake Stripe; present a card to "Front desk S710"). The done line ends "Card on the tab · visa ···4242"; nothing is charged. **Skip the card** seats them with no card. Set it back to **Take a deposit**.
+6. Card behind the bar (D116; Sing Sing's choice, already set at Sing Sing, 11.1): in Admin → Deposits & cancelling, under **At a walk-in check-in**, pick **Keep the card behind the bar** and Save and publish. + Walk-in on a free room: step 5 reads "**Card behind the bar · note the name on the card and its last 4**". **Seat them**, then the dialog reads "Card behind the bar · Room {n}": "Take the guest's card, then type the name on it and its last 4 digits. Nothing is charged; it's given back at close-out." Fill **Name on the card** (`M. TORRES`) and **Last 4 digits** (`4242`) and press **Save the card**.
+   - A full card number, a name with digits, or 3 digits is refused: "Type the name on the card and exactly its last 4 digits, never the whole number".
+   - Done: the tile and the room read "**Card behind the bar · M. TORRES ···· 4242**". No reader is used and nothing is charged. **Skip the card** seats them with "No card behind the bar".
+   - When the room's check is paid, the room screen shows "**Give the card back**" ("Hand the guest their card: M. TORRES ···· 4242") with **Returned**: "Card given back".
+   - A card not given back is listed on Close the night: "Cards still behind the bar · {count}".
+   - Set it back to **Take a deposit**.
 
 ### 2.4 The waitlist (staff side)
 
@@ -424,7 +445,7 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 **Where:** a phone-size window.
 
-- **As the host:** open Messages in the staff app, find Room 9's Room code text, and open its `/r/…` link. You should see "You're the host".
+- **As the host:** open the `Room 9 host link (Marcus T.)` that the reset script printed (0.8; or run `node scripts/demo-links.mjs`). You should see "You're the host". (After you check a party in yourself, its Room code text in Messages carries the same kind of `/r/…` link.)
 - **As a friend:** open the wall-QR address (0.12) for Room 9. It shows "Join Room 9" and a **Room code** field. Type `KX4M7` and press **Join**: "You're in", headed "Room 9 · Code KX4M7".
 - A wrong code: "That code isn't right. Check the code on the wall." On the 10th wrong try the code changes and Andy is alerted.
 - Room 11's wall QR: "Room 11 is closed right now."
@@ -764,48 +785,78 @@ If the margaritas were accepted first: total **$652.11**, **$532.11** left.
 
 ## 11. Kitchen and food
 
-**Important:** West 4's plan in the demo does **not** include Kitchen & food. In Admin → Features it reads "**Not in your plan**", and Admin → Kitchen isn't listed. Three things must be true to turn it on, and two of them can't be done from the staff app:
+**Important:** West 4's plan in the demo does **not** include Kitchen & food. In West 4's Admin → Features it reads "**Not in your plan**", and Admin → Kitchen isn't listed. Kitchen & food is tested at **Sing Sing**, a second demo venue that one command sets up with the kitchen on.
 
-1. **The plan must allow it.** Only our staff can do this, in the Console (section 21), with the "Kitchen & food allowed" switch. The Console needs a security key. The quicker way is one command.
-2. **A kitchen printer** (a network printer) must exist. Admin → Printers & devices offers only Bar and Front desk stations, so this also needs a command.
-3. **The allergy notice** must be written in English and Spanish, in Admin → Kitchen. This one you do in the app.
+### 11.1 Start the Sing Sing demo (one command)
 
-### 11.1 Turn the kitchen on (one-time, after each reset)
+Sing Sing Karaoke Astoria is made in the same demo, next to West 4, with:
 
-In a Terminal window, in the project folder:
+- **6 rooms**, Room 1 to Room 6 (their sizes and prices are copied from West 4's: placeholders until Sing Sing's manager gives the real ones);
+- **Kitchen & food on** (allowed in its plan, a pretend kitchen network printer, and an allergy notice marked "DEMO ONLY");
+- **Ordering from the room on** (guests order food and drinks from their phones and the room tablets), and Bar mode off;
+- **No deposits** for online bookings, and **Keep the card behind the bar** at a walk-in check-in (D116);
+- all ages until 8 PM, then 21 and over; Sing Sing's opening hours (Fri and Sat until 3 AM);
+- **Sing Sing's real menu** (about 104 items, drinks and food, including Mac & Cheese, French Fries, Onion Rings, Classic Cheese, Cheese Sticks and Coleslaw), loaded with the importer from `docs/venues/sing-sing/import`;
+- the same four people as West 4, with their own sign-ins: Abhishek (owner) and Andy (manager) by invite link, Maya (bartender, PIN **4071**) and Diego (front desk, PIN **6358**).
+
+There are no guests, bookings or tabs yet: it's an empty Friday at 10:41 PM, on the same clock as West 4.
+
+**To start it**, stop the demo (Ctrl+C) and start it with Sing Sing:
 
 ```
 cd ~/Downloads/west4-karaoke
-
-# 1. Allow Kitchen & food in West 4's plan (what the Console switch does)
-docker compose exec -T postgres psql -U west4 -d west4 -c "update venue_modules set allowed = true where module_id = 'kitchen' and venue_id = (select id from venues where slug = 'west4karaoke')"
-
-# 2. Add a pretend kitchen network printer (its password is demo-kitchen)
-docker compose exec -T postgres psql -U west4 -d west4 -c "insert into devices (venue_id, kind, name, station, protocol, secret_hash) select id, 'printer', 'Kitchen printer (demo)', 'kitchen', 'cloudprnt', encode(sha256('demo-kitchen'::bytea),'hex') from venues where slug='west4karaoke' returning id"
+scripts/demo-start.sh --sing-sing
 ```
 
-Then in the staff app, as Abhishek:
+Or, while the demo is already running, reset the night with Sing Sing in a second Terminal window (this also resets West 4's night, see 0.9):
 
-1. Reload. **Admin → Features**: Kitchen & food is no longer "Not in your plan".
-2. Before step 3, the **On** button for "Kitchen & food" is greyed and reads "**Kitchen · needs … the allergy notice**". That's the prerequisite check (K-01). Note what it says.
-3. Open **Admin → Kitchen**. Fill "Allergy notice · In English" and "Allergy notice · In Spanish" with test words such as "TEST ONLY · allergy notice". Press **Save and publish**: "Published".
-   - Filling only one language is refused: "Write the notice in English and Spanish, or leave both empty."
-4. Back in **Admin → Features**, press **On** for Kitchen & food.
+```
+cd ~/Downloads/west4-karaoke
+scripts/demo-local.sh --sing-sing
+```
 
-These commands were written from the code and the tests, not run on your demo. If one prints an error, copy the error into a note. Resetting the night (0.9) turns the kitchen off again.
+After West 4's two invite links, it prints:
 
-### 11.2 Put food on the menu
+```
+Seeded Sing Sing Karaoke Astoria: 6 rooms, Kitchen & food on, 104 menu items.
+Sing Sing invite for abhishek@singsing.demo.local: http://localhost:5173/invite/…
+Sing Sing invite for andy@singsing.demo.local: http://localhost:5173/invite/…
+Sing Sing's PIN staff: Maya S. 4071 (bartender), Diego R. 6358 (front desk). Guest site: http://localhost:3001/v/singsing
+```
 
-The demo menu has no food. Pick one:
+**Sign in to Sing Sing:**
 
-- **By hand:** **Admin → Menu**, add an item (for example "French Fries", $8.00) and set its **Station** to **Kitchen**. The Station column only appears once the kitchen is on. Add a second one with a required choice (for example a burger with "Cheese · pick one").
-- **Load Sing Sing's real menu** (about 179 lines, including Mac & Cheese, French Fries, Onion Rings, Classic Cheese, Cheese Sticks and Coleslaw):
+1. Use a **separate Chrome profile** (or an Incognito window) for Sing Sing, so West 4's sign-in in your main window stays as it is. A browser window is signed in to one venue at a time.
+2. Open Sing Sing's invite for `abhishek@singsing.demo.local` and follow 0.2 (any US mobile number, the code from `scripts/demo-codes.sh`, a PIN, a passkey). At sign-in, type `abhishek@singsing.demo.local`. Do the same for Andy in another profile if you need approvals.
+3. For Maya at the bar POS, pair a screen in Sing Sing's **Admin → Printers & devices** (as in 0.4) and tap **Maya S.**, PIN `4071`.
 
-  ```
-  cd ~/Downloads/west4-karaoke
-  pnpm build:packages
-  DATABASE_URL=postgres://west4:west4@localhost:5432/west4 node packages/db/dist/import-cli.js --venue west4karaoke --mapping docs/venues/sing-sing/import/mapping.json
-  ```
+**Sing Sing's addresses:**
+
+| What | Address |
+| --- | --- |
+| Guest website | http://localhost:3001/v/singsing |
+| Menu (food and the allergy notice) | http://localhost:3001/v/singsing/menu |
+| Book a room | http://localhost:3001/v/singsing/book |
+| A room's wall QR | `http://localhost:3001/v/singsing/room/<room id>` (the room id: in the query of 0.12, use the row of Sing Sing's room; `select v.slug, r.name, r.id from rooms r join venues v on v.id = r.venue_id where v.slug = 'singsing' order by r.name`) |
+
+**Check the setup**, as Sing Sing's Abhishek:
+
+1. **Admin → Features**: Kitchen & food is **On**. Bar mode is off.
+2. **Admin → Kitchen**: "Allergy notice · In English" and "· In Spanish" are filled with the DEMO ONLY text.
+   - Empty one language and press **Save and publish**: refused, "Write the notice in English and Spanish, or leave both empty."
+   - The prerequisite check (K-01): in **Admin → Features** press **Off** for Kitchen & food, then empty both languages in Admin → Kitchen and **Save and publish**. Back in Admin → Features, the **On** button for Kitchen & food is greyed and reads "**Kitchen · needs the allergy notice**". Put the notice back in both languages, save, and press **On** again.
+3. **Admin → Deposits & cancelling**: deposits are off, and **At a walk-in check-in** reads **Keep the card behind the bar**.
+4. **Admin → Menu**: the **Station** column shows (it only appears with the kitchen on): burgers, sides and wings are **Kitchen**, drinks are **Bar**.
+
+**Start a room to order from:** on **Rooms**, press **+ Walk-in** on Room 2, 4 guests, IDs checked, **Seat them**. The dialog then asks for the card behind the bar (2.3, step 6): type `SAM ORTIZ` and `4242` and press **Save the card**. The done line shows the room code. Open the room's wall-QR address in a phone-size window and type that code to join as the guest.
+
+Resetting the night (0.9) without `--sing-sing` leaves Sing Sing as it was; with `--sing-sing`, Sing Sing is made again from scratch (new invite links, your Sing Sing passkeys removed).
+
+### 11.2 Food on the menu
+
+Sing Sing's menu already has food (11.1). To add more, use Sing Sing's **Admin → Menu**: add an item (for example "Test Fries", $8.00) and set its **Station** to **Kitchen**. Add a second one with a required choice (for example a burger with "Cheese · pick one").
+
+In the steps below, "Jess's tab" means any bar tab at Sing Sing (Bar POS → **New tab**), "Room 9" means the room you started in 11.1, and Andy is Sing Sing's Andy.
 
 ### 11.3 How a kitchen ticket "prints" in the demo
 
@@ -927,13 +978,14 @@ There's no button for it. Switch your Mac's appearance: **System Settings → Ap
 5. "**Your details**": the marketing box ("Also text me news… Reply STOP anytime.") starts unticked. A non-US number is refused: "Check your name, your email and a US mobile number (+1)." Press **Continue**.
 6. On the payment page, try **Try a declined test card** first: "Your card was declined · try another card". Then press **Pay $50.00 deposit**.
 7. You should see "**Booked · we texted your confirmation and a link to manage your booking.**", with "Free to cancel until …" and $50 paid.
-8. The confirmation text is in Messages. Check http://localhost:8025 for an email too (not confirmed whether one is sent).
+8. The confirmation text ("Booking confirmed", with the `/b/…` manage link) is in Messages. The guest gets **no email**; that's by design.
+   - The venue can get an email copy of each online booking: as Abhishek, **Admin → Venue → Booking inbox → Add an address**, type `bookings@west4.local` and press **Save**. Book again: an email "**New booking · {name}, {party} guests, {when}**" ("{name} booked online at West 4 Boho Karaoke.") arrives at http://localhost:8025. Changes, cancellations and party enquiries send a copy too.
 9. If the hold runs out: "Your hold ran out, and the room went back on sale." / **Pick a time again**.
 10. In a second window, try to hold the same overlapping time: refused while the first hold lives.
 
 ### 12.4 Manage a booking
 
-**Where:** the manage link from the confirmation text (`/b/…`). The demo's own booking to manage is **Jae & co.** (5 guests, 11:00 PM, Room 3, $50 deposit); find its link in Messages if present.
+**Where:** the manage link from the confirmation text (`/b/…`) of a booking you made in 12.3, or the demo's own booking, **Jae & co.** (5 guests, 11:00 PM, Room 3, $50 deposit): open the `Jae & co.'s manage link` that the reset script printed (0.8; `node scripts/demo-links.mjs` makes a new one).
 
 1. **Change party size** 5 → 6: "Your deposit becomes $60.00", "Pay the $10.00 difference".
 2. 6 → 3 before the cut-off: deposit $40.00 and "$20.00 goes back to your card".
@@ -976,8 +1028,19 @@ Move the clock past 11:15 PM (`2026-09-26T03:20:00Z`). Mark The Nguyens a no-sho
 
 1. Sam O.'s "running 15 late" is unread. Open it and press **Reply "no problem"**: "No problem. We'll hold your room until 10:45 PM."
 2. Reply with "west4karaoke.com/book": refused. Staff replies can't carry links or promotions.
-3. STOP: a guest who texts STOP gets one confirmation, then nothing (no Room code at check-in). "please stop texting me" is caught too. Staff can mark an opt-out with one tap. HELP replies "West 4 Boho Karaoke… call +1 212 255 0011… Reply STOP to stop texts."
-   - How to send a guest's text into the demo isn't a button in the app. If you can't find one, skip this and note it.
+3. **A guest texts in (STOP, HELP).** There's no real phone in the demo, so a command sends a guest's text to the app the way Twilio would. In a second Terminal window:
+
+   ```
+   cd ~/Downloads/west4-karaoke
+   node scripts/demo-text.mjs "HELP"
+   ```
+
+   It sends the text from Jae & co.'s number (+1 347 555 0165). To send from another number, add it after the text, with no spaces: `node scripts/demo-text.mjs "STOP" +12125550123`. The first time after each reset it prints "Gave west4karaoke a pretend Twilio connection on +12122550011." (the demo has no Twilio; texts the app sends still only show in Messages). Each run ends with "Texted "…" from … to west4karaoke". Then reload **Messages**:
+   - **HELP**: the reply reads "**West 4 Boho Karaoke: for help, call +1 212 255 0011. Reply STOP to stop texts.**"
+   - **STOP** (also "unsubscribe", "cancel", "quit"…): one reply, "**You're unsubscribed from West 4 Boho Karaoke texts. You won't get any more.**", then nothing more goes to that number (for example no Room code text at check-in).
+   - "**please stop texting me**" counts as STOP too: `node scripts/demo-text.mjs "please stop texting me" +12125550124`.
+   - An ordinary text (`node scripts/demo-text.mjs "Running 10 min late, sorry" +12125550125`) lands unread in Messages. Under it, staff can press **Mark as an opt-out**, the one-tap opt-out for a guest who asks in other words.
+   - At Sing Sing (11.1), add `--venue singsing` before the text: `node scripts/demo-text.mjs --venue singsing "HELP"`.
 4. Move the clock to 10:50 PM: Marcus T. gets the Reminder text about 11:00 PM and staying on by the minute.
 5. **Admin → Texts** lists all 14 texts. Review ask and Birthday are off and can't be turned on. **Admin → Phone & texts** shows +1 212 255 0011.
 
@@ -1193,7 +1256,7 @@ See 9.4.
 Only after 11.1. See 11.4.
 
 ### 19.20 Deposits & cancelling
-First-hour deposit, 24 h, keep on late cancel, keep on no-show, 15-minute grace, $250 from 20 guests. Saving makes a new policy version shown on the booking page; older bookings keep theirs. **At a walk-in check-in** reads **Take a deposit** (West 4); the other choices are **Put a card on the tab** and **Nothing** (see 2.3). It still shows with Online booking off.
+First-hour deposit, 24 h, keep on late cancel, keep on no-show, 15-minute grace, $250 from 20 guests. Saving makes a new policy version shown on the booking page; older bookings keep theirs. **At a walk-in check-in** reads **Take a deposit** (West 4); the other choices are **Put a card on the tab**, **Keep the card behind the bar** (Sing Sing's, 11.1) and **Nothing** (see 2.3). It still shows with Online booking off.
 
 ### 19.21 Website
 See 12.9.
@@ -1260,11 +1323,11 @@ The Console is for Noraymi staff, not the venue. It isn't started by the demo sc
 4. "Step 2 of 2: touch your security key." Touch ID and phone passkeys are **refused**; it needs a USB security key. If you don't have one, use Chrome's pretend key:
    - Developer tools → the ⋮ menu → **More tools → WebAuthn**.
    - Tick **Enable virtual authenticator environment**.
-   - Add an authenticator with protocol **ctap2**, transport **usb**, and tick resident key and user verification.
+   - Add an authenticator with protocol **ctap2**, transport **usb**, and tick **Supports user verification** (resident key can stay unticked).
    - Press **Use your security key**.
 5. The first sign-in enrols the key; later ones check it.
 
-If sign-in fails at step 4, note the message. Not confirmed on a fresh demo by hand.
+You should land on **Venues**, with "Noraymi support · support@demo.west4.local". These are the steps the automated Console test takes (`e2e/console.spec.ts`). If sign-in fails at step 4, note the message ("The security key prompt was closed", "The security key didn't work" or "This browser can't use security keys").
 
 ### 21.2 What to check
 
@@ -1308,15 +1371,51 @@ The full screen-reader pass needs a real iPhone and Android phone (blocked, M5-1
 
 ---
 
-## 25. CAPTCHA and daily limits (being built now)
+## 25. CAPTCHA and daily limits
 
-**Being built now · steps confirmed when it lands.** This covers M2-27 (waitlist page and phone codes) and M5-05 (booking and enquiries). What the tickets ask for:
+Every public form (the waitlist page, texted codes, online booking and party enquiries) has a security check, Cloudflare Turnstile (D109), that the server confirms, and a daily limit per phone number, device and network. In the demo the check uses Cloudflare's **test keys**, which always pass, so you never solve a puzzle. Your Mac must be online: the check's script comes from Cloudflare. Resetting the night (0.9) clears the day's counts.
 
-1. Joining the waitlist, asking for a phone code, booking or sending an enquiry **without a valid CAPTCHA** is refused by the server, not just hidden on screen.
-2. Past the **daily limit** per phone number, internet address or device, a waitlist join or booking is refused with the reason in words. The next day it works again.
-3. Five payment retries on one booking still make only one payment.
+### 25.1 The security check on the waitlist page
 
-Exact screens, words and how to trigger the limits in the demo will be added here when the work is finished.
+**Where:** http://localhost:3001/v/west4karaoke/waitlist, phone size.
+
+1. The form has a "Security check" box with Cloudflare's widget, reading "**Testing only, always pass**" (Cloudflare draws those words for its test key). While it loads: "Checking you're a person. This takes a moment."
+2. Join with a name, a party size and a US mobile number: it works as in 2.5.
+3. Offline (turn Wi-Fi off, then reload): "The security check didn't load. Check your connection and refresh the page." Turn Wi-Fi back on.
+
+The same widget shows on **Book a room** (around the hold buttons) and on the **Private parties** enquiry form.
+
+### 25.2 The daily limit per phone
+
+The defaults are in Admin → Spam protection (25.3). On the waitlist, one phone number can join **3 times a day**.
+
+1. On the waitlist page, join with `+1 212 555 0199`.
+2. Press **Leave the waitlist** ("You've left the waitlist."). A number that is still waiting can't join again ("That number is already on the waitlist."), and that refusal doesn't count, so leave between joins.
+3. Join and leave again, twice more (3 joins in all).
+4. Join a 4th time with the same number: refused, "**You've reached today's limit for joining the waitlist from this phone or network. Ask the host at the door to add you.**"
+5. Another number still works. (The same browser also stops at 5 joins a day, the per-device limit.)
+
+The other forms' refusals:
+
+- **Online booking:** "You've reached today's limit for online bookings from this phone or network. Call us to book."
+- **Party enquiries:** "You've reached today's limit for party enquiries from this phone or network. Call us instead."
+- **Texted codes** (singers): "You've reached today's limit for codes from this number or phone. Ask the bartender to add you to the queue."
+
+### 25.3 Admin → Spam protection
+
+**Who:** Abhishek or Andy, **Admin → Spam protection** ("Daily limits on the waitlist, texted codes, booking and enquiries"). PIN staff can't open it.
+
+1. It lists four forms, each with "Per phone number", "Per device" and "Per network (IP address)", shown as "{n} a day":
+
+   | Form | Per phone | Per device | Per network |
+   | --- | --- | --- | --- |
+   | Waitlist page (door QR) | 3 | 5 | 50 |
+   | Texted codes (staff invites, singers) | 5 | 10 | 30 |
+   | Online booking (a hold; the phone at Your details) | 5 | 10 | 20 |
+   | Party enquiries | 3 | 5 | 10 |
+
+2. Set the waitlist's **Per phone number** to `1` and press **Save and publish**. Join the waitlist with a new number, leave, and join again: the second join is refused with the limit message.
+3. Only whole numbers from 1 to 1000 are accepted. Set it back to 3.
 
 ---
 
