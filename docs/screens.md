@@ -569,14 +569,14 @@ Food on the bar POS (K-05) follows `FoodBar.dc.html`: Food after the ten section
 
 ## Product for other venues (3)
 
-Screens for venues that aren't West 4 and for our own staff. They are phase 2, except a minimal Console, which is phase 1.
+Screens for venues that aren't West 4 and for our own staff. They are phase 2, except a minimal Console and the Setup wizard (owner onboarding, D113), which are phase 1.
 
 ### Setup
 
 [`Setup.dc.html`](../design/canvas/Setup.dc.html) · "P · New venue setup wizard" · 1280 × 800
 
-- **Becomes:** Setup wizard for a new venue: staff app and Admin in a browser (React + Vite). Phase 2; West 4 does not use it.
-- **Ships in:** Phase 2 ([not in phase 1](milestones.md#not-in-phase-1)).
+- **Becomes:** Set up your venue, the owner's onboarding wizard: staff app and Admin in a browser (React + Vite). Phase 1 since Oct 11, 2026 ([D113](decisions.md)); West 4 keeps its seed and does not need it. Build the 12 steps of [Owner onboarding](spec/17-onboarding.md), not the canvas's 10: the canvas's Songs step folds into step 12, its Payments step splits into Your plan (with a promo code and Stripe Checkout, D114), Card payments (Connect with Stripe) and Money at the counter, and it adds Hours, Deposits and check-in (four walk-in choices, D112 and D116), Team and contacts (the venue's on-call and breach contacts, D115) and Licenses. The canvas's Go live becomes Finish setup; the first live night follows the go-live runbook.
+- **Ships in:** Phase 1, [O · Owner onboarding](backlog/O-onboarding.md) (O-01 to O-14).
 - **Purpose:** The 10-step wizard a new venue walks through: venue, what it runs, rooms and prices, menu, songs, team, payments, devices, website, then a test night and Go live.
 - **Also build here, from the spec:** [N9](#n9-the-singers-queue-page) The singer's queue page, [N27](#n27-kj-song-queue-screen) KJ song-queue screen, [N28](#n28-up-next-tv) Up next TV, [N35](#n35-admin--licenses) Admin → Licenses.
 

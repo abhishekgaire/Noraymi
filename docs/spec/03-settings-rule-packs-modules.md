@@ -26,8 +26,9 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `messages` | When the reminder and offer-expiring texts go out |
 | `safety` | The occupancy limit and when the board warns (empty at West 4, and never guessed), and the age policy (D108): 21 and over, or all ages until a time and 21 and over after |
 | `languages` | The staff languages a venue offers: English and Spanish in phase 1 |
-| `kitchen` | Kitchen & food: the allergy notice in English and Spanish (empty keeps the module off), the kitchen's last order time (empty follows room ordering) and `unsentWarnMin`, how long staff-rung food may sit Not sent before the reminder (5 by default, 1 to 60). A venue that never saved it reads these defaults ([Kitchen and food](16-kitchen.md) · The Kitchen module) |
+| `kitchen` | Kitchen & food: the allergy notice in English and Spanish (empty keeps the module off), the kitchen's opening time (`opensAt`, empty opens with the venue; onboarding step 5) and last order time (empty follows room ordering) and `unsentWarnMin`, how long staff-rung food may sit Not sent before the reminder (5 by default, 1 to 60). A venue that never saved it reads these defaults ([Kitchen and food](16-kitchen.md) · The Kitchen module) |
 | `publicForms` | The public forms' daily limits (D109, Admin → Spam protection): per phone number, device and network (IP address), counted per business date, for the waitlist page, texted codes, online booking and party enquiries. A form left out reads its default. The security check itself (Cloudflare Turnstile) has no setting: it's always on |
+| `contacts` | The venue's own contacts, the owner's alone (D115, Admin → Venue → Contacts, first set in [onboarding](17-onboarding.md) step 9): up to 3 booking inbox addresses that get a copy of each online booking, change, cancellation and enquiry; the first and second on-call responders with the days and hours each answers; the breach contact and a backup. Only active owners or managers can be named; empty until the owner names them, never guessed |
 
 The money and time shapes:
 
@@ -76,17 +77,21 @@ type DepositRule = {
   bigParty: { fromGuests: number; deposit: { kind: "flat"; cents: number } | { kind: "pct"; pct: number };
               refundHours: number } | null;
                                  // a pct deposit is taken on the larger of room cost and the booking's minimum spend
-  walkIn?: "deposit" | "cardOnTab" | "nothing";
+  walkIn?: "deposit" | "cardOnTab" | "cardBehindBar" | "nothing";
                                  // what a walk-in check-in takes (D112), in Admin → Deposits & cancelling, owner or
                                  // manager. Missing reads "deposit" (West 4): today's step 5. "cardOnTab" (Sing Sing):
                                  // once seated, the guest taps a card on the reader and it's saved on the room's check
-                                 // (a `check_cards` row), nothing charged. Online bookings keep the rule above.
+                                 // (a `check_cards` row), nothing charged. "cardBehindBar" (D116): staff keep the guest's
+                                 // physical card and type its name and last 4 on the check; no reader, nothing charged;
+                                 // given back at close-out. Online bookings keep the rule above.
 };
 
 type CardFee =
   | { mode: "off" }
   | { mode: "surcharge"; pct: number; noticeSentOn: string | null }   // credit only; one rate, capped at the in-person card cost
-  | { mode: "discount"; pct: number };   // 0 to 10; the venue's own rate, 0 (no discount) until a manager sets it (D105)
+  | { mode: "discount"; pct: number;   // 0 to 10; the venue's own rate, 0 (no discount) until a manager sets it (D105)
+      foodIncludesFee?: boolean };     // with the Kitchen module: false means food prices are cash prices the discount
+                                       // never applies to; missing reads true (onboarding step 7)
 
 type PaySettings = {
   cardFee: CardFee;                                  // off at West 4
@@ -291,4 +296,4 @@ Event sales, Guests, loyalty & gift cards, and Multiple locations are phase 2 or
 
 Beta and rollout switches are separate from modules: `venue_flags (venue_id, flag, on, set_by)`, read by the API and the screens, with our own test venue first in line.
 
-**Plan billing** runs on Stripe Billing in our own platform account, with one `venue_subscriptions (venue_id, plan, stripe_subscription_id, room_quantity, status)` row per venue. The per-room fee counts every room that isn't archived, so a room switched off for the night still counts. Add-ons become subscription items once they have prices. Billing events from our own account arrive on their own webhook endpoint. A failed plan payment shows a banner, then makes Admin read-only after 14 days; the board, rooms, bar and payments never switch off during opening hours. Prices live only in Stripe, as Prices found by lookup key, so none is written in our code; a venue's plan is started by an ops command once they exist. Admin turns read-only at the first business-date cutover at least 14 calendar days after the failure, so nothing changes mid-night: every Admin write then answers `403 admin_read_only`, except paying our plan, erasing a guest or a singer on request, and taking access away (a team member, a badge, a device, support access) (D94).
+**Plan billing** runs on Stripe Billing in our own platform account, with one `venue_subscriptions (venue_id, plan, stripe_subscription_id, room_quantity, status)` row per venue. The per-room fee counts every room that isn't archived, so a room switched off for the night still counts. Add-ons become subscription items once they have prices. Billing events from our own account arrive on their own webhook endpoint. A failed plan payment shows a banner, then makes Admin read-only after 14 days; the board, rooms, bar and payments never switch off during opening hours. Prices live only in Stripe, as Prices found by lookup key, so none is written in our code; a venue's plan is started by its owner in [onboarding](17-onboarding.md) step 2, through a Stripe Checkout Session with an optional promo code (D114), or by our ops command once the Prices exist. Admin turns read-only at the first business-date cutover at least 14 calendar days after the failure, so nothing changes mid-night: every Admin write then answers `403 admin_read_only`, except paying our plan, erasing a guest or a singer on request, and taking access away (a team member, a badge, a device, support access) (D94).

@@ -22,6 +22,7 @@ Sep 29, 2026 · the technical spec for phase 1 of the karaoke-venue POS and oper
 | [14 · Open technical questions](14-open-questions.md) | What's still open, who answers, and which milestone each blocks |
 | [15 · Sources](15-sources.md) | The Stripe docs, laws, standards and research behind the spec |
 | [16 · Kitchen and food](16-kitchen.md) | Approved Oct 9, 2026: the Kitchen module for Sing Sing Astoria, stations, kitchen tickets, food orders and runs, 86, food in packages, tax and the allergy notice |
+| [17 · Owner onboarding](17-onboarding.md) | Oct 11, 2026: Set up your venue, the owner's wizard from the Console's invite to Ready to open: the plan and promo code, Connect with Stripe, rooms, hours, deposits and the four walk-in choices, menu, team and the venue's contacts, licenses |
 
 ## Other docs
 

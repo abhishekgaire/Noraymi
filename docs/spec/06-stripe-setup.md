@@ -1,6 +1,6 @@
 ## Stripe setup
 
-Each venue gets its own Stripe account under our platform. We create it, the owner finishes Stripe's onboarding, and from then on every payment, reader and refund is an API call with one of our restricted keys plus the venue's account id in the `Stripe-Account` header, the pattern Stripe documents for [Terminal with direct charges](https://docs.stripe.com/terminal/features/connect?connect-charge-type=direct).
+Each venue gets its own Stripe account under our platform. The owner's Connect with Stripe in [onboarding](17-onboarding.md) step 3 creates it (our `stripe:create-account` command does the same for our staff), the owner finishes Stripe's onboarding, and from then on every payment, reader and refund is an API call with one of our restricted keys plus the venue's account id in the `Stripe-Account` header, the pattern Stripe documents for [Terminal with direct charges](https://docs.stripe.com/terminal/features/connect?connect-charge-type=direct).
 
 **1. Create the venue's account.** Stripe tells new platforms to use [Accounts v2](https://docs.stripe.com/connect/accounts-v2). The venue pays Stripe's fees and Stripe covers losses, as decided:
 
@@ -27,7 +27,7 @@ POST /v2/core/accounts
 
 Stripe's own example pins a preview API version, so pin one version for the whole codebase and upgrade on purpose. With the venue paying fees directly, [Stripe files its 1099-K](https://docs.stripe.com/connect/tax-reporting).
 
-**2. Onboarding.** Setup step 7's "Connect with Stripe" button opens Stripe's hosted or embedded onboarding, so bank details and IDs never pass through us. The `account.updated` webhook tells us when card payments are enabled, and Admin shows a banner whenever Stripe needs more information.
+**2. Onboarding.** The "Connect with Stripe" button in [Set up your venue](17-onboarding.md) step 3 (Admin → Payments afterwards) creates the account when the organization has none, with one idempotency key per organization and never inside a transaction, then an Account Link that opens Stripe's hosted onboarding, so bank details, the EIN and IDs never pass through us and the owner never pastes a key (D113). A second venue of the same organization reuses its account. The `account.updated` webhook tells us when card payments are enabled, and Admin shows a banner whenever Stripe needs more information.
 
 **3. Merchant category.** Set each account's category to match the business: drinking places for a bar, eating places for a restaurant. [Tips added on the receipt](https://docs.stripe.com/terminal/features/collecting-tips/on-receipt) and Discover's [growing holds](https://docs.stripe.com/terminal/features/incremental-authorizations) depend on it, so Setup checks the category before bar tabs can be turned on.
 
@@ -47,7 +47,7 @@ POST /v1/terminal/readers          Stripe-Account: acct_venue   registration_cod
 | --- | --- | --- | --- |
 | Reader actions | Connected accounts | `terminal.reader.action_succeeded`, `action_failed`, `action_updated` | On the payment's critical path, with its own worker pool |
 | Venue payments | Connected accounts | `payment_intent.succeeded`, `amount_capturable_updated`, `payment_failed`, `requires_action`, `canceled`; `charge.refunded`; `refund.updated`, `refund.failed`; `charge.dispute.created`, `closed`, `funds_withdrawn`, `funds_reinstated`; `payout.reconciliation_completed`; `account.updated`; `setup_intent.succeeded`, `setup_intent.setup_failed` (cardHold, added in M5-13 and flagged for the founder) | Keeps our payments in step with Stripe |
-| Our billing | Our platform account | `customer.subscription.updated`, `deleted`; `invoice.paid`, `payment_failed` | Plan billing |
+| Our billing | Our platform account | `customer.subscription.updated`, `deleted`; `invoice.paid`, `payment_failed`; `checkout.session.completed` (a plan started in onboarding, D114) | Plan billing |
 
 Each handler checks its endpoint's own signing secret, rejects an event whose `livemode` doesn't match the environment, stores the event id once in `webhook_events` and hands off to a job, so Stripe gets a 200 right away. The job resolves the venue from `event.account` and finds the payment by `stripe_pi_id`, never by metadata, which a venue owner can edit in their own Stripe Dashboard. It reads the object again from Stripe and applies the payment state machine under a row lock. [Stripe doesn't guarantee event order](https://docs.stripe.com/webhooks), so states only move forward, and a late or repeated event changes nothing. The webhook job, the screens' "check status" action and a reconciler that runs every 5 minutes all go through the same state machine. Staging uses a connected sandbox account, so reader events arrive exactly as they will in production. Training mode has a fourth endpoint, `/v1/hooks/stripe/training`, on its own sandbox: it has its own signing secret, takes only test-mode events (in production too), resolves the venue only through the organization's sandbox account, and applies events only to practice payments, while the live endpoints never apply an event to a practice payment ([Security and data retention](12-security-retention.md) 15).
 

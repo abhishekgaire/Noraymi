@@ -179,7 +179,7 @@ The platform runs each venue as a separate account on one codebase, with card pa
 
 **Accounts and data.** Each venue's data is walled off from every other venue, which AWS calls [fundamental to SaaS](https://docs.aws.amazon.com/whitepapers/latest/saas-tenant-isolation-strategies/saas-tenant-isolation-strategies.html). An owner account sits above its venues, with one Stripe account per legal entity and one card-reader Location per venue. Reader tokens are [scoped to that Location](https://docs.stripe.com/terminal/features/connect.md?connect-charge-type=direct), so readers can't cross venues.
 
-**Setup wizard.** Ten steps, as on the canvas (phase 2):
+**Setup wizard.** Ten steps, as on the canvas. Since Oct 11, 2026 it is phase 1 as owner onboarding, built from the 12 steps in [Owner onboarding](spec/17-onboarding.md), which win over this list (D113):
 
 1. Your venue: name, address and license; the address picks the rule pack.
 2. What you run: private rooms, a bar with a karaoke mic or both, which picks the plan and modules.
@@ -412,25 +412,21 @@ Online ordering and delivery, scheduling and automatic answers to guest inquirie
 
 ## Open decisions
 
-Seventeen decisions and questions are still open: the founder leads 9, a lawyer answers 4, and the accountant, the health department, Stripe and a PCI assessor answer one each. The spec's [Open technical questions](spec/14-open-questions.md) hold their full wording. Decisions already made are listed under Decided, and the [decision log](decisions.md) gives each one's date, reason and where it's specified.
+Thirteen decisions and questions are still open: the founder leads 6, a lawyer answers 4, and the accountant, Stripe and a PCI assessor answer one each (the health department's Food Protection Certificate question was answered by the founder, D120). The spec's [Open technical questions](spec/14-open-questions.md) hold their full wording. Decisions already made are listed under Decided, and the [decision log](decisions.md) gives each one's date, reason and where it's specified.
 
 | Decision or question | Who answers | Why it matters |
 | --- | --- | --- |
 | Product name and company entity | Founder, with lawyer | Needed for our Stripe platform account, without which the payments milestone can't start, and for venue contracts and insurance; shortlist to pick from: Hookline, Nightsong, Tabline or Kue, then a trademark search |
-| Plan prices | Founder, after pilots | Tests the proposed $149, $249 and $349 plans and the $12 room fee |
-| Support hours | Founder | Bars run to 4 AM, and 24/7 phone support is a selling point |
 | Song systems to support first | Founder | Playbox (West 4, Gagopa), KaraFun ([the only documented venue API](https://business.karafun.com/api-integrations)), Singa (AUX) and TJ Media (Korean rooms) need different adapters; proposed order: works with any system at launch, then KaraFun, OpenKJ, Playbox once it agrees and Singa through a partner deal |
 | Playbox relationship | Founder, with Playbox and Sing Sing Media | Room lock, volume and song-start signals need their help, and [Sing Sing Media](http://www.singsingmedia.com/) sells a rival POS |
 | Mic-receiver outlet trial | Founder, with West 4, after a Playbox warranty check | Until Playbox signs, nothing stops the next song after close-out; a switched outlet on one room's wireless-mic receiver (not the player), on at check-in and off at close-out, lets our clock do it. It runs only with West 4's approval |
 | West 4's song price without a drink credit | Founder | West 4 runs "Buy a drink, get a song" and hasn't priced a song without a credit, so for now every bar-mode song needs a drink credit and Admin shows "Song price · not set" |
 | SOC 2 timing | Founder | Costs [$15.5K–$50K](https://soc2auditors.org/soc-2-audit-cost/) and 6–12 months; multi-site groups are likelier than single bars to ask for it |
-| Native app for offline | Founder, with engineering | Stripe stores card payments offline [only in native apps](https://docs.stripe.com/terminal/features/operate-offline/overview.md?reader-type=internet), so a web-only product can't; to decide early in phase 2 (K10) |
 | Card fee and gratuity guardrails | Lawyer | How New York treats debit under a cash discount, and whether NYC's [proposed junk-fee rules](https://rules.cityofnewyork.us/wp-content/uploads/2026/07/DCWP-NOH-Rules-Relating-to-Junk-Fees.pdf) cover an automatic gratuity |
 | Alcohol and licensing | Lawyer | Can a room booking be a [§117-a](https://www.nysenate.gov/legislation/laws/ABC/117-A) private function, and when does that cover a drink package? Is "buy a song, get a drink" allowed? Is drinking-up measured from the county close? Does [Yonkers' cabaret law](https://ecode360.com/15111563) cover karaoke? |
 | Staff and messages | Lawyer | Which jobs share the [tip pool](https://www.law.cornell.edu/regulations/new-york/12-NYCRR-146-2.14) at West 4, such as karaoke hosts and security, and in what shares? May the automatic room gratuity be pooled by hours when [146-2.18](https://www.law.cornell.edu/regulations/new-york/12-NYCRR-146-2.18) ties a gratuity to the staff who served? Can gratuity refunded after a payout come off the next pool, and is checking tip-credit coverage our report's job or payroll's? Are review-ask and birthday texts marketing? |
 | Data and food | Lawyer | How long may ID scans be kept, may a banned list use them, and is handing them to NYPD "dissemination" under [§65-b](https://www.nysenate.gov/legislation/laws/ABC/65-B)? Who tells whom after a breach, for the data processing addendum? Does [PHL §1356](https://www.nysenate.gov/legislation/laws/PBH/1356) apply to bars with kitchens? |
 | Tax on fees and room time | Accountant | Are room time, damage fees, cake-cutting fees, kept deposits and no-show charges taxable at [8.875%](https://www.tax.ny.gov/pubs_and_bulls/tg_bulletins/st/admission_charges.htm), and does each kept deposit need its own check number? Is a card surcharge part of the taxable sale, and does a cash discount lower it? Which business date gets sales made after midnight on the nights a tax quarter ends? |
-| Food supervision | Health department (DOHMH) | Must a [Food Protection Certificate](https://www.nyc.gov/assets/doh/downloads/pdf/about/healthcode/health-code-article81.pdf) holder be on site during bar-only hours after the kitchen closes? |
 | Payment page and PCI | PCI assessor (QSA) | Which PCI validation we file, and what script-protection confirmation we give venues for the payment page |
 | Stripe confirmations | Stripe | Can a reader payment change its amount between collect and confirm? Can a surcharge follow a growing hold? Is a tip added on the reader part of the surcharged amount? Which Accounts v2 features we use are on stable API versions? Which merchant category fits each venue type? Does a reader move to cellular when the Wi-Fi stays up but the internet behind it is down? Does a collected card carry its fingerprint before any hold, and does a tip picked on the reader hold up like a signed slip? |
 
@@ -440,6 +436,7 @@ Newest first. The [decision log](decisions.md) lists these and every other dated
 
 | Date | Decision | What we do | Where it shows |
 | --- | --- | --- | --- |
+| Oct 11, 2026 | Plans, support hours and the native app | The three proposed plans at $149, $249 + $12 a room and $349 + $12 a room, made in Stripe and picked by each owner at onboarding with an optional 1-month-free promo code (D114); support from 9 AM to 5 PM Eastern on weekdays, with paging still covering every opening hour (D117); a native app for offline card payments early in phase 2 (D118) | [Owner onboarding](spec/17-onboarding.md); [decision log](decisions.md) |
 | Sep 29, 2026 | Design canvas | Frozen at v39, with its 27 screens as they are. Where the canvas and the spec differ, the spec wins | [design/canvas](../design/canvas/boards.json); the [spec](spec/README.md) |
 | Sep 28, 2026 | Front desk role | A fifth default role: the front desk takes payments and closes out rooms, runs check-in, the waitlist and bookings, and uses the bar POS when covering the bar, which Admin can switch off. Staff are runners | Roles and permissions; [Tenancy and access](spec/02-tenancy-access.md) |
 | Sep 28, 2026 | Cash drawers at West 4 | Two drawers, one at the bar and one at the front desk, each a house drawer the manager on duty answers for. Cash goes into the drawer where it's taken, and the log names who took it. A drawer per person stays the switch in Admin → Cash drawers | Cash drawers; [Money rules](spec/05-money-rules.md) 15 |

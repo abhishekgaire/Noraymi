@@ -1,0 +1,246 @@
+# O · Owner onboarding
+
+Oct 11, 2026 · the tickets for [Owner onboarding](../spec/17-onboarding.md): a new venue's owner sets the venue up in a wizard, and Admin can change every answer later ([D113](../decisions.md) to [D116](../decisions.md)). Sing Sing is the first venue onboarded this way, so this runs before [S · Sing Sing go-live](S-sing-sing-go-live.md)'s S-01. One ticket per Claude Code session.
+
+**Goal (usable when done):** our Console makes a venue and invites its owner; the owner chooses a plan, connects Stripe, and enters the venue's rooms, prices, hours, deposits, menu, team, contacts and licenses in Set up your venue until it reads Ready to open, and every answer is editable afterwards in Admin.
+
+**Done when:**
+
+- A venue made in the Console from nothing reaches Ready to open in the demo by its owner alone, with no SQL and no ops command.
+- Every answer the wizard saved shows, and can be changed, in its Admin section, and the wizard, Admin and the Console's venue list read the same rows.
+- Sing Sing's own values (the founder's and its manager's) are entered through the wizard.
+
+**Depends on:** M1 to M8 and K · Kitchen (the Admin routes the wizard reuses). **Size:** about 4 weeks (4 S, 10 M).
+
+## Suggested order
+
+1. **Shell:** O-01, then O-02.
+2. **Outside accounts:** O-04 and O-05 (both need the fake Stripe, and the sandbox for staging).
+3. **Steps:** O-03, O-06, O-07, O-09, O-10, O-11, O-12, O-13, in any order once O-02 is done; O-08 after O-07.
+4. **Proof:** O-14.
+
+Definition of done: see CLAUDE.md.
+
+## Tickets
+
+### O-01 · Console: create a venue and invite its owner
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** M1-05 (organizations, venues, memberships), M1-19 and M1-23 (enroll and invites), M1-18 (email), the minimal Console (support grants, the venue list)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Who runs it; [Tenancy and access](../spec/02-tenancy-access.md)
+- **Build:**
+  - `POST /v1/console/venues` (Console staff, audited with who and why): the venue's name, the slug, a new organization's legal name or an existing organization, and the owner's name and email. Creates the rows with America/New_York, the 6:00 AM cutover and the New York rule pack, the core modules on and nothing else allowed, and an `invited` owner membership. Nothing else is filled in.
+  - `POST /v1/console/venues/{v}/owner-invite`: emails a 7-day link; Send again ends the old link. Opening it runs the existing enroll path and lands on Set up your venue.
+  - The Console's New venue form and the venue list's "Owner invited · not yet signed in" and checklist count.
+- **Acceptance:**
+  - [ ] New venue makes an organization, a venue and an invited owner, and nothing else (no hours, rooms, prices, settings rows or contacts).
+  - [ ] The owner's link enrolls a passkey and opens Set up your venue; an expired or replaced link is refused with the reason.
+  - [ ] A slug already taken is refused; a second venue under an existing organization reuses its Stripe account id.
+  - [ ] Only Console staff can call the routes; every route has a principal test and a venue-wall test.
+- **Tests:** integration tests against Postgres with row-level security on; Mailpit for the email; the principal and wall suites.
+- **Notes:** replaces the SQL in `scripts/demo-local.sh` for new venues only; West 4's seed is unchanged.
+
+### O-02 · Build the wizard shell: steps, progress, save and resume, skip, the checklist
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-01; M1-31 (the Admin shell)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · How it behaves, What's required before Ready to open; [screens: Setup](../screens.md#setup)
+- **Build:**
+  - Set up your venue in the staff app (phone and desktop): the rail of 12 steps with done, needs attention, skipped and not started marks; "Step N of 12", "N of 12 done"; Back, Continue, Skip for now, Save and finish later.
+  - `GET /setup` works out each step's state from the saved rows (never its own copy), and the required list per plan; `POST /setup/finish` stamps `venues.setup_completed_at` and turns on the modules the owner ticks through `PATCH /modules/{id}`.
+  - Signing in opens the first step not done until finished; Admin → Setup keeps the checklist; a manager sees it read-only.
+  - Empty step bodies for O-03 to O-13 to fill.
+- **Acceptance:**
+  - [ ] Saving a step and signing in on another device opens the next step not done.
+  - [ ] A skipped required step shows "Needed before you open"; Finish setup is refused, listing each missing step with a link.
+  - [ ] The Console's venue list and Admin → Setup show the same count as the wizard.
+  - [ ] English and Spanish; touch targets of at least 44 px; loading, empty and error states.
+- **Tests:** unit tests for the required list per plan; integration tests for `GET /setup` and `POST /setup/finish`; a Playwright test of save and resume.
+
+### O-03 · Step 1, Your venue, and Admin → Venue with the booking inbox
+
+- **Status:** todo
+- **Size:** S
+- **Depends on:** O-02; M2-10 (Admin → Phone & texts), M1-18 (email)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 1; [Settings](../spec/03-settings-rule-packs-modules.md) · `contacts`
+- **Build:**
+  - The step's form and Admin → Venue (owner): the venue's name, the address, the legal name, the guest phone and `contacts.bookingEmails` (up to 3).
+  - An address outside New York is refused with "contact us"; the time zone and rule pack never change here.
+  - A copy of each new online booking, change, cancellation and enquiry goes to the booking inbox, with no card data; empty sends none.
+- **Acceptance:**
+  - [ ] The step's answers show in Admin → Venue and Admin → Phone & texts, and changing them there changes the checklist.
+  - [ ] A new online booking sends one email to each booking inbox address (Mailpit), and none when empty.
+  - [ ] No EIN field exists anywhere in our forms or tables.
+- **Tests:** integration tests; Mailpit; a venue-wall test for `contacts`.
+
+### O-04 · Step 2, Your plan: three plans, a promo code and Stripe Checkout
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-02; M8-15 (plan billing); the fake Stripe
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 2; [Settings](../spec/03-settings-rule-packs-modules.md) · Plan billing; [D94](../decisions.md), [D114](../decisions.md)
+- **Build:**
+  - What you run and the three plan cards, their prices read from Stripe by lookup key; a missing key reads "Not available yet".
+  - `GET /plan/promo?code=` against our platform account's active Promotion Codes; `POST /plan/checkout` makes a Checkout Session in subscription mode (the billing key, the Customer, the plan and per-room Prices, the promotion code), idempotency-keyed per attempt, never inside a transaction.
+  - `checkout.session.completed` added to the Our billing endpoint; it and `customer.subscription.updated` write `venue_subscriptions` and set `venue_modules.allowed` from the plan; the reconciler checks a session left open.
+  - The fake Stripe learns Checkout Sessions and Promotion Codes, and seeds one 100%-off-for-a-month code for tests only.
+- **Acceptance:**
+  - [ ] Choosing Rooms with the test promo code and finishing Checkout on the fake Stripe starts a subscription with a first invoice of $0.00 and the room count, and allows the Rooms modules.
+  - [ ] An unknown or expired code reads "That code isn't valid" and Checkout isn't offered with it.
+  - [ ] With a lookup key missing, Start plan is off and nothing is sent to Stripe.
+  - [ ] The Bar plan allows no room module, and the Rooms step is skipped.
+  - [ ] No price or promo code is written in our code or settings.
+- **Tests:** integration tests on the fake Stripe; webhook signature tests; a Playwright test of the step.
+
+### O-05 · Step 3, Card payments: Connect with Stripe
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-02; M4-01 (the Stripe client, `stripe:create-account`), M4-03 (webhooks)
+- **Spec:** [Stripe setup](../spec/06-stripe-setup.md) 1, 2 and 10; [Owner onboarding](../spec/17-onboarding.md) · Step details 3
+- **Build:**
+  - `POST /payments/stripe/connect` (owner): creates the organization's Accounts v2 account when it has none, with the legal name and the owner's email (one idempotency key per organization), then an Account Link to Stripe's hosted onboarding; the return URL comes back to the step.
+  - The step's states from `account.updated`: Not connected, Waiting for Stripe…, Stripe needs more from you, Connected · card payments on; a second venue of the organization shows Connected through its organization.
+  - Once card payments are on, the payment-method domain and the Terminal Location are made, as `stripe:create-account` does today.
+- **Acceptance:**
+  - [ ] Connect with Stripe on the fake Stripe makes one account, and pressing it twice makes no second account.
+  - [ ] `account.updated` with card payments enabled marks the step done; without, the step needs attention with Continue with Stripe.
+  - [ ] No key is pasted or stored from the owner; only `organizations.stripe_account_id`.
+- **Tests:** integration tests on the fake Stripe and, in staging, the sandbox; the wall suite for the new route.
+
+### O-06 · Steps 4 and 5: rooms and prices, hours, kitchen times, the age policy
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-02; M2-04 (Admin → Rooms), M2-03 (time bands), Admin → Hours, K-01 (`kitchen`), the age policy (D108)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 4 and 5; [Settings](../spec/03-settings-rule-packs-modules.md) · `prices`, `hours`, `kitchen`, `safety`
+- **Build:**
+  - The steps reuse Admin's forms and routes: rooms (name, size, capacity, bookable online), the rate mode, billing step, minimum guests, happy-hour bands, the VIP rate; weekly hours and last call; `kitchen.lastOrder` and the new optional `kitchen.opensAt`; the age policy, confirmed even at its default.
+  - The Food Protection Certificate line under the kitchen times (D120); nothing enforces it.
+- **Acceptance:**
+  - [ ] Six rooms with sizes, capacities and rates saved in the wizard show in Admin → Rooms and Admin → Prices, and the plan's room quantity is 6.
+  - [ ] A last call later than the rule pack's close is refused with the reason.
+  - [ ] `kitchen.opensAt` empty means the kitchen opens with the venue; the kitchen fields hide without the Kitchen module allowed.
+  - [ ] No capacity, rate or time is filled in for the owner.
+- **Tests:** integration tests; unit tests for `kitchen.opensAt` with the kitchen's ordering window; a Playwright test of both steps.
+
+### O-07 · Step 6: deposits, card holds and the four walk-in choices
+
+- **Status:** todo
+- **Size:** S
+- **Depends on:** O-02; M5-12, M5-13 (deposits and card holds), D112's walk-in setting
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 6; [Settings](../spec/03-settings-rule-packs-modules.md) · `DepositRule`
+- **Build:**
+  - The step reuses Admin → Deposits & cancelling: the online deposit or card hold, free-cancel hours, late-cancel and no-show, grace minutes, big parties, the largest party online.
+  - At a walk-in check-in offers Take a deposit, Put a card on the tab, Keep the card behind the bar (built in O-08) and Nothing, in Admin too.
+- **Acceptance:**
+  - [ ] Each of the four choices saves and shows the same in Admin → Deposits & cancelling.
+  - [ ] Deposits off with Put a card on the tab saves, as Sing Sing's row in venue.md reads.
+- **Tests:** integration tests; the Spanish strings.
+
+### O-08 · Keep the card behind the bar at a walk-in check-in
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-07; M2-11 (check-in and walk-ins), M4 (close-out), M7 (Close the night)
+- **Spec:** [Staff screens](../spec/10-staff-screens-bar-pos.md) · Check in; [Settings](../spec/03-settings-rule-packs-modules.md) · `DepositRule.walkIn`; [D116](../decisions.md)
+- **Build:**
+  - `deposit.walkIn: "cardBehindBar"`. After Seat them, the check-in asks for the name on the card and its last 4 digits (exactly 4 digits) and saves them on the room's check (`check_held_cards`: name, last 4, taken by, taken at, returned by, returned at; forced row-level security and a venue-wall test). No reader, no Stripe call, nothing charged.
+  - The room tile and the room's check show "Card behind the bar · M. TORRES ···· 4242"; close-out ends with "Give the card back" and Returned; a room moved keeps its card.
+  - Close the night lists any card not returned ("Cards still behind the bar"); the name and last 4 are cleared at the business date's close, keeping only who took and returned it and when.
+  - Skip the card is allowed, with the reason, like D112's.
+- **Acceptance:**
+  - [ ] With Keep the card behind the bar, a walk-in check-in saves the name and last 4 and nothing reaches Stripe.
+  - [ ] A field that isn't 4 digits is refused; a full card number is never accepted anywhere.
+  - [ ] Close-out asks to give the card back, and Close the night lists a card not returned.
+  - [ ] After the close, the name and last 4 are gone from the row.
+- **Tests:** integration tests against Postgres with row-level security on; the wall suite; a Playwright test of a walk-in from check-in to close-out; a log test that the name and last 4 never reach a log.
+
+### O-09 · Step 7: the cash discount, food and the card fee, gratuity and drawers
+
+- **Status:** todo
+- **Size:** S
+- **Depends on:** O-02; M4 (the card fee), M7 (drawers), K-10 (food tax)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 7; [Money rules](../spec/05-money-rules.md) rule 10
+- **Build:**
+  - The step reuses Admin → Payments and Admin → Cash drawers. New: `pay.cardFee.foodIncludesFee` in discount mode; with false, the discount never applies to kitchen items.
+- **Acceptance:**
+  - [ ] Write the money cases first: a cash discount on a mixed drinks and food check, with `foodIncludesFee` true and false, rounding half up, the parts adding up.
+  - [ ] The step's answers show in Admin; a drawer change starts at the next business date.
+- **Tests:** unit tests in `packages/rules` from the new `seed/money-cases.json` group; integration tests.
+
+### O-10 · Step 8: the menu by hand, by spreadsheet or by request
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-02; M3-04 (Admin → Menu), M9-04 (the menu importer), M2-13 (uploads), K-08 (the allergy notice)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 8
+- **Build:**
+  - Type items in Admin → Menu's editor; upload a spreadsheet that runs M9-04's importer as a dry run the owner checks before saving; or upload a PDF or photo that becomes a Console request for our team.
+  - The open points the importer couldn't settle listed on their items; pour sizes and Draft (D105); the allergy notice field.
+- **Acceptance:**
+  - [ ] Sing Sing's menu file from `docs/venues/sing-sing/import/` loads through the step as a dry run, then saves on "Looks right".
+  - [ ] A PDF upload saves nothing to the menu and shows in the Console.
+  - [ ] The step is done with one item with a price.
+- **Tests:** integration tests; a Playwright test of the spreadsheet path.
+
+### O-11 · Step 9: team invites and the venue's on-call and breach contacts
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-02; M1-23 (invites), M1-31 (Admin → Team), M8-17 (paging runbooks), M8-19 (the breach runbook)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 9; [D115](../decisions.md)
+- **Build:**
+  - Invites through `POST /team/invite`; the list shows who has set a PIN.
+  - `contacts.onCall` (first and second, with days and hours) and `contacts.breach` (primary and backup), owner only, in the step and Admin → Venue → Contacts; only an active owner or manager can be picked; deactivating one clears the slot and flags the checklist.
+  - Our runbooks and the Console's venue page show the venue's contacts; the breach notice goes to the owner and the breach contact.
+- **Acceptance:**
+  - [ ] Inviting a manager by phone sends the invite; the step is done once a manager has set a PIN and both contacts are named.
+  - [ ] Deactivating the breach contact empties the slot and the checklist needs attention.
+  - [ ] Our platform rota (`oncall_rota`) is untouched by anything here.
+- **Tests:** integration tests; the wall suite for `contacts`; Spanish strings.
+
+### O-12 · Steps 10 and 11: licenses, texts registration, website and the old system's files
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-02; M8-09 (licenses), M2-09 (the Twilio subaccount), M8-22 (the campaign check), M9-01 (the importer), M9-09 (the domain move)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 10 and 11
+- **Build:**
+  - The license register in the step (the liquor license required; food permit and Food Protection Certificate holders with a kitchen; music licenses warn).
+  - Register for texts: the 10DLC form sends the brand registration to Twilio on the venue's subaccount, idempotency-keyed, never inside a transaction; the EIN is sent once and never stored or logged; before the subaccount exists the step says so.
+  - The website question and the old system's files (`POST /files`), each becoming a Console request.
+- **Acceptance:**
+  - [ ] The liquor license saved in the wizard shows in Admin → Licenses with its reminder.
+  - [ ] Register for texts against Twilio's test credentials sends one registration, and the EIN appears in no table and no log.
+  - [ ] Uploaded export files show in the Console for our team; nothing is imported until the owner signs the dry run.
+- **Tests:** integration tests with Twilio test credentials; a log test for the EIN.
+
+### O-13 · Step 12: devices, the go-live checks and Finish setup
+
+- **Status:** todo
+- **Size:** S
+- **Depends on:** O-02; M1-15 (pairing), M3-13, M3-14 (printers), M4-02 (readers), M4-29 (the go-live checklist)
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 12
+- **Build:**
+  - What's paired, linked to Admin → Printers & devices; the M4-29 checklist for any venue; the song system (`none` without a partnership); the checklist and Finish setup.
+- **Acceptance:**
+  - [ ] With a simulated reader registered, a receipt printer with a drawer paired and the merchant category set, the step is done.
+  - [ ] Finish setup with every required step done stamps the venue and turns on only the modules ticked.
+- **Tests:** integration tests on the fake Stripe's simulated readers; a Playwright test.
+
+### O-14 · Onboard a new venue from scratch in the demo, then enter Sing Sing's values
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** O-01 to O-13
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md); [Sing Sing](../venues/sing-sing/venue.md)
+- **Build:**
+  - A Playwright test from a fresh demo seed: the Console makes "Test Karaoke" and invites its owner; the owner enrolls, picks Rooms + Kitchen with the test promo code, connects the fake Stripe, enters 3 rooms, hours, deposits, a walk-in choice, a menu, one manager, contacts and a liquor license, pairs a simulated reader and a virtual printer, and reaches Ready to open; then a walk-in is checked in and closed out on the new venue.
+  - A runbook section in `docs/venues/sing-sing/venue.md` for entering Sing Sing's own values through the wizard (the founder's and the manager's), each marked entered or still to give.
+- **Acceptance:**
+  - [ ] The test passes from a fresh seed with no SQL and no ops command, and West 4's demo night is unchanged.
+  - [ ] Every value Sing Sing has given is entered through the wizard on staging, and the checklist lists only what its manager still owes.
+- **Tests:** Playwright; the principal and wall suites still pass with the new venue present.

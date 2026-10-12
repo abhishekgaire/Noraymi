@@ -9,7 +9,7 @@ What Sing Sing's own public website says about the venue, read on Oct 11, 2026 f
 | Name | Sing Sing Karaoke Astoria | The venue's name |
 | Address | 25-30 Broadway, Astoria, NY 11106 (on Broadway between Crescent St and 29th St, Astoria, Queens) | The venue's address |
 | Phone | (929) 739-7310 | Admin → Phone & texts, call number (to confirm: the texting number is our own Twilio number) |
-| Email | admin@singsingastoria.com | Not a setting; the manager decides which inbox gets booking emails |
+| Email | admin@singsingastoria.com | Not a setting by itself; the owner names the booking inbox (`contacts.bookingEmails`) in onboarding step 1 (D115) |
 | Getting there | N or W train to Broadway, about a 3-minute walk west along Broadway | Website text, if the manager wants it |
 | Opening hours | Monday to Wednesday 12:00 PM – 12:00 AM; Thursday 12:00 PM – 1:00 AM; Friday and Saturday 12:00 PM – 3:00 AM; Sunday 12:00 PM – 12:00 AM | Admin → Hours (`hours.weekly`); last call isn't stated |
 | Happy hour | "Daily 12:00 PM – 7:00 PM", with drink deals and discounted per-person room rates (the site's pop-up; its prices aren't stated) | A price band in Admin → Prices, once the manager gives the rates |
@@ -29,10 +29,10 @@ What Sing Sing's own public website says about the venue, read on Oct 11, 2026 f
 
 ## Settings to set at onboarding
 
-Sing Sing isn't a venue in the database yet. These are its own choices, already made, to enter in Admin when S-01 creates it (West 4's demo seed keeps its own):
+Sing Sing isn't a venue in the database yet. These are its own choices, already made, for its owner to enter in [Set up your venue](../../spec/17-onboarding.md) when S-01 creates it (editable later in Admin) (West 4's demo seed keeps its own):
 
 | Setting | Sing Sing's choice | Where in Admin | Decided |
 | --- | --- | --- | --- |
 | Deposits for online bookings | Off (`deposit.on` false): online bookings pay nothing up front, as the site says. The site's card for groups over 5 is to confirm with the manager before go-live | Admin → Deposits & cancelling | Founder, Oct 11, 2026 |
-| What a walk-in check-in takes | **Put a card on the tab** (`deposit.walkIn` "cardOnTab"): once the party is seated, the guest taps a card on the front-desk reader and it's saved on the room's check; nothing is charged until they pay at close-out | Admin → Deposits & cancelling → At a walk-in check-in | D112, Oct 11, 2026 |
+| What a walk-in check-in takes | **Put a card on the tab** (`deposit.walkIn` "cardOnTab"): once the party is seated, the guest taps a card on the front-desk reader and it's saved on the room's check; nothing is charged until they pay at close-out. The founder's later Oct 11 note says Sing Sing physically keeps guests' cards on a tab, so the owner may pick **Keep the card behind the bar** ("cardBehindBar", D116) instead at onboarding | Admin → Deposits & cancelling → At a walk-in check-in | D112, D116, Oct 11, 2026 |
 | Age policy | All ages until 8 PM, then 21 and over (`safety.allAgesUntil` "20:00") | Admin → Safety | D108 |

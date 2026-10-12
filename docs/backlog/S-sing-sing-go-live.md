@@ -1,14 +1,14 @@
 # S · Sing Sing go-live
 
-**Awaiting the founder's approval**, with [K · Kitchen](K-kitchen.md); the [Kitchen and food](../spec/16-kitchen.md) spec it builds on was approved on Oct 9, 2026 (D98–D100).
+**Approved by the founder on Oct 11, 2026**, with [K · Kitchen](K-kitchen.md); the [Kitchen and food](../spec/16-kitchen.md) spec it builds on was approved on Oct 9, 2026 (D98–D100).
 
 Oct 9, 2026 · West 4 asked that the system go live first at **Sing Sing Karaoke, Astoria (Queens, NY)**, then at West 4 ([D98](../decisions.md)). Sing Sing has the same rules, managers and kind of rooms and bar as West 4, with 6 rooms and a kitchen. This file lists the go-live work that must be done again for Sing Sing. Each ticket points at the West 4 ticket it repeats and follows that ticket's Build and Acceptance with Sing Sing's own data; the M4, M8 and M9 tickets themselves don't change.
 
-Sing Sing's legal name, EIN, licenses, menu, prices, hours, domain and team are entered by its managers (Admin, Stripe's own onboarding, the Twilio registration and Admin → Team) after the build. Nothing here invents them; where a fact is missing, the screen shows its "not set" hint.
+Sing Sing's owner enters its own facts in [owner onboarding](O-onboarding.md) ([D113](../decisions.md)): the plan, Connect with Stripe (where the EIN goes into Stripe's form), rooms and rates, hours and last call, kitchen times, deposits and the walk-in choice, the cash discount, the age policy, the menu and its open points, the team, the venue's on-call and breach contacts, licenses, the texts registration, the website and the old system's files; every answer stays editable in Admin. Nothing here invents them; where a fact is missing, the screen shows its "not set" hint.
 
 **Goal (usable when done):** Sing Sing runs live nights on the system, then West 4 follows with its own M9.
 
-**Depends on:** M1 to M8 and K · Kitchen. **Size:** about the same as M9's, 2 weeks, then the gate.
+**Depends on:** M1 to M8, K · Kitchen and O · Owner onboarding. **Size:** about the same as M9's, 2 weeks, then the gate.
 
 ## Suggested order
 
@@ -23,7 +23,7 @@ Definition of done: see CLAUDE.md.
 
 | Ticket | Redoes | What's different at Sing Sing | Status |
 | --- | --- | --- | --- |
-| S-01 · Set up Sing Sing as a venue with its own Stripe account | M4-01 (`stripe:create-account`), M4-29 (the go-live checklist) | A new organization and venue (6 rooms, America/New_York, the New York rule pack), the Kitchen module on once K-01's conditions are met; its managers finish Stripe's own onboarding with Sing Sing's legal name and EIN; the merchant category is asked of Stripe for a venue with a kitchen; Admin → Deposits & cancelling set as Sing Sing chose (D112): deposits off and, under At a walk-in check-in, **Put a card on the tab** ([venue.md](../venues/sing-sing/venue.md#settings-to-set-at-onboarding)) | todo |
+| S-01 · Set up Sing Sing as a venue with its own Stripe account | M4-01 (`stripe:create-account`), M4-29 (the go-live checklist) Our Console makes the organization and venue and invites its owner (O-01); the owner runs Set up your venue: the plan with its promo code, Connect with Stripe with Sing Sing's legal name and EIN in Stripe's form, its 6 rooms; the Kitchen module on once K-01's conditions are met; the merchant category is asked of Stripe for a venue with a kitchen; Admin → Deposits & cancelling set as Sing Sing chose (D112): deposits off and, under At a walk-in check-in, **Put a card on the tab** or **Keep the card behind the bar** (D116), the owner's pick ([venue.md](../venues/sing-sing/venue.md#settings-to-set-at-onboarding)) | todo |
 | S-02 · Import Sing Sing's bookings, deposits, guests and consents | M9-01, M9-02, M9-03 | A mapping file for Sing Sing's old system, received from Sing Sing (never scraped); if it has no export, Sing Sing exports by hand | todo |
 | S-03 · Import Sing Sing's menu with stations and food | M9-04 | Each item's station (bar or kitchen) and tax category, its packages with food, and the promotion checks; the menu comes from Sing Sing, never written by us. K-11's food night already loads `docs/venues/sing-sing/import/` through the importer into the e2e test venue and sells from it (stations, food, choices); the real import into Sing Sing's venue is still this ticket | todo |
 | S-04 · Get Sing Sing's team their own PINs and badges | M9-05, M9-08 | People and roles only; runners for the kitchen's food; managers shared with West 4 hold a membership at each venue | todo |

@@ -27,7 +27,9 @@
 
 **Visual pass.** [V · Visual pass](V-visual-pass.md) applies the frozen canvas's look to the built screens (decision D97): V-01 built the shared design layer and restyled the Board; V-02 to V-08 restyle the rest, one group of boards each. It runs beside the milestones and doesn't change their order.
 
-**Sing Sing first (approved Oct 9, 2026).** West 4 asked that the system go live first at Sing Sing Karaoke, Astoria, then West 4 (decision D98). [K · Kitchen](K-kitchen.md) proposes 11 tickets (5 S, 6 M) for the draft [Kitchen and food](../spec/16-kitchen.md) spec, and [S · Sing Sing go-live](S-sing-sing-go-live.md) lists the go-live work done again for Sing Sing (S-01 to S-12). None of them starts until the founder approves the draft; they aren't counted in the table above.
+**Sing Sing first (approved Oct 9, 2026).** West 4 asked that the system go live first at Sing Sing Karaoke, Astoria, then West 4 (decision D98). [K · Kitchen](K-kitchen.md) proposes 11 tickets (5 S, 6 M) for the draft [Kitchen and food](../spec/16-kitchen.md) spec, and [S · Sing Sing go-live](S-sing-sing-go-live.md) lists the go-live work done again for Sing Sing (S-01 to S-12). The founder approved both (Oct 9 and Oct 11, 2026); they aren't counted in the table above.
+
+**Owner onboarding (Oct 11, 2026).** [O · Owner onboarding](O-onboarding.md) builds the [Set up your venue](../spec/17-onboarding.md) wizard in phase 1 (decision D113): our Console makes a venue and invites its owner, and the owner enters the plan, Stripe, rooms, prices, hours, deposits, menu, team, contacts and licenses, all editable later in Admin. 14 tickets (4 S, 10 M), O-01 to O-14, before S-01; not counted in the table above.
 
 ## Every ticket
 
@@ -309,3 +311,22 @@
 | [M9-15 · Check every live night for money errors](M9-cutover-and-going-live.md#m9-15--check-every-live-night-for-money-errors) | M | M7-13, M7-14, M7-15, M7-19 (the reconcile script) |
 | [M9-16 · Go live, with on-call covering every opening hour](M9-cutover-and-going-live.md#m9-16--go-live-with-on-call-covering-every-opening-hour) | M | M9-06 to M9-15; M8-17 (paging and the second responder); M8-22 (texts live) |
 | [M9-17 · Run 4 weeks of live nights without a money error](M9-cutover-and-going-live.md#m9-17--run-4-weeks-of-live-nights-without-a-money-error) | S | M9-13, M9-14, M9-15, M9-16 |
+
+### [O · Owner onboarding](O-onboarding.md)
+
+| Ticket | Size | Depends on |
+| --- | --- | --- |
+| [O-01 · Console: create a venue and invite its owner](O-onboarding.md#o-01--console-create-a-venue-and-invite-its-owner) | M | M1-05, M1-19, M1-23, M1-18; the minimal Console |
+| [O-02 · Build the wizard shell: steps, progress, save and resume, skip, the checklist](O-onboarding.md#o-02--build-the-wizard-shell-steps-progress-save-and-resume-skip-the-checklist) | M | O-01; M1-31 |
+| [O-03 · Step 1, Your venue, and Admin → Venue with the booking inbox](O-onboarding.md#o-03--step-1-your-venue-and-admin--venue-with-the-booking-inbox) | S | O-02; M2-10, M1-18 |
+| [O-04 · Step 2, Your plan: three plans, a promo code and Stripe Checkout](O-onboarding.md#o-04--step-2-your-plan-three-plans-a-promo-code-and-stripe-checkout) | M | O-02; M8-15 |
+| [O-05 · Step 3, Card payments: Connect with Stripe](O-onboarding.md#o-05--step-3-card-payments-connect-with-stripe) | M | O-02; M4-01, M4-03 |
+| [O-06 · Steps 4 and 5: rooms and prices, hours, kitchen times, the age policy](O-onboarding.md#o-06--steps-4-and-5-rooms-and-prices-hours-kitchen-times-the-age-policy) | M | O-02; M2-04, M2-03, K-01 |
+| [O-07 · Step 6: deposits, card holds and the four walk-in choices](O-onboarding.md#o-07--step-6-deposits-card-holds-and-the-four-walk-in-choices) | S | O-02; M5-12, M5-13 |
+| [O-08 · Keep the card behind the bar at a walk-in check-in](O-onboarding.md#o-08--keep-the-card-behind-the-bar-at-a-walk-in-check-in) | M | O-07; M2-11, M4, M7 |
+| [O-09 · Step 7: the cash discount, food and the card fee, gratuity and drawers](O-onboarding.md#o-09--step-7-the-cash-discount-food-and-the-card-fee-gratuity-and-drawers) | S | O-02; M4, M7, K-10 |
+| [O-10 · Step 8: the menu by hand, by spreadsheet or by request](O-onboarding.md#o-10--step-8-the-menu-by-hand-by-spreadsheet-or-by-request) | M | O-02; M3-04, M9-04, M2-13, K-08 |
+| [O-11 · Step 9: team invites and the venue's on-call and breach contacts](O-onboarding.md#o-11--step-9-team-invites-and-the-venues-on-call-and-breach-contacts) | M | O-02; M1-23, M1-31, M8-17, M8-19 |
+| [O-12 · Steps 10 and 11: licenses, texts registration, website and the old system's files](O-onboarding.md#o-12--steps-10-and-11-licenses-texts-registration-website-and-the-old-systems-files) | M | O-02; M8-09, M2-09, M8-22, M9-01, M9-09 |
+| [O-13 · Step 12: devices, the go-live checks and Finish setup](O-onboarding.md#o-13--step-12-devices-the-go-live-checks-and-finish-setup) | S | O-02; M1-15, M3-13, M3-14, M4-02, M4-29 |
+| [O-14 · Onboard a new venue from scratch in the demo, then enter Sing Sing's values](O-onboarding.md#o-14--onboard-a-new-venue-from-scratch-in-the-demo-then-enter-sing-sings-values) | M | O-01 to O-13 |
