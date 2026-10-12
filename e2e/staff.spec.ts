@@ -1383,6 +1383,9 @@ test("Admin → Rooms: West 4's 14 rooms, switch a room off and on, archive one,
 
     // A new room, archived: off the list, its row kept.
     await page.getByLabel("Name", { exact: true }).fill("Room 14");
+    // The capacity is typed by the owner: nothing is suggested (O-06).
+    await page.getByLabel("Fewest guests", { exact: true }).fill("3");
+    await page.getByLabel("Most guests", { exact: true }).fill("6");
     await page.getByRole("button", { name: "Add a room" }).last().click();
     await expect(rows).toHaveCount(15);
     await row("Room 14").getByRole("button", { name: "Archive" }).click();

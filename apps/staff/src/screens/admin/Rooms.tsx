@@ -39,6 +39,7 @@ export function Rooms() {
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [saved, setSaved] = useState<RoomSettings | null>(null);
+  const [settingsUnset, setSettingsUnset] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +47,17 @@ export function Rooms() {
   const load = useCallback(async () => {
     const [list, settings] = await Promise.all([
       api<{ rooms: Room[] }>("GET", `/v1/venues/${venueId}/rooms`),
-      api<{ value: RoomSettings }>("GET", `/v1/venues/${venueId}/settings/rooms`),
+      // A venue onboarded with the wizard (O-06) has rooms before its room settings: not set yet.
+      api<{ value: RoomSettings }>("GET", `/v1/venues/${venueId}/settings/rooms`).catch(
+        (e: unknown) => {
+          if ((e as ApiCallError)?.status === 404) return null;
+          throw e;
+        },
+      ),
     ]);
     setRooms(list.rooms);
-    setSaved(settings.value);
+    setSaved(settings?.value ?? null);
+    setSettingsUnset(settings === null);
   }, [venueId]);
 
   useEffect(() => {
@@ -109,7 +117,7 @@ export function Rooms() {
           {message}
         </p>
       )}
-      {rooms === null || current === null ? (
+      {rooms === null || (current === null && !settingsUnset) ? (
         <p role="status">{t("shell.loading")}</p>
       ) : (
         <>
@@ -139,9 +147,11 @@ export function Rooms() {
                         {t("rooms.capacity", { min: room.capacity_min, max: room.capacity_max })}
                       </td>
                       <td>
-                        {room.cleaning_min === null
-                          ? t("rooms.cleaningDefault", { min: current.cleaningMin })
-                          : t("rooms.cleaningMin", { min: room.cleaning_min })}
+                        {room.cleaning_min !== null
+                          ? t("rooms.cleaningMin", { min: room.cleaning_min })
+                          : current
+                            ? t("rooms.cleaningDefault", { min: current.cleaningMin })
+                            : t("rooms.cleaningUnset")}
                       </td>
                       <td>
                         <label className="switch-line">
@@ -211,50 +221,56 @@ export function Rooms() {
           </div>
 
           <h3>{t("rooms.settings")}</h3>
-          <div className="invite-fields">
-            <label>
-              <span>{t("rooms.settings.cleaningMin")}</span>
-              <input
-                type="number"
-                min={0}
-                value={current.cleaningMin}
-                onChange={(e) =>
-                  setSetting("cleaningMin", Math.max(0, Number(e.target.value) || 0))
-                }
-              />
-            </label>
-            <label>
-              <span>{t("rooms.settings.cleaningEnds")}</span>
-              <select
-                value={current.cleaningEnds}
-                onChange={(e) =>
-                  setSetting("cleaningEnds", e.target.value as RoomSettings["cleaningEnds"])
-                }
-              >
-                <option value="staff">{t("rooms.settings.cleaningEnds.staff")}</option>
-                <option value="timer">{t("rooms.settings.cleaningEnds.timer")}</option>
-              </select>
-            </label>
-            <label>
-              <span>{t("rooms.settings.cleaningFlagMin")}</span>
-              <input
-                type="number"
-                min={0}
-                value={current.cleaningFlagMin}
-                onChange={(e) =>
-                  setSetting("cleaningFlagMin", Math.max(0, Number(e.target.value) || 0))
-                }
-              />
-            </label>
-          </div>
-          <label className="switch-line">
-            <input
-              type="checkbox"
-              checked={current.stayOnWhenFree}
-              onChange={(e) => setSetting("stayOnWhenFree", e.target.checked)}
-            />
-            <span>{t("rooms.settings.stayOnWhenFree")}</span>
-          </label>
+          {current === null ? (
+            <p className="muted">{t("rooms.settingsUnset")}</p>
+          ) : (
+            <>
+              <div className="invite-fields">
+                <label>
+                  <span>{t("rooms.settings.cleaningMin")}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={current.cleaningMin}
+                    onChange={(e) =>
+                      setSetting("cleaningMin", Math.max(0, Number(e.target.value) || 0))
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{t("rooms.settings.cleaningEnds")}</span>
+                  <select
+                    value={current.cleaningEnds}
+                    onChange={(e) =>
+                      setSetting("cleaningEnds", e.target.value as RoomSettings["cleaningEnds"])
+                    }
+                  >
+                    <option value="staff">{t("rooms.settings.cleaningEnds.staff")}</option>
+                    <option value="timer">{t("rooms.settings.cleaningEnds.timer")}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{t("rooms.settings.cleaningFlagMin")}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={current.cleaningFlagMin}
+                    onChange={(e) =>
+                      setSetting("cleaningFlagMin", Math.max(0, Number(e.target.value) || 0))
+                    }
+                  />
+                </label>
+              </div>
+              <label className="switch-line">
+                <input
+                  type="checkbox"
+                  checked={current.stayOnWhenFree}
+                  onChange={(e) => setSetting("stayOnWhenFree", e.target.checked)}
+                />
+                <span>{t("rooms.settings.stayOnWhenFree")}</span>
+              </label>
+            </>
+          )}
           <AddRoom venueId={venueId} onAdded={load} />
         </>
       )}
@@ -262,12 +278,16 @@ export function Rooms() {
   );
 }
 
-function AddRoom({ venueId, onAdded }: { venueId: string; onAdded: () => Promise<void> }) {
+/**
+ * Add a room (M2-04; O-06's wizard uses it too). The capacity is the venue's fire-safety
+ * number, typed by the owner: both fields start empty and nothing is suggested.
+ */
+export function AddRoom({ venueId, onAdded }: { venueId: string; onAdded: () => Promise<void> }) {
   const { t } = useT();
   const [name, setName] = useState("");
   const [sizeTier, setSizeTier] = useState("small");
-  const [min, setMin] = useState(3);
-  const [max, setMax] = useState(6);
+  const [min, setMin] = useState("");
+  const [max, setMax] = useState("");
   const [cleaning, setCleaning] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -278,12 +298,14 @@ function AddRoom({ venueId, onAdded }: { venueId: string; onAdded: () => Promise
       await api("POST", `/v1/venues/${venueId}/rooms`, {
         name: name.trim(),
         size_tier: sizeTier,
-        capacity_min: min,
-        capacity_max: max,
+        capacity_min: Number(min),
+        capacity_max: Number(max),
         cleaning_min: cleaning === "" ? null : Number(cleaning),
         is_vip: sizeTier === "vip",
       });
       setName("");
+      setMin("");
+      setMax("");
       setCleaning("");
       await onAdded();
     } catch (err) {
@@ -314,8 +336,11 @@ function AddRoom({ venueId, onAdded }: { venueId: string; onAdded: () => Promise
           <input
             type="number"
             min={1}
+            step={1}
+            required
+            inputMode="numeric"
             value={min}
-            onChange={(e) => setMin(Number(e.target.value) || 1)}
+            onChange={(e) => setMin(e.target.value)}
           />
         </label>
         <label>
@@ -323,8 +348,11 @@ function AddRoom({ venueId, onAdded }: { venueId: string; onAdded: () => Promise
           <input
             type="number"
             min={1}
+            step={1}
+            required
+            inputMode="numeric"
             value={max}
-            onChange={(e) => setMax(Number(e.target.value) || 1)}
+            onChange={(e) => setMax(e.target.value)}
           />
         </label>
         <label>

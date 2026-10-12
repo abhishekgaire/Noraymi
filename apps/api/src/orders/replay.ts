@@ -85,7 +85,10 @@ export function reasonOf(e: unknown): ReplayReason | null {
   // A closed kitchen or a passed last order (K-07) reads like an 86: out for tonight.
   if (
     e.code === "invalid_request" &&
-    (detail === "out_tonight" || detail === "kitchen_closed" || detail === "last_order")
+    (detail === "out_tonight" ||
+      detail === "kitchen_closed" ||
+      detail === "not_open" ||
+      detail === "last_order")
   )
     return "out_tonight";
   if (e.code === "invalid_request") return "not_on_menu";

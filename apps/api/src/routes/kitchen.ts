@@ -37,7 +37,8 @@ export function kitchenRoutes(app: FastifyInstance, options: { clock: Clock }): 
         return {
           allergy_notice: s.allergyNotice,
           last_order: s.lastOrder,
-          // Why the kitchen isn't taking orders now (K-07): "kitchen_closed", "last_order" or null.
+          opens_at: s.opensAt ?? null,
+          // Why the kitchen isn't taking orders now (K-07, O-06): "kitchen_closed", "not_open", "last_order" or null.
           stop: await kitchenStop(c, request.venueId!, options.clock.now().toString()),
           unsent_warn_min: s.unsentWarnMin,
           kitchen_printer: await hasKitchenPrinter(c, request.venueId!),

@@ -111,21 +111,7 @@ export function Kitchen() {
               <span className="small muted">{t("kitchen.admin.notice.hint")}</span>
             )}
           </fieldset>
-          <label>
-            <span>{t("kitchen.admin.lastOrder")}</span>
-            <input
-              type="time"
-              aria-label={t("kitchen.admin.lastOrder")}
-              value={current.lastOrder ?? ""}
-              onChange={(e) =>
-                draft.set("kitchen", {
-                  ...current,
-                  lastOrder: /^\d\d:\d\d$/.test(e.target.value) ? e.target.value : null,
-                })
-              }
-            />
-            <span className="small muted">{t("kitchen.admin.lastOrder.hint")}</span>
-          </label>
+          <KitchenTimes current={current} onChange={(next) => draft.set("kitchen", next)} />
           <label>
             <span>{t("kitchen.admin.unsentWarnMin")}</span>
             <input
@@ -159,5 +145,46 @@ export function Kitchen() {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The kitchen's times (K-07, O-06): when it opens (`kitchen.opensAt`, empty: with the venue) and
+ * its last order (empty: no limit), and the Food Protection Certificate line under them (D120),
+ * which nothing enforces. Admin → Kitchen and the wizard's Hours step both show it.
+ */
+export function KitchenTimes({
+  current,
+  onChange,
+}: {
+  current: KitchenSettings;
+  onChange: (next: KitchenSettings) => void;
+}) {
+  const { t } = useT();
+  const timeOrNull = (v: string) => (/^\d\d:\d\d$/.test(v) ? v : null);
+  return (
+    <>
+      <label>
+        <span>{t("kitchen.admin.opensAt")}</span>
+        <input
+          type="time"
+          aria-label={t("kitchen.admin.opensAt")}
+          value={current.opensAt ?? ""}
+          onChange={(e) => onChange({ ...current, opensAt: timeOrNull(e.target.value) })}
+        />
+        <span className="small muted">{t("kitchen.admin.opensAt.hint")}</span>
+      </label>
+      <label>
+        <span>{t("kitchen.admin.lastOrder")}</span>
+        <input
+          type="time"
+          aria-label={t("kitchen.admin.lastOrder")}
+          value={current.lastOrder ?? ""}
+          onChange={(e) => onChange({ ...current, lastOrder: timeOrNull(e.target.value) })}
+        />
+        <span className="small muted">{t("kitchen.admin.lastOrder.hint")}</span>
+      </label>
+      <p className="small muted">{t("kitchen.admin.foodCertificate")}</p>
+    </>
   );
 }

@@ -361,3 +361,62 @@
   width: 100%;
   margin: 0;
 }
+
+/* Steps 4 and 5, Rooms and prices, Hours (O-06). */
+.setup-form h3,
+.setup-form h4 {
+  margin: var(--w4-space-2) 0 0;
+}
+.setup-form input,
+.setup-form select {
+  min-height: 44px;
+}
+.setup-rooms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+}
+.setup-rooms li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--w4-space-3);
+  min-height: 44px;
+}
+.setup-fieldset,
+.setup-band {
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-md);
+  padding: var(--w4-space-3);
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+}
+.setup-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--w4-space-2);
+}
+.setup-week {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+}
+.setup-day {
+  display: grid;
+  grid-template-columns: minmax(80px, 120px) repeat(2, minmax(0, 140px)) auto;
+  align-items: center;
+  gap: var(--w4-space-2);
+}
+.setup-prices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+  width: 100%;
+}

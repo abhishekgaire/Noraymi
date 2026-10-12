@@ -18,6 +18,8 @@ import { useT } from "../../i18n.js";
 import { homeFor } from "../../navigation.js";
 import { useSession } from "../../session.js";
 import { CardStep } from "./CardStep.js";
+import { HoursStep } from "./HoursStep.js";
+import { RoomsStep } from "./RoomsStep.js";
 import { PlanStep } from "./PlanStep.js";
 import { VenueForm } from "./Venue.js";
 import "./setup.css";
@@ -379,6 +381,10 @@ function StepBody({
   if (step.id === "plan") return <PlanStep onSaved={onSaved} />;
   // Step 3's Connect with Stripe (O-05).
   if (step.id === "card") return <CardStep onSaved={onSaved} />;
+  // Steps 4 and 5 (O-06): Admin's rooms, prices, hours, kitchen times and age policy.
+  if (step.id === "rooms" && step.mark !== "not_used")
+    return <RoomsStep registerSave={registerSave} onSaved={onSaved} />;
+  if (step.id === "hours") return <HoursStep registerSave={registerSave} onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (

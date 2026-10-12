@@ -154,7 +154,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-06 · Steps 4 and 5: rooms and prices, hours, kitchen times, the age policy
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-02; M2-04 (Admin → Rooms), M2-03 (time bands), Admin → Hours, K-01 (`kitchen`), the age policy (D108)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 4 and 5; [Settings](../spec/03-settings-rule-packs-modules.md) · `prices`, `hours`, `kitchen`, `safety`
@@ -162,11 +162,19 @@ Definition of done: see CLAUDE.md.
   - The steps reuse Admin's forms and routes: rooms (name, size, capacity, bookable online), the rate mode, billing step, minimum guests, happy-hour bands, the VIP rate; weekly hours and last call; `kitchen.lastOrder` and the new optional `kitchen.opensAt`; the age policy, confirmed even at its default.
   - The Food Protection Certificate line under the kitchen times (D120); nothing enforces it.
 - **Acceptance:**
-  - [ ] Six rooms with sizes, capacities and rates saved in the wizard show in Admin → Rooms and Admin → Prices, and the plan's room quantity is 6.
-  - [ ] A last call later than the rule pack's close is refused with the reason.
-  - [ ] `kitchen.opensAt` empty means the kitchen opens with the venue; the kitchen fields hide without the Kitchen module allowed.
-  - [ ] No capacity, rate or time is filled in for the owner.
+  - [x] Six rooms with sizes, capacities and rates saved in the wizard show in Admin → Rooms and Admin → Prices, and the plan's room quantity is 6.
+  - [x] A last call later than the rule pack's close is refused with the reason.
+  - [x] `kitchen.opensAt` empty means the kitchen opens with the venue; the kitchen fields hide without the Kitchen module allowed.
+  - [x] No capacity, rate or time is filled in for the owner.
 - **Tests:** integration tests; unit tests for `kitchen.opensAt` with the kitchen's ordering window; a Playwright test of both steps.
+- **Notes:**
+  - Built: the wizard's `RoomsStep.tsx` (rooms through Admin → Rooms' `POST /rooms` and `PATCH /rooms/{r}` with the shared `AddRoom`; the prices through Save, Admin's own Prices form once a `prices` key exists, a first-time form otherwise) and `HoursStep.tsx` (the weekly hours and last call, Admin's own Hours form once saved; `KitchenTimes`, now shared with Admin → Kitchen, only with Kitchen & food allowed; the age policy, picked by the owner with no choice preselected). Each step saves through `PUT /settings` like Admin's Save, so the rule pack's reason (a last call after the last sale) shows under the step. `AdminDraft.save()` now says whether it saved.
+  - `kitchen.opensAt` (optional, absent or null opens with the venue): `beforeKitchenOpens` in `packages/rules`, the kitchen's new stop `not_open` (food refused with "The kitchen isn't open yet", "Kitchen not open yet · opens {time}" on the kitchen switch), `GET /kitchen` returns `opens_at`.
+  - Nothing is filled in: Admin → Rooms' Add a room no longer suggests 3 to 6 guests (both capacity fields start empty, here and in Admin); every price, guest count and time starts empty.
+  - Cautious defaults: the `prices` key can't be saved in parts, so the first save also asks the booking limits and the damage fee (start times left open: any half hour); a new venue's safety key starts from spec 03's 90% warning with no occupancy limit; Admin → Rooms shows "Not set yet" for the cleaning settings of a venue that has none (it used to hang loading). The spec's step 4 now says so.
+  - Rooms & room clock must be on for Admin → Rooms' routes; the step offers "Turn on Rooms & room clock" (the same `PATCH /modules/rooms` as Admin → Features). Founder: should the plan's internal modules (rooms, bar tabs) turn on by themselves when the plan starts?
+  - For O-07 / later: Admin → Hours still fills 4:00 PM to 4:00 AM when a new day is first typed there; Admin → Hours, Prices and Safety still can't start from nothing (the wizard does that).
+  - Tests: `apps/api/src/routes/setup-rooms-hours.int.test.ts` (4: six rooms make the room quantity 6 in Stripe, the refused last call, opensAt, nothing filled in), `packages/rules/src/kitchen-last-order.test.ts` (opensAt with the ordering window), and the Playwright test in `e2e/setup.staff.spec.ts` (steps 4 and 5).
 
 ### O-07 · Step 6: deposits, card holds and the four walk-in choices
 

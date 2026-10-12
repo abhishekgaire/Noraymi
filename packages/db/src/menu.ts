@@ -1,5 +1,6 @@
 import {
   businessDate,
+  beforeKitchenOpens,
   pastLastOrder,
   promotionChecks,
   type Promotable,
@@ -179,7 +180,7 @@ export interface MenuCategory {
 }
 
 /** Why food can't be ordered now: a manager closed the kitchen, or the last order time passed. */
-export type KitchenStop = "kitchen_closed" | "last_order";
+export type KitchenStop = "kitchen_closed" | "not_open" | "last_order";
 
 /**
  * Whether the kitchen is taking orders at `now` (K-07; spec 16 · 86 and closing the kitchen):
@@ -202,6 +203,9 @@ export async function kitchenStop(
   if (venue.closed) return "kitchen_closed";
   const date = businessDate(now, venue.time_zone, venue.day_cutover).businessDate;
   const setting = await readSetting(client, venueId, "kitchen", date);
+  // Before tonight's kitchen.opensAt (O-06): empty means the kitchen opens with the venue.
+  if (beforeKitchenOpens(now, setting?.value.opensAt ?? null, venue.time_zone, venue.day_cutover))
+    return "not_open";
   return pastLastOrder(now, setting?.value.lastOrder ?? null, venue.time_zone, venue.day_cutover)
     ? "last_order"
     : null;

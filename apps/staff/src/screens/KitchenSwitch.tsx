@@ -7,7 +7,8 @@ import "./bar.css";
 
 interface KitchenNow {
   readonly last_order: string | null;
-  readonly stop: "kitchen_closed" | "last_order" | null;
+  readonly opens_at?: string | null;
+  readonly stop: "kitchen_closed" | "not_open" | "last_order" | null;
 }
 
 /**
@@ -63,9 +64,13 @@ export function KitchenSwitch({ compact = false }: { compact?: boolean }) {
       ? t("kitchen.closed.lastOrder", {
           time: time(`2000-01-01T${now.last_order}:00Z`, "UTC"),
         })
-      : now.stop
-        ? t("kitchen.closed")
-        : null;
+      : now.stop === "not_open" && now.opens_at
+        ? t("kitchen.closed.opensAt", {
+            time: time(`2000-01-01T${now.opens_at}:00Z`, "UTC"),
+          })
+        : now.stop
+          ? t("kitchen.closed")
+          : null;
 
   const flip = async () => {
     setBusy(true);

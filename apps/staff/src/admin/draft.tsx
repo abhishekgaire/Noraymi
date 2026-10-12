@@ -19,7 +19,8 @@ export interface AdminDraft {
   readonly version: number;
   readonly set: (key: string, value: unknown) => void;
   readonly discard: () => void;
-  readonly save: () => Promise<void>;
+  /** Writes the changed keys; true when they were saved (the wizard moves on only then). */
+  readonly save: () => Promise<boolean>;
 }
 
 const DraftContext = createContext<AdminDraft | null>(null);
@@ -60,6 +61,7 @@ export function AdminDraftProvider({
       setError(null);
       setStatus("published");
       setVersion((n) => n + 1);
+      return true;
     } catch (e) {
       const code = (e as ApiCallError)?.code;
       // Read-only Admin over our unpaid plan (M8-15): the Save bar says why, in the venue's language.
@@ -71,6 +73,7 @@ export function AdminDraftProvider({
             : null,
       );
       setStatus("failed");
+      return false;
     } finally {
       setSaving(false);
     }

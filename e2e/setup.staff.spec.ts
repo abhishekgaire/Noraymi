@@ -185,7 +185,7 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
   }
 });
 
-test("Your plan through Stripe Checkout (O-04), then Connect with Stripe (O-05)", async ({
+test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), rooms, prices and hours (O-06)", async ({
   page,
   request,
 }) => {
@@ -282,6 +282,47 @@ test("Your plan through Stripe Checkout (O-04), then Connect with Stripe (O-05)"
       page.getByText(`Connected through E2E Plan ${n} LLC · card payments on`),
     ).toBeVisible({ timeout: 30_000 });
     await expect(rail.getByRole("button", { name: /Card payments/ })).toContainText("Done");
+
+    // Step 4 (O-06): Rooms & room clock turned on, a room typed (no capacity suggested), the prices.
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Rooms and prices" })).toBeVisible();
+    await page.getByRole("button", { name: "Turn on Rooms & room clock" }).click();
+    await expect(page.getByLabel("Fewest guests", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Most guests", { exact: true })).toHaveValue("");
+    await page.getByLabel("Name", { exact: true }).fill("Room 1");
+    await page.getByLabel("Fewest guests", { exact: true }).fill("2");
+    await page.getByLabel("Most guests", { exact: true }).fill("8");
+    await page.getByRole("button", { name: "Add a room" }).click();
+    await expect(page.getByText("Room 1", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Per person an hour ($)")).toHaveCount(0);
+    await page.getByLabel("How rooms are priced").selectOption("perPerson");
+    await page.getByLabel("Per person an hour ($)").fill("9.50");
+    await page.getByLabel("Billed in steps of").selectOption("15");
+    await page.getByLabel("Rounding a step").selectOption("up");
+    await page.getByLabel("At least this many guests, weeknights").fill("2");
+    await page.getByLabel("At least this many guests, Friday and Saturday").fill("3");
+    await page.getByLabel("Shortest booking (hours)").fill("1");
+    await page.getByLabel("Longest booking (hours)").fill("4");
+    await page.getByLabel("Most guests in a booking").fill("12");
+    await page.getByLabel("Damage fee ($)").fill("50");
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    // Step 5: no kitchen fields on the Rooms plan; a late last call is refused with the reason.
+    await expect(page.getByRole("heading", { level: 2, name: "Hours" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: /Rooms and prices/ })).toContainText("Done");
+    await expect(page.getByLabel("Kitchen opens")).toHaveCount(0);
+    await page.getByLabel("Fri · Opens").fill("17:00");
+    await page.getByLabel("Fri · Closes").fill("04:00");
+    await page.getByLabel("House last call").fill("05:00");
+    await page.getByLabel("21 and over", { exact: true }).check();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText(/can't be later than the rule pack's last sale/)).toBeVisible();
+    await page.getByLabel("House last call").fill("03:30");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Deposits and check-in" }),
+    ).toBeVisible();
+    await expect(rail.getByRole("button", { name: /^Hours/ })).toContainText("Done");
   } finally {
     await db.end();
   }

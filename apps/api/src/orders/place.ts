@@ -205,7 +205,9 @@ export async function orderItemsFor(
         "invalid_request",
         v.kitchen_stop === "kitchen_closed"
           ? `The kitchen is closed: ${name} can't be ordered now`
-          : `The kitchen's last order has passed: ${name} can't be ordered now`,
+          : v.kitchen_stop === "not_open"
+            ? `The kitchen isn't open yet: ${name} can't be ordered now`
+            : `The kitchen's last order has passed: ${name} can't be ordered now`,
         { details: { reason: v.kitchen_stop, variant_id: v.variant_id } },
       );
     // A note for the kitchen goes on food only: a drink's ticket never reaches the kitchen.

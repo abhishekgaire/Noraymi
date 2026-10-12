@@ -3306,6 +3306,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.admin.notice.es": "En español",
   "kitchen.admin.notice.bothLanguages":
     "Escribe el aviso en inglés y en español, o deja los dos vacíos.",
+  "kitchen.admin.opensAt": "La cocina abre",
+  "kitchen.admin.opensAt.hint": "Vacío: la cocina abre con el local.",
+  "kitchen.admin.foodCertificate":
+    "Una persona con el Certificado de Protección de Alimentos debe estar en el local mientras se sirve comida y después de cerrar la cocina.",
+  "rooms.cleaningUnset": "Aún sin definir",
+  "rooms.settingsUnset": "Aún sin definir",
   "kitchen.admin.lastOrder": "Último pedido",
   "kitchen.admin.lastOrder.hint":
     "Vacío: se puede pedir comida mientras los pedidos desde la sala estén abiertos.",
@@ -3350,6 +3356,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.notSent": "No enviado",
   "kitchen.sentAt": "Enviado · {time}",
   "kitchen.closed": "Cocina cerrada",
+  "kitchen.closed.opensAt": "Cocina aún sin abrir · abre a las {time}",
   "kitchen.closed.lastOrder": "Cocina cerrada · último pedido {time}",
   "kitchen.close": "Cerrar la cocina",
   "kitchen.reopen": "Reabrir la cocina",
@@ -3492,6 +3499,23 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "El formulario de Stripe pide tu EIN, tus datos bancarios y tu identificación; nunca pasan por nosotros y aquí nunca pegas una clave.",
   "onboarding.card.loadFailed": "No se pudo leer tu cuenta de Stripe",
   "onboarding.card.offline": "Sin conexión · Conectar con Stripe vuelve cuando te reconectes",
+  "onboarding.notSet": "Sin definir",
+  "onboarding.choose": "Elige…",
+  "onboarding.rooms.none":
+    "Aún no hay salas · agrega cada sala con su tamaño y los invitados que caben",
+  "onboarding.rooms.pricesHint":
+    "Escribe cada importe en dólares y centavos; no rellenamos nada por ti. Los límites de reserva y el cargo por daños son parte de tus precios, así que también se piden aquí.",
+  "onboarding.rooms.finishPrices": "Termina los precios, o bórralos, antes de continuar",
+  "onboarding.hours.kitchen": "El horario de la cocina",
+  "onboarding.hours.weekHint":
+    "Escribe el horario de cada día que abres; deja vacío el día que cierras.",
+  "onboarding.hours.finishDay": "Cada día abierto necesita su hora de apertura y de cierre",
+  "onboarding.hours.ageConfirm": "Elige tu política de edad, aunque sea mayores de 21.",
+  "onboarding.rooms.needsPlan":
+    "Las salas vienen con los planes de Salas · inicia uno primero en el paso 2",
+  "onboarding.rooms.moduleOff":
+    "Salas y reloj de sala está apagado · enciéndelo para agregar tus salas",
+  "onboarding.rooms.turnOn": "Encender Salas y reloj de sala",
   "onboarding.step.card.title": "Pagos con tarjeta",
   "onboarding.step.card.hint": "Conecta con Stripe para cobrar con tarjeta",
   "onboarding.step.rooms.title": "Salas y precios",

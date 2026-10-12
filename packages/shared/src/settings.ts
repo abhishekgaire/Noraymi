@@ -359,6 +359,11 @@ export const kitchenSchema = z
   .object({
     allergyNotice: z.object({ en: noticeText, es: noticeText }).strict().nullable(),
     lastOrder: time.nullable(),
+    /**
+     * When the kitchen starts taking orders (O-06; spec 17 · Step details 5), on the wall clock of
+     * the business date. Absent or null: the kitchen opens with the venue.
+     */
+    opensAt: time.nullable().optional(),
     unsentWarnMin: z.number().int().min(1).max(60),
     /**
      * Whether a replayed food order's kitchen ticket prints "AFTER OUTAGE · check with the kitchen
