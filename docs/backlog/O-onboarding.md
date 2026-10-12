@@ -321,7 +321,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-14 · Onboard a new venue from scratch in the demo, then enter Sing Sing's values
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-01 to O-13
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md); [Sing Sing](../venues/sing-sing/venue.md)
@@ -329,6 +329,13 @@ Definition of done: see CLAUDE.md.
   - A Playwright test from a fresh demo seed: the Console makes "Test Karaoke" and invites its owner; the owner enrolls, picks Rooms + Kitchen with the test promo code, connects the fake Stripe, enters 3 rooms, hours, deposits, a walk-in choice, a menu, one manager, contacts and a liquor license, pairs a simulated reader and a virtual printer, and reaches Ready to open; then a walk-in is checked in and closed out on the new venue.
   - A runbook section in `docs/venues/sing-sing/venue.md` for entering Sing Sing's own values through the wizard (the founder's and the manager's), each marked entered or still to give.
 - **Acceptance:**
-  - [ ] The test passes from a fresh seed with no SQL and no ops command, and West 4's demo night is unchanged.
-  - [ ] Every value Sing Sing has given is entered through the wizard on staging, and the checklist lists only what its manager still owes.
+  - [x] The test passes from a fresh seed with no SQL and no ops command, and West 4's demo night is unchanged.
+  - [ ] Every value Sing Sing has given is entered through the wizard on staging, and the checklist lists only what its manager still owes. (Not yet: Sing Sing isn't a venue on staging until S-01, and entering it is the founder's and the manager's work with their own sign-ins; the runbook for it is ready.)
 - **Tests:** Playwright; the principal and wall suites still pass with the new venue present.
+- **Notes:**
+  - Built: the last test in `e2e/setup.staff.spec.ts` ("O-14 · Test Karaoke…"): from a fresh demo seed our Console makes Test Karaoke and sends the owner's invite; the owner joins from the emailed link on her phone (texted code, PIN, passkey) and signs in on her laptop with the same passkey (copied between the two virtual authenticators, as a password manager syncs it); Rooms + Kitchen with the fake's FAKEFIRSTMONTH code; Connect with Stripe on the fake; 3 rooms and a per-person price; Friday's hours and 21 and over; no deposit and Keep the card behind the bar; the money answers (no tip screen, house drawers); Sing Sing's menu spreadsheet; a manager invited by phone who sets his PIN from his own texted link; the owner on call and as breach contact; the liquor license; a simulated S710, a CloudPRNT printer and its drawer in Admin → Printers & devices; the merchant category; Ready to open and Finish setup. Then a walk-in on Room 1 with the card behind the bar, closed out in cash and the card given back (the check reads paid). West 4's rooms, checks, payments, menu, settings, devices, people and drawers are compared before and after.
+  - No SQL writes and no ops command in the onboarding: the test only reads rows (invite links and texted codes from the job queue, as `scripts/demo-codes.sh` does) and clears the Console's security-key rows first, as the Console spec does, since another spec's key lives in that spec's browser. The plan Prices are made on the fake Stripe when no earlier test made them (Rooms + Kitchen's only after the O-04 test has checked that it's missing).
+  - Found on the way: a moved clock of an hour signs a passkey session out (idle limit), so close-out runs 30 minutes later, as O-08's test does. O-13 fixed the two gaps a from-scratch venue hit (no route made a cash drawer; a reader registration before the tip screen answered 500).
+  - Sing Sing: the runbook is the new section "Entering Sing Sing through Set up your venue" in `docs/venues/sing-sing/venue.md`, every value marked Given (with its source) or Still to give; nothing is invented, and unknowns stay empty with the screen's "not set" hint. Entering it on staging waits for S-01 and the founder's and manager's own sign-ins.
+  - The principal and wall suites still pass (they run inside `pnpm check`'s integration suite).
+
