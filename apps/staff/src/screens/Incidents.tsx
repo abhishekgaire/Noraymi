@@ -261,8 +261,18 @@ function LogOne({
   );
 }
 
-export function IncidentLog({ venueId, timeZone }: { venueId: string; timeZone: string }) {
+export function IncidentLog({
+  venueId,
+  timeZone,
+  nested = false,
+}: {
+  venueId: string;
+  timeZone: string;
+  /** Inside Admin → Safety, under its own h2 and h3, so the log's headings sit at h4. */
+  nested?: boolean;
+}) {
   const { t } = useT();
+  const H = nested ? "h4" : "h2";
   const { subscribe } = useEvents();
   const [incidents, setIncidents] = useState<readonly Incident[] | null>(null);
   const [keptYears, setKeptYears] = useState<number | null>(null);
@@ -322,13 +332,13 @@ export function IncidentLog({ venueId, timeZone }: { venueId: string; timeZone: 
       {incidents !== null && (
         <>
           <section aria-labelledby="incidents-open">
-            <h2 id="incidents-open">{t("incidents.openNow")}</h2>
+            <H id="incidents-open">{t("incidents.openNow")}</H>
             {open.length === 0 && <p className="empty">{t("incidents.none")}</p>}
             <ul className="room-clocks">{open.map(card)}</ul>
           </section>
           <LogOne venueId={venueId} onLogged={load} onFail={() => setFailed(true)} />
           <section aria-labelledby="incidents-log">
-            <h2 id="incidents-log">{t("incidents.log")}</h2>
+            <H id="incidents-log">{t("incidents.log")}</H>
             {keptYears !== null && (
               <p className="small muted">{t("safety.log.kept", { years: keptYears })}</p>
             )}

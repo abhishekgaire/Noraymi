@@ -67,10 +67,19 @@ export default defineConfig({
   use: { trace: "retain-on-failure" },
   projects: [
     { name: "api", testMatch: /api\.spec\.ts/, use: { baseURL: API } },
-    { name: "staff", testMatch: /staff\.spec\.ts/, use: { baseURL: STAFF } },
+    {
+      name: "staff",
+      testMatch: /staff\.spec\.ts/,
+      testIgnore: /setup\.staff\.spec\.ts/,
+      use: { baseURL: STAFF },
+    },
     { name: "console", testMatch: /console\.spec\.ts/, use: { baseURL: CONSOLE } },
     { name: "guest", testMatch: /guest\.spec\.ts/, use: { baseURL: GUEST } },
     { name: "desktop", testMatch: /desktop\.spec\.ts/ },
+    // Set up your venue's tests make their own organizations and venues (an Andy Park among their team,
+    // a Stripe account, settings) that stay in the database, and many specs read West 4's rows by name
+    // without a venue, so these run after every West 4 spec, like O-14's brand-new venue.
+    { name: "setup", testMatch: /setup\.staff\.spec\.ts/, use: { baseURL: STAFF } },
     // O-14's brand-new venue stays in the database, so it's onboarded after everything else.
     { name: "onboard", testMatch: /onboard\.spec\.ts/, use: { baseURL: STAFF } },
   ],

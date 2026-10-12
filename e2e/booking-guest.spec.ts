@@ -53,7 +53,9 @@ test.beforeEach(async ({ request }) => {
   execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    // execSync blocks the worker, so Playwright's test timeout can't stop a stuck seed; this does.
+    timeout: 120_000,
     env: { ...process.env, WEST4_ENV: "local", DATABASE_URL: DB },
   });
   const db = new pg.Client({ connectionString: DB });

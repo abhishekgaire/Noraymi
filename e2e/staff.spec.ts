@@ -4715,7 +4715,9 @@ test("Present the check: blocked while 2 × Margarita · Peach rings, then prese
 const stripeSeed = () =>
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    // execSync blocks the worker, so Playwright's test timeout can't stop a stuck seed; this does.
+    timeout: 120_000,
     env: {
       ...process.env,
       WEST4_ENV: "local",
@@ -9098,7 +9100,7 @@ test("training mode: a trainee's tap runs on a simulated reader, declined then p
       await db.query<{ sandbox: string; live: string; reader: string }>(
         `select o.stripe_training_account_id as sandbox, o.stripe_account_id as live,
                 (select stripe_reader_id from devices where id = $1) as reader
-           from organizations o limit 1`,
+           from organizations o join venues v on v.org_id = o.id where v.slug = 'west4karaoke'`,
         [practiceBar],
       )
     ).rows[0]!;
@@ -9169,8 +9171,8 @@ test("a paid-out with a photo of the receipt waits for Andy", async ({ page, req
     await signInMayaAtTheBar(page, request, db);
     // The screen just paired is the bar drawer's own screen.
     await db.query(
-      `update devices set cash_drawer_id = (select id from cash_drawers where name = 'Bar drawer')
-        where id = (select id from devices where kind = 'bar_computer' order by created_at desc limit 1)`,
+      `update devices set cash_drawer_id = (select id from cash_drawers where venue_id = (select id from venues where slug = 'west4karaoke') and name = 'Bar drawer')
+        where id = (select id from devices where venue_id = (select id from venues where slug = 'west4karaoke') and kind = 'bar_computer' order by created_at desc limit 1)`,
     );
     await page.goto("/tonight");
     await page.getByRole("button", { name: "Cash drawers" }).click();
@@ -9211,8 +9213,8 @@ test("a drawer per person: Maya counts in $300.00 and pulls her tray", async ({
   try {
     await signInMayaAtTheBar(page, request, db);
     await db.query(
-      `update devices set cash_drawer_id = (select id from cash_drawers where name = 'Bar drawer')
-        where id = (select id from devices where kind = 'bar_computer' order by created_at desc limit 1)`,
+      `update devices set cash_drawer_id = (select id from cash_drawers where venue_id = (select id from venues where slug = 'west4karaoke') and name = 'Bar drawer')
+        where id = (select id from devices where venue_id = (select id from venues where slug = 'west4karaoke') and kind = 'bar_computer' order by created_at desc limit 1)`,
     );
     // Friday's drawers were counted at its close, and the switch Admin saved starts Saturday.
     await db.query(
@@ -9223,7 +9225,7 @@ test("a drawer per person: Maya counts in $300.00 and pulls her tray", async ({
        select venue_id, key, version + 1,
               value || '{"drawer": "perPerson", "perPerson": {"who": "bartenders", "countLater": true}}'::jsonb,
               '2026-09-26'
-         from venue_settings where key = 'drawer' order by version desc limit 1`,
+         from venue_settings where venue_id = (select id from venues where slug = 'west4karaoke') and key = 'drawer' order by version desc limit 1`,
     );
     await setClock(request, "2026-09-27T00:00:00Z");
     // A new night: Maya signs in again at the bar computer.

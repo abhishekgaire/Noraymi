@@ -907,7 +907,9 @@ test("the payment page: its own origin, strict headers, one PaymentIntent, paid 
   test.setTimeout(90_000);
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    // execSync blocks the worker, so Playwright's test timeout can't stop a stuck seed; this does.
+    timeout: 120_000,
     env: {
       ...process.env,
       WEST4_ENV: "local",
@@ -979,7 +981,9 @@ test("Your bill: Room 9 after Present on a phone, its tablet and Marcus's bookin
   test.setTimeout(150_000);
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    // execSync blocks the worker, so Playwright's test timeout can't stop a stuck seed; this does.
+    timeout: 120_000,
     env: {
       ...process.env,
       WEST4_ENV: "local",
@@ -1351,7 +1355,9 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
   test.setTimeout(120_000);
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    // execSync blocks the worker, so Playwright's test timeout can't stop a stuck seed; this does.
+    timeout: 120_000,
     env: {
       ...process.env,
       WEST4_ENV: "local",
@@ -1416,7 +1422,9 @@ test("Manage: Jae goes from 5 to 6 guests and pays $10.00, then says he's runnin
   test.setTimeout(120_000);
   execSync("pnpm exec tsx src/stripe/seed-stripe.ts", {
     cwd: "apps/api",
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
+    // execSync blocks the worker, so Playwright's test timeout can't stop a stuck seed; this does.
+    timeout: 120_000,
     env: {
       ...process.env,
       WEST4_ENV: "local",

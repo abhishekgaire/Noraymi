@@ -146,7 +146,7 @@ export function Safety() {
           </section>
           <section aria-labelledby="safety-log">
             <h3 id="safety-log">{t("incidents.log")}</h3>
-            <IncidentLog venueId={venueId} timeZone={timeZone} />
+            <IncidentLog venueId={venueId} timeZone={timeZone} nested />
           </section>
         </>
       )}
