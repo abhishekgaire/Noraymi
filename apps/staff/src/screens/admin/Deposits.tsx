@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { depositPolicyText } from "@west4/rules";
-import type { DepositRule, PaySettings } from "@west4/shared";
+import { walkInTakes, walkInTakesOf, type DepositRule, type PaySettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
@@ -40,6 +40,12 @@ export function Deposits() {
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
+    if (!bookingOn) {
+      // The walk-in choice (D112) still applies with online booking off.
+      const d = await api<{ value: DepositRule }>("GET", `/v1/venues/${venueId}/settings/deposit`);
+      setSaved(d.value);
+      return;
+    }
     const [d, p, v] = await Promise.all([
       api<{ value: DepositRule }>("GET", `/v1/venues/${venueId}/settings/deposit`),
       api<{ value: PaySettings }>("GET", `/v1/venues/${venueId}/settings/pay`),
@@ -48,9 +54,9 @@ export function Deposits() {
     setSaved(d.value);
     setPay(p.value);
     setLive(v.versions[0] ?? null);
-  }, [venueId]);
+  }, [venueId, bookingOn]);
   useEffect(() => {
-    if (!venueId || !bookingOn) return;
+    if (!venueId) return;
     load().catch(() => setFailed(true));
   }, [venueId, bookingOn, load, draft.version]);
 
@@ -67,6 +73,12 @@ export function Deposits() {
       <section className="deposits">
         <h2>{t("admin.section.deposits")}</h2>
         <p role="status">{t("deposits.bookingOff")}</p>
+        {failed && (
+          <p className="error" role="alert">
+            {t("shell.error.cantReach")}
+          </p>
+        )}
+        {current && <WalkInChoice current={current} set={set} />}
       </section>
     );
 
@@ -254,6 +266,8 @@ export function Deposits() {
             )}
           </div>
 
+          <WalkInChoice current={current} set={set} />
+
           <h3>{t("deposits.policy")}</h3>
           <p className="small muted">{t("deposits.policy.hint")}</p>
           <div className="policy">
@@ -274,5 +288,40 @@ export function Deposits() {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * What a walk-in check-in takes (D112): a deposit (the default, West 4), a card
+ * on the room's tab (saved on the reader, nothing charged) or nothing. Online
+ * bookings keep the deposit above.
+ */
+function WalkInChoice({
+  current,
+  set,
+}: {
+  current: DepositRule;
+  set: (next: Partial<DepositRule>) => void;
+}) {
+  const { t } = useT();
+  const value = walkInTakesOf(current);
+  return (
+    <>
+      <h3>{t("deposits.walkIn")}</h3>
+      <p className="small muted">{t("deposits.walkIn.hint")}</p>
+      <div className="invite-fields" role="radiogroup" aria-label={t("deposits.walkIn")}>
+        {walkInTakes.map((w) => (
+          <label key={w} className="check">
+            <input
+              type="radio"
+              name="walk-in-takes"
+              checked={value === w}
+              onChange={() => set({ walkIn: w })}
+            />{" "}
+            {t(`deposits.walkIn.${w}`)}
+          </label>
+        ))}
+      </div>
+    </>
   );
 }

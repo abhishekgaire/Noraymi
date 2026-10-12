@@ -336,10 +336,11 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 ### 2.3 Walk-in
 
-1. On Room 11, press **+ Walk-in**: a dialog "Walk-in · Room 11" opens over the board, which stays visible behind it. **Seat them** and **Cancel** stay at the dialog's foot while you scroll it.
+1. On Room 11, press **+ Walk-in**: a dialog "Walk-in · Room 11" opens over the board, which stays visible behind it. **Seat them** and **Cancel** stay at the dialog's foot while you scroll it. Step 5 reads "No deposit" at West 4.
 2. Press **Esc**: the dialog closes, nothing is seated, and **+ Walk-in** has the focus again. Open it again; **Tab** never leaves the dialog. On a phone it's a full-height sheet from the bottom.
 3. Enter a party and press **Seat them**.
 4. Try a party too big for the room: "That room isn't free for this party".
+5. Card on the tab (D112): in Admin → Deposits & cancelling, under **At a walk-in check-in**, pick **Put a card on the tab** and Save and publish. + Walk-in on a free room: step 5 reads "Card on the tab · the guest taps a card once they're seated". **Seat them**, then the dialog shows the consent line; press **Read to guest ✓** and tap a test card on the front-desk reader (demo: `scripts/demo-start.sh` runs the fake Stripe; present a card to "Front desk S710"). The done line ends "Card on the tab · visa ···4242"; nothing is charged. **Skip the card** seats them with no card. Set it back to **Take a deposit**.
 
 ### 2.4 The waitlist (staff side)
 
@@ -1192,7 +1193,7 @@ See 9.4.
 Only after 11.1. See 11.4.
 
 ### 19.20 Deposits & cancelling
-First-hour deposit, 24 h, keep on late cancel, keep on no-show, 15-minute grace, $250 from 20 guests. Saving makes a new policy version shown on the booking page; older bookings keep theirs.
+First-hour deposit, 24 h, keep on late cancel, keep on no-show, 15-minute grace, $250 from 20 guests. Saving makes a new policy version shown on the booking page; older bookings keep theirs. **At a walk-in check-in** reads **Take a deposit** (West 4); the other choices are **Put a card on the tab** and **Nothing** (see 2.3). It still shows with Online booking off.
 
 ### 19.21 Website
 See 12.9.

@@ -1633,6 +1633,149 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
 });
 
 /**
+ * The walk-in dialog and a card on the tab (V-09; D110 and D112). From a fresh seed at 10:41 PM on a
+ * 2000 × 1130 desk: the side menu says Rooms, never Tonight. Admin → Deposits & cancelling reads
+ * "Take a deposit" for a walk-in (West 4) and Andy switches it to "Put a card on the tab". + Walk-in
+ * on Room 11 opens a modal dialog over the board, labelled by its title: Esc and Cancel close it
+ * with nothing seated and focus back on + Walk-in, Tab stays inside, every button is at least 44 px,
+ * and step 5 names the card. Seat them seats the party, then the guest's card is read the consent
+ * line and tapped on the front-desk reader: saved on Room 11's check, nothing charged. On a phone
+ * the dialog is a full-height bottom sheet. The setting goes back to the deposit at the end.
+ */
+test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the guest's card", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
+  stripeSeed();
+  const db = await dbClient();
+  const review = process.env["DESIGN_REVIEW"] ? "docs/design-review/v09" : null;
+  if (review) mkdirSync(review, { recursive: true });
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 2000, height: 1130 });
+    await signInAndy(page, request, db);
+    const menuNav = page.locator("#side-menu");
+    await expect(menuNav.getByRole("link", { name: "Rooms", exact: true })).toBeVisible();
+    await expect(menuNav.getByRole("link", { name: "Tonight", exact: true })).toHaveCount(0);
+
+    await page.goto("/admin/deposits");
+    const choice = page.getByRole("radiogroup", { name: "At a walk-in check-in" });
+    await expect(choice.getByLabel("Take a deposit")).toBeChecked();
+    await choice.getByLabel("Put a card on the tab").check();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+
+    await page.goto("/tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    if (review) await page.screenshot({ path: `${review}/rooms-nav-2000.png` });
+    const room11 = await openRoom(page, "Room 11");
+    const trigger = room11.getByRole("button", { name: "+ Walk-in" });
+    const dialog = page.getByRole("dialog", { name: "Walk-in · Room 11" });
+
+    // Esc closes it with no change, and focus goes back to + Walk-in.
+    await trigger.click();
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
+    await expect(dialog.getByLabel("1 · Guests")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(page.getByRole("listitem", { name: "Room 11", exact: true })).not.toContainText(
+      "In room",
+    );
+    // Cancel does the same.
+    await trigger.click();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await expect(dialog.getByLabel("1 · Guests")).toBeVisible();
+    // The board stays on screen behind it.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(dialog).toContainText(
+      "5 · Card on the tab · the guest taps a card once they're seated",
+    );
+    // Tab never leaves the dialog.
+    for (let i = 0; i < 14; i++) {
+      await page.keyboard.press("Tab");
+      expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+    }
+    for (const button of await dialog.getByRole("button").all())
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect(await clippedText(page)).toEqual([]);
+    if (review) await page.screenshot({ path: `${review}/walk-in-2000.png` });
+
+    await dialog.getByLabel("1 · Guests").fill("4");
+    await dialog.getByLabel("Guest's name").fill("Nia B.");
+    await dialog.getByRole("button", { name: "Seat them" }).click();
+    const card = page.getByRole("dialog", { name: "Card on the tab · Room 11" });
+    await expect(card).toContainText(/^.*Room 11 · room code [A-Z2-9]{5} · check #\d{4}/);
+    await expect(card).toContainText(
+      "We'll save this card for your room's bill. Nothing is charged now.",
+    );
+    if (review) await page.screenshot({ path: `${review}/card-on-tab-2000.png` });
+    await card.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect(card).toContainText("Tap, dip or swipe on the front-desk reader");
+    await presentCard(request, db, "Front desk S710");
+    await expect(card).toHaveCount(0);
+    await expect(
+      page.getByText(
+        /^Room 11 · room code [A-Z2-9]{5} · check #\d{4} · Card on the tab · visa ···4242$/,
+      ),
+    ).toBeVisible();
+    const saved = (
+      await db.query<{ state: string; last4: string; charged: number }>(
+        `select c.state, c.card_last4 as last4,
+                (select count(*)::int from payment_allocations a where a.check_id = c.check_id) as charged
+           from check_cards c join room_sessions s on s.check_id = c.check_id
+           join rooms r on r.id = s.room_id
+          where r.name = 'Room 11' and s.ended_at is null`,
+      )
+    ).rows;
+    expect(saved).toEqual([{ state: "saved", last4: "4242", charged: 0 }]);
+
+    // The phone: a full-height bottom sheet over the board, its footer pinned to the bottom.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.locator(".tabs").getByRole("link", { name: "Rooms", exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      page.locator(".tabs").getByRole("link", { name: "Bookings", exact: true }),
+    ).toBeVisible();
+    if (review) await page.screenshot({ path: `${review}/rooms-tabs-390.png` });
+    await listView(page);
+    const room8 = await openRoom(page, "Room 8");
+    await room8.getByRole("button", { name: "+ Walk-in" }).click();
+    const sheet = page.getByRole("dialog", { name: "Walk-in · Room 8" });
+    await expect(sheet.getByLabel("1 · Guests")).toBeVisible();
+    const box = (await sheet.boundingBox())!;
+    expect(box.width).toBe(390);
+    expect(Math.round(box.y + box.height)).toBe(844);
+    expect(box.height).toBeGreaterThan(780);
+    const seat = sheet.getByRole("button", { name: "Seat them" });
+    expect(Math.round((await seat.boundingBox())!.y)).toBeGreaterThan(700);
+    expect(await clippedText(page)).toEqual([]);
+    if (review) await page.screenshot({ path: `${review}/walk-in-390.png` });
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+
+    // Back to the deposit, as West 4 has it.
+    await page.setViewportSize({ width: 2000, height: 1130 });
+    await page.goto("/admin/deposits");
+    await page
+      .getByRole("radiogroup", { name: "At a walk-in check-in" })
+      .getByLabel("Take a deposit")
+      .check();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * ID checks (M2-12). Room 1 reads "ID ✓ 3 of 4 · the runner checks the last
  * ID" and Room 5 "ID ✓ 4 of 4", with a Scan ID button. With Safety & ID
  * records off, the button is gone and the count stays.

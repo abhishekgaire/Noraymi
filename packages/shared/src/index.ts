@@ -49,6 +49,8 @@ export {
   KITCHEN_DEFAULTS,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,
+  walkInTakes,
+  walkInTakesOf,
 } from "./settings.js";
 export type {
   SettingsKey,
@@ -59,6 +61,7 @@ export type {
   Billing,
   PriceSettings,
   DepositRule,
+  WalkInTakes,
   CardFee,
   PaySettings,
   CashSettings,

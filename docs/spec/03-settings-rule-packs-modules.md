@@ -76,6 +76,11 @@ type DepositRule = {
   bigParty: { fromGuests: number; deposit: { kind: "flat"; cents: number } | { kind: "pct"; pct: number };
               refundHours: number } | null;
                                  // a pct deposit is taken on the larger of room cost and the booking's minimum spend
+  walkIn?: "deposit" | "cardOnTab" | "nothing";
+                                 // what a walk-in check-in takes (D112), in Admin → Deposits & cancelling, owner or
+                                 // manager. Missing reads "deposit" (West 4): today's step 5. "cardOnTab" (Sing Sing):
+                                 // once seated, the guest taps a card on the reader and it's saved on the room's check
+                                 // (a `check_cards` row), nothing charged. Online bookings keep the rule above.
 };
 
 type CardFee =
@@ -264,7 +269,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Module | Staff app (desktop and bar POS) | Staff phone | Website and room page | Texts |
 | --- | --- | --- | --- | --- |
 | Rooms & room clock | Rooms (the board), DeskRoom, Calendar, the Rooms list on the bar POS | Bookings, Rooms, Calendar | The Rooms section; room tablets | Booking confirmed, Reminder, Room code, Please wrap up, Booked time ending, Running late reply |
-| Online booking & deposits | Admin → Deposits & cancelling reads "Online booking is off" | — | The Book section and new bookings on the manage page; the hero's "Book a room" becomes "Call to book" | Payment link, and Deposit refund for new bookings |
+| Online booking & deposits | Admin → Deposits & cancelling reads "Online booking is off" (what a walk-in takes, D112, still shows) | — | The Book section and new bookings on the manage page; the hero's "Book a room" becomes "Call to book" | Payment link, and Deposit refund for new bookings |
 | Walk-in waitlist | The board's waitlist drawer | Waitlist | The door QR and the waitlist page | Room ready, Offer expiring |
 | Ordering from the room | — (room orders stop arriving) | — | The menu, ordering and Same again on the room page and tablets | — |
 | Bar screen & tickets | Bar orders, the room-order cards on the bar POS, tickets | Runs | — | — |

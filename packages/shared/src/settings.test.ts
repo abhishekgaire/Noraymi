@@ -4,6 +4,7 @@ import {
   parseSetting,
   settingsKeys,
   startsNextBusinessDate,
+  walkInTakesOf,
   withLaterPart,
 } from "./settings.js";
 
@@ -130,5 +131,30 @@ describe("withLaterPart (M6-25)", () => {
       drawer: "perPerson",
     });
     expect(withLaterPart("tabs", { a: 1 }, { a: 2 })).toEqual({ a: 1 });
+  });
+});
+
+describe("what a walk-in check-in takes (D112)", () => {
+  const rule = {
+    on: true,
+    mode: "firstHour",
+    value: 0,
+    refundHours: 24,
+    late: "keep",
+    noShow: "keep",
+    graceMin: 15,
+    bigParty: null,
+  };
+  it("defaults to the deposit when it was never set (West 4)", () => {
+    expect(parseSetting("deposit", rule).ok).toBe(true);
+    expect(walkInTakesOf(rule as never)).toBe("deposit");
+    expect(walkInTakesOf(null)).toBe("deposit");
+  });
+  it("takes a card on the tab or nothing, and nothing else", () => {
+    for (const walkIn of ["deposit", "cardOnTab", "nothing"]) {
+      expect(parseSetting("deposit", { ...rule, walkIn }).ok).toBe(true);
+      expect(walkInTakesOf({ walkIn } as never)).toBe(walkIn);
+    }
+    expect(parseSetting("deposit", { ...rule, walkIn: "hold" }).ok).toBe(false);
   });
 });

@@ -26,3 +26,13 @@ What Sing Sing's own public website says about the venue, read on Oct 11, 2026 f
 - **Room rates and room sizes.** The site's staff screens list sample suites (Small 2–4, Medium 5–8, Large 9–14, a VIP suite 15–25), but those are inside the site's own admin tool, not public statements, and Sing Sing has 6 rooms ([spec 16](../../spec/16-kitchen.md)). Take the rooms and their prices from the manager.
 - **Last call, the drinks' cash discount rate, which beers are on draft and the pour size.** Not stated; see [menu.md](menu.md) and [Open technical questions](../../spec/14-open-questions.md).
 - **The largest party that can book online.** The site has its own setting for it; the value isn't public.
+
+## Settings to set at onboarding
+
+Sing Sing isn't a venue in the database yet. These are its own choices, already made, to enter in Admin when S-01 creates it (West 4's demo seed keeps its own):
+
+| Setting | Sing Sing's choice | Where in Admin | Decided |
+| --- | --- | --- | --- |
+| Deposits for online bookings | Off (`deposit.on` false): online bookings pay nothing up front, as the site says. The site's card for groups over 5 is to confirm with the manager before go-live | Admin → Deposits & cancelling | Founder, Oct 11, 2026 |
+| What a walk-in check-in takes | **Put a card on the tab** (`deposit.walkIn` "cardOnTab"): once the party is seated, the guest taps a card on the front-desk reader and it's saved on the room's check; nothing is charged until they pay at close-out | Admin → Deposits & cancelling → At a walk-in check-in | D112, Oct 11, 2026 |
+| Age policy | All ages until 8 PM, then 21 and over (`safety.allAgesUntil` "20:00") | Admin → Safety | D108 |

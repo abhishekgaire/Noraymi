@@ -647,6 +647,26 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "checkIn.startBooked": "Empezar a la hora reservada ({time})",
   "checkIn.deposit": "Depósito aplicado {amount}",
   "checkIn.noDeposit": "Sin depósito",
+  "checkIn.walkInTakes.cardOnTab":
+    "Tarjeta en la cuenta · el cliente acerca una tarjeta al sentarse",
+  "checkIn.walkInTakes.nothing": "No se cobra nada al registrar la entrada",
+  "checkIn.card.title": "Tarjeta en la cuenta · {room}",
+  "checkIn.card.waiting": "Acerque, inserte o deslice la tarjeta en el lector de recepción",
+  "checkIn.card.saved": "Tarjeta en la cuenta · {brand} ···{last4}",
+  "checkIn.card.failed":
+    "La tarjeta no se guardó. Vuelva a pasarla, u omítala y cobre al cerrar la cuenta.",
+  "checkIn.card.noReader":
+    "No hay un lector configurado. Agregue uno en Admin → Dispositivos, u omita la tarjeta.",
+  "checkIn.card.readerOffline":
+    "El lector está sin conexión. Vuelva a pasarla cuando vuelva, u omita la tarjeta.",
+  "checkIn.card.skip": "Omitir la tarjeta",
+  "checkIn.card.skipped": "Sin tarjeta en la cuenta",
+  "deposits.walkIn": "Al registrar a un cliente sin reserva",
+  "deposits.walkIn.hint":
+    "Lo que toma el paso 5 de un cliente sin reserva. Las reservas en línea mantienen su propio depósito.",
+  "deposits.walkIn.deposit": "Cobrar un depósito",
+  "deposits.walkIn.cardOnTab": "Poner una tarjeta en la cuenta",
+  "deposits.walkIn.nothing": "Nada",
   "checkIn.code":
     "Un nuevo código de sala de 5 caracteres le llega al anfitrión por mensaje, con el enlace para unirse",
   "checkIn.guestName": "Nombre del cliente",

@@ -842,7 +842,7 @@ One sheet, the same wherever it opens (`POST /bookings/{b}/check-in {party_size,
 - **2 IDs.** Checked "x of n", plus "The runner checks the rest". The board's "ID ✓ 4 of 4" reads from it.
 - **3 Room.** Confirmed or changed.
 - **4 Clock.** Start now, or at the booked time.
-- **5 Deposit.** Applied to the check (−$40 for Sam O.).
+- **5 Deposit.** Applied to the check (−$40 for Sam O.). For a walk-in, what Admin → Deposits & cancelling says a walk-in takes (D112): "No deposit" (Take a deposit, West 4's), "Card on the tab · the guest taps a card once they're seated" or "Nothing taken at check-in". With a card on the tab, Seat them seats the party and the dialog turns to "Card on the tab · Room 11": the consent line to read out, Read to guest ✓, "Tap, dip or swipe on the front-desk reader", then "Card on the tab · Visa ···4242" on the done line. A decline or a missing or offline reader offers Tap again or Skip the card; the party stays seated either way, and nothing is charged.
 - **6 Room code.** A new 5-character code is texted to the host with the join link.
 
 *Decided in [FB 4.2]. Spec: [Staff screens and the bar POS][spec-10], [API][spec-08].*
