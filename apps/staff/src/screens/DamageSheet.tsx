@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api.js";
 import { useT } from "../i18n.js";
+import { useSheetDialog } from "../layout/Dialog.js";
 import { uploadPhoto } from "../upload.js";
 
 /**
@@ -74,11 +75,12 @@ export function DamageSheet({
   };
 
   const title = t("damage.title", { room: roomName });
+  const dlg = useSheetDialog(title);
   if (done) {
     const damage = done.lines.filter((l) => l.kind === "damage");
     return (
-      <div className="sheet" role="dialog" aria-label={title}>
-        <h2>{title}</h2>
+      <div className="sheet" {...dlg.root}>
+        <h2 {...dlg.title}>{title}</h2>
         <ul className="lost-items">
           {damage.map((l) => (
             <li
@@ -105,8 +107,8 @@ export function DamageSheet({
     );
   }
   return (
-    <form className="sheet" role="dialog" aria-label={title} onSubmit={(e) => void submit(e)}>
-      <h2>{title}</h2>
+    <form className="sheet" {...dlg.root} onSubmit={(e) => void submit(e)}>
+      <h2 {...dlg.title}>{title}</h2>
       <label>
         {t("damage.photo")}
         <input

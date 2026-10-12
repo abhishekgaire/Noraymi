@@ -129,7 +129,7 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
     await enrolPasskey(page, request, db);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     const canvasPage = await page.context().newPage();
     const shoot = async (board: string, width: number, height: number) => {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { checkNumberLabel, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { useSheetDialog } from "../layout/Dialog.js";
+import { RoomCardTap } from "./RoomCardTap.js";
 
 /**
  * The check-in sheet (M2-11; screens N10): the same on the board and on a
@@ -19,6 +21,8 @@ interface Preview {
   readonly room_fits: boolean;
   readonly deposit_cents: number;
   readonly booked_start: string | null;
+  /** What a walk-in's step 5 takes (D112); null for a booking. */
+  readonly walk_in: "deposit" | "cardOnTab" | "nothing" | null;
 }
 
 interface Room {
@@ -27,6 +31,7 @@ interface Room {
 }
 
 interface Seated {
+  readonly check_id: string;
   readonly room_name: string;
   readonly room_code: string;
   readonly check_number: number;
@@ -64,6 +69,8 @@ export function CheckInSheet({
   const [minutes, setMinutes] = useState(120);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Card on the tab (D112): once seated, the sheet asks for the card before it's done.
+  const [cardFor, setCardFor] = useState<{ checkId: string; line: string } | null>(null);
 
   const load = useCallback(async () => {
     const q = new URLSearchParams();
@@ -117,14 +124,16 @@ export function CheckInSheet({
                 ? { guest: { name: name.trim(), phone_e164: phone.trim() || null } }
                 : {}),
             });
-      onDone(
+      const line =
         t("checkIn.done", {
           room: seated.room_name,
           code: seated.room_code,
           // A practice check (training mode, M7-03) shows as T-0012.
           number: checkNumberLabel(seated.check_number, seated.training === true),
-        }) + (seated.text === "not_sent" ? ` · ${t("checkIn.textNotSent")}` : ""),
-      );
+        }) + (seated.text === "not_sent" ? ` · ${t("checkIn.textNotSent")}` : "");
+      if (target.kind === "walk_in" && preview.walk_in === "cardOnTab")
+        setCardFor({ checkId: seated.check_id, line });
+      else onDone(line);
     } catch (err) {
       setError(
         (err as ApiCallError)?.code === "room_not_free"
@@ -140,17 +149,36 @@ export function CheckInSheet({
     target.kind === "booking"
       ? t("checkIn.title", { name: target.name })
       : t("checkIn.walkInTitle", { room: target.roomName });
+  const dlg = useSheetDialog(title);
+
+  if (cardFor)
+    return (
+      <RoomCardTap
+        venueId={venueId}
+        checkId={cardFor.checkId}
+        roomName={target.kind === "walk_in" ? target.roomName : ""}
+        seatedLine={cardFor.line}
+        onDone={onDone}
+      />
+    );
 
   return (
-    <form className="sheet" role="dialog" aria-label={title} onSubmit={(e) => void submit(e)}>
-      <h2>{title}</h2>
+    <form className="sheet" {...dlg.root} onSubmit={(e) => void submit(e)}>
+      <h2 {...dlg.title}>{title}</h2>
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
       {!preview || party === null ? (
-        <p role="status">{t("shell.loading")}</p>
+        <>
+          {!error && <p role="status">{t("shell.loading")}</p>}
+          <div className="row">
+            <button type="button" className="secondary" onClick={onClose}>
+              {t("checkIn.cancel")}
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <label>
@@ -256,7 +284,11 @@ export function CheckInSheet({
               label:
                 preview.deposit_cents > 0
                   ? t("checkIn.deposit", { amount: `−${money(preview.deposit_cents as never)}` })
-                  : t("checkIn.noDeposit"),
+                  : preview.walk_in === "cardOnTab"
+                    ? t("checkIn.walkInTakes.cardOnTab")
+                    : preview.walk_in === "nothing"
+                      ? t("checkIn.walkInTakes.nothing")
+                      : t("checkIn.noDeposit"),
             })}
           </p>
           <p className="small muted">{t("checkIn.step", { n: 6, label: t("checkIn.code") })}</p>

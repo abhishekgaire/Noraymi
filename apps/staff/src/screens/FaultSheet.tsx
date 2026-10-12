@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api.js";
 import { useT } from "../i18n.js";
+import { useSheetDialog } from "../layout/Dialog.js";
 
 /**
  * N14 Report a fault (M2-16): the note, and whether to take the room out of
@@ -73,9 +74,10 @@ export function FaultSheet({
   };
 
   const title = t("fault.title", { room: target.roomName });
+  const dlg = useSheetDialog(title);
   return (
-    <form className="sheet" role="dialog" aria-label={title} onSubmit={(e) => void submit(e)}>
-      <h2>{title}</h2>
+    <form className="sheet" {...dlg.root} onSubmit={(e) => void submit(e)}>
+      <h2 {...dlg.title}>{title}</h2>
       <label>
         {t("fault.what")}
         <textarea value={text} maxLength={500} required onChange={(e) => setText(e.target.value)} />

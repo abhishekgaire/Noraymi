@@ -16,6 +16,7 @@ import { CutOffRoom } from "./CutOff.js";
 import { Headcount } from "./Headcount.js";
 import { LostAndFound } from "./LostAndFound.js";
 import { MoveSheet } from "./MoveSheet.js";
+import { Dialog } from "../layout/Dialog.js";
 import { WaitlistList, useWaitlistCount } from "./Waitlist.js";
 import { ScanId } from "./ScanId.js";
 
@@ -445,11 +446,6 @@ export function Tonight() {
   const showList = !phone || view === "list";
   const open = boardRooms.find((r) => r.room_id === selected) ?? null;
 
-  // A sheet opened from the panel or a tile shows at the top of the board: bring it into view.
-  const sheets = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (sheetOpen) sheets.current?.scrollIntoView?.({ block: "nearest" });
-  }, [sheetOpen]);
   const panelRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (selected && !phone) panelRef.current?.scrollIntoView?.({ block: "nearest" });
@@ -841,7 +837,7 @@ export function Tonight() {
   return (
     <section className={phone ? "screen board-screen phone" : "screen board-screen"}>
       <div className="screen-head">
-        <h1>{t("menu.tonight")}</h1>
+        <h1>{t("menu.rooms")}</h1>
         {counts && (
           <p className="board-counts" aria-label={t("board.countsLabel")}>
             {t("board.counts", {
@@ -982,62 +978,76 @@ export function Tonight() {
           {t("shell.error.cantReach")}
         </p>
       )}
-      <div ref={sheets} className="board-sheets">
+      {/* Check-in, walk-in, damage, move and fault open in a dialog over the board (V-09, D110). */}
+      <div className="board-sheets">
         {done && (
           <p className="notice" role="status">
             {done}
           </p>
         )}
         {sheet && (
-          <CheckInSheet
-            venueId={venueId}
-            timeZone={timeZone}
-            target={sheet}
-            freeRooms={free}
-            onClose={() => setSheet(null)}
-            onDone={(line) => {
-              setSheet(null);
-              setDone(line);
-              void load();
-            }}
-          />
+          <Dialog onClose={() => setSheet(null)}>
+            <CheckInSheet
+              venueId={venueId}
+              timeZone={timeZone}
+              target={sheet}
+              freeRooms={free}
+              onClose={() => setSheet(null)}
+              onDone={(line) => {
+                setSheet(null);
+                setDone(line);
+                void load();
+              }}
+            />
+          </Dialog>
         )}
         {damage && (
-          <DamageSheet
-            venueId={venueId}
-            checkId={damage.checkId}
-            roomName={damage.roomName}
+          <Dialog
             onClose={() => {
               setDamage(null);
               void load();
             }}
-          />
+          >
+            <DamageSheet
+              venueId={venueId}
+              checkId={damage.checkId}
+              roomName={damage.roomName}
+              onClose={() => {
+                setDamage(null);
+                void load();
+              }}
+            />
+          </Dialog>
         )}
         {moving && (
-          <MoveSheet
-            venueId={venueId}
-            timeZone={timeZone}
-            sessionId={moving.sessionId}
-            roomName={moving.roomName}
-            onClose={() => setMoving(null)}
-            onMoved={(line) => {
-              setMoving(null);
-              setDone(line);
-              void load();
-            }}
-          />
+          <Dialog onClose={() => setMoving(null)}>
+            <MoveSheet
+              venueId={venueId}
+              timeZone={timeZone}
+              sessionId={moving.sessionId}
+              roomName={moving.roomName}
+              onClose={() => setMoving(null)}
+              onMoved={(line) => {
+                setMoving(null);
+                setDone(line);
+                void load();
+              }}
+            />
+          </Dialog>
         )}
         {faultSheet && (
-          <FaultSheet
-            venueId={venueId}
-            target={faultSheet}
-            onClose={() => setFaultSheet(null)}
-            onLogged={(line) => {
-              setFaultSheet(null);
-              setDone(line);
-              void load();
-            }}
-          />
+          <Dialog onClose={() => setFaultSheet(null)}>
+            <FaultSheet
+              venueId={venueId}
+              target={faultSheet}
+              onClose={() => setFaultSheet(null)}
+              onLogged={(line) => {
+                setFaultSheet(null);
+                setDone(line);
+                void load();
+              }}
+            />
+          </Dialog>
         )}
       </div>
       {sessions === null && !failed && <p role="status">{t("shell.loading")}</p>}
@@ -1133,7 +1143,7 @@ export function Tonight() {
           </div>
         )}
         <div className="board-side">
-          {open && !(phone && sheetOpen) && roomPanel(open)}
+          {open && roomPanel(open)}
           {!open && !phone && sessions !== null && <p className="board-pick">{t("board.pick")}</p>}
           {showList && venueId && (
             <div className="board-headcount">

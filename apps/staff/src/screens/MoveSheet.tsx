@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useT } from "../i18n.js";
+import { useSheetDialog } from "../layout/Dialog.js";
 
 /**
  * N12 Move sheet (M2-18): the rooms that fit the party and are free for the
@@ -67,11 +68,12 @@ export function MoveSheet({
   };
 
   const title = t("move.title", { room: roomName });
+  const dlg = useSheetDialog(title);
   const ok = options?.filter((o) => o.ok) ?? [];
   const no = options?.filter((o) => !o.ok) ?? [];
   return (
-    <div className="sheet" role="dialog" aria-label={title}>
-      <h2>{title}</h2>
+    <div className="sheet" {...dlg.root}>
+      <h2 {...dlg.title}>{title}</h2>
       {options === null && !error && <p role="status">{t("shell.loading")}</p>}
       {options !== null && ok.length === 0 && <p className="empty">{t("move.none")}</p>}
       <ul className="move-options">

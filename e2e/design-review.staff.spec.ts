@@ -125,7 +125,7 @@ test("V-08 · the Board beside Board.dc.html at 1280, and the phone beside Staff
     await enrolPasskey(page, request, db);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } });
     await page.reload();
     await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
@@ -189,7 +189,7 @@ test("V-03 · the desk screens beside their canvas boards at 1280", async ({ pag
     await enrolPasskey(page, request, db);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     const canvasPage = await page.context().newPage();
     await canvasPage.setViewportSize({ width: 1280, height: 800 });

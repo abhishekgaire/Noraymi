@@ -123,7 +123,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "menu.title": "Menú",
   "menu.open": "Abrir el menú",
   "menu.close": "Cerrar el menú",
-  "menu.tonight": "Esta noche",
+  "menu.rooms": "Salas",
   "menu.barPos": "POS del bar",
   "menu.barOrders": "Pedidos del bar",
   "menu.songQueue": "Cola de canciones",
@@ -331,8 +331,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "module.bar_screen.description":
     "Antigüedad en pantalla: ámbar a los 2 min, rosa a los 4 cuando se avisa al gerente de turno; teléfonos del bar a los 30 s; un mensaje o llamada a los 6; campanilla como respaldo.",
   "module.rooms.hides.staffApp":
-    "Esta noche (el tablero), DeskRoom, Calendario, la lista de Salas en el POS del bar",
-  "module.rooms.hides.staffPhone": "Esta noche, Salas, Calendario",
+    "Salas (el tablero), DeskRoom, Calendario, la lista de Salas en el POS del bar",
+  "module.rooms.hides.staffPhone": "Reservas, Salas, Calendario",
   "module.rooms.hides.website": "La sección de Salas; las tabletas de las salas",
   "module.rooms.hides.texts":
     "Reserva confirmada, Recordatorio, Código de sala, Por favor vayan terminando, Tiempo reservado por terminar, Respuesta de llegada tarde",
@@ -647,6 +647,26 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "checkIn.startBooked": "Empezar a la hora reservada ({time})",
   "checkIn.deposit": "Depósito aplicado {amount}",
   "checkIn.noDeposit": "Sin depósito",
+  "checkIn.walkInTakes.cardOnTab":
+    "Tarjeta en la cuenta · el cliente acerca una tarjeta al sentarse",
+  "checkIn.walkInTakes.nothing": "No se cobra nada al registrar la entrada",
+  "checkIn.card.title": "Tarjeta en la cuenta · {room}",
+  "checkIn.card.waiting": "Acerque, inserte o deslice la tarjeta en el lector de recepción",
+  "checkIn.card.saved": "Tarjeta en la cuenta · {brand} ···{last4}",
+  "checkIn.card.failed":
+    "La tarjeta no se guardó. Vuelva a pasarla, u omítala y cobre al cerrar la cuenta.",
+  "checkIn.card.noReader":
+    "No hay un lector configurado. Agregue uno en Admin → Dispositivos, u omita la tarjeta.",
+  "checkIn.card.readerOffline":
+    "El lector está sin conexión. Vuelva a pasarla cuando vuelva, u omita la tarjeta.",
+  "checkIn.card.skip": "Omitir la tarjeta",
+  "checkIn.card.skipped": "Sin tarjeta en la cuenta",
+  "deposits.walkIn": "Al registrar a un cliente sin reserva",
+  "deposits.walkIn.hint":
+    "Lo que toma el paso 5 de un cliente sin reserva. Las reservas en línea mantienen su propio depósito.",
+  "deposits.walkIn.deposit": "Cobrar un depósito",
+  "deposits.walkIn.cardOnTab": "Poner una tarjeta en la cuenta",
+  "deposits.walkIn.nothing": "Nada",
   "checkIn.code":
     "Un nuevo código de sala de 5 caracteres le llega al anfitrión por mensaje, con el enlace para unirse",
   "checkIn.guestName": "Nombre del cliente",
@@ -1010,7 +1030,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     '{name} escribió "{text}" para las {time} en {room}, y se guarda hasta las {until}.',
   "alert.move": "Mover una sala…",
   "alert.show": "Mostrar",
-  "room.back": "← Esta noche",
+  "room.back": "← Salas",
   "room.notFound": "No existe esa sala",
   "room.clock": "Reloj de la sala",
   "room.rate": "{min} min · {rate} por minuto",
@@ -1044,7 +1064,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "phone.noShowDone": "{name} marcado como no se presentó",
   "phone.letStay": "Dejarlos quedarse",
   "phone.stayDone": "{name} puede quedarse otra hora",
-  "tabs.tonight": "Esta noche",
+  "tabs.bookings": "Reservas",
   "tabs.rooms": "Salas",
   "push.wrapUp": "{room} está terminando: llega el siguiente grupo",
   "calendar.days": "Próximos días",

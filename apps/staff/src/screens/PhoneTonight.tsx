@@ -6,6 +6,7 @@ import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { CheckInSheet, type SheetTarget } from "./CheckInSheet.js";
+import { Dialog } from "../layout/Dialog.js";
 import { Link } from "react-router";
 import { RefundSheet } from "./RefundSheet.js";
 import { KitchenSwitch } from "./KitchenSwitch.js";
@@ -134,7 +135,7 @@ export function PhoneTonight() {
 
   return (
     <section className="screen phone-tonight">
-      <h1>{t("menu.tonight")}</h1>
+      <h1>{t("tabs.bookings")}</h1>
       {/* Close the kitchen (K-07): the manager's phone; nothing while Kitchen & food is off. */}
       <KitchenSwitch compact />
       {failed && (
@@ -158,18 +159,20 @@ export function PhoneTonight() {
         </p>
       )}
       {sheet && (
-        <CheckInSheet
-          venueId={venueId}
-          timeZone={timeZone}
-          target={sheet}
-          freeRooms={[]}
-          onClose={() => setSheet(null)}
-          onDone={(line) => {
-            setSheet(null);
-            setDone(line);
-            void load();
-          }}
-        />
+        <Dialog onClose={() => setSheet(null)}>
+          <CheckInSheet
+            venueId={venueId}
+            timeZone={timeZone}
+            target={sheet}
+            freeRooms={[]}
+            onClose={() => setSheet(null)}
+            onDone={(line) => {
+              setSheet(null);
+              setDone(line);
+              void load();
+            }}
+          />
+        </Dialog>
       )}
       {refundFor && (
         <RefundSheet venueId={venueId} bookingId={refundFor} onClose={() => setRefundFor(null)} />

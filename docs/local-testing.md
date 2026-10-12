@@ -70,7 +70,7 @@ Owners and managers sign in with a **passkey**: Touch ID on your Mac, no passwor
 4. Type the code and press **Confirm**.
 5. Choose a 6-digit PIN (common ones like 123456 are refused) and press **Set my PIN**.
 6. Press **Add a passkey** and touch the Touch ID key when Chrome asks.
-7. Press **Go to sign-in**, type `abhishek@demo.west4.local`, press **Continue with a passkey**, and touch Touch ID again. You land on **Tonight**.
+7. Press **Go to sign-in**, type `abhishek@demo.west4.local`, press **Continue with a passkey**, and touch Touch ID again. You land on **Rooms** (the board).
 
 Do the same with Andy's link (`andy@demo.west4.local`) in another Chrome profile or an Incognito window to be the manager at the same time.
 
@@ -93,7 +93,7 @@ Staff sign in with their name and PIN on a **paired** shared computer (the bar o
 
 ## 4. See it as a phone
 
-Most screens change shape on a phone. In Chrome, press **Cmd + Option + I** to open the developer tools, then **Cmd + Shift + M** for the device toolbar, and pick an iPhone size at the top. The bottom of the screen becomes the phone's tabs: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Alerts and Admin (which tabs you see depends on who's signed in).
+Most screens change shape on a phone. In Chrome, press **Cmd + Option + I** to open the developer tools, then **Cmd + Shift + M** for the device toolbar, and pick an iPhone size at the top. The bottom of the screen becomes the phone's tabs: Bookings (tonight's bookings), Rooms (the board), Calls, Waitlist, Messages, Approvals, Alerts and Admin (which tabs you see depends on who's signed in).
 
 ## 5. A tour: what to try, screen by screen
 
@@ -101,7 +101,7 @@ For a complete, step-by-step test of every feature built so far (payments, booki
 
 Everything below starts from a fresh night at 10:41 PM.
 
-### Tonight (the board)
+### Rooms (the board)
 
 The board is the heart of the staff app.
 

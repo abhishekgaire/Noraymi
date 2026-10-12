@@ -13,7 +13,7 @@ Where this page and the [spec](spec/README.md) differ, the spec wins. Examples u
 - **Billable guests.** The number of guests a room's time is billed for: the larger of the party size and that business date's minimum (3 on weeknights, 4 on Friday and Saturday at West 4). Sam O.'s party of 3 bills as 4 on a Friday. In the VIP room, a party of 20 or more pays the flat VIP rate ($250 an hour) instead. ([Money rules](spec/05-money-rules.md), rule 3)
 - **Booking.** A room reserved for a party at a time, usually with a deposit. Every booking gets a real room when it is made; the guest sees only the size tier. Statuses: `pending`, `confirmed`, `checked_in`, `no_show`, `cancelled`, `completed`. ([Data model](spec/04-data-model.md))
 - **Business date.** The night a sale, payment, shift or drawer move belongs to: its local time minus the venue's day cutover (6:00 AM at West 4). A 2:30 AM Saturday sale belongs to Friday. Day-of-week rules, such as the minimum guests, use it. ([Money rules](spec/05-money-rules.md), rule 2)
-- **Check-in.** The sheet that turns a booking or a walk-in into a room session: party size with the billable minimum ("3 guests · Fridays bill at least 4"), IDs checked ("3 of 4"), the room, when the clock starts, the deposit applied, and a new room code texted to the host. The sheet is the same on the Board and on staff phones. ([Staff screens and the bar POS](spec/10-staff-screens-bar-pos.md))
+- **Check-in.** The sheet that turns a booking or a walk-in into a room session: party size with the billable minimum ("3 guests · Fridays bill at least 4"), IDs checked ("3 of 4"), the room, when the clock starts, the deposit applied (for a walk-in, what Admin says a walk-in takes: no deposit, a card on the tab, or nothing), and a new room code texted to the host. The sheet is the same on the Board and on staff phones, and opens in a dialog over them (D110). ([Staff screens and the bar POS](spec/10-staff-screens-bar-pos.md))
 - **Cleaning.** The room state after a party leaves ("Needs a wipe · left 10:33 PM (8 min)"). Staff mark it done, and it is flagged after 8 minutes. Cleaning minutes are also reserved between bookings.
 - **Deposit.** Money a guest pays when booking. At West 4 it is the first hour: $10 for each billable guest, or a flat $250 from 20 guests. A deposit is a payment, never a line. It is allocated to the check at check-in, so it comes off the bill (Room 9: −$120.00). ([Money rules](spec/05-money-rules.md), rule 11)
 - **First-hour minimum.** A session shorter than an hour is billed as one hour, at its first segment's rate. It applies once per session. Room 5, 41 minutes in, shows $40.00.
@@ -35,6 +35,7 @@ Where this page and the [spec](spec/README.md) differ, the spec wins. Examples u
 - **Time band and billing step.** A band is a period (by day and time) with its own rates. Each band also sets a billing step of 1, 15, 30 or 60 minutes and a rounding rule. West 4 bills by the minute, so the step changes nothing there.
 - **Waitlist.** Parties waiting for a room. An offer holds a room for 10 minutes, texts the party and shows a countdown. If it isn't claimed, the room goes to the next party that fits. The Board's drawer and the phone's Waitlist tab show the same rows.
 - **Walk-in.** A party with no booking. Leo M. in Room 5 was seated from the waitlist at 10:00 PM. "+ Walk-in" opens the check-in sheet with a free room.
+- **Rooms.** The board's name on staff screens: the side menu, its title and the phone's tab ("Salas" in Spanish). Never "Tonight" (D111). The phone's list of tonight's bookings is **Bookings** ("Reservas").
 - **Wrap-up.** The prompts sent when a booked end is near and someone is booked next: the Please wrap up text, 10 minutes before the end, and the Board's alerts. The clock keeps billing until close-out.
 
 ## Orders and the bar
@@ -85,6 +86,7 @@ Where this page and the [spec](spec/README.md) differ, the spec wins. Examples u
 - **Break-glass card.** The one-page card kept at each desk: when our cloud is down, take cards with Tap to Pay in Stripe's Dashboard app on a manager's phone, and match them later in Unmatched payments. If Stripe is down too, take cash. ([Devices, printing and offline](spec/09-devices-printing-offline.md))
 - **Capture.** Taking the money for a card payment that was only authorized. A bar tab is captured when it closes, or by the 4:30 AM tab cut-off. The card is charged only at capture.
 - **Card fee.** A credit-card surcharge or a cash discount. Off at West 4.
+- **Card on the tab.** A card a walk-in taps on the reader at check-in, saved on the room's check; nothing is charged, and the guest pays at close-out as usual. Admin → Deposits & cancelling chooses what a walk-in takes: "Take a deposit" (West 4), "Put a card on the tab" (Sing Sing) or "Nothing" (D112). It is not a hold: say "Card on the tab", never "card hold".
 - **Card on file.** A card saved from an earlier payment, such as Marcus's Amex ··1005 from his deposit. Charging it at close-out needs the guest to confirm on their phone ("Waiting for Marcus to confirm on his phone"), or a manager's approval if they have left.
 - **Check.** The bill for a room session or a bar tab: its lines, tax, gratuity and payments. Room checks carry the gratuity and bar tabs don't. Room 9's is #1042. Practice checks in training mode are numbered T-0012 and so on.
 - **Check revision.** A finalized version of a check. Presenting writes revision 1. If a manager reopens the check and it changes, the next finalize writes revision 2, which reverses revision 1's tax and gratuity and writes new ones.
@@ -207,10 +209,10 @@ Five roles, the same list everywhere: Admin → Team, Setup, the sign-in screen'
 
 | Role | At West 4 | What they do | Home | PIN |
 | --- | --- | --- | --- | --- |
-| Owner | Abhishek G. | Everything, including Payments, Team and Console in Admin. Approves the manager's own requests. | Tonight's board | 6 digits |
-| Manager | Andy C., the manager on duty | Approves requests, closes the night, Admin except Payments, Team and Console. | Tonight's board | 6 digits |
+| Owner | Abhishek G. | Everything, including Payments, Team and Console in Admin. Approves the manager's own requests. | Rooms (the board) | 6 digits |
+| Manager | Andy C., the manager on duty | Approves requests, closes the night, Admin except Payments, Team and Console. | Rooms (the board) | 6 digits |
 | Bartender | Maya S. | Bar POS, accepting room orders, comps and voids within the limit, counting the bar drawer. | The bar POS | 4 digits |
-| Front desk | Diego R. | Check-in, waitlist, bookings, guest texts, payments and close-out. Covers the bar when the bartender is on break (Admin can switch the bar POS off for this role). Counts the front-desk drawer. | Tonight's board | 4 digits |
+| Front desk | Diego R. | Check-in, waitlist, bookings, guest texts, payments and close-out. Covers the bar when the bartender is on break (Admin can switch the bar POS off for this role). Counts the front-desk drawer. | Rooms (the board) | 4 digits |
 | Staff (runner) | none tonight | Carries runs. Check-in and the waitlist only. | The Runs tab on their phone | 4 digits |
 
 - The front desk was called "Staff" on the old boards. It is its own role now.
@@ -257,11 +259,11 @@ The Board gets an alert at 2 minutes. At 4 minutes it says "on Andy's phone", an
 
 ## Board names and finding codes
 
-**Boards.** The design canvas is 27 files in [`design/canvas/`](../design/canvas/), called boards. Its docs use the file names: "the Board" is `Board.dc.html`, the Tonight board. [Design](../design/README.md) says how to view them, and [screens](screens.md) says what each becomes.
+**Boards.** The design canvas is 27 files in [`design/canvas/`](../design/canvas/), called boards. Its docs use the file names: "the Board" is `Board.dc.html`, the board the staff app calls Rooms (it was Tonight until D111). [Design](../design/README.md) says how to view them, and [screens](screens.md) says what each becomes.
 
 | Name in the docs | What it is |
 | --- | --- |
-| Board | The Tonight board on the desktop app: 14 room tiles, alerts, the waitlist drawer |
+| Board | The board on the desktop app, named Rooms on screen (D111): 14 room tiles, alerts, the waitlist drawer |
 | Rail | The bar POS on the desktop app |
 | Bar | The bar orders screen |
 | DeskRoom, Room | The room tab and clock, on desktop and on a staff phone |

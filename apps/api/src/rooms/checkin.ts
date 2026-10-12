@@ -20,7 +20,7 @@ import {
   type Queryable,
 } from "@west4/db";
 import { businessDate, minSpendFor, rateAt, type RoomForRate } from "@west4/rules";
-import { Temporal, type Clock } from "@west4/shared";
+import { Temporal, walkInTakesOf, type Clock } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { noShowMoney } from "../bookings/cancel.js";
 import { queueText } from "../texts/queue.js";
@@ -76,6 +76,7 @@ export async function priceContext(c: Queryable, venueId: string, at: Temporal.I
     prices: prices.value,
     graceMin: deposit?.value.graceMin ?? 15,
     bigParty: deposit?.value.bigParty ?? null,
+    walkIn: walkInTakesOf(deposit?.value),
   };
 }
 
@@ -136,6 +137,12 @@ export async function checkInPreview(
     booked_end: booking?.ends_at ?? null,
     no_show_from: from?.toString() ?? null,
     can_no_show: from ? Temporal.Instant.compare(now, from) >= 0 : false,
+    /**
+     * What a walk-in's step 5 takes (D112; Admin → Deposits & cancelling): "deposit" (today's
+     * line), "cardOnTab" (a card tapped onto the room's check once it's seated, nothing
+     * charged) or "nothing". A booking keeps its own deposit, whatever this says.
+     */
+    walk_in: booking ? null : ctx.walkIn,
   };
 }
 
