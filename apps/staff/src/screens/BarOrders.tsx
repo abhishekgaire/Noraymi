@@ -8,6 +8,7 @@ import { hiddenScreens } from "../navigation.js";
 import { useSession } from "../session.js";
 import { NotFound } from "./NotFound.js";
 import { SongQueueLink } from "./SongQueue.js";
+import { TopBarItems } from "../layout/TopBar.js";
 import { ReplayedOrders } from "./ReplayedOrders.js";
 import { FailedTicket, type FailedJob, type ReprintAt } from "./FailedTicket.js";
 import { muteChime, useChimeMute } from "../chime.js";
@@ -267,10 +268,11 @@ export function BarOrders() {
 
   return (
     <section className="bar-orders">
-      <div className="bar-orders-head">
+      {/* One header (V-04): the title and the song queue sit in the app's top bar. */}
+      <TopBarItems className="bar-orders-head">
         <h1>{t("menu.barOrders")}</h1>
         {venueId && <SongQueueLink venueId={venueId} />}
-      </div>
+      </TopBarItems>
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}

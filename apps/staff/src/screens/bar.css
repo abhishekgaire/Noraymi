@@ -48,21 +48,19 @@
 .rail {
   gap: 10px;
 }
-.rail .rail-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 0 0 10px;
-  border-bottom: 1px solid var(--w4-line);
+/* Its header lives in the app's top bar (V-04): the title, the staff chip, Song queue and Wipe screen
+   beside the venue and the one clock. */
+.topbar .rail-top {
+  gap: 10px 12px;
 }
-.rail .rail-title {
-  font-size: 30px;
+.topbar .rail-title {
+  font-size: 26px;
   line-height: 0.9;
   padding: 0;
   margin: 0 4px 0 0;
+  white-space: nowrap;
 }
-.rail .rail-top .rail-who {
+.topbar .rail-top .rail-who {
   grid-area: auto;
   display: inline-flex;
   align-items: center;
@@ -78,14 +76,14 @@
   white-space: normal;
 }
 /* The name keeps the .who text the screens read; the avatar sits beside it, outside it. */
-.rail .rail-top .rail-who .who {
+.topbar .rail-top .rail-who .who {
   grid-area: auto;
   font: inherit;
   color: inherit;
   white-space: inherit;
   padding: 0;
 }
-.rail .rail-avatar {
+.rail-top .rail-avatar {
   width: 38px;
   height: 38px;
   flex: none;
@@ -98,7 +96,7 @@
   font-size: 13px;
   font-weight: 800;
 }
-.rail .rail-top .on-break {
+.topbar .rail-top .on-break {
   font-family: var(--w4-font-mono);
   font-size: var(--w4-text-xs);
   color: var(--w4-amber);
@@ -106,23 +104,14 @@
   border-radius: 7px;
   background: color-mix(in srgb, var(--w4-amber) 14%, transparent);
 }
-.rail .rail-top a.song-count {
+.topbar .rail-top a.song-count {
   min-height: 52px;
   margin-left: auto;
   padding: 0 14px;
   font-weight: 700;
   font-size: var(--w4-text-md);
 }
-.rail .rail-top .clock {
-  grid-area: auto;
-  display: block;
-  padding: 0;
-  font-family: var(--w4-font-mono);
-  font-size: var(--w4-text-sm);
-  font-weight: 400;
-  color: var(--w4-muted);
-}
-.rail .rail-top > button.secondary {
+.topbar .rail-top > button.secondary {
   min-height: 52px;
   background: transparent;
   border-color: var(--w4-line-strong);
@@ -131,8 +120,7 @@
 }
 /* Room orders: the canvas's cards across the top, a full row under the header. */
 .rail .rail-orders {
-  order: 10;
-  flex: 1 1 100%;
+  flex: none;
   display: grid;
   /* Each card holds its three buttons in one row, so it never gets narrower than they need. */
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
@@ -634,6 +622,10 @@
   }
   /* The POS fills the window, as on the canvas: the tab list, the menu and the tab scroll on their
      own, so the header and the room orders never scroll away. */
+  /* The top bar holds the bar's 52 px staff chip and buttons (V-04). */
+  .shell:has(.rail) {
+    --topbar-h: 70px;
+  }
   .rail {
     display: flex;
     flex-direction: column;
@@ -682,15 +674,13 @@
   display: grid;
   gap: 12px;
 }
-.bar-orders .bar-orders-head {
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--w4-line);
-}
-.bar-orders .bar-orders-head h1 {
+.topbar .bar-orders-head h1 {
   margin: 0 auto 0 0;
-  font-size: 30px;
+  font-size: 26px;
+  line-height: 0.9;
+  white-space: nowrap;
 }
-.bar-orders .bar-orders-head a.song-count {
+.topbar .bar-orders-head a.song-count {
   border-radius: var(--w4-radius-pill);
   font-size: var(--w4-text-md);
 }

@@ -164,6 +164,19 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
     await page.waitForTimeout(300);
     await sideBySide(page, canvasRail, await page.screenshot(), "rail-2000.png");
 
+    // One header (V-04): the bar POS's title, staff chip, song queue and Wipe screen sit in the app's
+    // top bar with the venue and its one clock; no second row, no second clock.
+    await page.setViewportSize({ width: 2000, height: 1140 });
+    await page.waitForTimeout(300);
+    const top = page.locator(".topbar");
+    await expect(top.getByRole("heading", { level: 1, name: "Bar POS" })).toBeVisible();
+    await expect(top.locator(".rail-top .who")).toBeVisible();
+    await expect(top.getByRole("link", { name: /^Song queue · \d+$/ })).toBeVisible();
+    await expect(top.getByRole("button", { name: "Wipe screen" })).toBeVisible();
+    await expect(page.locator(".clock")).toHaveCount(1);
+    await expect(top.locator(".clock")).toContainText("Business date");
+    await page.screenshot({ path: `${OUT}/rail-2000-header.png` });
+
     // The bar orders screen: its own 900 × 640 window at the bar.
     await page.setViewportSize({ width: 900, height: 640 });
     await page.goto("/bar-orders");

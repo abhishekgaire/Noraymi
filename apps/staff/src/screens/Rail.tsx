@@ -27,6 +27,7 @@ import { useQueue } from "../queue.js";
 import { OfflineCodeForm, QueuedRounds, QueuePanel, type QueueLineSource } from "./QueuePanel.js";
 import { ReplayedOrders } from "./ReplayedOrders.js";
 import { SongQueueLink } from "./SongQueue.js";
+import { TopBarItems } from "../layout/TopBar.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
 import { NewTab } from "./NewTab.js";
@@ -76,7 +77,7 @@ interface Item {
   readonly station?: string;
   readonly out_tonight: boolean;
   /** Food only (K-07): the kitchen is closed or past its last order, so it's out for now. */
-  readonly kitchen_stop?: "kitchen_closed" | "last_order" | null;
+  readonly kitchen_stop?: "kitchen_closed" | "not_open" | "last_order" | null;
   readonly variants: readonly Variant[];
   readonly groups: readonly (ChoiceGroupLike & { readonly options: readonly Option[] })[];
 }
@@ -718,7 +719,9 @@ export function Rail() {
 
   return (
     <section className="rail" aria-label={t("menu.barPos")}>
-      <header className="rail-top">
+      {/* One header (V-04): the title, who is on the bar, the song queue and Wipe screen sit in the
+          app's top bar beside the venue and its one clock; the room orders stay on the page. */}
+      <TopBarItems className="rail-top" ownWho>
         <h1 className="rail-title">{t("menu.barPos")}</h1>
         {me && (
           <span className="rail-who">
@@ -737,95 +740,8 @@ export function Rail() {
               {t("rail.onBreak", { name: b.name.split(" ")[0]! })}
             </span>
           ))}
-        {venueId && <FailedTickets venueId={venueId} />}
-        <ul className="rail-orders" aria-label={t("rail.roomOrders")}>
-          {waiting.map((o) => {
-            const age = ageS(o.placed_at);
-            const tone = agingTone(age, aging) ?? "new";
-            const alcohol = o.items.some((i) => i.alcohol);
-            return (
-              <li key={o.id} className={`rail-order ${tone}`} aria-label={o.room_name ?? ""}>
-                <div className="rail-order-head">
-                  <strong>{o.room_name}</strong>{" "}
-                  <span className="small age">
-                    {t(staffOrderWordsKey(o as never), { age: mmss(age) })}
-                  </span>
-                </div>
-                <div className="small what" data-guest-text>
-                  {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
-                </div>
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => void step(o.id, "accept")}
-                  >
-                    {t("barOrders.accept")}
-                  </button>
-                  {o.status === "ringing" && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => void step(o.id, "hold")}
-                    >
-                      {t("barOrders.hold")}
-                    </button>
-                  )}
-                  {!(windowClosed && alcohol) && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => {
-                        setDeclining(o.id);
-                        setReason("");
-                      }}
-                    >
-                      {t("barOrders.decline")}
-                    </button>
-                  )}
-                </div>
-                {declining === o.id && (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void step(o.id, "decline", { reason: reason.trim() }).then(() =>
-                        setDeclining(null),
-                      );
-                    }}
-                  >
-                    <label>
-                      <span>{t("barOrders.decline.reason")}</span>
-                      <input
-                        value={reason}
-                        required
-                        maxLength={200}
-                        onChange={(e) => setReason(e.target.value)}
-                      />
-                    </label>
-                    <p className="small muted">{t("rail.phonesExplain")}</p>
-                    <button type="submit" className="primary" disabled={!reason.trim()}>
-                      {t("barOrders.decline.send")}
-                    </button>
-                  </form>
-                )}
-              </li>
-            );
-          })}
-          {stopped.map((o) => (
-            <li key={o.id} className="rail-order stopped" aria-label={o.room_name ?? ""}>
-              <div className="rail-order-head">
-                <strong>{o.room_name}</strong>{" "}
-                <span className="small age">{t(staffOrderWordsKey(o as never), { age: "" })}</span>
-              </div>
-              <div className="small what" data-guest-text>
-                {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
-              </div>
-            </li>
-          ))}
-        </ul>
         {/* Bar mode (M6-18, M6-22): "Song queue · 6" opens the song queue. */}
         {venueId && <SongQueueLink venueId={venueId} />}
-        <span className="clock">{now ? time(now.toString(), timeZone) : ""}</span>
         <button
           type="button"
           className="secondary"
@@ -834,7 +750,89 @@ export function Rail() {
         >
           {t("rail.wipe")}
         </button>
-      </header>
+      </TopBarItems>
+      {venueId && <FailedTickets venueId={venueId} />}
+      <ul className="rail-orders" aria-label={t("rail.roomOrders")}>
+        {waiting.map((o) => {
+          const age = ageS(o.placed_at);
+          const tone = agingTone(age, aging) ?? "new";
+          const alcohol = o.items.some((i) => i.alcohol);
+          return (
+            <li key={o.id} className={`rail-order ${tone}`} aria-label={o.room_name ?? ""}>
+              <div className="rail-order-head">
+                <strong>{o.room_name}</strong>{" "}
+                <span className="small age">
+                  {t(staffOrderWordsKey(o as never), { age: mmss(age) })}
+                </span>
+              </div>
+              <div className="small what" data-guest-text>
+                {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
+              </div>
+              <div className="actions">
+                <button type="button" className="primary" onClick={() => void step(o.id, "accept")}>
+                  {t("barOrders.accept")}
+                </button>
+                {o.status === "ringing" && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => void step(o.id, "hold")}
+                  >
+                    {t("barOrders.hold")}
+                  </button>
+                )}
+                {!(windowClosed && alcohol) && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setDeclining(o.id);
+                      setReason("");
+                    }}
+                  >
+                    {t("barOrders.decline")}
+                  </button>
+                )}
+              </div>
+              {declining === o.id && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void step(o.id, "decline", { reason: reason.trim() }).then(() =>
+                      setDeclining(null),
+                    );
+                  }}
+                >
+                  <label>
+                    <span>{t("barOrders.decline.reason")}</span>
+                    <input
+                      value={reason}
+                      required
+                      maxLength={200}
+                      onChange={(e) => setReason(e.target.value)}
+                    />
+                  </label>
+                  <p className="small muted">{t("rail.phonesExplain")}</p>
+                  <button type="submit" className="primary" disabled={!reason.trim()}>
+                    {t("barOrders.decline.send")}
+                  </button>
+                </form>
+              )}
+            </li>
+          );
+        })}
+        {stopped.map((o) => (
+          <li key={o.id} className="rail-order stopped" aria-label={o.room_name ?? ""}>
+            <div className="rail-order-head">
+              <strong>{o.room_name}</strong>{" "}
+              <span className="small age">{t(staffOrderWordsKey(o as never), { age: "" })}</span>
+            </div>
+            <div className="small what" data-guest-text>
+              {o.items.map((i) => `${i.qty} × ${i.name_snapshot}`).join(", ")}
+            </div>
+          </li>
+        ))}
+      </ul>
       {wipeLeft > 0 && (
         <div
           className="wipe-overlay"

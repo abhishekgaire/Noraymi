@@ -1,5 +1,5 @@
 import type { MessageKey } from "@west4/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { Membership } from "../api.js";
 import { useVenueTime } from "../clock.js";
@@ -12,6 +12,7 @@ import { useSession } from "../session.js";
 import { startTrialCapture } from "../trial-capture.js";
 import { WaitingStrip } from "../approvals/WaitingStrip.js";
 import { LanguageSwitch } from "./LanguageSwitch.js";
+import { TopBarContext } from "./TopBar.js";
 import { OfflineSync, ReadOnlyWhileOffline } from "./ReadOnly.js";
 import { QueueProvider } from "../queue.js";
 import { OfflineCodesSync } from "../screens/OfflineCodes.js";
@@ -64,6 +65,11 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
     [membership.training, membership.venue_id],
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  // A screen's own header items (V-04) land in the top bar's slot; one that shows who is working it
+  // (the bar POS's staff chip) takes the place of the signed-in line.
+  const [slotNode, setSlotNode] = useState<HTMLElement | null>(null);
+  const [ownWho, setOwnWho] = useState(false);
+  const topBar = useMemo(() => ({ node: slotNode, setOwnWho }), [slotNode]);
   const entries = visibleMenu(
     { modules: membership.modules, permissions: membership.permissions },
     menu,
@@ -121,103 +127,108 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   };
 
   return (
-    <div className={menuOpen ? "shell menu-open" : "shell"}>
-      <a className="skip" href="#main">
-        {t("shell.skipToContent")}
-      </a>
-      {(showReconnecting || membership.training || connectionBands.length > 0) && (
-        <div className="bands">
-          {/* The outage and vendor banners (M8-01; spec 09 · Outages). */}
-          <ConnectionBanners outageScreen={outageScreen} />
-          {showReconnecting && (
-            <div className="band offline" role="status">
-              {t("shell.offline")}
-            </div>
-          )}
-          {/* Training mode (M7-03): permanent while the person or this screen is in training; no close. */}
-          {membership.training && (
-            <div className="band training" role="status" data-testid="training-band">
-              {t("training.band")}
-            </div>
-          )}
-        </div>
-      )}
-      <header className="topbar">
-        <button
-          type="button"
-          className="icon-button menu-button"
-          aria-label={menuOpen ? t("menu.close") : t("menu.open")}
-          aria-expanded={menuOpen}
-          aria-controls="side-menu"
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          ☰
-        </button>
-        <div className="venue">{membership.venue.name}</div>
-        {venueTime && (
-          <div className="clock" aria-label={t("shell.now")}>
-            <time dateTime={venueTime.now.toString()}>
-              {time(venueTime.now, venueTime.timeZone)}
-            </time>
-            <span className="muted">
-              {t("shell.businessDate", { date: date(venueTime.businessDate) })}
-            </span>
+    <TopBarContext.Provider value={topBar}>
+      <div className={menuOpen ? "shell menu-open" : "shell"}>
+        <a className="skip" href="#main">
+          {t("shell.skipToContent")}
+        </a>
+        {(showReconnecting || membership.training || connectionBands.length > 0) && (
+          <div className="bands">
+            {/* The outage and vendor banners (M8-01; spec 09 · Outages). */}
+            <ConnectionBanners outageScreen={outageScreen} />
+            {showReconnecting && (
+              <div className="band offline" role="status">
+                {t("shell.offline")}
+              </div>
+            )}
+            {/* Training mode (M7-03): permanent while the person or this screen is in training; no close. */}
+            {membership.training && (
+              <div className="band training" role="status" data-testid="training-band">
+                {t("training.band")}
+              </div>
+            )}
           </div>
         )}
-        <div className="who">
-          {t("shell.signedInAs", { name, role: t(roleKey[membership.role]) })}
-        </div>
-      </header>
-      <nav id="side-menu" className="side" aria-label={t("menu.title")}>
-        <ul>
-          {entries.map((entry) =>
-            entry.id === "lock" ? (
-              <li key={entry.id}>
-                <button type="button" className="menu-link" onClick={onLock}>
-                  {t(entry.labelKey)}
-                </button>
-              </li>
-            ) : (
-              <li key={entry.id}>
-                <NavLink to={entry.path} className="menu-link">
-                  {label(entry.id, entry.labelKey)} {badge(entry.id)}
-                </NavLink>
-              </li>
-            ),
-          )}
-        </ul>
-        <NavLink to="/setup" className="menu-link phone-only">
-          {t("setup.title")}
-        </NavLink>
-        <LanguageSwitch />
-      </nav>
-      <main id="main" className="content">
-        <WaitingStrip venueId={membership.venue_id} />
-        {/* Offline codes (M8-04): kept on managers' and owners' phones, never on a shared computer. */}
-        {(membership.role === "owner" || membership.role === "manager") &&
-          typeof window !== "undefined" &&
-          !window.west4 && <OfflineCodesSync venueId={membership.venue_id} />}
-        <OfflineSync
-          venueId={membership.venue_id}
-          timeZone={membership.venue.time_zone}
-          cutover={membership.venue.day_cutover}
-        />
-        <QueueProvider>
-          <ReadOnlyWhileOffline
-            active={outageScreen && connection.kind === "offline"}
-            timeZone={membership.venue.time_zone}
+        <header className="topbar">
+          <button
+            type="button"
+            className="icon-button menu-button"
+            aria-label={menuOpen ? t("menu.close") : t("menu.open")}
+            aria-expanded={menuOpen}
+            aria-controls="side-menu"
+            onClick={() => setMenuOpen((open) => !open)}
           >
-            <Outlet />
-          </ReadOnlyWhileOffline>
-        </QueueProvider>
-      </main>
-      <nav className="tabs" aria-label={t("menu.title")} data-scroll="x">
-        {tabs.map((tab) => (
-          <NavLink key={tab.id} to={tab.path} className="tab">
-            {t(tab.labelKey)} {badge(tab.id)}
+            ☰
+          </button>
+          <div className="venue">{membership.venue.name}</div>
+          {venueTime && (
+            <div className="clock" aria-label={t("shell.now")}>
+              <time dateTime={venueTime.now.toString()}>
+                {time(venueTime.now, venueTime.timeZone)}
+              </time>
+              <span className="muted">
+                {t("shell.businessDate", { date: date(venueTime.businessDate) })}
+              </span>
+            </div>
+          )}
+          <div className="screen-slot" ref={setSlotNode} />
+          {!ownWho && (
+            <div className="who">
+              {t("shell.signedInAs", { name, role: t(roleKey[membership.role]) })}
+            </div>
+          )}
+        </header>
+        <nav id="side-menu" className="side" aria-label={t("menu.title")}>
+          <ul>
+            {entries.map((entry) =>
+              entry.id === "lock" ? (
+                <li key={entry.id}>
+                  <button type="button" className="menu-link" onClick={onLock}>
+                    {t(entry.labelKey)}
+                  </button>
+                </li>
+              ) : (
+                <li key={entry.id}>
+                  <NavLink to={entry.path} className="menu-link">
+                    {label(entry.id, entry.labelKey)} {badge(entry.id)}
+                  </NavLink>
+                </li>
+              ),
+            )}
+          </ul>
+          <NavLink to="/setup" className="menu-link phone-only">
+            {t("setup.title")}
           </NavLink>
-        ))}
-      </nav>
-    </div>
+          <LanguageSwitch />
+        </nav>
+        <main id="main" className="content">
+          <WaitingStrip venueId={membership.venue_id} />
+          {/* Offline codes (M8-04): kept on managers' and owners' phones, never on a shared computer. */}
+          {(membership.role === "owner" || membership.role === "manager") &&
+            typeof window !== "undefined" &&
+            !window.west4 && <OfflineCodesSync venueId={membership.venue_id} />}
+          <OfflineSync
+            venueId={membership.venue_id}
+            timeZone={membership.venue.time_zone}
+            cutover={membership.venue.day_cutover}
+          />
+          <QueueProvider>
+            <ReadOnlyWhileOffline
+              active={outageScreen && connection.kind === "offline"}
+              timeZone={membership.venue.time_zone}
+            >
+              <Outlet />
+            </ReadOnlyWhileOffline>
+          </QueueProvider>
+        </main>
+        <nav className="tabs" aria-label={t("menu.title")} data-scroll="x">
+          {tabs.map((tab) => (
+            <NavLink key={tab.id} to={tab.path} className="tab">
+              {t(tab.labelKey)} {badge(tab.id)}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
+    </TopBarContext.Provider>
   );
 }
