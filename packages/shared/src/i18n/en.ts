@@ -3467,6 +3467,53 @@ export const en = {
     "The largest party online is set with the prices in step 4",
   "onboarding.yes": "Yes",
   "onboarding.no": "No",
+  "onboarding.menu.intro": "Three ways in. The step is done once one item has a price.",
+  "onboarding.menu.byHand": "Type them in",
+  "onboarding.menu.byHand.hint":
+    "Add categories, items, sizes and prices in Admin → Menu's editor.",
+  "onboarding.menu.openMenu": "Open Menu",
+  "onboarding.menu.sheet": "Upload a spreadsheet",
+  "onboarding.menu.sheet.hint":
+    "CSV files in our import format: one row per thing sold (legacy_ref, name, category, price, alcohol, tax_category) and, if you have them, the choices (a file with a group column), or a mapping file with the files it names. We check it first; nothing is saved until you say it looks right.",
+  "onboarding.menu.sheet.files": "Spreadsheet files",
+  "onboarding.menu.sheet.check": "Check the file",
+  "onboarding.menu.sheet.checking": "Checking…",
+  "onboarding.menu.sheet.found":
+    "{lines} menu lines ({money} in all), {choices} choices, {packages} packages",
+  "onboarding.menu.sheet.already": "{n} already on your menu · left as they are",
+  "onboarding.menu.sheet.changed":
+    "{n} changed since they were added · not applied; change them in Admin → Menu",
+  "onboarding.menu.sheet.notOnGrid":
+    "Not on the bar grid yet: {items} · place them in Admin → Bar POS",
+  "onboarding.menu.sheet.layoutSkipped":
+    "The bar grid isn't changed · place new items in Admin → Bar POS",
+  "onboarding.menu.sheet.looksRight": "Looks right",
+  "onboarding.menu.sheet.saving": "Saving…",
+  "onboarding.menu.sheet.saved": "Saved: {n} new menu lines",
+  "onboarding.menu.sheet.problems": "Nothing was saved. Fix these in the file and check it again:",
+  "onboarding.menu.sheet.startOver": "Choose other files",
+  "onboarding.menu.send": "Send it to us",
+  "onboarding.menu.send.hint":
+    "A PDF or a photo of your menu. Our team types it in for you; nothing is read from it automatically, and you check it in Admin → Menu.",
+  "onboarding.menu.send.file": "Menu PDF or photo",
+  "onboarding.menu.send.note": "Note for our team (optional)",
+  "onboarding.menu.send.submit": "Send to our team",
+  "onboarding.menu.send.sending": "Sending…",
+  "onboarding.menu.send.wrongFile": "Send a PDF, JPEG, PNG or HEIC file up to 20 MB",
+  "onboarding.menu.request.open": "Sent {date} · waiting for our team",
+  "onboarding.menu.request.done": "Sent {date} · typed in",
+  "onboarding.menu.openPoints": "To answer on your items",
+  "onboarding.menu.openPoints.hint":
+    "Your file couldn't settle these. Answer them on each item in Admin → Menu.",
+  "onboarding.menu.point.extra_price":
+    "{item} · {group}: every pick is included, so no extra is offered until you set the most picks and the extra price",
+  "onboarding.menu.point.included_choice":
+    "{item} · {group}: which ones are included, and does a pricier one cost extra?",
+  "onboarding.menu.point.draft": "{item}: turn off Draft if it isn't on tap",
+  "onboarding.menu.point.pour": "{item}: add the shot's pour size to its description",
+  "onboarding.menu.allergy": "Allergy notice",
+  "onboarding.menu.allergy.hint":
+    "Your own words, on every menu. Until it's written in both languages, Kitchen & food stays off.",
   "onboarding.money.hint":
     "Your cash discount, the gratuity and tips, then your cash drawers. Nothing is chosen for you; a drawer change starts the next business date.",
   "onboarding.money.finish":

@@ -365,6 +365,20 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(rail.getByRole("button", { name: /Money at the counter/ })).toContainText("Done");
 
+    // Step 8 (O-10): Sing Sing's menu file as a dry run, then "Looks right" saves it.
+    await expect(page.getByRole("heading", { level: 2, name: "Menu" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: /Menu/ })).not.toContainText("Done");
+    const dir = "docs/venues/sing-sing/import";
+    await page
+      .getByLabel("Spreadsheet files")
+      .setInputFiles([`${dir}/mapping.json`, `${dir}/items.csv`, `${dir}/choices.csv`]);
+    await page.getByRole("button", { name: "Check the file" }).click();
+    await expect(page.getByText(/^179 menu lines/)).toBeVisible();
+    await expect(page.getByText("To answer on your items").first()).toBeVisible();
+    await page.getByRole("button", { name: "Looks right" }).click();
+    await expect(page.getByText("Saved: 179 new menu lines")).toBeVisible();
+    await expect(rail.getByRole("button", { name: /Menu/ })).toContainText("Done");
+
     await page.goto("/admin/deposits");
     await expect(page.getByLabel("Keep the card behind the bar")).toBeChecked();
     await page.goto("/admin/card-fee");

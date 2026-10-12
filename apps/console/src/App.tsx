@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { t, type Locale, type MessageKey } from "@west4/shared";
+import { SetupRequests } from "./SetupRequests.js";
 import { SupportAccess } from "./SupportAccess.js";
 import { EmergencyActions } from "./EmergencyActions.js";
 import { Pages } from "./Pages.js";
@@ -39,6 +40,8 @@ interface VenueSummary {
   /** The owner (O-01): "Owner invited · not yet signed in" until they finish their invite. */
   owner?: OwnerLine | null;
   /** Set up your venue's checklist (O-02): the same count the wizard and Admin → Setup show. */
+  /** Requests from Set up your venue waiting on our team (O-10). */
+  open_requests?: number;
   setup?: {
     done: number;
     total: number;
@@ -364,6 +367,13 @@ function Venues({
                           : `Setup · ${v.setup.done} of ${v.setup.total} done${v.setup.ready ? " · ready to open" : ""}`}
                       </span>
                     )}
+                    {(v.open_requests ?? 0) > 0 && (
+                      <span className="small">
+                        {v.open_requests === 1
+                          ? "1 request from setup"
+                          : `${v.open_requests} requests from setup`}
+                      </span>
+                    )}
                     {v.go_live && (
                       <span className="muted small">
                         {v.go_live.passes
@@ -496,6 +506,7 @@ function Venues({
                 Turn on
               </button>
             </form>
+            <SetupRequests key={`requests-${open.venue.id}`} venue={open.venue} />
             <SupportAccess key={open.venue.id} venue={open.venue} />
             <EmergencyActions
               key={`emergency-${open.venue.id}`}

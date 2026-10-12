@@ -3549,6 +3549,55 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "El grupo más grande en línea se define con los precios en el paso 4",
   "onboarding.yes": "Sí",
   "onboarding.no": "No",
+  "onboarding.menu.intro":
+    "Tres maneras de hacerlo. El paso queda listo cuando un producto tiene precio.",
+  "onboarding.menu.byHand": "Escríbelos",
+  "onboarding.menu.byHand.hint":
+    "Añade categorías, productos, tamaños y precios en el editor de Admin → Menú.",
+  "onboarding.menu.openMenu": "Abrir Menú",
+  "onboarding.menu.sheet": "Sube una hoja de cálculo",
+  "onboarding.menu.sheet.hint":
+    "Archivos CSV en nuestro formato de importación: una fila por cada cosa que vendes (legacy_ref, name, category, price, alcohol, tax_category) y, si las tienes, las opciones (un archivo con una columna group), o un archivo de correspondencia con los archivos que nombra. Primero lo revisamos; no se guarda nada hasta que digas que está bien.",
+  "onboarding.menu.sheet.files": "Archivos de la hoja de cálculo",
+  "onboarding.menu.sheet.check": "Revisar el archivo",
+  "onboarding.menu.sheet.checking": "Revisando…",
+  "onboarding.menu.sheet.found":
+    "{lines} líneas del menú ({money} en total), {choices} opciones, {packages} paquetes",
+  "onboarding.menu.sheet.already": "{n} ya están en tu menú · se quedan como están",
+  "onboarding.menu.sheet.changed":
+    "{n} cambiaron desde que se añadieron · no se aplican; cámbialos en Admin → Menú",
+  "onboarding.menu.sheet.notOnGrid":
+    "Todavía no están en la cuadrícula del bar: {items} · colócalos en Admin → TPV de barra",
+  "onboarding.menu.sheet.layoutSkipped":
+    "La cuadrícula del bar no cambia · coloca los productos nuevos en Admin → TPV de barra",
+  "onboarding.menu.sheet.looksRight": "Está bien",
+  "onboarding.menu.sheet.saving": "Guardando…",
+  "onboarding.menu.sheet.saved": "Guardado: {n} líneas nuevas del menú",
+  "onboarding.menu.sheet.problems":
+    "No se guardó nada. Corrige esto en el archivo y revísalo otra vez:",
+  "onboarding.menu.sheet.startOver": "Elegir otros archivos",
+  "onboarding.menu.send": "Envíanoslo",
+  "onboarding.menu.send.hint":
+    "Un PDF o una foto de tu menú. Nuestro equipo lo escribe por ti; no se lee nada automáticamente, y tú lo revisas en Admin → Menú.",
+  "onboarding.menu.send.file": "PDF o foto del menú",
+  "onboarding.menu.send.note": "Nota para nuestro equipo (opcional)",
+  "onboarding.menu.send.submit": "Enviar a nuestro equipo",
+  "onboarding.menu.send.sending": "Enviando…",
+  "onboarding.menu.send.wrongFile": "Envía un archivo PDF, JPEG, PNG o HEIC de hasta 20 MB",
+  "onboarding.menu.request.open": "Enviado el {date} · esperando a nuestro equipo",
+  "onboarding.menu.request.done": "Enviado el {date} · ya está escrito",
+  "onboarding.menu.openPoints": "Por responder en tus productos",
+  "onboarding.menu.openPoints.hint":
+    "Tu archivo no pudo decidir esto. Respóndelo en cada producto en Admin → Menú.",
+  "onboarding.menu.point.extra_price":
+    "{item} · {group}: todas las opciones están incluidas, así que no se ofrecen extras hasta que pongas el máximo de opciones y el precio del extra",
+  "onboarding.menu.point.included_choice":
+    "{item} · {group}: ¿cuáles están incluidas, y una más cara cuesta extra?",
+  "onboarding.menu.point.draft": "{item}: desactiva Draft si no está de barril",
+  "onboarding.menu.point.pour": "{item}: añade la medida del shot a su descripción",
+  "onboarding.menu.allergy": "Aviso de alergias",
+  "onboarding.menu.allergy.hint":
+    "Tus propias palabras, en cada menú. Hasta que esté escrito en los dos idiomas, Cocina y comida sigue apagado.",
   "onboarding.money.hint":
     "Tu descuento en efectivo, la propina automática y las propinas, y luego tus cajas. No se elige nada por ti; un cambio de caja empieza el siguiente día de negocio.",
   "onboarding.money.finish": "Termina las respuestas de pagos y cajas, o bórralas, antes de seguir",

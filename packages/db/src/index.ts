@@ -700,6 +700,15 @@ export {
   runImport,
   type ImportReport,
   type ImportResult,
+  type ImportRole,
 } from "./import/load.js";
+export { menuOpenPoints, type OpenPoint, type OpenPointKind } from "./import/open-points.js";
+export { prepareMenuSheet, MENU_SHEET_KINDS, type SheetFile } from "./import/menu-sheet.js";
+export {
+  createSetupRequest,
+  listSetupRequests,
+  finishSetupRequest,
+  type SetupRequest,
+} from "./setup-requests.js";
 export { publishPosLayout, PosLayoutRefused } from "./pos-layouts.js";
 export { pinDigitsFor } from "./import/load.js";

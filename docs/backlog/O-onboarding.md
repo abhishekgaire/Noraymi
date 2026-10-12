@@ -238,7 +238,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-10 · Step 8: the menu by hand, by spreadsheet or by request
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-02; M3-04 (Admin → Menu), M9-04 (the menu importer), M2-13 (uploads), K-08 (the allergy notice)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 8
@@ -246,10 +246,16 @@ Definition of done: see CLAUDE.md.
   - Type items in Admin → Menu's editor; upload a spreadsheet that runs M9-04's importer as a dry run the owner checks before saving; or upload a PDF or photo that becomes a Console request for our team.
   - The open points the importer couldn't settle listed on their items; pour sizes and Draft (D105); the allergy notice field.
 - **Acceptance:**
-  - [ ] Sing Sing's menu file from `docs/venues/sing-sing/import/` loads through the step as a dry run, then saves on "Looks right".
-  - [ ] A PDF upload saves nothing to the menu and shows in the Console.
-  - [ ] The step is done with one item with a price.
+  - [x] Sing Sing's menu file from `docs/venues/sing-sing/import/` loads through the step as a dry run, then saves on "Looks right".
+  - [x] A PDF upload saves nothing to the menu and shows in the Console.
+  - [x] The step is done with one item with a price.
 - **Tests:** integration tests; a Playwright test of the spreadsheet path.
+- **Notes:**
+  - Built: `POST /setup/menu-sheet` (`apps/api/src/routes/setup-menu.ts`) reads the upload with `prepareMenuSheet` (`packages/db/src/import/menu-sheet.ts`) and runs M9-04's `runImport` itself, `save: false` as the rolled-back dry run and `save: true` on "Looks right"; `GET /setup/menu` and `POST /setup/requests`; the Console's `GET/POST /v1/console/venues/{v}/setup-requests…` (`apps/api/src/console/setup-requests.ts`) and its "Requests from setup" panel and count; migration 0148 (`setup_requests` with forced RLS and its restore wall, the `menu_source` file kind, `app_rw` insert on `import_runs`/`import_refs`). Staff: `MenuStep.tsx` (Admin → Menu linked, not copied; the allergy notice is Admin → Kitchen's own field, now `AllergyNotice` in `Kitchen.tsx`). Tests: `setup-menu.int.test.ts`, `menu-sheet.test.ts`, walls and principals, and the spreadsheet path in `e2e/setup.staff.spec.ts`.
+  - Decision D122: the owner's spreadsheet runs as the venue (`app_rw`), not `app_migrator`, and only the menu kinds come in this way; recorded in spec 17 · Step details 8.
+  - Open points are worked out from the file (`menuOpenPoints`): a group whose picks are all included (no extra price set), a group of included menu lines (a combo's side or drink), a Draft variant (D105) and a Shot with no description (the pour size, D105). They're in every import report now (`open_points`) and the step lists the last saved spreadsheet's; nothing is decided for the owner.
+  - Cautious defaults: the importer's row messages (`file:line …`) show as the importer writes them, in English, under a translated heading; the bar grid's "not placed" item names come from the file. Only a mapping file or the importer's own column names are read: no spreadsheet (.xlsx) and no guessing of other column names.
+  - Also fixed: `venue_onboarding`, `venue_setup_skips` (0143) and `check_held_cards` (0147) had no restore wall, so `restore.int.test.ts` failed; 0148 adds the walls and grants.
 
 ### O-11 · Step 9: team invites and the venue's on-call and breach contacts
 

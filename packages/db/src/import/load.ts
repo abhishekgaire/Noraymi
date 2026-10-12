@@ -7,6 +7,7 @@ import {
   type Journal,
   type Promotable,
 } from "@west4/rules";
+import { menuOpenPoints, type OpenPoint } from "./open-points.js";
 import { insertMenuRow, menuPromotionRefusals, patchMenuRow, queueMenuPdf } from "../menu.js";
 import { emitEvent } from "../events.js";
 import { publishBarLayout, type LayoutResult } from "./layout.js";
@@ -113,6 +114,8 @@ export interface ImportReport {
   readonly listed: Prepared["listed"];
   /** The bar grid version the menu import published (M9-04), or null when the menu didn't change. */
   readonly layout: LayoutResult | null;
+  /** What the menu file can't settle, for the owner to answer on the item (O-10). */
+  readonly open_points: readonly OpenPoint[];
   /** True when every kind's records and cents in the files are in the database. */
   readonly reconciles: boolean;
 }
@@ -138,17 +141,24 @@ export async function resolveVenue(c: pg.ClientBase, ref: string): Promise<Venue
 }
 
 /** One transaction as app_migrator, walled to the venue and named as the import run. */
+/**
+ * Who a run writes as: our team's import tool is the audited migration role (app_migrator); the
+ * owner's own menu spreadsheet in Set up your venue (O-10) runs from the API as app_rw, walled to
+ * the venue by the same venue_isolation policies as every other route.
+ */
+export type ImportRole = "app_migrator" | "app_rw";
+
 async function asImport<T>(
-  pool: pg.Pool,
+  target: { pool: pg.Pool; role: ImportRole },
   venueId: string,
   runId: string,
   work: (c: pg.PoolClient) => Promise<T>,
   options: { rollback?: boolean } = {},
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await target.pool.connect();
   try {
     await client.query("begin");
-    await client.query("set local role app_migrator");
+    await client.query(`set local role ${target.role === "app_rw" ? "app_rw" : "app_migrator"}`);
     await client.query("select set_config('app.venue_id', $1, true)", [venueId]);
     await client.query("select set_config('app.request_id', $1, true)", [`import:${runId}`]);
     const out = await work(client);
@@ -395,7 +405,8 @@ export interface RunOptions {
   /** The cutover's business date: imported deposits are recorded and journaled on it. Defaults to today's. */
   readonly cutoverDate?: string;
   /** The time the import runs at (the clock in tests); the bar grid's new version starts the business date after it. */
-  readonly now?: Temporal.Instant;
+  readonly now?: Temporal.Instant; /** Who the run writes as (default app_migrator, our import tool); the owner's menu upload is app_rw. */
+  readonly role?: ImportRole;
 }
 
 /** A live run's result: the report, and each imported booking's manage link token (never stored or logged). */
@@ -406,6 +417,7 @@ export interface ImportResult extends ImportReport {
 /** Validates against the venue, loads (or rehearses) the records, and returns the reconciliation report. */
 export async function runImport(o: RunOptions): Promise<ImportResult> {
   const { pool, venue } = o;
+  const target = { pool, role: o.role ?? "app_migrator" } as const;
   // A marketing opt-in without its proof never becomes consent: it's set aside and listed.
   const consentTally = { marketing_with_proof: 0, opt_outs: 0, service: 0, dropped_no_proof: 0 };
   const dropped: ImportReport["consents"]["dropped"][number][] = [];
@@ -457,7 +469,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
   };
   const problems = [
     ...p.problems,
-    ...(await asImport(pool, venue.id, runId, (c) => preflight(c, p), { rollback: true })),
+    ...(await asImport(target, venue.id, runId, (c) => preflight(c, p), { rollback: true })),
   ];
   if (problems.length > 0) throw new ImportInvalid(problems);
 
@@ -1076,6 +1088,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       no_room: noRoom,
       consents: { ...consentTally, dropped },
       layout,
+      open_points: menuOpenPoints(p),
       listed: p.listed,
       reconciles:
         Object.values(tallies).every(
@@ -1095,7 +1108,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
   if (o.dryRun) {
     // Everything in one transaction that is rolled back: the venue is left as it was.
     const out = await asImport(
-      pool,
+      target,
       venue.id,
       runId,
       async (c) => {
@@ -1107,7 +1120,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
       },
       { rollback: true },
     );
-    await asImport(pool, venue.id, runId, async (c) => {
+    await asImport(target, venue.id, runId, async (c) => {
       await insertRun(c, "dry_run");
       await finish(c, out);
     });
@@ -1122,7 +1135,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
     rehearsing = true;
     try {
       await asImport(
-        pool,
+        target,
         venue.id,
         runId,
         async (c) => {
@@ -1139,17 +1152,17 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
     }
   }
 
-  await asImport(pool, venue.id, runId, (c) => insertRun(c, "live"));
+  await asImport(target, venue.id, runId, (c) => insertRun(c, "live"));
   try {
     const size = o.batchSize ?? 500;
     for (const step of steps) {
       for (const batch of chunks(step.rows, size)) {
-        await asImport(pool, venue.id, runId, (c) => step.load(c, batch));
+        await asImport(target, venue.id, runId, (c) => step.load(c, batch));
       }
       if (step.rows.length > 0) log(`${step.kind}: ${step.rows.length} record(s) read`);
     }
-    await asImport(pool, venue.id, runId, afterMenu);
-    const out = await asImport(pool, venue.id, runId, async (c) => {
+    await asImport(target, venue.id, runId, afterMenu);
+    const out = await asImport(target, venue.id, runId, async (c) => {
       await tallyDb(c);
       const r = report();
       await finish(c, r);
@@ -1157,7 +1170,7 @@ export async function runImport(o: RunOptions): Promise<ImportResult> {
     });
     return { ...out, manage_links: links };
   } catch (e) {
-    await asImport(pool, venue.id, runId, (c) =>
+    await asImport(target, venue.id, runId, (c) =>
       c.query(
         "update import_runs set state = 'failed', failure = $2, finished_at = now() where id = $1",
         [runId, (e as Error).message.slice(0, 500)],
@@ -1231,6 +1244,8 @@ export function formatReport(r: ImportReport): string[] {
     );
   }
   for (const l of r.listed) lines.push(`imported, listed: ${l.file}:${l.line} ${l.message}`);
+  for (const x of r.open_points)
+    lines.push(`open point (${x.kind}): ${x.item}${x.group ? ` · ${x.group}` : ""}`);
   if (r.layout) {
     const l = r.layout;
     if (l.version !== null)

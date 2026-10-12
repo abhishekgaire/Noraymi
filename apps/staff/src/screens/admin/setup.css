@@ -420,3 +420,34 @@
   gap: var(--w4-space-2);
   width: 100%;
 }
+
+/* Step 8, the menu (O-10). */
+.menu-step .setup-fieldset > a.button,
+.menu-step .setup-fieldset > button {
+  align-self: flex-start;
+  min-height: 44px;
+}
+.menu-step input[type="file"] {
+  min-height: 44px;
+}
+.menu-sheet-report,
+.menu-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+}
+.menu-sheet-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.menu-sheet-actions button {
+  min-height: 44px;
+}
+.menu-open-points,
+.menu-requests {
+  margin: 0;
+  padding-left: var(--w4-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-1);
+}

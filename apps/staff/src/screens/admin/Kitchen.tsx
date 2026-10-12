@@ -20,7 +20,6 @@ export function Kitchen() {
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const [saved, setSaved] = useState<KitchenSettings | null>(null);
   const [failed, setFailed] = useState(false);
-  const [notice, setNotice] = useState<{ en: string; es: string } | null>(null);
   const [minutes, setMinutes] = useState<string | null>(null);
 
   // What's being typed is dropped only when the draft is saved or discarded (a new version), not
@@ -34,7 +33,6 @@ export function Kitchen() {
       setSaved(value);
       if (typedFor.current === version) return;
       typedFor.current = version;
-      setNotice(null);
       setMinutes(null);
     },
     [venueId],
@@ -45,23 +43,8 @@ export function Kitchen() {
   }, [venueId, load, draft.version]);
 
   const current = (draft.values["kitchen"] as KitchenSettings | undefined) ?? saved;
-  const text = notice ?? {
-    en: current?.allergyNotice?.en ?? "",
-    es: current?.allergyNotice?.es ?? "",
-  };
-  const halfWritten = (text.en.trim() === "") !== (text.es.trim() === "");
   const minutesText = minutes ?? String(current?.unsentWarnMin ?? "");
   const minutesValid = /^\d+$/.test(minutesText) && +minutesText >= 1 && +minutesText <= 60;
-
-  const writeNotice = (next: { en: string; es: string }) => {
-    setNotice(next);
-    if (!current) return;
-    const en = next.en.trim();
-    const es = next.es.trim();
-    if (en === "" && es === "") draft.set("kitchen", { ...current, allergyNotice: null });
-    else if (en !== "" && es !== "")
-      draft.set("kitchen", { ...current, allergyNotice: { en: next.en, es: next.es } });
-  };
 
   return (
     <section className="kitchen-settings">
@@ -76,41 +59,11 @@ export function Kitchen() {
         !failed && <p role="status">{t("shell.loading")}</p>
       ) : (
         <div className="invite-fields">
-          <fieldset>
-            <legend>{t("kitchen.admin.notice")}</legend>
-            {current.allergyNotice === null && (
-              <p className="notice" role="status">
-                {t("kitchen.admin.notice.notSet")}
-              </p>
-            )}
-            <label>
-              <span>{t("kitchen.admin.notice.en")}</span>
-              <textarea
-                rows={3}
-                maxLength={1000}
-                aria-label={`${t("kitchen.admin.notice")} · ${t("kitchen.admin.notice.en")}`}
-                value={text.en}
-                onChange={(e) => writeNotice({ ...text, en: e.target.value })}
-              />
-            </label>
-            <label>
-              <span>{t("kitchen.admin.notice.es")}</span>
-              <textarea
-                rows={3}
-                maxLength={1000}
-                aria-label={`${t("kitchen.admin.notice")} · ${t("kitchen.admin.notice.es")}`}
-                value={text.es}
-                onChange={(e) => writeNotice({ ...text, es: e.target.value })}
-              />
-            </label>
-            {halfWritten ? (
-              <p className="error small" role="alert">
-                {t("kitchen.admin.notice.bothLanguages")}
-              </p>
-            ) : (
-              <span className="small muted">{t("kitchen.admin.notice.hint")}</span>
-            )}
-          </fieldset>
+          <AllergyNotice
+            key={draft.version}
+            current={current}
+            onChange={(next) => draft.set("kitchen", next)}
+          />
           <KitchenTimes current={current} onChange={(next) => draft.set("kitchen", next)} />
           <label>
             <span>{t("kitchen.admin.unsentWarnMin")}</span>
@@ -186,5 +139,71 @@ export function KitchenTimes({
       </label>
       <p className="small muted">{t("kitchen.admin.foodCertificate")}</p>
     </>
+  );
+}
+
+/**
+ * The allergy notice (K-08; spec 16): the venue's own words in English and Spanish. Empty keeps
+ * Kitchen & food off; one language without the other isn't saved. Admin → Kitchen and the
+ * wizard's menu step (O-10) both show it; remount it (a new key) to drop what's typed.
+ */
+export function AllergyNotice({
+  current,
+  onChange,
+}: {
+  current: KitchenSettings;
+  onChange: (next: KitchenSettings) => void;
+}) {
+  const { t } = useT();
+  const [notice, setNotice] = useState<{ en: string; es: string } | null>(null);
+  const text = notice ?? {
+    en: current.allergyNotice?.en ?? "",
+    es: current.allergyNotice?.es ?? "",
+  };
+  const halfWritten = (text.en.trim() === "") !== (text.es.trim() === "");
+  const writeNotice = (next: { en: string; es: string }) => {
+    setNotice(next);
+    const en = next.en.trim();
+    const es = next.es.trim();
+    if (en === "" && es === "") onChange({ ...current, allergyNotice: null });
+    else if (en !== "" && es !== "")
+      onChange({ ...current, allergyNotice: { en: next.en, es: next.es } });
+  };
+  return (
+    <fieldset>
+      <legend>{t("kitchen.admin.notice")}</legend>
+      {current.allergyNotice === null && (
+        <p className="notice" role="status">
+          {t("kitchen.admin.notice.notSet")}
+        </p>
+      )}
+      <label>
+        <span>{t("kitchen.admin.notice.en")}</span>
+        <textarea
+          rows={3}
+          maxLength={1000}
+          aria-label={`${t("kitchen.admin.notice")} · ${t("kitchen.admin.notice.en")}`}
+          value={text.en}
+          onChange={(e) => writeNotice({ ...text, en: e.target.value })}
+        />
+      </label>
+      <label>
+        <span>{t("kitchen.admin.notice.es")}</span>
+        <textarea
+          rows={3}
+          maxLength={1000}
+          aria-label={`${t("kitchen.admin.notice")} · ${t("kitchen.admin.notice.es")}`}
+          value={text.es}
+          onChange={(e) => writeNotice({ ...text, es: e.target.value })}
+        />
+      </label>
+      {halfWritten ? (
+        <p className="error small" role="alert">
+          {t("kitchen.admin.notice.bothLanguages")}
+        </p>
+      ) : (
+        <span className="small muted">{t("kitchen.admin.notice.hint")}</span>
+      )}
+    </fieldset>
   );
 }

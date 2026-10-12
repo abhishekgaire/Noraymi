@@ -8,6 +8,7 @@ import {
   distinctApprovers,
   emitEvent,
   listDevices,
+  listSetupRequests,
   publishRulePackDraft,
   requestSupportGrant,
   revokeSupportGrant,
@@ -105,7 +106,7 @@ export function consoleRoutes(
     const venues = await consoleVenues(options.pool);
     const out = [];
     for (const v of venues) {
-      const [devices, checklist, owner, setup] = await app.db.withVenue(
+      const [devices, checklist, owner, setup, requests] = await app.db.withVenue(
         { venueId: v.id, userId: staff.id, requestId: request.requestId },
         async (c) =>
           [
@@ -113,6 +114,7 @@ export function consoleRoutes(
             await goLive(c, v.id),
             await ownerState(c, v.id),
             await setupAnswer(c, v.id),
+            await listSetupRequests(c, v.id, { openOnly: true }),
           ] as const,
       );
       // The go-live checklist (M4-29): the same rows Admin → Payments reads.
@@ -123,6 +125,8 @@ export function consoleRoutes(
         health: deviceHealth(devices),
         go_live: checklist,
         owner,
+        // Requests from Set up your venue waiting on our team (O-10).
+        open_requests: requests.length,
         setup: {
           done: setup.checklist.done,
           total: setup.checklist.total,

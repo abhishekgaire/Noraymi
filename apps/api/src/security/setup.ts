@@ -189,6 +189,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     "insert into files (venue_id, kind, storage_key, content_type, bytes, uploaded_at) values ($1::uuid, 'damage_photo', $1::text || '/b.jpg', 'image/jpeg', 10, now()) returning id",
     [v.venueB],
   );
+  const menuFileB = await owner.query<{ id: string }>(
+    "insert into files (venue_id, kind, storage_key, content_type, bytes, uploaded_at) values ($1::uuid, 'menu_source', $1::text || '/menu.pdf', 'application/pdf', 10, now()) returning id",
+    [v.venueB],
+  );
   const approvalB = await owner.query<{ id: string }>(
     `insert into approvals (venue_id, kind, target_kind, target_id, reason, requested_by, requested_at, routed_to)
        values ($1, 'comp', 'check', $2, 'B''s comp', $3, now(), $4) returning id`,
@@ -410,6 +414,16 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/incidents/:incidentId/notes": { text: "x" },
       "PATCH /v1/venues/:venueId/licenses/:licenseId": { holder: "x" },
       "POST /v1/venues/:venueId/licenses": { kind: "bmi", file_id: fileB.rows[0]!.id },
+      "POST /v1/venues/:venueId/setup/requests": { kind: "menu", file_id: menuFileB.rows[0]!.id },
+      "POST /v1/venues/:venueId/setup/menu-sheet": {
+        files: [
+          {
+            name: "menu.csv",
+            text: "legacy_ref,name,category,price,alcohol,tax_category\nW1,Wall Lager,Beer,$7.00,Y,drink\n",
+          },
+        ],
+        save: false,
+      },
       "PATCH /v1/venues/:venueId/room-notes/:noteId": { cleared: true },
       "POST /v1/venues/:venueId/lost-items": { description: "x", kept_at: "bar" },
       "POST /v1/venues/:venueId/door-counts": { delta: 1 },

@@ -66,6 +66,8 @@ import { sessionAuthenticator } from "./auth/session-auth.js";
 import { consoleAuthenticator, consoleAuthRoutes } from "./console/auth.js";
 import { newVenueRoutes } from "./console/new-venue.js";
 import { setupRoutes } from "./routes/setup.js";
+import { setupMenuRoutes } from "./routes/setup-menu.js";
+import { setupRequestConsoleRoutes } from "./console/setup-requests.js";
 import { venueProfileRoutes } from "./routes/venue-profile.js";
 import { consoleRoutes } from "./console/routes.js";
 import { rulePackRoutes } from "./routes/rule-pack.js";
@@ -464,6 +466,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         staffAppUrl: config.staffAppUrl,
       });
       setupRoutes(scope, { clock });
+      setupMenuRoutes(scope, { clock });
       venueProfileRoutes(scope);
       invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey, forms });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
@@ -476,6 +479,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
           gate: gate!,
           clock,
           rulePackSigningKey: config.rulePackSigningKey,
+        });
+        // Set up your venue's requests to our team (O-10): a menu to type in.
+        setupRequestConsoleRoutes(scope, {
+          pool: gatePoolRef!,
+          clock,
+          s3: () => (s3 ??= makeS3()),
         });
         // New venue and the owner's invite (O-01).
         newVenueRoutes(scope, {
