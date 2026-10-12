@@ -321,3 +321,29 @@ export function kitchenMissing(ready: {
   if (!ready.allergyNotice) out.push("allergyNotice");
   return out;
 }
+
+/**
+ * What each plan allows (O-04; spec 17 · Step details 2; D114), besides the
+ * core modules, which every venue has. The modules no plan names (team,
+ * safety, reports, guest and marketing texts, the website) stay as our
+ * Console set them: the plan never turns them on or off.
+ */
+const BAR_PLAN_MODULES: readonly ModuleId[] = ["bar_tabs", "bar_mode", "bar_screen"];
+const ROOMS_PLAN_MODULES: readonly ModuleId[] = [
+  ...BAR_PLAN_MODULES,
+  "rooms",
+  "online_booking",
+  "room_ordering",
+  "packages",
+  "song_system",
+  "waitlist",
+];
+export const PLAN_MODULES: Readonly<
+  Record<"bar" | "rooms" | "rooms_kitchen", readonly ModuleId[]>
+> = {
+  bar: BAR_PLAN_MODULES,
+  rooms: ROOMS_PLAN_MODULES,
+  rooms_kitchen: [...ROOMS_PLAN_MODULES, "kitchen"],
+};
+/** Every module some plan decides. */
+export const PLAN_GOVERNED_MODULES: readonly ModuleId[] = PLAN_MODULES.rooms_kitchen;

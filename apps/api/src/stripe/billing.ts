@@ -216,3 +216,142 @@ export const portalSession = (
 export function invoiceSubscription(invoice: StripeInvoice): string | null {
   return invoice.parent?.subscription_details?.subscription ?? invoice.subscription ?? null;
 }
+
+/** Every plan Price by lookup key (O-04): what the plan cards show; a key not found is left out. */
+export async function allPlanPrices(stripe: StripeClient): Promise<Map<string, StripePrice>> {
+  const list = await billing<{ data: StripePrice[] }>(stripe, "GET", "/v1/prices", {
+    lookup_keys: [...Object.values(PLAN_LOOKUP_KEYS), ROOM_LOOKUP_KEY],
+    active: true,
+  });
+  return new Map(
+    list.data.filter((p) => p.lookup_key).map((p) => [p.lookup_key!, p] as [string, StripePrice]),
+  );
+}
+
+export interface StripeCoupon {
+  readonly id: string;
+  readonly valid?: boolean;
+  readonly percent_off?: number | null;
+  readonly amount_off?: number | null;
+  readonly currency?: string | null;
+  readonly duration: "once" | "repeating" | "forever";
+  readonly duration_in_months?: number | null;
+}
+
+export interface StripePromotionCode {
+  readonly id: string;
+  readonly code: string;
+  readonly active: boolean;
+  readonly expires_at?: number | null;
+  readonly max_redemptions?: number | null;
+  readonly times_redeemed?: number;
+  /** Stripe's 2025 API moved the coupon under `promotion`; older answers carry `coupon`. */
+  readonly promotion?: { readonly coupon?: string | StripeCoupon | null } | null;
+  readonly coupon?: string | StripeCoupon | null;
+}
+
+/**
+ * The owner's promo code against our account's active Promotion Codes (D114):
+ * null when it doesn't exist, has expired, is used up or its coupon has ended.
+ * The code is the founder's, made in Stripe; ours never names one.
+ */
+export async function findPromotionCode(
+  stripe: StripeClient,
+  code: string,
+  nowS: number,
+): Promise<{ promo: StripePromotionCode; coupon: StripeCoupon } | null> {
+  const list = await billing<{ data: StripePromotionCode[] }>(
+    stripe,
+    "GET",
+    "/v1/promotion_codes",
+    { code, active: true, limit: 1, expand: ["data.promotion.coupon", "data.coupon"] },
+  );
+  const promo = list.data.find((p) => p.code.toLowerCase() === code.toLowerCase() && p.active);
+  if (!promo) return null;
+  const raw = promo.promotion?.coupon ?? promo.coupon ?? null;
+  if (!raw || typeof raw === "string") return null;
+  if (raw.valid === false) return null;
+  if (promo.expires_at && promo.expires_at <= nowS) return null;
+  if (promo.max_redemptions && (promo.times_redeemed ?? 0) >= promo.max_redemptions) return null;
+  return { promo, coupon: raw };
+}
+
+export interface StripeCheckoutSession {
+  readonly id: string;
+  readonly status: "open" | "complete" | "expired";
+  readonly url: string | null;
+  readonly expires_at: number;
+  readonly customer: string | null;
+  readonly subscription: string | null;
+}
+
+/**
+ * Start plan's Checkout Session in subscription mode on our own account
+ * (O-04): the plan's Price, the per-room Price with the room count (left out
+ * while the venue has no rooms; the room-count job adds it with the first
+ * room), and the promotion code. One key per attempt, never in a transaction.
+ */
+export async function createCheckoutSession(
+  stripe: StripeClient,
+  input: {
+    attemptId: string;
+    venueId: string;
+    customer: string;
+    plan: PlanId;
+    prices: { base: StripePrice; room: StripePrice | null };
+    rooms: number;
+    promotionCodeId: string | null;
+    successUrl: string;
+    cancelUrl: string;
+  },
+): Promise<StripeCheckoutSession> {
+  const lineItems: Record<string, unknown>[] = [{ price: input.prices.base.id, quantity: 1 }];
+  if (input.prices.room && input.rooms > 0)
+    lineItems.push({ price: input.prices.room.id, quantity: input.rooms });
+  return billing(
+    stripe,
+    "POST",
+    "/v1/checkout/sessions",
+    {
+      mode: "subscription",
+      customer: input.customer,
+      line_items: lineItems,
+      ...(input.promotionCodeId ? { discounts: [{ promotion_code: input.promotionCodeId }] } : {}),
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
+      client_reference_id: input.attemptId,
+      subscription_data: { metadata: { venue_id: input.venueId, plan: input.plan } },
+    },
+    `billing:checkout:${input.venueId}:${input.attemptId}`,
+  );
+}
+
+export const readCheckoutSession = (stripe: StripeClient, id: string) =>
+  billing<StripeCheckoutSession>(stripe, "GET", `/v1/checkout/sessions/${encodeURIComponent(id)}`);
+
+/** The per-room item, added once the first room exists on a plan started with none. */
+export const addRoomItem = (
+  stripe: StripeClient,
+  input: { subscription: string; price: string; quantity: number },
+  key: string,
+) =>
+  billing<{ id: string; quantity: number }>(
+    stripe,
+    "POST",
+    "/v1/subscription_items",
+    { subscription: input.subscription, price: input.price, quantity: input.quantity },
+    key,
+  );
+
+/** Which plan a subscription's Prices are, by lookup key; null when none of ours is on it. */
+export function planOfSubscription(
+  sub: StripeSubscription,
+): { plan: PlanId; roomItem: { id: string; quantity: number } | null } | null {
+  const keys = sub.items.data.map((i) => i.price.lookup_key ?? null);
+  const plan = (Object.entries(PLAN_LOOKUP_KEYS) as [PlanId, string][]).find(([, k]) =>
+    keys.includes(k),
+  )?.[0];
+  if (!plan) return null;
+  const room = sub.items.data.find((i) => i.price.lookup_key === ROOM_LOOKUP_KEY);
+  return { plan, roomItem: room ? { id: room.id, quantity: room.quantity ?? 0 } : null };
+}

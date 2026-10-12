@@ -100,4 +100,4 @@ On every plan: Your venue (name, legal name, address, guest phone), a started pl
 ### Routes
 
 - Console: `POST /v1/console/venues` (New venue), `POST /v1/console/venues/{v}/owner-invite` (send or send again), and `GET /v1/console/venues` gains each venue's checklist.
-- Staff app: `GET /setup` (the checklist: each step's state, read from the rows), `POST /setup/finish`; `POST /plan/checkout` (the Checkout Session), `GET /plan/promo?code=` (checks a promotion code), `POST /payments/stripe/connect` (the Account Link); `PUT /settings/contacts`. Every other save is an existing Admin route. Each new route has a principal test and a venue-wall test.
+- Staff app: `GET /setup` (the checklist: each step's state, read from the rows), `POST /setup/finish`; `GET /plan/prices` (the three plans' Prices, read from Stripe by lookup key), `POST /plan/checkout` (the Checkout Session), `GET /plan/promo?code=` (checks a promotion code), `POST /payments/stripe/connect` (the Account Link); `PUT /settings/contacts`. Every other save is an existing Admin route. Each new route has a principal test and a venue-wall test.

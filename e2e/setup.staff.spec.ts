@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import pg from "pg";
-import { DB } from "./stack.js";
+import { DB, STRIPE } from "./stack.js";
 
 /**
  * Set up your venue (O-02): a venue our Console made, its owner signed in with
@@ -180,6 +180,95 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
     await expect(
       page.getByText("Not set yet · our team sets up your texting number"),
     ).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+test("Your plan: prices from Stripe, a promo code, and Start plan through Stripe Checkout (O-04)", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const n = Date.now().toString(36);
+  const email = `plan-${n}@example.com`;
+  try {
+    // The plans' Prices on the fake Stripe, made-up test amounts; Rooms + Kitchen's is missing.
+    for (const [lookup_key, unit_amount] of [
+      ["west4_plan_bar", 1100],
+      ["west4_plan_rooms", 2200],
+      ["west4_plan_room", 300],
+    ] as const) {
+      const made = await request.post(`${STRIPE}/v1/prices`, {
+        headers: {
+          authorization: "Bearer rk_test_fake_billing",
+          "idempotency-key": `e2e-${n}-${lookup_key}`,
+        },
+        form: { currency: "usd", unit_amount, lookup_key },
+      });
+      expect(made.ok(), await made.text()).toBe(true);
+    }
+    const org = await db.query<{ id: string }>(
+      "insert into organizations (legal_name) values ($1) returning id",
+      [`E2E Plan ${n} LLC`],
+    );
+    const venue = await db.query<{ id: string }>(
+      `insert into venues (org_id, name, slug, rule_pack_id)
+         values ($1, $2, $3, 'us-ny-new-york-county') returning id`,
+      [org.rows[0]!.id, `E2E Plan ${n}`, `e2e-plan-${n}`],
+    );
+    const user = await db.query<{ id: string }>(
+      "insert into users (name, email) values ('Mina Cho', $1) returning id",
+      [email],
+    );
+    await db.query(
+      "insert into memberships (venue_id, user_id, role, status, pin_digits) values ($1, $2, 'owner', 'active', 6)",
+      [venue.rows[0]!.id, user.rows[0]!.id],
+    );
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await enrolPasskey(page, request, db, email);
+    await page.getByLabel("Email").fill(email);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page).toHaveURL(/\/(set-up|tonight)/);
+    await page.goto("/set-up/plan");
+    await expect(page.getByRole("heading", { level: 2, name: "Your plan" })).toBeVisible();
+
+    // What you run points to Rooms; Rooms + Kitchen has no Price in Stripe yet.
+    await page.getByLabel("Private rooms").check();
+    const cards = page.getByRole("radiogroup", { name: "Choose a plan" });
+    await expect(cards.getByRole("radio", { name: /Rooms plan.*Recommended/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await expect(cards.getByRole("radio", { name: /Rooms \+ Kitchen plan/ })).toContainText(
+      "Not available yet · we'll email you when it is",
+    );
+
+    // A code that doesn't exist is refused, and Start plan stays off with it.
+    await page.getByLabel("Promo code").fill("NOPE");
+    await page.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(page.getByText("That code isn't valid")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start plan" })).toBeDisabled();
+    // The fake's test code: the first month free.
+    await page.getByLabel("Promo code").fill("FAKEFIRSTMONTH");
+    await page.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(page.getByText("First month free")).toBeVisible();
+
+    // Start plan opens Stripe's page, which pays and comes back; then the event starts the plan.
+    await page.getByRole("button", { name: "Start plan" }).click();
+    await expect(page).toHaveURL(/\/set-up\/plan\?checkout=done$/);
+    await expect(page.getByText("Rooms plan · started")).toBeVisible({ timeout: 30_000 });
+    const rail = page.getByRole("navigation", { name: "Setup steps" });
+    await expect(rail.getByRole("button", { name: /Your plan/ })).toContainText("Done");
+    const sub = await db.query<{ plan: string; room_quantity: number }>(
+      "select plan, room_quantity from venue_subscriptions where venue_id = $1",
+      [venue.rows[0]!.id],
+    );
+    expect(sub.rows[0]).toEqual({ plan: "rooms", room_quantity: 0 });
   } finally {
     await db.end();
   }

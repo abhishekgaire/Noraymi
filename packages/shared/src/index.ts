@@ -95,6 +95,8 @@ export {
   needsRoomOrdersConfirm,
   ROOM_ORDERS_NOWHERE_TO_RING,
   kitchenMissing,
+  PLAN_MODULES,
+  PLAN_GOVERNED_MODULES,
 } from "./modules.js";
 export type { KitchenMissing } from "./modules.js";
 export type { ModuleId, ModuleState, ModuleDef, ModuleEffects, ModuleStates } from "./modules.js";

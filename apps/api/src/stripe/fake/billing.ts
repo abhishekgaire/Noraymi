@@ -24,6 +24,8 @@ const CARDS: Readonly<Record<string, { brand: string; last4: string; fails: bool
   pm_card_chargeCustomerFail: { brand: "visa", last4: "0341", fails: true },
 };
 const MONTH_S = 30 * 24 * 3600;
+/** The fake's one promotion code (100% off for a month), for tests and the demo only. */
+export const FAKE_PROMO_CODE = "FAKEFIRSTMONTH";
 
 const missing = (what: string) =>
   new FakeError(
@@ -84,7 +86,8 @@ fakeRouteSets.push((fake: FakeStripe) => {
     const card = pm ? CARDS[pm] : undefined;
     invoice["attempt_count"] = Number(invoice["attempt_count"] ?? 0) + 1;
     invoice["attempted"] = true;
-    if (card && !card.fails) {
+    // A $0.00 invoice (a 100%-off month) is paid without a card, as in Stripe.
+    if (Number(invoice["amount_due"]) === 0 || (card && !card.fails)) {
       invoice["status"] = "paid";
       invoice["amount_paid"] = invoice["amount_due"];
       invoice["amount_remaining"] = 0;
@@ -94,15 +97,26 @@ fakeRouteSets.push((fake: FakeStripe) => {
     return false;
   };
 
-  const invoiceFor = (sub: Record<string, unknown>, at: number): Record<string, unknown> =>
-    fake.put({
+  /** The coupon's part of this invoice, and one month used of a repeating one. */
+  const discounted = (sub: Record<string, unknown>, full: number): number => {
+    const d = sub["_discount"] as
+      { percent_off: number | null; amount_off: number | null; left: number | null } | undefined;
+    if (!d || d.left === 0) return full;
+    if (d.left !== null) d.left -= 1;
+    if (d.percent_off) return full - Math.round((full * d.percent_off) / 100);
+    return Math.max(0, full - Number(d.amount_off ?? 0));
+  };
+
+  const invoiceFor = (sub: Record<string, unknown>, at: number): Record<string, unknown> => {
+    const due = discounted(sub, total(sub));
+    return fake.put({
       id: fakeId("in"),
       object: "invoice",
       customer: sub["customer"],
       status: "open",
-      amount_due: total(sub),
+      amount_due: due,
       amount_paid: 0,
-      amount_remaining: total(sub),
+      amount_remaining: due,
       currency: "usd",
       attempt_count: 0,
       created: at,
@@ -112,6 +126,7 @@ fakeRouteSets.push((fake: FakeStripe) => {
       hosted_invoice_url: "",
       parent: { type: "subscription_details", subscription_details: { subscription: sub["id"] } },
     });
+  };
 
   const settle = (
     sub: Record<string, unknown>,
@@ -276,23 +291,24 @@ fakeRouteSets.push((fake: FakeStripe) => {
     };
   });
 
-  fake.route("POST", "/v1/subscriptions", (req) => {
-    billingOnly(req.service);
-    const b = req.body as {
-      customer?: string;
-      items?: { price?: string; quantity?: string }[];
-      metadata?: unknown;
-    };
-    if (!b.customer) throw missing("customer");
-    const customer = fake.get(b.customer, null, "customer");
-    const items = Object.values(b.items ?? {});
+  /** A subscription with its first invoice, charged to the customer's card (or $0.00 with a coupon). */
+  const subscribe = (
+    customerId: string,
+    rawItems: unknown,
+    metadata: unknown,
+    coupon: Record<string, unknown> | null,
+  ): Record<string, unknown> => {
+    const customer = fake.get(customerId, null, "customer");
+    const items = Object.values(
+      (rawItems ?? {}) as Record<string, { price?: string; quantity?: string }>,
+    );
     if (items.length === 0) throw missing("items");
     const at = now(customer);
     const sub: Record<string, unknown> = fake.put({
       id: fakeId("sub"),
       object: "subscription",
-      customer: b.customer,
-      metadata: b.metadata ?? {},
+      customer: customerId,
+      metadata: metadata ?? {},
       current_period_start: at,
       current_period_end: at + MONTH_S,
       items: {
@@ -309,10 +325,28 @@ fakeRouteSets.push((fake: FakeStripe) => {
         }),
       },
     });
+    if (coupon)
+      sub["_discount"] = {
+        percent_off: coupon["percent_off"] ?? null,
+        amount_off: coupon["amount_off"] ?? null,
+        left:
+          coupon["duration"] === "forever"
+            ? null
+            : coupon["duration"] === "once"
+              ? 1
+              : Number(coupon["duration_in_months"] ?? 1),
+      };
     const invoice = invoiceFor(sub, at);
     settle(sub, invoice, charge(invoice, pmOf(customer)));
     fake.emit("platform", "customer.subscription.created", sub);
-    return { body: sub };
+    return sub;
+  };
+
+  fake.route("POST", "/v1/subscriptions", (req) => {
+    billingOnly(req.service);
+    const b = req.body as { customer?: string; items?: unknown; metadata?: unknown };
+    if (!b.customer) throw missing("customer");
+    return { body: subscribe(b.customer, b.items, b.metadata, null) };
   });
 
   fake.route("GET", "/v1/subscriptions/:id", (req) => {
@@ -427,6 +461,215 @@ fakeRouteSets.push((fake: FakeStripe) => {
         url: `${fake.publicBase}/fake/billing/${customer}?return_url=${encodeURIComponent(back)}`,
       }),
     };
+  });
+
+  // Coupons and Promotion Codes (O-04): the founder's, made in Stripe; tests make theirs here.
+  fake.route("POST", "/v1/coupons", (req) => {
+    billingOnly(req.service);
+    const b = req.body as Record<string, string | undefined>;
+    if (!b["duration"]) throw missing("duration");
+    return {
+      body: fake.put({
+        id: fakeId("coupon"),
+        object: "coupon",
+        percent_off: b["percent_off"] !== undefined ? Number(b["percent_off"]) : null,
+        amount_off: b["amount_off"] !== undefined ? Number(b["amount_off"]) : null,
+        currency: b["currency"] ?? null,
+        duration: b["duration"],
+        duration_in_months:
+          b["duration_in_months"] !== undefined ? Number(b["duration_in_months"]) : null,
+        valid: true,
+      }),
+    };
+  });
+
+  const promoView = (p: Record<string, unknown>) => ({
+    ...p,
+    promotion: { type: "coupon", coupon: fake.get(String(p["_coupon"]), null, "coupon") },
+  });
+  const makePromo = (code: string, coupon: string, extra: Record<string, unknown> = {}) =>
+    fake.put({
+      id: fakeId("promo"),
+      object: "promotion_code",
+      code,
+      active: true,
+      expires_at: null,
+      max_redemptions: null,
+      times_redeemed: 0,
+      _coupon: coupon,
+      ...extra,
+    });
+
+  fake.route("POST", "/v1/promotion_codes", (req) => {
+    billingOnly(req.service);
+    const b = req.body as {
+      code?: string;
+      promotion?: { coupon?: string };
+      active?: string;
+      expires_at?: string;
+    };
+    const coupon = b.promotion?.coupon;
+    if (!coupon) throw missing("promotion[coupon]");
+    fake.get(coupon, null, "coupon");
+    if (!b.code) throw missing("code");
+    return {
+      body: promoView(
+        makePromo(b.code, coupon, {
+          active: b.active !== "false",
+          expires_at: b.expires_at ? Number(b.expires_at) : null,
+        }),
+      ),
+    };
+  });
+
+  fake.route("GET", "/v1/promotion_codes", (req) => {
+    billingOnly(req.service);
+    const code = req.query["code"] ? String(req.query["code"]) : null;
+    const active = req.query["active"] === undefined ? null : req.query["active"] === "true";
+    const data = fake
+      .list(
+        "promotion_code",
+        null,
+        (p) =>
+          (code === null || String(p["code"]).toLowerCase() === code.toLowerCase()) &&
+          (active === null || p["active"] === active),
+      )
+      .map(promoView);
+    return { body: { object: "list", data, has_more: false } };
+  });
+
+  // The test-only code: 100% off for one month. It lives in the fake alone, never in our code.
+  const seededCoupon = fake.put({
+    id: fakeId("coupon"),
+    object: "coupon",
+    percent_off: 100,
+    amount_off: null,
+    currency: null,
+    duration: "repeating",
+    duration_in_months: 1,
+    valid: true,
+  });
+  makePromo(FAKE_PROMO_CODE, String(seededCoupon["id"]));
+
+  // Checkout Sessions in subscription mode (O-04), and the hosted page that finishes one.
+  fake.route("POST", "/v1/checkout/sessions", (req) => {
+    billingOnly(req.service);
+    const b = req.body as {
+      mode?: string;
+      customer?: string;
+      line_items?: unknown;
+      discounts?: Record<string, { promotion_code?: string }>;
+      success_url?: string;
+      cancel_url?: string;
+      client_reference_id?: string;
+      subscription_data?: { metadata?: unknown };
+    };
+    if (b.mode !== "subscription")
+      throw new FakeError(
+        400,
+        "invalid_request_error",
+        null,
+        "The fake makes subscription sessions only.",
+      );
+    if (!b.customer) throw missing("customer");
+    fake.get(b.customer, null, "customer");
+    if (!b.success_url) throw missing("success_url");
+    const items = Object.values(
+      (b.line_items ?? {}) as Record<string, { price?: string; quantity?: string }>,
+    );
+    if (items.length === 0) throw missing("line_items");
+    for (const i of items) {
+      if (!i.price) throw missing("line_items[][price]");
+      fake.get(i.price, null, "price");
+      if (!(Number(i.quantity ?? 1) >= 1))
+        throw new FakeError(400, "invalid_request_error", null, "quantity must be at least 1.");
+    }
+    const promoId = Object.values(b.discounts ?? {})[0]?.promotion_code ?? null;
+    if (promoId) {
+      const promo = fake.get(promoId, null, "promotion_code");
+      if (promo["active"] !== true)
+        throw new FakeError(400, "invalid_request_error", null, "This promotion code is inactive.");
+    }
+    const id = fakeId("cs");
+    return {
+      body: fake.put({
+        id,
+        object: "checkout.session",
+        mode: "subscription",
+        status: "open",
+        customer: b.customer,
+        subscription: null,
+        client_reference_id: b.client_reference_id ?? null,
+        success_url: b.success_url,
+        cancel_url: b.cancel_url ?? null,
+        expires_at: Math.floor(Date.now() / 1000) + 24 * 3600,
+        url: `${fake.publicBase}/fake/checkout/${id}`,
+        _items: items,
+        _promo: promoId,
+        _metadata: b.subscription_data?.metadata ?? {},
+      }),
+    };
+  });
+
+  fake.route("GET", "/v1/checkout/sessions/:id", (req) => {
+    billingOnly(req.service);
+    return { body: fake.get(req.params["id"]!, null, "checkout.session") };
+  });
+
+  fake.route("POST", "/v1/checkout/sessions/:id/expire", (req) => {
+    billingOnly(req.service);
+    const cs = fake.get(req.params["id"]!, null, "checkout.session");
+    if (cs["status"] !== "open")
+      throw new FakeError(400, "invalid_request_error", null, "Only an open session can expire.");
+    cs["status"] = "expired";
+    cs["url"] = null;
+    fake.emit("platform", "checkout.session.expired", cs);
+    return { body: cs };
+  });
+
+  // Stripe's hosted page: opening it pays with Stripe's test Visa (or ?cancel=1 leaves), then goes back.
+  fake.route("GET", "/fake/checkout/:id", (req) => {
+    const cs = fake.get(req.params["id"]!, null, "checkout.session");
+    if (req.query["cancel"] === "1" || cs["status"] !== "open")
+      return {
+        status: 302,
+        body: "",
+        headers: {
+          location: String(cs["cancel_url"] ?? cs["success_url"]),
+          "content-type": "text/plain",
+        },
+      };
+    const customer = fake.get(String(cs["customer"]), null, "customer");
+    customer["invoice_settings"] = { default_payment_method: "pm_card_visa" };
+    const promo = cs["_promo"] ? fake.get(String(cs["_promo"]), null, "promotion_code") : null;
+    if (promo) promo["times_redeemed"] = Number(promo["times_redeemed"] ?? 0) + 1;
+    const coupon = promo ? fake.get(String(promo["_coupon"]), null, "coupon") : null;
+    const sub = subscribe(String(cs["customer"]), cs["_items"], cs["_metadata"], coupon);
+    cs["status"] = "complete";
+    cs["subscription"] = sub["id"];
+    cs["url"] = null;
+    fake.emit("platform", "checkout.session.completed", cs);
+    return {
+      status: 302,
+      body: "",
+      headers: { location: String(cs["success_url"]), "content-type": "text/plain" },
+    };
+  });
+
+  // A new item on a subscription (the per-room fee, once the first room exists).
+  fake.route("POST", "/v1/subscription_items", (req) => {
+    billingOnly(req.service);
+    const sub = fake.get(String(req.body["subscription"] ?? ""), null, "subscription");
+    const price = fake.get(String(req.body["price"] ?? ""), null, "price");
+    const item = {
+      id: fakeId("si"),
+      object: "subscription_item",
+      price,
+      quantity: Number(req.body["quantity"] ?? 1),
+    };
+    (sub["items"] as { data: Record<string, unknown>[] }).data.push(item);
+    fake.emit("platform", "customer.subscription.updated", sub);
+    return { body: item };
   });
 
   // The hosted pages, as plain text in the fake.

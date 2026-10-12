@@ -664,15 +664,20 @@ export {
   ENDED_PLAN_STATUSES,
   PLAN_IDS,
   billableRooms,
+  abandonPlanSubscribeAttempt,
   finishPlanSubscribeAttempt,
   insertVenueSubscription,
+  openCheckoutAttempt,
+  planAttempt,
   planSubscribeAttempt,
+  setAttemptCheckoutSession,
+  setPlanItems,
   setPlanStatus,
   setRoomQuantity,
   venueClockSettings,
   venueSubscription,
 } from "./plan-billing.js";
-export type { PlanId, VenueSubscriptionRow } from "./plan-billing.js";
+export type { PlanAttemptRow, PlanId, VenueSubscriptionRow } from "./plan-billing.js";
 export {
   RESTORE_EXCLUDED,
   RESTORE_MENU_TABLES,

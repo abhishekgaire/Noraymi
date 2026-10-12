@@ -104,7 +104,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-04 · Step 2, Your plan: three plans, a promo code and Stripe Checkout
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-02; M8-15 (plan billing); the fake Stripe
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 2; [Settings](../spec/03-settings-rule-packs-modules.md) · Plan billing; [D94](../decisions.md), [D114](../decisions.md)
@@ -114,12 +114,20 @@ Definition of done: see CLAUDE.md.
   - `checkout.session.completed` added to the Our billing endpoint; it and `customer.subscription.updated` write `venue_subscriptions` and set `venue_modules.allowed` from the plan; the reconciler checks a session left open.
   - The fake Stripe learns Checkout Sessions and Promotion Codes, and seeds one 100%-off-for-a-month code for tests only.
 - **Acceptance:**
-  - [ ] Choosing Rooms with the test promo code and finishing Checkout on the fake Stripe starts a subscription with a first invoice of $0.00 and the room count, and allows the Rooms modules.
-  - [ ] An unknown or expired code reads "That code isn't valid" and Checkout isn't offered with it.
-  - [ ] With a lookup key missing, Start plan is off and nothing is sent to Stripe.
-  - [ ] The Bar plan allows no room module, and the Rooms step is skipped.
-  - [ ] No price or promo code is written in our code or settings.
+  - [x] Choosing Rooms with the test promo code and finishing Checkout on the fake Stripe starts a subscription with a first invoice of $0.00 and the room count, and allows the Rooms modules.
+  - [x] An unknown or expired code reads "That code isn't valid" and Checkout isn't offered with it.
+  - [x] With a lookup key missing, Start plan is off and nothing is sent to Stripe.
+  - [x] The Bar plan allows no room module, and the Rooms step is skipped.
+  - [x] No price or promo code is written in our code or settings.
 - **Tests:** integration tests on the fake Stripe; webhook signature tests; a Playwright test of the step.
+- **Notes:**
+  - Built: migration `0145_plan_checkout.sql` (the attempt keeps its Checkout Session and promotion code id; `ingest_stripe_event` finds a `checkout.session.*` event's venue by that session, never metadata; grants for the plan change, the new subscription id and the organization's billing Customer); `apps/api/src/routes/plan-checkout.ts` (`GET /plan/prices`, `GET /plan/promo`, `POST /plan/checkout`, the owner's only); `apps/api/src/billing/checkout.ts` (the session applied the same way from `checkout.session.completed` or the reconciler job `billing.checkout`, queued for 5 minutes after the session expires: complete starts the plan, expired ends the attempt so the next Start plan gets a new key); the staff step `apps/staff/src/screens/admin/PlanStep.tsx`; the fake Stripe's Coupons, Promotion Codes (one seeded test-only code, `FAKEFIRSTMONTH`, 100% off for one month), Checkout Sessions and their hosted page, and new subscription items.
+  - `GET /plan/prices` is new (the spec's Routes now names it): the plan cards read the Prices from it at page load.
+  - Cautious default: the plan sets the allow-list only for the modules spec 17's table names (Bar: bar tabs, bar mode, bar screen; Rooms adds rooms, online booking, room ordering, packages, song system, waitlist; Rooms + Kitchen adds kitchen). Team, safety, reports, guest and marketing texts and the website stay as our Console sets them, because the spec doesn't say which plan allows them (the blueprint lists texts, reports and team in Bar). A module the venue has on is never disallowed by a plan change until it's turned off, as the Console's own switch does. Founder to confirm.
+  - Checkout leaves the per-room item out while the venue has no rooms (Stripe Checkout takes no zero quantity); the room-count job adds it with the first room, with its own idempotency key.
+  - A customer.subscription.updated after a change in Stripe's portal now moves the plan, its room item and the allow-list too.
+  - The "No price or promo code in our code" line is checked by `apps/api/src/stripe/no-plan-prices.test.ts`, which reads every app and package source (tests and the fake aside).
+  - Tests: `apps/api/src/billing/plan-checkout.int.test.ts` (7, incl. the bad signature and the reconciler), `packages/shared/src/modules.test.ts`, and the Playwright test in `e2e/setup.staff.spec.ts`.
 
 ### O-05 · Step 3, Card payments: Connect with Stripe
 

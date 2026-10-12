@@ -1,3 +1,4 @@
+import { checkoutEventHandlers } from "../billing/checkout.js";
 import { planEventHandlers } from "../billing/plan.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type pg from "pg";
@@ -56,6 +57,8 @@ export const ENDPOINT_EVENTS: Readonly<Record<WebhookEndpoint, readonly string[]
     "setup_intent.setup_failed",
   ],
   platform: [
+    // Start plan's Checkout (O-04): the venue comes from the session its attempt recorded.
+    "checkout.session.completed",
     "customer.subscription.updated",
     "customer.subscription.deleted",
     "invoice.paid",
@@ -132,6 +135,7 @@ export const stripeEventHandlers = new Map<string, StripeEventHandler>([
   ],
   // Our plan billing (M8-15): our own account's subscription and invoice events.
   ...planEventHandlers,
+  ...checkoutEventHandlers,
 ]);
 
 /** The `stripe.event` job: apply the stored event once, then mark it processed. */

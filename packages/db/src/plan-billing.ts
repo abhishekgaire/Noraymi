@@ -82,22 +82,100 @@ export const ENDED_PLAN_STATUSES: readonly string[] = ["canceled", "incomplete_e
  */
 export async function planSubscribeAttempt(
   c: Queryable,
-  input: { venueId: string; plan: PlanId; rooms: number },
+  input: { venueId: string; plan: PlanId; rooms: number; promotionCodeId?: string | null },
 ): Promise<string> {
   // Two clicks at once find the same attempt, so Stripe makes one subscription.
   await c.query("select pg_advisory_xact_lock(hashtext('plan_subscribe:' || $1))", [input.venueId]);
+  const promo = input.promotionCodeId ?? null;
   const open = await c.query<{ id: string }>(
     `select id from plan_subscribe_attempts
       where venue_id = $1 and plan = $2 and rooms = $3 and finished_at is null
+        and promotion_code_id is not distinct from $4
       order by created_at desc limit 1`,
-    [input.venueId, input.plan, input.rooms],
+    [input.venueId, input.plan, input.rooms, promo],
   );
   if (open.rows[0]) return open.rows[0].id;
   const made = await c.query<{ id: string }>(
-    `insert into plan_subscribe_attempts (venue_id, plan, rooms) values ($1, $2, $3) returning id`,
-    [input.venueId, input.plan, input.rooms],
+    `insert into plan_subscribe_attempts (venue_id, plan, rooms, promotion_code_id)
+     values ($1, $2, $3, $4) returning id`,
+    [input.venueId, input.plan, input.rooms, promo],
   );
   return made.rows[0]!.id;
+}
+
+export interface PlanAttemptRow {
+  readonly id: string;
+  readonly plan: PlanId;
+  readonly rooms: number;
+  readonly checkout_session_id: string | null;
+  readonly stripe_subscription_id: string | null;
+  readonly finished: boolean;
+}
+
+const ATTEMPT_COLUMNS = `id, plan, rooms, checkout_session_id, stripe_subscription_id,
+  finished_at is not null as finished`;
+
+/** The Checkout Session an attempt made (O-04): its events and the reconciler find the venue by it. */
+export async function setAttemptCheckoutSession(
+  c: Queryable,
+  attemptId: string,
+  sessionId: string,
+): Promise<void> {
+  await c.query(
+    `update plan_subscribe_attempts set checkout_session_id = $2
+      where id = $1 and checkout_session_id is distinct from $2`,
+    [attemptId, sessionId],
+  );
+}
+
+export async function planAttempt(
+  c: Queryable,
+  venueId: string,
+  by: { id: string } | { sessionId: string },
+): Promise<PlanAttemptRow | null> {
+  const r = await c.query<PlanAttemptRow>(
+    `select ${ATTEMPT_COLUMNS} from plan_subscribe_attempts
+      where venue_id = $1 and ${"id" in by ? "id = $2" : "checkout_session_id = $2"}`,
+    [venueId, "id" in by ? by.id : by.sessionId],
+  );
+  return r.rows[0] ?? null;
+}
+
+/** The newest Checkout the owner started that hasn't ended: the step reads "Waiting for Stripe…". */
+export async function openCheckoutAttempt(
+  c: Queryable,
+  venueId: string,
+): Promise<PlanAttemptRow | null> {
+  const r = await c.query<PlanAttemptRow>(
+    `select ${ATTEMPT_COLUMNS} from plan_subscribe_attempts
+      where venue_id = $1 and checkout_session_id is not null and finished_at is null
+      order by created_at desc limit 1`,
+    [venueId],
+  );
+  return r.rows[0] ?? null;
+}
+
+/** The attempt ended without a subscription (its Checkout expired): the next Start plan is a new attempt. */
+export async function abandonPlanSubscribeAttempt(c: Queryable, attemptId: string): Promise<void> {
+  await c.query(
+    "update plan_subscribe_attempts set finished_at = now() where id = $1 and finished_at is null",
+    [attemptId],
+  );
+}
+
+/** The plan and its per-room item as Stripe's subscription says now (a change in Stripe's portal). */
+export async function setPlanItems(
+  c: Queryable,
+  venueId: string,
+  change: { plan: PlanId; roomItemId: string | null; roomQuantity: number },
+): Promise<boolean> {
+  const r = await c.query(
+    `update venue_subscriptions set plan = $2, room_item_id = $3, room_quantity = $4, updated_at = now()
+      where venue_id = $1
+        and (plan, room_item_id, room_quantity) is distinct from ($2, $3, $4)`,
+    [venueId, change.plan, change.roomItemId, change.roomQuantity],
+  );
+  return r.rowCount === 1;
 }
 
 /** The attempt is done: its subscription is recorded, so its key is never used again. */

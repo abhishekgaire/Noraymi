@@ -13,3 +13,4 @@ export {
   type FakeEvent,
 } from "./server.js";
 export { fakeFingerprint } from "./payments.js";
+export { FAKE_PROMO_CODE } from "./billing.js";

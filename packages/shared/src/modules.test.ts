@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { catalogs } from "./i18n/index.js";
 import {
+  PLAN_GOVERNED_MODULES,
+  PLAN_MODULES,
   missingNeeds,
+  moduleDef,
   moduleIds,
   modules,
   kitchenMissing,
@@ -136,5 +139,21 @@ describe("modules", () => {
     expect(catalogs.en["module.online_booking.hides.texts"]).toBe(
       "Payment link, and Deposit refund for new bookings",
     );
+  });
+});
+
+describe("what each plan allows (O-04)", () => {
+  it("Bar allows no room module; Rooms adds the rooms; only Rooms + Kitchen allows the kitchen", () => {
+    expect(PLAN_MODULES.bar).not.toContain("rooms");
+    expect(PLAN_MODULES.bar).toEqual(["bar_tabs", "bar_mode", "bar_screen"]);
+    expect(PLAN_MODULES.rooms).toEqual(
+      expect.arrayContaining(["rooms", "online_booking", "room_ordering", "packages", "waitlist"]),
+    );
+    expect(PLAN_MODULES.rooms).not.toContain("kitchen");
+    expect(PLAN_MODULES.rooms_kitchen).toContain("kitchen");
+    // No plan decides a core module or one the blueprint leaves to our Console.
+    for (const m of PLAN_GOVERNED_MODULES) expect(moduleDef(m).core).toBe(false);
+    for (const m of ["team", "safety", "reports", "website", "guest_texts"] as const)
+      expect(PLAN_GOVERNED_MODULES).not.toContain(m);
   });
 });

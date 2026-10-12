@@ -41,6 +41,7 @@ import { Temporal, formatInZone, systemClock, type Clock } from "@west4/shared";
 import { dbPlugin } from "./db.js";
 import type { Config } from "./config.js";
 import { planBillingRoutes } from "./routes/plan-billing.js";
+import { planCheckoutRoutes } from "./routes/plan-checkout.js";
 import { PlanGate } from "./http/plan-gate.js";
 import { conventionsPlugin, route, type Authenticator } from "./http/conventions.js";
 import { eventsPlugin } from "./http/events.js";
@@ -360,6 +361,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         staffAppUrl: config.staffAppUrl,
       });
       planBillingRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
+      planCheckoutRoutes(scope, { clock, stripe, staffAppUrl: config.staffAppUrl });
       readerRoutes(scope, { clock, stripe });
       stripeHookRoutes(scope, { pool: gatePoolRef!, clock, stripe });
       // Paging (M8-17): CloudWatch alarms and RDS failovers through the pages topic.

@@ -1,3 +1,4 @@
+import { PLAN_CHECKOUT_KIND } from "../billing/checkout.js";
 import { GOOGLE_PUSH_KIND } from "../google/profile.js";
 import { PLAN_ROOMS_KIND } from "../billing/plan.js";
 import { MENU_PDF_KIND } from "../jobs/menu-pdf.js";
@@ -429,6 +430,16 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the erase job didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  // Start plan's reconciler (O-04): the attempt is read in the job's own venue, so venue B's id finds nothing.
+  [PLAN_CHECKOUT_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({ attempt_id: c.venueB }),
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the checkout reconciler didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [PLAN_ROOMS_KIND]: {
     carries: "no venue-owned ids",

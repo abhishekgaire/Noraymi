@@ -7,6 +7,7 @@ import {
   finishPlanSubscribeAttempt,
   insertVenueSubscription,
   planSubscribeAttempt,
+  setPlanItems,
   setPlanStatus,
   setRoomQuantity,
   venueSubscription,
@@ -17,7 +18,9 @@ import {
 } from "@west4/db";
 import type { Temporal } from "@west4/shared";
 import type { StripeClient } from "../stripe/client.js";
+import { followPlanItems } from "./checkout.js";
 import {
+  addRoomItem,
   createCustomer,
   createSubscription,
   invoiceSubscription,
@@ -53,7 +56,8 @@ export async function queueRoomQuantity(
   now: Temporal.Instant,
 ): Promise<void> {
   const sub = await venueSubscription(c, venueId);
-  if (!sub?.room_item_id) return;
+  // A Rooms plan started before any room (O-04) has no room item yet: the job adds it.
+  if (!sub || (!sub.room_item_id && !PLANS_WITH_ROOMS.includes(sub.plan))) return;
   await enqueue(c, { venueId, kind: PLAN_ROOMS_KIND, pool: "normal", runAt: now, maxAttempts: 10 });
 }
 
@@ -65,7 +69,30 @@ export function makePlanRoomsHandler(stripe: StripeClient): JobHandler {
       sub: await venueSubscription(c, venueId),
       rooms: await billableRooms(c, venueId),
     }));
-    if (!read.sub?.room_item_id) return;
+    if (!read.sub) return;
+    if (!read.sub.room_item_id) {
+      // The plan was started with no rooms (Checkout leaves the per-room item out): add it now.
+      if (!PLANS_WITH_ROOMS.includes(read.sub.plan) || read.rooms === 0) return;
+      const prices = await planPrices(stripe, read.sub.plan);
+      const added = await addRoomItem(
+        stripe,
+        {
+          subscription: read.sub.stripe_subscription_id,
+          price: prices.room!.id,
+          quantity: read.rooms,
+        },
+        `billing:rooms:${job.job.id}:add`,
+      );
+      await job.step(async (c) => {
+        await setPlanItems(c, venueId, {
+          plan: read.sub!.plan,
+          roomItemId: added.id,
+          roomQuantity: added.quantity,
+        });
+        await emitEvent(c, { venueId, type: "plan.updated", entityId: venueId });
+      });
+      return;
+    }
     if (read.sub.room_quantity === read.rooms) return;
     // The job's id names the attempt: a retry of this job reuses it, a later room change is a new job.
     const item = await setRoomItemQuantity(
@@ -103,7 +130,13 @@ async function applyPlan(
       status: sub.status,
       ...(failure ? { failure } : {}),
     });
-    if (before?.status !== after?.status || before?.payment_failed_at !== after?.payment_failed_at)
+    // A plan changed in Stripe's portal (O-04): the plan, its room item and the allow-list follow.
+    const moved = await followPlanItems(c, ctx.venueId, sub);
+    if (
+      moved ||
+      before?.status !== after?.status ||
+      before?.payment_failed_at !== after?.payment_failed_at
+    )
       await emitEvent(c, { venueId: ctx.venueId, type: "plan.updated", entityId: ctx.venueId });
   });
 }

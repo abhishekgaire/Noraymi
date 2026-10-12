@@ -293,3 +293,71 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Step 2, Your plan (O-04). */
+.setup-plan fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--w4-space-3);
+}
+.setup-plan legend {
+  font-weight: 600;
+  margin-bottom: var(--w4-space-2);
+}
+.setup-check {
+  display: flex;
+  align-items: center;
+  gap: var(--w4-space-2);
+  min-height: 44px;
+}
+.setup-check input {
+  width: 22px;
+  height: 22px;
+}
+.setup-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--w4-space-3);
+  width: 100%;
+}
+.setup-plan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w4-space-2);
+  min-height: 44px;
+  padding: var(--w4-space-3);
+  text-align: left;
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-lg);
+  background: var(--w4-surface);
+  color: inherit;
+}
+.setup-plan-card.chosen {
+  border: 2px solid var(--w4-lime);
+}
+.setup-badge {
+  font-size: 0.8em;
+  font-weight: 600;
+}
+.setup-promo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--w4-space-2);
+}
+.setup-promo label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-1);
+}
+.setup-promo input {
+  min-height: 44px;
+}
+.setup-promo p {
+  width: 100%;
+  margin: 0;
+}

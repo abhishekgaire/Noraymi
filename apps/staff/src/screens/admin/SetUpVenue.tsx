@@ -17,6 +17,7 @@ import { Dialog, useSheetDialog } from "../../layout/Dialog.js";
 import { useT } from "../../i18n.js";
 import { homeFor } from "../../navigation.js";
 import { useSession } from "../../session.js";
+import { PlanStep } from "./PlanStep.js";
 import { VenueForm } from "./Venue.js";
 import "./setup.css";
 
@@ -373,6 +374,8 @@ function StepBody({
         <VenueForm registerSave={registerSave} onSaved={onSaved} />
       </div>
     );
+  // Step 2's plans, promo code and Start plan (O-04).
+  if (step.id === "plan") return <PlanStep onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (
