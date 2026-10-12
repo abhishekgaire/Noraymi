@@ -3,6 +3,7 @@ import { t, type Locale, type MessageKey } from "@west4/shared";
 import { SupportAccess } from "./SupportAccess.js";
 import { EmergencyActions } from "./EmergencyActions.js";
 import { Pages } from "./Pages.js";
+import { NewVenue, OwnerInvite, ownerLine, type OwnerLine } from "./NewVenue.js";
 import { api, ConsoleApiError } from "./api.js";
 
 /**
@@ -35,6 +36,8 @@ interface VenueSummary {
   health: Health;
   /** The go-live checklist (M4-29): the same rows as Admin → Payments. */
   go_live?: { passes: boolean; merchant_category: { status: string } };
+  /** The owner (O-01): "Owner invited · not yet signed in" until they finish their invite. */
+  owner?: OwnerLine | null;
 }
 
 interface VenueDetail {
@@ -288,6 +291,11 @@ function Venues({
     }
   };
 
+  const reloadVenues = async () => {
+    const list = await api<{ venues: VenueSummary[] }>("GET", "/v1/console/venues");
+    setScreen((s) => (s.kind === "venues" ? { ...s, venues: list.venues } : s));
+  };
+
   const signOut = async () => {
     await api("POST", "/v1/console/auth/logout", {}).catch(() => {});
     await onSignOut();
@@ -319,6 +327,12 @@ function Venues({
       <div className="columns">
         <section id="venues">
           <h2>Venues</h2>
+          <NewVenue
+            onMade={async (id) => {
+              await reloadVenues();
+              await openVenue(id);
+            }}
+          />
           {screen.venues === null ? (
             <p role="status">Loading…</p>
           ) : (
@@ -332,6 +346,9 @@ function Venues({
                   >
                     <span className="venue-name">{v.name}</span>
                     <span className="muted small">{healthLine(v.health)}</span>
+                    {ownerLine(v.owner) && (
+                      <span className="muted small">{ownerLine(v.owner)}</span>
+                    )}
                     {v.go_live && (
                       <span className="muted small">
                         {v.go_live.passes
@@ -354,6 +371,11 @@ function Venues({
           <section>
             <h2>{open.venue.name}</h2>
             <p className="muted small">{healthLine(open.health)}</p>
+            <OwnerInvite
+              venueId={open.venue.id}
+              owner={screen.venues?.find((v) => v.id === open.venue.id)?.owner}
+              onSent={reloadVenues}
+            />
             <h3>Modules</h3>
             <p className="muted small">
               Allowed by the plan and add-ons. The venue switches an allowed module on or off in

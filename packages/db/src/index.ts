@@ -211,7 +211,9 @@ export {
   addConsoleKey,
   addConsoleStaff,
   bumpConsoleKeyCounter,
+  consoleCreateVenue,
   consoleKeys,
+  consoleOrganizations,
   consoleStaffByEmail,
   consoleStaffById,
   consoleStaffForSso,
@@ -225,6 +227,7 @@ export {
   takeConsoleChallenge,
   takeSsoState,
   type ConsoleCredential,
+  type ConsoleOrganization,
   type ConsoleStaff,
   type ConsoleVenue,
 } from "./console.js";

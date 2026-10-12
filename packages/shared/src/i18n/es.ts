@@ -76,6 +76,13 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "email.invite.button": "Abrir mi invitación",
   "email.invite.expires": "El enlace funciona una sola vez y caduca a las {hours} horas.",
   "email.invite.ignore": "Si no esperabas este correo, puedes ignorarlo.",
+  // La invitación del dueño desde nuestra Consola (O-01). {days} es cuánto dura el enlace.
+  "email.ownerInvite.subject": "Configura {venue} en la app del personal",
+  "email.ownerInvite.greeting": "Hola, {name}:",
+  "email.ownerInvite.body":
+    "Tu local {venue} está listo para que lo configures. Abre el enlace para confirmar tu teléfono, elegir tu propio PIN y añadir una llave de acceso; después, Configura tu local te guía en lo demás.",
+  "email.ownerInvite.button": "Configurar mi local",
+  "email.ownerInvite.expires": "El enlace funciona una sola vez y caduca a los {days} días.",
   // Código de inicio de sesión (M1-19). {code} y {minutes} se rellenan al enviar.
   "email.signInCode.subject": "Tu código para entrar en {venue}",
   "email.signInCode.greeting": "Hola, {name}:",
@@ -210,6 +217,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "invite.goSignIn": "Ir a iniciar sesión",
   "invite.expired": "Este enlace caducó · pide uno nuevo a un gerente",
   "invite.used": "Este enlace ya se usó",
+  "invite.replaced": "Se envió un enlace más reciente · abre el correo más nuevo",
+  "invite.doneOwner": "Listo · inicia sesión con tu llave de acceso para configurar tu local",
   "invite.invalid": "Este enlace no es válido",
   "invite.failed": "Algo salió mal · inténtalo de nuevo",
   "push.pinPaused.body":

@@ -168,7 +168,9 @@ test("an emergency requeue waits for a second person on our side, then prints RE
       `insert into console_staff (name, email) values ('Ben on call', 'oncall@demo.west4.local')
          on conflict ((lower(email))) do update set active = true`,
     );
-    const venueId = (await db.query<{ id: string }>("select id from venues limit 1")).rows[0]!.id;
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
     const job = (
       await db.query<{ id: string }>(
         `insert into print_jobs (venue_id, kind, station, payload, status, failed_at)
@@ -215,6 +217,73 @@ test("an emergency requeue waits for a second person on our side, then prints RE
     await db
       .query("delete from console_staff where email = 'oncall@demo.west4.local'")
       .catch(() => {});
+    await db.end();
+  }
+});
+
+/**
+ * New venue (O-01): our staff member makes a venue with its owner and nothing
+ * else, sends the owner's invite, and the venue list reads "Owner invited ·
+ * not yet signed in"; the button turns into Send again.
+ */
+test("our staff make a new venue and send its owner's invite", async ({ page }) => {
+  test.setTimeout(120_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  try {
+    await db.query("delete from console_sessions");
+    await db.query("delete from console_challenges");
+    await db.query("delete from console_credentials");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2",
+        transport: "usb",
+        hasResidentKey: false,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    await page.goto(`${CONSOLE}/`);
+    await page.getByLabel("Work email").fill("support@demo.west4.local");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Use your security key" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Venues" })).toBeVisible();
+
+    const n = Date.now().toString(36);
+    await page.getByRole("button", { name: "New venue" }).click();
+    await page.getByLabel("Venue name (what guests see)").fill(`E2E Venue ${n}`);
+    await page.getByLabel(/^Web name/).fill(`e2e-${n}`);
+    await page.getByLabel("Legal name").fill(`E2E Venue ${n} LLC`);
+    await page.getByLabel("Owner's name").fill("Jin Park");
+    await page.getByLabel("Owner's email").fill(`jin-${n}@example.com`);
+    await page.getByLabel("Why (kept with the venue)").fill("E2E onboarding check");
+    await page.getByRole("button", { name: "Make the venue" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: `E2E Venue ${n}` })).toBeVisible();
+    const send = page.getByRole("button", { name: "Send the owner's invite", exact: true });
+    await expect(send).toBeVisible();
+    await send.click();
+    await expect(
+      page.getByText(`Sent to jin-${n}@example.com · the link works for 7 days`),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Send again" })).toBeVisible();
+    await expect(page.getByRole("button", { name: new RegExp(`E2E Venue ${n}`) })).toContainText(
+      "Owner invited · not yet signed in",
+    );
+    // A web name already taken is refused with the reason.
+    await page.getByRole("button", { name: "New venue" }).click();
+    await page.getByLabel("Venue name (what guests see)").fill("Copy");
+    await page.getByLabel(/^Web name/).fill(`e2e-${n}`);
+    await page.getByLabel("Legal name").fill("Copy LLC");
+    await page.getByLabel("Owner's name").fill("Copy");
+    await page.getByLabel("Owner's email").fill(`copy-${n}@example.com`);
+    await page.getByLabel("Why (kept with the venue)").fill("E2E duplicate");
+    await page.getByRole("button", { name: "Make the venue" }).click();
+    await expect(page.getByText("that web name is already taken")).toBeVisible();
+  } finally {
     await db.end();
   }
 });

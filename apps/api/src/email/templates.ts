@@ -17,6 +17,16 @@ export const inviteData = z
   })
   .strict();
 
+/** The owner's invite from our Console (O-01): a 7-day link that opens Set up your venue. */
+export const ownerInviteData = z
+  .object({
+    venueName: z.string().min(1),
+    ownerName: z.string().min(1),
+    inviteUrl: z.string().url(),
+    expiresDays: z.number().int().positive(),
+  })
+  .strict();
+
 /** The one-time code for the authenticator-app sign-in and the first enrollment (M1-19). */
 export const signInCodeData = z
   .object({
@@ -147,6 +157,7 @@ export const gateWeekData = z
 
 export const templateSchemas = {
   invite: inviteData,
+  owner_invite: ownerInviteData,
   sign_in_code: signInCodeData,
   owner_recovery_notice: ownerRecoveryNoticeData,
   receipt: receiptData,
@@ -217,6 +228,28 @@ export function render<N extends TemplateName>(
         `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
       ].join("\n");
       return { subject: line("email.invite.subject"), text: paragraphs.join("\n\n"), html };
+    }
+    case "owner_invite": {
+      const d = data as TemplateData<"owner_invite">;
+      const values = { venue: d.venueName, name: d.ownerName, days: d.expiresDays };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line("email.ownerInvite.greeting"),
+        line("email.ownerInvite.body"),
+        `${line("email.ownerInvite.button")}: ${d.inviteUrl}`,
+        line("email.ownerInvite.expires"),
+        line("email.invite.ignore"),
+        line("email.footer"),
+      ];
+      const html = [
+        `<p>${escapeHtml(paragraphs[0]!)}</p>`,
+        `<p>${escapeHtml(paragraphs[1]!)}</p>`,
+        `<p><a href="${escapeHtml(d.inviteUrl)}">${escapeHtml(line("email.ownerInvite.button"))}</a></p>`,
+        `<p>${escapeHtml(paragraphs[3]!)}</p>`,
+        `<p>${escapeHtml(paragraphs[4]!)}</p>`,
+        `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
+      ].join("\n");
+      return { subject: line("email.ownerInvite.subject"), text: paragraphs.join("\n\n"), html };
     }
     case "receipt": {
       const d = data as TemplateData<"receipt">;

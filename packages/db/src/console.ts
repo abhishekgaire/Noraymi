@@ -246,3 +246,55 @@ export async function consoleVenue(c: Queryable, id: string): Promise<ConsoleVen
   );
   return r.rows[0] ?? null;
 }
+
+/** An organization the New venue form can pick (O-01): a second venue of the same owner. */
+export interface ConsoleOrganization {
+  readonly id: string;
+  readonly legal_name: string;
+  readonly stripe_account_id: string | null;
+  readonly venues: number;
+}
+
+export async function consoleOrganizations(c: Queryable): Promise<ConsoleOrganization[]> {
+  const r = await c.query<{
+    id: string;
+    legal_name: string;
+    stripe_account_id: string | null;
+    venues: string;
+  }>("select id, legal_name, stripe_account_id, venues from console_organizations()");
+  return r.rows.map((row) => ({ ...row, venues: Number(row.venues) }));
+}
+
+/**
+ * New venue (O-01): the organization when new, the venue, and the owner's
+ * user found or made by email, through the definer door. Run inside a
+ * transaction whose venue is `venueId`, so the audit rows land on it.
+ */
+export async function consoleCreateVenue(
+  c: Queryable,
+  input: {
+    readonly venueId: string;
+    readonly orgId: string | null;
+    readonly legalName: string | null;
+    readonly name: string;
+    readonly slug: string;
+    readonly rulePackId: string;
+    readonly ownerName: string;
+    readonly ownerEmail: string;
+  },
+): Promise<{ orgId: string; userId: string }> {
+  const r = await c.query<{ org_id: string; user_id: string }>(
+    "select org_id, user_id from console_create_venue($1, $2, $3, $4, $5, $6, $7, $8)",
+    [
+      input.venueId,
+      input.orgId,
+      input.legalName,
+      input.name,
+      input.slug,
+      input.rulePackId,
+      input.ownerName,
+      input.ownerEmail,
+    ],
+  );
+  return { orgId: r.rows[0]!.org_id, userId: r.rows[0]!.user_id };
+}

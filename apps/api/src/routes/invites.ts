@@ -64,7 +64,8 @@ export function invitesRoutes(
     rateLimit: { max: 30, windowMs: 60_000 },
   });
 
-  const state = (invite: InviteByToken): "open" | "used" | "expired" => {
+  const state = (invite: InviteByToken): "open" | "used" | "replaced" | "expired" => {
+    if (invite.replacedAt) return "replaced";
     if (invite.usedAt) return "used";
     return invite.expiresAt <= options.clock.now().toString() ? "expired" : "open";
   };

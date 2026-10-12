@@ -38,6 +38,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import { goLive } from "../payments/go-live.js";
+import { ownerState } from "./new-venue.js";
 import { enqueuePush } from "../push/send-push.js";
 import { grantOut } from "../routes/support-grants.js";
 
@@ -103,12 +104,14 @@ export function consoleRoutes(
     const venues = await consoleVenues(options.pool);
     const out = [];
     for (const v of venues) {
-      const [devices, checklist] = await app.db.withVenue(
+      const [devices, checklist, owner] = await app.db.withVenue(
         { venueId: v.id, userId: staff.id, requestId: request.requestId },
-        async (c) => [await listDevices(c, v.id), await goLive(c, v.id)] as const,
+        async (c) =>
+          [await listDevices(c, v.id), await goLive(c, v.id), await ownerState(c, v.id)] as const,
       );
       // The go-live checklist (M4-29): the same rows Admin → Payments reads.
-      out.push({ ...v, health: deviceHealth(devices), go_live: checklist });
+      // The owner (O-01): "Owner invited · not yet signed in" until they finish their invite.
+      out.push({ ...v, health: deviceHealth(devices), go_live: checklist, owner });
     }
     return { venues: out };
   });

@@ -62,6 +62,7 @@ import { loadPushSettings, type PushSettings } from "./push/settings.js";
 import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
 import { consoleAuthenticator, consoleAuthRoutes } from "./console/auth.js";
+import { newVenueRoutes } from "./console/new-venue.js";
 import { consoleRoutes } from "./console/routes.js";
 import { rulePackRoutes } from "./routes/rule-pack.js";
 import { roomsRoutes } from "./routes/rooms.js";
@@ -462,6 +463,13 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
           gate: gate!,
           clock,
           rulePackSigningKey: config.rulePackSigningKey,
+        });
+        // New venue and the owner's invite (O-01).
+        newVenueRoutes(scope, {
+          pool: gatePoolRef!,
+          clock,
+          email: options.email ?? { allowList: null },
+          staffAppUrl: config.staffAppUrl,
         });
         // The emergency path (M8-11): four actions, a second approver on our side, the owner told.
         emergencyConsoleRoutes(scope, {

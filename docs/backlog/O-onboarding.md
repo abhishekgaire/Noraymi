@@ -25,7 +25,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-01 · Console: create a venue and invite its owner
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-05 (organizations, venues, memberships), M1-19 and M1-23 (enroll and invites), M1-18 (email), the minimal Console (support grants, the venue list)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Who runs it; [Tenancy and access](../spec/02-tenancy-access.md)
@@ -34,12 +34,20 @@ Definition of done: see CLAUDE.md.
   - `POST /v1/console/venues/{v}/owner-invite`: emails a 7-day link; Send again ends the old link. Opening it runs the existing enroll path and lands on Set up your venue.
   - The Console's New venue form and the venue list's "Owner invited · not yet signed in" and checklist count.
 - **Acceptance:**
-  - [ ] New venue makes an organization, a venue and an invited owner, and nothing else (no hours, rooms, prices, settings rows or contacts).
-  - [ ] The owner's link enrolls a passkey and opens Set up your venue; an expired or replaced link is refused with the reason.
-  - [ ] A slug already taken is refused; a second venue under an existing organization reuses its Stripe account id.
-  - [ ] Only Console staff can call the routes; every route has a principal test and a venue-wall test.
+  - [x] New venue makes an organization, a venue and an invited owner, and nothing else (no hours, rooms, prices, settings rows or contacts).
+  - [x] The owner's link enrolls a passkey and opens Set up your venue; an expired or replaced link is refused with the reason.
+  - [x] A slug already taken is refused; a second venue under an existing organization reuses its Stripe account id.
+  - [x] Only Console staff can call the routes; every route has a principal test and a venue-wall test.
 - **Tests:** integration tests against Postgres with row-level security on; Mailpit for the email; the principal and wall suites.
 - **Notes:** replaces the SQL in `scripts/demo-local.sh` for new venues only; West 4's seed is unchanged.
+  - Built (Oct 12, 2026): migration `0142_new_venue.sql` (the definer doors `console_create_venue` and `console_organizations`, which refuse anyone who isn't active Console staff; `venue_onboarding` keeps who and why, forced RLS and audited; `invites.replaced_at`); `apps/api/src/console/new-venue.ts` (`GET /v1/console/organizations`, `POST /v1/console/venues`, `POST /v1/console/venues/{v}/owner-invite`); `GET /v1/console/venues` gains each venue's `owner`; the `owner_invite` email (English and Spanish); the Console's New venue form and owner line (`apps/console/src/NewVenue.tsx`). Tests: `apps/api/src/console/new-venue.int.test.ts` (rows, nothing else, slug, shared Stripe account, Mailpit, the invite path to a passkey, replaced and expired links, Console staff only, the venue wall) and `e2e/console.spec.ts`.
+  - The "existing enroll path" is the staff invite (M1-23): a texted phone code, the PIN, then a passkey with the code the invite hands back. The spec's "an emailed code" is how `/v1/auth/enroll` starts without an invite; nothing new was added.
+  - The owner's invite is sent from the venue in the Console, not by New venue itself, so a wrong email can be fixed before anything is sent. A link refused after Send again reads "A newer link was sent · open the newest email".
+  - The venue's owner membership starts with a 6-digit PIN and English; the owner picks the language on the invite.
+  - No second approver: spec 17 doesn't ask for one on New venue (M8-11's rule covers the emergency actions only).
+  - The checklist count on the Console's venue list comes with O-02, which builds the checklist it reads.
+  - The e2e specs' `select id from venues limit 1` now name West 4 by slug, since a run can hold more than one venue.
+
 
 ### O-02 · Build the wizard shell: steps, progress, save and resume, skip, the checklist
 

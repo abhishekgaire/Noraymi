@@ -531,3 +531,11 @@ button:disabled {
   background: var(--w4-surface);
   border: 1px solid var(--w4-line-2);
 }
+
+/* New venue and the owner's invite (O-01). */
+.new-venue {
+  margin-bottom: var(--w4-space-5);
+}
+.owner-invite {
+  margin: var(--w4-space-3) 0 var(--w4-space-5);
+}

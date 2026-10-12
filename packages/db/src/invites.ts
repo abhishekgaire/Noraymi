@@ -20,6 +20,8 @@ export interface InviteByToken {
   readonly phoneVerified: boolean;
   readonly expiresAt: string;
   readonly usedAt: string | null;
+  /** When Send again made a newer link and ended this one (O-01). */
+  readonly replacedAt: string | null;
 }
 
 export async function inviteByToken(
@@ -40,6 +42,7 @@ export async function inviteByToken(
     phone_verified: boolean;
     expires_at: Date;
     used_at: Date | null;
+    replaced_at: Date | null;
   }>("select * from auth_invite_by_token($1)", [tokenHash]);
   const row = r.rows[0];
   if (!row) return null;
@@ -57,10 +60,11 @@ export async function inviteByToken(
     phoneVerified: row.phone_verified,
     expiresAt: row.expires_at.toISOString(),
     usedAt: row.used_at ? row.used_at.toISOString() : null,
+    replacedAt: row.replaced_at ? row.replaced_at.toISOString() : null,
   };
 }
 
-/** A new invite for a membership. Earlier open invites for it stop working at once. */
+/** A new invite for a membership. Earlier open invites for it stop working at once, marked replaced. */
 export async function createInvite(
   client: Queryable,
   args: {
@@ -72,7 +76,7 @@ export async function createInvite(
   },
 ): Promise<string> {
   await client.query(
-    "update invites set used_at = now() where venue_id = $1 and membership_id = $2 and used_at is null",
+    "update invites set used_at = now(), replaced_at = now() where venue_id = $1 and membership_id = $2 and used_at is null",
     [args.venueId, args.membershipId],
   );
   const r = await client.query<{ id: string }>(

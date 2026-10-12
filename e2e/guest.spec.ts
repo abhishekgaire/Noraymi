@@ -201,7 +201,7 @@ test("the door QR on a phone: a party of 4 joins fourth, 3 parties ahead, then l
   });
   await db.connect();
   try {
-    const slug = (await db.query<{ slug: string }>("select slug from venues limit 1")).rows[0]!
+    const slug = (await db.query<{ slug: string }>("select slug from venues where slug = 'west4karaoke'")).rows[0]!
       .slug;
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/v/${slug}/waitlist`);

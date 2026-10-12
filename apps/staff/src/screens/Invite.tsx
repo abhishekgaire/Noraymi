@@ -14,7 +14,7 @@ import { LanguageSwitch } from "../layout/LanguageSwitch.js";
  * phone becomes their staff_phone. Owners and managers add a passkey too.
  */
 interface InvitePage {
-  readonly state: "open" | "used" | "expired";
+  readonly state: "open" | "used" | "replaced" | "expired";
   readonly venue_name: string;
   readonly name: string;
   readonly role: Role;
@@ -26,7 +26,7 @@ interface InvitePage {
 
 type Step =
   | { kind: "loading" }
-  | { kind: "closed"; why: "used" | "expired" | "invalid" }
+  | { kind: "closed"; why: "used" | "replaced" | "expired" | "invalid" }
   | { kind: "phone" }
   | { kind: "code"; phone: string }
   | { kind: "pin" }
@@ -225,9 +225,11 @@ export function Invite() {
         <p className="notice" role="status">
           {step.why === "used"
             ? t("invite.used")
-            : step.why === "expired"
-              ? t("invite.expired")
-              : t("invite.invalid")}
+            : step.why === "replaced"
+              ? t("invite.replaced")
+              : step.why === "expired"
+                ? t("invite.expired")
+                : t("invite.invalid")}
         </p>
       )}
       {step.kind === "phone" && (
@@ -325,7 +327,11 @@ export function Invite() {
       {step.kind === "done" && (
         <section>
           <p className="notice" role="status">
-            {step.manager ? t("invite.doneManager") : t("invite.done")}
+            {page?.role === "owner"
+              ? t("invite.doneOwner")
+              : step.manager
+                ? t("invite.doneManager")
+                : t("invite.done")}
           </p>
           <Link to="/sign-in" className="button secondary">
             {t("invite.goSignIn")}

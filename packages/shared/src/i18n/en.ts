@@ -75,6 +75,13 @@ export const en = {
   "email.invite.button": "Open my invite",
   "email.invite.expires": "The link works once and expires after {hours} hours.",
   "email.invite.ignore": "If you weren't expecting this, you can ignore it.",
+  // The owner's invite from our Console (O-01). {days} is how long the link works.
+  "email.ownerInvite.subject": "Set up {venue} on the staff app",
+  "email.ownerInvite.greeting": "Hi {name},",
+  "email.ownerInvite.body":
+    "Your venue {venue} is ready for you to set up. Open the link to confirm your phone, choose your own PIN and add a passkey, then Set up your venue walks you through the rest.",
+  "email.ownerInvite.button": "Set up my venue",
+  "email.ownerInvite.expires": "The link works once and expires after {days} days.",
   // Sign-in code (M1-19). {code} and {minutes} are filled in at send time.
   "email.signInCode.subject": "Your {venue} sign-in code",
   "email.signInCode.greeting": "Hi {name},",
@@ -210,6 +217,8 @@ export const en = {
   "invite.goSignIn": "Go to sign-in",
   "invite.expired": "This link has expired · ask a manager for a new one",
   "invite.used": "This link was already used",
+  "invite.replaced": "A newer link was sent · open the newest email",
+  "invite.doneOwner": "You're set · sign in with your passkey to set up your venue",
   "invite.invalid": "This link isn't valid",
   "invite.failed": "Something went wrong · try again",
   // PIN sign-in (M1-24).

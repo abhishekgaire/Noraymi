@@ -106,7 +106,7 @@ async function enrolPasskey(page: Page, request: APIRequestContext, db: pg.Clien
 
 async function pairingCode(db: pg.Client): Promise<string> {
   const code = randomBytes(4).toString("hex").toUpperCase();
-  const venue = await db.query<{ id: string }>("select id from venues limit 1");
+  const venue = await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'");
   await db.query(
     "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, 'bar_computer', 'Bar computer', now() + interval '1 hour')",
     [venue.rows[0]!.id, createHash("sha256").update(code).digest("hex")],
