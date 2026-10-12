@@ -9,7 +9,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 psql() { docker compose exec -T postgres psql -U west4 -At -c "$1"; }
 
-pnpm seed >/dev/null
+# --yes-wipe-demo: resetting the running demo night is this script's whole job.
+pnpm seed --yes-wipe-demo >/dev/null
 # The night's Stripe side (M4-10): deposits backed by PaymentIntents and the two readers, on the fake.
 # Demo mode never reads .env, so real keys never load here; it skips itself when the fake isn't up.
 (cd apps/api && pnpm exec tsx src/stripe/seed-stripe.ts 2>&1 | tail -1)

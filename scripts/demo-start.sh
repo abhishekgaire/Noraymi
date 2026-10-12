@@ -36,7 +36,9 @@ pnpm --filter @west4/api dev:test >.demo-logs/api.log 2>&1 & pids+=($!)
 (cd apps/api && pnpm exec tsx src/worker.ts) >.demo-logs/worker.log 2>&1 & pids+=($!)
 pnpm --filter @west4/staff dev >.demo-logs/staff.log 2>&1 & pids+=($!)
 pnpm --filter @west4/guest dev >.demo-logs/guest.log 2>&1 & pids+=($!)
-trap 'echo; echo "Stopping…"; kill "${pids[@]}" 2>/dev/null; wait 2>/dev/null; exit 0' INT TERM
+# The marker the browser tests read: while it names a live process, they never reseed `west4` (demo-guard.ts).
+echo $$ >.demo-logs/demo.pid
+trap 'echo; echo "Stopping…"; rm -f .demo-logs/demo.pid; kill "${pids[@]}" 2>/dev/null; wait 2>/dev/null; exit 0' INT TERM
 
 printf "Starting"
 for _ in $(seq 1 60); do

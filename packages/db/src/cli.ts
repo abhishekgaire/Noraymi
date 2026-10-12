@@ -4,12 +4,17 @@ import { migrate } from "./migrate.js";
 import { ensureAppRoleLogin } from "./roles.js";
 import { loadBuiltInRulePacks } from "./bootstrap.js";
 import { loadDemoSeed } from "./seed.js";
+import { demoWipeRefusal } from "./demo-guard.js";
 
 const command = process.argv[2];
 const log = (line: string) => process.stdout.write(`${line}\n`);
 
 async function main(): Promise<void> {
   const url = databaseUrl();
+  if (command === "reset" || command === "seed") {
+    const refusal = await demoWipeRefusal({ command, url, argv: process.argv.slice(3) });
+    if (refusal !== null) throw new Error(refusal);
+  }
   switch (command) {
     case "migrate": {
       const result = await migrate({ databaseUrl: url, dir: migrationsDir, log });

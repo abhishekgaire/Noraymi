@@ -112,7 +112,7 @@ Node.js 22 (`.nvmrc`, `nvm use`) and pnpm through corepack (`corepack enable`; t
 pnpm install            # install everything
 docker compose up -d    # Postgres 16 (localhost:5432), the local S3 store (RustFS, localhost:9000) and the mail catcher (Mailpit, inbox at localhost:8025)
 pnpm db:migrate         # apply packages/db/migrations in order; a second run applies nothing
-pnpm db:reset           # local only: drop, recreate and migrate the database
+pnpm db:reset           # local only: drop, recreate and migrate the database; refuses `west4` while the demo API answers on :3000 unless --yes-wipe-demo (pnpm seed too)
 pnpm db:lint            # lint the migrations (lock_timeout, concurrent indexes, venue walls, grants, backfills)
 pnpm seed               # wipe and reload West 4 from seed/west4-friday.json (the M1 to M4 parts so far) and set the simulated clock to Fri Sep 25, 2026, 10:41 PM; refuses production
 pnpm dev                # build the packages, then run all five apps: API 3000, guest 3001, staff 5173, console 5174, desktop
