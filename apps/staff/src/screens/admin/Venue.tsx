@@ -64,37 +64,49 @@ export function VenueForm({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
-  const load = useCallback(async () => {
-    const [profile, phone, contacts] = await Promise.all([
-      api<{ profile: Profile }>("GET", `/v1/venues/${venueId}/profile`),
-      api<{ value: PhoneSettings }>("GET", `/v1/venues/${venueId}/settings/phone`).catch(
-        (e: unknown) => {
-          if (e instanceof ApiCallError && e.status === 404) return null;
-          throw e;
-        },
-      ),
-      api<{ value: ContactsSettings }>("GET", `/v1/venues/${venueId}/settings/contacts`),
-    ]);
-    const a = profile.profile.address;
-    const f: Form = {
-      name: profile.profile.name,
-      legalName: profile.profile.legal_name,
-      line1: a?.line1 ?? "",
-      line2: a?.line2 ?? "",
-      city: a?.city ?? "",
-      state: a?.state ?? "",
-      zip: a?.postal_code ?? "",
-      phone: phone?.value.callNumber ?? "",
-      emails: [...contacts.value.bookingEmails],
-    };
-    setBase({ form: f, phone: phone?.value ?? null, contacts: contacts.value ?? CONTACTS_EMPTY });
-    setForm(f);
-    setLoadError(false);
-  }, [venueId]);
+  // `live` is false once the effect that asked has been cleaned up, so a stale answer (React's
+  // development double mount sends two) can't land after the owner started typing and wipe it.
+  const load = useCallback(
+    async (live: () => boolean = () => true) => {
+      const [profile, phone, contacts] = await Promise.all([
+        api<{ profile: Profile }>("GET", `/v1/venues/${venueId}/profile`),
+        api<{ value: PhoneSettings }>("GET", `/v1/venues/${venueId}/settings/phone`).catch(
+          (e: unknown) => {
+            if (e instanceof ApiCallError && e.status === 404) return null;
+            throw e;
+          },
+        ),
+        api<{ value: ContactsSettings }>("GET", `/v1/venues/${venueId}/settings/contacts`),
+      ]);
+      const a = profile.profile.address;
+      const f: Form = {
+        name: profile.profile.name,
+        legalName: profile.profile.legal_name,
+        line1: a?.line1 ?? "",
+        line2: a?.line2 ?? "",
+        city: a?.city ?? "",
+        state: a?.state ?? "",
+        zip: a?.postal_code ?? "",
+        phone: phone?.value.callNumber ?? "",
+        emails: [...contacts.value.bookingEmails],
+      };
+      if (!live()) return;
+      setBase({ form: f, phone: phone?.value ?? null, contacts: contacts.value ?? CONTACTS_EMPTY });
+      setForm(f);
+      setLoadError(false);
+    },
+    [venueId],
+  );
 
   useEffect(() => {
     if (!venueId) return;
-    load().catch(() => setLoadError(true));
+    let live = true;
+    load(() => live).catch(() => {
+      if (live) setLoadError(true);
+    });
+    return () => {
+      live = false;
+    };
   }, [venueId, load]);
 
   const addressParts = form ? [form.line1, form.city, form.state, form.zip] : [];
