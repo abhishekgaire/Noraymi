@@ -187,7 +187,7 @@ It reloads the demo night and prints new invite links. Your old passkeys are rem
 
 ### Running the browser tests while the demo is open
 
-`pnpm e2e` uses the demo's ports and its `west4` database, so it would reload your night and sign you out. Run `pnpm e2e:isolated` instead (or `pnpm check --e2e`, which switches to it by itself when port 3000 is busy). It starts its own copy of every app on ports 13000 to 13020 (API 13000, guest 13001, staff 13002, console 13003, fake Stripe 13011, fake Google 13012) with its own database, `west4_e2e`, which it creates the first time. Your demo isn't touched. `E2E_PORT_BASE` moves the ports and `E2E_DATABASE` names another database; the settings live in `e2e/stack.ts`.
+`pnpm e2e` uses the demo's ports and its `west4` database, so it would reload your night and sign you out. Run `pnpm e2e:isolated` instead (or `pnpm check --e2e`, which switches to it by itself when port 3000 is busy). It starts its own copy of every app on ports 13000 to 13020 (API 13000, guest 13001, staff 13002, console 13003, fake Stripe 13011, fake Google 13012) with its own database, `west4_e2e`, which it drops and creates fresh at the start of every run so old rows don't pile up (`E2E_KEEP_DATABASE=1` keeps the one already there). Your demo isn't touched. `E2E_PORT_BASE` moves the ports and `E2E_DATABASE` names another database; the settings live in `e2e/stack.ts`.
 
 ## 8. What isn't built yet
 
