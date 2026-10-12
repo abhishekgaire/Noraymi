@@ -273,6 +273,10 @@ test("our staff make a new venue and send its owner's invite", async ({ page }) 
     await expect(page.getByRole("button", { name: new RegExp(`E2E Venue ${n}`) })).toContainText(
       "Owner invited · not yet signed in",
     );
+    // O-02: the checklist count, read from the same rows as the wizard.
+    await expect(page.getByRole("button", { name: new RegExp(`E2E Venue ${n}`) })).toContainText(
+      "Setup · 0 of 12 done",
+    );
     // A web name already taken is refused with the reason.
     await page.getByRole("button", { name: "New venue" }).click();
     await page.getByLabel("Venue name (what guests see)").fill("Copy");

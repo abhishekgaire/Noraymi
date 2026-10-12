@@ -311,9 +311,30 @@ describe("New venue (O-01)", () => {
     });
     expect(passkey.statusCode, passkey.body).toBe(201);
     const after = json(await asStaff("GET", "/v1/console/venues")) as {
-      venues: { id: string; owner: { status: string } }[];
+      venues: {
+        id: string;
+        owner: { status: string };
+        setup: { done: number; total: number; onboarded: boolean };
+      }[];
     };
-    expect(after.venues.find((x) => x.id === venueId)?.owner.status).toBe("active");
+    const listed = after.venues.find((x) => x.id === venueId)!;
+    expect(listed.owner.status).toBe("active");
+    // O-02: the Console's count is the wizard's own, and the owner's sign-in says setup is pending.
+    const ownerCookie = cookiesOf(passkey);
+    const setup = json(
+      await call("GET", `/v1/venues/${venueId}/setup`, undefined, { cookie: ownerCookie }),
+    ) as {
+      checklist: { done: number; total: number };
+    };
+    expect(listed.setup).toMatchObject({
+      done: setup.checklist.done,
+      total: 12,
+      onboarded: true,
+    });
+    const me = json(await call("GET", "/v1/auth/me", undefined, { cookie: ownerCookie })) as {
+      memberships: { venue_id: string; setup: string | null }[];
+    };
+    expect(me.memberships.find((m) => m.venue_id === venueId)?.setup).toBe("pending");
     // Signed in now: a second invite is refused.
     const late = await asStaff("POST", `/v1/console/venues/${venueId}/owner-invite`, {});
     expect(late.statusCode).toBe(409);

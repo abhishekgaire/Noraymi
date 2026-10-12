@@ -51,7 +51,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-02 · Build the wizard shell: steps, progress, save and resume, skip, the checklist
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-01; M1-31 (the Admin shell)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · How it behaves, What's required before Ready to open; [screens: Setup](../screens.md#setup)
@@ -61,11 +61,23 @@ Definition of done: see CLAUDE.md.
   - Signing in opens the first step not done until finished; Admin → Setup keeps the checklist; a manager sees it read-only.
   - Empty step bodies for O-03 to O-13 to fill.
 - **Acceptance:**
-  - [ ] Saving a step and signing in on another device opens the next step not done.
-  - [ ] A skipped required step shows "Needed before you open"; Finish setup is refused, listing each missing step with a link.
-  - [ ] The Console's venue list and Admin → Setup show the same count as the wizard.
-  - [ ] English and Spanish; touch targets of at least 44 px; loading, empty and error states.
+  - [x] Saving a step and signing in on another device opens the next step not done.
+  - [x] A skipped required step shows "Needed before you open"; Finish setup is refused, listing each missing step with a link.
+  - [x] The Console's venue list and Admin → Setup show the same count as the wizard.
+  - [x] English and Spanish; touch targets of at least 44 px; loading, empty and error states.
 - **Tests:** unit tests for the required list per plan; integration tests for `GET /setup` and `POST /setup/finish`; a Playwright test of save and resume.
+- **Notes:**
+  - Built (Oct 12, 2026): `packages/shared/src/setup.ts` (the 12 steps, the required list per plan, each step's mark from facts; unit tests in `setup.test.ts`); migration `0143_setup.sql` (`venues.setup_completed_at`, `venue_setup_skips` with forced RLS and audit); `apps/api/src/routes/setup.ts` (`GET /setup`, `POST /setup/skip`, `POST /setup/finish`; the facts are read from each step's own rows and settings keys); `/v1/auth/me` says `setup: "pending"` on a venue made in the Console until Finish setup; the Console's venue list shows "Setup · N of 12 done"; the staff app's `/set-up` and `/set-up/:step` wizard and Admin → Setup (`apps/staff/src/screens/admin/SetUpVenue.tsx`). Tests: `apps/api/src/routes/setup.int.test.ts`, `apps/api/src/console/new-venue.int.test.ts` (the Console's count is the wizard's), `e2e/setup.staff.spec.ts` (save, skip, leave and resume), `e2e/console.spec.ts`.
+  - Skip for now needs a record that lasts across devices, so it's the one thing the wizard keeps of its own (`venue_setup_skips`, a new `POST /setup/skip`); a step's rows still decide done.
+  - Cautious default: before a plan is started, the Rooms plans' required list applies (rooms and deposits required); a step drops off only once the plan says it isn't used.
+  - "N of 12 done" counts done steps plus those the plan doesn't use (Bar: rooms and deposits).
+  - Signing in opens the wizard only for an owner, in a passkey session, on a venue made through the Console's New venue (`venue_onboarding`) and not finished; West 4's seed never sees it. Save and finish later goes to the owner's home, not back to the wizard.
+  - Finish setup stamps the venue, then turns on the ticked guest-facing modules (Online booking & deposits, Guest texts, Website, where the Console allows them) through `PATCH /modules/{id}`, as Admin → Features does.
+  - Step bodies say what each step asks and open the Admin section where it lives (whose saves count here at once) until O-03 to O-13 put the forms in; Your plan and Card payments have no Admin link yet (O-04, O-05).
+  - Facts read for steps whose keys arrive later: `contacts` (O-03 and O-11) is read from the raw saved value; the texts step counts a Twilio integration row as answered until O-12.
+  - Not built: a Console support-grant view of the wizard's state (spec 17 · Who runs it); the Console has no venue-screen reader yet. It belongs with a later Console ticket.
+  - Formatting fix: the O-01 commit left three e2e specs unformatted; Prettier ran on them here.
+
 
 ### O-03 · Step 1, Your venue, and Admin → Venue with the booking inbox
 

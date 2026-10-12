@@ -39,6 +39,7 @@ import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import { goLive } from "../payments/go-live.js";
 import { ownerState } from "./new-venue.js";
+import { setupAnswer } from "../routes/setup.js";
 import { enqueuePush } from "../push/send-push.js";
 import { grantOut } from "../routes/support-grants.js";
 
@@ -104,14 +105,32 @@ export function consoleRoutes(
     const venues = await consoleVenues(options.pool);
     const out = [];
     for (const v of venues) {
-      const [devices, checklist, owner] = await app.db.withVenue(
+      const [devices, checklist, owner, setup] = await app.db.withVenue(
         { venueId: v.id, userId: staff.id, requestId: request.requestId },
         async (c) =>
-          [await listDevices(c, v.id), await goLive(c, v.id), await ownerState(c, v.id)] as const,
+          [
+            await listDevices(c, v.id),
+            await goLive(c, v.id),
+            await ownerState(c, v.id),
+            await setupAnswer(c, v.id),
+          ] as const,
       );
       // The go-live checklist (M4-29): the same rows Admin → Payments reads.
       // The owner (O-01): "Owner invited · not yet signed in" until they finish their invite.
-      out.push({ ...v, health: deviceHealth(devices), go_live: checklist, owner });
+      // Set up your venue's count (O-02): the same checklist the wizard and Admin → Setup read.
+      out.push({
+        ...v,
+        health: deviceHealth(devices),
+        go_live: checklist,
+        owner,
+        setup: {
+          done: setup.checklist.done,
+          total: setup.checklist.total,
+          ready: setup.checklist.ready,
+          completed_at: setup.completed_at,
+          onboarded: setup.onboarded,
+        },
+      });
     }
     return { venues: out };
   });

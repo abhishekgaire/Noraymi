@@ -1,0 +1,250 @@
+/* Set up your venue (O-02; canvas Setup.dc.html): a rail of the 12 steps, the step on the right,
+   the footer's Back, Skip for now and Continue. Shared tokens only; 44 px targets. */
+.setup {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  min-height: calc(100vh - 64px);
+  background: var(--w4-bg);
+}
+.setup-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+  padding: var(--w4-space-4) var(--w4-space-3);
+  border-right: 1px solid var(--w4-line);
+  background: var(--w4-bg-rail);
+}
+.setup-rail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 var(--w4-space-2) var(--w4-space-3);
+}
+.setup-rail-head h1 {
+  margin: 0;
+  font-family: var(--w4-font-display);
+  font-size: var(--w4-text-title);
+}
+.setup-venue,
+.setup-eyebrow,
+.setup-count {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--w4-muted);
+}
+.setup-rail ol,
+.setup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.setup-step {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--w4-space-3);
+  align-items: center;
+  padding: var(--w4-space-2);
+  border-radius: var(--w4-radius-md);
+  background: transparent;
+  color: var(--w4-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.setup-step[aria-current="step"] {
+  background: var(--w4-surface-2);
+  outline: 1px solid var(--w4-line-strong);
+}
+.setup-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  font-weight: 700;
+  border: 1px solid var(--w4-line-strong);
+}
+.mark-done .setup-dot {
+  background: var(--w4-lime);
+  color: var(--w4-on-accent);
+  border-color: var(--w4-lime);
+}
+.mark-attention .setup-dot {
+  border-color: var(--w4-amber);
+  color: var(--w4-amber);
+}
+.mark-skipped .setup-dot,
+.mark-not_used .setup-dot {
+  color: var(--w4-muted);
+}
+.setup-step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.setup-step-name {
+  font-weight: 700;
+}
+.setup-step-sub {
+  font-size: var(--w4-text-sm);
+  color: var(--w4-muted);
+}
+.setup-step-sub.tone-done {
+  color: var(--w4-lime);
+}
+.setup-step-sub.tone-attention {
+  color: var(--w4-amber);
+}
+.setup-note {
+  margin-top: auto;
+  padding: var(--w4-space-3);
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-md);
+  color: var(--w4-muted);
+}
+.setup-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.setup-head {
+  padding: var(--w4-space-4) var(--w4-space-5) var(--w4-space-3);
+}
+.setup-head h2 {
+  margin: 4px 0;
+  font-family: var(--w4-font-display);
+  font-size: var(--w4-text-title);
+}
+.setup-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--w4-space-3);
+  padding: 0 var(--w4-space-5) var(--w4-space-3);
+  border-bottom: 1px solid var(--w4-line);
+}
+.setup-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--w4-radius-pill);
+  background: var(--w4-line);
+  overflow: hidden;
+}
+.setup-bar > div {
+  height: 100%;
+  background: var(--w4-lime);
+  transition: width 0.3s var(--w4-ease);
+}
+.setup-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-4);
+  padding: var(--w4-space-4) var(--w4-space-5);
+}
+.setup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--w4-space-3);
+  padding: var(--w4-space-4);
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-lg);
+  background: var(--w4-surface);
+}
+.setup-card h3 {
+  margin: 0;
+}
+.setup-missing {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-2);
+}
+.setup-missing li,
+.setup-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--w4-space-3);
+  min-height: 44px;
+}
+.setup-list li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+.setup-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--w4-space-3);
+  padding: var(--w4-space-3) var(--w4-space-5);
+  border-top: 1px solid var(--w4-line);
+}
+.setup-foot-right {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--w4-space-2);
+}
+.setup button,
+.setup .button,
+.setup-checklist .button,
+.setup-tick {
+  min-height: 44px;
+}
+.setup-tick {
+  display: flex;
+  align-items: center;
+  gap: var(--w4-space-2);
+}
+.setup-tick input {
+  width: 22px;
+  height: 22px;
+}
+
+/* A phone: the rail becomes a scrolling strip above the step. */
+@media (max-width: 1023px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .setup-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--w4-line);
+  }
+  .setup-rail ol {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .setup-rail li {
+    flex: 0 0 auto;
+  }
+  .setup-step {
+    width: auto;
+  }
+  .setup-step-sub,
+  .setup-note {
+    display: none;
+  }
+  .setup-head,
+  .setup-progress,
+  .setup-body,
+  .setup-foot {
+    padding-left: var(--w4-space-4);
+    padding-right: var(--w4-space-4);
+  }
+}

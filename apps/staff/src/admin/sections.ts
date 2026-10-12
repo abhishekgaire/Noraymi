@@ -207,6 +207,15 @@ export const adminSections: readonly AdminSection[] = [
     action: "admin.console",
     shipped: true,
   },
+  {
+    // Set up your venue's checklist (O-02): the owner runs the wizard, a manager reads it.
+    id: "setup",
+    path: "/admin/setup",
+    labelKey: "admin.section.setup",
+    hintKey: "admin.hint.setup",
+    action: "admin.access",
+    shipped: true,
+  },
 ];
 
 export function visibleSections(

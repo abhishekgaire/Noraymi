@@ -812,6 +812,17 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
           overrides: await permissionOverrides(c, m.venueId),
           rows: await venueModules(c, m.venueId),
           // Training mode (M7-03): the person's, or the device this session runs on.
+          // Set up your venue (O-02): pending on a venue made in the Console until Finish setup.
+          setup: (
+            await c.query<{ pending: boolean }>(
+              `select v.setup_completed_at is null
+                      and exists (select 1 from venue_onboarding o where o.venue_id = v.id) as pending
+                 from venues v where v.id = $1`,
+              [m.venueId],
+            )
+          ).rows[0]?.pending
+            ? ("pending" as const)
+            : null,
           training: await trainingOf(c, m.venueId, {
             membershipId: m.membershipId,
             deviceIds: [session.deviceId, request.signedDevice?.deviceId],
@@ -835,6 +846,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         modules_allowed: venue.rows.filter((r) => r.allowed).map((r) => r.module_id),
         permissions: actions.filter((a) => permissionFor(venue.overrides, m.role, a).allowed),
         training: venue.training,
+        setup: venue.setup,
       });
     }
     return reply.code(200).send({

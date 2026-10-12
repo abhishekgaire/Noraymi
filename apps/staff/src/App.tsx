@@ -40,6 +40,7 @@ import { Tonight } from "./screens/Tonight.js";
 import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
+import { SetUpVenue, SetupChecklistView } from "./screens/admin/SetUpVenue.js";
 import { SignIn } from "./screens/SignIn.js";
 import { Approvals } from "./screens/Approvals.js";
 import { TipsToEnter } from "./screens/TipsToEnter.js";
@@ -110,10 +111,20 @@ function Title() {
   return null;
 }
 
-/** "/" opens the signed-in role's home (spec 10 · rule 1). */
+/**
+ * "/" opens the signed-in role's home (spec 10 · rule 1). An owner whose
+ * venue our Console made opens Set up your venue until it's finished (O-02).
+ */
 function HomeRedirect() {
   const { state } = useSession();
-  const to = state.status === "signedIn" ? homeFor(state.membership.role) : "/sign-in";
+  const to =
+    state.status !== "signedIn"
+      ? "/sign-in"
+      : state.membership.role === "owner" &&
+          state.membership.setup === "pending" &&
+          state.me.session.assurance === "passkey"
+        ? "/set-up"
+        : homeFor(state.membership.role);
   return <Navigate to={to} replace />;
 }
 
@@ -130,6 +141,8 @@ export function StaffRoutes() {
         <Route path="/song-queue" element={<SongQueue />} />
         <Route path={runs.path} element={<Runs />} />
         <Route path="/setup" element={<Setup />} />
+        <Route path="/set-up" element={<SetUpVenue />} />
+        <Route path="/set-up/:step" element={<SetUpVenue />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/tips" element={<TipsToEnter />} />
         <Route path="/close-the-night" element={<CloseTheNight />} />
@@ -177,6 +190,7 @@ export function StaffRoutes() {
           <Route path="disputes" element={<DisputesScreen />} />
           <Route path="card-fee" element={<CardFee />} />
           <Route path="connections" element={<Connections />} />
+          <Route path="setup" element={<SetupChecklistView />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

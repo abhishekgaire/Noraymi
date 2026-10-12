@@ -38,6 +38,14 @@ interface VenueSummary {
   go_live?: { passes: boolean; merchant_category: { status: string } };
   /** The owner (O-01): "Owner invited · not yet signed in" until they finish their invite. */
   owner?: OwnerLine | null;
+  /** Set up your venue's checklist (O-02): the same count the wizard and Admin → Setup show. */
+  setup?: {
+    done: number;
+    total: number;
+    ready: boolean;
+    completed_at: string | null;
+    onboarded: boolean;
+  };
 }
 
 interface VenueDetail {
@@ -348,6 +356,13 @@ function Venues({
                     <span className="muted small">{healthLine(v.health)}</span>
                     {ownerLine(v.owner) && (
                       <span className="muted small">{ownerLine(v.owner)}</span>
+                    )}
+                    {v.setup?.onboarded && (
+                      <span className="muted small">
+                        {v.setup.completed_at
+                          ? "Setup finished"
+                          : `Setup · ${v.setup.done} of ${v.setup.total} done${v.setup.ready ? " · ready to open" : ""}`}
+                      </span>
                     )}
                     {v.go_live && (
                       <span className="muted small">

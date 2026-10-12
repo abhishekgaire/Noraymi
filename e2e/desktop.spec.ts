@@ -165,7 +165,9 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
     // Pair the screen as the bar computer.
     const code = randomBytes(4).toString("hex").toUpperCase();
-    const venue = await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'");
+    const venue = await db.query<{ id: string }>(
+      "select id from venues where slug = 'west4karaoke'",
+    );
     await db.query(
       "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, 'bar_computer', 'Bar computer', now() + interval '1 hour')",
       [venue.rows[0]!.id, createHash("sha256").update(code).digest("hex")],
@@ -292,7 +294,9 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
     await db.query("update memberships set locale = 'en'");
-    const venueId = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
     const code = randomBytes(4).toString("hex").toUpperCase();
     await db.query(
       "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, 'bar_computer', 'Bar computer', now() + interval '1 hour')",
@@ -434,7 +438,9 @@ async function queueNight(serverTime: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   await db.query("update memberships set locale = 'en'");
-  const venueId = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+  const venueId = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
   const pairing = randomBytes(4).toString("hex").toUpperCase();
   await db.query(
     "insert into device_pairing_codes (venue_id, code_hash, kind, name, expires_at) values ($1, $2, 'bar_computer', 'Bar computer', now() + interval '1 hour')",

@@ -423,7 +423,9 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
   });
   await db.connect();
   try {
-    const venue = await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'");
+    const venue = await db.query<{ id: string }>(
+      "select id from venues where slug = 'west4karaoke'",
+    );
     const venueId = venue.rows[0]!.id;
     // The seed wipes the venue's rows, not a person this test made last time, nor his sessions.
     await db.query(
@@ -1112,7 +1114,8 @@ test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00
 });
 
 async function venueId(db: pg.Client): Promise<string> {
-  return (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+  return (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+    .rows[0]!.id;
 }
 
 async function sessionCookie(page: Page): Promise<string> {
@@ -1859,7 +1862,8 @@ test("Andy's phone: Approvals · 1, Diego's comp approved onto Room 9, and his o
         )
       ).rows.map((r) => [r.name.split(" ")[0]!.toLowerCase(), r.id]),
     );
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     const room9 = (
       await db.query<{ id: string }>(
         "select row_id as id from seed_ids where venue_id = $1 and slug = 'chk_room9'",
@@ -2379,8 +2383,9 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     expect(await clippedText(page)).toEqual([]);
 
     // The fourth guest joins at the door; Sam O. no-shows at 10:45; the guest is offered Room 2.
-    const slug = (await db.query<{ slug: string }>("select slug from venues where slug = 'west4karaoke'")).rows[0]!
-      .slug;
+    const slug = (
+      await db.query<{ slug: string }>("select slug from venues where slug = 'west4karaoke'")
+    ).rows[0]!.slug;
     const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await stubTurnstile(guest);
     await guest.goto(`${GUEST}/v/${slug}/waitlist`);
@@ -2392,7 +2397,8 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     expect(
       (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:45:00Z" } })).ok(),
     ).toBe(true);
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     const sam = (
       await db.query<{ id: string }>(
         "select row_id as id from seed_ids where venue_id = $1 and slug = 'bk_sam'",
@@ -2757,7 +2763,8 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
     await (await openRoom(page, "Room 9")).getByRole("link", { name: "Tab & close out →" }).click();
     await readRoom9(page);
 
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     const roomId = async (name: string) =>
       (
         await db.query<{ id: string }>("select id from rooms where venue_id = $1 and name = $2", [
@@ -2867,7 +2874,8 @@ test("the staff phone: Andy's Bookings, booking actions by status, and a runner'
 
     // Walk-in waitlist off: the Waitlist tab goes at once.
     await expect(tabs.getByRole("link", { name: "Waitlist" })).toBeVisible();
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     await db.query(
       "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'waitlist'",
       [v],
@@ -3209,8 +3217,9 @@ for (const size of SIZES) {
       test.setTimeout(120_000);
       const db = await dbClient();
       try {
-        const slug = (await db.query<{ slug: string }>("select slug from venues where slug = 'west4karaoke'")).rows[0]!
-          .slug;
+        const slug = (
+          await db.query<{ slug: string }>("select slug from venues where slug = 'west4karaoke'")
+        ).rows[0]!.slug;
         const guest = await browser.newPage({ viewport: { width: 390, height: 844 } });
         await stubTurnstile(guest);
         await guest.goto(`${GUEST}/v/${slug}/waitlist`);
@@ -3341,7 +3350,8 @@ test("a manager's phone: the PIN pad waits for all 6 digits", async ({ page, req
   });
   await db.connect();
   try {
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     await db.query(
       "delete from auth_credentials where user_id = (select id from users where email = $1)",
       [ANDY],
@@ -7243,7 +7253,9 @@ test("sharing the bar computer: Maya's badge takes over from Diego, on break, Wi
   const db = await dbClient();
   try {
     await db.query("update memberships set locale = 'en'");
-    const venueId = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
     const maya = (
       await db.query<{ id: string }>(
         "select m.id from memberships m join users u on u.id = m.user_id where u.name = 'Maya S.'",
@@ -7429,7 +7441,8 @@ test("Started and Skip: Jess P.'s $0.00 song line and the play log, Kira skipped
   try {
     await signInMayaAtTheBar(page, request, db);
     await expect(page.getByText("Song queue · 6")).toBeVisible();
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     const song = async (slug: string) =>
       (
         await db.query<{ id: string }>(
@@ -7496,7 +7509,8 @@ test("Singer alerts: Ben T. turns alerts on, and Kira's start makes him up next 
   const db = await dbClient();
   try {
     await signInMayaAtTheBar(page, request, db);
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     const song = async (slug: string) =>
       (
         await db.query<{ id: string }>(
@@ -9229,7 +9243,8 @@ test("Close the night: the checks, the clear-out at 4:31 AM and Night closed · 
     await expect(report.getByRole("button", { name: "Print X report (running)" })).toBeVisible();
 
     // The fixes, as each screen would make them.
-    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
     await db.query(
       "update room_sessions set ended_at = now() where venue_id = $1 and ended_at is null",
       [v],
@@ -9560,7 +9575,9 @@ test("Offline codes: Andy's phone keeps the bar computer's codes and shows them 
   const db = await dbClient();
   try {
     await page.setViewportSize({ width: 390, height: 844 });
-    const venueId = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
     // The bar computer, with a key this test holds, sets up its offline-code secret.
     const key = await makeDeviceKey();
     const bar = (
@@ -9635,7 +9652,9 @@ test("Confirm replayed orders (3) on the bar POS and bar orders, and Review afte
   const db = await dbClient();
   try {
     await setClock(request, "2026-09-26T02:41:00Z");
-    const venueId = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
     const luis = (
       await db.query<{ id: string; check_id: string }>(
         "select id, check_id from tabs where venue_id = $1 and name = 'Luis M.'",
@@ -9785,7 +9804,9 @@ test("Close the night: the break-glass card names Andy and Abhishek as ready and
   test.setTimeout(120_000);
   const db = await dbClient();
   try {
-    const venueId = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")).rows[0]!.id;
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
     await db.query(
       `insert into setup_checks (venue_id, key, status, confirmed_by, confirmed_at)
        select $1, c.k || ':' || s.row_id, 'passed', o.row_id, '2026-09-20T16:00:00Z'

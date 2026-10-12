@@ -63,6 +63,7 @@ import { deviceAuthenticator } from "./http/device-auth.js";
 import { sessionAuthenticator } from "./auth/session-auth.js";
 import { consoleAuthenticator, consoleAuthRoutes } from "./console/auth.js";
 import { newVenueRoutes } from "./console/new-venue.js";
+import { setupRoutes } from "./routes/setup.js";
 import { consoleRoutes } from "./console/routes.js";
 import { rulePackRoutes } from "./routes/rule-pack.js";
 import { roomsRoutes } from "./routes/rooms.js";
@@ -452,6 +453,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         email: options.email ?? { allowList: null },
         staffAppUrl: config.staffAppUrl,
       });
+      setupRoutes(scope, { clock });
       invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey, forms });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
       badgeRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });

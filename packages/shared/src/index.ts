@@ -151,3 +151,4 @@ export {
 } from "./offline-view.js";
 export * from "./support.js";
 export * from "./telemetry/index.js";
+export * from "./setup.js";

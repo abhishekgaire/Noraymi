@@ -206,6 +206,8 @@ export interface Membership {
   readonly permissions: readonly Action[];
   /** Training mode (M7-03): the person or this device; the shell shows the band. */
   readonly training?: boolean;
+  /** Set up your venue (O-02): "pending" on a venue made in our Console until Finish setup. */
+  readonly setup?: "pending" | null;
 }
 
 export interface Me {
