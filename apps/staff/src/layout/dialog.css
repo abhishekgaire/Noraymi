@@ -1,0 +1,141 @@
+/* The modal dialog over a screen (V-09, D110): a centred card on a desktop, a full-height bottom
+   sheet on a phone (Calendar.dc.html's sheet). The screen stays visible behind the scrim. */
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background: rgba(11, 10, 13, 0.72);
+  overscroll-behavior: contain;
+}
+.dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--w4-text);
+  background: var(--w4-surface);
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius-lg);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.9);
+  outline: none;
+}
+.dialog:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--w4-lime),
+    0 30px 80px -20px rgba(0, 0, 0, 0.9);
+}
+.dialog-grip {
+  display: none;
+}
+
+/* The sheet inside loses its own frame: the dialog is the card. */
+.dialog > .sheet,
+.content .dialog > .sheet {
+  margin: 0;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 22px 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dialog > .sheet > h2 {
+  margin: 0 0 2px;
+  /* The screen titles' display face (h1), at a dialog's size. */
+  font-family: var(--w4-font-display);
+  font-variation-settings:
+    "opsz" 96,
+    "wdth" 75;
+  font-weight: 800;
+  font-variant-caps: all-small-caps;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.dialog > .sheet label > span:first-child,
+.dialog > .sheet legend {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--w4-text-2);
+}
+.dialog > .sheet input,
+.dialog > .sheet select {
+  border-radius: var(--w4-radius);
+  background: var(--w4-bg-row);
+  border-color: var(--w4-line-2);
+}
+
+/* The footer stays in view while the body scrolls: the primary action and Cancel. */
+.dialog > .sheet > .row:last-child,
+.dialog > .sheet > .actions:last-child {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px -24px 0;
+  padding: 14px 24px 18px;
+  background: var(--w4-surface);
+  border-top: 1px solid var(--w4-line-2);
+}
+.dialog > .sheet > .row:last-child > button,
+.dialog > .sheet > .actions:last-child > button,
+.dialog > .sheet > .actions:last-child > .button {
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: var(--w4-radius-md);
+}
+.dialog > .sheet > .row:last-child > button.primary,
+.dialog > .sheet > .actions:last-child > button.primary {
+  flex: 1 1 auto;
+}
+
+/* The phone: a full-height bottom sheet with a grip, the footer pinned to the bottom. */
+@media (max-width: 1023.98px) {
+  .dialog-scrim {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .dialog {
+    width: 100%;
+    height: calc(100dvh - 24px);
+    max-height: none;
+    border-radius: 22px 22px 0 0;
+    border-width: 1px 0 0;
+  }
+  .dialog-grip {
+    display: block;
+    flex: none;
+    width: 40px;
+    height: 4px;
+    margin: 10px auto 0;
+    border-radius: 2px;
+    background: var(--w4-line-strong);
+  }
+  .dialog > .sheet,
+  .content .dialog > .sheet {
+    flex: 1 0 auto;
+    padding: 12px 16px 0;
+  }
+  .dialog > .sheet > .row:last-child,
+  .dialog > .sheet > .actions:last-child {
+    margin: auto -16px 0;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  .dialog > .sheet > .row:last-child > button,
+  .dialog > .sheet > .actions:last-child > button {
+    flex: 1 1 0;
+  }
+}

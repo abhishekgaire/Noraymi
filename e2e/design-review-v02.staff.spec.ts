@@ -203,7 +203,7 @@ test("V-02 · the staff phone screens beside their canvas boards at 390", async 
     await enrolPasskey(page, request, db);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/today");
     await expect(page.getByRole("list", { name: "Bookings tonight" })).toBeVisible();

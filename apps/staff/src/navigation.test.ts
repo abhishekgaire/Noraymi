@@ -95,7 +95,7 @@ describe("the staff phone's tabs (M2-32)", () => {
   const tabsFor = (role: Role, modules: ModuleStates = everythingOn) =>
     phoneTabs({ role, modules, permissions: allowedFor(role) }).map((t) => t.id);
 
-  it("a manager's phone: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Tips to enter, Clock in and out, Alerts and Admin", () => {
+  it("a manager's phone: Bookings, Rooms, Calls, Waitlist, Messages, Approvals, Tips to enter, Clock in and out, Alerts and Admin", () => {
     expect(tabsFor("manager")).toEqual([
       "tonight",
       "rooms",
@@ -112,6 +112,17 @@ describe("the staff phone's tabs (M2-32)", () => {
       "alerts",
       "admin",
     ]);
+  });
+
+  it("names the board Rooms and tonight's bookings Bookings: never two Rooms, never Tonight (D111)", () => {
+    for (const role of roles) {
+      const keys = phoneTabs({ role, modules: everythingOn, permissions: allowedFor(role) }).map(
+        (t) => t.labelKey,
+      );
+      expect(keys.filter((k) => k === "tabs.rooms").length).toBeLessThanOrEqual(1);
+      expect(keys.some((k) => /tonight/i.test(k))).toBe(false);
+    }
+    expect(menu.find((m) => m.path === "/tonight")?.labelKey).toBe("menu.rooms");
   });
 
   it("Offline codes (M8-04) are on managers' and owners' phones only", () => {

@@ -117,9 +117,9 @@ describe("every shell screen renders from the catalog", () => {
     });
   }
 
-  it("shows a manager Tonight, Bar POS and Lock, and sends a bartender to the bar", () => {
+  it("shows a manager Rooms, Bar POS and Lock, and sends a bartender to the bar", () => {
     const html = render("/tonight", { status: "signedIn", me: me("en"), membership: andy("en") });
-    expect(textsOf(html)).toEqual(expect.arrayContaining(["Tonight", "Bar POS", "Admin", "Lock"]));
+    expect(textsOf(html)).toEqual(expect.arrayContaining(["Rooms", "Bar POS", "Admin", "Lock"]));
     const bartender = {
       ...andy("es"),
       role: "bartender" as const,

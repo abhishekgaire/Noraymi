@@ -26,7 +26,7 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 ## Contents
 
 0. [Before you start](#0-before-you-start)
-1. [Tonight: the board](#1-tonight-the-board)
+1. [Rooms: the board](#1-rooms-the-board)
 2. [Check-in, walk-ins, the waitlist and the door QR page](#2-check-in-walk-ins-the-waitlist-and-the-door-qr-page)
 3. [Rooms: clock, party size, move, faults, damage, notes, lost and found](#3-rooms-clock-party-size-move-faults-damage-notes-lost-and-found)
 4. [Room orders from the guest phone and the room tablet](#4-room-orders-from-the-guest-phone-and-the-room-tablet)
@@ -109,7 +109,7 @@ To check the API is alive, open http://localhost:3000/v1/health. It should show 
 5. Type the code and press **Confirm**.
 6. Choose a 6-digit PIN. Easy ones like 123456 are refused. Press **Set my PIN**.
 7. Press **Add a passkey** and touch Touch ID.
-8. Press **Go to sign-in**, type `abhishek@demo.west4.local`, press **Continue with a passkey**, and touch Touch ID. You land on **Tonight**.
+8. Press **Go to sign-in**, type `abhishek@demo.west4.local`, press **Continue with a passkey**, and touch Touch ID. You land on **Rooms** (the board).
 
 ### 0.3 A second person: Andy, the manager
 
@@ -135,7 +135,7 @@ Bartenders and front-desk staff sign in with a name and PIN on a **paired** shar
 1. As Abhishek, open **Admin → Printers & devices** and make a pairing code (choose the bar computer or the front-desk computer).
 2. In another Chrome profile or Incognito window, open http://localhost:5173/sign-in and press **Pair this screen**.
 3. Type the code in "Pairing code from Admin → Devices" and press **Pair**.
-4. Name tiles appear. Tap **Maya S.** and type `4071`. She lands on her bar home (Bar POS). Diego (`6358`) lands on Tonight.
+4. Name tiles appear. Tap **Maya S.** and type `4071`. She lands on her bar home (Bar POS). Diego (`6358`) lands on Rooms.
 
 A pairing code works only once. **Revoke** in Admin → Printers & devices signs that screen out at once ("Revoke {name}? It signs out at once and has to be paired again.").
 
@@ -145,7 +145,7 @@ Tip: a Chrome window can only be one paired screen at a time. Use one profile fo
 
 1. In Chrome, press **Cmd + Option + I** to open the developer tools.
 2. Press **Cmd + Shift + M** for the device toolbar, and pick an iPhone at the top.
-3. Reload. The bottom of the screen shows the phone tabs: Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Incidents, Tips to enter, Clock in and out, My tips, Reports, Offline codes, Alerts and Admin. Which ones you see depends on who's signed in.
+3. Reload. The bottom of the screen shows the phone tabs: Bookings, Rooms, Calls, Waitlist, Messages, Approvals, Incidents, Tips to enter, Clock in and out, My tips, Reports, Offline codes, Alerts and Admin. Which ones you see depends on who's signed in.
 
 Use the phone size for the guest pages too.
 
@@ -242,13 +242,13 @@ Copy the id next to "Room 9". (The easier way into a room as the host is the lin
 
 ---
 
-## 1. Tonight: the board
+## 1. Rooms: the board
 
-**Who / where:** Andy (or Abhishek), desktop size, side menu **Tonight**.
+**Who / where:** Andy (or Abhishek), desktop size, side menu **Rooms** (it was Tonight).
 
 ### 1.1 Counts and headcount
 
-1. Open **Tonight**.
+1. Open **Rooms**.
 2. You should see:
    - The clock at **10:41 PM**.
    - "**8 in use · 3 open · 2 cleaning · 1 out of service**".
@@ -309,8 +309,8 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 ### 1.6 Phone layout
 
 1. Switch Andy's window to iPhone size (0.5).
-2. The tabs show (Tonight, Rooms, Calls, Waitlist, Messages, Approvals, Alerts, Admin…).
-3. On Tonight, Sam O. offers **Check in**. **Mark no-show** shows only from 10:45. Marcus T. offers neither.
+2. The tabs show (Bookings, Rooms, Calls, Waitlist, Messages, Approvals, Alerts, Admin…). There is one **Rooms** (the board) and no Tonight; **Bookings** is tonight's bookings.
+3. On Bookings, Sam O. offers **Check in**. **Mark no-show** shows only from 10:45. Marcus T. offers neither.
 4. Sign in as Maya on a phone-size paired screen: she has no Approvals tab.
 
 ---
@@ -336,9 +336,10 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 ### 2.3 Walk-in
 
-1. On Room 11, press **+ Walk-in**: "Walk-in · Room 11".
-2. Enter a party and press **Seat them**.
-3. Try a party too big for the room: "That room isn't free for this party".
+1. On Room 11, press **+ Walk-in**: a dialog "Walk-in · Room 11" opens over the board, which stays visible behind it. **Seat them** and **Cancel** stay at the dialog's foot while you scroll it.
+2. Press **Esc**: the dialog closes, nothing is seated, and **+ Walk-in** has the focus again. Open it again; **Tab** never leaves the dialog. On a phone it's a full-height sheet from the bottom.
+3. Enter a party and press **Seat them**.
+4. Try a party too big for the room: "That room isn't free for this party".
 
 ### 2.4 The waitlist (staff side)
 

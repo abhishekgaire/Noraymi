@@ -4,7 +4,7 @@ The bar is where a slow screen costs the most. At peak one bartender rings, pour
 
 **Rules every staff screen follows**
 
-1. **One home per role.** Sign-in opens the screen the role works in: bartenders get the bar POS, the front desk (`front_desk`) and managers tonight's board, and runners (`staff`) the Runs tab on their phone. Everything else is one tap away in the side menu, which is the same on the board, the bar POS, the bar orders screen, the song queue and every other desktop screen: Tonight, Bar POS, Bar orders, Song queue (in bar mode), Calendar, Messages, Reports, Close the night, Admin and Lock.
+1. **One home per role.** Sign-in opens the screen the role works in: bartenders get the bar POS, the front desk (`front_desk`) and managers the board (Rooms), and runners (`staff`) the Runs tab on their phone. Everything else is one tap away in the side menu, which is the same on the board, the bar POS, the bar orders screen, the song queue and every other desktop screen: Rooms (the board, D111), Bar POS, Bar orders, Song queue (in bar mode), Calendar, Messages, Reports, Close the night, Admin and Lock.
 2. **Nothing moves.** The grid has 25 fixed slots per section, and an item keeps its slot all night. A section that needs more grows a page of 25 at a time, up to four, and the bar POS shows one page at a time with More and Back (K-12: Sing Sing's 44 spirits); search reaches every item either way. An item that's out stays where it is, greyed and marked "86'd tonight", instead of vanishing and shifting its neighbors, and a new item takes an empty slot. Layouts are versioned in `pos_layouts`, and a published change starts at the next business date. With Kitchen & food on, a Food section comes after the ten, and tapping it opens a second row of the menu's own food categories, each showing only its items; the ten drink sections don't change ([Kitchen and food](16-kitchen.md), draft, D100). Bar tabs stay in the order they were opened.
 3. **The usual is one tap.** A drink rings with its usual options already set (spirits on the rocks), and tapping it again makes two. Options show under the line in the check, never in a pop-up. Only a choice with no sensible default, like a margarita's flavor, holds a line back: the line turns amber, stays open while other drinks are rung, and the send button names what's missing.
 4. **Exceptions in words.** A tab row carries a badge only when it needs attention ("Hold · $6 left", "Hold raise declined", "Partly paid · $16.33 of $32.66", "Cut off", "Waiting for Andy", "2 not sent", "Paid $272.19 · no hold"), so the ones that matter stand out. Color always comes with words.
@@ -58,6 +58,7 @@ Other words, the same on every screen:
 | Name-and-PIN wording | "badge or name and PIN" |
 | "Refunds, cash counts and Admin ask for the PIN again" | "Refunds, cash counts and no-sale ask for the PIN again; Admin needs a passkey" |
 | "The bar screen lights up" (room calls) | "Staff get it on their phones" |
+| "Tonight" for the board (the side menu, its title, the phone tab) | "Rooms" (D111). The phone's list of tonight's bookings is "Bookings" |
 
 Prices on the site read "$10 a person an hour, plus tax and a 20% gratuity" and "VIP room $250 an hour".
 
@@ -114,7 +115,7 @@ Declined and cancelled orders are listed under Returned with their reason, inclu
 
 **Adding drinks to a room from a staff screen.** The room tab on desktop and phone adds drinks through the same menu search as the bar POS, with variants, required choices, 86, cut-offs and the alcohol window. It creates a staff order that's accepted at once, so the drinks go on the room's check and a ticket prints at the bar, and the order then goes through Being made, Ready and a runner like any room order. Open in the bar POS does the same from the bar with the room's tab selected. There are no generic quick-add chips such as "+ Cocktail $12".
 
-**The board and staff phones.** The front desk runs the night from the board; staff phones carry the same sheets. Each sheet works the same wherever it appears:
+**The board and staff phones.** The front desk runs the night from the board; staff phones carry the same sheets. Each sheet works the same wherever it appears. On the board, Check in (a booking or + Walk-in), Move a room, Report a fault and Damage fee open in a modal dialog over it (D110): a centred card on a desktop with its body scrolling and the main action and Cancel pinned at the foot, a full-height bottom sheet on a phone. The board stays visible behind; focus moves into the dialog and stays there; Esc or Cancel closes it with nothing changed and focus goes back to the button that opened it; it's named by its title; loading and errors show inside it. The phone's Bookings tab opens Check in the same way:
 
 | Sheet | Where | What it does |
 | --- | --- | --- |

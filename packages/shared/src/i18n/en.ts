@@ -123,7 +123,7 @@ export const en = {
   "menu.title": "Menu",
   "menu.open": "Open the menu",
   "menu.close": "Close the menu",
-  "menu.tonight": "Tonight",
+  "menu.rooms": "Rooms",
   "menu.barPos": "Bar POS",
   "menu.barOrders": "Bar orders",
   "menu.songQueue": "Song queue",
@@ -333,8 +333,8 @@ export const en = {
   "module.bar_screen.description":
     "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",
   "module.rooms.hides.staffApp":
-    "Tonight (the board), DeskRoom, Calendar, the Rooms list on the bar POS",
-  "module.rooms.hides.staffPhone": "Tonight, Rooms, Calendar",
+    "Rooms (the board), DeskRoom, Calendar, the Rooms list on the bar POS",
+  "module.rooms.hides.staffPhone": "Bookings, Rooms, Calendar",
   "module.rooms.hides.website": "The Rooms section; room tablets",
   "module.rooms.hides.texts":
     "Booking confirmed, Reminder, Room code, Please wrap up, Booked time ending, Running late reply",
@@ -986,7 +986,7 @@ export const en = {
   "alert.late": '{name} texted "{text}" for the {time} in {room}, and it\'s held until {until}.',
   "alert.move": "Move a room…",
   "alert.show": "Show",
-  "room.back": "← Tonight",
+  "room.back": "← Rooms",
   "room.notFound": "No such room",
   "room.clock": "Room clock",
   "room.rate": "{min} min · {rate} a minute",
@@ -1019,7 +1019,7 @@ export const en = {
   "phone.noShowDone": "{name} marked no-show",
   "phone.letStay": "Let them stay",
   "phone.stayDone": "{name} can stay another hour",
-  "tabs.tonight": "Tonight",
+  "tabs.bookings": "Bookings",
   "tabs.rooms": "Rooms",
   "push.wrapUp": "{room} is in wrap-up: the next party is due",
   "calendar.days": "Days ahead",

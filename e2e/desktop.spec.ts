@@ -240,7 +240,7 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
     // A new owner isn't on the clock, so the time clock comes first (M7-01).
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Time clock");
     await page.getByRole("button", { name: "Not now" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     // Admin → Team: pair a new badge to Diego in one tap on the (fake) reader.
     await page.getByRole("link", { name: "Admin", exact: true }).click();
@@ -262,7 +262,7 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
     const started = Date.now();
     await page.evaluate((u) => window.west4!.badge.fakeTap(u), uid);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight", { timeout: 5000 });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms", { timeout: 5000 });
     expect(Date.now() - started).toBeLessThan(2000);
     await expect(page.locator(".topbar .who")).toHaveText("Diego R. · Front desk");
   } finally {
@@ -314,7 +314,7 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
     await page.getByRole("button", { name: /Diego R\./ }).click();
     for (const digit of "6358")
       await page.locator(".keypad").getByRole("button", { name: digit, exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.getByLabel("Room counts")).toHaveText(
       "8 in use · 3 open · 2 cleaning · 1 out of service",
     );

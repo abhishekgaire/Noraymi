@@ -26,7 +26,7 @@ export interface MenuEntry {
 }
 
 export const menu: readonly MenuEntry[] = [
-  { id: "tonight", labelKey: "menu.tonight", path: "/tonight", screen: "board", shipped: true },
+  { id: "tonight", labelKey: "menu.rooms", path: "/tonight", screen: "board", shipped: true },
   {
     id: "barPos",
     labelKey: "menu.barPos",
@@ -163,8 +163,10 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   if (context.role === "staff") tabs.push({ id: "home", labelKey: runs.labelKey, path: runs.path });
   if (context.role === "bartender")
     tabs.push({ id: "home", labelKey: menu[1]!.labelKey, path: menu[1]!.path });
-  // Tonight's bookings and check-in, for everyone who checks guests in (runners too).
-  if (can("guests.checkin")) tabs.push({ id: "tonight", labelKey: "tabs.tonight", path: "/today" });
+  // Tonight's bookings and check-in, for everyone who checks guests in (runners too). It's
+  // "Bookings" (D111): "Rooms" is the board, and the phone has one tab of each.
+  if (can("guests.checkin"))
+    tabs.push({ id: "tonight", labelKey: "tabs.bookings", path: "/today" });
   if (context.role !== "staff")
     tabs.push({ id: "rooms", labelKey: "tabs.rooms", path: "/tonight" });
   tabs.push({ id: "calls", labelKey: "tabs.calls", path: "/calls" });

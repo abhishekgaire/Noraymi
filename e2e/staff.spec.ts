@@ -262,7 +262,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     expect((await reset()).ok()).toBe(true);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.locator(".clock time")).toHaveText("10:41 PM");
     await expect(page.locator(".clock")).toContainText("Fri, Sep 25");
     await expect(page.locator(".topbar .venue")).toHaveText("West 4 Boho Karaoke");
@@ -272,7 +272,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     await page.setViewportSize({ width: 1280, height: 800 });
     await reset();
     await page.getByRole("button", { name: "Switch to Español" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Salas");
     await expect(page.locator(".clock time")).toHaveText(/^10:41\s?p\.\s?m\.$/);
     const rooms = (
       await db.query<{ name: string }>(
@@ -297,7 +297,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     }
     // The choice is saved on his membership, not just this page.
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Salas");
 
     // Each shell screen in its longest language at phone and desktop widths: nothing cut off.
     for (const width of [390, 1280]) {
@@ -373,7 +373,7 @@ test("Andy's phone installs the staff app, turns on alerts and gets a test alert
     await enrolPasskey(page, request, db);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     // The app is installable: a manifest, and a service worker that controls the page.
     await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
@@ -383,7 +383,7 @@ test("Andy's phone installs the staff app, turns on alerts and gets a test alert
     expect((await request.get("/manifest.webmanifest")).ok()).toBe(true);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
 
     await page.goto("/setup");
@@ -513,8 +513,10 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
     // He isn't on the clock, so the time clock comes first (M7-01); "Ahora no" goes on.
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Control horario");
     await page.getByRole("button", { name: "Ahora no" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
-    await expect(page.locator(".tabs")).toContainText("Esta noche");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Salas");
+    await expect(page.locator(".tabs")).toContainText("Salas");
+    await expect(page.locator(".tabs")).toContainText("Reservas");
+    await expect(page.locator(".tabs")).not.toContainText("Esta noche");
     await expect(page.locator(".tabs")).toContainText("Alertas");
     for (const path of ["/setup", "/admin"]) {
       await page.goto(path);
@@ -545,7 +547,7 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
       await typePin(deskPage, "6358");
       await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Control horario");
       await deskPage.getByRole("button", { name: "Ahora no" }).click();
-      await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+      await expect(deskPage.getByRole("heading", { level: 1 })).toHaveText("Salas");
       await expect(deskPage.locator(".topbar .who")).toHaveText("Diego Test · Recepción");
     } finally {
       await desk.close();
@@ -557,11 +559,11 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
 
 /**
  * The bar computer (M1-26): paired by a code, it shows name tiles. Maya's name
- * and PIN open her home, the bar POS; Andy's and Diego's open Tonight. The
+ * and PIN open her home, the bar POS; Andy's and Diego's open Rooms. The
  * sign-in screen reads the venue's 10:41 PM whatever the browser's clock says,
  * and says "badge or name and PIN".
  */
-test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's open Tonight", async ({
+test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's open Rooms", async ({
   page,
   request,
 }) => {
@@ -607,8 +609,8 @@ test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's 
     await expect(page.getByRole("alert")).toHaveText("We couldn't sign you in");
     await page.getByRole("button", { name: "Back" }).click();
     await signIn(/Maya S\./, "4071", "Bar POS");
-    await signIn(/Andy C\./, "730915", "Tonight");
-    await signIn(/Diego R\./, "6358", "Tonight");
+    await signIn(/Andy C\./, "730915", "Rooms");
+    await signIn(/Diego R\./, "6358", "Rooms");
 
     // Every word about PINs says "badge or name and PIN"; nothing says "Lock the iPad".
     const text = await page.locator("body").innerText();
@@ -653,7 +655,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     expect((await reset()).ok()).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     // Admin opens on Team for the owner, with the section list and its hint.
     await page.getByRole("link", { name: "Admin", exact: true }).click();
@@ -746,7 +748,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await enrolPasskey(andyPage, request, db, ANDY);
     await andyPage.getByLabel("Email").fill(ANDY);
     await andyPage.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await andyPage.getByRole("link", { name: "Admin", exact: true }).click();
     await expect(andyPage.getByRole("heading", { level: 1 })).toHaveText("Admin");
     const sections = andyPage.getByRole("navigation", { name: "Sections" });
@@ -769,7 +771,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
     await page.getByRole("button", { name: /Diego R\./ }).click();
     await typePin(page, "6358");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Esta noche");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Salas");
   } finally {
     await db.query("update memberships set locale = 'en'");
     await db.end();
@@ -808,7 +810,7 @@ test("Admin → Features: 13 on and 3 off, no phase 2 modules, and the Bar scree
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
@@ -896,7 +898,7 @@ test("Admin → Kitchen: Features names what Kitchen needs, and the allergy noti
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/features");
     await expect(
@@ -990,7 +992,7 @@ test("Admin → Menu with Kitchen on: Station on each item, and a food category 
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/menu");
     await expect(page.getByRole("columnheader", { name: "Station" }).first()).toBeVisible();
@@ -1057,7 +1059,7 @@ test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/hours");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Hours & prices");
@@ -1161,7 +1163,7 @@ test("Admin → Printers & devices: West 4's devices, a code pairs a new browser
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/devices");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Printers & devices");
@@ -1327,7 +1329,7 @@ test("Andy sees the next rule-pack version's changes and start date in Admin bef
     ).toBe(true);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin");
     await expect(
       page.getByText("Rules update 2026.11 starts Sat, Sep 26 (business date)"),
@@ -1368,7 +1370,7 @@ test("Admin → Rooms: West 4's 14 rooms, switch a room off and on, archive one,
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/rooms");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Rooms");
@@ -1428,7 +1430,7 @@ test("Admin → Rooms: West 4's 14 rooms, switch a room off and on, archive one,
  * minutes pass on the device the tile ticks to 163 on the offset it measured,
  * never the device's own time. Room 10 offers to stay on by the minute.
  */
-test("Tonight's room clocks tick on the server's offset while the device clock is wrong", async ({
+test("the Rooms board's clocks tick on the server's offset while the device clock is wrong", async ({
   page,
   request,
 }) => {
@@ -1448,7 +1450,7 @@ test("Tonight's room clocks tick on the server's offset while the device clock i
     ).toBe(true);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const room9 = page.getByRole("listitem", { name: "Room 9", exact: true });
     await expect(room9).toContainText("161 min");
     await expect(room9).toContainText("In room · 19 min left");
@@ -1492,7 +1494,7 @@ test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder
     ).toBe(true);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/phone");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Phone & texts");
@@ -1593,7 +1595,7 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
     ).toBe(true);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     const sam = page.getByRole("listitem", { name: "Sam O.", exact: true });
     await expect(sam).toContainText("10:30 PM · Room 2");
@@ -1651,7 +1653,7 @@ test("the ID chip and Scan ID, with Safety & ID records on and off", async ({ pa
     ).toBe(true);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const room1 = await openRoom(page, "Room 1");
     await expect(room1).toContainText("ID ✓ 3 of 4 · the runner checks the last ID");
     const room5 = await openRoom(page, "Room 5");
@@ -1718,7 +1720,7 @@ test("Andy's phone: Approvals · 1, Diego's comp approved onto Room 9, and his o
     await enrolPasskey(page, request, db);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/setup");
     await page.getByRole("button", { name: "Turn on alerts" }).click();
     await expect(page.getByRole("status")).toHaveText("Alerts are on");
@@ -1795,7 +1797,7 @@ test("Report a fault: Room 4 out of service, a comp in Room 5, a pause in Room 9
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await expect(page.getByRole("listitem", { name: "Room 4", exact: true })).toContainText(
       "Out of service",
@@ -1852,7 +1854,7 @@ test("the party-size control: Room 9 one guest more shows the new rate and ID 12
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const room9 = await openRoom(page, "Room 9");
     const before = Number(/(\d+) guests/.exec((await room9.textContent()) ?? "")![1]);
     await room9.getByRole("button", { name: "One guest more" }).click();
@@ -1891,7 +1893,7 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.getByRole("listitem", { name: "Room 7", exact: true })).toContainText(
       "Needed now",
     );
@@ -1957,7 +1959,7 @@ test("cleaning and the lost-and-found log: Room 6 marked clean, a scarf found in
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await expect(page.getByRole("listitem", { name: "Room 6", exact: true })).toContainText(
       /Needs a wipe · left 10:33\s?PM \(\d+ min\)/,
@@ -2008,7 +2010,7 @@ test("the Calls list on a phone: Room 9's mic call, On it clears it on the board
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     // The board in a second window, signed in as the same person.
     const board = await browser.newPage({ storageState: await page.context().storageState() });
     await board.setViewportSize({ width: 1280, height: 800 });
@@ -2056,7 +2058,7 @@ test("the damage fee on a phone: a camera photo and a reason add $150.00 with it
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await listView(page);
     const room9 = await openRoom(page, "Room 9");
     await room9.getByRole("button", { name: "Damage fee" }).click();
@@ -2121,7 +2123,7 @@ test("Messages on desktop and phone: Sam O.'s running late, Reply no problem, a 
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.getByRole("link", { name: /Messages 1/ }).first()).toBeVisible();
     await page
       .getByRole("link", { name: /Messages/ })
@@ -2191,7 +2193,7 @@ test("the waitlist drawer: Waitlist · 3, the three parties, and Remove", async 
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.getByRole("button", { name: "Waitlist · 3" }).click();
     const drawer = page.getByRole("complementary", { name: "Waitlist" });
     const amara = drawer.getByRole("listitem", { name: "Amara B." });
@@ -2237,7 +2239,7 @@ test("offers: Room 11 to Amara with a countdown, and Room 2 on the fourth guest'
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await showAllAlerts(page);
     await expect(
       page.getByText("Room 11 is free all night, and Amara B. (7) has waited 26 min."),
@@ -2316,7 +2318,7 @@ test("the headcount: 93 inside, limit not set, the door counter, and Admin → S
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const count = page.getByRole("group", { name: "Headcount" });
     await expect(count).toContainText("93 inside");
     await expect(count).toContainText("77 in rooms · 16 waiting");
@@ -2358,7 +2360,7 @@ test("Admin → Safety: all ages until 8:00 PM, and the board's 21+ alert at the
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const band = page.getByRole("list", { name: "Alerts" });
     await expect(band).not.toContainText("21+ from");
 
@@ -2409,7 +2411,7 @@ test("Admin → Spam protection: the daily limits' defaults, and Andy sets 2 joi
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/spam-protection");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Spam protection");
     const waitlist = page.getByRole("group", { name: "Waitlist page (door QR)" });
@@ -2444,7 +2446,7 @@ test("Admin → Spam protection: the daily limits' defaults, and Andy sets 2 joi
  * 10:41 PM, every tile's words, every "Room time so far" and "Tab so far" to
  * the cent, and the counts.
  */
-test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile", async ({
+test("the Rooms board at 10:41 PM matches seed/west4-friday.json tile by tile", async ({
   page,
   request,
 }) => {
@@ -2476,7 +2478,7 @@ test("the Tonight board at 10:41 PM matches seed/west4-friday.json tile by tile"
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const c = seed.counts.rooms;
     await expect(page.getByLabel("Room counts")).toHaveText(
       `${c.in_use_or_wrap_up} in use · ${c.open} open · ${c.cleaning} cleaning · ${c.out_of_service} out of service`,
@@ -2534,7 +2536,7 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const band = page.getByRole("list", { name: "Alerts" });
     const expected = seed.board_alerts;
     // The three most urgent show; "Show all 7" opens the rest (V-08).
@@ -2612,7 +2614,7 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     const readRoom9 = async (p: Page) => {
       await expect(p.getByRole("heading", { level: 1 })).toHaveText("Room 9");
@@ -2667,7 +2669,7 @@ test("DeskRoom and the Room phone: Room 9's running tab, Room 10 staying on, Roo
  * Walk-in waitlist removes the Waitlist tab at once. A runner's phone shows
  * check-in, the waitlist and Calls, and no Approvals.
  */
-test("the staff phone: Andy's Tonight, booking actions by status, and a runner's tabs", async ({
+test("the staff phone: Andy's Bookings, booking actions by status, and a runner's tabs", async ({
   page,
   browser,
   request,
@@ -2687,10 +2689,14 @@ test("the staff phone: Andy's Tonight, booking actions by status, and a runner's
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const tabs = page.locator(".tabs");
-    await tabs.getByRole("link", { name: "Tonight", exact: true }).click();
+    // One "Rooms" (the board) and one "Bookings" (tonight's bookings), never two "Rooms" (D111).
+    await expect(tabs.getByRole("link", { name: "Rooms", exact: true })).toHaveCount(1);
+    await expect(tabs.getByRole("link", { name: "Tonight", exact: true })).toHaveCount(0);
+    await tabs.getByRole("link", { name: "Bookings", exact: true }).click();
     await expect(page).toHaveURL(/\/today$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bookings");
     await expect(page.getByLabel("Room counts")).toHaveText(
       "8 in room · 3 open · 2 cleaning · 1 out of service",
     );
@@ -2791,7 +2797,7 @@ test("the staff phone: Andy's Tonight, booking actions by status, and a runner's
     await expect(runner.getByRole("heading", { level: 1 })).toHaveText("Time clock");
     await runner.getByRole("button", { name: "Not now" }).click();
     const runnerTabs = runner.locator(".tabs");
-    await expect(runnerTabs.getByRole("link", { name: "Tonight", exact: true })).toBeVisible();
+    await expect(runnerTabs.getByRole("link", { name: "Bookings", exact: true })).toBeVisible();
     await expect(runnerTabs.getByRole("link", { name: "Calls" })).toBeVisible();
     await expect(runnerTabs.getByRole("link", { name: "Waitlist" })).toBeVisible();
     await expect(runnerTabs.getByRole("link", { name: "Approvals" })).toHaveCount(0);
@@ -2828,7 +2834,7 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.getByRole("link", { name: "Calendar" }).first().click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Calendar");
     const readTonight = async (p: Page) => {
@@ -2935,7 +2941,7 @@ test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minut
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/hours");
     await expect(page.getByLabel("How rooms are priced", { exact: true })).toHaveValue("perPerson");
     await expect(page.getByLabel("Per person an hour ($)", { exact: true })).toHaveValue("10.00");
@@ -3003,7 +3009,7 @@ async function signInAndy(page: Page, request: APIRequestContext, db: pg.Client)
   await enrolPasskey(page, request, db, ANDY);
   await page.getByLabel("Email").fill(ANDY);
   await page.getByRole("button", { name: "Continue with a passkey" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 }
 /**
  * A timed staff task (M6-28; spec 10 · How we'll know it works): its taps and seconds are recorded on
@@ -3257,7 +3263,7 @@ test("a manager's phone: the PIN pad waits for all 6 digits", async ({ page, req
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
     await expect(page.getByRole("alert")).toHaveCount(0);
     await typePin(page, "30");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     void request;
   } finally {
     await db.end();
@@ -3289,7 +3295,7 @@ test("Admin → Menu: button names, a refused $6.00 happy hour, $6.50 saved, a h
     ).toBe(true);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/menu");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Menu");
@@ -3488,7 +3494,7 @@ test("Ticket didn't print: the board's Reprint makes REPRINT 2, then REPRINT 3",
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await showAllAlerts(page);
     const alert = page.locator(".alert", { hasText: "Room 1 · Ticket didn't print" });
@@ -3548,7 +3554,7 @@ test("Kitchen ticket didn't print: Print at the bar instead makes REPRINT 2, the
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await showAllAlerts(page);
     const alert = page.locator(".alert", { hasText: "Room 1 · Kitchen ticket didn't print" });
@@ -3694,7 +3700,7 @@ test("Bar orders · 2 in the side menu, and Mute for 60 seconds on the bar order
     await enrolPasskey(page, request, db, ANDY);
     await page.getByLabel("Email").fill(ANDY);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     const link = page.getByRole("link", { name: "Bar orders · 2" });
     await expect(link).toBeVisible();
     await link.click();
@@ -4270,7 +4276,7 @@ test("Admin → Payments: Stripe needs more information, Connect with Stripe, th
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await page.goto("/admin/payments");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Payments");
@@ -4359,7 +4365,7 @@ test("Admin → Printers & devices: the router's backup internet and its monthly
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.getByTestId("banner-backup")).toHaveCount(0);
     await page.goto("/admin/devices");
     const router = page.getByRole("region", { name: "Router" });
@@ -4405,7 +4411,7 @@ test("Admin → Printers & devices: register the Bar S710 with its code", async 
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/devices");
     const readers = page.getByRole("region", { name: "Card readers" });
     const bar = readers.getByRole("listitem", { name: "Bar S710" });
@@ -5123,7 +5129,7 @@ test("Cash at the front desk: Room 9's $498.60 with $500.00, $1.40 change, logge
     await page.getByRole("button", { name: "Pair", exact: true }).click();
     await page.getByRole("button", { name: /Diego R\./ }).click();
     await typePin(page, "6358");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     // The newly paired screen rings cash into the front-desk drawer (PATCH /devices/{d} in Admin).
     await db.query(
       `update devices set cash_drawer_id = (select row_id from seed_ids where slug = 'drawer_front')
@@ -5758,7 +5764,7 @@ test("Go-live checklist: the merchant category, Andy and Abhishek confirmed, and
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/payments");
     const list = page.getByRole("region", { name: "Go-live checklist" });
     await expect(list.getByRole("status")).toHaveText("Not yet: finish each check below");
@@ -7132,7 +7138,7 @@ test("sharing the bar computer: Maya's badge takes over from Diego, on break, Wi
     await page.getByRole("button", { name: "Pair", exact: true }).click();
     await page.getByRole("button", { name: /Diego R\./ }).click();
     await typePin(page, "6358");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.getByRole("link", { name: "Bar POS" }).first().click();
     await expect(page.locator(".rail-top .who")).toHaveText("Diego R.");
 
@@ -7189,7 +7195,7 @@ test("sharing the bar computer: Maya's badge takes over from Diego, on break, Wi
     );
     await page.getByRole("button", { name: /Diego R\./ }).click();
     await typePin(page, "6358");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.getByRole("link", { name: "Bar POS" })).toHaveCount(0);
   } finally {
     await db.end();
@@ -8645,7 +8651,7 @@ for (const width of [1280, 390]) {
       await expect(page.getByRole("button", { name: "Clock in" })).toBeDisabled();
       expect(await clippedText(page)).toEqual([]);
       await page.getByRole("button", { name: "Not now" }).click();
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
       await lockScreen();
       await expect(page.getByRole("status")).toHaveText("Locked · sign in to continue");
 
@@ -8664,7 +8670,7 @@ for (const width of [1280, 390]) {
       // Diego on the bar POS sees it too.
       await tile(/Diego R\./).click();
       await typePin(page, "6358");
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
       await page.goto("/bar");
       await expect(page.locator(".rail-top .who")).toHaveText("Diego R.");
       await expect(page.locator(".rail-top .on-break")).toHaveText("Maya · on break");
@@ -8701,7 +8707,7 @@ for (const width of [1280, 390]) {
       await page.getByRole("button", { name: "Clock in" }).click();
       await expect(page.locator(".clock-status")).toHaveText("On since 10:41 PM (0h 0m)");
       await page.getByRole("button", { name: "Done" }).click();
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
       await lockScreen();
 
       // Maya ends her break: the top bar is hers again.
@@ -9747,7 +9753,7 @@ test("Help alert: Room 9 asks privately, the Board pins Manager needed · 1, And
     await expect(log).toContainText("Each incident is kept 3 years after it’s closed.");
 
     await page.getByRole("link", { name: "Rooms" }).first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.locator(".manager-needed")).toHaveCount(0);
   } finally {
     await db.query("delete from incident_notes");
@@ -9843,7 +9849,7 @@ test("Admin → Console: Abhishek approves a support request, the banner shows, 
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/console");
     const section = page.getByRole("region", { name: "Console" });
     const item = section.getByRole("listitem", { name: "From Noraymi support" }).first();
@@ -9983,7 +9989,7 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
     await enrolPasskey(page, request, db, ABHISHEK);
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/payments");
     const banner = page.getByTestId("plan-banner");
     await expect(banner).toHaveText(
@@ -10006,7 +10012,7 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
     await page.goto("/");
     await page.getByLabel("Email").fill(ABHISHEK);
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await page.goto("/admin/rooms");
     await expect(banner).toHaveText(
       "Admin is read-only · our plan's payment failed on Fri, Sep 25 · the board, rooms, bar and payments keep working Pay it in Payments",
@@ -10018,7 +10024,7 @@ test("Our plan: a failed payment shows the banner, Admin turns read-only 14 days
     ).toBeVisible();
     // The board, rooms and the bar POS keep working.
     await page.goto("/tonight");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tonight");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
     await page.goto("/bar");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");

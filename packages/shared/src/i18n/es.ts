@@ -123,7 +123,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "menu.title": "Menú",
   "menu.open": "Abrir el menú",
   "menu.close": "Cerrar el menú",
-  "menu.tonight": "Esta noche",
+  "menu.rooms": "Salas",
   "menu.barPos": "POS del bar",
   "menu.barOrders": "Pedidos del bar",
   "menu.songQueue": "Cola de canciones",
@@ -331,8 +331,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "module.bar_screen.description":
     "Antigüedad en pantalla: ámbar a los 2 min, rosa a los 4 cuando se avisa al gerente de turno; teléfonos del bar a los 30 s; un mensaje o llamada a los 6; campanilla como respaldo.",
   "module.rooms.hides.staffApp":
-    "Esta noche (el tablero), DeskRoom, Calendario, la lista de Salas en el POS del bar",
-  "module.rooms.hides.staffPhone": "Esta noche, Salas, Calendario",
+    "Salas (el tablero), DeskRoom, Calendario, la lista de Salas en el POS del bar",
+  "module.rooms.hides.staffPhone": "Reservas, Salas, Calendario",
   "module.rooms.hides.website": "La sección de Salas; las tabletas de las salas",
   "module.rooms.hides.texts":
     "Reserva confirmada, Recordatorio, Código de sala, Por favor vayan terminando, Tiempo reservado por terminar, Respuesta de llegada tarde",
@@ -1003,7 +1003,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     '{name} escribió "{text}" para las {time} en {room}, y se guarda hasta las {until}.',
   "alert.move": "Mover una sala…",
   "alert.show": "Mostrar",
-  "room.back": "← Esta noche",
+  "room.back": "← Salas",
   "room.notFound": "No existe esa sala",
   "room.clock": "Reloj de la sala",
   "room.rate": "{min} min · {rate} por minuto",
@@ -1037,7 +1037,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "phone.noShowDone": "{name} marcado como no se presentó",
   "phone.letStay": "Dejarlos quedarse",
   "phone.stayDone": "{name} puede quedarse otra hora",
-  "tabs.tonight": "Esta noche",
+  "tabs.bookings": "Reservas",
   "tabs.rooms": "Salas",
   "push.wrapUp": "{room} está terminando: llega el siguiente grupo",
   "calendar.days": "Próximos días",

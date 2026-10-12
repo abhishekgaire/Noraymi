@@ -263,7 +263,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 
 | Module | Staff app (desktop and bar POS) | Staff phone | Website and room page | Texts |
 | --- | --- | --- | --- | --- |
-| Rooms & room clock | Tonight (the board), DeskRoom, Calendar, the Rooms list on the bar POS | Tonight, Rooms, Calendar | The Rooms section; room tablets | Booking confirmed, Reminder, Room code, Please wrap up, Booked time ending, Running late reply |
+| Rooms & room clock | Rooms (the board), DeskRoom, Calendar, the Rooms list on the bar POS | Bookings, Rooms, Calendar | The Rooms section; room tablets | Booking confirmed, Reminder, Room code, Please wrap up, Booked time ending, Running late reply |
 | Online booking & deposits | Admin → Deposits & cancelling reads "Online booking is off" | — | The Book section and new bookings on the manage page; the hero's "Book a room" becomes "Call to book" | Payment link, and Deposit refund for new bookings |
 | Walk-in waitlist | The board's waitlist drawer | Waitlist | The door QR and the waitlist page | Room ready, Offer expiring |
 | Ordering from the room | — (room orders stop arriving) | — | The menu, ordering and Same again on the room page and tablets | — |

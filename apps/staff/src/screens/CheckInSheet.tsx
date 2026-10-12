@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { checkNumberLabel, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { useSheetDialog } from "../layout/Dialog.js";
 
 /**
  * The check-in sheet (M2-11; screens N10): the same on the board and on a
@@ -140,17 +141,25 @@ export function CheckInSheet({
     target.kind === "booking"
       ? t("checkIn.title", { name: target.name })
       : t("checkIn.walkInTitle", { room: target.roomName });
+  const dlg = useSheetDialog(title);
 
   return (
-    <form className="sheet" role="dialog" aria-label={title} onSubmit={(e) => void submit(e)}>
-      <h2>{title}</h2>
+    <form className="sheet" {...dlg.root} onSubmit={(e) => void submit(e)}>
+      <h2 {...dlg.title}>{title}</h2>
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
       {!preview || party === null ? (
-        <p role="status">{t("shell.loading")}</p>
+        <>
+          {!error && <p role="status">{t("shell.loading")}</p>}
+          <div className="row">
+            <button type="button" className="secondary" onClick={onClose}>
+              {t("checkIn.cancel")}
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <label>
