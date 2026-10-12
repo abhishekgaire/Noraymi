@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "./api.js";
 
 /**
- * Requests from Set up your venue (O-10; spec 17 · Step details 8): a menu the owner sent as a PDF
- * or a photo for our team to type in. Open the file, type the menu in (Admin → Menu under a
+ * Requests from Set up your venue (O-10, O-12; spec 17 · Step details 8 and 11): a menu the owner
+ * sent as a PDF or a photo for our team to type in; the website question (a yes starts M9-09's
+ * domain move); the old system's export files, which our team runs through the importer
+ * (M9-01 to M9-06) as a dry run the owner signs, so nothing is imported from the upload itself. Open the file, type the menu in (Admin → Menu under a
  * support grant, or the importer), then mark it done; the owner's step shows "typed in".
  */
 interface SetupRequest {
   id: string;
-  kind: "menu";
+  kind: "menu" | "website" | "old_system";
+  answer: "yes" | "no" | null;
   file_id: string | null;
   note: string | null;
   state: "open" | "done";
@@ -17,7 +20,15 @@ interface SetupRequest {
   done_at: string | null;
 }
 
-const KIND_NAMES: Record<SetupRequest["kind"], string> = { menu: "Type in the menu" };
+const KIND_NAMES: Record<SetupRequest["kind"], string> = {
+  menu: "Type in the menu",
+  website: "Website and domain",
+  old_system: "Old system's file · run the importer's dry run for the owner to sign",
+};
+const label = (r: SetupRequest) =>
+  r.kind === "website"
+    ? `${KIND_NAMES.website}: ${r.answer === "yes" ? "a site to move (M9-09)" : "no site to move"}`
+    : KIND_NAMES[r.kind];
 
 export function SetupRequests({ venue }: { venue: { id: string; name: string } }) {
   const [requests, setRequests] = useState<SetupRequest[] | null>(null);
@@ -70,7 +81,7 @@ export function SetupRequests({ venue }: { venue: { id: string; name: string } }
           {requests.map((r) => (
             <li key={r.id}>
               <span>
-                {KIND_NAMES[r.kind]} · {r.requested_by_name ?? "the owner"} ·{" "}
+                {label(r)} · {r.requested_by_name ?? "the owner"} ·{" "}
                 {new Date(r.requested_at).toLocaleString()}
                 {r.state === "done" ? " · done" : ""}
               </span>

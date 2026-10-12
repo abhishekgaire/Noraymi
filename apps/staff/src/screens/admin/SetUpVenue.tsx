@@ -20,7 +20,9 @@ import { useSession } from "../../session.js";
 import { CardStep } from "./CardStep.js";
 import { DepositsStep } from "./DepositsStep.js";
 import { HoursStep } from "./HoursStep.js";
+import { LicensesStep } from "./LicensesStep.js";
 import { MenuStep } from "./MenuStep.js";
+import { TextsStep } from "./TextsStep.js";
 import { MoneyStep } from "./MoneyStep.js";
 import { RoomsStep } from "./RoomsStep.js";
 import { TeamStep } from "./TeamStep.js";
@@ -398,6 +400,9 @@ function StepBody({
   if (step.id === "menu") return <MenuStep registerSave={registerSave} onSaved={onSaved} />;
   // Step 9 (O-11): invites, who has set a PIN, and the venue's on-call and breach contacts.
   if (step.id === "team") return <TeamStep registerSave={registerSave} onSaved={onSaved} />;
+  // Steps 10 and 11 (O-12): the license register; texts, the website and the old system's files.
+  if (step.id === "licenses") return <LicensesStep onSaved={onSaved} />;
+  if (step.id === "texts") return <TextsStep onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (

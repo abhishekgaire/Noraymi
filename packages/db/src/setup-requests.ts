@@ -1,13 +1,18 @@
 import type { Queryable } from "./tenancy.js";
 
 /**
- * Requests to our team from Set up your venue (O-10; spec 17 · Step details 8): a menu sent as
- * a PDF or a photo for us to type in. The Console lists the open ones; nothing in the file is
+ * Requests to our team from Set up your venue (O-10, O-12; spec 17 · Step details 8 and 11): a menu
+ * sent as a PDF or a photo for us to type in, the website question's answer, and the old system's
+ * export files for our importer. The Console lists the open ones; nothing in the file is
  * read automatically, and nothing reaches the venue's menu until our team types it in.
  */
+export type SetupRequestKind = "menu" | "website" | "old_system";
+
 export interface SetupRequest {
   readonly id: string;
-  readonly kind: "menu";
+  readonly kind: SetupRequestKind;
+  /** The website question's answer (O-12): "yes" a site and domain to move, "no" none. */
+  readonly answer: "yes" | "no" | null;
   readonly file_id: string | null;
   readonly note: string | null;
   readonly state: "open" | "done";
@@ -16,18 +21,34 @@ export interface SetupRequest {
   readonly done_at: string | null;
 }
 
-const COLS = `r.id, r.kind, r.file_id, r.note, r.state, u.name as requested_by_name,
+const COLS = `r.id, r.kind, r.answer, r.file_id, r.note, r.state, u.name as requested_by_name,
   to_json(r.requested_at) #>> '{}' as requested_at, to_json(r.done_at) #>> '{}' as done_at`;
 
 export async function createSetupRequest(
   c: Queryable,
   venueId: string,
-  input: { kind: "menu"; fileId: string | null; note: string | null; userId: string },
+  input: {
+    kind: SetupRequestKind;
+    fileId: string | null;
+    note: string | null;
+    userId: string;
+    /** The website question only; a "no" asks nothing of our team, so it's recorded as done. */
+    answer?: "yes" | "no";
+  },
 ): Promise<SetupRequest> {
+  const done = input.answer === "no";
   const r = await c.query<{ id: string }>(
-    `insert into setup_requests (venue_id, kind, file_id, note, requested_by)
-       values ($1, $2, $3, $4, $5) returning id`,
-    [venueId, input.kind, input.fileId, input.note, input.userId],
+    `insert into setup_requests (venue_id, kind, file_id, note, requested_by, answer, state, done_at)
+       values ($1, $2, $3, $4, $5, $6, $7::text, case when $7::text = 'done' then now() end) returning id`,
+    [
+      venueId,
+      input.kind,
+      input.fileId,
+      input.note,
+      input.userId,
+      input.answer ?? null,
+      done ? "done" : "open",
+    ],
   );
   return (await listSetupRequests(c, venueId, { id: r.rows[0]!.id }))[0]!;
 }

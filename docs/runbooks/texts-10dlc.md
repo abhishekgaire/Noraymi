@@ -10,6 +10,10 @@ US carriers only deliver business texts from a local number once the business (t
 2. In the subaccount's Messaging settings, **SMS pumping protection** is on, and Geo permissions allow the United States only (we text +1 numbers only; the API refuses anything else).
 3. Have West 4's legal business name, EIN, address and website ready, exactly as on its tax registration. Nothing here is filled in from our seed; ask West 4.
 
+## Registered in Set up your venue (O-12)
+
+A venue onboarded through the wizard registers its own brand: the owner's **Register for texts** sends Trust Hub's ISV flow on the venue's subaccount (needs `TWILIO_PRIMARY_PROFILE_SID` and `TWILIO_ISV_EMAIL`). The brand and Trust Hub ids, the representative and the two sample messages are in `text_registrations` (never the EIN); make the campaign from them once the brand is approved, then record it as below.
+
 ## Register (Twilio console, West 4's subaccount)
 
 1. **Brand:** Messaging → Regulatory compliance → create West 4's brand with the details above.

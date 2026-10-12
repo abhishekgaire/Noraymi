@@ -14,7 +14,8 @@ export async function uploadPhoto(
     | "slip_photo"
     | "paid_out_photo"
     | "license_copy"
-    | "menu_source",
+    | "menu_source"
+    | "import_export",
   file: File,
 ): Promise<string> {
   const presigned = await api<{

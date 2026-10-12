@@ -48,9 +48,12 @@ const sheetBody = z
   })
   .strict();
 
+// A menu to type in (O-10, a menu_source file), or one of the old system's export files for our
+// importer (O-12, an import_export file).
+const FILE_KIND = { menu: "menu_source", old_system: "import_export" } as const;
 const requestBody = z
   .object({
-    kind: z.literal("menu"),
+    kind: z.enum(["menu", "old_system"]),
     file_id: z.string().uuid(),
     note: z.string().trim().min(1).max(500).nullable().optional(),
   })
@@ -180,10 +183,10 @@ export function setupMenuRoutes(app: FastifyInstance, options: { clock: Clock })
           "select kind from files where venue_id = $1 and id = $2 and removed_at is null",
           [venueId, parsed.data.file_id],
         );
-        if (file.rows[0]?.kind !== "menu_source")
-          throw new ApiError("invalid_request", "upload the menu's PDF or photo first");
+        if (file.rows[0]?.kind !== FILE_KIND[parsed.data.kind])
+          throw new ApiError("invalid_request", "upload the file first, as the right kind");
         return createSetupRequest(c, venueId, {
-          kind: "menu",
+          kind: parsed.data.kind,
           fileId: parsed.data.file_id,
           note: parsed.data.note ?? null,
           userId: p.userId,

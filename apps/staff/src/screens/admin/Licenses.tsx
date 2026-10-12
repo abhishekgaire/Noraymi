@@ -76,7 +76,15 @@ function draftOf(l: License | null, kind: Kind = "ascap"): Draft {
   };
 }
 
-export function Licenses() {
+/**
+ * `embedded`: inside Set up your venue's step 10 (O-12), with an h3 and the checklist told after a
+ * save; `kitchen`: the Kitchen module is allowed, so the health department's permit is expected too.
+ */
+export function Licenses({
+  embedded = false,
+  kitchen = false,
+  onSaved,
+}: { embedded?: boolean; kitchen?: boolean; onSaved?: () => void } = {}) {
   const { state } = useSession();
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const { t, tn, money, date } = useT();
@@ -156,6 +164,7 @@ export function Licenses() {
       else await api("POST", `/v1/venues/${venueId}/licenses`, { kind: draft.kind, ...body });
       setDraft(null);
       await load();
+      onSaved?.();
     } catch {
       setProblem("save");
     } finally {
@@ -163,7 +172,8 @@ export function Licenses() {
     }
   };
 
-  const missing = list ? EXPECTED.filter((k) => !list.some((l) => l.kind === k)) : [];
+  const expected: readonly Kind[] = kitchen ? [...EXPECTED, "health"] : EXPECTED;
+  const missing = list ? expected.filter((k) => !list.some((l) => l.kind === k)) : [];
   const expiry = (l: License) =>
     l.expires_on === null || l.days_left === null
       ? t("licenses.noExpiry")
@@ -176,7 +186,11 @@ export function Licenses() {
 
   return (
     <section className="licenses" aria-labelledby="licenses-h">
-      <h2 id="licenses-h">{t("licenses.title")}</h2>
+      {embedded ? (
+        <h3 id="licenses-h">{t("licenses.title")}</h3>
+      ) : (
+        <h2 id="licenses-h">{t("licenses.title")}</h2>
+      )}
       <p className="small">{t("licenses.intro")}</p>
       {failed && (
         <p className="error" role="alert">

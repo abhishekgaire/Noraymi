@@ -415,6 +415,21 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "PATCH /v1/venues/:venueId/licenses/:licenseId": { holder: "x" },
       "POST /v1/venues/:venueId/licenses": { kind: "bmi", file_id: fileB.rows[0]!.id },
       "POST /v1/venues/:venueId/setup/requests": { kind: "menu", file_id: menuFileB.rows[0]!.id },
+      "POST /v1/venues/:venueId/setup/website": { answer: "yes", domain: "example.com" },
+      "POST /v1/venues/:venueId/setup/texts/register": {
+        ein: "12-3456789",
+        business_type: "Corporation",
+        website_url: "https://example.com",
+        rep: {
+          first_name: "A",
+          last_name: "B",
+          email: "a@example.com",
+          phone_e164: "+12125550111",
+          title: "Owner",
+          position: "GM",
+        },
+        samples: ["A sample text of twenty characters", "Another sample of twenty characters"],
+      },
       "POST /v1/venues/:venueId/setup/menu-sheet": {
         files: [
           {

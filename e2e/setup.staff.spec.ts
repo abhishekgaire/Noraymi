@@ -401,6 +401,26 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await expect(rail.getByRole("button", { name: /Team and contacts/ })).toContainText(
       "Needs attention",
     );
+
+    // Step 10 (O-12): the liquor license, through Admin → Licenses' own register.
+    await expect(page.getByRole("heading", { level: 2, name: "Licenses" })).toBeVisible();
+    const register = page.getByRole("region", { name: "Licenses" });
+    await register.getByRole("button", { name: "Add a license" }).click();
+    await register.getByLabel("Kind").selectOption("liquor");
+    await register.getByLabel("Number").fill("E2E-LIQUOR-1");
+    await register.getByLabel("Expires").fill("2026-12-31");
+    await register.getByRole("button", { name: "Save" }).click();
+    await expect(rail.getByRole("button", { name: /^\d* ?Licenses/ })).toContainText("Done");
+
+    // Step 11 (O-12): no texting number yet; the website answer is recorded.
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(
+      page.getByText("We're setting up your texting number · we'll email you"),
+    ).toBeVisible();
+    await page.getByRole("radio", { name: "No" }).check();
+    await page.getByRole("button", { name: "Save the answer" }).click();
+    await expect(page.getByText(/^Answered no/)).toBeVisible();
+
     await page.goto("/admin/venue");
     await expect(page.getByRole("combobox", { name: "Breach contact" })).toHaveValue(/.+/);
 

@@ -14,7 +14,8 @@ export type FileKind =
   | "menu_pdf"
   | "receipt_pdf"
   | "site_photo"
-  | "menu_source";
+  | "menu_source"
+  | "import_export";
 
 const MB = 1024 * 1024;
 const PHOTO = { types: ["image/jpeg", "image/png", "image/heic"], maxBytes: 10 * MB } as const;
@@ -38,6 +39,18 @@ export const FILE_RULES: Readonly<
   menu_source: {
     types: ["application/pdf", "image/jpeg", "image/png", "image/heic"],
     maxBytes: 20 * MB,
+  },
+  // The old system's export files (O-12), for our team's importer (M9-01): never read on upload.
+  import_export: {
+    types: [
+      "text/csv",
+      "application/json",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/zip",
+      "application/pdf",
+    ],
+    maxBytes: 50 * MB,
   },
 };
 

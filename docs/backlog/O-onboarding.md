@@ -279,7 +279,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-12 · Steps 10 and 11: licenses, texts registration, website and the old system's files
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** O-02; M8-09 (licenses), M2-09 (the Twilio subaccount), M8-22 (the campaign check), M9-01 (the importer), M9-09 (the domain move)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 10 and 11
@@ -288,10 +288,15 @@ Definition of done: see CLAUDE.md.
   - Register for texts: the 10DLC form sends the brand registration to Twilio on the venue's subaccount, idempotency-keyed, never inside a transaction; the EIN is sent once and never stored or logged; before the subaccount exists the step says so.
   - The website question and the old system's files (`POST /files`), each becoming a Console request.
 - **Acceptance:**
-  - [ ] The liquor license saved in the wizard shows in Admin → Licenses with its reminder.
-  - [ ] Register for texts against Twilio's test credentials sends one registration, and the EIN appears in no table and no log.
-  - [ ] Uploaded export files show in the Console for our team; nothing is imported until the owner signs the dry run.
+  - [x] The liquor license saved in the wizard shows in Admin → Licenses with its reminder.
+  - [x] Register for texts against Twilio's test credentials sends one registration, and the EIN appears in no table and no log.
+  - [x] Uploaded export files show in the Console for our team; nothing is imported until the owner signs the dry run.
 - **Tests:** integration tests with Twilio test credentials; a log test for the EIN.
+- **Notes:**
+  - Built: step 10 is Admin → Licenses' own register (`LicensesStep.tsx`; with Kitchen allowed the health permit is expected and the FPC holders go in as Other). Step 11 (`TextsStep.tsx`, `apps/api/src/routes/setup-texts.ts`): Register for texts runs Trust Hub's ISV flow on the venue's subaccount (`apps/api/src/texts/brand.ts`: secondary customer profile with the business, EIN, representative and address, tied to our primary profile; A2P trust product; brand registration), outside any transaction, every request with an idempotency token from the registration's id; `text_registrations` (migration 0149, forced RLS, restore wall) keeps the details and Twilio's ids, one live registration per venue, and never the EIN (no column; the route keeps no idempotency record, refusals name fields only, errors name the step only). The website answer and the old system's export files (`import_export` files) are `setup_requests` in the Console; nothing is imported from them.
+  - Tests: `setup-texts.int.test.ts` against a stand-in Trust Hub that records each request (one brand registration, the EIN in exactly one request, a token on every request, a second press refused) and scans every table and every log line for the EIN; steps 10 and 11 in `e2e/setup.staff.spec.ts`.
+  - Differs from the ticket: Twilio's test credentials don't reach Trust Hub or the brand registration API, so the test uses a local stand-in, as the Stripe tests use the fake Stripe. The real flow needs `TWILIO_PRIMARY_PROFILE_SID` and `TWILIO_ISV_EMAIL` (our ISV profile; `.env.example`); without them the registration is refused before any call. The ISV flow's request shapes follow Twilio's docs and haven't been run against the real Trust Hub yet: try it once on a sandbox subaccount before a real venue registers.
+  - Cautious defaults: the business industry is sent as HOSPITALITY and the company type as private; a registration interrupted mid-way stays "sending" and blocks a second one until our team clears it; the legal name and address come from step 1, never retyped.
 
 ### O-13 · Step 12: devices, the go-live checks and Finish setup
 
