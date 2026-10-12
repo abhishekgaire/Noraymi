@@ -102,23 +102,33 @@ async function dateStart(c: Queryable, venueId: string, date: string): Promise<T
  * the current value, walked back through the audit rows of changes saved after it.
  */
 async function eligibilityAt(c: Queryable, venueId: string, start: Temporal.Instant) {
-  const now = await c.query<{ id: string; tip_eligible: boolean; occupation_code: string | null }>(
-    "select id, tip_eligible, occupation_code from memberships where venue_id = $1",
-    [venueId],
+  const now = await c.query<{
+    id: string;
+    tip_eligible: boolean;
+    occupation_code: string | null;
+    changed_since: boolean;
+  }>(
+    `select id, tip_eligible, occupation_code, coalesce(eligibility_set_at > $2, false) as changed_since
+       from memberships where venue_id = $1`,
+    [venueId, start.toString()],
   );
   const out = new Map(
     now.rows.map((m) => [m.id, { eligible: m.tip_eligible, occupation: m.occupation_code }]),
   );
+  // Only a membership whose eligibility was last saved after the start can have changes to walk
+  // back, so the audit log (which only grows) is read for those alone, and not at all most nights.
+  const changed = now.rows.filter((m) => m.changed_since).map((m) => `memberships/${m.id}`);
+  if (changed.length === 0) return out;
   const changes = await c.query<{
     target: string;
     old_values: Record<string, unknown> | null;
     new_values: Record<string, unknown> | null;
   }>(
     `select target, old_values, new_values from audit_log
-      where venue_id = $1 and target like 'memberships/%'
+      where venue_id = $1 and target = any($2::text[])
         and (changed_fields && array['tip_eligible', 'occupation_code'])
       order by id desc`,
-    [venueId],
+    [venueId, changed],
   );
   for (const ch of changes.rows) {
     // A delete has no new values, and an insert no old ones: neither changes what stood at the start.

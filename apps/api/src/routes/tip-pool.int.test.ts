@@ -196,6 +196,27 @@ describe("the tip pool", () => {
     addsUp(t);
   });
 
+  it("keeps Diego in Friday's pool when he's made not tip-eligible during Friday: eligibility as it stood at the start", async () => {
+    const set = (eligible: boolean, at: string | null) =>
+      owner.query(
+        `update memberships set tip_eligible = $2, eligibility_set_at = $3
+          where venue_id = $1 and user_id = $4`,
+        [venueId, eligible, at, ids["diego"]],
+      );
+    // 10:41 PM Friday, after the 6:00 AM start: the change counts from Saturday.
+    await set(false, SEED_NOW.toString());
+    try {
+      expect((await tips(FRI)).shares.map((s) => s.name)).toEqual(["Maya S.", "Diego R."]);
+      // Saved before Friday started (5:00 AM), the same change does leave him out of Friday's pool.
+      await set(true, null);
+      await set(false, "2026-09-25T09:00:00Z");
+      expect((await tips(FRI)).shares.map((s) => s.name)).toEqual(["Maya S."]);
+    } finally {
+      await set(true, null);
+    }
+    expect((await tips(FRI)).shares.map((s) => s.name)).toEqual(["Maya S.", "Diego R."]);
+  });
+
   it("switching to even on Fri Sep 25 starts on Sat Sep 26, and Friday's pool still splits by hours", async () => {
     as("abhishek", "owner", "passkey", "dev_phone_abhishek");
     const current = (
