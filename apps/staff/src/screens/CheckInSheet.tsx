@@ -22,7 +22,7 @@ interface Preview {
   readonly deposit_cents: number;
   readonly booked_start: string | null;
   /** What a walk-in's step 5 takes (D112); null for a booking. */
-  readonly walk_in: "deposit" | "cardOnTab" | "nothing" | null;
+  readonly walk_in: "deposit" | "cardOnTab" | "cardBehindBar" | "nothing" | null;
 }
 
 interface Room {
@@ -286,9 +286,11 @@ export function CheckInSheet({
                   ? t("checkIn.deposit", { amount: `−${money(preview.deposit_cents as never)}` })
                   : preview.walk_in === "cardOnTab"
                     ? t("checkIn.walkInTakes.cardOnTab")
-                    : preview.walk_in === "nothing"
-                      ? t("checkIn.walkInTakes.nothing")
-                      : t("checkIn.noDeposit"),
+                    : preview.walk_in === "cardBehindBar"
+                      ? t("checkIn.walkInTakes.cardBehindBar")
+                      : preview.walk_in === "nothing"
+                        ? t("checkIn.walkInTakes.nothing")
+                        : t("checkIn.noDeposit"),
             })}
           </p>
           <p className="small muted">{t("checkIn.step", { n: 6, label: t("checkIn.code") })}</p>

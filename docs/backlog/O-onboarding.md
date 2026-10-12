@@ -179,7 +179,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-07 · Step 6: deposits, card holds and the four walk-in choices
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** O-02; M5-12, M5-13 (deposits and card holds), D112's walk-in setting
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 6; [Settings](../spec/03-settings-rule-packs-modules.md) · `DepositRule`
@@ -187,9 +187,13 @@ Definition of done: see CLAUDE.md.
   - The step reuses Admin → Deposits & cancelling: the online deposit or card hold, free-cancel hours, late-cancel and no-show, grace minutes, big parties, the largest party online.
   - At a walk-in check-in offers Take a deposit, Put a card on the tab, Keep the card behind the bar (built in O-08) and Nothing, in Admin too.
 - **Acceptance:**
-  - [ ] Each of the four choices saves and shows the same in Admin → Deposits & cancelling.
-  - [ ] Deposits off with Put a card on the tab saves, as Sing Sing's row in venue.md reads.
+  - [x] Each of the four choices saves and shows the same in Admin → Deposits & cancelling.
+  - [x] Deposits off with Put a card on the tab saves, as Sing Sing's row in venue.md reads.
 - **Tests:** integration tests; the Spanish strings.
+- **Notes:**
+  - Built: `apps/staff/src/screens/admin/DepositsStep.tsx` (step 6): Admin → Deposits & cancelling's own form once the `deposit` key exists; the first time, a form where every answer starts empty, the walk-in choice included (no radio preselected), then the largest party online from step 4's `prices` key, saved with the step. `walkInTakes` now has the fourth choice, `cardBehindBar` ("Keep the card behind the bar", D116), in Admin and the step; the check-in sheet names it at step 5, and O-08 builds what it does.
+  - Cautious defaults: "No deposit for online bookings" asks only the grace minutes and the walk-in choice, and saves the rest as nothing kept and nothing charged (`on: false`, mode `firstHour` at 0, refund hours 0, late `refund`, no-show `nothing`, no big-party rule). The first-time big-party rule is a flat amount only (Admin's form has the same). Admin → Deposits now loads without a saved `pay` key (a new venue saves it in step 7), and its policy preview says it shows once the gratuity is saved. Spec 17's step 6 says so.
+  - Tests: `apps/api/src/routes/walk-in-card.int.test.ts` (each of the four choices saves and reads back, deposits off with Put a card on the tab), `packages/shared/src/settings.test.ts`, and step 6 in `e2e/setup.staff.spec.ts` (nothing preselected, the half-answered form refused, Keep the card behind the bar shown the same in Admin).
 
 ### O-08 · Keep the card behind the bar at a walk-in check-in
 

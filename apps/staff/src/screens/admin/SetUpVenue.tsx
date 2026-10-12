@@ -18,6 +18,7 @@ import { useT } from "../../i18n.js";
 import { homeFor } from "../../navigation.js";
 import { useSession } from "../../session.js";
 import { CardStep } from "./CardStep.js";
+import { DepositsStep } from "./DepositsStep.js";
 import { HoursStep } from "./HoursStep.js";
 import { RoomsStep } from "./RoomsStep.js";
 import { PlanStep } from "./PlanStep.js";
@@ -385,6 +386,9 @@ function StepBody({
   if (step.id === "rooms" && step.mark !== "not_used")
     return <RoomsStep registerSave={registerSave} onSaved={onSaved} />;
   if (step.id === "hours") return <HoursStep registerSave={registerSave} onSaved={onSaved} />;
+  // Step 6 (O-07): Admin's deposits and the four walk-in choices.
+  if (step.id === "deposits" && step.mark !== "not_used")
+    return <DepositsStep registerSave={registerSave} onSaved={onSaved} />;
   return (
     <div className="setup-card">
       {section ? (

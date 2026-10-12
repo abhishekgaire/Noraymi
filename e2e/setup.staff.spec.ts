@@ -324,6 +324,20 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
       page.getByRole("heading", { level: 2, name: "Deposits and check-in" }),
     ).toBeVisible();
     await expect(rail.getByRole("button", { name: /^Hours/ })).toContainText("Done");
+
+    // Step 6 (O-07): nothing chosen for the owner; no deposit online and Keep the card behind
+    // the bar saves, and Admin → Deposits & cancelling shows the same choice.
+    await expect(page.getByLabel("Keep the card behind the bar")).not.toBeChecked();
+    await expect(page.getByLabel("Take a deposit")).not.toBeChecked();
+    await page.getByLabel("Deposit", { exact: true }).selectOption("off");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("Finish the deposit answers, or clear them")).toBeVisible();
+    await page.getByLabel("No-show after (minutes late)").fill("15");
+    await page.getByLabel("Keep the card behind the bar").check();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(rail.getByRole("button", { name: /Deposits and check-in/ })).toContainText("Done");
+    await page.goto("/admin/deposits");
+    await expect(page.getByLabel("Keep the card behind the bar")).toBeChecked();
   } finally {
     await db.end();
   }

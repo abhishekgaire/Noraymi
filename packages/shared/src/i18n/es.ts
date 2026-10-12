@@ -674,6 +674,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "checkIn.noDeposit": "Sin depósito",
   "checkIn.walkInTakes.cardOnTab":
     "Tarjeta en la cuenta · el cliente acerca una tarjeta al sentarse",
+  "checkIn.walkInTakes.cardBehindBar":
+    "Tarjeta detrás de la barra · anota el nombre de la tarjeta y sus últimos 4",
   "checkIn.walkInTakes.nothing": "No se cobra nada al registrar la entrada",
   "checkIn.card.title": "Tarjeta en la cuenta · {room}",
   "checkIn.card.waiting": "Acerque, inserte o deslice la tarjeta en el lector de recepción",
@@ -691,6 +693,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Lo que toma el paso 5 de un cliente sin reserva. Las reservas en línea mantienen su propio depósito.",
   "deposits.walkIn.deposit": "Cobrar un depósito",
   "deposits.walkIn.cardOnTab": "Poner una tarjeta en la cuenta",
+  "deposits.walkIn.cardBehindBar": "Guardar la tarjeta detrás de la barra",
   "deposits.walkIn.nothing": "Nada",
   "checkIn.code":
     "Un nuevo código de sala de 5 caracteres le llega al anfitrión por mensaje, con el enlace para unirse",
@@ -2144,6 +2147,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "deposits.policy": "Lo que aceptan los clientes",
   "deposits.policy.hint":
     "Reservar y Gestionar muestran este texto sobre el botón de pago. Guardar y publicar crea una versión nueva; cada reserva conserva la versión que aceptó.",
+  "deposits.policy.afterPayments":
+    "Las palabras que leen los clientes aparecen aquí cuando se guarde la propina en Admin → Pagos",
   "deposits.policy.live": "En línea: versión {n}",
   "site.book.title": "Reserva una sala",
   "site.book.off": "La reserva en línea está desactivada. Llámanos para reservar.",
@@ -3515,6 +3520,12 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Las salas vienen con los planes de Salas · inicia uno primero en el paso 2",
   "onboarding.rooms.moduleOff":
     "Salas y reloj de sala está apagado · enciéndelo en Admin → Funciones para agregar tus salas",
+  "onboarding.deposits.hint":
+    "Lo que pagan las reservas en línea y lo que se queda al cancelar tarde o no presentarse, y luego lo que se toma al registrar a un cliente sin reserva. No se elige nada por ti.",
+  "onboarding.deposits.none": "Sin depósito para reservas en línea",
+  "onboarding.deposits.finish": "Termina las respuestas del depósito, o bórralas, antes de seguir",
+  "onboarding.deposits.largestPartyLater":
+    "El grupo más grande en línea se define con los precios en el paso 4",
   "onboarding.step.card.title": "Pagos con tarjeta",
   "onboarding.step.card.hint": "Conecta con Stripe para cobrar con tarjeta",
   "onboarding.step.rooms.title": "Salas y precios",

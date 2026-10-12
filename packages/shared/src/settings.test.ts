@@ -151,8 +151,8 @@ describe("what a walk-in check-in takes (D112)", () => {
     expect(walkInTakesOf(rule as never)).toBe("deposit");
     expect(walkInTakesOf(null)).toBe("deposit");
   });
-  it("takes a card on the tab or nothing, and nothing else", () => {
-    for (const walkIn of ["deposit", "cardOnTab", "nothing"]) {
+  it("takes one of the four choices (D112, D116), and nothing else", () => {
+    for (const walkIn of ["deposit", "cardOnTab", "cardBehindBar", "nothing"]) {
       expect(parseSetting("deposit", { ...rule, walkIn }).ok).toBe(true);
       expect(walkInTakesOf({ walkIn } as never)).toBe(walkIn);
     }

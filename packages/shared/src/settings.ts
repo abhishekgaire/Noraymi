@@ -84,7 +84,7 @@ export const pricesSchema = z
   .strict();
 
 /** What a walk-in check-in takes (D112). */
-export const walkInTakes = ["deposit", "cardOnTab", "nothing"] as const;
+export const walkInTakes = ["deposit", "cardOnTab", "cardBehindBar", "nothing"] as const;
 export type WalkInTakes = (typeof walkInTakes)[number];
 /** The setting's value, with the default ("deposit") when it was never set. */
 export const walkInTakesOf = (
@@ -116,8 +116,9 @@ export const depositSchema = z
     /**
      * What a walk-in check-in takes (D112; Admin → Deposits & cancelling): "deposit" (the default
      * when it's missing, West 4: today's step 5), "cardOnTab" (the guest taps a card on the reader
-     * and it's saved on the room's check, nothing charged; Sing Sing) or "nothing". Online
-     * bookings keep their own deposit above.
+     * and it's saved on the room's check, nothing charged), "cardBehindBar" (D116: staff keep the
+     * guest's physical card and type its name and last 4 on the check, no reader, nothing charged;
+     * Sing Sing) or "nothing". Online bookings keep their own deposit above.
      */
     walkIn: z.enum(walkInTakes).optional(),
   })

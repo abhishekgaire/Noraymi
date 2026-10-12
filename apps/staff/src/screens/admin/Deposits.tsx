@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { depositPolicyText } from "@west4/rules";
 import { walkInTakes, walkInTakesOf, type DepositRule, type PaySettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
-import { api } from "../../api.js";
+import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { Money } from "./Prices.js";
@@ -36,6 +36,7 @@ export function Deposits() {
   const bookingOn = signedIn?.membership.modules.online_booking !== "off";
   const [saved, setSaved] = useState<DepositRule | null>(null);
   const [pay, setPay] = useState<PaySettings | null>(null);
+  const [payLoaded, setPayLoaded] = useState(false);
   const [live, setLive] = useState<Version | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -48,11 +49,18 @@ export function Deposits() {
     }
     const [d, p, v] = await Promise.all([
       api<{ value: DepositRule }>("GET", `/v1/venues/${venueId}/settings/deposit`),
-      api<{ value: PaySettings }>("GET", `/v1/venues/${venueId}/settings/pay`),
+      // A new venue saves its payments in step 7 (O-09), after this one: none yet is no error.
+      api<{ value: PaySettings }>("GET", `/v1/venues/${venueId}/settings/pay`).catch(
+        (e: unknown) => {
+          if ((e as ApiCallError)?.status === 404) return null;
+          throw e;
+        },
+      ),
       api<{ versions: Version[] }>("GET", `/v1/venues/${venueId}/policy-versions`),
     ]);
     setSaved(d.value);
-    setPay(p.value);
+    setPay(p?.value ?? null);
+    setPayLoaded(true);
     setLive(v.versions[0] ?? null);
   }, [venueId, bookingOn]);
   useEffect(() => {
@@ -91,7 +99,7 @@ export function Deposits() {
           {t("shell.error.cantReach")}
         </p>
       )}
-      {current === null || pay === null ? (
+      {current === null || !payLoaded ? (
         !failed && <p role="status">{t("shell.loading")}</p>
       ) : (
         <>
@@ -270,15 +278,21 @@ export function Deposits() {
 
           <h3>{t("deposits.policy")}</h3>
           <p className="small muted">{t("deposits.policy.hint")}</p>
-          <div className="policy">
-            {depositPolicyText(current, pay.gratuity)
-              .split("\n")
-              .map((line) => (
-                <p key={line} data-guest-text>
-                  {line}
-                </p>
-              ))}
-          </div>
+          {pay ? (
+            <div className="policy">
+              {depositPolicyText(current, pay.gratuity)
+                .split("\n")
+                .map((line) => (
+                  <p key={line} data-guest-text>
+                    {line}
+                  </p>
+                ))}
+            </div>
+          ) : (
+            <p className="small muted" role="status">
+              {t("deposits.policy.afterPayments")}
+            </p>
+          )}
           {live && (
             <p className="small muted">
               {t("deposits.policy.live", { n: live.version })}

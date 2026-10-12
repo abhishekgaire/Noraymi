@@ -665,6 +665,8 @@ export const en = {
   "checkIn.deposit": "Deposit applied {amount}",
   "checkIn.noDeposit": "No deposit",
   "checkIn.walkInTakes.cardOnTab": "Card on the tab · the guest taps a card once they're seated",
+  "checkIn.walkInTakes.cardBehindBar":
+    "Card behind the bar · note the name on the card and its last 4",
   "checkIn.walkInTakes.nothing": "Nothing taken at check-in",
   "checkIn.card.title": "Card on the tab · {room}",
   "checkIn.card.waiting": "Tap, dip or swipe on the front-desk reader",
@@ -679,6 +681,7 @@ export const en = {
   "deposits.walkIn.hint": "What step 5 of a walk-in takes. Online bookings keep their own deposit.",
   "deposits.walkIn.deposit": "Take a deposit",
   "deposits.walkIn.cardOnTab": "Put a card on the tab",
+  "deposits.walkIn.cardBehindBar": "Keep the card behind the bar",
   "deposits.walkIn.nothing": "Nothing",
   "checkIn.code": "A new 5-character room code goes to the host by text, with the join link",
   "checkIn.guestName": "Guest's name",
@@ -2103,6 +2106,8 @@ export const en = {
   "deposits.policy": "What guests accept",
   "deposits.policy.hint":
     "Book and Manage show these words above the pay button. Save and publish makes them a new version; bookings keep the version they accepted.",
+  "deposits.policy.afterPayments":
+    "The words guests read show here once the gratuity is saved in Admin → Payments",
   "deposits.policy.live": "Live: version {n}",
   "site.book.title": "Book a room",
   "site.book.off": "Online booking is off. Call us to book.",
@@ -3433,6 +3438,12 @@ export const en = {
   "onboarding.rooms.needsPlan": "Rooms come with the Rooms plans · start one in step 2 first",
   "onboarding.rooms.moduleOff":
     "Rooms & room clock is off · turn it on in Admin → Features to add your rooms",
+  "onboarding.deposits.hint":
+    "What online bookings pay and what a cancel or no-show keeps, then what a walk-in check-in takes. Nothing is chosen for you.",
+  "onboarding.deposits.none": "No deposit for online bookings",
+  "onboarding.deposits.finish": "Finish the deposit answers, or clear them, before you go on",
+  "onboarding.deposits.largestPartyLater":
+    "The largest party online is set with the prices in step 4",
   "onboarding.step.card.title": "Card payments",
   "onboarding.step.card.hint": "Connect with Stripe to take cards",
   "onboarding.step.rooms.title": "Rooms and prices",

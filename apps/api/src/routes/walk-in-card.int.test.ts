@@ -164,7 +164,7 @@ describe("what a walk-in check-in takes (D112)", () => {
     expect(booked.json().walk_in).toBeNull();
   });
 
-  it("only an owner or a manager changes it, and only to the three choices", async () => {
+  it("only an owner or a manager changes it, and only to the four choices", async () => {
     const value = await deposit();
     expect(
       (await as(diego, "PUT", "/settings/deposit", { value: { ...value, walkIn: "nothing" } }))
@@ -183,6 +183,24 @@ describe("what a walk-in check-in takes (D112)", () => {
     });
     expect(ok.statusCode, ok.body).toBe(200);
     expect((await preview("room_11")).walk_in).toBe("nothing");
+  });
+
+  it("each of the four choices saves and reads back the same in Admin (O-07)", async () => {
+    const value = await deposit();
+    for (const walkIn of ["deposit", "cardOnTab", "cardBehindBar", "nothing"]) {
+      const put = await as(abhishek, "PUT", "/settings/deposit", { value: { ...value, walkIn } });
+      expect(put.statusCode, put.body).toBe(200);
+      expect((await deposit())["walkIn"]).toBe(walkIn);
+      expect((await preview("room_11")).walk_in).toBe(walkIn);
+    }
+    // Deposits off with a card on the tab saves, as Sing Sing's first answer read.
+    const off = await as(abhishek, "PUT", "/settings/deposit", {
+      value: { ...value, on: false, walkIn: "cardOnTab" },
+    });
+    expect(off.statusCode, off.body).toBe(200);
+    expect(await deposit()).toMatchObject({ on: false, walkIn: "cardOnTab" });
+    const back = await as(abhishek, "PUT", "/settings/deposit", { value });
+    expect(back.statusCode, back.body).toBe(200);
   });
 
   it("with a card on the tab: seated first, then the card saved on the room's check, nothing charged", async () => {
