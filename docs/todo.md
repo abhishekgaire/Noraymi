@@ -20,19 +20,22 @@ These five unblock the most work.
 
 ## 1. You (the founder): decisions
 
-- [ ] **Which company holds our Stripe platform account and signs venue contracts, under which product name?** Decide with the lawyer. Stripe opens the platform account for that company, and plan billing, venue contracts and insurance follow it. Unblocks M4's live work and M8-15 (plan billing). Recorded in [open questions](spec/14-open-questions.md).
-- [ ] **Who are the first and second responders on call, and which hours does each cover?** The paging tool is already settled (email and text, [D102](decisions.md)); only the people are missing. Then run `oncall:set` and send a test page. Unblocks M8-17, M9-16 and the gate (a second responder must be on the rota before the 4 weeks start). Until then: the rota is empty and the check fails. Recorded in [open questions](spec/14-open-questions.md) and [oncall-rota.json](gate/oncall-rota.json).
-- [ ] **Who runs the breach runbook, and who backs them up?** Unblocks M8-19 and GA-M9. Recorded in [breach-contacts.md](security/breach-contacts.md).
+- [ ] **Which company holds our Stripe platform account and signs venue contracts, under which product name?** Decide with the lawyer. Stripe opens the platform account for that company, and plan billing, venue contracts and insurance follow it. Unblocks M4's live work and M8-15 (plan billing). Recorded in [open questions](spec/14-open-questions.md).  we facilitate the store owner have to do the setup with the stripe  secret and publishable key when they do onboarding
+- [ ] **Who are the first and second responders on call, and which hours does each cover?** The paging tool is already settled (email and text, [D102](decisions.md)); only the people are missing. Then run `oncall:set` and send a test page. Unblocks M8-17, M9-16 and the gate (a second responder must be on the rota before the 4 weeks start). Until then: the rota is empty and the check fails. Recorded in [open questions](spec/14-open-questions.md) and [oncall-rota.json](gate/oncall-rota.json). same here the owner will have to decide this while onboarding
+- [ ] **Who runs the breach runbook, and who backs them up?** Unblocks M8-19 and GA-M9. Recorded in [breach-contacts.md](security/breach-contacts.md). same again owner decides onboarding
 - [ ] **What plan does Sing Sing pay?** The "Rooms + Kitchen" tier promises kitchen screens that phase 1 doesn't ship. Unblocks Sing Sing's plan billing. Recorded in [open questions](spec/14-open-questions.md).
-- [ ] **Plan prices, and whether West 4 is billed during the gate.** Until then: no price exists anywhere; Prices live only in Stripe under fixed names once you make them ([D94](decisions.md)). Also confirm which Admin changes stay allowed while an unpaid venue is read-only. Unblocks M8-15. Recorded in [M8](backlog/M8-offline-safety-and-operations.md) M8-15.
-- [ ] **Support hours** (a blueprint decision). Recorded in [blueprint](blueprint.md#open-decisions) and M8-17.
-- [ ] **Should phase 2 add a native app that can take card payments with no internet at all?** Blocks nothing in phase 1; decide early in phase 2. Recorded in [open questions](spec/14-open-questions.md).
-- [ ] **Approve the Sing Sing go-live plan.** The file still says "Awaiting the founder's approval". Recorded in [S · Sing Sing go-live](backlog/S-sing-sing-go-live.md).
-- [ ] **Buy a domain (or decide which one).** Without one, staging uses `*.cloudfront.net` addresses, and Apple Pay and Google Pay can't be checked on the payment page. Recorded in [infra/README.md](../infra/README.md) "Not yet" and M4's Notes.
+  have 3 pier plans but also have promo code for 1 month free. And the owner again decides while onboarding.
+- [ ] **Plan prices, and whether West 4 is billed during the gate.** Until then: no price exists anywhere; Prices live only in Stripe under fixed names once you make them ([D94](decisions.md)). Also confirm which Admin changes stay allowed while an unpaid venue is read-only. Unblocks M8-15. Recorded in [M8](backlog/M8-offline-safety-and-operations.md) M8-15. you create it if i dont like i'll tell you
+- [ ] **Support hours** (a blueprint decision). Recorded in [blueprint](blueprint.md#open-decisions) and M8-17. 9-5 est weekdays
+- [ ] **Should phase 2 add a native app that can take card payments with no internet at all?** Blocks nothing in phase 1; decide early in phase 2. Recorded in [open questions](spec/14-open-questions.md). yes
+- [ ] **Approve the Sing Sing go-live plan.** The file still says "Awaiting the founder's approval". Recorded in [S · Sing Sing go-live](backlog/S-sing-sing-go-live.md). yes approved
+- [ ] **Buy a domain (or decide which one).** Without one, staging uses `*.cloudfront.net` addresses, and Apple Pay and Google Pay can't be checked on the payment page. Recorded in [infra/README.md](../infra/README.md) "Not yet" and M4's Notes. for now lets use testing i'll get the domain soon
 - [ ] **Fixed internet addresses for Stripe's IP-locked keys?** A NAT gateway costs about $35 a month; it's a spending decision. Until then: keys aren't locked to our addresses. Recorded in [infra/README.md](../infra/README.md) "Not yet", M4-01 and M8-19.
 - [ ] **Choose the venue router and its cellular carrier** (any Peplink with InControl 2, [D102](decisions.md); the carrier must differ from the card readers'). Unblocks M8-02, M8-07 and M9-07. Recorded in M8's "Waiting on the founder" list.
 - [ ] **Turn on branch protection on GitHub for `main`?** It makes failing checks block a merge (M1's principal and wall suites, M4-30's chaos suite), but it also stops pushing straight to `main`, which is how work lands today. Recorded in [M1](backlog/M1-foundations.md) and M4-30.
 - [ ] **Pick an email provider** (any service with an SMTP relay) and put its address in staging's `smtp-url` secret, plus our own addresses in `email_allow_list`. Until then: staging sends no email. Recorded in [M1](backlog/M1-foundations.md) (the email ticket's Notes).
+
+
 
 ## 2. You: accounts, keys and setup to run
 
@@ -100,27 +103,27 @@ All in [open questions](spec/14-open-questions.md).
 
 ## 8. Health department (DOHMH)
 
-- [ ] **Must a Food Protection Certificate holder be on site whenever food is served, and after the kitchen closes?** Nothing in the software waits; it shapes Sing Sing's kitchen hours and staffing. Recorded in [open questions](spec/14-open-questions.md).
+- [ ] **Must a Food Protection Certificate holder be on site whenever food is served, and after the kitchen closes?** Nothing in the software waits; it shapes Sing Sing's kitchen hours and staffing. Recorded in [open questions](spec/14-open-questions.md).  yes
 
 ## 9. Sing Sing's manager: things to give us or enter in Admin
 
 The website's facts are gathered in [venue.md](venues/sing-sing/venue.md) and the menu in [menu.md](venues/sing-sing/menu.md); the manager confirms every line before go-live.
 
 - [ ] **Confirm every fact from the website** (name, address, phone, hours, happy hour, card holds, no-show grace of 15 minutes) in [venue.md](venues/sing-sing/venue.md).
-- [ ] **Rooms: the 6 rooms, their sizes and their hourly rates**, and the happy-hour rates. Admin → Rooms and Admin → Prices.
-- [ ] **Kitchen hours and the kitchen's last-order time.** Until then: food can be ordered while room ordering is open. Admin → Kitchen.
-- [ ] **Last call.** Not on the website.
-- [ ] **The cash discount rate, and whether food prices include the card fee.** Until then: 0, off (and it waits on the lawyer too). Admin → Payments.
-- [ ] **Card-hold details:** the free-cancel hours and the late-cancel or no-show fee, and the largest party that can book online. Admin → Deposits.
-- [ ] **Age policy:** set "All ages until 8:00 PM, then 21 and over" in Admin → Safety ([D108](decisions.md)).
-- [ ] **Menu open points** ([menu.md](venues/sing-sing/menu.md), "Open points"): which drink "Make it a meal" includes and whether fries can be swapped; how many sauces come with bigger orders, the extra-sauce price, and whether wings take a sauce; whether a pricier side in a combo costs extra; whether ramen add-ons go on Cheese Tteokbokki.
-- [ ] **Draft beers:** turn off the Draft option on any beer that isn't on tap, and give the shot pour size and any mixer price. Admin → Menu ([D105](decisions.md)).
-- [ ] **Legal name, EIN and address**, for Stripe's onboarding and the 10DLC text registration (S-01, S-05).
-- [ ] **License papers:** liquor license, food service permit and Food Protection Certificate holders, with numbers, expiry dates and copies. Admin → Licenses (S-06).
-- [ ] **The staff list** (names, phones, roles) for invites; each person sets their own PIN on their own phone (S-04).
-- [ ] **The old system's export files** (bookings, deposits, guests and consents), received from Sing Sing, never scraped (S-02).
-- [ ] **Whether Sing Sing has a website and domain to move, and which domain** (S-10).
-- [ ] **Which inbox gets booking emails.**
+- [ ] **Rooms: the 6 rooms, their sizes and their hourly rates**, and the happy-hour rates. Admin → Rooms and Admin → Prices. Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Kitchen hours and the kitchen's last-order time.** Until then: food can be ordered while room ordering is open. Admin → Kitchen.  Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Last call.** Not on the website.  Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **The cash discount rate, and whether food prices include the card fee.** Until then: 0, off (and it waits on the lawyer too). Admin → Payments. Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Card-hold details:** the free-cancel hours and the late-cancel or no-show fee, and the largest party that can book online. Admin → Deposits.   At sing sing they actually take the physical cards on tab so that option should be available too. Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Age policy:** set "All ages until 8:00 PM, then 21 and over" in Admin → Safety ([D108](decisions.md)). Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Menu open points** ([menu.md](venues/sing-sing/menu.md), "Open points"): which drink "Make it a meal" includes and whether fries can be swapped; how many sauces come with bigger orders, the extra-sauce price, and whether wings take a sauce; whether a pricier side in a combo costs extra; whether ramen add-ons go on Cheese Tteokbokki. Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Draft beers:** turn off the Draft option on any beer that isn't on tap, and give the shot pour size and any mixer price. Admin → Menu ([D105](decisions.md)). Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Legal name, EIN and address**, for Stripe's onboarding and the 10DLC text registration (S-01, S-05).  Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **License papers:** liquor license, food service permit and Food Protection Certificate holders, with numbers, expiry dates and copies. Admin → Licenses (S-06).  Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **The staff list** (names, phones, roles) for invites; each person sets their own PIN on their own phone (S-04). Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **The old system's export files** (bookings, deposits, guests and consents), received from Sing Sing, never scraped (S-02).  Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Whether Sing Sing has a website and domain to move, and which domain** (S-10). Again the owner should do this during onboarding and admin should be able to change this from the admin page as well
+- [ ] **Which inbox gets booking emails. Again the owner should do this during onboarding and admin should be able to change this from the admin page as well**
 
 ## 10. West 4 (for later, after Sing Sing)
 
@@ -150,18 +153,18 @@ The website's facts are gathered in [venue.md](venues/sing-sing/venue.md) and th
 
 ## Count
 
-| Group | Items |
-| --- | --- |
-| Do these first (also listed below) | 5 |
-| 1. You: decisions | 13 |
-| 2. You: accounts, keys and setup | 11 |
-| 3. The lawyer | 14 |
-| 4. The accountant | 4 |
-| 5. Stripe | 8 |
-| 6. Playbox | 2 |
-| 7. The PCI assessor | 1 |
-| 8. Health department | 1 |
-| 9. Sing Sing's manager | 15 |
-| 10. West 4 | 7 |
-| 11. On-site work | 13 |
-| **Total (groups 1 to 11)** | **89** |
+| Group                              | Items        |
+| ---------------------------------- | ------------ |
+| Do these first (also listed below) | 5            |
+| 1. You: decisions                  | 13           |
+| 2. You: accounts, keys and setup   | 11           |
+| 3. The lawyer                      | 14           |
+| 4. The accountant                  | 4            |
+| 5. Stripe                          | 8            |
+| 6. Playbox                         | 2            |
+| 7. The PCI assessor                | 1            |
+| 8. Health department               | 1            |
+| 9. Sing Sing's manager             | 15           |
+| 10. West 4                         | 7            |
+| 11. On-site work                   | 13           |
+| **Total (groups 1 to 11)**   | **89** |
