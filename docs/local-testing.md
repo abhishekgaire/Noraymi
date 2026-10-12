@@ -183,18 +183,27 @@ cd ~/Downloads/west4-karaoke
 scripts/demo-local.sh
 ```
 
-It reloads the demo night and prints new invite links. Your old passkeys are removed, so make a new one with the new link.
+It reloads the demo night and prints new invite links. Your old passkeys are removed, so make a new one with the new link. Add `--sing-sing` to make the Sing Sing demo venue again too (section 8).
 
 ### Running the browser tests while the demo is open
 
 `pnpm e2e` uses the demo's ports and its `west4` database, so it would reload your night and sign you out. Run `pnpm e2e:isolated` instead (or `pnpm check --e2e`, which switches to it by itself when port 3000 is busy). It starts its own copy of every app on ports 13000 to 13020 (API 13000, guest 13001, staff 13002, console 13003, fake Stripe 13011, fake Google 13012) with its own database, `west4_e2e`, which it drops and creates fresh at the start of every run so old rows don't pile up (`E2E_KEEP_DATABASE=1` keeps the one already there). Your demo isn't touched. `E2E_PORT_BASE` moves the ports and `E2E_DATABASE` names another database; the settings live in `e2e/stack.ts`.
 
-## 8. What isn't built yet
+## 8. What's built, and what isn't
 
-M2 covers rooms, the board, check-in, the waitlist, texts and the calendar. M3 adds the menu, ordering from the room and its tablet, the bar orders screen and tickets, Runs, comps and voids on drinks, cut-offs and the 4 AM stop (try them with `docs/mock-friday.md`). These come next:
+**Built, and testable in the demo:** everything in milestones M1 to M8 that runs on one computer (rooms and the board, check-in, the waitlist, texts, the calendar, room orders and the bar orders screen, payments, receipts and refunds on the fake Stripe, the website and online booking, the bar POS, tabs and bar mode, close the night and the reports, offline mode, the Console), Kitchen & food (K), the visual pass (V), and owner onboarding steps 1 to 11 (O-01 to O-12). [manual-test.md](manual-test.md) walks through every one of them, step by step.
 
-- **M4:** presenting the check, paying, receipts.
-- **M5:** the public website, online booking and deposits.
+**Kitchen & food** is off at West 4 (its plan has no kitchen). To try it, start the demo with Sing Sing, a second demo venue with the kitchen on:
+
+```
+scripts/demo-start.sh --sing-sing
+```
+
+(or `scripts/demo-local.sh --sing-sing` while the demo is running). It prints two more invite links, for Sing Sing's Abhishek and Andy. See manual-test.md section 11.
+
+**Being built now:** owner onboarding step 12 (devices, the go-live checks and Finish setup, O-13) and onboarding a new venue from scratch in the demo (O-14).
+
+**Not testable on your Mac:** anything that needs real hardware, real accounts or the venue itself: card readers, printers, cash drawers and badges, real texts and emails, Stripe's live accounts, Google Business Profile, the staging nights, drills and sign-offs (the tickets marked `blocked` in `docs/backlog/`), all of M9 (going live at West 4) and all of S (going live at Sing Sing). manual-test.md section 26 has the full list.
 
 ## 9. If something goes wrong
 
