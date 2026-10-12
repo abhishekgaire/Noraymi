@@ -323,12 +323,21 @@ export function kitchenMissing(ready: {
 }
 
 /**
- * What each plan allows (O-04; spec 17 · Step details 2; D114), besides the
- * core modules, which every venue has. The modules no plan names (team,
- * safety, reports, guest and marketing texts, the website) stay as our
- * Console set them: the plan never turns them on or off.
+ * What each plan includes (O-04; spec 17 · Step details 2; D114, D121), besides
+ * the core modules, which every venue has, from the blueprint's plan table:
+ * Bar is bar tabs, bar mode, the bar screen, team and tip pool, guest texts
+ * and reports. Choosing a plan allows these and switches them on (D121); the
+ * owner turns any of them off in Admin → Features. The modules no plan names
+ * (safety, marketing texts, the website) stay as our Console set them.
  */
-const BAR_PLAN_MODULES: readonly ModuleId[] = ["bar_tabs", "bar_mode", "bar_screen"];
+const BAR_PLAN_MODULES: readonly ModuleId[] = [
+  "bar_tabs",
+  "bar_mode",
+  "bar_screen",
+  "team",
+  "guest_texts",
+  "reports",
+];
 const ROOMS_PLAN_MODULES: readonly ModuleId[] = [
   ...BAR_PLAN_MODULES,
   "rooms",
@@ -338,12 +347,30 @@ const ROOMS_PLAN_MODULES: readonly ModuleId[] = [
   "song_system",
   "waitlist",
 ];
-export const PLAN_MODULES: Readonly<
-  Record<"bar" | "rooms" | "rooms_kitchen", readonly ModuleId[]>
-> = {
+export type PlanKey = "bar" | "rooms" | "rooms_kitchen";
+export const PLAN_MODULES: Readonly<Record<PlanKey, readonly ModuleId[]>> = {
   bar: BAR_PLAN_MODULES,
   rooms: ROOMS_PLAN_MODULES,
   rooms_kitchen: [...ROOMS_PLAN_MODULES, "kitchen"],
 };
 /** Every module some plan decides. */
 export const PLAN_GOVERNED_MODULES: readonly ModuleId[] = PLAN_MODULES.rooms_kitchen;
+
+/**
+ * What choosing `plan` switches on (D121): the modules it includes that the
+ * venue's previous plan (`from`, null for a first plan) didn't, in the table's
+ * order, so each comes after what it needs. The same plan again switches on
+ * nothing, so a module the owner turned off stays off.
+ */
+export function planSwitchesOn(plan: PlanKey, from: PlanKey | null): ModuleId[] {
+  const before = from ? PLAN_MODULES[from] : [];
+  const todo = PLAN_MODULES[plan].filter((id) => !before.includes(id));
+  const out: ModuleId[] = [];
+  const visit = (id: ModuleId): void => {
+    if (out.includes(id)) return;
+    for (const need of moduleDef(id).needs) if (todo.includes(need)) visit(need);
+    out.push(id);
+  };
+  for (const id of todo) visit(id);
+  return out;
+}

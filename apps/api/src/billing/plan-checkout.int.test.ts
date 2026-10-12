@@ -126,6 +126,14 @@ const allowed = async (venue: string) =>
     )
   ).rows.map((r) => r.module_id);
 
+const switchedOn = async (venue: string) =>
+  (
+    await owner.query<{ module_id: string }>(
+      "select module_id from venue_modules where venue_id = $1 and state = 'on' order by module_id",
+      [venue],
+    )
+  ).rows.map((r) => r.module_id);
+
 const checkoutPosts = () =>
   fake.requests.filter((r) => r.method === "POST" && r.path === "/v1/checkout/sessions").length;
 
@@ -372,7 +380,19 @@ describe("Your plan: three plans, a promo code and Stripe Checkout (O-04)", () =
       status: "active",
     });
     const mods = await allowed(v.venueId);
-    expect(mods).toEqual(["bar_mode", "bar_screen", "bar_tabs"]);
+    expect(mods).toEqual(["bar_mode", "bar_screen", "bar_tabs", "guest_texts", "reports", "team"]);
+    // The plan switches on what it includes (D121); Bar tabs waits for the go-live merchant
+    // category, and Bar mode for Bar tabs, so both stay off until then.
+    expect(await switchedOn(v.venueId)).toEqual(["bar_screen", "guest_texts", "reports", "team"]);
+    // The owner turns Reports off in Admin → Features; the same plan's event again keeps it off.
+    const off = await call(v.who, "PATCH", "/modules/reports", { state: "off" }, v.venueId);
+    expect(off.statusCode, off.body).toBe(200);
+    const completed = fake.events
+      .filter((e) => e.event.type === "checkout.session.completed")
+      .pop()!;
+    expect((await postHook(completed.event)).statusCode).toBe(200);
+    await runJobs();
+    expect(await switchedOn(v.venueId)).toEqual(["bar_screen", "guest_texts", "team"]);
     const setup = (await call(v.who, "GET", "/setup", undefined, v.venueId)).json() as {
       checklist: { steps: { id: string; mark: string }[] };
     };
@@ -418,6 +438,11 @@ describe("Your plan: three plans, a promo code and Stripe Checkout (O-04)", () =
       room_quantity: 0,
       room_item_id: null,
     });
+    // Rooms + Kitchen switches the rooms on; the kitchen waits for its printer and allergy notice.
+    const on = await switchedOn(v.venueId);
+    for (const m of ["rooms", "online_booking", "waitlist", "packages", "song_system"])
+      expect(on).toContain(m);
+    expect(on).not.toContain("kitchen");
     expect(await allowed(v.venueId)).toContain("kitchen");
     // The venue's first room: the room-count job adds the per-room fee with quantity 1.
     await owner.query(

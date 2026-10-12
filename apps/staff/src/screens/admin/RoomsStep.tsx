@@ -63,7 +63,6 @@ function RoomsStepBody({
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [pricesSaved, setPricesSaved] = useState<boolean | null>(null);
   const [roomsModule, setRoomsModule] = useState<"on" | "off" | "not_allowed">("on");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const saved = useRef(onSaved);
@@ -121,19 +120,6 @@ function RoomsStepBody({
     return () => registerSave(null);
   }, [registerSave, t]);
 
-  // Rooms & room clock, turned on as Admin → Features does, so the rooms can be added.
-  const turnOn = async () => {
-    setBusy(true);
-    try {
-      await api("PATCH", `/v1/venues/${venueId}/modules/rooms`, { state: "on" });
-      await load();
-    } catch (e) {
-      setError((e as ApiCallError)?.message ?? t("shell.error.cantReach"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const toggleOnline = async (room: Room) => {
     try {
       await api("PATCH", `/v1/venues/${venueId}/rooms/${room.id}`, {
@@ -171,14 +157,10 @@ function RoomsStepBody({
           {t("onboarding.rooms.needsPlan")}
         </p>
       ) : roomsModule === "off" ? (
-        <>
-          <p className="notice" role="status">
-            {t("onboarding.rooms.moduleOff")}
-          </p>
-          <button type="button" className="primary" disabled={busy} onClick={() => void turnOn()}>
-            {t("onboarding.rooms.turnOn")}
-          </button>
-        </>
+        // The plan switched Rooms & room clock on (D121); the owner turned it off since.
+        <p className="notice" role="status">
+          {t("onboarding.rooms.moduleOff")}
+        </p>
       ) : rooms.length === 0 ? (
         <p className="muted">{t("onboarding.rooms.none")}</p>
       ) : (

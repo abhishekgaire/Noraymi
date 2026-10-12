@@ -97,7 +97,9 @@ export {
   kitchenMissing,
   PLAN_MODULES,
   PLAN_GOVERNED_MODULES,
+  planSwitchesOn,
 } from "./modules.js";
+export type { PlanKey } from "./modules.js";
 export type { KitchenMissing } from "./modules.js";
 export type { ModuleId, ModuleState, ModuleDef, ModuleEffects, ModuleStates } from "./modules.js";
 export {

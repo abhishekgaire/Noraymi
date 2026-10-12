@@ -3431,8 +3431,8 @@ export const en = {
   "onboarding.hours.finishDay": "Each open day needs both its opening and its closing time",
   "onboarding.hours.ageConfirm": "Pick your age policy, even if it's 21 and over.",
   "onboarding.rooms.needsPlan": "Rooms come with the Rooms plans · start one in step 2 first",
-  "onboarding.rooms.moduleOff": "Rooms & room clock is off · turn it on to add your rooms",
-  "onboarding.rooms.turnOn": "Turn on Rooms & room clock",
+  "onboarding.rooms.moduleOff":
+    "Rooms & room clock is off · turn it on in Admin → Features to add your rooms",
   "onboarding.step.card.title": "Card payments",
   "onboarding.step.card.hint": "Connect with Stripe to take cards",
   "onboarding.step.rooms.title": "Rooms and prices",

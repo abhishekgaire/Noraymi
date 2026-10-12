@@ -6,6 +6,8 @@ import {
   insertVenueSubscription,
   planAttempt,
   setModuleAllowed,
+  setModuleState,
+  statesOf,
   setPlanItems,
   venueModules,
   venueSubscription,
@@ -13,7 +15,17 @@ import {
   type PlanId,
   type Queryable,
 } from "@west4/db";
-import { PLAN_GOVERNED_MODULES, PLAN_MODULES, Temporal } from "@west4/shared";
+import {
+  PLAN_GOVERNED_MODULES,
+  PLAN_MODULES,
+  Temporal,
+  missingNeeds,
+  planSwitchesOn,
+  type ModuleId,
+  type ModuleState,
+} from "@west4/shared";
+import { kitchenNeeds, menusFollowKitchen } from "../kitchen/module.js";
+import { merchantCategoryPasses } from "../payments/go-live.js";
 import type { StripeClient } from "../stripe/client.js";
 import {
   PLANS_WITH_ROOMS,
@@ -43,11 +55,18 @@ type InVenue = <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
  * other plan modules not. A module the venue has on stays allowed until it's
  * turned off in Admin → Features, so nothing disappears mid-service (as the
  * Console's own switch, M1-35). Modules no plan names are never touched.
+ *
+ * Then the plan switches on what it newly includes (D121): every module of a
+ * first plan, or the ones a changed plan adds. A module whose needs aren't met
+ * yet (Bar tabs before the go-live merchant category, Kitchen & food before
+ * its printer and allergy notice) stays off, and Admin → Features says why.
+ * The same plan again switches nothing on, so the owner's off stays off.
  */
 export async function allowPlanModules(
   c: Queryable,
   venueId: string,
   plan: PlanId,
+  switchOn: { readonly from: PlanId | null; readonly now: Temporal.Instant } | null = null,
 ): Promise<boolean> {
   const rows = await venueModules(c, venueId);
   let changed = false;
@@ -58,6 +77,23 @@ export async function allowPlanModules(
     if (!want && row.state !== "off") continue;
     await setModuleAllowed(c, venueId, id, want, undefined);
     changed = true;
+  }
+  if (switchOn) {
+    const states: Partial<Record<ModuleId, ModuleState>> = {
+      ...statesOf(await venueModules(c, venueId)),
+    };
+    for (const id of planSwitchesOn(plan, switchOn.from)) {
+      if (states[id] === "on" || missingNeeds(states, id).length > 0) continue;
+      if (id === "bar_tabs" && !(await merchantCategoryPasses(c, venueId))) continue;
+      if (id === "kitchen") {
+        const clock = { now: () => switchOn.now };
+        if ((await kitchenNeeds(c, venueId, clock)).length > 0) continue;
+        await setModuleState(c, venueId, id, "on", undefined);
+        await menusFollowKitchen(c, venueId, switchOn.now);
+      } else await setModuleState(c, venueId, id, "on", undefined);
+      states[id] = "on";
+      changed = true;
+    }
   }
   if (changed)
     await emitEvent(c, {
@@ -99,6 +135,7 @@ export async function applyCheckout(
   stripe: StripeClient,
   venueId: string,
   by: { sessionId: string } | { id: string },
+  now: Temporal.Instant,
 ): Promise<CheckoutOutcome> {
   const attempt = await inVenue((c) => planAttempt(c, venueId, by));
   if (!attempt?.checkout_session_id) return "unknown";
@@ -128,7 +165,7 @@ export async function applyCheckout(
       status: sub.status,
     });
     await finishPlanSubscribeAttempt(c, attempt.id, sub.id);
-    await allowPlanModules(c, venueId, plan);
+    await allowPlanModules(c, venueId, plan, { from: existing?.plan ?? null, now });
     await emitEvent(c, { venueId, type: "plan.updated", entityId: venueId });
     return "started";
   });
@@ -139,15 +176,20 @@ export async function followPlanItems(
   c: Queryable,
   venueId: string,
   sub: Parameters<typeof planOfSubscription>[0],
+  now: Temporal.Instant,
 ): Promise<boolean> {
   const made = planOfSubscription(sub);
   if (!made) return false;
+  const before = await venueSubscription(c, venueId);
   const moved = await setPlanItems(c, venueId, {
     plan: made.plan,
     roomItemId: made.roomItem?.id ?? null,
     roomQuantity: made.roomItem?.quantity ?? 0,
   });
-  const allowed = await allowPlanModules(c, venueId, made.plan);
+  const allowed = await allowPlanModules(c, venueId, made.plan, {
+    from: before?.plan ?? null,
+    now,
+  });
   return moved || allowed;
 }
 
@@ -155,7 +197,7 @@ const onCheckoutCompleted: StripeEventHandler = async (ctx) => {
   if (ctx.event.endpoint !== "platform") return;
   const object = (ctx.event.payload as { data?: { object?: { id?: unknown } } }).data?.object;
   if (typeof object?.id !== "string") return;
-  await applyCheckout(ctx.inVenue, ctx.stripe, ctx.venueId, { sessionId: object.id });
+  await applyCheckout(ctx.inVenue, ctx.stripe, ctx.venueId, { sessionId: object.id }, ctx.now);
 };
 
 export const checkoutEventHandlers: readonly [string, StripeEventHandler][] = [
@@ -169,7 +211,13 @@ export function makePlanCheckoutHandler(stripe: StripeClient): JobHandler {
     const attemptId = (job.job.payload as { attempt_id?: unknown }).attempt_id;
     if (typeof attemptId !== "string") return;
     const inVenue: InVenue = (work) => job.step(work);
-    const outcome = await applyCheckout(inVenue, stripe, venueId, { id: attemptId });
+    const outcome = await applyCheckout(
+      inVenue,
+      stripe,
+      venueId,
+      { id: attemptId },
+      job.clock.now(),
+    );
     if (outcome !== "open") return;
     // Still open past its expiry (Stripe's clock and ours disagree): look again in half an hour.
     const next = job.clock.now().add({ minutes: 30 });

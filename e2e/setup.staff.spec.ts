@@ -283,10 +283,11 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     ).toBeVisible({ timeout: 30_000 });
     await expect(rail.getByRole("button", { name: /Card payments/ })).toContainText("Done");
 
-    // Step 4 (O-06): Rooms & room clock turned on, a room typed (no capacity suggested), the prices.
+    // Step 4 (O-06): Rooms & room clock already on from the plan (D121), a room typed (no capacity
+    // suggested), the prices.
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Rooms and prices" })).toBeVisible();
-    await page.getByRole("button", { name: "Turn on Rooms & room clock" }).click();
+    await expect(page.getByRole("button", { name: "Turn on Rooms & room clock" })).toHaveCount(0);
     await expect(page.getByLabel("Fewest guests", { exact: true })).toHaveValue("");
     await expect(page.getByLabel("Most guests", { exact: true })).toHaveValue("");
     await page.getByLabel("Name", { exact: true }).fill("Room 1");

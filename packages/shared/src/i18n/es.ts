@@ -3514,8 +3514,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.rooms.needsPlan":
     "Las salas vienen con los planes de Salas · inicia uno primero en el paso 2",
   "onboarding.rooms.moduleOff":
-    "Salas y reloj de sala está apagado · enciéndelo para agregar tus salas",
-  "onboarding.rooms.turnOn": "Encender Salas y reloj de sala",
+    "Salas y reloj de sala está apagado · enciéndelo en Admin → Funciones para agregar tus salas",
   "onboarding.step.card.title": "Pagos con tarjeta",
   "onboarding.step.card.hint": "Conecta con Stripe para cobrar con tarjeta",
   "onboarding.step.rooms.title": "Salas y precios",

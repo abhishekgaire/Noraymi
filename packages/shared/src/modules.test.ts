@@ -3,6 +3,7 @@ import { catalogs } from "./i18n/index.js";
 import {
   PLAN_GOVERNED_MODULES,
   PLAN_MODULES,
+  planSwitchesOn,
   missingNeeds,
   moduleDef,
   moduleIds,
@@ -145,7 +146,14 @@ describe("modules", () => {
 describe("what each plan allows (O-04)", () => {
   it("Bar allows no room module; Rooms adds the rooms; only Rooms + Kitchen allows the kitchen", () => {
     expect(PLAN_MODULES.bar).not.toContain("rooms");
-    expect(PLAN_MODULES.bar).toEqual(["bar_tabs", "bar_mode", "bar_screen"]);
+    expect(PLAN_MODULES.bar).toEqual([
+      "bar_tabs",
+      "bar_mode",
+      "bar_screen",
+      "team",
+      "guest_texts",
+      "reports",
+    ]);
     expect(PLAN_MODULES.rooms).toEqual(
       expect.arrayContaining(["rooms", "online_booking", "room_ordering", "packages", "waitlist"]),
     );
@@ -153,7 +161,30 @@ describe("what each plan allows (O-04)", () => {
     expect(PLAN_MODULES.rooms_kitchen).toContain("kitchen");
     // No plan decides a core module or one the blueprint leaves to our Console.
     for (const m of PLAN_GOVERNED_MODULES) expect(moduleDef(m).core).toBe(false);
-    for (const m of ["team", "safety", "reports", "website", "guest_texts"] as const)
+    for (const m of ["safety", "website", "marketing_texts"] as const)
       expect(PLAN_GOVERNED_MODULES).not.toContain(m);
+  });
+
+  it("a plan switches on what it newly includes, each after what it needs (D121)", () => {
+    const first = planSwitchesOn("rooms_kitchen", null);
+    expect(first).toEqual(expect.arrayContaining([...PLAN_MODULES.rooms_kitchen]));
+    expect(first).toHaveLength(PLAN_MODULES.rooms_kitchen.length);
+    for (const m of first)
+      for (const need of moduleDef(m).needs)
+        expect(first.indexOf(need)).toBeLessThan(first.indexOf(m));
+    // Bar to Rooms switches on only the room modules; the same plan again switches on nothing.
+    expect(planSwitchesOn("rooms", "bar")).toEqual(
+      expect.arrayContaining([
+        "rooms",
+        "online_booking",
+        "room_ordering",
+        "packages",
+        "song_system",
+        "waitlist",
+      ]),
+    );
+    expect(planSwitchesOn("rooms", "bar")).not.toContain("bar_tabs");
+    expect(planSwitchesOn("rooms", "rooms")).toEqual([]);
+    expect(planSwitchesOn("bar", "rooms_kitchen")).toEqual([]);
   });
 });

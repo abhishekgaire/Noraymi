@@ -131,7 +131,7 @@ async function applyPlan(
       ...(failure ? { failure } : {}),
     });
     // A plan changed in Stripe's portal (O-04): the plan, its room item and the allow-list follow.
-    const moved = await followPlanItems(c, ctx.venueId, sub);
+    const moved = await followPlanItems(c, ctx.venueId, sub, ctx.now);
     if (
       moved ||
       before?.status !== after?.status ||
