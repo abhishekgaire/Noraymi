@@ -6,9 +6,9 @@ import { DB } from "./stack.js";
  * Set up your venue (O-02): a venue our Console made, its owner signed in with
  * a passkey. Signing in opens the wizard at step 1; Skip for now marks a
  * required step "Needed before you open"; Save and finish later leaves for the
- * owner's home. A step saved meanwhile (the venue's address and guest phone)
- * is done when the owner signs in again, and the wizard opens the next step
- * not done; the last step lists what's missing and Finish setup stays off.
+ * owner's home. Step 1 saved with Continue (O-03: an address outside New York
+ * refused first) stays done when the owner signs in again, and the wizard
+ * opens the next step not done; the last step lists what's missing and Finish setup stays off.
  * Admin → Setup shows the same count.
  */
 async function postAuth(request: APIRequestContext, path: string, data: unknown) {
@@ -115,9 +115,28 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
     const rail = page.getByRole("navigation", { name: "Setup steps" });
     await expect(rail.getByRole("button", { name: /Your venue/ })).toContainText("Needs attention");
 
-    // Continue, then Skip for now on Your plan: it stays needed before opening.
+    // Step 1's form (O-03): an address outside New York is refused, and Continue stays put.
+    await page.getByLabel("Street", { exact: true }).fill("1 Hudson St");
+    await page.getByLabel("City").fill("Hoboken");
+    await page.getByLabel("State").fill("NJ");
+    await page.getByLabel("ZIP code").fill("07030");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("This address is outside New York · contact us")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Your venue" })).toBeVisible();
+    // Then the real address, the number guests call and a booking inbox address: Continue saves it.
+    await page.getByLabel("Street", { exact: true }).fill("31-18 Steinway St");
+    await page.getByLabel("City").fill("Astoria");
+    await page.getByLabel("State").fill("NY");
+    await page.getByLabel("ZIP code").fill("11103");
+    await page.getByLabel("Number guests call").fill("+1 718 555 0100");
+    await page.getByRole("button", { name: "Add an address" }).click();
+    await page.getByLabel("Booking inbox address 1").fill(`bookings-${n}@example.com`);
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Your plan" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: /Your venue/ })).toContainText("Done");
+    await expect(page.getByText("1 of 12 done")).toBeVisible();
+
+    // Skip for now on Your plan: it stays needed before opening.
     await page.getByRole("button", { name: "Skip for now" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Card payments" })).toBeVisible();
     await expect(rail.getByRole("button", { name: /Your plan/ })).toContainText(
@@ -127,17 +146,6 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
     // Save and finish later leaves for the owner's home.
     await page.getByRole("button", { name: "Save and finish later" }).click();
     await expect(page).toHaveURL(/\/tonight$/);
-
-    // Meanwhile Your venue is saved (its form arrives with O-03): the address and the guest phone.
-    await db.query(
-      `update venues set address = '{"line1":"31-18 Steinway St","city":"Astoria","state":"NY","postal_code":"11103"}' where id = $1`,
-      [venueId],
-    );
-    await db.query(
-      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_by)
-         values ($1, 'phone', 1, '{"callNumber":"+17185550100","textNumber":"+17185550100"}', '2026-09-01', $2)`,
-      [venueId, user.rows[0]!.id],
-    );
 
     // Signing in again, as on another device, opens the next step not done: Card payments.
     await page.context().clearCookies();
@@ -158,6 +166,20 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
     await page.goto("/admin/setup");
     await expect(page.getByText("1 of 12 done")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open Set up your venue" })).toBeVisible();
+
+    // Admin → Venue and Admin → Phone & texts show step 1's answers.
+    await page.goto("/admin/venue");
+    await expect(page.getByLabel("City")).toHaveValue("Astoria");
+    await expect(page.getByLabel("Number guests call")).toHaveValue("+17185550100");
+    await expect(page.getByLabel("Booking inbox address 1")).toHaveValue(
+      `bookings-${n}@example.com`,
+    );
+    await expect(page.getByLabel("Legal name")).toHaveValue(`E2E Setup ${n} LLC`);
+    await page.goto("/admin/phone");
+    await expect(page.getByLabel("Call number", { exact: true })).toHaveValue("+17185550100");
+    await expect(
+      page.getByText("Not set yet · our team sets up your texting number"),
+    ).toBeVisible();
   } finally {
     await db.end();
   }

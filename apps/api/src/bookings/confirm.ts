@@ -13,6 +13,7 @@ import {
 import { businessDate, cutoffWords, refundCutoffAt } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { copyToBookingInbox } from "./inbox.js";
 import { REFUND_RUN_KIND } from "../payments/refunds.js";
 import { venueClock } from "../rooms/assignment.js";
 import { clockWords } from "../texts/triggers.js";
@@ -165,6 +166,8 @@ export async function settleDeposit(
     payload: { booking_id: b.id },
     runAt: now,
   });
+  // The booking inbox gets a copy of each new online booking (O-03).
+  await copyToBookingInbox(c, { venueId, event: "new", refId: b.id, runAt: now });
   await emitEvent(c, { venueId, type: "booking.updated", entityId: b.id });
   return "confirmed";
 }

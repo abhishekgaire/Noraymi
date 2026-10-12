@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   SETUP_STEPS,
@@ -17,6 +17,7 @@ import { Dialog, useSheetDialog } from "../../layout/Dialog.js";
 import { useT } from "../../i18n.js";
 import { homeFor } from "../../navigation.js";
 import { useSession } from "../../session.js";
+import { VenueForm } from "./Venue.js";
 import "./setup.css";
 
 /**
@@ -38,7 +39,7 @@ interface SetupAnswer {
 
 /** Where each step's answers live afterwards ("Lives in", spec 17); null until its Admin section exists. */
 const LIVES_IN: Record<SetupStep, string | null> = {
-  venue: "phone",
+  venue: "venue",
   plan: null,
   card: null,
   rooms: "rooms",
@@ -130,6 +131,12 @@ export function SetUpVenue() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // The open step's form, when it has one (O-03 onward): Continue and Save and finish later save it first.
+  const stepSave = useRef<(() => Promise<boolean>) | null>(null);
+  const registerSave = useCallback((save: (() => Promise<boolean>) | null) => {
+    stepSave.current = save;
+  }, []);
+  const saveStep = async () => (stepSave.current ? stepSave.current() : true);
 
   const current: SetupStep = isSetupStep(params["step"])
     ? params["step"]
@@ -268,7 +275,9 @@ export function SetUpVenue() {
                 </button>
               </div>
             )}
-            {answer && here && <StepBody step={here} />}
+            {answer && here && (
+              <StepBody step={here} registerSave={registerSave} onSaved={() => void reload()} />
+            )}
             {answer && last && (
               <Readiness answer={answer} onFinish={() => setConfirming(true)} busy={busy} />
             )}
@@ -282,7 +291,11 @@ export function SetUpVenue() {
             <button
               type="button"
               className="secondary"
-              onClick={() => navigate(homeFor(signedIn.membership.role))}
+              onClick={() =>
+                void saveStep().then((ok) => {
+                  if (ok) navigate(homeFor(signedIn.membership.role));
+                })
+              }
             >
               {t("onboarding.saveLater")}
             </button>
@@ -310,10 +323,13 @@ export function SetUpVenue() {
                 <button
                   type="button"
                   className="primary"
-                  onClick={() => {
-                    void reload();
-                    go(SETUP_STEPS[index + 1]!);
-                  }}
+                  onClick={() =>
+                    void saveStep().then(async (ok) => {
+                      if (!ok) return;
+                      await reload();
+                      go(SETUP_STEPS[index + 1]!);
+                    })
+                  }
                 >
                   {t("onboarding.continue")}
                 </button>
@@ -339,9 +355,24 @@ export function SetUpVenue() {
   );
 }
 
-function StepBody({ step }: { step: SetupStepState }) {
+function StepBody({
+  step,
+  registerSave,
+  onSaved,
+}: {
+  step: SetupStepState;
+  registerSave: (save: (() => Promise<boolean>) | null) => void;
+  onSaved: () => void;
+}) {
   const { t } = useT();
   const section = sectionOf(step.id);
+  // Step 1's form (O-03): the same one as Admin → Venue.
+  if (step.id === "venue")
+    return (
+      <div className="setup-card">
+        <VenueForm registerSave={registerSave} onSaved={onSaved} />
+      </div>
+    );
   return (
     <div className="setup-card">
       {section ? (

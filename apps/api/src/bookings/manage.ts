@@ -29,6 +29,7 @@ import {
 import { Temporal } from "@west4/shared";
 import { z } from "zod";
 import { ApiError } from "../http/errors.js";
+import { copyToBookingInbox } from "./inbox.js";
 import { acceptedRule, moneyStatus, refundHeld } from "./cancel.js";
 import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
 import { LINK_DAYS_AFTER, nightFacts } from "./online.js";
@@ -492,5 +493,7 @@ export async function changeBooking(
     pay_url: payUrl,
   };
   if (preview) await c.query("rollback to savepoint manage_preview");
+  // The booking inbox gets a copy of the change (O-03).
+  else await copyToBookingInbox(c, { venueId, event: "changed", refId: b.id, runAt: now });
   return answer;
 }

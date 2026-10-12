@@ -273,7 +273,36 @@ export const barModeSchema = z
 export const alertsSchema = z.object({ roomEndingMin: z.number().int().nonnegative() }).strict();
 
 const e164 = z.string().regex(/^\+[1-9]\d{6,14}$/, "an E.164 phone number");
-export const phoneSchema = z.object({ callNumber: e164, textNumber: e164 }).strict();
+/**
+ * The number guests call, and the Twilio number texts come from. The text number is null until our
+ * team makes the venue's texting number (O-03): a venue set up in the wizard has none yet.
+ */
+export const phoneSchema = z.object({ callNumber: e164, textNumber: e164.nullable() }).strict();
+
+/** One of the venue's on-call responders (D115): a membership and the hours they answer, venue time. */
+const onCallSchema = z
+  .object({
+    membershipId: z.string().uuid(),
+    days: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+    from: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    to: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  })
+  .strict();
+
+/**
+ * The venue's own contacts, the owner's alone (D115; spec 03 · contacts, spec 17 steps 1 and 9):
+ * up to 3 booking inbox addresses, the first and second on-call responders, the breach contact and
+ * a backup. Empty until the owner names them, never guessed.
+ */
+export const contactsSchema = z
+  .object({
+    bookingEmails: z.array(z.string().trim().toLowerCase().email().max(254)).max(3),
+    onCall: z.object({ first: onCallSchema.nullable(), second: onCallSchema.nullable() }).strict(),
+    breach: z
+      .object({ primary: z.string().uuid().nullable(), backup: z.string().uuid().nullable() })
+      .strict(),
+  })
+  .strict();
 export const websiteSchema = z
   .object({ priceWording: z.enum(["plusTaxAndGratuity", "allIn"]) })
   .strict();
@@ -358,6 +387,7 @@ export const settingsSchemas = {
   languages: languagesSchema,
   kitchen: kitchenSchema,
   publicForms: publicFormsSchema,
+  contacts: contactsSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -386,6 +416,7 @@ export type KitchenSettings = z.infer<typeof kitchenSchema>;
 export type FormLimits = z.infer<typeof formLimitsSchema>;
 export type PublicFormsSettings = z.infer<typeof publicFormsSchema>;
 export type PublicForm = keyof PublicFormsSettings;
+export type ContactsSettings = z.infer<typeof contactsSchema>;
 
 /**
  * The daily limits until a venue sets its own (D109), from common practice for public sign-up
@@ -406,9 +437,17 @@ export const KITCHEN_DEFAULTS: KitchenSettings = {
   unsentWarnMin: 5,
 };
 
+/** The `contacts` key until the owner names anyone: nobody, never guessed (D115). */
+export const CONTACTS_EMPTY: ContactsSettings = {
+  bookingEmails: [],
+  onCall: { first: null, second: null },
+  breach: { primary: null, backup: null },
+};
+
 /** Keys every venue reads with a default until it saves its own (a venue made before the key existed). */
 export const settingsDefaults: Partial<SettingsMap> = {
   kitchen: KITCHEN_DEFAULTS,
+  contacts: CONTACTS_EMPTY,
   publicForms: PUBLIC_FORM_DEFAULTS,
 };
 

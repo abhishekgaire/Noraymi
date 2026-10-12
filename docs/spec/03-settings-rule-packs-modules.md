@@ -21,7 +21,7 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `rooms` | Cleaning time between bookings, how cleaning ends, when the board flags a room still cleaning, and whether a room stays on by the minute when nobody's booked next |
 | `barMode` | The song price (not set at West 4), the drink credit for "Buy a drink, get a song", free nights, songs per singer per round, singer alerts, and how many singers the Up next TV shows ([Song systems and texts](11-song-systems-texts.md)) |
 | `alerts` | When a room's tile warns that its time is ending. The other alert times live with their topic: `pos.orderAging`, `rooms.cleaningFlagMin`, `tabs.flagOverCents`, `deposit.graceMin` and `safety.warnAtPct` |
-| `phone` | The number guests call and the number texts come from |
+| `phone` | The number guests call and the number texts come from (empty until our team makes the venue's texting number; a venue set up in [onboarding](17-onboarding.md) saves the call number first) |
 | `website` | How the site words prices |
 | `messages` | When the reminder and offer-expiring texts go out |
 | `safety` | The occupancy limit and when the board warns (empty at West 4, and never guessed), and the age policy (D108): 21 and over, or all ages until a time and 21 and over after |

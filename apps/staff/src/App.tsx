@@ -41,6 +41,7 @@ import { Invite } from "./screens/Invite.js";
 import { NotFound } from "./screens/NotFound.js";
 import { Setup } from "./screens/Setup.js";
 import { SetUpVenue, SetupChecklistView } from "./screens/admin/SetUpVenue.js";
+import { Venue } from "./screens/admin/Venue.js";
 import { SignIn } from "./screens/SignIn.js";
 import { Approvals } from "./screens/Approvals.js";
 import { TipsToEnter } from "./screens/TipsToEnter.js";
@@ -160,6 +161,7 @@ export function StaffRoutes() {
         <Route path="/admin" element={<Admin />}>
           <Route index element={<AdminIndex />} />
           <Route path="team" element={<Team />} />
+          <Route path="venue" element={<Venue />} />
           <Route path="features" element={<Features />} />
           <Route path="hours" element={<Hours />} />
           <Route path="devices" element={<Devices />} />

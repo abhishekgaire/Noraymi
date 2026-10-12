@@ -45,6 +45,7 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   const { t } = useT();
   const sections = visibleSections(state.membership.permissions, {
     allowedModules: state.membership.modules_allowed ?? [],
+    role: state.membership.role,
   });
   return (
     <div className="admin">

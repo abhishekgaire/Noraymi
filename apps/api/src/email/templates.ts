@@ -27,6 +27,18 @@ export const ownerInviteData = z
   })
   .strict();
 
+/** The booking inbox's copy (O-03): who, how many, when and which room; never card data. */
+export const bookingInboxData = z
+  .object({
+    venueName: z.string().min(1),
+    event: z.enum(["new", "changed", "cancelled", "enquiry"]),
+    guestName: z.string().min(1),
+    partySize: z.number().int().positive(),
+    when: z.string().min(1),
+    room: z.string().min(1).nullable(),
+  })
+  .strict();
+
 /** The one-time code for the authenticator-app sign-in and the first enrollment (M1-19). */
 export const signInCodeData = z
   .object({
@@ -158,6 +170,7 @@ export const gateWeekData = z
 export const templateSchemas = {
   invite: inviteData,
   owner_invite: ownerInviteData,
+  booking_inbox: bookingInboxData,
   sign_in_code: signInCodeData,
   owner_recovery_notice: ownerRecoveryNoticeData,
   receipt: receiptData,
@@ -250,6 +263,32 @@ export function render<N extends TemplateName>(
         `<p style="color:#666">${escapeHtml(paragraphs[5]!)}</p>`,
       ].join("\n");
       return { subject: line("email.ownerInvite.subject"), text: paragraphs.join("\n\n"), html };
+    }
+    case "booking_inbox": {
+      const d = data as TemplateData<"booking_inbox">;
+      const values = {
+        venue: d.venueName,
+        name: d.guestName,
+        party: d.partySize,
+        when: d.when,
+        room: d.room ?? "",
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const event = d.event as "new" | "changed" | "cancelled" | "enquiry";
+      const paragraphs = [
+        line(`email.bookingInbox.${event}.body` as MessageKey),
+        line("email.bookingInbox.party"),
+        line("email.bookingInbox.when"),
+        ...(d.room ? [line("email.bookingInbox.room")] : []),
+        line("email.bookingInbox.where"),
+        line("email.bookingInbox.footer"),
+      ];
+      const html = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n");
+      return {
+        subject: line(`email.bookingInbox.${event}.subject` as MessageKey),
+        text: paragraphs.join("\n\n"),
+        html,
+      };
     }
     case "receipt": {
       const d = data as TemplateData<"receipt">;

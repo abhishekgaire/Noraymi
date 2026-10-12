@@ -45,6 +45,16 @@ export function settingsRoutes(
     idempotency: "optional",
   });
 
+  /** `contacts` is the owner's alone (D115): read and saved by an owner only. */
+  const ownerOnlyKey = (request: FastifyRequest, key: string) => {
+    if (key !== "contacts") return;
+    const p = request.principal;
+    const here =
+      p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
+    if (here?.role !== "owner")
+      throw new ApiError("forbidden", "the venue's contacts are the owner's alone");
+  };
+
   const venueClock = async (request: FastifyRequest) =>
     request.inVenue(async (c) => {
       const r = await c.query<{
@@ -65,6 +75,7 @@ export function settingsRoutes(
   }>("/v1/venues/:venueId/settings/:key", { config: staff }, async (request) => {
     const key = request.params.key;
     if (!isSettingsKey(key)) throw new ApiError("not_found", `no settings key "${key}"`);
+    ownerOnlyKey(request, key);
     const venue = await venueClock(request);
     const date =
       request.query.business_date !== undefined
@@ -84,6 +95,7 @@ export function settingsRoutes(
   });
 
   const save = async (request: FastifyRequest, values: Record<string, unknown>) => {
+    for (const key of Object.keys(values)) ownerOnlyKey(request, key);
     const venue = await venueClock(request);
     const today = businessDate(
       options.clock.now(),
@@ -108,6 +120,33 @@ export function settingsRoutes(
           p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
         if (here?.role !== "owner")
           throw new ApiError("forbidden", "only the owner sets which refunds alert the owner");
+      }
+    }
+    // Only an active owner or manager can be a venue's on-call or breach contact (D115).
+    if ("contacts" in values) {
+      const parsed = settingsSchemas.contacts.safeParse(values["contacts"]);
+      if (parsed.success) {
+        const named = [
+          parsed.data.onCall.first?.membershipId,
+          parsed.data.onCall.second?.membershipId,
+          parsed.data.breach.primary,
+          parsed.data.breach.backup,
+        ].filter((id): id is string => typeof id === "string");
+        if (named.length > 0) {
+          const ok = await request.inVenue((c) =>
+            c.query<{ id: string }>(
+              `select id from memberships where venue_id = $1 and id = any($2::uuid[])
+                  and role in ('owner', 'manager') and status = 'active'`,
+              [request.venueId, named],
+            ),
+          );
+          const found = new Set(ok.rows.map((r) => r.id));
+          const refused = named.filter((id) => !found.has(id));
+          if (refused.length > 0)
+            throw new ApiError("invalid_request", "contacts: only an active owner or manager", {
+              details: { reasons: ["contacts: only an active owner or manager"], refused },
+            });
+        }
       }
     }
     if ("pay" in values) {

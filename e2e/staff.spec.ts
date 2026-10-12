@@ -51,6 +51,8 @@ const ADMIN_SECTIONS = [
   "/admin/bar-pos",
   "/admin/bar-mode",
   "/admin/console",
+  "/admin/venue",
+  "/admin/setup",
 ];
 const SCREENS = [
   "/tonight",

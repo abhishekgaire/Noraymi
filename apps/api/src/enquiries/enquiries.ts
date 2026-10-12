@@ -12,6 +12,7 @@ import { Temporal } from "@west4/shared";
 import { z } from "zod";
 import { managerOnDutyAt } from "../approvals/service.js";
 import { ApiError } from "../http/errors.js";
+import { copyToBookingInbox } from "../bookings/inbox.js";
 
 /**
  * Private-party enquiries (M5-04; API · Enquiries; Song systems and texts ·
@@ -92,6 +93,8 @@ export async function takeEnquiry(
       onDuty,
     ]);
   await emitEvent(c, { venueId, type: "message.received", entityId: conversationId });
+  // The booking inbox gets a copy of each party enquiry (O-03).
+  await copyToBookingInbox(c, { venueId, event: "enquiry", refId: enquiryId, runAt: now });
   return { id: enquiryId, conversation_id: conversationId };
 }
 

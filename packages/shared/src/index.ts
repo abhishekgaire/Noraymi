@@ -47,6 +47,8 @@ export {
   startsNextBusinessDate,
   withLaterPart,
   KITCHEN_DEFAULTS,
+  CONTACTS_EMPTY,
+  contactsSchema,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,
   walkInTakes,
@@ -72,6 +74,7 @@ export type {
   BarModeSettings,
   AlertSettings,
   PhoneSettings,
+  ContactsSettings,
   WebsiteSettings,
   MessageSettings,
   SafetySettings,
@@ -152,3 +155,4 @@ export {
 export * from "./support.js";
 export * from "./telemetry/index.js";
 export * from "./setup.js";
+export * from "./venue-profile.js";

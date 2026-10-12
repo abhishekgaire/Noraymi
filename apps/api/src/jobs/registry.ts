@@ -7,6 +7,7 @@ import type { IdKeyStore } from "../id-keys/store.js";
 import type { Mailer } from "../email/mailer.js";
 import type { EmailSettings } from "../email/settings.js";
 import { EMAIL_SEND_KIND, makeSendEmailHandler } from "./send-email.js";
+import { BOOKING_INBOX_KIND, makeBookingInboxHandler } from "../bookings/inbox.js";
 import { deviceWatchSweep } from "./device-watch.js";
 import { readerHealthSweep } from "./reader-health.js";
 import { routerWatchSweep } from "./router-watch.js";
@@ -160,6 +161,8 @@ export function makeHandlers({
     normal: {
       ...stripeEvents,
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
+      // The booking inbox's copies (O-03): one email per address in contacts.bookingEmails.
+      [BOOKING_INBOX_KIND]: makeBookingInboxHandler(email),
       [PUSH_SEND_KIND]: makePushSendHandler(push),
       [SINGER_PUSH_KIND]: makeSingerPushHandler(push),
       [TEXT_SEND_KIND]: makeSendTextHandler(texts),

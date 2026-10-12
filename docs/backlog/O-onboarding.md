@@ -81,7 +81,7 @@ Definition of done: see CLAUDE.md.
 
 ### O-03 · Step 1, Your venue, and Admin → Venue with the booking inbox
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** O-02; M2-10 (Admin → Phone & texts), M1-18 (email)
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 1; [Settings](../spec/03-settings-rule-packs-modules.md) · `contacts`
@@ -90,10 +90,17 @@ Definition of done: see CLAUDE.md.
   - An address outside New York is refused with "contact us"; the time zone and rule pack never change here.
   - A copy of each new online booking, change, cancellation and enquiry goes to the booking inbox, with no card data; empty sends none.
 - **Acceptance:**
-  - [ ] The step's answers show in Admin → Venue and Admin → Phone & texts, and changing them there changes the checklist.
-  - [ ] A new online booking sends one email to each booking inbox address (Mailpit), and none when empty.
-  - [ ] No EIN field exists anywhere in our forms or tables.
+  - [x] The step's answers show in Admin → Venue and Admin → Phone & texts, and changing them there changes the checklist.
+  - [x] A new online booking sends one email to each booking inbox address (Mailpit), and none when empty.
+  - [x] No EIN field exists anywhere in our forms or tables.
 - **Tests:** integration tests; Mailpit; a venue-wall test for `contacts`.
+- **Notes:**
+  - Built (Oct 12, 2026): `GET` and `PUT /v1/venues/{v}/profile` (`apps/api/src/routes/venue-profile.ts`; the owner's, passkey; name, legal name and address; migration `0144_venue_profile.sql` grants only those columns); the `contacts` settings key (spec 03, D115) read and saved by the owner alone, naming only active owners or managers, empty until saved (`CONTACTS_EMPTY`); the booking inbox job (`apps/api/src/bookings/inbox.ts`, `booking.inbox`) queued from a confirmed online booking, a guest's change, a guest's cancellation and a party enquiry, sending the `booking_inbox` email once per address; Admin → Venue and step 1's form (`apps/staff/src/screens/admin/Venue.tsx`; Continue and Save and finish later save it). Tests: `apps/api/src/routes/venue-profile.int.test.ts` (Mailpit, owner-only, the wall, no EIN column), `packages/shared/src/venue-profile.test.ts`, `e2e/setup.staff.spec.ts`, and the Spanish check in `e2e/staff.spec.ts` now covers Admin → Venue and Admin → Setup.
+  - Cautious default: "outside New York" is read as outside New York City (state NY and a city ZIP code: 100 to 104, 110 to 114, 116), since the rule pack is New York City's tax and hours. A venue elsewhere in the state is refused with "contact us" until the founder says otherwise.
+  - `phone.textNumber` may now be empty (null): a new venue has no texting number until our team makes it (`twilio:subaccount`), and the wizard never fills one in. Spec 03's `phone` row says so. Admin → Phone & texts shows "Not set yet" and handles a venue with no numbers saved.
+  - The booking inbox's copy is in English (the inbox belongs to no one person) and carries the guest's name, the party, the time and the room only. A venue's own cancellation (a blocked date) isn't copied; only the guest's online booking, change, cancellation and enquiry are.
+  - Admin → Venue is owner-only through a new `ownerOnly` flag on the Admin section list, without a new permission row.
+
 
 ### O-04 · Step 2, Your plan: three plans, a promo code and Stripe Checkout
 

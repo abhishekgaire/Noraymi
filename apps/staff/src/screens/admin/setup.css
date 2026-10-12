@@ -248,3 +248,48 @@
     padding-right: var(--w4-space-4);
   }
 }
+
+/* Admin → Venue and step 1 (O-03). */
+.venue-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-4);
+  width: 100%;
+  max-width: 640px;
+}
+.venue-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.venue-form input {
+  min-height: 44px;
+}
+.venue-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--w4-space-3);
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius-md);
+  padding: var(--w4-space-3);
+}
+.venue-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--w4-space-3);
+}
+.venue-email {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--w4-space-2);
+  align-items: end;
+}
+.venue-form button {
+  min-height: 44px;
+  align-self: flex-start;
+}
+@media (max-width: 600px) {
+  .venue-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

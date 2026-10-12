@@ -83,6 +83,21 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Tu local {venue} está listo para que lo configures. Abre el enlace para confirmar tu teléfono, elegir tu propio PIN y añadir una llave de acceso; después, Configura tu local te guía en lo demás.",
   "email.ownerInvite.button": "Configurar mi local",
   "email.ownerInvite.expires": "El enlace funciona una sola vez y caduca a los {days} días.",
+  // The booking inbox's copy (O-03).
+  "email.bookingInbox.new.subject": "Nueva reserva · {name}, {party} personas, {when}",
+  "email.bookingInbox.changed.subject": "Reserva cambiada · {name}, {when}",
+  "email.bookingInbox.cancelled.subject": "Reserva cancelada · {name}, {when}",
+  "email.bookingInbox.enquiry.subject": "Consulta de fiesta · {name}, {party} personas, {when}",
+  "email.bookingInbox.new.body": "{name} reservó en línea en {venue}.",
+  "email.bookingInbox.changed.body": "{name} cambió su reserva en {venue}.",
+  "email.bookingInbox.cancelled.body": "{name} canceló su reserva en {venue}.",
+  "email.bookingInbox.enquiry.body": "{name} envió una consulta de fiesta privada a {venue}.",
+  "email.bookingInbox.party": "Personas: {party}",
+  "email.bookingInbox.when": "Cuándo: {when}",
+  "email.bookingInbox.room": "Sala: {room}",
+  "email.bookingInbox.where": "Abre la app del personal para verla en el tablero o en Mensajes.",
+  "email.bookingInbox.footer":
+    "Una copia para el buzón de reservas de {venue}, configurado en Admin → Local. Nunca lleva datos de tarjetas.",
   // Código de inicio de sesión (M1-19). {code} y {minutes} se rellenan al enviar.
   "email.signInCode.subject": "Tu código para entrar en {venue}",
   "email.signInCode.greeting": "Hola, {name}:",
@@ -590,6 +605,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "En el sitio web, en los mensajes, en cada botón Llamar y en Llama para reservar",
   "phone.textNumber": "Número para mensajes",
   "phone.textNumber.hint": "El número que envía los mensajes; puede ser el mismo de llamadas",
+  "phone.textNumber.notSet": "Sin configurar · nuestro equipo prepara tu número de mensajes",
   "phone.invalid": "Un número como +1 212 255 0011",
   "phone.shows": "Se muestra como {number}",
   // Admin → Teléfono y mensajes: las campañas 10DLC (M8-22).
@@ -3482,4 +3498,36 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.missing.reader": "un lector de tarjetas",
   "onboarding.missing.receiptPrinter": "una impresora de recibos con caja",
   "onboarding.missing.merchantCategory": "la comprobación de la categoría de comercio",
+  // Admin → Venue and Set up your venue's step 1 (O-03).
+  "admin.section.venue": "Local",
+  "admin.hint.venue":
+    "El nombre de tu local, el nombre legal, la dirección, el teléfono para clientes y el buzón de reservas",
+  "venue.name": "Nombre que ven los clientes",
+  "venue.legalName": "Nombre legal",
+  "venue.legalNameHint":
+    "El formulario de Stripe y el registro de mensajes parten de él. Nunca te pedimos tu EIN: lo escribes en los formularios de Stripe y del registro de mensajes.",
+  "venue.address": "Dirección",
+  "venue.line1": "Calle",
+  "venue.line2": "Piso o local (opcional)",
+  "venue.city": "Ciudad",
+  "venue.state": "Estado",
+  "venue.zip": "Código postal",
+  "venue.addressHint": "Confirma las reglas y la zona horaria de Nueva York; aquí nunca cambian.",
+  "venue.addressPartial":
+    "Completa la calle, la ciudad, el estado y el código postal, o déjalos todos vacíos",
+  "venue.outsideNewYork": "Esta dirección está fuera de Nueva York · contáctanos",
+  "venue.guestPhone": "Número al que llaman los clientes",
+  "venue.guestPhoneHint": "En el sitio web, en los mensajes y detrás de cada botón Llamar",
+  "venue.bookingInbox": "Buzón de reservas",
+  "venue.bookingInboxHint":
+    "Hasta 3 direcciones reciben una copia de cada reserva en línea, cambio, cancelación y consulta de fiesta, sin datos de tarjetas. Vacío no envía nada.",
+  "venue.bookingEmail": "Dirección del buzón de reservas {n}",
+  "venue.addEmail": "Añadir una dirección",
+  "venue.removeEmail": "Quitar",
+  "venue.invalidEmail": "Un correo como reservas@tulocal.com",
+  "venue.notSet": "Sin configurar",
+  "venue.save": "Guardar",
+  "venue.saving": "Guardando…",
+  "venue.saved": "Guardado",
+  "venue.saveFailed": "No se pudo guardar",
 };

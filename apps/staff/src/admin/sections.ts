@@ -17,6 +17,8 @@ export interface AdminSection {
   readonly shipped: boolean;
   /** Listed only where the Console allows this module, on or off (Admin → Kitchen, K-01). */
   readonly module?: ModuleId;
+  /** The owner's alone, on top of the action (Admin → Venue, O-03: the `contacts` key is the owner's). */
+  readonly ownerOnly?: boolean;
 }
 
 export const adminSections: readonly AdminSection[] = [
@@ -27,6 +29,16 @@ export const adminSections: readonly AdminSection[] = [
     hintKey: "admin.hint.team",
     action: "admin.team",
     shipped: true,
+  },
+  {
+    // The venue's own facts and contacts (O-03; spec 17 step 1): the owner's.
+    id: "venue",
+    path: "/admin/venue",
+    labelKey: "admin.section.venue",
+    hintKey: "admin.hint.venue",
+    action: "admin.access",
+    shipped: true,
+    ownerOnly: true,
   },
   {
     id: "features",
@@ -220,13 +232,22 @@ export const adminSections: readonly AdminSection[] = [
 
 export function visibleSections(
   permissions: readonly Action[],
-  options: { includeUnshipped?: boolean; allowedModules?: readonly ModuleId[] } = {},
+  options: {
+    includeUnshipped?: boolean;
+    allowedModules?: readonly ModuleId[];
+    /** The person's role; without it, owner-only sections are listed only when `admin.team` is allowed (an owner). */
+    role?: string;
+  } = {},
   sections: readonly AdminSection[] = adminSections,
 ): AdminSection[] {
   return sections.filter(
     (s) =>
       (s.shipped || options.includeUnshipped === true) &&
       permissions.includes(s.action) &&
+      (!s.ownerOnly ||
+        (options.role !== undefined
+          ? options.role === "owner"
+          : permissions.includes("admin.team"))) &&
       (s.module === undefined || (options.allowedModules ?? []).includes(s.module)),
   );
 }

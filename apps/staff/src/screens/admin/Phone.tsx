@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PhoneSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
-import { api } from "../../api.js";
+import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 
@@ -38,10 +38,15 @@ export function Phone() {
   const [campaign, setCampaign] = useState<CampaignView | null>(null);
 
   const load = useCallback(async () => {
+    // A venue set up in the wizard (O-03) may have no numbers yet: empty, never filled in for it.
     const answer = await api<{ value: PhoneSettings }>(
       "GET",
       `/v1/venues/${venueId}/settings/phone`,
-    );
+    ).catch((e: unknown) => {
+      if (e instanceof ApiCallError && e.status === 404)
+        return { value: { callNumber: "", textNumber: null } as unknown as PhoneSettings };
+      throw e;
+    });
     setSaved(answer.value);
     // The 10DLC campaigns (M8-22): read only; set by our ops command once Twilio reports.
     setCampaign(await api<CampaignView>("GET", `/v1/venues/${venueId}/texts/campaign`));
@@ -55,7 +60,9 @@ export function Phone() {
   const current = (draft.values["phone"] as PhoneSettings | undefined) ?? saved;
   const field = (key: keyof PhoneSettings, label: "phone.callNumber" | "phone.textNumber") => {
     const value = raw[key] ?? current?.[key] ?? "";
-    const ok = E164.test(value.replace(/[\s()-]/g, ""));
+    // The text number stays empty until our team makes the venue's texting number.
+    const empty = key === "textNumber" && value.trim() === "";
+    const ok = empty || E164.test(value.replace(/[\s()-]/g, ""));
     return (
       <label key={key}>
         <span>{t(label)}</span>
@@ -67,11 +74,15 @@ export function Phone() {
           onChange={(e) => {
             setRaw((r) => ({ ...r, [key]: e.target.value }));
             const clean = e.target.value.replace(/[\s()-]/g, "");
-            if (current && E164.test(clean)) draft.set("phone", { ...current, [key]: clean });
+            if (current && key === "textNumber" && clean === "")
+              draft.set("phone", { ...current, textNumber: null });
+            else if (current && E164.test(clean)) draft.set("phone", { ...current, [key]: clean });
           }}
         />
         <span className="small muted">{t(`${label}.hint`)}</span>
-        {ok ? (
+        {empty ? (
+          <span className="small muted">{t("phone.textNumber.notSet")}</span>
+        ) : ok ? (
           <span className="small">
             {t("phone.shows", { number: formatPhone(value.replace(/[\s()-]/g, "")) })}
           </span>

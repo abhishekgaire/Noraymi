@@ -24,6 +24,7 @@ import {
 } from "@west4/rules";
 import { Temporal, type DepositRule } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { copyToBookingInbox } from "./inbox.js";
 import { enqueueDeclined, savedCardFor } from "../payments/card-on-file.js";
 import { REFUND_RUN_KIND } from "../payments/refunds.js";
 import { enqueueRun } from "../payments/run.js";
@@ -328,6 +329,8 @@ export async function guestCancels(
     [venueId, b.id],
   );
   await emitEvent(c, { venueId, type: "booking.updated", entityId: b.id, entityVersion: 0 });
+  // The booking inbox gets a copy of the guest's cancellation (O-03).
+  await copyToBookingInbox(c, { venueId, event: "cancelled", refId: b.id, runAt: now });
   return outcome;
 }
 

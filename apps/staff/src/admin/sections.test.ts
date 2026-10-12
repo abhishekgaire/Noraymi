@@ -11,6 +11,7 @@ describe("the Admin sections", () => {
     );
     expect(owner).toEqual([
       "team",
+      "venue",
       "features",
       "hours",
       "devices",

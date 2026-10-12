@@ -605,6 +605,8 @@ export function mapSeedSettings(
     kitchen: s["kitchen"],
     // The public forms' daily limits (D109): the seed carries none, so the defaults load.
     publicForms: s["publicForms"],
+    // The venue's own contacts (D115): West 4's seed names none, so the key stays unsaved and reads empty.
+    contacts: s["contacts"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,
