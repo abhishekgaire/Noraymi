@@ -45,7 +45,7 @@ jobs:
           pnpm --filter @west4/guest check:pay -- "$PAY_URL"
       - name: Tell the pages topic
         if: always() && vars.AWS_CHECKS_ROLE_ARN != '' && vars.PAGES_TOPIC_ARN != '' && steps.check.outcome != 'skipped'
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_CHECKS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
