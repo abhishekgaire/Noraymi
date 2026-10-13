@@ -266,15 +266,23 @@ jobs:
       - if: matrix.app != 'desktop'
         run: xvfb-run -a pnpm e2e --project ${{ matrix.app }}
       # The desktop app keeps its token and its cache's key only in the OS keychain (safeStorage),
-      # which a bare runner lacks: run it in a D-Bus session with an unlocked GNOME keyring.
+      # which a bare runner lacks: run it in a D-Bus session with an unlocked GNOME keyring. The
+      # keyring gets a runtime folder of its own, so it can't hand off to a daemon the runner's own
+      # user session starts on another bus; secret-tool proves it answers before the tests start.
       - if: matrix.app == 'desktop'
-        run: sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11
+        run: sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-tools
       - if: matrix.app == 'desktop'
         env:
           XDG_CURRENT_DESKTOP: GNOME
-        run: >-
-          dbus-run-session -- bash -c 'echo -n west4-ci | gnome-keyring-daemon --unlock
-          --components=secrets > /dev/null && xvfb-run -a pnpm e2e --project desktop'
+        run: |
+          export XDG_RUNTIME_DIR="$(mktemp -d)"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          dbus-run-session -- bash -ec '
+            echo -n west4-ci | gnome-keyring-daemon --unlock --components=secrets > /dev/null
+            echo -n probe | secret-tool store --label=west4-ci-probe west4 ci-probe
+            test "$(secret-tool lookup west4 ci-probe)" = probe
+            echo "keyring answers"
+            xvfb-run -a pnpm e2e --project desktop'
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
