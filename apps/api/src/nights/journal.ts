@@ -40,6 +40,7 @@ export const ACCOUNT_NAMES: Readonly<Record<Account, string>> = {
   legacy_deposits: "Deposits held by the old system",
   prepaid_value: "Prepaid value",
   stripe_clearing: "Stripe clearing",
+  outside_card_clearing: "Outside card machine clearing",
   cash: "Cash",
   cash_over_short: "Cash over and short",
   unmatched_suspense: "Unmatched payments (suspense)",
@@ -73,9 +74,11 @@ export async function buildNightJournal(
       ? "deposit"
       : m.method === "cash"
         ? "cash"
-        : m.method === "prepaid"
-          ? "prepaid"
-          : "card",
+        : m.method === "outside_card"
+          ? "outside_card"
+          : m.method === "prepaid"
+            ? "prepaid"
+            : "card",
     amount_cents: Number(m.amount),
     tip_cents: m.deposit ? 0 : Number(m.tip),
   }));

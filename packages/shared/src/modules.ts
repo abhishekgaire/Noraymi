@@ -27,6 +27,7 @@ export type ModuleId =
   | "card_behind_bar"
   | "pay_share"
   | "cash_discount"
+  | "outside_card"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -61,6 +62,8 @@ export interface ModuleDef {
    * row, so a venue made before the split keeps working as it did until its owner sets this one.
    */
   readonly inherits?: ModuleId;
+  /** Allowed on every plan but off until the owner turns it on (the outside card machine, D126). */
+  readonly allowedOff?: boolean;
 }
 
 const none: ModuleEffects = { staffApp: [], staffPhone: [], website: [], texts: [] };
@@ -302,6 +305,15 @@ export const modules: readonly ModuleDef[] = [
       website: [],
       texts: [],
     },
+  },
+  // Paid on an outside card machine (D126): every plan allows it; off until the owner turns it on.
+  {
+    id: "outside_card",
+    core: false,
+    phase1: true,
+    needs: [],
+    allowedOff: true,
+    hides: { staffApp: ["pay.outsideCard"], staffPhone: [], website: [], texts: [] },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },

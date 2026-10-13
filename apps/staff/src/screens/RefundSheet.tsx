@@ -177,7 +177,13 @@ export function RefundSheet({
               <label key={p.payment_id}>
                 <span>
                   {t("refund.upTo", {
-                    label: p.label ?? (p.method === "cash" ? t("refund.cash") : t("refund.card")),
+                    label:
+                      p.label ??
+                      (p.method === "cash"
+                        ? t("refund.cash")
+                        : p.method === "outside_card"
+                          ? t("refund.outsideCard")
+                          : t("refund.card")),
                     amount: money(p.max_refundable_cents as never),
                   })}
                 </span>

@@ -212,7 +212,10 @@ export async function receiptModel(
             })
           : p.kind === "cash"
             ? t("en", "yourBill.paidBy.cash")
-            : t("en", "yourBill.paidBy.other");
+            : p.kind === "card"
+              ? // The venue's outside machine (F-10) keeps no card details here: just "Card".
+                t("en", "yourBill.paidBy.outsideCard")
+              : t("en", "yourBill.paidBy.other");
     payments.push({ label, amount_cents: -p.amount_cents });
   }
   const tip = card.rows.reduce((s, p) => s + Number(p.tip_cents), 0);

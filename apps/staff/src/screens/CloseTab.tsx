@@ -5,6 +5,8 @@ import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
 import { TapPayment } from "./TapPayment.js";
 import { SavedCard } from "./SavedCard.js";
+import { OutsideCardPanel } from "./OutsideCardPanel.js";
+import { useModuleOn } from "../useModule.js";
 
 /**
  * Close a tab to its held card (M6-08; Staff screens and the bar POS · Paying
@@ -83,7 +85,8 @@ export function CloseTab({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   // Another card or cash (M6-11), or the saved card on a reopened tab (M6-12), and what it paid.
-  const [other, setOther] = useState<"card" | "cash" | "saved" | null>(
+  const outsideOn = useModuleOn("outside_card");
+  const [other, setOther] = useState<"card" | "cash" | "saved" | "outside" | null>(
     savedCard?.paymentId ? "saved" : null,
   );
   const [paidOther, setPaidOther] = useState<Taken | "card" | "saved" | null>(null);
@@ -228,6 +231,17 @@ export function CloseTab({
                 onChanged();
               }}
             />
+          ) : other === "outside" ? (
+            <OutsideCardPanel
+              venueId={venueId}
+              checkId={checkId}
+              dueCents={totalCents}
+              payUrl={payUrl}
+              onTaken={() => {
+                setPaidOther("card");
+                onChanged();
+              }}
+            />
           ) : (
             <CashPanel
               venueId={venueId}
@@ -287,6 +301,16 @@ export function CloseTab({
           >
             {t("cash.title")}
           </button>
+          {outsideOn && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setOther("outside")}
+            >
+              {t("outsideCard.title")}
+            </button>
+          )}
           <button type="button" className="link" onClick={onClose}>
             {t("closeTab.back")}
           </button>

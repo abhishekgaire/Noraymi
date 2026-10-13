@@ -1205,6 +1205,8 @@ People, roles, invites, badges, languages, training mode. See 15.1.
 - Turning off Rooms & room clock lists what goes with it ("These turn off with it: …").
 - Turn off Walk-in waitlist: the phone Waitlist tab disappears. Turn it back on.
 
+- **Paid on outside card machine** (D126) is off. Turn it on: Room 9's pay panels and the bar POS's Close tab gain **Outside card machine**: type the amount charged on your own machine, the tip and, if you like, the last 4 or approval code, and press **Record payment** ("Recorded · $… on the outside machine"). A whole card number in the note is refused ("Type only the last 4 or the approval code, never the card number"). Close the night's report then lists **Outside card machine**, its tips and the total by person, to match the machine's own batch report; a refund of it reads **Refunded on outside machine**. Turn it off again.
+
 ### 19.3 Hours & prices
 - Mon–Fri 4:00 PM–4:00 AM, Sat–Sun 2:00 PM–4:00 AM.
 - Set last call to 4:30 AM: refused, naming 4:00 AM. 3:00 AM saves.

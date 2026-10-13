@@ -53,6 +53,7 @@ Sing Sing's own choices in Set up your venue's **Choose your features** ([D124](
 | Ordering from the room | On | Founder, Oct 13, 2026 |
 | Keep the card behind the bar for walk-ins | On | Founder, Oct 13, 2026 |
 | Cash discount | On (its rate is still to give, step 7; until then nothing is discounted) | Founder, Oct 13, 2026 (D125) |
+| Paid on outside card machine | On, beside Stripe's readers (both on), so it can start on its own machine and move to readers | Founder, Oct 13, 2026 (D126) |
 | Deposits on bookings | Off | Founder, Oct 13, 2026 |
 | Bar mode | Off | Founder, Oct 13, 2026 |
 | Song system control | Off | Founder, Oct 13, 2026 |

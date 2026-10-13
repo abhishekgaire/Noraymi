@@ -216,7 +216,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-10 · Paid on an outside card machine
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** F-03
 - **Spec:** [Payment flows](../spec/07-payment-flows.md) · Outside card machine; [D126](../decisions.md)
@@ -227,8 +227,13 @@ Definition of done: see CLAUDE.md.
   - Close the night shows an **Outside card machine** total, by drawer and by person, for the manager to match against the machine's own batch report; the Z report, reports, exports and the money audit carry it. A split hands leftover cents out by largest remainder.
   - Audited.
 - **Acceptance:**
-  - [ ] Recording a payment closes the check with the tip; a full card number in the note is refused.
-  - [ ] Close the night, the Z report, the exports and the money audit show the outside-machine total, matching to the cent.
-  - [ ] A refund is recorded and approved per the setting.
-  - [ ] The module is refused on the server while off; EN and ES.
+  - [x] Recording a payment closes the check with the tip; a full card number in the note is refused.
+  - [x] Close the night, the Z report, the exports and the money audit show the outside-machine total, matching to the cent.
+  - [x] A refund is recorded and approved per the setting.
+  - [x] The module is refused on the server while off; EN and ES.
 - **Notes:**
+  - Tests first: four `outside_card` cases in `seed/money-cases.json` (tender totals by person, two even splits, the note), run by `packages/rules/src/tenders.test.ts` against `tenderTotals` and `outsideCardNoteOk` (`packages/rules/src/tenders.ts`), and listed in the money audit's known groups.
+  - Built: module `outside_card` (allowed on every plan, off until the owner turns it on: a new `allowedOff` flag); migration 0155 adds the method, `payments.taken_by` and `payments.outside_note` (40 characters, any run of 13+ digits refused in the database too, redacted from the audit log). `payments/outside-card.ts` (`takeOutsideCard`) records it on `POST /checks/{c}/payments` and `POST /tabs/{t}/pay` with `{ method: "outside_card", amount_cents, tip_cents?, note?, share_id? }`: refused while off (`outside_card_off`), more than owed refused, captured at once, allocated, settles the check or closes the tab. Close the night's report (`nights/report.ts`) adds the outside machine's amount, tips and by-person totals (card tips now count only Stripe's methods); the Z print and the staff report panel show them; the night journal posts it to a new `outside_card_clearing` account, never Stripe clearing. A refund is recorded as succeeded with no Stripe job ("Refunded on outside machine"), approved per the venue's approval setting. Bills and receipts read "Card".
+  - Screens: `OutsideCardPanel.tsx` on the room's pay panels and the bar POS's Close tab (only while on); step 7 has the switch, and Admin → Features lists it.
+  - Cautious defaults: the breakdown is by person (who recorded it), not by drawer, since no cash moves through a drawer; the money audit needs no Stripe match for it (the reconciler only looks at Stripe's methods). Tips on it go to the tip ledger as card tips (they pool like card tips).
+  - Sing Sing's choice (both on) is in its venue guide and demo script.

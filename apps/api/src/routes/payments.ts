@@ -33,6 +33,7 @@ import {
   tabSavedCard,
   takeDownQuestion,
 } from "../tabs/saved-card.js";
+import { takeOutsideCard } from "../payments/outside-card.js";
 
 /**
  * Payments (M4-05; spec 08 · Payments; Payment flows · What staff see):
@@ -67,6 +68,16 @@ const cashBody = z
     amount_cents: z.number().int().positive(),
     tendered_cents: z.number().int().positive(),
     tip_cents: z.number().int().min(0).optional(),
+    share_id: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+/** Paid on an outside card machine (F-10; D126): the amount, the tip, and a last 4 or approval code. */
+const outsideBody = z
+  .object({
+    method: z.literal("outside_card"),
+    amount_cents: z.number().int().positive(),
+    tip_cents: z.number().int().min(0).optional(),
+    note: z.string().max(40).nullable().optional(),
     share_id: z.string().uuid().nullable().optional(),
   })
   .strict();
@@ -270,6 +281,37 @@ export function paymentRoutes(
           room: taken.settled.room,
         };
       }
+      const outside = outsideBody.safeParse(request.body);
+      if (outside.success) {
+        const p = request.principal;
+        if (p.kind !== "user")
+          throw new ApiError("forbidden", "recording a payment is a person's work");
+        const taken = await request.inVenue(async (c) => {
+          const check = await c.query<{ status: string }>(
+            "select status from checks where venue_id = $1 and id = $2",
+            [venueId, request.params.checkId],
+          );
+          if (!check.rows[0]) throw new ApiError("not_found", "no such check");
+          if (["paid", "void"].includes(check.rows[0].status))
+            throw new ApiError("invalid_request", `this check is ${check.rows[0].status}`);
+          return takeOutsideCard(c, venueId, {
+            checkId: request.params.checkId,
+            amountCents: outside.data.amount_cents,
+            tipCents: outside.data.tip_cents ?? 0,
+            note: outside.data.note ?? null,
+            shareId: outside.data.share_id ?? null,
+            userId: p.userId,
+            businessDate: await night(c, venueId),
+            now: options.clock.now(),
+          });
+        });
+        reply.code(201);
+        return {
+          ...paymentView(await current(request, taken.paymentId)),
+          check_status: taken.settled.status,
+          room: taken.settled.room,
+        };
+      }
       const onFile = onFileBody.safeParse(request.body);
       if (onFile.success) {
         const asked = await request.inVenue(async (c) => {
@@ -367,6 +409,37 @@ export function paymentRoutes(
       const venueId = request.venueId!;
       const p = request.principal;
       if (p.kind !== "user") throw new ApiError("forbidden", "taking payment is a person's work");
+      const outside = outsideBody.omit({ share_id: true }).strict().safeParse(request.body);
+      if (outside.success) {
+        const now = options.clock.now();
+        const taken = await request.inVenue(async (c) => {
+          const started = await startTabPayment(c, venueId, tabId, {
+            userId: p.userId,
+            amountCents: outside.data.amount_cents,
+            now,
+          });
+          return takeOutsideCard(c, venueId, {
+            checkId: started.checkId,
+            amountCents: started.balanceCents,
+            tipCents: outside.data.tip_cents ?? 0,
+            note: outside.data.note ?? null,
+            leaveOut: started.holdId,
+            userId: p.userId,
+            businessDate: await night(c, venueId),
+            now,
+          });
+        });
+        if (taken.replaced?.holdId)
+          await cancelReplacedHold(deps(), venueId, taken.replaced.holdId, "api").catch(
+            () => undefined,
+          );
+        reply.code(201);
+        return {
+          ...paymentView(await current(request, taken.paymentId)),
+          check_status: taken.settled.status,
+          tab_state: taken.replaced ? "closed" : "open",
+        };
+      }
       const cash = tabCashBody.safeParse(request.body);
       const tap = cash.success ? null : tabTapBody.safeParse(request.body);
       if (!cash.success && !tap?.success)

@@ -51,6 +51,8 @@ const FEATURES_ON = [
   "room_ordering",
   "card_behind_bar",
   "cash_discount",
+  // Its own card machine beside Stripe's readers (D126): both on, so it can move to readers later.
+  "outside_card",
 ];
 const FEATURES_OFF = ["deposits", "bar_mode", "song_system", "marketing_texts", "room_tablets"];
 const PEOPLE = [

@@ -1,5 +1,11 @@
 import { nightClose, type Queryable } from "@west4/db";
-import { drawerTotals, salesReport, type ReportLine, type SalesReport } from "@west4/rules";
+import {
+  drawerTotals,
+  salesReport,
+  tenderTotals,
+  type ReportLine,
+  type SalesReport,
+} from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { venueClock } from "../rooms/assignment.js";
 import { nightTips, type NightTips } from "../tips/pool.js";
@@ -36,6 +42,11 @@ export interface NightReport extends SalesReport {
     readonly card_total_cents: number;
     readonly deposits_taken_cents: number;
     readonly deposits_allocated_cents: number;
+    /** The venue's own outside card machine (F-10; D126): its amount, its tips and, by person, both. */
+    readonly outside_card_cents: number;
+    readonly outside_card_tips_cents: number;
+    readonly outside_card_total_cents: number;
+    readonly outside_card_by_person: readonly { readonly name: string; readonly cents: number }[];
   };
   readonly drawers: readonly {
     readonly drawer: string;
@@ -141,7 +152,7 @@ export async function computeReport(
          coalesce(sum(amount_cents) filter (where method = 'card_online'), 0)::text as card_online,
          coalesce(sum(amount_cents) filter (where method = 'cash'), 0)::text as cash,
          coalesce(sum(amount_cents) filter (where method = 'prepaid'), 0)::text as prepaid,
-         coalesce(sum(tip_cents) filter (where method <> 'cash'), 0)::text as card_tips,
+         coalesce(sum(tip_cents) filter (where method in ('card_present', 'card_on_file', 'card_online')), 0)::text as card_tips,
          coalesce(sum(tip_cents) filter (where method = 'cash'), 0)::text as cash_tips,
          coalesce(sum(amount_cents + tip_cents + surcharge_cents)
            filter (where method in ('card_present', 'card_on_file', 'card_online')), 0)::text as card_total,
@@ -152,6 +163,25 @@ export async function computeReport(
       [venueId, date],
     )
   ).rows[0]!;
+  // The outside card machine (F-10): through the tender rules, by person, to match its batch report.
+  const outsideRows = (
+    await c.query<{
+      method: string;
+      amount_cents: number;
+      tip_cents: number;
+      surcharge_cents: number;
+      taken_by: string | null;
+    }>(
+      `select p.method, p.amount_cents::int, p.tip_cents::int, p.surcharge_cents::int,
+              coalesce(u.name, 'Unknown') as taken_by
+         from payments p left join users u on u.id = p.taken_by
+        where p.venue_id = $1 and p.business_date = $2::date and p.adjusts_business_date is null
+          and not p.training
+          and p.method = 'outside_card' and p.status in ('captured', 'partly_refunded', 'refunded')`,
+      [venueId, date],
+    )
+  ).rows;
+  const outside = tenderTotals(outsideRows);
   const refunds = (
     await c.query<{ cents: string }>(
       `select coalesce(sum(f.amount_cents), 0)::text as cents from refunds f
@@ -346,6 +376,12 @@ export async function computeReport(
       card_total_cents: n(pay["card_total"]),
       deposits_taken_cents: n(pay["deposits_taken"]),
       deposits_allocated_cents: n(allocated),
+      outside_card_cents: outside.outside_card_cents,
+      outside_card_tips_cents: outside.outside_card_tips_cents,
+      outside_card_total_cents: outside.outside_card_total_cents,
+      outside_card_by_person: Object.entries(outside.outside_card_by_person).map(
+        ([name, cents]) => ({ name, cents }),
+      ),
     },
     drawers,
     tips: await nightTips(c, venueId, date, now),
@@ -387,6 +423,11 @@ export function reportPrintLines(r: NightReport, money: (cents: number) => strin
   amt("Cards · on file", r.payments.card_on_file_cents);
   amt("Cards · online", r.payments.card_online_cents);
   amt("Cash", r.payments.cash_cents);
+  if (r.payments.outside_card_total_cents > 0) {
+    amt("Outside card machine", r.payments.outside_card_cents);
+    amt("Outside machine tips", r.payments.outside_card_tips_cents);
+    for (const p of r.payments.outside_card_by_person) amt(`  ${p.name}`, p.cents);
+  }
   amt("Card tips", r.payments.card_tips_cents);
   amt("Cash tips", r.payments.cash_tips_cents);
   amt("Refunds", -r.payments.refunds_cents);

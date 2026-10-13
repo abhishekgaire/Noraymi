@@ -31,6 +31,7 @@ export const ACCOUNTS = [
   "legacy_deposits",
   "prepaid_value",
   "stripe_clearing",
+  "outside_card_clearing",
   "cash",
   "cash_over_short",
   "unmatched_suspense",
@@ -59,7 +60,7 @@ export interface Journal {
 
 /** Money that paid the night's checks: the way it came in, its amount and its tip. */
 export interface NightMoney {
-  readonly way: "card" | "cash" | "prepaid" | "deposit";
+  readonly way: "card" | "cash" | "prepaid" | "deposit" | "outside_card";
   readonly amount_cents: number;
   readonly tip_cents: number;
 }
@@ -192,17 +193,27 @@ export function nightJournal(input: NightJournalInput): Journal {
   }
   // The money that paid the night's checks, and the tips on it.
   for (const m of input.money) {
+    // The venue's own outside card machine (D126) clears through its own processor, never Stripe.
     const into: Account =
       m.way === "card"
         ? "stripe_clearing"
-        : m.way === "cash"
-          ? "cash"
-          : m.way === "prepaid"
-            ? "prepaid_value"
-            : "customer_deposits";
+        : m.way === "outside_card"
+          ? "outside_card_clearing"
+          : m.way === "cash"
+            ? "cash"
+            : m.way === "prepaid"
+              ? "prepaid_value"
+              : "customer_deposits";
     j.debit(into, m.amount_cents);
     if (m.tip_cents !== 0) {
-      j.debit(m.way === "cash" ? "cash" : "stripe_clearing", m.tip_cents);
+      j.debit(
+        m.way === "cash"
+          ? "cash"
+          : m.way === "outside_card"
+            ? "outside_card_clearing"
+            : "stripe_clearing",
+        m.tip_cents,
+      );
       j.credit("tips_payable", m.tip_cents);
     }
   }

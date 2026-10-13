@@ -59,6 +59,21 @@ export function ReportPanel({ venueId, date: night }: { venueId: string; date: s
     [t("myTips.gratuity"), report.gratuity.total_cents],
     [t("report.cards"), report.payments["card_total_cents"]],
     [t("report.cash"), report.payments["cash_cents"]],
+    // The venue's own outside card machine (F-10; D126), when it took anything: its total and tips,
+    // then by person, to match against the machine's own batch report.
+    ...((report.payments["outside_card_total_cents"] ?? 0) > 0
+      ? ([
+          [t("report.outsideCard"), report.payments["outside_card_cents"]],
+          [t("report.outsideCardTips"), report.payments["outside_card_tips_cents"]],
+          ...(
+            (
+              report.payments as unknown as {
+                outside_card_by_person?: { name: string; cents: number }[];
+              }
+            ).outside_card_by_person ?? []
+          ).map((p): [string, number] => [t("report.outsideCardBy", { name: p.name }), p.cents]),
+        ] as [string, number | undefined][])
+      : []),
   ];
   const print = async () => {
     setNotice(null);

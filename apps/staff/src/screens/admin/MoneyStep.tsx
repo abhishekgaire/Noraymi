@@ -39,8 +39,45 @@ export function MoneyStep({
   if (!venueId) return null;
   return (
     <AdminDraftProvider venueId={venueId}>
+      <OutsideCardSwitch venueId={venueId} />
       <MoneyStepBody venueId={venueId} registerSave={registerSave} onSaved={onSaved} />
     </AdminDraftProvider>
+  );
+}
+
+/**
+ * Paid on an outside card machine (F-10; D126): the owner's switch, in step 7 as in Admin →
+ * Features; saved at once through the modules route. Off by default.
+ */
+function OutsideCardSwitch({ venueId }: { venueId: string }) {
+  const { t } = useT();
+  const { state, refresh } = useSession();
+  const on =
+    state.status === "signedIn" && (state.membership.modules ?? {})["outside_card"] === "on";
+  const [error, setError] = useState<string | null>(null);
+  const flip = async (next: boolean) => {
+    setError(null);
+    try {
+      await api("PATCH", `/v1/venues/${venueId}/modules/outside_card`, {
+        state: next ? "on" : "off",
+      });
+      await refresh();
+    } catch (e) {
+      setError((e as ApiCallError)?.message ?? t("modules.changeFailed"));
+    }
+  };
+  return (
+    <div className="setup-card">
+      <label className="setup-check">
+        <input type="checkbox" checked={on} onChange={(e) => void flip(e.target.checked)} />
+        {t("onboarding.money.outsideCard")}
+      </label>
+      {error && (
+        <p className="error small" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

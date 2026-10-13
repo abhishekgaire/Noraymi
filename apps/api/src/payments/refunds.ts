@@ -474,6 +474,10 @@ executors.set("refund", async (c, venueId, approval, ctx) => {
         });
       await setRefundStatus(c, venueId, refund.id, { status: "succeeded", at });
       await landRefund(c, venueId, { ...refund, status: "succeeded" }, at);
+    } else if (payment.method === "outside_card") {
+      // Refunded on the venue's own outside machine (F-10; D126): staff do it there; this records it.
+      await setRefundStatus(c, venueId, refund.id, { status: "succeeded", at });
+      await landRefund(c, venueId, { ...refund, status: "succeeded" }, at);
     } else {
       await enqueue(c, {
         venueId,

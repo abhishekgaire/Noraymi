@@ -24,6 +24,7 @@ import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
 import "./desk.css";
 import { RoomQrActions } from "./RoomQrActions.js";
+import { OutsideCardPanel } from "./OutsideCardPanel.js";
 
 /**
  * DeskRoom on the desktop and Room on the phone (M2-31; screens DeskRoom and
@@ -741,6 +742,23 @@ export function RoomScreen() {
                     onTaken={(taken) => {
                       setShare(null);
                       setCashTaken(taken);
+                      void load();
+                    }}
+                  />
+                )}
+              {/* The venue's own outside card machine (F-10; D126), while its switch is on. */}
+              {s.check_id &&
+                (checkStatus === "finalized" || checkStatus === "partly_paid") &&
+                (!split || share) &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <OutsideCardPanel
+                    key={`outside-${share?.id ?? "check"}`}
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    dueCents={share ? share.amount_cents : dueCents}
+                    shareId={share?.id ?? null}
+                    onTaken={() => {
+                      setShare(null);
                       void load();
                     }}
                   />

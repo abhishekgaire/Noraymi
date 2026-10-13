@@ -9,7 +9,13 @@ import type { Queryable } from "./tenancy.js";
  * same transaction, with the check row locked, and refuses more than it.
  */
 export type PaymentMethod =
-  "card_present" | "card_online" | "card_on_file" | "cash" | "external" | "prepaid";
+  | "card_present"
+  | "card_online"
+  | "card_on_file"
+  | "cash"
+  | "external"
+  | "prepaid"
+  | "outside_card";
 export type PaymentStatus =
   | "pending"
   | "requires_action"
@@ -56,15 +62,19 @@ export interface NewPayment {
   readonly mitReason?: string | null;
   readonly training?: boolean;
   readonly id?: string;
+  /** The outside card machine (F-10): who recorded it, and a last 4 or approval code. */
+  readonly takenBy?: string | null;
+  readonly outsideNote?: string | null;
 }
 
 export async function insertPayment(c: Queryable, venueId: string, p: NewPayment): Promise<string> {
   const r = await c.query<{ id: string }>(
     `insert into payments (id, venue_id, method, status, business_date, adjusts_business_date, amount_cents,
        tip_cents, booking_id, stripe_pi_id, tendered_cents, change_cents, drawer_session_id, staff_bank_id,
-       mit_reason, training)
+       mit_reason, training, taken_by, outside_note)
      values (coalesce($1, gen_random_uuid()), $2, $3, $4, open_business_date($2, $5::date),
-       nullif($5::date, open_business_date($2, $5::date)), $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       nullif($5::date, open_business_date($2, $5::date)), $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+       $16, $17)
      returning id`,
     [
       p.id ?? null,
@@ -82,6 +92,8 @@ export async function insertPayment(c: Queryable, venueId: string, p: NewPayment
       p.staffBankId ?? null,
       p.mitReason ?? null,
       p.training ?? false,
+      p.takenBy ?? null,
+      p.outsideNote ?? null,
     ],
   );
   await c.query(

@@ -206,7 +206,7 @@ function paymentLine(m: AllocationRow): GuestBill["payments"][number] {
     kind:
       m.share_no !== null
         ? "share"
-        : m.method === "card_present"
+        : m.method === "card_present" || m.method === "outside_card"
           ? "card"
           : m.method === "cash"
             ? "cash"

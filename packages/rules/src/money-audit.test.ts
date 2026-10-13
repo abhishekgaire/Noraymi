@@ -85,6 +85,9 @@ const AS_STORED_INPUTS = new Set([
   "menu_choices_void",
   // A cash discount (O-09) is stored as its cash_discount and tax lines, each as the rule gives it.
   "cash_discount",
+  // The outside card machine (F-10) is stored as captured payments with their tips; its totals are
+  // the Z report's (tenderTotals), checked in tenders.test.ts.
+  "outside_card",
 ]);
 
 describe("the money cases, every group, through the audit (M9-15)", () => {

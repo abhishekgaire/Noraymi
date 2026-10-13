@@ -162,3 +162,4 @@ export * from "./oncall-coverage.js";
 export * from "./gate-streak.js";
 export { beforeKitchenOpens, pastLastOrder } from "./kitchen-last-order.js";
 export * from "./public-forms.js";
+export * from "./tenders.js";

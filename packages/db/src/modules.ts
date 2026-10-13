@@ -32,6 +32,7 @@ export async function venueModules(client: Queryable, venueId: string): Promise<
       if (from.core) return { module_id: id, allowed: true, state: "on" };
       if (parent) return { module_id: id, allowed: parent.allowed, state: parent.state };
     }
+    if (def.allowedOff) return { module_id: id, allowed: true, state: "off" };
     return { module_id: id, allowed: false, state: "off" };
   });
 }
