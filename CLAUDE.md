@@ -121,6 +121,7 @@ scripts/demo-start.sh   # local only: start everything in demo mode (no .env, no
 scripts/demo-local.sh   # local only: reset the night to 10:41 PM and print new owner and manager invite links
 scripts/demo-codes.sh   # local only: the newest sign-in codes the app texted or emailed
 scripts/demo-start.sh --sing-sing   # (also demo-local.sh) adds Sing Sing Astoria as a second venue (slug singsing): 6 rooms, kitchen on, card behind the bar, its menu imported
+scripts/demo-start.sh --lan [--lan-ip <ip>] [--sing-sing]   # local only: the practice night from a laptop: the same demo on the laptop's Wi-Fi address over HTTPS (a local CA, scripts/lan-cert.sh; the proxy is `pnpm --filter @west4/api lan:proxy`) for bar PCs and phones, the certificate page on :8080, keeps the laptop awake (docs/manual-test.md section 28)
 node scripts/demo-text.mjs "STOP" [+1phone] [--venue singsing]   # local only: a guest's text in (signed like Twilio's), for STOP/HELP and the inbox
 node scripts/demo-links.mjs   # local only: the night's guest links (Jae's manage link, Room 9's host link); demo-local.sh prints them
 pnpm check              # lint, i18n, typecheck, unit, integration and the migration linter, one line each (pnpm check --e2e adds the smoke tests)

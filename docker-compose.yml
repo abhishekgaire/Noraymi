@@ -1,10 +1,12 @@
 # Local development: Postgres 16, an S3-compatible store and a mail catcher.
 # `docker compose up -d`, then `pnpm db:migrate`.
+# Every port is on this computer's loopback only: on a shop's Wi-Fi (scripts/demo-start.sh --lan)
+# nobody else reaches the database, the store or the inbox with the sign-in codes.
 services:
   postgres:
     image: postgres:16.15
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: west4
       POSTGRES_PASSWORD: west4
@@ -24,8 +26,8 @@ services:
   s3:
     image: rustfs/rustfs:1.0.1-preview.11
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       RUSTFS_ACCESS_KEY: west4
       RUSTFS_SECRET_KEY: west4secret
@@ -69,8 +71,8 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31.3
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 2s

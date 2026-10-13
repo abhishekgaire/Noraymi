@@ -53,6 +53,7 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 25. [CAPTCHA and daily limits](#25-captcha-and-daily-limits)
 26. [What you can't test locally](#26-what-you-cant-test-locally)
 27. [Printable checklist](#27-printable-checklist)
+28. [Practice night at Sing Sing from your laptop](#28-practice-night-at-sing-sing-from-your-laptop)
 
 ---
 
@@ -75,6 +76,8 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 The start script prints two **invite links**, one for Abhishek (owner) and one for Andy (manager).
 
 To test the kitchen (section 11), start it as `scripts/demo-start.sh --sing-sing` instead: it also makes Sing Sing, a second demo venue with Kitchen & food on, and prints its own invite links.
+
+To run a practice night with bar PCs and phones on a shop's Wi-Fi, see section 28 (`scripts/demo-start.sh --lan`).
 
 **The addresses** (always use Chrome, and always `localhost`, never `127.0.0.1`, or Touch ID won't work):
 
@@ -1563,3 +1566,70 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 23 Spanish
 - [ ] 24 Accessibility
 - [ ] 25 CAPTCHA and limits (when built)
+
+---
+
+## 28. Practice night at Sing Sing from your laptop
+
+The whole system runs on your Mac; nothing goes to the cloud. Sing Sing's Windows bar PCs run the desktop app and connect to your laptop over the shop's Wi-Fi, and phones on the same Wi-Fi can open the staff app and the guest pages (the QR codes).
+
+**How it works, in one paragraph.** `scripts/demo-start.sh --lan` starts the demo as usual, then puts it on your laptop's Wi-Fi address (for example `192.168.1.20`) over **HTTPS**. Browsers only allow a screen's device key, the offline cache and the app's order numbers on a secure (HTTPS) page, so plain `http://192.168.1.20` would not work. The certificate comes from a small certificate authority made on your laptop the first time ("West 4 practice night CA"). Each bar PC and phone trusts it **once**. It can only vouch for private addresses (192.168…, 10…, 172.16–31…) and `localhost`, never a real website, and its secret key never leaves your laptop.
+
+### 28.1 Before you go (at home)
+
+1. **Update and test the demo** on your laptop: `scripts/demo-start.sh --sing-sing` works (section 11).
+2. **Build the Windows installer** for the desktop app. In Terminal:
+
+   ```
+   cd ~/Downloads/west4-karaoke
+   pnpm --filter @west4/desktop build --win
+   ```
+
+   It makes `apps/desktop/release/West 4 Staff Setup <version>.exe`. It isn't signed, so Windows warns about it (28.3). Windows printing (the Epson and the Rongta) is being finished separately: build the installer after that work is merged. If the build stops asking for Wine, install it with `brew install --cask wine-stable` and build again.
+3. Copy the `.exe` to a **USB stick**.
+4. Bring the laptop's **charger**. The laptop is the server all night.
+
+### 28.2 At Sing Sing: start it on the laptop
+
+1. Join **Sing Sing's Wi-Fi** on the laptop (the same network the bar PCs use). Plug the laptop in.
+2. Open **Docker Desktop**, then Terminal:
+
+   ```
+   cd ~/Downloads/west4-karaoke
+   nvm use
+   scripts/demo-start.sh --lan --sing-sing
+   ```
+
+   If the laptop is on more than one network and the address it picks is wrong, name it: `scripts/demo-start.sh --lan-ip 192.168.1.20 --sing-sing` (find it in System Settings → Wi-Fi → Details).
+3. Wait for **Ready for the practice night on …**. It prints:
+   - the **certificate page** (`http://<address>:8080`), for step 28.3;
+   - the **desktop app's server** and the **staff app for phones** (`https://<address>:5173`);
+   - the **guest pages** (`https://<address>:3001/v/singsing`);
+   - your **invite links** (Abhishek and Andy, West 4 and Sing Sing), which open **on this laptop** (`http://localhost:5173`);
+   - **Emails and sign-in codes**: Mailpit on this laptop (`http://localhost:8025`) or `scripts/demo-codes.sh`.
+4. If it prints **"The Mac's firewall…"**, do what it says: click **Allow** when macOS asks whether "node" may accept incoming connections, or run the `sudo` lines it shows. Turn off **Block all incoming connections** if it's on.
+5. Leave the window open. The laptop stays awake while it runs (it runs `caffeinate`); keep the lid open and the charger in.
+
+### 28.3 Each bar PC (once)
+
+1. **Trust the certificate.** On the bar PC, open Edge or Chrome and go to the certificate page printed in 28.2 (`http://<address>:8080`). Press **Download the certificate** and open the file. Press **Install Certificate…** → **Current User** → **Place all certificates in the following store** → **Browse…** → **Trusted Root Certification Authorities** → **OK** → **Next** → **Finish** → **Yes**.
+2. **Install the app.** Run `West 4 Staff Setup … .exe` from the USB stick. If Windows says "Windows protected your PC", press **More info** → **Run anyway**. It asks for an administrator to install.
+3. **Point it at the laptop.** The first time it opens it asks for the **Server address · Dirección del servidor**. Type the staff app address from 28.2, for example `https://192.168.1.20:5173`, and press **Save and restart**. To change it later (another laptop, a new address), press **Ctrl+Shift+S** in the app.
+4. **Pair it.** On your laptop, at `http://localhost:5173`, sign in as Sing Sing's Abhishek (`abhishek@singsing.demo.local`, his invite from 28.2; 11.1) and open **Admin → Printers & devices**: make a pairing code for the bar computer. On the bar PC press **Pair this screen** and type the code (0.4).
+5. **Printers.** In **Admin → Printers & devices**, set up the **Epson at the bar** and the **Rongta kitchen printer**, which is cabled by USB to this bar PC (the desktop app prints to it). Print a test ticket from each.
+6. **Staff sign in with their PINs** on the name tiles: Maya S. `4071` (bartender), Diego R. `6358` (front desk).
+7. **Training mode.** For a practice night, turn it on for the bar PC: **Admin → Team → Training mode on a device**. Every screen shows "TRAINING · not real money", and the reader steps offer **Tap a test card** (0.10).
+
+### 28.4 Phones (optional)
+
+- **Staff phones**: trust the certificate first (open `http://<address>:8080` on the phone and follow the steps there; on an iPhone, also turn it on under Settings → General → About → Certificate Trust Settings). Then the staff app is `https://<address>:5173`. Invite staff from **Admin → Team**; the invite "text" or "email" lands in Mailpit on your laptop, so send the link to the phone yourself (AirDrop or a message).
+- **Guest pages**: the room QR codes and Pay my share links carry `https://<address>:3001`, so they open on any phone on the Wi-Fi. A phone that hasn't trusted the certificate shows a warning first ("Your connection is not private"); the pages should work after **Advanced → Proceed** (Android) or **Show Details → visit this website** (iPhone), but trusting the certificate is more reliable.
+- **Passkeys (Touch ID / Face ID) don't work over the Wi-Fi address**: a passkey must belong to a name, not a number like `192.168.1.20`. Owners and managers set up and use their passkeys on the laptop (`http://localhost:5173`). On a phone, a manager can sign in with an **authenticator app** if their account has one.
+- Without the certificate trusted, a phone can't keep the staff app's offline copy or get its alerts (service workers refuse the warning). Install the certificate on every phone you use for staff screens.
+
+### 28.5 After
+
+1. **Ctrl+C** in the Terminal window stops everything (and lets the laptop sleep again).
+2. All the night's data stays on your laptop (Docker's database). Nothing was sent anywhere: texts and emails went to Mailpit, card payments to the fake Stripe.
+3. On the bar PCs, you can uninstall the app (Settings → Apps), and remove the certificate (Start → "Manage user certificates" → Trusted Root Certification Authorities → Certificates → "West 4 practice night CA" → Delete). On phones, remove the profile or certificate the same way you added it.
+4. The next practice night uses the same certificate authority, so devices that trusted it once don't need it again, even if the laptop's address changes.

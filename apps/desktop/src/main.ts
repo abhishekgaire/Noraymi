@@ -1,5 +1,5 @@
 import { CupsPrinters, VirtualPrinter, type PrinterPort } from "./printers.js";
-import { utimesSync, writeFileSync } from "node:fs";
+import { readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { powerSaveBlocker } from "electron";
 // electron-updater is CommonJS and its autoUpdater is a getter: a default import reaches it, a named one can't.
 import updater from "electron-updater";
@@ -26,6 +26,14 @@ import {
   isTrustedSender,
   staffWebPreferences,
 } from "./security.js";
+import {
+  SERVER_FILE,
+  parseServerAddress,
+  resolveStaffServer,
+  serverFileContents,
+  setupAction,
+  setupPage,
+} from "./server-address.js";
 
 /**
  * The Electron shell around the staff app (M1-28, spec 12 · 10). It shows
@@ -36,8 +44,20 @@ import {
  * view come with their own tickets.
  */
 const here = path.dirname(fileURLToPath(import.meta.url));
-const staffUrl = process.env["STAFF_URL"] ?? "http://localhost:5173";
-const allowed = allowedOriginsFrom(process.env);
+if (process.env["WEST4_USER_DATA"]) app.setPath("userData", process.env["WEST4_USER_DATA"]);
+// STAFF_URL, else the address the setup screen saved (a bar PC pointed at a laptop), else localhost.
+const serverFile = path.join(app.getPath("userData"), SERVER_FILE);
+const staffServer = resolveStaffServer(process.env, readTextOrNull(serverFile));
+const staffUrl = staffServer.url;
+const allowed = allowedOriginsFrom({ ...process.env, STAFF_URL: staffUrl });
+
+function readTextOrNull(file: string): string | null {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
 
 // The main process's own crashes (M8-16), scrubbed of personal data, through the API like the
 // window's errors. A monitor only watches: Electron's own handling of the crash is unchanged.
@@ -53,7 +73,6 @@ const reporter = makeClientReporter({
 });
 process.on("uncaughtExceptionMonitor", (error) => reporter.error(error, { page: "main" }));
 
-if (process.env["WEST4_USER_DATA"]) app.setPath("userData", process.env["WEST4_USER_DATA"]);
 app.enableSandbox();
 
 const sealer: Sealer = {
@@ -309,11 +328,37 @@ function createWindow(): BrowserWindow {
   });
   // Our hostnames only: no navigation elsewhere, no new windows at all.
   window.webContents.on("will-navigate", (event, url) => {
+    const setup = setupAction(url);
+    if (setup) {
+      event.preventDefault();
+      if (setup.kind === "cancel") return void window.loadURL(staffUrl);
+      const address = parseServerAddress(setup.address);
+      if (!address) return void window.loadURL(setupPage({ current: setup.address, error: true }));
+      writeFileSync(serverFile, serverFileContents(address));
+      app.relaunch();
+      app.exit(0);
+      return;
+    }
     if (!isAllowedUrl(url, allowed)) event.preventDefault();
+  });
+  // Ctrl+Shift+S: the server address again (a bar PC moved to another laptop or server).
+  window.webContents.on("before-input-event", (event, input) => {
+    if (
+      input.type === "keyDown" &&
+      input.control &&
+      input.shift &&
+      input.key.toLowerCase() === "s"
+    ) {
+      event.preventDefault();
+      void window.loadURL(setupPage({ current: staffUrl, error: false }));
+    }
   });
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
-  void window.loadURL(staffUrl);
+  // An installed app nobody has pointed anywhere yet asks for the server address first.
+  if (staffServer.from === "default" && app.isPackaged)
+    void window.loadURL(setupPage({ current: null, error: false }));
+  else void window.loadURL(staffUrl);
   // Opened again after being killed (a crash, or the watchdog's relaunch), the first load can stall on the
   // service worker the killed app left behind (M8-04's kill test): it's asked for again until it lands.
   let loaded = false;
