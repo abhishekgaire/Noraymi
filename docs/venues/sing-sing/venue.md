@@ -24,7 +24,7 @@ What Sing Sing's own public website says about the venue, read on Oct 11, 2026 f
 
 - **Kitchen hours and a kitchen last-order time.** Not stated anywhere. `kitchen.lastOrder` stays empty (food can be ordered while room ordering is open) until the manager sets it in Admin → Kitchen.
 - **Room rates and room sizes.** The site's staff screens list sample suites (Small 2–4, Medium 5–8, Large 9–14, a VIP suite 15–25), but those are inside the site's own admin tool, not public statements, and Sing Sing has 6 rooms ([spec 16](../../spec/16-kitchen.md)). Take the rooms and their prices from the manager.
-- **Last call, the drinks' cash discount rate, which beers are on draft and the pour size.** Not stated; see [menu.md](menu.md) and [Open technical questions](../../spec/14-open-questions.md).
+- **Last call, which beers are on draft and the pour size.** Not stated; see [menu.md](menu.md) and [Open technical questions](../../spec/14-open-questions.md).
 - **The largest party that can book online.** The site has its own setting for it; the value isn't public.
 
 ## Settings to set at onboarding
@@ -36,7 +36,7 @@ Sing Sing isn't a venue in the database yet. These are its own choices, already 
 | Deposits for online bookings | Off (`deposit.on` false): online bookings pay nothing up front, as the site says. The site's card for groups over 5 is to confirm with the manager before go-live | Admin → Deposits & cancelling | Founder, Oct 11, 2026 |
 | What a walk-in check-in takes | **Keep the card behind the bar** (`deposit.walkIn` "cardBehindBar", D116): once the party is seated, staff keep the guest's physical card and type the name on it and its last 4 digits onto the room's check; no reader, nothing charged; close-out ends with "Give the card back". Sing Sing physically holds guests' cards on a tab (the founder, Oct 11), so this replaces the earlier "Put a card on the tab" (`cardOnTab`) | Admin → Deposits & cancelling → At a walk-in check-in | D112, D116, Oct 11, 2026 |
 | Age policy | All ages until 8 PM, then 21 and over (`safety.allAgesUntil` "20:00") | Admin → Safety | D108 |
-| Kitchen allergy notice | EN: "Allergen information for menu items is available. Ask an employee for details." ES (our translation, **for the venue to confirm**): "La información sobre alérgenos de los platos del menú está disponible. Pregunte a un empleado para más detalles." The venue's own wording, so Kitchen & food doesn't wait on the lawyer | Admin → Kitchen | Founder for Sing Sing, Oct 13, 2026 (D125) |
+| Kitchen allergy notice | EN: "Allergen information for menu items is available. Ask an employee for details." ES (our translation, **confirmed by the founder for Sing Sing, Oct 13, 2026**): "La información sobre alérgenos de los platos del menú está disponible. Pregunte a un empleado para más detalles." The venue's own wording, so Kitchen & food doesn't wait on the lawyer | Admin → Kitchen | Founder for Sing Sing, Oct 13, 2026 (D125) |
 | Approvals | **Manager's PIN at the register** (`approvals.mode` "pin"): Sing Sing starts on its bar computers, so a manager types their PIN on the register that asks | Admin → Features → Choices | Founder, Oct 13, 2026 (D126) |
 
 ### Choose your features (step 2)
@@ -52,7 +52,7 @@ Sing Sing's own choices in Set up your venue's **Choose your features** ([D124](
 | Online booking | On | Founder, Oct 13, 2026 |
 | Ordering from the room | On | Founder, Oct 13, 2026 |
 | Keep the card behind the bar for walk-ins | On | Founder, Oct 13, 2026 |
-| Cash discount | On (its rate is still to give, step 7; until then nothing is discounted) | Founder, Oct 13, 2026 (D125) |
+| Cash discount | On at **3.5%** (cash pays 3.5% less); menu prices, drinks and food, include the card fee | Founder, Oct 13, 2026 (D125) |
 | Paid on outside card machine | On, beside Stripe's readers (both on), so it can start on its own machine and move to readers | Founder, Oct 13, 2026 (D126) |
 | Deposits on bookings | Off | Founder, Oct 13, 2026 |
 | Bar mode | Off | Founder, Oct 13, 2026 |
@@ -96,7 +96,7 @@ The runbook for S-01's last part (O-14): once our Console has made Sing Sing and
 | 11 · Texts, website and your old system | Website: singsingastoria.com exists; whether its site and domain move later is the owner's answer | The site | Still to give |
 | 11 · Texts, website and your old system | The old system's export files (bookings, deposits, guests, team) | — | Still to give |
 | 12 · Devices and checks | Bar computers only to start (D126): the desktop app on each bar computer (Windows, D127), a receipt printer with its drawer on each, a kitchen network printer; no staff phones, room tablets, badge readers or Up next TV (each can be added later). Card readers: Stripe readers and the venue's own outside card machine, both on (F-10) | The founder, Oct 13 (D126); [hardware-install.md](../../runbooks/hardware-install.md) | Given |
-| 12 · Devices and checks | How many bar computers and printers and their models (the Epson TM-T88V with the bar drawer, the kitchen printer; see [Hardware](#hardware) below; S-07); the merchant category check once Stripe is connected; each manager's Stripe Dashboard login (a Tap to Pay phone only if the manager wants one) | S-07, D127 | Still to give |
+| 12 · Devices and checks | **Given (founder, Oct 13, 2026):** 2 bar computers, one used most of the time; the Epson TM-T88V with the bar drawer; the Rongta RP326 kitchen printer cabled to a bar computer; a Star TSP143IIIW (Wi-Fi) as the alternative (see [Hardware](#hardware) below; S-07). Still to give: the merchant category check once Stripe is connected; each manager's Stripe Dashboard login (a Tap to Pay phone only if the manager wants one) | S-07, D127 | Still to give |
 
 When every Given row says Entered, Admin → Setup's checklist should list only the Still to give rows that are required (Stripe, rooms and prices, a manager with a PIN, on-call and breach contacts, the liquor license, a reader, a receipt printer with a drawer, the merchant category); that list is what the manager still owes. Finish setup waits for them; the first live night still follows the go-live runbook (S-12).
 
@@ -106,10 +106,10 @@ What the founder told us on Oct 13, 2026 ([D126](../../decisions.md), [D127](../
 
 | What | Where | How it connects | In Admin → Printers & devices |
 | --- | --- | --- | --- |
-| Bar computers running **Windows** 10 or 11, each with the desktop app ("West 4 Staff") | The bar | The venue's network | Paired as "Bar computer", "Bar computer 2" |
+| **2** bar computers running **Windows** 10 or 11, each with the desktop app ("West 4 Staff"); one is used most of the time | The bar | The venue's network | Paired as "Bar computer" (the main one) and "Bar computer 2". Cable the kitchen printer to the main one, which is on whenever the bar is open |
 | **Epson TM-T88V** (model M244A) receipt printer, the **cash drawer** on its DK (drawer) port | The bar, one per bar computer that takes cash | USB to the bar computer, with Epson's TM-T88V driver (APD) | Shows up as "Cabled to Bar computer"; station Bar; command set ESC/POS; link the bar drawer to it |
 | **Rongta RP326** thermal printer: **today's kitchen printer** | The kitchen | A long cable to a bar computer (USB most likely; if it's serial, through a USB-to-serial adapter, and its Windows queue named in `WEST4_WINDOWS_PRINTERS`) | Shows up as "Cabled to Bar computer"; set its station to **Kitchen**; command set ESC/POS |
-| **Star TSP100III** (TSP143III): the alternative, at the bar or in the kitchen | Bar or kitchen | **USB** to a bar computer like the Rongta (the TSP143IIIU, with Star's futurePRNT driver), or on the network: the **LAN** model (TSP143IIILAN) or the **Wi-Fi** model (TSP143IIIW), with a fixed IP address, as a Network printer | Command set **Star raster** (it prints only Star's raster commands, and has no CloudPRNT; the app draws the ticket as a picture). The variant isn't confirmed yet: a USB-only TSP143IIIU can't be a network printer, so in the kitchen it needs the long USB cable, or the LAN or Wi-Fi model |
+| **Star TSP100III** (TSP143III): the alternative, at the bar or in the kitchen | Bar or kitchen | **USB** to a bar computer like the Rongta (the TSP143IIIU, with Star's futurePRNT driver), or on the network: the **LAN** model (TSP143IIILAN) or the **Wi-Fi** model (TSP143IIIW), with a fixed IP address, as a Network printer | Command set **Star raster** (it prints only Star's raster commands, and has no CloudPRNT; the app draws the ticket as a picture). Sing Sing's is the **Wi-Fi model, TSP143IIIW** (founder, Oct 13, 2026): it can go in the kitchen as a Network printer, with a fixed IP address on the shop's router |
 | Card payments | The bar | The **outside card machine** (the venue's own, F-10), and Stripe readers only if the owner adds them later | Nothing to pair for the outside machine |
 
 - **The kitchen prints only while the bar computer it's cabled to is on and has the app open.** If that computer is off, asleep or offline, every kitchen ticket shows "Kitchen ticket didn't print · Reprint" on the bar's screens within about 20 seconds; Reprint sends it to the kitchen again, or **Print at the bar instead** prints it on the Epson. Keep that computer on through the night (the app keeps the screen awake).
