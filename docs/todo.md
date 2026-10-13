@@ -50,7 +50,7 @@ These five unblock the most work.
 - [ ] **Fixed internet addresses for Stripe's IP-locked keys?** A NAT gateway costs about $35 a month; it's a spending decision. Until then: keys aren't locked to our addresses. Recorded in [infra/README.md](../infra/README.md) "Not yet", M4-01 and M8-19.
 - [ ] **Choose the venue router and its cellular carrier** (any Peplink with InControl 2, [D102](decisions.md); the carrier must differ from the card readers'). Unblocks M8-02, M8-07 and M9-07. Recorded in M8's "Waiting on the founder" list.
 - [ ] **Turn on branch protection on GitHub for `main`?** It makes failing checks block a merge (M1's principal and wall suites, M4-30's chaos suite), but it also stops pushing straight to `main`, which is how work lands today. Recorded in [M1](backlog/M1-foundations.md) and M4-30.
-- [ ] **Edit CLAUDE.md's approvals rule.** "Approvals are decided on the approver's own phone" is now a venue setting ([D124](decisions.md)): on the manager's phone (the default), a manager's PIN at the register, or no approval. You said you'd change CLAUDE.md yourself.
+- [x] **Edit CLAUDE.md's approvals rule.** "Approvals are decided on the approver's own phone" is now a venue setting ([D124](decisions.md)): on the manager's phone (the default), a manager's PIN at the register, or no approval. Done: CLAUDE.md's rule now says approvals are a venue setting.
 - [ ] **Pick an email provider** (any service with an SMTP relay) and put its address in staging's `smtp-url` secret, plus our own addresses in `email_allow_list`. Until then: staging sends no email. Recorded in [M1](backlog/M1-foundations.md) (the email ticket's Notes).
 
 

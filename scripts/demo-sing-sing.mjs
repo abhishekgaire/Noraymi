@@ -371,7 +371,8 @@ try {
   }
   console.log(
     "Sing Sing's PIN staff: Maya S. 4071 (bartender), Diego R. 6358 (front desk). " +
-      "Guest site: http://localhost:3001/v/singsing",
+      // With demo-start.sh --lan, the guest site is on the laptop's Wi-Fi address.
+      `Guest site: ${process.env["GUEST_APP_URL"] ?? "http://localhost:3001"}/v/singsing`,
   );
 } catch (error) {
   await client.query("rollback").catch(() => {});

@@ -13,10 +13,11 @@ export interface DesktopUrls {
   readonly API_URL: string | undefined;
 }
 
-export function desktopUrls(
-  env: Record<string, string | undefined>,
-  resourcesPath: string | null,
-): DesktopUrls {
+/** The addresses the packaged build was made for (resources/west4.json), when it has them. */
+export function builtUrls(resourcesPath: string | null): {
+  readonly staffUrl: string | undefined;
+  readonly apiUrl: string | undefined;
+} {
   let baked: { staffUrl?: unknown; apiUrl?: unknown } = {};
   if (resourcesPath) {
     try {
@@ -29,8 +30,20 @@ export function desktopUrls(
     }
   }
   const text = (v: unknown) => (typeof v === "string" && v.length > 0 ? v : undefined);
+  return { staffUrl: text(baked.staffUrl), apiUrl: text(baked.apiUrl) };
+}
+
+/**
+ * The environment over the build's addresses, the local staff app last. main.ts puts the address
+ * saved on the computer (server.json, server-address.ts) between the environment and the build.
+ */
+export function desktopUrls(
+  env: Record<string, string | undefined>,
+  resourcesPath: string | null,
+): DesktopUrls {
+  const built = builtUrls(resourcesPath);
   return {
-    STAFF_URL: env["STAFF_URL"] ?? text(baked.staffUrl) ?? "http://localhost:5173",
-    API_URL: env["API_URL"] ?? text(baked.apiUrl),
+    STAFF_URL: env["STAFF_URL"] ?? built.staffUrl ?? "http://localhost:5173",
+    API_URL: env["API_URL"] ?? built.apiUrl,
   };
 }

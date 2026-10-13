@@ -6,6 +6,11 @@ const api = (process.env["API_URL"] ?? "http://localhost:3000").replace(/\/+$/, 
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The practice night from a laptop (scripts/demo-start.sh --lan): next dev answers its scripts and
+  // hot reload to the laptop's Wi-Fi address only when it's named here.
+  ...(process.env["NEXT_ALLOWED_DEV_ORIGINS"]
+    ? { allowedDevOrigins: process.env["NEXT_ALLOWED_DEV_ORIGINS"].split(",") }
+    : {}),
   // The isolated browser-test stack (E2E_ISOLATED=1) builds into its own folder: next dev locks its folder.
   distDir: process.env["NEXT_DIST_DIR"] || ".next",
   // A self-contained server for the container image (apps/guest/Dockerfile).
