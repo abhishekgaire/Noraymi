@@ -8,7 +8,11 @@ export interface OutgoingText {
   readonly idempotencyKey: string;
 }
 
-/** Sends one text. Never called inside a database transaction. */
+/**
+ * Sends one text to our own on-call responders (M8-17's pages, with PAGING_TWILIO_*). A venue's texts
+ * never go through here: they go from the venue's own Twilio account (D123). Never called inside a
+ * database transaction.
+ */
 export interface TextSender {
   send(text: OutgoingText): Promise<void>;
 }

@@ -37,9 +37,11 @@ const tel = setTelemetry(telemetryFromEnv("west4-worker"));
 setVendorObserver(databaseVendorObserver(pool, clock));
 const email = loadEmailSettings(config.env);
 const mailer = new SmtpMailer(email.smtpUrl);
+// Our own on-call pages by text (M8-17), only when PAGING_TWILIO_* is set; never a venue's texts (D123).
 const textSender = () => {
   const settings = loadTextSettings(config.env);
-  return settings.mode === "twilio" ? new TwilioTextSender(settings) : new LogTextSender();
+  if (settings.mode === "twilio") return new TwilioTextSender(settings);
+  return settings.mode === "log" ? new LogTextSender() : null;
 };
 const venueTextSettings = loadVenueTextSettings(config.env);
 const stripe = stripeFromEnv(config.env);

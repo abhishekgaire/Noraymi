@@ -301,6 +301,10 @@ export async function saveTextCampaign(
   if (r.rowCount !== 1) throw new Error("the venue has no Twilio subaccount yet");
 }
 
+/**
+ * Records a Twilio connection keeping any campaign already recorded (tests; the M2-09 shape). The
+ * app connects a venue's own account with connectTwilio (T-01; D123).
+ */
 export async function saveTwilioIntegration(
   c: Queryable,
   venueId: string,

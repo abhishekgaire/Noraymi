@@ -4,13 +4,13 @@ import { loadConfig } from "../config.js";
 import { readCampaignStatus } from "./campaign.js";
 
 /**
- * Ops (M8-22; runbook docs/runbooks/texts-10dlc.md): records the messaging
- * service a venue's 10DLC campaign uses and the status Twilio reports for
- * it. Production sends no text until the service campaign reads approved,
- * and no marketing text until the marketing campaign does. Run again after
- * Twilio says the campaign was approved.
+ * Ops (M8-22, T-04; runbook docs/runbooks/texts-10dlc.md): re-reads a connected venue's service
+ * campaign from Twilio with the venue's own stored keys, the same as Check again in Admin → Phone &
+ * texts. With --marketing and --service, records the venue's marketing campaign's messaging service
+ * (Marketing texts stays off until the lawyer answers). We hold no Twilio account for any venue (D123).
  *
- *   pnpm --filter @west4/api twilio:campaign -- --venue west4karaoke --service MG… [--marketing]
+ *   pnpm --filter @west4/api twilio:campaign -- --venue west4karaoke
+ *   pnpm --filter @west4/api twilio:campaign -- --venue west4karaoke --marketing --service MG…
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -19,10 +19,10 @@ async function main(): Promise<void> {
     return i >= 0 ? args[i + 1] : undefined;
   };
   const slug = arg("venue");
-  const service = arg("service");
   const which = args.includes("--marketing") ? "marketing" : "service";
-  if (!slug || !service || !/^MG[0-9a-f]{32}$/i.test(service))
-    throw new Error("usage: --venue <slug> --service <MG… messaging service SID> [--marketing]");
+  const given = arg("service");
+  if (!slug || (which === "marketing" && (!given || !/^MG[0-9a-f]{32}$/i.test(given))))
+    throw new Error("usage: --venue <slug> [--marketing --service <MG… messaging service SID>]");
   const config = loadConfig();
   const owner = new pg.Pool({
     connectionString: process.env["DATABASE_URL"] ?? config.databaseUrl,
@@ -38,7 +38,12 @@ async function main(): Promise<void> {
     const twilio = await withVenue(owner, { venueId: venue.id }, (c) =>
       twilioIntegration(c, venue.id),
     );
-    if (!twilio) throw new Error(`${venue.name} has no Twilio subaccount yet (twilio:subaccount)`);
+    if (!twilio)
+      throw new Error(
+        `${venue.name} hasn't connected its own Twilio account yet (Admin → Phone & texts)`,
+      );
+    const service = which === "marketing" ? given! : twilio.campaign.serviceSid;
+    if (!service) throw new Error(`${venue.name} has no messaging service recorded`);
     const status = await readCampaignStatus(
       {
         accountSid: twilio.accountSid,

@@ -68,7 +68,6 @@ import { newVenueRoutes } from "./console/new-venue.js";
 import { setupRoutes } from "./routes/setup.js";
 import { setupMenuRoutes } from "./routes/setup-menu.js";
 import { setupTextsRoutes } from "./routes/setup-texts.js";
-import { loadBrandSettings } from "./texts/brand.js";
 import { setupRequestConsoleRoutes } from "./console/setup-requests.js";
 import { venueProfileRoutes } from "./routes/venue-profile.js";
 import { consoleRoutes } from "./console/routes.js";
@@ -486,11 +485,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       });
       setupRoutes(scope, { clock });
       setupMenuRoutes(scope, { clock });
-      setupTextsRoutes(scope, {
-        clock,
-        secretKey: config.auth.secretKey,
-        brand: loadBrandSettings(),
-      });
+      setupTextsRoutes(scope);
       {
         // The venue's own Twilio account (T-01; D123): Twilio itself only where texts really go.
         const texts = loadVenueTextSettings(config.env);

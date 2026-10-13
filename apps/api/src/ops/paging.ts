@@ -179,7 +179,8 @@ export const ROTA_HINT =
 
 export interface PagerDeps {
   readonly mailer: Mailer;
-  readonly texts: TextSender;
+  /** Pages by text too, when our own PAGING_TWILIO_* is set (D123); null pages by email only. */
+  readonly texts: TextSender | null;
   /** The From address of the page's email. */
   readonly from: string;
   /** Where the Console is, for the link to acknowledge; null leaves the link out. */
@@ -227,7 +228,8 @@ export async function notifyPages(
   for (const page of open.rows) {
     for (const slot of dueSlots(Temporal.Instant.from(page.opened_at), now, rota)) {
       const who = rota.find((r) => r.slot === slot)!;
-      const channels: ("email" | "text")[] = who.phone ? ["email", "text"] : ["email"];
+      const channels: ("email" | "text")[] =
+        who.phone && deps.texts ? ["email", "text"] : ["email"];
       for (const channel of channels) {
         const key = `page:${page.id}:${slot}:${channel}`;
         await pool.query(
@@ -274,7 +276,7 @@ async function send(
   const subject = `${page.test ? "[TEST] " : ""}${escalated}${page.summary}`;
   const body = `${subject}\nRunbook: ${page.runbook}\nAcknowledge in ${ack}`;
   if (channel === "text") {
-    await deps.texts.send({ to: who.phone!, body, idempotencyKey: key });
+    await deps.texts!.send({ to: who.phone!, body, idempotencyKey: key });
     return;
   }
   await deps.mailer.send({

@@ -84,7 +84,7 @@ M5 and M6 both need only M4, so they can swap.
 - **Room operations.** Cleaning marked done by staff and flagged after 8 minutes; room notes; faults (Out of service, [Pause the clock] with approval, [Comp 15 min of room time] as a reason-only comp); the $150 damage fee with a photo; lost and found; room calls to the board and every staff phone's Calls list.
 - **Approvals.** The approvals table and routing, and the Approvals inbox on the approver's phone, starting with room-clock pauses; later milestones add their kinds.
 - **Files.** Presigned uploads (`POST /files`) with type and size limits, for damage and lost-item photos first.
-- **Service texts.** West 4's Twilio subaccount; the 12 service texts and the 2 marketing texts (off) in `message_templates`; sending as `sending`, then sent, delivered or failed; replies into the two-way inbox (Messages on desktop and phone); STOP and HELP. Staging texts only our own test phones.
+- **Service texts.** West 4's own Twilio account, connected by West 4 ([D123](decisions.md)); the 12 service texts and the 2 marketing texts (off) in `message_templates`; sending as `sending`, then sent, delivered or failed; replies into the two-way inbox (Messages on desktop and phone); STOP and HELP. Staging texts only our own test phones.
 - **Public forms.** The server-checked CAPTCHA and daily limits on the waitlist page and on phone codes.
 - **Canvas boards:** Board, DeskRoom, DeskCalendar, Calendar, DeskMessages, Messages, Room, Staff and Waitlist. The check-in sheet, waitlist offers, the move sheet, faults, lost and found, the headcount and the Approvals inbox come from the spec.
 

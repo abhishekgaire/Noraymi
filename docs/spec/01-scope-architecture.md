@@ -76,7 +76,7 @@ Every screen talks only to the API. The API drives card readers through Stripe, 
 | Card readers | Every in-person card payment | Stripe Reader S710 at every pay point, the only model with cellular (S700 and WisePOS E work, without that backup), [server-driven](https://docs.stripe.com/terminal/payments/setup-integration?terminal-sdk-platform=server-driven) | Venue Wi-Fi, with [cellular](https://docs.stripe.com/terminal/fleet/cellular) turned on for every venue |
 | Venue router | Keeps the venue online when its internet line drops | A dual-WAN router with LTE on a different carrier from the readers, registered as a device | The venue |
 | Printers | Bar tickets, receipts, drawer kick | Star CloudPRNT and Epson Server Direct Print, or USB through a desktop-app host | Venue network |
-| Texts | Confirmations, reminders, room ready, receipts, two-way replies | Twilio Messaging on 10DLC, one subaccount per venue | Twilio |
+| Texts | Confirmations, reminders, room ready, receipts, two-way replies | Twilio Messaging on 10DLC, from each venue's own Twilio account, connected by the venue ([D123](../decisions.md)) | Twilio |
 
 **Why server-driven readers.** Staff phones and the bar computer never talk to the reader directly. They ask our API, which tells Stripe, which tells the reader. Any device works, nothing is installed, and a phone on cellular data can still take a card when the venue's internet is down. The trade-off is that server-driven readers [can't store payments offline](https://docs.stripe.com/terminal/payments/setup-integration?terminal-sdk-platform=server-driven); that needs Stripe's native SDK.
 

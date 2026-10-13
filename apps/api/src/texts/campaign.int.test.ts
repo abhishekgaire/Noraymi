@@ -7,7 +7,6 @@ import {
   loadDemoSeed,
   saveTextCampaign,
   saveTwilioIntegration,
-  twilioIntegration,
   withVenue,
 } from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
@@ -187,19 +186,6 @@ describe("the 10DLC campaign gate", () => {
     expect(last.text.messagingServiceSid).toBe(SERVICE);
     view = await app.inject({ method: "GET", url: `/v1/venues/${venueId}/texts/campaign` });
     expect(view.json()).toMatchObject({ number: "+12125550000", service: { status: "approved" } });
-  });
-
-  it("running the subaccount setup again keeps the recorded campaign", async () => {
-    await withVenue(pool, { venueId }, (c) =>
-      saveTwilioIntegration(c, venueId, {
-        accountSid: ACCOUNT,
-        phoneE164: "+12125550000",
-        secretEnc: encryptSecret(secretKey, "token"),
-        at: SEED_NOW.toString(),
-      }),
-    );
-    const t = await withVenue(pool, { venueId }, (c) => twilioIntegration(c, venueId));
-    expect(t?.campaign).toMatchObject({ serviceSid: SERVICE, status: "approved" });
   });
 });
 

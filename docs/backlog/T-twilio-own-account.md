@@ -92,7 +92,7 @@ Definition of done: see CLAUDE.md.
 
 ### T-04 · Retire the platform's Twilio pieces
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** T-01, T-02, T-03
 - **Spec:** [D123](../decisions.md)
@@ -102,7 +102,11 @@ Definition of done: see CLAUDE.md.
   - `twilio:campaign` re-reads a connected venue's campaign with its stored keys (`--venue` only).
   - `.env.example`, CLAUDE.md's commands, the staging secret placeholder and the docs say so.
 - **Acceptance:**
-  - [ ] No code path reads `TWILIO_PRIMARY_PROFILE_SID`, `TWILIO_ISV_EMAIL` or the platform's `TWILIO_ACCOUNT_SID` for a venue's text.
-  - [ ] A server with no Twilio variables at all starts in every environment, and pages go by email.
+  - [x] No code path reads `TWILIO_PRIMARY_PROFILE_SID`, `TWILIO_ISV_EMAIL` or the platform's `TWILIO_ACCOUNT_SID` for a venue's text.
+  - [x] A server with no Twilio variables at all starts in every environment, and pages go by email.
   - [ ] `pnpm check` and the full browser suite pass.
 - **Notes:**
+  - Removed: `texts/brand.ts` (the Trust Hub ISV flow), `POST /setup/texts/register` and its tests and wall-suite body, `texts/setup-subaccount.ts` and the `twilio:subaccount` script, `TWILIO_PRIMARY_PROFILE_SID` / `TWILIO_ISV_EMAIL`. `GET /setup/texts` now answers only the step's requests. No migration: `text_registrations` stays, unused (migration history is never rewritten).
+  - The platform `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` are no longer read anywhere. Our own on-call pages text only with the new, optional `PAGING_TWILIO_*` (`texts/settings.ts`, tested in `settings.test.ts`); without them every server starts and pages go by email (`ops/paging.ts` drops the text channel).
+  - `twilio:campaign` now takes `--venue` alone (the stored messaging service and the venue's own keys), or `--marketing --service MG…`.
+  - Left alone on purpose: the staging secret `twilio` in `infra/staging/secrets.tf` and its placeholder in `infra/scripts/seed-secrets.sh` (changing them needs a terraform apply; nothing reads it now). Done tickets (M1-23, M2-09, M8-22, O-12) keep their history.

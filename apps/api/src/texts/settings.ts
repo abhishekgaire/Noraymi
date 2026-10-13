@@ -1,13 +1,12 @@
 import type { West4Env } from "../config.js";
 
 /**
- * Texts from our platform's Twilio account (M1-23): phone confirmation codes
- * and PIN-reset links. They aren't among the venue's 14 guest texts (spec 11),
- * so they never go from a venue's subaccount. Locally, with no real
- * credentials, texts are logged instead of sent.
+ * Texts to our own on-call responders (M8-17's pages), never a venue's texts: a venue texts only
+ * from its own Twilio account (D123). Optional everywhere: with no `PAGING_TWILIO_*` variables, pages
+ * go by email only (locally they're logged instead). We hold no Twilio account for any venue.
  */
 export interface TextSettings {
-  readonly mode: "twilio" | "log";
+  readonly mode: "twilio" | "log" | "off";
   readonly accountSid: string;
   readonly authToken: string;
   readonly fromNumber: string;
@@ -19,14 +18,12 @@ export function loadTextSettings(
   env: West4Env,
   source: Record<string, string | undefined> = process.env,
 ): TextSettings {
-  const accountSid = source["TWILIO_ACCOUNT_SID"] ?? "";
-  const authToken = source["TWILIO_AUTH_TOKEN"] ?? "";
-  const fromNumber = source["TWILIO_FROM_NUMBER"] ?? "";
+  const accountSid = source["PAGING_TWILIO_ACCOUNT_SID"] ?? "";
+  const authToken = source["PAGING_TWILIO_AUTH_TOKEN"] ?? "";
+  const fromNumber = source["PAGING_TWILIO_FROM_NUMBER"] ?? "";
   const unset =
     !accountSid || !authToken || !fromNumber || PLACEHOLDER.test(accountSid + authToken);
-  if (unset) {
-    if (env === "local") return { mode: "log", accountSid: "", authToken: "", fromNumber: "" };
-    throw new Error("TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER must be set");
-  }
+  if (unset)
+    return { mode: env === "local" ? "log" : "off", accountSid: "", authToken: "", fromNumber: "" };
   return { mode: "twilio", accountSid, authToken, fromNumber };
 }
