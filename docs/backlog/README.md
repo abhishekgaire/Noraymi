@@ -31,6 +31,8 @@
 
 **Owner onboarding (Oct 11, 2026).** [O · Owner onboarding](O-onboarding.md) builds the [Set up your venue](../spec/17-onboarding.md) wizard in phase 1 (decision D113): our Console makes a venue and invites its owner, and the owner enters the plan, Stripe, rooms, prices, hours, deposits, menu, team, contacts and licenses, all editable later in Admin. 14 tickets (4 S, 10 M), O-01 to O-14, before S-01; not counted in the table above.
 
+**Each venue's own Twilio (Oct 12, 2026).** [T · Each venue's own Twilio account](T-twilio-own-account.md) builds decision D123: a venue connects its own Twilio account in Admin → Phone & texts or onboarding step 11, every text goes from it, codes and invites go by email until its texts are live, and the platform's Twilio pieces (subaccounts, Register for texts) are retired. 4 tickets (2 S, 2 M), T-01 to T-04, before S-05; not counted in the table above.
+
 ## Every ticket
 
 ### [M1 · Foundations](M1-foundations.md)
@@ -330,3 +332,12 @@
 | [O-12 · Steps 10 and 11: licenses, texts registration, website and the old system's files](O-onboarding.md#o-12--steps-10-and-11-licenses-texts-registration-website-and-the-old-systems-files) | M | O-02; M8-09, M2-09, M8-22, M9-01, M9-09 |
 | [O-13 · Step 12: devices, the go-live checks and Finish setup](O-onboarding.md#o-13--step-12-devices-the-go-live-checks-and-finish-setup) | S | O-02; M1-15, M3-13, M3-14, M4-02, M4-29 |
 | [O-14 · Onboard a new venue from scratch in the demo, then enter Sing Sing's values](O-onboarding.md#o-14--onboard-a-new-venue-from-scratch-in-the-demo-then-enter-sing-sings-values) | M | O-01 to O-13 |
+
+### [T · Each venue's own Twilio account](T-twilio-own-account.md)
+
+| Ticket | Size | Depends on |
+| --- | --- | --- |
+| [T-01 · Connect a venue's own Twilio account: the server](T-twilio-own-account.md#t-01--connect-a-venues-own-twilio-account-the-server) | M | M2-09, M8-22 |
+| [T-02 · Connect your Twilio account on screen: Admin → Phone & texts and step 11](T-twilio-own-account.md#t-02--connect-your-twilio-account-on-screen-admin--phone--texts-and-step-11) | M | T-01; O-12 |
+| [T-03 · Codes, invites and staff texts from the venue's own Twilio, by email until it's live](T-twilio-own-account.md#t-03--codes-invites-and-staff-texts-from-the-venues-own-twilio-by-email-until-its-live) | M | T-01; M1-23, O-11, M3-16, M6-20 |
+| [T-04 · Retire the platform's Twilio pieces](T-twilio-own-account.md#t-04--retire-the-platforms-twilio-pieces) | S | T-01, T-02, T-03 |

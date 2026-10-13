@@ -8,7 +8,7 @@ What Sing Sing's own public website says about the venue, read on Oct 11, 2026 f
 | --- | --- | --- |
 | Name | Sing Sing Karaoke Astoria | The venue's name |
 | Address | 25-30 Broadway, Astoria, NY 11106 (on Broadway between Crescent St and 29th St, Astoria, Queens) | The venue's address |
-| Phone | (929) 739-7310 | Admin → Phone & texts, call number (to confirm: the texting number is our own Twilio number) |
+| Phone | (929) 739-7310 | Admin → Phone & texts, call number. The texting number is the one Sing Sing buys in its own Twilio account and connects there (D123) |
 | Email | admin@singsingastoria.com | Not a setting by itself; the owner names the booking inbox (`contacts.bookingEmails`) in onboarding step 1 (D115) |
 | Getting there | N or W train to Broadway, about a 3-minute walk west along Broadway | Website text, if the manager wants it |
 | Opening hours | Monday to Wednesday 12:00 PM – 12:00 AM; Thursday 12:00 PM – 1:00 AM; Friday and Saturday 12:00 PM – 3:00 AM; Sunday 12:00 PM – 12:00 AM | Admin → Hours (`hours.weekly`); last call isn't stated |
@@ -64,7 +64,7 @@ The runbook for S-01's last part (O-14): once our Console has made Sing Sing and
 | 8 · Menu | The drinks' pour sizes and which beers are on draft; what a combo includes; the extra-sauce price; the kitchen's allergy notice | — | Still to give |
 | 9 · Team and contacts | Each manager's and staff member's name, phone and role; the first and second on-call responders and their hours; the breach contact and backup | — | Still to give |
 | 10 · Licenses | The liquor license (needed before Ready to open); the food service permit and the Food Protection Certificate holders; the music licenses (ASCAP, BMI, SESAC, GMR) | S-06 | Still to give |
-| 11 · Texts, website and your old system | Register for texts (needs the EIN, typed once, and our team's texting number first: S-05) | — | Still to give |
+| 11 · Texts, website and your old system | Connect your Twilio account: Sing Sing's own Twilio account, number, brand and service campaign, set up by its owner or manager (S-05, D123) | — | Still to give |
 | 11 · Texts, website and your old system | Website: singsingastoria.com exists; whether its site and domain move later is the owner's answer | The site | Still to give |
 | 11 · Texts, website and your old system | The old system's export files (bookings, deposits, guests, team) | — | Still to give |
 | 12 · Devices and checks | Card readers, receipt printers with their drawers, badge readers (S-07's hardware); the merchant category check once Stripe is connected; each manager's Stripe Dashboard login and Tap to Pay phone | S-07 | Still to give |
