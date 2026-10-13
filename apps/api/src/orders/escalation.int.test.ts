@@ -154,6 +154,31 @@ describe("escalating an order nobody accepts", () => {
     expect(await pushes("orders.push.ringing")).toHaveLength(1);
   });
 
+  it("says 'sent to Andy's phone' when the last alert went as a push (F-02)", async () => {
+    // The order-waiting text switched off (D124): the last level goes as a push, and says so.
+    await raw.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+         values ($1, 'texting', 99, $2, '2026-09-25')`,
+      [
+        venueId,
+        JSON.stringify({
+          on: true,
+          staffCodes: true,
+          orderWaiting: false,
+          singerCode: true,
+          staffReplies: true,
+        }),
+      ],
+    );
+    clock.set(at("23:10:00"));
+    const order = await placeAt(at("23:10:00"));
+    clock.set(at("23:16:00"));
+    await sweepEscalations(pool, clock.now());
+    expect(await orderAlert(order)).toMatchObject({ told: "pushed", manager: "Andy" });
+    expect(await texts()).toHaveLength(1);
+    await raw.query("delete from venue_settings where key = 'texting' and version = 99");
+  });
+
   it("an asked-to-wait order keeps escalating, and Accept stops everything", async () => {
     clock.set(at("22:50:00"));
     const order = await placeAt(at("22:50:00"));

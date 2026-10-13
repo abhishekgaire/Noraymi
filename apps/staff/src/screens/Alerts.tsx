@@ -67,7 +67,7 @@ export type Alert =
       readonly room_name: string | null;
       readonly items: string | null;
       readonly age_sec: number;
-      readonly told: "phone" | "texted" | null;
+      readonly told: "phone" | "texted" | "pushed" | null;
       readonly manager: string | null;
     }
   | {
@@ -213,7 +213,14 @@ export function Alerts({
           items: a.items ?? "",
         });
         if (!a.told || !a.manager) return `${base}.`;
-        return `${base} · ${t(a.told === "texted" ? "alert.order.texted" : "alert.order.phone", { name: a.manager })}.`;
+        return `${base} · ${t(
+          a.told === "texted"
+            ? "alert.order.texted"
+            : a.told === "pushed"
+              ? "alert.order.pushed"
+              : "alert.order.phone",
+          { name: a.manager },
+        )}.`;
       }
       case "ticket":
         if (a.kitchen)

@@ -3759,4 +3759,5 @@ export const en = {
   "texting.emailsNote": "Emails can't be switched off.",
   "texting.failed": "Couldn't save texting",
   "messages.repliesOff": "Staff replies are off · Admin → Texts",
+  "alert.order.pushed": "sent to {name}'s phone",
 } as const;

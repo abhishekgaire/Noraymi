@@ -386,10 +386,11 @@ async function boardAlerts(
     status: string;
     placed_at: string;
     escalation_level: number;
+    manager_told: "text" | "push" | null;
     room_name: string | null;
     items: string | null;
   }>(
-    `select o.id, o.status, to_json(o.placed_at) #>> '{}' as placed_at, o.escalation_level, r.name as room_name,
+    `select o.id, o.status, to_json(o.placed_at) #>> '{}' as placed_at, o.escalation_level, o.manager_told, r.name as room_name,
             (select string_agg(i.qty || ' × ' || i.name_snapshot, ', ' order by i.sort)
                from order_items i where i.venue_id = o.venue_id and i.order_id = o.id) as items
        from orders o
@@ -422,7 +423,15 @@ async function boardAlerts(
       room_name: o.room_name,
       items: o.items,
       age_sec: age,
-      told: o.escalation_level >= 4 ? "texted" : o.escalation_level >= 3 ? "phone" : null,
+      // F-02: "texted" only when a text went; a push at the last level reads "sent to …'s phone".
+      told:
+        o.manager_told === "text"
+          ? "texted"
+          : o.manager_told === "push"
+            ? "pushed"
+            : o.escalation_level >= 3
+              ? "phone"
+              : null,
       manager: managerName ?? null,
     });
   }

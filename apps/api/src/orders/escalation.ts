@@ -74,6 +74,8 @@ export async function escalateOrders(
   );
   let moved = 0;
   for (const o of rows.rows) {
+    // How the level-4 alert actually went (F-02): the board says "texted" only for a text.
+    let told: "text" | "push" | null = null;
     const age = Math.floor((now.epochMilliseconds - o.placed_at.getTime()) / 1000);
     const target = levelAt(age, aging);
     if (target <= o.escalation_level) continue;
@@ -123,7 +125,11 @@ export async function escalateOrders(
           );
           const m = who.rows[0];
           // The venue's own texts aren't live (T-03; D123): the manager's phone gets a push instead.
-          if (m?.phone_e164 && !(await textsLive(c, venueId, texts, m.phone_e164, "orderWaiting")))
+          if (
+            m?.phone_e164 &&
+            !(await textsLive(c, venueId, texts, m.phone_e164, "orderWaiting"))
+          ) {
+            told = "push";
             await enqueuePush(c, {
               venueId,
               audience: { kind: "person", userId: manager },
@@ -140,7 +146,8 @@ export async function escalateOrders(
               runAt: now,
               dedupeKey: `order-manager-call:${o.id}`,
             });
-          else if (m?.phone_e164)
+          } else if (m?.phone_e164) {
+            told = "text";
             await enqueueText(c, {
               venueId,
               runAt: now,
@@ -154,13 +161,15 @@ export async function escalateOrders(
                 items: (o.items ?? "an order").slice(0, 200),
               },
             });
+          }
         }
       }
     }
     await c.query(
-      `update orders set escalation_level = $3, escalated_at = coalesce(escalated_at, $4)
+      `update orders set escalation_level = $3, escalated_at = coalesce(escalated_at, $4),
+              manager_told = coalesce($5, manager_told)
         where venue_id = $1 and id = $2 and status in ('ringing', 'held')`,
-      [venueId, o.id, target, now.toString()],
+      [venueId, o.id, target, now.toString(), told],
     );
     await emitEvent(c, {
       venueId,

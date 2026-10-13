@@ -3858,4 +3858,5 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "texting.emailsNote": "Los correos no se pueden apagar.",
   "texting.failed": "No se pudieron guardar los mensajes de texto",
   "messages.repliesOff": "Las respuestas del personal están apagadas · Admin → Mensajes de texto",
+  "alert.order.pushed": "enviado al teléfono de {name}",
 };
