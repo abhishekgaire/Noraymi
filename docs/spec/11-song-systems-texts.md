@@ -79,4 +79,19 @@ The `BarModeSettings` type is defined once, in [Settings, rule packs and modules
 | 13 | Review ask | Marketing | Off until it has its own opt-in | |
 | 14 | Birthday | Marketing | Off until it has its own opt-in | |
 
+**Texting switch ([D124](../decisions.md)).** Every text the app sends can be switched off; emails can't. The settings key `texting` (owner or manager, in Admin → Texts and Admin → Features → Choices) holds `{ on, staffCodes, orderWaiting, singerCode, staffReplies }`, all on by default:
+
+| Switch | Off means |
+| --- | --- |
+| **Texting** (`on`) | Nothing is texted: no guest text, no staff text, no reply. Codes, PIN-reset links and invites go by email, the manager's order-waiting alert goes as a push, and staff confirm a singer at the bar. A text already queued is dropped when its job runs |
+| Each of the 14 texts above | That text isn't sent (`message_templates.on`, as today) |
+| **Staff sign-in and invite codes** (`staffCodes`) | Phone codes, PIN-reset links and invites go by email; a phone-only invite is refused |
+| **Order waiting alert** (`orderWaiting`) | The manager's level-4 alert for an order still ringing goes as a push to their phone |
+| **Singer's phone code** (`singerCode`) | The bar-mode singer isn't texted a code; staff confirm them at the bar |
+| **Staff replies in Messages** (`staffReplies`) | Messages shows incoming texts but takes no reply |
+
+**STOP and HELP** aren't switchable: while a number is connected, an incoming STOP is always recorded and confirmed and HELP always answered, whatever the switches say, because the carriers require it. Admin → Texts shows them on and locked ("Always on · carriers require it"). Turning texting off doesn't disconnect the venue's Twilio account.
+
+**Booking emails ([D124](../decisions.md)).** Every online booking is emailed to the guest, whatever the texting switches say: **Booking confirmed** when it's confirmed (online, or when the deposit is paid by link), **Booking changed** when the guest or staff change it, and **Booking cancelled** when either side cancels it. Each gives the venue, date, time, room hours, party size, the deposit and its refund terms, the manage link (`/b/…`) and the venue's phone, in the guest's language, and never card data. The online booking form requires an email ("We email your confirmation and text your reminders"). A booking made by staff is emailed when it has an email. The venue's own copy still goes to its booking inbox ([Owner onboarding](17-onboarding.md) step 1).
+
 "The bar needs a few minutes" and "On its way" are room-screen messages on the guests' phones and the room tablet, not texts: no step of a room order texts the guest.

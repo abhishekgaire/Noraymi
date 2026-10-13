@@ -33,6 +33,8 @@
 
 **Each venue's own Twilio (Oct 12, 2026).** [T · Each venue's own Twilio account](T-twilio-own-account.md) builds decision D123: a venue connects its own Twilio account in Admin → Phone & texts or onboarding step 11, every text goes from it, codes and invites go by email until its texts are live, and the platform's Twilio pieces (subaccounts, Register for texts) are retired. 4 tickets (2 S, 2 M), T-01 to T-04, before S-05; not counted in the table above.
 
+**Every feature switchable (Oct 13, 2026).** [F · Features](F-features.md) builds decision D124: texting switched off venue-wide or text by text (emails never), new switchable features and the Choices in Admin → Features and Set up your venue's **Choose your features**, approvals as a venue choice (phone, PIN at the register, or none), every booking emailed to the guest, and the room's join-QR slip printed at every room start. 8 tickets (3 S, 5 M), F-01 to F-08, before S-05; not counted in the table above.
+
 ## Every ticket
 
 ### [M1 · Foundations](M1-foundations.md)
@@ -341,3 +343,16 @@
 | [T-02 · Connect your Twilio account on screen: Admin → Phone & texts and step 11](T-twilio-own-account.md#t-02--connect-your-twilio-account-on-screen-admin--phone--texts-and-step-11) | M | T-01; O-12 |
 | [T-03 · Codes, invites and staff texts from the venue's own Twilio, by email until it's live](T-twilio-own-account.md#t-03--codes-invites-and-staff-texts-from-the-venues-own-twilio-by-email-until-its-live) | M | T-01; M1-23, O-11, M3-16, M6-20 |
 | [T-04 · Retire the platform's Twilio pieces](T-twilio-own-account.md#t-04--retire-the-platforms-twilio-pieces) | S | T-01, T-02, T-03 |
+
+### [F · Every feature switchable](F-features.md)
+
+| Ticket | Size | Depends on |
+| --- | --- | --- |
+| [F-01 · Texting can be switched off, venue-wide and text by text](F-features.md#f-01--texting-can-be-switched-off-venue-wide-and-text-by-text) | M | T-03 |
+| [F-02 · The order-waiting alert says how the manager was told](F-features.md#f-02--the-order-waiting-alert-says-how-the-manager-was-told) | S | F-01 |
+| [F-03 · New switches: deposits, room tablets, the card behind the bar, Pay my share, cash discount and the ticket choice](F-features.md#f-03--new-switches-deposits-room-tablets-the-card-behind-the-bar-pay-my-share-cash-discount-and-the-ticket-choice) | M | M1-32, O-04 |
+| [F-04 · Approvals: on the manager's phone, by PIN at the register, or none](F-features.md#f-04--approvals-on-the-managers-phone-by-pin-at-the-register-or-none) | M | F-03 |
+| [F-05 · Choose your features in Set up your venue](F-features.md#f-05--choose-your-features-in-set-up-your-venue) | S | F-03, F-04 |
+| [F-06 · Every booking is emailed to the guest](F-features.md#f-06--every-booking-is-emailed-to-the-guest) | M | M5 bookings, M1-18 |
+| [F-07 · The room's join QR is printed when a room starts, and reprinted on demand](F-features.md#f-07--the-rooms-join-qr-is-printed-when-a-room-starts-and-reprinted-on-demand) | M | M3-08, M3-13 |
+| [F-08 · Sing Sing's feature choices](F-features.md#f-08--sing-sings-feature-choices) | S | F-03, F-05 |

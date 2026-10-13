@@ -48,7 +48,11 @@ In Admin, Payments is the Stripe account, payouts and our plan; Team is people, 
 
 **Approvals.** A comp or void over the reason-only limit, a refund, a room-clock pause, a tip over the review limit in `pay.tipReview` (over 25% at West 4), a cash paid-out over the limit, a lower party size after the gratuity applies, and charging a saved card without the guest's confirmation all need approval.
 
-- **Decided on the approver's own phone,** in their passkey-protected session, never on the requester's device and never by the requester. Nobody approves their own request.
+- **How it's decided is the venue's choice** ([D124](../decisions.md)): the owner-only settings key `approvals.mode`, in Admin → Features → Choices and Set up your venue's step 2.
+  - **On the manager's phone** (`phone`, the default): decided on the approver's own phone, in their passkey-protected session, never on the requester's device and never by the requester. Nobody approves their own request.
+  - **Manager's PIN at the register** (`pin`): routed the same way, with no push; the requester's screen offers **Manager's PIN**, and an owner or manager other than the requester picks their name and types their PIN on the same register to approve or decline (`POST /approvals/{id}/pin`, with the PIN sign-in's lockouts). The approver's phone can still decide it.
+  - **No approval** (`none`): the action runs at once when the person's role allows it; an approval row is still written, approved with `decided_with = none`, so the record, the exceptions report and the alerts are unchanged.
+  - Every row records `decided_with` (`phone`, `pin` or `none`).
 - **Routing.** A request goes to the manager on duty. The manager on duty's own requests go to another manager or the owner (Andy's go to Abhishek), and the owner's go to a manager. A tip over 25% on a paper slip goes to the manager on duty, or to the owner if that manager entered the slip.
 - **The Approvals inbox.** The manager's phone shows "Approvals · N": each request's line, amount, reason, who asked and when, with [Approve] and [Decline]. The requester's screen shows "Waiting for Andy", then the decision.
 - **Nothing waits.** The line shows who it's waiting for, and staff keep working. A tab waiting on an approval is skipped by "Charge the remaining tabs" until it's decided.

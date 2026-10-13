@@ -263,11 +263,14 @@ A new version needs two people on our side to approve it in the Console, is sign
 
 | Module | Needs |
 | --- | --- |
-| Online booking & deposits, Packages & specials, Song system control, Event sales | Rooms & room clock |
+| Online booking, Packages & specials, Song system control, Event sales, Room tablets, Keep the card behind the bar, Pay my share | Rooms & room clock |
+| Deposits on bookings | Online booking |
 | Ordering from the room | Rooms & room clock, and Bar screen & tickets |
 | Kitchen & food | Bar screen & tickets, and a paired kitchen printer and the allergy notice ([Kitchen and food](16-kitchen.md)) |
 | Bar mode | Bar tabs & quick sale |
 | Marketing texts | Guest texts |
+
+Cash discount needs nothing; its rate is still `pay.cardFee` ([D124](../decisions.md)).
 
 A module can be on only while what it needs is on. Turning one off that others need lists them ("These turn off with it: …") and turns them off too after a confirm. Turning off Bar screen & tickets while Ordering from the room is on asks: **"Room orders would have nowhere to ring. Turn off Ordering from the room too?"**, followed by "These turn off with it: …" when Kitchen & food goes too.
 
@@ -276,7 +279,12 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Module | Staff app (desktop and bar POS) | Staff phone | Website and room page | Texts |
 | --- | --- | --- | --- | --- |
 | Rooms & room clock | Rooms (the board), DeskRoom, Calendar, the Rooms list on the bar POS | Bookings, Rooms, Calendar | The Rooms section; room tablets | Booking confirmed, Reminder, Room code, Please wrap up, Booked time ending, Running late reply |
-| Online booking & deposits | Admin → Deposits & cancelling reads "Online booking is off" (what a walk-in takes, D112, still shows) | — | The Book section and new bookings on the manage page; the hero's "Book a room" becomes "Call to book" | Payment link, and Deposit refund for new bookings |
+| Online booking | Admin → Deposits & cancelling reads "Online booking is off" (what a walk-in takes, D112, still shows) | — | The Book section and new bookings on the manage page; the hero's "Book a room" becomes "Call to book" | — |
+| Deposits on bookings | Admin → Deposits & cancelling's online deposit; the deposit payment link | — | The deposit or card hold on the Book section (bookings are taken with nothing kept) | Payment link, and Deposit refund for new bookings |
+| Room tablets | Pairing a room tablet | — | The room tablet (it reads "Room tablets are off") | — |
+| Keep the card behind the bar | The walk-in choice "Keep the card behind the bar" | — | — | — |
+| Pay my share | — | — | Pay my share on the guest bill | — |
+| Cash discount | The cash discount at the register and Admin → Payments' rate | — | The cash price on the menu | — |
 | Walk-in waitlist | The board's waitlist drawer | Waitlist | The door QR and the waitlist page | Room ready, Offer expiring |
 | Ordering from the room | — (room orders stop arriving) | — | The menu, ordering and Same again on the room page and tablets | — |
 | Bar screen & tickets | Bar orders, the room-order cards on the bar POS, tickets | Runs | — | — |
@@ -291,6 +299,12 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Safety & ID records | The board's "Manager needed" pin and headcount, the door counter, ID scans (the "IDs checked" count stays) | The incident log | The help link on the room page | — |
 | Reports & accounting | Reports and exports (the Z report stays, under Payments & checks) | Reports | — | — |
 | Website | — | — | The public pages: home, rooms, menu and PDF, parties and enquiries, songs | — |
+
+**New switches ([D124](../decisions.md)).** Deposits on bookings is split from Online booking: off, online bookings take no deposit or card hold and staff can't send a deposit link, while deposits already taken are still shown and refunded. Room tablets off refuses the tablet's routes and pairing; ordering from a tablet needs both Room tablets and Ordering from the room. Keep the card behind the bar off removes that walk-in choice; turning it off is refused while it is the walk-in choice or a held card hasn't been given back. Pay my share is the module alone (`pay.payShare.on` is no longer read). Cash discount off takes no discount whatever `pay.cardFee` says, and keeps the rate. The plans include them (D121): Bar adds Cash discount, Rooms adds Deposits on bookings, Room tablets, Keep the card behind the bar and Pay my share.
+
+**Choices.** Below the modules, Admin → Features shows three settings an owner picks the same way, each saved to its own key: **Drinks rung at the bar print a ticket** (`pos.printBarDrinkTickets`, also in Admin → Bar POS), **Texting** (`texting.on`, [Song systems and texts](11-song-systems-texts.md)) and **Approvals** (`approvals.mode`: on the manager's phone, a manager's PIN at the register, or no approval; [Tenancy and access](02-tenancy-access.md)). The same list, modules and choices, is Set up your venue's **Choose your features** ([onboarding](17-onboarding.md) step 2).
+
+**Always on.** Moving a bar tab into a room, training mode, offline mode, Close the night and the Z report, and emails aren't switches.
 
 Event sales, Guests, loyalty & gift cards, and Multiple locations are phase 2 or later, so no phase 1 screen shows them. Kitchen & food comes into phase 1 for Sing Sing Astoria, the first venue to go live, as printed kitchen tickets with no kitchen screen or coursing ([D98](../decisions.md)); its design is in [Kitchen and food](16-kitchen.md), approved by the founder on Oct 9, 2026.
 
