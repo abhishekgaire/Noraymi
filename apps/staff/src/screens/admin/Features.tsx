@@ -48,7 +48,7 @@ interface Pending {
 const STATES: readonly ModuleState[] = ["on", "stopping", "off"];
 const HIDES = ["staffApp", "staffPhone", "website", "texts"] as const;
 
-export function Features() {
+export function Features({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useT();
   const { state, refresh } = useSession();
   const { subscribe } = useEvents();
@@ -134,8 +134,9 @@ export function Features() {
 
   return (
     <section className="features">
-      <h2>{t("admin.section.features")}</h2>
-      <p className="muted">{t("admin.hint.features")}</p>
+      {/* Set up your venue's step 2 shows the same list under its own heading (F-05; D124). */}
+      {!embedded && <h2>{t("admin.section.features")}</h2>}
+      {!embedded && <p className="muted">{t("admin.hint.features")}</p>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -145,7 +146,11 @@ export function Features() {
         <p role="status">{t("shell.loading")}</p>
       ) : (
         <>
-          <p className="small muted">{t("modules.count", counts)}</p>
+          <p className="small muted">
+            {embedded
+              ? t("onboarding.features.summary", { count: counts.on })
+              : t("modules.count", counts)}
+          </p>
           <ul className="module-list">
             {rows.map((m) => (
               <li key={m.id} className={`module module-${m.state}`}>

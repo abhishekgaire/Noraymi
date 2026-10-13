@@ -233,6 +233,19 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await expect(page.getByText("Rooms + Kitchen plan · started")).toBeVisible({
       timeout: 30_000,
     });
+    // Choose your features (F-05; D124): the plan's modules start on; the owner turns Deposits off.
+    await expect(page.getByRole("heading", { name: "Choose your features" })).toBeVisible();
+    await expect(page.getByText(/\d+ features on/)).toBeVisible();
+    await page
+      .getByRole("group", { name: "Deposits on bookings · State" })
+      .getByRole("button", { name: "Off" })
+      .click();
+    await expect(
+      page
+        .getByRole("group", { name: "Deposits on bookings · State" })
+        .getByRole("button", { name: "Off" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("radio", { name: "On the manager's phone" })).toBeChecked();
 
     // Step 3: Connect with Stripe (the fake's hosted onboarding).
     await rail.getByRole("button", { name: /Card payments/ }).click();
@@ -294,7 +307,6 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await page.getByLabel("Flag a tip over ($)").fill("60");
     await page.getByLabel("Flag a tip entered this many hours late").fill("3");
     await page.getByLabel("How the pool splits").selectOption("hours");
-    await page.getByLabel(/^Pay my share/).selectOption("no");
     await page.getByLabel("Hold a card at room check-in").selectOption("no");
     await page.getByLabel("Drawer model").selectOption("house");
     await page.getByLabel("Starting bank, $").fill("250");

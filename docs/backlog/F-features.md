@@ -121,7 +121,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-05 · Choose your features in Set up your venue
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** F-03, F-04
 - **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 2; [D124](../decisions.md)
@@ -129,9 +129,12 @@ Definition of done: see CLAUDE.md.
   - Step 2, once the plan is active, shows **Choose your features**: Admin → Features' own list (modules in the plan and the Choices), saved through the same routes. Its summary line counts what's on.
   - Finish setup keeps its guest-facing ticks.
 - **Acceptance:**
-  - [ ] An owner switches features on and off in step 2 and Admin → Features shows the same.
-  - [ ] EN and ES; the onboarding e2e test covers it.
+  - [x] An owner switches features on and off in step 2 and Admin → Features shows the same.
+  - [x] EN and ES; the onboarding e2e test covers it.
 - **Notes:**
+  - Built: once the plan is active, step 2 (`PlanStep.tsx`) shows **Choose your features**: Admin → Features' own component (`Features embedded`), the modules within the plan and the Choices, each saved as it's switched; its count line reads "N features on". The plans' cards name the always-on register and the new switches.
+  - A venue in setup may not have its `pos` key yet, so the drink-ticket choice says it's set in Admin → Bar POS once that's saved; Texting and Approvals work from the start.
+  - Step 7 no longer asks about Pay my share (F-03); the onboarding e2e test lost that line and gained the Choose your features checks (turning Deposits on bookings off).
 
 ### F-06 · Every booking is emailed to the guest
 

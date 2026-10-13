@@ -3566,9 +3566,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.plan.priceRooms": "{amount} al mes + {room} por sala",
   "onboarding.plan.unavailable": "Aún no disponible · te avisaremos por correo cuando lo esté",
   "onboarding.plan.allows.bar":
-    "Cuentas de bar y venta rápida, Modo bar, Pantalla de bar y comandas",
+    "La caja (cuentas de bar, venta rápida e informes, siempre activos), más Modo bar, Pantalla de bar y comandas y el descuento en efectivo",
   "onboarding.plan.allows.rooms":
-    "Todo lo de Bar, más Salas y reloj de sala, Reservas en línea y depósitos, Pedidos desde la sala, Paquetes y especiales, Control del sistema de canciones y la lista de espera",
+    "Todo lo de Bar, más Salas y reloj de sala, Reservas en línea, Depósitos en las reservas, Pedidos desde la sala, Tabletas en las salas, Pagar mi parte, Paquetes y especiales, Control del sistema de canciones y la lista de espera",
   "onboarding.plan.allows.rooms_kitchen":
     "Todo lo de Salas, más Cocina y comida (por ahora el aviso de alergias y las comandas de cocina; aún sin pantalla de cocina ni tiempos)",
   "onboarding.plan.promo": "Código promocional",
@@ -3857,17 +3857,21 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "messages.repliesOff": "Las respuestas del personal están apagadas · Admin → Mensajes de texto",
   "alert.order.pushed": "enviado al teléfono de {name}",
   "module.deposits.name": "Depósitos en las reservas",
-  "module.deposits.hides.staffApp": "El depósito en línea en Admin → Depósitos y cancelaciones; el enlace de pago del depósito",
+  "module.deposits.hides.staffApp":
+    "El depósito en línea en Admin → Depósitos y cancelaciones; el enlace de pago del depósito",
   "module.deposits.hides.staffPhone": "—",
-  "module.deposits.hides.website": "El depósito o la retención en la sección Reservar (las reservas no cobran nada)",
+  "module.deposits.hides.website":
+    "El depósito o la retención en la sección Reservar (las reservas no cobran nada)",
   "module.deposits.hides.texts": "Enlace de pago y Reembolso del depósito para reservas nuevas",
   "module.room_tablets.name": "Tabletas en las salas",
   "module.room_tablets.hides.staffApp": "Vincular una tableta de sala",
   "module.room_tablets.hides.staffPhone": "—",
-  "module.room_tablets.hides.website": "Las tabletas de las salas (muestran \"Las tabletas de las salas están apagadas\")",
+  "module.room_tablets.hides.website":
+    'Las tabletas de las salas (muestran "Las tabletas de las salas están apagadas")',
   "module.room_tablets.hides.texts": "—",
   "module.card_behind_bar.name": "Guardar la tarjeta en la barra para clientes sin reserva",
-  "module.card_behind_bar.hides.staffApp": "La opción para clientes sin reserva \"Guardar la tarjeta en la barra\"",
+  "module.card_behind_bar.hides.staffApp":
+    'La opción para clientes sin reserva "Guardar la tarjeta en la barra"',
   "module.card_behind_bar.hides.staffPhone": "—",
   "module.card_behind_bar.hides.website": "—",
   "module.card_behind_bar.hides.texts": "—",
@@ -3877,19 +3881,24 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "module.pay_share.hides.website": "Pagar mi parte en la cuenta del cliente",
   "module.pay_share.hides.texts": "—",
   "module.cash_discount.name": "Descuento por pago en efectivo",
-  "module.cash_discount.hides.staffApp": "El descuento en efectivo en la caja y su porcentaje en Admin → Pagos",
+  "module.cash_discount.hides.staffApp":
+    "El descuento en efectivo en la caja y su porcentaje en Admin → Pagos",
   "module.cash_discount.hides.staffPhone": "—",
   "module.cash_discount.hides.website": "—",
   "module.cash_discount.hides.texts": "—",
-  "modules.refused.walkInChoice": "Primero elige otra opción para clientes sin reserva en Admin → Depósitos y cancelaciones",
+  "modules.refused.walkInChoice":
+    "Primero elige otra opción para clientes sin reserva en Admin → Depósitos y cancelaciones",
   "modules.refused.cardsHeld": "Primero devuelve las tarjetas que siguen guardadas en la barra",
   "tablet.off": "Las tabletas de las salas están apagadas",
-  "deposits.walkIn.cardBehindBarOff": "Guardar la tarjeta en la barra está apagado · actívalo primero en Admin → Funciones",
-  "cardFeeAdmin.discount.off": "El descuento en efectivo está apagado · Admin → Funciones. El porcentaje se guarda para cuando se active.",
+  "deposits.walkIn.cardBehindBarOff":
+    "Guardar la tarjeta en la barra está apagado · actívalo primero en Admin → Funciones",
+  "cardFeeAdmin.discount.off":
+    "El descuento en efectivo está apagado · Admin → Funciones. El porcentaje se guarda para cuando se active.",
   "cardFeeAdmin.inFeatures": "Cámbialo en Admin → Funciones",
   "features.choices": "Opciones",
   "features.choices.hint": "Cómo trabaja el local. Cada una se guarda en cuanto la cambias.",
-  "deposits.depositsOff": "Los depósitos en las reservas están apagados · las reservas en línea no cobran depósito ni retienen la tarjeta. Actívalos en Admin → Funciones.",
+  "deposits.depositsOff":
+    "Los depósitos en las reservas están apagados · las reservas en línea no cobran depósito ni retienen la tarjeta. Actívalos en Admin → Funciones.",
   "approvals.pin.button": "PIN del gerente",
   "approvals.pin.title": "Aprobar con el PIN de un gerente",
   "approvals.pin.who": "Quién aprueba",
@@ -3897,9 +3906,15 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "approvals.pin.needed": "Elige quién aprueba y escribe su PIN",
   "approvals.pin.nobody": "Ningún otro gerente o dueño puede aprobar aquí",
   "approvals.mode": "Aprobaciones",
-  "approvals.mode.hint": "Cómo se deciden las cortesías, anulaciones, reembolsos y las demás solicitudes por encima de un límite. Todas se registran, elijas lo que elijas.",
+  "approvals.mode.hint":
+    "Cómo se deciden las cortesías, anulaciones, reembolsos y las demás solicitudes por encima de un límite. Todas se registran, elijas lo que elijas.",
   "approvals.mode.phone": "En el teléfono del gerente",
   "approvals.mode.pin": "PIN del gerente en la caja",
   "approvals.mode.none": "Sin aprobación (solo los permisos de cada rol)",
   "approvals.mode.ownerOnly": "Solo el dueño puede cambiar esto",
+  "onboarding.features.title": "Elige tus funciones",
+  "onboarding.features.hint":
+    "Todo lo que incluye tu plan empieza activado. Apaga lo que no uses; puedes cambiarlo cuando quieras en Admin → Funciones.",
+  "onboarding.features.summary": "{count} funciones activas",
+  "features.choices.ticketsLater": "Se elige en Admin → TPV de barra cuando se guarden sus ajustes",
 };

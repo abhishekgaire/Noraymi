@@ -5,6 +5,7 @@ import { api, ApiCallError } from "../../api.js";
 import { useConnection } from "../../connection.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { Features } from "./Features.js";
 
 /**
  * Set up your venue's step 2, Your plan (O-04; spec 17 · Step details 2;
@@ -192,6 +193,12 @@ export function PlanStep({ onSaved }: { onSaved: () => void }) {
           {t("onboarding.plan.started", { plan: t(NAME[offer.current.plan]) })}
         </p>
         <p className="muted">{t("onboarding.plan.changeLater")}</p>
+        {/* Choose your features (F-05; D124): Admin → Features' own list, saved as it's switched. */}
+        <section className="setup-features" aria-labelledby="choose-features">
+          <h3 id="choose-features">{t("onboarding.features.title")}</h3>
+          <p className="muted small">{t("onboarding.features.hint")}</p>
+          <Features embedded />
+        </section>
       </div>
     );
   if (waiting)

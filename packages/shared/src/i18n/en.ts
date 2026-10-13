@@ -3481,9 +3481,10 @@ export const en = {
   "onboarding.plan.price": "{amount} a month",
   "onboarding.plan.priceRooms": "{amount} a month + {room} a room",
   "onboarding.plan.unavailable": "Not available yet · we'll email you when it is",
-  "onboarding.plan.allows.bar": "Bar tabs & quick sale, Bar mode, Bar screen & tickets",
+  "onboarding.plan.allows.bar":
+    "The register (bar tabs, quick sale and reports, always on), plus Bar mode, Bar screen & tickets and the cash discount",
   "onboarding.plan.allows.rooms":
-    "Everything in Bar, plus Rooms & room clock, Online booking & deposits, Ordering from the room, Packages & specials, Song system control and the waitlist",
+    "Everything in Bar, plus Rooms & room clock, Online booking, Deposits on bookings, Ordering from the room, Room tablets, Pay my share, Packages & specials, Song system control and the waitlist",
   "onboarding.plan.allows.rooms_kitchen":
     "Everything in Rooms, plus Kitchen & food (for now the allergy notice and kitchen tickets; no kitchen screen or coursing yet)",
   "onboarding.plan.promo": "Promo code",
@@ -3759,17 +3760,19 @@ export const en = {
   "messages.repliesOff": "Staff replies are off · Admin → Texts",
   "alert.order.pushed": "sent to {name}'s phone",
   "module.deposits.name": "Deposits on bookings",
-  "module.deposits.hides.staffApp": "The online deposit in Admin → Deposits & cancelling; the deposit payment link",
+  "module.deposits.hides.staffApp":
+    "The online deposit in Admin → Deposits & cancelling; the deposit payment link",
   "module.deposits.hides.staffPhone": "—",
-  "module.deposits.hides.website": "The deposit or card hold on the Book section (bookings take nothing)",
+  "module.deposits.hides.website":
+    "The deposit or card hold on the Book section (bookings take nothing)",
   "module.deposits.hides.texts": "Payment link, and Deposit refund for new bookings",
   "module.room_tablets.name": "Room tablets",
   "module.room_tablets.hides.staffApp": "Pairing a room tablet",
   "module.room_tablets.hides.staffPhone": "—",
-  "module.room_tablets.hides.website": "The room tablets (they read \"Room tablets are off\")",
+  "module.room_tablets.hides.website": 'The room tablets (they read "Room tablets are off")',
   "module.room_tablets.hides.texts": "—",
   "module.card_behind_bar.name": "Keep the card behind the bar for walk-ins",
-  "module.card_behind_bar.hides.staffApp": "The walk-in choice \"Keep the card behind the bar\"",
+  "module.card_behind_bar.hides.staffApp": 'The walk-in choice "Keep the card behind the bar"',
   "module.card_behind_bar.hides.staffPhone": "—",
   "module.card_behind_bar.hides.website": "—",
   "module.card_behind_bar.hides.texts": "—",
@@ -3779,19 +3782,24 @@ export const en = {
   "module.pay_share.hides.website": "Pay my share on the guest bill",
   "module.pay_share.hides.texts": "—",
   "module.cash_discount.name": "Cash discount",
-  "module.cash_discount.hides.staffApp": "The cash discount at the register and its rate in Admin → Payments",
+  "module.cash_discount.hides.staffApp":
+    "The cash discount at the register and its rate in Admin → Payments",
   "module.cash_discount.hides.staffPhone": "—",
   "module.cash_discount.hides.website": "—",
   "module.cash_discount.hides.texts": "—",
-  "modules.refused.walkInChoice": "Pick another walk-in choice in Admin → Deposits & cancelling first",
+  "modules.refused.walkInChoice":
+    "Pick another walk-in choice in Admin → Deposits & cancelling first",
   "modules.refused.cardsHeld": "Give back the cards still held behind the bar first",
   "tablet.off": "Room tablets are off",
-  "deposits.walkIn.cardBehindBarOff": "Keep the card behind the bar is off · turn it on in Admin → Features first",
-  "cardFeeAdmin.discount.off": "Cash discount is off · Admin → Features. The rate is kept for when it's on.",
+  "deposits.walkIn.cardBehindBarOff":
+    "Keep the card behind the bar is off · turn it on in Admin → Features first",
+  "cardFeeAdmin.discount.off":
+    "Cash discount is off · Admin → Features. The rate is kept for when it's on.",
   "cardFeeAdmin.inFeatures": "Change it in Admin → Features",
   "features.choices": "Choices",
   "features.choices.hint": "How the venue works. Each saves as soon as you change it.",
-  "deposits.depositsOff": "Deposits on bookings is off · online bookings take no deposit or card hold. Turn it on in Admin → Features.",
+  "deposits.depositsOff":
+    "Deposits on bookings is off · online bookings take no deposit or card hold. Turn it on in Admin → Features.",
   "approvals.pin.button": "Manager's PIN",
   "approvals.pin.title": "Approve with a manager's PIN",
   "approvals.pin.who": "Who's approving",
@@ -3799,9 +3807,15 @@ export const en = {
   "approvals.pin.needed": "Pick who's approving and type their PIN",
   "approvals.pin.nobody": "No other manager or owner can approve here",
   "approvals.mode": "Approvals",
-  "approvals.mode.hint": "How comps, voids, refunds and the other requests over a limit are decided. Every one is recorded whatever you choose.",
+  "approvals.mode.hint":
+    "How comps, voids, refunds and the other requests over a limit are decided. Every one is recorded whatever you choose.",
   "approvals.mode.phone": "On the manager's phone",
   "approvals.mode.pin": "Manager's PIN at the register",
   "approvals.mode.none": "No approval (role permissions only)",
   "approvals.mode.ownerOnly": "Only the owner changes this",
+  "onboarding.features.title": "Choose your features",
+  "onboarding.features.hint":
+    "Everything your plan includes starts on. Switch off what you don't run; you can change any of it later in Admin → Features.",
+  "onboarding.features.summary": "{count} features on",
+  "features.choices.ticketsLater": "Set in Admin → Bar POS once its settings are saved",
 } as const;

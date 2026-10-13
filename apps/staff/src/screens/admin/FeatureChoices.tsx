@@ -24,12 +24,17 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [r, a] = await Promise.all([
-        api<{ value: PosSettings }>("GET", `/v1/venues/${venueId}/settings/pos`),
-        api<{ value: { mode: ApprovalMode } }>("GET", `/v1/venues/${venueId}/settings/approvals`),
-      ]);
-      setPos(r.value);
+      const a = await api<{ value: { mode: ApprovalMode } }>(
+        "GET",
+        `/v1/venues/${venueId}/settings/approvals`,
+      );
       setMode(a.value.mode);
+      // A venue in setup may not have its `pos` key yet: the ticket choice waits for Admin → Bar POS.
+      const r = await api<{ value: PosSettings }>(
+        "GET",
+        `/v1/venues/${venueId}/settings/pos`,
+      ).catch(() => null);
+      setPos(r?.value ?? null);
       setFailed(false);
     } catch {
       setFailed(true);
@@ -96,10 +101,8 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
                 />
                 <span>{pos.printBarDrinkTickets === true ? t("texts.on") : t("texts.off")}</span>
               </label>
-            ) : failed ? (
-              <span className="error small">{t("shell.error.cantReach")}</span>
             ) : (
-              <span role="status">{t("shell.loading")}</span>
+              <span className="small muted">{t("features.choices.ticketsLater")}</span>
             )}
           </div>
         </li>
