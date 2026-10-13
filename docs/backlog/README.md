@@ -35,6 +35,8 @@
 
 **Every feature switchable (Oct 13, 2026).** [F · Features](F-features.md) builds decision D124: texting switched off venue-wide or text by text (emails never), new switchable features and the Choices in Admin → Features and Set up your venue's **Choose your features**, approvals as a venue choice (phone, PIN at the register, or none), every booking emailed to the guest, and the room's join-QR slip printed at every room start. 10 tickets (3 S, 7 M), F-01 to F-10, before S-05; F-09 and F-10 add the founder's later Oct 13 decisions (D126: Sing Sing on its bar computers alone, and payments on an outside card machine); not counted in the table above.
 
+**Windows bar computers and every kind of kitchen printer (Oct 13, 2026).** [W · Windows and kitchen printers](W-windows-and-lan-printer.md) builds decision D127: the desktop app on Windows (printing through the spooler, the installer, CI on Windows), Star raster for the TSP100III, a kitchen printer cabled to a bar computer, a network printer on the venue's LAN printed by a bar computer, and Sing Sing's hardware in `devices:check`. 5 tickets (1 S, 4 M), W-01 to W-05, before S-07; not counted in the table above.
+
 ## Every ticket
 
 ### [M1 · Foundations](M1-foundations.md)
@@ -358,3 +360,13 @@
 | [F-08 · Sing Sing's feature choices](F-features.md#f-08--sing-sings-feature-choices) | S | F-03, F-05 |
 | [F-09 · Sing Sing on its bar computers alone](F-features.md#f-09--sing-sing-on-its-bar-computers-alone) | M | F-04, F-08 |
 | [F-10 · Paid on an outside card machine](F-features.md#f-10--paid-on-an-outside-card-machine) | M | F-03 |
+
+### [W · Windows and kitchen printers](W-windows-and-lan-printer.md)
+
+| Ticket | Size | Depends on |
+| --- | --- | --- |
+| [W-01 · The desktop app on a Windows bar computer](W-windows-and-lan-printer.md#w-01--the-desktop-app-on-a-windows-bar-computer) | M | M3-14, M4-13, M1-29 |
+| [W-02 · Star raster printers (TSP100III)](W-windows-and-lan-printer.md#w-02--star-raster-printers-tsp100iii) | M | W-01 |
+| [W-03 · The kitchen printer cabled to a bar computer](W-windows-and-lan-printer.md#w-03--the-kitchen-printer-cabled-to-a-bar-computer) | S | W-01 |
+| [W-04 · A network printer on the venue's LAN, printed by a bar computer](W-windows-and-lan-printer.md#w-04--a-network-printer-on-the-venues-lan-printed-by-a-bar-computer) | M | W-01, W-03 |
+| [W-05 · Sing Sing's hardware: Windows bar computers, the Epson at the bar, the kitchen printer](W-windows-and-lan-printer.md#w-05--sing-sings-hardware-windows-bar-computers-the-epson-at-the-bar-the-kitchen-printer) | M | W-01 to W-04, F-09 |

@@ -35,6 +35,16 @@ interface Device {
   readonly revoked_at: string | null;
   readonly network: { cellular_backup?: boolean; on_backup_now?: boolean } | null;
   readonly station?: string | null;
+  /** A printer's kind: cloudprnt, server_direct, usb (cabled to a computer) or lan (W-04). */
+  readonly protocol?: string | null;
+  /** What a printer on a computer is sent: escpos or star_raster (W-02). */
+  readonly command_set?: string | null;
+  /** The computer a USB printer is cabled to. */
+  readonly host_device_id?: string | null;
+  /** A network printer's address and port, and the computers that relay it (null: any bar computer; W-04). */
+  readonly network_address?: string | null;
+  readonly network_port?: number | null;
+  readonly relay_device_ids?: string[] | null;
 }
 
 /** The spec's order of places: bar, front desk, rooms, around the venue, people. */
@@ -278,7 +288,8 @@ export function Devices() {
       <PairForm venueId={venueId} timeZone={timeZone} onMade={load} />
       <Printers
         venueId={venueId}
-        printers={(devices ?? []).filter((d) => d.kind === "printer")}
+        printers={(devices ?? []).filter((d) => d.kind === "printer" && !d.revoked_at)}
+        hosts={(devices ?? []).filter((d) => d.kind === "bar_computer" || d.kind === "front_desk")}
         onAdded={load}
       />
       <Readers venueId={venueId} />
@@ -489,22 +500,33 @@ function PairForm({
 }
 
 /**
- * Network printers (M3-13): add a Star CloudPRNT or Epson Server Direct Print
- * printer for a station, its credential shown once, and print a test ticket.
+ * Printers (M3-13, W-02, W-03): every printer with how it's reached and a
+ * test ticket; a printer on a computer also shows its station (one bar
+ * computer can host the bar's printer and the kitchen's) and its command set
+ * (ESC/POS, or Star raster for a Star TSP100III), which a manager can change.
+ * A network printer on the venue's LAN (W-04) is added with its address and
+ * port, prints while a bar computer with the app is open, and names which
+ * computer relays it (any bar computer unless one is chosen). Add a Star
+ * CloudPRNT or Epson Server Direct Print printer for a station, its
+ * credential shown once.
  */
 function Printers({
   venueId,
   printers,
+  hosts,
   onAdded,
 }: {
   venueId: string;
-  printers: readonly { id: string; name: string }[];
+  printers: readonly Device[];
+  hosts: readonly Device[];
   onAdded: () => Promise<void>;
 }) {
   const { t } = useT();
   const [name, setName] = useState("");
   const [station, setStation] = useState("bar");
   const [protocol, setProtocol] = useState("cloudprnt");
+  const [address, setAddress] = useState("");
+  const [port, setPort] = useState("9100");
   const [made, setMade] = useState<{ url: string; user: string; password: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -513,6 +535,22 @@ function Printers({
     e.preventDefault();
     setError(null);
     try {
+      if (protocol === "lan") {
+        // A network printer has no credential: a bar computer prints it (W-04).
+        await api("POST", `/v1/venues/${venueId}/printers`, {
+          name: name.trim(),
+          station,
+          protocol,
+          address: address.trim(),
+          port: Number(port) || 9100,
+        });
+        setMessage(t("printers.lan.added", { name: name.trim() }));
+        setMade(null);
+        setName("");
+        setAddress("");
+        await onAdded();
+        return;
+      }
       const r = await api<{ username: string; password: string; poll_path: string }>(
         "POST",
         `/v1/venues/${venueId}/printers`,
@@ -529,6 +567,32 @@ function Printers({
       setError(t("printers.failed"));
     }
   };
+  const setup = async (
+    printer: Device,
+    patch: { command_set?: string; station?: string; relay_device_ids?: string[] | null },
+  ) => {
+    setError(null);
+    setMessage(null);
+    try {
+      await api("PATCH", `/v1/venues/${venueId}/printers/${printer.id}`, patch);
+      setMessage(t("printers.saved", { name: printer.name }));
+      await onAdded();
+    } catch {
+      setError(t("printers.failed"));
+    }
+  };
+  const reach = (p: Device): string => {
+    if (p.protocol === "usb") {
+      const host = hosts.find((h) => h.id === p.host_device_id);
+      return t("printers.kind.usb", { computer: host?.name ?? t("printers.kind.usb.unknown") });
+    }
+    if (p.protocol === "lan")
+      return t("printers.kind.lan", {
+        address: `${p.network_address ?? ""}:${p.network_port ?? 9100}`,
+      });
+    return t("printers.kind.cloud");
+  };
+  const onComputer = (p: Device) => p.protocol === "usb" || p.protocol === "lan";
   const test = async (printer: { id: string; name: string }) => {
     setError(null);
     try {
@@ -546,10 +610,63 @@ function Printers({
         <ul className="faults">
           {printers.map((p) => (
             <li key={p.id}>
-              <span>{p.name}</span>{" "}
+              <span>
+                <strong>{p.name}</strong> <span className="small muted">{reach(p)}</span>
+              </span>{" "}
+              {onComputer(p) && (
+                <label className="small">
+                  <span>{t("printers.station")}</span>{" "}
+                  <select
+                    aria-label={t("printers.station.for", { name: p.name })}
+                    value={p.station ?? "bar"}
+                    onChange={(e) => void setup(p, { station: e.target.value })}
+                  >
+                    <option value="bar">{t("printers.station.bar")}</option>
+                    <option value="front_desk">{t("printers.station.front_desk")}</option>
+                    <option value="kitchen">{t("printers.station.kitchen")}</option>
+                  </select>
+                </label>
+              )}{" "}
+              {onComputer(p) && (
+                <label className="small">
+                  <span>{t("printers.commandSet")}</span>{" "}
+                  <select
+                    aria-label={t("printers.commandSet.for", { name: p.name })}
+                    value={p.command_set === "star_raster" ? "star_raster" : "escpos"}
+                    onChange={(e) => void setup(p, { command_set: e.target.value })}
+                  >
+                    <option value="escpos">{t("printers.commandSet.escpos")}</option>
+                    <option value="star_raster">{t("printers.commandSet.star_raster")}</option>
+                  </select>
+                </label>
+              )}{" "}
+              {p.protocol === "lan" && (
+                <label className="small">
+                  <span>{t("printers.lan.relay")}</span>{" "}
+                  <select
+                    aria-label={t("printers.lan.relay.for", { name: p.name })}
+                    value={p.relay_device_ids?.[0] ?? ""}
+                    onChange={(e) =>
+                      void setup(p, {
+                        relay_device_ids: e.target.value ? [e.target.value] : null,
+                      })
+                    }
+                  >
+                    <option value="">{t("printers.lan.relay.any")}</option>
+                    {hosts
+                      .filter((h) => !h.revoked_at)
+                      .map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}{" "}
               <button type="button" className="secondary" onClick={() => void test(p)}>
                 {t("printers.test")}
               </button>
+              {p.protocol === "lan" && <p className="small muted">{t("printers.lan.note")}</p>}
             </li>
           ))}
         </ul>
@@ -580,6 +697,7 @@ function Printers({
             >
               <option value="bar">{t("printers.station.bar")}</option>
               <option value="front_desk">{t("printers.station.front_desk")}</option>
+              <option value="kitchen">{t("printers.station.kitchen")}</option>
             </select>
           </label>
           <label>
@@ -591,9 +709,36 @@ function Printers({
             >
               <option value="cloudprnt">{t("printers.protocol.cloudprnt")}</option>
               <option value="server_direct">{t("printers.protocol.server_direct")}</option>
+              <option value="lan">{t("printers.protocol.lan")}</option>
             </select>
           </label>
+          {protocol === "lan" && (
+            <>
+              <label>
+                <span>{t("printers.lan.address")}</span>
+                <input
+                  value={address}
+                  required
+                  inputMode="decimal"
+                  maxLength={15}
+                  placeholder={t("printers.lan.address.example")}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </label>
+              <label>
+                <span>{t("printers.lan.port")}</span>
+                <input
+                  value={port}
+                  required
+                  inputMode="numeric"
+                  maxLength={5}
+                  onChange={(e) => setPort(e.target.value)}
+                />
+              </label>
+            </>
+          )}
         </div>
+        {protocol === "lan" && <p className="small muted">{t("printers.lan.note")}</p>}
         {error && (
           <p className="error" role="alert">
             {error}

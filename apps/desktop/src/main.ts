@@ -1,4 +1,4 @@
-import { CupsPrinters, VirtualPrinter, type PrinterPort } from "./printers.js";
+import { hostPrinters, type PrinterPort, type VirtualPrinter } from "./printers.js";
 import { utimesSync, writeFileSync } from "node:fs";
 import { powerSaveBlocker } from "electron";
 // electron-updater is CommonJS and its autoUpdater is a getter: a default import reaches it, a named one can't.
@@ -17,6 +17,8 @@ import {
 } from "electron";
 import { Temporal, makeClientReporter } from "@west4/shared";
 import { DesktopCache } from "./cache.js";
+import { desktopUrls } from "./config.js";
+import { probe, sendRaw } from "./network-printer.js";
 import { readOfflineRead, saveOfflineRead } from "./offline.js";
 import { QueueMode } from "./queue.js";
 import { SealedStore, type Sealer } from "./keychain.js";
@@ -36,8 +38,10 @@ import {
  * view come with their own tickets.
  */
 const here = path.dirname(fileURLToPath(import.meta.url));
-const staffUrl = process.env["STAFF_URL"] ?? "http://localhost:5173";
-const allowed = allowedOriginsFrom(process.env);
+// The packaged build's own addresses (resources/west4.json), unless the environment names others (W-01).
+const urls = desktopUrls(process.env, app.isPackaged ? process.resourcesPath : null);
+const staffUrl = urls.STAFF_URL;
+const allowed = allowedOriginsFrom({ ...urls });
 
 // The main process's own crashes (M8-16), scrubbed of personal data, through the API like the
 // window's errors. A monitor only watches: Electron's own handling of the crash is unchanged.
@@ -53,8 +57,26 @@ const reporter = makeClientReporter({
 });
 process.on("uncaughtExceptionMonitor", (error) => reporter.error(error, { page: "main" }));
 
-if (process.env["WEST4_USER_DATA"]) app.setPath("userData", process.env["WEST4_USER_DATA"]);
+// One folder on every platform, the one the watchdog's installers watch (W-01): %APPDATA%\\west4-desktop
+// on Windows, ~/Library/Application Support/west4-desktop on macOS. Electron's default would follow the
+// packaged product name instead, and the watchdog would see a silent app and restart it every 30 seconds.
+app.setPath(
+  "userData",
+  process.env["WEST4_USER_DATA"] ?? path.join(app.getPath("appData"), "west4-desktop"),
+);
 app.enableSandbox();
+// One copy of the app per computer (W-01): two would each print the same printers' tickets. A second
+// start (the Start menu while the watchdog's copy runs) only brings the first one forward.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 const sealer: Sealer = {
   isAvailable: () => safeStorage.isEncryptionAvailable(),
@@ -69,12 +91,12 @@ let cache: DesktopCache | null = null;
 const updates = new UpdateGate(null);
 const readers = new ReaderHub();
 let emulated: EmulatedReader | null = null;
-// The USB printers this computer hosts (M3-14): CUPS raw, or a virtual printer when asked for.
-const virtualPrinter =
-  process.env["WEST4_FAKE_PRINTER"] === "1"
-    ? new VirtualPrinter(process.env["WEST4_FAKE_PRINTER_DIR"] ?? null)
-    : null;
-const printers: PrinterPort = virtualPrinter ?? new CupsPrinters();
+// The USB printers this computer hosts (M3-14): CUPS raw, Windows' spooler raw (W-01), or a virtual
+// printer when asked for.
+const {
+  port: printers,
+  virtual: virtualPrinter,
+}: { port: PrinterPort; virtual: VirtualPrinter | null } = await hostPrinters();
 let mainWindow: BrowserWindow | null = null;
 
 /** Tell the page about a tap or a change of readers (M1-30). */
@@ -216,6 +238,24 @@ function registerIpc(): void {
         throw new Error("refused: not a ticket");
       await printers.print(serial, Buffer.from(base64, "base64"));
     }),
+  );
+  // A network printer on the venue's LAN (W-04): raw bytes to its private address, nowhere else.
+  ipcMain.handle(
+    "west4:print-network",
+    guarded(async (address: unknown, port: unknown, base64: unknown) => {
+      if (typeof address !== "string" || address.length > 15)
+        throw new Error("refused: not an address");
+      if (typeof port !== "number") throw new Error("refused: not a port");
+      if (typeof base64 !== "string" || base64.length > 200_000)
+        throw new Error("refused: not a ticket");
+      await sendRaw(address, port, Buffer.from(base64, "base64"));
+    }),
+  );
+  ipcMain.handle(
+    "west4:probe-network",
+    guarded((address: unknown, port: unknown) =>
+      typeof address === "string" && typeof port === "number" ? probe(address, port) : false,
+    ),
   );
   // The virtual printer (WEST4_FAKE_PRINTER=1): unplug it, or plug it back in, for development and tests.
   ipcMain.handle(
@@ -362,7 +402,10 @@ void app.whenReady().then(() => {
   // At login nobody is signed in: the last person's token goes; the device key (in the page's own storage) stays.
   if (openedAtLogin()) tokens.clear();
   // Start at login, and keep the computer and its screen awake while the app runs.
-  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true, args: ["--at-login"] });
+  // On Windows the watchdog's scheduled task starts it at login instead (install-windows.ps1, W-01):
+  // a login item as well would start a second copy beside the watchdog's.
+  if (app.isPackaged && process.platform !== "win32")
+    app.setLoginItemSettings({ openAtLogin: true, args: ["--at-login"] });
   powerSaveBlocker.start("prevent-display-sleep");
   // The watchdog watches this file: touched every 5 seconds while the app answers.
   const alive = path.join(userData, "alive");

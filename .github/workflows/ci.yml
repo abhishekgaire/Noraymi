@@ -265,3 +265,31 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: CRITICAL,HIGH
+
+  # The desktop app on Windows (W-01): Sing Sing's bar computers run Windows. Its unit tests on a
+  # real Windows runner (the spooler's side is mocked; the real printer check is the founder's list in
+  # docs/runbooks/hardware-install.md), then the NSIS installer built unsigned unless CSC_LINK is set.
+  desktop-windows:
+    name: Desktop app on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm exec tsc -b
+        shell: bash
+      - run: pnpm exec vitest run --project desktop
+        shell: bash
+      - run: pnpm --filter @west4/desktop build
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # The addresses the installer opens (resources/west4.json); unset, it opens the local staff app.
+          WEST4_STAFF_URL: ${{ vars.WEST4_STAFF_URL }}
+          WEST4_API_URL: ${{ vars.WEST4_API_URL }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: west4-staff-windows
+          path: apps/desktop/release/*.exe
+          retention-days: 14

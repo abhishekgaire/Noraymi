@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,7 @@ const [, , alive, counter, mode] = process.argv;
 const n = fs.existsSync(counter) ? Number(fs.readFileSync(counter, "utf8")) + 1 : 1;
 fs.writeFileSync(counter, String(n));
 fs.writeFileSync(alive, "");
+if (mode === "env") fs.writeFileSync(counter + ".env", String(process.env.ELECTRON_RUN_AS_NODE ?? "unset"));
 if (mode === "crash-once" && n === 1) setTimeout(() => process.exit(1), 300);
 else if (mode === "hang-once" && n === 1) { /* never touches alive again */ setInterval(() => {}, 1000); }
 else setInterval(() => fs.utimesSync(alive, new Date(), new Date()), 200);
@@ -69,7 +70,7 @@ describe("the watchdog", () => {
         counter,
         mode,
       ],
-      { stdio: "ignore" },
+      { stdio: "ignore", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } },
     );
     return { counter };
   };
@@ -87,6 +88,12 @@ describe("the watchdog", () => {
     const started = Date.now();
     expect(await waitFor(() => starts(counter) >= 2, 10_000)).toBe(true);
     expect(Date.now() - started).toBeLessThan(10_000);
+  });
+
+  it("starts the app without ELECTRON_RUN_AS_NODE, which only the watchdog itself runs under (W-01)", async () => {
+    const { counter } = launch("env", 30_000);
+    expect(await waitFor(() => existsSync(`${counter}.env`), 5_000)).toBe(true);
+    expect(readFileSync(`${counter}.env`, "utf8")).toBe("unset");
   });
 
   it("ends an app that stops answering and starts it again", async () => {

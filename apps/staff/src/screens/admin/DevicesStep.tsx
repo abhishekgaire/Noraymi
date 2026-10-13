@@ -69,7 +69,9 @@ export function DevicesStep({
   }, [load]);
 
   const live = paired?.devices.filter((d) => !d.revoked_at) ?? [];
-  const printers = live.filter((d) => d.kind === "printer");
+  const printers = live.filter((d) => d.kind === "printer" && d.station !== "kitchen");
+  // The kitchen's printer, of any kind: cabled to a bar computer, on the network or a cloud printer (W-04).
+  const kitchenPrinters = live.filter((d) => d.kind === "printer" && d.station === "kitchen");
   const badgeReaders = live.filter((d) => d.kind === "nfc_reader");
   const drawerOn = (printer: string) => paired?.drawers.find((d) => d.printer === printer);
 
@@ -116,6 +118,14 @@ export function DevicesStep({
                     })
                     .join(", ")}
                 </span>
+              )}
+            </li>
+            <li>
+              <strong>{t("onboarding.devices.kitchenPrinter")}</strong>
+              {kitchenPrinters.length === 0 ? (
+                <span className="muted">{t("onboarding.devices.kitchenPrinter.none")}</span>
+              ) : (
+                <span>{kitchenPrinters.map((p) => p.name).join(", ")}</span>
               )}
             </li>
             <li>

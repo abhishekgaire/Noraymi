@@ -41,6 +41,11 @@ contextBridge.exposeInMainWorld("west4", {
   printers: (): Promise<{ name: string; serial: string }[]> => ipcRenderer.invoke("west4:printers"),
   print: (serial: string, base64: string): Promise<void> =>
     ipcRenderer.invoke("west4:print", serial, base64),
+  /** A network printer on the venue's LAN this computer relays (W-04). */
+  printNetwork: (address: string, port: number, base64: string): Promise<void> =>
+    ipcRenderer.invoke("west4:print-network", address, port, base64),
+  probeNetwork: (address: string, port: number): Promise<boolean> =>
+    ipcRenderer.invoke("west4:probe-network", address, port),
   fakePlug: (plugged: boolean): Promise<void> =>
     ipcRenderer.invoke("west4:printer:fake-plug", plugged),
   /** The read-only offline view (M8-03): keep a listed read's answer, or read it back. */

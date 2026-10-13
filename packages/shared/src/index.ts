@@ -169,3 +169,4 @@ export * from "./support.js";
 export * from "./telemetry/index.js";
 export * from "./setup.js";
 export * from "./venue-profile.js";
+export { RAW_PRINT_PORT, isPrinterPort, isPrivateIPv4 } from "./network.js";

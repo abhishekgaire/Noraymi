@@ -138,13 +138,13 @@ describe("Kitchen & food: the module switch and the kitchen key", () => {
       "Kitchen · needs a kitchen printer",
     );
 
-    // A USB printer can't be the kitchen's: the kitchen has no computer (refused outright since K-03).
-    await expect(
-      owner.query(
-        "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST kitchen USB', 'kitchen', 'usb')",
-        [venueId],
-      ),
-    ).rejects.toThrow(/devices_kitchen_network_printer_check/);
+    // A printer cabled from the kitchen to a bar computer counts (W-03; D127), as a cloud printer does.
+    const cabled = await owner.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST kitchen USB', 'kitchen', 'usb') returning id",
+      [venueId],
+    );
+    expect((await kitchenRow()).still_needs).toEqual([]);
+    await owner.query("update devices set revoked_at = now() where id = $1", [cabled.rows[0]!.id]);
     expect((await kitchenRow()).still_needs).toEqual(["printer"]);
     await owner.query(
       "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST kitchen', 'kitchen', 'cloudprnt')",

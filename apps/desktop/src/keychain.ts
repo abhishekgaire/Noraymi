@@ -6,7 +6,9 @@ import { randomBytes } from "node:crypto";
  * Secrets on disk only ever sealed by the operating system's keychain
  * (Electron's safeStorage, spec 12 · 6): the owner or manager's bearer token
  * and the cache's key. When the keychain isn't available the store refuses
- * to write rather than fall back to a plain file.
+ * to write rather than fall back to a plain file. safeStorage is the macOS
+ * Keychain on a Mac and Windows' DPAPI on a Windows bar computer (sealed to
+ * the signed-in Windows user, W-01), so this file is the same on both.
  */
 export interface Sealer {
   isAvailable(): boolean;

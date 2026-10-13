@@ -63,6 +63,17 @@ export interface DeviceListRow extends DeviceRow {
   readonly network: Record<string, unknown> | null;
   /** A printer's station (bar, front_desk, kitchen); null for other devices. */
   readonly station: string | null;
+  /** A printer's kind: cloudprnt, server_direct, usb (on a desktop app host) or lan (W-04). */
+  readonly protocol: string | null;
+  /** What a desktop-hosted printer is sent: escpos (also when null) or star_raster (W-02). */
+  readonly command_set: string | null;
+  /** The desktop app computer a USB printer is cabled to. */
+  readonly host_device_id: string | null;
+  /** A network printer's private IPv4 address and port (W-04). */
+  readonly network_address: string | null;
+  readonly network_port: number | null;
+  /** The computers that may relay a network printer; null for any bar computer (W-04). */
+  readonly relay_device_ids: string[] | null;
 }
 
 const COLS =
@@ -158,7 +169,8 @@ export async function listDevices(client: Queryable, venueId: string): Promise<D
     `select d.id, d.kind, d.name, d.room_id, d.user_id, d.training,
             d.disabled_at::text, d.revoked_at::text, d.created_at::text,
             h.last_seen_at::text, (h.last_seen_at is not null and h.offline_since is null) as online,
-            h.clock_skew_ms, h.app_version, h.network, d.station
+            h.clock_skew_ms, h.app_version, h.network, d.station, d.protocol, d.command_set,
+            d.host_device_id, d.network_address, d.network_port, d.relay_device_ids
        from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
       where d.venue_id = $1 and not d.sandbox order by d.kind, d.name`,
     [venueId],
@@ -188,6 +200,53 @@ export async function updateDevice(
       patch.roomId !== undefined,
       patch.roomId ?? null,
       patch.training ?? null,
+    ],
+  );
+  return r.rows[0] ?? null;
+}
+
+export interface PrinterSetupRow {
+  readonly id: string;
+  readonly station: string | null;
+  readonly command_set: string | null;
+  readonly network_address: string | null;
+  readonly network_port: number | null;
+  readonly relay_device_ids: string[] | null;
+}
+
+/**
+ * A printer's setup from Admin → Printers & devices (W-02, W-03, W-04): its command set, and the station a
+ * printer on a desktop app host prints for. Null for a printer that isn't the venue's, or revoked.
+ */
+export async function updatePrinterSetup(
+  client: Queryable,
+  venueId: string,
+  deviceId: string,
+  patch: {
+    station?: string | undefined;
+    commandSet?: string | undefined;
+    /** A network printer's (W-04). */
+    address?: string | undefined;
+    port?: number | undefined;
+    /** Undefined leaves them; null is any bar computer. */
+    relayDeviceIds?: string[] | null | undefined;
+  },
+): Promise<PrinterSetupRow | null> {
+  const r = await client.query<PrinterSetupRow>(
+    `update devices set station = coalesce($3, station), command_set = coalesce($4, command_set),
+            network_address = coalesce($5, network_address), network_port = coalesce($6, network_port),
+            relay_device_ids = case when $7::boolean then $8::uuid[] else relay_device_ids end
+      where venue_id = $1 and id = $2 and kind = 'printer' and revoked_at is null
+      returning id, station, command_set, network_address, network_port, relay_device_ids`,
+    [
+      venueId,
+      deviceId,
+      patch.station ?? null,
+      patch.commandSet ?? null,
+      patch.address ?? null,
+      patch.port ?? null,
+      patch.relayDeviceIds !== undefined,
+      patch.relayDeviceIds ?? null,
     ],
   );
   return r.rows[0] ?? null;

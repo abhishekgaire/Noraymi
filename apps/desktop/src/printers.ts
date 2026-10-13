@@ -83,3 +83,19 @@ export class VirtualPrinter implements PrinterPort {
     }
   }
 }
+
+/** This computer's printers: the virtual one when asked for, Windows' spooler on Windows, CUPS elsewhere. */
+export async function hostPrinters(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): Promise<{ port: PrinterPort; virtual: VirtualPrinter | null }> {
+  if (env["WEST4_FAKE_PRINTER"] === "1") {
+    const virtual = new VirtualPrinter(env["WEST4_FAKE_PRINTER_DIR"] ?? null);
+    return { port: virtual, virtual };
+  }
+  if (platform === "win32") {
+    const { WindowsPrinters } = await import("./printers-windows.js");
+    return { port: new WindowsPrinters(), virtual: null };
+  }
+  return { port: new CupsPrinters(), virtual: null };
+}

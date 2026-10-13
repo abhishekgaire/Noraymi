@@ -33,15 +33,15 @@ export async function kitchenSettings(
 }
 
 /**
- * A kitchen printer is a printer device with station `kitchen`, not revoked or switched off, on a
- * network protocol: the kitchen has no computer, so a USB printer never counts.
+ * A kitchen printer is a printer device with station `kitchen`, not revoked or switched off: a cloud
+ * printer, a printer cabled to a bar computer (W-03) or a network printer a bar computer relays
+ * (W-04; D127).
  */
 export async function hasKitchenPrinter(c: Queryable, venueId: string): Promise<boolean> {
   const r = await c.query(
     `select 1 from devices
       where venue_id = $1 and kind = 'printer' and station = 'kitchen'
         and revoked_at is null and disabled_at is null
-        and coalesce(protocol, 'cloudprnt') in ('cloudprnt', 'server_direct')
       limit 1`,
     [venueId],
   );

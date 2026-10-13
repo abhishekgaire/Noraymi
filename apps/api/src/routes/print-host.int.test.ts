@@ -1,12 +1,20 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { insertOrder, loadDemoSeed, withVenue } from "@west4/db";
+import { insertOrder, insertPrintJob, loadDemoSeed, withVenue } from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
-import { SEED_NOW, SimulatedClock, makeDeviceKey, signDeviceRequest } from "@west4/shared";
+import {
+  SEED_NOW,
+  SimulatedClock,
+  Temporal,
+  makeDeviceKey,
+  signDeviceRequest,
+} from "@west4/shared";
+import { hasKitchenPrinter } from "../kitchen/module.js";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
+import { sweepPrintJobs } from "./print.js";
 
 /**
  * M3-14: the bar computer's desktop app hosting a USB printer. A virtual USB
@@ -147,7 +155,7 @@ describe("a USB printer on the bar computer", () => {
   it("is a printer device of the bar's station, and the heartbeat reports it", async () => {
     const r = await signed("POST", `/v1/venues/${venueId}/devices/attached`, {
       kind: "printer",
-      name: "Star TSP143IIIU",
+      name: "EPSON TM-T88V Receipt",
       serial: "VIRTUAL-USB-1",
     });
     expect(r.statusCode).toBe(201);
@@ -157,6 +165,11 @@ describe("a USB printer on the bar computer", () => {
       [printer],
     );
     expect(row.rows[0]).toEqual({ station: "bar", protocol: "usb", host: hostId });
+    const set = await raw.query<{ command_set: string }>(
+      "select command_set from devices where id = $1",
+      [printer],
+    );
+    expect(set.rows[0]!.command_set).toBe("escpos");
     const beat = await signed("POST", "/v1/devices/heartbeat", {
       app_version: "1.0.0",
       clock: new Date().toISOString(),
@@ -222,5 +235,194 @@ describe("a USB printer on the bar computer", () => {
       printer_id: other.rows[0]!.id,
     });
     expect(r.statusCode).toBe(404);
+  });
+});
+
+/** Star's raster commands (STAR Graphic Mode Command Specifications, Rev. 2.31). */
+const STAR_HEAD = "1b2a72521b2a72411b2a725030001b2a7245313300";
+const STAR_TAIL = "1b0c041b2a7242";
+
+describe("a Star TSP100III on the bar computer (W-02)", () => {
+  let star = "";
+
+  it("is suggested Star raster from its name, and its tickets come as raster", async () => {
+    const r = await signed("POST", `/v1/venues/${venueId}/devices/attached`, {
+      kind: "printer",
+      name: "Star TSP143IIIU",
+      serial: "VIRTUAL-USB-STAR",
+    });
+    expect(r.statusCode).toBe(201);
+    star = r.json().device_id;
+    const set = await raw.query<{ command_set: string }>(
+      "select command_set from devices where id = $1",
+      [star],
+    );
+    expect(set.rows[0]!.command_set).toBe("star_raster");
+    // Only the Star is on the bar's station for this test: the Epson goes to the front desk.
+    await raw.query(
+      "update devices set station = 'front_desk' where host_device_id = $1 and id <> $2 and kind = 'printer'",
+      [hostId, star],
+    );
+    await acceptedOrder();
+    expect(await hostTurn(star)).not.toBeNull();
+    const hex = usb.printed.at(-1)!.toString("hex");
+    expect(hex.startsWith(STAR_HEAD)).toBe(true);
+    expect(hex.endsWith(STAR_TAIL)).toBe(true);
+    // Raster, not text: the room's name is drawn, never sent as characters.
+    expect(usb.printed.at(-1)!.toString("latin1")).not.toContain("ROOM 5");
+  });
+
+  it("a manager changes the command set; a bartender can't; another venue's printer isn't found", async () => {
+    const asMaya = await app.inject({
+      method: "PATCH",
+      url: `/v1/venues/${venueId}/printers/${star}`,
+      payload: { command_set: "escpos" },
+    });
+    expect(asMaya.statusCode).toBe(403);
+    const andy: Principal = {
+      kind: "user",
+      userId: ids["andy"]!,
+      session: "passkey",
+      memberships: [{ venueId, membershipId: ids["andy.membership"]!, role: "manager" }],
+    };
+    const admin = buildApp({
+      config: loadConfig({ WEST4_ENV: "local", DATABASE_URL: db.url, APP_DATABASE_URL: db.url }),
+      clock,
+      authenticators: [async () => andy],
+      moduleCacheMs: 0,
+    });
+    await admin.ready();
+    try {
+      const ok = await admin.inject({
+        method: "PATCH",
+        url: `/v1/venues/${venueId}/printers/${star}`,
+        payload: { command_set: "escpos" },
+      });
+      expect(ok.statusCode).toBe(200);
+      expect(ok.json()).toMatchObject({ command_set: "escpos" });
+      const bad = await admin.inject({
+        method: "PATCH",
+        url: `/v1/venues/${venueId}/printers/${star}`,
+        payload: { command_set: "pcl" },
+      });
+      expect(bad.statusCode).toBe(400);
+      const missing = await admin.inject({
+        method: "PATCH",
+        url: `/v1/venues/${venueId}/printers/00000000-0000-4000-8000-000000000999`,
+        payload: { command_set: "escpos" },
+      });
+      expect(missing.statusCode).toBe(404);
+      await acceptedOrder();
+      expect(await hostTurn(star)).not.toBeNull();
+      expect([...usb.printed.at(-1)!.subarray(0, 2)]).toEqual([0x1b, 0x40]);
+    } finally {
+      await admin.close();
+    }
+  });
+});
+
+describe("the kitchen printer cabled to the bar computer (W-03)", () => {
+  let barPrinter = "";
+  let kitchen = "";
+  let admin: FastifyInstance;
+
+  beforeAll(async () => {
+    const andy: Principal = {
+      kind: "user",
+      userId: ids["andy"]!,
+      session: "passkey",
+      memberships: [{ venueId, membershipId: ids["andy.membership"]!, role: "manager" }],
+    };
+    admin = buildApp({
+      config: loadConfig({ WEST4_ENV: "local", DATABASE_URL: db.url, APP_DATABASE_URL: db.url }),
+      clock,
+      authenticators: [async () => andy],
+      moduleCacheMs: 0,
+    });
+    await admin.ready();
+    // Every earlier job is out of the way, and the bar computer's printers start again.
+    await raw.query(
+      "update print_jobs set status = 'printed', confirmed_at = now() where confirmed_at is null",
+    );
+    await raw.query(
+      "update devices set revoked_at = now() where host_device_id = $1 and kind = 'printer'",
+      [hostId],
+    );
+  });
+  afterAll(async () => {
+    await admin.close();
+  });
+
+  const job = (station: string) =>
+    withVenue(pool, { venueId }, (c) =>
+      insertPrintJob(c, venueId, {
+        kind: "ticket",
+        station,
+        payload: { test: { printer: station } },
+        createdAt: clock.now().toString(),
+      }),
+    );
+
+  it("one bar computer hosts the bar's printer and the kitchen's, each taking only its station's tickets", async () => {
+    const bar = await signed("POST", `/v1/venues/${venueId}/devices/attached`, {
+      kind: "printer",
+      name: "EPSON TM-T88V Receipt",
+      serial: "win|EPSON TM-T88V Receipt",
+    });
+    barPrinter = bar.json().device_id;
+    const k = await signed("POST", `/v1/venues/${venueId}/devices/attached`, {
+      kind: "printer",
+      name: "Kitchen RP326",
+      serial: "win|Kitchen RP326",
+    });
+    kitchen = k.json().device_id;
+    // Both start as the bar's; the manager makes the second the kitchen's in Admin.
+    const set = await admin.inject({
+      method: "PATCH",
+      url: `/v1/venues/${venueId}/printers/${kitchen}`,
+      payload: { station: "kitchen" },
+    });
+    expect(set.statusCode, set.body).toBe(200);
+    expect(set.json()).toMatchObject({ station: "kitchen", command_set: "escpos" });
+
+    const kitchenJob = await job("kitchen");
+    const barJob = await job("bar");
+    expect(await hostTurn(barPrinter)).toBe(barJob);
+    expect(await hostTurn(barPrinter)).toBeNull();
+    expect(await hostTurn(kitchen)).toBe(kitchenJob);
+    expect(await hostTurn(kitchen)).toBeNull();
+    // Kitchen & food counts it as the kitchen's printer.
+    expect(await withVenue(pool, { venueId }, (c) => hasKitchenPrinter(c, venueId))).toBe(true);
+  });
+
+  it("a cloud printer's station isn't changed here", async () => {
+    const cloud = await raw.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'Cloud', 'bar', 'cloudprnt') returning id",
+      [venueId],
+    );
+    const r = await admin.inject({
+      method: "PATCH",
+      url: `/v1/venues/${venueId}/printers/${cloud.rows[0]!.id}`,
+      payload: { station: "kitchen" },
+    });
+    expect(r.statusCode).toBe(400);
+    await raw.query("update devices set revoked_at = now() where id = $1", [cloud.rows[0]!.id]);
+  });
+
+  it("with the bar computer off, a kitchen ticket fails after three polls and shows on the bar's list", async () => {
+    const lost = await job("kitchen");
+    clock.advance(Temporal.Duration.from({ seconds: 20 }));
+    await sweepPrintJobs(pool, clock.now());
+    const list = (
+      await app.inject({ method: "GET", url: `/v1/venues/${venueId}/print-jobs?status=failed` })
+    ).json().jobs as { id: string }[];
+    expect(list.some((j) => j.id === lost)).toBe(true);
+    // Reprint sends it back to the kitchen's printer, which prints it once the computer is back.
+    const again = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/print-jobs/${lost}/reprint`,
+    });
+    expect(again.statusCode).toBe(201);
+    expect(await hostTurn(kitchen)).toBe(again.json().job_id);
   });
 });

@@ -41,7 +41,11 @@ function run(options) {
 
   const start = () => {
     startedAt = Date.now();
-    child = spawn(options.app, options.args, { stdio: "inherit", env: process.env });
+    // The watchdog itself runs as Node.js (ELECTRON_RUN_AS_NODE=1); the app it starts must not, or the
+    // app's own binary would try to run its arguments as a script instead of opening its window.
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    child = spawn(options.app, options.args, { stdio: "inherit", env });
     log(`started ${options.app} (pid ${child.pid})`);
     child.on("exit", (code, signal) => {
       child = null;

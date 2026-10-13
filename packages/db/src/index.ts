@@ -70,6 +70,7 @@ export {
   resolveDevice,
   listDevices,
   updateDevice,
+  updatePrinterSetup,
   revokeDevice,
   createStaffPhone,
 } from "./devices.js";
@@ -429,6 +430,8 @@ export type { RoomGuestRow } from "./room-guests.js";
 export {
   resolvePrinter,
   claimPrintJob,
+  leaseRelayPrinters,
+  type RelayedPrinter,
   printerJob,
   settlePrintJob,
   failStalePrintJobs,
