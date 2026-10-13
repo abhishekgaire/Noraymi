@@ -89,7 +89,7 @@ Definition of done: see CLAUDE.md.
 
 ### W-04 · A network printer on the venue's LAN, printed by a bar computer
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** W-01, W-03
 - **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md) · Tickets; [Kitchen and food](../spec/16-kitchen.md) · Kitchen tickets; [D127](../decisions.md)
@@ -99,11 +99,15 @@ Definition of done: see CLAUDE.md.
   - The desktop app sends the bytes only to a private IPv4 address (10/8, 172.16/12, 192.168/16) and fails with "The printer at 192.168.1.50 didn't answer" when nothing listens.
   - Onboarding step 12 and `devices:check` accept a network printer as the kitchen printer.
 - **Acceptance:**
-  - [ ] Two relays polling the same network printer: each job is handed to one of them only; the other gets nothing until the lease runs out.
-  - [ ] A relay not named for the printer gets nothing; a relay from another venue gets nothing (venue wall); every route as every principal.
-  - [ ] The desktop's network send writes the bytes to a listening socket, refuses a public address, and fails on a closed port.
-  - [ ] The test print reaches the relay.
+  - [x] Two relays polling the same network printer: each job is handed to one of them only; the other gets nothing until the lease runs out.
+  - [x] A relay not named for the printer gets nothing; a relay from another venue gets nothing (venue wall); every route as every principal.
+  - [x] The desktop's network send writes the bytes to a listening socket, refuses a public address, and fails on a closed port.
+  - [x] The test print reaches the relay.
 - **Notes:**
+  - Migration 0154: `devices.protocol` takes `lan`; `network_address`, `network_port`, `relay_device_ids`, `relay_host_id`, `relay_until`. A relay is a bar or front-desk computer; with no names, any bar computer. Admin offers "Any bar computer" or one named computer (the API takes a list).
+  - The relay route (`POST /v1/venues/{v}/print-host/relay/next`) leases every network printer the computer may relay for 10 seconds, renewed by each 3-second poll, and claims only `queued` jobs. A relay that goes quiet with a job sent leaves it to the print watch (failed after 15 seconds), never to a second relay: the job can't print twice. Its word on the job goes through `print-host/jobs/{j}`, which now accepts the lease holder.
+  - The desktop app sends the bytes only to a private IPv4 address (10/8, 172.16/12, 192.168/16, checked in `@west4/shared`), connects within 3 seconds, and reports "The printer at … didn't answer". It probes each relayed printer's port for the heartbeat, so the printer shows online in Admin and `devices:check` while it answers.
+  - Limit: raw TCP 9100 says the printer took the bytes, not that it printed; out of paper isn't detected (a CloudPRNT or USB-spooler printer reports more). Cautious default: none; noted for the founder's check list.
 
 ### W-05 · Sing Sing's hardware: Windows bar computers, the Epson at the bar, the kitchen printer
 

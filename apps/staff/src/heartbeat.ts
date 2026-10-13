@@ -1,6 +1,6 @@
 import { ApiCallError } from "./api.js";
 import { deviceRevoked, signedApi, type StoredDevice } from "./device.js";
-import { startPrintHost } from "./print-host.js";
+import { relayed, startPrintHost } from "./print-host.js";
 
 /**
  * A paired shared screen checks in every 30 seconds (M1-16, spec 09): its app
@@ -49,6 +49,12 @@ async function attachedIds(device: StoredDevice): Promise<string[]> {
   for (const printer of printers) {
     const id = await attachedId(device, "printer", printer);
     if (id) ids.push(id);
+  }
+  // A network printer this computer relays counts as seen while it answers on its port (W-04).
+  if (shell.probeNetwork) {
+    for (const [id, p] of relayed) {
+      if (await shell.probeNetwork(p.address, p.port).catch(() => false)) ids.push(id);
+    }
   }
   return ids;
 }

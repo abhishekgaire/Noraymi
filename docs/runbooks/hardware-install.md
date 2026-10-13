@@ -53,6 +53,16 @@ Sing Sing's bar computers run Windows 10 or 11. Do this on each one, signed in a
 
 The badge reader is optional on Windows: without one (Sing Sing signs in with PINs), the app runs as usual and logs "no PC/SC reader support".
 
+## A network printer in the kitchen (W-04)
+
+When the kitchen printer has an Ethernet (or Wi-Fi) port, it can sit in the kitchen on the venue's network with no cable to a computer. A bar computer with the app open sends it each kitchen ticket.
+
+1. **The right model.** It must have a network port: a Star TSP143IIILAN or TSP143IIIW (not the USB-only TSP143IIIU), or an ESC/POS printer with Ethernet (for a Rongta RP326, the version with an Ethernet port, such as the RP326-USE). A USB-only printer can't be reached from the kitchen: cable it to a bar computer instead (W-03).
+2. **A fixed address.** Plug it into the venue's router or switch, and in the router's settings reserve its address (a "DHCP reservation" for the printer's MAC address, printed on its self-test page), for example 192.168.1.50. Print the printer's self-test page (hold the feed button while switching it on) to read its address. It must not change, or tickets stop printing.
+3. **Add it** in Admin → Printers & devices → Add a printer: name "Kitchen printer", station Kitchen, How it connects: **Network printer (on this venue's network)**, the IP address, port 9100. Its command set is suggested from the name (Star raster for a TSP143III; ESC/POS otherwise); check it.
+4. **Printed by:** "Any bar computer" (the default) or one named computer. At least one of them must have the app open while the kitchen is open; with none, every kitchen ticket shows "Kitchen ticket didn't print · Reprint" and the manager on duty is told.
+5. **Test print** from its row: TEST TICKET prints in the kitchen within a few seconds.
+
 ## Check on a real Windows bar computer
 
 What we could check without Windows: the Windows printer code with the spooler mocked in unit tests, and CI's `desktop-windows` job, which runs those tests and builds the installer on a Windows machine. Everything below needs the real computer and printers. Tick each and write the date and who did it in the gate file.
@@ -64,4 +74,7 @@ What we could check without Windows: the Windows printer code with the spooler m
 - [ ] A $1.00 cash payment opens the drawer; a no-sale opens it; a card payment and a receipt reprint don't.
 - [ ] With the Epson switched off (or its USB cable out), a ticket shows "Ticket didn't print · Reprint" within about 20 seconds, and nothing prints later when it's switched back on; Reprint then prints it once.
 - [ ] The order alarm sounds on the bar computer's speakers with nobody clicking first.
+- [ ] **Kitchen printer cabled to the bar computer** (Sing Sing's Rongta RP326, W-03): it shows in Admin with "Cabled to Bar computer"; set its station to Kitchen; Test print prints in the kitchen; a food order's kitchen ticket prints there and nothing for the kitchen prints on the Epson. Then unplug its cable (or switch it off): the next kitchen ticket shows "Kitchen ticket didn't print · Reprint" within about 20 seconds and the manager's phone (if paired) is told; plug it back and Reprint prints it once.
+- [ ] **A network printer** (only if one is used, W-04): Test print from Admin prints in the kitchen with the bar computer's app open; with the app closed on every bar computer, a kitchen ticket shows "Kitchen ticket didn't print · Reprint"; with two bar computers open, a ticket prints once, never twice.
+- [ ] **A Star TSP100III** (only if one is used, W-02): its command set says Star raster; Test print, a kitchen ticket and a receipt print legibly (the text is drawn as a picture) and the paper is cut; at the bar, a $1.00 cash payment opens the drawer on its DK port.
 - [ ] The next morning after an update was published, the app updated itself after 6:00 AM without asking for an administrator.

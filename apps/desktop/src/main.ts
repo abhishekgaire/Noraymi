@@ -18,6 +18,7 @@ import {
 import { Temporal, makeClientReporter } from "@west4/shared";
 import { DesktopCache } from "./cache.js";
 import { desktopUrls } from "./config.js";
+import { probe, sendRaw } from "./network-printer.js";
 import { readOfflineRead, saveOfflineRead } from "./offline.js";
 import { QueueMode } from "./queue.js";
 import { SealedStore, type Sealer } from "./keychain.js";
@@ -237,6 +238,24 @@ function registerIpc(): void {
         throw new Error("refused: not a ticket");
       await printers.print(serial, Buffer.from(base64, "base64"));
     }),
+  );
+  // A network printer on the venue's LAN (W-04): raw bytes to its private address, nowhere else.
+  ipcMain.handle(
+    "west4:print-network",
+    guarded(async (address: unknown, port: unknown, base64: unknown) => {
+      if (typeof address !== "string" || address.length > 15)
+        throw new Error("refused: not an address");
+      if (typeof port !== "number") throw new Error("refused: not a port");
+      if (typeof base64 !== "string" || base64.length > 200_000)
+        throw new Error("refused: not a ticket");
+      await sendRaw(address, port, Buffer.from(base64, "base64"));
+    }),
+  );
+  ipcMain.handle(
+    "west4:probe-network",
+    guarded((address: unknown, port: unknown) =>
+      typeof address === "string" && typeof port === "number" ? probe(address, port) : false,
+    ),
   );
   // The virtual printer (WEST4_FAKE_PRINTER=1): unplug it, or plug it back in, for development and tests.
   ipcMain.handle(

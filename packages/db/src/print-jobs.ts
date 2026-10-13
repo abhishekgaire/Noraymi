@@ -37,19 +37,61 @@ export async function resolvePrinter(
 export async function claimPrintJob(
   c: Queryable,
   venueId: string,
-  printer: { deviceId: string; station: string; now: string },
+  printer: {
+    deviceId: string;
+    station: string;
+    now: string;
+    /** A relayed network printer (W-04) takes only jobs nobody was sent, so none prints twice. */
+    onlyQueued?: boolean;
+  },
 ): Promise<PrintJobRow | null> {
   const r = await c.query<PrintJobRow>(
     `update print_jobs set device_id = $2, status = 'sent', sent_at = coalesce(sent_at, $4)
       where id = (
         select id from print_jobs
-         where venue_id = $1 and status in ('queued', 'sent') and confirmed_at is null
+         where venue_id = $1 and confirmed_at is null
+           and (status = 'queued' or (status = 'sent' and not $5::boolean))
            and (device_id = $2 or (device_id is null and station = $3))
          order by created_at, id limit 1 for update skip locked)
       returning ${COLS}`,
-    [venueId, printer.deviceId, printer.station, printer.now],
+    [venueId, printer.deviceId, printer.station, printer.now, printer.onlyQueued === true],
   );
   return r.rows[0] ?? null;
+}
+
+/** A network printer a relay holds the lease on (W-04). */
+export interface RelayedPrinter {
+  readonly id: string;
+  readonly network_address: string;
+  readonly network_port: number;
+  readonly station: string;
+  readonly command_set: string | null;
+}
+
+/**
+ * The network printers this desktop app computer may relay, leased to it until `until` (W-04;
+ * D127): those naming it, or with no names when it is a bar computer, and held by nobody else
+ * whose lease still runs. A second relay asking meanwhile gets none of them, so each job goes to
+ * one computer; a relay that stops asking loses them when its lease runs out.
+ */
+export async function leaseRelayPrinters(
+  c: Queryable,
+  venueId: string,
+  host: { deviceId: string; kind: string },
+  now: string,
+  until: string,
+): Promise<RelayedPrinter[]> {
+  const r = await c.query<RelayedPrinter>(
+    `update devices p set relay_host_id = $2, relay_until = $5
+      where p.venue_id = $1 and p.kind = 'printer' and p.protocol = 'lan'
+        and p.revoked_at is null and p.disabled_at is null
+        and ((p.relay_device_ids is null and $3 = 'bar_computer') or $2 = any(p.relay_device_ids))
+        and (p.relay_host_id is null or p.relay_host_id = $2 or p.relay_until < $4)
+      returning p.id, p.network_address, p.network_port, coalesce(p.station, 'kitchen') as station,
+                p.command_set`,
+    [venueId, host.deviceId, host.kind, now, until],
+  );
+  return [...r.rows].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /** A job the printer itself was sent, for fetching its content or confirming it. */

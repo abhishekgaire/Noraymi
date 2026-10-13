@@ -1501,6 +1501,17 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "printers.protocol": "Cómo se conecta",
   "printers.protocol.cloudprnt": "Star CloudPRNT",
   "printers.protocol.server_direct": "Epson Server Direct Print",
+  "printers.protocol.lan": "Impresora de red (en la red del local)",
+  "printers.kind.lan": "Impresora de red · {address}",
+  "printers.lan.address": "Dirección IP",
+  "printers.lan.address.example": "p. ej. 192.168.1.50",
+  "printers.lan.port": "Puerto",
+  "printers.lan.note": "Imprime mientras una computadora de la barra tenga la app abierta.",
+  "printers.lan.added":
+    "{name} agregada. Imprime un ticket de prueba con la app abierta en una computadora de la barra.",
+  "printers.lan.relay": "Imprime desde",
+  "printers.lan.relay.for": "Computadora que imprime {name}",
+  "printers.lan.relay.any": "Cualquier computadora de la barra",
   "printers.credential":
     "Configura la impresora para consultar {url} cada 5 segundos, con usuario {user} y contraseña {password}. La contraseña se muestra solo esta vez.",
   "printers.test": "Imprimir un ticket de prueba",
@@ -3726,6 +3737,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.devices.readers": "Lectores de tarjetas",
   "onboarding.devices.printers": "Impresoras",
   "onboarding.devices.printerWithDrawer": "{printer} · {drawer}",
+  "onboarding.devices.kitchenPrinter": "Impresora de cocina",
+  "onboarding.devices.kitchenPrinter.none":
+    "Ninguna aún · solo hace falta con Cocina y comida (por cable a una computadora de la barra, en la red o en la nube)",
   "onboarding.devices.badgeReaders": "Lectores de credenciales",
   "onboarding.devices.none": "Ninguno todavía",
   "onboarding.devices.optional": "Ninguno · opcional",

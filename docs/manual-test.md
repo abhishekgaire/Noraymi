@@ -862,7 +862,7 @@ In the steps below, "Jess's tab" means any bar tab at Sing Sing (Bar POS → **N
 
 ### 11.3 How a kitchen ticket "prints" in the demo
 
-No real kitchen printer is connected, so **every kitchen ticket fails after about 15 seconds**. That's expected, and it's itself a test (11.6). To read what the ticket would say:
+No real kitchen printer is connected, so **every kitchen ticket fails after about 15 seconds**, unless the desktop app's virtual printer is set to the Kitchen station (19.4). That's expected, and it's itself a test (11.6). To read what the ticket would say:
 
 ```
 docker compose exec -T postgres psql -U west4 -d west4 -c "select payload from print_jobs where station='kitchen' order by created_at desc limit 1"
@@ -1209,6 +1209,11 @@ People, roles, invites, badges, languages, training mode. See 15.1.
 
 ### 19.4 Printers & devices
 Bar and front-desk computers, 2 NFC readers, 2 receipt printers, Bar S710, Front desk S710, 14 room tablets (13 online), the Up next TV. Pairing codes and **Revoke** (0.4). The **Router** block: "Backup internet · on", "How we read it", "Monthly failover test".
+
+**Printers (W-02 to W-04).** Under **Printers**, each printer says how it's reached: "Cabled to Bar computer", "Cloud printer" or "Network printer · 192.168.1.50:9100".
+- With the desktop app open and its virtual printer (0.11), the printer shows "Cabled to Bar computer" with a **Station** (Bar, Front desk, Kitchen) and a **Command set** (ESC/POS, or Star raster for a Star TSP100III). Set the station to **Kitchen**: with Kitchen & food on, the next food order's kitchen ticket lands in `.demo-logs/printer` instead of failing (11.3). Set it back to Bar.
+- **Add a printer** → How it connects: **Network printer (on this venue's network)** asks for the **IP address** and **Port** (9100) and says "Prints while a bar computer with the app is open." An address outside the venue's network (such as 8.8.8.8) is refused. Its **Printed by** is "Any bar computer" or one computer.
+- A network printer can't really print in the demo (nothing listens at its address): its test ticket fails after about 15 seconds and shows on the bar orders screen as didn't print. That's expected; the real check is on the venue's network (hardware-install.md).
 
 ### 19.5 Cash drawers
 See section 16.

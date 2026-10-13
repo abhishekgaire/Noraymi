@@ -11,15 +11,22 @@ import {
   reprintJob,
   resolvePrinter,
   settlePrintJob,
+  leaseRelayPrinters,
   updatePrinterSetup,
   withVenue,
   type PrintJobRow,
   type Queryable,
   type Sweep,
 } from "@west4/db";
+import { RAW_PRINT_PORT, isPrinterPort, isPrivateIPv4 } from "@west4/shared";
 import type { Clock, Temporal } from "@west4/shared";
 import { z } from "zod";
-import { COMMAND_SETS, hostJobBytes, type CommandSet } from "../print/host-bytes.js";
+import {
+  COMMAND_SETS,
+  hostJobBytes,
+  suggestCommandSet,
+  type CommandSet,
+} from "../print/host-bytes.js";
 import type { Authenticator } from "../http/conventions.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -52,6 +59,7 @@ import {
  *   PATCH  /v1/venues/{v}/printers/{d}                 Admin: its station (on a computer) and command set (W-02, W-03)
  *   POST   /v1/venues/{v}/print-host/next              a desktop host's USB printer: its next job as ESC/POS (M3-14)
  *   POST   /v1/venues/{v}/print-host/jobs/{j}          the host's word on it: { printer_id, printed, failure? }
+ *   POST   /v1/venues/{v}/print-host/relay/next        a computer relaying network printers: the lease, and a job (W-04)
  * A printer signs in with HTTP Basic (its device id and secret) and sees only its own jobs. A job not
  * confirmed within three 5-second polls is marked failed by the print watch, and print_job.failed tells
  * the bar orders screen and the board.
@@ -396,9 +404,40 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     .object({
       name: z.string().trim().min(1).max(60),
       station: z.string().trim().min(1).max(40),
-      protocol: z.enum(["cloudprnt", "server_direct"]),
+      protocol: z.enum(["cloudprnt", "server_direct", "lan"]),
+      // A network printer on the venue's LAN (W-04): its private IPv4 address and port.
+      address: z.string().trim().max(15).optional(),
+      port: z.number().int().optional(),
+      command_set: z.enum(COMMAND_SETS as [CommandSet, ...CommandSet[]]).optional(),
+      relay_device_ids: z.array(z.string().uuid()).max(10).nullable().optional(),
     })
     .strict();
+  /** A network printer's address and relays, checked: a private IPv4, a port, and the venue's own computers. */
+  const checkNetwork = async (
+    c: Queryable,
+    venueId: string,
+    net: { address?: string | undefined; port?: number | undefined; relays?: string[] | null },
+  ) => {
+    if (net.address !== undefined && !isPrivateIPv4(net.address))
+      throw new ApiError(
+        "invalid_request",
+        "Enter the printer's fixed address on this venue's network, such as 192.168.1.50",
+      );
+    if (net.port !== undefined && !isPrinterPort(net.port))
+      throw new ApiError("invalid_request", "The port is a number from 1 to 65535 (usually 9100)");
+    if (net.relays && net.relays.length > 0) {
+      const found = await c.query<{ n: number }>(
+        `select count(*)::int as n from devices where venue_id = $1 and id = any($2::uuid[])
+            and kind in ('bar_computer', 'front_desk') and revoked_at is null`,
+        [venueId, net.relays],
+      );
+      if (found.rows[0]!.n !== new Set(net.relays).size)
+        throw new ApiError(
+          "invalid_request",
+          "Only this venue's bar and front-desk computers relay a printer",
+        );
+    }
+  };
   app.post<{ Params: { venueId: string }; Body: unknown }>(
     "/v1/venues/:venueId/printers",
     { config: admin },
@@ -414,6 +453,47 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const parsed = printerBody.safeParse(request.body);
       if (!parsed.success)
         throw new ApiError("invalid_request", "send { name, station, protocol }");
+      if (parsed.data.protocol === "lan") {
+        const lan = parsed.data;
+        if (lan.address === undefined)
+          throw new ApiError(
+            "invalid_request",
+            "Enter the printer's fixed address on this venue's network, such as 192.168.1.50",
+          );
+        const port = lan.port ?? RAW_PRINT_PORT;
+        const id = await request.inVenue(async (c) => {
+          await checkNetwork(c, request.venueId!, {
+            address: lan.address,
+            port,
+            relays: lan.relay_device_ids ?? null,
+          });
+          const r = await c.query<{ id: string }>(
+            `insert into devices (venue_id, kind, name, station, protocol, network_address, network_port,
+                                  command_set, relay_device_ids)
+             values ($1, 'printer', $2, $3, 'lan', $4, $5, $6, $7) returning id`,
+            [
+              request.venueId,
+              lan.name,
+              lan.station,
+              lan.address!.trim(),
+              port,
+              lan.command_set ?? suggestCommandSet(lan.name),
+              lan.relay_device_ids && lan.relay_device_ids.length > 0 ? lan.relay_device_ids : null,
+            ],
+          );
+          await emitEvent(c, {
+            venueId: request.venueId!,
+            type: "device.updated",
+            entityId: r.rows[0]!.id,
+            entityVersion: 0,
+          });
+          return r.rows[0]!.id;
+        });
+        // No credential: a bar computer prints it (W-04).
+        return reply.code(201).send({ device_id: id, station: lan.station, protocol: "lan" });
+      }
+      if (parsed.data.address !== undefined || parsed.data.port !== undefined)
+        throw new ApiError("invalid_request", "Only a network printer has an address and a port");
       const secret = randomBytes(18).toString("base64url");
       const id = await request.inVenue(async (c) => {
         const r = await c.query<{ id: string }>(
@@ -478,6 +558,10 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     .object({
       station: z.enum(["bar", "front_desk", "kitchen"]).optional(),
       command_set: z.enum(COMMAND_SETS as [CommandSet, ...CommandSet[]]).optional(),
+      // A network printer's (W-04): its address, port, and the computers that relay it (null: any bar computer).
+      address: z.string().trim().max(15).optional(),
+      port: z.number().int().optional(),
+      relay_device_ids: z.array(z.string().uuid()).max(10).nullable().optional(),
     })
     .strict();
   app.patch<{ Params: { venueId: string; d: string }; Body: unknown }>(
@@ -487,22 +571,48 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       if (!z.string().uuid().safeParse(request.params.d).success)
         throw new ApiError("not_found", "no such printer");
       const parsed = setupBody.safeParse(request.body);
-      if (!parsed.success) throw new ApiError("invalid_request", "send { station?, command_set? }");
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "send { station?, command_set?, address?, port?, relay_device_ids? }",
+        );
       return request.inVenue(async (c) => {
         const found = await c.query<{ protocol: string | null }>(
           "select protocol from devices where venue_id = $1 and id = $2 and kind = 'printer' and revoked_at is null",
           [request.venueId, request.params.d],
         );
         if (!found.rows[0]) throw new ApiError("not_found", "no such printer");
+        const protocol = found.rows[0].protocol;
         // A cloud printer's station was chosen when it was added, with its own credential.
-        if (parsed.data.station !== undefined && found.rows[0].protocol !== "usb")
+        if (parsed.data.station !== undefined && protocol !== "usb" && protocol !== "lan")
           throw new ApiError(
             "invalid_request",
-            "Only a printer on a computer changes its station here; add a cloud printer again for another station",
+            "Only a printer on a computer or the network changes its station here; add a cloud printer again for another station",
           );
+        const net = parsed.data;
+        if (
+          (net.address !== undefined ||
+            net.port !== undefined ||
+            net.relay_device_ids !== undefined) &&
+          protocol !== "lan"
+        )
+          throw new ApiError("invalid_request", "Only a network printer has an address and relays");
+        await checkNetwork(c, request.venueId!, {
+          address: net.address,
+          port: net.port,
+          relays: net.relay_device_ids ?? null,
+        });
         const row = await updatePrinterSetup(c, request.venueId!, request.params.d, {
-          station: parsed.data.station,
-          commandSet: parsed.data.command_set,
+          station: net.station,
+          commandSet: net.command_set,
+          address: net.address,
+          port: net.port,
+          relayDeviceIds:
+            net.relay_device_ids === undefined
+              ? undefined
+              : net.relay_device_ids && net.relay_device_ids.length > 0
+                ? net.relay_device_ids
+                : null,
         });
         if (!row) throw new ApiError("not_found", "no such printer");
         await emitEvent(c, {
@@ -528,9 +638,11 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     const h = request.signedDevice;
     if (!h || h.venueId !== request.venueId)
       throw new ApiError("forbidden", "a host prints on its own printers");
+    // Its own USB printer, or a network printer it holds the relay lease on (W-04).
     const p = await c.query<{ station: string | null; command_set: string | null }>(
       `select station, command_set from devices where venue_id = $1 and id = $2 and kind = 'printer'
-          and host_device_id = $3 and revoked_at is null`,
+          and revoked_at is null
+          and (host_device_id = $3 or (protocol = 'lan' and relay_host_id = $3))`,
       [request.venueId, printerId, h.deviceId],
     );
     if (!p.rows[0]) throw new ApiError("not_found", "no such printer on this host");
@@ -565,6 +677,66 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
             escpos: Buffer.from(bytes).toString("base64"),
           },
         };
+      });
+    },
+  );
+  // A network printer on the LAN, relayed by a desktop app computer (W-04; D127). Each poll renews
+  // the computer's lease on the printers it may relay; while it holds one, no other computer gets
+  // its jobs, and it takes only jobs nobody was sent, so a job prints once. Its word on a job goes
+  // to print-host/jobs/{j} like a USB printer's.
+  const RELAY_LEASE_MS = 10_000;
+  app.post<{ Params: { venueId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/print-host/relay/next",
+    { config: host },
+    async (request) => {
+      const h = request.signedDevice;
+      if (!h || h.venueId !== request.venueId)
+        throw new ApiError("forbidden", "a computer relays its own venue's printers");
+      if (h.kind !== "bar_computer" && h.kind !== "front_desk")
+        throw new ApiError("forbidden", "only a bar or front-desk computer relays a printer");
+      if (
+        request.body !== undefined &&
+        request.body !== null &&
+        Object.keys(request.body).length > 0
+      )
+        throw new ApiError("invalid_request", "send {}");
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        const leased = await leaseRelayPrinters(
+          c,
+          request.venueId!,
+          { deviceId: h.deviceId, kind: h.kind },
+          now.toString(),
+          now.add({ milliseconds: RELAY_LEASE_MS }).toString(),
+        );
+        const printers = leased.map((p) => ({
+          printer_id: p.id,
+          address: p.network_address,
+          port: p.network_port,
+        }));
+        for (const p of leased) {
+          const job = await claimPrintJob(c, request.venueId!, {
+            deviceId: p.id,
+            station: p.station,
+            now: now.toString(),
+            onlyQueued: true,
+          });
+          if (!job) continue;
+          const commandSet: CommandSet = p.command_set === "star_raster" ? "star_raster" : "escpos";
+          const bytes = hostJobBytes(job, commandSet, await venueZone(c, request.venueId!));
+          return {
+            printers,
+            job: {
+              id: job.id,
+              printer_id: p.id,
+              address: p.network_address,
+              port: p.network_port,
+              reprint_n: job.reprint_n,
+              escpos: Buffer.from(bytes).toString("base64"),
+            },
+          };
+        }
+        return { printers, job: null };
       });
     },
   );

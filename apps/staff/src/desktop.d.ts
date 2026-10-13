@@ -15,6 +15,10 @@ interface West4Desktop {
   /** The USB printers this computer hosts, and raw ESC/POS to one of them (M3-14). */
   readonly printers?: () => Promise<{ name: string; serial: string }[]>;
   readonly print?: (serial: string, base64: string) => Promise<void>;
+  /** A network printer on the venue's LAN this computer relays (W-04): raw bytes to its address. */
+  readonly printNetwork?: (address: string, port: number, base64: string) => Promise<void>;
+  /** Whether a network printer answers on its port. */
+  readonly probeNetwork?: (address: string, port: number) => Promise<boolean>;
   readonly fakePlug?: (plugged: boolean) => Promise<void>;
   readonly badge: {
     onTap(listener: (tap: { url: string; reader: string }) => void): () => void;

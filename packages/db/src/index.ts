@@ -429,6 +429,8 @@ export type { RoomGuestRow } from "./room-guests.js";
 export {
   resolvePrinter,
   claimPrintJob,
+  leaseRelayPrinters,
+  type RelayedPrinter,
   printerJob,
   settlePrintJob,
   failStalePrintJobs,
