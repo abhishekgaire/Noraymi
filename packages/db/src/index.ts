@@ -17,7 +17,7 @@ export {
   emptyCatalog,
 } from "./lint/index.js";
 export type { Finding, RuleId, Catalog } from "./lint/index.js";
-export { withVenue, withOrgScope, setContext } from "./tenancy.js";
+export { withVenue, withOrgScope, setContext, beforeCommit } from "./tenancy.js";
 export type { RequestContext, Queryable } from "./tenancy.js";
 export * from "./jobs/index.js";
 export {

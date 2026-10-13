@@ -27,7 +27,7 @@ import {
   executors,
   requestApproval,
   TargetGone,
-  type PendingAnswer,
+  type ApprovalAnswer,
 } from "../approvals/service.js";
 import { ApiError } from "../http/errors.js";
 import { roomOfCheck } from "../rooms/guest-bill.js";
@@ -226,7 +226,7 @@ export async function askRefund(
     businessDate: string;
     now: Temporal.Instant;
   },
-): Promise<PendingAnswer & { refund_ids: string[] }> {
+): Promise<ApprovalAnswer & { refund_ids: string[] }> {
   if (!input.reason.trim()) throw new ApiError("invalid_request", "a refund needs a reason");
   if (input.parts.length === 0)
     throw new ApiError("invalid_request", "pick the payment it comes off");

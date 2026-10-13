@@ -69,6 +69,7 @@ describe("the M1 part of the demo seed", () => {
     // kitchen and publicForms: the spec defaults
     expect(Object.keys(by).sort()).toEqual([
       "alerts",
+      "approvals",
       "barMode",
       "contacts",
       "deposit",

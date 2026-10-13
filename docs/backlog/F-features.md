@@ -98,7 +98,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-04 · Approvals: on the manager's phone, by PIN at the register, or none
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** F-03
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Approvals; [D124](../decisions.md)
@@ -109,11 +109,15 @@ Definition of done: see CLAUDE.md.
   - `none`: the action runs at once if the person's role allows it; an approval row is still written as approved (`decided_with: none`), so the exceptions report and the audit log list it.
   - The changed rule replaces CLAUDE.md's "Approvals are decided on the approver's own phone" with a venue setting; the founder edits CLAUDE.md.
 - **Acceptance:**
-  - [ ] `phone` behaves exactly as today.
-  - [ ] `pin`: a manager's PIN on the requesting register decides it; the requester's own PIN, a wrong PIN or a staff member's PIN is refused; lockouts apply.
-  - [ ] `none`: a comp over the limit runs at once, with a row in approvals and the exceptions report.
-  - [ ] The new route is in the principal and venue-wall suites; EN and ES strings.
+  - [x] `phone` behaves exactly as today.
+  - [x] `pin`: a manager's PIN on the requesting register decides it; the requester's own PIN, a wrong PIN or a staff member's PIN is refused; lockouts apply.
+  - [x] `none`: a comp over the limit runs at once, with a row in approvals and the exceptions report.
+  - [x] The new route is in the principal and venue-wall suites; EN and ES strings.
 - **Notes:**
+  - Built: the owner-only `approvals` key (`{ mode }`, default `phone`; `settings.ts` refuses it from anyone but the owner); migration 0152 adds `approvals.decided_with` and relaxes the three "never the requester / never the same device" checks only for `pin` (same register) and `none` (the requester's own row). `approvals/service.ts`: `approvalsMode`; with `pin` a request is routed as before with no push; with `none` the row is written and its executor runs just before the transaction commits (`beforeCommit` in `packages/db/src/tenancy.ts`, so the code that asked has written its own rows first: a refund's, a tip's), recorded approved with `decided_with = none`. `decide()` takes `via: "pin"`, which lets any owner or manager but the requester decide on the register that asked. Route `POST /approvals/{id}/pin` checks the PIN with `checkPinOf` (the sign-in lockouts on that device); `GET /approvals` now says the venue's mode and who may type a PIN.
+  - Screens: the waiting strip offers **Manager's PIN** (`approvals/PinApproval.tsx`: pick who, their PIN, Approve or Decline) and names who decided; Admin → Features → Choices has the three choices, read-only for a manager.
+  - With `none`, a refund or a card-on-file charge goes to Stripe from the worker's job (the executor already queues it), a few seconds later than the phone path's immediate run.
+  - Tests: `approvals/modes.int.test.ts` (all three modes, wrong PIN, the requester's own PIN, a staff PIN, owner-only); the principal and wall suites pick up the new route; the Features e2e test switches the choice and back.
 
 ### F-05 · Choose your features in Set up your venue
 

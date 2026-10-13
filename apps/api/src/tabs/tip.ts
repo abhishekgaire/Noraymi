@@ -9,7 +9,7 @@ import {
   declineHandlers,
   executors,
   requestApproval,
-  type PendingAnswer,
+  type ApprovalAnswer,
 } from "../approvals/service.js";
 import { closingById, latestClosing, planCapture, type ClosingRow } from "./close.js";
 
@@ -30,7 +30,7 @@ import { closingById, latestClosing, planCapture, type ClosingRow } from "./clos
  */
 export type EnteredTip =
   | { readonly kind: "run"; readonly paymentId: string }
-  | { readonly kind: "approval"; readonly pending: PendingAnswer };
+  | { readonly kind: "approval"; readonly pending: ApprovalAnswer };
 
 async function slipOf(c: Queryable, venueId: string, tabId: string) {
   const tab = (

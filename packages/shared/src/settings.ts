@@ -316,6 +316,16 @@ export const textingSchema = z
   })
   .strict();
 
+/**
+ * How approvals are decided (D124; spec 02 · Approvals), the owner's choice: on the manager's own
+ * phone (the default, as before), by a manager's PIN at the register, or no approval at all (role
+ * permissions only, every request still recorded).
+ */
+export const approvalModes = ["phone", "pin", "none"] as const;
+export type ApprovalMode = (typeof approvalModes)[number];
+export const approvalsSchema = z.object({ mode: z.enum(approvalModes) }).strict();
+export const APPROVALS_DEFAULTS: z.infer<typeof approvalsSchema> = { mode: "phone" };
+
 /** The texts with a switch in `texting` beside the venue-wide one. */
 export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
 
@@ -433,6 +443,7 @@ export const settingsSchemas = {
   publicForms: publicFormsSchema,
   contacts: contactsSchema,
   texting: textingSchema,
+  approvals: approvalsSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -463,6 +474,7 @@ export type PublicFormsSettings = z.infer<typeof publicFormsSchema>;
 export type PublicForm = keyof PublicFormsSettings;
 export type ContactsSettings = z.infer<typeof contactsSchema>;
 export type TextingSettings = z.infer<typeof textingSchema>;
+export type ApprovalSettings = z.infer<typeof approvalsSchema>;
 
 /**
  * The daily limits until a venue sets its own (D109), from common practice for public sign-up
@@ -496,6 +508,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   contacts: CONTACTS_EMPTY,
   publicForms: PUBLIC_FORM_DEFAULTS,
   texting: TEXTING_DEFAULTS,
+  approvals: APPROVALS_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

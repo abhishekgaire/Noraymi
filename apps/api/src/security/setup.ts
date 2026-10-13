@@ -426,6 +426,11 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/rooms/:r/sessions": { party_size: 4, ids_checked: 0, minutes: 60 },
       "POST /v1/venues/:venueId/sessions/:sessionId/id-checks": { method: "visual" },
       "POST /v1/venues/:venueId/approvals/:approvalId/decide": { decision: "approve" },
+      "POST /v1/venues/:venueId/approvals/:approvalId/pin": {
+        user_id: "00000000-0000-4000-8000-000000000001",
+        pin: "1234",
+        decision: "approve",
+      },
       "POST /v1/venues/:venueId/rooms/:r/faults": { text: "Mic dead" },
       "PATCH /v1/venues/:venueId/faults/:f": { fixed: true },
       "POST /v1/venues/:venueId/rooms/:r/notes": { text: "x" },

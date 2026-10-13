@@ -7,7 +7,7 @@ import {
   declineHandlers,
   requestApproval,
   TargetGone,
-  type PendingAnswer,
+  type ApprovalAnswer,
 } from "../approvals/service.js";
 import { venueClock } from "./assignment.js";
 
@@ -35,7 +35,7 @@ export interface FixPayload {
   readonly qty?: number;
 }
 
-export type FixAnswer = { readonly status: "added"; readonly line_id: number } | PendingAnswer;
+export type FixAnswer = { readonly status: "added"; readonly line_id: number } | ApprovalAnswer;
 
 async function lineToFix(c: Queryable, venueId: string, checkId: string, lineId: number) {
   const r = await c.query<{

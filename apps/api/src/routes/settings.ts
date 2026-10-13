@@ -49,14 +49,14 @@ export function settingsRoutes(
     idempotency: "optional",
   });
 
-  /** `contacts` is the owner's alone (D115): read and saved by an owner only. */
-  const ownerOnlyKey = (request: FastifyRequest, key: string) => {
-    if (key !== "contacts") return;
+  /** `contacts` (D115) and `approvals` (D124) are the owner's alone: saved by an owner only. */
+  const ownerOnlyKey = (request: FastifyRequest, key: string, reading = false) => {
+    if (key !== "contacts" && (key !== "approvals" || reading)) return;
     const p = request.principal;
     const here =
       p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
     if (here?.role !== "owner")
-      throw new ApiError("forbidden", "the venue's contacts are the owner's alone");
+      throw new ApiError("forbidden", key === "contacts" ? "the venue's contacts are the owner's alone" : "how approvals are decided is the owner's choice");
   };
 
   const venueClock = async (request: FastifyRequest) =>
@@ -79,7 +79,7 @@ export function settingsRoutes(
   }>("/v1/venues/:venueId/settings/:key", { config: staff }, async (request) => {
     const key = request.params.key;
     if (!isSettingsKey(key)) throw new ApiError("not_found", `no settings key "${key}"`);
-    ownerOnlyKey(request, key);
+    ownerOnlyKey(request, key, true);
     const venue = await venueClock(request);
     const date =
       request.query.business_date !== undefined

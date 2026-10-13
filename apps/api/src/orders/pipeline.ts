@@ -29,7 +29,7 @@ import {
   managerOnDutyAt,
   requestApproval,
   TargetGone,
-  type PendingAnswer,
+  type ApprovalAnswer,
 } from "../approvals/service.js";
 import { venueClock } from "../rooms/assignment.js";
 import { writeFixLine, type FixPayload } from "../rooms/fix.js";
@@ -63,7 +63,7 @@ export interface StepInput {
   readonly resolution?: Resolution | undefined;
 }
 
-export type StepAnswer = { readonly status: "done"; readonly order: OrderRow } | PendingAnswer;
+export type StepAnswer = { readonly status: "done"; readonly order: OrderRow } | ApprovalAnswer;
 
 const RETURN_WORDS: Record<ReturnReason, string> = {
   no_id: "No ID for someone who ordered",

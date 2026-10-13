@@ -48,14 +48,19 @@ export interface ApprovalRow {
   readonly routed_to_name: string;
   readonly status: "pending" | "approved" | "declined" | "expired";
   readonly decided_at: string | null;
+  /** How it was decided (D124): on the approver's phone, by a manager's PIN at the register, or no approval. */
+  readonly decided_with: "phone" | "pin" | "none";
+  /** Who decided it (a PIN at the register may be another manager than the one it was routed to). */
+  readonly approver_name: string | null;
   /** From a practice check (training mode, M7-03): marked TRAINING in the inbox, and never counted. */
   readonly training: boolean;
 }
 
 const COLS = `a.id, a.kind, a.target_kind, a.target_id, a.amount_cents::int as amount_cents, a.reason, a.payload,
   a.requested_by, rq.name as requested_by_name, a.requested_device_id, to_json(a.requested_at) #>> '{}' as requested_at,
-  a.routed_to, rt.name as routed_to_name, a.status, to_json(a.decided_at) #>> '{}' as decided_at, a.training`;
-const FROM = `from approvals a join users rq on rq.id = a.requested_by join users rt on rt.id = a.routed_to`;
+  a.routed_to, rt.name as routed_to_name, a.status, to_json(a.decided_at) #>> '{}' as decided_at, a.decided_with, ap.name as approver_name, a.training`;
+const FROM = `from approvals a join users rq on rq.id = a.requested_by join users rt on rt.id = a.routed_to
+  left join users ap on ap.id = a.approver_id`;
 
 export async function insertApproval(
   c: Queryable,
@@ -71,12 +76,14 @@ export async function insertApproval(
     requestedDeviceId: string | null;
     requestedAt: string;
     routedTo: string;
+    /** "none" (D124): no approval asked; the row is the record. Absent is a phone or PIN request. */
+    decidedWith?: "phone" | "none";
   },
 ): Promise<string> {
   const r = await c.query<{ id: string }>(
     `insert into approvals (venue_id, kind, target_kind, target_id, amount_cents, reason, payload, requested_by,
-       requested_device_id, requested_at, routed_to)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
+       requested_device_id, requested_at, routed_to, decided_with)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
     [
       venueId,
       input.kind,
@@ -89,6 +96,7 @@ export async function insertApproval(
       input.requestedDeviceId,
       input.requestedAt,
       input.routedTo,
+      input.decidedWith ?? "phone",
     ],
   );
   return r.rows[0]!.id;
@@ -131,11 +139,21 @@ export async function decideApproval(
     approverId: string | null;
     deviceId: string | null;
     at: string;
+    decidedWith?: "phone" | "pin" | "none";
   },
 ): Promise<void> {
   await c.query(
-    `update approvals set status = $3, approver_id = $4, decided_device_id = $5, decided_at = $6
+    `update approvals set status = $3, approver_id = $4, decided_device_id = $5, decided_at = $6,
+            decided_with = coalesce($7, decided_with)
       where venue_id = $1 and id = $2 and status = 'pending'`,
-    [venueId, id, input.status, input.approverId, input.deviceId, input.at],
+    [
+      venueId,
+      id,
+      input.status,
+      input.approverId,
+      input.deviceId,
+      input.at,
+      input.decidedWith ?? null,
+    ],
   );
 }

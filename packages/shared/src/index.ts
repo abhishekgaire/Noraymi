@@ -51,12 +51,17 @@ export {
   contactsSchema,
   TEXTING_DEFAULTS,
   textingSchema,
+  APPROVALS_DEFAULTS,
+  approvalModes,
+  approvalsSchema,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,
   walkInTakes,
   walkInTakesOf,
 } from "./settings.js";
 export type {
+  ApprovalMode,
+  ApprovalSettings,
   TextingKind,
   TextingSettings,
   SettingsKey,

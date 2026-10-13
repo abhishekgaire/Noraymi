@@ -2,7 +2,7 @@ import { addCheckLine, allocate, emitEvent, enqueue, openSplit, type Queryable }
 import { businessDate } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
-import { requestApproval, type PendingAnswer } from "../approvals/service.js";
+import { requestApproval, type ApprovalAnswer } from "../approvals/service.js";
 import { AlcoholRefused, alcoholNow } from "../orders/alcohol.js";
 import { savedCardFor } from "../payments/card-on-file.js";
 import { tabHoldOf } from "../payments/splits.js";
@@ -440,7 +440,7 @@ export interface MoveLineInput {
 
 export type MoveLineAnswer =
   | { readonly kind: "moved"; readonly lineId: number; readonly toCheckId: string }
-  | { readonly kind: "approval"; readonly pending: PendingAnswer }
+  | { readonly kind: "approval"; readonly pending: ApprovalAnswer }
   | { readonly kind: "raise"; readonly paymentId: string; readonly attemptNo: number }
   | { readonly kind: "checking"; readonly paymentId: string };
 

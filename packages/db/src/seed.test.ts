@@ -44,7 +44,7 @@ describe("settings mapping", () => {
   ) as Record<string, Record<string, unknown>>;
 
   it("every key passes spec 03's schema", () => {
-    expect(Object.keys(parsed)).toHaveLength(20);
+    expect(Object.keys(parsed)).toHaveLength(21);
     // The venue's own contacts (D115): empty, never guessed.
     expect(parsed["contacts"]).toEqual({
       bookingEmails: [],

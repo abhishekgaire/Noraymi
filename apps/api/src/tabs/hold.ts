@@ -21,7 +21,7 @@ import {
 import { cents, formatMoney, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { TargetGone, executors, managerOnDutyAt, requestApproval } from "../approvals/service.js";
-import type { PendingAnswer } from "../approvals/service.js";
+import type { ApprovalAnswer } from "../approvals/service.js";
 import { placeStaffOrder, type GiftFor, type StaffLine } from "../orders/place.js";
 import { enqueuePush } from "../push/send-push.js";
 import { venueClock } from "../rooms/assignment.js";
@@ -145,7 +145,7 @@ export async function holdView(c: Queryable, venueId: string, t: TabHold, now: T
 
 export type SendAnswer =
   | { readonly kind: "placed"; readonly order: OrderRow }
-  | { readonly kind: "approval"; readonly pending: PendingAnswer }
+  | { readonly kind: "approval"; readonly pending: ApprovalAnswer }
   | { readonly kind: "raise"; readonly paymentId: string; readonly attemptNo: number }
   | { readonly kind: "checking"; readonly paymentId: string };
 

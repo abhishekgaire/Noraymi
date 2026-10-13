@@ -22,6 +22,9 @@ export interface Approval {
   readonly routed_to_name: string;
   readonly status: "pending" | "approved" | "declined" | "expired";
   readonly decided_at: string | null;
+  /** How it was decided (D124) and by whom. */
+  readonly decided_with?: "phone" | "pin" | "none";
+  readonly approver_name?: string | null;
   /** From a practice check (training mode, M7-03). */
   readonly training?: boolean;
 }
@@ -29,6 +32,9 @@ export interface Approval {
 export interface ApprovalLists {
   readonly waiting_for_me: readonly Approval[];
   readonly asked_by_me: readonly Approval[];
+  /** How the venue decides approvals (D124), and who may type their PIN at the register. */
+  readonly mode?: "phone" | "pin" | "none";
+  readonly approvers?: readonly { readonly user_id: string; readonly name: string }[];
 }
 
 export const approvalKinds = [

@@ -609,6 +609,8 @@ export function mapSeedSettings(
     contacts: s["contacts"],
     // Texting's switches (D124): absent in the seed, so everything texts as before.
     texting: s["texting"],
+    // How approvals are decided (D124): absent, so West 4 decides on the manager's phone.
+    approvals: s["approvals"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,

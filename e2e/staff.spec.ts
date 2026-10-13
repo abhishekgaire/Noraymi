@@ -839,6 +839,30 @@ test("Admin → Features: 16 on and 3 off, no phase 2 modules, and the Bar scree
       page.getByRole("checkbox", { name: "Print tickets for drinks rung at the bar" }),
     ).not.toBeChecked();
     await expect(page.getByRole("checkbox", { name: "Texting", exact: true })).toBeChecked();
+    // F-04: how approvals are decided, the owner's choice; West 4 decides on the manager's phone.
+    await expect(page.getByRole("radio", { name: "On the manager's phone" })).toBeChecked();
+    await page.getByRole("radio", { name: "Manager's PIN at the register" }).check();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query(
+              "select value->>'mode' as mode from venue_settings where key = 'approvals' order by version desc limit 1",
+            )
+          ).rows[0]?.mode,
+      )
+      .toBe("pin");
+    await page.getByRole("radio", { name: "On the manager's phone" }).check();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query(
+              "select value->>'mode' as mode from venue_settings where key = 'approvals' order by version desc limit 1",
+            )
+          ).rows[0]?.mode,
+      )
+      .toBe("phone");
     await expect(
       page.getByText(
         "Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup.",

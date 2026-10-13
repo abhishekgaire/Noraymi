@@ -19,7 +19,7 @@ import {
   executors,
   requestApproval,
   TargetGone,
-  type PendingAnswer,
+  type ApprovalAnswer,
 } from "../approvals/service.js";
 import { ApiError } from "../http/errors.js";
 import { reassignFutureBookings } from "./assignment.js";
@@ -119,7 +119,7 @@ export async function requestPause(
     requestedDeviceId: string | null;
     now: Temporal.Instant;
   },
-): Promise<PendingAnswer> {
+): Promise<ApprovalAnswer> {
   const s = await openSession(c, venueId, input.sessionId);
   if (!s) throw new ApiError("not_found", "no such session");
   if (s.ended_at) throw new ApiError("invalid_request", "the session has ended");
@@ -187,7 +187,7 @@ export async function unpauseClock(
 
 export type CompAnswer =
   | { readonly status: "added"; readonly line_id: number; readonly amount_cents: number }
-  | PendingAnswer;
+  | ApprovalAnswer;
 
 /**
  * "Comp 15 min of room time": 15 minutes at the segment's rate as a `comp`

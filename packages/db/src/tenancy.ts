@@ -17,6 +17,20 @@ export interface RequestContext {
 
 export type Queryable = Pick<pg.PoolClient, "query">;
 
+/**
+ * Work that runs at the end of a venue transaction, just before it commits (D124: an approval the
+ * venue doesn't ask for runs after the code that asked for it has written its own rows). Only a
+ * withVenue transaction runs them; elsewhere `beforeCommit` answers false and the caller runs now.
+ */
+const commitHooks = new WeakMap<object, (() => Promise<void>)[]>();
+
+export function beforeCommit(client: Queryable, work: () => Promise<void>): boolean {
+  const hooks = commitHooks.get(client);
+  if (!hooks) return false;
+  hooks.push(work);
+  return true;
+}
+
 export async function withVenue<T>(
   pool: pg.Pool,
   context: RequestContext,
@@ -26,13 +40,20 @@ export async function withVenue<T>(
   try {
     await client.query("begin");
     await setContext(client, context);
-    const result = await runInTransactionScope("venue transaction", () => work(client));
+    const hooks: (() => Promise<void>)[] = [];
+    commitHooks.set(client, hooks);
+    const result = await runInTransactionScope("venue transaction", async () => {
+      const r = await work(client);
+      for (let hook = hooks.shift(); hook; hook = hooks.shift()) await hook();
+      return r;
+    });
     await client.query("commit");
     return result;
   } catch (error) {
     await client.query("rollback").catch(() => {});
     throw error;
   } finally {
+    commitHooks.delete(client);
     client.release();
   }
 }
