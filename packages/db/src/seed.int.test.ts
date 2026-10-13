@@ -98,9 +98,11 @@ describe("the M1 part of the demo seed", () => {
     expect((by["pay"]!["gratuity"] as { pct: number }).pct).toBe(20);
   });
 
-  it("turns on 13 modules and refuses the phase 2 ones", async () => {
+  it("turns on the seed's modules and refuses the phase 2 ones", async () => {
     const rows = await venueModules(owner, first.venueId);
-    expect(rows.filter((r) => r.state === "on").map((r) => r.module_id)).toHaveLength(17); // 13 + 4 core
+    // 6 core (Bar tabs and Reports among them, D124), the seed's other 11, and D124's 5 new switches,
+    // which read as the modules they were split from.
+    expect(rows.filter((r) => r.state === "on").map((r) => r.module_id)).toHaveLength(22);
     expect(rows.find((r) => r.module_id === "kitchen")).toMatchObject({
       allowed: false,
       state: "off",

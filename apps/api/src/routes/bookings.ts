@@ -24,6 +24,7 @@ import { ApiError } from "../http/errors.js";
 import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
 import { noShowFrom } from "../rooms/checkin.js";
 import { sendPaymentLink } from "../bookings/payment-link.js";
+import { bookingDepositRule } from "../bookings/deposit-rule.js";
 
 /**
  * Staff bookings (M2-06; spec 04 · bookings, Room assignment; spec 08 · Bookings):
@@ -86,7 +87,7 @@ const bad = (issues: z.ZodIssue[]) =>
 async function settings(c: Queryable, venueId: string, on: Temporal.PlainDate) {
   const [prices, rule] = await Promise.all([
     readSetting(c, venueId, "prices", on),
-    readSetting(c, venueId, "deposit", on),
+    bookingDepositRule(c, venueId, on),
   ]);
   if (!prices || !rule)
     throw new ApiError("invalid_request", "prices and the deposit rule aren't set for this venue");

@@ -69,18 +69,14 @@ afterAll(async () => {
 });
 
 describe("the go-live checklist", () => {
-  it("with the merchant category not yet checked, turning on Bar tabs & quick sale is refused with the reason", async () => {
+  it("Bar tabs & quick sale is always on (D124): it can't be switched, whatever the checklist says", async () => {
     as("abhishek", "owner");
-    expect(
-      (await call("PATCH", "/modules/bar_tabs", { state: "off", confirm: true })).statusCode,
-    ).toBe(200);
-    const on = await call("PATCH", "/modules/bar_tabs", { state: "on" });
-    expect(on.statusCode).toBe(400);
-    expect(on.json().error).toMatchObject({ details: { reason: "merchant_category" } });
-    expect(on.json().error.message).toMatch(/merchant category/);
+    const off = await call("PATCH", "/modules/bar_tabs", { state: "off", confirm: true });
+    expect(off.statusCode).toBe(400);
+    expect((await call("GET", "/go-live")).json().passes).toBe(false);
   });
 
-  it("passes once the category matches Stripe's and Andy and Abhishek are confirmed; then Bar tabs turns on", async () => {
+  it("passes once the category matches Stripe's and Andy and Abhishek are confirmed", async () => {
     as("abhishek", "owner");
     // Stripe's account has its category once onboarding is done.
     const acct = fake.objects.get(account)!;
@@ -105,7 +101,6 @@ describe("the go-live checklist", () => {
       confirmed: true,
       by: expect.stringMatching(/^Abhishek/),
     });
-    expect((await call("PATCH", "/modules/bar_tabs", { state: "on" })).statusCode).toBe(200);
   });
 
   it("is the owner's: Andy (a manager) can't read or change it", async () => {

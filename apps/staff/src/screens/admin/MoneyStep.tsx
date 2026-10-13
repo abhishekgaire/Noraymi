@@ -238,7 +238,6 @@ function FirstPay({ report }: { report: (s: FormState) => void }) {
   const [overAmount, setOverAmount] = useState("");
   const [lateHours, setLateHours] = useState("");
   const [pool, setPool] = useState<PaySettings["pool"] | "">("");
-  const [payShare, setPayShare] = useState<YesNo | "">("");
   const [roomHold, setRoomHold] = useState<YesNo | "">("");
   const [holdAmount, setHoldAmount] = useState("");
 
@@ -251,7 +250,6 @@ function FirstPay({ report }: { report: (s: FormState) => void }) {
     overAmount !== "" ||
     lateHours !== "" ||
     pool !== "" ||
-    payShare !== "" ||
     roomHold !== "";
 
   const value: PaySettings | null = (() => {
@@ -296,7 +294,7 @@ function FirstPay({ report }: { report: (s: FormState) => void }) {
     }
     const review = { op: num(overPct, 0), oc: dollarsToCents(overAmount), lh: num(lateHours, 0) };
     if (review.op === null || review.oc === null || review.lh === null) return null;
-    if (pool === "" || payShare === "" || roomHold === "") return null;
+    if (pool === "" || roomHold === "") return null;
     let hold: PaySettings["roomHold"] = { on: false, cents: 0 };
     if (roomHold === "yes") {
       const c = dollarsToCents(holdAmount);
@@ -310,7 +308,8 @@ function FirstPay({ report }: { report: (s: FormState) => void }) {
       tipReview: { overPct: review.op, overCents: review.oc, lateHours: review.lh },
       pool,
       roomHold: hold,
-      payShare: { on: payShare === "yes" },
+      // Pay my share is its own switch in Choose your features (D124); this field isn't read.
+      payShare: { on: true },
     } as PaySettings;
   })();
   useReport("pay", value, touched, report);
@@ -410,12 +409,6 @@ function FirstPay({ report }: { report: (s: FormState) => void }) {
             value: m,
             label: t(`pool.method.${m}`),
           }))}
-        />
-        <Choose
-          label={t("cardFeeAdmin.payShare")}
-          value={payShare}
-          set={setPayShare}
-          options={yesNo}
         />
         <Choose
           label={t("onboarding.money.roomHold")}

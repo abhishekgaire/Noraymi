@@ -354,7 +354,6 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await page.getByLabel("Flag a tip over ($)").fill("60");
     await page.getByLabel("Flag a tip entered this many hours late").fill("3");
     await page.getByLabel("How the pool splits").selectOption("hours");
-    await page.getByLabel(/^Pay my share/).selectOption("no");
     await page.getByLabel("Hold a card at room check-in").selectOption("no");
     await page.getByLabel("Drawer model").selectOption("house");
     await page.getByLabel("Starting bank, $").fill("250");

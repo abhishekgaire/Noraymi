@@ -4,6 +4,7 @@ import { AdminDraftProvider, useAdminDraft } from "../../admin/draft.js";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { useModuleOn } from "../../useModule.js";
 import { Deposits } from "./Deposits.js";
 import { dollarsToCents } from "./Prices.js";
 
@@ -158,6 +159,7 @@ function FirstDeposit({ report }: { report: (state: FormState) => void }) {
   const [bigAmount, setBigAmount] = useState("");
   const [bigRefund, setBigRefund] = useState("");
   const [walkIn, setWalkIn] = useState<WalkInTakes | "">("");
+  const cardBehindBarOn = useModuleOn("card_behind_bar");
 
   const touched =
     mode !== "" ||
@@ -330,17 +332,20 @@ function FirstDeposit({ report }: { report: (state: FormState) => void }) {
       <h3>{t("deposits.walkIn")}</h3>
       <p className="small muted">{t("deposits.walkIn.hint")}</p>
       <div className="invite-fields" role="radiogroup" aria-label={t("deposits.walkIn")}>
-        {walkInTakes.map((w) => (
-          <label key={w} className="check">
-            <input
-              type="radio"
-              name="walk-in-takes"
-              checked={walkIn === w}
-              onChange={() => setWalkIn(w)}
-            />{" "}
-            {t(`deposits.walkIn.${w}`)}
-          </label>
-        ))}
+        {walkInTakes
+          // Keep the card behind the bar shows only while its switch is on, or while it's chosen (D124).
+          .filter((w) => w !== "cardBehindBar" || cardBehindBarOn || walkIn === w)
+          .map((w) => (
+            <label key={w} className="check">
+              <input
+                type="radio"
+                name="walk-in-takes"
+                checked={walkIn === w}
+                onChange={() => setWalkIn(w)}
+              />{" "}
+              {t(`deposits.walkIn.${w}`)}
+            </label>
+          ))}
       </div>
     </div>
   );

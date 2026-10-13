@@ -162,27 +162,35 @@ describe("modules", () => {
     });
   });
 
-  it("turning off Rooms & room clock lists 'These turn off with it: Online booking & deposits, Ordering from the room, Packages & specials'", async () => {
+  it("turning off Rooms & room clock lists what turns off with it, the D124 switches included", async () => {
     const ask = await patch("rooms", { state: "off" });
     expect(ask.json()).toMatchObject({
       applied: false,
       needs_confirm: true,
-      turns_off: ["online_booking", "room_ordering", "packages"],
+      turns_off: [
+        "online_booking",
+        "room_ordering",
+        "packages",
+        "deposits",
+        "room_tablets",
+        "card_behind_bar",
+        "pay_share",
+      ],
       question:
-        "These turn off with it: Online booking & deposits, Ordering from the room, Packages & specials",
+        "These turn off with it: Online booking, Ordering from the room, Packages & specials, Deposits on bookings, Room tablets, Keep the card behind the bar for walk-ins, Guests pay their own share (Pay my share)",
     });
     expect(await stateOfA("rooms")).toBe("on");
   });
 
   it("with any module off, every route registered to it answers 404 module_off; stopping refuses only new work; exempt guest routes keep working", async () => {
-    expect((await get("/fixture/reports")).statusCode).toBe(200);
-    await patch("reports", { state: "off", confirm: true });
-    const off = await get("/fixture/reports");
+    expect((await get("/fixture/team")).statusCode).toBe(200);
+    await patch("team", { state: "off", confirm: true });
+    const off = await get("/fixture/team");
     expect(off.statusCode).toBe(404);
     expect(off.json().error.code).toBe("module_off");
     expect((await get("/fixture/song_system")).json().error.code).toBe("module_off");
-    await patch("reports", { state: "on" });
-    expect((await get("/fixture/reports")).statusCode).toBe(200);
+    await patch("team", { state: "on" });
+    expect((await get("/fixture/team")).statusCode).toBe(200);
 
     await patch("online_booking", { state: "stopping", confirm: true });
     expect((await get("/fixture/online_booking")).statusCode).toBe(200);
@@ -207,5 +215,91 @@ describe("modules", () => {
 
   it("GET /flags reads the venue's switches", async () => {
     expect((await get("/flags")).json()).toMatchObject({ flags: {} });
+  });
+});
+
+describe("D124's switches (F-03)", () => {
+  it("Reports & accounting and Bar tabs & quick sale are always on and can't be switched", async () => {
+    for (const id of ["reports", "bar_tabs"]) {
+      expect(await stateOfA(id)).toBe("on");
+      const r = await patch(id, { state: "off" });
+      expect(r.statusCode).toBe(400);
+    }
+  });
+
+  it("a new switch reads as the module it was split from until it has a row of its own", async () => {
+    expect(await stateOfA("room_tablets")).toBe(await stateOfA("rooms"));
+    expect(await stateOfA("cash_discount")).toBe("on");
+  });
+
+  it("turning off Online booking lists Deposits on bookings with it", async () => {
+    expect((await patch("deposits", { state: "on" })).json()).toMatchObject({ applied: true });
+    const r = await patch("online_booking", { state: "off" });
+    expect(r.json()).toMatchObject({
+      applied: false,
+      needs_confirm: true,
+      turns_off: ["deposits"],
+    });
+  });
+
+  it("Keep the card behind the bar can't go off while it's the walk-in choice, nor be chosen while off", async () => {
+    await withVenue(pool, { venueId: v.venueA }, (c) =>
+      c.query(
+        `insert into venue_settings (venue_id, key, version, value, starts_on)
+           values ($1, 'deposit', 900, $2, '2026-09-25')`,
+        [v.venueA, JSON.stringify({ walkIn: "cardBehindBar" })],
+      ),
+    );
+    const refused = await patch("card_behind_bar", { state: "off" });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.message).toContain("walk-in choice");
+    // The settings are append-only: a newer version picks another walk-in choice.
+    await withVenue(pool, { venueId: v.venueA }, (c) =>
+      c.query(
+        `insert into venue_settings (venue_id, key, version, value, starts_on)
+           values ($1, 'deposit', 901, $2, '2026-09-25')`,
+        [v.venueA, JSON.stringify({ walkIn: "nothing" })],
+      ),
+    );
+    expect((await patch("card_behind_bar", { state: "off" })).json()).toMatchObject({
+      applied: true,
+    });
+    const save = await app.inject({
+      method: "PUT",
+      url: `/v1/venues/${v.venueA}/settings/deposit`,
+      payload: { value: { walkIn: "cardBehindBar" } },
+    });
+    expect(save.statusCode).toBe(400);
+    expect(save.json().error.message).toContain("Keep the card behind the bar is off");
+    // Taking a card behind the bar answers module_off; giving one back doesn't ask.
+    const take = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${v.venueA}/checks/00000000-0000-4000-8000-000000000001/held-card`,
+      payload: { name: "Sam O", last4: "4242" },
+    });
+    expect(take.statusCode).toBe(404);
+    expect(take.json().error.code).toBe("module_off");
+  });
+
+  it("a room tablet can't be paired while Room tablets is off", async () => {
+    expect((await patch("room_tablets", { state: "off" })).json()).toMatchObject({ applied: true });
+    const r = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${v.venueA}/devices/pair`,
+      payload: { kind: "room_tablet", name: "Room 1 tablet" },
+    });
+    expect(r.statusCode).toBe(404);
+    expect(r.json().error.details).toMatchObject({ reason: "room_tablets_off" });
+  });
+
+  it("Pay my share follows its own switch", async () => {
+    const { payShareOn } = await import("../payments/pay-my-share.js");
+    expect(
+      await withVenue(pool, { venueId: v.venueA }, (c) => payShareOn(c, v.venueA, "2026-09-25")),
+    ).toBe(true);
+    expect((await patch("pay_share", { state: "off" })).json()).toMatchObject({ applied: true });
+    expect(
+      await withVenue(pool, { venueId: v.venueA }, (c) => payShareOn(c, v.venueA, "2026-09-25")),
+    ).toBe(false);
   });
 });

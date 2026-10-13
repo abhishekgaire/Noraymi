@@ -17,7 +17,7 @@ import type { Principal, SessionKind } from "../http/principal.js";
  * Reports (M7-18): sales by night and week with 8 weeks of trends (legacy nights before go-live
  * included), occupancy by hour, bookings by week, staff actions, and the exceptions report with Maya's
  * $12.00 comp and Diego's $70.00 void and who asked and approved; payouts for the owner only; every
- * report and export answers 404 module_off with Reports & accounting off, and Night's report doesn't.
+ * report and export keeps answering even with a Reports & accounting row off (always on since D124).
  */
 let db: TestDatabase;
 let owner: pg.Pool;
@@ -186,7 +186,7 @@ describe("Reports", () => {
     expect((await get("/reports/payouts")).statusCode).toBe(200);
   });
 
-  it("hides every report and export with Reports & accounting off, and Night's report stays", async () => {
+  it("keeps every report and export with a stray Reports & accounting row off: it's always on (D124)", async () => {
     await owner.query(
       "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'reports'",
       [venueId],
@@ -194,17 +194,11 @@ describe("Reports", () => {
     as("abhishek", "owner", "passkey", "dev_phone_abhishek");
     for (const path of [
       `/reports/sales?to=${FRI}`,
-      `/reports/occupancy?date=${FRI}`,
-      `/reports/bookings?to=${FRI}`,
-      `/reports/staff-actions?date=${FRI}`,
-      `/reports/exceptions?date=${FRI}`,
       "/reports/payouts",
-      `/reports/tax-quarter?date=${FRI}`,
       `/exports/accounting?date=${FRI}`,
-      `/exports/payroll?from=${FRI}&to=${FRI}`,
     ]) {
       const r = await get(path);
-      expect([r.statusCode, r.json().error?.code], path).toEqual([404, "module_off"]);
+      expect(r.json().error?.code, path).not.toBe("module_off");
     }
     expect((await get(`/nights/${FRI}/report`)).statusCode).toBe(200);
   });

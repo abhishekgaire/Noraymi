@@ -244,6 +244,19 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
         }
       }
     }
+    // A room tablet's own routes answer module_off while Room tablets is off (D124); its heartbeats
+    // and pairing don't, so a switched-off tablet still checks in and says "Room tablets are off".
+    if (
+      options.moduleGate &&
+      request.principal.kind === "device" &&
+      request.principal.deviceKind === "room_tablet" &&
+      spec.principals.includes("room_tablet") &&
+      !spec.websocket &&
+      (await options.moduleGate.blocks(request.principal.venueId, "room_tablets", false))
+    )
+      throw new ApiError("module_off", "room tablets are off at this venue", {
+        details: { reason: "room_tablets_off" },
+      });
   });
 
   // Idempotency-Key on POST and PATCH: claim before the work, store the answer after.

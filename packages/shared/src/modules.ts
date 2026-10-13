@@ -22,6 +22,11 @@ export type ModuleId =
   | "safety"
   | "reports"
   | "kitchen"
+  | "deposits"
+  | "room_tablets"
+  | "card_behind_bar"
+  | "pay_share"
+  | "cash_discount"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -51,6 +56,11 @@ export interface ModuleDef {
   readonly phase1: boolean;
   readonly needs: readonly ModuleId[];
   readonly hides: ModuleEffects;
+  /**
+   * A module split out of another (D124): a venue with no row of its own reads as that module's
+   * row, so a venue made before the split keeps working as it did until its owner sets this one.
+   */
+  readonly inherits?: ModuleId;
 }
 
 const none: ModuleEffects = { staffApp: [], staffPhone: [], website: [], texts: [] };
@@ -88,7 +98,7 @@ export const modules: readonly ModuleDef[] = [
       staffApp: ["admin.deposits"],
       staffPhone: [],
       website: ["book", "manage.newBookings", "hero.bookARoom"],
-      texts: ["payment_link", "deposit_refund_new"],
+      texts: [],
     },
   },
   {
@@ -127,18 +137,9 @@ export const modules: readonly ModuleDef[] = [
       texts: [],
     },
   },
-  {
-    id: "bar_tabs",
-    core: false,
-    phase1: true,
-    needs: [],
-    hides: {
-      staffApp: ["pos.newTab", "pos.barTabs", "pos.quickSale"],
-      staffPhone: ["tipsToEnter"],
-      website: [],
-      texts: [],
-    },
-  },
+  // Bar tabs & quick sale: the register, always on (D124's correction). A new bar tab still waits
+  // for the go-live merchant category (M4-29), checked where a tab opens.
+  { id: "bar_tabs", core: true, phase1: true, needs: [], hides: none },
   {
     id: "bar_mode",
     core: false,
@@ -218,13 +219,8 @@ export const modules: readonly ModuleDef[] = [
       texts: [],
     },
   },
-  {
-    id: "reports",
-    core: false,
-    phase1: true,
-    needs: [],
-    hides: { staffApp: ["reports", "exports"], staffPhone: ["reports"], website: [], texts: [] },
-  },
+  // Reports & accounting: always on (D124's correction, "Reports and accounting is a must").
+  { id: "reports", core: true, phase1: true, needs: [], hides: none },
   {
     id: "website",
     core: false,
@@ -248,6 +244,57 @@ export const modules: readonly ModuleDef[] = [
       staffApp: ["pos.food", "pos.sendToKitchen", "admin.menu.station", "kitchenTickets"],
       staffPhone: ["runs.food"],
       website: ["roomPage.food", "roomTablets.food", "menu.food", "menuPdf.food", "allergyNotice"],
+      texts: [],
+    },
+  },
+  // The switches split out or added by D124. Each inherits the row it came from until it has its own.
+  {
+    id: "deposits",
+    core: false,
+    phase1: true,
+    needs: ["online_booking"],
+    inherits: "online_booking",
+    hides: {
+      staffApp: ["admin.deposits.online", "paymentLink"],
+      staffPhone: [],
+      website: ["book.deposit"],
+      texts: ["payment_link", "deposit_refund_new"],
+    },
+  },
+  {
+    id: "room_tablets",
+    core: false,
+    phase1: true,
+    needs: ["rooms"],
+    inherits: "rooms",
+    hides: { staffApp: ["devices.pairTablet"], staffPhone: [], website: ["roomTablets"], texts: [] },
+  },
+  {
+    id: "card_behind_bar",
+    core: false,
+    phase1: true,
+    needs: ["rooms"],
+    inherits: "rooms",
+    hides: { staffApp: ["checkin.cardBehindBar"], staffPhone: [], website: [], texts: [] },
+  },
+  {
+    id: "pay_share",
+    core: false,
+    phase1: true,
+    needs: ["rooms"],
+    inherits: "rooms",
+    hides: { staffApp: [], staffPhone: [], website: ["bill.payMyShare"], texts: [] },
+  },
+  {
+    id: "cash_discount",
+    core: false,
+    phase1: true,
+    needs: [],
+    inherits: "payments",
+    hides: {
+      staffApp: ["pos.cashDiscount", "admin.cashDiscount"],
+      staffPhone: [],
+      website: [],
       texts: [],
     },
   },
@@ -324,19 +371,18 @@ export function kitchenMissing(ready: {
 
 /**
  * What each plan includes (O-04; spec 17 · Step details 2; D114, D121), besides
- * the core modules, which every venue has, from the blueprint's plan table:
- * Bar is bar tabs, bar mode, the bar screen, team and tip pool, guest texts
- * and reports. Choosing a plan allows these and switches them on (D121); the
+ * the core modules, which every venue has (bar tabs and reports among them
+ * since D124), from the blueprint's plan table: Bar is bar mode, the bar
+ * screen, team and tip pool, guest texts and the cash discount. Choosing a plan allows these and switches them on (D121); the
  * owner turns any of them off in Admin → Features. The modules no plan names
  * (safety, marketing texts, the website) stay as our Console set them.
  */
 const BAR_PLAN_MODULES: readonly ModuleId[] = [
-  "bar_tabs",
   "bar_mode",
   "bar_screen",
   "team",
   "guest_texts",
-  "reports",
+  "cash_discount",
 ];
 const ROOMS_PLAN_MODULES: readonly ModuleId[] = [
   ...BAR_PLAN_MODULES,
@@ -346,6 +392,10 @@ const ROOMS_PLAN_MODULES: readonly ModuleId[] = [
   "packages",
   "song_system",
   "waitlist",
+  "deposits",
+  "room_tablets",
+  "card_behind_bar",
+  "pay_share",
 ];
 export type PlanKey = "bar" | "rooms" | "rooms_kitchen";
 export const PLAN_MODULES: Readonly<Record<PlanKey, readonly ModuleId[]>> = {

@@ -284,7 +284,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Room tablets | Pairing a room tablet | — | The room tablet (it reads "Room tablets are off") | — |
 | Keep the card behind the bar | The walk-in choice "Keep the card behind the bar" | — | — | — |
 | Pay my share | — | — | Pay my share on the guest bill | — |
-| Cash discount | The cash discount at the register and Admin → Payments' rate | — | The cash price on the menu | — |
+| Cash discount | The cash discount at the register and Admin → Payments' rate | — | — | — |
 | Walk-in waitlist | The board's waitlist drawer | Waitlist | The door QR and the waitlist page | Room ready, Offer expiring |
 | Ordering from the room | — (room orders stop arriving) | — | The menu, ordering and Same again on the room page and tablets | — |
 | Bar screen & tickets | Bar orders, the room-order cards on the bar POS, tickets | Runs | — | — |
@@ -304,7 +304,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 
 **Choices.** Below the modules, Admin → Features shows three settings an owner picks the same way, each saved to its own key: **Drinks rung at the bar print a ticket** (`pos.printBarDrinkTickets`, also in Admin → Bar POS), **Texting** (`texting.on`, [Song systems and texts](11-song-systems-texts.md)) and **Approvals** (`approvals.mode`: on the manager's phone, a manager's PIN at the register, or no approval; [Tenancy and access](02-tenancy-access.md)). The same list, modules and choices, is Set up your venue's **Choose your features** ([onboarding](17-onboarding.md) step 2).
 
-**Always on.** What a POS needs to work is never a switch: Reports & accounting and Bar tabs & quick sale are core modules alongside the four above (the register rings sales and runs tabs at every venue; opening a new bar tab waits for the go-live merchant category instead of the module), and the menu, taking payments and receipts, Close the night and the Z report, team, roles and PINs, moving a bar tab into a room, training mode, offline mode and emails aren't modules at all. Team, time clock & tips switches only the time clock and the tip pool. **Paid on outside card machine** (`outside_card`, off by default) is a switchable payment option beside Stripe's readers ([Payment flows](07-payment-flows.md), D126).
+**Always on.** What a POS needs to work is never a switch: Reports & accounting and Bar tabs & quick sale are core modules alongside the four above (the register rings sales and runs tabs at every venue; the go-live merchant category check stays a requirement before Ready to open), and the menu, taking payments and receipts, Close the night and the Z report, team, roles and PINs, moving a bar tab into a room, training mode, offline mode and emails aren't modules at all. Team, time clock & tips switches only the time clock and the tip pool. **Paid on outside card machine** (`outside_card`, off by default) is a switchable payment option beside Stripe's readers ([Payment flows](07-payment-flows.md), D126).
 
 Event sales, Guests, loyalty & gift cards, and Multiple locations are phase 2 or later, so no phase 1 screen shows them. Kitchen & food comes into phase 1 for Sing Sing Astoria, the first venue to go live, as printed kitchen tickets with no kitchen screen or coursing ([D98](../decisions.md)); its design is in [Kitchen and food](16-kitchen.md), approved by the founder on Oct 9, 2026.
 

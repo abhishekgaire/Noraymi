@@ -10,6 +10,7 @@ import { api, type ApiCallError } from "../../api.js";
 import { useEvents } from "../../events.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { FeatureChoices } from "./FeatureChoices.js";
 
 /**
  * Admin → Features (M1-32; spec 03 · Modules, What each module hides;
@@ -224,6 +225,7 @@ export function Features() {
               </li>
             ))}
           </ul>
+          {venueId && <FeatureChoices venueId={venueId} />}
         </>
       )}
     </section>

@@ -181,7 +181,7 @@ export function RoomPage({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [gone, setGone] = useState<"ended" | "out" | null>(null);
+  const [gone, setGone] = useState<"ended" | "out" | "tabletsOff" | null>(null);
   // One id per cart, kept across retries, so a send that's retried can't order twice.
   const clientOrderId = useRef(newOrderId());
 
@@ -199,6 +199,17 @@ export function RoomPage({
     const r = await api("/v1/public/room-session").catch(() => null);
     if (!r) return null;
     if (!r.ok) {
+      // Room tablets switched off (D124): the tablet says so instead of "ended".
+      if (r.status === 404 && tablet) {
+        const body = (await r
+          .clone()
+          .json()
+          .catch(() => null)) as { error?: { details?: { reason?: string } } } | null;
+        if (body?.error?.details?.reason === "room_tablets_off") {
+          setGone("tabletsOff");
+          return null;
+        }
+      }
       // A paid room goes to cleaning and its session ends (M4-16): the phone keeps the paid bill.
       if (r.status === 404) {
         const b = await api("/v1/public/room-session/bill").catch(() => null);
@@ -218,7 +229,7 @@ export function RoomPage({
       setNotice(t("en", "guestRoom.newCode", { room: s.room.name, code: s.code ?? "" }));
     if (!s.available) await loadOrders();
     return s;
-  }, [api, loadOrders]);
+  }, [api, loadOrders, tablet]);
   const loadMenu = useCallback(async (slug: string) => {
     const r = await fetch(`/v1/public/venues/${encodeURIComponent(slug)}/menu`, {
       cache: "no-store",
@@ -418,7 +429,11 @@ export function RoomPage({
     return (
       <main className="guest">
         <p role="status">
-          {gone === "ended" ? t("en", "guestRoom.ended") : t("en", "guestRoom.hostLink.failed")}
+          {gone === "tabletsOff"
+            ? t("en", "tablet.off")
+            : gone === "ended"
+              ? t("en", "guestRoom.ended")
+              : t("en", "guestRoom.hostLink.failed")}
         </p>
       </main>
     );

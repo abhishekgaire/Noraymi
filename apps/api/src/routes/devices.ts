@@ -7,6 +7,7 @@ import {
   deviceKinds,
   emitEvent,
   listDevices,
+  moduleOn,
   recordHeartbeat,
   revokeDevice,
   updateDevice,
@@ -101,6 +102,14 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
           "invalid_request",
           parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
         );
+      // A room tablet pairs only while Room tablets is on (D124).
+      if (
+        parsed.data.kind === "room_tablet" &&
+        !(await request.inVenue((c) => moduleOn(c, request.venueId!, "room_tablets")))
+      )
+        throw new ApiError("module_off", "room tablets are off at this venue", {
+          details: { reason: "room_tablets_off" },
+        });
       const made = await request.inVenue((c) =>
         createPairingCode(c, {
           venueId: request.venueId!,

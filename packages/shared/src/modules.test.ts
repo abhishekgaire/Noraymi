@@ -32,17 +32,27 @@ const west4: ModuleStates = {
   team: "on",
   safety: "on",
   reports: "on",
+  deposits: "on",
+  room_tablets: "on",
+  card_behind_bar: "on",
+  pay_share: "on",
+  cash_discount: "on",
 };
 
 describe("modules", () => {
-  it("lists the 23 modules spec 03 names, with the four core ones always on", () => {
-    expect(moduleIds).toHaveLength(23);
+  it("lists the 28 modules spec 03 names, with the six core ones always on (D124)", () => {
+    expect(moduleIds).toHaveLength(28);
     expect(modules.filter((m) => m.core).map((m) => m.id)).toEqual([
       "payments",
       "alcohol",
       "admin",
       "devices",
+      "bar_tabs",
+      "reports",
     ]);
+    // Reports & accounting and Bar tabs & quick sale can't be off, whatever a row says.
+    expect(stateOf({ reports: "off", bar_tabs: "off" }, "reports")).toBe("on");
+    expect(stateOf({ reports: "off", bar_tabs: "off" }, "bar_tabs")).toBe("on");
     expect(stateOf({}, "payments")).toBe("on");
     expect(stateOf({}, "rooms")).toBe("off");
     expect(modules.filter((m) => !m.phase1).map((m) => m.id)).toEqual([
@@ -73,11 +83,24 @@ describe("modules", () => {
       kitchen: ["bar_screen"],
       bar_mode: ["bar_tabs"],
       marketing_texts: ["guest_texts"],
+      deposits: ["online_booking"],
+      room_tablets: ["rooms"],
+      card_behind_bar: ["rooms"],
+      pay_share: ["rooms"],
     });
   });
 
   it("turning off Rooms & room clock at West 4 lists Online booking & deposits, Ordering from the room and Packages & specials", () => {
-    expect(turnsOffWith(west4, "rooms")).toEqual(["online_booking", "room_ordering", "packages"]);
+    expect(turnsOffWith(west4, "rooms")).toEqual([
+      "online_booking",
+      "room_ordering",
+      "packages",
+      "deposits",
+      "room_tablets",
+      "card_behind_bar",
+      "pay_share",
+    ]);
+    expect(turnsOffWith(west4, "online_booking")).toEqual(["deposits"]);
     expect(turnsOffWith(west4, "bar_screen")).toEqual(["room_ordering"]);
     expect(turnsOffWith(west4, "guest_texts")).toEqual(["marketing_texts"]);
     expect(turnsOffWith(west4, "reports")).toEqual([]);
@@ -134,10 +157,15 @@ describe("modules", () => {
       staffApp: ["admin.deposits"],
       staffPhone: [],
       website: ["book", "manage.newBookings", "hero.bookARoom"],
-      texts: ["payment_link", "deposit_refund_new"],
+      texts: [],
     });
+    // The deposit's own switch (D124) carries the deposit texts.
+    expect(modules.find((m) => m.id === "deposits")?.hides.texts).toEqual([
+      "payment_link",
+      "deposit_refund_new",
+    ]);
     expect(catalogs.en["module.online_booking.hides.website"]).toContain('"Call to book"');
-    expect(catalogs.en["module.online_booking.hides.texts"]).toBe(
+    expect(catalogs.en["module.deposits.hides.texts"]).toBe(
       "Payment link, and Deposit refund for new bookings",
     );
   });
@@ -147,13 +175,15 @@ describe("what each plan allows (O-04)", () => {
   it("Bar allows no room module; Rooms adds the rooms; only Rooms + Kitchen allows the kitchen", () => {
     expect(PLAN_MODULES.bar).not.toContain("rooms");
     expect(PLAN_MODULES.bar).toEqual([
-      "bar_tabs",
       "bar_mode",
       "bar_screen",
       "team",
       "guest_texts",
-      "reports",
+      "cash_discount",
     ]);
+    expect(PLAN_MODULES.rooms).toEqual(
+      expect.arrayContaining(["deposits", "room_tablets", "card_behind_bar", "pay_share"]),
+    );
     expect(PLAN_MODULES.rooms).toEqual(
       expect.arrayContaining(["rooms", "online_booking", "room_ordering", "packages", "waitlist"]),
     );

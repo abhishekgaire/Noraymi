@@ -73,7 +73,9 @@ describe("the side menu", () => {
   });
 
   it("hides what an off module hides, and only shipped screens by default", () => {
-    expect(hiddenScreens({ ...everythingOn, reports: "off" })).toContain("reports");
+    expect(hiddenScreens({ ...everythingOn, guest_texts: "off" })).toContain("messages");
+    // Reports & accounting is always on (D124): a stray "off" row hides nothing.
+    expect(hiddenScreens({ ...everythingOn, reports: "off" })).not.toContain("reports");
     expect(hiddenScreens(everythingOn).has("board")).toBe(false);
     const shipped = visibleMenu({ modules: everythingOn, permissions: allowedFor("owner") });
     expect(shipped.every((e) => e.shipped)).toBe(true);

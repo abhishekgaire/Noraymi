@@ -50,6 +50,7 @@ export { listClosures, closureOn, createClosure, ClosureExists } from "./closure
 export type { ClosureRow } from "./closures.js";
 export {
   venueModules,
+  moduleOn,
   statesOf,
   setModuleState,
   setModuleAllowed,

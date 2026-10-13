@@ -24,8 +24,22 @@ export async function venueModules(client: Queryable, venueId: string): Promise<
     const def = moduleDef(id);
     const row = rows.get(id);
     if (def.core) return { module_id: id, allowed: true, state: "on" };
-    return row ?? { module_id: id, allowed: false, state: "off" };
+    if (row) return row;
+    // A module split out of another (D124) reads as that one's row until it has its own.
+    if (def.inherits) {
+      const from = moduleDef(def.inherits);
+      const parent = rows.get(def.inherits);
+      if (from.core) return { module_id: id, allowed: true, state: "on" };
+      if (parent) return { module_id: id, allowed: parent.allowed, state: parent.state };
+    }
+    return { module_id: id, allowed: false, state: "off" };
   });
+}
+
+/** Whether one module is on at a venue now (inherited rows and core modules included). */
+export async function moduleOn(client: Queryable, venueId: string, id: ModuleId): Promise<boolean> {
+  const row = (await venueModules(client, venueId)).find((r) => r.module_id === id);
+  return row?.state === "on";
 }
 
 export function statesOf(rows: readonly VenueModuleRow[]): ModuleStates {
@@ -39,11 +53,13 @@ export async function setModuleState(
   state: ModuleState,
   updatedBy: string | undefined,
 ): Promise<void> {
+  // A module's first row keeps what it read as before (an inherited row, D124).
+  const was = (await venueModules(client, venueId)).find((r) => r.module_id === moduleId);
   await client.query(
-    `insert into venue_modules (venue_id, module_id, state, updated_by)
-     values ($1, $2, $3, $4)
+    `insert into venue_modules (venue_id, module_id, allowed, state, updated_by)
+     values ($1, $2, $5, $3, $4)
      on conflict (venue_id, module_id) do update set state = excluded.state, updated_by = excluded.updated_by, updated_at = now()`,
-    [venueId, moduleId, state, updatedBy ?? null],
+    [venueId, moduleId, state, updatedBy ?? null, was?.allowed ?? false],
   );
 }
 
@@ -54,11 +70,18 @@ export async function setModuleAllowed(
   allowed: boolean,
   updatedBy: string | undefined,
 ): Promise<void> {
+  const was = (await venueModules(client, venueId)).find((r) => r.module_id === moduleId);
   await client.query(
-    `insert into venue_modules (venue_id, module_id, allowed, updated_by)
-     values ($1, $2, $3, $4)
+    `insert into venue_modules (venue_id, module_id, allowed, state, updated_by)
+     values ($1, $2, $3, $5, $4)
      on conflict (venue_id, module_id) do update set allowed = excluded.allowed, updated_by = excluded.updated_by, updated_at = now()`,
-    [venueId, moduleId, allowed, updatedBy ?? null],
+    [
+      venueId,
+      moduleId,
+      allowed,
+      updatedBy ?? null,
+      was && !moduleDef(moduleId).core ? was.state : "off",
+    ],
   );
 }
 

@@ -9,6 +9,8 @@ import {
   saveSettings,
   settingHistory,
   SettingsRefused,
+  statesOf,
+  venueModules,
 } from "@west4/db";
 import { businessDate, checkSetting, depositPolicyText, wallClock } from "@west4/rules";
 import { queueGooglePush } from "../google/profile.js";
@@ -16,6 +18,8 @@ import {
   isSettingsKey,
   settingsDefaults,
   settingsSchemas,
+  stateOf,
+  t,
   Temporal,
   type Clock,
 } from "@west4/shared";
@@ -96,6 +100,20 @@ export function settingsRoutes(
 
   const save = async (request: FastifyRequest, values: Record<string, unknown>) => {
     for (const key of Object.keys(values)) ownerOnlyKey(request, key);
+    // "Keep the card behind the bar" is a walk-in choice only while its switch is on (D124).
+    if (
+      "deposit" in values &&
+      (values["deposit"] as { walkIn?: unknown } | null)?.walkIn === "cardBehindBar"
+    ) {
+      const on = await request.inVenue(
+        async (c) =>
+          stateOf(statesOf(await venueModules(c, request.venueId!)), "card_behind_bar") === "on",
+      );
+      if (!on)
+        throw new ApiError("invalid_request", t("en", "deposits.walkIn.cardBehindBarOff"), {
+          details: { reasons: [t("en", "deposits.walkIn.cardBehindBarOff")] },
+        });
+    }
     const venue = await venueClock(request);
     const today = businessDate(
       options.clock.now(),

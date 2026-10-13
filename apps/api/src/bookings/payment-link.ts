@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { emitEvent, payTokenHash, readSetting, type Queryable } from "@west4/db";
+import { emitEvent, payTokenHash, type Queryable } from "@west4/db";
 import { Temporal, cents, formatMoney } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { queueText } from "../texts/queue.js";
 import { clockWords } from "../texts/triggers.js";
+import { bookingDepositRule } from "./deposit-rule.js";
 
 /**
  * A payment link for a staff or big-party booking (M5-13; Payment flows ·
@@ -77,7 +78,7 @@ export async function sendPaymentLink(
     throw refuse("not_pending", "only a booking waiting for its deposit gets a payment link");
   const start = Temporal.Instant.from(b.starts_at);
   if (Temporal.Instant.compare(start, now) <= 0) throw refuse("past", "that booking has started");
-  const rule = (await readSetting(c, venueId, "deposit", Temporal.PlainDate.from(b.business_date)))
+  const rule = (await bookingDepositRule(c, venueId, Temporal.PlainDate.from(b.business_date)))
     ?.value;
   const cardHold = rule?.on === true && rule.mode === "cardHold";
   if (b.deposit_cents <= 0 && !cardHold)

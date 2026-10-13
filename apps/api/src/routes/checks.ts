@@ -109,6 +109,14 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
     action: "payments.take",
     idempotency: "optional",
   });
+  // Taking a card is the Keep the card behind the bar switch's (D124); giving one back always works.
+  const takeCardRoute = route({
+    principals: ["owner_manager", "staff"],
+    module: "card_behind_bar",
+    createsNewWork: true,
+    action: "payments.take",
+    idempotency: "optional",
+  });
   const heldCheck = (k: string) => {
     if (!z.string().uuid().safeParse(k).success) throw new ApiError("not_found", "no such check");
     return k;
@@ -119,7 +127,7 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
   };
   app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
     "/v1/venues/:venueId/checks/:checkId/held-card",
-    { config: heldCardRoute },
+    { config: takeCardRoute },
     async (request, reply) => {
       const checkId = heldCheck(request.params.checkId);
       const card = parseHeldCard(request.body);

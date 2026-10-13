@@ -25,7 +25,6 @@ import {
   type ModuleState,
 } from "@west4/shared";
 import { kitchenNeeds, menusFollowKitchen } from "../kitchen/module.js";
-import { merchantCategoryPasses } from "../payments/go-live.js";
 import type { StripeClient } from "../stripe/client.js";
 import {
   PLANS_WITH_ROOMS,
@@ -84,7 +83,6 @@ export async function allowPlanModules(
     };
     for (const id of planSwitchesOn(plan, switchOn.from)) {
       if (states[id] === "on" || missingNeeds(states, id).length > 0) continue;
-      if (id === "bar_tabs" && !(await merchantCategoryPasses(c, venueId))) continue;
       if (id === "kitchen") {
         const clock = { now: () => switchOn.now };
         if ((await kitchenNeeds(c, venueId, clock)).length > 0) continue;

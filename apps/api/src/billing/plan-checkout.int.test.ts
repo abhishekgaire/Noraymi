@@ -380,19 +380,20 @@ describe("Your plan: three plans, a promo code and Stripe Checkout (O-04)", () =
       status: "active",
     });
     const mods = await allowed(v.venueId);
-    expect(mods).toEqual(["bar_mode", "bar_screen", "bar_tabs", "guest_texts", "reports", "team"]);
-    // The plan switches on what it includes (D121); Bar tabs waits for the go-live merchant
-    // category, and Bar mode for Bar tabs, so both stay off until then.
-    expect(await switchedOn(v.venueId)).toEqual(["bar_screen", "guest_texts", "reports", "team"]);
-    // The owner turns Reports off in Admin → Features; the same plan's event again keeps it off.
-    const off = await call(v.who, "PATCH", "/modules/reports", { state: "off" }, v.venueId);
+    // Cash discount is in every plan and reads as allowed and on with no row of its own (D124).
+    expect(mods).toEqual(["bar_mode", "bar_screen", "guest_texts", "team"]);
+    // The plan switches on what it includes (D121); Bar tabs & quick sale and Reports are always on
+    // (D124), so Bar mode, which needs Bar tabs, comes on with the rest.
+    expect(await switchedOn(v.venueId)).toEqual(["bar_mode", "bar_screen", "guest_texts", "team"]);
+    // The owner turns the time clock off in Admin → Features; the same plan's event again keeps it off.
+    const off = await call(v.who, "PATCH", "/modules/team", { state: "off" }, v.venueId);
     expect(off.statusCode, off.body).toBe(200);
     const completed = fake.events
       .filter((e) => e.event.type === "checkout.session.completed")
       .pop()!;
     expect((await postHook(completed.event)).statusCode).toBe(200);
     await runJobs();
-    expect(await switchedOn(v.venueId)).toEqual(["bar_screen", "guest_texts", "team"]);
+    expect(await switchedOn(v.venueId)).toEqual(["bar_mode", "bar_screen", "guest_texts"]);
     const setup = (await call(v.who, "GET", "/setup", undefined, v.venueId)).json() as {
       checklist: { steps: { id: string; mark: string }[] };
     };

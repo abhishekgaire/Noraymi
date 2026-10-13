@@ -35,6 +35,10 @@ export function CardFee() {
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
   const kitchenAllowed =
     state.status === "signedIn" && (state.membership.modules_allowed ?? []).includes("kitchen");
+  // The switches in Admin → Features (D124): the cash discount and Pay my share.
+  const modules = state.status === "signedIn" ? (state.membership.modules ?? {}) : {};
+  const cashDiscountOn = modules["cash_discount"] === "on";
+  const payShareOn = modules["pay_share"] === "on";
   const [saved, setSaved] = useState<Pay | null>(null);
   const [today, setToday] = useState<string | null>(null);
   const [pack, setPack] = useState<Pack | null>(null);
@@ -119,7 +123,9 @@ export function CardFee() {
               </label>
             )}
             {current.cardFee.mode === "discount" && (
-              <p className="small muted">{t("cardFeeAdmin.discount.hint")}</p>
+              <p className="small muted">
+                {cashDiscountOn ? t("cardFeeAdmin.discount.hint") : t("cardFeeAdmin.discount.off")}
+              </p>
             )}
             {current.cardFee.mode === "discount" && kitchenAllowed && (
               // O-09: food prices already include the card fee, or are cash prices the discount skips.
@@ -268,14 +274,11 @@ export function CardFee() {
             </p>
           </fieldset>
 
-          <label>
-            <input
-              type="checkbox"
-              checked={current.payShare.on}
-              onChange={(e) => set({ ...current, payShare: { on: e.target.checked } })}
-            />
-            <span>{t("cardFeeAdmin.payShare")}</span>
-          </label>
+          <p className="small" data-testid="pay-share-state">
+            {t("cardFeeAdmin.payShare")} ·{" "}
+            {payShareOn ? t("modules.state.on") : t("modules.state.off")} ·{" "}
+            <a href="/admin/features">{t("cardFeeAdmin.inFeatures")}</a>
+          </p>
 
           {/* Who gets tips and gratuity (M7-09): the pool method starts the next business date. */}
           <fieldset>

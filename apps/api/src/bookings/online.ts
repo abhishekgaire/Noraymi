@@ -32,6 +32,7 @@ import { ApiError } from "../http/errors.js";
 import { LATE_ROOM_GONE } from "./confirm.js";
 import { assignBooking, freeSlots, nightHours, venueClock } from "../rooms/assignment.js";
 import { pctOf } from "../site/site.js";
+import { bookingDepositRule } from "./deposit-rule.js";
 
 /**
  * Online booking, the Pick step (M5-07; Payment flows · Deposit when booking
@@ -80,7 +81,7 @@ export async function nightFacts(
     ).rows[0]?.rule_pack_id ?? "us-ny-new-york-county";
   const [prices, deposit, pay, website, pack, safety] = await Promise.all([
     readSetting(c, venueId, "prices", on),
-    readSetting(c, venueId, "deposit", on),
+    bookingDepositRule(c, venueId, on),
     readSetting(c, venueId, "pay", on),
     readSetting(c, venueId, "website", on),
     rulePackFor(c, packId, on),
@@ -623,9 +624,8 @@ export async function depositPayLink(
   if (!b.guest_id) throw refuse("details", "give your name and mobile number first");
   if (b.deposit_cents <= 0) {
     // cardHold (M5-13): the payment page saves the card with a SetupIntent and charges nothing.
-    const rule = (
-      await readSetting(c, venueId, "deposit", Temporal.PlainDate.from(b.business_date))
-    )?.value;
+    const rule = (await bookingDepositRule(c, venueId, Temporal.PlainDate.from(b.business_date)))
+      ?.value;
     if (!rule?.on || rule.mode !== "cardHold")
       throw refuse("no_deposit", "this booking takes no deposit");
     const link = await createPayLink(c, venueId, {

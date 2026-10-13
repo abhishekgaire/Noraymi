@@ -1,5 +1,6 @@
 import {
   latestAttempt,
+  moduleOn,
   paymentById,
   readSetting,
   rulePackFor,
@@ -53,6 +54,8 @@ export async function surchargeFor(
   ).rows[0];
   if (!venue?.surcharge_reader) return null;
   const date = Temporal.PlainDate.from(businessDate);
+  // The Cash discount switch (D124): off, no discount whatever the rate says; the rate is kept.
+  if (!(await moduleOn(c, venueId, "cash_discount"))) return null;
   const pay = await readSetting(c, venueId, "pay", date);
   const fee = pay?.value.cardFee;
   if (!fee || fee.mode !== "surcharge" || !fee.noticeSentOn) return null;

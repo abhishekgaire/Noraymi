@@ -69,7 +69,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-03 · New switches: deposits, room tablets, the card behind the bar, Pay my share, cash discount and the ticket choice
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M1-32, O-04
 - **Spec:** [Settings](../spec/03-settings-rule-packs-modules.md) · Modules; [D124](../decisions.md)
@@ -81,15 +81,20 @@ Definition of done: see CLAUDE.md.
     - **Pay my share** (`pay_share`, needs Rooms & room clock): the module is the switch (`pay.payShare.on` is no longer read; Admin → Payments shows the module's state with a link).
     - **Cash discount** (`cash_discount`): off, no discount is taken whatever `pay.cardFee` says, and Admin → Payments shows "Cash discount is off · Admin → Features"; the rate is kept for when it's on.
   - The plans (D121): Bar adds Cash discount; Rooms adds Deposits on bookings, Room tablets, Keep the card behind the bar and Pay my share. A plan switches them on as it does its other modules; the backfill copies today's settings (Pay my share and the cash discount from `pay`, the rest on where Rooms is on).
-  - **Made permanent (D124's correction):** Reports & accounting and Bar tabs & quick sale become core modules, always on, never listed as switches (a venue row in `off` reads as on; the backfill sets them on). Bar tabs' wait for the go-live merchant category moves from the module to opening a new bar tab, which is refused (`merchant_category`) until it passes; quick sale always works. Team, roles and PINs were never behind a module; Team, time clock & tips switches only the time clock and the tip pool.
+  - **Made permanent (D124's correction):** Reports & accounting and Bar tabs & quick sale become core modules, always on, never listed as switches (a venue row in `off` reads as on; the backfill sets them on). The go-live merchant category check stays a requirement before Ready to open (it no longer holds the module off). Team, roles and PINs were never behind a module; Team, time clock & tips switches only the time clock and the tip pool.
   - Admin → Features gets a second part, **Choices**: **Drinks rung at the bar print a ticket** (`pos.printBarDrinkTickets`, the same switch as Admin → Bar POS), **Texting** (`texting.on`, F-01) and **Approvals** (F-04). Each writes its own settings key.
 - **Acceptance:**
-  - [ ] Each new module's routes and rules are refused on the server while it's off, and its screens hide it.
-  - [ ] The needs and "These turn off with it" confirms cover the new modules (turning off Rooms lists them; turning off Online booking lists Deposits on bookings).
-  - [ ] Turning off Keep the card behind the bar is refused while it's the walk-in choice.
-  - [ ] The plans switch the new modules on; the backfill matches today's behaviour for West 4.
-  - [ ] Admin → Features shows the modules and the Choices in English and Spanish; Reports & accounting and Bar tabs & quick sale aren't switches.
+  - [x] Each new module's routes and rules are refused on the server while it's off, and its screens hide it.
+  - [x] The needs and "These turn off with it" confirms cover the new modules (turning off Rooms lists them; turning off Online booking lists Deposits on bookings).
+  - [x] Turning off Keep the card behind the bar is refused while it's the walk-in choice.
+  - [x] The plans switch the new modules on; the backfill matches today's behaviour for West 4.
+  - [x] Admin → Features shows the modules and the Choices in English and Spanish; Reports & accounting and Bar tabs & quick sale aren't switches.
 - **Notes:**
+  - Built: five modules in `packages/shared/src/modules.ts` (`deposits`, `room_tablets`, `card_behind_bar`, `pay_share`, `cash_discount`) with names and "what it hides" in both catalogs, and `bar_tabs` and `reports` made core. A new module **inherits** the row of the module it came from until it has its own (`venueModules`: deposits from Online booking, the room ones from Rooms, Cash discount from Payments), so no backfill migration was needed and West 4 (and the founder's demo) keep working as before; `setModuleState` and `setModuleAllowed` keep the inherited values on a first row.
+  - Server: `bookings/deposit-rule.ts` (`bookingDepositRule`) gives new online and staff bookings `on: false` while Deposits on bookings is off (a booking that already took a deposit keeps its terms; its payment link still works); room tablets' own routes answer `module_off` (`room_tablets_off`) in `http/conventions.ts`, and pairing a tablet is refused; taking a card behind the bar is its module's route, and `openWorkChecks.card_behind_bar` refuses "off" while it's the walk-in choice or a card is held; saving `deposit.walkIn = cardBehindBar` is refused while it's off; `payShareOn` reads the module; `cashDiscountFor` answers null while Cash discount is off (the rate is kept).
+  - Screens: Admin → Features lists the new modules and a **Choices** part (`FeatureChoices.tsx`: drink tickets and Texting); Admin → Payments shows Pay my share's state with a link instead of its old checkbox, and says when the cash discount is off; Admin → Deposits & cancelling says when Deposits on bookings is off and shows the walk-in "card behind the bar" choice only while it's on (or chosen); the room tablet reads "Room tablets are off". Step 7 no longer asks the Pay my share question (`pay.payShare` stays in the schema, unread).
+  - Cautious default: the go-live merchant category no longer holds Bar tabs off (it's always on); it stays a requirement before Ready to open. Spec 03 and D124 say so.
+  - Tests: `routes/modules.int.test.ts` (D124 block), `pay-my-share`, `go-live`, `reports`, `plan-checkout` and the wall suite (bodies for the tab routes, which now reach their lookups); unit `modules.test.ts`, `navigation.test.ts`; e2e Admin → Features, Card fee, Pay my share, Set up your venue.
 
 ### F-04 · Approvals: on the manager's phone, by PIN at the register, or none
 

@@ -2,12 +2,12 @@ import {
   allocate,
   checkDue,
   insertPayment,
+  moduleOn,
   openSplit,
-  readSetting,
   startAttempt,
   type Queryable,
 } from "@west4/db";
-import { Temporal } from "@west4/shared";
+import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { startSplit } from "./splits.js";
 
@@ -34,10 +34,12 @@ export interface MyShare {
   readonly payment_id: string | null;
 }
 
-/** Whether the venue offers Pay my share tonight (`pay.payShare`, on at West 4). */
-export async function payShareOn(c: Queryable, venueId: string, businessDate: string) {
-  const pay = await readSetting(c, venueId, "pay", Temporal.PlainDate.from(businessDate));
-  return pay?.value.payShare.on ?? false;
+/**
+ * Whether the venue offers Pay my share (on at West 4): the Pay my share switch in Admin → Features
+ * (D124). `pay.payShare.on` is no longer read. The business date is kept for the callers.
+ */
+export async function payShareOn(c: Queryable, venueId: string, _businessDate: string) {
+  return moduleOn(c, venueId, "pay_share");
 }
 
 /** "My items": each line a guest ordered from their phone, as a claim for their share number. */

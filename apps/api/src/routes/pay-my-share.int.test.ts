@@ -173,16 +173,19 @@ describe("twelve guests, one share each", () => {
   });
   afterAll(() => drop(w));
 
-  it("with pay.payShare off, the bill offers no share and the route refuses", async () => {
-    await w.owner.query(
-      "update venue_settings set value = jsonb_set(value, '{payShare,on}', 'false') where key = 'pay'",
-    );
+  it("with Pay my share switched off (D124), the bill offers no share and the route refuses", async () => {
+    const payShare = (state: "on" | "off") =>
+      w.owner.query(
+        `insert into venue_modules (venue_id, module_id, allowed, state)
+           select id, 'pay_share', true, $1 from venues
+         on conflict (venue_id, module_id) do update set state = excluded.state`,
+        [state],
+      );
+    await payShare("off");
     expect((await guest(w, phones[1]!, "GET", "/bill")).json().presented.pay_share).toBeNull();
     const r = await guest(w, phones[1]!, "POST", "/shares", { kind: "even" });
     expect(r.statusCode).toBe(403);
-    await w.owner.query(
-      "update venue_settings set value = jsonb_set(value, '{payShare,on}', 'true') where key = 'pay'",
-    );
+    await payShare("on");
     expect((await guest(w, phones[1]!, "GET", "/bill")).json().presented.pay_share).toEqual({
       shares: 12,
     });

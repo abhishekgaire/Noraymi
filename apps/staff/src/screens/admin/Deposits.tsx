@@ -5,6 +5,7 @@ import { useAdminDraft } from "../../admin/draft.js";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { useModuleOn } from "../../useModule.js";
 import { Money } from "./Prices.js";
 
 /**
@@ -71,16 +72,18 @@ export function Deposits() {
   const current = (draft.values["deposit"] as DepositRule | undefined) ?? saved;
   const set = (next: Partial<DepositRule>) =>
     current && draft.set("deposit", { ...current, ...next });
+  // Deposits on bookings switched off (D124): online bookings take nothing; the walk-in choice stays.
+  const depositsOn = useModuleOn("deposits");
   const whole = (text: string, min = 0) => {
     const n = Number(text);
     return text !== "" && Number.isInteger(n) && n >= min ? n : null;
   };
 
-  if (!bookingOn)
+  if (!bookingOn || !depositsOn)
     return (
       <section className="deposits">
         <h2>{t("admin.section.deposits")}</h2>
-        <p role="status">{t("deposits.bookingOff")}</p>
+        <p role="status">{bookingOn ? t("deposits.depositsOff") : t("deposits.bookingOff")}</p>
         {failed && (
           <p className="error" role="alert">
             {t("shell.error.cantReach")}
@@ -318,23 +321,27 @@ function WalkInChoice({
   set: (next: Partial<DepositRule>) => void;
 }) {
   const { t } = useT();
+  const cardBehindBarOn = useModuleOn("card_behind_bar");
   const value = walkInTakesOf(current);
   return (
     <>
       <h3>{t("deposits.walkIn")}</h3>
       <p className="small muted">{t("deposits.walkIn.hint")}</p>
       <div className="invite-fields" role="radiogroup" aria-label={t("deposits.walkIn")}>
-        {walkInTakes.map((w) => (
-          <label key={w} className="check">
-            <input
-              type="radio"
-              name="walk-in-takes"
-              checked={value === w}
-              onChange={() => set({ walkIn: w })}
-            />{" "}
-            {t(`deposits.walkIn.${w}`)}
-          </label>
-        ))}
+        {walkInTakes
+          // Keep the card behind the bar shows only while its switch is on, or while it's chosen (D124).
+          .filter((w) => w !== "cardBehindBar" || cardBehindBarOn || value === w)
+          .map((w) => (
+            <label key={w} className="check">
+              <input
+                type="radio"
+                name="walk-in-takes"
+                checked={value === w}
+                onChange={() => set({ walkIn: w })}
+              />{" "}
+              {t(`deposits.walkIn.${w}`)}
+            </label>
+          ))}
       </div>
     </>
   );

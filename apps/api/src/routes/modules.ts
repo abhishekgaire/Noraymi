@@ -1,5 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { emitEvent, setModuleState, venueFlags, venueModules, statesOf } from "@west4/db";
+import {
+  emitEvent,
+  latestSetting,
+  setModuleState,
+  venueFlags,
+  venueModules,
+  statesOf,
+} from "@west4/db";
 import {
   isModuleId,
   missingNeeds,
@@ -7,6 +14,7 @@ import {
   needsRoomOrdersConfirm,
   t,
   turnsOffWith,
+  walkInTakesOf,
   type ModuleId,
   type ModuleState,
   type ModuleStates,
@@ -16,7 +24,6 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import type { ModuleGate } from "../http/module-gate.js";
 import type { Queryable } from "@west4/db";
-import { merchantCategoryPasses } from "../payments/go-live.js";
 import {
   kitchenNeeds,
   kitchenNeedsText,
@@ -32,6 +39,17 @@ interface VenueParams {
 export type OpenWorkCheck = (client: Queryable, venueId: string) => Promise<string | null>;
 export const openWorkChecks: Partial<Record<ModuleId, OpenWorkCheck>> = {
   kitchen: kitchenOrdersOpen,
+  // Keep the card behind the bar (D124): not while it's the walk-in choice, nor while a card is held.
+  card_behind_bar: async (c, venueId) => {
+    const deposit = await latestSetting(c, venueId, "deposit");
+    if (walkInTakesOf(deposit?.value) === "cardBehindBar")
+      return t("en", "modules.refused.walkInChoice");
+    const held = await c.query(
+      "select 1 from check_held_cards where venue_id = $1 and returned_at is null and cleared_at is null limit 1",
+      [venueId],
+    );
+    return held.rowCount ? t("en", "modules.refused.cardsHeld") : null;
+  },
 };
 
 /**
@@ -113,11 +131,6 @@ export function modulesRoutes(
 
       if (target === "on") {
         if (!row.allowed) throw new ApiError("forbidden", t("en", "modules.refused.notAllowed"));
-        // Bar tabs & quick sale wait for the go-live checklist's merchant category (M4-29).
-        if (id === "bar_tabs" && !(await merchantCategoryPasses(c, venueId)))
-          throw new ApiError("invalid_request", t("en", "modules.refused.merchantCategory"), {
-            details: { reason: "merchant_category" },
-          });
         const missing = missingNeeds(states, id);
         if (missing.length > 0) {
           throw new ApiError(
