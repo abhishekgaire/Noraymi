@@ -14,6 +14,8 @@ import { API, DB, STAFF } from "./stack.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const desktopDir = path.resolve(here, "..", "apps", "desktop");
+/** Electron's arguments: the keychain shim (e2e/keychain-shim.cjs), then the desktop app. */
+const appArgs = ["-r", path.join(here, "keychain-shim.cjs"), desktopDir];
 
 /**
  * The desktop shell's security checklist (M1-28, spec 12 · 10), one check
@@ -24,7 +26,7 @@ const desktopDir = path.resolve(here, "..", "apps", "desktop");
  */
 async function launch(userData: string): Promise<ElectronApplication> {
   return electron.launch({
-    args: [desktopDir],
+    args: appArgs,
     env: { ...process.env, STAFF_URL: STAFF, WEST4_USER_DATA: userData },
   });
 }
@@ -152,7 +154,7 @@ test("a badge is paired in Admin → Team in one tap, and a tap then takes over 
   test.setTimeout(180_000);
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
   const app = await electron.launch({
-    args: [desktopDir],
+    args: appArgs,
     env: {
       ...process.env,
       STAFF_URL: STAFF,

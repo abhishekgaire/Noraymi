@@ -282,10 +282,6 @@ jobs:
             echo -n probe | secret-tool store --label=west4-ci-probe west4 ci-probe
             test "$(secret-tool lookup west4 ci-probe)" = probe
             echo "keyring answers"
-            probe="$RUNNER_TEMP/keychain-probe"; mkdir -p "$probe"
-            echo "{\"name\":\"probe\",\"main\":\"main.js\"}" > "$probe/package.json"
-            echo "const{app,safeStorage}=require(\"electron\");app.whenReady().then(()=>{console.log(\"PROBE\",safeStorage.getSelectedStorageBackend(),safeStorage.isEncryptionAvailable(),process.env.XDG_CURRENT_DESKTOP);app.quit()})" > "$probe/main.js"
-            xvfb-run -a pnpm --filter @west4/desktop exec electron "$probe" 2>&1 | grep PROBE || true
             xvfb-run -a pnpm e2e --project desktop'
       - uses: actions/upload-artifact@v7
         if: failure()
