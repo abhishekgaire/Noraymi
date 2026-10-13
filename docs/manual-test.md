@@ -244,6 +244,8 @@ WEST4_FAKE_PRINTER=1 WEST4_FAKE_PRINTER_DIR="$PWD/.demo-logs/printer" WEST4_FAKE
 
 The optional `pnpm --filter @west4/desktop rebuild-native` builds the real USB reader support. You don't need it for the demo.
 
+**On a Windows computer (W-01).** The demo runs on the Mac; the Windows app is tested on a real bar computer instead. Install it from CI's `west4-staff-windows` download (GitHub → Actions → CI → the run → Artifacts) or a release, then follow [hardware-install.md](runbooks/hardware-install.md#a-windows-bar-computer-w-01): install, the watchdog, pairing, the printer's driver (Epson's TM-T88V driver, or Generic / Text Only for another ESC/POS printer), Test print in Admin → Printers & devices, then the drawer test with a $1.00 cash payment. Tick the [real-Windows check list](runbooks/hardware-install.md#check-on-a-real-windows-bar-computer). To point a Windows app at your Mac's demo instead of staging, start it from PowerShell with `$env:STAFF_URL="http://<your Mac's address>:5173"; & "$env:LOCALAPPDATA\Programs\West 4 Staff\West 4 Staff.exe"` (the Mac and the PC on the same Wi-Fi).
+
 ### 0.12 Getting a room's wall-QR address
 
 The room's wall QR opens `http://localhost:3001/v/west4karaoke/room/<room id>`. The room id is an internal number. To get it, in a Terminal window:

@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsc -b && electron .",
     "typecheck": "tsc -b",
-    "build": "tsc -b && electron-builder --config electron-builder.yml --publish never",
+    "build": "tsc -b && node write-config.mjs && electron-builder --config electron-builder.yml --publish never",
     "rebuild-native": "electron-rebuild -f -w @pokusew/pcsclite"
   },
   "dependencies": {

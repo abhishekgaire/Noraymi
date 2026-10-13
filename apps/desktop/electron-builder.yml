@@ -3,7 +3,10 @@
 # (a Developer ID Application certificate) and notarised with APPLE_ID,
 # APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID; Windows from CSC_LINK and
 # CSC_KEY_PASSWORD (a code-signing certificate). Without them the build is
-# unsigned and only for a developer's own machine. Updates (M1-29) are the
+# unsigned and only for a developer's own machine, or for testing on a bar
+# computer (Windows SmartScreen then asks "Run anyway"). The Windows installer
+# is built on Windows (CI's desktop-windows job, W-01), where the SQLCipher
+# cache's native module is fetched for Electron on Windows. Updates (M1-29) are the
 # signed builds published as GitHub releases.
 appId: com.west4.staff
 productName: West 4 Staff
@@ -16,6 +19,11 @@ asar: true
 extraResources:
   - from: watchdog/watchdog.cjs
     to: watchdog.cjs
+  - from: watchdog/install-windows.ps1
+    to: install-windows.ps1
+  # The staff app's address this build opens (write-config.mjs, from WEST4_STAFF_URL; W-01).
+  - from: build-resources/west4.json
+    to: west4.json
 mac:
   category: public.app-category.business
   hardenedRuntime: true
@@ -26,10 +34,19 @@ mac:
     - zip
 win:
   target:
-    - nsis
+    - target: nsis
+      arch:
+        - x64
+  artifactName: West-4-Staff-Setup-${version}.${ext}
+# Installed for the signed-in user (%LOCALAPPDATA%\Programs\West 4 Staff), not per machine: the
+# 6:00 AM update (M1-29) then installs with nobody there to answer an administrator prompt (W-01).
 nsis:
   oneClick: false
-  perMachine: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: West 4 Staff
 publish:
   provider: github
   owner: abhishekgaire

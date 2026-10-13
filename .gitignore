@@ -31,3 +31,7 @@ spanish-review/
 
 # The isolated browser-test stack builds the guest web here (E2E_ISOLATED=1).
 .next-e2e/
+
+# The desktop app's packaging output and its baked addresses (W-01).
+apps/desktop/release/
+apps/desktop/build-resources/
