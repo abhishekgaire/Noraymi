@@ -218,6 +218,12 @@ export interface TwilioIntegration {
   readonly phoneE164: string;
   readonly secretEnc: string;
   readonly status: string;
+  /** The number's SID in the venue's own Twilio account (T-01); null on a row from before T-01. */
+  readonly numberSid: string | null;
+  /** The account's name in Twilio, and whether Twilio calls it a trial account. */
+  readonly accountName: string | null;
+  readonly trial: boolean;
+  readonly connectedAt: string | null;
   /** The service campaign (every text but the two marketing ones). */
   readonly campaign: TextCampaign;
   /** The marketing campaign, registered only when Marketing texts is on. */
@@ -245,12 +251,17 @@ export async function twilioIntegration(
     config: {
       phone_e164?: string;
       secret_enc?: string;
+      number_sid?: string;
+      account_name?: string;
+      trial?: boolean;
       campaign?: CampaignConfig;
       marketing_campaign?: CampaignConfig;
     };
     status: string;
+    connected_at: string | null;
   }>(
-    "select external_id, config, status from integrations where venue_id = $1 and kind = 'twilio'",
+    `select external_id, config, status, to_json(connected_at) #>> '{}' as connected_at
+       from integrations where venue_id = $1 and kind = 'twilio' and status = 'connected'`,
     [venueId],
   );
   const row = r.rows[0];
@@ -260,6 +271,10 @@ export async function twilioIntegration(
     phoneE164: row.config.phone_e164,
     secretEnc: row.config.secret_enc,
     status: row.status,
+    numberSid: row.config.number_sid ?? null,
+    accountName: row.config.account_name ?? null,
+    trial: row.config.trial === true,
+    connectedAt: row.connected_at,
     campaign: campaignFrom(row.config.campaign),
     marketingCampaign: campaignFrom(row.config.marketing_campaign),
   };
@@ -303,6 +318,57 @@ export async function saveTwilioIntegration(
       input.at,
     ],
   );
+}
+
+/**
+ * Connects a venue's own Twilio account (T-01; D123): the account, its number and messaging service,
+ * the service campaign's status and the Auth Token encrypted. Replaces whatever was there, so
+ * connecting again replaces the keys. The unique indexes refuse an account or a number another
+ * venue already has (23505).
+ */
+export async function connectTwilio(
+  c: Queryable,
+  venueId: string,
+  input: {
+    accountSid: string;
+    secretEnc: string;
+    accountName: string;
+    trial: boolean;
+    phoneE164: string;
+    numberSid: string;
+    campaign: { serviceSid: string; status: CampaignStatus };
+    at: string;
+  },
+): Promise<void> {
+  const config = {
+    phone_e164: input.phoneE164,
+    secret_enc: input.secretEnc,
+    number_sid: input.numberSid,
+    account_name: input.accountName,
+    trial: input.trial,
+    campaign: {
+      service_sid: input.campaign.serviceSid,
+      status: input.campaign.status,
+      checked_at: input.at,
+    },
+  };
+  await c.query(
+    `insert into integrations (venue_id, kind, status, external_id, config, connected_at)
+       values ($1, 'twilio', 'connected', $2, $3, $4)
+       on conflict (venue_id, kind) do update set status = 'connected', external_id = excluded.external_id,
+         config = excluded.config, connected_at = excluded.connected_at`,
+    [venueId, input.accountSid, JSON.stringify(config), input.at],
+  );
+}
+
+/** Disconnect (T-01): the token, the number and the account are forgotten at once. */
+export async function disconnectTwilio(c: Queryable, venueId: string): Promise<boolean> {
+  const r = await c.query(
+    `update integrations set status = 'disconnected', external_id = null, config = '{}'::jsonb
+      where venue_id = $1 and kind = 'twilio' and status <> 'disconnected'`,
+    [venueId],
+  );
+  return (r.rowCount ?? 0) > 0;
 }
 
 /** An incoming text (M2-22): into its conversation, unread, the last inbound time moved on. */

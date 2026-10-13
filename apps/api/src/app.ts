@@ -121,6 +121,8 @@ import { offlineOrderRoutes } from "./routes/offline-orders.js";
 import { makeS3, type S3Settings } from "./s3.js";
 import { idKeyStore, type IdKeyStore } from "./id-keys/store.js";
 import { loadVenueTextSettings } from "./texts/venue.js";
+import { FakeTwilioAdmin, HttpTwilioAdmin, type TwilioAdmin } from "./texts/connect.js";
+import { textsTwilioRoutes } from "./routes/texts-twilio.js";
 import { authRoutes } from "./auth/routes.js";
 import { loggerOptions, telemetryPlugin } from "./telemetry/plugin.js";
 import type { EmailSettings } from "./email/settings.js";
@@ -155,6 +157,8 @@ export interface AppOptions {
   readonly alarmHook?: Pick<AlarmHookOptions, "topicArn" | "getCert" | "confirm">;
   /** The CAPTCHA check (M2-27). Defaults to Turnstile with the config's keys; tests pass their own. */
   readonly captcha?: CaptchaVerifier;
+  /** Connect your Twilio account (T-01): tests may pass a stand-in; otherwise Twilio or the fake by GUEST_TEXTS. */
+  readonly twilioAdmin?: TwilioAdmin;
 }
 
 /** server_time is shown in New York time, the platform's home zone (spec conventions · Time zone). */
@@ -474,6 +478,23 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         secretKey: config.auth.secretKey,
         brand: loadBrandSettings(),
       });
+      {
+        // The venue's own Twilio account (T-01; D123): Twilio itself only where texts really go.
+        const texts = loadVenueTextSettings(config.env);
+        textsTwilioRoutes(scope, {
+          clock,
+          secretKey: config.auth.secretKey,
+          texts,
+          admin:
+            options.twilioAdmin ??
+            (texts.mode === "twilio"
+              ? new HttpTwilioAdmin(
+                  texts.twilioBaseUrl,
+                  process.env["TWILIO_MESSAGING_BASE"] ?? "https://messaging.twilio.com",
+                )
+              : new FakeTwilioAdmin()),
+        });
+      }
       venueProfileRoutes(scope);
       invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey, forms });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });

@@ -297,6 +297,8 @@ export {
   recordProviderSid,
   recordWebhookEvent,
   saveTwilioIntegration,
+  connectTwilio,
+  disconnectTwilio,
   templateByKey,
   templates,
   twilioIntegration,

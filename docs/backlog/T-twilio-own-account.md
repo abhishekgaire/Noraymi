@@ -19,7 +19,7 @@ Definition of done: see CLAUDE.md.
 
 ### T-01 · Connect a venue's own Twilio account: the server
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2-09 (the venue's `integrations` row, the encrypted token), M8-22 (the campaign check)
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Texts through Twilio (Accounts); [D123](../decisions.md)
@@ -34,12 +34,17 @@ Definition of done: see CLAUDE.md.
   - An account or number already connected to another venue is refused (`account_in_use`, `number_in_use`); wrong keys answer `twilio_refused`.
   - Locally and in tests (no `GUEST_TEXTS=twilio`), an in-process fake Twilio: any well-formed Account SID and Auth Token pass, an Auth Token of 32 zeros is refused, each account has one number and one messaging service, and its campaign reads pending at Connect and approved on Check again.
 - **Acceptance:**
-  - [ ] Check lists the account's +1 numbers and services and stores nothing; wrong keys are refused with `twilio_refused`.
-  - [ ] Connect sets the number's incoming-texts address, adds it to the service, reads the campaign and stores the connection; Check again moves pending to approved.
-  - [ ] The token is in no response, no log line, and no table except encrypted in `integrations`.
-  - [ ] Disconnect forgets the keys; an account or number connected to another venue is refused.
-  - [ ] Only an owner or manager can call the routes; every route is in the principal suite and the venue-wall suite.
+  - [x] Check lists the account's +1 numbers and services and stores nothing; wrong keys are refused with `twilio_refused`.
+  - [x] Connect sets the number's incoming-texts address, adds it to the service, reads the campaign and stores the connection; Check again moves pending to approved.
+  - [x] The token is in no response, no log line, and no table except encrypted in `integrations`.
+  - [x] Disconnect forgets the keys; an account or number connected to another venue is refused.
+  - [x] Only an owner or manager can call the routes; every route is in the principal suite and the venue-wall suite.
 - **Notes:**
+  - Built in `apps/api/src/routes/texts-twilio.ts` (routes), `apps/api/src/texts/connect.ts` (Twilio's calls, `HttpTwilioAdmin`, and `FakeTwilioAdmin` used wherever `GUEST_TEXTS` isn't `twilio`), and `connectTwilio` / `disconnectTwilio` in `packages/db/src/texts.ts` (the existing `integrations` row; no migration). Tests: `texts-twilio.int.test.ts` (a stand-in Twilio; the token in no response, log line or other table), plus the principal and wall suites, which pick the new routes up from the registry.
+  - Cautious defaults: the venue pastes its **Account SID and Auth Token**, not an API key: Twilio recommends API keys for REST calls, but it signs every webhook (incoming texts, status callbacks) with the Auth Token, so we need it anyway. A messaging service is required at Connect, since a 10DLC campaign lives on one. One Twilio account and one number per venue (the existing unique indexes): a second venue on the same account is refused with `account_in_use` before anything at Twilio changes; Twilio subaccounts (the venue's own) are the answer for an owner with two venues.
+  - Connect also turns on the service's "use the number's own webhook", so incoming texts reach us whatever the service was set to. Locally (no `PUBLIC_API_URL`) the number's address isn't set.
+  - Disconnect doesn't touch the venue's Twilio account (its number still points at us; texts to it are then refused as unknown); the venue changes that in Twilio if it wants. After a disconnect the 30-day body redaction at Twilio can't run for older texts.
+  - `twilioIntegration` now reads only a `connected` row. `twilio_error` (502) is a new error code.
 
 ### T-02 · Connect your Twilio account on screen: Admin → Phone & texts and step 11
 
