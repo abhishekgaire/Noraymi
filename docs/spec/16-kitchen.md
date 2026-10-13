@@ -104,7 +104,7 @@ Food lines use the tax category `food`, which the [money rules](05-money-rules.m
 ### The allergy notice
 
 - **On every menu.** With the module on, the allergy notice from `kitchen.allergyNotice` shows on the room page, the room tablet, the website's menu page and the menu PDF, in the guest's language.
-- **Wording.** The blueprint ties the notice to [PHL §1356](https://www.nysenate.gov/legislation/laws/PBH/1356). Whether it applies to a bar with a kitchen, and its exact words, are the lawyer's to confirm; this spec never writes the notice itself. Until it's set, the module stays off.
+- **Wording.** The blueprint ties the notice to [PHL §1356](https://www.nysenate.gov/legislation/laws/PBH/1356). Whether it applies to a bar with a kitchen, and its exact words, are the lawyer's to confirm; this spec never writes the notice itself. Until it's set, the module stays off. The notice is the venue's own wording, entered by its owner, so the lawyer's answer is a check, not a block ([D125](../decisions.md)); Sing Sing's reads "Allergen information for menu items is available. Ask an employee for details."
 - **Kitchen notes.** A line's note, the guest's or staff's, is printed on the kitchen ticket and shown on the order card, never texted, never on a receipt and never kept on the guest's record. It's kept as long as the order is ([Security and data retention](12-security-retention.md) · How long we keep things); the lawyer confirms that.
 
 ### Not included

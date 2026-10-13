@@ -11,9 +11,12 @@ Oct 13, 2026 · the tickets for [D124](../decisions.md): the founder's decisions
 - Approvals are decided on the manager's phone, by a manager's PIN at the register, or not at all (role permissions only), as the venue chooses; every comp, void and refund is still recorded and in the exceptions report.
 - Every online booking is emailed to the guest (confirmed, changed, cancelled), with the manage link; the venue's booking inbox keeps its copy.
 - A room start prints the join-QR slip on the receipt printer when Ordering from the room is on; **Reprint QR** on the room reprints the current code.
-- Sing Sing's choices are in its venue guide and demo script.
+- Sing Sing's choices are in its venue guide and demo script, and it can run on its bar computers alone.
+- A venue can take cards on its own outside card machine and record them, beside Stripe's readers.
 
-**Depends on:** M1-13, M1-32, O-04, O-06, T-03. **Size:** 8 tickets (3 S, 5 M).
+**Always on (the founder's correction, Oct 13):** what a POS needs to work is never a switch: Reports & accounting, Bar tabs & quick sale (the register: ringing sales and tabs), the menu, taking payments (cash and card) and receipts, Close the night and the Z report, team, roles and PINs, moving a bar tab into a room, training mode, offline mode and emails.
+
+**Depends on:** M1-13, M1-32, O-04, O-06, T-03. **Size:** 10 tickets (3 S, 7 M).
 
 Definition of done: see CLAUDE.md.
 
@@ -51,7 +54,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-02 · The order-waiting alert says how the manager was told
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** F-01
 - **Spec:** [Staff screens](../spec/10-staff-screens-bar-pos.md); [D124](../decisions.md)
@@ -59,9 +62,10 @@ Definition of done: see CLAUDE.md.
   - `orders.manager_told` (`text` or `push`, null until level 4): written by the escalation when the level-4 alert goes, from what was actually sent.
   - The board's alert reads "texted Andy" only when the text went; "sent to Andy's phone" when it went as a push.
 - **Acceptance:**
-  - [ ] With texts not live (or the order-waiting text off), level 4 records `push` and the board reads "sent to Andy's phone".
-  - [ ] With texts live, it records `text` and reads "texted Andy".
+  - [x] With texts not live (or the order-waiting text off), level 4 records `push` and the board reads "sent to Andy's phone".
+  - [x] With texts live, it records `text` and reads "texted Andy".
 - **Notes:**
+  - Built: migration 0151 adds `orders.manager_told` (`text` or `push`), written by `escalateOrders` from what it actually sent at level 4; the board's alert (`rooms/board.ts`) reads `texted`, `pushed` ("sent to Andy's phone") or `phone` (level 3, or level 4 with no verified phone, when only the level-3 push went). Test: `orders/escalation.int.test.ts` (the order-waiting text switched off, so the last level goes as a push).
 
 ### F-03 · New switches: deposits, room tablets, the card behind the bar, Pay my share, cash discount and the ticket choice
 
@@ -77,13 +81,14 @@ Definition of done: see CLAUDE.md.
     - **Pay my share** (`pay_share`, needs Rooms & room clock): the module is the switch (`pay.payShare.on` is no longer read; Admin → Payments shows the module's state with a link).
     - **Cash discount** (`cash_discount`): off, no discount is taken whatever `pay.cardFee` says, and Admin → Payments shows "Cash discount is off · Admin → Features"; the rate is kept for when it's on.
   - The plans (D121): Bar adds Cash discount; Rooms adds Deposits on bookings, Room tablets, Keep the card behind the bar and Pay my share. A plan switches them on as it does its other modules; the backfill copies today's settings (Pay my share and the cash discount from `pay`, the rest on where Rooms is on).
+  - **Made permanent (D124's correction):** Reports & accounting and Bar tabs & quick sale become core modules, always on, never listed as switches (a venue row in `off` reads as on; the backfill sets them on). Bar tabs' wait for the go-live merchant category moves from the module to opening a new bar tab, which is refused (`merchant_category`) until it passes; quick sale always works. Team, roles and PINs were never behind a module; Team, time clock & tips switches only the time clock and the tip pool.
   - Admin → Features gets a second part, **Choices**: **Drinks rung at the bar print a ticket** (`pos.printBarDrinkTickets`, the same switch as Admin → Bar POS), **Texting** (`texting.on`, F-01) and **Approvals** (F-04). Each writes its own settings key.
 - **Acceptance:**
   - [ ] Each new module's routes and rules are refused on the server while it's off, and its screens hide it.
   - [ ] The needs and "These turn off with it" confirms cover the new modules (turning off Rooms lists them; turning off Online booking lists Deposits on bookings).
   - [ ] Turning off Keep the card behind the bar is refused while it's the walk-in choice.
   - [ ] The plans switch the new modules on; the backfill matches today's behaviour for West 4.
-  - [ ] Admin → Features shows the modules and the Choices in English and Spanish.
+  - [ ] Admin → Features shows the modules and the Choices in English and Spanish; Reports & accounting and Bar tabs & quick sale aren't switches.
 - **Notes:**
 
 ### F-04 · Approvals: on the manager's phone, by PIN at the register, or none
@@ -144,11 +149,13 @@ Definition of done: see CLAUDE.md.
   - Print kind `room_qr`: on check-in and a seated walk-in, while Ordering from the room is on, a slip goes to the front desk's receipt printer: the venue, the room, the host's name, a QR of the join link with the room code (`/v/{slug}/room/{roomId}?code=…`), the code in large letters and "Scan to order and see your bill" in the venue's language (English or Spanish).
   - The ESC/POS renderer prints the QR with the printer's own QR command (GS ( k); Star and Epson cloud printers get their own QR markup.
   - **Reprint QR** on the room (DeskRoom, the bar POS's rooms list, the staff phone room): `POST /sessions/{s}/qr-slip` prints the current code again (the new one after a change); audited.
+  - **The host's email (the founder, Oct 13):** when the host's email is known (their booking's, or typed in the walk-in dialog, which gains an optional email field), the room start also emails the host the room's QR code and join link, "Scan to order and see your bill", in English or Spanish, beside the slip and the Room code text. Emails aren't switchable, so it goes whenever there's an email and Ordering from the room is on. Reprint QR, and a code change, offer **Email it again**.
   - The join page fills the code from the link and joins with one tap.
 - **Acceptance:**
   - [ ] A check-in and a walk-in each queue one `room_qr` job; none while Ordering from the room is off.
   - [ ] Reprint QR prints the current code; after the code changes it prints the new one.
   - [ ] The ESC/POS bytes carry the QR command with the join link; the join page joins from the link.
+  - [ ] The host's email gets the QR and link at the room start, and again on Email it again; the walk-in dialog takes an optional email.
   - [ ] The route is in the principal and venue-wall suites; EN and ES.
 - **Notes:**
 
@@ -159,8 +166,44 @@ Definition of done: see CLAUDE.md.
 - **Depends on:** F-03, F-05
 - **Spec:** [Sing Sing venue](../venues/sing-sing/venue.md); [D124](../decisions.md)
 - **Build:**
-  - `docs/venues/sing-sing/venue.md`: the Choose your features rows: on (Rooms, Bar tabs, Bar screen & tickets, Kitchen & food, Website, Online booking, Ordering from the room, Keep the card behind the bar, Cash discount), off (Deposits on bookings, Bar mode, Song system control, Marketing texts), and the rest left at the module defaults as Still to give.
-  - `scripts/demo-sing-sing.mjs` sets the same.
+  - `docs/venues/sing-sing/venue.md`: the Choose your features rows: on (Rooms, Bar screen & tickets, Kitchen & food, Website, Online booking, Ordering from the room, Keep the card behind the bar, Cash discount), off (Deposits on bookings, Bar mode, Song system control, Marketing texts, Room tablets), Approvals "Manager's PIN at the register", and the rest left at the module defaults as Still to give. (Bar tabs are always on.)
+  - The kitchen's allergy notice, the venue's own wording ([D125](../decisions.md)): "Allergen information for menu items is available. Ask an employee for details." and our Spanish for the venue to confirm. Kitchen & food no longer waits on the lawyer.
+  - The cash discount is the owner's choice (D125): Sing Sing's is on; the "stays off until the lawyer answers" default goes.
+  - `scripts/demo-sing-sing.mjs` sets the same, with the allergy notice in place of the DEMO ONLY one.
 - **Acceptance:**
   - [ ] The demo script leaves Sing Sing with exactly those choices.
+- **Notes:**
+
+### F-09 · Sing Sing on its bar computers alone
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** F-04, F-08
+- **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md); [D126](../decisions.md)
+- **Build:**
+  - A venue can run on its bar computers alone (the desktop app), with no staff phones, room tablets, badge readers or Up next TV, as Sing Sing does today; each stays available to turn on later.
+  - Nothing requires a staff phone: approvals (by Manager's PIN at the register, F-04), the order-waiting alert (the bar computer's alarm and banner; with no phone paired the push has nowhere to go and the board says so), the time clock, Close the night, Send to kitchen, tip entry and the incident log each work on the desktop or bar POS; any job only a phone screen does is listed in Notes as a gap.
+  - Sing Sing's set in `docs/venues/sing-sing/venue.md`, `scripts/demo-sing-sing.mjs`, `docs/runbooks/hardware-install.md` and `devices:check`: bar computers with the desktop app, a receipt printer and drawer on each, a kitchen network printer, card readers as F-10 allows (none required while the outside card machine is on); no tablets, badge readers or Up next TV, so `devices:check` doesn't ask for them.
+- **Acceptance:**
+  - [ ] `devices:check` passes Sing Sing's set without phones, tablets, badge readers or a TV.
+  - [ ] Each job above is done on the desktop in a test, or named as a gap in Notes.
+- **Notes:**
+
+### F-10 · Paid on an outside card machine
+
+- **Status:** todo
+- **Size:** M
+- **Depends on:** F-03
+- **Spec:** [Payment flows](../spec/07-payment-flows.md) · Outside card machine; [D126](../decisions.md)
+- **Build:**
+  - A new owner-switchable payment option, **Paid on outside card machine** (module `outside_card`, off by default, every plan), in Set up your venue's step 7 and Admin → Features; Stripe's readers stay as they are, and both can be on.
+  - Staff charge the card on the venue's own non-Stripe machine, then record it on the check: the amount and the tip (integer cents, entered by staff) and an optional note (last 4 digits and the approval code only: a 13-to-19-digit number is refused, so no full card number reaches our servers). It closes the tab or the room's bill like any tender; no hold, no on-reader tip and no reconciler.
+  - Refunds are recorded the same way ("Refunded on outside machine"), approved per the venue's approval setting.
+  - Close the night shows an **Outside card machine** total, by drawer and by person, for the manager to match against the machine's own batch report; the Z report, reports, exports and the money audit carry it. A split hands leftover cents out by largest remainder.
+  - Audited.
+- **Acceptance:**
+  - [ ] Recording a payment closes the check with the tip; a full card number in the note is refused.
+  - [ ] Close the night, the Z report, the exports and the money audit show the outside-machine total, matching to the cent.
+  - [ ] A refund is recorded and approved per the setting.
+  - [ ] The module is refused on the server while off; EN and ES.
 - **Notes:**

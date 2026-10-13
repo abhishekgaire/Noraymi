@@ -138,6 +138,10 @@ Until then the hold stays on the card as the room's guarantee for the moved line
 
 `POST /checks/{c}/refunds` takes the lines to refund, how much comes off each payment, a reason and approval. Once it's approved, it writes the reversing lines first (Money rules), then refunds each payment; before capture, it captures less or cancels instead. Each Stripe refund gets a `refunds` row whose status follows `refund.updated` and `refund.failed`, and screens say "Refund pending" until Stripe finishes, because a card refund waits when the venue's Stripe balance is short. A cash refund is a drawer move. A refund after the night is closed posts to the next open business date, pointing at its check's night ([D88](../decisions.md)). Gratuity refunded after its pool was paid comes off the next pool, once the lawyer confirms that's allowed.
 
+### Outside card machine
+
+**Paid on outside card machine** ([D126](../decisions.md)) is a payment option the owner switches on (module `outside_card`, off by default, every plan; Set up your venue's step 7 and Admin → Features), beside Stripe's readers; both can be on. Staff charge the card on the venue's own non-Stripe machine, then record it on the check: the amount and the tip, typed in dollars and cents and kept as integer cents, and an optional note of the last 4 digits and the approval code. A note with a run of 13 to 19 digits is refused, so a full card number never reaches our servers or logs. It closes the tab or the room's bill like any tender (a split hands leftover cents out by largest remainder), with no hold, no on-reader tip and nothing for the reconciler to check. A refund of it is recorded the same way, as **Refunded on outside machine**, and approved per the venue's approval setting. Close the night shows an **Outside card machine** total, by drawer and by person, for the manager to match against the machine's own batch report, and the Z report, reports, exports and the money audit carry it. Every record is audited.
+
 ### Card fee at the reader (off at West 4)
 
 The reader has to report the card type before the amount is final:

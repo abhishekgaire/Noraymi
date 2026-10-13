@@ -33,7 +33,7 @@
 
 **Each venue's own Twilio (Oct 12, 2026).** [T · Each venue's own Twilio account](T-twilio-own-account.md) builds decision D123: a venue connects its own Twilio account in Admin → Phone & texts or onboarding step 11, every text goes from it, codes and invites go by email until its texts are live, and the platform's Twilio pieces (subaccounts, Register for texts) are retired. 4 tickets (2 S, 2 M), T-01 to T-04, before S-05; not counted in the table above.
 
-**Every feature switchable (Oct 13, 2026).** [F · Features](F-features.md) builds decision D124: texting switched off venue-wide or text by text (emails never), new switchable features and the Choices in Admin → Features and Set up your venue's **Choose your features**, approvals as a venue choice (phone, PIN at the register, or none), every booking emailed to the guest, and the room's join-QR slip printed at every room start. 8 tickets (3 S, 5 M), F-01 to F-08, before S-05; not counted in the table above.
+**Every feature switchable (Oct 13, 2026).** [F · Features](F-features.md) builds decision D124: texting switched off venue-wide or text by text (emails never), new switchable features and the Choices in Admin → Features and Set up your venue's **Choose your features**, approvals as a venue choice (phone, PIN at the register, or none), every booking emailed to the guest, and the room's join-QR slip printed at every room start. 10 tickets (3 S, 7 M), F-01 to F-10, before S-05; F-09 and F-10 add the founder's later Oct 13 decisions (D126: Sing Sing on its bar computers alone, and payments on an outside card machine); not counted in the table above.
 
 ## Every ticket
 
@@ -356,3 +356,5 @@
 | [F-06 · Every booking is emailed to the guest](F-features.md#f-06--every-booking-is-emailed-to-the-guest) | M | M5 bookings, M1-18 |
 | [F-07 · The room's join QR is printed when a room starts, and reprinted on demand](F-features.md#f-07--the-rooms-join-qr-is-printed-when-a-room-starts-and-reprinted-on-demand) | M | M3-08, M3-13 |
 | [F-08 · Sing Sing's feature choices](F-features.md#f-08--sing-sings-feature-choices) | S | F-03, F-05 |
+| [F-09 · Sing Sing on its bar computers alone](F-features.md#f-09--sing-sing-on-its-bar-computers-alone) | M | F-04, F-08 |
+| [F-10 · Paid on an outside card machine](F-features.md#f-10--paid-on-an-outside-card-machine) | M | F-03 |
