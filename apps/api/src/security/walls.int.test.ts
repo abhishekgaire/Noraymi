@@ -5,7 +5,6 @@ import { buildApp } from "../app.js";
 import { FakeMailer } from "../email/mailer.js";
 import { makeHandlers } from "../jobs/registry.js";
 import { FakePushSender } from "../push/sender.js";
-import { FakeTextSender } from "../texts/sender.js";
 import { FakeVenueClient } from "../texts/venue.js";
 import { suiteWorld, type SuiteWorld } from "./setup.js";
 import { checkWebhooks, runJobWalls, runRouteWalls } from "./wall-suite.js";
@@ -61,10 +60,9 @@ describe("the venue wall", () => {
         allowList: null,
       },
       push,
-      texts: new FakeTextSender(),
       venueTexts: {
         client: venueClient,
-        settings: { publicApiUrl: null },
+        settings: { publicApiUrl: null, allowList: null, requireApprovedCampaign: false },
         secretKey: Buffer.alloc(32, 7),
       },
       // The synthetic check (M8-18), configured for venue B: a job queued as venue A runs nothing.

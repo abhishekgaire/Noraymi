@@ -410,8 +410,20 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       posLayoutRoutes(scope, { clock });
       tabRoutes(scope, { clock, pool: gatePoolRef!, stripe, receipts: receiptDeps });
       tabHandOverRoutes(scope, { clock });
-      songRoutes(scope, { clock, pool: gatePoolRef!, stripe, s3: () => (s3 ??= makeS3()) });
-      publicSongRoutes(scope, { pool: gatePoolRef!, clock, auth: config.auth, forms });
+      songRoutes(scope, {
+        clock,
+        pool: gatePoolRef!,
+        stripe,
+        s3: () => (s3 ??= makeS3()),
+        texts: loadVenueTextSettings(config.env),
+      });
+      publicSongRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        auth: config.auth,
+        forms,
+        texts: loadVenueTextSettings(config.env),
+      });
       nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
       unmatchedRoutes(scope, { clock, pool: gatePoolRef! });
       exportRoutes(scope, { clock, email: () => options.email ?? { allowList: null } });
@@ -468,6 +480,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
       teamRoutes(scope, {
         clock,
+        texts: loadVenueTextSettings(config.env),
         email: options.email ?? { allowList: null },
         staffAppUrl: config.staffAppUrl,
       });
@@ -496,7 +509,14 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         });
       }
       venueProfileRoutes(scope);
-      invitesRoutes(scope, { pool: gatePoolRef!, clock, pepper: config.auth.secretKey, forms });
+      invitesRoutes(scope, {
+        pool: gatePoolRef!,
+        clock,
+        pepper: config.auth.secretKey,
+        forms,
+        texts: loadVenueTextSettings(config.env),
+        email: options.email ?? { allowList: null },
+      });
       pinRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
       badgeRoutes(scope, { pool: gatePoolRef!, clock, config: config.auth });
       // The Console (M1-35) exists only where CONSOLE_URL names its hostname.

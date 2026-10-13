@@ -459,6 +459,11 @@ export async function addSinger(
     userId: string;
     locale: "en" | "es";
     now: Temporal.Instant;
+    /**
+     * Whether the venue's own texts are live (T-03; D123). Until they are, the staff member adding
+     * the singer at the bar confirms them in person and no code is sent.
+     */
+    textsLive?: boolean;
   },
 ): Promise<{ id: string; confirmed: boolean; code_sent: boolean }> {
   const at = input.now.toString();
@@ -479,6 +484,16 @@ export async function addSinger(
     [venueId, input.displayName, input.phoneE164, checkId, input.userId, at],
   );
   const id = r.rows[0]!.id;
+  if (input.textsLive === false) {
+    await c.query(`update singers set phone_verified_at = $3 where venue_id = $1 and id = $2`, [
+      venueId,
+      id,
+      at,
+    ]);
+    if (checkId) await syncCheckCredits(c, venueId, checkId, input.now);
+    await updated(c, venueId, await nightIdOf(c, venueId, input.now));
+    return { id, confirmed: true, code_sent: false };
+  }
   await sendCode(c, venueId, id, input.phoneE164, input.locale, input.now);
   return { id, confirmed: false, code_sent: true };
 }

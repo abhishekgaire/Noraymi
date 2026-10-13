@@ -22,13 +22,15 @@ interface InvitePage {
   readonly locale: "en" | "es";
   readonly phone_verified: boolean;
   readonly needs_passkey: boolean;
+  /** How the phone code comes (T-03): by text once the venue's own texts are live, else by email. */
+  readonly code_by?: "text" | "email";
 }
 
 type Step =
   | { kind: "loading" }
   | { kind: "closed"; why: "used" | "replaced" | "expired" | "invalid" }
   | { kind: "phone" }
-  | { kind: "code"; phone: string }
+  | { kind: "code"; phone: string; email: string | null }
   | { kind: "pin" }
   | { kind: "passkey"; email: string; code: string }
   | { kind: "done"; manager: boolean };
@@ -94,8 +96,9 @@ export function Invite() {
   const sendCode = (event: FormEvent) => {
     event.preventDefault();
     void run(async () => {
+      let sent: { sent_by?: "text" | "email"; email_hint?: string };
       try {
-        await api("POST", `/v1/invites/${encodeURIComponent(token)}/phone`, {
+        sent = await api("POST", `/v1/invites/${encodeURIComponent(token)}/phone`, {
           phone_e164: phone,
           captcha_token: captcha.token ?? "",
         });
@@ -109,10 +112,20 @@ export function Invite() {
           setError(t("invite.captchaFailed"));
           return;
         }
+        // The venue's texts aren't connected and this invite has no email (T-03).
+        if (e instanceof ApiCallError && e.details["reason"] === "texts_not_live") {
+          setError(t("invite.textsNotLive"));
+          return;
+        }
         throw e;
       }
       captcha.reset();
-      setStep({ kind: "code", phone });
+      // Until the venue's own texts are live, the code goes to the invite's email (T-03; D123).
+      setStep({
+        kind: "code",
+        phone,
+        email: sent.sent_by === "email" ? (sent.email_hint ?? "") : null,
+      });
     });
   };
 
@@ -245,18 +258,24 @@ export function Invite() {
               onChange={(e) => setPhone(e.target.value)}
             />
           </label>
-          <p className="muted">{t("invite.phoneHint")}</p>
+          <p className="muted">
+            {t(page?.code_by === "email" ? "invite.phoneHintEmail" : "invite.phoneHint")}
+          </p>
           {captcha.widget}
           <button type="submit" className="primary" disabled={busy || !captcha.token}>
-            {t("invite.sendCode")}
+            {t(page?.code_by === "email" ? "invite.emailCode" : "invite.sendCode")}
           </button>
         </form>
       )}
       {step.kind === "code" && (
         <form onSubmit={verify}>
-          <p className="muted">{t("invite.codeSent", { phone: step.phone })}</p>
+          <p className="muted">
+            {step.email !== null
+              ? t("invite.codeEmailed", { email: step.email })
+              : t("invite.codeSent", { phone: step.phone })}
+          </p>
           <label>
-            <span>{t("invite.code")}</span>
+            <span>{t(step.email !== null ? "invite.codeFromEmail" : "invite.code")}</span>
             <input
               inputMode="numeric"
               autoComplete="one-time-code"

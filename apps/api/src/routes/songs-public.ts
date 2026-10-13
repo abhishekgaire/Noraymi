@@ -6,6 +6,7 @@ import type { Clock } from "@west4/shared";
 import type { AuthConfig } from "../config.js";
 import type { Authenticator } from "../http/conventions.js";
 import type { PublicFormGuard } from "../captcha/guard.js";
+import { LOCAL_TEXTS, textsLive, type LiveSettings } from "../texts/live.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import {
@@ -99,7 +100,14 @@ const phone = z.string().regex(/^\+1[2-9]\d{2}[2-9]\d{6}$/);
 
 export function publicSongRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; auth: AuthConfig; forms: PublicFormGuard },
+  options: {
+    pool: pg.Pool;
+    clock: Clock;
+    auth: AuthConfig;
+    forms: PublicFormGuard;
+    /** Whether a venue's own texts are live (T-03); the tests' default is a connection being enough. */
+    texts?: LiveSettings;
+  },
 ): void {
   const open = route({
     principals: ["public"],
@@ -156,6 +164,13 @@ export function publicSongRoutes(
       const caller = await options.forms.check(request, reply, captcha);
       const now = options.clock.now();
       await inVenue(request, true, async (c, venueId) => {
+        // No code can reach the singer's phone until the venue's own texts are live (T-03; D123):
+        // staff add them at the bar instead, confirming them in person.
+        if (!(await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, parsed.data.phone_e164)))
+          throw new ApiError("invalid_request", "ask at the bar to join the queue", {
+            status: 409,
+            details: { reason: "texts_not_live" },
+          });
         await options.forms.use(
           c,
           venueId,

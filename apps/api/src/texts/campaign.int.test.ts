@@ -109,6 +109,8 @@ beforeAll(async () => {
   raw = new pg.Client({ connectionString: db.url });
   await raw.connect();
   pool = appPool(db.url);
+  // The seed's pretend connection (T-03) gives way to this test's own account.
+  await raw.query("delete from integrations where venue_id = $1 and kind = 'twilio'", [venueId]);
   await withVenue(pool, { venueId }, (c) =>
     saveTwilioIntegration(c, venueId, {
       accountSid: ACCOUNT,

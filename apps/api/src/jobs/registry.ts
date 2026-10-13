@@ -29,7 +29,7 @@ import { PUSH_SEND_KIND, makePushSendHandler } from "../push/send-push.js";
 import type { PushSender } from "../push/sender.js";
 import { SINGER_PUSH_KIND, makeSingerPushHandler } from "../songs/alerts.js";
 import { TEXT_SEND_KIND, makeSendTextHandler } from "./send-text.js";
-import type { TextSender } from "../texts/sender.js";
+import { LOCAL_TEXTS, type LiveSettings } from "../texts/live.js";
 import type { VenueTextClient, VenueTextSettings } from "../texts/venue.js";
 import { MESSAGE_SEND_KIND } from "../texts/queue.js";
 import { makeSendMessageHandler } from "./send-message.js";
@@ -100,7 +100,6 @@ export interface HandlerDeps {
   readonly mailer: Mailer;
   readonly email: EmailSettings;
   readonly push: PushSender;
-  readonly texts: TextSender;
   /** The synthetic order and reader payment on our test venue (M8-18); without it the check is off. */
   readonly synthetic?: {
     readonly pool: pg.Pool;
@@ -114,7 +113,10 @@ export interface HandlerDeps {
   /** Guest texts from each venue's subaccount (M2-09). */
   readonly venueTexts?: {
     readonly client: VenueTextClient;
-    readonly settings: Pick<VenueTextSettings, "publicApiUrl" | "allowList">;
+    readonly settings: Pick<
+      VenueTextSettings,
+      "publicApiUrl" | "allowList" | "requireApprovedCampaign"
+    >;
     readonly secretKey: Buffer;
   };
 }
@@ -125,7 +127,6 @@ export function makeHandlers({
   mailer,
   email,
   push,
-  texts,
   venueTexts,
   stripe,
   synthetic,
@@ -170,7 +171,16 @@ export function makeHandlers({
       [BOOKING_INBOX_KIND]: makeBookingInboxHandler(email),
       [PUSH_SEND_KIND]: makePushSendHandler(push),
       [SINGER_PUSH_KIND]: makeSingerPushHandler(push),
-      [TEXT_SEND_KIND]: makeSendTextHandler(texts),
+      // Staff texts from the venue's own Twilio account (T-03; D123); without it, nothing is sent.
+      [TEXT_SEND_KIND]: makeSendTextHandler(
+        venueTexts
+          ? {
+              client: venueTexts.client,
+              settings: venueTexts.settings,
+              secretKey: venueTexts.secretKey,
+            }
+          : null,
+      ),
       // The venue's hours to its Google Business Profile location (M5-15); without a client, nothing is sent.
       [GOOGLE_PUSH_KIND]: makeGooglePushHandler(
         google?.client ?? new GoogleClient({ ...loadGoogleSettings("local", {}), mode: "off" }),
@@ -273,7 +283,7 @@ export const schedules: Schedule[] = [
 export function makeSweeps(
   pool: pg.Pool,
   log?: (line: string) => void,
-  texts: Pick<VenueTextSettings, "allowList"> = { allowList: null },
+  texts: LiveSettings = LOCAL_TEXTS,
   stripe?: StripeClient,
   pager?: PagerDeps,
   synthetic?: SyntheticConfig | null,
@@ -296,7 +306,7 @@ export function makeSweeps(
     // Tickets not confirmed within three polls (M3-13).
     printWatchSweep(pool),
     // Room orders nobody has accepted: phones, the board, the manager (M3-16).
-    escalationSweep(pool),
+    escalationSweep(pool, texts),
     // The 4 AM stop: alcohol nobody accepted is cancelled once the window closes (M3-22).
     alcoholStopSweep(pool),
     // The clear-out check at the close plus drinking-up time (M3-23).

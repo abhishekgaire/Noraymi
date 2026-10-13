@@ -138,6 +138,7 @@ describe("the venue's connection (M8-01)", () => {
       "update organizations set stripe_account_id = 'acct_m801' where id = (select org_id from venues where id = $1)",
       [venueId],
     );
+    await raw.query("delete from integrations where venue_id = $1 and kind = 'twilio'", [venueId]);
     await raw.query(
       `insert into integrations (venue_id, kind, external_id, status)
        values ($1, 'twilio', 'AC_m801', 'connected')`,

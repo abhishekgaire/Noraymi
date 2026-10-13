@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { z } from "zod";
 import type { Clock } from "@west4/shared";
+import { LOCAL_TEXTS, textsLive, type LiveSettings } from "../texts/live.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import {
@@ -51,7 +52,14 @@ const staff = { principals: ["owner_manager", "staff"] as const, module: "bar_mo
 
 export function songRoutes(
   app: FastifyInstance,
-  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient; s3: () => S3Settings },
+  options: {
+    clock: Clock;
+    pool: pg.Pool;
+    stripe: () => StripeClient;
+    s3: () => S3Settings;
+    /** Whether a venue's own texts are live (T-03); the tests' default is a connection being enough. */
+    texts?: LiveSettings;
+  },
 ): void {
   const deps = (): PaymentDeps => ({
     pool: options.pool,
@@ -274,7 +282,7 @@ export function songRoutes(
         throw new ApiError("invalid_request", "send { display_name, phone_e164 } with a +1 number");
       const userId = user(request.principal);
       const b = parsed.data;
-      const singer = await request.inVenue((c) =>
+      const singer = await request.inVenue(async (c) =>
         addSinger(c, request.venueId!, {
           displayName: b.display_name,
           phoneE164: b.phone_e164,
@@ -282,6 +290,12 @@ export function songRoutes(
           userId,
           locale: b.locale ?? "en",
           now: options.clock.now(),
+          textsLive: await textsLive(
+            c,
+            request.venueId!,
+            options.texts ?? LOCAL_TEXTS,
+            b.phone_e164,
+          ),
         }),
       );
       return reply.code(singer.code_sent ? 201 : 200).send(singer);

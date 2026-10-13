@@ -255,6 +255,8 @@ The Up next TV shows the one now singing and the next 5 singers, with a QR code 
 
 ## Texts and the inbox
 
+**Twilio (demo only).** The seed gives West 4 a pretend connection to its own Twilio account ([D123](decisions.md)): Admin → Phone & texts reads **Approved** on +1 212 255 0011, with made-up account, number and messaging-service ids and the token `demo-token`. It isn't a venue fact and nothing reaches Twilio: texts go to the fake sender and show only in Messages. Disconnect it in Admin → Phone & texts to see a venue whose codes and invites go by email; any well-formed test keys connect it again.
+
 The Admin texts list, the desktop Messages board and the phone's Messages all show exactly these 14. Twelve are service texts. The last two are marketing texts, and both are off until they have their own opt-in.
 
 | # | Text | Sent | State | Wording |

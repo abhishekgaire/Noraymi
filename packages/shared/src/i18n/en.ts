@@ -203,6 +203,16 @@ export const en = {
   "invite.phone": "Your mobile number",
   "invite.phoneHint": "We text a code to confirm it, once.",
   "invite.sendCode": "Text me a code",
+  "invite.codeEmailed": "We emailed a code to {email}",
+  "invite.textsNotLive": "This venue can't text codes yet · ask for an invite by email",
+  "team.invite.textsNotLive": "Add an email · this venue's texts aren't connected yet",
+  "team.reset.textsNotLive":
+    "Add an email for this person · this venue's texts aren't connected yet",
+  "guestSing.askAtBar": "Ask at the bar to join the queue · the staff add you there",
+  "invite.emailCode": "Email me a code",
+  "invite.codeFromEmail": "The code from the email",
+  "invite.phoneHintEmail":
+    "We email a code to the address your invite came to, to confirm it, once.",
   "invite.codeSent": "We texted a code to {phone}",
   "invite.captcha": "Security check",
   "invite.captchaWaiting": "Checking you're a person. This takes a moment.",

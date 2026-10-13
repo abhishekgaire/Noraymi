@@ -357,3 +357,28 @@ describe("+ Singer", () => {
     expect(again.json()).toMatchObject({ id: singer.id, confirmed: true, code_sent: false });
   });
 });
+
+describe("+ Singer until the venue's own texts are live (T-03; D123)", () => {
+  it("staff adding a singer at the bar confirms them in person: no code is sent", async () => {
+    await owner.query(
+      "update integrations set status = 'disconnected', external_id = null, config = '{}' where venue_id = $1",
+      [venueId],
+    );
+    as("maya", "bartender");
+    const added = await call("POST", "/singers", {
+      display_name: "Omar",
+      phone_e164: "+16465550178",
+    });
+    expect(added.statusCode, added.body).toBe(200);
+    expect(added.json()).toMatchObject({ confirmed: true, code_sent: false });
+    const jobs = await owner.query(
+      "select 1 from jobs where kind = 'text.send' and payload->>'to' = '+16465550178'",
+    );
+    expect(jobs.rowCount).toBe(0);
+    const queued = await call("POST", "/song-queue", {
+      singer_id: added.json().id,
+      title: "Valerie",
+    });
+    expect(queued.statusCode, queued.body).not.toBe(400);
+  });
+});

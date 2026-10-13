@@ -22,6 +22,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { enqueueEmail } from "../jobs/send-email.js";
 import { enqueueText } from "../jobs/send-text.js";
+import { LOCAL_TEXTS, textsLive, type LiveSettings } from "../texts/live.js";
 
 /**
  * Admin → Team: invites and PIN resets (M1-23, spec 02). The owner or a
@@ -108,7 +109,13 @@ export function newInviteToken(): { token: string; hash: string } {
 
 export function teamRoutes(
   app: FastifyInstance,
-  options: { clock: Clock; email: Pick<EmailSettings, "allowList">; staffAppUrl: string | null },
+  options: {
+    clock: Clock;
+    email: Pick<EmailSettings, "allowList">;
+    staffAppUrl: string | null;
+    /** Whether a venue's own texts are live (T-03); the tests' default is a connection being enough. */
+    texts?: LiveSettings;
+  },
 ): void {
   const teamChange = route({
     principals: ["owner_manager"],
@@ -171,7 +178,12 @@ export function teamRoutes(
     });
     const url = `${appUrl()}/invite/${token}`;
     const name = await venueName(c, venueId);
-    if (row.phone_e164 && row.phone_verified_at) {
+    // A PIN reset goes by text only from the venue's own live texts (T-03; D123), else by email.
+    if (
+      row.phone_e164 &&
+      row.phone_verified_at &&
+      (await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, row.phone_e164))
+    ) {
       await enqueueText(c, {
         venueId,
         runAt: options.clock.now(),
@@ -184,7 +196,9 @@ export function teamRoutes(
     }
     if (!row.email) {
       if (quiet) return null;
-      throw new ApiError("invalid_request", "this person has no confirmed phone or email");
+      throw new ApiError("invalid_request", "this person has no confirmed phone or email", {
+        details: { reason: row.phone_e164 ? "texts_not_live" : "no_contact" },
+      });
     }
     const inviter = await c.query<{ name: string }>("select name from users where id = $1", [
       actorUserId,
@@ -247,7 +261,17 @@ export function teamRoutes(
         const name = await venueName(c, venueId);
         const inviteUrl = `${appUrl()}/invite/${token}`;
         const sentBy: ("text" | "email")[] = [];
-        if (body.phone_e164) {
+        // An invite is texted only from the venue's own live texts (T-03; D123).
+        const textable =
+          !!body.phone_e164 &&
+          (await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, body.phone_e164));
+        if (body.phone_e164 && !textable && !body.email)
+          throw new ApiError(
+            "invalid_request",
+            "add an email · this venue's texts aren't connected yet",
+            { status: 409, details: { reason: "texts_not_live" } },
+          );
+        if (body.phone_e164 && textable) {
           await enqueueText(c, {
             venueId,
             runAt: options.clock.now(),

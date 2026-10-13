@@ -319,8 +319,15 @@ function Join({ api, onJoined }: { api: string; onJoined: () => void }) {
     captcha.reset();
     if (!r?.ok) {
       const body = r
-        ? ((await r.json().catch(() => null)) as { error?: { code?: string } } | null)
+        ? ((await r.json().catch(() => null)) as {
+            error?: { code?: string; details?: { reason?: string } };
+          } | null)
         : null;
+      // The venue's own texts aren't connected yet (T-03; D123): staff add singers at the bar.
+      if (body?.error?.details?.reason === "texts_not_live") {
+        setError(t("en", "guestSing.askAtBar"));
+        return;
+      }
       setError(captchaRefusal(body, "guestLimit.singer") ?? t("en", "guestSing.sendFailed"));
       return;
     }

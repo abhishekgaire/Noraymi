@@ -4,6 +4,7 @@ import { businessDate } from "@west4/rules";
 import { Temporal } from "@west4/shared";
 import { managerOnDutyAt } from "../approvals/service.js";
 import { enqueueText } from "../jobs/send-text.js";
+import { LOCAL_TEXTS, textsLive, type LiveSettings } from "../texts/live.js";
 import { enqueuePush } from "../push/send-push.js";
 import { venueClock } from "../rooms/assignment.js";
 
@@ -50,6 +51,7 @@ export async function escalateOrders(
   c: Queryable,
   venueId: string,
   now: Temporal.Instant,
+  texts: LiveSettings = LOCAL_TEXTS,
 ): Promise<number> {
   const aging = await agingFor(c, venueId, now);
   const rows = await c.query<{
@@ -120,7 +122,25 @@ export async function escalateOrders(
             [venueId, manager],
           );
           const m = who.rows[0];
-          if (m?.phone_e164)
+          // The venue's own texts aren't live (T-03; D123): the manager's phone gets a push instead.
+          if (m?.phone_e164 && !(await textsLive(c, venueId, texts, m.phone_e164)))
+            await enqueuePush(c, {
+              venueId,
+              audience: { kind: "person", userId: manager },
+              message: {
+                key: "orders.push.waiting",
+                params: {
+                  room,
+                  minutes: Math.floor(aging.callSec / 60),
+                  items: o.items ?? "",
+                },
+                url: "/bar-orders",
+                tag: `order-${o.id}`,
+              },
+              runAt: now,
+              dedupeKey: `order-manager-call:${o.id}`,
+            });
+          else if (m?.phone_e164)
             await enqueueText(c, {
               venueId,
               runAt: now,
@@ -153,21 +173,25 @@ export async function escalateOrders(
   return moved;
 }
 
-export async function sweepEscalations(pool: pg.Pool, now: Temporal.Instant): Promise<number> {
+export async function sweepEscalations(
+  pool: pg.Pool,
+  now: Temporal.Instant,
+  texts: LiveSettings = LOCAL_TEXTS,
+): Promise<number> {
   const venues = await pool.query<{ id: string }>("select id from venues_for_scheduler()");
   let moved = 0;
   for (const v of venues.rows)
     moved += await withVenue(pool, { venueId: v.id, requestId: "sweep:orders" }, (c) =>
-      escalateOrders(c, v.id, now),
+      escalateOrders(c, v.id, now, texts),
     );
   return moved;
 }
 
-export function escalationSweep(pool: pg.Pool): Sweep {
+export function escalationSweep(pool: pg.Pool, texts: LiveSettings = LOCAL_TEXTS): Sweep {
   return {
     name: "orders.escalate",
     everyMs: ESCALATION_EVERY_MS,
-    run: async (now) => void (await sweepEscalations(pool, now)),
+    run: async (now) => void (await sweepEscalations(pool, now, texts)),
   };
 }
 

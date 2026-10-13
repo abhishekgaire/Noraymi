@@ -161,7 +161,10 @@ export function Team() {
       setError(
         code === "step_up_required" || code === "cancelled" || code === "passkey_unsupported"
           ? t("stepUp.needed")
-          : ((e as ApiCallError)?.message ?? t("shell.error.title")),
+          : // No email to send it to, and the venue's own texts aren't live yet (T-03).
+            (e as ApiCallError)?.details?.["reason"] === "texts_not_live"
+            ? t("team.reset.textsNotLive")
+            : ((e as ApiCallError)?.message ?? t("shell.error.title")),
       );
     } finally {
       setBusy(null);
@@ -665,7 +668,7 @@ export function InviteForm({ venueId, onSent }: { venueId: string; onSent: () =>
     setSending(true);
     setMessage(null);
     try {
-      await api(
+      const made = await api<{ sent_by?: ("text" | "email")[] }>(
         "POST",
         `/v1/venues/${venueId}/team/invite`,
         {
@@ -680,7 +683,15 @@ export function InviteForm({ venueId, onSent }: { venueId: string; onSent: () =>
       setMessage({
         kind: "ok",
         key: "team.invite.sent",
-        params: { email: [e164, email.trim()].filter(Boolean).join(" · ") },
+        // Only where it went: a phone isn't texted until the venue's own texts are live (T-03).
+        params: {
+          email: [
+            made.sent_by?.includes("text") ? e164 : null,
+            made.sent_by?.includes("email") ? email.trim() : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        },
       });
       setName("");
       setEmail("");
@@ -693,7 +704,9 @@ export function InviteForm({ venueId, onSent }: { venueId: string; onSent: () =>
         key:
           code === "step_up_required" || code === "cancelled"
             ? "stepUp.needed"
-            : "team.invite.failed",
+            : (err as ApiCallError)?.details?.["reason"] === "texts_not_live"
+              ? "team.invite.textsNotLive"
+              : "team.invite.failed",
       });
     } finally {
       setSending(false);

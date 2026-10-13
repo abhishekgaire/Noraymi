@@ -1,12 +1,21 @@
 import { z } from "zod";
-import { enqueue, type JobHandler, type Queryable } from "@west4/db";
+import {
+  decryptSecret,
+  enqueue,
+  twilioIntegration,
+  type JobHandler,
+  type Queryable,
+} from "@west4/db";
 import { t, type Locale, type Temporal } from "@west4/shared";
-import type { TextSender } from "../texts/sender.js";
+import { textsLive, type LiveSettings } from "../texts/live.js";
+import type { VenueTextClient } from "../texts/venue.js";
 
 /**
- * One text from the platform's account (M1-23), from the normal pool. Every
- * text is a named template with typed data, rendered from the catalogs in the
- * person's language. No template takes a PIN: a payload with one is rejected.
+ * One staff text (M1-23), from the normal pool: a phone code, a PIN-reset link, an invite or the
+ * order-waiting alert. It goes from the venue's own Twilio account and number (T-03; D123), never
+ * from one of ours; the caller checked the venue's texts were live and sent by email otherwise.
+ * Every text is a named template with typed data, rendered from the catalogs in the person's
+ * language. No template takes a PIN: a payload with one is rejected.
  */
 export const TEXT_SEND_KIND = "text.send";
 
@@ -124,9 +133,34 @@ export async function enqueueText(
   });
 }
 
-export function makeSendTextHandler(sender: TextSender): JobHandler {
-  return async ({ job }) => {
+export function makeSendTextHandler(
+  deps: { client: VenueTextClient; settings: LiveSettings; secretKey: Buffer } | null,
+  log: (line: string) => void = (line) => console.warn(line),
+): JobHandler {
+  return async ({ job, step }) => {
     const payload = textJobPayload.parse(job.payload);
-    await sender.send({ to: payload.to, body: renderText(payload), idempotencyKey: job.id });
+    const venueId = job.venue_id;
+    const twilio = deps
+      ? await step(async (c) =>
+          (await textsLive(c, venueId, deps.settings, payload.to))
+            ? twilioIntegration(c, venueId)
+            : null,
+        )
+      : null;
+    // Disconnected (or opted out) since it was queued: nothing goes, and no account of ours stands in.
+    if (!deps || !twilio) {
+      log(`text.send ${job.id}: the venue's texts aren't live, so nothing was sent`);
+      return;
+    }
+    await deps.client.send(
+      { accountSid: twilio.accountSid, authToken: decryptSecret(deps.secretKey, twilio.secretEnc) },
+      {
+        to: payload.to,
+        from: twilio.phoneE164,
+        messagingServiceSid: twilio.campaign.serviceSid,
+        body: renderText(payload),
+        statusCallback: null,
+      },
+    );
   };
 }

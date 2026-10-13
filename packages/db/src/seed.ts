@@ -1204,6 +1204,37 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
     }
     log(`settings: ${settings.length} keys`);
 
+    // DEMO ONLY (T-03; D123): a pretend connection to West 4's own Twilio account, so the demo and
+    // the tests text through the fake Twilio as a connected, approved venue would. Not a venue fact:
+    // the account, number and service ids are made up, its token is "demo-token", and nothing reaches
+    // Twilio (texts go to the fake unless GUEST_TEXTS=twilio, which `pnpm seed` never sets up).
+    // Admin → Phone & texts can disconnect it and connect again with test keys.
+    if (authKey) {
+      const demo = (prefix: string) => `${prefix}${"0".repeat(28)}de40`;
+      await client.query(
+        `insert into integrations (venue_id, kind, status, external_id, config, connected_at)
+           values ($1, 'twilio', 'connected', $2, $3, $4)`,
+        [
+          venueId,
+          demo("AC"),
+          JSON.stringify({
+            phone_e164: seed.venue.phone_e164,
+            secret_enc: encryptSecret(parseAuthSecretKey(authKey), "demo-token"),
+            number_sid: demo("PN"),
+            account_name: "West 4 demo (pretend)",
+            trial: false,
+            campaign: {
+              service_sid: demo("MG"),
+              status: "approved",
+              checked_at: SEED_NOW.toString(),
+            },
+          }),
+          SEED_NOW.toString(),
+        ],
+      );
+      log("twilio: West 4's pretend Twilio connection (demo only), approved");
+    }
+
     // The deposit policy guests accept (M5-06), version 1, built from the deposit and pay settings.
     const depositSetting = settings.find((x) => x.key === "deposit")?.value as
       DepositRule | undefined;

@@ -22,13 +22,17 @@ import type { PublicFormGuard } from "../captcha/guard.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { enqueueText } from "../jobs/send-text.js";
+import { enqueueEmail } from "../jobs/send-email.js";
+import type { EmailSettings } from "../email/settings.js";
+import { LOCAL_TEXTS, textsLive, type LiveSettings } from "../texts/live.js";
 
 /**
  * The invite link on the person's own phone (M1-23, spec 02 · PINs, N25).
  * No session: the token is the key, hashed before it's looked up, and every
  * route here is rate-limited and sends no-store headers. The steps: confirm
  * the phone number with a texted code (once, behind the CAPTCHA and the daily
- * limits on phone codes, M2-27), choose a PIN and the language,
+ * limits on phone codes, M2-27; emailed to the invite's address instead while
+ * the venue's own texts aren't live, T-03), choose a PIN and the language,
  * and claim the phone as the person's staff_phone. Owners and managers get a
  * one-time code to enrol a passkey through /v1/auth/enroll.
  */
@@ -50,11 +54,25 @@ const finishBody = z
   })
   .strict();
 
+/** "mina@example.com" as "m•••@example.com". */
+const maskEmail = (email: string) => {
+  const [user = "", domain = ""] = email.split("@");
+  return `${user.slice(0, 1)}•••@${domain}`;
+};
+
 const sixDigits = () => String(randomInt(0, 1_000_000)).padStart(6, "0");
 
 export function invitesRoutes(
   app: FastifyInstance,
-  options: { pool: pg.Pool; clock: Clock; pepper: Buffer; forms: PublicFormGuard },
+  options: {
+    pool: pg.Pool;
+    clock: Clock;
+    pepper: Buffer;
+    forms: PublicFormGuard;
+    /** Whether a venue's own texts are live (T-03); the tests' default is a connection being enough. */
+    texts?: LiveSettings;
+    email?: Pick<EmailSettings, "allowList">;
+  },
 ): void {
   const publicToken = route({
     principals: ["public"],
@@ -93,6 +111,12 @@ export function invitesRoutes(
         locale: invite.locale,
         phone_verified: invite.phoneVerified,
         needs_passkey: invite.role === "owner" || invite.role === "manager",
+        // How the phone code will come (T-03): by text from the venue's own live texts, else by email.
+        code_by: (await withVenue(options.pool, { venueId: invite.venueId }, (c) =>
+          textsLive(c, invite.venueId, options.texts ?? LOCAL_TEXTS),
+        ))
+          ? "text"
+          : "email",
       };
     },
   );
@@ -110,10 +134,23 @@ export function invitesRoutes(
       const caller = await options.forms.check(request, reply, captcha);
       const code = sixDigits();
       const now = options.clock.now();
-      await withVenue(
+      const sentBy = await withVenue(
         options.pool,
         { venueId: invite.venueId, userId: invite.userId, requestId: request.requestId },
-        async (c) => {
+        async (c): Promise<"text" | "email"> => {
+          // The venue's own texts (T-03; D123), or the invite's email until they're live.
+          const live = await textsLive(
+            c,
+            invite.venueId,
+            options.texts ?? LOCAL_TEXTS,
+            parsed.data.phone_e164,
+          );
+          if (!live && !invite.email)
+            throw new ApiError(
+              "invalid_request",
+              "this venue can't text codes yet · ask for an invite by email",
+              { status: 409, details: { reason: "texts_not_live" } },
+            );
           await options.forms.use(
             c,
             invite.venueId,
@@ -129,17 +166,40 @@ export function invitesRoutes(
             codeHash: sha256Hex(code),
             expiresAt: now.add({ minutes: PHONE_CODE_MINUTES }).toString(),
           });
-          await enqueueText(c, {
+          if (live) {
+            await enqueueText(c, {
+              venueId: invite.venueId,
+              runAt: now,
+              template: "phone_code",
+              to: parsed.data.phone_e164,
+              locale: invite.locale,
+              data: { venueName: invite.venueName, code, minutes: PHONE_CODE_MINUTES },
+            });
+            return "text";
+          }
+          await enqueueEmail(c, options.email ?? { allowList: null }, {
             venueId: invite.venueId,
             runAt: now,
-            template: "phone_code",
-            to: parsed.data.phone_e164,
+            to: invite.email!,
             locale: invite.locale,
-            data: { venueName: invite.venueName, code, minutes: PHONE_CODE_MINUTES },
+            template: "sign_in_code",
+            data: {
+              venueName: invite.venueName,
+              name: invite.name,
+              code,
+              expiresMinutes: PHONE_CODE_MINUTES,
+            },
           });
+          return "email";
         },
       );
-      return reply.code(200).send({ code_sent: true, expires_minutes: PHONE_CODE_MINUTES });
+      return reply.code(200).send({
+        code_sent: true,
+        sent_by: sentBy,
+        // Where the emailed code went, shown masked ("m•••@example.com").
+        ...(sentBy === "email" ? { email_hint: maskEmail(invite.email!) } : {}),
+        expires_minutes: PHONE_CODE_MINUTES,
+      });
     },
   );
 

@@ -245,3 +245,23 @@ describe("the queue page", () => {
     }
   });
 });
+
+describe("until the venue's own texts are live (T-03; D123)", () => {
+  it("a singer's own join is refused with the reason: no code could reach the phone", async () => {
+    await owner.query(
+      "update integrations set status = 'disconnected', external_id = null, config = '{}' where venue_id = $1",
+      [venueId],
+    );
+    const asked = await api.inject({
+      method: "POST",
+      url: `${base}/singers`,
+      payload: {
+        display_name: "Noor",
+        phone_e164: "+16465550177",
+        captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+      },
+    });
+    expect(asked.statusCode, asked.body).toBe(409);
+    expect(asked.json().error.details).toEqual({ reason: "texts_not_live" });
+  });
+});

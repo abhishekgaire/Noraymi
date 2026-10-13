@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { generateSigningKey, publishRulePack, setPinVerifier } from "@west4/db";
+import {
+  encryptSecret,
+  generateSigningKey,
+  parseAuthSecretKey,
+  publishRulePack,
+  setPinVerifier,
+} from "@west4/db";
 import {
   createTestDatabase,
   seedTwoVenues,
@@ -72,6 +78,19 @@ beforeAll(async () => {
   db = await createTestDatabase({ migrate: true });
   v = await seedTwoVenues(db.url);
   owner = new pg.Pool({ connectionString: db.url, max: 2 });
+  // Venue A's own Twilio account is connected (T-03; D123), so an invite by phone goes by text.
+  await owner.query(
+    `insert into integrations (venue_id, kind, status, external_id, config)
+       values ($1, 'twilio', 'connected', $2, $3)`,
+    [
+      v.venueA,
+      `AC${"8".repeat(32)}`,
+      JSON.stringify({
+        phone_e164: "+12125550998",
+        secret_enc: encryptSecret(parseAuthSecretKey(KEY), "token"),
+      }),
+    ],
+  );
   await publishRulePack(owner, {
     pack: newYorkCounty,
     effectiveOn: "2026-09-01",

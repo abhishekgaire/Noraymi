@@ -184,4 +184,22 @@ describe("escalating an order nobody accepts", () => {
     expect(await orderAlert(order)).toBeUndefined();
     expect(await pushes("orders.push.waiting")).toHaveLength(before);
   });
+  it("without the venue's own live texts, the 6-minute alert is a push to the manager instead (T-03)", async () => {
+    await raw.query(
+      "update integrations set status = 'disconnected', external_id = null, config = '{}' where venue_id = $1",
+      [venueId],
+    );
+    const textsBefore = (await texts()).length;
+    const pushesBefore = (await pushes("orders.push.waiting")).length;
+    const order = await placeAt(at("23:10:00"));
+    clock.set(at("23:14:00"));
+    await sweepEscalations(pool, clock.now());
+    clock.set(at("23:16:00"));
+    await sweepEscalations(pool, clock.now());
+    expect(await texts()).toHaveLength(textsBefore);
+    expect((await pushes("orders.push.waiting")).slice(pushesBefore).map((a) => a.user_id)).toEqual(
+      [ids["andy"], ids["andy"]],
+    );
+    expect(await orderAlert(order)).toMatchObject({ manager: "Andy" });
+  });
 });

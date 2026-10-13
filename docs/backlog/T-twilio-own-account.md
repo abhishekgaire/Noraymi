@@ -69,7 +69,7 @@ Definition of done: see CLAUDE.md.
 
 ### T-03 · Codes, invites and staff texts from the venue's own Twilio, by email until it's live
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** T-01; M1-23, O-11, M3-16, M6-20
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Accounts; [Tenancy and access](../spec/02-tenancy-access.md) · PINs
@@ -79,11 +79,16 @@ Definition of done: see CLAUDE.md.
   - Until then: the invite page's phone code goes to the invite's email ("We emailed a code to …"); a PIN reset goes by email; a phone-only team invite is refused (`texts_not_live`: "Add an email · this venue's texts aren't connected yet"); the order-waiting alert goes to the manager on duty as a push; a singer added by staff at the bar is confirmed at once, and the public join page answers `texts_not_live` ("Ask at the bar to join the queue").
   - The demo seed gives West 4 a demo connection (fake account, its texting number, approved), so the demo and the browser tests keep texting through the fake; `scripts/demo-text.mjs` signs with the venue's stored token, and `scripts/demo-codes.sh` still shows every code, texted or emailed.
 - **Acceptance:**
-  - [ ] With a live connection, a code goes from the venue's own account (its SID and number); without one it goes by email.
-  - [ ] A phone-only invite is refused without a live connection; a PIN reset goes by email.
-  - [ ] The order-waiting alert goes as a push without a live connection; a staff-added singer is confirmed; a guest's own join is refused with the reason.
-  - [ ] The new venue in the browser onboarding test joins with an emailed code.
+  - [x] With a live connection, a code goes from the venue's own account (its SID and number); without one it goes by email.
+  - [x] A phone-only invite is refused without a live connection; a PIN reset goes by email.
+  - [x] The order-waiting alert goes as a push without a live connection; a staff-added singer is confirmed; a guest's own join is refused with the reason.
+  - [x] The new venue in the browser onboarding test joins with an emailed code.
 - **Notes:**
+  - "Texts are live" is `textsLive` in `apps/api/src/texts/live.ts` (connected; approved where `TEXT_REQUIRE_CAMPAIGN`/production waits; +1, on staging's allow list, not opted out). The `text.send` job now sends through the venue's own account with the guest-text client (`makeSendTextHandler` in `jobs/send-text.ts`); with no live connection at send time it sends nothing and logs it, never the code.
+  - Fallbacks: the invite page's phone code goes to the invite's email with the `sign_in_code` email ("We emailed a code to l•••@example.com", and the page says **Email me a code** up front: `GET /v1/invites/{token}` answers `code_by`); an invite with no email is refused with `texts_not_live`. A phone-only team invite is refused (`texts_not_live`); with both, only the email goes. A PIN reset goes by email. The order-waiting alert becomes a second push to the manager on duty. A singer added by staff is confirmed at once; a guest's own join answers `texts_not_live` ("Ask at the bar to join the queue").
+  - Cautious defaults: a phone confirmed by an emailed code proves the email, not the phone (the founder's choice: codes by email until texts are live). The board's order alert still says the manager was "texted" at 6 minutes even when it went as a push (wording only; `board.ts` doesn't know the venue's texting state).
+  - Demo: the seed gives West 4 a pretend connection (approved, its own number, token `demo-token`; `docs/demo-seed.md`); `scripts/demo-text.mjs` signs with the venue's stored token and still makes a pretend connection for a venue with none. `scripts/demo-codes.sh` is unchanged (it already reads texted and emailed codes).
+  - Tests: `texts/live.int.test.ts`, the email path in `team.int.test.ts`, `escalation.int.test.ts`, `songs.int.test.ts`, `songs-public.int.test.ts`, `new-venue.int.test.ts`; browser: `onboard.spec.ts` (the new venue's owner and manager join with emailed codes) and `setup.staff.spec.ts`. `docs/manual-test.md` section 13 step 6 walks it by hand.
 
 ### T-04 · Retire the platform's Twilio pieces
 

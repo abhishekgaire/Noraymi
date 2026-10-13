@@ -21,17 +21,28 @@ async function inviteLink(db: pg.Client, kind: "text.send" | "email.send", to: s
   return `/invite/${token}`;
 }
 
-/** The invite page: the phone confirmed with the texted code, then a PIN (M1-23). */
-async function acceptInvite(page: Page, db: pg.Client, link: string, phone: string, pin: string) {
+/**
+ * The invite page: the phone confirmed with a code, then a PIN (M1-23). A new venue hasn't connected
+ * its own Twilio account (T-03; D123), so the code goes to the invite's email address.
+ */
+async function acceptInvite(
+  page: Page,
+  db: pg.Client,
+  link: string,
+  phone: string,
+  email: string,
+  pin: string,
+) {
   await page.goto(link);
   await page.getByLabel("Your mobile number").fill(phone);
-  await page.getByRole("button", { name: "Text me a code" }).click();
-  await expect(page.getByText(`We texted a code to ${phone}`)).toBeVisible();
-  const text = await db.query<{ payload: { data: { code: string } } }>(
-    "select payload from jobs where kind = 'text.send' and payload->>'to' = $1 order by created_at desc limit 1",
-    [phone],
+  await page.getByRole("button", { name: "Email me a code" }).click();
+  const hint = `${email.slice(0, 1)}•••@${email.split("@")[1]}`;
+  await expect(page.getByText(`We emailed a code to ${hint}`)).toBeVisible();
+  const mail = await db.query<{ payload: { data: { code: string } } }>(
+    "select payload from jobs where kind = 'email.send' and payload->>'template' = 'sign_in_code' and payload->>'to' = $1 order by created_at desc limit 1",
+    [email],
   );
-  await page.getByLabel("The code from the text").fill(text.rows[0]!.payload.data.code);
+  await page.getByLabel("The code from the email").fill(mail.rows[0]!.payload.data.code);
   await page.getByRole("button", { name: "Confirm" }).click();
   await page.getByLabel("Choose your PIN", { exact: true }).fill(pin);
   await page.getByLabel("Type it again").fill(pin);
@@ -79,6 +90,7 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
   const ownerEmail = `owner-${n}@example.com`;
   const ownerPhone = "+12125550161";
   const managerPhone = "+12125550162";
+  const managerEmail = `leo-${n}@example.com`;
   const consoleContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const managerContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   try {
@@ -167,6 +179,7 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
       db,
       await inviteLink(db, "email.send", ownerEmail),
       ownerPhone,
+      ownerEmail,
       "739158",
     );
     await expect(ownerPhonePage.getByRole("heading", { level: 2 })).toHaveText("Add a passkey");
@@ -302,14 +315,20 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await expect(page.getByText("Saved: 179 new menu lines")).toBeVisible();
     await expect(rail.getByRole("button", { name: /Menu/ })).toContainText("Done");
 
-    // Step 9: a manager invited by phone; the owner on call and the breach contact.
+    // Step 9: a manager invited; the owner on call and the breach contact. Texts aren't connected
+    // yet (T-03; D123), so an invite by phone alone is refused and the email carries it.
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Team and contacts" })).toBeVisible();
     await page.getByLabel("Name", { exact: true }).fill("Leo Park");
     await page.getByLabel("Mobile phone").fill(managerPhone);
     await page.getByLabel("Role").selectOption("manager");
     await page.getByRole("button", { name: "Send the invite" }).click();
-    await expect(page.getByText(`Invite sent to ${managerPhone}`)).toBeVisible();
+    await expect(
+      page.getByText("Add an email · this venue's texts aren't connected yet"),
+    ).toBeVisible();
+    await page.getByLabel("Email", { exact: true }).fill(managerEmail);
+    await page.getByRole("button", { name: "Send the invite" }).click();
+    await expect(page.getByText(`Invite sent to ${managerEmail}`)).toBeVisible();
     await page.getByLabel("Who").first().selectOption({ label: "Rita Moreno · Owner" });
     await page.getByRole("checkbox", { name: "Fri" }).check();
     await page.getByRole("checkbox", { name: "Sat" }).check();
@@ -319,18 +338,18 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
       .getByRole("combobox", { name: "Breach contact" })
       .selectOption({ label: "Rita Moreno · Owner" });
     await page.getByRole("button", { name: "Continue" }).click();
-    // The manager sets his PIN from the link texted to his own phone.
+    // The manager sets his PIN from the emailed link, on his own phone.
     const managerPage = await managerContext.newPage();
     await acceptInvite(
       managerPage,
       db,
-      await inviteLink(db, "text.send", managerPhone),
+      await inviteLink(db, "email.send", managerEmail),
       managerPhone,
+      managerEmail,
       "582047",
     );
-    await expect(managerPage.getByRole("status")).toHaveText(
-      "You're set · sign in with your badge or name and PIN",
-    );
+    // His PIN is set; with an email on his invite, a manager is offered a passkey next.
+    await expect(managerPage.getByRole("heading", { level: 2 })).toHaveText("Add a passkey");
 
     // Step 10: the liquor license.
     await expect(page.getByRole("heading", { level: 2, name: "Licenses" })).toBeVisible();

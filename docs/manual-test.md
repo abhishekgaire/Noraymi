@@ -190,7 +190,7 @@ You can only move forward in a useful way. To go back to 10:41 PM, reset the nig
 Nothing ever reaches a real phone or inbox.
 
 - **Emails** (codes, receipts, payroll copies, alerts to the owner): http://localhost:8025.
-- **Sign-in codes:** `scripts/demo-codes.sh` in a second Terminal window.
+- **Sign-in codes:** `scripts/demo-codes.sh` in a second Terminal window. It shows each code whether it was texted or emailed: West 4 has a pretend connection to its own Twilio account, so its codes are "texted"; a venue that hasn't connected Twilio (Sing Sing, a new venue) gets its codes by email.
 - **Every text the app writes** (Room code, Room ready, Running late, confirmations, payment links, receipts): the **Messages** screen in the staff app. Links inside the texts the app sends while you test (for example the room host link `/r/…` in a Room code text after a check-in, or a booking's manage link `/b/…` after an online booking) can be copied from there and opened in a phone-size window.
 - **The night's own guest links:** the texts already in the demo night carry no links, so the reset script (0.9) prints two at its end: `Room 9 host link (Marcus T.): http://localhost:3001/r/…` and `Jae & co.'s manage link: http://localhost:3001/b/…`. To print them again (a new manage link each time; the last one stops working):
 
@@ -1035,14 +1035,21 @@ Move the clock past 11:15 PM (`2026-09-26T03:20:00Z`). Mark The Nguyens a no-sho
    node scripts/demo-text.mjs "HELP"
    ```
 
-   It sends the text from Jae & co.'s number (+1 347 555 0165). To send from another number, add it after the text, with no spaces: `node scripts/demo-text.mjs "STOP" +12125550123`. The first time after each reset it prints "Gave west4karaoke a pretend Twilio connection on +12122550011." (the demo has no Twilio; texts the app sends still only show in Messages). Each run ends with "Texted "…" from … to west4karaoke". Then reload **Messages**:
+   It sends the text from Jae & co.'s number (+1 347 555 0165). To send from another number, add it after the text, with no spaces: `node scripts/demo-text.mjs "STOP" +12125550123`. It signs the text with the venue's own Auth Token, as Twilio would (West 4's seed has a pretend Twilio connection; texts the app sends still only show in Messages). Each run ends with "Texted "…" from … to west4karaoke". Then reload **Messages**:
    - **HELP**: the reply reads "**West 4 Boho Karaoke: for help, call +1 212 255 0011. Reply STOP to stop texts.**"
    - **STOP** (also "unsubscribe", "cancel", "quit"…): one reply, "**You're unsubscribed from West 4 Boho Karaoke texts. You won't get any more.**", then nothing more goes to that number (for example no Room code text at check-in).
    - "**please stop texting me**" counts as STOP too: `node scripts/demo-text.mjs "please stop texting me" +12125550124`.
    - An ordinary text (`node scripts/demo-text.mjs "Running 10 min late, sorry" +12125550125`) lands unread in Messages. Under it, staff can press **Mark as an opt-out**, the one-tap opt-out for a guest who asks in other words.
    - At Sing Sing (11.1), add `--venue singsing` before the text: `node scripts/demo-text.mjs --venue singsing "HELP"`.
 4. Move the clock to 10:50 PM: Marcus T. gets the Reminder text about 11:00 PM and staying on by the minute.
-5. **Admin → Texts** lists all 14 texts. Review ask and Birthday are off and can't be turned on. **Admin → Phone & texts** shows +1 212 255 0011.
+5. **Admin → Texts** lists all 14 texts. Review ask and Birthday are off and can't be turned on. **Admin → Phone & texts** shows the call number +1 212 255 0011 and, under **Connect your Twilio account**, **Approved** with the same number (the seed's pretend connection).
+6. **Connect your Twilio account** (each venue texts from its own Twilio account, [D123](decisions.md)). Signed in as Andy, in **Admin → Phone & texts**:
+   - Press **Disconnect**, then **Yes, disconnect**: it reads **Not connected** and "Until your texts are live, sign-in codes and invites go by email."
+   - Open **How to set up Twilio**: the six steps a venue follows in Twilio's own console.
+   - As the **Account SID** type `AC` and then any 32 of 0–9 and a–f (for example `AC`, then `0123456789abcdef` twice); as the **Auth Token** type 32 zeros. Press **Check**: "Twilio didn't accept those keys · check the Account SID and Auth Token", and what you typed stays.
+   - Change the Auth Token to any other 32 of 0–9 and a–f (for example `0123456789abcdef` twice) and press **Check**: a number (+1 212 555 …) and "Test messaging service" appear. Press **Connect**: **Connected · waiting for approval**, the number, "ends …" with the account's last four characters, and the token field is gone.
+   - Press **Check again**: **Approved** and "Texts are going out".
+   - While it's disconnected, **Admin → Team** refuses an invite with only a mobile number ("Add an email · this venue's texts aren't connected yet"), and an invite link opened on a phone says **Email me a code**. Reset the night (0.9) to get the pretend connection back.
 
 ---
 

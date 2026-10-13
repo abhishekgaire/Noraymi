@@ -3,10 +3,11 @@
 //   node scripts/demo-text.mjs "STOP"                    # from Jae & co.'s number (+13475550165)
 //   node scripts/demo-text.mjs "please stop texting me" +12125550123
 //   node scripts/demo-text.mjs --venue singsing "HELP"
-// The demo has no Twilio, so the first run gives the venue a pretend Twilio connection (its number is
-// the venue's own phone setting and its token "demo-token"; a reset removes it, and the next run adds
-// it again). Texts the app sends stay fake either way: they only show in Messages. The text is then
-// posted to the running API's Twilio webhook, signed with that token, exactly as Twilio signs it.
+// The text is posted to the running API's Twilio webhook, signed with the venue's own Auth Token as
+// stored by Connect your Twilio account (T-03; D123), exactly as Twilio signs it. West 4's seed has a
+// pretend connection; a venue with none (Sing Sing until it connects with test keys in Admin → Phone
+// & texts) gets one here on the first run, on its phone setting's number with the token "demo-token".
+// Texts the app sends stay fake either way: they only show in Messages.
 import { createHmac, randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -37,7 +38,8 @@ if (!body || !/^\+1\d{10}$/.test(from)) {
   process.exit(1);
 }
 
-const TOKEN = "demo-token";
+let TOKEN = "demo-token";
+const key = db.parseAuthSecretKey(process.env["AUTH_SECRET_KEY"] ?? db.LOCAL_DEV_AUTH_KEY);
 const client = new pg.Client({ connectionString: url, application_name: "west4-demo-text" });
 await client.connect();
 let to;
@@ -46,12 +48,14 @@ try {
   if (!venue) throw new Error(`demo-text: no venue ${slug}`);
   const existing = (
     await client.query(
-      "select config->>'phone_e164' as phone from integrations where venue_id = $1 and kind = 'twilio'",
+      `select config->>'phone_e164' as phone, config->>'secret_enc' as secret from integrations
+        where venue_id = $1 and kind = 'twilio' and status = 'connected'`,
       [venue.id],
     )
   ).rows[0];
-  if (existing?.phone) {
+  if (existing?.phone && existing.secret) {
     to = existing.phone;
+    TOKEN = db.decryptSecret(key, existing.secret);
   } else {
     const phone = (
       await client.query(
@@ -62,13 +66,19 @@ try {
     ).rows[0]?.n;
     if (!phone)
       throw new Error("demo-text: the venue has no texting number (Admin → Phone & texts)");
-    const key = db.parseAuthSecretKey(process.env["AUTH_SECRET_KEY"] ?? db.LOCAL_DEV_AUTH_KEY);
     await client.query(
-      `insert into integrations (venue_id, kind, status, external_id, config)
-       values ($1, 'twilio', 'connected', $3, $2)`,
+      `insert into integrations (venue_id, kind, status, external_id, config, connected_at)
+       values ($1, 'twilio', 'connected', $3, $2, now())
+       on conflict (venue_id, kind) do update set status = 'connected',
+         external_id = excluded.external_id, config = excluded.config, connected_at = now()`,
       [
         venue.id,
-        JSON.stringify({ phone_e164: phone, secret_enc: db.encryptSecret(key, TOKEN) }),
+        JSON.stringify({
+          phone_e164: phone,
+          secret_enc: db.encryptSecret(key, TOKEN),
+          account_name: "Demo (pretend)",
+          campaign: { status: "approved" },
+        }),
         `ACdemo${venue.id.replace(/-/g, "")}`,
       ],
     );

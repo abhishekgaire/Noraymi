@@ -203,6 +203,18 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "invite.phone": "Tu número de móvil",
   "invite.phoneHint": "Te enviamos un código por mensaje para confirmarlo, una sola vez.",
   "invite.sendCode": "Enviarme un código",
+  "invite.codeEmailed": "Enviamos un código a {email}",
+  "invite.textsNotLive":
+    "Este local aún no puede enviar códigos por mensaje · pide una invitación por correo",
+  "team.invite.textsNotLive":
+    "Añade un correo · los mensajes de este local aún no están conectados",
+  "team.reset.textsNotLive":
+    "Añade un correo para esta persona · los mensajes de este local aún no están conectados",
+  "guestSing.askAtBar": "Pide en la barra que te añadan a la cola",
+  "invite.emailCode": "Envíame un código por correo",
+  "invite.codeFromEmail": "El código del correo",
+  "invite.phoneHintEmail":
+    "Enviamos un código al correo de tu invitación para confirmarlo, una vez.",
   "invite.codeSent": "Enviamos un código al {phone}",
   "invite.captcha": "Verificación de seguridad",
   "invite.captchaWaiting": "Comprobando que eres una persona. Tarda un momento.",

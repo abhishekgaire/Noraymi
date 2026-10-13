@@ -286,7 +286,10 @@ describe("New venue (O-01)", () => {
       captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
     });
     expect(sent.statusCode, sent.body).toBe(200);
-    const code = ((await latestJob("text.send", phone))["data"] as { code: string }).code;
+    // A new venue hasn't connected its own Twilio yet (T-03; D123): the code goes to her email.
+    expect(json(sent)).toMatchObject({ sent_by: "email", email_hint: "j•••@singsing.test" });
+    const code = ((await latestJob("email.send", "jin@singsing.test"))["data"] as { code: string })
+      .code;
     expect(
       (await call("POST", `/v1/invites/${token}/phone/verify`, { phone_e164: phone, code }))
         .statusCode,

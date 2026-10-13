@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { parseAuthSecretKey, verifyPin } from "@west4/db";
+import { encryptSecret, parseAuthSecretKey, verifyPin } from "@west4/db";
 import {
   createTestDatabase,
   seedTwoVenues,
@@ -95,6 +95,19 @@ beforeAll(async () => {
   db = await createTestDatabase({ migrate: true });
   v = await seedTwoVenues(db.url);
   owner = new pg.Pool({ connectionString: db.url, max: 2 });
+  // Venue A's own Twilio account is connected (T-03; D123), so codes and links go by text.
+  await owner.query(
+    `insert into integrations (venue_id, kind, status, external_id, config)
+       values ($1, 'twilio', 'connected', $2, $3)`,
+    [
+      v.venueA,
+      `AC${"7".repeat(32)}`,
+      JSON.stringify({
+        phone_e164: "+12125550999",
+        secret_enc: encryptSecret(parseAuthSecretKey(KEY), "token"),
+      }),
+    ],
+  );
   await owner.query("update users set email = $2 where id = $1", [v.ownerA, OWNER_EMAIL]);
   clock = new SimulatedClock(SEED_NOW);
   const config = loadConfig({
@@ -131,6 +144,64 @@ afterAll(async () => {
   await app.close();
   await owner.end();
   await db.drop();
+});
+
+describe("until the venue's own texts are live (T-03; D123)", () => {
+  it("a phone code goes to the invite's email, a phone-only invite is refused, and a reset goes by email", async () => {
+    await owner.query(
+      "update integrations set status = 'disconnected', external_id = null, config = '{}' where venue_id = $1",
+      [v.venueA],
+    );
+    const lena = await invite("Lena P.", "lena@example.com", "bartender");
+    const phone = "+12125550131";
+    const sent = await post(`/v1/invites/${lena.token}/phone`, {
+      phone_e164: phone,
+      captcha_token: "XXXX.DUMMY.TOKEN.XXXX",
+    });
+    expect(sent.statusCode, sent.body).toBe(200);
+    expect(json(sent)).toMatchObject({ sent_by: "email", email_hint: "l•••@example.com" });
+    const mail = await latestJob("email.send", "lena@example.com");
+    expect(mail["template"]).toBe("sign_in_code");
+    const code = (mail["data"] as { code: string }).code;
+    const none = await owner.query(
+      "select 1 from jobs where kind = 'text.send' and payload->>'to' = $1",
+      [phone],
+    );
+    expect(none.rowCount).toBe(0);
+    const ok = await post(`/v1/invites/${lena.token}/phone/verify`, { phone_e164: phone, code });
+    expect(ok.statusCode, ok.body).toBe(200);
+
+    const phoneOnly = await post(
+      `/v1/venues/${v.venueA}/team/invite`,
+      { name: "Ravi K.", phone_e164: "+12125550132", role: "staff" },
+      await stepUp(),
+    );
+    expect(phoneOnly.statusCode, phoneOnly.body).toBe(409);
+    expect((json(phoneOnly)["error"] as { details: unknown }).details).toEqual({
+      reason: "texts_not_live",
+    });
+
+    const reset = await post(
+      `/v1/venues/${v.venueA}/team/${lena.membershipId}/reset-pin`,
+      {},
+      await stepUp(),
+    );
+    expect(reset.statusCode, reset.body).toBe(202);
+    expect(json(reset)["sent_by"]).toBe("email");
+    // Connected again for the tests that follow.
+    await owner.query(
+      `update integrations set status = 'connected', external_id = $2, config = $3
+        where venue_id = $1 and kind = 'twilio'`,
+      [
+        v.venueA,
+        `AC${"7".repeat(32)}`,
+        JSON.stringify({
+          phone_e164: "+12125550999",
+          secret_enc: encryptSecret(parseAuthSecretKey(KEY), "token"),
+        }),
+      ],
+    );
+  });
 });
 
 describe("invites, phone codes and PINs", () => {

@@ -74,7 +74,6 @@ const handlers = tracedHandlers(
     mailer,
     email,
     push: new WebPushSender(loadPushSettings(config.env)),
-    texts: textSender(),
     ...(synthetic ? { synthetic: { pool, config: synthetic, log } } : {}),
   }),
 );
