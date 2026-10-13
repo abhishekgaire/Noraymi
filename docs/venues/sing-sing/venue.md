@@ -36,6 +36,31 @@ Sing Sing isn't a venue in the database yet. These are its own choices, already 
 | Deposits for online bookings | Off (`deposit.on` false): online bookings pay nothing up front, as the site says. The site's card for groups over 5 is to confirm with the manager before go-live | Admin → Deposits & cancelling | Founder, Oct 11, 2026 |
 | What a walk-in check-in takes | **Keep the card behind the bar** (`deposit.walkIn` "cardBehindBar", D116): once the party is seated, staff keep the guest's physical card and type the name on it and its last 4 digits onto the room's check; no reader, nothing charged; close-out ends with "Give the card back". Sing Sing physically holds guests' cards on a tab (the founder, Oct 11), so this replaces the earlier "Put a card on the tab" (`cardOnTab`) | Admin → Deposits & cancelling → At a walk-in check-in | D112, D116, Oct 11, 2026 |
 | Age policy | All ages until 8 PM, then 21 and over (`safety.allAgesUntil` "20:00") | Admin → Safety | D108 |
+| Kitchen allergy notice | EN: "Allergen information for menu items is available. Ask an employee for details." ES (our translation, **for the venue to confirm**): "La información sobre alérgenos de los platos del menú está disponible. Pregunte a un empleado para más detalles." The venue's own wording, so Kitchen & food doesn't wait on the lawyer | Admin → Kitchen | Founder for Sing Sing, Oct 13, 2026 (D125) |
+| Approvals | **Manager's PIN at the register** (`approvals.mode` "pin"): Sing Sing starts on its bar computers, so a manager types their PIN on the register that asks | Admin → Features → Choices | Founder, Oct 13, 2026 (D126) |
+
+### Choose your features (step 2)
+
+Sing Sing's own choices in Set up your venue's **Choose your features** ([D124](../../decisions.md)), editable later in Admin → Features. Reports & accounting, Bar tabs & quick sale and the rest of the register are always on and aren't listed.
+
+| Feature | Sing Sing's choice | Decided |
+| --- | --- | --- |
+| Rooms & room clock | On | Founder, Oct 13, 2026 |
+| Bar screen & tickets | On | Founder, Oct 13, 2026 |
+| Kitchen & food | On (with the allergy notice above and the kitchen network printer) | Founder, Oct 13, 2026 |
+| Website | On | Founder, Oct 13, 2026 |
+| Online booking | On | Founder, Oct 13, 2026 |
+| Ordering from the room | On | Founder, Oct 13, 2026 |
+| Keep the card behind the bar for walk-ins | On | Founder, Oct 13, 2026 |
+| Cash discount | On (its rate is still to give, step 7; until then nothing is discounted) | Founder, Oct 13, 2026 (D125) |
+| Deposits on bookings | Off | Founder, Oct 13, 2026 |
+| Bar mode | Off | Founder, Oct 13, 2026 |
+| Song system control | Off | Founder, Oct 13, 2026 |
+| Marketing texts | Off | Founder, Oct 13, 2026 |
+| Room tablets | Off (bar computers only, D126; can be turned on later) | Founder, Oct 13, 2026 |
+| Walk-in waitlist, Packages & specials, Guest texts, Team, time clock & tips, Safety & ID records, Guests pay their own share | The plan's default (on) until the owner chooses | Still to give |
+| Texting (Choices) | On (each text's own switch at its default) until the owner chooses | Still to give |
+| Drinks rung at the bar print a ticket (Choices) | Off (the default) until the owner chooses | Still to give |
 
 ## Entering Sing Sing through Set up your venue
 
@@ -49,6 +74,7 @@ The runbook for S-01's last part (O-14): once our Console has made Sing Sing and
 | 1 · Your venue | Legal name (the company on the liquor license and with Stripe) | — | Still to give |
 | 1 · Your venue | Booking inbox: admin@singsingastoria.com is the site's address; the owner confirms it's the one bookings go to | The site, to confirm | Given |
 | 2 · Your plan | Rooms + Kitchen (6 private rooms and a kitchen) | [spec 16](../../spec/16-kitchen.md), the founder | Given |
+| 2 · Choose your features | As the table "Choose your features (step 2)" above; Approvals: Manager's PIN at the register | The founder, Oct 13 (D124, D126) | Given (the rows marked Still to give there stay the owner's) |
 | 3 · Card payments | Connect with Stripe: the business, its EIN, a representative and the bank account, typed by the owner in Stripe's own pages | — | Still to give |
 | 4 · Rooms and prices | 6 rooms | The founder | Given |
 | 4 · Rooms and prices | Each room's name, size and capacity; how room time is charged, the rate, the billing step, minimum guests; the happy-hour band (daily 12:00 PM – 7:00 PM on the site, its rates not stated); a VIP rate if any | — | Still to give |
@@ -61,7 +87,8 @@ The runbook for S-01's last part (O-14): once our Console has made Sing Sing and
 | 6 · Deposits and check-in | Free-cancel hours, the late-cancel and no-show fee, the card asked of groups over 5, the largest party that books online | — | Still to give |
 | 7 · Money at the counter | The cash discount rate and whether food prices include the card fee; the automatic gratuity; whether the reader asks for a tip, and its choices; house drawers or a drawer per person, and the starting bank | — | Still to give (each keeps its default until saved; a card reader can't be registered until the tip screen answer is saved) |
 | 8 · Menu | The menu from the spreadsheet: [`import/`](import/) (`mapping.json`, `items.csv`, `choices.csv`, 179 menu lines), checked as a dry run, then Looks right | [menu.md](menu.md), the founder, Oct 9 | Given |
-| 8 · Menu | The drinks' pour sizes and which beers are on draft; what a combo includes; the extra-sauce price; the kitchen's allergy notice | — | Still to give |
+| 8 · Menu | The drinks' pour sizes and which beers are on draft; what a combo includes; the extra-sauce price | — | Still to give |
+| 8 · Menu | The kitchen's allergy notice: the venue's wording above, English and Spanish (the Spanish for the venue to confirm) | The founder for Sing Sing, Oct 13 (D125) | Given |
 | 9 · Team and contacts | Each manager's and staff member's name, phone and role; the first and second on-call responders and their hours; the breach contact and backup | — | Still to give |
 | 10 · Licenses | The liquor license (needed before Ready to open); the food service permit and the Food Protection Certificate holders; the music licenses (ASCAP, BMI, SESAC, GMR) | S-06 | Still to give |
 | 11 · Texts, website and your old system | Connect your Twilio account: Sing Sing's own Twilio account, number, brand and service campaign, set up by its owner or manager (S-05, D123) | — | Still to give |

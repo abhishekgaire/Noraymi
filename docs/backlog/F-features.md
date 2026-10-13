@@ -180,7 +180,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-08 · Sing Sing's feature choices
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** F-03, F-05
 - **Spec:** [Sing Sing venue](../venues/sing-sing/venue.md); [D124](../decisions.md)
@@ -190,8 +190,10 @@ Definition of done: see CLAUDE.md.
   - The cash discount is the owner's choice (D125): Sing Sing's is on; the "stays off until the lawyer answers" default goes.
   - `scripts/demo-sing-sing.mjs` sets the same, with the allergy notice in place of the DEMO ONLY one.
 - **Acceptance:**
-  - [ ] The demo script leaves Sing Sing with exactly those choices.
+  - [x] The demo script leaves Sing Sing with exactly those choices.
 - **Notes:**
+  - `docs/venues/sing-sing/venue.md` has a **Choose your features (step 2)** table (on, off, and the rest Still to give at the plan's default), the allergy notice (English given, Spanish ours to confirm) and Approvals by Manager's PIN as settings, and step 8's notice as Given; `menu.md` no longer says the cash discount waits on the lawyer. `scripts/demo-sing-sing.mjs` writes the same choices (`FEATURES_ON`, `FEATURES_OFF`, `approvals.mode = pin`) and the real notice in place of the DEMO ONLY one; checked by running it against an isolated copy of the demo (never the founder's `west4`): the modules and settings came out exactly as listed.
+  - The cash discount's rate stays Still to give (menu.md's "about 3.5%" is a guess from the prices), so the switch is on and nothing is discounted until the owner saves a rate in step 7.
 
 ### F-09 · Sing Sing on its bar computers alone
 

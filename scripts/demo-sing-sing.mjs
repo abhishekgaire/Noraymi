@@ -5,11 +5,12 @@
 //   2. makes the venue (slug `singsing`, under West 4's organization, so the fake Stripe account is
 //      shared), with West 4's settings except Sing Sing's own choices (docs/venues/sing-sing/venue.md):
 //      its hours, deposits off for online bookings, "Keep the card behind the bar" at a walk-in
-//      check-in (D116), all ages until 8 PM (D108), Kitchen & food allowed and on, Ordering from the
-//      room on, and Bar mode off;
+//      check-in (D116), all ages until 8 PM (D108), its own allergy notice (D125), approvals by a
+//      manager's PIN at the register (D126), and its Choose your features (D124): FEATURES_ON on,
+//      FEATURES_OFF off, the rest as West 4's;
 //   3. 6 rooms (Room 1 to Room 6, with West 4's Rooms 1 to 6's sizes: placeholders until the manager
-//      gives the real ones), the two drawers, a pretend kitchen network printer and a DEMO allergy
-//      notice (so the kitchen's two prerequisites are met);
+//      gives the real ones), the two drawers and a pretend kitchen network printer (with the allergy
+//      notice, the kitchen's two prerequisites are met);
 //   4. Abhishek (owner) and Andy (manager) to sign in by invite, Maya (bartender, PIN 4071) and
 //      Diego (front desk, PIN 6358), all with @singsing.demo.local emails;
 //   5. Sing Sing's menu from docs/venues/sing-sing/import through the importer (M9-06);
@@ -35,10 +36,23 @@ if (!/^(localhost|127\.0\.0\.1)$/.test(new URL(url).hostname))
 const SLUG = "singsing";
 const TEMPLATE = "west4karaoke";
 const EMAIL_DOMAIN = "singsing.demo.local";
-const ALLERGY_EN =
-  "DEMO ONLY · not Sing Sing's real allergy notice. Tell your server about any allergy before you order.";
+// Sing Sing's own allergy notice (D125; docs/venues/sing-sing/venue.md): the venue's English, and our
+// Spanish for the venue to confirm.
+const ALLERGY_EN = "Allergen information for menu items is available. Ask an employee for details.";
 const ALLERGY_ES =
-  "SOLO DEMO · no es el aviso real de Sing Sing. Avise a su mesero de cualquier alergia antes de pedir.";
+  "La información sobre alérgenos de los platos del menú está disponible. Pregunte a un empleado para más detalles.";
+// Sing Sing's Choose your features (D124, D126; venue.md): on, off, and the rest at the plan's default.
+const FEATURES_ON = [
+  "rooms",
+  "bar_screen",
+  "kitchen",
+  "website",
+  "online_booking",
+  "room_ordering",
+  "card_behind_bar",
+  "cash_discount",
+];
+const FEATURES_OFF = ["deposits", "bar_mode", "song_system", "marketing_texts", "room_tablets"];
 const PEOPLE = [
   { key: "abhishek", name: "Abhishek G.", role: "owner", digits: 6, pin: null },
   { key: "andy", name: "Andy C.", role: "manager", digits: 6, pin: null },
@@ -162,6 +176,7 @@ try {
     kitchen: (v) => ({ ...v, allergyNotice: { en: ALLERGY_EN, es: ALLERGY_ES } }),
     phone: () => ({ callNumber: "+19297397310", textNumber: "+19297397310" }),
     pos: (v) => ({ ...v, layouts: {} }),
+    approvals: () => ({ mode: "pin" }),
   };
   for (const row of latest) {
     const value = override[row.key] ? override[row.key](row.value) : row.value;
@@ -174,15 +189,23 @@ try {
     );
   }
 
-  // Features: West 4's, plus Kitchen & food (allowed, as the Console's switch does, and on); Bar mode off.
+  // Features: West 4's rows, then Sing Sing's own choices (D124): FEATURES_ON allowed and on,
+  // FEATURES_OFF off; the rest as West 4's (or, for a switch West 4 has no row for, its default).
   await client.query(
     `insert into venue_modules (venue_id, module_id, allowed, state)
-     select $1, module_id,
-            case when module_id = 'kitchen' then true else allowed end,
-            case when module_id = 'kitchen' then 'on' when module_id = 'bar_mode' then 'off' else state end
-       from venue_modules where venue_id = $2`,
+     select $1, module_id, allowed, state from venue_modules where venue_id = $2`,
     [venueId, template.id],
   );
+  for (const [ids, state] of [
+    [FEATURES_ON, "on"],
+    [FEATURES_OFF, "off"],
+  ])
+    for (const id of ids)
+      await client.query(
+        `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, $2, true, $3)
+         on conflict (venue_id, module_id) do update set allowed = true, state = excluded.state`,
+        [venueId, id, state],
+      );
   await client.query(
     `insert into role_permissions (venue_id, role, action, allowed)
      select $1, role, action, allowed from role_permissions where venue_id = $2`,

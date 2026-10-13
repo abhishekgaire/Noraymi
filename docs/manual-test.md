@@ -115,7 +115,7 @@ To check the API is alive, open http://localhost:3000/v1/health. It should show 
 
 ### 0.3 A second person: Andy, the manager
 
-Approvals must be decided on the approver's own phone. To test them you need two "people" at once.
+At West 4, approvals are decided on the approver's own phone (the default; a venue can choose a manager's PIN at the register or no approval in Admin → Features → Choices, D124). To test the phone way you need two "people" at once.
 
 1. Open an **Incognito window** (Cmd + Shift + N), or a second Chrome profile.
 2. Repeat 0.2 with Andy's invite link and `andy@demo.west4.local`.
@@ -795,8 +795,9 @@ If the margaritas were accepted first: total **$652.11**, **$532.11** left.
 Sing Sing Karaoke Astoria is made in the same demo, next to West 4, with:
 
 - **6 rooms**, Room 1 to Room 6 (their sizes and prices are copied from West 4's: placeholders until Sing Sing's manager gives the real ones);
-- **Kitchen & food on** (allowed in its plan, a pretend kitchen network printer, and an allergy notice marked "DEMO ONLY");
-- **Ordering from the room on** (guests order food and drinks from their phones and the room tablets), and Bar mode off;
+- **Kitchen & food on** (allowed in its plan, a pretend kitchen network printer, and Sing Sing's own allergy notice, D125: "Allergen information for menu items is available. Ask an employee for details.");
+- **Ordering from the room on** (guests order food and drinks from their phones), and its own **Choose your features** (D124): Deposits on bookings, Bar mode, Song system control, Marketing texts and Room tablets off; Keep the card behind the bar and Cash discount on (Admin → Features shows them);
+- **Approvals by a manager's PIN at the register** (D126): a comp over the limit on Sing Sing's bar POS shows **Manager's PIN**; Andy picks his name, types 730915 and approves;
 - **No deposits** for online bookings, and **Keep the card behind the bar** at a walk-in check-in (D116);
 - all ages until 8 PM, then 21 and over; Sing Sing's opening hours (Fri and Sat until 3 AM);
 - **Sing Sing's real menu** (about 104 items, drinks and food, including Mac & Cheese, French Fries, Onion Rings, Classic Cheese, Cheese Sticks and Coleslaw), loaded with the importer from `docs/venues/sing-sing/import`;
@@ -845,7 +846,7 @@ Sing Sing's PIN staff: Maya S. 4071 (bartender), Diego R. 6358 (front desk). Gue
 **Check the setup**, as Sing Sing's Abhishek:
 
 1. **Admin → Features**: Kitchen & food is **On**. Bar mode is off.
-2. **Admin → Kitchen**: "Allergy notice · In English" and "· In Spanish" are filled with the DEMO ONLY text.
+2. **Admin → Kitchen**: "Allergy notice · In English" and "· In Spanish" are filled with Sing Sing's own notice (the Spanish is ours, for the venue to confirm).
    - Empty one language and press **Save and publish**: refused, "Write the notice in English and Spanish, or leave both empty."
    - The prerequisite check (K-01): in **Admin → Features** press **Off** for Kitchen & food, then empty both languages in Admin → Kitchen and **Save and publish**. Back in Admin → Features, the **On** button for Kitchen & food is greyed and reads "**Kitchen · needs the allergy notice**". Put the notice back in both languages, save, and press **On** again.
 3. **Admin → Deposits & cancelling**: deposits are off, and **At a walk-in check-in** reads **Keep the card behind the bar**.
