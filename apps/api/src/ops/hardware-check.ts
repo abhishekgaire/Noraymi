@@ -31,7 +31,116 @@ const STATIONS = [
   { station: "front_desk", label: "Front desk S710", computer: "front_desk", name: "Front desk" },
 ] as const;
 
-export async function hardwareEvidence(c: Queryable, venueId: string): Promise<HardwareEvidence> {
+/**
+ * Which hardware a venue is checked against (W-05): `west4`, the default, is the list above;
+ * `bar-computers` is a venue that runs on its bar computers alone (D126, D127), as Sing Sing does:
+ * at least one bar computer with the desktop app, the bar's receipt printer with the drawer on its
+ * kick port, the kitchen printer when Kitchen & food is on (cabled to a bar computer, on the
+ * venue's network or a cloud printer), and a card reader unless the outside card machine is on.
+ * No front desk, room tablets, badge readers, staff phones, Up next TV or router are asked for.
+ */
+export type HardwareSet = "west4" | "bar-computers";
+export const HARDWARE_SETS: readonly HardwareSet[] = ["west4", "bar-computers"];
+
+async function moduleOn(c: Queryable, venueId: string, moduleId: string): Promise<boolean> {
+  const r = await c.query<{ state: string }>(
+    "select state from venue_modules where venue_id = $1 and module_id = $2",
+    [venueId, moduleId],
+  );
+  const state = r.rows[0]?.state;
+  return state === "on" || state === "stopping";
+}
+
+/** The bar-computers set (W-05). */
+async function barComputerLines(c: Queryable, venueId: string): Promise<HardwareLine[]> {
+  const devices = (await listDevices(c, venueId)).filter((d) => d.revoked_at === null);
+  const lines: HardwareLine[] = [];
+  const computers = devices.filter((d) => d.kind === "bar_computer");
+  const desktop = computers.filter((d) => d.app_version !== null && d.app_version !== "web");
+  lines.push({
+    what: "Bar computers",
+    ok: desktop.some((d) => d.online),
+    detail:
+      computers.length === 0
+        ? "no bar computer paired"
+        : computers
+            .map(
+              (d) =>
+                `${d.name}: ${d.app_version === null || d.app_version === "web" ? "not the desktop app" : `desktop app ${d.app_version}`}, ${d.online ? "online" : "offline"}`,
+            )
+            .join("; "),
+  });
+  const drawers = await c.query<{ name: string; printer: string; printer_online: boolean | null }>(
+    `select dr.name, p.name as printer,
+            (h.last_seen_at is not null and h.offline_since is null) as printer_online
+       from cash_drawers dr
+       join devices p on p.venue_id = dr.venue_id and p.id = dr.printer_device_id
+            and p.kind = 'printer' and p.revoked_at is null
+       left join device_heartbeats h on h.venue_id = p.venue_id and h.device_id = p.id
+      where dr.venue_id = $1 and dr.station = 'bar'`,
+    [venueId],
+  );
+  const drawer = drawers.rows.find((d) => d.printer_online) ?? drawers.rows[0];
+  lines.push({
+    what: "Bar receipt printer and drawer",
+    ok: drawer?.printer_online === true,
+    detail: !drawer
+      ? "no drawer on a receipt printer's kick port"
+      : drawer.printer_online
+        ? `${drawer.name} on ${drawer.printer}, online`
+        : `${drawer.name}: ${drawer.printer} is offline`,
+  });
+  if (await moduleOn(c, venueId, "kitchen")) {
+    const kitchen = devices.filter((d) => d.kind === "printer" && d.station === "kitchen");
+    const up = kitchen.find((d) => d.online);
+    const how = (d: (typeof kitchen)[number]) =>
+      d.protocol === "usb"
+        ? `cabled to ${devices.find((h) => h.id === d.host_device_id)?.name ?? "a computer"}`
+        : d.protocol === "lan"
+          ? `network printer at ${d.network_address}:${d.network_port}`
+          : "cloud printer";
+    lines.push({
+      what: "Kitchen printer",
+      ok: !!up,
+      detail:
+        kitchen.length === 0
+          ? "no printer on the kitchen station"
+          : kitchen
+              .map((d) => `${d.name} (${how(d)}), ${d.online ? "online" : "offline"}`)
+              .join("; "),
+    });
+  }
+  if (await moduleOn(c, venueId, "outside_card")) {
+    lines.push({
+      what: "Card payments",
+      ok: true,
+      detail: "on the venue's outside card machine (card readers optional)",
+    });
+  } else {
+    const readers = (await venueReaders(c, venueId)).filter((r) => !r.sandbox);
+    const ready = readers.filter((r) => r.stripe_reader_id && r.online);
+    lines.push({
+      what: "Card payments",
+      ok: ready.length > 0,
+      detail:
+        ready.length > 0
+          ? ready.map((r) => `${r.name}, online`).join("; ")
+          : "no card reader registered with Stripe and online, and the outside card machine is off",
+    });
+  }
+  return lines;
+}
+
+export async function hardwareEvidence(
+  c: Queryable,
+  venueId: string,
+  set: HardwareSet = "west4",
+): Promise<HardwareEvidence> {
+  if (set === "bar-computers") {
+    const lines = await barComputerLines(c, venueId);
+    const health = deviceHealth(await listDevices(c, venueId));
+    return { lines, health, ok: lines.every((l) => l.ok) };
+  }
   const devices = await listDevices(c, venueId);
   const live = devices.filter((d) => d.revoked_at === null);
   const readers = (await venueReaders(c, venueId)).filter((r) => !r.sandbox);

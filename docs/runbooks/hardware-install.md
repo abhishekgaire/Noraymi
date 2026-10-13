@@ -32,6 +32,20 @@ Readers are registered with their pairing code from the reader's screen in Admin
 
 Record who did each check and when in the same gate file.
 
+## Sing Sing's hardware (W-05)
+
+Sing Sing runs on its bar computers alone ([D126](../decisions.md), [D127](../decisions.md)): no front desk, room tablets, badge readers, staff phones or Up next TV. Its list is in [Sing Sing · Hardware](../venues/sing-sing/venue.md#hardware):
+
+| Where | Device | Name in Admin | Done | Serial |
+| --- | --- | --- | --- | --- |
+| Bar | Windows bar computer with the desktop app (below) | Bar computer | [ ] | |
+| Bar | A second bar computer, if there is one | Bar computer 2 | [ ] | |
+| Bar | Epson TM-T88V (M244A), the bar drawer on its DK port, USB to the bar computer | Bar receipt printer | [ ] | |
+| Kitchen | Rongta RP326 on a long cable to a bar computer, station Kitchen (or a Star TSP100III: USB the same way, or its LAN or Wi-Fi model as a network printer) | Kitchen printer | [ ] | |
+| Bar | Card payments on the outside card machine; Stripe readers only if added | — | [ ] | |
+
+Check with `pnpm --filter @west4/api devices:check -- --venue <slug> --set bar-computers`: every line must say OK. Then the drawer test and the real-Windows check list below.
+
 ## A Windows bar computer (W-01)
 
 Sing Sing's bar computers run Windows 10 or 11. Do this on each one, signed in as the Windows user the bar works under (the app, its sign-in and its cache belong to that user).

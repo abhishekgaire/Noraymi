@@ -111,7 +111,7 @@ Definition of done: see CLAUDE.md.
 
 ### W-05 · Sing Sing's hardware: Windows bar computers, the Epson at the bar, the kitchen printer
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** W-01 to W-04, F-09 (shares the `devices:check` set)
 - **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md) · Devices; [Sing Sing](../venues/sing-sing/venue.md)
@@ -121,3 +121,6 @@ Definition of done: see CLAUDE.md.
 - **Acceptance:**
   - [ ] `devices:check --set bar-computers` passes Sing Sing's set and names what's missing otherwise; West 4's set is unchanged.
 - **Notes:**
+  - `devices:check --set bar-computers` is the set F-09 asks for; F-09 can build on it. The default stays West 4's list.
+  - The founder's real-Windows check list is in hardware-install.md · Check on a real Windows bar computer.
+

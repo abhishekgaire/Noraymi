@@ -93,3 +93,82 @@ describe("the device check (M9-07)", () => {
     );
   });
 });
+
+describe("a venue on its bar computers alone (W-05; Sing Sing's set)", () => {
+  const checkSet = () =>
+    withVenue(pool, { venueId, requestId: "test" }, (c) =>
+      hardwareEvidence(c, venueId, "bar-computers"),
+    );
+  const barComputer = async () =>
+    (
+      await owner.query<{ id: string }>(
+        "select id from devices where venue_id = $1 and kind = 'bar_computer' and revoked_at is null limit 1",
+        [venueId],
+      )
+    ).rows[0]!.id;
+
+  it("asks for no front desk, tablets, badge readers, phones or TV, and names a missing kitchen printer", async () => {
+    // The desktop app on the bar computer, online.
+    await owner.query(
+      `insert into device_heartbeats (device_id, venue_id, last_seen_at, app_version)
+       values ($2, $1, now(), '1.4.0')
+       on conflict (device_id) do update set last_seen_at = now(), offline_since = null, app_version = '1.4.0'`,
+      [venueId, await barComputer()],
+    );
+    await owner.query(
+      `insert into venue_modules (venue_id, module_id, state) values ($1, 'kitchen', 'on')
+       on conflict (venue_id, module_id) do update set state = 'on'`,
+      [venueId],
+    );
+    const e = await checkSet();
+    expect(e.lines.map((l) => l.what)).toEqual([
+      "Bar computers",
+      "Bar receipt printer and drawer",
+      "Kitchen printer",
+      "Card payments",
+    ]);
+    expect(e.lines.find((l) => l.what === "Kitchen printer")).toEqual({
+      what: "Kitchen printer",
+      ok: false,
+      detail: "no printer on the kitchen station",
+    });
+    expect(e.ok).toBe(false);
+  });
+
+  it("passes with the kitchen printer cabled to the bar computer and online", async () => {
+    const host = await barComputer();
+    const k = await owner.query<{ id: string }>(
+      `insert into devices (venue_id, kind, name, host_device_id, serial, station, protocol, command_set)
+       values ($1, 'printer', 'Kitchen RP326', $2, 'win|Kitchen RP326', 'kitchen', 'usb', 'escpos') returning id`,
+      [venueId, host],
+    );
+    await owner.query(
+      "insert into device_heartbeats (device_id, venue_id, last_seen_at) values ($2, $1, now())",
+      [venueId, k.rows[0]!.id],
+    );
+    const e = await checkSet();
+    expect(e.lines.filter((l) => !l.ok)).toEqual([]);
+    expect(e.ok).toBe(true);
+    expect(e.lines.find((l) => l.what === "Kitchen printer")!.detail).toMatch(
+      /^Kitchen RP326 \(cabled to .+\), online$/,
+    );
+    // West 4's own set still asks for everything it did.
+    expect((await check()).lines.map((l) => l.what)).toContain("Room tablets");
+  });
+
+  it("without the outside card machine, a card reader online is needed", async () => {
+    await owner.query(
+      "update devices set revoked_at = now() where venue_id = $1 and kind = 'reader'",
+      [venueId],
+    );
+    const e = await checkSet();
+    expect(e.lines.filter((l) => !l.ok)).toEqual([
+      {
+        what: "Card payments",
+        ok: false,
+        detail:
+          "no card reader registered with Stripe and online, and the outside card machine is off",
+      },
+    ]);
+  });
+});
