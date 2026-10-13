@@ -1196,7 +1196,7 @@ Real drawer kicks need the real drawer hardware.
 People, roles, invites, badges, languages, training mode. See 15.1.
 
 ### 19.2 Features
-"What's on, and what each module hides". 16 on, 3 off (Song system control, Marketing texts, Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
+"What's on, and what each module hides". 16 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
 - The new switches (D124) are on: Deposits on bookings, Room tablets, Keep the card behind the bar for walk-ins, Guests pay their own share (Pay my share), Cash discount. Turning off Rooms & room clock lists them too.
 - **Choices** under the modules: "Print tickets for drinks rung at the bar" (off at West 4) and **Texting** (on). Both save at once.
 - Turn off **Guests pay their own share**: a guest's bill after Present no longer offers Pay my share; Admin → Payments shows "Pay my share … · Off". Turn it back on.

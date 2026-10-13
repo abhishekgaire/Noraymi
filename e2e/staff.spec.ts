@@ -767,14 +767,15 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
 });
 
 /**
- * Admin → Features (M1-32; D124). At West 4, 16 switchable modules are on and Song system
- * control, Marketing texts and Kitchen & food are off; the phase 2 modules don't show.
+ * Admin → Features (M1-32; D124, D126). At West 4, 16 switchable modules are on and Song system
+ * control, Marketing texts, Kitchen & food and Paid on outside card machine are off; the phase 2
+ * modules don't show.
  * Bar screen & tickets carries the escalation sentence, and nothing says
  * "Orders ring the bar until accepted". Turning it off asks "Room orders would
  * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
  * and they come back on in order.
  */
-test("Admin → Features: 16 on and 3 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+test("Admin → Features: 16 on and 4 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
   page,
   request,
 }) => {
@@ -802,7 +803,7 @@ test("Admin → Features: 16 on and 3 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("16 on · 3 off")).toBeVisible();
+    await expect(page.getByText("16 on · 4 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -834,6 +835,10 @@ test("Admin → Features: 16 on and 3 off, no phase 2 modules, and the Bar scree
         "aria-pressed",
         "true",
       );
+    // D126: the outside card machine is off until the owner turns it on.
+    await expect(
+      stateGroup("Paid on outside card machine").getByRole("button", { name: "Off" }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("heading", { name: "Choices" })).toBeVisible();
     await expect(
       page.getByRole("checkbox", { name: "Print tickets for drinks rung at the bar" }),
@@ -885,12 +890,12 @@ test("Admin → Features: 16 on and 3 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("14 on · 5 off")).toBeVisible();
+    await expect(page.getByText("14 on · 6 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("16 on · 3 off")).toBeVisible();
+    await expect(page.getByText("16 on · 4 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",

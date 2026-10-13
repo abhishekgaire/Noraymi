@@ -237,3 +237,4 @@ Definition of done: see CLAUDE.md.
   - Screens: `OutsideCardPanel.tsx` on the room's pay panels and the bar POS's Close tab (only while on); step 7 has the switch, and Admin → Features lists it.
   - Cautious defaults: the breakdown is by person (who recorded it), not by drawer, since no cash moves through a drawer; the money audit needs no Stripe match for it (the reconciler only looks at Stripe's methods). Tips on it go to the tip ledger as card tips (they pool like card tips).
   - Sing Sing's choice (both on) is in its venue guide and demo script.
+  - Full browser run after F-10 (isolated stack): 217 passed, 4 skipped, 0 failed once the Admin → Features test counted the new switch (16 on · 4 off); that was the run's one failure, fixed and rerun alone.
