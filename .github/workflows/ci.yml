@@ -94,6 +94,10 @@ jobs:
           aws s3api create-bucket --bucket west4-files
           aws s3api create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
           aws s3api create-bucket --bucket west4-id-keys
+      # The app role with a login, as docker-compose.yml makes it locally: some tests build the API
+      # connected as app_rw itself (postgres://app_rw:app_rw@…), so row-level security applies.
+      - name: Create the app role (as docker compose does locally)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/local/init-roles.sql
       - run: pnpm db:migrate
       - name: A second run applies nothing
         run: pnpm db:migrate | tee /dev/stderr | grep -q "nothing to apply"
@@ -225,6 +229,9 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm db:migrate
+      # The guest web's first page needs the venue (an empty database answers 404, so Playwright
+      # would wait out its timeout for the guest server); the global setup loads the seed again.
+      - run: pnpm seed
       - run: xvfb-run -a pnpm e2e --project ${{ matrix.app }}
       - uses: actions/upload-artifact@v7
         if: failure()

@@ -112,6 +112,27 @@ async function emit(type: string, entityId: string, roomId?: string): Promise<vo
   await pool.end();
 }
 
+// The relay stamps an event only once every older transaction in the cluster has ended, so under a
+// busy suite (other test databases share the cluster) an event can stay unstamped for a while.
+async function allStamped(ms = 15_000): Promise<void> {
+  const raw = new pg.Client({ connectionString: db.url });
+  await raw.connect();
+  try {
+    const until = Date.now() + ms;
+    for (;;) {
+      const { rows } = await raw.query<{ n: string }>(
+        "select count(*) as n from venue_events where venue_id = $1 and seq is null",
+        [v.venueA],
+      );
+      if (Number(rows[0]!.n) === 0) return;
+      if (Date.now() > until) throw new Error(`${rows[0]!.n} events still unstamped`);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  } finally {
+    await raw.end();
+  }
+}
+
 beforeAll(async () => {
   db = await createTestDatabase({ migrate: true });
   v = await seedTwoVenues(db.url);
@@ -223,10 +244,12 @@ describe("live events", () => {
 
   it("asking for a seq older than what's kept is told to refetch", async () => {
     // Retention: clear everything kept so far, then add one more; seq 1 is gone.
+    await allStamped();
     const pool = appPool(db.url);
     await pool.query("select clear_venue_events($1)", [new Date(Date.now() + 60_000)]);
     await pool.end();
     await emit("settings.changed", "settings-2");
+    await allStamped();
     const s = await connect(urlOne, manager(), "?after=1");
     const frame = await s.next((f) => f["type"] === "refetch" || f["type"] === "caught_up");
     expect(frame["type"]).toBe("refetch");
