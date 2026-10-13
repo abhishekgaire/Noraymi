@@ -428,8 +428,9 @@ test("the room page on a phone: order 2 × Margarita · Peach and follow it in t
     const page = await (
       await browser.newContext({ viewport: { width: 390, height: 844 } })
     ).newPage();
-    await page.goto(`/v/west4karaoke/room/${room9}`);
-    await page.getByLabel("Room code").fill("KX4M7");
+    // The printed or emailed room QR's link carries the code (F-07): it's filled in, one tap joins.
+    await page.goto(`/v/west4karaoke/room/${room9}?code=KX4M7`);
+    await expect(page.getByLabel("Room code")).toHaveValue("KX4M7");
     await page.getByRole("button", { name: "Join" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9 · Code KX4M7");
 

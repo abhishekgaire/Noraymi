@@ -1697,9 +1697,37 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
     await walkIn.getByLabel("1 · Guests").fill("7");
     await expect(walkIn).toContainText("7 guests · Fridays bill at least 4");
     await walkIn.getByLabel("Guest's name").fill("Leo M.");
+    // F-07 (D124): the host's email is optional; the room's join QR goes to it and to the printer.
+    await walkIn.getByLabel("Host's email (optional)").fill("leo@example.test");
     expect(await clippedText(page)).toEqual([]);
     await walkIn.getByRole("button", { name: "Seat them" }).click();
     await expect(page.getByText(/^Room 11 · room code [A-Z2-9]{5} · check #\d{4}$/)).toBeVisible();
+    const code = /code ([A-Z2-9]{5})/.exec(
+      (await page.getByText(/^Room 11 · room code/).textContent()) ?? "",
+    )![1]!;
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query<{ code: string }>(
+              "select payload->>'code' as code from print_jobs where kind = 'room_qr' and payload->>'room' = 'Room 11' limit 1",
+            )
+          ).rows[0]?.code,
+      )
+      .toBe(code);
+    expect(
+      (
+        await db.query(
+          "select 1 from jobs where kind = 'email.send' and payload->>'template' = 'room_qr' and payload->>'to' = 'leo@example.test'",
+        )
+      ).rowCount,
+    ).toBe(1);
+    // Reprint QR on the room prints the same code again.
+    const room11Id = (await db.query<{ id: string }>("select id from rooms where name = 'Room 11'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room11Id}`);
+    await page.getByRole("button", { name: "Reprint QR" }).click();
+    await expect(page.getByText("QR printed")).toBeVisible();
   } finally {
     await db.end();
   }

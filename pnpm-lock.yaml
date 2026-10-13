@@ -260,6 +260,9 @@ importers:
       playwright-core:
         specifier: 1.63.0
         version: 1.63.0
+      qrcode-generator:
+        specifier: ^2.0.4
+        version: 2.0.4
       web-push:
         specifier: 3.6.7
         version: 3.6.7(supports-color@7.2.0)

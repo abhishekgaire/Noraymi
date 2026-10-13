@@ -27,6 +27,8 @@ import { queueText } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { sealRoomCode } from "./room-code.js";
 import { venueClock } from "./assignment.js";
+import { emailRoomQr, printRoomQr } from "./room-qr.js";
+import type { EmailSettings } from "../email/settings.js";
 
 /**
  * Check-in, walk-ins and Mark no-show (M2-11; screens N10; spec 10 · Check in;
@@ -54,6 +56,8 @@ export const hashRoomCode = (venueId: string, code: string) =>
 export interface CheckInSettings {
   readonly texts: Pick<VenueTextSettings, "allowList">;
   readonly guestAppUrl: string | null;
+  /** Who the API may email (the room QR to the host, F-07); absent: every address. */
+  readonly email?: Pick<EmailSettings, "allowList">;
 }
 
 interface Context {
@@ -350,6 +354,17 @@ async function seat(ctx: Context, input: SeatInput) {
         }
       }
     }
+    // The room's join QR (F-07; D124): a slip on the front desk's printer and, when the host's email
+    // is known, an email, while Ordering from the room is on. Neither ever blocks seating the party.
+    const slip = await printRoomQr(c, input.venueId, sessionId, {
+      now: input.start,
+      guestAppUrl: ctx.settings.guestAppUrl,
+    });
+    const qrEmail = await emailRoomQr(c, input.venueId, sessionId, {
+      now: input.start,
+      guestAppUrl: ctx.settings.guestAppUrl,
+      email: ctx.settings.email ?? { allowList: null },
+    });
     await emitEvent(c, {
       venueId: input.venueId,
       type: "room.updated",
@@ -363,6 +378,7 @@ async function seat(ctx: Context, input: SeatInput) {
       entityVersion: 0,
     });
     return {
+      qr: { printed: slip !== null, emailed: qrEmail?.to ?? null },
       session_id: sessionId,
       check_id: checkId,
       check_number: number,
@@ -456,7 +472,9 @@ export async function seatWalkIn(
     party_size: number;
     ids_checked: number;
     minutes: number;
-    guest?: { name: string; phone_e164?: string | null | undefined } | undefined;
+    guest?:
+      | { name: string; phone_e164?: string | null | undefined; email?: string | null | undefined }
+      | undefined;
     /** A waitlist offer's hold in the room (M2-26): released as the session takes the room. */
     holdBlockId?: string | null;
   },
@@ -473,6 +491,7 @@ export async function seatWalkIn(
           id: await findOrCreateGuest(c, venueId, {
             name: body.guest!.name,
             phoneE164: body.guest!.phone_e164 ?? null,
+            email: body.guest!.email ?? null,
           }),
           phone: body.guest!.phone_e164 ?? null,
         }))

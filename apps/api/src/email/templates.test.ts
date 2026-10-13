@@ -102,8 +102,11 @@ describe("email templates", () => {
     for (const name of templateNames) {
       const keys = Object.keys(templateSchemas[name].shape);
       expect(keys.filter((k) => /pin|secret|password|hash/i.test(k))).toEqual([]);
-      // The one-time sign-in code (M1-19) is the only code an email carries, on its own template.
-      expect(keys.filter((k) => /code/i.test(k))).toEqual(name === "sign_in_code" ? ["code"] : []);
+      // The one-time sign-in code (M1-19) is the only sign-in code an email carries, on its own
+      // template; the room QR (F-07) carries the room's join code, the one the Room code text sends.
+      expect(keys.filter((k) => /code/i.test(k))).toEqual(
+        name === "sign_in_code" || name === "room_qr" ? ["code"] : [],
+      );
     }
     const good = { template: "invite", to: "diego@example.com", locale: "es", data: invite };
     expect(emailJobPayload.safeParse(good).success).toBe(true);

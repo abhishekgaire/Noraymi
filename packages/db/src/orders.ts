@@ -409,7 +409,15 @@ export async function insertPrintJob(
   job: {
     orderId?: string | null;
     checkId?: string | null;
-    kind: "ticket" | "receipt" | "check" | "drawer" | "x_report" | "z_report" | "break_glass";
+    kind:
+      | "ticket"
+      | "receipt"
+      | "check"
+      | "drawer"
+      | "x_report"
+      | "z_report"
+      | "break_glass"
+      | "room_qr";
     station: string;
     payload: unknown;
     deviceId?: string | null;

@@ -450,7 +450,11 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       checkInRoutes(scope, {
         pool: gatePoolRef!,
         clock,
-        settings: { texts: loadVenueTextSettings(config.env), guestAppUrl: config.guestAppUrl },
+        settings: {
+          texts: loadVenueTextSettings(config.env),
+          guestAppUrl: config.guestAppUrl,
+          email: options.email ?? { allowList: null },
+        },
       });
       waitlistRoutes(scope, {
         pool: gatePoolRef!,

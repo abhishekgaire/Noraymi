@@ -39,6 +39,7 @@ import { RefundSheet } from "./RefundSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
 import "./bar.css";
+import { RoomQrActions } from "./RoomQrActions.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -1331,6 +1332,8 @@ export function Rail() {
                       {t("rail.badge.waiting", { name: tab.waiting_for })}
                     </span>
                   )}
+                  {/* The room's join QR again (F-07; D124). */}
+                  {room?.session && <RoomQrActions venueId={venueId} sessionId={room.session.id} />}
                 </div>
                 {tab && (tab.open || tab.cut_off) && (
                   <CutOffTab

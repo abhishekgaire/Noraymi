@@ -56,7 +56,12 @@ export function settingsRoutes(
     const here =
       p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
     if (here?.role !== "owner")
-      throw new ApiError("forbidden", key === "contacts" ? "the venue's contacts are the owner's alone" : "how approvals are decided is the owner's choice");
+      throw new ApiError(
+        "forbidden",
+        key === "contacts"
+          ? "the venue's contacts are the owner's alone"
+          : "how approvals are decided is the owner's choice",
+      );
   };
 
   const venueClock = async (request: FastifyRequest) =>

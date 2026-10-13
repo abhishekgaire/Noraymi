@@ -23,6 +23,7 @@ import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
 import "./desk.css";
+import { RoomQrActions } from "./RoomQrActions.js";
 
 /**
  * DeskRoom on the desktop and Room on the phone (M2-31; screens DeskRoom and
@@ -462,6 +463,7 @@ export function RoomScreen() {
                     {t("damage.button")}
                   </button>
                 )}
+                <RoomQrActions venueId={venueId} sessionId={s.id} />
               </div>
               <CutOffRoom
                 venueId={venueId}

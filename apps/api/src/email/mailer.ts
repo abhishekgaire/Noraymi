@@ -18,6 +18,8 @@ export interface OutgoingEmail {
     readonly filename: string;
     readonly content: Uint8Array;
     readonly contentType: string;
+    /** An inline image the HTML shows by `cid:` (the room QR, F-07). */
+    readonly cid?: string;
   }[];
 }
 
@@ -49,6 +51,7 @@ export class SmtpMailer implements Mailer {
               filename: a.filename,
               content: Buffer.from(a.content),
               contentType: a.contentType,
+              ...(a.cid ? { cid: a.cid } : {}),
             })),
           }
         : {}),

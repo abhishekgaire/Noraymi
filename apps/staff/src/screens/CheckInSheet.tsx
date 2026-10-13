@@ -38,6 +38,8 @@ interface Seated {
   readonly check_number: number;
   readonly training?: boolean;
   readonly text: string;
+  /** The room's join QR (F-07): printed, and emailed to the host when they gave an email. */
+  readonly qr?: { readonly printed: boolean; readonly emailed: string | null };
 }
 
 export type SheetTarget =
@@ -67,6 +69,7 @@ export function CheckInSheet({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [minutes, setMinutes] = useState(120);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,7 +127,13 @@ export function CheckInSheet({
               ids_checked: ids,
               minutes,
               ...(name.trim()
-                ? { guest: { name: name.trim(), phone_e164: phone.trim() || null } }
+                ? {
+                    guest: {
+                      name: name.trim(),
+                      phone_e164: phone.trim() || null,
+                      ...(email.trim() ? { email: email.trim() } : {}),
+                    },
+                  }
                 : {}),
             });
       const line =
@@ -290,6 +299,17 @@ export function CheckInSheet({
 
                   onChange={(e) => setPhone(e.target.value)}
                 />
+              </label>
+              <label>
+                <span>{t("walkIn.email")}</span>
+                <input
+                  type="email"
+                  autoComplete="off"
+                  maxLength={254}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <span className="small muted">{t("walkIn.email.hint")}</span>
               </label>
             </>
           )}

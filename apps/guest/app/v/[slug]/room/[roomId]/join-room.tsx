@@ -18,6 +18,13 @@ export function JoinRoom({ slug, roomId }: { slug: string; roomId: string }) {
   const [error, setError] = useState<string | null>(null);
   const base = `/v1/public/venues/${encodeURIComponent(slug)}/rooms/${encodeURIComponent(roomId)}`;
 
+  // From the printed or emailed room QR (F-07; D124): the link carries the code, so it's filled in
+  // and the guest only taps Join.
+  useEffect(() => {
+    const fromLink = new URLSearchParams(window.location.search).get("code");
+    if (fromLink) setCode(fromLink.trim().slice(0, 12));
+  }, []);
+
   useEffect(() => {
     void fetch(base, { cache: "no-store" })
       .then(async (r) =>

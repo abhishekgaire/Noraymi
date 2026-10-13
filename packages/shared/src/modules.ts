@@ -267,7 +267,12 @@ export const modules: readonly ModuleDef[] = [
     phase1: true,
     needs: ["rooms"],
     inherits: "rooms",
-    hides: { staffApp: ["devices.pairTablet"], staffPhone: [], website: ["roomTablets"], texts: [] },
+    hides: {
+      staffApp: ["devices.pairTablet"],
+      staffPhone: [],
+      website: ["roomTablets"],
+      texts: [],
+    },
   },
   {
     id: "card_behind_bar",

@@ -39,6 +39,7 @@ import {
   TICKET_MARKUP_TYPE,
   type TicketPayload,
 } from "../print/ticket.js";
+import { roomQrEpos, roomQrEscPos, roomQrText, type RoomQrPayload } from "../print/room-qr.js";
 
 /**
  * Printing tickets to network printers (M3-13; spec 09 · Tickets; spec 02 · Printer):
@@ -239,6 +240,12 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         const job = await printerJob(c, me(request).venueId, me(request).deviceId, token);
         if (!job) throw new ApiError("not_found", "no such job");
         if (job.kind === "drawer") return { kick: true, body: DRAWER_MARKUP };
+        // The room's join QR slip (F-07): plain text on CloudPRNT, the link spelled out.
+        if (job.kind === "room_qr")
+          return {
+            kick: false,
+            body: roomQrText(job.payload as unknown as RoomQrPayload, { reprintN: job.reprint_n }),
+          };
         if (RECEIPT_KINDS.has(job.kind))
           return {
             kick: false,
@@ -313,16 +320,21 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const xmlBody = await inPrinterVenue(request, async (c) =>
         job.kind === "drawer"
           ? drawerKickEpos(job.id)
-          : RECEIPT_KINDS.has(job.kind)
-            ? receiptEpos(job.payload as unknown as ReceiptPayload, {
+          : job.kind === "room_qr"
+            ? roomQrEpos(job.payload as unknown as RoomQrPayload, {
                 reprintN: job.reprint_n,
                 jobId: job.id,
               })
-            : ticketEpos(job.payload as TicketPayload, {
-                timeZone: await venueZone(c, me(request).venueId),
-                reprintN: job.reprint_n,
-                jobId: job.id,
-              }),
+            : RECEIPT_KINDS.has(job.kind)
+              ? receiptEpos(job.payload as unknown as ReceiptPayload, {
+                  reprintN: job.reprint_n,
+                  jobId: job.id,
+                })
+              : ticketEpos(job.payload as TicketPayload, {
+                  timeZone: await venueZone(c, me(request).venueId),
+                  reprintN: job.reprint_n,
+                  jobId: job.id,
+                }),
       );
       return reply.type("text/xml; charset=utf-8").send(xmlBody);
     },
@@ -514,12 +526,18 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         const bytes =
           job.kind === "drawer"
             ? drawerKickEscPos()
-            : RECEIPT_KINDS.has(job.kind)
-              ? receiptEscPos(job.payload as unknown as ReceiptPayload, { reprintN: job.reprint_n })
-              : ticketEscPos(job.payload as TicketPayload, {
-                  timeZone: await venueZone(c, request.venueId!),
+            : job.kind === "room_qr"
+              ? roomQrEscPos(job.payload as unknown as RoomQrPayload, {
                   reprintN: job.reprint_n,
-                });
+                })
+              : RECEIPT_KINDS.has(job.kind)
+                ? receiptEscPos(job.payload as unknown as ReceiptPayload, {
+                    reprintN: job.reprint_n,
+                  })
+                : ticketEscPos(job.payload as TicketPayload, {
+                    timeZone: await venueZone(c, request.venueId!),
+                    reprintN: job.reprint_n,
+                  });
         return {
           job: {
             id: job.id,

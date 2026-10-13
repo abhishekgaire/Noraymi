@@ -58,6 +58,16 @@ export const bookingGuestData = z
   })
   .strict();
 
+/** The room's join QR, emailed to the host at a room start (F-07; D124): the QR is an inline image. */
+export const roomQrData = z
+  .object({
+    venueName: z.string().min(1),
+    room: z.string().min(1),
+    code: z.string().min(1).max(12),
+    joinUrl: z.string().url(),
+  })
+  .strict();
+
 /** The one-time code for the authenticator-app sign-in and the first enrollment (M1-19). */
 export const signInCodeData = z
   .object({
@@ -191,6 +201,7 @@ export const templateSchemas = {
   owner_invite: ownerInviteData,
   booking_inbox: bookingInboxData,
   booking_guest: bookingGuestData,
+  room_qr: roomQrData,
   sign_in_code: signInCodeData,
   owner_recovery_notice: ownerRecoveryNoticeData,
   receipt: receiptData,
@@ -359,6 +370,25 @@ export function render<N extends TemplateName>(
         text: paragraphs.join("\n\n"),
         html,
       };
+    }
+    case "room_qr": {
+      const d = data as TemplateData<"room_qr">;
+      const values = { venue: d.venueName, room: d.room, code: d.code };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const paragraphs = [
+        line("email.roomQr.body"),
+        `${line("email.roomQr.link")}: ${d.joinUrl}`,
+        line("email.roomQr.code"),
+        line("email.footer"),
+      ];
+      const html = [
+        `<p>${escapeHtml(paragraphs[0]!)}</p>`,
+        `<p><img src="cid:room-qr" alt="${escapeHtml(line("email.roomQr.alt"))}" width="240" height="240"></p>`,
+        `<p><a href="${escapeHtml(d.joinUrl)}">${escapeHtml(line("email.roomQr.link"))}</a></p>`,
+        `<p>${escapeHtml(paragraphs[2]!)}</p>`,
+        `<p style="color:#666">${escapeHtml(paragraphs[3]!)}</p>`,
+      ].join("\n");
+      return { subject: line("email.roomQr.subject"), text: paragraphs.join("\n\n"), html };
     }
     case "receipt": {
       const d = data as TemplateData<"receipt">;

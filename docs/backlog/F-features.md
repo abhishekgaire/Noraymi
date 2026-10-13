@@ -156,7 +156,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-07 · The room's join QR is printed when a room starts, and reprinted on demand
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M3-08, M3-13
 - **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md); [screens](../screens.md) N3; [D124](../decisions.md)
@@ -167,12 +167,16 @@ Definition of done: see CLAUDE.md.
   - **The host's email (the founder, Oct 13):** when the host's email is known (their booking's, or typed in the walk-in dialog, which gains an optional email field), the room start also emails the host the room's QR code and join link, "Scan to order and see your bill", in English or Spanish, beside the slip and the Room code text. Emails aren't switchable, so it goes whenever there's an email and Ordering from the room is on. Reprint QR, and a code change, offer **Email it again**.
   - The join page fills the code from the link and joins with one tap.
 - **Acceptance:**
-  - [ ] A check-in and a walk-in each queue one `room_qr` job; none while Ordering from the room is off.
-  - [ ] Reprint QR prints the current code; after the code changes it prints the new one.
-  - [ ] The ESC/POS bytes carry the QR command with the join link; the join page joins from the link.
-  - [ ] The host's email gets the QR and link at the room start, and again on Email it again; the walk-in dialog takes an optional email.
-  - [ ] The route is in the principal and venue-wall suites; EN and ES.
+  - [x] A check-in and a walk-in each queue one `room_qr` job; none while Ordering from the room is off.
+  - [x] Reprint QR prints the current code; after the code changes it prints the new one.
+  - [x] The ESC/POS bytes carry the QR command with the join link; the join page joins from the link.
+  - [x] The host's email gets the QR and link at the room start, and again on Email it again; the walk-in dialog takes an optional email.
+  - [x] The route is in the principal and venue-wall suites; EN and ES.
 - **Notes:**
+  - Built: print kind `room_qr` (migration 0154) with `print/room-qr.ts`: ESC/POS with the printer's own QR command (`GS ( k`, model 2, module 6, level M) on a USB printer, `<symbol type="qrcode_model_2">` in Epson's ePOS-Print XML, and plain text with the link spelled out on Star's CloudPRNT (cautious default: Star's QR markup isn't used until it's tried on a real Star printer). `rooms/room-qr.ts` prints the slip at every check-in and seated walk-in (front desk station, the room's current code from its sealed copy, "Scan to order and see your bill" in each of the venue's staff languages) and emails the host (template `room_qr`, the QR as an inline GIF made by `qrcode-generator`, in the host's language) when an email is known; both only while Ordering from the room is on, and neither ever blocks seating. `POST /sessions/{s}/qr` (`{ print?, email? }`) is Reprint QR and Email it again; every slip is a `print_jobs` row, with `reprint_n` counting the reprints.
+  - Screens: the walk-in dialog takes an optional **Host's email**; **Reprint QR** and **Email it again** on the room screen (DeskRoom and the staff phone) and on the bar POS's room header; the join page fills the code from the link's `?code=`.
+  - There's no staff "change code" button today: a code changes on ten wrong codes, a move or the host lock, and Reprint QR then prints the new one.
+  - Tests: `print/room-qr.test.ts` (the QR bytes, the Epson symbol, the GIF), `rooms/room-qr.int.test.ts` (walk-in slip and email, reprint, the new code after a change, off when Ordering from the room is off), the principal and wall suites; e2e: the check-in sheet test (email, slip, Reprint QR) and the guest join from the link.
 
 ### F-08 · Sing Sing's feature choices
 

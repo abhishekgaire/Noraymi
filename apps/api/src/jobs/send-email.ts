@@ -13,6 +13,7 @@ import {
   type TemplateName,
 } from "../email/templates.js";
 import { htmlToPdf } from "../menu/pdf.js";
+import qrcode from "qrcode-generator";
 
 /**
  * One email, sent from the normal pool (M1-18). The payload names a template
@@ -53,6 +54,15 @@ export const emailJobPayload = z.discriminatedUnion("template", [
       to: z.string().email(),
       locale: localeSchema,
       data: templateSchemas.booking_inbox,
+    })
+    .strict(),
+  // The room's join QR to the host (F-07; D124).
+  z
+    .object({
+      template: z.literal("room_qr"),
+      to: z.string().email(),
+      locale: localeSchema,
+      data: templateSchemas.room_qr,
     })
     .strict(),
   // The guest's own copy of their booking (F-06; D124).
@@ -168,6 +178,15 @@ function refusePractice(template: string, data: unknown) {
     });
 }
 
+/** The join link as a QR code, a GIF for the email's inline image (F-07). */
+export function qrGif(url: string): Uint8Array {
+  const qr = qrcode(0, "M");
+  qr.addData(url);
+  qr.make();
+  const dataUrl = qr.createDataURL(6, 4);
+  return Uint8Array.from(Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64"));
+}
+
 export function makeSendEmailHandler(
   mailer: Mailer,
   settings: EmailSettings,
@@ -189,15 +208,24 @@ export function makeSendEmailHandler(
               contentType: "application/pdf",
             },
           ]
-        : payload.template === "accounting_export"
+        : payload.template === "room_qr"
           ? [
               {
-                filename: `west4-${payload.data.kind === "payroll" ? "payroll-" : ""}${payload.data.date}.csv`,
-                content: new TextEncoder().encode(payload.data.file),
-                contentType: "text/csv",
+                filename: "room-qr.gif",
+                content: qrGif(payload.data.joinUrl),
+                contentType: "image/gif",
+                cid: "room-qr",
               },
             ]
-          : undefined;
+          : payload.template === "accounting_export"
+            ? [
+                {
+                  filename: `west4-${payload.data.kind === "payroll" ? "payroll-" : ""}${payload.data.date}.csv`,
+                  content: new TextEncoder().encode(payload.data.file),
+                  contentType: "text/csv",
+                },
+              ]
+            : undefined;
     await mailer.send({
       to: payload.to,
       from: settings.from,

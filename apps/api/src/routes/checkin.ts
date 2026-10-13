@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { emailRoomQr, printRoomQr } from "../rooms/room-qr.js";
 import {
   checkIn,
   checkInPreview,
@@ -41,6 +42,8 @@ const walkInBody = z
           .regex(/^\+[1-9]\d{6,14}$/)
           .nullable()
           .optional(),
+        // The host's email (F-07): the room's QR goes to it.
+        email: z.string().trim().email().max(254).nullable().optional(),
       })
       .strict()
       .optional(),
@@ -142,6 +145,61 @@ export function checkInRoutes(
         request.training,
       );
       return reply.code(201).send(seated);
+    },
+  );
+
+  /**
+   * Reprint QR and Email it again (F-07; D124): the room's current code, printed on the front
+   * desk's receipt printer, and emailed to the host when `email` is asked and their email is known.
+   * Each print is a print_jobs row on the record. Only while Ordering from the room is on.
+   */
+  const qrBody = z
+    .object({ print: z.boolean().optional(), email: z.boolean().optional() })
+    .strict();
+  app.post<{ Params: { venueId: string; sessionId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/sessions/:sessionId/qr",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "room_ordering",
+        action: "guests.checkin",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const parsed = qrBody.safeParse(request.body ?? {});
+      if (!parsed.success) throw new ApiError("invalid_request", "send { print?, email? }");
+      if (!z.string().uuid().safeParse(request.params.sessionId).success)
+        throw new ApiError("not_found", "no such room session");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return request.inVenue(async (c) => {
+        const open = await c.query(
+          "select 1 from room_sessions where venue_id = $1 and id = $2 and ended_at is null",
+          [venueId, request.params.sessionId],
+        );
+        if (!open.rowCount) throw new ApiError("not_found", "no such room session");
+        const printed =
+          parsed.data.print === false
+            ? null
+            : await printRoomQr(c, venueId, request.params.sessionId, {
+                now,
+                guestAppUrl: options.settings.guestAppUrl,
+              });
+        const emailed = parsed.data.email
+          ? await emailRoomQr(c, venueId, request.params.sessionId, {
+              now,
+              guestAppUrl: options.settings.guestAppUrl,
+              email: options.settings.email ?? { allowList: null },
+              again: true,
+            })
+          : null;
+        return {
+          printed: printed !== null,
+          reprint_n: printed?.reprint_n ?? null,
+          emailed: emailed?.to ?? null,
+        };
+      });
     },
   );
 }
