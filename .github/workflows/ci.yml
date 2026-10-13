@@ -219,20 +219,62 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U west4 -d west4"
           --health-interval 2s --health-timeout 3s --health-retries 30
+      s3:
+        image: rustfs/rustfs:1.0.1-preview.11
+        env:
+          RUSTFS_ACCESS_KEY: west4
+          RUSTFS_SECRET_KEY: west4secret
+        ports: ["9000:9000"]
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+    # The isolated stack (e2e/stack.ts), as `pnpm e2e:isolated` runs locally: its own database
+    # (west4_e2e, created, migrated and seeded first), its own ports and its own job worker, which
+    # the photo uploads, payments and emails need.
     env:
+      E2E_ISOLATED: "1"
       DATABASE_URL: postgres://west4:west4@localhost:5432/west4
-      APP_DATABASE_URL: postgres://west4:west4@localhost:5432/west4
       WEST4_ENV: local
       ALLOW_STAGING_FEATURES: "true"
+      SMTP_URL: smtp://localhost:1025
+      MAILPIT_URL: http://localhost:8025
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: west4
+      S3_SECRET_ACCESS_KEY: west4secret
+      S3_BUCKET_FILES: west4-files
+      S3_BUCKET_AUDIT: west4-audit
+      S3_BUCKET_ID_KEYS: west4-id-keys
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+      - name: Create the local buckets (as docker compose does locally)
+        env:
+          AWS_ACCESS_KEY_ID: west4
+          AWS_SECRET_ACCESS_KEY: west4secret
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ENDPOINT_URL: http://localhost:9000
+        run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:9000/health && break; sleep 2; done
+          aws s3api create-bucket --bucket west4-files
+          aws s3api create-bucket --bucket west4-audit --object-lock-enabled-for-bucket
+          aws s3api create-bucket --bucket west4-id-keys
+      # The app role with a login, as docker compose makes it: the isolated API connects as app_rw.
+      - name: Create the app role (as docker compose does locally)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/local/init-roles.sql
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm db:migrate
-      # The guest web's first page needs the venue (an empty database answers 404, so Playwright
-      # would wait out its timeout for the guest server); the global setup loads the seed again.
-      - run: pnpm seed
-      - run: xvfb-run -a pnpm e2e --project ${{ matrix.app }}
+      - if: matrix.app != 'desktop'
+        run: xvfb-run -a pnpm e2e --project ${{ matrix.app }}
+      # The desktop app keeps its token and its cache's key only in the OS keychain (safeStorage),
+      # which a bare runner lacks: run it in a D-Bus session with an unlocked GNOME keyring.
+      - if: matrix.app == 'desktop'
+        run: sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11
+      - if: matrix.app == 'desktop'
+        env:
+          XDG_CURRENT_DESKTOP: GNOME
+        run: >-
+          dbus-run-session -- bash -c 'echo -n west4-ci | gnome-keyring-daemon --unlock
+          --components=secrets > /dev/null && xvfb-run -a pnpm e2e --project desktop'
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
