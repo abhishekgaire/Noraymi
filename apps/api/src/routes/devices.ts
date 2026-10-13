@@ -17,6 +17,7 @@ import { Temporal, type Clock } from "@west4/shared";
 import { z } from "zod";
 import { micCommandFor, signedMicCommand, type MicSigner } from "../devices/mic-outlet.js";
 import { route } from "../http/conventions.js";
+import { suggestCommandSet } from "../print/host-bytes.js";
 import { ApiError } from "../http/errors.js";
 import { loadTrustedProxyHops, publicIpOf } from "../router/ip-owner.js";
 
@@ -364,11 +365,12 @@ export function attachedRoutes(app: FastifyInstance): void {
           [venueId, parsed.data.kind, host.deviceId, parsed.data.serial],
         );
         if (found.rows[0]) return { id: found.rows[0].id, created: false };
-        // A USB printer prints its host's station's tickets (M3-14): the bar's on the bar computer.
+        // A USB printer prints its host's station's tickets (M3-14): the bar's on the bar computer,
+        // until a manager chooses another (W-03). Its command set is suggested from its name (W-02).
         const usb = parsed.data.kind === "printer";
         const made = await c.query<{ id: string }>(
-          `insert into devices (venue_id, kind, name, host_device_id, serial, station, protocol)
-           values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+          `insert into devices (venue_id, kind, name, host_device_id, serial, station, protocol, command_set)
+           values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
           [
             venueId,
             parsed.data.kind,
@@ -377,6 +379,7 @@ export function attachedRoutes(app: FastifyInstance): void {
             parsed.data.serial,
             usb ? (host.kind === "front_desk" ? "front_desk" : "bar") : null,
             usb ? "usb" : null,
+            usb ? suggestCommandSet(parsed.data.name) : null,
           ],
         );
         return { id: made.rows[0]!.id, created: true };

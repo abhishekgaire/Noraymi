@@ -11,6 +11,7 @@ import {
   reprintJob,
   resolvePrinter,
   settlePrintJob,
+  updatePrinterSetup,
   withVenue,
   type PrintJobRow,
   type Queryable,
@@ -18,6 +19,7 @@ import {
 } from "@west4/db";
 import type { Clock, Temporal } from "@west4/shared";
 import { z } from "zod";
+import { COMMAND_SETS, hostJobBytes, type CommandSet } from "../print/host-bytes.js";
 import type { Authenticator } from "../http/conventions.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -27,11 +29,8 @@ import {
   DRAWER_MARKUP,
   DRAWER_MARKUP_TYPE,
   drawerKickEpos,
-  drawerKickEscPos,
   ticketEpos,
-  ticketEscPos,
   receiptEpos,
-  receiptEscPos,
   receiptPrintText,
   type ReceiptPayload,
   ticketText,
@@ -50,6 +49,7 @@ import {
  *   POST   /v1/venues/{v}/print-jobs/{j}/reprint       a new job, "REPRINT 2", then 3 and so on
  *   POST   /v1/venues/{v}/printers                     Admin: add a printer, its credential shown once
  *   POST   /v1/venues/{v}/printers/{d}/test            Admin: print a test ticket on it
+ *   PATCH  /v1/venues/{v}/printers/{d}                 Admin: its station (on a computer) and command set (W-02, W-03)
  *   POST   /v1/venues/{v}/print-host/next              a desktop host's USB printer: its next job as ESC/POS (M3-14)
  *   POST   /v1/venues/{v}/print-host/jobs/{j}          the host's word on it: { printer_id, printed, failure? }
  * A printer signs in with HTTP Basic (its device id and secret) and sees only its own jobs. A job not
@@ -403,17 +403,13 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     "/v1/venues/:venueId/printers",
     { config: admin },
     async (request, reply) => {
-      // The kitchen has no computer: its printer is a network printer, never USB (K-03).
-      const asked = (request.body ?? {}) as { station?: unknown; protocol?: unknown };
-      if (
-        typeof asked.station === "string" &&
-        asked.station.trim() === "kitchen" &&
-        asked.protocol !== "cloudprnt" &&
-        asked.protocol !== "server_direct"
-      )
+      // A printer on a computer isn't added here: its computer finds it, and a manager sets its
+      // station (the kitchen's, when it's cabled from the kitchen to a bar computer; W-03).
+      const asked = (request.body ?? {}) as { protocol?: unknown };
+      if (asked.protocol === "usb")
         throw new ApiError(
           "invalid_request",
-          "The kitchen printer must be a network printer (Star CloudPRNT or Epson Server Direct Print), not USB",
+          "A printer cabled to a computer shows up by itself once the app is open there; set its station on it",
         );
       const parsed = printerBody.safeParse(request.body);
       if (!parsed.success)
@@ -476,6 +472,50 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     },
   );
 
+  // A printer's setup (W-02, W-03): its command set, and for a printer on a desktop app host the
+  // station it prints for, so one bar computer can host the bar's printer and the kitchen's.
+  const setupBody = z
+    .object({
+      station: z.enum(["bar", "front_desk", "kitchen"]).optional(),
+      command_set: z.enum(COMMAND_SETS as [CommandSet, ...CommandSet[]]).optional(),
+    })
+    .strict();
+  app.patch<{ Params: { venueId: string; d: string }; Body: unknown }>(
+    "/v1/venues/:venueId/printers/:d",
+    { config: admin },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.d).success)
+        throw new ApiError("not_found", "no such printer");
+      const parsed = setupBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { station?, command_set? }");
+      return request.inVenue(async (c) => {
+        const found = await c.query<{ protocol: string | null }>(
+          "select protocol from devices where venue_id = $1 and id = $2 and kind = 'printer' and revoked_at is null",
+          [request.venueId, request.params.d],
+        );
+        if (!found.rows[0]) throw new ApiError("not_found", "no such printer");
+        // A cloud printer's station was chosen when it was added, with its own credential.
+        if (parsed.data.station !== undefined && found.rows[0].protocol !== "usb")
+          throw new ApiError(
+            "invalid_request",
+            "Only a printer on a computer changes its station here; add a cloud printer again for another station",
+          );
+        const row = await updatePrinterSetup(c, request.venueId!, request.params.d, {
+          station: parsed.data.station,
+          commandSet: parsed.data.command_set,
+        });
+        if (!row) throw new ApiError("not_found", "no such printer");
+        await emitEvent(c, {
+          venueId: request.venueId!,
+          type: "device.updated",
+          entityId: row.id,
+          entityVersion: 0,
+        });
+        return row;
+      });
+    },
+  );
+
   // A desktop app hosting USB printers (M3-14): it asks for each printer's next job over its signed
   // channel, prints the ESC/POS bytes, and confirms. A printer it doesn't host is no printer of its own.
   const host = route({
@@ -488,13 +528,18 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
     const h = request.signedDevice;
     if (!h || h.venueId !== request.venueId)
       throw new ApiError("forbidden", "a host prints on its own printers");
-    const p = await c.query<{ station: string | null }>(
-      `select station from devices where venue_id = $1 and id = $2 and kind = 'printer'
+    const p = await c.query<{ station: string | null; command_set: string | null }>(
+      `select station, command_set from devices where venue_id = $1 and id = $2 and kind = 'printer'
           and host_device_id = $3 and revoked_at is null`,
       [request.venueId, printerId, h.deviceId],
     );
     if (!p.rows[0]) throw new ApiError("not_found", "no such printer on this host");
-    return p.rows[0].station ?? (h.kind === "front_desk" ? "front_desk" : "bar");
+    return {
+      station: p.rows[0].station ?? (h.kind === "front_desk" ? "front_desk" : "bar"),
+      commandSet: (p.rows[0].command_set === "star_raster"
+        ? "star_raster"
+        : "escpos") as CommandSet,
+    };
   };
   const nextBody = z.object({ printer_id: z.string().uuid() }).strict();
   app.post<{ Params: { venueId: string }; Body: unknown }>(
@@ -504,22 +549,15 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
       const parsed = nextBody.safeParse(request.body);
       if (!parsed.success) throw new ApiError("invalid_request", "send { printer_id }");
       return request.inVenue(async (c) => {
-        const station = await hostedPrinter(c, request, parsed.data.printer_id);
+        const { station, commandSet } = await hostedPrinter(c, request, parsed.data.printer_id);
         const job = await claimPrintJob(c, request.venueId!, {
           deviceId: parsed.data.printer_id,
           station,
           now: options.clock.now().toString(),
         });
         if (!job) return { job: null };
-        const bytes =
-          job.kind === "drawer"
-            ? drawerKickEscPos()
-            : RECEIPT_KINDS.has(job.kind)
-              ? receiptEscPos(job.payload as unknown as ReceiptPayload, { reprintN: job.reprint_n })
-              : ticketEscPos(job.payload as TicketPayload, {
-                  timeZone: await venueZone(c, request.venueId!),
-                  reprintN: job.reprint_n,
-                });
+        // In the printer's own command set: ESC/POS, or Star raster for a TSP100III (W-02).
+        const bytes = hostJobBytes(job, commandSet, await venueZone(c, request.venueId!));
         return {
           job: {
             id: job.id,

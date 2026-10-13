@@ -69,6 +69,7 @@ export {
   resolveDevice,
   listDevices,
   updateDevice,
+  updatePrinterSetup,
   revokeDevice,
   createStaffPhone,
 } from "./devices.js";

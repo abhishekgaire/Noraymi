@@ -47,7 +47,7 @@ Definition of done: see CLAUDE.md.
 
 ### W-02 · Star raster printers (TSP100III)
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** W-01
 - **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md) · Tickets; [D127](../decisions.md)
@@ -57,10 +57,15 @@ Definition of done: see CLAUDE.md.
   - The drawer on a Star raster printer: `ESC * r D 1 NUL` inside raster mode (external device 1).
   - Every desktop-hosted printer, USB or network, gets its ticket in its own command set; cloud printers are unchanged.
 - **Acceptance:**
-  - [ ] The encoder's bytes match the spec's sequences: the header, the line commands with their byte counts, the cut, the drawer.
-  - [ ] A ticket and a receipt for a Star raster printer come from the print host's next job as raster; an ESC/POS printer's are unchanged.
-  - [ ] The command set can be changed by a manager only; another venue's printer is not found.
+  - [x] The encoder's bytes match the spec's sequences: the header, the line commands with their byte counts, the cut, the drawer.
+  - [x] A ticket and a receipt for a Star raster printer come from the print host's next job as raster; an ESC/POS printer's are unchanged.
+  - [x] The command set can be changed by a manager only; another venue's printer is not found.
 - **Notes:**
+  - The byte sequences come from Star's "STAR Graphic Mode Command Specifications" Rev. 2.31 (starasia.com), read on Oct 13, 2026; the unit tests check them byte for byte. Bitmap font: DejaVu Sans Mono and Bold drawn at 16 × 32 dots by `scripts/star-font.py` (Pillow), the Bitstream Vera licence notice carried in `star-font.ts`. Only printable ASCII, as the ESC/POS tickets already print (accents dropped).
+  - The command set lives on the printer's device row (`devices.command_set`, migration 0152). A USB printer's is suggested from its name when its computer first reports it (TSP100 / TSP143 / futurePRNT → Star raster). Admin → Printers & devices changes it (`PATCH /v1/venues/{v}/printers/{d}`, manager only).
+  - The TSP100III has no CloudPRNT, so it can never be a cloud printer; spec 09 now says which Star models are CloudPRNT. West 4's docs and seed name no TSP143; only tests did (`print-host.int.test.ts` now uses an Epson name for its ESC/POS checks and adds a Star test).
+  - D127 and the spec 09 and 16 changes for W-02 to W-04 land with this ticket.
+  - Needs a real printer: that the TSP100III prints the raster legibly, cuts, and opens the drawer with `ESC * r D 1 NUL` (founder's check list).
 
 ### W-03 · The kitchen printer cabled to a bar computer
 
