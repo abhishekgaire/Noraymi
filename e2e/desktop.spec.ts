@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createHash, createHmac, randomBytes } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { lstatSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { _electron as electron, expect, test, type ElectronApplication } from "@playwright/test";
@@ -35,7 +35,11 @@ function filesUnder(dir: string): { file: string; text: string }[] {
   const walk = (d: string) => {
     for (const name of readdirSync(d)) {
       const file = path.join(d, name);
-      if (statSync(file).isDirectory()) walk(file);
+      // Electron's single-instance lock (W-01) leaves symlinks (SingletonCookie, SingletonLock)
+      // pointing outside the folder, sometimes at nothing: they hold no file of ours, so skip them.
+      const kind = lstatSync(file);
+      if (kind.isSymbolicLink()) continue;
+      if (kind.isDirectory()) walk(file);
       else out.push({ file, text: readFileSync(file, "latin1") });
     }
   };

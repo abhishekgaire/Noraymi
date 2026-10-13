@@ -45,15 +45,21 @@ export class DesktopCache {
     mkdirSync(dirname(file), { recursive: true });
     const Ctor = require("better-sqlite3-multiple-ciphers") as DatabaseCtor;
     const db = new Ctor(file);
-    db.pragma(`cipher='sqlcipher'`);
-    db.pragma(`key='${keyHex.replace(/'/g, "")}'`);
-    db.exec(
-      `create table if not exists meta (k text primary key, v text not null);
-       create table if not exists rows (
-         kind text not null, id text not null, body text not null,
-         primary key (kind, id)
-       );`,
-    );
+    try {
+      db.pragma(`cipher='sqlcipher'`);
+      db.pragma(`key='${keyHex.replace(/'/g, "")}'`);
+      db.exec(
+        `create table if not exists meta (k text primary key, v text not null);
+         create table if not exists rows (
+           kind text not null, id text not null, body text not null,
+           primary key (kind, id)
+         );`,
+      );
+    } catch (error) {
+      // The wrong key (or a file that isn't ours): let go of the file, or Windows keeps it locked.
+      db.close();
+      throw error;
+    }
     const cache = new DesktopCache(db, clock);
     if (clock) cache.configure(clock);
     else {
