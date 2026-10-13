@@ -6,7 +6,7 @@ import {
   type JobHandler,
   type Queryable,
 } from "@west4/db";
-import { t, type Locale, type Temporal } from "@west4/shared";
+import { t, type Locale, type Temporal, type TextingKind } from "@west4/shared";
 import { textsLive, type LiveSettings } from "../texts/live.js";
 import type { VenueTextClient } from "../texts/venue.js";
 
@@ -27,6 +27,8 @@ export const textJobPayload = z.discriminatedUnion("template", [
       template: z.literal("phone_code"),
       to: e164,
       locale: z.enum(["en", "es"]),
+      // A bar-mode singer's code (D124: its own switch, `texting.singerCode`); absent is a staff code.
+      for: z.enum(["staff", "singer"]).optional(),
       data: z
         .object({
           venueName: z.string().min(1),
@@ -133,6 +135,13 @@ export async function enqueueText(
   });
 }
 
+/** Which texting switch a staff text answers to (D124), checked again when the job runs. */
+export function textingKindOf(payload: TextJobPayload): TextingKind {
+  if (payload.template === "order_waiting") return "orderWaiting";
+  if (payload.template === "phone_code" && payload.for === "singer") return "singerCode";
+  return "staffCodes";
+}
+
 export function makeSendTextHandler(
   deps: { client: VenueTextClient; settings: LiveSettings; secretKey: Buffer } | null,
   log: (line: string) => void = (line) => console.warn(line),
@@ -142,7 +151,7 @@ export function makeSendTextHandler(
     const venueId = job.venue_id;
     const twilio = deps
       ? await step(async (c) =>
-          (await textsLive(c, venueId, deps.settings, payload.to))
+          (await textsLive(c, venueId, deps.settings, payload.to, textingKindOf(payload)))
             ? twilioIntegration(c, venueId)
             : null,
         )

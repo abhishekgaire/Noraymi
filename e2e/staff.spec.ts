@@ -1506,6 +1506,42 @@ test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder
 
     await page.goto("/admin/texts");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Texts");
+    // F-01 (D124): the Texting switch, the texts with no template, and STOP and HELP locked on.
+    await expect(page.locator(".texting-list > li h4")).toHaveText([
+      "Staff sign-in and invite codes",
+      "Order waiting alert to the manager",
+      "Singer's phone code",
+      "Staff replies in Messages",
+      "STOP and HELP replies",
+    ]);
+    await expect(page.getByRole("listitem", { name: "STOP and HELP replies" })).toContainText(
+      "Always on · carriers require it",
+    );
+    const texting = page.getByRole("checkbox", { name: "Texting", exact: true });
+    await texting.uncheck();
+    await expect(page.getByText("Texting is off · nothing is texted")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Singer's phone code · On" })).toBeDisabled();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query(
+              `select value->>'on' as on from venue_settings where key = 'texting' order by version desc limit 1`,
+            )
+          ).rows[0]?.on,
+      )
+      .toBe("false");
+    await texting.check();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query(
+              `select value->>'on' as on from venue_settings where key = 'texting' order by version desc limit 1`,
+            )
+          ).rows[0]?.on,
+      )
+      .toBe("true");
     const items = page.locator(".text-list > li");
     await expect(items).toHaveCount(14);
     await expect(items.locator("h3")).toHaveText([

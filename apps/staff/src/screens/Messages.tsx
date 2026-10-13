@@ -60,6 +60,8 @@ function Thread({
     messages: Message[];
     /** A party enquiry from the website (M5-04). */
     enquiry?: { party_size: number; date: string } | null;
+    /** False while texting or staff replies are switched off (D124). */
+    replies_on?: boolean;
   } | null>(null);
   const [reply, setReply] = useState("");
   const [holdUntil, setHoldUntil] = useState("");
@@ -224,19 +226,25 @@ function Thread({
           {error}
         </p>
       )}
-      <form className="actions" onSubmit={(e) => void send(e)}>
-        <label className="grow">
-          {t("messages.reply")}
-          <textarea value={reply} maxLength={640} onChange={(e) => setReply(e.target.value)} />
-        </label>
-        <button
-          type="submit"
-          className="primary"
-          disabled={busy || !reply.trim() || data.conversation.opted_out}
-        >
-          {t("messages.send")}
-        </button>
-      </form>
+      {data.replies_on === false ? (
+        <p className="small muted" role="status">
+          {t("messages.repliesOff")}
+        </p>
+      ) : (
+        <form className="actions" onSubmit={(e) => void send(e)}>
+          <label className="grow">
+            {t("messages.reply")}
+            <textarea value={reply} maxLength={640} onChange={(e) => setReply(e.target.value)} />
+          </label>
+          <button
+            type="submit"
+            className="primary"
+            disabled={busy || !reply.trim() || data.conversation.opted_out}
+          >
+            {t("messages.send")}
+          </button>
+        </form>
+      )}
     </section>
   );
 }

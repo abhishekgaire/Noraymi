@@ -166,7 +166,15 @@ export function publicSongRoutes(
       await inVenue(request, true, async (c, venueId) => {
         // No code can reach the singer's phone until the venue's own texts are live (T-03; D123):
         // staff add them at the bar instead, confirming them in person.
-        if (!(await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, parsed.data.phone_e164)))
+        if (
+          !(await textsLive(
+            c,
+            venueId,
+            options.texts ?? LOCAL_TEXTS,
+            parsed.data.phone_e164,
+            "singerCode",
+          ))
+        )
           throw new ApiError("invalid_request", "ask at the bar to join the queue", {
             status: 409,
             details: { reason: "texts_not_live" },

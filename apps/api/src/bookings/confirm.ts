@@ -260,6 +260,8 @@ export async function confirmationText(
 /** The Booking confirmed text (Song systems and texts, text 1), once per booking. */
 export function makeBookingConfirmedHandler(settings: {
   readonly allowList: VenueTextSettings["allowList"];
+  /** Waits for the approved campaign like every other text (F-01); absent in tests that don't say. */
+  readonly requireApprovedCampaign?: boolean;
   readonly guestAppUrl: string | null;
 }): JobHandler {
   return async ({ job, clock, step }) => {
@@ -287,7 +289,10 @@ export function makeBookingConfirmedHandler(settings: {
             sentBy: null,
             now: clock.now(),
           },
-          { allowList: settings.allowList },
+          {
+            allowList: settings.allowList,
+            requireApprovedCampaign: settings.requireApprovedCampaign ?? false,
+          },
         );
       } catch (e) {
         // A text switched off, Guest texts off or an opt-out stops it here, as for every text.

@@ -525,6 +525,7 @@ export async function sendCode(
     template: "phone_code",
     to: phoneE164,
     locale,
+    for: "singer",
     data: { venueName, code, minutes: SINGER_CODE_MINUTES },
   });
 }

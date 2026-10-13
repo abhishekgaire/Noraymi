@@ -86,6 +86,7 @@ describe("the M1 part of the demo seed", () => {
       "rooms",
       "safety",
       "tabs",
+      "texting",
       "website",
     ]);
     expect((by["prices"]!["billing"] as { incrementMin: number }).incrementMin).toBe(1);

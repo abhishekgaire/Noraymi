@@ -113,7 +113,7 @@ export function invitesRoutes(
         needs_passkey: invite.role === "owner" || invite.role === "manager",
         // How the phone code will come (T-03): by text from the venue's own live texts, else by email.
         code_by: (await withVenue(options.pool, { venueId: invite.venueId }, (c) =>
-          textsLive(c, invite.venueId, options.texts ?? LOCAL_TEXTS),
+          textsLive(c, invite.venueId, options.texts ?? LOCAL_TEXTS, undefined, "staffCodes"),
         ))
           ? "text"
           : "email",
@@ -144,6 +144,7 @@ export function invitesRoutes(
             invite.venueId,
             options.texts ?? LOCAL_TEXTS,
             parsed.data.phone_e164,
+            "staffCodes",
           );
           if (!live && !invite.email)
             throw new ApiError(

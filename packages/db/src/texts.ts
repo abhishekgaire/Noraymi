@@ -71,6 +71,7 @@ export interface MessageRow {
   readonly phone_e164: string;
   /** The one confirmation a STOP gets, which goes despite the opt-out (M2-23). */
   readonly stop_confirmation: boolean;
+  readonly carrier_reply: boolean;
 }
 
 export async function insertOutbound(
@@ -83,11 +84,13 @@ export async function insertOutbound(
     body: string;
     sentBy: string | null;
     stopConfirmation?: boolean;
+    /** A reply the carriers require (STOP's confirmation, HELP's answer): sent whatever texting's switches say (D124). */
+    carrierReply?: boolean;
   },
 ): Promise<string> {
   const r = await c.query<{ id: string }>(
-    `insert into messages (venue_id, conversation_id, direction, template_id, category, body, sent_by, status, stop_confirmation)
-       values ($1, $2, 'outbound', $3, $4, $5, $6, 'sending', $7) returning id`,
+    `insert into messages (venue_id, conversation_id, direction, template_id, category, body, sent_by, status, stop_confirmation, carrier_reply)
+       values ($1, $2, 'outbound', $3, $4, $5, $6, 'sending', $7, $8) returning id`,
     [
       venueId,
       input.conversationId,
@@ -96,6 +99,7 @@ export async function insertOutbound(
       input.body,
       input.sentBy,
       input.stopConfirmation ?? false,
+      (input.carrierReply ?? false) || (input.stopConfirmation ?? false),
     ],
   );
   return r.rows[0]!.id;
@@ -108,7 +112,7 @@ export async function messageById(
 ): Promise<MessageRow | null> {
   const r = await c.query<MessageRow>(
     `select m.id, m.conversation_id, m.direction, m.category, m.body, m.provider_sid, m.status,
-            to_json(m.attempted_at) #>> '{}' as attempted_at, cv.phone_e164, m.stop_confirmation
+            to_json(m.attempted_at) #>> '{}' as attempted_at, cv.phone_e164, m.stop_confirmation, m.carrier_reply
        from messages m join conversations cv on cv.venue_id = m.venue_id and cv.id = m.conversation_id
       where m.venue_id = $1 and m.id = $2`,
     [venueId, id],

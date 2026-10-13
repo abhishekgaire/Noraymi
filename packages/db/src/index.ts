@@ -38,7 +38,13 @@ export {
   publishRulePack,
 } from "./rule-packs.js";
 export type { RulePackRow, ResolvedRulePack } from "./rule-packs.js";
-export { readSetting, settingHistory, saveSettings, SettingsRefused } from "./settings.js";
+export {
+  readSetting,
+  latestSetting,
+  settingHistory,
+  saveSettings,
+  SettingsRefused,
+} from "./settings.js";
 export type { SettingVersion, SaveSettingsArgs } from "./settings.js";
 export { listClosures, closureOn, createClosure, ClosureExists } from "./closures.js";
 export type { ClosureRow } from "./closures.js";

@@ -607,6 +607,8 @@ export function mapSeedSettings(
     publicForms: s["publicForms"],
     // The venue's own contacts (D115): West 4's seed names none, so the key stays unsaved and reads empty.
     contacts: s["contacts"],
+    // Texting's switches (D124): absent in the seed, so everything texts as before.
+    texting: s["texting"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,

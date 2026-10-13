@@ -57,6 +57,20 @@ export async function readSetting<K extends SettingsKey>(
   return r.rows[0] ? toVersion<K>(r.rows[0]) : null;
 }
 
+/** The newest version of a key whatever its start date: for a switch that is live at once (`texting`, D124). */
+export async function latestSetting<K extends SettingsKey>(
+  client: Queryable,
+  venueId: string,
+  key: K,
+): Promise<SettingVersion<K> | null> {
+  const r = await client.query<Row>(
+    `select key, version, value, starts_on::text, saved_at, saved_by from venue_settings
+      where venue_id = $1 and key = $2 order by version desc limit 1`,
+    [venueId, key],
+  );
+  return r.rows[0] ? toVersion<K>(r.rows[0]) : null;
+}
+
 /** Every version of a key, newest first: the change log. */
 export async function settingHistory<K extends SettingsKey>(
   client: Queryable,

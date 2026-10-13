@@ -14,6 +14,7 @@ import { ApiError } from "../http/errors.js";
 import { enquiryForConversation } from "../enquiries/enquiries.js";
 import { optOut, runningLateReply, sendReply, sendTemplateIn } from "../texts/inbox.js";
 import { queueText } from "../texts/queue.js";
+import { textingAllows } from "../texts/texting.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 
 /**
@@ -103,6 +104,8 @@ export function conversationRoutes(
         return {
           conversation: { ...conversation, unread: 0 },
           messages: await threadMessages(c, venueId, conversation.id),
+          // Whether staff may reply (D124: texting and its staff-replies switch).
+          replies_on: await textingAllows(c, venueId, "staffReplies"),
           // A party enquiry's size, date and words, for the thread's header (M5-04).
           enquiry:
             conversation.context_kind === "enquiry"

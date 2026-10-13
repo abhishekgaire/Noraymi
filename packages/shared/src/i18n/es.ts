@@ -3836,4 +3836,26 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "venue.saving": "Guardando…",
   "venue.saved": "Guardado",
   "venue.saveFailed": "No se pudo guardar",
+  "texting.switch": "Mensajes de texto",
+  "texting.switch.hint":
+    "Cada mensaje de texto del local. Apagado, no se envía ningún texto: los códigos y las invitaciones van por correo y el aviso de pedido en espera como notificación.",
+  "texting.offNote": "Los mensajes de texto están apagados · no se envía nada",
+  "texting.staffTexts": "Textos al personal y a los cantantes",
+  "texting.staffCodes": "Códigos de acceso e invitaciones del personal",
+  "texting.staffCodes.off":
+    "Apagado: los códigos, los enlaces para cambiar el PIN y las invitaciones van por correo.",
+  "texting.orderWaiting": "Aviso de pedido en espera al gerente",
+  "texting.orderWaiting.off":
+    "Apagado: un pedido que sigue sonando llega al teléfono del gerente como notificación.",
+  "texting.singerCode": "Código por teléfono del cantante",
+  "texting.singerCode.off": "Apagado: el personal confirma a los cantantes en la barra.",
+  "texting.staffReplies": "Respuestas del personal en Mensajes",
+  "texting.staffReplies.off":
+    "Apagado: Mensajes muestra los textos de los clientes pero no permite responder.",
+  "texting.stopHelp": "Respuestas a STOP y HELP",
+  "texting.stopHelp.hint": "Se responden solas mientras haya un número conectado.",
+  "texting.alwaysOn": "Siempre activas · las operadoras lo exigen",
+  "texting.emailsNote": "Los correos no se pueden apagar.",
+  "texting.failed": "No se pudieron guardar los mensajes de texto",
+  "messages.repliesOff": "Las respuestas del personal están apagadas · Admin → Mensajes de texto",
 };

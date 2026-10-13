@@ -5,6 +5,7 @@ import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { EraseGuest } from "./EraseGuest.js";
+import { TextingSwitches } from "./TextingSwitches.js";
 
 /**
  * Admin → Texts (M2-10; spec 11 · The automatic texts): exactly the 14 texts
@@ -72,6 +73,7 @@ export function Texts() {
   return (
     <section className="texts">
       <h2>{t("admin.section.texts")}</h2>
+      {venueId && <TextingSwitches venueId={venueId} />}
       {failed && (
         <p className="error" role="alert">
           {t("shell.error.cantReach")}

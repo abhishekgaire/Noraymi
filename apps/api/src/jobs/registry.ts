@@ -197,6 +197,7 @@ export function makeHandlers({
             // The Booking confirmed text, with its own manage link (M5-10).
             [BOOKING_CONFIRMED_KIND]: makeBookingConfirmedHandler({
               allowList: venueTexts.settings.allowList,
+              requireApprovedCampaign: venueTexts.settings.requireApprovedCampaign,
               guestAppUrl: guestAppUrl ?? null,
             }),
           }

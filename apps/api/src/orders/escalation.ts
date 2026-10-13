@@ -123,7 +123,7 @@ export async function escalateOrders(
           );
           const m = who.rows[0];
           // The venue's own texts aren't live (T-03; D123): the manager's phone gets a push instead.
-          if (m?.phone_e164 && !(await textsLive(c, venueId, texts, m.phone_e164)))
+          if (m?.phone_e164 && !(await textsLive(c, venueId, texts, m.phone_e164, "orderWaiting")))
             await enqueuePush(c, {
               venueId,
               audience: { kind: "person", userId: manager },

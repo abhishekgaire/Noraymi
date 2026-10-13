@@ -11,6 +11,7 @@ import {
   twilioIntegration,
   type JobHandler,
 } from "@west4/db";
+import { textingAllows } from "../texts/texting.js";
 import type { VenueTextClient, VenueTextSettings } from "../texts/venue.js";
 
 /**
@@ -46,6 +47,21 @@ export function makeSendMessageHandler(
       }
       // An opt-out stops every text to the number at once, even one queued before it (M2-23).
       if (!message.stop_confirmation && (await optedOut(c, venueId, message.phone_e164))) {
+        if (await stopMessage(c, venueId, message_id))
+          await emitEvent(c, {
+            venueId,
+            type: "message.updated",
+            entityId: message_id,
+            entityVersion: 0,
+          });
+        return null;
+      }
+      // Texting switched off since it was queued (D124): dropped, except a reply the carriers require.
+      if (
+        !message.carrier_reply &&
+        !message.stop_confirmation &&
+        !(await textingAllows(c, venueId))
+      ) {
         if (await stopMessage(c, venueId, message_id))
           await emitEvent(c, {
             venueId,

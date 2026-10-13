@@ -21,7 +21,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-01 · Texting can be switched off, venue-wide and text by text
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** T-03
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Texting switch; [D124](../decisions.md)
@@ -38,12 +38,16 @@ Definition of done: see CLAUDE.md.
   - Admin → Texts: a **Texting** switch at the top, then every text the app sends (the 12 service texts, the 2 marketing texts, Staff sign-in and invite codes, Order waiting alert to the manager, Singer's phone code, Staff replies in Messages, and STOP and HELP replies, locked), each with its switch. With Texting off the list reads "Texting is off · nothing is texted" and the switches are disabled. Emails have no switch.
   - The booking-confirmed text now waits for the approved campaign like every other text (it passed only the allow list).
 - **Acceptance:**
-  - [ ] With `texting.on` false, no text of any kind is queued or sent; codes and invites go by email; the order-waiting alert goes by push; STOP and HELP are still answered.
-  - [ ] Each of the four staff switches sends that text's fallback and leaves the others texting.
-  - [ ] A text queued before the switch went off is dropped by its job.
-  - [ ] Admin → Texts shows the switch and every text in English and Spanish, with STOP and HELP locked.
-  - [ ] Only an owner or manager saves `texting`; the route is in the principal and venue-wall suites.
+  - [x] With `texting.on` false, no text of any kind is queued or sent; codes and invites go by email; the order-waiting alert goes by push; STOP and HELP are still answered.
+  - [x] Each of the four staff switches sends that text's fallback and leaves the others texting.
+  - [x] A text queued before the switch went off is dropped by its job.
+  - [x] Admin → Texts shows the switch and every text in English and Spanish, with STOP and HELP locked.
+  - [x] Only an owner or manager saves `texting`; the route is in the principal and venue-wall suites.
 - **Notes:**
+  - Built: the `texting` key (`packages/shared/src/settings.ts`, default all on, so a venue that never saved it texts as before; `latestSetting` reads the newest version since the switch is live at once). `apps/api/src/texts/texting.ts` (`textingAllows`) is asked by `textsLive` (with a kind: `staffCodes`, `orderWaiting`, `singerCode`), by `guardSend` (every guest text, `texting_off`), by `sendReply` (`staffReplies`) and again by the `message.send` and `text.send` jobs, which drop a text queued before the switch went off. The singer's code carries `for: "singer"` so its job asks its own switch. Migration 0150 adds `messages.carrier_reply`, set on STOP's confirmation and HELP's answer, the only texts that go while texting is off (HELP now also ignores the Guest texts module, the carriers' rule). Admin → Texts shows `TextingSwitches.tsx` above the 14 templates; Messages hides the reply box with "Staff replies are off · Admin → Texts" (`replies_on` on the thread).
+  - Tests: `apps/api/src/texts/texting.int.test.ts`; the Admin → Texts e2e test. `PUT /settings/texting` is the existing settings route, already in the principal and wall suites.
+  - Fixed on the way: the booking-confirmed text now passes `requireApprovedCampaign` like every other text.
+  - Cautious default: with texting off, STOP is still recorded and confirmed and HELP answered while a number is connected; disconnecting Twilio is the way to stop those too.
 
 ### F-02 · The order-waiting alert says how the manager was told
 

@@ -49,12 +49,16 @@ export {
   KITCHEN_DEFAULTS,
   CONTACTS_EMPTY,
   contactsSchema,
+  TEXTING_DEFAULTS,
+  textingSchema,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,
   walkInTakes,
   walkInTakesOf,
 } from "./settings.js";
 export type {
+  TextingKind,
+  TextingSettings,
   SettingsKey,
   SettingsValue,
   SettingsMap,

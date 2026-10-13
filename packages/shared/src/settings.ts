@@ -302,6 +302,33 @@ const onCallSchema = z
   .strict();
 
 /**
+ * Texting (D124; spec 11 · Texting switch): the venue-wide switch and the switches for the texts
+ * that have no template. Every field is on by default; emails have no switch, and STOP and HELP
+ * replies are always on while a number is connected (the carriers' rule).
+ */
+export const textingSchema = z
+  .object({
+    on: z.boolean(),
+    staffCodes: z.boolean(),
+    orderWaiting: z.boolean(),
+    singerCode: z.boolean(),
+    staffReplies: z.boolean(),
+  })
+  .strict();
+
+/** The texts with a switch in `texting` beside the venue-wide one. */
+export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
+
+/** The `texting` key until a venue saves one: everything on, today's behaviour. */
+export const TEXTING_DEFAULTS: z.infer<typeof textingSchema> = {
+  on: true,
+  staffCodes: true,
+  orderWaiting: true,
+  singerCode: true,
+  staffReplies: true,
+};
+
+/**
  * The venue's own contacts, the owner's alone (D115; spec 03 · contacts, spec 17 steps 1 and 9):
  * up to 3 booking inbox addresses, the first and second on-call responders, the breach contact and
  * a backup. Empty until the owner names them, never guessed.
@@ -405,6 +432,7 @@ export const settingsSchemas = {
   kitchen: kitchenSchema,
   publicForms: publicFormsSchema,
   contacts: contactsSchema,
+  texting: textingSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -434,6 +462,7 @@ export type FormLimits = z.infer<typeof formLimitsSchema>;
 export type PublicFormsSettings = z.infer<typeof publicFormsSchema>;
 export type PublicForm = keyof PublicFormsSettings;
 export type ContactsSettings = z.infer<typeof contactsSchema>;
+export type TextingSettings = z.infer<typeof textingSchema>;
 
 /**
  * The daily limits until a venue sets its own (D109), from common practice for public sign-up
@@ -466,6 +495,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   kitchen: KITCHEN_DEFAULTS,
   contacts: CONTACTS_EMPTY,
   publicForms: PUBLIC_FORM_DEFAULTS,
+  texting: TEXTING_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

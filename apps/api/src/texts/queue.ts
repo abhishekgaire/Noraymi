@@ -12,6 +12,7 @@ import type { Temporal } from "@west4/shared";
 import { enqueue, optedOut } from "@west4/db";
 import { ApiError } from "../http/errors.js";
 import type { VenueTextSettings } from "./venue.js";
+import { textingAllows } from "./texting.js";
 
 /**
  * Queueing a guest text (M2-09; spec 11; spec 12 · 8). The message is written
@@ -114,6 +115,8 @@ export async function guardSend(
   to: string,
   now: Temporal.Instant,
   settings: SendSettings,
+  /** HELP's answer (D124): the carriers require it, so neither Guest texts nor texting's switch holds it back. */
+  opts: { carrierReply?: boolean } = {},
 ): Promise<void> {
   const input = { to, now };
   if (await optedOut(c, venueId, to))
@@ -128,9 +131,16 @@ export async function guardSend(
     throw new ApiError("invalid_request", "this server texts only our own test phones", {
       details: { reason: "not_allowed" },
     });
-  const modules = await venueModules(c, venueId);
-  if (modules.find((m) => m.module_id === "guest_texts")?.state === "off")
-    throw new ApiError("module_off", "Guest texts are off at this venue");
+  if (opts.carrierReply !== true) {
+    // Texting switched off (D124): nothing is texted.
+    if (!(await textingAllows(c, venueId)))
+      throw new ApiError("invalid_request", "texting is off at this venue", {
+        details: { reason: "texting_off" },
+      });
+    const modules = await venueModules(c, venueId);
+    if (modules.find((m) => m.module_id === "guest_texts")?.state === "off")
+      throw new ApiError("module_off", "Guest texts are off at this venue");
+  }
   if (settings.requireApprovedCampaign === true) {
     // Production texts real numbers only on an approved 10DLC campaign (M8-22).
     const twilio = await twilioIntegration(c, venueId);
@@ -198,6 +208,7 @@ export async function queueOutbound(
     sentBy: string | null;
     now: Temporal.Instant;
     stopConfirmation?: boolean;
+    carrierReply?: boolean;
   },
 ): Promise<string> {
   const messageId = await insertOutbound(c, venueId, input);

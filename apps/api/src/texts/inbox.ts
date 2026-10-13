@@ -17,6 +17,7 @@ import { enqueuePush } from "../push/send-push.js";
 import { venueClock } from "../rooms/assignment.js";
 import { guardSend, queueOutbound, render } from "./queue.js";
 import type { VenueTextSettings } from "./venue.js";
+import { textingAllows } from "./texting.js";
 
 /**
  * The two-way inbox (M2-22; spec 11 · Two-way inbox). A guest's text goes into
@@ -176,12 +177,13 @@ async function helpReply(
 ) {
   const venue = await venueContact(c, venueId, input.now);
   try {
-    await guardSend(c, venueId, input.phone, input.now, settings);
+    await guardSend(c, venueId, input.phone, input.now, settings, { carrierReply: true });
   } catch (e) {
     if (e instanceof ApiError) return;
     throw e;
   }
   await queueOutbound(c, venueId, {
+    carrierReply: true,
     conversationId: input.conversationId,
     templateId: null,
     category: "service",
@@ -276,6 +278,11 @@ export async function sendReply(
 ): Promise<string> {
   const conversation = await conversationById(c, venueId, conversationId);
   if (!conversation) throw new ApiError("not_found", "no such conversation");
+  // Staff replies switched off, or texting itself (D124): Messages takes no reply.
+  if (!(await textingAllows(c, venueId, "staffReplies")))
+    throw new ApiError("invalid_request", "staff replies are off at this venue", {
+      details: { reason: "texting_off" },
+    });
   const lastIn = conversation.last_inbound_at
     ? Temporal.Instant.from(conversation.last_inbound_at)
     : null;

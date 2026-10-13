@@ -295,6 +295,7 @@ export function songRoutes(
             request.venueId!,
             options.texts ?? LOCAL_TEXTS,
             b.phone_e164,
+            "singerCode",
           ),
         }),
       );

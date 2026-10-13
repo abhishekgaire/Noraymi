@@ -182,7 +182,7 @@ export function teamRoutes(
     if (
       row.phone_e164 &&
       row.phone_verified_at &&
-      (await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, row.phone_e164))
+      (await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, row.phone_e164, "staffCodes"))
     ) {
       await enqueueText(c, {
         venueId,
@@ -264,7 +264,13 @@ export function teamRoutes(
         // An invite is texted only from the venue's own live texts (T-03; D123).
         const textable =
           !!body.phone_e164 &&
-          (await textsLive(c, venueId, options.texts ?? LOCAL_TEXTS, body.phone_e164));
+          (await textsLive(
+            c,
+            venueId,
+            options.texts ?? LOCAL_TEXTS,
+            body.phone_e164,
+            "staffCodes",
+          ));
         if (body.phone_e164 && !textable && !body.email)
           throw new ApiError(
             "invalid_request",
