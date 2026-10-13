@@ -400,11 +400,23 @@ async function boardAlerts(
     [venueId],
   );
   let managerName: string | null | undefined;
+  // Whether the manager on duty has a paired phone (D126): with none (a venue on its bar computers
+  // alone) a push went nowhere, so the board doesn't say the manager was told; the bar computer's
+  // alarm and this banner are the alert.
+  let managerPhone = false;
   for (const o of waitingOrders.rows) {
     const age = secondsSince(o.placed_at, now);
     if (age < aging.amberSec) continue;
     if (managerName === undefined && o.escalation_level >= 3) {
       const m = await managerOnDutyAt(c, venueId, now);
+      managerPhone = m
+        ? ((
+            await c.query(
+              "select 1 from devices where venue_id = $1 and kind = 'staff_phone' and user_id = $2 and revoked_at is null",
+              [venueId, m],
+            )
+          ).rowCount ?? 0) > 0
+        : false;
       managerName = m
         ? ((
             await c.query<{ name: string }>(
@@ -427,9 +439,9 @@ async function boardAlerts(
       told:
         o.manager_told === "text"
           ? "texted"
-          : o.manager_told === "push"
+          : o.manager_told === "push" && managerPhone
             ? "pushed"
-            : o.escalation_level >= 3
+            : o.escalation_level >= 3 && managerPhone
               ? "phone"
               : null,
       manager: managerName ?? null,

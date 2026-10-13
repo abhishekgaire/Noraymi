@@ -213,7 +213,7 @@ export const modules: readonly ModuleDef[] = [
     phase1: true,
     needs: [],
     hides: {
-      staffApp: ["board.managerNeeded", "board.headcount", "doorCounter", "idScans"],
+      staffApp: ["board.managerNeeded", "board.headcount", "doorCounter", "idScans", "incidentLog"],
       staffPhone: ["incidentLog"],
       website: ["roomPage.helpLink"],
       texts: [],

@@ -67,6 +67,17 @@ export const menu: readonly MenuEntry[] = [
     action: "texts.send",
     shipped: true,
   },
+  // Tips to enter and Clock in and out (D126): the phone's tabs on the desktop too, so a venue on its
+  // bar computers alone needs no staff phone.
+  {
+    id: "tips",
+    labelKey: "tips.title",
+    path: "/tips",
+    screen: "tipsToEnter",
+    action: "pos.use",
+    shipped: true,
+  },
+  { id: "clock", labelKey: "tabs.clock", path: "/clock", screen: "timeClock", shipped: true },
   {
     id: "reports",
     labelKey: "menu.reports",
@@ -80,6 +91,15 @@ export const menu: readonly MenuEntry[] = [
     labelKey: "menu.closeNight",
     path: "/close-the-night",
     screen: "closeTheNight",
+    action: "night.close",
+    shipped: true,
+  },
+  // The incident log (D126), for owners and managers, while Safety & ID records is on.
+  {
+    id: "incidents",
+    labelKey: "tabs.incidents",
+    path: "/incidents",
+    screen: "incidentLog",
     action: "night.close",
     shipped: true,
   },

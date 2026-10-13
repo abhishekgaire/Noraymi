@@ -31,3 +31,17 @@ Readers are registered with their pairing code from the reader's screen in Admin
 5. **Cellular:** run the cellular signal check (`cellular-check.md`) at a busy hour.
 
 Record who did each check and when in the same gate file.
+
+## A venue on its bar computers alone (Sing Sing, D126)
+
+Sing Sing starts the way it works today: on its bar computers, with no staff phones, room tablets, badge readers or Up next TV ([D126](../decisions.md)). Its set:
+
+| Where | What | Notes |
+| --- | --- | --- |
+| Each bar computer | The desktop app (bar POS, bar orders, the board), paired in Admin → Printers & devices | Staff sign in with their name and PIN; no badges |
+| Each bar computer | A receipt printer with a cash drawer on its kick port | The front-desk station's printer prints the room QR slips (F-07) |
+| Kitchen | A kitchen network printer (Star CloudPRNT or Epson Server Direct Print), station `kitchen` | Needed while Kitchen & food is on |
+| Pay points | Card readers as the venue chooses: Stripe S710s, or its own outside card machine recorded in the app (F-10), or both | Sing Sing starts with both |
+| Venue | The router with its backup internet | As above |
+
+`devices:check` follows the venue's switches: with Room tablets off it doesn't ask for tablets ("not used: Room tablets is off"), with Bar mode off it doesn't ask for the Up next TV, with no badges issued it doesn't ask for badge readers ("staff sign in with their PIN"), and with Kitchen & food on it asks for an online kitchen printer. Nothing on a bar-computers-only night needs a staff phone: approvals go by a manager's PIN at the register, the order-waiting alert is the bar computer's alarm and banner, and Clock in and out, Tips to enter and Incidents are in the desktop's side menu. Phones, tablets and badges can be added later.

@@ -11,10 +11,9 @@ import { hiddenScreens, homeFor, menu, phoneTabs, visibleMenu } from "./navigati
 
 const allowedFor = (role: Role): Action[] => actions.filter((a) => defaultPermissions[a][role]);
 const everythingOn: ModuleStates = Object.fromEntries(
-  ["rooms", "bar_screen", "bar_tabs", "bar_mode", "guest_texts", "reports", "team"].map((id) => [
-    id,
-    "on",
-  ]),
+  ["rooms", "bar_screen", "bar_tabs", "bar_mode", "guest_texts", "reports", "team", "safety"].map(
+    (id) => [id, "on"],
+  ),
 ) as ModuleStates;
 
 describe("the side menu", () => {
@@ -26,8 +25,11 @@ describe("the side menu", () => {
       "songQueue",
       "calendar",
       "messages",
+      "tips",
+      "clock",
       "reports",
       "closeNight",
+      "incidents",
       "admin",
       "lock",
     ]);
@@ -53,6 +55,8 @@ describe("the side menu", () => {
       "songQueue",
       "calendar",
       "messages",
+      "tips",
+      "clock",
       "lock",
     ]);
   });

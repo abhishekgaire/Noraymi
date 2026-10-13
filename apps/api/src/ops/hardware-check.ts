@@ -1,4 +1,12 @@
-import { listDevices, stationOf, venueReaders, type Queryable } from "@west4/db";
+import {
+  listDevices,
+  stationOf,
+  statesOf,
+  venueModules,
+  venueReaders,
+  type Queryable,
+} from "@west4/db";
+import { stateOf } from "@west4/shared";
 import { deviceHealth } from "../console/routes.js";
 
 /**
@@ -65,6 +73,20 @@ export async function hardwareEvidence(c: Queryable, venueId: string): Promise<H
     [venueId],
   );
 
+  // What the venue runs (D126): a venue on its bar computers alone has no room tablets, no Up next
+  // TV and no badges, so the check doesn't ask for them; a venue with a kitchen needs its printer.
+  const on = statesOf(await venueModules(c, venueId));
+  const tabletsOn = stateOf(on, "room_tablets") !== "off";
+  const tvOn = stateOf(on, "bar_mode") !== "off";
+  const kitchenOn = stateOf(on, "kitchen") !== "off";
+  const badges =
+    (
+      await c.query<{ n: number }>(
+        "select count(*)::int as n from staff_badges where venue_id = $1 and disabled_at is null",
+        [venueId],
+      )
+    ).rows[0]?.n ?? 0;
+
   const lines: HardwareLine[] = [];
   for (const s of STATIONS) {
     const r = readers.find((x) => stationOf(x.station, x.name) === s.station);
@@ -94,8 +116,13 @@ export async function hardwareEvidence(c: Queryable, venueId: string): Promise<H
     const nfc = hosts.rows.find((h) => h.kind === s.computer)?.nfc ?? 0;
     lines.push({
       what: `${s.name} badge reader`,
-      ok: nfc > 0,
-      detail: nfc > 0 ? "USB badge reader on the computer" : "no USB badge reader on the computer",
+      ok: nfc > 0 || badges === 0,
+      detail:
+        nfc > 0
+          ? "USB badge reader on the computer"
+          : badges === 0
+            ? "not used: no badges issued, staff sign in with their PIN"
+            : "no USB badge reader on the computer",
     });
   }
 
@@ -108,22 +135,44 @@ export async function hardwareEvidence(c: Queryable, venueId: string): Promise<H
     else if (!mine[0]!.online && !room.out_of_service) tabletProblems.push(`${room.name}: offline`);
   }
   const outOfService = rooms.rows.filter((r) => r.out_of_service).map((r) => r.name);
-  lines.push({
-    what: "Room tablets",
-    ok: tabletProblems.length === 0,
-    detail:
-      tabletProblems.length > 0
-        ? tabletProblems.join("; ")
-        : `one per room, ${rooms.rows.length} rooms` +
-          (outOfService.length > 0 ? ` (out of service: ${outOfService.join(", ")})` : ""),
-  });
+  lines.push(
+    tabletsOn
+      ? {
+          what: "Room tablets",
+          ok: tabletProblems.length === 0,
+          detail:
+            tabletProblems.length > 0
+              ? tabletProblems.join("; ")
+              : `one per room, ${rooms.rows.length} rooms` +
+                (outOfService.length > 0 ? ` (out of service: ${outOfService.join(", ")})` : ""),
+        }
+      : { what: "Room tablets", ok: true, detail: "not used: Room tablets is off" },
+  );
 
   const tv = live.find((d) => d.kind === "up_next_display");
-  lines.push({
-    what: "Up next TV",
-    ok: !!tv?.online,
-    detail: !tv ? "not paired" : tv.online ? `${tv.name}, online` : `${tv.name}, offline`,
-  });
+  lines.push(
+    tvOn
+      ? {
+          what: "Up next TV",
+          ok: !!tv?.online,
+          detail: !tv ? "not paired" : tv.online ? `${tv.name}, online` : `${tv.name}, offline`,
+        }
+      : { what: "Up next TV", ok: true, detail: "not used: Bar mode is off" },
+  );
+
+  if (kitchenOn) {
+    const kitchen = live.filter((d) => d.kind === "printer" && d.station === "kitchen");
+    lines.push({
+      what: "Kitchen printer",
+      ok: kitchen.some((p) => p.online),
+      detail:
+        kitchen.length === 0
+          ? "no kitchen printer paired"
+          : kitchen.some((p) => p.online)
+            ? `${kitchen.find((p) => p.online)!.name}, online`
+            : `${kitchen[0]!.name}, offline`,
+    });
+  }
 
   const health = deviceHealth(devices);
   lines.push({

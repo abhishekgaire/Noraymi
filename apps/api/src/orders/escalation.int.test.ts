@@ -179,6 +179,22 @@ describe("escalating an order nobody accepts", () => {
     await raw.query("delete from venue_settings where key = 'texting' and version = 99");
   });
 
+  it("on bar computers alone (no phone paired for the manager), the board doesn't say he was told (D126)", async () => {
+    await raw.query(
+      "update devices set revoked_at = now() where kind = 'staff_phone' and user_id = $1 and revoked_at is null returning id",
+      [ids["andy"]],
+    );
+    clock.set(at("23:30:00"));
+    const order = await placeAt(at("23:30:00"));
+    clock.set(at("23:35:00"));
+    await sweepEscalations(pool, clock.now());
+    expect(await orderAlert(order)).toMatchObject({ color: "pink", told: null });
+    await raw.query(
+      "update devices set revoked_at = null where kind = 'staff_phone' and user_id = $1",
+      [ids["andy"]],
+    );
+  });
+
   it("an asked-to-wait order keeps escalating, and Accept stops everything", async () => {
     clock.set(at("22:50:00"));
     const order = await placeAt(at("22:50:00"));

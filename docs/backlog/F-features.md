@@ -197,7 +197,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-09 · Sing Sing on its bar computers alone
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** F-04, F-08
 - **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md); [D126](../decisions.md)
@@ -206,9 +206,13 @@ Definition of done: see CLAUDE.md.
   - Nothing requires a staff phone: approvals (by Manager's PIN at the register, F-04), the order-waiting alert (the bar computer's alarm and banner; with no phone paired the push has nowhere to go and the board says so), the time clock, Close the night, Send to kitchen, tip entry and the incident log each work on the desktop or bar POS; any job only a phone screen does is listed in Notes as a gap.
   - Sing Sing's set in `docs/venues/sing-sing/venue.md`, `scripts/demo-sing-sing.mjs`, `docs/runbooks/hardware-install.md` and `devices:check`: bar computers with the desktop app, a receipt printer and drawer on each, a kitchen network printer, card readers as F-10 allows (none required while the outside card machine is on); no tablets, badge readers or Up next TV, so `devices:check` doesn't ask for them.
 - **Acceptance:**
-  - [ ] `devices:check` passes Sing Sing's set without phones, tablets, badge readers or a TV.
-  - [ ] Each job above is done on the desktop in a test, or named as a gap in Notes.
+  - [x] `devices:check` passes Sing Sing's set without phones, tablets, badge readers or a TV.
+  - [x] Each job above is done on the desktop in a test, or named as a gap in Notes.
 - **Notes:**
+  - The jobs, on the desktop: approvals by **Manager's PIN at the register** (F-04, Sing Sing's choice); the order-waiting alert is the bar computer's alarm and the bar orders banner, and the board no longer says "on Andy's phone" or "sent to Andy's phone" when the manager on duty has no paired phone (`rooms/board.ts`); **Tips to enter**, **Clock in and out** and **Incidents** (owners and managers, while Safety is on) are now in the desktop side menu (`navigation.ts`; spec 10 rule 1); Close the night, Send to kitchen and the bar POS were already desktop screens.
+  - `devices:check` (`ops/hardware-check.ts`) follows the switches: Room tablets off, Bar mode off (no Up next TV) and no badges issued each read "not used", and Kitchen & food on asks for an online kitchen printer. Sing Sing's set is in `hardware-install.md` and step 12 of `venue.md`; the demo script already pairs no tablets, TV or badges. Card readers per F-10.
+  - Gaps noted, not built: the **Runs** screen (a runner's I've got it / Delivered) is a phone screen; on bar computers alone the bar orders screen's own Delivered is the way. The **Approvals** inbox is a phone screen; with PIN approvals it isn't needed. Phone push **Alerts** need a phone by nature.
+  - Tests: `ops/hardware-check.int.test.ts` (Sing Sing's set), `orders/escalation.int.test.ts` (no phone, no "told"), `navigation.test.ts`; the Tips to enter and Help alert e2e tests still pass.
 
 ### F-10 · Paid on an outside card machine
 

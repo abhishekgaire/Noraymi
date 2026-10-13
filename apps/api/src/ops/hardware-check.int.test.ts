@@ -92,4 +92,40 @@ describe("the device check (M9-07)", () => {
       "Not ready: fix every line marked Not yet.",
     );
   });
+
+  it("a venue on its bar computers alone (D126) isn't asked for tablets, a TV or badge readers", async () => {
+    // Room tablets and Bar mode off, no badges issued and no badge readers, the kitchen on with
+    // a kitchen network printer: Sing Sing's set.
+    for (const [id, state] of [
+      ["room_tablets", "off"],
+      ["bar_mode", "off"],
+      ["kitchen", "on"],
+    ] as const)
+      await owner.query(
+        `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, $2, true, $3)
+         on conflict (venue_id, module_id) do update set state = excluded.state, allowed = true`,
+        [venueId, id, state],
+      );
+    await owner.query("update staff_badges set disabled_at = now() where venue_id = $1", [venueId]);
+    await owner.query(
+      "update devices set revoked_at = now() where venue_id = $1 and kind in ('nfc_reader', 'room_tablet')",
+      [venueId],
+    );
+    const e = await check();
+    const line = (what: string) => e.lines.find((l) => l.what === what);
+    expect(line("Room tablets")).toEqual({
+      what: "Room tablets",
+      ok: true,
+      detail: "not used: Room tablets is off",
+    });
+    expect(line("Up next TV")).toMatchObject({ ok: true, detail: "not used: Bar mode is off" });
+    expect(line("Bar badge reader")).toMatchObject({
+      ok: true,
+      detail: "not used: no badges issued, staff sign in with their PIN",
+    });
+    expect(line("Kitchen printer")).toMatchObject({
+      ok: false,
+      detail: "no kitchen printer paired",
+    });
+  });
 });
