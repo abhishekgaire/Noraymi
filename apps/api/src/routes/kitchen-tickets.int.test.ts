@@ -211,7 +211,7 @@ afterAll(async () => {
 });
 
 describe("kitchen tickets (K-03)", () => {
-  it("refuses a USB printer for the kitchen, at the route and in the database", async () => {
+  it("a printer on a computer isn't added by hand, but may be the kitchen's (W-03)", async () => {
     who = as("abhishek", "owner", "passkey");
     const r = await staff("POST", "/printers", {
       name: "TEST USB",
@@ -219,13 +219,13 @@ describe("kitchen tickets (K-03)", () => {
       protocol: "usb",
     });
     expect(r.statusCode).toBe(400);
-    expect(r.json().error.message).toMatch(/network printer/);
-    await expect(
-      raw.query(
-        "insert into devices (venue_id, kind, name, station, protocol) values ($1, 'printer', 'TEST USB', 'kitchen', 'usb')",
-        [venueId],
-      ),
-    ).rejects.toThrow(/devices_kitchen_network_printer_check/);
+    expect(r.json().error.message).toMatch(/shows up by itself/);
+    // The database takes a kitchen printer cabled to a computer (D127); this one is revoked again.
+    const made = await raw.query<{ id: string }>(
+      "insert into devices (venue_id, kind, name, station, protocol, revoked_at) values ($1, 'printer', 'TEST USB', 'kitchen', 'usb', now()) returning id",
+      [venueId],
+    );
+    expect(made.rows).toHaveLength(1);
   });
 
   it("a mixed basket prints one bar ticket and one kitchen ticket: notes, the allergy boxed and bold, no prices", async () => {

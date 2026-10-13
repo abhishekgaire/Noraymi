@@ -69,7 +69,7 @@ Definition of done: see CLAUDE.md.
 
 ### W-03 · The kitchen printer cabled to a bar computer
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** W-01
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md) · Kitchen tickets; [D127](../decisions.md)
@@ -78,10 +78,14 @@ Definition of done: see CLAUDE.md.
   - The kitchen's printer may be cabled to a bar computer (any brand); the database's "kitchen printer must be a cloud printer" rule is replaced. Kitchen & food counts it as the kitchen printer.
   - Kitchen jobs go to whichever host has the kitchen printer attached, through the same claim and confirm; with that computer off, or the printer not answering, the job fails and "Kitchen ticket didn't print · Reprint" shows, and the manager on duty is told as before.
 - **Acceptance:**
-  - [ ] A bar computer's second printer set to kitchen takes the kitchen's tickets and no bar tickets; its bar printer takes no kitchen tickets.
-  - [ ] With nobody claiming a kitchen ticket, it fails after three polls and shows on the bar's list.
-  - [ ] A kitchen printer on USB satisfies Kitchen & food's "needs a kitchen printer".
+  - [x] A bar computer's second printer set to kitchen takes the kitchen's tickets and no bar tickets; its bar printer takes no kitchen tickets.
+  - [x] With nobody claiming a kitchen ticket, it fails after three polls and shows on the bar's list.
+  - [x] A kitchen printer on USB satisfies Kitchen & food's "needs a kitchen printer".
 - **Notes:**
+  - Migration 0153 drops K-03's `devices_kitchen_network_printer_check`; Kitchen & food counts any printer on the kitchen station. Admin → Printers & devices shows a station picker on every printer cabled to a computer. Adding a "usb" printer by hand is refused with a hint (the computer reports it by itself).
+  - The kitchen printer cabled to a bar computer uses the existing claim and confirm and the existing print watch, so a kitchen ticket with that computer off fails after three polls and tells the bar and the manager on duty (K-03), and Reprint goes back to it.
+  - The station picker in Admin, the route that sets it and the two-printer test landed in W-02's commit (the same screen and route as the command set); this commit is the database rule and Kitchen & food.
+  - USB-to-serial: a printer on a serial (COM) port shows only if `WEST4_WINDOWS_PRINTERS` names its Windows queue (W-01 lists USB ports by default).
 
 ### W-04 · A network printer on the venue's LAN, printed by a bar computer
 
