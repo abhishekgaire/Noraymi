@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { API } from "./stack.js";
+import { API, wipeDemoFlag } from "./stack.js";
 
 /**
  * The one Friday night every spec shares (M1-17). The simulated clock lives in
@@ -14,7 +14,7 @@ import { API } from "./stack.js";
  * packages/db, and a rebuilt dist restarts the API under `tsx watch` mid-test (ECONNREFUSED).
  * `pnpm e2e` builds everything once before the run, and the global setup uses `pnpm seed`.
  */
-export const SEED_COMMAND = "node packages/db/dist/cli.js seed";
+export const SEED_COMMAND = `node packages/db/dist/cli.js seed${wipeDemoFlag()}`;
 
 export const SEED_INSTANT = "2026-09-26T02:41:00Z"; // Fri Sep 25, 2026, 10:41 PM in New York
 

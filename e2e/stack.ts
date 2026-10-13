@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 /**
  * Where the browser tests find each server and the database: one module, so
  * no spec hard-codes a port.
@@ -78,4 +80,25 @@ if (isolated) {
 /** A string made safe to put inside a RegExp. */
 export function esc(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
+
+/**
+ * The seed refuses `west4` while an API answers on :3000 (packages/db/src/demo-guard.ts). That API
+ * is this run's own unless scripts/demo-start.sh is running (its pid marker is live): then the
+ * refusal stands and the founder's demo night is kept (use `pnpm e2e:isolated` beside it).
+ */
+export function demoRunning(): boolean {
+  try {
+    const pid = Number(readFileSync(".demo-logs/demo.pid", "utf8").trim());
+    if (!Number.isInteger(pid) || pid <= 0) return false;
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** What a seed command adds so it may reseed this run's own `west4` (nothing while the demo runs). */
+export function wipeDemoFlag(): string {
+  return demoRunning() ? "" : " --yes-wipe-demo";
 }
