@@ -138,7 +138,7 @@ Definition of done: see CLAUDE.md.
 
 ### F-06 · Every booking is emailed to the guest
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M5 bookings, M1-18
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Booking emails; [D124](../decisions.md)
@@ -147,9 +147,12 @@ Definition of done: see CLAUDE.md.
   - Sent when a booking is confirmed (online or a deposit paid by link), changed on the manage page or by staff, and cancelled by the guest or the venue; whenever the booking has an email. Texts are unchanged and still follow their switches.
   - The online booking form already requires an email; its line reads "We email your confirmation and text your reminders" (texts only when texting is on).
 - **Acceptance:**
-  - [ ] Confirm, change and cancel each send one email to the guest with a working manage link; the booking inbox copy still goes.
-  - [ ] With texting off the email still goes.
+  - [x] Confirm, change and cancel each send one email to the guest with a working manage link; the booking inbox copy still goes.
+  - [x] With texting off the email still goes.
 - **Notes:**
+  - Built: `bookings/guest-email.ts` (job `booking.guestEmail`, once per confirmation and cancellation, once per moment for a change) and the email template `booking_guest` (`email/templates.ts`, EN and ES from the guest's own language): the venue, when, room time, guests, the deposit paid, "Free to cancel until …" while it still is, its own manage link (`booking_links.purpose = 'email'`, migration 0153, so the confirmation text's "sent once" check isn't fooled) and the venue's phone; never card data. Queued from `settleDeposit` (online and payment-link bookings), a staff booking confirmed at once, `changeBooking`, `guestCancels` and `venueCancels`. No email means none is sent; texting's switches don't touch it.
+  - The booking form already required an email; its line now reads "We email your confirmation and text your reminders to this number." The confirmed page and the payment page say the confirmation was emailed (they no longer promise a text, which may be switched off).
+  - Tests: `bookings/guest-email.int.test.ts` (confirmed through `settleDeposit` with texting off, the link opens the booking, once only; changed and cancelled in Spanish; no email, nothing; the rendered copy), the job wall suite (a case for the new job), and the booking e2e tests' new wording.
 
 ### F-07 · The room's join QR is printed when a room starts, and reprinted on demand
 

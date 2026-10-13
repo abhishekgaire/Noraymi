@@ -39,6 +39,25 @@ export const bookingInboxData = z
   })
   .strict();
 
+/**
+ * The guest's own copy of their booking (F-06; D124): confirmed, changed or cancelled, with a manage
+ * link of its own. Never card data: the deposit is an amount, the rest is the booking's facts.
+ */
+export const bookingGuestData = z
+  .object({
+    venueName: z.string().min(1),
+    event: z.enum(["confirmed", "changed", "cancelled"]),
+    guestName: z.string().min(1),
+    partySize: z.number().int().positive(),
+    when: z.string().min(1),
+    minutes: z.number().int().positive(),
+    depositCents: z.number().int().positive().nullable(),
+    freeCancelUntil: z.string().min(1).nullable(),
+    manageUrl: z.string().url(),
+    venuePhone: z.string().min(1).nullable(),
+  })
+  .strict();
+
 /** The one-time code for the authenticator-app sign-in and the first enrollment (M1-19). */
 export const signInCodeData = z
   .object({
@@ -171,6 +190,7 @@ export const templateSchemas = {
   invite: inviteData,
   owner_invite: ownerInviteData,
   booking_inbox: bookingInboxData,
+  booking_guest: bookingGuestData,
   sign_in_code: signInCodeData,
   owner_recovery_notice: ownerRecoveryNoticeData,
   receipt: receiptData,
@@ -286,6 +306,56 @@ export function render<N extends TemplateName>(
       const html = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n");
       return {
         subject: line(`email.bookingInbox.${event}.subject` as MessageKey),
+        text: paragraphs.join("\n\n"),
+        html,
+      };
+    }
+    case "booking_guest": {
+      const d = data as TemplateData<"booking_guest">;
+      const hours = Math.floor(d.minutes / 60);
+      const mins = d.minutes % 60;
+      const values = {
+        venue: d.venueName,
+        name: d.guestName,
+        party: d.partySize,
+        when: d.when,
+        length:
+          mins === 0
+            ? fill(t(locale, "email.bookingGuest.hours"), { hours })
+            : fill(t(locale, "email.bookingGuest.hoursMinutes"), { hours, minutes: mins }),
+        deposit: d.depositCents === null ? "" : formatMoney(locale, cents(d.depositCents)),
+        until: d.freeCancelUntil ?? "",
+        phone: d.venuePhone ?? "",
+        url: d.manageUrl,
+      };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const event = d.event as "confirmed" | "changed" | "cancelled";
+      const paragraphs = [
+        line("email.bookingGuest.greeting"),
+        line(`email.bookingGuest.${event}.body` as MessageKey),
+        line("email.bookingGuest.when"),
+        line("email.bookingGuest.length"),
+        line("email.bookingGuest.party"),
+        ...(d.depositCents !== null && event !== "cancelled"
+          ? [line("email.bookingGuest.deposit")]
+          : []),
+        ...(d.freeCancelUntil ? [line("email.bookingGuest.freeCancel")] : []),
+        `${line(event === "cancelled" ? "email.bookingGuest.see" : "email.bookingGuest.manage")}: ${d.manageUrl}`,
+        ...(d.venuePhone ? [line("email.bookingGuest.phone")] : []),
+        line("email.footer"),
+      ];
+      const linkText = line(
+        event === "cancelled" ? "email.bookingGuest.see" : "email.bookingGuest.manage",
+      );
+      const html = paragraphs
+        .map((p) =>
+          p.endsWith(d.manageUrl) && p.startsWith(linkText)
+            ? `<p><a href="${escapeHtml(d.manageUrl)}">${escapeHtml(linkText)}</a></p>`
+            : `<p>${escapeHtml(p)}</p>`,
+        )
+        .join("\n");
+      return {
+        subject: line(`email.bookingGuest.${event}.subject` as MessageKey),
         text: paragraphs.join("\n\n"),
         html,
       };

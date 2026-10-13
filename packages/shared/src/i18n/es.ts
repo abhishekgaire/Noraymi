@@ -1796,7 +1796,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "payPage.cardHoldTitle": "Guarda tu tarjeta",
   "payPage.saveCard": "Guardar la tarjeta · no se cobra nada ahora",
   "payPage.booked":
-    "Reserva confirmada · te enviamos la confirmación y un enlace para administrar tu reserva.",
+    "Reservado · te enviamos por correo la confirmación y un enlace para gestionar tu reserva.",
   "yourBill.title": "Tu cuenta · #{number}",
   "yourBill.revision": "Revisión {n}",
   "yourBill.roomTime": "Tiempo de sala",
@@ -2289,7 +2289,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.book.mobile": "Número de celular",
   "site.book.email": "Correo electrónico",
   "site.book.textsLine":
-    "Te enviamos la confirmación y los recordatorios por mensaje de texto a este número.",
+    "Te enviamos la confirmación por correo y los recordatorios por mensaje de texto a este número.",
   "site.book.marketingBox":
     "Envíenme también noticias y ofertas de {venue} por mensaje de texto. Es opcional y no hace falta para esta reserva. Responde STOP cuando quieras.",
   "site.book.saveDetails": "Continuar",
@@ -2304,7 +2304,6 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "site.book.confirmedWhat": "{tier} · {when}",
   "site.book.depositPaid": "Depósito de {amount} pagado · se descuenta de tu cuenta",
   "site.book.gratuityLine": "Se agrega una propina del {pct}% a las cuentas de las salas.",
-  "site.book.textSent": "Te enviamos la confirmación por mensaje de texto al {phone}.",
   "site.book.manage": "Administrar tu reserva",
   "manage.title": "Tu reserva",
   "manage.heldUntil":
@@ -3917,4 +3916,23 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Todo lo que incluye tu plan empieza activado. Apaga lo que no uses; puedes cambiarlo cuando quieras en Admin → Funciones.",
   "onboarding.features.summary": "{count} funciones activas",
   "features.choices.ticketsLater": "Se elige en Admin → TPV de barra cuando se guarden sus ajustes",
+  "email.bookingGuest.confirmed.subject": "Reserva confirmada en {venue} · {when}",
+  "email.bookingGuest.changed.subject": "Tu reserva en {venue} cambió · {when}",
+  "email.bookingGuest.cancelled.subject": "Tu reserva en {venue} está cancelada",
+  "email.bookingGuest.greeting": "Hola, {name}:",
+  "email.bookingGuest.confirmed.body": "Tu sala en {venue} está reservada.",
+  "email.bookingGuest.changed.body": "Tu reserva en {venue} cambió. Así queda ahora.",
+  "email.bookingGuest.cancelled.body": "Tu reserva en {venue} está cancelada.",
+  "email.bookingGuest.when": "Cuándo: {when}",
+  "email.bookingGuest.length": "Tiempo de sala: {length}",
+  "email.bookingGuest.hours": "{hours} h",
+  "email.bookingGuest.hoursMinutes": "{hours} h {minutes} min",
+  "email.bookingGuest.party": "Personas: {party}",
+  "email.bookingGuest.deposit": "Depósito pagado: {deposit}. Se descuenta de tu cuenta.",
+  "email.bookingGuest.freeCancel": "Puedes cancelar sin cargo hasta el {until}.",
+  "email.bookingGuest.manage": "Ver, cambiar o cancelar tu reserva",
+  "email.bookingGuest.see": "Ver tu reserva",
+  "email.bookingGuest.phone": "¿Preguntas? Llámanos al {phone}.",
+  "site.book.emailSent":
+    "Te enviamos la confirmación por correo, con un enlace para gestionar tu reserva.",
 };

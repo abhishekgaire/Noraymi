@@ -19,6 +19,7 @@ import { venueClock } from "../rooms/assignment.js";
 import { clockWords } from "../texts/triggers.js";
 import { queueText } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
+import { emailGuestAboutBooking } from "./guest-email.js";
 
 /**
  * Confirming a booking (M5-10; Payment flows · Deposit when booking online,
@@ -168,6 +169,8 @@ export async function settleDeposit(
   });
   // The booking inbox gets a copy of each new online booking (O-03).
   await copyToBookingInbox(c, { venueId, event: "new", refId: b.id, runAt: now });
+  // And the guest gets their own email, with a manage link (F-06; D124).
+  await emailGuestAboutBooking(c, { venueId, event: "confirmed", bookingId: b.id, runAt: now });
   await emitEvent(c, { venueId, type: "booking.updated", entityId: b.id });
   return "confirmed";
 }

@@ -1313,7 +1313,7 @@ test("Book: Jae's details, the marketing box and the terms", async ({ page }) =>
     await page.getByRole("button", { name: "Hold 11 PM EDT" }).click();
     await expect(page.getByRole("heading", { name: "Your details" })).toBeVisible();
     await expect(
-      page.getByText("We text your confirmation and reminders to this number."),
+      page.getByText("We email your confirmation and text your reminders to this number."),
     ).toBeVisible();
     const box = page.getByRole("checkbox", { name: /Also text me news and offers from West 4/ });
     await expect(box).not.toBeChecked();
@@ -1391,7 +1391,9 @@ test("Book: Jae pays the $50.00 deposit on the payment page and is booked", asyn
   await expect(confirmed).toContainText("Deposit $50.00 paid · it comes off your bill");
   await expect(confirmed).toContainText("Free to cancel until Thu, Oct 1 11:00 PM");
   await expect(confirmed).toContainText("A 20% gratuity is added to room tabs.");
-  await expect(confirmed).toContainText("We texted your confirmation to (212) 555-0188.");
+  await expect(confirmed).toContainText(
+    "We emailed your confirmation, with a link to manage your booking.",
+  );
   await expect(page.getByRole("link", { name: "Manage your booking" })).toHaveAttribute(
     "href",
     /^\/b\/[A-Za-z0-9_-]{22}$/,

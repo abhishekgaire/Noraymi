@@ -25,6 +25,7 @@ import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
 import { noShowFrom } from "../rooms/checkin.js";
 import { sendPaymentLink } from "../bookings/payment-link.js";
 import { bookingDepositRule } from "../bookings/deposit-rule.js";
+import { emailGuestAboutBooking } from "../bookings/guest-email.js";
 
 /**
  * Staff bookings (M2-06; spec 04 · bookings, Room assignment; spec 08 · Bookings):
@@ -379,6 +380,14 @@ export function bookingsRoutes(
           id,
         ]);
         await emitEvent(c, { venueId, type: "booking.updated", entityId: id, entityVersion: 0 });
+        // A staff booking that's confirmed at once is emailed to the guest when it has an email (F-06).
+        if (status === "confirmed")
+          await emailGuestAboutBooking(c, {
+            venueId,
+            event: "confirmed",
+            bookingId: id,
+            runAt: options.clock.now(),
+          });
         return bookingById(c, venueId, id);
       });
       return reply.code(201).send({ booking });

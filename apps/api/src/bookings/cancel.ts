@@ -30,6 +30,7 @@ import { REFUND_RUN_KIND } from "../payments/refunds.js";
 import { enqueueRun } from "../payments/run.js";
 import { settleCheck } from "../rooms/present.js";
 import { venueClock } from "../rooms/assignment.js";
+import { emailGuestAboutBooking } from "./guest-email.js";
 
 /**
  * Cancelling, no-shows and the venue cancelling (M5-12; Payment flows ·
@@ -331,6 +332,7 @@ export async function guestCancels(
   await emitEvent(c, { venueId, type: "booking.updated", entityId: b.id, entityVersion: 0 });
   // The booking inbox gets a copy of the guest's cancellation (O-03).
   await copyToBookingInbox(c, { venueId, event: "cancelled", refId: b.id, runAt: now });
+  await emailGuestAboutBooking(c, { venueId, event: "cancelled", bookingId: b.id, runAt: now });
   return outcome;
 }
 
@@ -362,6 +364,8 @@ export async function venueCancels(
     [venueId, b.id, userId],
   );
   await emitEvent(c, { venueId, type: "booking.updated", entityId: b.id, entityVersion: 0 });
+  // The guest learns of the venue's cancellation by email too (F-06; D124).
+  await emailGuestAboutBooking(c, { venueId, event: "cancelled", bookingId: b.id, runAt: now });
   return { refundCents: sent.refundedCents, manualCents: sent.manualCents };
 }
 

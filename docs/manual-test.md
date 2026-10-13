@@ -977,8 +977,8 @@ There's no button for it. Switch your Mac's appearance: **System Settings → Ap
 4. 3 guests on a Friday: "Fri & Sat bill at least 4 · you pay for 4", $40 deposit.
 5. "**Your details**": the marketing box ("Also text me news… Reply STOP anytime.") starts unticked. A non-US number is refused: "Check your name, your email and a US mobile number (+1)." Press **Continue**.
 6. On the payment page, try **Try a declined test card** first: "Your card was declined · try another card". Then press **Pay $50.00 deposit**.
-7. You should see "**Booked · we texted your confirmation and a link to manage your booking.**", with "Free to cancel until …" and $50 paid.
-8. The confirmation text ("Booking confirmed", with the `/b/…` manage link) is in Messages. The guest gets **no email**; that's by design.
+7. You should see "**Booked · we emailed your confirmation and a link to manage your booking.**", with "Free to cancel until …" and $50 paid.
+8. The guest's email (D124) is at http://localhost:8025: "**Booked at West 4 Boho Karaoke · …**" with the time, room time, guests, "Deposit paid: $50.00", "Free to cancel until …" and **See, change or cancel your booking** (its own `/b/…` link, which opens the booking). The confirmation text ("Booking confirmed", with its manage link) is in Messages too while texting is on. Changing the booking (12.4) sends "**Your booking at … changed**", and cancelling sends "**Your booking at … is cancelled**".
    - The venue can get an email copy of each online booking: as Abhishek, **Admin → Venue → Booking inbox → Add an address**, type `bookings@west4.local` and press **Save**. Book again: an email "**New booking · {name}, {party} guests, {when}**" ("{name} booked online at West 4 Boho Karaoke.") arrives at http://localhost:8025. Changes, cancellations and party enquiries send a copy too.
 9. If the hold runs out: "Your hold ran out, and the room went back on sale." / **Pick a time again**.
 10. In a second window, try to hold the same overlapping time: refused while the first hold lives.

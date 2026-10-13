@@ -55,6 +55,15 @@ export const emailJobPayload = z.discriminatedUnion("template", [
       data: templateSchemas.booking_inbox,
     })
     .strict(),
+  // The guest's own copy of their booking (F-06; D124).
+  z
+    .object({
+      template: z.literal("booking_guest"),
+      to: z.string().email(),
+      locale: localeSchema,
+      data: templateSchemas.booking_guest,
+    })
+    .strict(),
   z
     .object({
       template: z.literal("sign_in_code"),

@@ -78,6 +78,7 @@ import {
   idempotencyCleanupHandler,
   idempotencyCleanupSchedule,
 } from "./idempotency-cleanup.js";
+import { BOOKING_GUEST_EMAIL_KIND, makeBookingGuestEmailHandler } from "../bookings/guest-email.js";
 
 /**
  * Every job kind the workers know, by pool, and every daily schedule.
@@ -169,6 +170,8 @@ export function makeHandlers({
       [EMAIL_SEND_KIND]: makeSendEmailHandler(mailer, email),
       // The booking inbox's copies (O-03): one email per address in contacts.bookingEmails.
       [BOOKING_INBOX_KIND]: makeBookingInboxHandler(email),
+      // Every booking emailed to the guest (F-06; D124): emails have no switch.
+      [BOOKING_GUEST_EMAIL_KIND]: makeBookingGuestEmailHandler(email, guestAppUrl ?? null),
       [PUSH_SEND_KIND]: makePushSendHandler(push),
       [SINGER_PUSH_KIND]: makeSingerPushHandler(push),
       // Staff texts from the venue's own Twilio account (T-03; D123); without it, nothing is sent.

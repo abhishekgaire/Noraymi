@@ -151,7 +151,9 @@ test("Jae & co. book on Wed Sep 23: the whole price, the terms stored, $50.00 pa
   await expect(confirmed).toContainText("Deposit $50.00 paid · it comes off your bill");
   await expect(confirmed).toContainText("Free to cancel until Thu 11:00 PM");
   await expect(confirmed).toContainText("A 20% gratuity is added to room tabs.");
-  await expect(confirmed).toContainText("We texted your confirmation to (347) 555-0165.");
+  await expect(confirmed).toContainText(
+    "We emailed your confirmation, with a link to manage your booking.",
+  );
   for (const line of ours) expect(line).not.toMatch(/4242|cvc|card\[number\]|card_number/i);
 
   const db = new pg.Client({ connectionString: DB });

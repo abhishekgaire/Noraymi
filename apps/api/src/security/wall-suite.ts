@@ -7,6 +7,7 @@ import type pg from "pg";
 import { TEXT_TRIGGER_KIND } from "../texts/triggers.js";
 import { BOOKING_CONFIRMED_KIND } from "../bookings/confirm.js";
 import { BOOKING_INBOX_KIND } from "../bookings/inbox.js";
+import { BOOKING_GUEST_EMAIL_KIND } from "../bookings/guest-email.js";
 import { Worker, enqueue, type JobHandler } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import type { RegisteredRoute } from "../http/registry.js";
@@ -373,6 +374,19 @@ export const jobWallCases: Readonly<Record<string, JobWallCase>> = {
       job.status === "done"
         ? null
         : `the booking inbox copy didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
+  },
+  // The guest's own booking email (F-06): venue B's booking isn't venue A's, so nothing is sent.
+  [BOOKING_GUEST_EMAIL_KIND]: {
+    carries: "venue B's ids",
+    pool: "normal",
+    payload: (c) => ({
+      event: "confirmed",
+      booking_id: (c as unknown as { bookingB: string }).bookingB,
+    }),
+    expect: (job) =>
+      job.status === "done"
+        ? null
+        : `the guest's booking email didn't finish quietly on venue A (${job.status}: ${job.last_error ?? "no error"})`,
   },
   [SINGER_PUSH_KIND]: {
     carries: "venue B's ids",

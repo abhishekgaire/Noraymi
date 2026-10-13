@@ -33,6 +33,7 @@ import { copyToBookingInbox } from "./inbox.js";
 import { acceptedRule, moneyStatus, refundHeld } from "./cancel.js";
 import { assignBooking, nightHours, venueClock } from "../rooms/assignment.js";
 import { LINK_DAYS_AFTER, nightFacts } from "./online.js";
+import { emailGuestAboutBooking } from "./guest-email.js";
 
 /**
  * The manage page (M5-11; Payment flows · Deposit when booking online, steps
@@ -494,6 +495,10 @@ export async function changeBooking(
   };
   if (preview) await c.query("rollback to savepoint manage_preview");
   // The booking inbox gets a copy of the change (O-03).
-  else await copyToBookingInbox(c, { venueId, event: "changed", refId: b.id, runAt: now });
+  else {
+    await copyToBookingInbox(c, { venueId, event: "changed", refId: b.id, runAt: now });
+    // The guest's own email of the change (F-06; D124).
+    await emailGuestAboutBooking(c, { venueId, event: "changed", bookingId: b.id, runAt: now });
+  }
   return answer;
 }

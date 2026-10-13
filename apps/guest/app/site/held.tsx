@@ -42,12 +42,6 @@ export function Terms({ held, token }: { held: HeldBooking; token: string }) {
  * A hold that ran out says so and sends the guest back to pick a time. The
  * guest's details and the terms (M5-08) follow, then the payment page (M5-09).
  */
-/** "(212) 555-0188" for a +1 number. */
-const phoneWords = (e164: string | null) => {
-  const m = e164 ? /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164) : null;
-  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : (e164 ?? "");
-};
-
 /**
  * The Confirmed state (M5-10; screens N1): the room size, date and time, the deposit paid, "Free to
  * cancel until …", the gratuity sentence, that the confirmation text went to their number, and a link
@@ -86,9 +80,8 @@ function Confirmed({
       {held.gratuity_pct > 0 && (
         <p>{t("en", "site.book.gratuityLine", { pct: held.gratuity_pct })}</p>
       )}
-      {held.guest?.phone && (
-        <p>{t("en", "site.book.textSent", { phone: phoneWords(held.guest.phone) })}</p>
-      )}
+      {/* Every booking is emailed (F-06; D124); texts follow the venue's texting switches. */}
+      <p>{t("en", "site.book.emailSent")}</p>
       <a className="button" href={`/b/${encodeURIComponent(token)}`}>
         {t("en", "site.book.manage")}
       </a>
