@@ -3041,3 +3041,46 @@ a.song-count {
   margin: 0;
   padding-left: 16px;
 }
+
+/* Connect your Twilio account (T-02; D123): Admin → Phone & texts and Set up your venue's step 11. */
+.twilio-connect {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  max-width: 560px;
+}
+.twilio-connect h3,
+.twilio-connect p {
+  margin: 0;
+}
+.twilio-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.twilio-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.twilio-connect .team-actions {
+  grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
+}
+.twilio-connect select {
+  min-height: 44px;
+  font: inherit;
+}
+.twilio-guide summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.twilio-guide ol {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.twilio-form {
+  display: grid;
+  gap: 8px;
+}

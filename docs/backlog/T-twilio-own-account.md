@@ -29,7 +29,7 @@ Definition of done: see CLAUDE.md.
     - `POST /v1/venues/{v}/texts/twilio/check` `{ account_sid, auth_token }`: a read-only call to Twilio (the account, its +1 SMS numbers and its messaging services); saves nothing.
     - `POST /v1/venues/{v}/texts/twilio` `{ account_sid, auth_token, number_sid, service_sid }`: checks again, points the number's incoming texts at `/v1/hooks/twilio` (when the server has a public address), puts the number in the messaging service and lets the number's webhook win, reads the service campaign's status, then stores the connection with the token encrypted (`encryptSecret` with `AUTH_SECRET_KEY`). Connecting again replaces the keys.
     - `POST /v1/venues/{v}/texts/twilio/refresh`: Check again, the campaign's status read with the stored keys.
-    - `DELETE /v1/venues/{v}/texts/twilio`: Disconnect; the token, number and account are forgotten at once.
+    - `POST /v1/venues/{v}/texts/twilio/disconnect`: Disconnect; the token, number and account are forgotten at once.
   - Every Twilio call outside a transaction, writes carrying an idempotency token; errors name the step and Twilio's status, never a body.
   - An account or number already connected to another venue is refused (`account_in_use`, `number_in_use`); wrong keys answer `twilio_refused`.
   - Locally and in tests (no `GUEST_TEXTS=twilio`), an in-process fake Twilio: any well-formed Account SID and Auth Token pass, an Auth Token of 32 zeros is refused, each account has one number and one messaging service, and its campaign reads pending at Connect and approved on Check again.
@@ -48,7 +48,7 @@ Definition of done: see CLAUDE.md.
 
 ### T-02 · Connect your Twilio account on screen: Admin → Phone & texts and step 11
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** T-01; O-12
 - **Spec:** [Song systems and texts](../spec/11-song-systems-texts.md) · Accounts; [Owner onboarding](../spec/17-onboarding.md) · Step details 11; [screens](../screens.md) AdminDesk 33 and Setup 11; [glossary](../glossary.md) · Twilio account
@@ -57,10 +57,15 @@ Definition of done: see CLAUDE.md.
   - The texting number is the connected number, shown, not typed; Admin → Phone & texts keeps the call number.
   - Loading, empty, error and in-use states; English and Spanish; 44 px targets; a link to the venue's guide.
 - **Acceptance:**
-  - [ ] In the demo, a manager connects with test keys, sees waiting for approval, then Approved after Check again, then disconnects (Playwright).
-  - [ ] Step 11 shows the same panel and the guide link; nothing asks for an EIN.
-  - [ ] Wrong keys show the error and keep what was typed; the token field is empty after saving.
+  - [x] In the demo, a manager connects with test keys, sees waiting for approval, then Approved after Check again, then disconnects (Playwright).
+  - [x] Step 11 shows the same panel and the guide link; nothing asks for an EIN.
+  - [x] Wrong keys show the error and keep what was typed; the token field is empty after saving.
 - **Notes:**
+  - Built as one component, `apps/staff/src/screens/admin/TwilioConnect.tsx`, used by Admin → Phone & texts (`Phone.tsx`) and step 11 (`TextsStep.tsx`, whose Register for texts form and its 44 strings are gone). Browser tests: `setup.staff.spec.ts` (step 11: wrong keys, Check, Connect, Check again, Disconnect, no EIN asked) and `staff.spec.ts` (Admin → Phone & texts).
+  - The "Text number" field is gone from Admin → Phone & texts: the texting number is the connected one. The `phone.textNumber` setting stays in the schema (nothing reads it any more), so older saved settings still load.
+  - The guide is inline (a "How to set up Twilio" list in the panel), since the runbook isn't hosted anywhere a venue can open; the full guide is [texts-10dlc.md](../runbooks/texts-10dlc.md).
+  - Disconnect is `POST …/texts/twilio/disconnect` (the staff app's API client has no DELETE).
+  - The marketing campaign can't be connected here (Marketing texts stays off until the lawyer answers); its status still shows while that module is on.
 
 ### T-03 · Codes, invites and staff texts from the venue's own Twilio, by email until it's live
 

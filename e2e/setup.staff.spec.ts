@@ -177,9 +177,8 @@ test("the owner saves, skips, leaves and resumes Set up your venue at the next s
     await expect(page.getByLabel("Legal name")).toHaveValue(`E2E Setup ${n} LLC`);
     await page.goto("/admin/phone");
     await expect(page.getByLabel("Call number", { exact: true })).toHaveValue("+17185550100");
-    await expect(
-      page.getByText("Not set yet · our team sets up your texting number"),
-    ).toBeVisible();
+    // T-02: texts come from the venue's own Twilio account, not connected yet.
+    await expect(page.getByTestId("twilio")).toContainText("Not connected");
   } finally {
     await db.end();
   }
@@ -412,11 +411,33 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await register.getByRole("button", { name: "Save" }).click();
     await expect(rail.getByRole("button", { name: /^\d* ?Licenses/ })).toContainText("Done");
 
-    // Step 11 (O-12): no texting number yet; the website answer is recorded.
+    // Step 11 (T-02; D123): the venue connects its own Twilio account (the fake Twilio here: any
+    // well-formed keys pass, an Auth Token of 32 zeros is refused); the website answer is recorded.
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(
-      page.getByText("We're setting up your texting number · we'll email you"),
-    ).toBeVisible();
+    const twilio = page.getByTestId("twilio");
+    await expect(twilio).toContainText("Not connected");
+    await expect(twilio).not.toContainText("EIN");
+    const sid = `AC${Date.now().toString(16).padStart(32, "0")}`;
+    await twilio.getByLabel("Account SID").fill(sid);
+    await twilio.getByLabel("Auth Token").fill("0".repeat(32));
+    await twilio.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(twilio.getByRole("alert")).toHaveText(
+      "Twilio didn't accept those keys · check the Account SID and Auth Token",
+    );
+    await expect(twilio.getByLabel("Account SID")).toHaveValue(sid);
+    await twilio.getByLabel("Auth Token").fill("a".repeat(32));
+    await twilio.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(twilio.getByLabel("Number")).toContainText(/^\+1 212 555 \d{4}/);
+    await expect(twilio.getByLabel("Messaging service")).toContainText("Test messaging service");
+    await twilio.getByRole("button", { name: "Connect", exact: true }).click();
+    await expect(twilio.getByRole("status")).toHaveText("Connected · waiting for approval");
+    await expect(twilio.getByLabel("Auth Token")).toHaveCount(0);
+    await expect(twilio).toContainText("ends");
+    await twilio.getByRole("button", { name: "Check again" }).click();
+    await expect(twilio.getByRole("status")).toHaveText("Approved");
+    await twilio.getByRole("button", { name: "Disconnect" }).click();
+    await twilio.getByRole("button", { name: "Yes, disconnect" }).click();
+    await expect(twilio.getByRole("status")).toHaveText("Not connected");
     await page.getByRole("radio", { name: "No" }).check();
     await page.getByRole("button", { name: "Save the answer" }).click();
     await expect(page.getByText(/^Answered no/)).toBeVisible();

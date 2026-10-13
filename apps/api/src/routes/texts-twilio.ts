@@ -29,7 +29,7 @@ import type { TwilioAccount, VenueTextSettings } from "../texts/venue.js";
  *                                                texts pointed at our webhook, the number put in the
  *                                                service, the campaign read, the token kept encrypted
  *   POST   /v1/venues/{v}/texts/twilio/refresh   Check again: the campaign's status from Twilio
- *   DELETE /v1/venues/{v}/texts/twilio           Disconnect: the keys forgotten at once
+ *   POST   /v1/venues/{v}/texts/twilio/disconnect  Disconnect: the keys forgotten at once
  * Twilio is called outside any transaction. The bodies carry the Auth Token, so no idempotency record
  * is kept for them (not even a hash); connecting is an upsert and repeating it changes nothing.
  */
@@ -292,8 +292,8 @@ export function textsTwilioRoutes(
     },
   );
 
-  app.delete<{ Params: { venueId: string } }>(
-    "/v1/venues/:venueId/texts/twilio",
+  app.post<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/texts/twilio/disconnect",
     { config: write },
     async (request) => {
       await request.inVenue((c) => disconnectTwilio(c, request.venueId!));

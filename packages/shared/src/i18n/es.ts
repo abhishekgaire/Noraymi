@@ -605,9 +605,6 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "phone.callNumber": "Número para llamadas",
   "phone.callNumber.hint":
     "En el sitio web, en los mensajes, en cada botón Llamar y en Llama para reservar",
-  "phone.textNumber": "Número para mensajes",
-  "phone.textNumber.hint": "El número que envía los mensajes; puede ser el mismo de llamadas",
-  "phone.textNumber.notSet": "Sin configurar · nuestro equipo prepara tu número de mensajes",
   "phone.invalid": "Un número como +1 212 255 0011",
   "phone.shows": "Se muestra como {number}",
   // Admin → Teléfono y mensajes: las campañas 10DLC (M8-22).
@@ -617,8 +614,64 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "phone.campaign.pending": "Esperando aprobación",
   "phone.campaign.approved": "Aprobada",
   "phone.campaign.rejected": "No aprobada",
-  "phone.campaign.live": "Los mensajes se están enviando",
-  "phone.campaign.held": "Los mensajes no se envían hasta que se apruebe la campaña",
+  "twilio.title": "Conecta tu cuenta de Twilio",
+  "twilio.intro":
+    "Tus mensajes salen de tu propia cuenta y número de Twilio. Nunca tenemos una cuenta de Twilio por ti.",
+  "twilio.state.not_connected": "Sin conectar",
+  "twilio.state.waiting": "Conectada · esperando aprobación",
+  "twilio.state.approved": "Aprobada",
+  "twilio.notConnected.hint":
+    "Hasta que tus mensajes estén activos, los códigos de acceso y las invitaciones van por correo.",
+  "twilio.guide": "Cómo configurar Twilio",
+  "twilio.guide.1": "Abre una cuenta de Twilio en twilio.com y añade una tarjeta.",
+  "twilio.guide.2": "Compra un número local de EE. UU. que pueda enviar mensajes.",
+  "twilio.guide.3":
+    "Activa la protección contra SMS pumping y permite mensajes solo a Estados Unidos.",
+  "twilio.guide.4":
+    "Registra tu marca y una campaña de servicio (A2P 10DLC) en la consola de Twilio, como cliente directo.",
+  "twilio.guide.5": "Crea un servicio de mensajería con tu número.",
+  "twilio.guide.6":
+    "Pega aquí tu Account SID y tu Auth Token, pulsa Comprobar y elige tu número y tu servicio de mensajería.",
+  "twilio.sid": "Account SID",
+  "twilio.sid.hint": "Empieza por AC · en la página principal de tu consola de Twilio",
+  "twilio.token": "Auth Token",
+  "twilio.token.hint": "Lo guardamos cifrado y no lo volvemos a mostrar",
+  "twilio.check": "Comprobar",
+  "twilio.checking": "Comprobando…",
+  "twilio.number": "Número",
+  "twilio.service": "Servicio de mensajería",
+  "twilio.noNumbers":
+    "Esta cuenta no tiene un número de EE. UU. que envíe mensajes · compra uno en Twilio primero",
+  "twilio.noServices": "Esta cuenta no tiene servicio de mensajería · crea uno en Twilio primero",
+  "twilio.connect": "Conectar",
+  "twilio.connecting": "Conectando…",
+  "twilio.cancel": "Cancelar",
+  "twilio.account": "Cuenta",
+  "twilio.accountValue": "{name} · termina en {last4}",
+  "twilio.trial":
+    "Cuenta de prueba · Twilio solo envía a los teléfonos que verifiques allí. Actualízala en Twilio antes de abrir.",
+  "twilio.checkAgain": "Comprobar de nuevo",
+  "twilio.replace": "Cambiar claves",
+  "twilio.disconnect": "Desconectar",
+  "twilio.disconnect.confirm":
+    "¿Desconectar Twilio? Los mensajes se detienen al instante y los códigos van por correo.",
+  "twilio.disconnect.yes": "Sí, desconectar",
+  "twilio.live": "Los mensajes se están enviando",
+  "twilio.held": "Los mensajes no se envían hasta que se apruebe la campaña",
+  "twilio.campaign.not_registered":
+    "Aún no hay campaña en este servicio de mensajería · regístrala en Twilio y comprueba de nuevo",
+  "twilio.campaign.pending":
+    "Twilio está revisando tu campaña · comprueba de nuevo cuando Twilio te escriba",
+  "twilio.campaign.approved": "Aprobada",
+  "twilio.campaign.rejected":
+    "Twilio no aprobó la campaña · corrígela en Twilio y comprueba de nuevo",
+  "twilio.error.refused": "Twilio no aceptó esas claves · revisa el Account SID y el Auth Token",
+  "twilio.error.format":
+    "Un Account SID empieza por AC y tiene 34 caracteres; un Auth Token tiene 32",
+  "twilio.error.inUse":
+    "Esta cuenta de Twilio ya está conectada a otro local · usa una cuenta por local",
+  "twilio.error.numberInUse": "Este número está conectado a otro local",
+  "twilio.error.unavailable": "No se pudo contactar con Twilio · inténtalo de nuevo",
   "texts.kind.service": "Servicio",
   "texts.kind.marketing": "Marketing",
   "texts.on": "Activo",
@@ -3659,50 +3712,6 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Ninguno · un sistema de canciones solo se conecta mediante un acuerdo con su fabricante",
   "onboarding.texts.intro":
     "Todo opcional. Mensajes, tu sitio web y los datos de tu sistema anterior.",
-  "onboarding.texts.title": "Mensajes",
-  "onboarding.texts.settingUp": "Estamos preparando tu número para mensajes · te escribiremos",
-  "onboarding.texts.sent":
-    "Enviado al registro de las operadoras el {date} · campaña: {status}. Los mensajes no salen hasta que se apruebe.",
-  "onboarding.texts.ownerOnly": "El dueño registra el local para los mensajes.",
-  "onboarding.texts.from": "Se registra como {name}, {address} (del paso 1).",
-  "onboarding.texts.noAddress": "todavía sin dirección · añádela en el paso 1",
-  "onboarding.texts.ein": "EIN",
-  "onboarding.texts.ein.hint": "Se envía una vez al registro de Twilio; nunca lo guardamos.",
-  "onboarding.texts.type": "Tipo de empresa",
-  "onboarding.texts.choose": "Elige",
-  "onboarding.texts.website": "Sitio web",
-  "onboarding.texts.rep": "A quién pueden contactar las operadoras",
-  "onboarding.texts.rep.first": "Nombre",
-  "onboarding.texts.rep.last": "Apellido",
-  "onboarding.texts.rep.email": "Correo",
-  "onboarding.texts.rep.phone": "Teléfono móvil",
-  "onboarding.texts.rep.title": "Cargo",
-  "onboarding.texts.rep.position": "Puesto",
-  "onboarding.texts.samples": "Mensajes de ejemplo",
-  "onboarding.texts.samples.hint":
-    "Dos mensajes que envía tu local, tal como los reciben los clientes (por ejemplo una confirmación de reserva y un aviso de sala lista).",
-  "onboarding.texts.sample": "Mensaje de ejemplo {n}",
-  "onboarding.texts.register": "Registrar para mensajes",
-  "onboarding.texts.sending": "Enviando…",
-  "onboarding.texts.incomplete":
-    "Completa todos los campos: el EIN con 9 dígitos, un sitio web que empiece por https://, un móvil de EE. UU. y dos mensajes de ejemplo de al menos 20 caracteres",
-  "onboarding.texts.failed":
-    "No se pudo enviar el registro · revisa el formulario e inténtalo otra vez",
-  "onboarding.texts.twilioFailed":
-    "Twilio no aceptó el registro · escribe el EIN otra vez y envíalo de nuevo, o contáctanos",
-  "texts.reg.type.llc": "Sociedad de responsabilidad limitada (LLC)",
-  "texts.reg.type.corporation": "Corporación",
-  "texts.reg.type.partnership": "Sociedad colectiva",
-  "texts.reg.type.sole": "Empresa individual",
-  "texts.reg.type.nonprofit": "Sin fines de lucro",
-  "texts.reg.type.coop": "Cooperativa",
-  "texts.reg.position.gm": "Gerente general",
-  "texts.reg.position.ceo": "Director ejecutivo (CEO)",
-  "texts.reg.position.cfo": "Director financiero (CFO)",
-  "texts.reg.position.vp": "Vicepresidente",
-  "texts.reg.position.director": "Director",
-  "texts.reg.position.counsel": "Asesor legal",
-  "texts.reg.position.other": "Otro",
   "onboarding.website.title": "Sitio web",
   "onboarding.website.hint":
     "El sitio de tu local funciona ahora en una dirección de prueba. Si tienes un sitio web y un dominio, nuestro equipo los traslada contigo.",
@@ -3756,7 +3765,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.step.licenses.hint": "La licencia de alcohol y las licencias de música",
   "onboarding.step.texts.title": "Mensajes, sitio web y tu sistema anterior",
   "onboarding.step.texts.hint":
-    "Regístrate para los mensajes, tu sitio web y los archivos de tu sistema anterior",
+    "Conecta tu cuenta de Twilio, tu sitio web y los archivos de tu sistema anterior",
   "onboarding.step.devices.title": "Dispositivos y comprobaciones",
   "onboarding.step.devices.hint":
     "Lectores de tarjetas, impresoras y cajas, y las comprobaciones para abrir",

@@ -1492,13 +1492,13 @@ test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder
     await page.goto("/admin/phone");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Phone & texts");
     await expect(page.getByLabel("Call number", { exact: true })).toHaveValue("+12122550011");
-    await expect(page.getByLabel("Text number", { exact: true })).toHaveValue("+12122550011");
-    await expect(page.getByText("Shows as +1 212 255 0011")).toHaveCount(2);
-    // M8-22: the 10DLC campaign's status; the seed has no subaccount, so nothing is registered yet.
-    const campaign = page.getByTestId("text-campaign");
-    await expect(campaign).toContainText("Texting campaign");
-    await expect(campaign).toContainText("Not registered");
-    await expect(campaign).toContainText("Texts don't go out until the campaign is approved");
+    await expect(page.getByText("Shows as +1 212 255 0011")).toHaveCount(1);
+    // T-02 (D123): texts come from the venue's own Twilio account, shown with its status.
+    const twilio = page.getByTestId("twilio");
+    await expect(twilio.getByRole("heading", { level: 3 })).toHaveText(
+      "Connect your Twilio account",
+    );
+    await expect(twilio.getByRole("status")).toHaveText("Not connected");
     expect(await clippedText(page)).toEqual([]);
 
     await page.goto("/admin/texts");

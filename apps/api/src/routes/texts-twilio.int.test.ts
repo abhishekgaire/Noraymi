@@ -38,7 +38,7 @@ const people: Record<string, Principal> = {};
 
 const call = (
   who: string,
-  method: "GET" | "POST" | "DELETE",
+  method: "GET" | "POST",
   url: string,
   payload?: unknown,
   venue = venueId,
@@ -268,7 +268,7 @@ describe("Connect your Twilio account (T-01)", () => {
 
   it("Replace keys connects again; Disconnect forgets the keys at once", async () => {
     expect((await call("owner", "POST", "/texts/twilio", CONNECT)).statusCode).toBe(200);
-    const gone = await call("manager", "DELETE", "/texts/twilio");
+    const gone = await call("manager", "POST", "/texts/twilio/disconnect");
     expect(gone.statusCode).toBe(200);
     expect(gone.json()).toMatchObject({ state: "not_connected" });
     const row = (

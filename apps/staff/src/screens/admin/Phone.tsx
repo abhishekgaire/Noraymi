@@ -4,21 +4,19 @@ import { useAdminDraft } from "../../admin/draft.js";
 import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
+import { TwilioConnect } from "./TwilioConnect.js";
 
 /**
  * Admin → Phone & texts (M2-10; spec 03 · PhoneSettings): the call number
- * (on the site, in texts, behind every Call button and "Call to book") and
- * the text number (the Twilio number texts come from), both E.164. Saved
- * through Save and publish.
+ * (on the site, in texts, behind every Call button and "Call to book"), E.164,
+ * saved through Save and publish; and Connect your Twilio account (T-02; D123):
+ * texts come from the number of the venue's own Twilio account, picked there.
  */
 const E164 = /^\+[1-9]\d{6,14}$/;
 
 type CampaignStatus = "not_registered" | "pending" | "approved" | "rejected";
 interface CampaignView {
-  number: string | null;
-  service: { status: CampaignStatus; checked_at: string | null };
   marketing: { status: CampaignStatus; checked_at: string | null } | null;
-  live: boolean;
 }
 
 /** "+12122550011" as "+1 212 255 0011". */
@@ -48,7 +46,7 @@ export function Phone() {
       throw e;
     });
     setSaved(answer.value);
-    // The 10DLC campaigns (M8-22): read only; set by our ops command once Twilio reports.
+    // The marketing campaign (M8-22), shown only while Marketing texts is on.
     setCampaign(await api<CampaignView>("GET", `/v1/venues/${venueId}/texts/campaign`));
   }, [venueId]);
 
@@ -58,11 +56,9 @@ export function Phone() {
   }, [venueId, load, draft.version]);
 
   const current = (draft.values["phone"] as PhoneSettings | undefined) ?? saved;
-  const field = (key: keyof PhoneSettings, label: "phone.callNumber" | "phone.textNumber") => {
+  const field = (key: keyof PhoneSettings, label: "phone.callNumber") => {
     const value = raw[key] ?? current?.[key] ?? "";
-    // The text number stays empty until our team makes the venue's texting number.
-    const empty = key === "textNumber" && value.trim() === "";
-    const ok = empty || E164.test(value.replace(/[\s()-]/g, ""));
+    const ok = E164.test(value.replace(/[\s()-]/g, ""));
     return (
       <label key={key}>
         <span>{t(label)}</span>
@@ -74,15 +70,11 @@ export function Phone() {
           onChange={(e) => {
             setRaw((r) => ({ ...r, [key]: e.target.value }));
             const clean = e.target.value.replace(/[\s()-]/g, "");
-            if (current && key === "textNumber" && clean === "")
-              draft.set("phone", { ...current, textNumber: null });
-            else if (current && E164.test(clean)) draft.set("phone", { ...current, [key]: clean });
+            if (current && E164.test(clean)) draft.set("phone", { ...current, [key]: clean });
           }}
         />
         <span className="small muted">{t(`${label}.hint`)}</span>
-        {empty ? (
-          <span className="small muted">{t("phone.textNumber.notSet")}</span>
-        ) : ok ? (
+        {ok ? (
           <span className="small">
             {t("phone.shows", { number: formatPhone(value.replace(/[\s()-]/g, "")) })}
           </span>
@@ -104,24 +96,13 @@ export function Phone() {
       {current === null ? (
         !failed && <p role="status">{t("shell.loading")}</p>
       ) : (
-        <div className="invite-fields">
-          {field("callNumber", "phone.callNumber")}
-          {field("textNumber", "phone.textNumber")}
-        </div>
+        <div className="invite-fields">{field("callNumber", "phone.callNumber")}</div>
       )}
-      {campaign && (
+      {venueId && <TwilioConnect venueId={venueId} />}
+      {campaign?.marketing && (
         <dl className="campaign" data-testid="text-campaign">
-          <dt>{t("phone.campaign")}</dt>
-          <dd>{t(`phone.campaign.${campaign.service.status}`)}</dd>
-          {campaign.marketing && (
-            <>
-              <dt>{t("phone.campaign.marketing")}</dt>
-              <dd>{t(`phone.campaign.${campaign.marketing.status}`)}</dd>
-            </>
-          )}
-          <dd className={campaign.live ? "small" : "small muted"} role="status">
-            {t(campaign.live ? "phone.campaign.live" : "phone.campaign.held")}
-          </dd>
+          <dt>{t("phone.campaign.marketing")}</dt>
+          <dd>{t(`phone.campaign.${campaign.marketing.status}`)}</dd>
         </dl>
       )}
     </section>
