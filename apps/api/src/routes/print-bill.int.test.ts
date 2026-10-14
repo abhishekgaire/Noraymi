@@ -210,4 +210,17 @@ describe("Print the bill (P-01)", () => {
     const due = lines.indexOf("Left to pay  $498.60");
     expect(lines[due + 1]).toBe(`Cash price  ${dollars(cash(49860))}`);
   });
+
+  it("an open tab with a discount on it (P-02): the bill shows it, and the total follows", async () => {
+    const d = await post(`/checks/${ids["chk_t1"]}/discount`, {
+      mode: "amount",
+      amount_cents: 300,
+      reason: "Regular guest",
+    });
+    expect(d.statusCode, d.body).toBe(201);
+    const r = await post(`/checks/${ids["chk_t1"]}/bill`);
+    expect(r.statusCode, r.body).toBe(201);
+    const lines = (await job((r.json() as { print_job_id: string }).print_job_id)).payload.lines;
+    expect(lines).toContain("Discount  −$3.00");
+  });
 });

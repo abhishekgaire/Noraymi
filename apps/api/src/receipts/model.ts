@@ -198,12 +198,20 @@ export async function receiptModel(
   }
   // A discount on the whole check (P-02) prints as one line, whatever categories it came off:
   // "Discount · 10%" (its stored words are "Discount 10% · drinks").
+  // An open check worked out now (the printed bill, P-01) has no discount lines written yet, so its
+  // discount comes from the working-out.
   const discounts = standing.filter((l) => l.kind === "discount");
-  const discountCents = discounts.reduce((s, l) => s + Number(l.amount_cents), 0);
+  const discountCents = worked
+    ? -Number(worked.discount?.discountCents ?? 0)
+    : discounts.reduce((s, l) => s + Number(l.amount_cents), 0);
   if (discountCents !== 0) {
-    const what = /^Discount (.+?) · /.exec(discounts[0]!.description)?.[1];
+    const what = worked?.discount
+      ? worked.discount.spec.mode === "pct"
+        ? `${worked.discount.spec.pct}%`
+        : undefined
+      : /^Discount (.+?) · /.exec(discounts[0]!.description)?.[1];
     lines.push({
-      label: what ? t("en", "receipt.discount", { what }) : t("en", "receipt.discountAmount"),
+      label: what ? t(locale, "receipt.discount", { what }) : t(locale, "receipt.discountAmount"),
       amount_cents: discountCents,
     });
   }
