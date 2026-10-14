@@ -417,7 +417,8 @@ export async function insertPrintJob(
       | "x_report"
       | "z_report"
       | "break_glass"
-      | "room_qr";
+      | "room_qr"
+      | "bill";
     station: string;
     payload: unknown;
     deviceId?: string | null;

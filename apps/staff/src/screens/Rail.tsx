@@ -16,6 +16,7 @@ import { agingTone, WEST4_AGING, type Aging } from "../aging.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { readDevice } from "../device.js";
+import { PrintBill } from "./PrintBill.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { FoodChoices } from "./FoodChoices.js";
 import { needsSheet, type ChoiceGroupLike } from "./choices.js";
@@ -1536,6 +1537,10 @@ export function Rail() {
                         >
                           {t("moveTab.button")}
                         </button>
+                      )}
+                      {/* Print the bill (P-01): the tab as it stands, before paying. */}
+                      {tab.state === "open" && (
+                        <PrintBill venueId={venueId} checkId={tab.check_id} />
                       )}
                       {/* A reopened tab with no hold (M6-12): pay buttons only while something is due. */}
                       {((tab.hold && (tab.state === "open" || tab.state === "tipping")) ||

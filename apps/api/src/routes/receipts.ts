@@ -4,11 +4,13 @@ import type { Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { printBill, venueLocale } from "../receipts/bill.js";
 import { publicReceipt, sendReceipt, type ReceiptDeps } from "../receipts/send.js";
 
 /**
  * Receipts (M4-19; spec 08 · Checks, Public):
  *   POST /v1/venues/{v}/checks/{c}/receipts   { channel: print | text | email, to? }: Text, Email or Print
+ *   POST /v1/venues/{v}/checks/{c}/bill       { locale? }: Print the bill before paying (P-01)
  *   GET  /v1/public/receipts/{token}           the receipt page's receipt; a wrong or expired token is not found
  * Printing goes to this screen's receipt printer (the bar's at the bar, the front desk's elsewhere).
  */
@@ -55,6 +57,36 @@ export function receiptRoutes(
         }),
       );
       return reply.code(201).send({ channel: parsed.data.channel, number: sent.model.number });
+    },
+  );
+
+  // Print the bill (P-01): before paying, on this screen's receipt printer; core, reprints allowed.
+  const billBody = z.object({ locale: z.enum(["en", "es"]).optional() }).strict();
+  app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/bill",
+    {
+      config: route({
+        principals: ["owner_manager", "staff", "shared_device"],
+        module: "core",
+        action: "payments.take",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      if (!z.string().uuid().safeParse(request.params.checkId).success)
+        throw new ApiError("not_found", "no such check");
+      const parsed = billBody.safeParse(request.body ?? {});
+      if (!parsed.success) throw new ApiError("invalid_request", 'send { locale?: "en" | "es" }');
+      const station = request.signedDevice?.kind === "bar_computer" ? "bar" : "front_desk";
+      const printed = await request.inVenue(async (c) =>
+        printBill(c, request.venueId!, {
+          checkId: request.params.checkId,
+          station,
+          locale: parsed.data.locale ?? (await venueLocale(c, request.venueId!)),
+          now: options.clock.now(),
+        }),
+      );
+      return reply.code(201).send(printed);
     },
   );
 
