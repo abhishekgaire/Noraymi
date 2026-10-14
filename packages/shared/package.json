@@ -24,7 +24,7 @@
     "@fontsource/instrument-serif": "5.3.0",
     "@fontsource/space-mono": "5.3.0",
     "temporal-polyfill": "1.0.5",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "files": [
     "dist",
