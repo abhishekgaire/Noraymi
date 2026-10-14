@@ -113,6 +113,8 @@ const BODIES = {
         .max(100),
       private_function_only: z.boolean().optional(),
       shown: z.boolean().optional(),
+      // A length of room time (P-04): the package starts a room with a prepaid block.
+      minutes: z.number().int().min(15).max(720).nullable().optional(),
     })
     .strict(),
   price_rules: z

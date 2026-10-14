@@ -1,5 +1,5 @@
 import { Temporal, type Cents } from "@west4/shared";
-import { roomTime, type BillingStep } from "./room-time.js";
+import { roomTime, type BillingStep, type PrepaidBlock } from "./room-time.js";
 
 /**
  * The live room clock (M2-07; spec 05 · rules 3 and 4). Pure: a session's
@@ -50,6 +50,8 @@ export function sessionClock(input: {
   readonly noticeMin: number;
   readonly firstHourMinimum: boolean;
   readonly step?: BillingStep;
+  /** A prepaid block (P-04), or null for pay as you go. */
+  readonly prepaid?: PrepaidBlock | null;
 }): SessionClock {
   const now = input.now;
   const billed = input.segments.map((s) => {
@@ -60,7 +62,11 @@ export function sessionClock(input: {
       paused: s.paused,
     };
   });
-  const time = roomTime(billed, { firstHourMinimum: input.firstHourMinimum, step: input.step });
+  const time = roomTime(billed, {
+    firstHourMinimum: input.firstHourMinimum,
+    step: input.step,
+    prepaid: input.prepaid ?? null,
+  });
 
   const atClose = input.close !== null && Temporal.Instant.compare(now, input.close) >= 0;
   const someoneNext = input.nextNeedsRoomAt !== null;

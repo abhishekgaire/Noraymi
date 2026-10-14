@@ -54,8 +54,11 @@ export function roomTime(
     readonly firstHourMinimum: boolean;
     /** The step and rule of the band the session ends in; the minutes added or taken off bill at the last segment's rate. */
     readonly step?: BillingStep | undefined;
+    /** A prepaid block (P-04), or null for pay as you go. */
+    readonly prepaid?: PrepaidBlock | null | undefined;
   },
 ): RoomTime {
+  if (options.prepaid) return prepaidRoomTime(segments, { ...options, prepaid: options.prepaid });
   const billed = segments.filter((s) => !s.paused);
   for (const s of segments) wholeMinutes(s.minutes);
   let minutes = 0;
@@ -81,6 +84,83 @@ export function roomTime(
     cents: cents(Math.floor((weighted + 30) / 60)),
     billedMinutes: minutes,
     elapsedMinutes,
+  };
+}
+
+/**
+ * A prepaid block (P-04; spec 05 · rule 3, Prepaid block): the party is billed at least the block's
+ * price for its minutes, even if they leave early. Its price is the block's minutes at the room's
+ * rate when the room started (`prepaidBlockCents`), or a package's room-time share. Minutes past the
+ * block bill as pay as you go at their segments' rates, rounded once with the block. A pause doesn't
+ * use the block up. The block is fixed: a party-size change inside it bills from the block's end.
+ */
+export interface PrepaidBlock {
+  readonly minutes: number;
+  readonly cents: Cents;
+}
+
+/** A block's price: its minutes at the room's hourly rate, half up. */
+export function prepaidBlockCents(minutes: number, hourlyCents: Cents): Cents {
+  wholeMinutes(minutes);
+  return cents(Math.floor((hourlyCents * minutes + 30) / 60));
+}
+
+function prepaidRoomTime(
+  segments: readonly Segment[],
+  options: {
+    readonly firstHourMinimum: boolean;
+    readonly step?: BillingStep | undefined;
+    readonly prepaid: PrepaidBlock;
+  },
+): RoomTime {
+  const block = options.prepaid;
+  wholeMinutes(block.minutes);
+  if (!Number.isInteger(block.cents) || block.cents < 0)
+    throw new Error(`a block's price is whole cents, not ${block.cents}`);
+  for (const s of segments) wholeMinutes(s.minutes);
+  const billed = segments.filter((s) => !s.paused);
+  let left = block.minutes; // block minutes not used yet
+  let elapsed = 0;
+  let weighted = block.cents * 60; // the block, then Σ hourly_cents × minutes past it
+  for (const s of billed) {
+    elapsed += s.minutes;
+    const inside = Math.min(left, s.minutes);
+    left -= inside;
+    weighted += s.hourlyCents * (s.minutes - inside);
+  }
+  let minutes = Math.max(elapsed, block.minutes);
+  const first = billed[0];
+  if (options.firstHourMinimum && first && minutes < 60) {
+    weighted += first.hourlyCents * (60 - minutes);
+    minutes = 60;
+  }
+  const floor = Math.max(block.minutes, options.firstHourMinimum ? 60 : 0);
+  const last = billed.at(-1);
+  if (options.step && options.step.incrementMin > 1 && last && minutes > Math.max(floor, 60)) {
+    const after = minutes - 60;
+    // Rounding down never takes the bill back inside the block.
+    const delta = Math.max(roundToStep(after, options.step) - after, floor - minutes);
+    weighted += last.hourlyCents * delta;
+    minutes += delta;
+  }
+  return {
+    cents: cents(Math.floor((weighted + 30) / 60)),
+    billedMinutes: minutes,
+    elapsedMinutes: elapsed,
+  };
+}
+
+/** A prepaid block between two instants: real minutes, through both daylight-saving nights. */
+export function prepaidBlockBetween(
+  start: Temporal.Instant,
+  end: Temporal.Instant,
+  hourlyCents: Cents,
+  block: PrepaidBlock,
+): { minutes: number; cents: Cents } {
+  const { minutes } = roomTimeBetween(start, end, hourlyCents);
+  return {
+    minutes,
+    cents: roomTime([{ minutes, hourlyCents }], { firstHourMinimum: true, prepaid: block }).cents,
   };
 }
 

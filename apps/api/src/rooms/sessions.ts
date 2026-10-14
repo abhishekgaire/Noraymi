@@ -45,6 +45,11 @@ interface SessionRow {
   alcohol_cut_off_at: string | null;
   alcohol_cut_off_by_name: string | null;
   alcohol_cut_off_reason: string | null;
+  /** Starting a room (P-04): the note, and the prepaid block and package it started with. */
+  note: string | null;
+  prepaid_minutes: number | null;
+  prepaid_cents: number | null;
+  package_name: string | null;
 }
 
 interface SegmentRow {
@@ -71,7 +76,8 @@ const SESSION_COLS = `s.id, s.room_id, r.name as room_name, s.booking_id, s.chec
     (select g.name from guests g where g.venue_id = s.venue_id and g.id = s.guest_id)) as guest_name,
   ${iso("s.alcohol_cut_off_at")} as alcohol_cut_off_at,
   (select split_part(u.name, ' ', 1) from users u where u.id = s.alcohol_cut_off_by) as alcohol_cut_off_by_name,
-  s.alcohol_cut_off_reason, s.training`;
+  s.alcohol_cut_off_reason, s.training, s.note, s.prepaid_minutes, s.prepaid_cents,
+  (select p.name from packages p where p.venue_id = s.venue_id and p.id = s.package_id) as package_name`;
 const SEGMENT_COLS = `id, session_id, ${iso("started_at")} as started_at, ${iso("ended_at")} as ended_at,
   billable_guests, rate_kind, hourly_cents, band_id, increment_min, rounding, paused`;
 
@@ -167,6 +173,11 @@ export async function sessionViews(
       stayOnWhenFree: rooms?.value.stayOnWhenFree ?? false,
       noticeMin: alerts?.value.roomEndingMin ?? 10,
       firstHourMinimum: prices?.value.firstHourMinimum ?? true,
+      // A prepaid block (P-04): billed at least its price, minutes past it as pay as you go.
+      prepaid:
+        s.prepaid_minutes !== null && s.prepaid_cents !== null
+          ? { minutes: s.prepaid_minutes, cents: cents(s.prepaid_cents) }
+          : null,
       ...(last ? { step: { incrementMin: last.increment_min, rounding: last.rounding } } : {}),
     });
     return {

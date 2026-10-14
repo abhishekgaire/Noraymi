@@ -371,6 +371,8 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
    - When the room's check is paid, the room screen shows "**Give the card back**" ("Hand the guest their card: M. TORRES ···· 4242") with **Returned**: "Card given back".
    - A card not given back is listed on Close the night: "Cards still behind the bar · {count}".
    - Set it back to **Take a deposit**.
+7. A note and a prepaid block (P-04): + Walk-in on a free room, 4 guests, type **Note (optional)** `Nia's birthday · cake at 11`, keep **2 h**, press **Prepaid block** and **Seat them**. The dialog still fits a laptop screen with no scroll. The tile shows the note; the room panel and DeskRoom show the note and "**Prepaid block · 2 h**", and room time reads $80.00 at once (2 h at $40.00) and stays $80.00 until the 2 hours are up, then counts on by the minute. Without Prepaid block (Pay as you go, the default) it bills as before. A booking's check-in has the Note too.
+8. A package at the start (P-04): in Admin → Menu, add a package with **Room time included** `2 h` (for example "Party pack", $90.00, 2 sodas). + Walk-in: a **Package** select appears; pick Party pack: How long shows 2 h and Prepaid block, both locked. Seat them: the tab has the package's sodas, and room time is the rest of $90.00 (the package's price divided across its 2 h at the room's rate and the sodas, largest remainder). The package doesn't show under Add package on a running tab. With **Packages & specials** off (Admin → Features) the Package select is gone.
 
 ### 2.4 The waitlist (staff side)
 

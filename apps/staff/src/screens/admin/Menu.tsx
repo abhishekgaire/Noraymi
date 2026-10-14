@@ -71,6 +71,8 @@ interface Package {
   readonly private_function_only: boolean;
   readonly shown: boolean;
   readonly contents: readonly { item_id: string; qty: number | null }[];
+  /** A length of room time (P-04): the package starts a room with a prepaid block. */
+  readonly minutes?: number | null;
 }
 interface PriceRule {
   readonly id: string;
@@ -324,6 +326,11 @@ export function Menu() {
                                         name: itemName(c.item_id),
                                       })
                                     : `${c.qty} × ${itemName(c.item_id)}`,
+                                )
+                                .concat(
+                                  p.minutes
+                                    ? [t("menuAdmin.package.roomTime", { length: p.minutes })]
+                                    : [],
                                 )
                                 .join(", ")}
                             </div>
@@ -1165,6 +1172,8 @@ function AddPackage(props: {
   const [price, setPrice] = useState("");
   const [hourly, setHourly] = useState(false);
   const [privateOnly, setPrivateOnly] = useState(false);
+  // A length of room time (P-04): "" is none; a package with one starts a room.
+  const [length, setLength] = useState("");
   const [contents, setContents] = useState([{ itemId: first, qty: "" }]);
   const [invalid, setInvalid] = useState(false);
   const submit = async (e: FormEvent) => {
@@ -1178,6 +1187,7 @@ function AddPackage(props: {
       price_cents: cents,
       hourly,
       private_function_only: privateOnly,
+      ...(length && !hourly ? { minutes: Number(length) } : {}),
       contents: contents.map((c) => ({
         item_id: c.itemId,
         qty: c.qty === "" ? null : Number(c.qty),
@@ -1186,6 +1196,7 @@ function AddPackage(props: {
     if (ok) {
       setName("");
       setPrice("");
+      setLength("");
       setContents([{ itemId: first, qty: "" }]);
     }
   };
@@ -1205,6 +1216,21 @@ function AddPackage(props: {
             required
             onChange={(e) => setPrice(e.target.value)}
           />
+        </label>
+        <label>
+          <span>{t("menuAdmin.package.length")}</span>
+          <select
+            value={hourly ? "" : length}
+            disabled={hourly}
+            onChange={(e) => setLength(e.target.value)}
+          >
+            <option value="">{t("menuAdmin.package.length.none")}</option>
+            {[60, 90, 120, 180, 240].map((m) => (
+              <option key={m} value={String(m)}>
+                {t("menuAdmin.package.length.min", { length: m })}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       {contents.map((c, i) => (

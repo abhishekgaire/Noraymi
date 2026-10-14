@@ -19,6 +19,7 @@ import { MoveSheet } from "./MoveSheet.js";
 import { Dialog } from "../layout/Dialog.js";
 import { WaitlistList, useWaitlistCount } from "./Waitlist.js";
 import { ScanId } from "./ScanId.js";
+import { prepaidText } from "./room-start.js";
 
 /**
  * Tonight (M2-07): the rooms in use with their live clock. Each tile ticks on
@@ -82,6 +83,9 @@ interface BoardRoom {
     readonly deposit_cents: number;
     /** A card kept behind the bar and not given back yet (O-08). */
     readonly held_card?: { readonly name: string; readonly last4: string } | null;
+    /** Starting a room (P-04): its note, and a prepaid block with the package it came with. */
+    readonly note?: string | null;
+    readonly prepaid?: { readonly minutes: number; readonly package_name: string | null } | null;
   } | null;
 }
 
@@ -620,6 +624,14 @@ export function Tonight() {
               <div className="small muted">
                 {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
               </div>
+              {r.session.prepaid && (
+                <div className="small">{prepaidText(t, r.session.prepaid)}</div>
+              )}
+              {r.session.note && (
+                <div className="small" data-guest-text>
+                  {r.session.note}
+                </div>
+              )}
               {r.session.held_card && (
                 <div className="small" data-guest-text>
                   {t("heldCard.chip", {
@@ -763,6 +775,11 @@ export function Tonight() {
           <span className={r.tone === "red" ? "tile-words error" : "tile-words"}>
             {wordsText(ticking(r.words, s?.booked_end_at))}
           </span>
+          {r.session?.note && (
+            <span className="tile-chip tile-note" data-guest-text>
+              {r.session.note}
+            </span>
+          )}
           {r.session?.held_card && (
             <span className="tile-chip" data-guest-text>
               {t("heldCard.chip", {

@@ -208,7 +208,7 @@ export async function checkGiftAlcohol(
   );
 }
 
-async function logRefused(c: Queryable, venueId: string, r: Refused) {
+export async function logRefused(c: Queryable, venueId: string, r: Refused) {
   for (const item of r.items)
     await c.query(
       `insert into alcohol_refusals (venue_id, session_id, check_id, room_guest_id, order_id, reason, item, refused_by, at, business_date)
