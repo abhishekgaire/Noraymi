@@ -92,6 +92,7 @@ export function checkInRoutes(
           ...(party ? { partySize: party } : {}),
         },
         options.clock.now(),
+        { guestAppUrl: options.settings.guestAppUrl },
       ),
     );
   });

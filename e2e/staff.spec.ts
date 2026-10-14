@@ -1699,7 +1699,10 @@ test("the check-in sheet: Sam O. on the board, then a walk-in on a phone", async
     const room11 = await openRoom(page, "Room 11");
     await room11.getByRole("button", { name: "+ Walk-in" }).click();
     const walkIn = page.getByRole("dialog", { name: "Walk-in · Room 11" });
-    await walkIn.getByLabel("1 · Guests").fill("7");
+    await walkIn
+      .getByRole("group", { name: "1 · Guests" })
+      .getByRole("button", { name: "7", exact: true })
+      .click();
     await expect(walkIn).toContainText("7 guests · Fridays bill at least 4");
     await walkIn.getByLabel("Guest's name").fill("Leo M.");
     // F-07 (D124): the host's email is optional; the room's join QR goes to it and to the printer.
@@ -1783,7 +1786,7 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
     // Esc closes it with no change, and focus goes back to + Walk-in.
     await trigger.click();
     await expect(dialog).toHaveAttribute("aria-modal", "true");
-    await expect(dialog.getByLabel("1 · Guests")).toBeVisible();
+    await expect(dialog.getByRole("group", { name: "1 · Guests" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
@@ -1797,7 +1800,7 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
     await expect(trigger).toBeFocused();
 
     await trigger.click();
-    await expect(dialog.getByLabel("1 · Guests")).toBeVisible();
+    await expect(dialog.getByRole("group", { name: "1 · Guests" })).toBeVisible();
     // The board stays on screen behind it.
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(dialog).toContainText(
@@ -1813,7 +1816,10 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
     expect(await clippedText(page)).toEqual([]);
     if (review) await page.screenshot({ path: `${review}/walk-in-2000.png` });
 
-    await dialog.getByLabel("1 · Guests").fill("4");
+    await dialog
+      .getByRole("group", { name: "1 · Guests" })
+      .getByRole("button", { name: "4", exact: true })
+      .click();
     await dialog.getByLabel("Guest's name").fill("Nia B.");
     await dialog.getByRole("button", { name: "Seat them" }).click();
     const card = page.getByRole("dialog", { name: "Card on the tab · Room 11" });
@@ -1855,7 +1861,7 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
     const room8 = await openRoom(page, "Room 8");
     await room8.getByRole("button", { name: "+ Walk-in" }).click();
     const sheet = page.getByRole("dialog", { name: "Walk-in · Room 8" });
-    await expect(sheet.getByLabel("1 · Guests")).toBeVisible();
+    await expect(sheet.getByRole("group", { name: "1 · Guests" })).toBeVisible();
     const box = (await sheet.boundingBox())!;
     expect(box.width).toBe(390);
     expect(Math.round(box.y + box.height)).toBe(844);
@@ -1876,6 +1882,111 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
       .check();
     await page.getByRole("button", { name: "Save and publish" }).click();
     await expect(page.getByText("Published")).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * The walk-in dialog's presets and its fit (D128). From a fresh seed at 10:41 PM on a 1366 × 768 bar
+ * computer: + Walk-in on Room 11 opens two columns whose every part, Seat them included, is on
+ * screen with no scroll, nothing cut off and no word broken; again at 1440 × 900. Guests, IDs
+ * checked and How long are taps: 7 guests, "All checked" then one fewer (6 of 7, the runner checks
+ * the rest), 1½ h. The phone is optional: with a name and an email and no phone, step 6 says the QR
+ * prints and goes by email, nothing about a text, and Seat them seats the party with no text queued.
+ */
+test("D128 · the walk-in dialog is taps, fits a 1366 × 768 screen, and needs no phone", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await signInAndy(page, request, db);
+    await page.goto("/tonight");
+    const room11 = await openRoom(page, "Room 11");
+    await room11.getByRole("button", { name: "+ Walk-in" }).click();
+    const dialog = page.getByRole("dialog", { name: "Walk-in · Room 11" });
+    const guests = dialog.getByRole("group", { name: "1 · Guests" });
+    const ids = dialog.getByRole("group", { name: "2 · IDs checked" });
+    const length = dialog.getByRole("group", { name: "4 · How long" });
+    const seat = dialog.getByRole("button", { name: "Seat them" });
+    await expect(guests).toBeVisible();
+
+    const fits = async (label: string) => {
+      await expect(seat, label).toBeInViewport({ ratio: 1 });
+      expect(
+        await dialog.evaluate((d) => d.scrollHeight <= d.clientHeight + 1),
+        `${label}: the dialog scrolls`,
+      ).toBe(true);
+      expect(await clippedText(page), label).toEqual([]);
+      expect(await brokenWords(page), label).toEqual([]);
+      for (const button of await dialog.getByRole("button").all())
+        expect((await button.boundingBox())!.height, label).toBeGreaterThanOrEqual(44);
+    };
+    await fits("1366 × 768");
+
+    // The presets: the room's usual party, every ID checked, 2 h.
+    await expect(guests.getByRole("button", { pressed: true })).toHaveCount(1);
+    await expect(ids.getByRole("button", { name: "All checked" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(length.getByRole("button", { name: "2 h" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await guests.getByRole("button", { name: "7", exact: true }).click();
+    await expect(dialog).toContainText("7 guests · Fridays bill at least 4");
+    await expect(ids).toContainText("7 of 7");
+    await expect(ids.getByRole("button", { name: "One ID more" })).toBeDisabled();
+    await ids.getByRole("button", { name: "One ID fewer" }).click();
+    await expect(ids).toContainText("6 of 7");
+    await expect(ids).toContainText("The runner checks the rest");
+    await expect(ids.getByRole("button", { name: "All checked" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await length.getByRole("button", { name: "1½ h" }).click();
+    await expect(length.getByRole("button", { name: "1½ h" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // "More" opens the number field for a bigger party.
+    await guests.getByRole("button", { name: "More" }).click();
+    await guests.getByLabel("Number of guests").fill("12");
+    await expect(dialog).toContainText("12 guests · Fridays bill at least 4");
+    await guests.getByRole("button", { name: "7", exact: true }).click();
+    await expect(guests.getByLabel("Number of guests")).toHaveCount(0);
+
+    // Step 6 says what will happen: the QR slip; a text only with a phone; an email with an email.
+    await expect(dialog).toContainText("6 · QR prints now");
+    await expect(dialog.getByLabel("Guest's phone (optional)")).toBeVisible();
+    await dialog.getByLabel("Guest's name").fill("Ana P.");
+    await dialog.getByLabel("Guest's phone (optional)").fill("(212) 555-0144");
+    await expect(dialog).toContainText("6 · QR prints now · Code by text");
+    await dialog.getByLabel("Guest's phone (optional)").fill("");
+    await dialog.getByLabel("Host's email (optional)").fill("ana@example.test");
+    await expect(dialog).toContainText("6 · QR prints now · QR by email");
+    await expect(dialog).not.toContainText("Code by text");
+    await fits("1366 × 768, filled in");
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await fits("1440 × 900");
+
+    await seat.click();
+    await expect(page.getByText(/^Room 11 · room code [A-Z2-9]{5} · check #\d{4}$/)).toBeVisible();
+    const row = (
+      await db.query<{ phone: string | null; email: string | null }>(
+        `select g.phone_e164 as phone, g.email
+           from room_sessions s join guests g on g.id = s.guest_id join rooms r on r.id = s.room_id
+          where r.name = 'Room 11' and s.ended_at is null`,
+      )
+    ).rows[0];
+    expect(row).toMatchObject({ phone: null, email: "ana@example.test" });
   } finally {
     await db.end();
   }
@@ -1914,7 +2025,10 @@ test("O-08 · Keep the card behind the bar, from the walk-in check-in to close-o
     await expect(dialog).toContainText(
       "5 · Card behind the bar · note the name on the card and its last 4",
     );
-    await dialog.getByLabel("1 · Guests").fill("4");
+    await dialog
+      .getByRole("group", { name: "1 · Guests" })
+      .getByRole("button", { name: "4", exact: true })
+      .click();
     await dialog.getByRole("button", { name: "Seat them" }).click();
     const held = page.getByRole("dialog", { name: "Card behind the bar · Room 11" });
     await held.getByLabel("Name on the card").fill("Nia Brooks");

@@ -139,3 +139,89 @@
     flex: 1 1 0;
   }
 }
+
+/* The check-in sheet's presets (D128): tap targets, not typing. A chip is 44 px or more; the
+   chosen one is lime, as the canvas draws a selected segment. */
+.checkin-sheet fieldset.checkin-field {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.checkin-sheet .chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.checkin-sheet .chip {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: var(--w4-text-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--w4-text);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line-2);
+  border-radius: var(--w4-radius);
+  cursor: pointer;
+}
+.checkin-sheet .chip[aria-pressed="true"] {
+  color: var(--w4-on-accent);
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+  font-weight: 700;
+}
+.checkin-sheet .chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.checkin-sheet .chip-input {
+  width: 88px;
+}
+.checkin-sheet .ids-count {
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.checkin-sheet .checkin-cols,
+.checkin-sheet .checkin-col {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+.checkin-sheet .checkin-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 18px;
+  margin: 0;
+}
+
+/* On a bar computer or the front desk (1024 px and wider), a walk-in is two columns in a wider
+   card, so the whole dialog and Seat them fit a 1366 × 768 screen without a scroll. */
+@media (min-width: 1024px) {
+  .dialog:has(> .checkin-sheet[data-kind="walk_in"]) {
+    width: min(1040px, 100%);
+  }
+  .checkin-sheet[data-kind="walk_in"] .checkin-cols {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: 28px;
+  }
+  .dialog > .checkin-sheet {
+    gap: 12px;
+    padding-top: 18px;
+  }
+  .dialog > .checkin-sheet > h2 {
+    font-size: 28px;
+  }
+  .dialog:has(> .checkin-sheet) {
+    max-height: calc(100dvh - 32px);
+  }
+  .dialog-scrim:has(.checkin-sheet) {
+    padding: 16px;
+  }
+}

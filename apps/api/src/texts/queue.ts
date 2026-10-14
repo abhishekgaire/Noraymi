@@ -102,6 +102,22 @@ export async function queueText(
 }
 
 /**
+ * Whether a venue texts a transactional template at all right now (D128: the walk-in dialog's
+ * "what happens" line): texting on, Guest texts not off, the template on. The number's own checks
+ * (opt-out, +1, allow list) still run when the text is queued.
+ */
+export async function venueTexts(
+  c: Queryable,
+  venueId: string,
+  templateKey: string,
+): Promise<boolean> {
+  if (!(await textingAllows(c, venueId))) return false;
+  if ((await venueModules(c, venueId)).find((m) => m.module_id === "guest_texts")?.state === "off")
+    return false;
+  return (await templateByKey(c, venueId, templateKey))?.on === true;
+}
+
+/**
  * What every text to a guest passes first (M2-09, shared with replies in
  * M2-22): a US number, the staging allow-list, Guest texts on, and at most
  * PER_PREFIX_PER_HOUR texts an hour to one area code.

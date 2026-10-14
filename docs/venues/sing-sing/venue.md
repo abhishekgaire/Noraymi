@@ -78,7 +78,8 @@ The runbook for S-01's last part (O-14): once our Console has made Sing Sing and
 | 2 · Choose your features | As the table "Choose your features (step 2)" above; Approvals: Manager's PIN at the register | The founder, Oct 13 (D124, D126) | Given (the rows marked Still to give there stay the owner's) |
 | 3 · Card payments | Connect with Stripe: the business, its EIN, a representative and the bank account, typed by the owner in Stripe's own pages | — | Still to give |
 | 4 · Rooms and prices | 6 rooms | The founder | Given |
-| 4 · Rooms and prices | Each room's name, size and capacity; how room time is charged, the rate, the billing step, minimum guests; the happy-hour band (daily 12:00 PM – 7:00 PM on the site, its rates not stated); a VIP rate if any | — | Still to give |
+| 4 · Rooms and prices | Minimum guests billed: 3, every day of the week (tick Same minimum every day, then 3) | The founder, Oct 14 (D128) | Given |
+| 4 · Rooms and prices | Each room's name, size and capacity; how room time is charged, the rate, the billing step; the happy-hour band (daily 12:00 PM – 7:00 PM on the site, its rates not stated); a VIP rate if any | — | Still to give |
 | 5 · Hours | Mon–Wed 12:00 PM – 12:00 AM; Thu 12:00 PM – 1:00 AM; Fri and Sat 12:00 PM – 3:00 AM; Sun 12:00 PM – 12:00 AM | The site, to confirm | Given |
 | 5 · Hours | Last call; the kitchen's opening and last-order times | — | Still to give |
 | 5 · Hours | Age policy: all ages until 8 PM, then 21 and over (`safety.allAgesUntil` "20:00") | D108 | Given |

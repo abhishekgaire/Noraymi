@@ -172,7 +172,8 @@ try {
       ],
       lastCall: null,
     }),
-    prices: (v) => ({ ...v, vip: null }),
+    // Bills at least 3 guests every day of the week (founder, Oct 14; D128).
+    prices: (v) => ({ ...v, vip: null, minGuests: { weeknight: 3, friSat: 3 } }),
     deposit: (v) => ({ ...v, on: false, bigParty: null, walkIn: "cardBehindBar" }),
     safety: (v) => ({ ...v, allAgesUntil: "20:00" }),
     kitchen: (v) => ({ ...v, allergyNotice: { en: ALLERGY_EN, es: ALLERGY_ES } }),
