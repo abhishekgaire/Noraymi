@@ -939,7 +939,12 @@ test("Admin → Kitchen: Features names what Kitchen needs, and the allergy noti
       page.getByText("Kitchen · needs a kitchen printer and the allergy notice"),
     ).toBeVisible();
     const kitchen = page.getByRole("group", { name: "Kitchen & food · State" });
-    await expect(kitchen.getByRole("button", { name: "On" })).toBeDisabled();
+    // Before its needs, plain On isn't offered: On once ready is (D129), and Off is chosen.
+    await expect(kitchen.getByRole("button", { name: "On", exact: true })).toHaveCount(0);
+    await expect(kitchen.getByRole("button", { name: "On once ready" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect(kitchen.getByRole("button", { name: "Off" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -1925,7 +1930,8 @@ test("D128 · the walk-in dialog is taps, fits a 1366 × 768 screen, and needs n
       expect(await clippedText(page), label).toEqual([]);
       expect(await brokenWords(page), label).toEqual([]);
       for (const button of await dialog.getByRole("button").all())
-        expect((await button.boundingBox())!.height, label).toBeGreaterThanOrEqual(44);
+        // Sub-pixel layout can land a 44 px button at 43.99998.
+        expect(Math.round((await button.boundingBox())!.height), label).toBeGreaterThanOrEqual(44);
     };
     await fits("1366 × 768");
 
