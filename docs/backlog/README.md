@@ -373,3 +373,27 @@
 | [W-03 · The kitchen printer cabled to a bar computer](W-windows-and-lan-printer.md#w-03--the-kitchen-printer-cabled-to-a-bar-computer) | S | W-01 |
 | [W-04 · A network printer on the venue's LAN, printed by a bar computer](W-windows-and-lan-printer.md#w-04--a-network-printer-on-the-venues-lan-printed-by-a-bar-computer) | M | W-01, W-03 |
 | [W-05 · Sing Sing's hardware: Windows bar computers, the Epson at the bar, the kitchen printer](W-windows-and-lan-printer.md#w-05--sing-sings-hardware-windows-bar-computers-the-epson-at-the-bar-the-kitchen-printer) | M | W-01 to W-04, F-09 |
+
+### [P · Everything Sing Sing's register does today](P-register-parity.md)
+
+| Ticket | Size | Depends on |
+| --- | --- | --- |
+| [P-01 · Print the bill before paying](P-register-parity.md#p-01--print-the-bill-before-paying) | S | M4 (Present the check), W-01 |
+| [P-02 · A % or $ discount on a whole check](P-register-parity.md#p-02--a--or--discount-on-a-whole-check) | M | M4, F-03 |
+| [P-03 · A named bar tab without a card](P-register-parity.md#p-03--a-named-bar-tab-without-a-card) | S | M6 (New tab) |
+| [P-04 · Starting a room: a note, a prepaid block, a package](P-register-parity.md#p-04--starting-a-room-a-note-a-prepaid-block-a-package) | M | M2 (walk-in), D128, package sales |
+| [P-05 · A sound when a room's time is up](P-register-parity.md#p-05--a-sound-when-a-rooms-time-is-up) | S | the board alerts, the desktop app's alarm |
+| [P-06 · Change a tip after paying](P-register-parity.md#p-06--change-a-tip-after-paying) | M | F-10, M4 (tips) |
+| [P-07 · Monthly sales report](P-register-parity.md#p-07--monthly-sales-report) | S | M7 reports |
+| [P-08 · Reservations by month](P-register-parity.md#p-08--reservations-by-month) | S | M5 (Calendar) |
+| [P-09 · Staff actions (voids, comps, discounts, no-sales by person)](P-register-parity.md#p-09--staff-actions-voids-comps-discounts-no-sales-by-person) | S | `/reports/staff-actions` |
+| [P-10 · Access person by person, and which actions ask for a PIN](P-register-parity.md#p-10--access-person-by-person-and-which-actions-ask-for-a-pin) | M | M1 roles, permissions |
+| [P-11 · One bell for everything waiting](P-register-parity.md#p-11--one-bell-for-everything-waiting) | S | alerts, approvals, messages, bar orders |
+| [P-12 · Today at a glance, and who's on shift on the PIN screen](P-register-parity.md#p-12--today-at-a-glance-and-whos-on-shift-on-the-pin-screen) | S | reports (X), punches |
+| [P-13 · The order of the menu](P-register-parity.md#p-13--the-order-of-the-menu) | S | F-03 |
+| [P-14 · Activity log and About](P-register-parity.md#p-14--activity-log-and-about) | S | the audit log |
+| [P-15 · Tax-exempt checks](P-register-parity.md#p-15--tax-exempt-checks) | M | P-02 |
+| [P-16 · Inventory](P-register-parity.md#p-16--inventory) | L | menu, 86 |
+| [P-17 · Kitchen screen](P-register-parity.md#p-17--kitchen-screen) | M | K (kitchen tickets) |
+| [P-18 · A screen for the guest at the bar](P-register-parity.md#p-18--a-screen-for-the-guest-at-the-bar) | M | W-01 |
+| [P-19 · A missed sale on tonight's date](P-register-parity.md#p-19--a-missed-sale-on-tonights-date) | S | M7 (closed nights) |
