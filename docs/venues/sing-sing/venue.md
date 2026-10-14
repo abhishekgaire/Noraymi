@@ -52,7 +52,7 @@ Sing Sing's own choices in Set up your venue's **Choose your features** ([D124](
 | Online booking | On | Founder, Oct 13, 2026 |
 | Ordering from the room | On | Founder, Oct 13, 2026 |
 | Keep the card behind the bar for walk-ins | On | Founder, Oct 13, 2026 |
-| Cash discount | On at **3.5%** (cash pays 3.5% less); menu prices, drinks and food, include the card fee | Founder, Oct 13, 2026 (D125) |
+| Cash discount | On at **3.38%** (cash pays 3.38% less, which is the card price less a 3.5% card markup: $13.45 → $13.00), as Sing Sing's register shows today ("Cash Disc (3.38%)"); menu prices, drinks and food, include the card fee | Founder, Oct 13, 2026 (D125); the register photos, Oct 14 (D130) |
 | Paid on outside card machine | On, beside Stripe's readers (both on), so it can start on its own machine and move to readers | Founder, Oct 13, 2026 (D126) |
 | Deposits on bookings | Off | Founder, Oct 13, 2026 |
 | Bar mode | Off | Founder, Oct 13, 2026 |
@@ -117,3 +117,13 @@ What the founder told us on Oct 13, 2026 ([D126](../../decisions.md), [D127](../
 - **A Rongta RP326 on the network** (only if Sing Sing buys the Ethernet version, such as the RP326-USE): it can then sit in the kitchen with no cable to a computer, as a Network printer with a fixed IP address reserved in the router ([hardware-install.md](../../runbooks/hardware-install.md#a-network-printer-in-the-kitchen-w-04)). A USB-only RP326 can't be reached over the network.
 - **The Star TSP100III and West 4.** West 4's own docs and seed name no Star model, but if West 4 ever uses a TSP100III it has the same limit: Star raster only, no CloudPRNT, so it is set to Star raster as here, never added as a cloud printer.
 - **Checking it:** `pnpm --filter @west4/api devices:check -- --venue <Sing Sing's slug> --set bar-computers` (the bar computers with the desktop app online, the bar printer and drawer online, the kitchen printer online while Kitchen & food is on, and a card reader only when the outside card machine is off), then the [real-Windows check list](../../runbooks/hardware-install.md#check-on-a-real-windows-bar-computer).
+
+## Today's register (the founder's photos, Oct 14, 2026)
+
+What Sing Sing runs now (VenueTap POS v1.1.53 on the bar computer), for reference; nothing here is copied from it ([integrations are partnerships only](../../../CLAUDE.md)).
+
+- **Screens:** Karaoke (rooms), Bar Sales (named bar tabs and a "Cash Bar" quick sale), Dine In, Quick Serve (takeout), Reservation (a calendar), Clock In / Clock Out, Open Drawer, Tip Adjust, Manual Ticket (past-dated tickets), and Settings (modules, company info, store hours, staff and their access, which actions ask for a PIN, items, rooms, inventory, sales reports, batch and Z report, printers, PAX card terminals, devices, QR ordering, an audit of voids and removals, logs). Staff sign in with a 4-digit PIN.
+- **Starting a room:** number of guests (3 by default), a name or note, count up (per minute, no end) or count down (a prepaid block), an estimated length (60 minutes by default), a time alarm and a package tick box. Ours is the walk-in dialog (D128).
+- **A bar check of $3.00:** sales tax $0.27, city tax $0.00, gratuity $0.60 (20% before tax), total $3.87; the adjustments are Discount, Gratuity, Tax, **Cash Disc (3.38%)**, Void and Refund (D130).
+- **At the bar:** an Epson receipt printer with the drawer, a **PAX** card terminal (the outside card machine), a Grubhub tablet for delivery orders, an HDMI matrix switcher, and a second screen running the bar's song queue program (Song Queue Manager 3.1). A paper "Tip Log Book" sits beside it.
+- **Still to confirm with the manager:** the room screen numbers rooms up to at least 14, while this file says 6 rooms; and whether the 20% gratuity on a bar check is added to every check automatically.

@@ -147,8 +147,9 @@ try {
     phone: () => ({ callNumber: "+19297397310", textNumber: "+19297397310" }),
     pos: (v) => ({ ...v, layouts: {} }),
     approvals: () => ({ mode: "pin" }),
-    // Cash pays 3.5% less; menu prices (drinks and food) include the card fee (founder, Oct 13).
-    pay: (v) => ({ ...v, cardFee: { mode: "discount", pct: 3.5, foodIncludesFee: true } }),
+    // Cash pays 3.38% less, as Sing Sing's register does today (D130); menu prices (drinks and food)
+    // include the card fee (founder, Oct 13).
+    pay: (v) => ({ ...v, cardFee: { mode: "discount", pct: 3.38, foodIncludesFee: true } }),
   };
   for (const row of latest) {
     const value = override[row.key] ? override[row.key](row.value) : row.value;
