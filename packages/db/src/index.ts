@@ -20,6 +20,7 @@ export type { Finding, RuleId, Catalog } from "./lint/index.js";
 export { withVenue, withOrgScope, setContext, beforeCommit } from "./tenancy.js";
 export type { RequestContext, Queryable } from "./tenancy.js";
 export * from "./jobs/index.js";
+export { removeLocalDemoVenue } from "./demo-venue.js";
 export {
   assertOutsideTransaction,
   inTransaction,

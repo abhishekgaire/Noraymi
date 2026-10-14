@@ -213,6 +213,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "guestSing.askAtBar": "Pide en la barra que te añadan a la cola",
   "invite.emailCode": "Envíame un código por correo",
   "invite.codeFromEmail": "El código del correo",
+  "invite.badPhone": "Escribe un móvil de EE. UU., 10 dígitos",
   "invite.phoneHintEmail":
     "Enviamos un código al correo de tu invitación para confirmarlo, una vez.",
   "invite.codeSent": "Enviamos un código al {phone}",

@@ -54,6 +54,7 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 26. [What you can't test locally](#26-what-you-cant-test-locally)
 27. [Printable checklist](#27-printable-checklist)
 28. [Practice night at Sing Sing from your laptop](#28-practice-night-at-sing-sing-from-your-laptop)
+29. [Onboard Sing Sing yourself (Set up your venue)](#29-onboard-sing-sing-yourself-set-up-your-venue)
 
 ---
 
@@ -114,7 +115,7 @@ To check the API is alive, open http://localhost:3000/v1/health. It should show 
 5. Type the code and press **Confirm**.
 6. Choose a 6-digit PIN. Easy ones like 123456 are refused. Press **Set my PIN**.
 7. Press **Add a passkey** and touch Touch ID.
-8. Press **Go to sign-in**, type `abhishek@demo.west4.local`, press **Continue with a passkey**, and touch Touch ID. You land on **Rooms** (the board).
+8. Press **Go to sign-in**. This browser now shows a PIN pad (it's "your phone"); press **Owner or manager? Sign in with your passkey**, type `abhishek@demo.west4.local`, press **Continue with a passkey**, and touch Touch ID. You land on **Rooms** (the board).
 
 ### 0.3 A second person: Andy, the manager
 
@@ -1646,3 +1647,110 @@ The whole system runs on your Mac; nothing goes to the cloud. Sing Sing's Window
 2. All the night's data stays on your laptop (Docker's database). Nothing was sent anywhere: texts and emails went to Mailpit, card payments to the fake Stripe.
 3. On the bar PCs, you can uninstall the app (Settings → Apps), and remove the certificate (Start → "Manage user certificates" → Trusted Root Certification Authorities → Certificates → "West 4 practice night CA" → Delete). On phones, remove the profile or certificate the same way you added it.
 4. The next practice night uses the same certificate authority, so devices that trusted it once don't need it again, even if the laptop's address changes.
+
+---
+
+## 29. Onboard Sing Sing yourself (Set up your venue)
+
+**Goal:** go through owner onboarding the way a new customer does: our Console makes an empty venue and emails its owner an invite, and the owner enters everything in **Set up your venue**, 12 steps.
+
+**Two ways to get Sing Sing in the demo. Pick one; they can't be combined:**
+
+- `scripts/demo-start.sh --sing-sing` is a **testing shortcut**: Sing Sing comes pre-filled (rooms, menu, people, settings) so you can test the kitchen and the night straight away (section 11).
+- `scripts/demo-start.sh --onboard` is **the real path**: Sing Sing comes empty, and you fill it in yourself. On the real servers it's the same: our Console makes the venue (Console → New venue) and emails the owner the same invite.
+
+What you type below comes from [venues/sing-sing/venue.md](venues/sing-sing/venue.md) ("Given" values). Where it says a value is **yours to give** (room names, sizes, prices, and so on), nobody has given it yet: type the real answer if you have it, or a pretend one for the demo.
+
+### 29.1 Start it
+
+1. Stop any running demo (Ctrl+C in its Terminal window).
+2. Run:
+
+   ```
+   cd ~/Downloads/west4-karaoke
+   scripts/demo-start.sh --onboard
+   ```
+
+   (`--lan` works with it too. While the demo is already running, `scripts/demo-local.sh --onboard` resets the night and makes Sing Sing again.)
+3. Below West 4's invite links you should see:
+
+   ```
+   Sing Sing Karaoke Astoria is made, empty, as our Console makes a new venue.
+     Owner's invite (abhishek@singsing.demo.local): http://localhost:5173/invite/…
+     The same invite by email, and every sign-in code: http://localhost:8025  (or scripts/demo-codes.sh)
+     The plans' test prices are on the fake Stripe.
+     Promo code for step 2 (the fake Stripe's test code): FAKEFIRSTMONTH
+   Open the link, then Set up your venue walks you through 12 steps …
+   ```
+
+   The venue has a name and its owner (you, "Abhishek G."), and nothing else: no address, rooms, menu, staff or settings. Each run throws away the last Sing Sing and starts over.
+
+### 29.2 Join as the owner
+
+1. Open the owner's invite link in Chrome. You should see "Join Sing Sing Karaoke Astoria · you're joining as Owner". (The same link is in the "owner invite" email in Mailpit, http://localhost:8025.)
+2. Type any US mobile number, for example `(929) 555-0101`, and press **Email me a code**. Sing Sing's own texts aren't connected (step 11), so the code comes by email: open Mailpit, or run `scripts/demo-codes.sh` in a second Terminal window.
+3. Type the code, press **Confirm**, choose a 6-digit PIN, press **Set my PIN**, then **Add a passkey** and touch Touch ID.
+4. Press **Go to sign-in**. Because you joined in this browser, it shows a PIN pad (this browser is now "your phone"). Press **Owner or manager? Sign in with your passkey**, type `abhishek@singsing.demo.local`, press **Continue with a passkey** and touch Touch ID.
+5. You land on **Set up your venue**: a list of 12 steps on the left, "Step 1 of 12" on the right, "0 of 12 done".
+
+Every step has **Continue**, **Back**, **Skip for now** and **Save and finish later**. Nothing goes to guests until you press **Finish setup**, and everything stays editable later in Admin.
+
+### 29.3 The 12 steps
+
+**Step 1 · Your venue.** Name: `Sing Sing Karaoke Astoria` (already there). **Legal name**: it holds a placeholder, "Sing Sing (legal name to confirm in step 1)": type the company's real name if you know it (yours to give). Street `25-30 Broadway`, City `Astoria`, State `NY`, ZIP code `11106`. **Number guests call**: `(929) 739-7310`. Press **Add an address** under the booking inbox and type `admin@singsingastoria.com`. **Continue.**
+
+**Step 2 · Your plan.** Tick **Private rooms** and **A kitchen**, choose **Rooms + Kitchen plan**. The prices shown are made-up test amounts from the fake Stripe. Type the promo code `FAKEFIRSTMONTH` and press **Check**: "First month free". Press **Start plan**: the page jumps to the fake Stripe's checkout and straight back (no card to type). You should see "Rooms + Kitchen plan · started".
+
+Then **Choose your features** appears on the same step. Set:
+
+| On | Off |
+| --- | --- |
+| Rooms & room clock, Bar screen & tickets, Online booking, Ordering from the room, Keep the card behind the bar for walk-ins, Cash discount, Paid on outside card machine | Deposits on bookings, Bar mode, Song system control, Room tablets |
+
+Leave Walk-in waitlist, Packages & specials, Guest texts, Team, time clock & tips and Pay my share as they are (yours to choose). Under **Approvals**, choose **Manager's PIN at the register**.
+
+What you'll notice:
+- **Kitchen & food** stays Off and can't be switched yet: "Kitchen · needs a kitchen printer and the allergy notice". You add both in steps 8 and 12, then turn it on (29.4).
+- **Website**, **Marketing texts** and **Safety & ID records** say "Not in your plan": no plan includes them; our staff allow them per venue in the Console (section 21, **Modules**). Website is On for Sing Sing, so allow it there if you want to try it.
+
+**Step 3 · Card payments.** Press **Connect with Stripe**. The fake Stripe's pages open and come straight back (on the real servers, the owner types the business, EIN, representative and bank account into Stripe's own pages). You should see "Connected through … · card payments on". **Continue.**
+
+**Step 4 · Rooms and prices.** Sing Sing has **6 rooms**. Their names, sizes and prices are **yours to give** (the manager's answer); for the demo, for example: Name `Room 1`, Fewest guests `2`, Most guests `8`, **Add a room**, and so on to Room 6. Then how rooms are priced and the rate (yours to give; for the demo, Per person an hour `9.50`, Billed in steps of 15 minutes, rounding up), the minimum guests, the shortest and longest booking, the most guests in a booking and the damage fee. **Continue.**
+
+**Step 5 · Hours.** Mon, Tue, Wed and Sun: Opens `12:00 PM`, Closes `12:00 AM`. Thu: `12:00 PM` to `1:00 AM`. Fri and Sat: `12:00 PM` to `3:00 AM`. Last call and the kitchen's times: yours to give (leave empty). Age policy: **All ages until a time, then 21 and over**, All ages until `8:00 PM`. **Continue.**
+
+**Step 6 · Deposits and check-in.** Deposit: **off** (no deposit for online bookings). No-show after `15` minutes late. At a walk-in check-in: **Keep the card behind the bar**. The cancel hours, fees and the largest party: yours to give. **Continue.**
+
+**Step 7 · Money at the counter.** Leave **Take cards on your own outside card machine too** ticked. **Cash discount (%)**: `3.5`, and choose **Food prices include the card fee · the discount applies to food too**. The gratuity (Added to), the reader's tip screen, the tip review, how the pool splits, the drawer model and starting bank: yours to give; every one needs an answer before Continue ("Finish the payments and drawer answers, or clear them, before you go on"). For the demo, for example: Added to Nothing, Ask for a tip on the reader No, flags 30% / $60 / 3 hours, By hours worked, Hold a card at room check-in No, House drawers, Starting bank $250, note over $10, Second counter Never, paid-outs over $40. **Continue.**
+
+**Step 8 · Menu.** Under **Upload a spreadsheet**, choose the three files in `docs/venues/sing-sing/import/` (in Finder: Downloads → west4-karaoke → docs → venues → sing-sing → import; select `mapping.json`, `items.csv` and `choices.csv` together with Cmd-click). Press **Check the file**: "179 menu lines …". Press **Looks right**: "Saved: 179 new menu lines". Under **Allergy notice**:
+- In English: `Allergen information for menu items is available. Ask an employee for details.`
+- In Spanish: `La información sobre alérgenos de los platos del menú está disponible. Pregunte a un empleado para más detalles.`
+
+**Continue** saves the notice.
+
+**Step 9 · Team and contacts.** Invite a manager (yours to give; for the demo, Andy): Name `Andy C.`, Mobile phone any US number, Role Manager, Email `andy@singsing.demo.local`, **Send the invite**: "Invite sent to andy@singsing.demo.local". (With a phone only, it says "Add an email · this venue's texts aren't connected yet".) Then the on-call responder (Who: Abhishek G. · Owner, the days and hours) and the **Breach contact** (Abhishek G. · Owner). **Continue.**
+
+To make Andy "a manager besides you who has set a PIN" (needed before you open): open an **Incognito window** (Cmd + Shift + N), open Andy's invite from Mailpit, and do 29.2 steps 2 and 3 for him (his code is emailed to andy@singsing.demo.local).
+
+**Step 10 · Licenses.** Press **Add a license**, Kind **Liquor**, the number and the expiry date (yours to give; for the demo, `DEMO-LIQUOR-1`, an expiry next year), **Save**. The food permit and music licenses can be added the same way.
+
+**Step 11 · Texts, website and your old system.** All optional. **Connect your Twilio account** needs Sing Sing's own Twilio account, which the demo doesn't have: skip it, so texting stays off and codes and invites keep coming by email. The website question and the old system's files are optional too. Press **Skip for now**.
+
+**Step 12 · Devices and checks.** "Still needed: a card reader, a receipt printer with a drawer, the merchant category check". Press **Open Admin → Printers & devices**:
+- **Card reader.** Sing Sing takes cards on its own outside machine, but setup still asks for one Stripe reader before you open. In the demo, register the fake one: Name staff pick `Bar S710`, Registration code `simulated-s710`, **Register**: "Bar S710 is registered".
+- **Bar printer and drawer** (the Epson TM-T88V with the cash drawer on its port). There's no real printer: add it by hand. Printer name `Bar printer`, Station **Bar**, **Add a printer**; then Drawer name `Bar drawer`, On the kick port of **Bar printer**, **Add the drawer**: "On Bar printer's kick port".
+- **Kitchen printer** (the Rongta RP326, cabled to the main bar computer): Printer name `Kitchen printer`, Station **Kitchen**, **Add a printer**. (The Star TSP143IIIW is the alternative; nothing to add for it unless you use it.)
+- These printers don't print anything in the demo. To see printing and the "Cabled to Bar computer" line, run the desktop app with its virtual printer (0.11) and pair it as "Bar computer"; a second desktop window could be "Bar computer 2".
+
+Back on **Set up your venue → Devices and checks**, in the **Go-live checklist**, type `5813` in **The category we expect** and press **Save the category**: "Checked: Stripe has 5813" (the fake Stripe's account; on the real servers you type what Stripe gave Sing Sing).
+
+You should see **Ready to open**. Press **Finish setup**, then **Finish setup** again in "Finish setup?": "Setup finished · your venue's facts are in".
+
+### 29.4 After Finish setup
+
+1. **Admin → Features → Kitchen & food → On** (now that the allergy notice and a kitchen printer exist).
+2. The board (**Rooms**) shows your 6 rooms. Try a walk-in: **+ Walk-in**, the guests, **Seat them**, then the card behind the bar (name and last 4 digits).
+3. To start again from an empty Sing Sing: `scripts/demo-local.sh --onboard` (it also resets West 4's night).
+
+**If it's wrong:** note the step number and the message. The automated version of this path, with a made-up venue, is `e2e/onboard.spec.ts`.

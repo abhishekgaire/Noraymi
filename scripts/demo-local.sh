@@ -7,16 +7,26 @@
 # Then: open a link, enter any US mobile number, get the code with scripts/demo-codes.sh, and add your passkey.
 #
 # --sing-sing also makes Sing Sing Karaoke Astoria, a second venue with Kitchen & food on, its menu and
-# its own invite links (scripts/demo-sing-sing.mjs; docs/manual-test.md section 11).
+# its own invite links (scripts/demo-sing-sing.mjs; docs/manual-test.md section 11): a pre-filled
+# testing shortcut.
+# --onboard instead makes Sing Sing empty, the way our Console makes a new customer's venue, and prints
+# its owner's invite: you set it up yourself through Set up your venue (apps/api/src/console/demo-onboard.ts;
+# docs/manual-test.md, "Onboard Sing Sing yourself"). The two can't be used together.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 sing_sing=0
+onboard=0
 for arg; do
   case "$arg" in
     --sing-sing) sing_sing=1 ;;
-    *) echo "Unknown option: $arg (the only option is --sing-sing)" >&2; exit 1 ;;
+    --onboard) onboard=1 ;;
+    *) echo "Unknown option: $arg (the options are --sing-sing and --onboard)" >&2; exit 1 ;;
   esac
 done
+if [ "$sing_sing" = 1 ] && [ "$onboard" = 1 ]; then
+  echo "Pick one: --sing-sing makes Sing Sing pre-filled (a testing shortcut), --onboard makes it empty for you to set up. Both make the same venue, so they can't be used together." >&2
+  exit 1
+fi
 psql() { docker compose exec -T postgres psql -U west4 -At -c "$1"; }
 
 # --yes-wipe-demo: resetting the running demo night is this script's whole job.
@@ -50,4 +60,8 @@ node scripts/demo-links.mjs
 if [ "$sing_sing" = 1 ]; then
   echo
   node scripts/demo-sing-sing.mjs
+fi
+if [ "$onboard" = 1 ]; then
+  echo
+  (cd apps/api && pnpm exec tsx src/console/demo-onboard.ts)
 fi

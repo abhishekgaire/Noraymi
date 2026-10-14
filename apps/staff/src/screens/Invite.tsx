@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { makeDeviceKey, pinProblem, type MessageKey, type Role } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useCaptcha } from "../captcha.js";
+import { usE164 } from "../us-phone.js";
 import { roleKey, useT } from "../i18n.js";
 import { storeDevice } from "../device.js";
 import { useSession } from "../session.js";
@@ -95,11 +96,18 @@ export function Invite() {
 
   const sendCode = (event: FormEvent) => {
     event.preventDefault();
+    // Typed any way ("(929) 739-7310"); the API takes E.164.
+    const e164 = usE164(phone);
+    if (!e164) {
+      setError(t("invite.badPhone"));
+      return;
+    }
+    setPhone(e164);
     void run(async () => {
       let sent: { sent_by?: "text" | "email"; email_hint?: string };
       try {
         sent = await api("POST", `/v1/invites/${encodeURIComponent(token)}/phone`, {
-          phone_e164: phone,
+          phone_e164: e164,
           captcha_token: captcha.token ?? "",
         });
       } catch (e) {
@@ -123,7 +131,7 @@ export function Invite() {
       // Until the venue's own texts are live, the code goes to the invite's email (T-03; D123).
       setStep({
         kind: "code",
-        phone,
+        phone: e164,
         email: sent.sent_by === "email" ? (sent.email_hint ?? "") : null,
       });
     });
@@ -134,7 +142,7 @@ export function Invite() {
     void run(async () => {
       try {
         await api("POST", `/v1/invites/${encodeURIComponent(token)}/phone/verify`, {
-          phone_e164: phone,
+          phone_e164: usE164(phone) ?? phone,
           code,
         });
         setStep({ kind: "pin" });

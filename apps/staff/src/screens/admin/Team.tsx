@@ -9,6 +9,7 @@ import {
   type Role,
 } from "@west4/shared";
 import { api, stepUpToken, type ApiCallError } from "../../api.js";
+import { usE164 } from "../../us-phone.js";
 import { readDevice } from "../../device.js";
 import { roleKey, useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -633,13 +634,6 @@ export function Team() {
     </section>
   );
 }
-
-/** A US mobile typed any way ("(917) 555-0144", "917-555-0144") as E.164, or null. */
-const usE164 = (typed: string): string | null => {
-  const digits = typed.replace(/\D/g, "");
-  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
-  return /^[2-9]\d{9}$/.test(ten) ? `+1${ten}` : null;
-};
 
 /**
  * Invite someone (M1-23; O-11): by phone, by email or both. A phone gets the link by text; they

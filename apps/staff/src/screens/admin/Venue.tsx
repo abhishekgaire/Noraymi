@@ -10,6 +10,7 @@ import { useConnection } from "../../connection.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { VenueContacts } from "./Contacts.js";
+import { usE164 } from "../../us-phone.js";
 import "./setup.css";
 
 /**
@@ -28,7 +29,11 @@ interface Profile {
 
 const E164 = /^\+[1-9]\d{6,14}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const cleanPhone = (v: string) => v.replace(/[\s().-]/g, "");
+/** "+1 212 255 0011" as E.164; a US number typed without +1 ("(929) 739-7310") gets it. */
+const cleanPhone = (v: string) => {
+  const c = v.replace(/[\s().-]/g, "");
+  return E164.test(c) ? c : (usE164(v) ?? c);
+};
 
 interface Form {
   name: string;

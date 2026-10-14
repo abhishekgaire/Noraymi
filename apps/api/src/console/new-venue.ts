@@ -8,8 +8,9 @@ import {
   consoleVenue,
   createInvite,
   type Queryable,
+  type RequestContext,
 } from "@west4/db";
-import { builtInRulePacks, type Clock } from "@west4/shared";
+import { builtInRulePacks, type Clock, type Temporal } from "@west4/shared";
 import type { EmailSettings } from "../email/settings.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -91,6 +92,136 @@ export async function ownerState(c: Queryable, venueId: string): Promise<OwnerSt
   };
 }
 
+/** One walled venue transaction: the API's app.db.withVenue, or @west4/db's withVenue on a pool. */
+export type VenueTx = <T>(
+  context: RequestContext,
+  work: (c: Queryable) => Promise<T>,
+) => Promise<T>;
+
+/**
+ * O-01's writes, shared by the Console route and the local demo's `--onboard`
+ * (apps/api/src/console/demo-onboard.ts), so both make a venue the same way:
+ * the organization when new, the venue, the owner's `invited` membership and
+ * the reason, as the staff member, and nothing else.
+ */
+export async function createVenueWithOwner(
+  venueTx: VenueTx,
+  input: {
+    readonly staffId: string;
+    readonly requestId?: string | undefined;
+    readonly name: string;
+    readonly slug: string;
+    readonly orgId: string | null;
+    readonly legalName: string | null;
+    readonly ownerName: string;
+    readonly ownerEmail: string;
+    readonly reason: string;
+  },
+): Promise<{
+  venueId: string;
+  orgId: string;
+  membershipId: string;
+  stripeAccountId: string | null;
+}> {
+  const venueId = randomUUID();
+  return venueTx({ venueId, userId: input.staffId, requestId: input.requestId }, async (c) => {
+    const { orgId, userId } = await consoleCreateVenue(c, {
+      venueId,
+      orgId: input.orgId,
+      legalName: input.legalName,
+      name: input.name,
+      slug: input.slug,
+      rulePackId: NEW_YORK_RULE_PACK,
+      ownerName: input.ownerName,
+      ownerEmail: input.ownerEmail,
+    });
+    const m = await c.query<{ id: string }>(
+      `insert into memberships (venue_id, user_id, role, status, pin_digits, locale)
+           values ($1, $2, 'owner', 'invited', 6, 'en') returning id`,
+      [venueId, userId],
+    );
+    await c.query(
+      "insert into venue_onboarding (venue_id, created_by, reason) values ($1, $2, $3)",
+      [venueId, input.staffId, input.reason],
+    );
+    const org = await c.query<{ stripe_account_id: string | null }>(
+      "select stripe_account_id from organizations where id = $1",
+      [orgId],
+    );
+    return {
+      venueId,
+      orgId,
+      membershipId: m.rows[0]!.id,
+      stripeAccountId: org.rows[0]?.stripe_account_id ?? null,
+    };
+  }).catch((error: unknown) => {
+    const e = error as { code?: string; constraint?: string };
+    if (e.code === "23505" && e.constraint === "venues_slug_key")
+      throw new ApiError("invalid_request", "that web name is already taken", {
+        status: 409,
+        details: { field: "slug" },
+      });
+    if (e.code === "P0002") throw new ApiError("not_found", "no such organization");
+    throw error;
+  });
+}
+
+/**
+ * The owner's 7-day invite link, emailed (Send the owner's invite). Returns
+ * the link too, for the local demo to print; the route never sends it back.
+ */
+export async function sendOwnerInvite(
+  venueTx: VenueTx,
+  input: {
+    readonly staffId: string;
+    readonly requestId?: string | undefined;
+    readonly venueId: string;
+    readonly venueName: string;
+    readonly now: Temporal.Instant;
+    readonly email: Pick<EmailSettings, "allowList">;
+    readonly staffAppUrl: string;
+  },
+): Promise<{ sentTo: string; expiresAt: string; inviteUrl: string }> {
+  const { venueId } = input;
+  const expiresAt = input.now.add({ hours: OWNER_INVITE_DAYS * 24 });
+  const { token, hash } = newInviteToken();
+  const inviteUrl = `${input.staffAppUrl.replace(/\/$/, "")}/invite/${token}`;
+  const sentTo = await venueTx(
+    { venueId, userId: input.staffId, requestId: input.requestId },
+    async (c) => {
+      const owner = await ownerState(c, venueId);
+      if (!owner) throw new ApiError("not_found", "this venue has no owner");
+      if (owner.status !== "invited")
+        throw new ApiError("invalid_request", "the owner has already signed in", {
+          status: 409,
+        });
+      if (!owner.email) throw new ApiError("invalid_request", "the owner has no email");
+      await createInvite(c, {
+        venueId,
+        membershipId: owner.membership_id,
+        tokenHash: hash,
+        createdBy: input.staffId,
+        expiresAt: expiresAt.toString(),
+      });
+      await enqueueEmail(c, input.email, {
+        venueId,
+        runAt: input.now,
+        to: owner.email,
+        locale: "en",
+        template: "owner_invite",
+        data: {
+          venueName: input.venueName,
+          ownerName: owner.name,
+          inviteUrl,
+          expiresDays: OWNER_INVITE_DAYS,
+        },
+      });
+      return owner.email;
+    },
+  );
+  return { sentTo, expiresAt: expiresAt.toString(), inviteUrl };
+}
+
 export function newVenueRoutes(
   app: FastifyInstance,
   options: {
@@ -108,6 +239,8 @@ export function newVenueRoutes(
     if (p.kind !== "console" || !p.staffId) throw new ApiError("forbidden", "you can't call this");
     return p.staffId;
   };
+
+  const venueTx: VenueTx = (context, work) => app.db.withVenue(context, work);
 
   const appUrl = (): string => {
     if (!options.staffAppUrl) throw new ApiError("internal", "STAFF_APP_URL isn't set");
@@ -142,48 +275,18 @@ export function newVenueRoutes(
         { details: { issues: parsed.error.issues.map((i) => i.path.join(".") || i.message) } },
       );
     const b = parsed.data;
-    const venueId = randomUUID();
-    const made = await app.db
-      .withVenue({ venueId, userId: staffId, requestId: request.requestId }, async (c) => {
-        const { orgId, userId } = await consoleCreateVenue(c, {
-          venueId,
-          orgId: b.org_id ?? null,
-          legalName: b.legal_name ?? null,
-          name: b.name,
-          slug: b.slug,
-          rulePackId: NEW_YORK_RULE_PACK,
-          ownerName: b.owner_name,
-          ownerEmail: b.owner_email,
-        });
-        const m = await c.query<{ id: string }>(
-          `insert into memberships (venue_id, user_id, role, status, pin_digits, locale)
-             values ($1, $2, 'owner', 'invited', 6, 'en') returning id`,
-          [venueId, userId],
-        );
-        await c.query(
-          "insert into venue_onboarding (venue_id, created_by, reason) values ($1, $2, $3)",
-          [venueId, staffId, b.reason],
-        );
-        const org = await c.query<{ stripe_account_id: string | null }>(
-          "select stripe_account_id from organizations where id = $1",
-          [orgId],
-        );
-        return {
-          orgId,
-          membershipId: m.rows[0]!.id,
-          stripeAccountId: org.rows[0]?.stripe_account_id ?? null,
-        };
-      })
-      .catch((error: unknown) => {
-        const e = error as { code?: string; constraint?: string };
-        if (e.code === "23505" && e.constraint === "venues_slug_key")
-          throw new ApiError("invalid_request", "that web name is already taken", {
-            status: 409,
-            details: { field: "slug" },
-          });
-        if (e.code === "P0002") throw new ApiError("not_found", "no such organization");
-        throw error;
-      });
+    const made = await createVenueWithOwner(venueTx, {
+      staffId,
+      requestId: request.requestId,
+      name: b.name,
+      slug: b.slug,
+      orgId: b.org_id ?? null,
+      legalName: b.legal_name ?? null,
+      ownerName: b.owner_name,
+      ownerEmail: b.owner_email,
+      reason: b.reason,
+    });
+    const venueId = made.venueId;
     const venue = await consoleVenue(options.pool, venueId);
     return reply.code(201).send({
       venue,
@@ -202,43 +305,16 @@ export function newVenueRoutes(
       if (!/^[0-9a-f-]{36}$/i.test(venueId)) throw new ApiError("not_found", "no such venue");
       const venue = await consoleVenue(options.pool, venueId);
       if (!venue) throw new ApiError("not_found", "no such venue");
-      const now = options.clock.now();
-      const expiresAt = now.add({ hours: OWNER_INVITE_DAYS * 24 });
-      const { token, hash } = newInviteToken();
-      const sent = await app.db.withVenue(
-        { venueId, userId: staffId, requestId: request.requestId },
-        async (c) => {
-          const owner = await ownerState(c, venueId);
-          if (!owner) throw new ApiError("not_found", "this venue has no owner");
-          if (owner.status !== "invited")
-            throw new ApiError("invalid_request", "the owner has already signed in", {
-              status: 409,
-            });
-          if (!owner.email) throw new ApiError("invalid_request", "the owner has no email");
-          await createInvite(c, {
-            venueId,
-            membershipId: owner.membership_id,
-            tokenHash: hash,
-            createdBy: staffId,
-            expiresAt: expiresAt.toString(),
-          });
-          await enqueueEmail(c, options.email, {
-            venueId,
-            runAt: now,
-            to: owner.email,
-            locale: "en",
-            template: "owner_invite",
-            data: {
-              venueName: venue.name,
-              ownerName: owner.name,
-              inviteUrl: `${appUrl()}/invite/${token}`,
-              expiresDays: OWNER_INVITE_DAYS,
-            },
-          });
-          return owner.email;
-        },
-      );
-      return { sent_to: sent, expires_at: expiresAt.toString() };
+      const sent = await sendOwnerInvite(venueTx, {
+        staffId,
+        requestId: request.requestId,
+        venueId,
+        venueName: venue.name,
+        now: options.clock.now(),
+        email: options.email,
+        staffAppUrl: appUrl(),
+      });
+      return { sent_to: sent.sentTo, expires_at: sent.expiresAt };
     },
   );
 }

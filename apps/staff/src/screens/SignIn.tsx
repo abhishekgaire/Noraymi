@@ -494,8 +494,9 @@ export function SignIn() {
     );
   }
 
-  // --- A person's own phone: their PIN.
-  if (device?.kind === "staff_phone") {
+  // --- A person's own phone: their PIN. An owner or manager who took their invite in this browser
+  // (a laptop, say) opens Admin with the passkey form below instead.
+  if (device?.kind === "staff_phone" && !ownerForm) {
     return (
       <main className="sign-in phone" id="main">
         <h1>{t("signIn.title")}</h1>
@@ -525,6 +526,9 @@ export function SignIn() {
           )}
         </section>
         <p className="muted small">{t("signIn.pinAgainRule")}</p>
+        <button type="button" className="secondary" onClick={() => setOwnerForm(true)}>
+          {t("signIn.ownerWeb")}
+        </button>
         <LanguageSwitch />
       </main>
     );
@@ -576,7 +580,7 @@ export function SignIn() {
             {t("signIn.withAuthenticator")}
           </button>
           <p className="muted small">{t("signIn.staffHere")}</p>
-          {isShared(device) ? (
+          {isShared(device) || device?.kind === "staff_phone" ? (
             <button type="button" className="secondary" onClick={() => setOwnerForm(false)}>
               {t("signIn.back")}
             </button>

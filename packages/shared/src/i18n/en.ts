@@ -211,6 +211,7 @@ export const en = {
   "guestSing.askAtBar": "Ask at the bar to join the queue · the staff add you there",
   "invite.emailCode": "Email me a code",
   "invite.codeFromEmail": "The code from the email",
+  "invite.badPhone": "Type a US mobile number, 10 digits",
   "invite.phoneHintEmail":
     "We email a code to the address your invite came to, to confirm it, once.",
   "invite.codeSent": "We texted a code to {phone}",

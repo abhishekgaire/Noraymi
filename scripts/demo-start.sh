@@ -4,7 +4,11 @@
 #   - the API, its job worker, the staff app and the guest site, with the demo settings the
 #     tests use (your .env isn't read, so no real Twilio or Stripe key is ever loaded),
 #   - then scripts/demo-local.sh: a fresh seed at 10:41 PM and your invite links.
-# --sing-sing also makes the Sing Sing demo venue with the kitchen on (passed to demo-local.sh).
+# --sing-sing also makes the Sing Sing demo venue with the kitchen on, pre-filled (a testing shortcut;
+#   passed to demo-local.sh).
+# --onboard makes Sing Sing empty instead, the way our Console makes a new customer's venue, and prints
+#   its owner's invite, for you to set it up through Set up your venue (docs/manual-test.md, "Onboard
+#   Sing Sing yourself"). Not with --sing-sing.
 # --lan puts the night on this laptop's Wi-Fi address over HTTPS, for bar PCs and phones on the same
 #   network (docs/manual-test.md, "Practice night at Sing Sing from your laptop"); --lan-ip <address>
 #   names the address when the Wi-Fi's own isn't the right one. Keeps the laptop awake while it runs.
@@ -13,11 +17,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 lan=0
 sing=0
+onboard=0
 lan_ip=""
 local_args=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --sing-sing) sing=1; local_args+=(--sing-sing) ;;
+    --onboard) onboard=1; local_args+=(--onboard) ;;
     --lan) lan=1 ;;
     --lan-ip)
       lan=1
@@ -25,10 +31,14 @@ while [ $# -gt 0 ]; do
       [ -n "$lan_ip" ] || { echo "--lan-ip needs an address, e.g. --lan-ip 192.168.1.20" >&2; exit 1; }
       shift
       ;;
-    *) echo "Unknown option: $1 (the options are --sing-sing, --lan and --lan-ip <address>)" >&2; exit 1 ;;
+    *) echo "Unknown option: $1 (the options are --sing-sing, --onboard, --lan and --lan-ip <address>)" >&2; exit 1 ;;
   esac
   shift
 done
+if [ "$sing" = 1 ] && [ "$onboard" = 1 ]; then
+  echo "Pick one: --sing-sing makes Sing Sing pre-filled (a testing shortcut), --onboard makes it empty for you to set up. Both make the same venue, so they can't be used together." >&2
+  exit 1
+fi
 mkdir -p .demo-logs
 
 ports="3000 3001 5173"

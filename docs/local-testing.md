@@ -183,7 +183,7 @@ cd ~/Downloads/west4-karaoke
 scripts/demo-local.sh
 ```
 
-It reloads the demo night and prints new invite links. Your old passkeys are removed, so make a new one with the new link. Add `--sing-sing` to make the Sing Sing demo venue again too (section 8).
+It reloads the demo night and prints new invite links. Your old passkeys are removed, so make a new one with the new link. Add `--sing-sing` to make the Sing Sing demo venue again too (section 8), or `--onboard` to make it empty for you to set up (not both).
 
 ### Running the browser tests while the demo is open
 
@@ -201,7 +201,13 @@ scripts/demo-start.sh --sing-sing
 
 (or `scripts/demo-local.sh --sing-sing` while the demo is running). It prints two more invite links, for Sing Sing's Abhishek and Andy. See manual-test.md section 11.
 
-**Being built now:** owner onboarding step 12 (devices, the go-live checks and Finish setup, O-13) and onboarding a new venue from scratch in the demo (O-14).
+That's a pre-filled **testing shortcut**. To go through owner onboarding yourself instead, the way a new customer does, start with:
+
+```
+scripts/demo-start.sh --onboard
+```
+
+(or `scripts/demo-local.sh --onboard`; `--lan` works with it; it can't be combined with `--sing-sing`). It makes Sing Sing **empty**, the way our Console makes a new customer's venue, and prints the owner's invite link, Mailpit's address (http://localhost:8025) and the fake Stripe's promo code, `FAKEFIRSTMONTH`. Open the link, then **Set up your venue** walks you through 12 steps. See manual-test.md section 29.
 
 **Not testable on your Mac:** anything that needs real hardware, real accounts or the venue itself: card readers, printers, cash drawers and badges, real texts and emails, Stripe's live accounts, Google Business Profile, the staging nights, drills and sign-offs (the tickets marked `blocked` in `docs/backlog/`), all of M9 (going live at West 4) and all of S (going live at Sing Sing). manual-test.md section 26 has the full list.
 

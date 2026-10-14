@@ -74,41 +74,8 @@ try {
   );
   if (!template) throw new Error("demo-sing-sing: West 4 isn't seeded; run pnpm seed first");
 
-  // 1. The last Sing Sing demo, gone. Replica mode skips the foreign-key and audit triggers, so
-  //    every table with a venue_id loses its Sing Sing rows in any order (local databases only).
-  await client.query("begin");
-  await client.query("set local session_replication_role = replica");
-  const old = await one("select id from venues where slug = $1", [SLUG]);
-  const oldUsers = (
-    await client.query("select id from users where email like $1", [`%@${EMAIL_DOMAIN}`])
-  ).rows.map((r) => r.id);
-  const columnTables = async (column, without) =>
-    (
-      await client.query(
-        `select c.relname from pg_class c
-           join pg_attribute a on a.attrelid = c.oid and a.attname = $1 and not a.attisdropped
-          where c.relkind = 'r' and c.relnamespace = 'public'::regnamespace
-            and ($2::text is null or not exists (
-              select 1 from pg_attribute b where b.attrelid = c.oid and b.attname = $2 and not b.attisdropped))`,
-        [column, without],
-      )
-    ).rows.map((r) => r.relname);
-  if (old) {
-    for (const t of await columnTables("device_id", "venue_id"))
-      await client.query(
-        `delete from "${t}" where device_id in (select id from devices where venue_id = $1)`,
-        [old.id],
-      );
-    for (const t of await columnTables("venue_id", null))
-      await client.query(`delete from "${t}" where venue_id = $1`, [old.id]);
-    await client.query("delete from venues where id = $1", [old.id]);
-  }
-  if (oldUsers.length > 0) {
-    for (const t of await columnTables("user_id", "venue_id"))
-      await client.query(`delete from "${t}" where user_id = any($1::uuid[])`, [oldUsers]);
-    await client.query("delete from users where id = any($1::uuid[])", [oldUsers]);
-  }
-  await client.query("commit");
+  // 1. The last Sing Sing demo, gone (this shortcut's or `--onboard`'s), with its people.
+  await db.removeLocalDemoVenue(client, { slug: SLUG, emailDomain: EMAIL_DOMAIN });
 
   // 2. The venue, in one transaction with the foreign keys on.
   await client.query("begin");
