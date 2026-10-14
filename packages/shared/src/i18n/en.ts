@@ -3702,7 +3702,7 @@ export const en = {
   "onboarding.money.hint":
     "Your cash discount, the gratuity and tips, then your cash drawers. Nothing is chosen for you; a drawer change starts the next business date.",
   "onboarding.money.finish":
-    "Finish the payments and drawer answers, or clear them, before you go on",
+    "Finish the payments, drawer and tab answers, or clear them, before you go on",
   "onboarding.money.discountRate": "Cash discount (%) · empty is no discount",
   "onboarding.money.threshold": "Below this amount, offer fixed tips ($)",
   "onboarding.money.fixed": "Fixed tip {n} ($)",
@@ -3925,4 +3925,17 @@ export const en = {
   "yourBill.paidBy.outsideCard": "Card",
   "onboarding.money.outsideCard":
     "Take cards on your own outside card machine too (record each payment in the app)",
+  // A named bar tab without a card (P-03).
+  "barPos.tabs.cardless": "Open a tab without a card",
+  "barPos.tabs.cardlessHint":
+    "New tab also takes a name alone. A tab without a card has no hold: it closes in cash, on the outside card machine or a reader, and the tab cut-off can't charge it.",
+  "newTab.noCard": "Or open it without a card",
+  "newTab.noCardName": "Name on the tab",
+  "newTab.openNoCard": "Open without a card",
+  "newTab.noCardHint": "No hold: the tab closes in cash, on the outside card machine or a reader.",
+  "newTab.cardRequired": "This venue opens tabs on a card. Read the line above to the guest.",
+  "rail.noCard": "No card on this tab",
+  "night.noCard": "No card on this tab",
+  "onboarding.money.tabsFirst":
+    "Opening a tab without a card also needs the tab settings: the opening hold, when to flag a tab and the tab cut-off.",
 } as const;

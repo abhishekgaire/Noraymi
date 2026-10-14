@@ -3791,7 +3791,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.oldSystem.done": "Enviado el {date} · prueba lista para que la firmes",
   "onboarding.money.hint":
     "Tu descuento en efectivo, la propina automática y las propinas, y luego tus cajas. No se elige nada por ti; un cambio de caja empieza el siguiente día de negocio.",
-  "onboarding.money.finish": "Termina las respuestas de pagos y cajas, o bórralas, antes de seguir",
+  "onboarding.money.finish":
+    "Termina las respuestas de pagos, cajas y cuentas, o bórralas, antes de seguir",
   "onboarding.money.discountRate": "Descuento en efectivo (%) · vacío es sin descuento",
   "onboarding.money.threshold": "Por debajo de este monto, ofrece propinas fijas ($)",
   "onboarding.money.fixed": "Propina fija {n} ($)",
@@ -4028,4 +4029,19 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "yourBill.paidBy.outsideCard": "Tarjeta",
   "onboarding.money.outsideCard":
     "Cobrar también con tu propia terminal de tarjetas externa (registrando cada pago en la app)",
+  // Una cuenta de barra con nombre, sin tarjeta (P-03).
+  "barPos.tabs.cardless": "Abrir una cuenta sin tarjeta",
+  "barPos.tabs.cardlessHint":
+    "Nueva cuenta también acepta solo un nombre. Una cuenta sin tarjeta no tiene retención: se cierra en efectivo, en la terminal de tarjetas externa o en un lector, y el cierre de cuentas no puede cobrarla.",
+  "newTab.noCard": "O ábrala sin tarjeta",
+  "newTab.noCardName": "Nombre en la cuenta",
+  "newTab.openNoCard": "Abrir sin tarjeta",
+  "newTab.noCardHint":
+    "Sin retención: la cuenta se cierra en efectivo, en la terminal de tarjetas externa o en un lector.",
+  "newTab.cardRequired":
+    "Este local abre las cuentas con tarjeta. Lea al cliente la frase de arriba.",
+  "rail.noCard": "Sin tarjeta en esta cuenta",
+  "night.noCard": "Sin tarjeta en esta cuenta",
+  "onboarding.money.tabsFirst":
+    "Abrir una cuenta sin tarjeta también necesita los ajustes de cuentas: la retención inicial, cuándo avisar de una cuenta y el cierre de cuentas.",
 };

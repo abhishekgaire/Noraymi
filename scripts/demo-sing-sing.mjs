@@ -6,7 +6,8 @@
 //      shared), with West 4's settings except Sing Sing's own choices (docs/venues/sing-sing/venue.md):
 //      its hours, deposits off for online bookings, "Keep the card behind the bar" at a walk-in
 //      check-in (D116), all ages until 8 PM (D108), its own allergy notice (D125), approvals by a
-//      manager's PIN at the register (D126), and its Choose your features (D124): FEATURES_ON on,
+//      manager's PIN at the register (D126), named bar tabs without a card (P-03), and its Choose
+//      your features (D124): FEATURES_ON on,
 //      FEATURES_OFF off, the rest as West 4's;
 //   3. 6 rooms (Room 1 to Room 6, with West 4's Rooms 1 to 6's sizes: placeholders until the manager
 //      gives the real ones), the two drawers and a pretend kitchen network printer (with the allergy
@@ -147,6 +148,8 @@ try {
     phone: () => ({ callNumber: "+19297397310", textNumber: "+19297397310" }),
     pos: (v) => ({ ...v, layouts: {} }),
     approvals: () => ({ mode: "pin" }),
+    // Named bar tabs without a card, as Bar Sales keeps them today (P-03; D131).
+    tabs: (v) => ({ ...v, cardRequired: false }),
     // Cash pays 3.38% less, as Sing Sing's register does today (D130); menu prices (drinks and food)
     // include the card fee (founder, Oct 13).
     pay: (v) => ({ ...v, cardFee: { mode: "discount", pct: 3.38, foodIncludesFee: true } }),

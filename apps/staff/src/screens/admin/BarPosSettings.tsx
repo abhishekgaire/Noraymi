@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { tabConsentLine, type PosSettings, type TabSettings } from "@west4/shared";
+import { tabCardRequired, tabConsentLine, type PosSettings, type TabSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { agingSentence } from "../../aging.js";
 import { api } from "../../api.js";
@@ -14,6 +14,7 @@ import { Money } from "./Prices.js";
  * and live at once; saving the tab settings writes the consent line's new
  * version, and tabs already open keep theirs. There's no "Ring the bar until
  * someone accepts" toggle: the aging times, the chime and Mute replace it.
+ * "Open a tab without a card" (P-03) is `tabs.cardRequired`, inverted.
  */
 export function BarPosSettings({ venueId }: { venueId: string }) {
   const { t } = useT();
@@ -168,7 +169,16 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
             }}
           />
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={!tabCardRequired(tabs)}
+            onChange={(e) => setTabs({ cardRequired: !e.target.checked })}
+          />
+          <span>{t("barPos.tabs.cardless")}</span>
+        </label>
       </div>
+      <p className="small muted">{t("barPos.tabs.cardlessHint")}</p>
       <p className="small">{t("barPos.tabs.consent")}</p>
       <blockquote className="consent-line" data-guest-text>
         {tabConsentLine(tabs)}

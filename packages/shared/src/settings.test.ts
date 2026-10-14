@@ -4,6 +4,7 @@ import {
   parseSetting,
   settingsKeys,
   startsNextBusinessDate,
+  tabCardRequired,
   walkInTakesOf,
   withLaterPart,
 } from "./settings.js";
@@ -159,5 +160,20 @@ describe("what a walk-in check-in takes (D112)", () => {
       expect(walkInTakesOf({ walkIn } as never)).toBe(walkIn);
     }
     expect(parseSetting("deposit", { ...rule, walkIn: "hold" }).ok).toBe(false);
+  });
+});
+
+describe("Open a tab without a card (P-03)", () => {
+  const tabs = { openingHoldCents: 5000, flagOverCents: 60000, cutOffAt: "04:30" };
+  it("is card first unless the venue turns it off; absent reads as card first", () => {
+    expect(tabCardRequired(tabs)).toBe(true);
+    expect(tabCardRequired(null)).toBe(true);
+    expect(tabCardRequired({ ...tabs, cardRequired: true })).toBe(true);
+    expect(tabCardRequired({ ...tabs, cardRequired: false })).toBe(false);
+  });
+  it("is saved with the tab settings, as a yes or no", () => {
+    expect(parseSetting("tabs", { ...tabs, cardRequired: false }).ok).toBe(true);
+    expect(parseSetting("tabs", tabs).ok).toBe(true);
+    expect(parseSetting("tabs", { ...tabs, cardRequired: "no" }).ok).toBe(false);
   });
 });

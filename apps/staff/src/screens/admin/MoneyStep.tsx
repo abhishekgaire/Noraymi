@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import type { CashSettings, PaySettings } from "@west4/shared";
+import {
+  tabCardRequired,
+  type CashSettings,
+  type PaySettings,
+  type TabSettings,
+} from "@west4/shared";
 import { AdminDraftProvider, useAdminDraft } from "../../admin/draft.js";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
@@ -17,7 +22,8 @@ import { dollarsToCents } from "./Prices.js";
  * saved whole, so the step also asks the rest of each (the tip screen, tip
  * review, the tip pool, Pay my share, a room hold; the drawer's counts), every
  * answer empty until chosen: nothing is filled in. A drawer change starts at
- * the next business date, as in Admin.
+ * the next business date, as in Admin. Then the bar tabs (P-03): "Open a tab
+ * without a card", with the rest of the `tabs` key the first time.
  */
 type Register = (save: (() => Promise<boolean>) | null) => void;
 type FormState = "empty" | "whole" | "partial";
@@ -92,11 +98,14 @@ function MoneyStepBody({
 }) {
   const { t } = useT();
   const draft = useAdminDraft();
-  const [loaded, setLoaded] = useState<{ pay: boolean; drawer: boolean } | null>(null);
+  const [loaded, setLoaded] = useState<{ pay: boolean; drawer: boolean; tabs: boolean } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const payForm = useRef<FormState>("empty");
   const drawerForm = useRef<FormState>("empty");
+  const tabsForm = useRef<FormState>("empty");
   const saved = useRef(onSaved);
   saved.current = onSaved;
 
@@ -107,8 +116,8 @@ function MoneyStepBody({
           () => true,
           (e) => notFound(e) ?? false,
         );
-      const [pay, drawer] = await Promise.all([has("pay"), has("drawer")]);
-      setLoaded({ pay, drawer });
+      const [pay, drawer, tabs] = await Promise.all([has("pay"), has("drawer"), has("tabs")]);
+      setLoaded({ pay, drawer, tabs });
       setError(null);
     } catch {
       setError(t("shell.error.cantReach"));
@@ -122,7 +131,7 @@ function MoneyStepBody({
   draftRef.current = draft;
   useEffect(() => {
     registerSave(async () => {
-      if (payForm.current === "partial" || drawerForm.current === "partial") {
+      if ([payForm, drawerForm, tabsForm].some((f) => f.current === "partial")) {
         setFormError(t("onboarding.money.finish"));
         return false;
       }
@@ -156,6 +165,11 @@ function MoneyStepBody({
     <div className="setup-card setup-form">
       {loaded.pay ? <CardFee /> : <FirstPay report={(s) => (payForm.current = s)} />}
       {loaded.drawer ? <CashDrawers /> : <FirstDrawer report={(s) => (drawerForm.current = s)} />}
+      {loaded.tabs ? (
+        <TabsCardless venueId={venueId} />
+      ) : (
+        <FirstTabs report={(s) => (tabsForm.current = s)} />
+      )}
       {(formError ?? draft.error) && (
         <p className="error" role="alert">
           {formError ?? (draft.error === "admin_read_only" ? t("plan.refused") : draft.error)}
@@ -546,6 +560,92 @@ function FirstDrawer({ report }: { report: (s: FormState) => void }) {
           }))}
         />
         <Field label={t("cashAdmin.paidOut")} value={paidOut} set={setPaidOut} decimal />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Open a tab without a card" (P-03) once the `tabs` key is saved: the one switch, saved with the step,
+ * as in Admin → Bar POS.
+ */
+function TabsCardless({ venueId }: { venueId: string }) {
+  const { t } = useT();
+  const draft = useAdminDraft();
+  const [saved, setSaved] = useState<TabSettings | null>(null);
+  useEffect(() => {
+    api<{ value: TabSettings }>("GET", `/v1/venues/${venueId}/settings/tabs`)
+      .then((r) => setSaved(r.value))
+      .catch(() => setSaved(null));
+  }, [venueId, draft.version]);
+  if (!saved) return null;
+  const tabs = (draft.values["tabs"] as TabSettings | undefined) ?? saved;
+  return (
+    <div className="cash-admin">
+      <h3>{t("barPos.tabs")}</h3>
+      <div className="invite-fields">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={!tabCardRequired(tabs)}
+            onChange={(e) => draft.set("tabs", { ...tabs, cardRequired: !e.target.checked })}
+          />
+          <span>{t("barPos.tabs.cardless")}</span>
+        </label>
+      </div>
+      <p className="small muted">{t("barPos.tabs.cardlessHint")}</p>
+    </div>
+  );
+}
+
+/**
+ * The first `tabs` key (P-03): "Open a tab without a card", and the rest of the key, which is saved
+ * whole: the opening hold, when to flag a tab and the tab cut-off, every answer empty until chosen.
+ * Left untouched, nothing is saved and tabs stay card first.
+ */
+function FirstTabs({ report }: { report: (s: FormState) => void }) {
+  const { t } = useT();
+  const [cardless, setCardless] = useState(false);
+  const [hold, setHold] = useState("");
+  const [flag, setFlag] = useState("");
+  const [cutOff, setCutOff] = useState("");
+
+  const touched = cardless || hold !== "" || flag !== "" || cutOff !== "";
+  const value: TabSettings | null = (() => {
+    const h = dollarsToCents(hold);
+    const f = dollarsToCents(flag);
+    if (h === null || f === null || !/^\d{2}:\d{2}$/.test(cutOff)) return null;
+    return { openingHoldCents: h, flagOverCents: f, cutOffAt: cutOff, cardRequired: !cardless };
+  })();
+  useReport("tabs", value, touched, report);
+
+  return (
+    <div className="cash-admin">
+      <h3>{t("barPos.tabs")}</h3>
+      <div className="invite-fields">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={cardless}
+            onChange={(e) => setCardless(e.target.checked)}
+          />
+          <span>{t("barPos.tabs.cardless")}</span>
+        </label>
+      </div>
+      <p className="small muted">{t("barPos.tabs.cardlessHint")}</p>
+      {cardless && <p className="small">{t("onboarding.money.tabsFirst")}</p>}
+      <div className="invite-fields">
+        <Field label={t("barPos.tabs.hold")} value={hold} set={setHold} decimal />
+        <Field label={t("barPos.tabs.flag")} value={flag} set={setFlag} decimal />
+        <label>
+          <span>{t("barPos.tabs.cutOff")}</span>
+          <input
+            type="time"
+            aria-label={t("barPos.tabs.cutOff")}
+            value={cutOff}
+            onChange={(e) => setCutOff(e.target.value)}
+          />
+        </label>
       </div>
     </div>
   );

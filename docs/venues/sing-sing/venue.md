@@ -38,6 +38,7 @@ Sing Sing isn't a venue in the database yet. These are its own choices, already 
 | Age policy | All ages until 8 PM, then 21 and over (`safety.allAgesUntil` "20:00") | Admin → Safety | D108 |
 | Kitchen allergy notice | EN: "Allergen information for menu items is available. Ask an employee for details." ES (our translation, **confirmed by the founder for Sing Sing, Oct 13, 2026**): "La información sobre alérgenos de los platos del menú está disponible. Pregunte a un empleado para más detalles." The venue's own wording, so Kitchen & food doesn't wait on the lawyer | Admin → Kitchen | Founder for Sing Sing, Oct 13, 2026 (D125) |
 | Approvals | **Manager's PIN at the register** (`approvals.mode` "pin"): Sing Sing starts on its bar computers, so a manager types their PIN on the register that asks | Admin → Features → Choices | Founder, Oct 13, 2026 (D126) |
+| Bar tabs | **Open a tab without a card** on (`tabs.cardRequired` false, P-03): Bar Sales keeps named tabs with no card today, so New tab takes a name alone; such a tab closes in cash, on the outside card machine or a reader. The opening hold, the flag amount and the tab cut-off (for tabs opened on a card) are still the owner's to give | Admin → Bar POS → Tabs; step 7 | D131, Oct 14, 2026 |
 
 ### Choose your features (step 2)
 
@@ -87,7 +88,7 @@ The runbook for S-01's last part (O-14): once our Console has made Sing Sing and
 | 6 · Deposits and check-in | At a walk-in check-in: Keep the card behind the bar | D116 | Given |
 | 6 · Deposits and check-in | No-show after 15 minutes late | The site, to confirm | Given |
 | 6 · Deposits and check-in | Free-cancel hours, the late-cancel and no-show fee, the card asked of groups over 5, the largest party that books online | — | Still to give |
-| 7 · Money at the counter | The cash discount rate and whether food prices include the card fee; the automatic gratuity; whether the reader asks for a tip, and its choices; house drawers or a drawer per person, and the starting bank | — | Still to give (each keeps its default until saved; a card reader can't be registered until the tip screen answer is saved) |
+| 7 · Money at the counter | The cash discount rate and whether food prices include the card fee; the automatic gratuity; whether the reader asks for a tip, and its choices; house drawers or a drawer per person, and the starting bank; Open a tab without a card: on (P-03), with the tab settings | Open a tab without a card: D131 | Still to give (each keeps its default until saved; a card reader can't be registered until the tip screen answer is saved) |
 | 8 · Menu | The menu from the spreadsheet: [`import/`](import/) (`mapping.json`, `items.csv`, `choices.csv`, 179 menu lines), checked as a dry run, then Looks right | [menu.md](menu.md), the founder, Oct 9 | Given |
 | 8 · Menu | The drinks' pour sizes and which beers are on draft; what a combo includes; the extra-sauce price | — | Still to give |
 | 8 · Menu | The kitchen's allergy notice: the venue's wording above, English and Spanish (the Spanish for the venue to confirm) | The founder for Sing Sing, Oct 13 (D125) | Given |

@@ -27,6 +27,7 @@ interface TabRow {
   label: string | null;
   card_brand: string | null;
   card_last4: string | null;
+  cardless: boolean;
   hold_cents: number;
   owner_id: string | null;
   owner_name: string | null;
@@ -52,6 +53,7 @@ export async function listTabs(
   const rows = (
     await c.query<TabRow>(
       `select t.id, t.check_id, t.state, t.name, t.label, t.card_brand, t.card_last4, t.hold_cents,
+              (t.payment_id is null and t.card_last4 is null) as cardless,
               t.owner_id, split_part(o.name, ' ', 1) as owner_name, to_json(t.opened_at) #>> '{}' as opened_at,
               to_json(t.cut_off_at) #>> '{}' as cut_off_at, split_part(cb.name, ' ', 1) as cut_off_by_name,
               t.cut_off_reason, to_json(t.closed_at) #>> '{}' as closed_at,
@@ -158,6 +160,8 @@ export async function listTabs(
         closed_at: t.closed_at,
         reopened_at: t.reopened_at,
         no_hold: noHold,
+        // A named tab opened without a card (P-03): no hold, closed in cash, the outside machine or a reader.
+        cardless: t.cardless,
         saved_card: saved
           ? { brand: saved.brand, last4: saved.last4, payment_id: savedPayment }
           : null,

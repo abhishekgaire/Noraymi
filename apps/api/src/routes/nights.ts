@@ -36,20 +36,23 @@ const chargeBody = z
 type Listed = Awaited<ReturnType<typeof listTabs>>[number];
 
 /** The night's open bar tabs, and what Charge the remaining tabs would take. */
-async function barTabs(c: Queryable, venueId: string, now: Temporal.Instant) {
+export async function barTabs(c: Queryable, venueId: string, now: Temporal.Instant) {
   const tabs = (await listTabs(c, venueId, now)).filter(
     (t) => t.state === "open" || t.state === "tipping",
   );
   const chargeable = (t: Listed) =>
     t.state === "open" && t.waiting_for === null && t.card !== null && t.rest_cents > 0;
   const remaining = tabs.filter(chargeable);
+  // Tabs opened without a card come first (P-03): nothing can charge them, so they're closed by hand.
+  const listed = [...tabs.filter((t) => t.cardless), ...tabs.filter((t) => !t.cardless)];
   return {
-    tabs: tabs.map((t) => ({
+    tabs: listed.map((t) => ({
       id: t.id,
       name: t.name,
       label: t.label,
       state: t.state,
       card: t.card,
+      cardless: t.cardless,
       total_cents: t.totals?.total_cents ?? 0,
       rest_cents: t.rest_cents,
       waiting_for: t.waiting_for,

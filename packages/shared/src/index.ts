@@ -58,6 +58,7 @@ export {
   settingsDefaults,
   walkInTakes,
   walkInTakesOf,
+  tabCardRequired,
 } from "./settings.js";
 export type {
   ApprovalMode,

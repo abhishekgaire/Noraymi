@@ -12,12 +12,16 @@ import { TestCard } from "./TestCard.js";
  * bartender types a first name or taps a label, then Open. A dip or swipe
  * brings the name; a card that already has an open tab opens it instead,
  * with no second hold. Four taps for a tapped phone: New tab, Read to guest ✓,
- * a label, Open.
+ * a label, Open. Where the venue turned on "Open a tab without a card"
+ * (P-03), the panel also takes a name alone: Open without a card opens the
+ * tab at once, with no reader and no hold.
  */
 interface Consent {
   readonly version_id: string;
   readonly text: string;
   readonly asks_party_size: boolean;
+  /** False when the venue turned on "Open a tab without a card" (P-03). */
+  readonly card_required?: boolean;
 }
 interface Opening {
   readonly id: string;
@@ -32,7 +36,7 @@ interface Reader {
   readonly online: boolean;
   readonly station: "bar" | "front_desk";
 }
-type Problem = "readerOffline" | "noReader" | "failed" | null;
+type Problem = "readerOffline" | "noReader" | "cardRequired" | "failed" | null;
 
 const newKey = () => `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -54,6 +58,7 @@ export function NewTab({
   const [opening, setOpening] = useState<Opening | null>(null);
   const [readerId, setReaderId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [cardlessName, setCardlessName] = useState("");
   const [label, setLabel] = useState<string | null>(null);
   const [openPressed, setOpenPressed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -131,6 +136,30 @@ export function NewTab({
       setProblem(
         err instanceof ApiCallError && err.code === "reader_offline" ? "readerOffline" : "failed",
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Open without a card (P-03): a name alone, no reader and no hold; the server refuses it unless the
+  // venue turned on "Open a tab without a card".
+  const openWithoutCard = async () => {
+    const typed = cardlessName.trim();
+    if (!typed) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      const o = await api<{ tab: { id: string; name: string } }>(
+        "POST",
+        `/v1/venues/${venueId}/tabs`,
+        { card: "none", name: typed, ...(partySize ? { party_size: partySize } : {}) },
+        { idempotencyKey: newKey() },
+      );
+      done.current = true;
+      onOpened(o.tab, false);
+    } catch (e) {
+      const refused = e instanceof ApiCallError && e.details["reason"] === "card_required";
+      setProblem(refused ? "cardRequired" : "failed");
     } finally {
       setBusy(false);
     }
@@ -217,6 +246,29 @@ export function NewTab({
           >
             {t("newTab.read")}
           </button>
+          {consent.card_required === false && (
+            <div className="new-tab-no-card" role="group" aria-label={t("newTab.noCard")}>
+              <h3>{t("newTab.noCard")}</h3>
+              <label>
+                <span className="small">{t("newTab.noCardName")}</span>
+                <input
+                  value={cardlessName}
+                  maxLength={80}
+                  aria-label={t("newTab.noCardName")}
+                  onChange={(e) => setCardlessName(e.target.value)}
+                />
+              </label>
+              <p className="small muted">{t("newTab.noCardHint")}</p>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || !cardlessName.trim() || (consent.asks_party_size && !partySize)}
+                onClick={() => void openWithoutCard()}
+              >
+                {t("newTab.openNoCard")}
+              </button>
+            </div>
+          )}
         </>
       )}
       {opening && (opening.state === "waiting" || opening.state === "opened") && (
@@ -279,6 +331,7 @@ export function NewTab({
       {opening?.state === "canceled" && <p role="status">{t("pay.canceled")}</p>}
       {problem === "readerOffline" && <p role="alert">{t("newTab.readerOffline")}</p>}
       {problem === "noReader" && <p role="alert">{t("newTab.noReader")}</p>}
+      {problem === "cardRequired" && <p role="alert">{t("newTab.cardRequired")}</p>}
       {problem === "failed" && (
         <p className="error" role="alert">
           {t("pay.failed")}

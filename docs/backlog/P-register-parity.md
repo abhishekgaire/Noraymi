@@ -54,7 +54,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-03 · A named bar tab without a card
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6 (New tab)
 - **Spec:** [Bar POS](../spec/10-staff-screens-bar-pos.md) · New tab
@@ -62,9 +62,17 @@ Definition of done: see CLAUDE.md.
   - A venue setting **Open a tab without a card** (`tabs.cardRequired`, default true, so nothing changes at West 4; Sing Sing false), in Admin → Bar POS and step 7.
   - With it off, New tab takes a name alone; the tab closes with cash, the outside card machine or a reader like any tab. Close the night lists open cardless tabs first ("No card on this tab").
 - **Acceptance:**
-  - [ ] With the setting on, a tab without a card is refused on the server.
-  - [ ] With it off, a named tab opens, takes orders and closes in cash.
-  - [ ] EN and ES; tests.
+  - [x] With the setting on, a tab without a card is refused on the server.
+  - [x] With it off, a named tab opens, takes orders and closes in cash.
+  - [x] EN and ES; tests.
+- **Notes:**
+  - `tabs.cardRequired` is optional in the schema; absent reads as true (`tabCardRequired`), so West 4 and every saved venue stay card first. No migration: a cardless tab is a `tabs` row with no `payment_id`, no card and no consent (the columns were already nullable); the tab list's `cardless` is `payment_id is null and card_last4 is null`.
+  - `POST /tabs { card: "none", name, label?, party_size? }` opens it at once (no reader, no hold, no consent line), or 400 `invalid_request` with reason `card_required`. `GET /tabs/consent` returns `card_required`. The opener's Quick sale drinks move onto it, as with a card. Party size is still asked in Parties mode.
+  - New tab shows "Or open it without a card" (name + Open without a card) beside Read to guest ✓; the card path stays available. The rail shows "No card on this tab"; Close tab offers cash, another card and the outside card machine (the existing no-hold path, M6-12), never Close to the card.
+  - Close the night lists cardless tabs first ("No card on this tab"); Charge the remaining tabs already skipped tabs with no card. The tab cut-off job now treats `no_card` as nothing to charge (before, it would have kept the night's cut-off run unfinished).
+  - Step 7: once `tabs` is saved, the one switch; the first time, the switch plus the opening hold, flag amount and cut-off (the key is saved whole, every answer empty until chosen, as `pay` and `drawer` are). "Finish the payments, drawer and tab answers" replaces the old wording.
+  - Sing Sing: on in `scripts/demo-sing-sing.mjs`, `docs/venues/sing-sing/venue.md` and manual-test 29 step 7 (with example tab settings) and 8.4 step 4.
+  - Not done (cautious): a cardless tab with nothing on it has no Close button (as a reopened no-hold tab today); Split stays hidden on no-hold tabs.
 
 ### P-04 · Starting a room: a note, a prepaid block, a package
 

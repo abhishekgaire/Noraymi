@@ -27,6 +27,8 @@ interface NightTab {
   readonly name: string;
   readonly state: string;
   readonly card: { readonly brand: string; readonly last4: string } | null;
+  /** Opened without a card (P-03): listed first, closed by hand. */
+  readonly cardless?: boolean;
   readonly total_cents: number;
   readonly rest_cents: number;
   readonly waiting_for: string | null;
@@ -168,7 +170,9 @@ export function CloseTheNight() {
                     )}
                   </span>
                   <span>{money(tab.total_cents as never)}</span>
-                  {tab.waiting_for ? (
+                  {tab.cardless ? (
+                    <span className="badge-text">{t("night.noCard")}</span>
+                  ) : tab.waiting_for ? (
                     <span className="badge-text">
                       {t("rail.badge.waiting", { name: tab.waiting_for })}
                       {" · "}

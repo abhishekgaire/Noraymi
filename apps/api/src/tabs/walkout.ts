@@ -485,8 +485,10 @@ export async function runTabCutOff(
       } catch (e) {
         if (!(e instanceof ApiError)) throw e;
         const reason = (e.details as { reason?: string } | undefined)?.reason;
-        // A raise or a payment still being settled: the next tick tries again. Nothing due: nothing to do.
-        if (reason !== "nothing_due" && reason !== "tab_state") unsettled = true;
+        // A raise or a payment still being settled: the next tick tries again. Nothing due, or a tab opened
+        // without a card (P-03; Close the night lists it first): nothing to charge.
+        if (reason !== "nothing_due" && reason !== "tab_state" && reason !== "no_card")
+          unsettled = true;
       }
     }
     if (!unsettled)

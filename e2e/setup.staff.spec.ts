@@ -348,7 +348,7 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     ).toHaveCount(0);
     await page.getByLabel("Added to").selectOption("off");
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByText("Finish the payments and drawer answers")).toBeVisible();
+    await expect(page.getByText("Finish the payments, drawer and tab answers")).toBeVisible();
     await page.getByLabel("Ask for a tip on the reader").selectOption("no");
     await page.getByLabel("Flag a tip over (%)").fill("30");
     await page.getByLabel("Flag a tip over ($)").fill("60");
@@ -360,6 +360,13 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await page.getByLabel("A count off by more than this needs a note, $").fill("10");
     await page.getByLabel("Second counter").selectOption("never");
     await page.getByLabel("Paid-outs need approval over, $").fill("40");
+    // P-03: Sing Sing opens named tabs without a card; the first `tabs` key is saved whole.
+    await page.getByLabel("Open a tab without a card").check();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("Finish the payments, drawer and tab answers")).toBeVisible();
+    await page.getByLabel("Opening hold").fill("50");
+    await page.getByLabel("Flag a tab to the manager over").fill("600");
+    await page.getByLabel("Tab cut-off").fill("03:30");
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(rail.getByRole("button", { name: /Money at the counter/ })).toContainText("Done");
 

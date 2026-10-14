@@ -56,6 +56,7 @@ import {
 import { screenState } from "../payments/machine.js";
 import {
   nameOpening,
+  openCardlessTab,
   openingView,
   reserveTabCheckNumber,
   tabConsent,
@@ -76,6 +77,9 @@ import {
  *   GET  /v1/venues/{v}/tabs/consent             the consent line read out at New tab, and its policy version (M6-06)
  *   POST /v1/venues/{v}/tabs                     { reader_id, consent_text_version, name?, label?, party_size? }:
  *                                                Open, card first; the bar reader collects the card (M6-06)
+ *                                                or { card: none, name, label?, party_size? }: a named tab
+ *                                                without a card, only with "Open a tab without a card" on
+ *                                                (P-03; 400 card_required otherwise)
  *   POST /v1/venues/{v}/tabs/openings/{o}/check-status   read Stripe now: the card checked, the hold confirmed
  *   POST /v1/venues/{v}/tabs/openings/{o}/name           Open: { name, label } typed or tapped while the guest taps
  *   POST /v1/venues/{v}/tabs/openings/{o}/cancel         the card never came: nothing held, nothing opened
@@ -379,6 +383,15 @@ export function tabRoutes(
       party_size: z.number().int().min(1).max(200).nullable().optional(),
     })
     .strict();
+  // A named tab without a card (P-03): only where "Open a tab without a card" is on.
+  const cardlessBody = z
+    .object({
+      card: z.literal("none"),
+      name: z.string().trim().min(1).max(80),
+      label: z.string().trim().min(1).max(80).nullable().optional(),
+      party_size: z.number().int().min(1).max(200).nullable().optional(),
+    })
+    .strict();
   const opening = route({
     principals: ["owner_manager", "staff"],
     module: "bar_tabs",
@@ -413,14 +426,36 @@ export function tabRoutes(
     "/v1/venues/:venueId/tabs",
     { config: opening },
     async (request, reply) => {
+      const cardless = cardlessBody.safeParse(request.body);
       const parsed = openBody.safeParse(request.body);
-      if (!parsed.success)
-        throw new ApiError("invalid_request", "send { reader_id, consent_text_version, … }");
+      if (!parsed.success && !cardless.success)
+        throw new ApiError(
+          "invalid_request",
+          "send { reader_id, consent_text_version, … } or { card: none, name, … }",
+        );
       const p = request.principal;
       if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
       const m = p.memberships.find((x) => x.venueId === request.venueId);
       if (!m) throw new ApiError("forbidden", "not a member of this venue");
       const venueId = request.venueId!;
+      if (cardless.success) {
+        // No reader and no hold: the tab opens at once on its name, or is refused (card_required).
+        const number = await reserveTabCheckNumber(options.pool, venueId, request.training);
+        const tab = await request.inVenue((c) =>
+          openCardlessTab(c, venueId, {
+            name: cardless.data.name,
+            label: cardless.data.label ?? null,
+            partySize: cardless.data.party_size ?? null,
+            checkNumber: number,
+            userId: p.userId,
+            membershipId: m.membershipId,
+            training: request.training,
+            now: options.clock.now(),
+          }),
+        );
+        return reply.code(201).send({ id: null, state: "opened", payment: null, card: null, tab });
+      }
+      if (!parsed.success) throw new ApiError("invalid_request", "send { reader_id, … }");
       const payments = deps();
       const number = await reserveTabCheckNumber(options.pool, venueId, request.training);
       const written = await request.inVenue((c) =>

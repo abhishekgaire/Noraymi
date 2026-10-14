@@ -216,8 +216,22 @@ export const drawerSchema = z
   .strict();
 
 export const tabsSchema = z
-  .object({ openingHoldCents: cents, flagOverCents: cents, cutOffAt: time })
+  .object({
+    openingHoldCents: cents,
+    flagOverCents: cents,
+    cutOffAt: time,
+    /**
+     * "Open a tab without a card" (P-03; D131), inverted: false lets New tab open a named tab with no
+     * card, closed in cash, on the outside card machine or a reader. Absent reads as true (a card first),
+     * so a venue saved before it existed keeps card-first tabs.
+     */
+    cardRequired: z.boolean().optional(),
+  })
   .strict();
+
+/** Whether New tab needs a card: true unless the venue turned on "Open a tab without a card". */
+export const tabCardRequired = (tabs: { cardRequired?: boolean | undefined } | null | undefined) =>
+  tabs?.cardRequired !== false;
 
 export const posSchema = z
   .object({

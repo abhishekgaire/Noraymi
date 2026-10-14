@@ -1,7 +1,7 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { Worker, generateSigningKey, loadDemoSeed, publishRulePack } from "@west4/db";
+import { Worker, generateSigningKey, loadDemoSeed, publishRulePack, withVenue } from "@west4/db";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { FrozenClock, SEED_NOW, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
@@ -13,6 +13,7 @@ import { StripeClient } from "../stripe/client.js";
 import { FakeStripe } from "../stripe/fake/index.js";
 import { fakeStripeSettings } from "../stripe/settings.js";
 import { TAB_CANCEL_HOLD_KIND } from "../tabs/pay.js";
+import { barTabs } from "./nights.js";
 
 /**
  * Paying a tab with another card or cash (M6-11; Payment flows · Paying with a different card, Bar tab
@@ -465,5 +466,101 @@ describe("Pay a tab with another card or cash (Payment flows · Paying with a di
     ).toHaveLength(1);
     // One charge each: the new card's $43.55, nothing on the hold.
     expect(await payment(newId)).toMatchObject({ status: "captured" });
+  });
+});
+
+describe("a named tab without a card (P-03)", () => {
+  const openCardless = (name: string) =>
+    app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs`,
+      headers: { "idempotency-key": `cardless-${++n}` },
+      payload: { card: "none", name },
+    });
+  /** "Open a tab without a card": a new version of the tab settings with `cardRequired` set. */
+  const cardRequired = (on: boolean) =>
+    owner.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardRequired', $2::boolean),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId, on],
+    );
+
+  it("with the setting on (West 4's), a tab without a card is refused on the server", async () => {
+    const r = await openCardless("Dana");
+    expect(r.statusCode, r.body).toBe(400);
+    expect(r.json()).toMatchObject({ error: { code: "invalid_request" } });
+    expect(JSON.stringify(r.json())).toContain("card_required");
+    const made = await owner.query("select 1 from tabs where venue_id = $1 and name = 'Dana'", [
+      venueId,
+    ]);
+    expect(made.rows).toHaveLength(0);
+    await cardRequired(true);
+    expect((await openCardless("Dana")).statusCode).toBe(400);
+    expect((await consent()) as unknown).toMatchObject({ card_required: true });
+  });
+
+  it("with it off, a named tab opens with no reader or hold, takes a round and closes in cash", async () => {
+    await cardRequired(false);
+    expect((await consent()) as unknown).toMatchObject({ card_required: false });
+    const before = fake.requests.length;
+    const r = await openCardless("Dana");
+    expect(r.statusCode, r.body).toBe(201);
+    const opened = r.json<{ tab: { id: string; check_id: string; name: string } }>().tab;
+    expect(opened.name).toBe("Dana");
+    // No reader and no hold: Stripe hears nothing.
+    expect(fake.requests.length).toBe(before);
+    const row = await owner.query<{ payment_id: string | null; hold_cents: number }>(
+      "select payment_id, hold_cents from tabs where id = $1",
+      [opened.id],
+    );
+    expect(row.rows[0]).toEqual({ payment_id: null, hold_cents: 0 });
+    expect(await tabRow(opened.id)).toMatchObject({ state: "open", hold: null });
+    const listed = (await app.inject({ method: "GET", url: `/v1/venues/${venueId}/tabs` }))
+      .json<{ tabs: { id: string; cardless: boolean; no_hold: boolean; card: unknown }[] }>()
+      .tabs.find((t) => t.id === opened.id);
+    expect(listed).toMatchObject({ cardless: true, no_hold: true, card: null });
+
+    const round = await send(opened.check_id, [{ variant_id: v("titos"), qty: 1 }]);
+    expect(round.statusCode, round.body).toBe(201);
+    // Close the night lists it first, with nothing to charge on it.
+    const night = await withVenue(owner, { venueId, requestId: "p03-night" }, (c) =>
+      barTabs(c, venueId, clock.now()),
+    );
+    expect(night.tabs[0]).toMatchObject({ id: opened.id, cardless: true, chargeable: false });
+    expect(night.remaining.map((t) => t.id)).not.toContain(opened.id);
+    // Close to the card isn't there: it has no hold.
+    const toCard = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs/${opened.id}/close`,
+      headers: { "idempotency-key": `close-${++n}` },
+      payload: { tip: "none", reader_id: readerId },
+    });
+    expect(toCard.statusCode).toBe(400);
+    expect(toCard.body).toContain("no_hold");
+
+    const rest = (await tabRow(opened.id)).rest_cents;
+    expect(rest).toBeGreaterThan(0);
+    const paid = await pay(opened.id, { method: "cash", amount_cents: rest, tendered_cents: 2000 });
+    expect(paid.statusCode, paid.body).toBe(201);
+    expect(paid.json()).toMatchObject({
+      change_cents: 2000 - rest,
+      check_status: "paid",
+      tab_state: "closed",
+    });
+    expect(await tabRow(opened.id)).toMatchObject({ state: "closed" });
+    expect(fake.requests.length).toBe(before);
+  });
+
+  it("still needs a name", async () => {
+    const r = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs`,
+      headers: { "idempotency-key": `cardless-${++n}` },
+      payload: { card: "none", name: "  " },
+    });
+    expect(r.statusCode).toBe(400);
+    await cardRequired(true);
   });
 });

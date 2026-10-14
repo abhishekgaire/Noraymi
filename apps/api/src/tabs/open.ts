@@ -20,7 +20,13 @@ import {
   type Queryable,
 } from "@west4/db";
 import { businessDate } from "@west4/rules";
-import { TAB_CARD_HELD, tabConsentLine, tabNameFromCard, type Temporal } from "@west4/shared";
+import {
+  TAB_CARD_HELD,
+  tabCardRequired,
+  tabConsentLine,
+  tabNameFromCard,
+  type Temporal,
+} from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
 import { confirmOnReader } from "../stripe/surcharge.js";
@@ -108,6 +114,8 @@ export async function tabConsent(c: Queryable, venueId: string, now: Temporal.In
     cut_off_at: tabs.value.cutOffAt,
     // Parties mode: the gratuity goes on by party size, so New tab asks for it.
     asks_party_size: pay?.value.gratuity.auto === "parties",
+    // "Open a tab without a card" (P-03): New tab also takes a name alone.
+    card_required: tabCardRequired(tabs.value),
     business_date: date.toString(),
   };
 }
@@ -264,7 +272,7 @@ async function openTabOfCard(
 async function moveQuickRound(
   c: Queryable,
   venueId: string,
-  o: OpeningRow,
+  o: Pick<OpeningRow, "membership_id" | "opened_by">,
   checkId: string,
   now: Temporal.Instant,
 ) {
@@ -488,6 +496,74 @@ export async function settleTabOpening(
   await moveQuickRound(c, venueId, o, checkId, now);
   await emitEvent(c, { venueId, type: "check.updated", entityId: checkId });
   await emitEvent(c, { venueId, type: "tab.updated", entityId: tabId });
+}
+
+export interface OpenCardlessInput {
+  readonly name: string;
+  readonly label: string | null;
+  readonly partySize: number | null;
+  readonly checkNumber: number;
+  readonly userId: string;
+  readonly membershipId: string;
+  readonly training?: boolean;
+  readonly now: Temporal.Instant;
+}
+
+/**
+ * A named tab without a card (P-03; Staff screens and the bar POS · Tabs without a card): only where the
+ * venue turned on "Open a tab without a card" (`tabs.cardRequired` false), refused on the server
+ * otherwise. No reader, no hold and no consent line: the tab opens at once on its name, takes rounds like
+ * any tab, and closes in cash, on the outside card machine or a reader (it has no hold to close to). The
+ * opener's Quick sale drinks move onto it, unsent, as with a card. The tab cut-off has nothing to charge
+ * on it, so Close the night lists it first ("No card on this tab").
+ */
+export async function openCardlessTab(c: Queryable, venueId: string, input: OpenCardlessInput) {
+  const venue = await venueClock(c, venueId);
+  const date = businessDate(input.now, venue.timeZone, venue.dayCutover).businessDate;
+  const tabs = await readSetting(c, venueId, "tabs", date);
+  if (tabCardRequired(tabs?.value))
+    throw new ApiError("invalid_request", "this venue opens tabs on a card", {
+      details: { reason: "card_required" },
+    });
+  const pay = await readSetting(c, venueId, "pay", date);
+  if (pay?.value.gratuity.auto === "parties" && !input.partySize)
+    throw new ApiError("invalid_request", "how many in the party?", {
+      details: { reason: "party_size" },
+    });
+  const checkId = await insertCheck(c, {
+    venueId,
+    number: input.checkNumber,
+    kind: "bar",
+    businessDate: date.toString(),
+    openedBy: input.userId,
+    openedAt: input.now.toString(),
+    training: input.training ?? false,
+  });
+  const tabId = (
+    await c.query<{ id: string }>(
+      `insert into tabs (venue_id, check_id, state, name, label, party_size, owner_id, opened_by, opened_at)
+       values ($1, $2, 'open', $3, $4, $5, $6, $6, $7) returning id`,
+      [
+        venueId,
+        checkId,
+        input.name,
+        input.label,
+        input.partySize,
+        input.userId,
+        input.now.toString(),
+      ],
+    )
+  ).rows[0]!.id;
+  await moveQuickRound(
+    c,
+    venueId,
+    { membership_id: input.membershipId, opened_by: input.userId },
+    checkId,
+    input.now,
+  );
+  await emitEvent(c, { venueId, type: "check.updated", entityId: checkId });
+  await emitEvent(c, { venueId, type: "tab.updated", entityId: tabId });
+  return { id: tabId, check_id: checkId, name: input.name };
 }
 
 /** What New tab shows while the card is on the reader, and the tab it opened. */

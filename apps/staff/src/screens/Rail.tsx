@@ -116,6 +116,8 @@ interface Tab {
   readonly rest_cents: number;
   /** Reopened after its hold was captured (M6-12): "Paid $272.19 · no hold", never Close to card. */
   readonly no_hold: boolean;
+  /** Opened without a card (P-03). */
+  readonly cardless?: boolean;
   /** The card saved from the first tap (none after a wallet tap), and a charge on it waiting. */
   readonly saved_card: {
     readonly brand: string | null;
@@ -698,24 +700,26 @@ export function Rail() {
     ...(x.unsent > 0
       ? [{ label: t("rail.badge.unsent", { n: x.unsent }), tone: "warn" as const }]
       : []),
-    ...(x.open && x.no_hold
-      ? [
-          {
-            label: t("rail.noHold", { amount: money(x.paid_cents as never) }),
-            tone: "ok" as const,
-          },
-        ]
-      : x.open && x.paid_cents > 0
+    ...(x.open && x.cardless
+      ? [{ label: t("rail.noCard"), tone: "ok" as const }]
+      : x.open && x.no_hold
         ? [
             {
-              label: t("rail.badge.partlyPaid", {
-                paid: money(x.paid_cents as never),
-                total: money((x.totals?.total_cents ?? 0) as never),
-              }),
+              label: t("rail.noHold", { amount: money(x.paid_cents as never) }),
               tone: "ok" as const,
             },
           ]
-        : []),
+        : x.open && x.paid_cents > 0
+          ? [
+              {
+                label: t("rail.badge.partlyPaid", {
+                  paid: money(x.paid_cents as never),
+                  total: money((x.totals?.total_cents ?? 0) as never),
+                }),
+                tone: "ok" as const,
+              },
+            ]
+          : []),
   ];
 
   return (
@@ -1293,7 +1297,10 @@ export function Rail() {
                     </span>
                   )}
                   {tab &&
-                    (tab.no_hold ? (
+                    (tab.cardless ? (
+                      // A tab opened without a card (P-03): no hold, closed in cash or on a card.
+                      <span className="chip">{t("rail.noCard")}</span>
+                    ) : tab.no_hold ? (
                       // A reopened tab whose hold was captured (M6-12): no hold chip, what was paid.
                       <span className="chip">
                         {t("rail.noHold", { amount: money(tab.paid_cents as never) })}
