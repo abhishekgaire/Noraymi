@@ -101,6 +101,7 @@ describe("finalizing Room 9", () => {
     expect(r.json().totals).toEqual({
       revision: 0,
       subtotal_cents: 48000,
+      discount_cents: 0,
       tax_cents: 4260,
       gratuity_cents: 9600,
       total_cents: 61860,

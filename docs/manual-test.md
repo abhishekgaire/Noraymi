@@ -571,6 +571,16 @@ Close every bar-screen window. Within a short time the board and Maya's phone re
 
 **Rules to check:** comps and voids up to $25 each and $75 a shift need only a reason. Over that, a manager approves on their own phone. Nobody approves their own request.
 
+### 6.3 A discount on a whole check (P-02)
+
+**Who:** Maya, then Andy.
+
+1. On Jess P.'s tab (bar POS) or Room 9 (DeskRoom), press **Discount the check**. Pick **Amount**, type `5.00`, tap **Regular guest**, press **Give discount**. It reads "**Discount on · $5.00 off**"; the Fix panel's "left this shift" drops by $5; the tab's total drops by $5.00 plus its tax.
+2. Press **Remove discount**: the total and the limit come back.
+3. On Room 9, **Discount the check** with **Percent** `10` and a reason. It's over $25, so it reads "**Waiting for Andy**"; Andy's phone shows **Discount**. He approves and Room 9 reads "10% off · −$… · reason".
+4. Present Room 9: the bill's subtotal is 10% lower, the tax is on the lower subtotal, and the 20% gratuity is on what's left. The receipt prints one line "**Discount · 10%**". The X report lists **Discounts**, and Reports → exceptions lists it with Maya and Andy.
+5. Admin → Features → **Discount on a check** off: **Discount the check** disappears; a discount already on an open check still shows **Remove discount**.
+
 ---
 
 ## 7. Alcohol rules: 86, cut-offs, ID checks, the 4 AM stop
@@ -1203,7 +1213,7 @@ Real drawer kicks need the real drawer hardware.
 People, roles, invites, badges, languages, training mode. See 15.1.
 
 ### 19.2 Features
-"What's on, and what each module hides". 16 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
+"What's on, and what each module hides". 17 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
 - The new switches (D124) are on: Deposits on bookings, Room tablets, Keep the card behind the bar for walk-ins, Guests pay their own share (Pay my share), Cash discount. Turning off Rooms & room clock lists them too.
 - **Choices** under the modules: "Print tickets for drinks rung at the bar" (off at West 4) and **Texting** (on). Both save at once.
 - Turn off **Guests pay their own share**: a guest's bill after Present no longer offers Pay my share; Admin → Payments shows "Pay my share … · Off". Turn it back on.

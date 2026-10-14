@@ -270,7 +270,7 @@ A new version needs two people on our side to approve it in the Console, is sign
 | Bar mode | Bar tabs & quick sale |
 | Marketing texts | Guest texts |
 
-Cash discount needs nothing; its rate is still `pay.cardFee` ([D124](../decisions.md)).
+Cash discount needs nothing; its rate is still `pay.cardFee` ([D124](../decisions.md)). Discount on a check (`check_discount`, P-02) needs nothing either: every plan includes it and it starts on (a venue with no row of its own reads as Payments & checks), and the owner can turn it off; off refuses a new discount, while one already on an open check can still be removed.
 
 A module can be on only while what it needs is on. Turning one off that others need lists them ("These turn off with it: …") and turns them off too after a confirm. Turning off Bar screen & tickets while Ordering from the room is on asks: **"Room orders would have nowhere to ring. Turn off Ordering from the room too?"**, followed by "These turn off with it: …" when Kitchen & food goes too.
 

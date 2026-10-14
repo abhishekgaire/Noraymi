@@ -1005,6 +1005,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       // A card tapped for a room names its reader and its consent (M6-13).
       "check_cards",
       "check_held_cards",
+      // A discount on a whole check (P-02) names its check.
+      "check_discounts",
       // A saved-card question names its reader (M6-12).
       "tab_card_confirms",
       // A tab's close names its reader (M6-08).

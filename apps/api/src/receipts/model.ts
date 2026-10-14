@@ -38,7 +38,7 @@ export interface ReceiptModel {
   readonly refunded_cents: number;
 }
 
-const COMPUTED = new Set(["room_time", "min_spend", "tax", "gratuity"]);
+const COMPUTED = new Set(["room_time", "min_spend", "discount", "tax", "gratuity"]);
 const BRANDS: Record<string, string> = {
   amex: "Amex",
   visa: "Visa",
@@ -146,7 +146,7 @@ export async function receiptModel(
     ...standing.filter((l) => l.kind !== "room_time" && l.kind !== "min_spend"),
   ];
   for (const l of ordered) {
-    if (l.kind === "tax" || l.kind === "gratuity") continue;
+    if (l.kind === "tax" || l.kind === "gratuity" || l.kind === "discount") continue;
     const qty = Number(l.qty) > 1 ? `${l.qty} × ` : "";
     const label =
       l.kind === "room_time"
@@ -163,6 +163,17 @@ export async function receiptModel(
                 ? `${qty}${packageOf.get(Number(l.id))} · ${l.description}`
                 : `${qty}${l.description}`;
     lines.push({ label, amount_cents: Number(l.amount_cents) });
+  }
+  // A discount on the whole check (P-02) prints as one line, whatever categories it came off:
+  // "Discount · 10%" (its stored words are "Discount 10% · drinks").
+  const discounts = standing.filter((l) => l.kind === "discount");
+  const discountCents = discounts.reduce((s, l) => s + Number(l.amount_cents), 0);
+  if (discountCents !== 0) {
+    const what = /^Discount (.+?) · /.exec(discounts[0]!.description)?.[1];
+    lines.push({
+      label: what ? t("en", "receipt.discount", { what }) : t("en", "receipt.discountAmount"),
+      amount_cents: discountCents,
+    });
   }
   const totals: ReceiptLine[] = [];
   const subtotal = rev ? Number(rev.subtotal_cents) : lines.reduce((s, l) => s + l.amount_cents, 0);

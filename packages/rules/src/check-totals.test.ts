@@ -7,9 +7,11 @@ import {
   canPresentCheck,
   cardFee,
   cashDiscount,
+  checkDiscount,
   checkRevision,
   checkTotals,
   depositVsCheck,
+  discountLines,
   payMyShareEven,
   refundCap,
   displayPrice,
@@ -18,6 +20,7 @@ import {
   salesTaxRule,
   splitByItem,
   splitEven,
+  type CheckDiscountSpec,
   type TaxCategory,
   type TotalsLine,
 } from "./check-totals.js";
@@ -415,5 +418,84 @@ describe("moved lines (M6-13; Money rules 9 and 12)", () => {
       { tax: nyTax, gratuityPct: null },
     );
     expect(t).toMatchObject({ subtotalCents: 0, taxCents: 0, gratuityCents: 0, totalCents: 0 });
+  });
+});
+
+// P-02: a % or $ discount on a whole check, off the pre-tax subtotal, before tax and gratuity.
+describe("check_discount, from the money cases", () => {
+  const g = group("check_discount");
+  it("has the cases the ticket names: a percent, an amount, half up, a cap, after a comp, then cash", () => {
+    expect(g.length).toBeGreaterThanOrEqual(6);
+    expect(g.some((c) => c.inputs.discount.mode === "pct")).toBe(true);
+    expect(g.some((c) => c.inputs.discount.mode === "amount")).toBe(true);
+    expect(g.some((c) => c.inputs.cash_discount_pct !== undefined)).toBe(true);
+  });
+  for (const c of g)
+    it(c.id, () => {
+      const lines = toLines(c.inputs.lines);
+      const spec: CheckDiscountSpec =
+        c.inputs.discount.mode === "pct"
+          ? { mode: "pct", pct: c.inputs.discount.pct }
+          : { mode: "amount", amountCents: c.inputs.discount.amount_cents };
+      const d = checkDiscount(lines, spec);
+      const t = checkTotals([...lines, ...discountLines(d)], {
+        tax: taxFor(c),
+        gratuityPct: c.inputs.gratuity_applies ? 20 : null,
+        depositCents: c.inputs.deposit_cents,
+      });
+      const got: Record<string, unknown> = {
+        discount_base_cents: d.baseCents,
+        discount_cents: d.discountCents,
+        discount_by_category_cents: d.byCategoryCents,
+        ...asCase(t),
+      };
+      if (c.inputs.cash_discount_pct !== undefined) {
+        const cash = cashDiscount({
+          amountCents: t.totalCents,
+          pct: c.inputs.cash_discount_pct,
+          taxRatePct: "8.875",
+          foodIncludesFee: true,
+          foodWeightCents: 0,
+          otherWeightCents: t.totalCents,
+        });
+        got["cash_discount_cents"] = cash.discountCents;
+        got["cash_tax_off_cents"] = cash.taxOffCents;
+        got["cash_pays_cents"] = cash.cashPaysCents;
+      }
+      expect(got).toEqual(c.expected);
+      // The parts always add up, and never pass the base.
+      const parts = Object.values(d.byCategoryCents).reduce((s, x) => s + x, 0);
+      expect(parts).toBe(d.discountCents);
+      expect(d.discountCents).toBeLessThanOrEqual(d.baseCents);
+    });
+  it("a discount on nothing discountable is $0.00, and the same lines split the same in any order", () => {
+    expect(
+      checkDiscount([{ kind: "damage", taxCategory: "damage", cents: 5000 }], {
+        mode: "pct",
+        pct: "50",
+      }).discountCents,
+    ).toBe(0);
+    const a = checkDiscount(
+      [
+        { kind: "item", taxCategory: "drink", cents: 1000 },
+        { kind: "room_time", taxCategory: "room_time", cents: 1000 },
+      ],
+      { mode: "amount", amountCents: 1 },
+    );
+    const b = checkDiscount(
+      [
+        { kind: "room_time", taxCategory: "room_time", cents: 1000 },
+        { kind: "item", taxCategory: "drink", cents: 1000 },
+      ],
+      { mode: "amount", amountCents: 1 },
+    );
+    expect(a.byCategoryCents).toEqual(b.byCategoryCents);
+    expect(a.byCategoryCents).toEqual({ room_time: 1 });
+  });
+  it("leaves stored discount lines out of its own base, so working it again gives the same amount", () => {
+    const lines: TotalsLine[] = [{ kind: "item", taxCategory: "drink", cents: 2000 }];
+    const first = checkDiscount(lines, { mode: "pct", pct: "10" });
+    const again = checkDiscount([...lines, ...discountLines(first)], { mode: "pct", pct: "10" });
+    expect(again).toEqual(first);
   });
 });

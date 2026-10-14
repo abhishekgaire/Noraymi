@@ -47,6 +47,7 @@ export const approvalKinds = [
   "party_size_down",
   "card_on_file",
   "over_hold",
+  "discount",
 ] as const;
 
 export function kindKey(kind: string) {

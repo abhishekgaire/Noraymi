@@ -75,7 +75,15 @@ const share = (a: number, b: number, d: number) =>
   d === 0 ? 0 : Math.floor((2 * a * b + d) / (2 * d));
 
 const REFUNDABLE = new Set(["item", "room_time", "min_spend", "song", "damage", "fee"]);
-const GRATUITY_BASE = new Set(["item", "room_time", "min_spend", "song", "comp", "void"]);
+const GRATUITY_BASE = new Set([
+  "item",
+  "room_time",
+  "min_spend",
+  "song",
+  "comp",
+  "void",
+  "discount",
+]);
 
 /**
  * The reversing lines for what's picked: each line's part, its share of the revision's tax (per

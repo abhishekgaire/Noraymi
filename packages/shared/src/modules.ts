@@ -28,6 +28,7 @@ export type ModuleId =
   | "pay_share"
   | "cash_discount"
   | "outside_card"
+  | "check_discount"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -65,6 +66,7 @@ export interface ModuleDef {
   /**
    * Every plan allows it, off until the owner turns it on, and our Console can't take it away:
    * the outside card machine (D126), the website, Safety & ID records and Marketing texts (D129).
+   * One that also `inherits` an always-on module starts on instead: the check discount (P-02).
    */
   readonly allowedOff?: boolean;
 }
@@ -320,6 +322,17 @@ export const modules: readonly ModuleDef[] = [
     needs: [],
     allowedOff: true,
     hides: { staffApp: ["pay.outsideCard"], staffPhone: [], website: [], texts: [] },
+  },
+  // A % or $ discount on a whole check (P-02): every plan allows it, and it's on until the owner
+  // turns it off (a venue with no row of its own reads as Payments & checks, always on).
+  {
+    id: "check_discount",
+    core: false,
+    phase1: true,
+    needs: [],
+    inherits: "payments",
+    allowedOff: true,
+    hides: { staffApp: ["check.discount"], staffPhone: ["check.discount"], website: [], texts: [] },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },

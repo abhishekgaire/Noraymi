@@ -5,6 +5,7 @@ import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
+import { giveDiscount, removeDiscount } from "../rooms/discount.js";
 import { fixLine } from "../rooms/fix.js";
 import { finalizeCheck } from "../rooms/finalize.js";
 import { parseHeldCard, returnHeldCard, takeHeldCard } from "../rooms/held-card.js";
@@ -279,4 +280,84 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
       },
     );
   }
+
+  // A % or $ discount on a whole check (P-02): the Discount on a check switch's; within the
+  // reason-only limit or through approval. Taking it off works while the check is open, even with
+  // the switch off, so nothing is stuck on a check.
+  const discountBody = z.union([
+    z
+      .object({
+        mode: z.literal("pct"),
+        pct: z.number().positive().max(100).multipleOf(0.01),
+        reason: z.string().trim().min(1).max(300),
+      })
+      .strict(),
+    z
+      .object({
+        mode: z.literal("amount"),
+        amount_cents: z.number().int().positive().max(100_000_000),
+        reason: z.string().trim().min(1).max(300),
+      })
+      .strict(),
+  ]);
+  const discountCheck = (k: string) => {
+    if (!z.string().uuid().safeParse(k).success) throw new ApiError("not_found", "no such check");
+    return k;
+  };
+  app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/discount",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "check_discount",
+        action: "comps.reasonOnly",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = discountBody.safeParse(request.body);
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "a discount needs { mode: 'pct', pct } (0.01 to 100) or { mode: 'amount', amount_cents }, and a reason",
+        );
+      const checkId = discountCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      const b = parsed.data;
+      const answer = await request.inVenue((c) =>
+        giveDiscount(c, request.venueId!, {
+          checkId,
+          // The percent as exact text ("12.5"), never multiplied as a float.
+          spec:
+            b.mode === "pct"
+              ? { mode: "pct", pct: String(b.pct) }
+              : { mode: "amount", amountCents: b.amount_cents },
+          reason: b.reason,
+          userId: by,
+          deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          now: options.clock.now(),
+        }),
+      );
+      return reply.code(answer.status === "added" ? 201 : 202).send(answer);
+    },
+  );
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/discount/remove",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        action: "comps.reasonOnly",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const checkId = discountCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      await request.inVenue((c) =>
+        removeDiscount(c, request.venueId!, { checkId, userId: by, now: options.clock.now() }),
+      );
+      return { status: "removed" };
+    },
+  );
 }

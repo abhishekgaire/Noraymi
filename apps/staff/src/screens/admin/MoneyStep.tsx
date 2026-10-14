@@ -45,26 +45,31 @@ export function MoneyStep({
   if (!venueId) return null;
   return (
     <AdminDraftProvider venueId={venueId}>
-      <OutsideCardSwitch venueId={venueId} />
+      <ModuleSwitch venueId={venueId} id="outside_card" />
+      <ModuleSwitch venueId={venueId} id="check_discount" />
       <MoneyStepBody venueId={venueId} registerSave={registerSave} onSaved={onSaved} />
     </AdminDraftProvider>
   );
 }
 
 /**
- * Paid on an outside card machine (F-10; D126): the owner's switch, in step 7 as in Admin →
- * Features; saved at once through the modules route. Off by default.
+ * The owner's switches in step 7, as in Admin → Features, saved at once through the modules route:
+ * Paid on an outside card machine (F-10; D126), off by default, and a discount on a whole check
+ * (P-02), on by default.
  */
-function OutsideCardSwitch({ venueId }: { venueId: string }) {
+const SWITCH_LABEL = {
+  outside_card: "onboarding.money.outsideCard",
+  check_discount: "onboarding.money.checkDiscount",
+} as const;
+function ModuleSwitch({ venueId, id }: { venueId: string; id: keyof typeof SWITCH_LABEL }) {
   const { t } = useT();
   const { state, refresh } = useSession();
-  const on =
-    state.status === "signedIn" && (state.membership.modules ?? {})["outside_card"] === "on";
+  const on = state.status === "signedIn" && (state.membership.modules ?? {})[id] === "on";
   const [error, setError] = useState<string | null>(null);
   const flip = async (next: boolean) => {
     setError(null);
     try {
-      await api("PATCH", `/v1/venues/${venueId}/modules/outside_card`, {
+      await api("PATCH", `/v1/venues/${venueId}/modules/${id}`, {
         state: next ? "on" : "off",
       });
       await refresh();
@@ -76,7 +81,7 @@ function OutsideCardSwitch({ venueId }: { venueId: string }) {
     <div className="setup-card">
       <label className="setup-check">
         <input type="checkbox" checked={on} onChange={(e) => void flip(e.target.checked)} />
-        {t("onboarding.money.outsideCard")}
+        {t(SWITCH_LABEL[id])}
       </label>
       {error && (
         <p className="error small" role="alert">

@@ -24,19 +24,28 @@ export async function reasonOnlyUsed(
     `with shift as (
        select s.started_at from shifts s join memberships m on m.venue_id = s.venue_id and m.id = s.membership_id
         where s.venue_id = $1 and m.user_id = $2 and s.ended_at is null)
-     select coalesce(sum(abs(l.amount_cents)), 0)::text as used
-       from live_check_lines l
-      where l.venue_id = $1 and l.added_by = $2
-        and l.kind in ('comp', 'void') and l.approved_by is null
-        -- Food removed before it was sent to the kitchen needs no reason or approval (K-05).
-        and not (l.kind = 'void' and exists (
-              select 1 from live_check_lines r join order_items oi on oi.venue_id = r.venue_id and oi.id = r.source_id
-               where r.venue_id = l.venue_id and r.id = l.reverses_id
-                 and oi.station = 'kitchen' and oi.kitchen_sent_at is null
-                 and exists (select 1 from orders o where o.venue_id = oi.venue_id and o.id = oi.order_id
-                               and o.source = 'staff')))
-        and case when exists (select 1 from shift) then l.added_at >= (select started_at from shift)
-                 else l.business_date = $3 end`,
+     select (
+       (select coalesce(sum(abs(l.amount_cents)), 0)
+          from live_check_lines l
+         where l.venue_id = $1 and l.added_by = $2
+           and l.kind in ('comp', 'void') and l.approved_by is null
+           -- Food removed before it was sent to the kitchen needs no reason or approval (K-05).
+           and not (l.kind = 'void' and exists (
+                 select 1 from live_check_lines r join order_items oi on oi.venue_id = r.venue_id and oi.id = r.source_id
+                  where r.venue_id = l.venue_id and r.id = l.reverses_id
+                    and oi.station = 'kitchen' and oi.kitchen_sent_at is null
+                    and exists (select 1 from orders o where o.venue_id = oi.venue_id and o.id = oi.order_id
+                                  and o.source = 'staff')))
+           and case when exists (select 1 from shift) then l.added_at >= (select started_at from shift)
+                    else l.business_date = $3 end)
+       -- A discount on a whole check (P-02) counts at what it came to when given, unless approved;
+       -- one taken off again before payment gave nothing away.
+       + (select coalesce(sum(d.counted_cents), 0)
+            from check_discounts d join live_checks k on k.venue_id = d.venue_id and k.id = d.check_id
+           where d.venue_id = $1 and d.added_by = $2 and d.approved_by is null and d.removed_at is null
+             and case when exists (select 1 from shift) then d.added_at >= (select started_at from shift)
+                      else d.business_date = $3 end)
+     )::text as used`,
     [venueId, userId, businessDate],
   );
   return Number(r.rows[0]!.used);

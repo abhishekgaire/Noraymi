@@ -53,6 +53,10 @@ export function ReportPanel({ venueId, date: night }: { venueId: string; date: s
     [t("report.drinksBar"), report.sales["drinks_bar_tabs_cents"]],
     [t("report.food"), report.sales["food_cents"]],
     [t("report.comps"), report.sales["comps_cents"]],
+    // Discounts on whole checks (P-02) and cash discounts, when there were any.
+    ...((report.sales["discounts_cents"] ?? 0) !== 0
+      ? ([[t("report.discounts"), report.sales["discounts_cents"]]] as [string, number][])
+      : []),
     [t("report.refunds"), report.sales["refunds_cents"]],
     [t("report.net"), report.sales["net_cents"]],
     [t("report.tax"), report.tax_cents],
