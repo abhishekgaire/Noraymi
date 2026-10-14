@@ -165,8 +165,8 @@ export async function sweepPrintJobs(pool: pg.Pool, now: Temporal.Instant): Prom
   return failed;
 }
 
-/** Laid out like a receipt: receipts, the X and Z reports (M7-13) and the break-glass card (M8-06). */
-const RECEIPT_KINDS = new Set(["receipt", "x_report", "z_report", "break_glass"]);
+/** Laid out like a receipt: receipts, the X and Z reports (M7-13) and the break-glass card (M8-06), and the bill (P-01). */
+const RECEIPT_KINDS = new Set(["receipt", "x_report", "z_report", "break_glass", "bill"]);
 
 export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; clock: Clock }): void {
   const printer = route({

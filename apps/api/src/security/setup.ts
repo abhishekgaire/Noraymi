@@ -490,6 +490,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/payments/:paymentId/change": { tendered_cents: 100 },
       "POST /v1/venues/:venueId/payments/:paymentId/approval": { reason: "Guest left" },
       "POST /v1/venues/:venueId/checks/:checkId/receipts": { channel: "print" },
+      "POST /v1/venues/:venueId/checks/:checkId/bill": { locale: "en" },
       "POST /v1/venues/:venueId/disputes/:disputeId/evidence": { note: "wall" },
       "POST /v1/venues/:venueId/go-live/people/:userId": { check: "tap_to_pay", confirmed: true },
       "POST /v1/venues/:venueId/checks/:checkId/refunds": {

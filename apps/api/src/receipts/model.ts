@@ -1,5 +1,14 @@
 import { checkById, depositsOn, latestRevision, type Queryable } from "@west4/db";
-import { Temporal, cents, formatMoney, t, trainingNumber, type MessageKey } from "@west4/shared";
+import {
+  Temporal,
+  cents,
+  formatMoney,
+  t,
+  trainingNumber,
+  type Locale,
+  type MessageKey,
+} from "@west4/shared";
+import type { Worked } from "../rooms/finalize.js";
 import { checkPayments } from "../rooms/guest-bill.js";
 
 /**
@@ -45,7 +54,7 @@ const BRANDS: Record<string, string> = {
   mastercard: "Mastercard",
   discover: "Discover",
 };
-const money = (c: number) =>
+export const money = (c: number) =>
   c < 0 ? `−${formatMoney("en", cents(-c))}` : formatMoney("en", cents(c));
 
 /** "Fri Sep 25, 2026 · 10:41 PM EDT", in the venue's zone. */
@@ -68,7 +77,7 @@ export function receiptTime(iso: string, timeZone: string): string {
 }
 
 /** "0.08875" → "8.875": decimal digits moved, never a float. */
-function percentOf(rate: string | null): string {
+export function percentOf(rate: string | null): string {
   if (!rate || !/^\d+(\.\d+)?$/.test(rate)) return "";
   const [whole, frac = ""] = rate.split(".");
   const digits = (whole! + frac.padEnd(2, "0")).replace(/^0+(?=\d)/, "");
@@ -94,7 +103,18 @@ export async function receiptModel(
   c: Queryable,
   venueId: string,
   checkId: string,
+  opts: {
+    /** The words' language (the printed bill, P-01); receipts are English. */
+    readonly locale?: Locale;
+    /**
+     * An open check's totals worked out now (P-01 · the bill before paying): room time so far and
+     * the live tax and gratuity from packages/rules, in place of a finalized revision's.
+     */
+    readonly worked?: Worked;
+  } = {},
 ): Promise<ReceiptModel | null> {
+  const locale = opts.locale ?? "en";
+  const worked = opts.worked;
   const found = await checkById(c, venueId, checkId);
   if (!found) return null;
   const rev = await latestRevision(c, venueId, checkId);
@@ -120,14 +140,26 @@ export async function receiptModel(
   // The standing lines: a line reversed by a later one, and the reversal, both drop out for computed
   // lines (a new revision rewrites them); comps and voids stay, as COMP and VOID.
   const reversed = new Set(found.lines.map((l) => l.reverses_id).filter((x) => x !== null));
-  const standing = found.lines.filter(
-    (l) => !COMPUTED.has(l.kind) || (l.reverses_id === null && !reversed.has(l.id)),
+  // An open check's computed lines are worked out now, so any left from an earlier finalize drop out.
+  const standing = found.lines.filter((l) =>
+    worked
+      ? !COMPUTED.has(l.kind)
+      : !COMPUTED.has(l.kind) || (l.reverses_id === null && !reversed.has(l.id)),
   );
-  const segments =
-    (rev?.billing_basis?.["segments"] as { hourly_cents: number }[] | undefined) ?? [];
+  const basis = worked ? worked.billingBasis : rev?.billing_basis;
+  const segments = (basis?.["segments"] as { hourly_cents: number }[] | undefined) ?? [];
   const rates = [...new Set(segments.map((s) => s.hourly_cents))].map((h) => money(h)).join(" → ");
-  const minutes = Number(rev?.billing_basis?.["minutes"] ?? 0);
+  const minutes = Number(basis?.["minutes"] ?? 0);
   const lines: ReceiptLine[] = [];
+  if (worked && worked.minutes !== null)
+    lines.push({
+      label: rates
+        ? t(locale, "receipt.roomTime", { min: minutes, rate: rates })
+        : t(locale, "receipt.roomTimeOnly", { min: minutes }),
+      amount_cents: worked.roomTimeCents,
+    });
+  if (worked && worked.minSpendCents > 0)
+    lines.push({ label: t(locale, "receipt.minSpend"), amount_cents: worked.minSpendCents });
   // A package's lines carry its name (K-09; spec 16 · Food in packages): "Party pack · Wings".
   const packageOf = new Map(
     (
@@ -151,14 +183,14 @@ export async function receiptModel(
     const label =
       l.kind === "room_time"
         ? rates
-          ? t("en", "receipt.roomTime", { min: minutes, rate: rates })
-          : t("en", "receipt.roomTimeOnly", { min: minutes })
+          ? t(locale, "receipt.roomTime", { min: minutes, rate: rates })
+          : t(locale, "receipt.roomTimeOnly", { min: minutes })
         : l.kind === "comp"
-          ? t("en", "receipt.comp", { item: l.description })
+          ? t(locale, "receipt.comp", { item: l.description })
           : l.kind === "void"
-            ? t("en", "receipt.void", { item: l.description })
+            ? t(locale, "receipt.void", { item: l.description })
             : l.kind === "card_surcharge"
-              ? t("en", "receipt.surcharge")
+              ? t(locale, "receipt.surcharge")
               : packageOf.has(Number(l.id))
                 ? `${qty}${packageOf.get(Number(l.id))} · ${l.description}`
                 : `${qty}${l.description}`;
@@ -176,12 +208,36 @@ export async function receiptModel(
     });
   }
   const totals: ReceiptLine[] = [];
-  const subtotal = rev ? Number(rev.subtotal_cents) : lines.reduce((s, l) => s + l.amount_cents, 0);
-  totals.push({ label: t("en", "receipt.subtotal"), amount_cents: subtotal });
-  for (const l of standing.filter((x) => x.kind === "tax"))
+  const subtotal = worked
+    ? Number(worked.totals.subtotalCents)
+    : rev
+      ? Number(rev.subtotal_cents)
+      : lines.reduce((s, l) => s + l.amount_cents, 0);
+  totals.push({ label: t(locale, "receipt.subtotal"), amount_cents: subtotal });
+  if (worked) {
+    // Live: tax by category and the gratuity, as packages/rules works them out now.
+    for (const [category, amount] of Object.entries(worked.totals.taxByCategoryCents))
+      if (amount)
+        totals.push({
+          label: t(locale, "receipt.tax", {
+            what: t(
+              locale,
+              `receipt.taxOn.${category === "surcharge" ? "other" : category}` as MessageKey,
+            ),
+            pct: percentOf(String(worked.rate)),
+          }),
+          amount_cents: amount,
+        });
+    if (worked.totals.gratuityCents > 0)
+      totals.push({
+        label: t(locale, "receipt.gratuity", { pct: String(worked.gratuityPct ?? "") }),
+        amount_cents: worked.totals.gratuityCents,
+      });
+  }
+  for (const l of worked ? [] : standing.filter((x) => x.kind === "tax"))
     totals.push({
-      label: t("en", "receipt.tax", {
-        what: t("en", `receipt.taxOn.${taxCategoryOf(l.description)}` as MessageKey),
+      label: t(locale, "receipt.tax", {
+        what: t(locale, `receipt.taxOn.${taxCategoryOf(l.description)}` as MessageKey),
         pct: percentOf(l.tax_rate),
       }),
       amount_cents: Number(l.amount_cents),
@@ -190,18 +246,20 @@ export async function receiptModel(
   const gratuityPct = rev?.gratuity_basis?.["pct"];
   if (gratuity.length > 0)
     totals.push({
-      label: t("en", "receipt.gratuity", { pct: String(gratuityPct ?? "") }),
+      label: t(locale, "receipt.gratuity", { pct: String(gratuityPct ?? "") }),
       amount_cents: gratuity.reduce((s, l) => s + Number(l.amount_cents), 0),
     });
-  const total = rev
-    ? Number(rev.total_cents)
-    : standing.reduce((s, l) => s + Number(l.amount_cents), 0);
-  totals.push({ label: t("en", "receipt.total"), amount_cents: total, strong: true });
+  const total = worked
+    ? Number(worked.totals.totalCents)
+    : rev
+      ? Number(rev.total_cents)
+      : standing.reduce((s, l) => s + Number(l.amount_cents), 0);
+  totals.push({ label: t(locale, "receipt.total"), amount_cents: total, strong: true });
 
   // What paid it: the deposit first, then each payment as the room tab lists it, then any tip.
   const deposit = (await depositsOn(c, venueId, checkId)).reduce((s, d) => s + d.amount_cents, 0);
   const payments: ReceiptLine[] = [];
-  if (deposit > 0) payments.push({ label: t("en", "receipt.deposit"), amount_cents: -deposit });
+  if (deposit > 0) payments.push({ label: t(locale, "receipt.deposit"), amount_cents: -deposit });
   const card = await c.query<{ id: string; tip_cents: string }>(
     `select distinct p.id, p.tip_cents
        from payments p join payment_allocations a on a.venue_id = p.venue_id and a.payment_id = p.id
@@ -211,26 +269,26 @@ export async function receiptModel(
   for (const p of await checkPayments(c, venueId, checkId)) {
     const label =
       p.kind === "share" && p.share_no !== null
-        ? t("en", "yourBill.paidBy.share", {
+        ? t(locale, "yourBill.paidBy.share", {
             name: p.name ?? "",
             n: p.share_no,
             of: p.shares ?? p.share_no,
           })
         : (p.kind === "card" || p.kind === "card_on_file" || p.kind === "online") && p.last4
-          ? t("en", "receipt.card", {
+          ? t(locale, "receipt.card", {
               brand: BRANDS[p.brand ?? ""] ?? p.brand ?? "",
               last4: p.last4,
             })
           : p.kind === "cash"
-            ? t("en", "yourBill.paidBy.cash")
+            ? t(locale, "yourBill.paidBy.cash")
             : p.kind === "card"
               ? // The venue's outside machine (F-10) keeps no card details here: just "Card".
-                t("en", "yourBill.paidBy.outsideCard")
-              : t("en", "yourBill.paidBy.other");
+                t(locale, "yourBill.paidBy.outsideCard")
+              : t(locale, "yourBill.paidBy.other");
     payments.push({ label, amount_cents: -p.amount_cents });
   }
   const tip = card.rows.reduce((s, p) => s + Number(p.tip_cents), 0);
-  if (tip > 0) payments.push({ label: t("en", "receipt.tip"), amount_cents: tip });
+  if (tip > 0) payments.push({ label: t(locale, "receipt.tip"), amount_cents: tip });
 
   const refunded = -Number(
     (
@@ -241,18 +299,22 @@ export async function receiptModel(
       )
     ).rows[0]!.r,
   );
-  if (refunded > 0) payments.push({ label: t("en", "receipt.refund"), amount_cents: refunded });
+  if (refunded > 0) payments.push({ label: t(locale, "receipt.refund"), amount_cents: refunded });
   // Left to pay, counting only money that landed (a payment page left open still shows as due).
+  // An open check (P-01): what it comes to now, less the money that landed on it (deposits too).
   const due = Number(
     (
       await c.query<{ d: string }>(
-        `select amount_due($2) + coalesce((select sum(amount_cents) from payment_allocations
+        worked
+          ? `select greatest(0, $3::bigint - coalesce((select sum(amount_cents) from payment_allocations
+               where venue_id = $1 and check_id = $2 and state = 'captured'), 0)) as d`
+          : `select amount_due($2) + coalesce((select sum(amount_cents) from payment_allocations
             where venue_id = $1 and check_id = $2 and state = 'in_progress' and not follows_lines), 0) as d`,
-        [venueId, checkId],
+        worked ? [venueId, checkId, total] : [venueId, checkId],
       )
     ).rows[0]!.d,
   );
-  payments.push({ label: t("en", "receipt.due"), amount_cents: due, strong: true });
+  payments.push({ label: t(locale, "receipt.due"), amount_cents: due, strong: true });
 
   const paidCents = total - due;
   const status: ReceiptStatus =
@@ -269,14 +331,14 @@ export async function receiptModel(
     venue: v.name,
     address: v.address ? [v.address["line1"], v.address["city"]].filter(Boolean).join(", ") : null,
     number: found.check.training
-      ? t("en", "receipt.numberTraining", { number: trainingNumber(found.check.number) })
-      : t("en", "receipt.number", { number: String(found.check.number) }),
+      ? t(locale, "receipt.numberTraining", { number: trainingNumber(found.check.number) })
+      : t(locale, "receipt.number", { number: String(found.check.number) }),
     training: found.check.training,
     room: v.room,
     opened: receiptTime(v.opened_at, v.time_zone),
     paid: v.paid_at ? receiptTime(v.paid_at, v.time_zone) : null,
     status,
-    status_label: t("en", `receipt.status.${status}` as MessageKey, {
+    status_label: t(locale, `receipt.status.${status}` as MessageKey, {
       amount: money(refunded),
     }),
     lines,

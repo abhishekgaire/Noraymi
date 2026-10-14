@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { hostJobBytes, receiptStarRaster } from "./host-bytes.js";
 import { receiptEscPos, receiptPrintLines } from "./ticket.js";
 
 describe("the printed receipt (M4-19)", () => {
@@ -22,5 +23,21 @@ describe("the printed receipt (M4-19)", () => {
     const bytes = receiptEscPos({ lines }, { reprintN: 0 });
     expect([...bytes].every((b) => b < 0x80)).toBe(true);
     expect(Buffer.from(bytes).toString("latin1")).toContain("-$120.00");
+  });
+});
+
+describe("the bill before paying (P-01)", () => {
+  const lines = ["CUENTA", "Depósito  −$120.00", "Por pagar  $498.60", "Esto no es un recibo"];
+  it("prints as a receipt does on a USB printer, and as dots on a Star raster printer", () => {
+    const job = { kind: "bill", payload: { lines }, reprint_n: 1 };
+    const esc = hostJobBytes(job, "escpos", "America/New_York");
+    expect(esc).toEqual(receiptEscPos({ lines }, { reprintN: 1 }));
+    const text = Buffer.from(esc).toString("latin1");
+    expect(text).toContain("REPRINT 1");
+    expect(text).toContain("Deposito");
+    expect(text).toContain("Esto no es un recibo");
+    expect(hostJobBytes(job, "star_raster", "America/New_York")).toEqual(
+      receiptStarRaster({ lines }, { reprintN: 1 }),
+    );
   });
 });

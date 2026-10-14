@@ -1764,3 +1764,15 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 3. To start again from an empty Sing Sing: `scripts/demo-local.sh --onboard` (it also resets West 4's night).
 
 **If it's wrong:** note the step number and the message. The automated version of this path, with a made-up venue, is `e2e/onboard.spec.ts`.
+
+## 30. Everything Sing Sing's register does (P tickets)
+
+### 30.1 Print the bill (P-01)
+
+1. Sign in as Andy and open **Room 9**. Under Present the check, press **Print the bill**: "The bill is printing". With the desktop app's virtual printer (0.11) the slip lands in its folder; without one, the job shows in the failed-print list with **Reprint**, the usual print error.
+2. The slip: West 4, BILL, Check #1042 · Room 9, Guests: 12, Room time · 161 min $322.00, the drinks, tax, Gratuity included (20%) $96.00, **Total $618.60**, Deposit −$120.00, **Left to pay $498.60**, and "This is not a receipt".
+3. Press **Print the bill** again: "The bill is printing · reprint 1", and the slip starts REPRINT 1. Each print is in the audit log.
+4. Present the check, then **Print the bill**: the same amounts.
+5. At the bar (Maya), open **Jess P.**'s tab and press **Print the bill**: Check #… · Bar tab · Jess P., Total $32.66.
+6. With a cash discount on (Admin → Card fee, or Sing Sing's 3.38%), the bill shows **Cash price** under the total and under Left to pay.
+7. The bill prints in the venue's first staff language: with Spanish first, CUENTA, Por pagar and "Esto no es un recibo".

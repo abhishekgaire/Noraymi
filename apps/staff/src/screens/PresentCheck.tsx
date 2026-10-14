@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { PrintBill } from "./PrintBill.js";
 
 /**
  * Present the check (M4-08; Payment flows · Room close-out step 1): it
@@ -77,6 +78,8 @@ export function PresentCheck({
           </button>
         )
       )}
+      {/* Print the bill (P-01): before and after presenting, until it's paid. */}
+      {status !== "paid" && <PrintBill venueId={venueId} checkId={checkId} />}
       {blockers.length > 0 && (
         <ul className="blocked" role="alert">
           {blockers.map((b) => (

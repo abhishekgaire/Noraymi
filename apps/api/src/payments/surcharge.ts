@@ -229,6 +229,48 @@ export async function cashDiscountFor(
   };
 }
 
+/** O-09: the check's pre-tax food and the rest, which split cash between discounted and not. */
+async function cashWeights(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+  foodIncludesFee: boolean,
+): Promise<{ food: number; other: number }> {
+  if (foodIncludesFee) return { food: 0, other: 0 };
+  return (
+    await c.query<{ food: number; other: number }>(
+      `select coalesce(sum(amount_cents) filter (where tax_category = 'food'), 0)::int as food,
+              coalesce(sum(amount_cents) filter (where tax_category is not null and tax_category <> 'food'
+                and kind not in ('tax', 'cash_discount')), 0)::int as other
+         from check_lines where venue_id = $1 and check_id = $2`,
+      [venueId, checkId],
+    )
+  ).rows[0]!;
+}
+
+/**
+ * What cash would pay for an amount on a check with the cash discount on (P-01: the printed bill's
+ * cash price), the same rule as taking the cash, writing nothing; null with the discount off.
+ * `extraOtherCents` is pre-tax that isn't a line yet (an open room's time so far).
+ */
+export async function cashPriceFor(
+  c: Queryable,
+  venueId: string,
+  input: { checkId: string; amountCents: number; businessDate: string; extraOtherCents?: number },
+): Promise<number | null> {
+  const terms = await cashDiscountFor(c, venueId, input.businessDate);
+  if (!terms) return null;
+  const weights = await cashWeights(c, venueId, input.checkId, terms.foodIncludesFee);
+  return cashDiscount({
+    amountCents: input.amountCents,
+    pct: terms.pct,
+    taxRatePct: terms.taxRatePct,
+    foodIncludesFee: terms.foodIncludesFee,
+    foodWeightCents: weights.food,
+    otherWeightCents: weights.other + (terms.foodIncludesFee ? 0 : (input.extraOtherCents ?? 0)),
+  }).cashPaysCents;
+}
+
 /**
  * Cash taken with a cash discount on (M4-25): a `cash_discount` line for its share of what's paid and
  * a matching tax reduction, written as the cash is taken; answers what the cash then pays.
@@ -242,17 +284,7 @@ export async function applyCashDiscount(
   if (!terms) return input.amountCents;
   // O-09: with food at cash prices, the cash's food share (by the check's pre-tax food and the rest)
   // is never discounted.
-  const weights = terms.foodIncludesFee
-    ? { food: 0, other: 0 }
-    : (
-        await c.query<{ food: number; other: number }>(
-          `select coalesce(sum(amount_cents) filter (where tax_category = 'food'), 0)::int as food,
-                  coalesce(sum(amount_cents) filter (where tax_category is not null and tax_category <> 'food'
-                    and kind not in ('tax', 'cash_discount')), 0)::int as other
-             from check_lines where venue_id = $1 and check_id = $2`,
-          [venueId, input.checkId],
-        )
-      ).rows[0]!;
+  const weights = await cashWeights(c, venueId, input.checkId, terms.foodIncludesFee);
   const d = cashDiscount({
     amountCents: input.amountCents,
     pct: terms.pct,

@@ -5000,6 +5000,70 @@ test("Present the check: blocked while 2 × Margarita · Peach rings, then prese
 });
 
 /**
+ * Print the bill (P-01): on Room 9's close-out, the bill prints with the check's numbers ($618.60,
+ * the deposit, $498.60 left to pay) and "This is not a receipt"; printing again is a counted
+ * reprint. On Jess P.'s bar tab, the tab's bill.
+ */
+test("Print the bill: Room 9's bill before paying, a reprint, and Jess P.'s tab", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const lastBill = async () =>
+    (
+      await db.query<{ reprint_n: number; lines: string[] }>(
+        "select reprint_n, payload->'lines' as lines from print_jobs where kind = 'bill' order by reprint_n desc limit 1",
+      )
+    ).rows[0];
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
+    const present = page.getByRole("region", { name: "Present the check" });
+    await present.getByRole("button", { name: "Print the bill" }).click();
+    await expect(present.getByText("The bill is printing")).toBeVisible();
+    const first = await lastBill();
+    expect(first?.lines).toEqual(
+      expect.arrayContaining([
+        "Total  $618.60",
+        "Deposit  −$120.00",
+        "Left to pay  $498.60",
+        "This is not a receipt",
+      ]),
+    );
+    await present.getByRole("button", { name: "Print the bill" }).click();
+    await expect(present.getByText("The bill is printing · reprint 1")).toBeVisible();
+    expect((await lastBill())?.reprint_n).toBe(1);
+
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await expect(panel).toContainText("$32.66");
+    await panel.getByRole("button", { name: "Print the bill" }).click();
+    await expect(panel.getByText("The bill is printing")).toBeVisible();
+    // The simulated clock stands still, so the tab's bill is found by its check, not its time.
+    const tab = (
+      await db.query<{ lines: string[] }>(
+        `select payload->'lines' as lines from print_jobs
+          where kind = 'bill' and check_id = (select check_id from tabs where name = 'Jess P.')`,
+      )
+    ).rows[0];
+    expect(tab?.lines).toEqual(expect.arrayContaining(["Total  $32.66", "This is not a receipt"]));
+    expect(tab?.lines.some((l) => l.includes("Bar tab · Jess P."))).toBe(true);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * Tap at the reader (M4-11) on Room 9, after Present: the reader picker,
  * "Waiting for a tap on the front-desk reader · Cancel", a declined card,
  * Tap again on the same payment, and Paid. The night's Stripe side (both

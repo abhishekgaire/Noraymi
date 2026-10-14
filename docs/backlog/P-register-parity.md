@@ -23,7 +23,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-01 · Print the bill before paying
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4 (Present the check), W-01
 - **Spec:** [Payment flows](../spec/07-payment-flows.md) · Present the check; [Devices, printing, offline](../spec/09-devices-printing-offline.md)
@@ -32,9 +32,10 @@ Definition of done: see CLAUDE.md.
   - The slip: venue name, room or tab, guests, each line, room time, discounts and comps, tax, gratuity, total, deposits and payments so far, left to pay; with the cash discount on, the cash price under the total; "This is not a receipt".
   - Core (no switch). Reprinting is allowed and counted in the audit log.
 - **Acceptance:**
-  - [ ] The bill's numbers match the check to the cent (Room 9's worked example), in English and Spanish.
-  - [ ] It prints on both command sets; a printer offline shows the usual print error.
-  - [ ] Principal and venue-wall tests for the route.
+  - [x] The bill's numbers match the check to the cent (Room 9's worked example), in English and Spanish.
+  - [x] It prints on both command sets; a printer offline shows the usual print error.
+  - [x] Principal and venue-wall tests for the route.
+- **Notes:** `POST /v1/venues/{v}/checks/{c}/bill` (`{ locale? }`; core; `payments.take`; the bar's printer from a bar computer, the front desk's elsewhere, as receipts) writes a print job of kind `bill` (migration 0162) laid out like a receipt, so ESC/POS, Star raster, CloudPRNT and Epson Server Direct Print all print it through the receipt path. The amounts are the receipt model's (`apps/api/src/receipts/model.ts`, now with a locale and, for a check not yet presented, the totals `workOut` gets from packages/rules now); the slip is built in `apps/api/src/receipts/bill.ts`. Every print is a new `print_jobs` row, audited by its trigger with who printed it, numbered REPRINT 1, 2 and on. The button is `apps/staff/src/screens/PrintBill.tsx`, in the Present the check area of a room (before and after presenting, until paid) and on an open bar tab on the rail. Cautious defaults: the bill's language is the venue's first staff language (the route takes `locale` for either); the cash price also prints under Left to pay once part is paid (a deposit or a payment), since that's what cash would pay; for an open check with food at cash prices, room time so far counts with the non-food part. Tests: `routes/print-bill.int.test.ts` (Room 9 before and after presenting, in Spanish, both command sets, reprints and the audit log, the failed list, the cash price), `print/receipt.test.ts`, the principal and wall suites, and the e2e "Print the bill" in `e2e/staff.spec.ts`. Manual test 30.1.
 
 ### P-02 · A % or $ discount on a whole check
 

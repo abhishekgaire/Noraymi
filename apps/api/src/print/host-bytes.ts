@@ -64,8 +64,8 @@ export function roomQrStarRaster(p: RoomQrPayload, opts: { reprintN: number }): 
   ]);
 }
 
-/** Laid out like a receipt: receipts, the X and Z reports and the break-glass card. */
-const RECEIPT_KINDS = new Set(["receipt", "x_report", "z_report", "break_glass"]);
+/** Laid out like a receipt: receipts, the X and Z reports, the break-glass card and the bill (P-01). */
+const RECEIPT_KINDS = new Set(["receipt", "x_report", "z_report", "break_glass", "bill"]);
 
 export function hostJobBytes(
   job: { kind: string; payload: unknown; reprint_n: number },
