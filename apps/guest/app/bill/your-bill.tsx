@@ -19,6 +19,8 @@ export interface GuestBill {
   readonly room_time_cents: number;
   readonly drinks_cents: number;
   readonly other_cents: number;
+  /** A discount on the whole check (P-02), as a positive amount off; 0 when none. */
+  readonly discount_cents?: number;
   readonly subtotal_cents: number;
   readonly tax_cents: number;
   readonly gratuity_cents: number;
@@ -158,6 +160,12 @@ export function YourBill({
           <>
             <dt>{t("en", "yourBill.other")}</dt>
             <dd>{money(bill.other_cents)}</dd>
+          </>
+        )}
+        {(bill.discount_cents ?? 0) !== 0 && (
+          <>
+            <dt>{t("en", "receipt.discountAmount")}</dt>
+            <dd>−{money(bill.discount_cents ?? 0)}</dd>
           </>
         )}
         <dt>{t("en", "yourBill.tax", { pct: bill.tax_pct ?? "" })}</dt>

@@ -37,6 +37,7 @@ import { TapPayment } from "./TapPayment.js";
 import { CashPanel } from "./CashPanel.js";
 import { RefundSheet } from "./RefundSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
+import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
 import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
 import "./bar.css";
 import { RoomQrActions } from "./RoomQrActions.js";
@@ -264,6 +265,11 @@ export function Rail() {
   const [movingTab, setMovingTab] = useState<string | null>(null);
   const [holds, setHolds] = useState<readonly MovedHold[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
+  // A discount on the whole check (P-02), standing or waiting for approval.
+  const [discount, setDiscount] = useState<{
+    standing: CheckDiscountView | null;
+    pending: PendingDiscount | null;
+  }>({ standing: null, pending: null });
   /** The sent drink tapped on the tab, for Void, Comp or Move (M6-15). */
   const [fixing, setFixing] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -453,13 +459,17 @@ export function Rail() {
         lines: CheckLine[];
         holds?: MovedHold[];
         pending_fixes?: PendingFix[];
+        discount?: CheckDiscountView | null;
+        pending_discount?: PendingDiscount | null;
       }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
       setLineState({ checkId, lines: v.lines });
       setHolds(v.holds ?? []);
       setPendingFixes(v.pending_fixes ?? []);
+      setDiscount({ standing: v.discount ?? null, pending: v.pending_discount ?? null });
     } catch {
       setLineState({ checkId, lines: [] });
       setHolds([]);
+      setDiscount({ standing: null, pending: null });
     }
   }, [venueId, checkId]);
   useEffect(() => void loadLines(), [loadLines, tabs, rooms]);
@@ -666,7 +676,10 @@ export function Rail() {
       splitting !== tab.id
     : !!room?.session?.check_id;
   const drinks = lines.filter(
-    (l) => !["room_time", "tax", "gratuity", "card_surcharge", "cash_discount"].includes(l.kind),
+    (l) =>
+      !["room_time", "discount", "tax", "gratuity", "card_surcharge", "cash_discount"].includes(
+        l.kind,
+      ),
   );
 
   // Alcohol greys out on the grid, with the reason in words (M6-14; Rail note 9): outside the
@@ -679,6 +692,7 @@ export function Rail() {
         ? t("drinks.alcohol.cutOff")
         : null;
   const canCutOff = signedIn?.membership.permissions.includes("cutoff.apply") ?? false;
+  const canFix = signedIn?.membership.permissions.includes("comps.reasonOnly") ?? false;
 
   const badges = (x: Tab): Badge[] => [
     ...(x.cut_off ? [{ label: t("rail.badge.cutOff"), tone: "bad" as const }] : []),
@@ -1593,6 +1607,18 @@ export function Rail() {
                             .map((x) => ({ id: x.id, name: x.name, cut_off: x.cut_off })),
                         }
                       : {})}
+                    onDone={() => void load()}
+                  />
+                )}
+                {/* A % or $ discount on the whole check (P-02), beside the fixes. */}
+                {checkId && (fixOpen || discount.standing) && canFix && (
+                  <DiscountPanel
+                    key={`discount-${checkId}`}
+                    venueId={venueId}
+                    checkId={checkId}
+                    discount={discount.standing}
+                    pending={discount.pending}
+                    open={fixOpen}
                     onDone={() => void load()}
                   />
                 )}

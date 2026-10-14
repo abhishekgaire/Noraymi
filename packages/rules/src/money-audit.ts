@@ -1,7 +1,9 @@
 import {
   cardFee,
+  checkDiscount,
   checkTotals,
   refundCap,
+  type CheckDiscountSpec,
   type SalesTaxRule,
   type TaxCategory,
 } from "./check-totals.js";
@@ -73,6 +75,8 @@ export interface AuditCheck {
   readonly cardFee: "off" | "surcharge" | "cashDiscount";
   /** Captured payments allocated to the check (refund allocations left out). */
   readonly paidCents: number;
+  /** The discount given on the whole check (P-02), or null (or absent) when none stands. */
+  readonly discount?: CheckDiscountSpec | null;
 }
 
 const sum = (lines: readonly AuditLine[], kind: string) =>
@@ -129,6 +133,33 @@ export function auditCheck(input: AuditCheck): MoneyError[] {
       comesTo,
       input.revision.totalCents,
     );
+  }
+  // A discount on the whole check (P-02): worked again from its percent or amount and the lines it
+  // comes off, in total and by category, so a cent off or a discount nobody gave shows.
+  const given = input.discount
+    ? checkDiscount(input.lines, input.discount)
+    : { discountCents: 0, byCategoryCents: {} as Partial<Record<TaxCategory, number>> };
+  const discountTotal = 0 - given.discountCents;
+  const storedDiscount = sum(input.lines, "discount");
+  differs(out, { kind: "line", ...at }, "the discount", discountTotal, storedDiscount);
+  // With the total right, each category's part (a cent moved between categories moves tax).
+  for (const cat of new Set([
+    ...(Object.keys(given.byCategoryCents) as TaxCategory[]),
+    ...input.lines.filter((l) => l.kind === "discount").map((l) => l.taxCategory),
+  ])) {
+    const stored = input.lines
+      .filter((l) => l.kind === "discount" && l.taxCategory === cat)
+      .reduce((s, l) => s + l.cents, 0);
+    const part: number = (cat && given.byCategoryCents[cat]) || 0;
+    const expected = 0 - part;
+    if (stored !== expected && storedDiscount === discountTotal)
+      differs(
+        out,
+        { kind: "line", ...at },
+        `the discount on ${cat ?? "no category"}`,
+        expected,
+        stored,
+      );
   }
   if (input.cardFee === "off")
     for (const kind of ["card_surcharge", "cash_discount"]) {

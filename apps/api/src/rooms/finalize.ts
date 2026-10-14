@@ -10,8 +10,12 @@ import {
   type Queryable,
 } from "@west4/db";
 import {
+  checkDiscount,
   checkTotals,
+  discountLines,
   minSpendLeft,
+  type CheckDiscount,
+  type CheckDiscountSpec,
   gratuityApplies,
   salesTaxRule,
   type TaxCategory,
@@ -22,6 +26,7 @@ import { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
 import { settleDeposit } from "./deposit.js";
+import { discountWords, standingDiscountSpec } from "./discount-spec.js";
 
 /**
  * Finalizing a check into revisions (M4-07; Data model · the money core;
@@ -32,7 +37,7 @@ import { settleDeposit } from "./deposit.js";
  * jurisdiction code, base and rule-pack version, and `check_revisions` keeps
  * the totals, the settings versions and the billing basis.
  */
-const COMPUTED = new Set(["room_time", "min_spend", "tax", "gratuity"]);
+const COMPUTED = new Set(["room_time", "min_spend", "discount", "tax", "gratuity"]);
 const TAX_WORDS: Readonly<Record<TaxCategory, string>> = {
   room_time: "room time",
   drink: "drinks",
@@ -57,15 +62,22 @@ export interface Worked {
   readonly pricesVersion: number;
   readonly gratuityBasis: Record<string, unknown> | null;
   readonly billingBasis: Record<string, unknown> | null;
+  /** The discount on the whole check (P-02) as it comes to now, or null when none stands. */
+  readonly discount: (CheckDiscount & { readonly spec: CheckDiscountSpec }) | null;
 }
 
-/** What a check comes to now (its net lines plus room time so far), without writing anything. */
+/**
+ * What a check comes to now (its net lines plus room time so far), without writing anything. The
+ * discount standing on it (P-02) is worked in, unless `opts.discount` says which to try instead
+ * (null for none): giving one works out what it would come to first.
+ */
 export async function workOut(
   c: Queryable,
   venueId: string,
   check: CheckRow,
   lines: readonly CheckLineRow[],
   now: Temporal.Instant,
+  opts: { readonly discount?: CheckDiscountSpec | null } = {},
 ): Promise<Worked> {
   const venue = (
     await c.query<{ rule_pack_id: string | null }>(
@@ -120,6 +132,12 @@ export async function workOut(
     : null;
   const minSpend = minSpendLeft({ minCents, lines: net }).leftCents;
   if (minSpend > 0) net.push({ kind: "min_spend", taxCategory: "fee", cents: minSpend });
+  // A discount on the whole check (P-02): off room time, items and songs before tax, worked out
+  // again at each finalize so a percent follows the check; `discount` lines, one per category.
+  const spec =
+    opts.discount !== undefined ? opts.discount : await standingDiscountSpec(c, venueId, check.id);
+  const discount = spec ? { ...checkDiscount(net, spec), spec } : null;
+  if (discount) net.push(...discountLines(discount));
   const g = pay.value.gratuity;
   const applies = gratuityApplies(
     g.auto,
@@ -141,6 +159,7 @@ export async function workOut(
     gratuityBasis: applies
       ? { rule: g.auto, party_size: session?.party_size ?? null, pct: g.pct }
       : null,
+    discount,
     billingBasis: session
       ? {
           minutes: views.reduce((sum, v) => sum + v.clock.minutes, 0),
@@ -201,7 +220,7 @@ export async function finalizeCheck(
     (l) => COMPUTED.has(l.kind) && l.reverses_id === null && !reversed.has(l.id),
   );
   const next: {
-    kind: "room_time" | "min_spend" | "tax" | "gratuity";
+    kind: "room_time" | "min_spend" | "discount" | "tax" | "gratuity";
     category: TaxCategory | null;
     cents: number;
   }[] = [];
@@ -209,6 +228,10 @@ export async function finalizeCheck(
     next.push({ kind: "room_time", category: "room_time", cents: worked.roomTimeCents });
   if (worked.minSpendCents > 0)
     next.push({ kind: "min_spend", category: "fee", cents: worked.minSpendCents });
+  // The discount (P-02): one negative line per category it comes off.
+  const discountBy = worked.discount?.byCategoryCents ?? {};
+  for (const l of worked.discount ? discountLines(worked.discount) : [])
+    next.push({ kind: "discount", category: l.taxCategory, cents: l.cents });
   for (const [cat, cents] of Object.entries(worked.totals.taxByCategoryCents) as [
     TaxCategory,
     number,
@@ -222,16 +245,18 @@ export async function finalizeCheck(
       ? `Room time · ${worked.minutes ?? 0} min`
       : n.kind === "min_spend"
         ? "Minimum spend"
-        : n.kind === "tax"
-          ? `Tax · ${TAX_WORDS[n.category!]}`
-          : `Gratuity (${worked.gratuityPct ?? 0}%)`;
+        : n.kind === "discount"
+          ? `${discountWords(worked.discount!.spec)} · ${TAX_WORDS[n.category!]}`
+          : n.kind === "tax"
+            ? `Tax · ${TAX_WORDS[n.category!]}`
+            : `Gratuity (${worked.gratuityPct ?? 0}%)`;
   // A kind is rewritten only when what it comes to changed (each line's words and amount).
   const signature = (items: { description: string; cents: number }[]) =>
     items
       .map((x) => `${x.description}:${x.cents}`)
       .sort()
       .join("|");
-  for (const kind of ["room_time", "min_spend", "tax", "gratuity"] as const) {
+  for (const kind of ["room_time", "min_spend", "discount", "tax", "gratuity"] as const) {
     const before = standing.filter((l) => l.kind === kind);
     const after = next.filter((n) => n.kind === kind);
     // Room time counts by amount alone: its words carry the minutes, which can change at the same amount.
@@ -271,7 +296,8 @@ export async function finalizeCheck(
               found.lines
                 .filter((l) => !COMPUTED.has(l.kind) && l.tax_category === n.category)
                 .reduce((s, l) => s + l.amount_cents, 0) +
-                (n.category === "room_time" ? worked.roomTimeCents : 0),
+                (n.category === "room_time" ? worked.roomTimeCents : 0) -
+                (discountBy[n.category!] ?? 0),
             )
           : null;
       await insertComputedLine(c, venueId, checkId, {
@@ -281,7 +307,14 @@ export async function finalizeCheck(
         revision: rev,
         businessDate: date,
         // A tax line names no category of its own (Data model); its description says what it taxes.
-        taxCategory: n.kind === "room_time" ? "room_time" : n.kind === "min_spend" ? "fee" : null,
+        taxCategory:
+          n.kind === "room_time"
+            ? "room_time"
+            : n.kind === "min_spend"
+              ? "fee"
+              : n.kind === "discount"
+                ? n.category
+                : null,
         ...(n.kind === "tax"
           ? {
               taxRate: rateText(worked.rate),

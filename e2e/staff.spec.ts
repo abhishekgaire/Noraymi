@@ -775,7 +775,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
  * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
  * and they come back on in order.
  */
-test("Admin → Features: 16 on and 4 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+test("Admin → Features: 17 on and 4 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
   page,
   request,
 }) => {
@@ -803,7 +803,7 @@ test("Admin → Features: 16 on and 4 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("16 on · 4 off")).toBeVisible();
+    await expect(page.getByText("17 on · 4 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -890,12 +890,12 @@ test("Admin → Features: 16 on and 4 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("14 on · 6 off")).toBeVisible();
+    await expect(page.getByText("15 on · 6 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("16 on · 4 off")).toBeVisible();
+    await expect(page.getByText("17 on · 4 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
@@ -4338,6 +4338,66 @@ test("the fix panel: $63.00 left on both screens, a $13.00 comp with a reason, t
     await page.reload();
     await expect(fix).toContainText("$50.00 left this shift");
     expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * P-02 · a % or $ discount on a whole check: Maya takes $5.00 off Room 9 with a reason on DeskRoom,
+ * within her reason-only limit, so it goes on at once and counts toward it; then she removes it.
+ */
+test("P-02 · Discount the check: $5.00 off Room 9 with a reason, counted in the limit, then removed", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    const fix = page.getByRole("region", { name: "Fix a sent drink" });
+    const discount = page.getByRole("region", { name: "Discount", exact: true });
+    await expect(fix).toContainText("left this shift");
+    const before = (await fix.textContent()) ?? "";
+    await discount.getByRole("button", { name: "Discount the check" }).click();
+    await discount.getByRole("radio", { name: "Amount" }).check();
+    await discount.getByLabel("Amount off, $").fill("5.00");
+    await discount.getByRole("button", { name: "Regular guest" }).click();
+    await discount.getByRole("button", { name: "Give discount" }).click();
+    await expect(discount.getByRole("status")).toHaveText("Discount on · $5.00 off");
+    await expect(discount.getByTestId("discount-standing")).toContainText(
+      "$5.00 off · −$5.00 · Regular guest",
+    );
+    // Within the reason-only limit, it counts toward it like a comp.
+    const was = Number(/\$(\d+)\.00 left this shift/.exec(before)?.[1]);
+    await expect(fix).toContainText(`$${was - 5}.00 left this shift`);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(discount.getByTestId("discount-standing")).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    await discount.getByRole("button", { name: "Remove discount" }).click();
+    await expect(discount.getByRole("status")).toHaveText("Discount removed");
+    await expect(discount.getByTestId("discount-standing")).toHaveCount(0);
+    await expect(fix).toContainText(`$${was}.00 left this shift`);
   } finally {
     await db.end();
   }

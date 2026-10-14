@@ -344,8 +344,30 @@ export function reportRoutes(app: FastifyInstance, options: { clock: Clock }): v
              left join live_checks k on k.venue_id = a.venue_id and k.id = a.target_id
              left join users ru on ru.id = a.requested_by
              left join users tu on tu.id = a.routed_to
-            where a.venue_id = $1 and a.kind in ('comp', 'void', 'refund') and a.status in ('pending', 'declined')
+            where a.venue_id = $1 and a.kind in ('comp', 'void', 'refund', 'discount') and a.status in ('pending', 'declined')
               and (k.business_date = $2::date or k.id is null)`,
+          [venueId, date],
+        );
+        // Discounts on a whole check (P-02) given tonight and still standing: what they came off.
+        const discounts = await c.query<{
+          at: string;
+          where: string;
+          what: string;
+          why: string;
+          asked: string | null;
+          approved: string | null;
+          cents: string;
+        }>(
+          `select to_json(d.added_at) #>> '{}' as at, ${where} as where,
+                  case when d.mode = 'pct' then 'Discount ' || trim_scale(d.pct)::text || '%' else 'Discount' end as what,
+                  d.reason as why, ru.name as asked, au.name as approved,
+                  coalesce(nullif((select sum(l.amount_cents) from live_check_lines l
+                                     where l.venue_id = d.venue_id and l.check_id = d.check_id and l.kind = 'discount'), 0),
+                           -d.counted_cents)::text as cents
+             from check_discounts d join live_checks k on k.venue_id = d.venue_id and k.id = d.check_id
+             left join users ru on ru.id = d.added_by
+             left join users au on au.id = d.approved_by
+            where d.venue_id = $1 and d.business_date = $2::date and d.removed_at is null`,
           [venueId, date],
         );
         const refunds = await c.query<{
@@ -388,6 +410,17 @@ export function reportRoutes(app: FastifyInstance, options: { clock: Clock }): v
             approved_by: x.status === "pending" ? null : x.routed,
             waiting_for: x.status === "pending" ? x.routed : null,
             amount_cents: Number(x.cents ?? 0),
+          })),
+          ...discounts.rows.map((x) => ({
+            at: x.at,
+            kind: "discount",
+            status: "done",
+            where: x.where,
+            what: x.what,
+            why: x.why,
+            asked_by: x.asked,
+            approved_by: x.approved,
+            amount_cents: Math.abs(Number(x.cents)),
           })),
           ...refunds.rows.map((x) => ({
             at: x.at,

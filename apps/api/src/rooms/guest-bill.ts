@@ -16,6 +16,8 @@ export interface GuestBill {
   readonly room_time_cents: number;
   readonly drinks_cents: number;
   readonly other_cents: number;
+  /** A discount on the whole check (P-02), as a positive amount off; 0 when none. */
+  readonly discount_cents: number;
   readonly lines: readonly { description: string; qty: number; amount_cents: number }[];
   readonly subtotal_cents: number;
   readonly tax_cents: number;
@@ -57,7 +59,7 @@ function percent(raw: string | null | undefined, fraction = true): string | null
     .replace(/\.$/, "");
 }
 
-const COMPUTED = new Set(["room_time", "min_spend", "tax", "gratuity"]);
+const COMPUTED = new Set(["room_time", "min_spend", "discount", "tax", "gratuity"]);
 const PRESENTED = new Set(["finalized", "partly_paid", "paid"]);
 
 /** The bill, or null while the check is open (not presented yet, or reopened). */
@@ -122,6 +124,7 @@ export async function guestBill(
     ),
     drinks_cents: sum(items.filter((l) => l.tax_category === "drink")),
     other_cents: sum(items.filter((l) => l.tax_category !== "drink")),
+    discount_cents: -sum(found.lines.filter((l) => l.kind === "discount")) || 0,
     lines: items.map((l) => ({
       description: l.description,
       qty: Number(l.qty),

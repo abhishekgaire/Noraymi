@@ -64,7 +64,7 @@ export async function insertRevision(
 }
 
 export interface ComputedLineInput {
-  readonly kind: "room_time" | "min_spend" | "tax" | "gratuity";
+  readonly kind: "room_time" | "min_spend" | "discount" | "tax" | "gratuity";
   readonly description: string;
   readonly amountCents: number;
   readonly revision: number;

@@ -89,7 +89,8 @@ export function FixPanel(props: {
       setLeftCents(null);
     }
   }, [props.venueId]);
-  useEffect(() => void loadLeft(), [loadLeft]);
+  // Read again whenever the check is read again: a discount (P-02) changes what's left without a line.
+  useEffect(() => void loadLeft(), [loadLeft, props.lines]);
   useEffect(
     () =>
       subscribe((events) => {

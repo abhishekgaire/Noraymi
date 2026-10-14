@@ -19,6 +19,7 @@ import { venueClock } from "./assignment.js";
 import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
 import { workOut } from "./finalize.js";
+import { discountView } from "./discount.js";
 import { savedCardFor } from "../payments/card-on-file.js";
 import { checkPayments } from "./guest-bill.js";
 import { movableLines, movedHolds } from "../tabs/move.js";
@@ -110,22 +111,30 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
   );
   // Totals (M4-07): live from packages/rules while the check is open, the finalized revision's once presented.
   let totals: Record<string, number> | null = null;
+  // The discount on the whole check (P-02): its stored lines once presented, worked out live before.
+  let discountCents: number | null;
   if (["finalized", "partly_paid", "paid"].includes(found.check.status)) {
     const rev = await latestRevision(c, venueId, id);
+    discountCents = -found.lines
+      .filter((l) => l.kind === "discount")
+      .reduce((s, l) => s + l.amount_cents, 0);
     if (rev)
       totals = {
         revision: rev.rev,
         subtotal_cents: rev.subtotal_cents,
+        discount_cents: discountCents,
         tax_cents: rev.tax_cents,
         gratuity_cents: rev.gratuity_cents,
         total_cents: rev.total_cents,
       };
   } else {
     const worked = await workOut(c, venueId, found.check, found.lines, now).catch(() => null);
+    discountCents = worked ? (worked.discount?.discountCents ?? 0) : null;
     if (worked)
       totals = {
         revision: found.check.revision,
         subtotal_cents: worked.totals.subtotalCents,
+        discount_cents: discountCents ?? 0,
         tax_cents: worked.totals.taxCents,
         gratuity_cents: worked.totals.gratuityCents,
         total_cents: worked.totals.totalCents,
@@ -220,6 +229,7 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
       opened_label: formatCheckTime(found.check.opened_at, (await venueClock(c, venueId)).timeZone),
     },
     totals,
+    ...(await discountView(c, venueId, id, discountCents)),
     lines: found.lines.map((l) => {
       const m = moved.get(l.id);
       return m

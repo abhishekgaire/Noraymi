@@ -164,6 +164,66 @@ export function checkTotals(
   };
 }
 
+/** A discount on a whole check (P-02): a percent of what it's given on, or an amount. */
+export type CheckDiscountSpec =
+  | { readonly mode: "pct"; readonly pct: number | string }
+  | { readonly mode: "amount"; readonly amountCents: number };
+
+export interface CheckDiscount {
+  /** What it's given on: room time, items and songs after comps, before tax. */
+  readonly baseCents: Cents;
+  readonly discountCents: Cents;
+  /** Its parts by tax category (positive cents), in the canonical order; a $0.00 part is left out. */
+  readonly byCategoryCents: Readonly<Partial<Record<TaxCategory, number>>>;
+}
+
+/** What a discount comes off, in the fixed order a tied leftover cent follows (room time first). */
+const DISCOUNTABLE: readonly TaxCategory[] = ["room_time", "drink", "food", "song"];
+/** Lines a discount never counts in its own base: the computed tax and gratuity, and itself. */
+const NOT_IN_DISCOUNT_BASE = new Set(["tax", "gratuity", "discount"]);
+
+/**
+ * A discount on a whole check (Money rules 7; P-02): it comes off the pre-tax subtotal of room time,
+ * items and songs after comps and voids, never a damage fee, a fee, a minimum-spend top-up or a card
+ * fee. A percent is applied to that base and rounded half up; an amount is capped at the base. It's
+ * split across the categories by largest remainder (weighted by each category's base, ties to the
+ * first in the fixed order room time, drinks, food, songs), so tax per category stays exact; the
+ * gratuity, worked on the net lines, is figured on what's left.
+ */
+export function checkDiscount(
+  lines: readonly TotalsLine[],
+  spec: CheckDiscountSpec,
+): CheckDiscount {
+  const byCategory = new Map<TaxCategory, number>();
+  for (const l of lines)
+    if (!NOT_IN_DISCOUNT_BASE.has(l.kind) && l.taxCategory && DISCOUNTABLE.includes(l.taxCategory))
+      byCategory.set(l.taxCategory, (byCategory.get(l.taxCategory) ?? 0) + l.cents);
+  const categories = DISCOUNTABLE.filter((c) => byCategory.has(c));
+  const weights = categories.map((c) => Math.max(0, byCategory.get(c)!));
+  const base = weights.reduce((s, w) => s + w, 0);
+  const discount =
+    base === 0
+      ? 0
+      : spec.mode === "pct"
+        ? percent(base, spec.pct)
+        : Math.min(Math.max(0, spec.amountCents), base);
+  const byCategoryCents: Partial<Record<TaxCategory, number>> = {};
+  if (discount > 0)
+    divideByWeights(cents(discount), weights).forEach((part, i) => {
+      if (part > 0) byCategoryCents[categories[i]!] = part;
+    });
+  return { baseCents: cents(base), discountCents: cents(discount), byCategoryCents };
+}
+
+/** A discount as the negative `discount` lines a check carries, one per category. */
+export function discountLines(d: CheckDiscount): TotalsLine[] {
+  return DISCOUNTABLE.filter((c) => (d.byCategoryCents[c] ?? 0) > 0).map((c) => ({
+    kind: "discount",
+    taxCategory: c,
+    cents: -d.byCategoryCents[c]!,
+  }));
+}
+
 export interface ComputedLine {
   readonly kind: "room_time" | "min_spend" | "tax" | "gratuity";
   readonly amountCents: number;

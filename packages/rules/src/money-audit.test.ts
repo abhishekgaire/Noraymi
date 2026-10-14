@@ -70,6 +70,8 @@ const THROUGH_THE_AUDIT = new Set([
   "z_report",
   "tips",
   "food_tax",
+  // P-02: a discount on a whole check, worked again from its percent or amount and the check's lines.
+  "check_discount",
 ]);
 const AS_STORED_INPUTS = new Set([
   "room_time",
@@ -142,6 +144,56 @@ describe("the money cases, every group, through the audit (M9-15)", () => {
           check({ lines: withRev1, status: "paid", paidCents: c.expected.rev2_total_cents }),
         ),
       ).toEqual([]);
+    });
+
+  for (const c of cases.filter((x) => x.group === "check_discount"))
+    it(`${c.id}: the discount is worked again; a cent off, or a discount nobody gave, is caught`, () => {
+      const e = c.expected;
+      const discount =
+        c.inputs.discount.mode === "pct"
+          ? { mode: "pct" as const, pct: c.inputs.discount.pct }
+          : { mode: "amount" as const, amountCents: c.inputs.discount.amount_cents };
+      const given = Object.entries(e.discount_by_category_cents as Record<string, number>).map(
+        ([cat, cents]): AuditLine => ({
+          kind: "discount",
+          taxCategory: cat as TaxCategory,
+          cents: -cents,
+        }),
+      );
+      const asStored = stored([...lines(c.inputs.lines), ...given], e.tax_cents, e.gratuity_cents);
+      const base = {
+        tax: c.inputs.rule_pack_version === newYorkCountyFood.version ? foodTax : tax,
+        gratuityPct: c.inputs.gratuity_applies ? 20 : null,
+        status: "paid" as const,
+        paidCents: e.total_cents,
+        revision: {
+          taxCents: e.tax_cents,
+          gratuityCents: e.gratuity_cents,
+          totalCents: e.total_cents,
+        },
+      };
+      expect(auditCheck(check({ ...base, lines: asStored, discount }))).toEqual([]);
+      // One cent more off than the rule gives (and the tax still right for the bigger discount is not
+      // the point here): the discount itself is flagged.
+      const [first, ...rest] = given;
+      const oneOff = stored(
+        [...lines(c.inputs.lines), { ...first!, cents: first!.cents - 1 }, ...rest],
+        e.tax_cents,
+        e.gratuity_cents,
+      );
+      expect(auditCheck(check({ ...base, lines: oneOff, discount }))).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "line",
+            expectedCents: -e.discount_cents,
+            diffCents: -1,
+          }),
+        ]),
+      );
+      // Discount lines on a check with no discount given are a money error.
+      expect(auditCheck(check({ ...base, lines: asStored, discount: null }))).toEqual(
+        expect.arrayContaining([expect.objectContaining({ kind: "line", expectedCents: 0 })]),
+      );
     });
 
   for (const c of cases.filter((x) => x.group === "tab_so_far"))

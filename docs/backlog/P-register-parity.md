@@ -38,7 +38,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-02 · A % or $ discount on a whole check
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4, F-03
 - **Spec:** [Money rules](../spec/05-money-rules.md) · rule 9 (comps) and rule 10
@@ -48,9 +48,17 @@ Definition of done: see CLAUDE.md.
   - It counts toward the same reason-only limits as comps ($25 each, $75 a shift) and needs approval above them per the venue's approval setting. Removing it is allowed before payment. Audited.
   - It shows on the check, the bill (P-01), the receipt, the Z report, reports and the money audit.
 - **Acceptance:**
-  - [ ] The `check_discount` cases pass and the money audit recomputes them.
-  - [ ] Over the limit asks for approval per the setting; the module off refuses the route.
-  - [ ] EN and ES; principal and venue-wall tests.
+  - [x] The `check_discount` cases pass and the money audit recomputes them.
+  - [x] Over the limit asks for approval per the setting; the module off refuses the route.
+  - [x] EN and ES; principal and venue-wall tests.
+- **Notes:**
+  - Tests first: six `check_discount` cases in `seed/money-cases.json` (Room 9 at 10%, $10.00 split across drinks and food, 15% half up, an amount capped beside a damage fee, after a comp, then a 4% cash discount), derived with exact fractions, run against `checkDiscount` and `checkTotals` (`packages/rules/src/check-totals.test.ts`) and through the money audit (`money-audit.test.ts`: clean as stored, a cent off caught, discount lines with no discount caught).
+  - Built: `checkDiscount`/`discountLines` (`packages/rules/src/check-totals.ts`); migration 0160 adds `check_discounts` (one standing per check, forced RLS, restore wall, audited, closed-night guard) and the `discount` approval kind. `POST /checks/{c}/discount` (`{ mode: "pct", pct }` or `{ mode: "amount", amount_cents }`, a reason; module `check_discount`, action `comps.reasonOnly`) and `POST /checks/{c}/discount/remove` (`apps/api/src/rooms/discount.ts`). Each finalize writes the discount as computed `discount` lines, one per tax category, reversed and rewritten like tax and gratuity; tax bases subtract it; the gratuity is on what's left; a cash discount comes after it. The check view shows `discount`, `pending_discount` and `totals.discount_cents`; the receipt prints one "Discount · 10%" line; the guest bill a Discount row; the Z report (printed and on screen) Discounts; both exceptions lists name it with who gave and approved it; the money audit works it out again from the standing percent or amount, in total and by category. Refunds count discount lines in the gratuity base.
+  - Module `check_discount`: every plan (`allowedOff`) and on by default (`inherits: "payments"`, so a venue with no row reads on); Admin → Features lists it (17 on · 4 off at West 4) and Set up your venue step 7 has its switch. Off refuses a new discount (404 `module_off`); removing one stays allowed.
+  - Screens: `DiscountPanel.tsx` beside the fix panel on DeskRoom/Room phone and the bar POS (Percent or Amount, a reason with chips, "Waiting for Andy", Remove), EN and ES.
+  - Cautious defaults: a discount comes off room time, drinks, food and songs only (never damage, fees, a minimum-spend top-up or a card fee), and doesn't lower the spend counted toward a minimum spend. One discount per check; a second is refused until the first is removed. It changes only while the check is open (like comps); after Present or Close it needs Reopen, after payment a refund. It counts toward the reason-only limit at what it came to when given (a percent on a running room can grow after); a removed one gives the limit back. A split by item shares it evenly like room time. The spec's rule for it is under Money rules 7 (comps and voids), the ticket's "rule 9".
+  - The bill (P-01) isn't built yet; it will read the same `discount` lines.
+  - Checks: `pnpm check` lint, i18n, typecheck, unit (1256) and the migration linter pass; integration 1330 passed with 4 suite files failing to start on the shared Postgres (a different four each run; each passes alone). Browser (isolated stack): the new P-02 test, the fix panel and Admin → Features (17 on · 4 off) pass; setup.staff and onboard pass (one setup test passed on its rerun alone).
 
 ### P-03 · A named bar tab without a card
 

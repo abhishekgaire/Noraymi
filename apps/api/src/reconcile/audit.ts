@@ -93,6 +93,9 @@ export async function auditNight(
     pct: string | null;
     pack_version: string | null;
     paid: string;
+    d_mode: "pct" | "amount" | null;
+    d_pct: string | null;
+    d_amount: string | null;
   }>(
     `select k.id, k.number::text, k.status,
             r.tax_cents::text as tax, r.gratuity_cents::text as gratuity, r.total_cents::text as total,
@@ -100,8 +103,11 @@ export async function auditNight(
             (select coalesce(sum(a.amount_cents), 0) from payment_allocations a
                join live_payments p on p.venue_id = a.venue_id and p.id = a.payment_id
               where a.venue_id = k.venue_id and a.check_id = k.id
-                and a.kind = 'payment' and a.state = 'captured')::text as paid
+                and a.kind = 'payment' and a.state = 'captured')::text as paid,
+            -- The discount standing on the whole check (P-02), worked again from its percent or amount.
+            d.mode as d_mode, trim_scale(d.pct)::text as d_pct, d.amount_cents::text as d_amount
        from live_checks k
+       left join check_discounts d on d.venue_id = k.venue_id and d.check_id = k.id and d.removed_at is null
        left join check_revisions r on r.venue_id = k.venue_id and r.check_id = k.id and r.rev = k.revision
       where k.venue_id = $1 and k.business_date = $2::date
         and k.status in ('finalized', 'partly_paid', 'paid')
@@ -147,6 +153,12 @@ export async function auditNight(
             : { taxCents: n(k.tax), gratuityCents: n(k.gratuity), totalCents: n(k.total) },
         cardFee: feeMode,
         paidCents: n(k.paid),
+        discount:
+          k.d_mode === "pct"
+            ? { mode: "pct", pct: k.d_pct! }
+            : k.d_mode === "amount"
+              ? { mode: "amount", amountCents: n(k.d_amount) }
+              : null,
       }),
     );
   }

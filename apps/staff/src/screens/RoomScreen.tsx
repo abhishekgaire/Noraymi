@@ -10,6 +10,7 @@ import { AddDrinks } from "./AddDrinks.js";
 import { AddPackage } from "./AddPackage.js";
 import { FoodMark, UnsentReminder, type CheckFood } from "./SendToKitchen.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
+import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
 import { PresentCheck } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
 import { CardOnFile, type OnFile } from "./CardOnFile.js";
@@ -83,7 +84,7 @@ interface Presented {
   readonly deposit_cents: number;
 }
 /** Lines finalize works out (room time, tax, gratuity): the tab shows them as totals, not as items. */
-const COMPUTED = new Set(["room_time", "min_spend", "tax", "gratuity"]);
+const COMPUTED = new Set(["room_time", "min_spend", "discount", "tax", "gratuity"]);
 interface Line {
   readonly id: number;
   readonly kind: string;
@@ -120,6 +121,11 @@ export function RoomScreen() {
   const [unsentFood, setUnsentFood] = useState(0);
   const [kitchenRequest, setKitchenRequest] = useState(0);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
+  // A discount on the whole check (P-02), standing or waiting for approval.
+  const [discount, setDiscount] = useState<{
+    standing: CheckDiscountView | null;
+    pending: PendingDiscount | null;
+  }>({ standing: null, pending: null });
   const [holds, setHolds] = useState<readonly { tab_id: string; name: string; cents: number }[]>(
     [],
   );
@@ -164,6 +170,8 @@ export function RoomScreen() {
             ? api<{
                 lines: Line[];
                 pending_fixes: PendingFix[];
+                discount?: CheckDiscountView | null;
+                pending_discount?: PendingDiscount | null;
                 holds?: { tab_id: string; name: string; cents: number }[];
                 amount_due_cents?: number;
                 split?: Split | null;
@@ -184,6 +192,10 @@ export function RoomScreen() {
         setStartedAt(session.session.started_at);
         setLines(check.lines);
         setPendingFixes(check.pending_fixes ?? []);
+        setDiscount({
+          standing: ("discount" in check ? check.discount : null) ?? null,
+          pending: ("pending_discount" in check ? check.pending_discount : null) ?? null,
+        });
         setHolds(("holds" in check ? check.holds : null) ?? []);
         setCheckStatus(check.check?.status ?? null);
         setDueCents(check.amount_due_cents ?? 0);
@@ -585,6 +597,16 @@ export function RoomScreen() {
                   checkId={s.check_id}
                   lines={lines}
                   pending={pendingFixes}
+                  onDone={() => void load()}
+                />
+              )}
+              {s.check_id && signedIn?.membership.permissions.includes("comps.reasonOnly") && (
+                <DiscountPanel
+                  venueId={venueId}
+                  checkId={s.check_id}
+                  discount={discount.standing}
+                  pending={discount.pending}
+                  open={checkStatus === "open"}
                   onDone={() => void load()}
                 />
               )}
