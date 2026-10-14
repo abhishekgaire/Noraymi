@@ -224,6 +224,55 @@ describe("checking in Sam O. at 10:44 PM", () => {
   });
 });
 
+describe("D128 · the walk-in's optional phone and the minimum every day", () => {
+  let w: World;
+  beforeAll(async () => {
+    w = await world();
+  });
+  afterAll(async () => close(w));
+
+  it("D128: the sheet says what seating sends; a walk-in with no phone is seated, nothing is texted, the QR still prints", async () => {
+    w.clock.set(at("22:46"));
+    const preview = (
+      await req(w, "GET", `/check-in/preview?room=${w.ids["room_11"]}&party=4`)
+    ).json();
+    expect(preview).toMatchObject({
+      min_day: "friday",
+      min_every_day: false,
+      sends: { text: true, qr: true },
+      host_phone: null,
+    });
+    const sam = (await req(w, "GET", `/check-in/preview?booking=${w.ids["bk_sam"]}`)).json();
+    expect(sam).toMatchObject({ host_phone: true });
+    const r = await req(w, "POST", `/rooms/${w.ids["room_11"]}/sessions`, {
+      party_size: 4,
+      ids_checked: 4,
+      minutes: 90,
+      guest: { name: "Ana P.", phone_e164: null, email: "ana@example.test" },
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    expect(r.json()).toMatchObject({
+      text: "no_phone",
+      qr: { printed: true, emailed: "ana@example.test" },
+    });
+  });
+
+  it("D128: the same minimum every day drops the day word (Sing Sing's 3 all week)", async () => {
+    await w.raw.query(
+      `update venue_settings set value = jsonb_set(value, '{minGuests}', '{"weeknight":3,"friSat":3}')
+        where venue_id = $1 and key = 'prices'`,
+      [w.venueId],
+    );
+    const p = (await req(w, "GET", `/check-in/preview?room=${w.ids["room_11"]}&party=2`)).json();
+    expect(p).toMatchObject({ min_guests: 3, min_every_day: true, billable_guests: 3 });
+    await w.raw.query(
+      `update venue_settings set value = jsonb_set(value, '{minGuests}', '{"weeknight":3,"friSat":4}')
+        where venue_id = $1 and key = 'prices'`,
+      [w.venueId],
+    );
+  });
+});
+
 describe("Mark no-show", () => {
   let w: World;
   beforeAll(async () => {

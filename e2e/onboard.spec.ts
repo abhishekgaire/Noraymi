@@ -272,8 +272,10 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await page.getByLabel("Per person an hour ($)").fill("9.50");
     await page.getByLabel("Billed in steps of").selectOption("15");
     await page.getByLabel("Rounding a step").selectOption("up");
-    await page.getByLabel("At least this many guests, weeknights").fill("2");
-    await page.getByLabel("At least this many guests, Friday and Saturday").fill("2");
+    // One minimum for the whole week (D128): one tap, one field.
+    await page.getByLabel("Same minimum every day").check();
+    await expect(page.getByLabel("At least this many guests, Friday and Saturday")).toHaveCount(0);
+    await page.getByLabel("At least this many guests, every day").fill("2");
     await page.getByLabel("Shortest booking (hours)").fill("1");
     await page.getByLabel("Longest booking (hours)").fill("4");
     await page.getByLabel("Most guests in a booking").fill("12");
@@ -418,7 +420,10 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await expect(room1).toBeVisible();
     await room1.getByRole("button", { name: "+ Walk-in" }).click();
     const dialog = page.getByRole("dialog", { name: "Walk-in · Room 1" });
-    await dialog.getByLabel("1 · Guests").fill("4");
+    await dialog
+      .getByRole("group", { name: "1 · Guests" })
+      .getByRole("button", { name: "4", exact: true })
+      .click();
     await dialog.getByRole("button", { name: "Seat them" }).click();
     const held = page.getByRole("dialog", { name: "Card behind the bar · Room 1" });
     await held.getByLabel("Name on the card").fill("Sam Lee");

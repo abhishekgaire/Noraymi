@@ -9,8 +9,10 @@ import { RoomCardTap } from "./RoomCardTap.js";
 /**
  * The check-in sheet (M2-11; screens N10): the same on the board and on a
  * phone. 1 the party size with the billable minimum; 2 IDs checked, "x of n";
- * 3 the room; 4 the clock; 5 the deposit; 6 the room code, texted to the host.
- * [+ Walk-in] opens it with a free room and asks for the guest and how long.
+ * 3 the room; 4 the clock; 5 the deposit; 6 what seating sends (the room's QR
+ * slip, the code by text, the QR by email). [+ Walk-in] opens it with a free
+ * room and asks how long and, optionally, the guest's name, phone and email.
+ * Presets are tap targets (D128), and on a wide screen it fits without a scroll.
  */
 interface Preview {
   readonly guest_name: string | null;
@@ -24,6 +26,12 @@ interface Preview {
   readonly booked_start: string | null;
   /** What a walk-in's step 5 takes (D112); null for a booking. */
   readonly walk_in: "deposit" | "cardOnTab" | "cardBehindBar" | "nothing" | null;
+  /** The same minimum every day (D128): the party line drops the day word. */
+  readonly min_every_day: boolean;
+  /** What seating sends (D128): the code text (when there's a phone) and the room's QR. */
+  readonly sends: { readonly text: boolean; readonly qr: boolean };
+  /** A booking's guest has a phone on file; null for a walk-in. */
+  readonly host_phone: boolean | null;
 }
 
 interface Room {
@@ -40,6 +48,19 @@ interface Seated {
   readonly text: string;
   /** The room's join QR (F-07): printed, and emailed to the host when they gave an email. */
   readonly qr?: { readonly printed: boolean; readonly emailed: string | null };
+}
+
+/** The party-size chips; "More" opens the number field. */
+const PARTY_CHIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+/** A typed US phone as E.164 ("(347) 555-0177" to "+13475550177"), or null when it isn't one. */
+export function usE164(typed: string): string | null {
+  const v = typed.trim();
+  if (/^\+[1-9]\d{6,14}$/.test(v)) return v;
+  const digits = v.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
 }
 
 export type SheetTarget =
@@ -71,6 +92,8 @@ export function CheckInSheet({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [minutes, setMinutes] = useState(120);
+  // "More" opens the number field for a party bigger than the chips.
+  const [moreParty, setMoreParty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Card on the tab (D112): once seated, the sheet asks for the card before it's done.
@@ -89,6 +112,7 @@ export function CheckInSheet({
     if (party === null) {
       setParty(p.party_size);
       setIds(p.party_size);
+      if (p.party_size > PARTY_CHIPS[PARTY_CHIPS.length - 1]!) setMoreParty(true);
     }
     if (roomId === null) setRoomId(p.room_id);
   }, [venueId, target, party, roomId]);
@@ -104,9 +128,25 @@ export function CheckInSheet({
       ]
     : [];
 
+  // A new party size: IDs stay "all checked" when they were, and never more than the guests.
+  const changeParty = (n: number) => {
+    setIds((x) => (x === party ? n : Math.min(x, n)));
+    setParty(n);
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!preview || party === null || roomId === null) return;
+    // The phone and email are optional (D128); either one needs the guest's name to go anywhere.
+    const phoneE164 = phone.trim() ? usE164(phone) : null;
+    if (target.kind === "walk_in" && !name.trim() && (phone.trim() || email.trim())) {
+      setError(t("checkIn.nameNeeded"));
+      return;
+    }
+    if (target.kind === "walk_in" && phone.trim() && !phoneE164) {
+      setError(t("checkIn.phoneInvalid"));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -130,7 +170,7 @@ export function CheckInSheet({
                 ? {
                     guest: {
                       name: name.trim(),
-                      phone_e164: phone.trim() || null,
+                      phone_e164: phoneE164,
                       ...(email.trim() ? { email: email.trim() } : {}),
                     },
                   }
@@ -186,8 +226,32 @@ export function CheckInSheet({
       />
     );
 
+  const lengths = [60, 90, 120, 180, 240];
+  const hoursLabel = (m: number) =>
+    m % 60 === 30
+      ? t("checkIn.hoursHalf", { hours: Math.floor(m / 60) })
+      : t("checkIn.hours", { hours: m / 60 });
+  const walkIn = target.kind === "walk_in";
+  // Step 6 (D128): what seating will actually send, for this venue and what's typed right now.
+  const sends: string[] = [];
+  if (preview) {
+    const named = name.trim() !== "";
+    const hasPhone = walkIn ? named && phone.trim() !== "" : preview.host_phone === true;
+    const hasEmail = walkIn && named && email.trim() !== "";
+    if (preview.sends.qr) sends.push(t("checkIn.sends.qr"));
+    if (hasPhone)
+      sends.push(preview.sends.text ? t("checkIn.sends.text") : t("checkIn.sends.textsOff"));
+    if (hasEmail && preview.sends.qr) sends.push(t("checkIn.sends.email"));
+    if (!preview.sends.qr && !(hasPhone && preview.sends.text)) sends.push(t("checkIn.sends.none"));
+  }
+
   return (
-    <form className="sheet" {...dlg.root} onSubmit={(e) => void submit(e)}>
+    <form
+      className="sheet checkin-sheet"
+      data-kind={target.kind}
+      {...dlg.root}
+      onSubmit={(e) => void submit(e)}
+    >
       <h2 {...dlg.title}>{title}</h2>
       {error && (
         <p className="error" role="alert">
@@ -205,130 +269,200 @@ export function CheckInSheet({
         </>
       ) : (
         <>
-          <label>
-            <span>{t("checkIn.step", { n: 1, label: t("checkIn.party") })}</span>
-            <input
-              type="number"
-              min={1}
-              value={party}
-              onChange={(e) => {
-                const n = Math.max(1, Number(e.target.value) || 1);
-                setParty(n);
-                setIds((x) => Math.min(x, n));
-              }}
-            />
-            <span className="small">
-              {t(`checkIn.partyLine.${preview.min_day}` as MessageKey, {
-                party,
-                min: preview.min_guests,
-              })}
-            </span>
-          </label>
-          <label>
-            <span>{t("checkIn.step", { n: 2, label: t("checkIn.ids") })}</span>
-            <input
-              type="number"
-              min={0}
-              max={party}
-              value={ids}
-              onChange={(e) => setIds(Math.min(party, Math.max(0, Number(e.target.value) || 0)))}
-            />
-            <span className="small">
-              {t("checkIn.idsLine", { checked: ids, party })}
-              {ids < party ? ` · ${t("checkIn.runnerChecks")}` : ""}
-            </span>
-          </label>
-          <label>
-            <span>{t("checkIn.step", { n: 3, label: t("checkIn.room") })}</span>
-            <select value={roomId ?? ""} onChange={(e) => setRoomId(e.target.value)}>
-              {rooms.map((r) => (
-                <option key={r.room_id} value={r.room_id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-            {!preview.room_fits && <span className="small error">{t("checkIn.roomTooSmall")}</span>}
-          </label>
-          {target.kind === "booking" ? (
-            <fieldset className="sheet-clock">
-              <legend>{t("checkIn.step", { n: 4, label: t("checkIn.clock") })}</legend>
-              <label className="switch-line">
-                <input
-                  type="radio"
-                  name="start"
-                  checked={!startBooked}
-                  onChange={() => setStartBooked(false)}
-                />
-                <span>{t("checkIn.startNow")}</span>
-              </label>
-              {preview.booked_start && (
-                <label className="switch-line">
-                  <input
-                    type="radio"
-                    name="start"
-                    checked={startBooked}
-                    onChange={() => setStartBooked(true)}
-                  />
-                  <span>
-                    {t("checkIn.startBooked", { time: time(preview.booked_start, timeZone) })}
-                  </span>
-                </label>
-              )}
-            </fieldset>
-          ) : (
-            <>
+          <div className="checkin-cols">
+            <div className="checkin-col">
+              <fieldset className="checkin-field">
+                <legend>{t("checkIn.step", { n: 1, label: t("checkIn.party") })}</legend>
+                <div className="chips">
+                  {PARTY_CHIPS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className="chip"
+                      aria-pressed={!moreParty && party === n}
+                      onClick={() => {
+                        setMoreParty(false);
+                        changeParty(n);
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="chip"
+                    aria-pressed={moreParty}
+                    onClick={() => setMoreParty(true)}
+                  >
+                    {t("checkIn.partyMore")}
+                  </button>
+                  {moreParty && (
+                    <input
+                      type="number"
+                      className="chip-input"
+                      min={1}
+                      aria-label={t("checkIn.partyCount")}
+                      value={party}
+                      onChange={(e) => changeParty(Math.max(1, Number(e.target.value) || 1))}
+                    />
+                  )}
+                </div>
+                <span className="small">
+                  {t(
+                    (preview.min_every_day
+                      ? "checkIn.partyLine.everyDay"
+                      : `checkIn.partyLine.${preview.min_day}`) as MessageKey,
+                    { party, min: preview.min_guests },
+                  )}
+                </span>
+              </fieldset>
+              <fieldset className="checkin-field">
+                <legend>{t("checkIn.step", { n: 2, label: t("checkIn.ids") })}</legend>
+                <div className="chips">
+                  <button
+                    type="button"
+                    className="chip"
+                    aria-pressed={ids === party}
+                    onClick={() => setIds(party)}
+                  >
+                    {t("checkIn.idsAll")}
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    aria-label={t("checkIn.idsFewer")}
+                    disabled={ids <= 0}
+                    onClick={() => setIds((x) => Math.max(0, x - 1))}
+                  >
+                    −
+                  </button>
+                  <output className="ids-count" aria-live="polite">
+                    {t("checkIn.idsLine", { checked: ids, party })}
+                  </output>
+                  <button
+                    type="button"
+                    className="chip"
+                    aria-label={t("checkIn.idsMore")}
+                    disabled={ids >= party}
+                    onClick={() => setIds((x) => Math.min(party, x + 1))}
+                  >
+                    +
+                  </button>
+                </div>
+                {ids < party && <span className="small">{t("checkIn.runnerChecks")}</span>}
+              </fieldset>
               <label>
-                <span>{t("checkIn.step", { n: 4, label: t("checkIn.length") })}</span>
-                <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-                  {[60, 90, 120, 180, 240].map((m) => (
-                    <option key={m} value={m}>
-                      {t("checkIn.hours", { hours: m / 60 })}
+                <span>{t("checkIn.step", { n: 3, label: t("checkIn.room") })}</span>
+                <select value={roomId ?? ""} onChange={(e) => setRoomId(e.target.value)}>
+                  {rooms.map((r) => (
+                    <option key={r.room_id} value={r.room_id}>
+                      {r.name}
                     </option>
                   ))}
                 </select>
+                {!preview.room_fits && (
+                  <span className="small error">{t("checkIn.roomTooSmall")}</span>
+                )}
               </label>
-              <label>
-                <span>{t("checkIn.guestName")}</span>
-                <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
-              </label>
-              <label>
-                <span>{t("checkIn.guestPhone")}</span>
-                <input
-                  type="tel"
-                  value={phone}
-
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </label>
-              <label>
-                <span>{t("walkIn.email")}</span>
-                <input
-                  type="email"
-                  autoComplete="off"
-                  maxLength={254}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <span className="small muted">{t("walkIn.email.hint")}</span>
-              </label>
-            </>
-          )}
-          <p className="small">
-            {t("checkIn.step", {
-              n: 5,
-              label:
-                preview.deposit_cents > 0
-                  ? t("checkIn.deposit", { amount: `−${money(preview.deposit_cents as never)}` })
-                  : preview.walk_in === "cardOnTab"
-                    ? t("checkIn.walkInTakes.cardOnTab")
-                    : preview.walk_in === "cardBehindBar"
-                      ? t("checkIn.walkInTakes.cardBehindBar")
-                      : preview.walk_in === "nothing"
-                        ? t("checkIn.walkInTakes.nothing")
-                        : t("checkIn.noDeposit"),
-            })}
+            </div>
+            <div className="checkin-col">
+              {walkIn && (
+                <fieldset className="checkin-field">
+                  <legend>{t("checkIn.step", { n: 4, label: t("checkIn.length") })}</legend>
+                  <div className="chips">
+                    {lengths.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className="chip"
+                        aria-pressed={minutes === m}
+                        onClick={() => setMinutes(m)}
+                      >
+                        {hoursLabel(m)}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+              {target.kind === "booking" ? (
+                <fieldset className="sheet-clock">
+                  <legend>{t("checkIn.step", { n: 4, label: t("checkIn.clock") })}</legend>
+                  <label className="switch-line">
+                    <input
+                      type="radio"
+                      name="start"
+                      checked={!startBooked}
+                      onChange={() => setStartBooked(false)}
+                    />
+                    <span>{t("checkIn.startNow")}</span>
+                  </label>
+                  {preview.booked_start && (
+                    <label className="switch-line">
+                      <input
+                        type="radio"
+                        name="start"
+                        checked={startBooked}
+                        onChange={() => setStartBooked(true)}
+                      />
+                      <span>
+                        {t("checkIn.startBooked", { time: time(preview.booked_start, timeZone) })}
+                      </span>
+                    </label>
+                  )}
+                </fieldset>
+              ) : (
+                <>
+                  <label>
+                    <span>{t("checkIn.guestName")}</span>
+                    <input
+                      value={name}
+                      maxLength={80}
+                      autoComplete="off"
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>{t("checkIn.guestPhone")}</span>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="off"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>{t("walkIn.email")}</span>
+                    <input
+                      type="email"
+                      autoComplete="off"
+                      maxLength={254}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+          <p className="small checkin-next">
+            <span>
+              {t("checkIn.step", {
+                n: 5,
+                label:
+                  preview.deposit_cents > 0
+                    ? t("checkIn.deposit", { amount: `−${money(preview.deposit_cents as never)}` })
+                    : preview.walk_in === "cardOnTab"
+                      ? t("checkIn.walkInTakes.cardOnTab")
+                      : preview.walk_in === "cardBehindBar"
+                        ? t("checkIn.walkInTakes.cardBehindBar")
+                        : preview.walk_in === "nothing"
+                          ? t("checkIn.walkInTakes.nothing")
+                          : t("checkIn.noDeposit"),
+              })}
+            </span>
+            <span className="muted">{t("checkIn.step", { n: 6, label: sends.join(" · ") })}</span>
           </p>
-          <p className="small muted">{t("checkIn.step", { n: 6, label: t("checkIn.code") })}</p>
           <div className="row">
             <button type="submit" className="primary" disabled={busy || !preview.room_fits}>
               {target.kind === "booking" ? t("checkIn.confirm") : t("checkIn.confirmWalkIn")}

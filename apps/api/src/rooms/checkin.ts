@@ -10,6 +10,7 @@ import {
   findOrCreateGuest,
   insertCheck,
   listRooms,
+  moduleOn,
   nextCheckNumber,
   readSetting,
   releaseBlock,
@@ -23,7 +24,7 @@ import { businessDate, minSpendFor, rateAt, type RoomForRate } from "@west4/rule
 import { Temporal, walkInTakesOf, type Clock } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { noShowMoney } from "../bookings/cancel.js";
-import { queueText } from "../texts/queue.js";
+import { queueText, venueTexts } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { sealRoomCode } from "./room-code.js";
 import { venueClock } from "./assignment.js";
@@ -102,6 +103,7 @@ export async function checkInPreview(
   venueId: string,
   input: { bookingId?: string; roomId?: string; partySize?: number },
   now: Temporal.Instant,
+  opts: { guestAppUrl?: string | null } = {},
 ) {
   const booking = input.bookingId ? await bookingById(c, venueId, input.bookingId) : null;
   if (input.bookingId && !booking) throw new ApiError("not_found", "no such booking");
@@ -113,6 +115,15 @@ export async function checkInPreview(
   const ctx = await priceContext(c, venueId, now);
   const rate = rateAt(now, party, room as RoomForRate, ctx.prices, ctx.venue);
   const friSat = ctx.date.dayOfWeek === 5 || ctx.date.dayOfWeek === 6;
+  // What seating sends (D128), so the sheet's last line says what will happen: the room code text
+  // (when the host gives a phone) and the room's QR slip and email (while Ordering from the room is on).
+  const appUrl = opts.guestAppUrl ?? null;
+  const [texts, qr] = appUrl
+    ? await Promise.all([
+        venueTexts(c, venueId, "room_code"),
+        moduleOn(c, venueId, "room_ordering"),
+      ])
+    : [false, false];
   const from = booking
     ? noShowFrom(booking.starts_at, ctx.graceMin, booking.running_late_until)
     : null;
@@ -132,6 +143,12 @@ export async function checkInPreview(
     billable_guests: rate.billableGuests,
     /** "weeknight" or "fri_sat": which minimum, and the day word the sheet uses. */
     min_day: friSat ? (ctx.date.dayOfWeek === 5 ? "friday" : "saturday") : "weeknight",
+    /** The same minimum every day of the week (D128: Sing Sing's 3): the line drops the day word. */
+    min_every_day: ctx.prices.minGuests.weeknight === ctx.prices.minGuests.friSat,
+    /** What seating sends (D128): a text when the host gives a phone, the QR slip and its email. */
+    sends: { text: texts, qr },
+    /** A booking's guest has a phone on file (the code text goes to it); null for a walk-in. */
+    host_phone: booking ? booking.guest_phone !== null : null,
     hourly_cents: rate.hourlyCents,
     room_id: room.id,
     room_name: room.name,

@@ -354,6 +354,8 @@ function FirstPrices({
   const [rounding, setRounding] = useState("");
   const [minWeek, setMinWeek] = useState("");
   const [minFriSat, setMinFriSat] = useState("");
+  // One minimum for every day of the week (D128: Sing Sing bills at least 3 all week).
+  const [minSame, setMinSame] = useState(false);
   const [firstHour, setFirstHour] = useState(false);
   const [bands, setBands] = useState<BandText[]>([]);
   const [vipOn, setVipOn] = useState(false);
@@ -387,7 +389,7 @@ function FirstPrices({
           }
         : null;
     const week = positive(minWeek);
-    const friSat = positive(minFriSat);
+    const friSat = minSame ? week : positive(minFriSat);
     const min = hours(minHours);
     const max = hours(maxHours);
     const most = positive(maxGuests);
@@ -498,9 +500,19 @@ function FirstPrices({
             ))}
           </select>
         </label>
-        {num(t("prices.minWeeknight"), minWeek, setMinWeek)}
-        {num(t("prices.minFriSat"), minFriSat, setMinFriSat)}
+        {minSame ? (
+          num(t("prices.minEveryDay"), minWeek, setMinWeek)
+        ) : (
+          <>
+            {num(t("prices.minWeeknight"), minWeek, setMinWeek)}
+            {num(t("prices.minFriSat"), minFriSat, setMinFriSat)}
+          </>
+        )}
       </div>
+      <label className="setup-check">
+        <input type="checkbox" checked={minSame} onChange={(e) => setMinSame(e.target.checked)} />
+        {t("prices.minSameEveryDay")}
+      </label>
       <label className="setup-check">
         <input
           type="checkbox"
