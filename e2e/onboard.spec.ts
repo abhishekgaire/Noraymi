@@ -72,8 +72,9 @@ async function west4Night(db: pg.Client) {
  * PIN, passkey), picks Rooms + Kitchen with the fake's test promo code, connects the fake Stripe,
  * enters 3 rooms and prices, hours, no deposit with Keep the card behind the bar, the money
  * answers, a menu, a manager (who sets his PIN from his own texted link), the on-call and breach
- * contacts and the liquor license, registers a simulated reader and a printer with its drawer,
- * checks the merchant category, reaches Ready to open and finishes setup. Then a walk-in is
+ * contacts and the liquor license, pairs a printer with its drawer and a kitchen printer (no card
+ * reader: it takes cards on its own outside card machine, D129), checks the merchant category,
+ * reaches Ready to open and finishes setup; Kitchen & food, chosen "on once ready" in step 2, is on. Then a walk-in is
  * seated and closed out on the new venue. No SQL writes, no ops command; West 4's night is unchanged.
  */
 test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in closed out", async ({
@@ -246,6 +247,25 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
         .getByRole("button", { name: "Off" }),
     ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("radio", { name: "On the manager's phone" })).toBeChecked();
+    // D129: Kitchen & food waits "on once ready" (the plan chose it); its notice and printer come later.
+    const kitchen = page.getByRole("group", { name: "Kitchen & food · State" });
+    await expect(kitchen.getByRole("button", { name: "On once ready" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(
+      page.getByText("Turns on when the allergy notice and a kitchen printer are set"),
+    ).toBeVisible();
+    // Every plan includes the website and the outside card machine: switches, not "Not in your plan".
+    await expect(page.getByText("Not in your plan", { exact: true })).toHaveCount(0);
+    for (const name of ["Website", "Paid on outside card machine"]) {
+      const group = page.getByRole("group", { name: `${name} · State` });
+      await group.getByRole("button", { name: "On" }).click();
+      await expect(group.getByRole("button", { name: "On" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    }
 
     // Step 3: Connect with Stripe (the fake's hosted onboarding).
     await rail.getByRole("button", { name: /Card payments/ }).click();
@@ -327,12 +347,16 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await expect(page.getByText(/^179 menu lines/)).toBeVisible();
     await page.getByRole("button", { name: "Looks right" }).click();
     await expect(page.getByText("Saved: 179 new menu lines")).toBeVisible();
-    await expect(rail.getByRole("button", { name: /Menu/ })).toContainText("Done");
+    // Kitchen & food is wanted, so the step asks for its allergy notice too (D129).
+    await expect(rail.getByRole("button", { name: /Menu/ })).not.toContainText("Done");
+    await page.getByLabel("Allergy notice · In English").fill("TEST ONLY · allergy notice");
+    await page.getByLabel("Allergy notice · In Spanish").fill("SOLO PRUEBA · aviso de alergias");
 
     // Step 9: a manager invited; the owner on call and the breach contact. Texts aren't connected
     // yet (T-03; D123), so an invite by phone alone is refused and the email carries it.
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Team and contacts" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: /Menu/ })).toContainText("Done");
     await page.getByLabel("Name", { exact: true }).fill("Leo Park");
     await page.getByLabel("Mobile phone").fill(managerPhone);
     await page.getByLabel("Role").selectOption("manager");
@@ -375,13 +399,13 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await register.getByRole("button", { name: "Save" }).click();
     await expect(rail.getByRole("button", { name: /^\d* ?Licenses/ })).toContainText("Done");
 
-    // Step 11 is optional: skipped. Step 12: a simulated reader, a printer with its drawer.
+    // Step 11 is optional: skipped. Step 12: no card reader (the outside card machine is on), a
+    // printer with its drawer and a kitchen printer.
     await rail.getByRole("button", { name: /Devices and checks/ }).click();
+    const paired = page.getByRole("list", { name: "What's paired" });
+    await expect(paired).toContainText("Card readersCards on your own card machine");
+    await expect(page.getByText("a card reader", { exact: true })).toHaveCount(0);
     await page.getByRole("link", { name: "Open Admin → Printers & devices" }).click();
-    await page.getByLabel("Name staff pick").fill("Bar S710");
-    await page.getByLabel("Registration code").fill("simulated-s710");
-    await page.getByRole("button", { name: "Register", exact: true }).click();
-    await expect(page.getByText("Bar S710 is registered")).toBeVisible();
     await page.getByLabel("Printer name").fill("Bar printer");
     await page.getByLabel("Station").selectOption("bar");
     await page.getByRole("button", { name: "Add a printer" }).click();
@@ -389,6 +413,9 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
     await page.getByLabel("On the kick port of").selectOption({ label: "Bar printer" });
     await page.getByRole("button", { name: "Add the drawer" }).click();
     await expect(page.getByText("On Bar printer's kick port")).toBeVisible();
+    await page.getByLabel("Printer name").fill("Kitchen printer");
+    await page.getByLabel("Station").selectOption("kitchen");
+    await page.getByRole("button", { name: "Add a printer" }).click();
     await page.goto("/set-up/devices");
     const golive = page.getByRole("region", { name: "Go-live checklist" });
     await expect(async () => {
@@ -408,6 +435,13 @@ test("O-14 · Test Karaoke from the Console to Ready to open, then a walk-in clo
       [`test-karaoke-${n}`],
     );
     expect(venue.rows[0]!.done).toBe(true);
+    // Kitchen & food turned on by itself once the notice and the kitchen printer were in (D129).
+    const kitchenOn = await db.query<{ state: string; wanted: boolean }>(
+      `select state, wanted_at is not null as wanted from venue_modules
+        where venue_id = $1 and module_id = 'kitchen'`,
+      [venue.rows[0]!.id],
+    );
+    expect(kitchenOn.rows[0]).toEqual({ state: "on", wanted: false });
 
     // A walk-in on Room 1: the card behind the bar, then close-out in cash and the card given back.
     await page.goto("/tonight");

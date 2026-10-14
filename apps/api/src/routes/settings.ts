@@ -25,7 +25,7 @@ import {
 } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
-import { menusFollowKitchen } from "../kitchen/module.js";
+import { menusFollowKitchen, switchOnWanted } from "../kitchen/module.js";
 
 interface VenueParams {
   venueId: string;
@@ -198,7 +198,11 @@ export function settingsRoutes(
           check: { pack: pack.pack, cutover: venue.day_cutover },
         });
         // The allergy notice reaches every menu within a minute of a save (K-08).
-        if ("kitchen" in values) await menusFollowKitchen(c, request.venueId!, options.clock.now());
+        if ("kitchen" in values) {
+          await menusFollowKitchen(c, request.venueId!, options.clock.now());
+          // Kitchen & food chosen "on once ready" turns on once its notice and printer are in (D129).
+          await switchOnWanted(c, request.venueId!, options.clock);
+        }
         // The words guests accept follow the deposit and the gratuity (M5-06): a new version when they change.
         let policy: number | undefined;
         if ("deposit" in values || "pay" in values) {

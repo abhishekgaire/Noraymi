@@ -1,13 +1,23 @@
-import { emitEvent, queueMenuPdf, readSetting, type Queryable } from "@west4/db";
+import {
+  emitEvent,
+  queueMenuPdf,
+  readSetting,
+  setModuleState,
+  statesOf,
+  venueModules,
+  type Queryable,
+} from "@west4/db";
 import { businessDate } from "@west4/rules";
 import {
   KITCHEN_DEFAULTS,
   kitchenMissing,
+  missingNeeds,
   t,
   type Clock,
   type KitchenMissing,
   type KitchenSettings,
   type MessageKey,
+  type ModuleId,
   type Temporal,
 } from "@west4/shared";
 
@@ -112,4 +122,38 @@ export async function menuAllergyNotice(
 ): Promise<{ en: string; es: string } | null> {
   if (!(await kitchenOn(c, venueId))) return null;
   return (await kitchenSettings(c, venueId, { now: () => now })).allergyNotice;
+}
+
+/**
+ * On once ready (D129): every module the owner chose before its own needs were in place turns on
+ * as soon as they are: Kitchen & food once it has a kitchen printer and the allergy notice (and Bar
+ * screen & tickets, which it needs, is on). Called after anything that can complete those needs (a
+ * `kitchen` settings save, a printer added) and at Finish setup. A module whose needs are still
+ * missing stays off and wanted. Returns what it switched on.
+ */
+export async function switchOnWanted(
+  c: Queryable,
+  venueId: string,
+  clock: Clock,
+): Promise<ModuleId[]> {
+  const rows = await venueModules(c, venueId);
+  const wanted = rows.filter((r) => r.wanted && r.allowed && r.state === "off");
+  if (wanted.length === 0) return [];
+  const states = statesOf(rows);
+  const on: ModuleId[] = [];
+  for (const r of wanted) {
+    if (missingNeeds(states, r.module_id).length > 0) continue;
+    if (r.module_id === "kitchen" && (await kitchenNeeds(c, venueId, clock)).length > 0) continue;
+    await setModuleState(c, venueId, r.module_id, "on", undefined);
+    if (r.module_id === "kitchen") await menusFollowKitchen(c, venueId, clock.now());
+    on.push(r.module_id);
+  }
+  if (on.length > 0)
+    await emitEvent(c, {
+      venueId,
+      type: "settings.changed",
+      entityId: "modules",
+      entityVersion: 0,
+    });
+  return on;
 }

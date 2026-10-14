@@ -12,7 +12,8 @@ import { GoLive } from "./GoLive.js";
  * the step lists what's paired, read from the same rows, and links there. The song system is
  * "None" until a partnership exists. The go-live checklist (M4-29) runs here for every venue:
  * the merchant category read from Stripe, and each manager's Stripe Dashboard login and Tap to Pay
- * phone. The wizard's checklist and Finish setup follow below it.
+ * phone. With Paid on outside card machine on, a Stripe reader is optional and the line reads
+ * "Cards on your own card machine" (O-15; D129). The wizard's checklist and Finish setup follow.
  */
 interface Reader {
   readonly id: string;
@@ -47,6 +48,9 @@ export function DevicesStep({
   const { t } = useT();
   const { state } = useSession();
   const venueId = state.status === "signedIn" ? state.membership.venue_id : "";
+  // Cards on the venue's own machine (D126): no Stripe reader is needed to open (D129).
+  const outsideCard =
+    state.status === "signedIn" && (state.membership.modules ?? {})["outside_card"] === "on";
   const [paired, setPaired] = useState<Paired | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -94,10 +98,12 @@ export function DevicesStep({
           <ul className="list" aria-label={t("onboarding.devices.paired")}>
             <li>
               <strong>{t("onboarding.devices.readers")}</strong>
-              {paired.readers.length === 0 ? (
-                <span className="muted">{t("onboarding.devices.none")}</span>
-              ) : (
+              {paired.readers.length > 0 ? (
                 <span>{paired.readers.map((r) => r.label).join(", ")}</span>
+              ) : outsideCard ? (
+                <span>{t("onboarding.devices.outsideCard")}</span>
+              ) : (
+                <span className="muted">{t("onboarding.devices.none")}</span>
               )}
             </li>
             <li>
@@ -141,6 +147,11 @@ export function DevicesStep({
               <span className="muted">{t("onboarding.devices.songSystem.none")}</span>
             </li>
           </ul>
+        )}
+        {paired !== null && outsideCard && paired.readers.length === 0 && (
+          <p className="notice small" role="status">
+            {t("onboarding.devices.readersOptional")}
+          </p>
         )}
         <Link to="/admin/devices" className="button secondary">
           {t("onboarding.openSection", { section: t("admin.section.devices") })}

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { requiredSteps, setupChecklist, unusedSteps, type SetupFacts } from "./setup.js";
+import {
+  readerRequired,
+  requiredSteps,
+  setupChecklist,
+  unusedSteps,
+  type SetupFacts,
+} from "./setup.js";
 
 const nothing: SetupFacts = {
   plan: null,
@@ -14,7 +20,14 @@ const nothing: SetupFacts = {
   team: { managerWithPin: false, firstOnCall: false, breachContact: false },
   licenses: { liquor: false },
   texts: { answered: false },
-  devices: { reader: false, receiptPrinterWithDrawer: false, merchantCategory: false },
+  devices: {
+    reader: false,
+    receiptPrinterWithDrawer: false,
+    merchantCategory: false,
+    outsideCard: false,
+    walkInCardOnTab: false,
+  },
+  kitchen: { wanted: false, allergyNotice: false, printer: false },
   skipped: [],
 };
 
@@ -31,7 +44,14 @@ const everything: SetupFacts = {
   team: { managerWithPin: true, firstOnCall: true, breachContact: true },
   licenses: { liquor: true },
   texts: { answered: false },
-  devices: { reader: true, receiptPrinterWithDrawer: true, merchantCategory: true },
+  devices: {
+    reader: true,
+    receiptPrinterWithDrawer: true,
+    merchantCategory: true,
+    outsideCard: false,
+    walkInCardOnTab: false,
+  },
+  kitchen: { wanted: false, allergyNotice: false, printer: false },
   skipped: [],
 };
 
@@ -105,5 +125,38 @@ describe("the setup checklist (O-02)", () => {
     expect(c.done).toBe(10);
     expect(c.next).toBe("money");
     expect(c.steps.find((s) => s.id === "money")?.required).toBe(false);
+  });
+
+  it("a card reader is required only for cards through Stripe's readers alone (O-15; D129)", () => {
+    const noReader = { ...everything.devices, reader: false };
+    const devicesOf = (devices: SetupFacts["devices"]) =>
+      setupChecklist({ ...everything, devices }).steps.find((s) => s.id === "devices")!;
+    // Stripe's readers alone: one is needed before Ready to open.
+    expect(devicesOf(noReader).missing).toEqual(["reader"]);
+    // Paid on outside card machine on: no reader needed, the step is done.
+    const outside = { ...noReader, outsideCard: true };
+    expect(readerRequired(outside)).toBe(false);
+    expect(devicesOf(outside).mark).toBe("done");
+    expect(setupChecklist({ ...everything, devices: outside }).ready).toBe(true);
+    // Both: a reader is optional, and one registered changes nothing.
+    expect(devicesOf({ ...outside, reader: true }).mark).toBe("done");
+    // Put a card on the tab taps a card on the front-desk reader: a reader is needed again.
+    expect(devicesOf({ ...outside, walkInCardOnTab: true }).missing).toEqual(["reader"]);
+    // Nothing paired with the outside machine on: the step counts two parts, so it isn't "attention".
+    const bare = { ...outside, receiptPrinterWithDrawer: false, merchantCategory: false };
+    expect(devicesOf(bare).mark).toBe("not_started");
+  });
+
+  it("Kitchen & food on once ready asks for its allergy notice (step 8) and kitchen printer (step 12) (O-17)", () => {
+    const wanted = { wanted: true, allergyNotice: false, printer: false };
+    const c = setupChecklist({ ...everything, kitchen: wanted });
+    expect(c.steps.find((s) => s.id === "menu")!.missing).toEqual(["allergyNotice"]);
+    expect(c.steps.find((s) => s.id === "devices")!.missing).toEqual(["kitchenPrinter"]);
+    expect(c.blocking).toEqual(["menu", "devices"]);
+    const set = setupChecklist({
+      ...everything,
+      kitchen: { ...wanted, allergyNotice: true, printer: true },
+    });
+    expect(set.ready).toBe(true);
   });
 });

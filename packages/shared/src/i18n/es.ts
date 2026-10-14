@@ -3429,6 +3429,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "kitchen.needs.printer": "una impresora de cocina",
   "kitchen.needs.allergyNotice": "el aviso de alergias",
   "kitchen.needs.and": " y ",
+  "kitchen.whenReady.button": "Activar cuando esté lista",
+  "kitchen.whenReady.both":
+    "Se activa cuando el aviso de alergias y una impresora de cocina estén listos",
+  "kitchen.whenReady.printer": "Se activa cuando una impresora de cocina esté lista",
+  "kitchen.whenReady.allergyNotice": "Se activa cuando el aviso de alergias esté listo",
   "kitchen.refused.ordersOpen":
     "Cocina y comida no se puede apagar mientras un pedido de comida esté sonando, en espera o preparándose ({n} ahora).",
   "admin.section.kitchen": "Cocina",
@@ -3606,6 +3611,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Todo lo de Bar, más Salas y reloj de sala, Reservas en línea, Depósitos en las reservas, Pedidos desde la sala, Tabletas en las salas, Pagar mi parte, Paquetes y especiales, Control del sistema de canciones y la lista de espera",
   "onboarding.plan.allows.rooms_kitchen":
     "Todo lo de Salas, más Cocina y comida (por ahora el aviso de alergias y las comandas de cocina; aún sin pantalla de cocina ni tiempos)",
+  "onboarding.plan.everyPlan":
+    "Todos los planes incluyen también el sitio web, Seguridad y registros de ID, Mensajes de marketing y Pagado en una terminal de tarjetas externa: cada uno queda apagado hasta que lo actives.",
   "onboarding.plan.promo": "Código promocional",
   "onboarding.plan.check": "Comprobar",
   "onboarding.plan.promoInvalid": "Ese código no es válido",
@@ -3754,6 +3761,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.devices.badgeReaders": "Lectores de credenciales",
   "onboarding.devices.none": "Ninguno todavía",
   "onboarding.devices.optional": "Ninguno · opcional",
+  "onboarding.devices.outsideCard": "Tarjetas en tu propia terminal de tarjetas",
+  "onboarding.devices.readersOptional":
+    "Un lector de Stripe es opcional mientras cobres con tu propia terminal; agrégalo cuando quieras en Admin → Impresoras y dispositivos.",
   "onboarding.devices.songSystem": "Sistema de canciones",
   "onboarding.devices.songSystem.none":
     "Ninguno · un sistema de canciones solo se conecta mediante un acuerdo con su fabricante",
@@ -3837,6 +3847,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "onboarding.missing.liquor": "la licencia de alcohol",
   "onboarding.missing.texts": "una respuesta sobre los mensajes",
   "onboarding.missing.reader": "un lector de tarjetas",
+  "onboarding.missing.allergyNotice":
+    "el aviso de alergias de la cocina (elegiste Cocina y comida)",
+  "onboarding.missing.kitchenPrinter": "una impresora de cocina (elegiste Cocina y comida)",
   "onboarding.missing.receiptPrinter": "una impresora de recibos con caja",
   "onboarding.missing.merchantCategory": "la comprobación de la categoría de comercio",
   // Admin → Venue and Set up your venue's step 1 (O-03).

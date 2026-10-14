@@ -17,7 +17,9 @@ import { FeatureChoices } from "./FeatureChoices.js";
  * AdminDesk notes 11, 12 and 22). Every phase 1 module within what the
  * Console allows, with its state (on, stopping or off), what it needs and
  * what turning it off hides. Core modules read "Always on"; a module the plan
- * doesn't allow reads "Not in your plan". Turning one off that others need
+ * doesn't allow reads "Not in your plan". Kitchen & food before its printer and
+ * allergy notice offers "On once ready" (D129): chosen now, on by itself once
+ * both are in. Turning one off that others need
  * asks first, and Bar screen & tickets asks "Room orders would have nowhere
  * to ring…" while Ordering from the room is on. Live counts ("5 open bar
  * tabs · 8 rooms in use") arrive with M2 and M6.
@@ -32,11 +34,14 @@ interface ModuleRow {
   readonly turns_off_with_it: readonly ModuleId[];
   /** Kitchen & food only (K-01): what it still needs before it can be on. */
   readonly still_needs?: readonly KitchenMissing[];
+  /** Chosen "on once ready" (D129): it turns on by itself once what it needs is in. */
+  readonly wanted?: boolean;
 }
 
 type PatchAnswer =
   | { applied: true }
   | { applied: false; unchanged: true }
+  | { applied: false; waiting: true; still_needs: KitchenMissing[] }
   | { applied: false; needs_confirm: true; turns_off: ModuleId[] };
 
 interface Pending {
@@ -79,14 +84,18 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
     [subscribe, load],
   );
 
-  const change = async (id: ModuleId, next: ModuleState, confirm = false) => {
+  const change = async (id: ModuleId, next: ModuleState, confirm = false, whenReady = false) => {
     setError(null);
     setBusy(id);
     try {
       const answer = await api<PatchAnswer>(
         "PATCH",
         `/v1/venues/${venueId}/modules/${id}`,
-        confirm ? { state: next, confirm: true } : { state: next },
+        confirm
+          ? { state: next, confirm: true }
+          : whenReady
+            ? { state: next, when_ready: true }
+            : { state: next },
       );
       if (!answer.applied && "needs_confirm" in answer) {
         setPending({ id, state: next, turnsOff: answer.turns_off });
@@ -120,6 +129,14 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
     t("kitchen.needs", {
       list: missing.map((m) => t(`kitchen.needs.${m}` as MessageKey)).join(t("kitchen.needs.and")),
     });
+
+  // On once ready (D129): "Turns on when the allergy notice and a kitchen printer are set".
+  const whenReady = (missing: readonly KitchenMissing[]): string =>
+    t(
+      missing.length > 1
+        ? "kitchen.whenReady.both"
+        : (`kitchen.whenReady.${missing[0] ?? "both"}` as MessageKey),
+    );
 
   const names = (ids: readonly ModuleId[]): string =>
     ids.map((m) => t(`module.${m}.name` as MessageKey)).join(", ");
@@ -167,7 +184,7 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
                     )}
                     {m.allowed && m.state === "off" && (m.still_needs?.length ?? 0) > 0 && (
                       <p className="notice small" role="status">
-                        {kitchenNeeds(m.still_needs!)}
+                        {m.wanted ? whenReady(m.still_needs!) : kitchenNeeds(m.still_needs!)}
                       </p>
                     )}
                   </div>
@@ -180,6 +197,28 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
                       <span className="pill">{t("modules.alwaysOn")}</span>
                     ) : !m.allowed ? (
                       <span className="pill muted">{t("modules.notInPlan")}</span>
+                    ) : m.state === "off" && (m.still_needs?.length ?? 0) > 0 ? (
+                      // Its needs come later in setup (D129): chosen now, on by itself once they're in.
+                      <>
+                        <button
+                          type="button"
+                          className="secondary"
+                          aria-pressed={m.wanted === true}
+                          disabled={busy !== null || m.wanted === true}
+                          onClick={() => void change(m.id, "on", false, true)}
+                        >
+                          {t("kitchen.whenReady.button")}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          aria-pressed={m.wanted !== true}
+                          disabled={busy !== null || m.wanted !== true}
+                          onClick={() => void change(m.id, "off")}
+                        >
+                          {t("modules.state.off")}
+                        </button>
+                      </>
                     ) : (
                       STATES.map((s) => (
                         <button
@@ -187,11 +226,7 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
                           type="button"
                           className="secondary"
                           aria-pressed={m.state === s}
-                          disabled={
-                            busy !== null ||
-                            m.state === s ||
-                            (s !== "off" && (m.still_needs?.length ?? 0) > 0)
-                          }
+                          disabled={busy !== null || m.state === s}
                           onClick={() => void change(m.id, s)}
                         >
                           {t(`modules.state.${s}` as MessageKey)}

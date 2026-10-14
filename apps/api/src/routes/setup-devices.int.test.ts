@@ -276,4 +276,22 @@ describe("Set up your venue · step 12, devices and checks (O-13)", () => {
     expect(before["online_booking"]).not.toBe("on");
     expect(before["guest_texts"]).not.toBe("on");
   });
+
+  it("with Paid on outside card machine on, no card reader is needed, unless walk-ins put a card on the tab (O-15; D129)", async () => {
+    await owner.query(
+      "update devices set revoked_at = now() where venue_id = $1 and kind = 'reader' and revoked_at is null",
+      [venueId],
+    );
+    expect((await devicesStep()).missing).toEqual(["reader"]);
+    const on = await call("PATCH", "/modules/outside_card", { state: "on" });
+    expect(on.statusCode, on.body).toBe(200);
+    expect(await devicesStep()).toMatchObject({ mark: "done", missing: [] });
+    // Put a card on the tab taps a card on the front-desk reader: one is needed again.
+    await owner.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_by)
+         values ($1, 'deposit', 1, '{"walkIn":"cardOnTab"}', '2026-09-01', null)`,
+      [venueId],
+    );
+    expect((await devicesStep()).missing).toEqual(["reader"]);
+  });
 });

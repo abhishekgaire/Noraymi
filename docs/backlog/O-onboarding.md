@@ -339,3 +339,56 @@ Definition of done: see CLAUDE.md.
   - Sing Sing: the runbook is the new section "Entering Sing Sing through Set up your venue" in `docs/venues/sing-sing/venue.md`, every value marked Given (with its source) or Still to give; nothing is invented, and unknowns stay empty with the screen's "not set" hint. Entering it on staging waits for S-01 and the founder's and manager's own sign-ins.
   - The principal and wall suites still pass (they run inside `pnpm check`'s integration suite).
 
+
+### O-15 · No card reader needed when cards go on the venue's own machine
+
+- **Status:** done
+- **Size:** S
+- **Depends on:** O-13; F-10
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 12, What's required before Ready to open; [D129](../decisions.md)
+- **Build:**
+  - Ready to open asks for one Stripe card reader only while Paid on outside card machine is off, or while the walk-in choice is Put a card on the tab; with the outside machine on, step 12 reads "Cards on your own card machine" and says a reader is optional.
+  - `devices:check`'s default set names a missing or unready reader as optional when the outside card machine is on.
+- **Acceptance:**
+  - [x] With Paid on outside card machine on and no reader, step 12 is done and the venue can reach Ready to open.
+  - [x] With Put a card on the tab as the walk-in choice, a reader is needed again; with the outside machine off, as before.
+  - [x] Stripe connected and the merchant category check stay required.
+- **Tests:** unit (`packages/shared/src/setup.test.ts`); integration (`setup-devices.int.test.ts`, `hardware-check.int.test.ts`); Playwright (`e2e/onboard.spec.ts`).
+- **Notes:**
+  - There is no separate "cards through Stripe readers" switch, so "both on" is the outside card machine on with or without readers: a reader is then optional, shown as a note, never blocking.
+  - `SetupFacts.devices` gains `outsideCard` and `walkInCardOnTab`; `readerRequired()` is the one rule, shared by the API and its tests. The bar-computers set of `devices:check` already treated readers this way (W-05).
+
+### O-16 · The website, Safety & ID records and Marketing texts in every plan
+
+- **Status:** done
+- **Size:** S
+- **Depends on:** O-04; M1-35
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Step details 2; [Settings and modules](../spec/03-settings-rule-packs-modules.md) · Modules; [D129](../decisions.md)
+- **Build:**
+  - The three modules no plan named become modules every plan includes, as Paid on outside card machine is (`allowedOff`): always allowed, off until the owner turns them on. An older row that says not allowed reads as allowed.
+  - The Console shows "Every plan" for them with no switch and refuses to take them away. Step 2 says what every plan includes under the plan cards. Prices unchanged.
+- **Acceptance:**
+  - [x] A new venue on any plan sees switches (not "Not in your plan") for the website, Safety & ID records and Marketing texts, each off.
+  - [x] The Console can't disallow them.
+- **Tests:** unit (`modules.test.ts`); integration (`console.int.test.ts`); Playwright (`e2e/onboard.spec.ts`).
+- **Notes:**
+  - Marketing texts stays off by default and still sends nothing without its own opt-in and the venue's approved campaign (T-03).
+  - West 4's seed already had them allowed; its Features count is unchanged.
+
+### O-17 · Choose Kitchen & food in step 2 "on once ready"
+
+- **Status:** done
+- **Size:** M
+- **Depends on:** O-04, O-10, O-13; K-01
+- **Spec:** [Owner onboarding](../spec/17-onboarding.md) · Choose your features, Step details 12; [D129](../decisions.md)
+- **Build:**
+  - `venue_modules.wanted_at` (migration 0159). `PATCH /modules/kitchen { state: "on", when_ready: true }` before the printer and notice records it and answers `waiting` with what's still needed; plain On is still refused; Off forgets it. Choosing the Rooms + Kitchen plan records it the same way.
+  - Admin → Features and step 2 show **On once ready** beside Off and "Turns on when the allergy notice and a kitchen printer are set" (naming only what's missing).
+  - While wanted, step 8 needs the allergy notice and step 12 a kitchen printer. It turns on by itself after a `kitchen` save, a kitchen printer added (network or cloud) or moved to the kitchen station, and at Finish setup.
+- **Acceptance:**
+  - [x] Chosen in step 2 before its needs, Kitchen & food stays off, and turns on once the notice and a kitchen printer both exist.
+  - [x] The server never has it on without them.
+- **Tests:** unit (`setup.test.ts`); integration (`kitchen-module.int.test.ts`); Playwright (`e2e/onboard.spec.ts`).
+- **Notes:**
+  - Kitchen & food is the only module whose needs come later in the wizard today (Bar tabs is core since D124; other modules need only other modules, chosen in the same step). `switchOnWanted` loops over every wanted module, so a future one only adds its own check.
+  - The module gate's cache (3 s) picks up a switch made this way; nothing else waits on it.

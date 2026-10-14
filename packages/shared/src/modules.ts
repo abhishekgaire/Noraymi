@@ -62,7 +62,10 @@ export interface ModuleDef {
    * row, so a venue made before the split keeps working as it did until its owner sets this one.
    */
   readonly inherits?: ModuleId;
-  /** Allowed on every plan but off until the owner turns it on (the outside card machine, D126). */
+  /**
+   * Every plan allows it, off until the owner turns it on, and our Console can't take it away:
+   * the outside card machine (D126), the website, Safety & ID records and Marketing texts (D129).
+   */
   readonly allowedOff?: boolean;
 }
 
@@ -190,6 +193,7 @@ export const modules: readonly ModuleDef[] = [
     id: "marketing_texts",
     core: false,
     phase1: true,
+    allowedOff: true,
     needs: ["guest_texts"],
     hides: {
       staffApp: [],
@@ -214,6 +218,7 @@ export const modules: readonly ModuleDef[] = [
     id: "safety",
     core: false,
     phase1: true,
+    allowedOff: true,
     needs: [],
     hides: {
       staffApp: ["board.managerNeeded", "board.headcount", "doorCounter", "idScans", "incidentLog"],
@@ -228,6 +233,7 @@ export const modules: readonly ModuleDef[] = [
     id: "website",
     core: false,
     phase1: true,
+    allowedOff: true,
     needs: [],
     hides: {
       staffApp: [],
@@ -391,8 +397,9 @@ export function kitchenMissing(ready: {
  * the core modules, which every venue has (bar tabs and reports among them
  * since D124), from the blueprint's plan table: Bar is bar mode, the bar
  * screen, team and tip pool, guest texts and the cash discount. Choosing a plan allows these and switches them on (D121); the
- * owner turns any of them off in Admin → Features. The modules no plan names
- * (safety, marketing texts, the website) stay as our Console set them.
+ * owner turns any of them off in Admin → Features. The website, Safety & ID
+ * records, Marketing texts and the outside card machine are in every plan
+ * (`allowedOff`, D129): allowed everywhere and off until the owner turns them on.
  */
 const BAR_PLAN_MODULES: readonly ModuleId[] = [
   "bar_mode",

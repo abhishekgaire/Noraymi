@@ -3348,6 +3348,10 @@ export const en = {
   "kitchen.needs.printer": "a kitchen printer",
   "kitchen.needs.allergyNotice": "the allergy notice",
   "kitchen.needs.and": " and ",
+  "kitchen.whenReady.button": "On once ready",
+  "kitchen.whenReady.both": "Turns on when the allergy notice and a kitchen printer are set",
+  "kitchen.whenReady.printer": "Turns on when a kitchen printer is set",
+  "kitchen.whenReady.allergyNotice": "Turns on when the allergy notice is set",
   "kitchen.refused.ordersOpen":
     "Kitchen & food can't turn off while a food order is ringing, asked to wait or being made ({n} now).",
   "admin.section.kitchen": "Kitchen",
@@ -3522,6 +3526,8 @@ export const en = {
     "Everything in Bar, plus Rooms & room clock, Online booking, Deposits on bookings, Ordering from the room, Room tablets, Pay my share, Packages & specials, Song system control and the waitlist",
   "onboarding.plan.allows.rooms_kitchen":
     "Everything in Rooms, plus Kitchen & food (for now the allergy notice and kitchen tickets; no kitchen screen or coursing yet)",
+  "onboarding.plan.everyPlan":
+    "Every plan also includes the website, Safety & ID records, Marketing texts and Paid on outside card machine: each stays off until you turn it on.",
   "onboarding.plan.promo": "Promo code",
   "onboarding.plan.check": "Check",
   "onboarding.plan.promoInvalid": "That code isn't valid",
@@ -3666,6 +3672,9 @@ export const en = {
   "onboarding.devices.badgeReaders": "Badge readers",
   "onboarding.devices.none": "None yet",
   "onboarding.devices.optional": "None · optional",
+  "onboarding.devices.outsideCard": "Cards on your own card machine",
+  "onboarding.devices.readersOptional":
+    "A Stripe reader is optional while you take cards on your own machine; add one any time in Admin → Printers & devices.",
   "onboarding.devices.songSystem": "Song system",
   "onboarding.devices.songSystem.none":
     "None · a song system connects only through a partnership with its maker",
@@ -3745,6 +3754,8 @@ export const en = {
   "onboarding.missing.liquor": "the liquor license",
   "onboarding.missing.texts": "an answer about texts",
   "onboarding.missing.reader": "a card reader",
+  "onboarding.missing.allergyNotice": "the kitchen's allergy notice (you chose Kitchen & food)",
+  "onboarding.missing.kitchenPrinter": "a kitchen printer (you chose Kitchen & food)",
   "onboarding.missing.receiptPrinter": "a receipt printer with a drawer",
   "onboarding.missing.merchantCategory": "the merchant category check",
   // Admin → Venue and Set up your venue's step 1 (O-03).

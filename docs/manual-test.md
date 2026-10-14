@@ -1705,13 +1705,13 @@ Then **Choose your features** appears on the same step. Set:
 
 | On | Off |
 | --- | --- |
-| Rooms & room clock, Bar screen & tickets, Online booking, Ordering from the room, Keep the card behind the bar for walk-ins, Cash discount, Paid on outside card machine | Deposits on bookings, Bar mode, Song system control, Room tablets |
+| Rooms & room clock, Bar screen & tickets, Online booking, Ordering from the room, Keep the card behind the bar for walk-ins, Cash discount, Paid on outside card machine, Website | Deposits on bookings, Bar mode, Song system control, Room tablets |
 
-Leave Walk-in waitlist, Packages & specials, Guest texts, Team, time clock & tips and Pay my share as they are (yours to choose). Under **Approvals**, choose **Manager's PIN at the register**.
+Leave Walk-in waitlist, Packages & specials, Guest texts, Team, time clock & tips, Marketing texts, Safety & ID records and Pay my share as they are (yours to choose). Under **Approvals**, choose **Manager's PIN at the register**.
 
 What you'll notice:
-- **Kitchen & food** stays Off and can't be switched yet: "Kitchen · needs a kitchen printer and the allergy notice". You add both in steps 8 and 12, then turn it on (29.4).
-- **Website**, **Marketing texts** and **Safety & ID records** say "Not in your plan": no plan includes them; our staff allow them per venue in the Console (section 21, **Modules**). Website is On for Sing Sing, so allow it there if you want to try it.
+- **Kitchen & food** shows **On once ready** already chosen (the Rooms + Kitchen plan chose it) and the line "Turns on when the allergy notice and a kitchen printer are set". It stays off for now; you add the notice in step 8 and the kitchen printer in step 12, and it turns on by itself as soon as both exist. (Pressing **Off** here means you don't want it; **On once ready** chooses it again.)
+- **Website**, **Marketing texts** and **Safety & ID records** are in every plan: each has its own switch, off until you turn it on. Turn **Website** on (Sing Sing wants its website and online booking).
 
 **Step 3 · Card payments.** Press **Connect with Stripe**. The fake Stripe's pages open and come straight back (on the real servers, the owner types the business, EIN, representative and bank account into Stripe's own pages). You should see "Connected through … · card payments on". **Continue.**
 
@@ -1737,10 +1737,9 @@ To make Andy "a manager besides you who has set a PIN" (needed before you open):
 
 **Step 11 · Texts, website and your old system.** All optional. **Connect your Twilio account** needs Sing Sing's own Twilio account, which the demo doesn't have: skip it, so texting stays off and codes and invites keep coming by email. The website question and the old system's files are optional too. Press **Skip for now**.
 
-**Step 12 · Devices and checks.** "Still needed: a card reader, a receipt printer with a drawer, the merchant category check". Press **Open Admin → Printers & devices**:
-- **Card reader.** Sing Sing takes cards on its own outside machine, but setup still asks for one Stripe reader before you open. In the demo, register the fake one: Name staff pick `Bar S710`, Registration code `simulated-s710`, **Register**: "Bar S710 is registered".
+**Step 12 · Devices and checks.** "Still needed: a receipt printer with a drawer, a kitchen printer (you chose Kitchen & food), the merchant category check". No card reader is asked for: **Card readers** reads "Cards on your own card machine", with a note that a Stripe reader is optional and can be added any time (Sing Sing takes cards on its own machine, step 7). Press **Open Admin → Printers & devices**:
 - **Bar printer and drawer** (the Epson TM-T88V with the cash drawer on its port). There's no real printer: add it by hand. Printer name `Bar printer`, Station **Bar**, **Add a printer**; then Drawer name `Bar drawer`, On the kick port of **Bar printer**, **Add the drawer**: "On Bar printer's kick port".
-- **Kitchen printer** (the Rongta RP326, cabled to the main bar computer): Printer name `Kitchen printer`, Station **Kitchen**, **Add a printer**. (The Star TSP143IIIW is the alternative; nothing to add for it unless you use it.)
+- **Kitchen printer** (the Rongta RP326, cabled to the main bar computer): Printer name `Kitchen printer`, Station **Kitchen**, **Add a printer**. (The Star TSP143IIIW is the alternative; nothing to add for it unless you use it.) With the allergy notice already saved in step 8, **Kitchen & food turns on by itself** now (Admin → Features shows it On).
 - These printers don't print anything in the demo. To see printing and the "Cabled to Bar computer" line, run the desktop app with its virtual printer (0.11) and pair it as "Bar computer"; a second desktop window could be "Bar computer 2".
 
 Back on **Set up your venue → Devices and checks**, in the **Go-live checklist**, type `5813` in **The category we expect** and press **Save the category**: "Checked: Stripe has 5813" (the fake Stripe's account; on the real servers you type what Stripe gave Sing Sing).
@@ -1749,7 +1748,7 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 
 ### 29.4 After Finish setup
 
-1. **Admin → Features → Kitchen & food → On** (now that the allergy notice and a kitchen printer exist).
+1. **Admin → Features**: Kitchen & food is already On (it turned on when the kitchen printer was added, or at Finish setup at the latest). Nothing to switch by hand.
 2. The board (**Rooms**) shows your 6 rooms. Try a walk-in: **+ Walk-in**, the guests, **Seat them**, then the card behind the bar (name and last 4 digits).
 3. To start again from an empty Sing Sing: `scripts/demo-local.sh --onboard` (it also resets West 4's night).
 

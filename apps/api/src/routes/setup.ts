@@ -1,5 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { stripeAccountOf, stripeIntegration, venueSubscription, type Queryable } from "@west4/db";
+import {
+  stripeAccountOf,
+  stripeIntegration,
+  venueModules,
+  venueSubscription,
+  type Queryable,
+} from "@west4/db";
 import {
   isSetupStep,
   setupChecklist,
@@ -10,6 +16,7 @@ import {
 } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { hasKitchenPrinter, switchOnWanted } from "../kitchen/module.js";
 import { merchantCategoryPasses } from "../payments/go-live.js";
 
 /**
@@ -74,6 +81,9 @@ export async function setupFacts(c: Queryable, venueId: string): Promise<SetupFa
         [venueId, membershipId],
       )
     ).rowCount! > 0;
+  const modules = await venueModules(c, venueId);
+  const mod = (id: string) => modules.find((m) => m.module_id === id);
+  const kitchenKey = (await latest(c, venueId, "kitchen")) as { allergyNotice?: unknown } | null;
   const skips = await c.query<{ step: string }>(
     "select step from venue_setup_skips where venue_id = $1",
     [venueId],
@@ -133,6 +143,15 @@ export async function setupFacts(c: Queryable, venueId: string): Promise<SetupFa
           where d.venue_id = $1 and p.revoked_at is null`,
       ),
       merchantCategory: await merchantCategoryPasses(c, venueId),
+      // Cards on the venue's own machine (D126) need no Stripe reader before opening (D129).
+      outsideCard: mod("outside_card")?.state === "on",
+      walkInCardOnTab: deposit?.["walkIn"] === "cardOnTab",
+    },
+    // Kitchen & food chosen "on once ready" (D129): steps 8 and 12 ask for what it needs.
+    kitchen: {
+      wanted: mod("kitchen")?.wanted === true && mod("kitchen")?.state === "off",
+      allergyNotice: !!kitchenKey?.allergyNotice,
+      printer: await hasKitchenPrinter(c, venueId),
     },
     skipped: skips.rows.map((r) => r.step).filter(isSetupStep),
   };
@@ -227,6 +246,8 @@ export function setupRoutes(app: FastifyInstance, options: { clock: Clock }): vo
           "update venues set setup_completed_at = coalesce(setup_completed_at, $2) where id = $1",
           [venueId, options.clock.now().toString()],
         );
+        // What the owner chose "on once ready" turns on now if its needs are in (D129).
+        await switchOnWanted(c, venueId, options.clock);
         return setupAnswer(c, venueId);
       });
     },

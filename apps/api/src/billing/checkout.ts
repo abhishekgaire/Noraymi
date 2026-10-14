@@ -6,6 +6,7 @@ import {
   insertVenueSubscription,
   planAttempt,
   setModuleAllowed,
+  setModuleWanted,
   setModuleState,
   statesOf,
   setPlanItems,
@@ -57,8 +58,8 @@ type InVenue = <T>(work: (c: Queryable) => Promise<T>) => Promise<T>;
  *
  * Then the plan switches on what it newly includes (D121): every module of a
  * first plan, or the ones a changed plan adds. A module whose needs aren't met
- * yet (Bar tabs before the go-live merchant category, Kitchen & food before
- * its printer and allergy notice) stays off, and Admin → Features says why.
+ * yet (Kitchen & food before its printer and allergy notice) stays off,
+ * chosen "on once ready" (D129): it turns on by itself once they're in.
  * The same plan again switches nothing on, so the owner's off stays off.
  */
 export async function allowPlanModules(
@@ -85,7 +86,12 @@ export async function allowPlanModules(
       if (states[id] === "on" || missingNeeds(states, id).length > 0) continue;
       if (id === "kitchen") {
         const clock = { now: () => switchOn.now };
-        if ((await kitchenNeeds(c, venueId, clock)).length > 0) continue;
+        if ((await kitchenNeeds(c, venueId, clock)).length > 0) {
+          // On once ready (D129): it turns on by itself once its printer and notice are in.
+          await setModuleWanted(c, venueId, id, true, undefined);
+          changed = true;
+          continue;
+        }
         await setModuleState(c, venueId, id, "on", undefined);
         await menusFollowKitchen(c, venueId, switchOn.now);
       } else await setModuleState(c, venueId, id, "on", undefined);

@@ -3,6 +3,7 @@ import {
   emitEvent,
   latestSetting,
   setModuleState,
+  setModuleWanted,
   venueFlags,
   venueModules,
   statesOf,
@@ -56,7 +57,9 @@ export const openWorkChecks: Partial<Record<ModuleId, OpenWorkCheck>> = {
  * Modules and flags (spec 08 · Settings and modules; M1-13):
  *   GET   /v1/venues/{v}/modules          every module with allowed, state, needs and what it hides
  *   PATCH /v1/venues/{v}/modules/{id}     { state, confirm? }: on, stopping or off; a change that turns
- *                                         others off answers the confirm first and applies nothing
+ *                                         others off answers the confirm first and applies nothing;
+ *                                         { state: "on", when_ready: true } on Kitchen & food before
+ *                                         its needs records "on once ready" and answers waiting (D129)
  *   GET   /v1/venues/{v}/flags            the venue's beta and rollout switches
  */
 export function modulesRoutes(
@@ -102,6 +105,8 @@ export function modulesRoutes(
             needs: def.needs,
             hides: def.hides,
             turns_off_with_it: turnsOffWith(states, r.module_id),
+            // Chosen "on once ready" (D129): turns on by itself once its needs are in.
+            wanted: r.wanted,
             ...(r.module_id === "kitchen" ? { still_needs: kitchen } : {}),
           };
         }),
@@ -111,7 +116,7 @@ export function modulesRoutes(
 
   app.patch<{
     Params: VenueParams & { id: string };
-    Body: { state?: ModuleState; confirm?: boolean };
+    Body: { state?: ModuleState; confirm?: boolean; when_ready?: boolean };
   }>("/v1/venues/:venueId/modules/:id", { config: write }, async (request) => {
     const id = request.params.id;
     if (!isModuleId(id)) throw new ApiError("not_found", `no module "${id}"`);
@@ -127,6 +132,17 @@ export function modulesRoutes(
       const rows = await venueModules(c, venueId);
       const states: ModuleStates = statesOf(rows);
       const row = rows.find((r) => r.module_id === id)!;
+      // Off while it waits "on once ready" (D129): the owner no longer wants it.
+      if (target === "off" && row.wanted && row.state === "off") {
+        await setModuleWanted(c, venueId, id, false, updatedBy);
+        await emitEvent(c, {
+          venueId,
+          type: "settings.changed",
+          entityId: "modules",
+          entityVersion: 0,
+        });
+        return { applied: true, changed: [] as ModuleId[] };
+      }
       if (row.state === target) return { applied: false, unchanged: true as const, state: target };
 
       if (target === "on") {
@@ -145,10 +161,23 @@ export function modulesRoutes(
         // Kitchen & food also needs a paired kitchen printer and the allergy notice (spec 16).
         if (id === "kitchen") {
           const needs = await kitchenNeeds(c, venueId, options.clock);
-          if (needs.length > 0)
+          if (needs.length > 0) {
+            // On once ready (D129): chosen now, on by itself once the printer and notice are in.
+            // The module itself stays off: nothing serves food without them.
+            if (request.body?.when_ready === true) {
+              await setModuleWanted(c, venueId, id, true, updatedBy);
+              await emitEvent(c, {
+                venueId,
+                type: "settings.changed",
+                entityId: "modules",
+                entityVersion: 0,
+              });
+              return { applied: false, waiting: true as const, still_needs: needs };
+            }
             throw new ApiError("invalid_request", kitchenNeedsText(needs), {
               details: { reason: "kitchen_needs", missing: needs },
             });
+          }
         }
         await setModuleState(c, venueId, id, "on", updatedBy);
         // Food and the allergy notice appear on every menu, the PDF included (K-08).

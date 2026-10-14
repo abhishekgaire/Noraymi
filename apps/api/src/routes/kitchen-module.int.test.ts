@@ -34,7 +34,13 @@ const call = (method: "GET" | "PATCH" | "PUT", path: string, payload?: object) =
 const kitchenRow = async () =>
   (
     (await call("GET", "/modules")).json() as {
-      modules: { id: string; allowed: boolean; state: string; still_needs?: string[] }[];
+      modules: {
+        id: string;
+        allowed: boolean;
+        state: string;
+        still_needs?: string[];
+        wanted?: boolean;
+      }[];
     }
   ).modules.find((m) => m.id === "kitchen")!;
 const stateOf = async (id: string) =>
@@ -163,6 +169,57 @@ describe("Kitchen & food: the module switch and the kitchen key", () => {
       unsent_warn_min: 7,
       kitchen_printer: true,
     });
+  });
+
+  it("on once ready (O-17; D129): chosen before its printer and notice, Kitchen turns on by itself once both are in", async () => {
+    // Start again from off, with no notice and no kitchen printer.
+    expect((await call("PATCH", "/modules/kitchen", { state: "off" })).statusCode).toBe(200);
+    await call("PUT", "/settings/kitchen", {
+      value: { allergyNotice: null, lastOrder: null, unsentWarnMin: 7 },
+    });
+    await owner.query(
+      "update devices set revoked_at = now() where venue_id = $1 and station = 'kitchen' and revoked_at is null",
+      [venueId],
+    );
+    expect((await kitchenRow()).still_needs).toEqual(["printer", "allergyNotice"]);
+
+    // On is still refused outright; "on once ready" records the choice and leaves it off.
+    expect((await call("PATCH", "/modules/kitchen", { state: "on" })).statusCode).toBe(400);
+    const wait = await call("PATCH", "/modules/kitchen", { state: "on", when_ready: true });
+    expect(wait.statusCode, wait.body).toBe(200);
+    expect(wait.json()).toMatchObject({
+      applied: false,
+      waiting: true,
+      still_needs: ["printer", "allergyNotice"],
+    });
+    expect(await kitchenRow()).toMatchObject({ state: "off", wanted: true });
+    // Off forgets it; the owner can choose it again.
+    expect((await call("PATCH", "/modules/kitchen", { state: "off" })).json()).toMatchObject({
+      applied: true,
+    });
+    expect(await kitchenRow()).toMatchObject({ state: "off", wanted: false });
+    await call("PATCH", "/modules/kitchen", { state: "on", when_ready: true });
+
+    // The notice alone isn't enough: still off and wanted.
+    const notice = await call("PUT", "/settings/kitchen", {
+      value: { allergyNotice: TEST_NOTICE, lastOrder: null, unsentWarnMin: 7 },
+    });
+    expect(notice.statusCode, notice.body).toBe(200);
+    expect(await kitchenRow()).toMatchObject({
+      state: "off",
+      wanted: true,
+      still_needs: ["printer"],
+    });
+
+    // The kitchen printer completes it: Kitchen & food is on, and no longer waiting.
+    const printer = await call("POST", "/printers", {
+      name: "TEST kitchen 2",
+      station: "kitchen",
+      protocol: "cloudprnt",
+    });
+    expect(printer.statusCode, printer.body).toBe(201);
+    expect(await stateOf("kitchen")).toBe("on");
+    expect((await kitchenRow()).wanted).toBe(false);
   });
 
   it("Kitchen needs Bar screen & tickets, and turning that off lists Kitchen among what turns off with it", async () => {

@@ -60,6 +60,19 @@ export interface SetupFacts {
     readonly reader: boolean;
     readonly receiptPrinterWithDrawer: boolean;
     readonly merchantCategory: boolean;
+    /** Paid on outside card machine is on (D126): cards can be taken without a Stripe reader (D129). */
+    readonly outsideCard: boolean;
+    /** The walk-in choice is Put a card on the tab, which needs a reader at the front desk. */
+    readonly walkInCardOnTab: boolean;
+  };
+  /**
+   * Kitchen & food chosen as "on once ready" (D129): steps 8 and 12 then ask for its allergy
+   * notice and its kitchen printer. Not wanted (or already on), they ask for neither.
+   */
+  readonly kitchen: {
+    readonly wanted: boolean;
+    readonly allergyNotice: boolean;
+    readonly printer: boolean;
   };
   /** Steps the owner pressed Skip for now on. */
   readonly skipped: readonly SetupStep[];
@@ -82,6 +95,15 @@ export function requiredSteps(plan: SetupPlan | null): SetupStep[] {
 /** Steps the plan doesn't use: skipped by themselves, with the reason shown. */
 export function unusedSteps(plan: SetupPlan | null): SetupStep[] {
   return plan === "bar" ? [...ROOMS_ONLY] : [];
+}
+
+/**
+ * Whether the venue must have a Stripe card reader before it opens (D129): only when it takes cards
+ * through Stripe's readers alone. With Paid on outside card machine on, a reader is optional,
+ * unless the walk-in choice is Put a card on the tab, which taps a card on the front-desk reader.
+ */
+export function readerRequired(d: SetupFacts["devices"]): boolean {
+  return !d.outsideCard || d.walkInCardOnTab;
 }
 
 /** What is still missing in a step, as message-key suffixes (setup.missing.<key>). */
@@ -121,6 +143,7 @@ function missingIn(step: SetupStep, f: SetupFacts): string[] {
       break;
     case "menu":
       need(f.menu.pricedItem, "menuItem");
+      if (f.kitchen.wanted) need(f.kitchen.allergyNotice, "allergyNotice");
       break;
     case "team":
       need(f.team.managerWithPin, "manager");
@@ -134,8 +157,9 @@ function missingIn(step: SetupStep, f: SetupFacts): string[] {
       need(f.texts.answered, "texts");
       break;
     case "devices":
-      need(f.devices.reader, "reader");
+      if (readerRequired(f.devices)) need(f.devices.reader, "reader");
       need(f.devices.receiptPrinterWithDrawer, "receiptPrinter");
+      if (f.kitchen.wanted) need(f.kitchen.printer, "kitchenPrinter");
       need(f.devices.merchantCategory, "merchantCategory");
       break;
   }
@@ -143,6 +167,12 @@ function missingIn(step: SetupStep, f: SetupFacts): string[] {
 }
 
 /** How many things a step asks for, to tell "some saved" (attention) from "nothing yet". */
+function partsOf(step: SetupStep, f: SetupFacts): number {
+  const kitchen = f.kitchen.wanted ? 1 : 0;
+  if (step === "menu") return PARTS.menu + kitchen;
+  if (step === "devices") return PARTS.devices - (readerRequired(f.devices) ? 0 : 1) + kitchen;
+  return PARTS[step];
+}
 const PARTS: Record<SetupStep, number> = {
   venue: 4,
   plan: 1,
@@ -190,7 +220,7 @@ export function setupChecklist(f: SetupFacts): SetupChecklist {
     if (unused.includes(id)) mark = "not_used";
     else if (missing.length === 0) mark = "done";
     else if (f.skipped.includes(id)) mark = "skipped";
-    else if (partsMissing < PARTS[id]) mark = "attention";
+    else if (partsMissing < partsOf(id, f)) mark = "attention";
     else mark = "not_started";
     return { id, number: i + 1, mark, required: required.includes(id), missing };
   });

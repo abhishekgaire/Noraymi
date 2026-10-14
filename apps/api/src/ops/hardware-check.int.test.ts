@@ -207,4 +207,24 @@ describe("a venue on its bar computers alone (W-05; Sing Sing's set)", () => {
       },
     ]);
   });
+  it("West 4's set with the outside card machine on: a missing reader is named but optional (O-15; D129)", async () => {
+    // The readers are revoked above; with the outside card machine off, both pay points fail.
+    const setOutside = (state: "on" | "off") =>
+      owner.query(
+        `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, $2)
+           on conflict (venue_id, module_id) do update set state = excluded.state`,
+        [venueId, state],
+      );
+    await setOutside("off");
+    const off = await check();
+    expect(off.lines.find((l) => l.what === "Bar reader")).toMatchObject({ ok: false });
+    await setOutside("on");
+    const on = await check();
+    expect(on.lines.find((l) => l.what === "Bar reader")).toEqual({
+      what: "Bar reader",
+      ok: true,
+      detail: "optional, cards on the outside card machine (no reader)",
+    });
+    expect(on.lines.find((l) => l.what === "Front desk reader")!.ok).toBe(true);
+  });
 });

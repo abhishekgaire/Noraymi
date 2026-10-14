@@ -248,6 +248,24 @@ describe("the Console", () => {
         )
       ).statusCode,
     ).toBe(400);
+    // The website, Safety & ID records and Marketing texts are in every plan (D129): no switch here.
+    await pool.query(
+      "update venue_modules set allowed = false where venue_id = $1 and module_id = 'website'",
+      [v.venueA],
+    );
+    const detail = json(await call("GET", `/v1/console/venues/${v.venueA}`, undefined, { cookie }));
+    const website = (
+      detail["modules"] as { id: string; allowed: boolean; every_plan: boolean }[]
+    ).find((m) => m.id === "website");
+    expect(website).toMatchObject({ allowed: true, every_plan: true });
+    const refuse = await call(
+      "PATCH",
+      `/v1/console/venues/${v.venueA}/modules/website`,
+      { allowed: false },
+      { cookie },
+    );
+    expect(refuse.statusCode).toBe(400);
+    expect(json(refuse).error?.message).toMatch(/every plan/);
   });
 
   it("a flag on venue B leaves venue A's flags unchanged, and the audit log names the staff member", async () => {

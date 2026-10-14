@@ -55,6 +55,7 @@ export {
   statesOf,
   setModuleState,
   setModuleAllowed,
+  setModuleWanted,
   venueFlags,
   setVenueFlag,
 } from "./modules.js";

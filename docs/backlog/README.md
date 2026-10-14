@@ -29,7 +29,7 @@
 
 **Sing Sing first (approved Oct 9, 2026).** West 4 asked that the system go live first at Sing Sing Karaoke, Astoria, then West 4 (decision D98). [K · Kitchen](K-kitchen.md) proposes 11 tickets (5 S, 6 M) for the draft [Kitchen and food](../spec/16-kitchen.md) spec, and [S · Sing Sing go-live](S-sing-sing-go-live.md) lists the go-live work done again for Sing Sing (S-01 to S-12). The founder approved both (Oct 9 and Oct 11, 2026); they aren't counted in the table above.
 
-**Owner onboarding (Oct 11, 2026).** [O · Owner onboarding](O-onboarding.md) builds the [Set up your venue](../spec/17-onboarding.md) wizard in phase 1 (decision D113): our Console makes a venue and invites its owner, and the owner enters the plan, Stripe, rooms, prices, hours, deposits, menu, team, contacts and licenses, all editable later in Admin. 14 tickets (4 S, 10 M), O-01 to O-14, before S-01; not counted in the table above.
+**Owner onboarding (Oct 11, 2026).** [O · Owner onboarding](O-onboarding.md) builds the [Set up your venue](../spec/17-onboarding.md) wizard in phase 1 (decision D113): our Console makes a venue and invites its owner, and the owner enters the plan, Stripe, rooms, prices, hours, deposits, menu, team, contacts and licenses, all editable later in Admin. 17 tickets (6 S, 11 M), O-01 to O-17, before S-01; O-15 to O-17 close the gaps the founder's click-through with Sing Sing's values found (D129). Not counted in the table above.
 
 **Each venue's own Twilio (Oct 12, 2026).** [T · Each venue's own Twilio account](T-twilio-own-account.md) builds decision D123: a venue connects its own Twilio account in Admin → Phone & texts or onboarding step 11, every text goes from it, codes and invites go by email until its texts are live, and the platform's Twilio pieces (subaccounts, Register for texts) are retired. 4 tickets (2 S, 2 M), T-01 to T-04, before S-05; not counted in the table above.
 
@@ -336,6 +336,9 @@
 | [O-12 · Steps 10 and 11: licenses, texts registration, website and the old system's files](O-onboarding.md#o-12--steps-10-and-11-licenses-texts-registration-website-and-the-old-systems-files) | M | O-02; M8-09, M2-09, M8-22, M9-01, M9-09 |
 | [O-13 · Step 12: devices, the go-live checks and Finish setup](O-onboarding.md#o-13--step-12-devices-the-go-live-checks-and-finish-setup) | S | O-02; M1-15, M3-13, M3-14, M4-02, M4-29 |
 | [O-14 · Onboard a new venue from scratch in the demo, then enter Sing Sing's values](O-onboarding.md#o-14--onboard-a-new-venue-from-scratch-in-the-demo-then-enter-sing-sings-values) | M | O-01 to O-13 |
+| [O-15 · No card reader needed when cards go on the venue's own machine](O-onboarding.md#o-15--no-card-reader-needed-when-cards-go-on-the-venues-own-machine) | S | O-13; F-10 |
+| [O-16 · The website, Safety & ID records and Marketing texts in every plan](O-onboarding.md#o-16--the-website-safety--id-records-and-marketing-texts-in-every-plan) | S | O-04; M1-35 |
+| [O-17 · Choose Kitchen & food in step 2 "on once ready"](O-onboarding.md#o-17--choose-kitchen--food-in-step-2-on-once-ready) | M | O-04, O-10, O-13; K-01 |
 
 ### [T · Each venue's own Twilio account](T-twilio-own-account.md)
 

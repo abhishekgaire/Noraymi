@@ -164,6 +164,8 @@ export function consoleRoutes(
           state: m.state,
           core: def.core,
           phase1: def.phase1,
+          // In every plan (D129): always allowed, so the allow-list shows no switch for it.
+          every_plan: def.allowedOff === true,
         };
       }),
       flags,
@@ -189,6 +191,11 @@ export function consoleRoutes(
       if (typeof allowed !== "boolean") throw new ApiError("invalid_request", "send { allowed }");
       if (moduleDef(id).core && !allowed)
         throw new ApiError("invalid_request", "a core module is always allowed and always on");
+      if (moduleDef(id).allowedOff && !allowed)
+        throw new ApiError(
+          "invalid_request",
+          "every plan includes this module; the venue turns it off",
+        );
       const context = { venueId: venue.id, userId: staff.id, requestId: request.requestId };
       const result = await app.db.withVenue(context, async (c) => {
         const rows = await venueModules(c, venue.id);

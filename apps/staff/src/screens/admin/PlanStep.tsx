@@ -245,6 +245,8 @@ export function PlanStep({ onSaved }: { onSaved: () => void }) {
           </button>
         ))}
       </div>
+      {/* In every plan, off until the owner turns it on (D126, D129). */}
+      <p className="muted small">{t("onboarding.plan.everyPlan")}</p>
       <div className="setup-promo">
         <label>
           {t("onboarding.plan.promo")}

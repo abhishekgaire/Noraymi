@@ -58,6 +58,8 @@ interface VenueDetail {
   modules: {
     id: string;
     allowed: boolean;
+    /** In every plan (D129): always allowed, no switch here. */
+    every_plan?: boolean;
     state: "on" | "stopping" | "off";
     core: boolean;
     phase1: boolean;
@@ -429,6 +431,8 @@ function Venues({
                       <td>
                         {m.core ? (
                           <span className="muted">Core</span>
+                        ) : m.every_plan ? (
+                          <span className="muted">Every plan</span>
                         ) : (
                           <label className="switch">
                             <input

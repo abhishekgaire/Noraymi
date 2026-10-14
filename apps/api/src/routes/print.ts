@@ -31,6 +31,7 @@ import type { Authenticator } from "../http/conventions.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { managerOnDutyAt } from "../approvals/service.js";
+import { switchOnWanted } from "../kitchen/module.js";
 import { enqueuePush } from "../push/send-push.js";
 import {
   DRAWER_MARKUP,
@@ -499,6 +500,8 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
             entityId: r.rows[0]!.id,
             entityVersion: 0,
           });
+          // A kitchen printer may complete Kitchen & food's needs (on once ready, D129).
+          await switchOnWanted(c, request.venueId!, options.clock);
           return r.rows[0]!.id;
         });
         // No credential: a bar computer prints it (W-04).
@@ -525,6 +528,7 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
           entityId: r.rows[0]!.id,
           entityVersion: 0,
         });
+        await switchOnWanted(c, request.venueId!, options.clock);
         return r.rows[0]!.id;
       });
       // The credential is shown once; only its hash is kept.
@@ -633,6 +637,8 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
           entityId: row.id,
           entityVersion: 0,
         });
+        // A printer moved to the kitchen station may complete Kitchen & food's needs (D129).
+        if (net.station === "kitchen") await switchOnWanted(c, request.venueId!, options.clock);
         return row;
       });
     },

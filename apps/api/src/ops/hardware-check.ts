@@ -188,6 +188,7 @@ export async function hardwareEvidence(
   const tabletsOn = stateOf(on, "room_tablets") !== "off";
   const tvOn = stateOf(on, "bar_mode") !== "off";
   const kitchenOn = stateOf(on, "kitchen") !== "off";
+  const outsideCard = stateOf(on, "outside_card") === "on";
   const badges =
     (
       await c.query<{ n: number }>(
@@ -207,10 +208,17 @@ export async function hardwareEvidence(
           r.cellular === true ? "" : "cellular not on",
           r.online ? "" : "offline",
         ].filter(Boolean);
+    // Cards on the venue's own machine (D126): a Stripe reader is optional, so a missing or
+    // unready one is named but doesn't fail the check (D129).
     lines.push({
       what: `${s.name} reader`,
-      ok: problems.length === 0,
-      detail: problems.length === 0 ? `${r!.name}, cellular on, online` : problems.join("; "),
+      ok: problems.length === 0 || outsideCard,
+      detail:
+        problems.length === 0
+          ? `${r!.name}, cellular on, online`
+          : outsideCard
+            ? `optional, cards on the outside card machine (${problems.join("; ")})`
+            : problems.join("; "),
     });
     const drawer = drawers.rows.find((d) => d.station === s.station);
     lines.push({

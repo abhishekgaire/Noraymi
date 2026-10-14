@@ -189,10 +189,13 @@ describe("what each plan allows (O-04)", () => {
     );
     expect(PLAN_MODULES.rooms).not.toContain("kitchen");
     expect(PLAN_MODULES.rooms_kitchen).toContain("kitchen");
-    // No plan decides a core module or one the blueprint leaves to our Console.
+    // No plan decides a core module. The website, Safety & ID records, Marketing texts and the
+    // outside card machine are in every plan (D129): always allowed, off until the owner turns them on.
     for (const m of PLAN_GOVERNED_MODULES) expect(moduleDef(m).core).toBe(false);
-    for (const m of ["safety", "website", "marketing_texts"] as const)
+    for (const m of ["safety", "website", "marketing_texts", "outside_card"] as const) {
       expect(PLAN_GOVERNED_MODULES).not.toContain(m);
+      expect(moduleDef(m).allowedOff).toBe(true);
+    }
   });
 
   it("a plan switches on what it newly includes, each after what it needs (D121)", () => {
