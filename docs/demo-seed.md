@@ -345,7 +345,7 @@ The Close the night board (`Night`) is labeled **"Later tonight · Sat 4:12 AM"*
 - Unsent drinks
 - The clear-out check (4:30 AM)
 - Paper slips not entered: "3 slips not entered · tips post to Sat Sep 26"
-- Both drawers counted
+- Every drawer counted
 
 **The Z report:**
 

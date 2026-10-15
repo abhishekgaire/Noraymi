@@ -233,6 +233,10 @@ export const tabsSchema = z
 export const tabCardRequired = (tabs: { cardRequired?: boolean | undefined } | null | undefined) =>
   tabs?.cardRequired !== false;
 
+/** Whether the close prints and emails the Z report (U-15): on unless the venue turned it off. */
+export const zReportAtClose = (pos: { zReportAtClose?: boolean | undefined } | null | undefined) =>
+  pos?.zReportAtClose !== false;
+
 export const posSchema = z
   .object({
     layouts: z.record(z.string(), z.number().int().nonnegative()),
@@ -253,6 +257,12 @@ export const posSchema = z
      * default, and absent reads as off, so a venue saved before it existed keeps its runners.
      */
     selfRunOrders: z.boolean().optional(),
+    /**
+     * "Print and email the Z report at close" (U-15; D133): Close the night prints the Z report on the
+     * station's receipt printer and emails it to the venue's owners. On by default: absent reads as
+     * on, so a venue saved before it existed gets it; false turns it off.
+     */
+    zReportAtClose: z.boolean().optional(),
     orderAging: z
       .object({
         phonesSec: z.number().nonnegative(),

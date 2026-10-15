@@ -115,6 +115,18 @@ export const accountingExportData = z
   })
   .strict();
 
+/** The Z report at close (U-15; D133) to the venue's owners: the night, its Z number and the printed lines. */
+export const zReportData = z
+  .object({
+    venueName: z.string().min(1),
+    /** YYYY-MM-DD, the business date closed. */
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    zNumber: z.number().int().min(1),
+    /** The Z report as the receipt printer prints it, one line each (amounts only). */
+    lines: z.array(z.string().max(200)).max(400),
+  })
+  .strict();
+
 /** A license's renewal reminder to an owner or manager (M8-09): which license, and when it expires. */
 export const licenseReminderData = z
   .object({
@@ -206,6 +218,7 @@ export const templateSchemas = {
   owner_recovery_notice: ownerRecoveryNoticeData,
   receipt: receiptData,
   accounting_export: accountingExportData,
+  z_report: zReportData,
   license_reminder: licenseReminderData,
   emergency_action: emergencyActionData,
   money_audit: moneyAuditData,
@@ -437,6 +450,22 @@ export function render<N extends TemplateName>(
         subject: line(payroll ? "email.payroll.subject" : "email.accounting.subject"),
         text: paragraphs.join("\n\n"),
         html: paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n"),
+      };
+    }
+    case "z_report": {
+      const d = data as TemplateData<"z_report">;
+      const values = { venue: d.venueName, date: d.date, z: d.zNumber };
+      const line = (key: MessageKey) => fill(t(locale, key), values);
+      const intro = line("email.zReport.body");
+      const footer = line("email.footer");
+      return {
+        subject: line("email.zReport.subject"),
+        text: [intro, d.lines.join("\n"), footer].join("\n\n"),
+        html: [
+          `<p>${escapeHtml(intro)}</p>`,
+          `<pre style="font-family:monospace">${escapeHtml(d.lines.join("\n"))}</pre>`,
+          `<p>${escapeHtml(footer)}</p>`,
+        ].join("\n"),
       };
     }
     case "license_reminder": {

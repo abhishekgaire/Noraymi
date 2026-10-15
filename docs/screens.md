@@ -441,6 +441,7 @@ The staff app at desktop width. The bar and front-desk computers run it inside t
 10. **Names and times (F33, C28).** The canvas log names "Priya K." (moved from Room 11 to Room 13, and a waitlist text). Build the seed's names: Nadia K. is the waitlist party of 6, and Room 12 has been open since 9:00 PM. *Decided in [FB 3a] and [FB 3c]. See: [Demo seed][see-seed].*
 11. **Training checks (F39).** The canvas has none. Practice checks (T- numbers) stay out of the Z report, the gratuity, the tip pool and the reason-only shift totals. *Decided in [FB 4.14]. Spec: [Security and data retention][spec-12].*
 12. **Capture-failed tabs (F53).** The canvas has no list. Build the manager's list of tabs whose capture failed; it stays there until settled and doesn't hold up the close. *Spec: [Payment flows][spec-07], [API][spec-08].*
+13. **Never stuck at 4 AM (U-15).** The canvas has no steps and sends each fix to another screen. Build the close as numbered steps (1 the bar tabs, 2 every drawer, 3 the clear-out, 4 Close the night) under Before closing, a Fix that scrolls to its step where the page fixes it, **Clock out {name} at [time]** with a reason and the PIN for someone still on, **Clear the waitlist** and **Mark all rooms clean** on their lines, the PIN on the close in a PIN session, and where the Z report printed and who it was emailed to. "Every drawer counted", not "both". *Decided in [D133](decisions.md). Spec: [Staff screens and the bar POS][spec-10], [API][spec-08].*
 
 ### Bar
 

@@ -441,8 +441,57 @@
   white-space: nowrap;
 }
 .close-night.desk .night-bar-tabs {
+  padding-top: 4px;
+}
+/* U-15: the close as numbered steps (1 tabs, 2 drawers, 3 clear-out, 4 close). */
+.close-night .night-step {
+  margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--w4-line);
+  outline: none;
+  scroll-margin-top: 16px;
+}
+.close-night .night-step-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: var(--w4-text-md, 1rem);
+}
+.close-night .night-step-no {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--w4-pink);
+  color: var(--w4-surface);
+  font-weight: 700;
+  flex: none;
+}
+.close-night .night-checks button,
+.close-night .night-checks input {
+  min-height: 44px;
+}
+.close-night .night-on-clock {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.close-night .night-on-clock > li:has(form) {
+  flex-basis: 100%;
+}
+.close-night .night-clock-out {
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+}
+.close-night .night-clock-out label {
+  display: grid;
+  gap: 4px;
 }
 .close-night.desk .night-tabs {
   display: flex;

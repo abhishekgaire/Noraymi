@@ -1173,7 +1173,7 @@ Real drawer kicks need the real drawer hardware.
    - Unsent drinks
    - The clear-out check (4:30 AM)
    - "**3 slips not entered · tips post to Sat Sep 26**" (doesn't block)
-   - Both drawers counted
+   - Every drawer counted
 4. Press **Close the night** now: refused, naming each failing check.
 5. **Charge the remaining tabs**: 4 cards, $152.43 in all. Tariq is skipped while his void waits.
 6. Fix each check. At 4:30 AM do the clear-out check: "Clear-out check · Andy · 4:31 AM".
@@ -2009,4 +2009,16 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 7. Tap Abhishek (owner) and his PIN while he's off the clock: Rooms opens with no time clock in between. He clocks in from **Time clock** on the sign-in screen.
 8. Turn the Wi-Fi off: the panel says "Clocking in and out needs the connection · try again when it's back" and its buttons wait.
 9. Spanish: **Antes de marcar la salida**, **Pasar todas las cuentas a Maya S.**, **Marcar salida**, **Entregar mi efectivo**, **Contar**.
+
+### 31.15 Close the night without getting stuck (U-15)
+
+1. Start the demo (`scripts/demo-start.sh`). As Andy (passkey), fix everything but the time clock, the waitlist and the cleaning rooms: end the rooms, close or charge the tabs, count both drawers. Move the clock to Sat 4:31 AM (`2026-09-26T08:31:00Z`).
+2. On the bar computer, tap Andy and his PIN, then open **Close the night**. Before closing reads as steps: **1** Close the bar tabs, **2** Count every drawer, **3** The clear-out, **4** Close the night. A **Fix** on open tabs, the drawers or the clear-out scrolls to its step; the others go to their screen.
+3. "Staff still on the clock · 2" has **Clock out Maya S.** and **Clock out Diego R.** Tap Diego's: the time reads 04:31 (change it back toward his last punch if he left earlier; later than now or before his last punch is refused), tap **Forgot to clock out**, type Andy's PIN and tap **Clock out Diego R. at 4:31 AM**. The line drops to 1. Do the same for Maya.
+4. **Clear the waitlist** asks once ("Take 3 parties off the waitlist? Nobody is texted."); confirm: Open waitlist entries · 0, and no guest gets a text. **Mark all rooms clean**: Rooms still cleaning · 0.
+5. In Reports → Staff actions (Andy, passkey), Andy has **Punch edits · 2**, each with "Forgot to clock out".
+6. Tap **Done** for the clear-out, then **Close the night**: the confirmation asks for **Your PIN again**; type it and close. "Night closed · 4:31 AM" and "Z report sent to the bar printer · emailed to abhishek@demo.west4.local". The Z report is in Mailpit (localhost:8025). You never left the page.
+7. Admin → Bar POS → Close the night: untick **Print and email the Z report at close** and publish; the next night's close prints and emails nothing.
+8. Turn the Wi-Fi off: the page says closing the night needs the connection and its buttons wait.
+9. Spanish: **Marcar salida de Diego R.**, **Vaciar la lista de espera**, **Marcar todas las salas limpias**, **Todos los cajones contados**.
 

@@ -21,6 +21,8 @@ import { TapPayment } from "./TapPayment.js";
  * guests still at the bar close on the reader. "Charge the remaining tabs" (owners and managers) asks once,
  * with how many cards and the total, then charges each tab not waiting on an approval at its balance with
  * no tip. A tab waiting on an approval is skipped until it's decided; the tab cut-off catches anything left.
+ * U-15 (D133): the page reads as numbered steps inside Before closing: 1 the bar tabs, 2 the drawers,
+ * 3 the clear-out, 4 Close the night (NightChecks), with the report and tips beside them.
  */
 interface NightTab {
   readonly id: string;
@@ -133,6 +135,85 @@ export function CloseTheNight() {
     );
 
   const remaining = night?.charge_remaining ?? { count: 0, total_cents: 0 };
+  const manager = signedIn?.membership.role === "owner" || signedIn?.membership.role === "manager";
+  const assurance = signedIn?.me.session.assurance;
+  const tabsStep = (
+    <section className="night-bar-tabs" aria-labelledby="night-tabs">
+      <h2 id="night-tabs">{t("night.barTabs")}</h2>
+      {night?.tab_cut_off_at && (
+        <p className="small">
+          {t("night.cutOffAt", { time: time(night.tab_cut_off_at, timeZone) })}
+        </p>
+      )}
+      {night?.bar_tabs.length === 0 ? (
+        <p className="muted">{t("night.noTabs")}</p>
+      ) : (
+        <ul className="night-tabs">
+          {night?.bar_tabs.map((tab) => (
+            <li key={tab.id} className="row night-tab">
+              <span>
+                <strong data-guest-text>{tab.name}</strong>
+                {tab.card && (
+                  <span className="small" data-guest-text>
+                    {` · ${tab.card.brand} ··${tab.card.last4}`}
+                  </span>
+                )}
+              </span>
+              <span>{money(tab.total_cents as never)}</span>
+              {tab.cardless ? (
+                <span className="badge-text">{t("night.noCard")}</span>
+              ) : tab.waiting_for ? (
+                <span className="badge-text">
+                  {t("rail.badge.waiting", { name: tab.waiting_for })}
+                  {" · "}
+                  {t("night.skipped")}
+                </span>
+              ) : tab.state === "tipping" ? (
+                <span className="badge-text">{t("night.tipping")}</span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {confirming ? (
+        <div className="confirm" role="group" aria-labelledby="night-confirm">
+          <p id="night-confirm">
+            <strong>{t("night.chargeRemaining")}</strong>
+          </p>
+          <p>{t("night.cards", { count: remaining.count })}</p>
+          <p>{t("night.inAll", { total: money(remaining.total_cents as never) })}</p>
+          <p className="small">{t("night.noTip")}</p>
+          <div className="actions">
+            <button type="button" className="primary" disabled={busy} onClick={() => void charge()}>
+              {busy ? t("night.charging") : t("night.chargeThem")}
+            </button>
+            <button
+              type="button"
+              className="link"
+              disabled={busy}
+              onClick={() => setConfirming(false)}
+            >
+              {t("night.back")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="actions">
+          <button
+            type="button"
+            className="primary"
+            disabled={remaining.count === 0}
+            onClick={() => {
+              setDone(null);
+              setConfirming(true);
+            }}
+          >
+            {t("night.chargeRemaining")}
+          </button>
+        </div>
+      )}
+    </section>
+  );
   return (
     <section className="screen close-night desk" aria-labelledby="night-title">
       <div className="desk-head">
@@ -147,89 +228,12 @@ export function CloseTheNight() {
             checks={night.checks}
             closed={night.closed}
             postsTo={night.late_money_posts_to}
+            needsPin={assurance === "pin" || assurance === "badge"}
+            tabsStep={tabsStep}
+            drawersStep={<DrawerPanel venueId={venueId} canHandOver={manager} />}
             onChanged={() => void load()}
           />
         )}
-        <section className="night-bar-tabs" aria-labelledby="night-tabs">
-          <h2 id="night-tabs">{t("night.barTabs")}</h2>
-          {night?.tab_cut_off_at && (
-            <p className="small">
-              {t("night.cutOffAt", { time: time(night.tab_cut_off_at, timeZone) })}
-            </p>
-          )}
-          {night?.bar_tabs.length === 0 ? (
-            <p className="muted">{t("night.noTabs")}</p>
-          ) : (
-            <ul className="night-tabs">
-              {night?.bar_tabs.map((tab) => (
-                <li key={tab.id} className="row night-tab">
-                  <span>
-                    <strong data-guest-text>{tab.name}</strong>
-                    {tab.card && (
-                      <span className="small" data-guest-text>
-                        {` · ${tab.card.brand} ··${tab.card.last4}`}
-                      </span>
-                    )}
-                  </span>
-                  <span>{money(tab.total_cents as never)}</span>
-                  {tab.cardless ? (
-                    <span className="badge-text">{t("night.noCard")}</span>
-                  ) : tab.waiting_for ? (
-                    <span className="badge-text">
-                      {t("rail.badge.waiting", { name: tab.waiting_for })}
-                      {" · "}
-                      {t("night.skipped")}
-                    </span>
-                  ) : tab.state === "tipping" ? (
-                    <span className="badge-text">{t("night.tipping")}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-          {confirming ? (
-            <div className="confirm" role="group" aria-labelledby="night-confirm">
-              <p id="night-confirm">
-                <strong>{t("night.chargeRemaining")}</strong>
-              </p>
-              <p>{t("night.cards", { count: remaining.count })}</p>
-              <p>{t("night.inAll", { total: money(remaining.total_cents as never) })}</p>
-              <p className="small">{t("night.noTip")}</p>
-              <div className="actions">
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={busy}
-                  onClick={() => void charge()}
-                >
-                  {busy ? t("night.charging") : t("night.chargeThem")}
-                </button>
-                <button
-                  type="button"
-                  className="link"
-                  disabled={busy}
-                  onClick={() => setConfirming(false)}
-                >
-                  {t("night.back")}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="actions">
-              <button
-                type="button"
-                className="primary"
-                disabled={remaining.count === 0}
-                onClick={() => {
-                  setDone(null);
-                  setConfirming(true);
-                }}
-              >
-                {t("night.chargeRemaining")}
-              </button>
-            </div>
-          )}
-        </section>
       </div>
       {error && (
         <p role="alert" className="error">
@@ -252,23 +256,13 @@ export function CloseTheNight() {
           </ul>
         </section>
       )}
-      <div className="desk-cols three night-cols">
+      <div className="desk-cols night-cols">
         {venueId && date && (
           <ReportPanel key={night?.closed ? "z" : "x"} venueId={venueId} date={date} />
         )}
         {venueId && date && (
           <div className="card">
             <TipsPanel venueId={venueId} date={date} />
-          </div>
-        )}
-        {venueId && (
-          <div className="card">
-            <DrawerPanel
-              venueId={venueId}
-              canHandOver={
-                signedIn?.membership.role === "owner" || signedIn?.membership.role === "manager"
-              }
-            />
           </div>
         )}
       </div>

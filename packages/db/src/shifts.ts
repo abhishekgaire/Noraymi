@@ -211,6 +211,11 @@ export async function recordPunch(
     readonly at: Temporal.Instant;
     readonly deviceId?: string | null;
     readonly venue: VenueTime;
+    /**
+     * Someone else's punch made for them (U-15; D133): a manager clocking out a forgotten shift.
+     * It's written as an edited punch, with who and why, so it shows on Staff actions as a punch edit.
+     */
+    readonly editedBy?: { readonly userId: string; readonly reason: string };
   },
 ): Promise<ShiftRow> {
   const { venueId, membershipId } = input;
@@ -227,17 +232,27 @@ export async function recordPunch(
   else if (input.kind === "break_end" && !onBreak)
     throw new ShiftError("not_on_break", "not on a break");
 
-  const insert = async (kind: PunchKind, duty: Duty | null) =>
+  const insert = async (kind: PunchKind, duty: Duty | null, edited = false) =>
     (
       await c.query<{ id: string }>(
-        `insert into time_punches (venue_id, membership_id, kind, duty, at, device_id, created_at)
-         values ($1, $2, $3, $4, $5, $6, clock_timestamp()) returning id`,
-        [venueId, membershipId, kind, duty, input.at.toString(), input.deviceId ?? null],
+        `insert into time_punches (venue_id, membership_id, kind, duty, at, device_id, edited_by, reason, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, clock_timestamp()) returning id`,
+        [
+          venueId,
+          membershipId,
+          kind,
+          duty,
+          input.at.toString(),
+          input.deviceId ?? null,
+          edited ? (input.editedBy?.userId ?? null) : null,
+          edited ? (input.editedBy?.reason ?? null) : null,
+        ],
       )
     ).rows[0]!.id;
 
   if (input.kind === "clock_out" && onBreak) await insert("break_end", open!.duty);
-  const id = await insert(input.kind, input.kind === "clock_in" ? input.duty! : open!.duty);
+  // A break left running ends with the clock-out; only the punch asked for carries the edit.
+  const id = await insert(input.kind, input.kind === "clock_in" ? input.duty! : open!.duty, true);
   const clockInId =
     input.kind === "clock_in"
       ? id
