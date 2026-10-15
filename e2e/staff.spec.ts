@@ -10323,6 +10323,9 @@ test("the Board offline: the browser loses the network, the pink banner shows, a
     await signInAndy(page, request, db);
     const footer = page.getByTestId("sync-footer");
     await expect(footer).toHaveText(/^Online · synced \d+ s ago$/);
+    // The board has been read once before the network goes: the bell's own board read (P-11)
+    // runs beside it, so the first answer can take longer than the footer's first sync.
+    await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
     await page.context().setOffline(true);
     await expect(page.getByTestId("banner-offline")).toHaveText(PINK);
     // The board stays readable, and the footer counts on from the last sync.

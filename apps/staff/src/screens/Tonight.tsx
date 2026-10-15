@@ -236,7 +236,12 @@ export function Tonight() {
         bookings.bookings.filter((b) => b.status === "confirmed" || b.status === "pending"),
       );
       setBooked(bookings.bookings.filter((b) => b.status !== "cancelled"));
-      const tiles = rooms?.rooms ?? [];
+      setFailed(false);
+      // A board read that didn't come back (the network dropped mid-read, a gateway error) keeps
+      // the last board on screen: an empty answer would wipe every room tile and the counts, as if
+      // the venue had no rooms. The next read, or the next event, brings it up to date.
+      if (!rooms) return;
+      const tiles = rooms.rooms;
       setFree(tiles.filter((r) => r.free_now).map((r) => ({ room_id: r.room_id, name: r.name })));
       setRooms(
         tiles.map((r) => ({
@@ -253,10 +258,9 @@ export function Tonight() {
         })),
       );
       setBoardRooms(tiles);
-      setCounts(rooms?.counts ?? null);
-      setAlerts(rooms?.alerts ?? []);
-      setManagerNeeded(rooms?.manager_needed ?? 0);
-      setFailed(false);
+      setCounts(rooms.counts);
+      setAlerts(rooms.alerts ?? []);
+      setManagerNeeded(rooms.manager_needed ?? 0);
     } catch {
       setFailed(true);
     }
