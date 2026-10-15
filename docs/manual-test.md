@@ -1985,3 +1985,15 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. Untick the setting and publish: the column reads **Ready for a runner** again, with no Delivered at the bar.
 7. Spanish: **Llevamos nuestros propios pedidos**, **Listo**, **Entregado**.
 
+### 31.12 Moving a bar tab into a new room, and Undo (U-12)
+
+1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. Sign in as Maya on the bar computer (Bar POS). Tap **Luis M.** in Bar tabs and note his total.
+2. Tap **Move tab to a room**. **Move to a new room** is the first button, above the rooms in use. Tap it: the walk-in sheet opens, titled **Move Luis M.'s tab to a new room**, with the server's pick of room for the party. Tap **2** guests, then **Seat them and move the tab**.
+3. The sheet closes and the rail picks the new room: "Room … · room code … · check #… · Moved to Room … · The hold stays on the card for Room … until a card is tapped for the room", with **Undo** beside it. The room's check reads "Moved from Luis M.'s bar tab"; Luis M. is gone from Bar tabs.
+4. Within 10 seconds tap **Undo**: "Back on Luis M.'s tab · Room … stays seated". Luis M. is back in Bar tabs with the same total to the cent; the room stays seated with nothing on its check (end it from Rooms if the party isn't staying).
+5. Move **Seat 6 · blue jacket** into Room 5 (a room in use) and wait: **Undo** goes after 10 seconds and the message stays.
+6. Undo is refused, with nothing changed, once anything is added to the room's check or a payment taken on it ("Can't undo: something changed on Room …'s check since the move"), when the room has a card so the hold is already being released (Room 9, after `stripe:seed`: no Undo is offered), or onto a cut-off tab.
+7. If the move fails after seating (say the bar stopped serving alcohol, or someone started paying the tab meanwhile), the sheet says "The party is seated, but the tab stayed at the bar." with the reason, and **Done**.
+8. Offline: **Move to a new room**, the rooms and **Undo** are greyed, "Nothing moves while the bar computer is offline."
+9. Spanish: **Mover a una sala nueva**, **Sentarlos y mover la cuenta**, **Deshacer**, **De vuelta en la cuenta de Luis M.**
+

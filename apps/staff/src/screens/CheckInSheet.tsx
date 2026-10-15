@@ -7,6 +7,7 @@ import { useSession } from "../session.js";
 import { HeldCardTake } from "./HeldCardTake.js";
 import { RoomCardTap } from "./RoomCardTap.js";
 import { lengthText } from "./room-start.js";
+import { moveRefusal, movedLine, newKey, type MoveAnswer } from "./MoveTab.js";
 
 /**
  * The check-in sheet (M2-11; screens N10): the same on the board and on a
@@ -54,6 +55,7 @@ interface RoomChoice {
 }
 
 interface Seated {
+  readonly session_id: string;
   readonly check_id: string;
   readonly room_name: string;
   readonly room_code: string;
@@ -85,6 +87,20 @@ export function usE164(typed: string): string | null {
   return null;
 }
 
+/** Move to a new room (U-12, D133): once the party is seated, the bar tab moves into the new room. */
+export interface MoveTabTarget {
+  readonly tabId: string;
+  readonly tabName: string;
+  readonly onMoved: (moved: {
+    readonly message: string;
+    readonly roomId: string;
+    readonly room: string;
+    readonly undoable: boolean;
+  }) => void;
+  /** Seated, but the move was refused: the party stays seated and the tab stays at the bar. */
+  readonly onStayed: (message: string) => void;
+}
+
 export type SheetTarget =
   | { readonly kind: "booking"; readonly bookingId: string; readonly name: string }
   /** A walk-in on a room tile's panel; with no room (+ Walk-in in the header, U-09) the server picks one. */
@@ -96,12 +112,15 @@ export function CheckInSheet({
   target,
   onDone,
   onClose,
+  moveTab,
 }: {
   venueId: string;
   timeZone: string;
   target: SheetTarget;
   onDone: (line: string) => void;
   onClose: () => void;
+  /** U-12: seat a walk-in, then move this bar tab into the new room. */
+  moveTab?: MoveTabTarget;
 }) {
   const { t, money, time } = useT();
   const [party, setParty] = useState<number | null>(null);
@@ -134,6 +153,10 @@ export function CheckInSheet({
   const [heldFor, setHeldFor] = useState<{ checkId: string; line: string; room: string } | null>(
     null,
   );
+  // U-12: seated, but the tab couldn't move (a cut-off, the window, the tab being paid): it stays.
+  const [stayed, setStayed] = useState<{ line: string; why: string } | null>(null);
+  // U-12: moved with no hold to guarantee the room; the venue's card step comes next, then this.
+  const [afterCard, setAfterCard] = useState<Parameters<MoveTabTarget["onMoved"]>[0] | null>(null);
 
   const fixedRoom = picked ?? (target.kind === "walk_in" ? target.roomId : null);
   const load = useCallback(async () => {
@@ -215,22 +238,28 @@ export function CheckInSheet({
                 ...(note.trim() ? { note: note.trim() } : {}),
               },
             )
-          : await api<Seated>("POST", `/v1/venues/${venueId}/rooms/${roomId}/sessions`, {
-              party_size: party,
-              ids_checked: ids,
-              minutes: pkg ? pkg.minutes : minutes,
-              ...(note.trim() ? { note: note.trim() } : {}),
-              ...(pkg ? { package_id: pkg.id } : { time: prepaid ? "prepaid" : "pay_as_you_go" }),
-              ...(name.trim()
-                ? {
-                    guest: {
-                      name: name.trim(),
-                      phone_e164: phoneE164,
-                      ...(email.trim() ? { email: email.trim() } : {}),
-                    },
-                  }
-                : {}),
-            });
+          : await api<Seated>(
+              "POST",
+              `/v1/venues/${venueId}/rooms/${roomId}/sessions`,
+              {
+                party_size: party,
+                ids_checked: ids,
+                minutes: pkg ? pkg.minutes : minutes,
+                ...(note.trim() ? { note: note.trim() } : {}),
+                ...(pkg ? { package_id: pkg.id } : { time: prepaid ? "prepaid" : "pay_as_you_go" }),
+                ...(name.trim()
+                  ? {
+                      guest: {
+                        name: name.trim(),
+                        phone_e164: phoneE164,
+                        ...(email.trim() ? { email: email.trim() } : {}),
+                      },
+                    }
+                  : {}),
+              },
+              // A retry never seats the party twice (U-12 seats, then moves the tab).
+              { idempotencyKey: newKey("walk-in") },
+            );
       const line =
         t("checkIn.done", {
           room: seated.room_name,
@@ -238,6 +267,40 @@ export function CheckInSheet({
           // A practice check (training mode, M7-03) shows as T-0012.
           number: checkNumberLabel(seated.check_number, seated.training === true),
         }) + (seated.text === "not_sent" ? ` · ${t("checkIn.textNotSent")}` : "");
+      if (moveTab) {
+        // U-12: the party is seated; now the tab moves in. A refusal leaves both as they are.
+        let moved: MoveAnswer;
+        try {
+          moved = await api<MoveAnswer>(
+            "POST",
+            `/v1/venues/${venueId}/tabs/${moveTab.tabId}/move-to-room`,
+            { session_id: seated.session_id },
+            { idempotencyKey: newKey("move") },
+          );
+        } catch (err) {
+          const why = moveRefusal(t, err, seated.room_name);
+          setStayed({
+            line,
+            why: why.reason ? `${why.error} ${t("moveTab.reason")} ${why.reason}` : why.error,
+          });
+          return;
+        }
+        const answer = {
+          message: `${line} · ${movedLine(t, moved)}`,
+          roomId,
+          room: seated.room_name,
+          undoable: moved.undoable,
+        };
+        // The tab's hold guarantees the room until a card is tapped for it, so no card step then.
+        if (moved.hold !== "kept" && preview.walk_in === "cardOnTab") {
+          setAfterCard(answer);
+          setCardFor({ checkId: seated.check_id, line, room: seated.room_name });
+        } else if (moved.hold !== "kept" && preview.walk_in === "cardBehindBar") {
+          setAfterCard(answer);
+          setHeldFor({ checkId: seated.check_id, line, room: seated.room_name });
+        } else moveTab.onMoved(answer);
+        return;
+      }
       if (target.kind === "walk_in" && preview.walk_in === "cardOnTab")
         setCardFor({ checkId: seated.check_id, line, room: seated.room_name });
       else if (target.kind === "walk_in" && preview.walk_in === "cardBehindBar")
@@ -254,14 +317,37 @@ export function CheckInSheet({
     }
   };
 
-  const title =
-    target.kind === "booking"
+  const title = moveTab
+    ? t("checkIn.moveTabTitle", { name: moveTab.tabName })
+    : target.kind === "booking"
       ? t("checkIn.title", { name: target.name })
       : (roomName ?? target.roomName)
         ? t("checkIn.walkInTitle", { room: (roomName ?? target.roomName)! })
         : t("checkIn.walkInPicking");
   const dlg = useSheetDialog(title);
 
+  // After the card step, a moved tab's message (with its Undo) instead of the seated line alone.
+  const cardDone = (line: string) =>
+    afterCard && moveTab ? moveTab.onMoved(afterCard) : onDone(line);
+  if (stayed)
+    return (
+      <section className="sheet checkin-sheet" {...dlg.root}>
+        <h2 {...dlg.title}>{title}</h2>
+        <p role="status">{stayed.line}</p>
+        <p className="error" role="alert">
+          {t("moveTab.tabStayed")} {stayed.why}
+        </p>
+        <div className="row">
+          <button
+            type="button"
+            className="primary"
+            onClick={() => moveTab?.onStayed(`${stayed.line} · ${t("moveTab.tabStayed")}`)}
+          >
+            {t("closeTab.done")}
+          </button>
+        </div>
+      </section>
+    );
   if (heldFor)
     return (
       <HeldCardTake
@@ -269,7 +355,7 @@ export function CheckInSheet({
         checkId={heldFor.checkId}
         roomName={heldFor.room}
         seatedLine={heldFor.line}
-        onDone={onDone}
+        onDone={cardDone}
       />
     );
   if (cardFor)
@@ -279,7 +365,7 @@ export function CheckInSheet({
         checkId={cardFor.checkId}
         roomName={cardFor.room}
         seatedLine={cardFor.line}
-        onDone={onDone}
+        onDone={cardDone}
       />
     );
 
@@ -602,7 +688,11 @@ export function CheckInSheet({
               className="primary"
               disabled={busy || roomId === null || !preview.room_fits || chosen?.ok === false}
             >
-              {target.kind === "booking" ? t("checkIn.confirm") : t("checkIn.confirmWalkIn")}
+              {moveTab
+                ? t("checkIn.confirmMoveTab")
+                : target.kind === "booking"
+                  ? t("checkIn.confirm")
+                  : t("checkIn.confirmWalkIn")}
             </button>
             <button type="button" className="secondary" onClick={onClose}>
               {t("checkIn.cancel")}

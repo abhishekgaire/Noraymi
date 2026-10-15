@@ -44,7 +44,7 @@ import { enterSlipTip } from "../tabs/tip.js";
 import { splitTab } from "../tabs/split.js";
 import { declinedOnTab } from "../tabs/pay.js";
 import { reopenTab } from "../tabs/saved-card.js";
-import { moveLine, moveTabToRoom, type MoveLineAnswer } from "../tabs/move.js";
+import { moveLine, moveTabToRoom, undoTabMove, type MoveLineAnswer } from "../tabs/move.js";
 import {
   cancelRoomCard,
   cardView,
@@ -841,6 +841,27 @@ export function tabRoutes(
           (x) => x.id === tabId,
         );
         return { ...moved, tab: tab ?? null };
+      });
+    },
+  );
+
+  // Undo a move into a room (U-12, D133): for a few seconds after it, by whoever moved it, while nothing
+  // has happened on the room's check; every line goes back as a transfer and the tab opens again.
+  app.post<{ Params: { venueId: string; t: string } }>(
+    "/v1/venues/:venueId/tabs/:t/undo-move",
+    { config: closeRoute },
+    async (request) => {
+      const tabId = tabParam(request.params.t);
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      return inVenueRefusing(request, async (c) => {
+        const undone = await undoTabMove(c, venueId, { tabId, userId: p.userId, now });
+        const tab = (await listTabs(c, venueId, now, { membershipId: null })).find(
+          (x) => x.id === tabId,
+        );
+        return { ...undone, tab: tab ?? null };
       });
     },
   );

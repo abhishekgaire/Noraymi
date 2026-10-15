@@ -185,7 +185,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-12 · Moving a bar tab into a new room, and undo
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M6, M2
 - **Spec:** [Bar POS](../spec/10-staff-screens-bar-pos.md) · Move a tab to a room
@@ -193,8 +193,8 @@ Definition of done: see CLAUDE.md.
   - On a tab, **Move to a new room** opens the walk-in sheet (party, room); once seated, the tab moves there (today the room must already be in use: MoveTab.tsx:74).
   - After any move, "Moved to Room 9 · Undo" for 10 seconds; Undo moves it back (MoveTab.tsx 78–83 is one tap, no undo). The undo is audited like the move.
 - **Acceptance:**
-  - [ ] A tab goes to a fresh room in one flow; Undo within 10 s restores it, to the cent.
-- **Notes:**
+  - [x] A tab goes to a fresh room in one flow; Undo within 10 s restores it, to the cent.
+- **Notes:** Oct 15, 2026. No migration. **Move to a new room** is the first button on Move tab to a room: it opens the walk-in sheet (`CheckInSheet` with a `moveTab` target; U-09's room chips and the server's pick), and **Seat them and move the tab** calls the two existing routes in order, `POST /rooms/{r}/sessions` (now with an idempotency key, so a retry never seats twice) and then `POST /tabs/{t}/move-to-room` with the new session. If the move is refused after seating, the party stays seated, the tab stays at the bar, and the sheet says so with the reason and **Done**; no money moves twice. The move now answers `undoable`. New route `POST /tabs/{t}/undo-move` (`undoTabMove` in apps/api/src/tabs/move.ts; same principals, module and idempotency as the move): each moved line goes back as a transfer (`transfer_out` on the room's check reversing its `transfer_in`, a `transfer_in` "Moved back from Room …" on the tab), the room-check allocation of the tab's hold is released, the tab is open again (`moved_to_check_id` and `closed_at` cleared) and its check `open`; all of it lands in the audit log through the table triggers, by the person undoing. The rail shows "Moved to Room … · Undo" (`MoveUndo` in MoveTab.tsx) for 10 seconds after either kind of move. Tests: `tab-move-undo.int.test.ts` (as app_rw: a fresh room and back to the cent with the audit rows; refused after a drink is added, to someone else, after the window, with the hold being released, and onto a cut-off tab), the principal and wall suites (they enumerate the new route), `tab-move.int.test.ts`, and the e2e tests "U-12 · Luis M.'s tab moves to a new room in one flow, and Undo puts it back to the cent" and "U-12 · Undo goes after 10 seconds, and a move into Room 9 offers none". Cautious defaults: the server accepts Undo up to 15 seconds after the move (10 on screen, 5 for a slow network); only whoever moved the tab can undo it; Undo is refused (`409 version_conflict` with `reason`) once anything newer than the move is on the room's check, it is presented or paid, or it has a payment that isn't a deposit or a moved hold; Undo is refused once the hold is being canceled because the room has a card (a canceled hold can't come back), and the screen then offers no Undo; Undo runs the alcohol checks of a move (a cut-off tab, the window) and logs a refusal; Undo leaves a party seated for the move in its room ("Room … stays seated"), to be ended from Rooms; when the tab's hold guarantees the new room, the venue's walk-in card step (card on the tab, card behind the bar) is skipped, and it still comes when the tab has no hold; "after any move" is a tab moved into a room (existing or new), not a single drink moved between tabs; offline, Move to a new room, the rooms and Undo are greyed with "Nothing moves while the bar computer is offline." A room-to-room move (MoveSheet) is unchanged.
 
 ### U-13 · Booking from the calendar like checking in
 

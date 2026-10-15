@@ -12883,3 +12883,124 @@ test("U-10 · Present & pay while Peach's Margaritas ring: Accept on the line pr
     await db.end();
   }
 });
+
+/**
+ * U-12 (D133): Move to a new room. Luis M.'s tab opens the walk-in sheet, the party is seated in the
+ * server's pick and the tab moves there in one flow; "Moved to Room … · Undo" stands for 10 seconds,
+ * and Undo puts every drink back on his tab to the cent, with the party still seated.
+ */
+test("U-12 · Luis M.'s tab moves to a new room in one flow, and Undo puts it back to the cent", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    const tabCheck = async () => {
+      const r = await db.query<{ check_id: string; state: string; sum: string }>(
+        `select t.check_id, t.state, (select coalesce(sum(amount_cents), 0) from check_lines l
+                                        where l.check_id = t.check_id)::text as sum
+           from tabs t where t.name = 'Luis M.'`,
+      );
+      return r.rows[0]!;
+    };
+    const before = await tabCheck();
+    expect(before.state).toBe("open");
+    expect(Number(before.sum)).toBeGreaterThan(0);
+
+    await signInMayaAtTheBar(page, request, db);
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Luis M\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await expect(panel.locator("p.total")).toBeVisible();
+    const total = (await panel.locator("p.total").textContent())!;
+
+    await panel.getByRole("button", { name: "Move tab to a room" }).click();
+    const newRoom = panel.getByRole("button", { name: "Move to a new room" });
+    expect((await newRoom.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await newRoom.click();
+    const sheet = page.getByRole("dialog", { name: "Move Luis M.'s tab to a new room" });
+    await expect(sheet).toBeVisible();
+    await sheet
+      .getByRole("group", { name: "1 · Guests" })
+      .getByRole("button", { name: "2", exact: true })
+      .click();
+    await sheet.getByRole("button", { name: "Seat them and move the tab" }).click();
+    await expect(sheet).toHaveCount(0);
+
+    // The room it moved into is picked, with Luis M.'s drinks on its check, and Undo beside the message.
+    const bar = panel.locator(".move-undo");
+    const undo = bar.getByRole("button", { name: "Undo", exact: true });
+    await expect(undo).toBeVisible();
+    await expect(bar).toContainText(/Moved to Room \d+/);
+    const room = /Moved to (Room \d+)/.exec((await bar.textContent())!)![1]!;
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+      "Moved from Luis M.'s bar tab",
+    );
+    await expect(page.getByRole("list", { name: "Bar tabs" })).not.toContainText("Luis M.");
+    expect((await tabCheck()).state).toBe("closed");
+
+    await undo.click();
+    await expect(panel.getByRole("status").first()).toContainText(
+      `Back on Luis M.'s tab · ${room} stays seated`,
+    );
+    await expect(page.getByRole("list", { name: "Bar tabs" })).toContainText("Luis M.");
+    // To the cent: the same lines' worth on his tab, and the same total on screen.
+    expect(await tabCheck()).toEqual(before);
+    await expect(panel.locator("p.total")).toHaveText(total);
+    // The party stays seated in the new room, with nothing on its check.
+    const seated = await db.query<{ sum: string }>(
+      `select coalesce(sum(l.amount_cents), 0)::text as sum
+         from room_sessions s join rooms r on r.id = s.room_id
+         join check_lines l on l.check_id = s.check_id
+        where r.name = $1 and s.ended_at is null`,
+      [room],
+    );
+    expect(seated.rows[0]!.sum).toBe("0");
+  } finally {
+    await db.end();
+  }
+});
+
+/** U-12: the Undo bar goes after 10 seconds, and a move into Room 9 (Marcus's card) offers none. */
+test("U-12 · Undo goes after 10 seconds, and a move into Room 9 offers none", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+    const bar = panel.locator(".move-undo");
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Seat 6/ })
+      .click();
+    await panel.getByRole("button", { name: "Move tab to a room" }).click();
+    await panel.getByRole("button", { name: /Room 5/ }).click();
+    await expect(bar).toContainText("Moved to Room 5");
+    const undo = bar.getByRole("button", { name: "Undo", exact: true });
+    await expect(undo).toBeVisible();
+    await expect(undo).toHaveCount(0, { timeout: 15_000 });
+    await expect(bar).toContainText("Moved to Room 5");
+
+    // Marcus's deposit saved his card (stripe:seed backs it with a PaymentIntent on staging).
+    await db.query(
+      `update payments set stripe_pi_id = 'pi_seed_marcus'
+        where method = 'card_online' and booking_id = (select row_id from seed_ids where slug = 'bk_marcus')`,
+    );
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await panel.getByRole("button", { name: "Move tab to a room" }).click();
+    await panel.getByRole("button", { name: /Room 9/ }).click();
+    await expect(bar).toContainText("Moved to Room 9");
+    await expect(bar.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});
