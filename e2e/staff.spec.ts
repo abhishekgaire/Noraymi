@@ -11378,3 +11378,91 @@ test("P-13 · menu order: saved in Admin → Features, the same for everyone at 
     await db.end();
   }
 });
+
+/**
+ * P-14 · Activity log and About: Andy adds a guest (written straight to the database as him, so the
+ * trigger stamps him); Abhishek, the owner, opens Admin → Activity log, filters to Andy and Guests and
+ * reads the row with the guest's name as initials and the phone and email hidden, never their values;
+ * the filters are 44 px; in Spanish. Andy, a manager, has About but no Activity log, and About shows
+ * the venue's id. (Venue B's rows never show: activity.int.test.ts.)
+ */
+test("P-14 · Activity log for the owner, masked, filtered by person and kind; About for managers", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const other = await browser.newContext();
+  const venueId = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  const andyId = (await db.query<{ id: string }>("select id from users where name = 'Andy C.'"))
+    .rows[0]!.id;
+  try {
+    await db.query("begin");
+    await db.query(
+      "select set_config('app.user_id', $1, true), set_config('app.venue_id', $2, true)",
+      [andyId, venueId],
+    );
+    await db.query(
+      "insert into guests (venue_id, name, phone_e164, email) values ($1, 'Pat Quinlan', '+12125550177', 'pat.quinlan@example.com')",
+      [venueId],
+    );
+    await db.query("commit");
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await db.query("update memberships set locale = 'en'");
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    await page.goto("/admin/activity");
+    const log = page.getByRole("region", { name: "Activity log" });
+    await expect(log.getByRole("list", { name: "Activity log" })).toBeVisible();
+    const person = log.getByLabel("Person");
+    const box = await person.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    await person.selectOption({ label: "Andy C." });
+    await log.getByLabel("Kind").selectOption("guests");
+    const row = log.locator(".activity-row").first();
+    await expect(row).toContainText("Andy C.");
+    await expect(row).toContainText("Added");
+    await expect(row).toContainText("P. Q.");
+    await expect(row).toContainText("phone_e164 hidden");
+    await expect(row).toContainText("email hidden");
+    const text = await log.innerText();
+    for (const leak of ["Pat Quinlan", "pat.quinlan@example.com", "+12125550177", "5550177"])
+      expect(text).not.toContain(leak);
+    await expect(log.getByRole("button", { name: "Clear filters" })).toBeEnabled();
+    await log.getByLabel("From").fill("2001-01-01");
+    await log.getByLabel("To").fill("2001-01-02");
+    await expect(log.getByText("Nothing matches these filters.")).toBeVisible();
+    await log.getByRole("button", { name: "Clear filters" }).click();
+    await expect(log.locator(".activity-row").first()).toBeVisible();
+
+    // In Spanish.
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    await expect(page.getByRole("region", { name: "Registro de actividad" })).toBeVisible();
+    await expect(page.getByLabel("Persona")).toBeVisible();
+
+    // Andy, a manager: About, but no Activity log.
+    const andy = await other.newPage();
+    await andy.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(andy, request, db);
+    await andy.goto("/admin/about");
+    const nav = andy.getByRole("navigation", { name: "Sections" });
+    await expect(nav.getByRole("link", { name: /About/ })).toBeVisible();
+    await expect(nav.getByRole("link", { name: /Activity log/ })).toHaveCount(0);
+    const about = andy.getByRole("region", { name: "About" });
+    await expect(about).toContainText(venueId);
+    await expect(about).toContainText("Boho");
+    await expect(about).toContainText("Not in the desktop app");
+  } finally {
+    await other.close();
+    await db.query("rollback").catch(() => {});
+    await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});

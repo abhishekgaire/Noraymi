@@ -1933,7 +1933,7 @@ a.song-count {
 
 /* The cash drawers (M7-05): both house drawers, blind until counted. */
 .drawer-card {
-  border-top: 1px solid var(--line, #ddd);
+  border-top: 1px solid var(--line);
   padding: 12px 0;
 }
 .drawer-figures {
@@ -3218,4 +3218,75 @@ a.song-count {
 .bell-item.unread {
   border-color: var(--w4-pink);
   font-weight: 600;
+}
+
+/* Admin → Activity log and About (P-14). */
+.activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 12px 0;
+}
+.activity-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.activity-filters select,
+.activity-filters input,
+.activity-filters button,
+.activity-older,
+.activity-more summary {
+  min-height: 44px;
+}
+.activity-more summary {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.activity-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.activity-row {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+.activity-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+.activity-changes {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.9em;
+}
+.activity-older {
+  margin-top: 12px;
+}
+.about-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.about-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.about-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+@media (max-width: 600px) {
+  .about-list {
+    grid-template-columns: 1fr;
+  }
 }

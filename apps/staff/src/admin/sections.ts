@@ -220,11 +220,30 @@ export const adminSections: readonly AdminSection[] = [
     shipped: true,
   },
   {
+    // The venue's audit rows, masked (P-14): the owner's until P-10 lets a manager in.
+    id: "activity",
+    path: "/admin/activity",
+    labelKey: "admin.section.activity",
+    hintKey: "admin.hint.activity",
+    action: "admin.access",
+    shipped: true,
+    ownerOnly: true,
+  },
+  {
     // Set up your venue's checklist (O-02): the owner runs the wizard, a manager reads it.
     id: "setup",
     path: "/admin/setup",
     labelKey: "admin.section.setup",
     hintKey: "admin.hint.setup",
+    action: "admin.access",
+    shipped: true,
+  },
+  {
+    // Versions, the venue's id and our support contact (P-14).
+    id: "about",
+    path: "/admin/about",
+    labelKey: "admin.section.about",
+    hintKey: "admin.hint.about",
     action: "admin.access",
     shipped: true,
   },

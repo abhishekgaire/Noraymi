@@ -33,7 +33,9 @@ describe("the Admin sections", () => {
       "publicForms",
       "website",
       "console",
+      "activity",
       "setup",
+      "about",
     ]);
     const manager = visibleSections(permissionsOf("manager"), { includeUnshipped: true }).map(
       (s) => s.id,
@@ -59,6 +61,7 @@ describe("the Admin sections", () => {
       "publicForms",
       "website",
       "setup",
+      "about",
     ]);
     expect(manager).not.toContain("team");
   });

@@ -242,13 +242,19 @@ Definition of done: see CLAUDE.md.
 
 ### P-14 · Activity log and About
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** the audit log
 - **Spec:** [Security and retention](../spec/12-security-retention.md)
 - **Build:** Admin → **Activity log** for the owner (managers by P-10): the venue's audit rows, newest first, filtered by person, kind and date, with personal data masked as in the exports. Admin → **About**: app and desktop versions, the venue's id, the support contact.
 - **Acceptance:**
-  - [ ] Only the venue's own rows; masked fields stay masked; EN and ES; venue-wall test.
+  - [x] Only the venue's own rows; masked fields stay masked; EN and ES; venue-wall test.
+- **Notes:**
+  - No migration: `audit_log` is read as app_rw behind its venue wall. `apps/api/src/routes/activity.ts`: `GET /v1/venues/{v}/activity` (the owner in a passkey session; managers, bartenders, PIN sessions and other venues' owners are refused) returns 50 rows newest first with `next_before`, filtered by `person` (a user id or `system`), `kind` (the record's table) and `from`/`to` (business dates, the venue's zone and cutover), plus the venue's people and the kinds written in the last 90 days for the filters. `GET /v1/venues/{v}/about` (owners and managers, `admin.access`): the venue's id and name, the server's version and our support contact.
+  - Masking is on the server, so nothing sensitive reaches the browser: fields the trigger already writes without values (guest contact details, `pin_verifier`, held cards' name and last 4, outside-card notes) read "hidden"; any field whose name says secret (pin, verifier, token, secret, hash, key, credential, signature, fingerprint, last4, ip, ua, scanned, dob, body …) is hidden too, inside settings objects as well; phone numbers show their last two digits and emails their first letter and domain (as the masked views and invites do), also inside free text; guests' names (guests, room guests, tabs, singers, bookings, waitlist; `guest_name`, `card_name`, `tab_name` …) show as initials. Staff and menu names stay.
+  - Staff: Admin → **Activity log** (`ActivityLog.tsx`, owner-only section) with Person, Kind, From, To and **Clear filters** (44 px), loading, empty and can't-load (Try again) states, **Show older**, and a row's extra changes behind "+N more"; Admin → **About** (`About.tsx`, last section, managers too): staff app version (`VITE_APP_VERSION` at build, else "dev"), the desktop app's (`window.west4.version()`) or "Not in the desktop app", the server's, the venue and its id, Support · Email and Phone.
+  - Cautious defaults: the log is the owner's alone until P-10 (the ticket's "managers by P-10"; the API's `ownerOnly` check and the section's `ownerOnly` are the two places to widen); it's part of Admin, not a switchable feature (the audit log is core security, like Close the night); the support contact and versions come from the environment (`APP_VERSION`, `SUPPORT_EMAIL`, `SUPPORT_PHONE`, in `.env.example`) and an unset contact reads "Not set yet", never invented; a record's kind shows as its table name (`guests`, `checks`), not a translated word, since there are about 100; times show in the venue's zone, dates as business dates.
+  - Tests: `apps/api/src/routes/activity.test.ts` (the masking, hidden fields, actor, About from the environment), `apps/api/src/routes/activity.int.test.ts` (as app_rw: only venue A's rows and people, venue B's owner sees only B's; no contact detail, guest name or PIN verifier in the answer; person, system, kind, date and paging filters, bad values 400; manager, bartender, PIN session and venue B's owner refused; About for a manager, not a bartender or venue B), the principal and wall suites, `apps/staff/src/admin/sections.test.ts`, and the e2e "P-14 · Activity log" at the end of `e2e/staff.spec.ts` (Andy's guest masked, filters, 44 px, Spanish, Andy has About without the log). Spec 12 · 4, spec 08, the glossary (Activity log, About) and manual-test 30.14 updated.
 
 ### P-15 · Tax-exempt checks
 

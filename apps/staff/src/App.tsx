@@ -33,6 +33,8 @@ import { Safety } from "./screens/admin/Safety.js";
 import { PublicForms } from "./screens/admin/PublicForms.js";
 import { Licenses } from "./screens/admin/Licenses.js";
 import { SupportAccess } from "./screens/admin/SupportAccess.js";
+import { ActivityLog } from "./screens/admin/ActivityLog.js";
+import { About } from "./screens/admin/About.js";
 import { EmergencyActions } from "./screens/admin/EmergencyActions.js";
 import { CashDrawers } from "./screens/admin/CashDrawers.js";
 import { AlertsRules } from "./screens/admin/AlertsRules.js";
@@ -195,6 +197,8 @@ export function StaffRoutes() {
           <Route path="card-fee" element={<CardFee />} />
           <Route path="connections" element={<Connections />} />
           <Route path="setup" element={<SetupChecklistView />} />
+          <Route path="activity" element={<ActivityLog />} />
+          <Route path="about" element={<About />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>
