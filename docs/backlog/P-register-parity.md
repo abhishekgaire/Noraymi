@@ -160,13 +160,18 @@ Definition of done: see CLAUDE.md.
 
 ### P-08 · Reservations by month
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M5 (Calendar)
 - **Spec:** [Staff screens](../spec/10-staff-screens-bar-pos.md) · Calendar
 - **Build:** The Calendar gets a **Month** view: a month grid with each day's booking count, arrows to move months, today marked; tapping a day shows its bookings, and New booking starts on that day.
 - **Acceptance:**
-  - [ ] Counts match the day lists; past days can't take a new booking; EN and ES; tests.
+  - [x] Counts match the day lists; past days can't take a new booking; EN and ES; tests.
+- **Notes:**
+  - `GET /bookings/days` takes `from=YYYY-MM-DD` (default tonight; a bad date answers 400) so the Month view asks for a whole month, past or ahead; `tonight` still answers the venue's business date. Same counting as before (pending, confirmed, checked in, completed), the same statuses the day list shows. No migration, no new route. Spec 08 · Bookings names it.
+  - Staff (`Calendar.tsx`, `desk.css`): a Days · Month switch in the Calendar's header; Month is a Sunday-first grid of 44 px+ day buttons with the count (nothing on an empty day, the striped look on a closed one), ‹ › for the months, tonight outlined with `aria-current="date"`. Tapping a day opens its list beside the grid, and New booking there books that business date. A past day hides New booking and Block this date and says why; the API already refuses a past time (`reason: "past"`).
+  - Cautious defaults: weeks start on Sunday (US venues); the Days view stays the default each time the Calendar opens.
+  - Tests: `calendar.int.test.ts` (September's counts equal each day's list, a past day refused, bad `from` refused), the P-08 e2e in `staff.spec.ts` (phone size, EN and ES); manual test 30.8.
 
 ### P-09 · Staff actions (voids, comps, discounts, no-sales by person)
 

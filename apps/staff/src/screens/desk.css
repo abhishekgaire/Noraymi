@@ -245,6 +245,63 @@
     transparent 6px 12px
   );
 }
+/* P-08: the Month view, a Sunday-first grid; each day a 44px+ button with its booking count. */
+.calendar.desk .month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.calendar.desk .month-nav button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.calendar.desk .month-nav h2 {
+  margin: 0;
+  text-transform: capitalize;
+}
+.calendar.desk .month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.calendar.desk .month-weekday {
+  text-align: center;
+  font-size: var(--w4-text-xs);
+  color: var(--w4-muted);
+  text-transform: capitalize;
+}
+.calendar.desk .month-day {
+  min-height: 52px;
+  min-width: 44px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--w4-radius-md);
+  background: var(--w4-bg-row);
+  border: 1px solid var(--w4-line);
+  font-weight: 700;
+}
+.calendar.desk .month-day.past {
+  opacity: 0.6;
+}
+.calendar.desk .month-day.today {
+  outline: 2px solid var(--w4-lime);
+  outline-offset: -2px;
+}
+.calendar.desk .month-day[aria-pressed="true"] {
+  border: 2px solid var(--w4-yellow);
+  background: color-mix(in srgb, var(--w4-yellow) 8%, var(--w4-bg-row));
+}
+.calendar.desk .month-count {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  font-weight: 400;
+  color: var(--w4-lime);
+}
 .calendar.desk .bookings-list li {
   display: flex;
   gap: 12px;
