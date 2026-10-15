@@ -142,4 +142,24 @@ describe("the cash discount and food (O-09)", () => {
       ]);
     }
   });
+
+  it("with the Cash discount switch off, cash pays the full amount whatever the rate says", async () => {
+    await setDiscount({ mode: "discount", pct: 4, foodIncludesFee: true });
+    await owner.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'cash_discount', true, 'off')
+       on conflict (venue_id, module_id) do update set state = 'off'`,
+      [venueId],
+    );
+    const before = (await discountLines()).length;
+    const pays = await withVenue(app, { venueId }, (c) =>
+      applyCashDiscount(c, venueId, {
+        checkId,
+        amountCents: 10000,
+        businessDate: DATE,
+        at: "2026-09-26T02:47:00Z",
+      }),
+    );
+    expect(pays).toBe(10000);
+    expect((await discountLines()).length).toBe(before);
+  });
 });

@@ -209,6 +209,8 @@ export async function cashDiscountFor(
   foodIncludesFee: boolean;
 } | null> {
   const date = Temporal.PlainDate.from(businessDate);
+  // The Cash discount switch (D124): off, no discount whatever the rate says; the rate is kept.
+  if (!(await moduleOn(c, venueId, "cash_discount"))) return null;
   const pay = await readSetting(c, venueId, "pay", date);
   const fee = pay?.value.cardFee;
   if (!fee || fee.mode !== "discount" || fee.pct <= 0) return null;
