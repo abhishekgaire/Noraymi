@@ -315,7 +315,7 @@ Section names follow the canvas where it has them; Bar POS, Licenses and Console
 | Hours & prices | Weekly hours, the house last call and special dates (M1); rates, bands, minimums, the VIP rate, booking limits and the damage fee (M2); minimum spend (M4) | M1 |
 | Printers & devices | Pairing and revoking (M1); printers (M3); drawers and readers (M4); the router (M8) | M1 |
 | Rooms | Names, sizes, cleaning, on or off | M2 |
-| Alerts & rules | When a room's time is ending | M2 |
+| Sounds & rules | When a room's time is ending | M2 |
 | Safety | The occupancy limit (M2); the help alert and incidents (M8) | M2 |
 | Phone & texts | The call number and the number texts come from | M2 |
 | Texts | All 14 texts: wording, on or off | M2 |

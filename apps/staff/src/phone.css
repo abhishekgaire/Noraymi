@@ -92,6 +92,12 @@
   font-size: var(--w4-text-lg);
   font-weight: 700;
 }
+/* No badge reader at the venue (U-20): the name tiles lead under one plain line. */
+.sign-in .name-first {
+  margin: 0;
+  font-size: var(--w4-text-lg);
+  font-weight: 700;
+}
 .sign-in .no-badge {
   font-family: var(--w4-font-mono);
   letter-spacing: 0.14em;

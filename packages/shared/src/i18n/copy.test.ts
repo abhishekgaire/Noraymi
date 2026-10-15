@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogs, locales } from "./index.js";
+import { catalogs, locales, tn } from "./index.js";
 
 /**
  * The fixed sentences (glossary · Say this, not that; M1-26). No staff screen
@@ -44,5 +44,51 @@ describe("the words on screen", () => {
         );
       }
     }
+  });
+});
+
+/** One word for each thing (U-20, D133; glossary · Say this, not that). */
+describe("one word for each thing", () => {
+  it('keeps "Alerts" for the board: the phone tab is Phone alerts, Admin is Sounds & rules', () => {
+    expect(catalogs.en["tabs.alerts"]).toBe("Phone alerts");
+    expect(catalogs.es["tabs.alerts"]).toBe("Avisos del teléfono");
+    expect(catalogs.en["admin.section.alerts"]).toBe("Sounds & rules");
+    expect(catalogs.en["alert.title"]).toBe("Alerts");
+  });
+
+  it('says "check" on staff screens; the printed slip still reads BILL', () => {
+    expect(catalogs.en["printBill.button"]).toBe("Print the check");
+    expect(catalogs.en["printBill.title"]).toBe("BILL");
+    expect(catalogs.es["printBill.title"]).toBe("CUENTA");
+  });
+
+  it("says feature and state rules to owners, never module or rule pack", () => {
+    for (const locale of locales) {
+      for (const [key, value] of Object.entries(catalogs[locale])) {
+        expect(value.replace(/\{\w+\}/g, ""), `${locale}:${key}`).not.toMatch(
+          /\bmodules?\b|rule pack|módulo|paquete de reglas/i,
+        );
+      }
+    }
+  });
+
+  it("has one cleaning word: Needs cleaning and Mark clean", () => {
+    for (const value of Object.values(catalogs.en)) expect(value).not.toMatch(/needs? a wipe/i);
+    expect(catalogs.en["cleaning.title"]).toBe("Needs cleaning");
+    expect(catalogs.en["phone.kind.cleaning"]).toBe("Needs cleaning");
+    expect(catalogs.en["cleaning.markClean"]).toBe("Mark clean");
+  });
+
+  it('counts the bell in Spanish plurals: "1 nuevo", "2 nuevos"', () => {
+    expect(tn("es", "bell.open", 1)).toBe("Campana · 1 nuevo");
+    expect(tn("es", "bell.open", 2)).toBe("Campana · 2 nuevos");
+    expect(tn("en", "bell.open", 0)).toBe("Bell · 0 new");
+  });
+
+  it("says Asked to wait in the bell, Send 3 at the bar, and the top bar's night", () => {
+    expect(catalogs.en["bell.item.orderHeld"]).toBe("{room}'s order · Asked to wait");
+    expect(catalogs.en["drinks.sendAtBar"]).toBe("Send {count}");
+    expect(catalogs.en["drinks.sentOnTab"]).toBe("Sent · on {name}'s tab");
+    expect(catalogs.en["shell.night.5"]).toBe("Fri night");
   });
 });

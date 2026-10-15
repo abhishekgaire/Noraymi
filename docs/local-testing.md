@@ -105,9 +105,9 @@ Everything below starts from a fresh night at 10:41 PM.
 
 The board is the heart of the staff app.
 
-- **Alerts band** at the top, most urgent first: pink "Room 7 is 11 min past its time, and The Parks (8) are booked into Room 7 at 11:00", pink "Room 9 called for another mic", amber Room 3, lime "Room 11 is free all night, and Amara B. (7) has waited 26 min", and grey alerts for rooms that need a wipe and for Sam O. running late.
+- **Alerts band** at the top, most urgent first: pink "Room 7 is 11 min past its time, and The Parks (8) are booked into Room 7 at 11:00", pink "Room 9 called for another mic", amber Room 3, lime "Room 11 is free all night, and Amara B. (7) has waited 26 min", and grey alerts for rooms that need cleaning and for Sam O. running late.
 - **Headcount**: "93 inside · 77 in rooms · 16 waiting", and "Limit not set · Admin → Safety" (the app never invents a limit). Press **+** and **−** on the door counter.
-- **Room tiles**, one per room, in the glossary's words: "In room · 19 min left", "Staying · 41 min past", "Needed now · 11 min past", "Needs a wipe · left 10:33 PM (8 min)", "Open · free all night", "Out of service". Room 9 shows "Room time so far $322.00" and "Tab so far $480.00".
+- **Room tiles**, one per room, in the glossary's words: "In room · 19 min left", "Staying · 41 min past", "Needed now · 11 min past", "Needs cleaning · left 10:33 PM (8 min)", "Open · free all night", "Out of service". Room 9 shows "Room time so far $322.00" and "Tab so far $480.00".
 
 Things to try:
 
@@ -117,7 +117,7 @@ Things to try:
 4. **A party grows.** On Room 9, press **+**: "13 guests" and "$130.00 an hour".
 5. **Report a fault.** On Room 5, press **Report a fault**, type "Mic 2 cuts out", tick **Comp 15 min of room time** and log it: "Comp of $10.00 added".
 6. **Damage fee.** On Room 9, press **Damage fee**, add any photo and a reason: a $150.00 line with the photo's thumbnail.
-7. **Mark clean.** On Room 6 ("Needs a wipe"), press **Mark clean**.
+7. **Mark clean.** On Room 6 ("Needs cleaning"), press **Mark clean**.
 8. **Room details.** On any room in use, press **Tab & close out →** for the room screen: the clock and rate ("161 min · $2.00 a minute"), the running tab, the deposit, notes and calls.
 9. **Lost and found**, at the bottom: log a "Green scarf" found in Room 9, then mark it claimed.
 
@@ -144,7 +144,7 @@ Open **Messages** in the side menu. Sam O.'s "running 15 late" is unread. Open i
 ### Calls and Approvals
 
 - **Calls** (a phone tab): Room 9's "Another mic, please". Press **On it** and it disappears everywhere.
-- **Approvals** need the approver's own phone. As Andy, open **Alerts** and press **Turn on alerts**; that makes this browser Andy's phone. Then a request from Diego (for example a clock pause through Report a fault) lands in Andy's **Approvals** tab.
+- **Approvals** need the approver's own phone. As Andy, open **Phone alerts** and press **Turn on alerts**; that makes this browser Andy's phone. Then a request from Diego (for example a clock pause through Report a fault) lands in Andy's **Approvals** tab.
 
 ### Calendar
 
@@ -160,7 +160,7 @@ Open **Admin** in the side menu:
 - **Printers & devices**: pair a computer.
 - **Rooms**: the 14 rooms.
 - **Phone & texts** and **Texts**: the 14 automatic texts.
-- **Alerts & rules**: when a tile turns amber.
+- **Sounds & rules**: when a tile turns amber.
 - **Safety**: the occupancy limit, empty until you enter your real one.
 
 Change something, press **Save and publish**, and the board follows.

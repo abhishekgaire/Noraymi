@@ -92,14 +92,14 @@ Everyone has a paired phone and an NTAG 424 DNA badge. Managers and owners use 6
 | Room 3 | 3–6 | Wrap up · 4 min left | Priya R. · 5 | 8:45–10:45 PM · $50.00 deposit | Next: Jae & co. · 5 at 11:00 PM. ID ✓ 5 of 5. |
 | Room 4 | 3–6 | **Out of service** | none | none | "Mic dead since Tue. Replacement ordered." The fault was logged Tue Sep 22. |
 | Room 5 | 3–6 | In room · 79 min left | Leo M. · 4 | Walk-in · 2 hr, until 12:00 AM · no deposit | Seated from the waitlist at 10:00 PM. 4 × Bud Light $32.00 is ringing (2:11). ID ✓ 4 of 4. |
-| Room 6 | 6–12 | Needs a wipe · left 10:33 PM (8 min) | (Ella S. · 8, paid and left) | none | Note: "TV remote goes missing. Check under the couch." Goes to Nadia K. (6) once wiped. |
+| Room 6 | 6–12 | Needs cleaning · left 10:33 PM (8 min) | (Ella S. · 8, paid and left) | none | Note: "TV remote goes missing. Check under the couch." Goes to Nadia K. (6) once wiped. |
 | Room 7 | 6–12 | **Needed now · 11 min past** | Rob & Kim · 7 | 8:30–10:30 PM · $70.00 deposit | Next: The Parks · 8 at 11:00 PM, booked into Room 7. ID count not in the brief. |
 | Room 8 | 6–12 | Open · next 11:00 | none | The Nguyens · 6 · 11:00 PM–1:00 AM · $60.00 deposit | Not free for an hour, so no waitlist offer. |
 | Room 9 | 6–12 | In room · 19 min left | Marcus T. · 12 | 8:00–11:00 PM · $120.00 deposit (Amex ··1005) | 2 × Margarita · Peach $26.00 is ringing (0:43) and not on the tab. Called staff 2 min ago: "Another mic, please". Code KX4M7, host lock off. Nothing is booked next, so he may stay on by the minute. ID ✓ 12 of 12. |
 | Room 10 | 6–12 | Staying · 41 min past | Tanya W. · 9 | 7:00–10:00 PM · $90.00 deposit | Nothing is booked next, so she stays on by the minute. ID ✓ 9 of 9. |
 | Room 11 | 12–20 | Open · free all night | none | none | Free all night, and no booking tonight needs it. The waitlist offer goes here. |
 | Room 12 | 12–20 | In room · 79 min left | Omar F. · 14 | 9:00 PM–12:00 AM · $140.00 deposit (Visa ··6630) | ID ✓ 14 of 14. |
-| Room 13 | 12–20 | Needs a wipe · left 10:36 PM (5 min) | (Yuki H. · 12, paid and left) | none | Goes to Chris P. (3) once wiped. |
+| Room 13 | 12–20 | Needs cleaning · left 10:36 PM (5 min) | (Yuki H. · 12, paid and left) | none | Goes to Chris P. (3) once wiped. |
 | VIP room | 20–40 | In room · 109 min left | Bianca L. · 22 | 9:30 PM–12:30 AM · $250.00 deposit (Visa ··2290) | Birthday. "Cake at 11:00, in the fridge behind the bar." ID ✓ 22 of 22. |
 
 **What each room owes**
@@ -160,7 +160,7 @@ Most urgent first. Colors are the Board's.
 3. **Amber**: Room 5's order has been ringing 2:11 (4 × Bud Light). [Show]
 4. **Amber**: Room 3: 4 min left, and Jae & co. are booked at 11:00. [Text Priya: please wrap up]
 5. **Lime**: Room 11 is free all night, and Amara B. (7) has waited 26 min. [Offer Room 11 · 10 min to claim]
-6. **Grey**: Rooms 6 and 13 need a wipe (8 and 5 min), and Nadia K. and Chris P. are waiting. [Show]
+6. **Grey**: Rooms 6 and 13 need cleaning (8 and 5 min), and Nadia K. and Chris P. are waiting. [Show]
 7. **Grey**: Sam O. texted "running 15 late" for the 10:30 in Room 2, and it's held until 10:45. [Reply "no problem"] [Check in] [Mark no-show]
 
 The Board's menu badge reads **"Bar orders · 2"**, which counts every ringing and asked-to-wait order. The alert for Room 5's order is the 2-minute escalation: at 4 minutes it says "on Andy's phone", and at 6 minutes "texted Andy".

@@ -147,7 +147,7 @@ export interface RoomAvailability {
   readonly faults: { id: string; text: string; reported_at: string; out_of_service: boolean }[];
   /** The room's tablet is off while the room is out of service (M2-16). */
   readonly tablet_on: boolean;
-  /** "Needs a wipe · left 10:33 PM (8 min)", flagged after rooms.cleaningFlagMin (M2-19). */
+  /** "Needs cleaning · left 10:33 PM (8 min)", flagged after rooms.cleaningFlagMin (M2-19). */
   readonly cleaning: { left_at: string; minutes: number; flagged: boolean } | null;
   /** Notes that stay with the room (M2-19). */
   readonly notes: { id: string; text: string }[];

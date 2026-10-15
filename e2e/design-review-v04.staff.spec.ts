@@ -174,7 +174,7 @@ test("V-04 · the bar POS beside Rail.dc.html at 1280 × 800, bar orders beside 
     await expect(top.getByRole("link", { name: /^Song queue · \d+$/ })).toBeVisible();
     await expect(top.getByRole("button", { name: "Wipe screen" })).toBeVisible();
     await expect(page.locator(".clock")).toHaveCount(1);
-    await expect(top.locator(".clock")).toContainText("Business date");
+    await expect(top.locator(".clock")).toContainText("Fri night");
     await page.screenshot({ path: `${OUT}/rail-2000-header.png` });
 
     // The bar orders screen: its own 900 × 640 window at the bar.

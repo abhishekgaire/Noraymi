@@ -71,7 +71,7 @@ const label = (w: Words): string => {
     case "needed_now":
       return `Needed now · ${w.minutes_past} min past`;
     case "cleaning":
-      return `Needs a wipe · left ${hm(w.left_at!, true)} (${w.minutes} min)`;
+      return `Needs cleaning · left ${hm(w.left_at!, true)} (${w.minutes} min)`;
     case "held":
       return `Open · held for ${w.name} until ${hm(w.until!, false)}`;
     case "next":

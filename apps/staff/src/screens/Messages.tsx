@@ -250,7 +250,7 @@ function Thread({
 }
 
 export function Messages() {
-  const { t } = useT();
+  const { t, tn } = useT();
   const { state } = useSession();
   const { subscribe } = useEvents();
   useClock();
@@ -314,7 +314,7 @@ export function Messages() {
                   >
                     <span className="tile-name">{name}</span>
                     {c.unread > 0 && (
-                      <span className="badge">{t("messages.unread", { count: c.unread })}</span>
+                      <span className="badge">{tn("messages.unread", c.unread)}</span>
                     )}
                     {c.context_kind && (
                       <span className="small muted">{t(`messages.context.${c.context_kind}`)}</span>

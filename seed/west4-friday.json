@@ -667,7 +667,7 @@
    "capacity_max": 12,
    "is_vip": false,
    "state": "cleaning",
-   "board_label": "Needs a wipe · left 10:33 PM (8 min)",
+   "board_label": "Needs cleaning · left 10:33 PM (8 min)",
    "occupied": false,
    "tablet_online": true,
    "note": "TV remote goes missing. Check under the couch."
@@ -772,7 +772,7 @@
    "capacity_max": 20,
    "is_vip": false,
    "state": "cleaning",
-   "board_label": "Needs a wipe · left 10:36 PM (5 min)",
+   "board_label": "Needs cleaning · left 10:36 PM (5 min)",
    "occupied": false,
    "tablet_online": true
   },
@@ -2374,7 +2374,7 @@
   {
    "rank": 6,
    "color": "grey",
-   "text": "Rooms 6 and 13 need a wipe (8 and 5 min), and Nadia K. and Chris P. are waiting.",
+   "text": "Rooms 6 and 13 need cleaning (8 and 5 min), and Nadia K. and Chris P. are waiting.",
    "actions": [
     "Show"
    ]

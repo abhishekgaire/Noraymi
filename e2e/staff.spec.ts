@@ -503,7 +503,7 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
     await expect(page.locator(".tabs")).toContainText("Salas");
     await expect(page.locator(".tabs")).toContainText("Reservas");
     await expect(page.locator(".tabs")).not.toContainText("Esta noche");
-    await expect(page.locator(".tabs")).toContainText("Alertas");
+    await expect(page.locator(".tabs")).toContainText("Avisos del teléfono");
     for (const path of ["/setup", "/admin"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -1122,7 +1122,7 @@ test("Admin → Hours & prices: West 4's week, a refused 4:30 AM last call, 3:00
     await page.getByRole("button", { name: "Save and publish" }).click();
     await expect(
       page.getByText(
-        /Couldn't publish · nothing changed · .*can't be later than the rule pack's last sale/,
+        /Couldn't publish · nothing changed · .*can't be later than the state rules' last sale/,
       ),
     ).toBeVisible();
     expect(await lastCall()).toBe("04:00");
@@ -1625,7 +1625,7 @@ test("Admin → Phone & texts and Texts: West 4's number, the 14 texts, Reminder
     ).toBeVisible();
     for (const name of ["Review ask", "Birthday"]) {
       await expect(page.getByRole("listitem", { name })).toContainText(
-        "Off · needs the Marketing texts module and its own opt-in",
+        "Off · needs the Marketing texts feature and its own opt-in",
       );
       await expect(page.getByRole("listitem", { name }).getByRole("checkbox")).toHaveCount(0);
     }
@@ -2485,7 +2485,7 @@ test("the move sheet: Rob & Kim from Room 7 to Room 11 with a new code", async (
 
 /**
  * Cleaning, room notes and lost and found on the board (M2-19, N15). Room 6
- * needs a wipe since 10:33 PM and keeps its note; Mark clean makes it Open; a
+ * needs cleaning since 10:33 PM and keeps its note; Mark clean makes it Open; a
  * lost item logged in Room 9 reads "Found in Room 9 · kept at the bar", then
  * "claimed by Marcus T.".
  */
@@ -2508,10 +2508,10 @@ test("cleaning and the lost-and-found log: Room 6 marked clean, a scarf found in
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
 
     await expect(page.getByRole("listitem", { name: "Room 6", exact: true })).toContainText(
-      /Needs a wipe · left 10:33\s?PM \(\d+ min\)/,
+      /Needs cleaning · left 10:33\s?PM \(\d+ min\)/,
     );
     const room6 = await openRoom(page, "Room 6");
-    await expect(room6).toContainText(/Needs a wipe · left 10:33\s?PM \(\d+ min\)/);
+    await expect(room6).toContainText(/Needs cleaning · left 10:33\s?PM \(\d+ min\)/);
     await expect(room6).toContainText("TV remote goes missing. Check under the couch.");
     await room6.getByRole("button", { name: "Mark clean" }).click();
     await expect(room6.getByRole("button", { name: "+ Walk-in" })).toBeVisible();
@@ -3111,7 +3111,7 @@ test("the alerts band: the seed's alerts in order, Move a room… and the offer"
       "Room 11 is free all night, and Amara B. (7) has waited 26 min.",
     );
     await expect(items.nth(5)).toContainText(
-      "Rooms 6 and 13 need a wipe (8 and 5 min), and Nadia K. and Chris P. are waiting.",
+      "Rooms 6 and 13 need cleaning (8 and 5 min), and Nadia K. and Chris P. are waiting.",
     );
     await expect(items.nth(6)).toContainText(
       'Sam O. texted "running 15 late" for the 10:30 in Room 2, and it\'s held until 10:45.',
@@ -3469,10 +3469,10 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
 });
 
 /**
- * Admin → Hours & prices and Alerts & rules (M2-34), from a fresh seed: West
+ * Admin → Hours & prices and Sounds & rules (M2-34), from a fresh seed: West
  * 4's prices in every field; a band with a 15-minute step saves and publishes;
  * a 15-minute room-ending warning turns Room 9 amber at 15 minutes left and
- * not at 16; Alerts & rules has no alarm toggle.
+ * not at 16; Sounds & rules has no alarm toggle.
  */
 test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minute warning", async ({
   page,
@@ -3522,7 +3522,7 @@ test("Admin prices and alerts: West 4's prices, a 15-minute band, and a 15-minut
     expect(bands.rows).toEqual([{ step: 15 }]);
 
     await page.goto("/admin/alerts");
-    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Alerts & rules");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText("Sounds & rules");
     await expect(page.getByText(/ring the bar/i)).toHaveCount(0);
     await page.getByLabel("Warn this many minutes before a room's booked end").fill("15");
     await page.getByRole("button", { name: "Save and publish" }).click();
@@ -3739,7 +3739,7 @@ for (const size of SIZES) {
         await sheet.getByRole("button", { name: "Room 11 · free all night" }).click();
         await expect(page.getByText(/^Moved to Room 11 · new code [A-Z2-9]{5}$/)).toBeVisible();
         await expect(page.getByRole("listitem", { name: "Room 7", exact: true })).toContainText(
-          "Needs a wipe",
+          "Needs cleaning",
         );
         const moved = await db.query(
           "select 1 from venue_events where type = 'session.moved' order by seq desc limit 1",
@@ -5203,8 +5203,8 @@ test("Print the bill: Room 9's bill before paying, a reprint, and Jess P.'s tab"
     await page.goto(`/room/${room9}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
     const present = page.getByRole("region", { name: "Present the check" });
-    await present.getByRole("button", { name: "Print the bill" }).click();
-    await expect(present.getByText("The bill is printing")).toBeVisible();
+    await present.getByRole("button", { name: "Print the check" }).click();
+    await expect(present.getByText("The check is printing")).toBeVisible();
     const first = await lastBill();
     expect(first?.lines).toEqual(
       expect.arrayContaining([
@@ -5214,8 +5214,8 @@ test("Print the bill: Room 9's bill before paying, a reprint, and Jess P.'s tab"
         "This is not a receipt",
       ]),
     );
-    await present.getByRole("button", { name: "Print the bill" }).click();
-    await expect(present.getByText("The bill is printing · reprint 1")).toBeVisible();
+    await present.getByRole("button", { name: "Print the check" }).click();
+    await expect(present.getByText("The check is printing · reprint 1")).toBeVisible();
     expect((await lastBill())?.reprint_n).toBe(1);
 
     await signInMayaAtTheBar(page, request, db);
@@ -5225,8 +5225,8 @@ test("Print the bill: Room 9's bill before paying, a reprint, and Jess P.'s tab"
       .click();
     const panel = page.getByRole("complementary");
     await expect(panel).toContainText("$32.66");
-    await panel.getByRole("button", { name: "Print the bill" }).click();
-    await expect(panel.getByText("The bill is printing")).toBeVisible();
+    await panel.getByRole("button", { name: "Print the check" }).click();
+    await expect(panel.getByText("The check is printing")).toBeVisible();
     // The simulated clock stands still, so the tab's bill is found by its check, not its time.
     const tab = (
       await db.query<{ lines: string[] }>(
@@ -5307,7 +5307,7 @@ test("the hold grows: a round past the $50.00 hold raises it to $80.00, and the 
     // A small bucket: $43.55 and $10.00 reserved for the tip pass $50.00, so the hold grows first.
     await page.getByRole("tab", { name: "Buckets" }).click();
     await page.getByRole("button", { name: /^Small bucket · 6 beers · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     await expect(panel).toContainText("Hold $80.00");
     await expect(panel).toContainText("Hold · $26.45 left");
     const pay = (
@@ -5370,7 +5370,7 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     await page.getByRole("tab", { name: "Shots" }).click();
     await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
     await expect(panel.locator(".total").first()).toContainText("$32.66");
 
     // Two taps on the tab, then the guest tips on the reader.
@@ -5467,7 +5467,7 @@ test("Split a $32.66 tab: a cash share survives switching tabs, and Visa ··441
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     await page.getByRole("tab", { name: "Shots" }).click();
     await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
     await expect(panel.locator(".total").first()).toContainText("$32.66");
 
     await panel.getByRole("button", { name: "Split", exact: true }).click();
@@ -5578,7 +5578,7 @@ test("Pay a tab another way: a declined new card keeps the hold, then cash close
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     await page.getByRole("tab", { name: "Shots" }).click();
     await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
     await expect(panel.locator(".total").first()).toContainText("$32.66");
 
     await panel.getByRole("button", { name: "Close tab", exact: true }).click();
@@ -5673,7 +5673,7 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
     await page.getByRole("button", { name: /^Moët & Chandon · bottle · \$/ }).click();
     await search.fill("Large bucket");
     await page.getByRole("button", { name: /^Large bucket · 10 beers · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 2 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 2", exact: true }).click();
     await expect(panel.locator(".total").first()).toContainText("$272.19");
 
     // Closed to the card with No tip on the reader.
@@ -5703,7 +5703,7 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
     // A Modelo: $9.80 due; Close tab offers the saved card, never Close to the card.
     await search.fill("Modelo");
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     await expect(panel.locator(".total").first()).toContainText("$281.99");
     await panel.getByRole("button", { name: "Close tab" }).click();
     await expect(closing.getByRole("button", { name: /^Close to the card/ })).toHaveCount(0);
@@ -7022,7 +7022,7 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
     const ticketsBefore = await tickets();
     const started = Date.now();
     await panel.getByRole("button", { name: "Repeat round" }).click();
-    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
     await expect(panel.locator(".total")).toContainText("$65.33");
     timedTask("Another round on a tab", 2, Date.now() - started, 3000);
     // The bartender pours what they ring: no bar ticket while drink tickets are off (M6-29, D99).
@@ -7033,7 +7033,7 @@ test("the bar POS: Repeat round and Send on Jess P.'s tab under 3 s, a margarita
     await page.getByRole("button", { name: /^Margarita · \$/ }).click();
     await expect(panel.getByRole("button", { name: "Pick flavor for Margarita" })).toBeDisabled();
     await panel.getByLabel("Margarita · Flavor").selectOption({ label: "Peach" });
-    await expect(panel.getByRole("button", { name: "Send 1 to the bar" })).toBeEnabled();
+    await expect(panel.getByRole("button", { name: "Send 1", exact: true })).toBeEnabled();
 
     // Undo, step by step: the flavor, then the margarita.
     await panel.getByRole("button", { name: "Undo" }).click();
@@ -7116,7 +7116,7 @@ test("the bar POS: food on Jess P.'s tab is Not sent until Send to kitchen print
 
     // Send puts it on the tab, Not sent, and prints nothing in the kitchen.
     const before = (await kitchenJobs()).length;
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     const onTab = page.getByRole("list", { name: "On the tab" });
     await expect(
       onTab.getByRole("listitem").filter({ hasText: "TEST chicken wings" }),
@@ -7144,7 +7144,7 @@ test("the bar POS: food on Jess P.'s tab is Not sent until Send to kitchen print
     // Fries left Not sent: after 5 minutes on the venue's clock, the reminder; Close tab warns first.
     await page.getByRole("searchbox", { name: "Search the menu" }).fill("fries");
     await grid.getByRole("button", { name: /TEST French Fries/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     await expect(panel.locator(".kitchen-reminder")).toHaveCount(0);
     // Just past the 5-minute reminder, counted from the clock's own "now" (it keeps ticking during
     // the run); a longer jump would trip the bar computer's idle lock.
@@ -7583,7 +7583,7 @@ test("a food night: Sing Sing's menu, a guest's basket, a bar tab, 86, Close the
     const grid = page.locator(".rail-grid");
     await search.fill("onion rings");
     await grid.getByRole("button", { name: /Onion Rings/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     const onTab = page.getByRole("list", { name: "On the tab" });
     await expect(onTab.getByRole("listitem").filter({ hasText: "Onion Rings" })).toContainText(
       "Not sent",
@@ -7595,7 +7595,7 @@ test("a food night: Sing Sing's menu, a guest's basket, a bar tab, 86, Close the
     await expect(panel.getByRole("button", { name: "Send to kitchen (0)" })).toBeDisabled();
     await search.fill("coleslaw");
     await grid.getByRole("button", { name: /Coleslaw/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     await expect(onTab.getByRole("listitem").filter({ hasText: "Coleslaw" })).toContainText(
       "Not sent",
     );
@@ -9111,7 +9111,7 @@ test.describe("M6 done when", () => {
       await expect(panel).toContainText("$32.66");
       await page.getByRole("tab", { name: "Buckets" }).click();
       await page.getByRole("button", { name: /^Large bucket · 10 beers · \$/ }).click();
-      await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+      await panel.getByRole("button", { name: "Send 1", exact: true }).click();
       await expect(panel.getByRole("status").first()).toContainText(
         "Hold raise declined: the round waits for Andy C.",
       );
@@ -9149,7 +9149,7 @@ test.describe("M6 done when", () => {
       await expect(panel).toContainText("$63.15");
       await page.getByRole("tab", { name: "Buckets" }).click();
       await page.getByRole("button", { name: /^Large bucket · 10 beers · \$/ }).click();
-      await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+      await panel.getByRole("button", { name: "Send 1", exact: true }).click();
       await expect(panel.getByRole("status").first()).toContainText(
         "Growing the hold · Checking with Stripe · don't retry. The round isn't sent yet.",
       );
@@ -9168,7 +9168,7 @@ test.describe("M6 done when", () => {
       await expect(chip).toHaveCount(0, { timeout: 25_000 });
       await expect(panel).toContainText(`Hold $${(raised / 100).toFixed(2)}`);
       // The round still waiting on the screen goes on now, with no second raise.
-      await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+      await panel.getByRole("button", { name: "Send 1", exact: true }).click();
       await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
         "Large bucket · 10 beers",
       );
@@ -12024,7 +12024,7 @@ test("U-03 · a cardless tab splits three ways: cash, outside machine, outside m
     await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Dana");
     await page.getByRole("tab", { name: "Beer" }).click();
     for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Modelo · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
 
     await panel.getByRole("button", { name: "Split", exact: true }).click();
     await panel.getByRole("button", { name: "Split 3 ways" }).click();
@@ -12131,7 +12131,7 @@ test("U-03 · a cash share at Sing Sing's cash discount shows Card · Cash, Exac
     await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Fay");
     await page.getByRole("tab", { name: "Beer" }).click();
     for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Modelo · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
 
     await panel.getByRole("button", { name: "Split", exact: true }).click();
     await panel.getByRole("button", { name: "Split 2 ways" }).click();
@@ -12386,7 +12386,7 @@ test("U-04 · the round first, Send & close charges the unsent drink, and Close 
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     const round = panel.getByRole("region", { name: "Add drinks" });
-    await round.getByRole("button", { name: "Send 2 to the bar" }).click();
+    await round.getByRole("button", { name: "Send 2", exact: true }).click();
     const onTab = panel.getByRole("list", { name: "On the tab" });
     await expect(onTab).toContainText("2 × Modelo");
 
@@ -12516,7 +12516,7 @@ test("U-05 · Sing Sing's way: a cardless tab is New tab, a label, Open, and clo
 
     await page.getByRole("tab", { name: "Beer" }).click();
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
 
     // Close tab: the outside machine first (primary), then Cash; no Another card, no reader button.
     await panel.getByRole("button", { name: "Close tab", exact: true }).click();
@@ -12593,7 +12593,7 @@ test("U-05 · with readers: the name first, Hold a card instead for the line, an
 
     await page.getByRole("tab", { name: "Beer" }).click();
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
-    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
     await panel.getByRole("button", { name: "Close tab", exact: true }).click();
     const closing = panel.getByRole("region", { name: "Close tab" });
     const ways = closing.locator(".actions > button:not(.link)");
@@ -13514,7 +13514,7 @@ test("U-18 · every alert opens its room: the board's line and the bell's, one b
     await expect(
       panel.getByRole("button", { name: /Room 10 · Staying · 41 min past/ }),
     ).toBeVisible();
-    await expect(panel.getByText(/needs a wipe|new room code/)).toHaveCount(0);
+    await expect(panel.getByText(/needs cleaning|needs a wipe|new room code/)).toHaveCount(0);
     await room7.click();
     await expect(page).toHaveURL(/\/tonight$/);
     await expect(page.getByRole("region", { name: "Room 7", exact: true })).toBeVisible();
@@ -13552,6 +13552,61 @@ test("U-18 · every alert opens its room: the board's line and the bell's, one b
     );
     await db.query("delete from bell_reads where venue_id = $1", [venue]);
     await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
+ * One word for each thing (U-20, D133): with no badge reader the sign-in screen leads with the name
+ * tiles; the top bar says "Fri night"; on the bar POS the round is "Send 3", then "Sent · on Jess P.'s
+ * tab", and the tab prints the check.
+ */
+test("U-20 · name tiles first without a badge reader, Fri night, Send 3 and Sent · on Jess P.'s tab", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const revoked = await db.query<{ id: string }>(
+    `update devices set revoked_at = now()
+      where kind = 'nfc_reader' and revoked_at is null returning id`,
+  );
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    const tiles = page.getByRole("list", { name: "Tap your name, then your PIN" });
+    await expect(tiles.getByRole("button", { name: /Maya S\./ })).toBeVisible();
+    await expect(page.getByText("Tap your badge on the reader")).toHaveCount(0);
+    await tiles.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+
+    await expect(page.locator(".topbar .clock")).toContainText("Fri night");
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await expect(panel).toContainText("$32.66");
+    await panel.getByRole("button", { name: "Repeat round" }).click();
+    await panel.getByRole("button", { name: "Send 3", exact: true }).click();
+    await expect(
+      panel.getByRole("status").filter({ hasText: "Sent · on Jess P.'s tab" }),
+    ).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Print the check" })).toBeVisible();
+  } finally {
+    await db.query("update devices set revoked_at = null where id = any($1::uuid[])", [
+      revoked.rows.map((r) => r.id),
+    ]);
     await db.end();
   }
 });

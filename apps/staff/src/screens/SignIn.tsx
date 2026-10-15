@@ -42,6 +42,8 @@ interface TilesAnswer {
   readonly tiles: Tile[];
   /** Everyone on the clock (P-12); null while Team, time clock & tips is off. */
   readonly on_shift?: number | null;
+  /** Whether the venue has a badge reader (U-20); without one the name tiles lead. */
+  readonly badge_readers?: boolean;
   readonly venue: { id: string; name: string; time_zone: string; day_cutover: string };
   readonly server_time: string;
 }
@@ -414,30 +416,42 @@ export function SignIn() {
         <WaitingWhileLocked device={device} />
         {!chosen && (
           <>
-            <div className="badge-card">
-              {/* The canvas's badge-and-reader mark (Pin.dc.html, V-02). */}
-              <svg
-                width="46"
-                height="46"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="4" y="3" width="11" height="16" rx="2" />
-                <path d="M8 7h3" />
-                <path d="M18 8.5a4.5 4.5 0 0 1 0 6" />
-                <path d="M20.5 6.5a8 8 0 0 1 0 10" />
-              </svg>
-              <p className="badge-line">{t("signIn.tapBadge")}</p>
-            </div>
-            <p className="muted no-badge">
-              {clockMode ? t("clock.modeHint") : t("signIn.noBadge")}
-            </p>
-            <ul className="tiles" aria-label={t("signIn.noBadge")}>
+            {/* No badge reader at the venue (U-20, D133): the name tiles lead, no badge card. */}
+            {tiles?.badge_readers === false ? (
+              <p className="badge-line name-first">
+                {clockMode ? t("clock.modeHint") : t("signIn.nameFirst")}
+              </p>
+            ) : (
+              <>
+                <div className="badge-card">
+                  {/* The canvas's badge-and-reader mark (Pin.dc.html, V-02). */}
+                  <svg
+                    width="46"
+                    height="46"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="4" y="3" width="11" height="16" rx="2" />
+                    <path d="M8 7h3" />
+                    <path d="M18 8.5a4.5 4.5 0 0 1 0 6" />
+                    <path d="M20.5 6.5a8 8 0 0 1 0 10" />
+                  </svg>
+                  <p className="badge-line">{t("signIn.tapBadge")}</p>
+                </div>
+                <p className="muted no-badge">
+                  {clockMode ? t("clock.modeHint") : t("signIn.noBadge")}
+                </p>
+              </>
+            )}
+            <ul
+              className="tiles"
+              aria-label={t(tiles?.badge_readers === false ? "signIn.nameFirst" : "signIn.noBadge")}
+            >
               {(tiles?.tiles ?? [])
                 .filter((tile) => tile.has_pin)
                 .map((tile) => (

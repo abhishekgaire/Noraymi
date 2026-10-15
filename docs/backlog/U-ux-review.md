@@ -316,7 +316,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-20 · One word for each thing
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** P-11, P-05
 - **Spec:** [Glossary](../glossary.md); spec 10 vocabulary table
@@ -332,8 +332,20 @@ Definition of done: see CLAUDE.md.
   - The Bell's "is waiting" uses the glossary's **Asked to wait**; "Sent · on Jess's tab" for bar tabs (no ticket mention); "Send 3" at the bar.
   - Sign-in leads with the name tiles where the venue has no badge readers.
 - **Acceptance:**
-  - [ ] The copy tests and i18n check pass; the e2e words are updated.
-- **Notes:**
+  - [x] The copy tests and i18n check pass; the e2e words are updated.
+- **Notes:** Built Oct 15, 2026 (D133; glossary · Say this, not that and spec 10's vocabulary table carry the new rows; spec 10 · Sharing a terminal for sign-in). No migration.
+  - **Alerts:** the phone tab is **Phone alerts** (Avisos del teléfono; `tabs.alerts`, catalog only: U-19 owns navigation.ts), Admin's section is **Sounds & rules** (Sonidos y reglas). The board's band stays **Alerts**.
+  - **Check:** Print the check, The check is printing (· reprint N), Couldn't print the check. Spanish already said "la cuenta"; the slip still prints BILL / CUENTA and the guest's phone keeps "Your bill".
+  - **Time's up:** already done by U-18 (`roomSound.title`).
+  - **Fri night:** the top bar shows `shell.night.1`–`7` (Mon night … Sun night; Lunes noche … Domingo noche) from the business date's weekday, with "Business date Fri, Sep 25" kept as the hover title. Admin and reports unchanged.
+  - **Feature / state rules** in owner strings: the alcohol module's name (Alcohol controls & state rules), the core and plan refusals, Features' hint, last call's hint, Marketing texts' lock, cash must be accepted; and `packages/rules` settings-checks' two reasons ("the state rules' last sale", "under this state's rules"). Code identifiers, the API's `module_off` and the spec keep module and rule pack. A copy test forbids module / rule pack / módulo / paquete de reglas in every catalog value.
+  - **Cleaning:** Needs a wipe → **Needs cleaning** (tile, phone list, alert line, move reason); Spanish already said "Necesita limpieza". The seed's `board_label`s and its grey alert text follow (seed words only, no data change). Wipe screen (the touch lock) keeps its name.
+  - **Counts:** `bell.open` and `messages.unread` are plural pairs read with `tn` (Campana · 1 nuevo / 2 nuevos). `bell.item.text`'s "{count} unread" stays one string: "sin leer" doesn't change with the count.
+  - **Errors:** 60-odd staff error strings now read "Couldn't … · Try again" (or "· Check the connection and try again"); Spanish "No se pudo … · Inténtalo de nuevo". The bell's "Some of this couldn't load" is "Couldn't load all of this" beside its Try again button.
+  - **Bell and bar:** a waiting room order reads "Room 5's order · Asked to wait" (Pedido de … · Pidió esperar). On the bar POS (`AddDrinks` `atBar`) Send reads **Send 3**, and a bar tab's round says **Sent · on Jess P.'s tab**; a room's round rung at the bar keeps "ticket printing at the bar", since it prints for a runner.
+  - **Sign-in:** `GET /team/tiles` carries `badge_readers` (a live `nfc_reader` device at the venue). False: the badge card is gone and "Tap your name, then your PIN" heads the tiles. While the answer is loading, or from an older API, the badge card shows as before.
+  - **Cautious defaults:** guest-site error strings (We couldn't…, The payment page couldn't open…) keep their own tone, since the ticket is about staff words; "buttons as verbs" was checked on the strings this ticket touched, not every catalog button; the Spanish tab label replaces the e2e's "Alertas" (U-19 may move the tab into More).
+  - **Tests:** `copy.test.ts` (one word for each thing), `glance.int.test.ts` (`badge_readers` true, then false with the readers revoked), e2e words updated (Print the check, Sounds & rules, Needs cleaning, Send N at the bar, the state rules' last sale, Avisos del teléfono, Fri night in the design review) and `U-20 · name tiles first…` at the end of `e2e/staff.spec.ts`. Manual test 31.20.
 
 ### U-21 · Admin an owner can find their way around
 
