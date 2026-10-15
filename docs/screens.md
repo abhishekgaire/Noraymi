@@ -288,6 +288,7 @@ The staff app at phone width, installed to the home screen. It is one React + Vi
 2. **The big-party link (F34, C37).** The canvas lets a host book 24 guests into the VIP room at 9:00 PM for 3 hr, while Bianca L.'s party of 22 holds it from 9:30 PM to 12:30 AM, and 9:00 PM is already past. Build the dialog to show the room and how long it is free, to refuse overlapping or past slots, and to place a pending hold that lapses at `pending_until` if the link goes unpaid. The spec doesn't fix the hold's length. *Not decided in the fix brief. Spec: [Payment flows][spec-07], [Data model][spec-04].*
 3. **Hold wording (C37).** The canvas says a room is held "from the second a card hold clears". Build the wording to match: an online slot holds a real room for 10 minutes, and a payment link holds it until `pending_until`. *Spec: [Payment flows][spec-07].*
 4. **Blocking a date (F52).** The canvas says affected bookings "stay until you move or cancel them" and offers no way to cancel them. Build a list of the affected bookings with "Cancel and refund all". A cancellation by the venue always refunds in full, and the guests are texted. *Not decided in the fix brief. Spec: [Payment flows][spec-07].*
+5. **New booking (U-13, D133).** The canvas form is typed fields and a room list. Build it like Check in: the time (the next half hour by default), the party and length chips, and only the rooms that fit the party and are free for the whole booking, as chips with their size; a bad phone says so. *Spec: [Staff screens and the bar POS][spec-10] · New booking.*
 
 ### Messages
 
@@ -541,6 +542,7 @@ Food on the bar POS (K-05) follows `FoodBar.dc.html`: Food after the ten section
 3. **Hold wording (C37).** The canvas says "A room is held the second a deposit clears". Build the wording to match the spec: an online slot holds a real room for 10 minutes, and a payment link holds it until `pending_until`. *Spec: [Payment flows][spec-07].*
 4. **Blocking a date (F52).** The canvas says affected bookings "stay until you move or cancel them" and offers no cancel-and-refund step. Build the list of affected bookings with "Cancel and refund all". A cancellation by the venue always refunds in full, and the guests are texted ("Text them →"). *Not decided in the fix brief. Spec: [Payment flows][spec-07].*
 5. **Tonight (F40).** The canvas "Tonight" comes from a device clock. Build it from the pinned now, Fri Sep 25, 10:41 PM. *Decided in [FB 1].*
+6. **New booking (U-13, D133).** As [Calendar](#calendar) note 5: the check-in sheet's chips, the next half hour, and only rooms that fit. *Spec: [Staff screens and the bar POS][spec-10] · New booking.*
 
 ### DeskMessages
 

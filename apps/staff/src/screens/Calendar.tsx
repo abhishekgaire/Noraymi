@@ -5,13 +5,20 @@ import { useEvents } from "../events.js";
 import "./desk.css";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
+import { useClock } from "../clock.js";
+import { useConnection } from "../connection.js";
+import { usE164 } from "./CheckInSheet.js";
+import { nextHalfHour } from "./booking-time.js";
+import { LengthChips, PartyChips, RoomChips, type RoomChoice } from "./sheet-chips.js";
 
 /**
  * DeskCalendar and the phone's Calendar (M2-33; screens DeskCalendar and
  * Calendar): the days ahead from "Tonight" on the venue's clock, each day's
  * bookings, a new staff booking that shows the room and how long it's free and
  * refuses overlapping or past slots, and blocking a date with the bookings it
- * affects.
+ * affects. New booking (U-13, D133) books like checking in: the check-in sheet's party and
+ * length chips, its phone check, the time defaulting to the next half hour, and only the rooms
+ * the server says fit the party and are free for the whole booking.
  */
 interface Day {
   readonly business_date: string;
@@ -29,13 +36,19 @@ interface Booking {
   readonly status: string;
   readonly running_late_until: string | null;
 }
-interface FreeRoom {
-  readonly room_id: string;
-  readonly name: string;
-  readonly free_now: boolean;
-  readonly until: string | null;
-  readonly all_night: boolean;
+/** `GET /rooms/free`: the rooms that fit the party and are free for the booking, smallest first. */
+interface FreeRooms {
+  readonly past_close: boolean;
+  readonly rooms: readonly {
+    readonly room_id: string;
+    readonly name: string;
+    readonly capacity_min: number;
+    readonly capacity_max: number;
+  }[];
 }
+type RoomsState =
+  | { readonly kind: "idle" | "loading" | "failed" }
+  | { readonly kind: "ready"; readonly pastClose: boolean; readonly rooms: readonly RoomChoice[] };
 
 export function Calendar() {
   const { t, money, time, locale } = useT();
@@ -58,11 +71,18 @@ export function Calendar() {
   const [done, setDone] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [party, setParty] = useState("");
+  // U-13: the check-in sheet's chips; no party until one is tapped, 2 hours, the next half hour.
+  const [party, setParty] = useState<number | null>(null);
+  const [moreParty, setMoreParty] = useState(false);
   const [at, setAt] = useState("");
-  const [hours, setHours] = useState("2");
-  const [roomId, setRoomId] = useState("");
-  const [free, setFree] = useState<readonly FreeRoom[]>([]);
+  const [minutes, setMinutes] = useState(120);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [free, setFree] = useState<RoomsState>({ kind: "idle" });
+  const [busy, setBusy] = useState(false);
+  const { now } = useClock();
+  const { connected } = useEvents();
+  const connection = useConnection();
+  const offline = !connected || connection.kind === "offline";
   // P-08: the Month view, a month grid of business dates with each one's booking count.
   const [view, setView] = useState<"days" | "month">("days");
   const [month, setMonth] = useState("");
@@ -146,20 +166,48 @@ export function Calendar() {
     }).toInstant();
   };
 
-  // The rooms and how long each is free, at the chosen time.
+  // The time starts at the next half hour on the venue's clock (U-13).
   useEffect(() => {
-    if (!adding || !at || !day) return;
+    if (adding && !at && now) setAt(nextHalfHour(now, timeZone));
+  }, [adding, at, now, timeZone]);
+  const startAt = adding && /^\d{2}:\d{2}$/.test(at) && day ? instantOf(day, at) : null;
+  const startPast = startAt !== null && now !== null && Temporal.Instant.compare(startAt, now) < 0;
+
+  // U-13: the rooms that fit the party and are free from the start for the whole length, from
+  // the server (the rule that assigns a booking its room), smallest first.
+  const startIso = startAt?.toString() ?? "";
+  useEffect(() => {
+    if (!startIso || party === null || startPast) {
+      setFree({ kind: "idle" });
+      return;
+    }
     let live = true;
-    void api<{ rooms: FreeRoom[] }>(
-      "GET",
-      `/v1/venues/${venueId}/rooms/availability?at=${encodeURIComponent(instantOf(day, at).toString())}`,
-    )
-      .then((r) => live && setFree(r.rooms.filter((x) => x.free_now)))
-      .catch(() => live && setFree([]));
+    setFree({ kind: "loading" });
+    const q = new URLSearchParams({
+      party: String(party),
+      from: startIso,
+      minutes: String(minutes),
+    });
+    api<FreeRooms>("GET", `/v1/venues/${venueId}/rooms/free?${q.toString()}`)
+      .then((r) => {
+        if (live)
+          setFree({
+            kind: "ready",
+            pastClose: r.past_close,
+            rooms: r.rooms.map((x) => ({ ...x, ok: true, why: null, until: null })),
+          });
+      })
+      .catch(() => {
+        if (live) setFree({ kind: "failed" });
+      });
     return () => {
       live = false;
     };
-  }, [adding, at, day, venueId]);
+  }, [startIso, party, minutes, startPast, venueId]);
+  const fitting = free.kind === "ready" ? free.rooms : [];
+  // The room staff tapped, or the first that fits: the one the server would give the booking.
+  const chosenRoom =
+    fitting.find((r) => r.room_id === roomId)?.room_id ?? fitting[0]?.room_id ?? null;
 
   const dayLabel = (d: string) => {
     const date = Temporal.PlainDate.from(d);
@@ -169,37 +217,56 @@ export function Calendar() {
   const hoursOf = (b: Booking) =>
     Math.round(((Date.parse(b.ends_at) - Date.parse(b.starts_at)) / 3_600_000) * 10) / 10;
 
+  const closeForm = () => {
+    setAdding(false);
+    setError(null);
+    setName("");
+    setPhone("");
+    setParty(null);
+    setMoreParty(false);
+    setAt("");
+    setMinutes(120);
+    setRoomId(null);
+  };
   const book = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    const digits = phone.replace(/\D/g, "");
-    const e164 = digits.length === 10 ? `+1${digits}` : digits.length === 11 ? `+${digits}` : null;
+    // The check-in sheet's phone check (U-13): a phone that isn't one says so, never dropped.
+    const e164 = phone.trim() ? usE164(phone) : null;
+    if (phone.trim() && !e164) {
+      setError(t("checkIn.phoneInvalid"));
+      return;
+    }
+    if (party === null || chosenRoom === null) return;
+    setBusy(true);
     try {
       await api("POST", `/v1/venues/${venueId}/bookings`, {
         guest: { name: name.trim(), ...(e164 ? { phone_e164: e164 } : {}) },
-        party_size: Number(party),
+        party_size: party,
         business_date: day,
         time: at,
-        hours: Number(hours),
-        ...(roomId ? { room_id: roomId } : {}),
+        hours: minutes / 60,
+        room_id: chosenRoom,
       });
-      setAdding(false);
-      setDone(t("calendar.booked", { name: name.trim() }));
-      setName("");
-      setPhone("");
-      setParty("");
-      setAt("");
-      setRoomId("");
+      const who = name.trim();
+      closeForm();
+      setDone(t("calendar.booked", { name: who }));
       await Promise.all([loadDays(), loadDay(), loadMonth()]);
     } catch (err) {
       const reason = err instanceof ApiCallError ? err.details["reason"] : undefined;
       setError(
         reason === "past"
           ? t("calendar.past")
-          : err instanceof ApiCallError && err.code === "room_not_free"
-            ? t("calendar.notFree")
-            : t("calendar.failed"),
+          : reason === "past_close"
+            ? t("calendar.pastClose")
+            : reason === "off_grid"
+              ? t("calendar.offGrid")
+              : err instanceof ApiCallError && err.code === "room_not_free"
+                ? t("calendar.notFree")
+                : t("calendar.failed"),
       );
+    } finally {
+      setBusy(false);
     }
   };
   const block = async (cancelAll = false) => {
@@ -250,7 +317,7 @@ export function Calendar() {
   const pick = (d: string) => {
     setDay(d);
     setBlocking(false);
-    if (isPast(d)) setAdding(false);
+    if (isPast(d)) closeForm();
   };
   const shiftMonth = (by: number) => {
     setMonthDays(null);
@@ -412,7 +479,14 @@ export function Calendar() {
             <p className="small muted">{past ? t("calendar.pastDay") : t("calendar.holds")}</p>
             <div className="actions">
               {canBook && !past && current?.closure !== "closed" && (
-                <button type="button" className="primary" onClick={() => setAdding(true)}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    setDone(null);
+                    setAdding(true);
+                  }}
+                >
                   {t("calendar.new")}
                 </button>
               )}
@@ -465,68 +539,118 @@ export function Calendar() {
               </div>
             )}
             {adding && !past && (
-              <form className="sheet" aria-label={t("calendar.new")} onSubmit={(e) => void book(e)}>
+              <form
+                className="sheet checkin-sheet calendar-booking"
+                aria-label={t("calendar.new")}
+                onSubmit={(e) => void book(e)}
+              >
                 <h2>{t("calendar.new")}</h2>
+                {offline && (
+                  <p className="error" role="status">
+                    {t("calendar.offline")}
+                  </p>
+                )}
+                {/* U-13: the time, the check-in sheet's party and length chips, then the rooms that fit. */}
                 <label>
-                  {t("waitlist.name")}
+                  {t("calendar.time")}
+                  <input
+                    type="time"
+                    step={1800}
+                    value={at}
+                    required
+                    onChange={(e) => setAt(e.target.value)}
+                  />
+                </label>
+                {startPast && (
+                  <span className="small error" role="status">
+                    {t("calendar.past")}
+                  </span>
+                )}
+                <fieldset className="checkin-field">
+                  <legend>{t("checkIn.party")}</legend>
+                  <PartyChips
+                    party={party}
+                    more={moreParty}
+                    onParty={(n, typed) => {
+                      if (!typed) setMoreParty(false);
+                      setParty(n);
+                    }}
+                    onMore={() => {
+                      setMoreParty(true);
+                      setParty((p) => p ?? 11);
+                    }}
+                  />
+                </fieldset>
+                <fieldset className="checkin-field">
+                  <legend>{t("calendar.hours")}</legend>
+                  <LengthChips minutes={minutes} onMinutes={setMinutes} />
+                </fieldset>
+                <fieldset className="checkin-field">
+                  <legend>{t("calendar.room")}</legend>
+                  {party === null ? (
+                    <span className="small muted">{t("calendar.pickParty")}</span>
+                  ) : free.kind === "loading" ? (
+                    <span className="small" role="status">
+                      {t("shell.loading")}
+                    </span>
+                  ) : free.kind === "failed" ? (
+                    <span className="small error" role="alert">
+                      {t("shell.error.cantReach")}
+                    </span>
+                  ) : free.kind === "ready" && free.pastClose ? (
+                    <span className="small error" role="status">
+                      {t("calendar.pastClose")}
+                    </span>
+                  ) : free.kind === "ready" && fitting.length === 0 ? (
+                    <span className="small error" role="status">
+                      {t("calendar.noRoomFits", { party })}
+                    </span>
+                  ) : (
+                    <RoomChips
+                      rooms={fitting}
+                      selected={chosenRoom}
+                      timeZone={timeZone}
+                      onPick={setRoomId}
+                    />
+                  )}
+                </fieldset>
+                <label>
+                  {t("checkIn.guestName")}
                   <input
                     value={name}
                     maxLength={80}
                     required
+                    autoComplete="off"
                     onChange={(e) => setName(e.target.value)}
                   />
                 </label>
                 <label>
-                  {t("waitlist.mobile")}
-                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </label>
-                <label>
-                  {t("checkIn.party")}
+                  {t("checkIn.guestPhone")}
                   <input
-                    type="number"
-                    min={1}
-                    value={party}
-                    required
-                    onChange={(e) => setParty(e.target.value)}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="off"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                   />
-                </label>
-                <label>
-                  {t("calendar.time")}
-                  <input type="time" value={at} required onChange={(e) => setAt(e.target.value)} />
-                </label>
-                <label>
-                  {t("calendar.hours")}
-                  <select value={hours} onChange={(e) => setHours(e.target.value)}>
-                    {["1", "1.5", "2", "2.5", "3", "4"].map((h) => (
-                      <option key={h} value={h}>
-                        {t("calendar.hoursOption", { hours: h })}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {t("calendar.room")}
-                  <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                    <option value="">{t("calendar.anyRoom")}</option>
-                    {free.map((r) => (
-                      <option key={r.room_id} value={r.room_id}>
-                        {r.all_night || !r.until
-                          ? t("move.freeAllNight", { room: r.name })
-                          : t("move.freeUntil", { room: r.name, time: time(r.until, timeZone) })}
-                      </option>
-                    ))}
-                    {/* A room not free then can still be chosen: the API refuses the overlap. */}
-                  </select>
                 </label>
                 <div className="actions">
                   <button
                     type="submit"
                     className="primary"
-                    disabled={!name.trim() || !party || !at}
+                    disabled={
+                      busy ||
+                      offline ||
+                      !name.trim() ||
+                      party === null ||
+                      startAt === null ||
+                      startPast ||
+                      chosenRoom === null
+                    }
                   >
                     {t("calendar.book")}
                   </button>
-                  <button type="button" onClick={() => setAdding(false)}>
+                  <button type="button" className="secondary" onClick={closeForm}>
                     {t("checkIn.cancel")}
                   </button>
                 </div>

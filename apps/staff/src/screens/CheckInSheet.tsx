@@ -8,6 +8,7 @@ import { HeldCardTake } from "./HeldCardTake.js";
 import { RoomCardTap } from "./RoomCardTap.js";
 import { lengthText } from "./room-start.js";
 import { moveRefusal, movedLine, newKey, type MoveAnswer } from "./MoveTab.js";
+import { LengthChips, PARTY_CHIPS, PartyChips, RoomChips, type RoomChoice } from "./sheet-chips.js";
 
 /**
  * The check-in sheet (M2-11; screens N10): the same on the board and on a
@@ -44,16 +45,6 @@ interface Preview {
   readonly host_phone: boolean | null;
 }
 
-interface RoomChoice {
-  readonly room_id: string;
-  readonly name: string;
-  readonly capacity_min: number;
-  readonly capacity_max: number;
-  readonly ok: boolean;
-  readonly why: "too_small" | "in_use" | "cleaning" | "held" | "out_of_service" | null;
-  readonly until: string | null;
-}
-
 interface Seated {
   readonly session_id: string;
   readonly check_id: string;
@@ -73,9 +64,6 @@ interface StartPackage {
   readonly price_cents: number;
   readonly minutes: number;
 }
-
-/** The party-size chips; "More" opens the number field. */
-const PARTY_CHIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 /** A typed US phone as E.164 ("(347) 555-0177" to "+13475550177"), or null when it isn't one. */
 export function usE164(typed: string): string | null {
@@ -369,7 +357,6 @@ export function CheckInSheet({
       />
     );
 
-  const lengths = [60, 90, 120, 180, 240];
   const hoursLabel = (m: number) => lengthText(t, m);
   const walkIn = target.kind === "walk_in";
   // Step 6 (D128): what seating will actually send, for this venue and what's typed right now.
@@ -413,40 +400,15 @@ export function CheckInSheet({
             <div className="checkin-col">
               <fieldset className="checkin-field">
                 <legend>{t("checkIn.step", { n: 1, label: t("checkIn.party") })}</legend>
-                <div className="chips">
-                  {PARTY_CHIPS.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className="chip"
-                      aria-pressed={!moreParty && party === n}
-                      onClick={() => {
-                        setMoreParty(false);
-                        changeParty(n);
-                      }}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="chip"
-                    aria-pressed={moreParty}
-                    onClick={() => setMoreParty(true)}
-                  >
-                    {t("checkIn.partyMore")}
-                  </button>
-                  {moreParty && (
-                    <input
-                      type="number"
-                      className="chip-input"
-                      min={1}
-                      aria-label={t("checkIn.partyCount")}
-                      value={party}
-                      onChange={(e) => changeParty(Math.max(1, Number(e.target.value) || 1))}
-                    />
-                  )}
-                </div>
+                <PartyChips
+                  party={party}
+                  more={moreParty}
+                  onParty={(n, typed) => {
+                    if (!typed) setMoreParty(false);
+                    changeParty(n);
+                  }}
+                  onMore={() => setMoreParty(true)}
+                />
                 <span className="small">
                   {t(
                     (preview.min_every_day
@@ -495,27 +457,7 @@ export function CheckInSheet({
                   reason. The fit and the free state are the server's (the seat rule and the board). */}
               <fieldset className="checkin-field">
                 <legend>{t("checkIn.step", { n: 3, label: t("checkIn.room") })}</legend>
-                <div className="chips room-chips">
-                  {rooms.map((r) => (
-                    <button
-                      key={r.room_id}
-                      type="button"
-                      className="chip room-chip"
-                      aria-pressed={r.room_id === roomId}
-                      disabled={!r.ok}
-                      onClick={() => setPicked(r.room_id)}
-                    >
-                      <b>{r.name}</b>
-                      <span className="small">
-                        {r.ok
-                          ? r.until
-                            ? `${t("checkIn.roomFits", { min: r.capacity_min, max: r.capacity_max })} · ${t("checkIn.roomUntil", { time: time(r.until, timeZone) })}`
-                            : t("checkIn.roomFits", { min: r.capacity_min, max: r.capacity_max })
-                          : `${t(`move.why.${r.why ?? "in_use"}` as MessageKey)} · ${t("checkIn.roomFits", { min: r.capacity_min, max: r.capacity_max })}`}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <RoomChips rooms={rooms} selected={roomId} timeZone={timeZone} onPick={setPicked} />
                 {roomId === null ? (
                   <span className="small error" role="status">
                     {t("checkIn.noRoomFits", { party })}
@@ -549,20 +491,11 @@ export function CheckInSheet({
               {walkIn && (
                 <fieldset className="checkin-field">
                   <legend>{t("checkIn.step", { n: 4, label: t("checkIn.length") })}</legend>
-                  <div className="chips">
-                    {lengths.map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        className="chip"
-                        disabled={pkg !== null}
-                        aria-pressed={(pkg ? pkg.minutes : minutes) === m}
-                        onClick={() => setMinutes(m)}
-                      >
-                        {hoursLabel(m)}
-                      </button>
-                    ))}
-                  </div>
+                  <LengthChips
+                    minutes={pkg ? pkg.minutes : minutes}
+                    disabled={pkg !== null}
+                    onMinutes={setMinutes}
+                  />
                   {/* P-04: pay as you go (the default) or a prepaid block of How long. */}
                   <div className="chips" role="group" aria-label={t("checkIn.time")}>
                     <button

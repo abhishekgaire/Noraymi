@@ -272,6 +272,9 @@ export async function freeFor(
         ).map((r) => ({
           room_id: r.id,
           name: r.name,
+          // The room's size, for the Calendar's room chips (U-13).
+          capacity_min: r.capacityMin,
+          capacity_max: r.capacityMax,
         })),
   };
 }
