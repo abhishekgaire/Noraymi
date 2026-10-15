@@ -115,7 +115,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-07 · No sale and Lock on the bar POS
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7 (drawers), P-10
 - **Spec:** [Bar POS](../spec/10-staff-screens-bar-pos.md) · top bar; spec 07 · no sale
@@ -123,8 +123,8 @@ Definition of done: see CLAUDE.md.
   - A **No sale** button in the bar POS top bar opens this station's drawer with reason chips (Change, Wrong tender, Other… typed); PIN again still applies as the owner set it. Today it's about 6 steps through Rooms → Cash drawers (Tonight.tsx 977–985, DrawerPanel.tsx 359).
   - **Lock** beside Wipe screen in the bar POS top bar (Rail.tsx:769), as the spec says.
 - **Acceptance:**
-  - [ ] No sale is 2 taps (plus the PIN when asked), audited and counted on Staff actions as before.
-- **Notes:**
+  - [x] No sale is 2 taps (plus the PIN when asked), audited and counted on Staff actions as before.
+- **Notes:** Oct 15, 2026. **No sale** sits in the bar POS top bar after the song queue (apps/staff/src/screens/NoSaleButton.tsx), then Wipe screen and **Lock**. Which drawer is this station's comes from the server alone: the drawer `GET /drawers` marks `here` (the device's `cash_drawer_id`), with an open session and `can_count` for the person. No server change and no migration: the button calls the drawer screen's own `POST /drawer-sessions/{s}/no-sale`, so the reason, the PIN again (P-10, answered by the shell's PinAgainDialog through `pin_again_required`), the drawer kick, the audit and the Staff actions count (P-09) are unchanged. Tap 1 opens the chips, tap 2 on Change or Wrong tender sends; Other… takes typed words (up to 200, the route's limit) and **Open the drawer**. Cautious defaults: (1) no paired drawer, no open session, or a role that can't work the drawer means no button at all, never a guessed drawer; (2) offline (no live events or the connection monitor says offline) the button stays, greyed out, reading "Drawer locked offline", using the last drawer the server named; (3) a chip's reason is stored in the words shown, as the Fix panel's chips are; (4) Cancel on the PIN dialog leaves the drawer shut and says nothing more. Spec 10 · Top bar and docs/screens.md Rail note 23 updated (D133); docs/manual-test.md 31.7. Two older e2e tests that clicked "Lock" while on the bar POS (the sign-in homes test, the desktop offline test) now click the side menu's Lock, since the top bar has one too. Tests: e2e "No sale from the bar POS top bar in two taps, the PIN again, locked offline, and Lock".
 
 ### U-08 · The manager's PIN where the approval is asked
 

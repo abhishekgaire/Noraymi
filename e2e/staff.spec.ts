@@ -586,7 +586,7 @@ test("Maya's name and PIN on the bar computer open her home; Andy's and Diego's 
       await page.getByRole("button", { name }).click();
       await typePin(page, pin);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(home);
-      await page.getByRole("button", { name: "Lock" }).click();
+      await page.locator("#side-menu").getByRole("button", { name: "Lock" }).click();
       await expect(page.getByRole("status")).toHaveText("Locked · sign in to continue");
     };
     // A wrong PIN says so and nothing more.
@@ -12583,6 +12583,85 @@ test("U-05 · with readers: the name first, Hold a card instead for the line, an
     await expect(closing.getByRole("button", { name: /^Close to the card/ })).toHaveCount(0);
     await ways.first().click();
     await expect(panel.getByRole("region", { name: "Tap at the reader" })).toBeVisible();
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * No sale and Lock on the bar POS (U-07; D133): with the bar computer paired to the bar drawer, No sale
+ * sits in the top bar; Change opens the drawer in two taps plus the PIN again the owner ticked (P-10),
+ * logged against Maya and counted for Staff actions; Other… takes typed words; offline the button is
+ * greyed out saying the drawer is locked; Lock beside Wipe screen goes back to the sign-in screen.
+ */
+test("No sale from the bar POS top bar in two taps, the PIN again, locked offline, and Lock", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    const top = page.locator(".topbar");
+    // A screen with no drawer paired to it has no No sale: nothing is guessed.
+    await expect(top.getByRole("button", { name: "Wipe screen" })).toBeVisible();
+    await expect(top.getByRole("button", { name: "No sale" })).toHaveCount(0);
+    await db.query(
+      `update devices set cash_drawer_id = (select id from cash_drawers where venue_id = (select id from venues where slug = 'west4karaoke') and name = 'Bar drawer')
+        where id = (select id from devices where venue_id = (select id from venues where slug = 'west4karaoke') and kind = 'bar_computer' order by created_at desc limit 1)`,
+    );
+    await page.reload();
+    const noSale = top.getByRole("button", { name: "No sale" });
+    await expect(noSale).toBeVisible();
+    expect((await noSale.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const lock = top.getByRole("button", { name: "Lock", exact: true });
+    await expect(lock).toBeVisible();
+
+    // Tap 1: No sale. Tap 2: Change. Then the PIN again, as the owner ticked by default.
+    await noSale.click();
+    const sheet = page.getByRole("dialog", { name: "No sale · Bar drawer" });
+    await expect(sheet).toContainText("Why open the drawer?");
+    const change = sheet.getByRole("button", { name: "Change", exact: true });
+    expect((await change.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect(sheet.getByRole("button", { name: "Wrong tender" })).toBeVisible();
+    await change.click();
+    const ask = page.getByRole("dialog", { name: "Your PIN again" });
+    await expect(ask).toContainText("No sale asks for your PIN again.");
+    await ask.getByLabel("PIN").fill("4071");
+    await ask.getByRole("button", { name: "Continue" }).click();
+    await expect(top.getByRole("status").filter({ hasText: "Bar drawer opened" })).toHaveText(
+      "Bar drawer opened · Change",
+    );
+
+    // Other… asks for the words; the PIN again still applies.
+    await noSale.click();
+    const other = page.getByRole("dialog", { name: "No sale · Bar drawer" });
+    await other.getByRole("button", { name: "Other…" }).click();
+    await expect(other.getByRole("button", { name: "Open the drawer" })).toBeDisabled();
+    await other.getByLabel("Reason").fill("Count check");
+    await other.getByRole("button", { name: "Open the drawer" }).click();
+    await ask.getByLabel("PIN").fill("4071");
+    await ask.getByRole("button", { name: "Continue" }).click();
+    await expect(top.getByRole("status").filter({ hasText: "Bar drawer opened" })).toHaveText(
+      "Bar drawer opened · Count check",
+    );
+
+    // Logged against Maya at this drawer: the rows Staff actions counts (P-09).
+    const moves = await db.query<{ reason: string }>(
+      `select m.reason from drawer_moves m join users u on u.id = m.taken_by
+        where m.kind = 'no_sale' and u.name = 'Maya S.' order by m.reason`,
+    );
+    expect(moves.rows).toEqual([{ reason: "Change" }, { reason: "Count check" }]);
+
+    // Offline the drawer is locked, and the button says so.
+    await page.context().setOffline(true);
+    await expect(noSale).toBeDisabled();
+    await expect(top).toContainText("Drawer locked offline");
+    await page.context().setOffline(false);
+    await expect(noSale).toBeEnabled();
+
+    // Lock beside Wipe screen.
+    await lock.click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
   } finally {
     await db.end();
   }

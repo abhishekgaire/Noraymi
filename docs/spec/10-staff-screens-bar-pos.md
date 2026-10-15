@@ -68,7 +68,7 @@ Prices on the site read "$10 a person an hour, plus tax and a 20% gratuity" and 
 
 | Area | What it shows |
 | --- | --- |
-| Top bar | Who's signed in, and "Maya · on break" while she's on break; room orders as cards with their age and Accept; "Song queue · 6" in bar mode, which opens the song queue; the clock and online state; Wipe screen and Lock |
+| Top bar | Who's signed in, and "Maya · on break" while she's on break; room orders as cards with their age and Accept; "Song queue · 6" in bar mode, which opens the song queue; the clock and online state; **No sale** (U-07, [D133](../decisions.md)): shown only where the server pairs this screen to an open drawer the person may work (`here` on `GET /drawers`), one tap opens the reason chips Change, Wrong tender and Other… (typed), a second opens the drawer through `POST /drawer-sessions/{s}/no-sale`, with the PIN again while the owner ticks No sale ([Tenancy and access](02-tenancy-access.md) · Ask for the PIN again), audited and counted on Staff actions as from Cash drawers; offline it's greyed out, reading "Drawer locked offline"; Wipe screen and Lock, side by side |
 | Side menu | The desktop side menu from rule 1, one tap from the W4 button, so Messages, Calendar and Close the night are one tap away |
 | Left | New tab, a find box (name, room or the card's last four), All, Mine and Rooms, Quick sale, bar tabs in the order opened, then rooms, and Closed tonight with Reopen |
 | Center | Ten sections in fixed places (Favorites, Beer, Soju, Cocktails, Shots, Spirits, Wine, Soft drinks, Bottles, Buckets), 25 slots each, a search across the whole menu, and 86. With Kitchen & food on, Food after them opens a row of the menu's food categories (D100) |
