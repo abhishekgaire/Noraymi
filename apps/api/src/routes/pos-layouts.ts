@@ -4,6 +4,7 @@ import { readSetting, statesOf, venueModules } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { stateOf, type Clock } from "@west4/shared";
 import { venueClock } from "../rooms/assignment.js";
+import { offlineCashTerms } from "../orders/offline-cash.js";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { layoutsView, publishLayout, saveLayoutDraft } from "../pos/layouts.js";
@@ -13,7 +14,8 @@ import { layoutsView, publishLayout, saveLayoutDraft } from "../pos/layouts.js";
  *   GET  /v1/venues/{v}/pos/layouts?station=bar      tonight's layout, the next one, the draft, every version
  *   POST /v1/venues/{v}/pos/layouts                  { station, sections }: save the station's draft
  *   POST /v1/venues/{v}/pos/layouts/{l}/publish      the draft goes live at the next business date
- *   GET  /v1/venues/{v}/pos/terminal                 the idle and wipe locks, and whether the caller is on a break (M6-04)
+ *   GET  /v1/venues/{v}/pos/terminal                 the idle and wipe locks, and whether the caller is on a break (M6-04);
+ *        with "Take cash quick sales while offline" on, tonight's terms for pricing one offline (U-16), else null
  */
 const station = z.string().regex(/^[a-z][a-z0-9_]{0,31}$/);
 
@@ -80,6 +82,9 @@ export function posLayoutRoutes(app: FastifyInstance, options: { clock: Clock })
           wipe_lock_sec: pos?.value.wipeLockSec ?? 10,
           on_break: breaks.some((b) => b.membership_id === membershipId),
           breaks,
+          // U-16 (D133): kept by the bar computer with this read, so a cash quick sale offline is
+          // priced as the replay will price it; null while the switch is off.
+          offline_cash: await offlineCashTerms(c, request.venueId!, today.toString()),
         };
       }),
   );

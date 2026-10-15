@@ -136,6 +136,20 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
       </div>
       <p className="small muted">{t("barPos.selfRun.hint")}</p>
 
+      {/* U-16 (D133): off by default, so the drawer stays locked offline until the owner turns it on. */}
+      <h3>{t("barPos.offlineCash")}</h3>
+      <div className="invite-fields">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={pos.offlineCashSales === true}
+            onChange={(e) => setPos({ offlineCashSales: e.target.checked })}
+          />
+          <span>{t("barPos.offlineCash.label")}</span>
+        </label>
+      </div>
+      <p className="small muted">{t("barPos.offlineCash.hint")}</p>
+
       <h3>{t("barPos.aging")}</h3>
       <div className="invite-fields">
         {whole(t("barPos.aging.phones"), pos.orderAging.phonesSec, 1, (n) =>

@@ -89,6 +89,28 @@ interface Tile {
   readonly name: string;
 }
 
+/** The kept team: names and roles from the last sync, no PINs (queue mode's "Who's ringing it"). */
+export function useKeptTeam(venueId: string): readonly Tile[] {
+  const [team, setTeam] = useState<readonly Tile[]>([]);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const device = await readDevice();
+      if (!device) return;
+      const answer = await deviceOnlyApi<{ tiles: Tile[] }>(
+        device,
+        "GET",
+        `/v1/venues/${venueId}/team/tiles`,
+      ).catch(() => null);
+      if (live && answer) setTeam(answer.tiles);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [venueId]);
+  return team;
+}
+
 export interface QueueLineSource {
   readonly variant_id: string;
   readonly name: string;
@@ -111,29 +133,11 @@ export function QueuePanel({
   const { t } = useT();
   const queue = useQueue();
   const [lines, setLines] = useState<readonly (QueueLineSource & { qty: number })[]>([]);
-  const [team, setTeam] = useState<readonly Tile[]>([]);
+  const team = useKeptTeam(venueId);
   const [who, setWho] = useState("");
   const [cash, setCash] = useState("");
   const [error, setError] = useState<string | null>(null);
   const seen = useRef(ringRequest?.n ?? 0);
-
-  // The kept team: names and roles from the last sync, no PINs.
-  useEffect(() => {
-    let live = true;
-    void (async () => {
-      const device = await readDevice();
-      if (!device) return;
-      const answer = await deviceOnlyApi<{ tiles: Tile[] }>(
-        device,
-        "GET",
-        `/v1/venues/${venueId}/team/tiles`,
-      ).catch(() => null);
-      if (live && answer) setTeam(answer.tiles);
-    })();
-    return () => {
-      live = false;
-    };
-  }, [venueId]);
 
   // A tap on the grid adds the drink.
   useEffect(() => {

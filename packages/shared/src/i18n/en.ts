@@ -3262,6 +3262,51 @@ export const en = {
   "replayed.queuedBy": "Asked to wait · queued by {name} at {time}",
   "replayed.cancel": "Cancel copy",
   "replayed.failed": "Couldn't update that order. Try again.",
+  // U-16 (D133): cash quick sales while offline, and the While offline card.
+  "barPos.offlineCash": "Cash while offline",
+  "barPos.offlineCash.label": "Take cash quick sales while offline",
+  "barPos.offlineCash.hint":
+    "Off: the drawer stays locked while the bar computer is offline. On: with an offline code, the bar computer takes cash quick sales, opens its drawer for each one, and puts each sale on the books once when the connection returns. A sale the server refuses then shows under Confirm replayed orders.",
+  "offlineCash.title": "Quick sale · cash while offline",
+  "offlineCash.hint":
+    "Cash only. The drawer opens with each sale; the sale goes on the books when the connection returns.",
+  "offlineCash.total": "Cash {amount}",
+  "offlineCash.pickWho": "Pick who's ringing it, then tap what the guest handed over.",
+  "offlineCash.kept": "Kept on this computer · it goes on the books when the connection returns.",
+  "offlineCash.noKick": "The drawer didn't open. Open it with its key.",
+  "offlineCash.failed": "That sale wasn't kept and the drawer stayed shut. Try again.",
+  "offlineCash.list": "Cash sales kept offline",
+  "offlineCash.listLine": "{lines} · {amount} cash · kept · {name}",
+  "offlineCash.drinksOnly": "Offline, a cash quick sale takes drinks without choices only.",
+  "offlineCash.tabsOrQuick": "Queue mode takes rounds on open bar tabs, and cash on Quick sale.",
+  "whileOffline.title": "While offline",
+  "whileOffline.works":
+    "Still works: the board, open tabs and the menu. Orders already ringing keep ringing.",
+  "whileOffline.queue":
+    "With an offline code, rounds on open bar tabs queue on this computer, marked queued · not charged.",
+  "whileOffline.notDesk":
+    "Rounds queue only on the bar computer (the desktop app), with an offline code.",
+  "whileOffline.cashOn": "Cash quick sales work too: the drawer opens with each one.",
+  "whileOffline.cashOff":
+    "The drawer stays locked: keep any cash taken aside and write it on paper.",
+  "whileOffline.paper":
+    "On paper: new tabs, walk-ins and cash taken. Write the name or room, the drinks, the amount and who took it, and give it to the manager on duty.",
+  "whileOffline.code":
+    "The offline code: a manager reads it from their phone (Offline codes) or the sealed card at the desk.",
+  "whileOffline.cards":
+    "Cards: Tap to Pay on the manager's phone, as the break-glass card says. If Stripe is down too, take cash.",
+  "replayed.cashRefused": "Quick sale · {what} · {cash} cash taken offline",
+  "replayed.cashRefusedWhy": "Not on the books: {reason} · rung by {name} at {time}",
+  "replayed.cashRefusedHint":
+    "The cash is in the drawer. Tell the manager on duty; it's on Review after outage.",
+  "replayed.cashRefusedOk": "OK, told the manager",
+  "review.order.sold": "Replayed · sold for cash offline",
+  "review.cashSale.refused":
+    "Cash taken offline: {amount}. The sale isn't on the books; the drawer holds the cash.",
+  "review.reason.switched_off": "cash sales offline were switched off",
+  "review.reason.price_changed": "the price changed since the last sync",
+  "review.reason.no_staff": "who rang it isn't on the team",
+  "review.reason.cash_refused": "the cash couldn't go into this drawer",
   "review.title": "Review after outage",
   "review.hint": "Every order taken offline and its payment. Failed replays come first.",
   "review.none": "Nothing was taken offline tonight.",

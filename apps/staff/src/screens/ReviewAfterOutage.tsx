@@ -21,8 +21,12 @@ interface OfflineOrder {
   readonly lines: readonly { readonly qty: number; readonly name: string }[];
   readonly total_cents: number;
   readonly cash_note: string | null;
-  readonly outcome: "held" | "failed";
+  /** sold: a cash quick sale taken offline and made on replay (U-16). */
+  readonly outcome: "held" | "failed" | "sold";
   readonly reason: string | null;
+  /** round, or cash_sale (U-16) with the cash the computer took. */
+  readonly kind?: "round" | "cash_sale";
+  readonly cash_cents?: number | null;
   readonly order_status: string | null;
   readonly check_status: string | null;
   readonly cash_posted: { amount_cents: number; at: string; by: string } | null;
@@ -35,6 +39,7 @@ interface Review {
 
 const orderWords = (o: OfflineOrder): MessageKey | null => {
   if (o.outcome === "failed") return null;
+  if (o.outcome === "sold") return "review.order.sold";
   if (o.order_status === "held") return "review.order.held";
   if (o.order_status === "cancelled") return "review.order.cancelled";
   return "review.order.accepted";
@@ -109,7 +114,13 @@ export function ReviewAfterOutage({
                   onChanged={() => void load()}
                   words={orderWords(o)}
                   queued={t("review.queued", {
-                    tab: o.tab_name,
+                    // A cash quick sale (U-16): "Quick sale", with its number once it was made.
+                    tab:
+                      o.kind === "cash_sale"
+                        ? o.outcome === "sold"
+                          ? `${t("rail.quickSale")} · ${o.tab_name}`
+                          : t("rail.quickSale")
+                        : o.tab_name,
                     name: o.staff_name,
                     time: time(o.queued_at, timeZone),
                   })}
@@ -193,6 +204,12 @@ function ReviewRow({
         </p>
       ) : (
         words && <p className="small">{t(words)}</p>
+      )}
+      {/* A refused cash sale (U-16): the cash is in the drawer, the sale isn't on the books. */}
+      {o.kind === "cash_sale" && o.outcome === "failed" && (
+        <p className="small" data-testid="review-cash-refused">
+          {t("review.cashSale.refused", { amount: money((o.cash_cents ?? 0) as Cents) })}
+        </p>
       )}
       {o.check_status && (
         <p className="small muted">

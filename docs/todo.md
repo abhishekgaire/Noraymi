@@ -52,7 +52,7 @@ These five unblock the most work.
 - [ ] **Turn on branch protection on GitHub for `main`?** It makes failing checks block a merge (M1's principal and wall suites, M4-30's chaos suite), but it also stops pushing straight to `main`, which is how work lands today. Recorded in [M1](backlog/M1-foundations.md) and M4-30.
 - [x] **Edit CLAUDE.md's approvals rule.** "Approvals are decided on the approver's own phone" is now a venue setting ([D124](decisions.md)): on the manager's phone (the default), a manager's PIN at the register, or no approval. Done: CLAUDE.md's rule now says approvals are a venue setting.
 - [ ] **Pick an email provider** (any service with an SMTP relay) and put its address in staging's `smtp-url` secret, plus our own addresses in `email_allow_list`. Until then: staging sends no email. Recorded in [M1](backlog/M1-foundations.md) (the email ticket's Notes).
-
+- [ ] **Should cash sales work while the bar computer is offline?** Built as the venue setting **Take cash quick sales while offline** (U-16, [D133](decisions.md)), **off by default**, so the drawer stays locked offline as spec 09 says. Turned on, queue mode also takes cash quick sales of drinks, opens the drawer with each one and puts each sale on the books once when the connection returns; one the server refuses (say, a beer sold at 3:55 AM and replayed after 4:00 AM) is flagged for the manager and the cash stays in the drawer. Decide whether it should be on for Sing Sing and West 4, and how a refused sale should be posted.
 
 
 ## 2. You: accounts, keys and setup to run
@@ -182,7 +182,7 @@ Open items only; ticked items stay above as the record of the founder's answers.
 | Group | Open items |
 | --- | --- |
 | Do these first (also listed below) | 5 |
-| 1. You: decisions | 10 |
+| 1. You: decisions | 11 |
 | 2. You: accounts, keys and setup | 11 |
 | 3. The lawyer | 14 |
 | 4. The accountant | 4 |
@@ -193,4 +193,4 @@ Open items only; ticked items stay above as the record of the founder's answers.
 | 9. Done in onboarding by the owner | 16 |
 | 10. West 4 | 7 |
 | 11. On-site work | 13 |
-| **Total (groups 1 to 11)** | **86** |
+| **Total (groups 1 to 11)** | **87** |

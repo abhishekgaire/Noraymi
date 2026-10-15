@@ -69,6 +69,7 @@ export type {
 export { orderStep, pickUpStep, ORDER_STATUSES, ORDER_STEPS } from "./orders.js";
 export type { OrderStatus, OrderStep, PickUpResult, StepResult } from "./orders.js";
 export * from "./check-totals.js";
+export * from "./offline-cash.js";
 export * from "./package-lines.js";
 export * from "./menu-choices.js";
 export { ageSwitchAt, twentyOneAt, bookingAgeSwitch } from "./age-policy.js";

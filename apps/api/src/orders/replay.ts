@@ -45,12 +45,19 @@ export const REPLAY_REASONS = [
   "cut_off",
   "not_on_menu",
   "out_tonight",
+  // A cash quick sale taken offline (U-16): the switch was off that night, the computer's price isn't
+  // the server's, the person isn't on the team, or the cash couldn't go into the drawer.
+  "switched_off",
+  "price_changed",
+  "no_staff",
+  "cash_refused",
 ] as const;
 export type ReplayReason = (typeof REPLAY_REASONS)[number];
 
 export interface ReplayAnswer {
   readonly order_id: string;
-  readonly outcome: "held" | "failed";
+  /** held: a round asked to wait; sold: a cash quick sale made and paid (U-16); failed: refused. */
+  readonly outcome: "held" | "failed" | "sold";
   readonly reason: ReplayReason | null;
 }
 
@@ -67,7 +74,7 @@ export async function replayedBefore(
   venueId: string,
   orderId: string,
 ): Promise<ReplayAnswer | null> {
-  const r = await c.query<{ outcome: "held" | "failed"; reason: ReplayReason | null }>(
+  const r = await c.query<{ outcome: ReplayAnswer["outcome"]; reason: ReplayReason | null }>(
     "select outcome, reason from offline_replays where venue_id = $1 and client_order_id = $2",
     [venueId, orderId],
   );

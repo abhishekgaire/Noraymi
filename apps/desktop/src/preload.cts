@@ -78,5 +78,11 @@ contextBridge.exposeInMainWorld("west4", {
     list: (): Promise<unknown[]> => ipcRenderer.invoke("west4:queue:list"),
     settle: (orderIds: string[]): Promise<number> =>
       ipcRenderer.invoke("west4:queue:settle", orderIds),
+    // Cash quick sales while offline (U-16): the drawer kept while online, and a cash sale that opens it.
+    setDrawer: (drawer: unknown): Promise<void> =>
+      ipcRenderer.invoke("west4:queue:set-drawer", drawer),
+    hasDrawer: (): Promise<boolean> => ipcRenderer.invoke("west4:queue:has-drawer"),
+    addSale: (sale: unknown): Promise<{ sale: unknown; kicked: boolean }> =>
+      ipcRenderer.invoke("west4:queue:add-sale", sale),
   },
 });

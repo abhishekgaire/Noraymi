@@ -31,6 +31,8 @@ interface Window {
       state(): Promise<unknown>;
       unlock(code: string): Promise<unknown>;
       list(): Promise<unknown[]>;
+      /** U-16: whether a drawer is kept for a cash sale offline. */
+      hasDrawer?(): Promise<boolean>;
     };
     readonly venue: {
       configure(clock: {

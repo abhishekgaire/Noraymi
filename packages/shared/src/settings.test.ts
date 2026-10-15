@@ -83,6 +83,12 @@ describe("settings schemas", () => {
     const badRun = parseSetting("pos", { ...pos, selfRunOrders: "on" });
     expect(badRun.ok).toBe(false);
     if (!badRun.ok) expect(badRun.reasons[0]).toMatch(/^pos\.selfRunOrders/);
+    // "Take cash quick sales while offline" (U-16): absent reads as off; a yes or no only.
+    expect(pos).not.toHaveProperty("offlineCashSales");
+    expect(parseSetting("pos", { ...pos, offlineCashSales: true }).ok).toBe(true);
+    const badCash = parseSetting("pos", { ...pos, offlineCashSales: 1 });
+    expect(badCash.ok).toBe(false);
+    if (!badCash.ok) expect(badCash.reasons[0]).toMatch(/^pos\.offlineCashSales/);
   });
 
   it("kitchen (K-01): unsentWarnMin defaults to 5 and refuses a value outside 1 to 60; the notice needs both languages", () => {

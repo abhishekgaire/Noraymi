@@ -42,6 +42,11 @@ export async function startQuickSale(
     deviceId: string | null;
     /** Training mode (M7-03): a practice check, numbered T-… from its own counter. */
     training?: boolean;
+    /**
+     * A cash sale replayed from the bar computer's queue (U-16): the person's quick draft online is
+     * theirs to keep, so the replay leaves it alone.
+     */
+    keepDraft?: boolean;
     now: Temporal.Instant;
   },
 ) {
@@ -81,7 +86,9 @@ export async function startQuickSale(
     venueId,
     checkId,
   ]);
-  const version = await clearDraft(c, venueId, input.membershipId, null, input.now.toString());
+  const version = input.keepDraft
+    ? null
+    : await clearDraft(c, venueId, input.membershipId, null, input.now.toString());
   if (version !== null)
     await emitEvent(c, {
       venueId,

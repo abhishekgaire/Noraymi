@@ -53,6 +53,11 @@ export async function takeCash(
     deviceId: string | null;
     businessDate: string;
     training?: boolean;
+    /**
+     * A cash sale replayed from the bar computer's queue (U-16): the drawer opened on the computer
+     * itself when the cash was taken offline, so the replay sends no second kick.
+     */
+    noKick?: boolean;
     now: Temporal.Instant;
   },
 ): Promise<CashTaken> {
@@ -123,7 +128,7 @@ export async function takeCash(
       deviceId: input.deviceId,
       at,
     });
-  if (inDrawer && !training && inDrawer.printer_device_id)
+  if (inDrawer && !training && !input.noKick && inDrawer.printer_device_id)
     // The kick through the receipt printer's port: a network printer's job carries it; a USB printer's
     // goes through the desktop app's print host.
     await insertPrintJob(c, venueId, {

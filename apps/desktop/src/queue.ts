@@ -53,6 +53,33 @@ export interface QueuedOrder {
   readonly cash_note: string | null;
 }
 
+/**
+ * A cash quick sale taken offline (U-16; D133): only while "Take cash quick sales while offline" is
+ * on, which the page knows from the terms it kept. Priced on the page with packages/rules; the server
+ * prices it again on replay and refuses it unless the cents match.
+ */
+export interface QueuedCashSale {
+  readonly kind: "cash_sale";
+  readonly order_id: string;
+  readonly business_date: string;
+  readonly queued_at: string;
+  readonly staff: { readonly membership_id: string; readonly name: string };
+  readonly lines: readonly QueuedLine[];
+  readonly total_cents: number;
+  readonly cash_cents: number;
+  readonly tendered_cents: number;
+}
+
+/** This computer's drawer, kept while online for a cash sale offline (U-16). */
+export interface OfflineDrawer {
+  readonly name: string;
+  readonly printer:
+    | { readonly kind: "usb"; readonly serial: string }
+    | { readonly kind: "lan"; readonly address: string; readonly port: number };
+  /** The kick in the printer's own command set, base64. */
+  readonly kick: string;
+}
+
 const CLOSED: QueueState = { open: false, opened_at: null, ends_at: null, kind: null };
 export const QUEUED_KIND = "queued";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -152,6 +179,42 @@ export class QueueMode {
   }
 
   /**
+   * Queue one cash quick sale (U-16), only while queue mode is open. The caller kicks the drawer
+   * after this returns, so the drawer never opens for a sale that wasn't kept.
+   */
+  addSale(now: Temporal.Instant, input: unknown): QueuedCashSale {
+    if (!this.state(now).open) throw new Error("refused: queue mode isn't open");
+    const clock = this.clock();
+    const cache = this.cache();
+    if (!clock || !cache) throw new Error("refused: no cache");
+    const sale = parseSale(input, this.businessDate(now, clock), now);
+    if (cache.get(QUEUED_KIND, sale.order_id)) throw new Error("refused: already queued");
+    cache.put(now, QUEUED_KIND, sale.order_id, sale);
+    return sale;
+  }
+
+  /** Keep this computer's drawer (or forget it: null), as the server said while online. */
+  setDrawer(input: unknown): void {
+    const cache = this.cache();
+    if (!cache) return;
+    if (input === null) {
+      cache.metaDelete("offline_drawer");
+      return;
+    }
+    cache.metaWrite("offline_drawer", JSON.stringify(parseDrawer(input)));
+  }
+
+  drawer(): OfflineDrawer | null {
+    const raw = this.cache()?.metaRead("offline_drawer");
+    if (!raw) return null;
+    try {
+      return parseDrawer(JSON.parse(raw));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * The server answered these rounds (M8-05): each landed as asked to wait, or on Review after
    * outage. Only answered ids leave the queue; anything not answered stays for the next upload.
    */
@@ -168,8 +231,8 @@ export class QueueMode {
     return n;
   }
 
-  list(): QueuedOrder[] {
-    return (this.cache()?.list<QueuedOrder>(QUEUED_KIND) ?? []).sort((a, b) =>
+  list(): (QueuedOrder | QueuedCashSale)[] {
+    return (this.cache()?.list<QueuedOrder | QueuedCashSale>(QUEUED_KIND) ?? []).sort((a, b) =>
       a.queued_at.localeCompare(b.queued_at),
     );
   }
@@ -183,6 +246,80 @@ function text(x: unknown, max: number): string {
   if (typeof x !== "string" || x.trim().length === 0 || x.length > max)
     throw new Error("refused: not an order");
   return x.trim();
+}
+
+function cents(x: unknown, max: number): number {
+  if (typeof x !== "number" || !Number.isInteger(x) || x < 0 || x > max)
+    throw new Error("refused: not an amount");
+  return x;
+}
+
+function parseLines(lines: unknown): QueuedLine[] {
+  if (!Array.isArray(lines) || lines.length === 0 || lines.length > 50)
+    throw new Error("refused: no lines");
+  return lines.map((raw) => {
+    const l = (raw ?? {}) as Record<string, unknown>;
+    const qty = l["qty"];
+    const unit = l["unit_cents"];
+    if (typeof qty !== "number" || !Number.isInteger(qty) || qty < 1 || qty > 99)
+      throw new Error("refused: not a quantity");
+    if (typeof unit !== "number" || !Number.isInteger(unit) || unit < 0 || unit > 1_000_000)
+      throw new Error("refused: not a price");
+    return {
+      variant_id: text(l["variant_id"], 64),
+      name: text(l["name"], 200),
+      qty,
+      unit_cents: unit,
+      alcohol: l["alcohol"] === true,
+    };
+  });
+}
+
+function parseSale(input: unknown, businessDate: string, now: Temporal.Instant): QueuedCashSale {
+  const o = (input ?? {}) as Record<string, unknown>;
+  const staff = (o["staff"] ?? {}) as Record<string, unknown>;
+  if (typeof o["order_id"] !== "string" || !UUID.test(o["order_id"]))
+    throw new Error("refused: not an order id");
+  const cash = cents(o["cash_cents"], 10_000_000);
+  const tendered = cents(o["tendered_cents"], 10_000_000);
+  if (tendered < cash) throw new Error("refused: less than the cash price");
+  return {
+    kind: "cash_sale",
+    order_id: o["order_id"].toLowerCase(),
+    business_date: businessDate,
+    queued_at: now.toString(),
+    staff: {
+      membership_id: text(staff["membership_id"], 64),
+      name: text(staff["name"], 120),
+    },
+    lines: parseLines(o["lines"]),
+    total_cents: cents(o["total_cents"], 10_000_000),
+    cash_cents: cash,
+    tendered_cents: tendered,
+  };
+}
+
+function parseDrawer(input: unknown): OfflineDrawer {
+  const d = (input ?? {}) as Record<string, unknown>;
+  const p = (d["printer"] ?? {}) as Record<string, unknown>;
+  const kick = d["kick"];
+  if (
+    typeof kick !== "string" ||
+    kick.length === 0 ||
+    kick.length > 200 ||
+    !/^[A-Za-z0-9+/=]+$/.test(kick)
+  )
+    throw new Error("refused: not a kick");
+  const name = text(d["name"], 120);
+  if (p["kind"] === "usb")
+    return { name, printer: { kind: "usb", serial: text(p["serial"], 200) }, kick };
+  if (p["kind"] === "lan" && typeof p["port"] === "number" && Number.isInteger(p["port"]))
+    return {
+      name,
+      printer: { kind: "lan", address: text(p["address"], 15), port: p["port"] },
+      kick,
+    };
+  throw new Error("refused: not a printer");
 }
 
 function parseOrder(input: unknown, businessDate: string, now: Temporal.Instant): QueuedOrder {

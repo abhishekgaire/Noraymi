@@ -24,7 +24,7 @@ import { KitchenSwitch } from "./KitchenSwitch.js";
 import { FoodMark, UnsentWarning, type CheckFood } from "./SendToKitchen.js";
 import { alcoholStateAt } from "@west4/rules";
 import { useConnection } from "../connection.js";
-import { useQueue } from "../queue.js";
+import { useQueue, type OfflineCashTermsView } from "../queue.js";
 import { OfflineCodeForm, QueuedRounds, QueuePanel, type QueueLineSource } from "./QueuePanel.js";
 import { ReplayedOrders } from "./ReplayedOrders.js";
 import { SongQueueLink } from "./SongQueue.js";
@@ -32,6 +32,8 @@ import { TopBarItems } from "../layout/TopBar.js";
 import { NoSaleButton } from "./NoSaleButton.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
+import { OfflineCashSale, type CashLineSource } from "./OfflineCashSale.js";
+import { WhileOffline } from "./WhileOffline.js";
 import { NewTab } from "./NewTab.js";
 import { CloseTab } from "./CloseTab.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
@@ -93,6 +95,8 @@ interface Item {
 interface Category {
   readonly id: string;
   readonly name: string;
+  /** Its items' tax category (a cash sale offline is priced with it, U-16). */
+  readonly tax_category?: string;
   readonly items: readonly Item[];
 }
 interface Tab {
@@ -232,6 +236,8 @@ export function Rail() {
     wipe_lock_sec: number;
     on_break: boolean;
     breaks: readonly { membership_id: string; name: string }[];
+    /** U-16: tonight's terms for a cash quick sale offline; null while the venue's switch is off. */
+    offline_cash?: OfflineCashTermsView | null;
   }>({
     idle_lock_min: 3,
     wipe_lock_sec: 10,
@@ -360,6 +366,7 @@ export function Rail() {
           wipe_lock_sec: number;
           on_break: boolean;
           breaks: { membership_id: string; name: string }[];
+          offline_cash?: OfflineCashTermsView | null;
         }>("GET", `/v1/venues/${venueId}/pos/terminal`),
       ]);
       setTerminal(term);
@@ -535,6 +542,29 @@ export function Rail() {
     },
     [items],
   );
+  // A cash quick sale offline (U-16): a drink with no choices, with its category's tax category.
+  const cashLookup = useCallback(
+    (variantId: string): CashLineSource | null => {
+      for (const c of categories)
+        for (const item of c.items) {
+          const v = item.variants.find((x) => x.id === variantId);
+          if (v)
+            return {
+              variant_id: v.id,
+              name: item.variants.length > 1 ? `${item.name} · ${v.name}` : item.name,
+              unit_cents: v.price_cents,
+              alcohol: item.alcohol,
+              tax_category: c.tax_category ?? null,
+            };
+        }
+      return null;
+    },
+    [categories],
+  );
+  // "Take cash quick sales while offline" (U-16; D133): on, and in queue mode on Quick sale, never in
+  // training (practice cash never opens the drawer).
+  const offlineCash =
+    queueOpen && !signedIn?.membership.training ? (terminal.offline_cash ?? null) : null;
   const nowMs = now?.epochMilliseconds ?? Date.now();
   const ageS = (iso: string) =>
     Math.max(0, Math.floor((nowMs - Temporal.Instant.from(iso).epochMilliseconds) / 1000));
@@ -636,12 +666,19 @@ export function Rail() {
       setError(t("rail.pickFirst"));
       return;
     }
-    // Queue mode takes rounds on open bar tabs only.
-    if (
+    // Queue mode takes rounds on open bar tabs only, and cash quick sales where the venue allows them
+    // (U-16): drinks without choices, since the kept menu can't price a choice offline.
+    if (queueOpen && offlineCash && picked?.kind === "quick") {
+      if (item.station === "kitchen" || item.groups.length > 0) {
+        setError(t("offlineCash.drinksOnly"));
+        return;
+      }
+      setError(null);
+    } else if (
       queueOpen &&
       !(picked?.kind === "tab" && tabs.find((x) => x.id === picked.id)?.state === "open")
     ) {
-      setError(t("queue.round.tabsOnly"));
+      setError(t(offlineCash ? "offlineCash.tabsOrQuick" : "queue.round.tabsOnly"));
       return;
     }
     // Food with choices opens them on tap; a required one is picked before it goes on (D100).
@@ -919,6 +956,7 @@ export function Rail() {
       ) : (
         queue.available && connection.kind === "offline" && <OfflineCodeForm />
       )}
+      {venueId && <WhileOffline venueId={venueId} />}
       {connection.kind !== "offline" && venueId && (
         <ReplayedOrders venueId={venueId} timeZone={timeZone} />
       )}
@@ -1423,6 +1461,14 @@ export function Rail() {
                     if (existing) setNotice(t("newTab.existing", { name: opened.name }));
                   });
                 }}
+              />
+            ) : picked?.kind === "quick" && offlineCash ? (
+              <OfflineCashSale
+                venueId={venueId}
+                terms={offlineCash}
+                ringRequest={ringRequest}
+                lookup={cashLookup}
+                alcoholClosed={windowClosed}
               />
             ) : picked?.kind === "quick" ? (
               <QuickSale
