@@ -11878,3 +11878,93 @@ test("U-08: a void over the limit asks for Andy's PIN right there, and the strip
     await db.end();
   }
 });
+
+/**
+ * U-03 · split a cardless tab (D133). Sing Sing's way at West 4: tabs without a card, no Stripe
+ * reader, the outside card machine on. A named tab with no card shows Split; three shares are paid
+ * in cash, on the outside machine and on the outside machine, and the tab closes on the last one.
+ */
+test("U-03 · a cardless tab splits three ways: cash, outside machine, outside machine, then closes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardRequired', false),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId],
+    );
+    await db.query("update devices set stripe_reader_id = null where stripe_reader_id is not null");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+
+    await page.getByRole("button", { name: "New tab" }).click();
+    const noCard = panel.getByRole("group", { name: "Or open it without a card" });
+    await noCard.getByLabel("Name on the tab").fill("Dana");
+    await noCard.getByRole("button", { name: "Open without a card" }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Dana");
+    await page.getByRole("tab", { name: "Beer" }).click();
+    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+
+    await panel.getByRole("button", { name: "Split", exact: true }).click();
+    await panel.getByRole("button", { name: "Split 3 ways" }).click();
+    const split = panel.getByRole("region", { name: "Split" });
+    await expect(split.getByRole("listitem")).toHaveCount(3);
+    // No held card: every share has its own Pay, and no reader panel shows.
+    await expect(split.getByRole("button", { name: "Pay this share" })).toHaveCount(3);
+    const share = (n: number) => split.getByRole("listitem", { name: `Share ${n} of 3` });
+
+    await share(1).getByRole("button", { name: "Pay this share" }).click();
+    await expect(panel.getByRole("region", { name: "Tap at the reader" })).toHaveCount(0);
+    await panel.getByRole("button", { name: /^Exact \$/ }).click();
+    await panel.getByRole("button", { name: /^Take \$[\d.]+ in cash$/ }).click();
+    await expect(share(1)).toContainText("Paid");
+
+    for (const n of [2, 3]) {
+      await share(n).getByRole("button", { name: "Pay this share" }).click();
+      const machine = panel.getByRole("form", { name: "Outside card machine" });
+      await expect(machine.getByLabel("Amount charged, $")).toHaveValue(/^\d+\.\d\d$/);
+      await machine.getByRole("button", { name: "Record payment" }).click();
+      if (n === 2) await expect(share(2)).toContainText("Paid");
+    }
+
+    await expect
+      .poll(
+        async () =>
+          (await db.query<{ state: string }>("select state from tabs where name = 'Dana'")).rows[0]
+            ?.state,
+      )
+      .toBe("closed");
+    const paid = await db.query<{ method: string }>(
+      `select p.method from payments p join payment_allocations a on a.payment_id = p.id
+         join tabs t on t.check_id = a.check_id
+        where t.name = 'Dana' and a.state = 'captured' order by p.method`,
+    );
+    expect(paid.rows.map((r) => r.method)).toEqual(["cash", "outside_card", "outside_card"]);
+    const states = (
+      await db.query<{ state: string }>(
+        `select s.state from split_shares s join check_splits k on k.id = s.split_id
+           join tabs t on t.check_id = k.check_id where t.name = 'Dana' order by s.share_no`,
+      )
+    ).rows.map((r) => r.state);
+    expect(states).toEqual(["paid", "paid", "paid"]);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

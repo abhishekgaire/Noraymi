@@ -1882,6 +1882,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. Back at West 4 (readers registered by the demo), on the bar computer as Maya: ring a drink and **Pay for 1**. The reader panel comes first with **Bar S710** already picked, so **Send $… to the reader** works in one tap; on the front desk, Room 9's close-out has **Front desk S710** picked. With Paid on outside card machine switched on in Admin → Features, **Outside card machine** shows below Cash.
 7. With the switch off, the server refuses an outside-machine payment on a quick sale (`quick-sale.int.test.ts` checks it).
 
+### 31.3 Split a cardless tab (U-03)
+
+1. Start the demo with `scripts/demo-start.sh --sing-sing` (tabs without a card on, no Stripe reader, Paid on outside card machine on). On the bar computer, switch to Sing Sing and sign in as Maya (`4071`).
+2. Tap **New tab**, type a name under **Or open it without a card** (say "Dana") and tap **Open without a card**. Ring three drinks and send them.
+3. **Split** shows on the tab, as on a card tab. Tap it, then **Split 3 ways**: three shares, each with its own **Pay this share** (no "On Visa ··… · charged last", since there's no held card). The shares add up to the tab's total to the cent; an odd cent goes to the first shares.
+4. Share 1: **Pay this share**, then Cash (**Exact**, **Take … in cash**). It shows **Paid**, and the tab list shows "Partly paid · … of …".
+5. Shares 2 and 3: **Pay this share**, then **Outside card machine** (the share's amount is filled in) and **Record payment**. No reader panel shows at any point.
+6. After the last share the tab closes and leaves the open tabs; it's in **Closed tonight**. Close the night's Outside card machine total includes shares 2 and 3.
+7. Another cardless tab, split 2 ways, one share paid in cash, then **Stop splitting**: the paid share stays paid, and **Close tab** takes the rest in one go.
+8. Spanish: **Dividir**, **Pagar esta parte**. At West 4 (cards required) a tab reopened after it was paid still has no Split; it pays its rest in one go as before.
+
 ### 31.8 The manager's PIN where the approval is asked (U-08)
 
 1. As Abhishek (owner), open **Admin → Features → Choices** and pick **Manager's PIN at the register** under how approvals are decided.
