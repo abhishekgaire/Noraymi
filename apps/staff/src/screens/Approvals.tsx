@@ -67,17 +67,23 @@ export function Approvals() {
     }
   };
 
-  // A slip's tip (M6-09): its reasons in this phone's language, from the venue's own limits.
+  // A slip's tip (M6-09) or a tip changed after paying (P-06): its reasons in this phone's language,
+  // from the venue's own limits.
   const reasonOf = (a: Approval) => {
     const { reasons, limits } = a.payload;
-    if (a.kind !== "tip_review" || !reasons || !limits) return a.reason;
+    const change = a.kind === "tip_change";
+    if ((a.kind !== "tip_review" && !change) || !reasons || !limits) return a.reason;
     return reasons
       .map((r) =>
         r === "over_pct"
-          ? t("approvals.tipReason.over_pct", { pct: limits.over_pct })
+          ? change
+            ? t("approvals.tipReason.overPctPayment", { pct: limits.over_pct })
+            : t("approvals.tipReason.over_pct", { pct: limits.over_pct })
           : r === "over_cents"
             ? t("approvals.tipReason.over_cents", { amount: money(limits.over_cents as never) })
-            : t("approvals.tipReason.late", { hours: limits.late_hours }),
+            : change
+              ? t("approvals.tipReason.lateChange", { hours: limits.late_hours })
+              : t("approvals.tipReason.late", { hours: limits.late_hours }),
       )
       .join(" · ");
   };

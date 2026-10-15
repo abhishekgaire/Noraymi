@@ -361,7 +361,11 @@ export async function computeReport(
        select 'refund', f.reason, f.adjusts_business_date::text, (-f.amount_cents)::text
          from refunds f where f.venue_id = $1 and f.business_date = $2::date and f.adjusts_business_date is not null
        union all
-       select 'tip', t.source, t.adjusts_business_date::text, t.amount_cents::text
+       select 'tip',
+              -- An outside machine's tip changed after its night (P-06) clears through the machine's account.
+              case when exists (select 1 from payments p where p.venue_id = t.venue_id and p.id = t.payment_id
+                                  and p.method = 'outside_card') then 'outside_card_tip' else t.source end,
+              t.adjusts_business_date::text, t.amount_cents::text
          from tip_ledger t where t.venue_id = $1 and t.business_date = $2::date and t.adjusts_business_date is not null
        order by 3, 1`,
       [venueId, date],

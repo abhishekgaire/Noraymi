@@ -1007,6 +1007,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "check_held_cards",
       // A discount on a whole check (P-02) names its check.
       "check_discounts",
+      // A tip changed after paying (P-06) names its payment and approval.
+      "tip_changes",
       // A saved-card question names its reader (M6-12).
       "tab_card_confirms",
       // A tab's close names its reader (M6-08).

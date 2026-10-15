@@ -37,6 +37,7 @@ import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { TapPayment } from "./TapPayment.js";
 import { CashPanel } from "./CashPanel.js";
 import { RefundSheet } from "./RefundSheet.js";
+import { TipChangeSheet } from "./TipChangeSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
 import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
@@ -265,6 +266,8 @@ export function Rail() {
   const [share, setShare] = useState<Share | null>(null);
   /** Refund from check (M4-22) for a tab closed tonight: its check (M6-12). */
   const [refunding, setRefunding] = useState<string | null>(null);
+  /** Change tip (P-06) for a tab closed tonight: its check. */
+  const [tipChanging, setTipChanging] = useState<string | null>(null);
   const [movingTab, setMovingTab] = useState<string | null>(null);
   const [holds, setHolds] = useState<readonly MovedHold[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
@@ -296,7 +299,7 @@ export function Rail() {
   const [kitchenRequest, setKitchenRequest] = useState(0);
   // The drinks panel goes away while a tab is closed, split or refunded, and comes back fresh: the last tap
   // on the grid must not ring again when it does (M6-12).
-  useEffect(() => setRingRequest(null), [closingTab, splitting, refunding, movingTab]);
+  useEffect(() => setRingRequest(null), [closingTab, splitting, refunding, tipChanging, movingTab]);
   const [draftRefresh, setDraftRefresh] = useState(0);
   const [leftOut, setLeftOut] = useState<string | null>(null);
   const [eightySix, setEightySix] = useState(false);
@@ -562,6 +565,7 @@ export function Rail() {
     }
   };
   const canRefund = signedIn?.membership.permissions.includes("refunds.request") ?? false;
+  const canTakePayments = signedIn?.membership.permissions.includes("payments.take") ?? false;
   /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
   const repeat = async (tabId: string) => {
     setError(null);
@@ -1032,6 +1036,22 @@ export function Rail() {
                           )}
                         </span>
                       )}
+                      {/* Change tip (P-06): an outside machine's tip, or a held card's slip tip. */}
+                      {canTakePayments && x.check_id && (
+                        <span className="actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => {
+                              pick(null);
+                              setRefunding(null);
+                              setTipChanging(x.check_id);
+                            }}
+                          >
+                            {t("tipChange.button")}
+                          </button>
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1278,6 +1298,16 @@ export function Rail() {
                 checkId={refunding}
                 onClose={() => {
                   setRefunding(null);
+                  void load();
+                }}
+              />
+            ) : tipChanging ? (
+              <TipChangeSheet
+                key={tipChanging}
+                venueId={venueId}
+                checkId={tipChanging}
+                onClose={() => {
+                  setTipChanging(null);
                   void load();
                 }}
               />

@@ -78,6 +78,8 @@ export interface NightJournalInput {
   /** Late money posted tonight for earlier nights. */
   readonly adjustments: readonly {
     readonly what: "line" | "payment" | "refund" | "tip";
+    /** For a tip, its source; "outside_card_tip" for an outside machine's tip changed after its night (P-06). */
+    readonly description?: string;
     readonly for_business_date: string;
     readonly amount_cents: number;
   }[];
@@ -228,7 +230,9 @@ export function nightJournal(input: NightJournalInput): Journal {
   for (const a of input.adjustments) {
     const memo = `for ${a.for_business_date}`;
     if (a.what === "tip") {
-      j.debit("stripe_clearing", a.amount_cents, { memo });
+      const via =
+        a.description === "outside_card_tip" ? "outside_card_clearing" : "stripe_clearing";
+      j.debit(via, a.amount_cents, { memo });
       j.credit("tips_payable", a.amount_cents, { memo });
     } else if (a.what === "payment") {
       j.debit("stripe_clearing", a.amount_cents, { memo });

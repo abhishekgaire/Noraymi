@@ -89,6 +89,33 @@ describe("the nightly journal", () => {
     ]);
   });
 
+  it("posts an outside machine's tip changed after its night (P-06) through the machine's clearing account", () => {
+    const j = nightJournal({
+      date: "2026-09-26",
+      lines: [],
+      money: [],
+      ...empty,
+      adjustments: [
+        {
+          what: "tip",
+          description: "outside_card_tip",
+          for_business_date: "2026-09-25",
+          amount_cents: 300,
+        },
+        {
+          what: "tip",
+          description: "card_tip",
+          for_business_date: "2026-09-25",
+          amount_cents: 200,
+        },
+      ],
+    });
+    expect(isBalanced(j)).toBe(true);
+    expect(at(j, "outside_card_clearing")).toBe(-300);
+    expect(at(j, "stripe_clearing")).toBe(-200);
+    expect(at(j, "tips_payable")).toBe(500);
+  });
+
   it("maps every Z figure to exactly one account", () => {
     const kinds: [string, Partial<ReportLine>, Account][] = [
       ["room_time", {}, "sales_room_time"],
