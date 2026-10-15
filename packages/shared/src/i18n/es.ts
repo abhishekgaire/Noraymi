@@ -4194,8 +4194,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "barPos.tabs.cardless": "Abrir una cuenta sin tarjeta",
   "barPos.tabs.cardlessHint":
     "Nueva cuenta también acepta solo un nombre. Una cuenta sin tarjeta no tiene retención: se cierra en efectivo, en la terminal de tarjetas externa o en un lector, y el cierre de cuentas no puede cobrarla.",
-  "newTab.noCard": "O ábrala sin tarjeta",
-  "newTab.noCardName": "Nombre en la cuenta",
+  "newTab.withCard": "Mejor retener una tarjeta",
   "newTab.openNoCard": "Abrir sin tarjeta",
   "newTab.noCardHint":
     "Sin retención: la cuenta se cierra en efectivo, en la terminal de tarjetas externa o en un lector.",

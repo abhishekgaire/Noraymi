@@ -498,6 +498,7 @@ Food on the bar POS (K-05) follows `FoodBar.dc.html`: Food after the ten section
 20. **Training band (F39).** The canvas has none. Build the band and T- check numbers ([N30](#n30-training-band)). *Decided in [FB 4.14]. Spec: [Security and data retention][spec-12].*
 21. **Late demo (F40).** The canvas's late demo is Sat 4:02 AM. Keep it, with business date Fri Sep 25. It comes before Night's 4:12 AM. *Decided in [FB 1].*
 22. **The round first, and a clean screen after closing (U-04).** The canvas puts the round under Repeat round, Split, Move, Print, Close tab, Fix and Discount, ends a close with Done, and leaves the closed tab picked. Build Repeat round, the round and Send (with Send & close beside it) right under the tab's name, Fix and Discount folded until a line is tapped or Discount the check is pressed; Close tab with drinks not sent says "2 not sent · Send them first or Send & close"; the receipt choice ends a close to the card, and the screen goes back to Quick sale with nothing picked. *Decided in [D133](decisions.md). Spec: [Staff screens and the bar POS][spec-10].*
+23. **A cardless tab, name first (U-05).** The canvas's New tab is card first only. Where the venue turned on "Open a tab without a card", New tab leads with the guest's first name and the label chips and **Open** (3 taps: New tab, a label, Open); **Hold a card instead** brings back the consent line and Read to guest ✓, and shows only where the venue has a reader. Close tab on a tab that never had a card leads with **Tap at the reader** (or, with no reader, **Outside card machine**), then Cash, and never says "Another card". *Decided in [D133](decisions.md). Spec: [Staff screens and the bar POS][spec-10].*
 
 ### DeskRoom
 
@@ -1054,6 +1055,7 @@ The reader can't show our own consent line, so New tab shows it for the bartende
 - **The line.** "We'll hold $50 on this card and add to it as you order. We charge your tab when you close out, or at 4:30 AM if it's still open. Add your tip on the reader." It is built from the tab settings in Admin → Bar POS ([N33](#n33-admin--bar-pos)).
 - **Read to guest ✓.** Records who read it (`tabs.consent_read_by`) and the wording's version (`tabs.consent_text_version`).
 - **Tab slip.** The printed slip repeats the same line.
+- **Tabs without a card (P-03, U-05).** Where the venue turned on "Open a tab without a card", the name and the label chips come first and the line moves behind **Hold a card instead** (offered only with a reader); see [Rail](#rail) note 23.
 
 *Decided in [FB 4.8]. Spec: [Payment flows][spec-07], [Staff screens and the bar POS][spec-10].*
 

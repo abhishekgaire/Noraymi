@@ -11998,9 +11998,9 @@ test("U-03 · a cardless tab splits three ways: cash, outside machine, outside m
     const panel = page.getByRole("complementary");
 
     await page.getByRole("button", { name: "New tab" }).click();
-    const noCard = panel.getByRole("group", { name: "Or open it without a card" });
-    await noCard.getByLabel("Name on the tab").fill("Dana");
-    await noCard.getByRole("button", { name: "Open without a card" }).click();
+    const noCard = panel.getByRole("form", { name: "Open without a card" });
+    await noCard.getByLabel("Guest's first name").fill("Dana");
+    await noCard.getByRole("button", { name: "Open", exact: true }).click();
     await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Dana");
     await page.getByRole("tab", { name: "Beer" }).click();
     for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Modelo · \$/ }).click();
@@ -12105,9 +12105,9 @@ test("U-03 · a cash share at Sing Sing's cash discount shows Card · Cash, Exac
     const panel = page.getByRole("complementary");
 
     await page.getByRole("button", { name: "New tab" }).click();
-    const noCard = panel.getByRole("group", { name: "Or open it without a card" });
-    await noCard.getByLabel("Name on the tab").fill("Fay");
-    await noCard.getByRole("button", { name: "Open without a card" }).click();
+    const noCard = panel.getByRole("form", { name: "Open without a card" });
+    await noCard.getByLabel("Guest's first name").fill("Fay");
+    await noCard.getByRole("button", { name: "Open", exact: true }).click();
     await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Fay");
     await page.getByRole("tab", { name: "Beer" }).click();
     for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Modelo · \$/ }).click();
@@ -12379,6 +12379,156 @@ test("U-04 · the round first, Send & close charges the unsent drink, and Close 
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     await expect(panel.getByRole("button", { name: "Pay for 1" })).toBeVisible();
     expect(await unsentOnSeat7()).toBe(0);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-05 · opening and closing a cardless tab where cardless is the venue's way (D133). Sing Sing's
+ * way at West 4: tabs without a card, no Stripe reader, the outside card machine on. New tab leads
+ * with the name and the label chips (no consent line, no hold to offer with no reader): New tab, a
+ * label, Open. Close tab offers the outside machine first, then Cash, and no "Another card".
+ */
+test("U-05 · Sing Sing's way: a cardless tab is New tab, a label, Open, and closes on the outside machine first", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardRequired', false),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId],
+    );
+    await db.query("update devices set stripe_reader_id = null where stripe_reader_id is not null");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+
+    // New tab: the name and the chips first; no consent line, no Read to guest, no card to hold.
+    await page.getByRole("button", { name: "New tab" }).click();
+    const opening = panel.getByRole("form", { name: "Open without a card" });
+    await expect(opening.getByLabel("Guest's first name")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Read to guest ✓" })).toHaveCount(0);
+    await expect(panel.getByText("We'll hold $50")).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Hold a card instead" })).toHaveCount(0);
+    const open = opening.getByRole("button", { name: "Open", exact: true });
+    await expect(open).toBeDisabled();
+    await expect(open).toHaveClass(/primary/);
+    const box = await open.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    await opening.getByRole("button", { name: "Seat 4", exact: true }).click();
+    await open.click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 4");
+    const tab = (
+      await db.query<{ name: string; label: string | null; payment_id: string | null }>(
+        "select name, label, payment_id from tabs where name = 'Seat 4'",
+      )
+    ).rows[0]!;
+    expect(tab).toEqual({ name: "Seat 4", label: "Seat 4", payment_id: null });
+
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+
+    // Close tab: the outside machine first (primary), then Cash; no Another card, no reader button.
+    await panel.getByRole("button", { name: "Close tab", exact: true }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    const ways = closing.locator(".actions > button:not(.link)");
+    await expect(ways).toHaveText(["Outside card machine", "Cash"]);
+    await expect(ways.first()).toHaveClass(/primary/);
+    await expect(closing.getByRole("button", { name: "Another card" })).toHaveCount(0);
+    await expect(closing.getByRole("button", { name: "Tap at the reader" })).toHaveCount(0);
+    await ways.first().click();
+    const machine = panel.getByRole("form", { name: "Outside card machine" });
+    await expect(machine.getByLabel("Amount charged, $")).toHaveValue(/^\d+\.\d\d$/);
+    await machine.getByRole("button", { name: "Record payment" }).click();
+    await closing.getByRole("button", { name: "No receipt" }).click();
+    await expect
+      .poll(
+        async () =>
+          (await db.query<{ state: string }>("select state from tabs where name = 'Seat 4'"))
+            .rows[0]?.state,
+      )
+      .toBe("closed");
+    await expect(panel.getByRole("region", { name: "Close tab" })).toHaveCount(0);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-05 · cardless tabs at a venue with readers (D133): the name still comes first, Hold a card instead
+ * brings back the consent line and Read to guest ✓, and Close tab on a tab that never had a card
+ * leads with Tap at the reader, then Cash. West 4's own way (cards required) still opens on the line.
+ */
+test("U-05 · with readers: the name first, Hold a card instead for the line, and Close tab leads with the reader", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+
+    // West 4 as seeded (cards required): the consent line and Read to guest ✓, no name-first form.
+    await page.getByRole("button", { name: "New tab" }).click();
+    await expect(panel.getByRole("button", { name: "Read to guest ✓" })).toBeVisible();
+    await expect(panel.getByRole("form", { name: "Open without a card" })).toHaveCount(0);
+    await panel.getByRole("button", { name: "Cancel" }).click();
+
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardRequired', false),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId],
+    );
+    await page.getByRole("button", { name: "New tab" }).click();
+    const opening = panel.getByRole("form", { name: "Open without a card" });
+    await expect(opening.getByLabel("Guest's first name")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Read to guest ✓" })).toHaveCount(0);
+    await opening.getByRole("button", { name: "Hold a card instead" }).click();
+    await expect(panel.getByText(/We'll hold \$50 on this card/)).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Read to guest ✓" })).toBeVisible();
+    await panel.getByRole("button", { name: "Open without a card" }).click();
+    await opening.getByLabel("Guest's first name").fill("Lee");
+    await opening.getByLabel("Guest's first name").press("Enter");
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Lee");
+
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 1 to the bar" }).click();
+    await panel.getByRole("button", { name: "Close tab", exact: true }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    const ways = closing.locator(".actions > button:not(.link)");
+    await expect(ways).toHaveText(["Tap at the reader", "Cash"]);
+    await expect(ways.first()).toHaveClass(/primary/);
+    await expect(closing.getByRole("button", { name: "Another card" })).toHaveCount(0);
+    await expect(closing.getByRole("button", { name: /^Close to the card/ })).toHaveCount(0);
+    await ways.first().click();
+    await expect(panel.getByRole("region", { name: "Tap at the reader" })).toBeVisible();
   } finally {
     await db.end();
   }
