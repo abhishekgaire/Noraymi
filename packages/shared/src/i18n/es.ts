@@ -3352,6 +3352,15 @@ export const es: { readonly [K in keyof typeof en]: string } = {
     "Se necesita un gerente · {room} · {time} · Alguien necesita ayuda",
   "incidents.push.other": "Se necesita un gerente · {room} · {time} · Otra cosa",
   "board.managerNeeded": "Se necesita un gerente · {count}",
+  "glance.label": "La noche de un vistazo",
+  "glance.sales": "Ventas hasta ahora",
+  "glance.openChecks": "Cuentas abiertas",
+  "glance.roomsInUse": "Salas en uso",
+  "glance.onTheClock": "En turno",
+  "glance.loading": "Cargando las cifras de esta noche…",
+  "glance.failed":
+    "No se pudieron cargar las cifras de esta noche. Se volverá a intentar en un minuto.",
+  "signIn.onShift": "{count} en turno",
   "safety.help.title": "Alerta de ayuda",
   "safety.help.who": "Quién la recibe: cada gerente y propietario, en su teléfono",
   "safety.help.how":

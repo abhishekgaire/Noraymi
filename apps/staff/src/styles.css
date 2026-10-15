@@ -2644,6 +2644,25 @@ a.song-count {
   text-transform: uppercase;
   color: var(--w4-muted);
 }
+/* Tonight at a glance (P-12): the same boxes, a line of their own above the room counts; two by two
+   on a phone so a four-figure night fits. */
+.board-boxes.glance {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.board-boxes.glance b {
+  overflow-wrap: anywhere;
+}
+.board-boxes.glance .glance-stale {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.glance-state {
+  margin: 0 0 10px;
+}
+.sign-in .clock-line .on-shift {
+  font-size: var(--w4-text-sm);
+  color: var(--w4-lime);
+}
 .board-views {
   display: flex;
   gap: 4px;

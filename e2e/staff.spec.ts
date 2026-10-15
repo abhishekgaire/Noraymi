@@ -10086,6 +10086,108 @@ test("P-08 · the Month view: counts, tonight marked, past days closed to new bo
 });
 
 /**
+ * P-12 · Today at a glance: Andy (passkey) sees sales so far, the X report's net on Reports, plus open
+ * checks, rooms in use and on the clock as the database has them, at 1280 and 390 and in Spanish. On
+ * the bar computer the sign-in screen says "3 on shift"; Andy by PIN sees the counts but no sales, and
+ * Diego (front desk) sees no glance at all.
+ */
+test("P-12 · today at a glance for Andy: the X report's net, the counts, at 390 and in Spanish", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await setClock(request, "2026-09-26T02:41:00Z");
+    const n = async (sql: string) => String((await db.query<{ n: number }>(sql)).rows[0]!.n);
+    const rooms = await n(
+      "select count(*)::int as n from room_sessions where ended_at is null and not training",
+    );
+    const tabs = await n(
+      `select count(*)::int as n from tabs t join checks k on k.venue_id = t.venue_id and k.id = t.check_id
+        where t.state in ('open', 'tipping') and not k.training`,
+    );
+    const onClock = await n("select count(*)::int as n from shifts where ended_at is null");
+    expect(onClock).toBe("3");
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const glance = page.getByRole("region", { name: "Tonight at a glance" });
+    const box = (key: string) => glance.locator(`[data-glance='${key}'] b`);
+    await expect(box("rooms-in-use")).toHaveText(rooms);
+    await expect(box("open-checks")).toHaveText(String(Number(rooms) + Number(tabs)));
+    await expect(box("on-the-clock")).toHaveText(onClock);
+    const sales = (await box("sales").textContent())!;
+    expect(sales).toMatch(/^\$[\d,]+\.\d{2}$/);
+    await page.goto("/reports");
+    await expect(
+      page
+        .getByRole("region", { name: "X report (running)" })
+        .locator(".drawer-figures div")
+        .first()
+        .locator("dd"),
+    ).toHaveText(sales);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/tonight");
+    await expect(box("sales")).toHaveText(sales);
+    expect(await clippedText(page)).toEqual([]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    const es = page.getByRole("region", { name: "La noche de un vistazo" });
+    await expect(es).toContainText("Ventas hasta ahora");
+    await expect(es).toContainText("Cuentas abiertas");
+    await expect(es).toContainText("Salas en uso");
+    await expect(es).toContainText("En turno");
+    await db.query("update memberships set locale = 'en'");
+  } finally {
+    await db.end();
+  }
+});
+
+test("P-12 · the bar computer: 3 on shift, Andy's counts without sales, nothing for Diego", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+    await expect(page.locator(".clock-line .on-shift")).toHaveText("3 on shift");
+
+    await page.getByRole("button", { name: /Andy C\./ }).click();
+    await typePin(page, "730915");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    const glance = page.getByRole("region", { name: "Tonight at a glance" });
+    await expect(glance.locator("[data-glance='on-the-clock'] b")).toHaveText("3");
+    await expect(glance.locator("[data-glance='sales']")).toHaveCount(0);
+    await page.getByRole("button", { name: "Lock", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+
+    await page.getByRole("button", { name: /Diego R\./ }).click();
+    await typePin(page, "6358");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    await expect(page.locator(".board-counts")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Tonight at a glance" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Lock", exact: true }).click();
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    await expect(page.locator(".clock-line .on-shift")).toHaveText("3 en turno");
+  } finally {
+    await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
  * The outage and vendor banners (M8-01; spec 09 · Outages, screens N29). The
  * vendor-health job runs here as the worker runs it, on the venue's 10:41 PM,
  * after our own error rate on Stripe or Twilio is forced over its threshold.
