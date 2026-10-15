@@ -1925,6 +1925,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 
 
 
+### 31.7 No sale and Lock on the bar POS (U-07)
+
+1. Start the demo with `scripts/demo-start.sh`. On the bar computer, the screen the night pairs to the **Bar drawer** (the one where a cash quick sale reads "Logged to Maya · bar drawer", 8.3), sign in as Maya (`4071`). The bar POS shows No sale only on a screen the server pairs to an open drawer.
+2. The bar POS's top bar reads, after the song queue: **No sale**, **Wipe screen**, **Lock**. On a screen paired to no drawer (a phone, or a computer without one) there is no No sale.
+3. Tap **No sale**: a dialog **No sale · Bar drawer**, "Why open the drawer?", with **Change**, **Wrong tender** and **Other…**. Tap **Change**: **Your PIN again** asks "No sale asks for your PIN again." Type `4071` and **Continue**: the drawer kicks open and the top bar reads "Bar drawer opened · Change" for a few seconds. That's two taps and the PIN.
+4. **No sale**, **Other…**: **Open the drawer** stays greyed out until a reason is typed. Type "Count check", **Open the drawer**, the PIN: "Bar drawer opened · Count check". Cancel on the PIN dialog leaves the drawer shut.
+5. As Abhishek, **Reports → Staff actions** counts Maya's two no-sales with their reasons, as a no-sale from **Rooms → Cash drawers** always did. In **Admin → Features → Choices**, untick **No sale** under Ask for the PIN again for: the next No sale opens the drawer on the second tap, with no PIN.
+6. Pull the bar computer's network cable: **No sale** greys out and the top bar reads "Drawer locked offline". Plug it back in: No sale works again.
+7. **Lock** goes straight to the sign-in screen, as Lock in the side menu does.
+8. Spanish: **Sin venta**, **Cambio**, **Forma de pago equivocada**, **Otro…**, **Bloquear**, "Cajón bloqueado sin conexión".
+
 ### 31.8 The manager's PIN where the approval is asked (U-08)
 
 1. As Abhishek (owner), open **Admin → Features → Choices** and pick **Manager's PIN at the register** under how approvals are decided.

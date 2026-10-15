@@ -393,7 +393,7 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
         return make.call(this);
       };
     });
-    await page.getByRole("button", { name: "Lock" }).click();
+    await page.locator("#side-menu").getByRole("button", { name: "Lock" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
     const waiting = page.getByTestId("waiting-orders");
     await expect(waiting).toContainText("Bar orders · 2 waiting");

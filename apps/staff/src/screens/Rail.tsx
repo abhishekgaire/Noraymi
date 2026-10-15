@@ -29,6 +29,7 @@ import { OfflineCodeForm, QueuedRounds, QueuePanel, type QueueLineSource } from 
 import { ReplayedOrders } from "./ReplayedOrders.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { TopBarItems } from "../layout/TopBar.js";
+import { NoSaleButton } from "./NoSaleButton.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
 import { NewTab } from "./NewTab.js";
@@ -759,8 +760,9 @@ export function Rail() {
 
   return (
     <section className="rail" aria-label={t("menu.barPos")}>
-      {/* One header (V-04): the title, who is on the bar, the song queue and Wipe screen sit in the
-          app's top bar beside the venue and its one clock; the room orders stay on the page. */}
+      {/* One header (V-04): the title, who is on the bar, the song queue, No sale, Wipe screen and
+          Lock (U-07) sit in the app's top bar beside the venue and its one clock; the room orders
+          stay on the page. */}
       <TopBarItems className="rail-top" ownWho>
         <h1 className="rail-title">{t("menu.barPos")}</h1>
         {me && (
@@ -782,6 +784,8 @@ export function Rail() {
           ))}
         {/* Bar mode (M6-18, M6-22): "Song queue · 6" opens the song queue. */}
         {venueId && <SongQueueLink venueId={venueId} />}
+        {/* No sale (U-07): this station's drawer in two taps, the PIN again when the owner asks. */}
+        {venueId && <NoSaleButton venueId={venueId} />}
         <button
           type="button"
           className="secondary"
@@ -789,6 +793,11 @@ export function Rail() {
           onClick={() => setWipeLeft(terminal.wipe_lock_sec)}
         >
           {t("rail.wipe")}
+        </button>
+        {/* Lock beside Wipe screen, as the spec says (U-07); it only changes what's shown, so it stays
+            live offline. */}
+        <button type="button" className="secondary" data-view onClick={() => void lockNow()}>
+          {t("menu.lock")}
         </button>
       </TopBarItems>
       {venueId && <FailedTickets venueId={venueId} />}

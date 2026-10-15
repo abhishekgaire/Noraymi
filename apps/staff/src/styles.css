@@ -251,6 +251,17 @@ form {
 .screen-top h1 {
   margin: 0;
 }
+/* No sale (U-07): the reason chips are the second tap, main-action height. */
+.no-sale-sheet .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+.no-sale-sheet .chips button {
+  min-height: 56px;
+  min-width: 120px;
+}
 .venue {
   grid-area: venue;
   font-family: var(--w4-font-display);
