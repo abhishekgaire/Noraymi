@@ -3047,7 +3047,7 @@ test("the Rooms board at 10:41 PM matches seed/west4-friday.json tile by tile", 
         `Room time so far ${dollars(check.expected_at_now!.room_time_cents!)}`,
       );
       await expect(tile, room.name).toContainText(
-        `Tab so far ${dollars(check.expected_at_now!.tab_so_far_cents!)}`,
+        `Tab so far${dollars(check.expected_at_now!.tab_so_far_cents!)}`,
       );
     }
     expect(await clippedText(page)).toEqual([]);
@@ -5150,7 +5150,7 @@ test("Present the check: blocked while 2 × Margarita · Peach rings, then prese
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Room 9");
     const present = page.getByRole("region", { name: "Present the check" });
     await present.getByRole("button", { name: "Present the check" }).click();
-    await expect(present.getByRole("alert")).toHaveText(
+    await expect(present.getByRole("alert")).toContainText(
       "2 × Margarita · Peach is ringing at the bar · accept or cancel it first",
     );
     await db.query(
@@ -6149,7 +6149,7 @@ test("Pay my share: Kevin pays 1 of 12 on the phone and DeskRoom shows it", asyn
  * DeskRoom) at desktop size: Present shows #1042 at $618.60 with the $120.00
  * deposit off and $498.60 to pay; a tap on the front-desk reader (which skips
  * its tip screen) pays it; the receipt choices follow, and once one is picked
- * "Room 9 goes to cleaning" and its Board tile is cleaning.
+ * the screen goes back to the Board (U-10) with Room 9's panel open on Mark clean.
  */
 test("Close-out on DeskRoom: Room 9's #1042 at $618.60, paid by tap, the receipt, then cleaning", async ({
   page,
@@ -6201,8 +6201,12 @@ test("Close-out on DeskRoom: Room 9's #1042 at $618.60, paid by tap, the receipt
     for (const choice of ["Text", "Email", "Print", "No receipt"])
       await expect(receipt.getByRole("button", { name: choice, exact: true })).toBeVisible();
     await receipt.getByRole("button", { name: "Print", exact: true }).click();
+    // U-10: back to the Board, Room 9's panel open on Mark clean.
+    await expect(page).toHaveURL(/\/tonight$/);
     await expect(
-      page.getByRole("status").filter({ hasText: "Room 9 goes to cleaning" }),
+      page
+        .getByRole("region", { name: "Room 9", exact: true })
+        .getByRole("button", { name: "Mark clean" }),
     ).toBeVisible();
     const state = await db.query<{ state: string }>(
       `select s.state from room_states s join rooms r on r.id = s.room_id
@@ -12662,6 +12666,141 @@ test("No sale from the bar POS top bar in two taps, the PIN again, locked offlin
     // Lock beside Wipe screen.
     await lock.click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-10 · Ending a room in fewer taps (D133): at a venue with no readers and the outside card machine,
+ * Room 9's close-out is the tile, Present & pay (which presents the check through its own route), the
+ * outside machine's Record payment with $498.60 filled in, the receipt (back to the Board, Room 9's
+ * panel open), and Mark clean: 5 taps. The panel shows the tab so far once and has Add drinks.
+ */
+test("U-10 · Room 9's close-out on the outside machine: tile, Present & pay, Outside card machine, receipt, Mark clean: 5 taps", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await db.query("update devices set stripe_reader_id = null where stripe_reader_id is not null");
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/tonight");
+    let taps = 0;
+
+    const panel = await openRoom(page, "Room 9");
+    taps += 1;
+    // The tab so far once (the box), and Add drinks right on the panel.
+    await expect(panel.getByText("Tab so far", { exact: true })).toHaveCount(1);
+    await expect(panel.getByText(/^Tab so far \$/)).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Add drinks" })).toBeVisible();
+
+    await panel.getByRole("button", { name: "Present & pay" }).click();
+    taps += 1;
+    const machine = page.getByRole("form", { name: "Outside card machine" });
+    await expect(machine.getByLabel("Amount charged, $")).toHaveValue("498.60");
+    await expect(page.getByRole("region", { name: "Ways to pay" })).toHaveCount(0);
+    await machine.getByRole("button", { name: "Record payment" }).click();
+    taps += 1;
+
+    const receipt = page.getByRole("region", { name: "Receipt" });
+    await expect(page.getByRole("button", { name: "Mark clean" })).toBeVisible();
+    await receipt.getByRole("button", { name: "No receipt" }).click();
+    taps += 1;
+
+    await expect(page).toHaveURL(/\/tonight$/);
+    const back = page.getByRole("region", { name: "Room 9", exact: true });
+    await back.getByRole("button", { name: "Mark clean" }).click();
+    taps += 1;
+    await expect(back.getByRole("button", { name: "Mark clean" })).toHaveCount(0);
+    expect(taps).toBe(5);
+
+    const check = await db.query<{ status: string }>(
+      "select status from checks where number = 1042",
+    );
+    expect(check.rows[0]?.status).toBe("paid");
+    const paid = await db.query<{ amount_cents: number }>(
+      "select amount_cents::int as amount_cents from payments where method = 'outside_card' and status = 'captured'",
+    );
+    expect(paid.rows.map((r) => r.amount_cents)).toEqual([49860]);
+    const state = await db.query<{ state: string }>(
+      `select s.state from room_states s join rooms r on r.id = s.room_id
+        where r.name = 'Room 9' and s.until is null order by s.since desc limit 1`,
+    );
+    expect(state.rows[0]?.state).not.toBe("cleaning");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-10 · Present refused while an order rings is not a dead end: from the board's Present & pay, the
+ * ringing 2 × Margarita · Peach is listed with Accept and Cancel; Accept goes through the order's own
+ * route (sold at Accept) and the check is presented. Reopened, the first payment tap (Cash, under
+ * Ways to pay) presents it again before the cash panel shows. On a phone the In room box isn't
+ * doubled with the glance's Rooms in use for Andy.
+ */
+test("U-10 · Present & pay while Peach's Margaritas ring: Accept on the line presents, and a payment tap presents a reopened check", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/tonight");
+    const panel = await openRoom(page, "Room 9");
+    await panel.getByRole("button", { name: "Present & pay" }).click();
+
+    const present = page.getByRole("region", { name: "Present the check" });
+    await expect(present.getByRole("alert")).toContainText(
+      "2 × Margarita · Peach is ringing at the bar · accept or cancel it first",
+    );
+    await expect(
+      present.getByRole("button", { name: "Cancel 2 × Margarita · Peach" }),
+    ).toBeVisible();
+    await present.getByRole("button", { name: "Accept 2 × Margarita · Peach" }).click();
+    await expect(present.getByRole("status")).toHaveText("Check presented · ordering is closed");
+    const o1 = await db.query<{ status: string }>(
+      "select status from orders where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    expect(o1.rows[0]?.status).toBe("accepted");
+    const status = async () =>
+      (await db.query<{ status: string }>("select status from checks where number = 1042")).rows[0]
+        ?.status;
+    expect(await status()).toBe("finalized");
+
+    await present.getByRole("button", { name: "Reopen the check" }).click();
+    const ways = page.getByRole("region", { name: "Ways to pay" });
+    await expect(ways).toBeVisible();
+    await expect(page.getByRole("region", { name: "Cash" })).toHaveCount(0);
+    await ways.getByRole("button", { name: "Cash", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Cash" })).toBeVisible();
+    await expect(ways).toHaveCount(0);
+    expect(await status()).toBe("finalized");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/tonight");
+    await expect(page.getByRole("region", { name: "Tonight at a glance" })).toBeVisible();
+    await expect(page.locator(".board-boxes:not(.glance)")).not.toContainText("In room");
   } finally {
     await db.end();
   }

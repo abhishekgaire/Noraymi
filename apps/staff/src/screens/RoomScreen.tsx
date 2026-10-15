@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
 import { useClock } from "../clock.js";
@@ -12,7 +12,7 @@ import { prepaidText } from "./room-start.js";
 import { FoodMark, UnsentReminder, type CheckFood } from "./SendToKitchen.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
-import { PresentCheck } from "./PresentCheck.js";
+import { PresentCheck, usePresent } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
 import { CardOnFile, type OnFile } from "./CardOnFile.js";
 import { ReceiptStep } from "./ReceiptStep.js";
@@ -29,6 +29,7 @@ import "./desk.css";
 import { RoomQrActions } from "./RoomQrActions.js";
 import { OutsideCardPanel } from "./OutsideCardPanel.js";
 import { hasReaders, useReaders } from "../useReaders.js";
+import { useModuleOn } from "../useModule.js";
 
 /**
  * DeskRoom on the desktop and Room on the phone (M2-31; screens DeskRoom and
@@ -40,6 +41,8 @@ import { hasReaders, useReaders } from "../useReaders.js";
 interface BoardRoom {
   readonly room_id: string;
   readonly name: string;
+  /** The room's state; "cleaning" after a paid close-out until someone marks it clean (U-10). */
+  readonly state?: string;
   readonly session: {
     readonly id: string;
     readonly check_id: string | null;
@@ -91,6 +94,14 @@ interface Presented {
 }
 /** Lines finalize works out (room time, tax, gratuity): the tab shows them as totals, not as items. */
 const COMPUTED = new Set(["room_time", "min_spend", "discount", "tax", "gratuity"]);
+
+/** A way to pay tapped before the check is presented (U-10), and the panel it opens. */
+type PayWay = "tap" | "outside" | "cash";
+const PAY_WAY_PANEL: Record<PayWay, string> = {
+  tap: "section.tap-payment",
+  outside: "form.outside-card",
+  cash: "section.cash",
+};
 interface Line {
   readonly id: number;
   readonly kind: string;
@@ -165,6 +176,12 @@ export function RoomScreen() {
   const [sheet, setSheet] = useState<"move" | "fault" | "damage" | null>(null);
   const [note, setNote] = useState("");
   const [done, setDone] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const outsideOn = useModuleOn("outside_card");
+  const [payWay, setPayWay] = useState<PayWay | null>(null);
+  const [receiptDone, setReceiptDone] = useState(false);
+  const [cleaned, setCleaned] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -275,6 +292,51 @@ export function RoomScreen() {
       }),
     [subscribe, load],
   );
+
+  // Present the check (U-10; D133): the button, the first payment tap and the board's Present & pay
+  // all go through the one present route, which refuses while an order rings.
+  const reloadRoom = useCallback(() => void load(), [load]);
+  const presenting = usePresent(venueId, room?.session?.check_id ?? null, reloadRoom);
+  const presentNow = presenting.present;
+  // The board's Present & pay opens this screen asking to present: done once, on the first load
+  // that knows the check, and the ask is cleared so a reload never presents again.
+  const wantsPresent = useRef(
+    (location.state as { presentAndPay?: boolean } | null)?.presentAndPay === true,
+  );
+  useEffect(() => {
+    if (!wantsPresent.current || !checkStatus) return;
+    wantsPresent.current = false;
+    void navigate(location.pathname, { replace: true, state: null });
+    if (checkStatus === "open" || checkStatus === "reopened") void presentNow();
+  }, [checkStatus, navigate, location.pathname, presentNow]);
+  // The first payment tap presents the check if it isn't yet, then shows that way to pay.
+  const payFirst = async (way: PayWay) => {
+    setPayWay(way);
+    if (!(await presentNow())) setPayWay(null);
+  };
+  useEffect(() => {
+    if (!payWay || checkStatus === "open" || checkStatus === "reopened") return;
+    document.querySelector(PAY_WAY_PANEL[payWay])?.scrollIntoView({ block: "center" });
+    setPayWay(null);
+  }, [payWay, checkStatus]);
+  // After Paid (U-10): the receipt choice goes back to the board, with the room's panel open on
+  // Mark clean while it's still cleaning; a card kept behind the bar is given back first.
+  const cardOut = held !== null && !held.returned;
+  const stillCleaning = room?.state === "cleaning" && !cleaned;
+  useEffect(() => {
+    if (!receiptDone || cardOut) return;
+    void navigate("/tonight", { state: stillCleaning ? { room: roomId } : null });
+    // Only the receipt choice (or the card's return after it) moves on.
+  }, [receiptDone, cardOut]);
+  const markClean = async () => {
+    try {
+      await api("POST", `/v1/venues/${venueId}/rooms/${roomId}/clean`);
+      setCleaned(true);
+      await load();
+    } catch {
+      setFailed(true);
+    }
+  };
 
   const short = (iso: string) => {
     const z = Temporal.Instant.from(iso).toZonedDateTimeISO(timeZone);
@@ -394,7 +456,20 @@ export function RoomScreen() {
       {paidCheck && held && (
         <GiveCardBack venueId={venueId} checkId={paidCheck} held={held} onReturned={setHeld} />
       )}
-      {paidCheck && <ReceiptStep venueId={venueId} checkId={paidCheck} roomName={room.name} />}
+      {paidCheck && (
+        <ReceiptStep
+          venueId={venueId}
+          checkId={paidCheck}
+          roomName={room.name}
+          onDone={() => setReceiptDone(true)}
+        />
+      )}
+      {/* The paid screen's Mark clean (U-10): the room stays cleaning until someone does it. */}
+      {paidCheck && stillCleaning && (
+        <button type="button" className="secondary" onClick={() => void markClean()}>
+          {t("cleaning.markClean")}
+        </button>
+      )}
       {paidCheck && signedIn?.membership.permissions.includes("refunds.request") && (
         <button type="button" className="secondary" onClick={() => setRefunding(true)}>
           {t("refund.button")}
@@ -718,8 +793,38 @@ export function RoomScreen() {
                         signedIn.membership.role === "owner" ||
                         signedIn.membership.role === "manager"
                       }
-                      onDone={() => void load()}
+                      canSettle={signedIn.membership.permissions.includes("orders.accept")}
+                      presenting={presenting}
                     />
+                    {/* The first payment tap presents the check if it isn't yet (U-10; D133). */}
+                    {(checkStatus === "open" || checkStatus === "reopened") && (
+                      <section className="pay-ways" aria-label={t("present.waysToPay")}>
+                        <h3>{t("present.waysToPay")}</h3>
+                        <p className="small muted">{t("present.waysHint")}</p>
+                        <div className="actions">
+                          {(readers
+                            ? (["tap", "cash", ...(outsideOn ? ["outside"] : [])] as PayWay[])
+                            : ([...(outsideOn ? ["outside"] : []), "cash"] as PayWay[])
+                          ).map((way, i) => (
+                            <button
+                              key={way}
+                              type="button"
+                              className={i === 0 ? "primary" : "secondary"}
+                              disabled={presenting.busy}
+                              onClick={() => void payFirst(way)}
+                            >
+                              {t(
+                                way === "tap"
+                                  ? "pay.tap.title"
+                                  : way === "outside"
+                                    ? "outsideCard.title"
+                                    : "cash.title",
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    )}
                   </>
                 )}
               {paidLines.length > 0 && (
