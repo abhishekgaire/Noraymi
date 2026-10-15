@@ -246,7 +246,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     await page.getByRole("button", { name: "Continue with a passkey" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
     await expect(page.locator(".clock time")).toHaveText("10:41 PM");
-    await expect(page.locator(".clock")).toContainText("Fri, Sep 25");
+    await expect(page.locator(".clock")).toContainText("Fri night");
     await expect(page.locator(".topbar .venue")).toHaveText("West 4 Boho Karaoke");
     await expect(page.locator(".topbar .who")).toHaveText("Andy C. · Manager");
 
