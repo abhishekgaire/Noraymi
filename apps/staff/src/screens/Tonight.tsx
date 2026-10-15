@@ -5,6 +5,7 @@ import { AddDrinks } from "./AddDrinks.js";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
 import { Glance } from "./Glance.js";
+import { WhileOffline } from "./WhileOffline.js";
 import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
@@ -1048,6 +1049,8 @@ export function Tonight() {
           </button>
         )}
       </div>
+      {/* While offline (U-16): what still works, what goes on paper, where the offline code is. */}
+      {venueId && <WhileOffline venueId={venueId} />}
       {/* Tonight at a glance (P-12): owners and managers, phone and desktop. */}
       {managing && venueId && <Glance venueId={venueId} />}
       {/* The phone's Tonight (V-08, founder-approved, after Staff.dc.html): four counts, the views,

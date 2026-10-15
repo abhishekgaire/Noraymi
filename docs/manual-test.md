@@ -2021,6 +2021,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 8. Turn the Wi-Fi off: the panel says "Clocking in and out needs the connection · try again when it's back" and its buttons wait.
 9. Spanish: **Antes de marcar la salida**, **Pasar todas las cuentas a Maya S.**, **Marcar salida**, **Entregar mi efectivo**, **Contar**.
 
+
 ### 31.15 Close the night without getting stuck (U-15)
 
 1. Start the demo (`scripts/demo-start.sh`). As Andy (passkey), fix everything but the time clock, the waitlist and the cleaning rooms: end the rooms, close or charge the tabs, count both drawers. Move the clock to Sat 4:31 AM (`2026-09-26T08:31:00Z`).
@@ -2033,6 +2034,16 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 8. Turn the Wi-Fi off: the page says closing the night needs the connection and its buttons wait.
 9. Spanish: **Marcar salida de Diego R.**, **Vaciar la lista de espera**, **Marcar todas las salas limpias**, **Todos los cajones contados**.
 
+### 31.16 Offline, said plainly; cash quick sales offline as the owner's choice (U-16)
+
+1. Start the demo and open the desktop app as the bar computer (0.11), signed in as Maya, on **Bar POS**. Take it offline (20.2). Under the pink banner a **While offline** card says what still works, "The drawer stays locked: keep any cash taken aside and write it on paper", what goes on paper (new tabs, walk-ins and cash taken, handed to the manager on duty), where the offline code is (a manager's phone, **Offline codes**, or the sealed card) and cards by Tap to Pay on the manager's phone. **Rooms** shows the same card. **Time clock** says "Clocking in and out needs the connection · try again when it's back".
+2. With the switch off (the default), open queue mode with Andy's code (20.3) and tap a Bud Light on **Quick sale**: "Queue mode takes rounds on open bar tabs only." Nothing else changes from 20.3.
+3. Back online, Andy opens **Admin → Bar POS** and ticks **Take cash quick sales while offline** (Cash while offline), then **Save and publish**. On a desktop with a drawer on its own receipt printer, the computer keeps that drawer within a minute.
+4. Offline again, open queue mode, tap **Quick sale**: the panel reads **Quick sale · cash while offline**. Tap **Bud Light**: **Cash $8.71** ($8.00 and 8.875% tax; with a 3.38% cash discount on it reads "Cash $8.39" and also shows "Card $8.71 · Cash $8.39"). Pick **Maya S.** under **Who's ringing it**, then tap **$10.00**: the drawer opens and the panel says **Change $1.29**, "Kept on this computer · it goes on the books when the connection returns", and lists "1 × Bud Light · $8.71 cash · kept · Maya S.". A computer whose drawer isn't on its own printer says "The drawer didn't open. Open it with its key."
+5. A drink with choices or food answers "Offline, a cash quick sale takes drinks without choices only."; a Hoegaarden (86'd) and, after 4:00 AM, every alcohol button are greyed as online.
+6. Back online: the sale replays once. **Reports** and the drawer count show one quick sale paid $8.71 in cash in the bar drawer; nothing is charged twice and the drawer doesn't open a second time.
+7. Sell a beer offline just before 4:00 AM (move the clock to 3:57 AM first) and reconnect after 4:00: **Confirm replayed orders (1)** shows "Quick sale · 1 × Bud Light · $8.71 cash taken offline" and "Not on the books: the bar had stopped serving alcohol". Tap **OK, told the manager**; Andy still sees it on **Close the night → Review after outage** with "Cash taken offline: $8.71".
+8. Spanish: **Sin conexión**, **Venta rápida · efectivo sin conexión**, **Aceptar ventas rápidas en efectivo sin conexión**, **OK, avisé al gerente**.
 
 ### 31.17 Drawer counts, tip-outs and paid-outs (U-17)
 
@@ -2044,3 +2055,4 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. As Maya (a bartender) the drawer panel never shows anyone's tip share, and she has no Tip-out.
 7. Tap **Paid-out**: the receipt's photo is still required (the API requires it, spec 08 · Drawer); **Open the drawer** stays grey until the amount, a reason and the photo are in.
 8. Spanish: "¿La diferencia pasa de $20.00? Añadirás una nota y otra persona cuenta también." and "Toca un nombre para pagarle su parte de las propinas de esta noche."
+

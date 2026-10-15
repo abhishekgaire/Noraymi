@@ -152,6 +152,8 @@ type PosSettings = {                                        // the same shape as
                                                             // Delivered on Bar orders' Ready cards and sends no run-ready push (U-11, D133)
   zReportAtClose?: boolean;                                 // "Print and email the Z report at close": absent or true (on by default) prints the
                                                             // Z report at the close and emails it to the owners; false turns it off (U-15, D133)
+  offlineCashSales?: boolean;                               // "Take cash quick sales while offline": absent or false (the drawer stays locked offline);
+                                                            // true lets the bar computer take cash quick sales in queue mode and replay them (U-16, D133)
   orderAging: { phonesSec: number; amberSec: number; pinkSec: number; callSec: number };
                                                             // 30, 120, 240, 360: the board alerts at amber, the manager on duty is told at pink
   chime: boolean;                                           // true: a backup to the colors

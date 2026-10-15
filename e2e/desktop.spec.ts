@@ -24,10 +24,13 @@ const appArgs = ["-r", path.join(here, "keychain-shim.cjs"), desktopDir];
  * from an unexpected frame is refused; the token the shell keeps is in no
  * plain file on disk.
  */
-async function launch(userData: string): Promise<ElectronApplication> {
+async function launch(
+  userData: string,
+  env: Record<string, string> = {},
+): Promise<ElectronApplication> {
   return electron.launch({
     args: appArgs,
-    env: { ...process.env, STAFF_URL: STAFF, WEST4_USER_DATA: userData },
+    env: { ...process.env, STAFF_URL: STAFF, WEST4_USER_DATA: userData, ...env },
   });
 }
 
@@ -430,10 +433,13 @@ test("offline, the bar computer shows the board, open tabs and the menu read-onl
  * paired and sets up its offline-code secret, Maya signs in to the bar POS, and the code Andy's phone
  * shows for the bar computer right now is read. Returns the code.
  */
-async function queueNight(serverTime: string) {
+async function queueNight(
+  serverTime: string,
+  opts: { env?: Record<string, string>; prepare?: (db: pg.Client) => Promise<void> } = {},
+) {
   await freshNight();
   const userData = mkdtempSync(path.join(tmpdir(), "west4-desktop-"));
-  const app = await launch(userData);
+  const app = await launch(userData, opts.env);
   const db = new pg.Client({
     connectionString: DB,
   });
@@ -442,6 +448,8 @@ async function queueNight(serverTime: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Sign in");
   await db.query("update memberships set locale = 'en'");
+  // Anything a test sets before the bar computer is paired and Maya signs in (U-16: a venue setting).
+  await opts.prepare?.(db);
   const venueId = (
     await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
   ).rows[0]!.id;
@@ -712,6 +720,171 @@ test("queue mode: past 4:00 AM on the simulated clock, alcohol greys out from th
     ).toBeDisabled({ timeout: 90_000 });
   } finally {
     // Back to the seed's 10:41 PM for the specs that run after this one.
+    await page.request
+      .post(`${STAFF}/v1/ops/clock`, { data: { server_time: "2026-09-26T02:41:00Z" } })
+      .catch(() => undefined);
+    await db.end();
+    await app.close();
+  }
+});
+
+/** U-16 (D133): "Take cash quick sales while offline" on, as the owner would set it in Admin → Bar POS. */
+const cashOffline = async (db: pg.Client, more: Record<string, unknown> = {}) => {
+  await db.query(
+    `insert into venue_settings (venue_id, key, version, value, starts_on)
+     select venue_id, key, version + 1, value || $1::jsonb, starts_on
+       from venue_settings
+      where venue_id = (select id from venues where slug = 'west4karaoke') and key = 'pos'
+      order by version desc limit 1`,
+    [JSON.stringify({ offlineCashSales: true, ...more })],
+  );
+};
+
+test("U-16 · cash quick sales while offline: a cash Bud Light opens the drawer, and replays once, to the cent", async () => {
+  test.setTimeout(300_000);
+  const printed = mkdtempSync(path.join(tmpdir(), "u16-printer-"));
+  const { app, db, page, code, goOffline, goOnline } = await queueNight("2026-09-26T02:41:00Z", {
+    env: { WEST4_FAKE_PRINTER: "1", WEST4_FAKE_PRINTER_DIR: printed },
+    prepare: (db) => cashOffline(db),
+  });
+  try {
+    // The bar drawer hangs on this computer's (virtual) USB printer.
+    const virtual = async () =>
+      (
+        await db.query<{ id: string; host: string }>(
+          "select id, host_device_id as host from devices where kind = 'printer' and serial = 'VIRTUAL-USB-1'",
+        )
+      ).rows[0] ?? null;
+    await expect.poll(virtual, { timeout: 30_000 }).not.toBeNull();
+    const printer = (await virtual())!;
+    await db.query(
+      "update devices set cash_drawer_id = (select id from cash_drawers where name = 'Bar drawer') where id = $1",
+      [printer.host],
+    );
+    await db.query("update cash_drawers set printer_device_id = $1 where name = 'Bar drawer'", [
+      printer.id,
+    ]);
+    const kicks = () => readdirSync(printed).length;
+    // A blip offline and back: the computer asks again which drawer it opens, and keeps it.
+    await goOffline();
+    await expect(page.getByTestId("banner-offline")).toBeVisible({ timeout: 20_000 });
+    const card = page.getByTestId("while-offline");
+    await expect(card.getByRole("heading", { name: "While offline" })).toBeVisible();
+    await expect(card).toContainText("Cash quick sales work too: the drawer opens with each one.");
+    await expect(card).toContainText("a manager reads it from their phone (Offline codes)");
+    await goOnline();
+    await expect
+      .poll(() => page.evaluate(() => window.west4!.queue!.hasDrawer!()), { timeout: 60_000 })
+      .toBe(true);
+    await expect(card).toHaveCount(0, { timeout: 20_000 });
+
+    // Offline again: Andy's code opens queue mode, and Quick sale takes cash.
+    await goOffline();
+    await expect(page.getByTestId("banner-offline")).toBeVisible({ timeout: 20_000 });
+    await page.getByLabel("Offline code").fill(code);
+    await page.getByRole("button", { name: "Open queue mode" }).click();
+    await expect(page.getByTestId("banner-queue")).toBeVisible();
+    await page.getByRole("button", { name: "Quick sale", exact: true }).click();
+    await page.getByLabel("Search the menu").fill("Bud Light");
+    await page.getByRole("button", { name: /^Bud Light · \$8\.00$/ }).click();
+    const panel = page.getByRole("region", { name: "Quick sale · cash while offline" });
+    // $8.00 and 8.875% tax, priced on this computer as the server will price it.
+    await expect(panel.getByTestId("offline-cash-total")).toHaveText("Cash $8.71");
+    await panel.getByLabel("Who's ringing it").selectOption({ label: "Maya S." });
+    const before = kicks();
+    await panel.getByRole("button", { name: "$10.00", exact: true }).click();
+    await expect(panel.getByTestId("offline-cash-kept")).toContainText("Change $1.29");
+    await expect(panel.getByTestId("offline-cash-kept")).not.toContainText("didn't open");
+    // The drawer opened through the printer's kick port: ESC p.
+    await expect.poll(kicks).toBe(before + 1);
+    const kick = readFileSync(path.join(printed, `ticket-${before + 1}.bin`));
+    expect(kick.toString("hex")).toContain("1b70");
+    await expect(panel.getByRole("list", { name: "Cash sales kept offline" })).toHaveText(
+      "1 × Bud Light · $8.71 cash · kept · Maya S.",
+    );
+
+    // Back online: the sale replays once, as a paid quick sale in the bar drawer, to the cent.
+    await goOnline();
+    await expect
+      .poll(() => page.evaluate(() => window.west4!.queue!.list().then((l) => l.length)), {
+        timeout: 60_000,
+      })
+      .toBe(0);
+    const sold = await db.query<{
+      outcome: string;
+      amount_cents: number;
+      tendered_cents: number;
+      status: string;
+      drawer: string;
+    }>(
+      `select r.outcome, p.amount_cents::int, p.tendered_cents::int, k.status,
+              (select d.name from drawer_sessions s join cash_drawers d on d.id = s.drawer_id
+                where s.id = p.drawer_session_id) as drawer
+         from offline_replays r
+         join payments p on p.id = r.cash_payment_id
+         join orders o on o.id = r.order_id
+         join checks k on k.id = o.check_id
+        where r.kind = 'cash_sale'`,
+    );
+    expect(sold.rows).toEqual([
+      {
+        outcome: "sold",
+        amount_cents: 871,
+        tendered_cents: 1000,
+        status: "paid",
+        drawer: "Bar drawer",
+      },
+    ]);
+    // No second kick from the replay.
+    expect(kicks()).toBe(before + 1);
+  } finally {
+    await db.end();
+    await app.close().catch(() => undefined);
+  }
+});
+
+test("U-16 · cash quick sales while offline: past 4:00 AM the beer greys out as online, and the refused replay shows under Confirm replayed orders", async () => {
+  test.setTimeout(300_000);
+  // 3:57 AM: time to sell one beer offline before the 4:00 AM stop.
+  const { app, db, page, code, goOffline, goOnline } = await queueNight("2026-09-26T07:57:00Z", {
+    // The wait for 4:00 AM is longer than the 3-minute idle lock.
+    prepare: (db) => cashOffline(db, { idleLockMin: 30 }),
+  });
+  try {
+    await goOffline();
+    await page.getByLabel("Offline code").fill(code);
+    await page.getByRole("button", { name: "Open queue mode" }).click();
+    await expect(page.getByTestId("banner-queue")).toBeVisible();
+    await page.getByRole("button", { name: "Quick sale", exact: true }).click();
+    await page.getByLabel("Search the menu").fill("Bud Light");
+    await page.getByRole("button", { name: /^Bud Light · \$8\.00$/ }).click();
+    const panel = page.getByRole("region", { name: "Quick sale · cash while offline" });
+    await panel.getByLabel("Who's ringing it").selectOption({ label: "Maya S." });
+    await panel.getByRole("button", { name: "Exact $8.71" }).click();
+    // No drawer kept on this computer: it says to use the key.
+    await expect(panel.getByTestId("offline-cash-kept")).toContainText(
+      "The drawer didn't open. Open it with its key.",
+    );
+    // At 4:00 AM, with no connection, the beer greys out with the reason, as it does online.
+    await expect(
+      page.getByRole("button", { name: "Bud Light · No alcohol now · the window has closed" }),
+    ).toBeDisabled({ timeout: 200_000 });
+
+    // Back online after 4:00 AM: the server checks the alcohol window again and refuses the sale.
+    await goOnline();
+    const list = page.getByRole("region", { name: /^Confirm replayed orders/ });
+    const refused = list.getByTestId("refused-cash-sale");
+    await expect(refused).toContainText("Quick sale · 1 × Bud Light · $8.71 cash taken offline", {
+      timeout: 60_000,
+    });
+    await expect(refused).toContainText("the bar had stopped serving alcohol");
+    await refused.getByRole("button", { name: "OK, told the manager" }).click();
+    await expect(refused).toHaveCount(0, { timeout: 20_000 });
+    const row = await db.query<{ outcome: string; reason: string; seen: boolean }>(
+      "select outcome, reason, seen_at is not null as seen from offline_replays where kind = 'cash_sale'",
+    );
+    expect(row.rows).toEqual([{ outcome: "failed", reason: "alcohol_closed", seen: true }]);
+  } finally {
     await page.request
       .post(`${STAFF}/v1/ops/clock`, { data: { server_time: "2026-09-26T02:41:00Z" } })
       .catch(() => undefined);

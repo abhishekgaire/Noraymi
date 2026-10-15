@@ -3372,6 +3372,54 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "replayed.queuedBy": "Pidió esperar · en cola por {name} a las {time}",
   "replayed.cancel": "Cancelar copia",
   "replayed.failed": "No se pudo actualizar ese pedido. Inténtalo de nuevo.",
+  // U-16 (D133): cash quick sales while offline, and the While offline card.
+  "barPos.offlineCash": "Efectivo sin conexión",
+  "barPos.offlineCash.label": "Aceptar ventas rápidas en efectivo sin conexión",
+  "barPos.offlineCash.hint":
+    "Desactivado: el cajón sigue cerrado mientras la computadora del bar está sin conexión. Activado: con un código sin conexión, la computadora del bar acepta ventas rápidas en efectivo, abre su cajón en cada una y registra cada venta una sola vez cuando vuelve la conexión. Una venta que el servidor rechaza aparece en Confirmar pedidos reenviados.",
+  "offlineCash.title": "Venta rápida · efectivo sin conexión",
+  "offlineCash.hint":
+    "Solo efectivo. El cajón se abre con cada venta; la venta se registra cuando vuelve la conexión.",
+  "offlineCash.total": "Efectivo {amount}",
+  "offlineCash.pickWho": "Elige quién la marca y toca lo que entregó el cliente.",
+  "offlineCash.kept": "Guardada en esta computadora · se registra cuando vuelve la conexión.",
+  "offlineCash.noKick": "El cajón no se abrió. Ábrelo con su llave.",
+  "offlineCash.failed": "Esa venta no se guardó y el cajón siguió cerrado. Inténtalo de nuevo.",
+  "offlineCash.list": "Ventas en efectivo guardadas sin conexión",
+  "offlineCash.listLine": "{lines} · {amount} en efectivo · guardada · {name}",
+  "offlineCash.drinksOnly":
+    "Sin conexión, una venta rápida en efectivo solo acepta bebidas sin opciones.",
+  "offlineCash.tabsOrQuick":
+    "El modo cola acepta rondas en cuentas de barra abiertas y efectivo en Venta rápida.",
+  "whileOffline.title": "Sin conexión",
+  "whileOffline.works":
+    "Sigue funcionando: el tablero, las cuentas abiertas y el menú. Los pedidos que ya suenan siguen sonando.",
+  "whileOffline.queue":
+    "Con un código sin conexión, las rondas en cuentas de barra abiertas quedan en cola en esta computadora, marcadas en cola · sin cobrar.",
+  "whileOffline.notDesk":
+    "Las rondas solo quedan en cola en la computadora del bar (la aplicación de escritorio), con un código sin conexión.",
+  "whileOffline.cashOn":
+    "Las ventas rápidas en efectivo también funcionan: el cajón se abre con cada una.",
+  "whileOffline.cashOff":
+    "El cajón sigue cerrado: guarda aparte el efectivo que recibas y anótalo en papel.",
+  "whileOffline.paper":
+    "En papel: cuentas nuevas, clientes sin reserva y efectivo recibido. Anota el nombre o la sala, las bebidas, el monto y quién lo recibió, y dáselo al gerente de turno.",
+  "whileOffline.code":
+    "El código sin conexión: un gerente lo lee en su teléfono (Códigos sin conexión) o en la tarjeta sellada del mostrador.",
+  "whileOffline.cards":
+    "Tarjetas: cobro sin contacto en el teléfono del gerente, como dice la tarjeta de emergencia. Si Stripe también está caído, acepta efectivo.",
+  "replayed.cashRefused": "Venta rápida · {what} · {cash} en efectivo recibido sin conexión",
+  "replayed.cashRefusedWhy": "No está registrada: {reason} · marcada por {name} a las {time}",
+  "replayed.cashRefusedHint":
+    "El efectivo está en el cajón. Avisa al gerente de turno; aparece en Revisión tras el corte.",
+  "replayed.cashRefusedOk": "OK, avisé al gerente",
+  "review.order.sold": "Reenviado · vendido en efectivo sin conexión",
+  "review.cashSale.refused":
+    "Efectivo recibido sin conexión: {amount}. La venta no está registrada; el efectivo está en el cajón.",
+  "review.reason.switched_off": "las ventas en efectivo sin conexión estaban desactivadas",
+  "review.reason.price_changed": "el precio cambió desde la última sincronización",
+  "review.reason.no_staff": "quien la marcó no está en el equipo",
+  "review.reason.cash_refused": "el efectivo no pudo entrar en este cajón",
   "review.title": "Revisión tras el corte",
   "review.hint": "Cada pedido tomado sin conexión y su pago. Los reenvíos fallidos van primero.",
   "review.none": "Esta noche no se tomó nada sin conexión.",

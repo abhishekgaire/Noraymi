@@ -152,4 +152,56 @@ describe("queue mode", () => {
     expect(queue.list()).toEqual([]);
     cache.close();
   });
+
+  // U-16 (D133): a cash quick sale offline, with "Take cash quick sales while offline" on.
+  const sale = (over: Record<string, unknown> = {}) => ({
+    kind: "cash_sale",
+    order_id: randomUUID(),
+    staff: { membership_id: "m-maya", name: "Maya S." },
+    lines: [{ variant_id: "v-bud", name: "Bud Light", qty: 1, unit_cents: 800, alcohol: true }],
+    total_cents: 871,
+    cash_cents: 871,
+    tendered_cents: 1000,
+    ...over,
+  });
+
+  it("keeps a cash sale only while queue mode is open, beside the rounds, and replays it like one", () => {
+    const { cache, queue } = boot();
+    queue.setSecret(BAR, SECRET);
+    expect(() => queue.addSale(AT, sale())).toThrow(/queue mode isn't open/);
+    queue.unlock(AT, offlineCodeAt(hmac, SECRET, scope, AT));
+    const kept = queue.addSale(AT, sale());
+    expect(kept).toMatchObject({
+      kind: "cash_sale",
+      business_date: "2026-09-25",
+      queued_at: AT.toString(),
+      cash_cents: 871,
+    });
+    expect(() => queue.addSale(AT, { ...sale(), order_id: kept.order_id })).toThrow(/already/);
+    // Less handed over than the cash price, or a fraction of a cent, is no sale.
+    expect(() => queue.addSale(AT, sale({ tendered_cents: 870 }))).toThrow(/refused/);
+    expect(() => queue.addSale(AT, sale({ cash_cents: 870.5 }))).toThrow(/refused/);
+    queue.add(AT, round());
+    expect(queue.list()).toHaveLength(2);
+    expect(queue.settle([kept.order_id])).toBe(1);
+    expect(queue.list().map((o) => ("kind" in o ? o.kind : "round"))).toEqual(["round"]);
+    cache.close();
+  });
+
+  it("keeps the drawer the server named, forgets it on null, and refuses anything else", () => {
+    const { cache, queue } = boot();
+    expect(queue.drawer()).toBeNull();
+    const drawer = {
+      name: "Bar drawer",
+      printer: { kind: "usb", serial: "VIRTUAL-USB-1" },
+      kick: "G0AbcAAZ+g==",
+    };
+    queue.setDrawer(drawer);
+    expect(queue.drawer()).toEqual(drawer);
+    expect(() => queue.setDrawer({ ...drawer, kick: "<script>" })).toThrow(/refused/);
+    expect(() => queue.setDrawer({ ...drawer, printer: { kind: "bluetooth" } })).toThrow(/refused/);
+    queue.setDrawer(null);
+    expect(queue.drawer()).toBeNull();
+    cache.close();
+  });
 });

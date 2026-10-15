@@ -13413,3 +13413,40 @@ test("U-17: a tip-out is one tap on Maya's pre-filled share, and the count says 
     await db.end();
   }
 });
+
+/**
+ * U-16 · Take cash quick sales while offline (D133): off by default in Admin → Bar POS, so the drawer
+ * stays locked offline; the owner's tick saves it as a new pos version. The offline sale itself and
+ * its replay are driven in e2e/desktop.spec.ts, on the desktop app.
+ */
+test("U-16 · Admin → Bar POS: Take cash quick sales while offline is off by default and saves when ticked", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/bar-pos");
+    await expect(page.getByRole("heading", { name: "Cash while offline" })).toBeVisible();
+    const cash = page.getByLabel("Take cash quick sales while offline");
+    await expect(cash).not.toBeChecked();
+    await expect(
+      page.getByText(/^Off: the drawer stays locked while the bar computer is offline\./),
+    ).toBeVisible();
+    const saved = async () =>
+      (
+        await db.query<{ on: boolean | null }>(
+          `select (value->>'offlineCashSales')::boolean as on from venue_settings
+            where key = 'pos' order by version desc limit 1`,
+        )
+      ).rows[0]!.on;
+    expect(await saved()).toBeNull();
+    await cash.check();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    expect(await saved()).toBe(true);
+  } finally {
+    await db.end();
+  }
+});

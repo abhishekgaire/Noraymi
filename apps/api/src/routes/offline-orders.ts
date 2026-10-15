@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import type pg from "pg";
 import { emitEvent } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { Temporal, type Clock } from "@west4/shared";
@@ -6,6 +7,14 @@ import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { inVenueRefusing } from "../orders/alcohol.js";
+import {
+  offlineCashTerms,
+  recordFailedCashSale,
+  replayCashSale,
+  type QueuedCashSale,
+} from "../orders/offline-cash.js";
+import { starRasterDrawerKick } from "../print/star-raster.js";
+import { drawerKickEscPos } from "../print/ticket.js";
 import {
   reasonOf,
   recordFailed,
@@ -15,13 +24,20 @@ import {
   type ReplayAnswer,
 } from "../orders/replay.js";
 import { takeCash } from "../payments/cash.js";
+import { quickSaleNumber } from "../tabs/quick-sale.js";
 import { venueClock } from "../rooms/assignment.js";
 
 /**
  * Replay and Review after outage (M8-05; spec 09 · Replay, Review after outage; screens N29, Night note 8):
  *   POST /v1/venues/{v}/offline-orders/replay        the bar computer, signed as itself: { orders: [queued rounds] }
  *        each round checked again and answered { order_id, outcome: held | failed, reason }; the same
- *        order id is answered the same every time after, so an upload sent twice lands each round once
+ *        order id is answered the same every time after, so an upload sent twice lands each round once.
+ *        A cash quick sale taken offline (U-16, kind "cash_sale") is made and paid (sold) or refused
+ *   GET  /v1/venues/{v}/offline-orders/refused       bar staff: tonight's refused cash sales nobody has
+ *        seen, for Confirm replayed orders (U-16)
+ *   POST /v1/venues/{v}/offline-orders/{replayId}/seen  OK on a refused cash sale: it leaves the list
+ *   GET  /v1/venues/{v}/offline-orders/drawer        the computer, signed: its drawer's printer and kick, for a
+ *        cash sale offline (U-16); null while the switch is off
  *   GET  /v1/venues/{v}/offline-orders?business_date=  managers: every round taken offline on that night
  *        (queued or replayed on it), failed replays first, with its order and check now, plus the
  *        break-glass card payments still waiting in Unmatched payments
@@ -59,7 +75,24 @@ const round = z.object({
     .max(50),
   cash_note: z.string().trim().max(200).nullable(),
 });
-const replayBody = z.object({ orders: z.array(round).min(1).max(100) }).strict();
+const cashSale = z.object({
+  kind: z.literal("cash_sale"),
+  order_id: uuid,
+  queued_at: round.shape.queued_at,
+  staff: round.shape.staff,
+  lines: round.shape.lines,
+  total_cents: z.number().int().min(0).max(10_000_000),
+  cash_cents: z.number().int().min(0).max(10_000_000),
+  tendered_cents: z.number().int().min(0).max(10_000_000),
+});
+const replayBody = z
+  .object({
+    orders: z
+      .array(z.union([cashSale, round]))
+      .min(1)
+      .max(100),
+  })
+  .strict();
 const cashBody = z
   .object({
     amount_cents: z.number().int().min(1).max(10_000_000),
@@ -73,7 +106,10 @@ const cashBody = z
 /** A second upload racing the first: the unique order id answers which one landed. */
 const isDuplicate = (e: unknown) => (e as { code?: string })?.code === "23505";
 
-export function offlineOrderRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+export function offlineOrderRoutes(
+  app: FastifyInstance,
+  options: { clock: Clock; pool: pg.Pool },
+): void {
   app.post<{ Params: { venueId: string }; Body: unknown }>(
     "/v1/venues/:venueId/offline-orders/replay",
     { config: route({ principals: ["shared_device"], module: "core", idempotency: "optional" }) },
@@ -88,18 +124,29 @@ export function offlineOrderRoutes(app: FastifyInstance, options: { clock: Clock
         throw new ApiError("invalid_request", "send { orders: [queued rounds] }");
       const venueId = request.venueId!;
       const results: ReplayAnswer[] = [];
-      for (const r of parsed.data.orders as QueuedRound[]) {
-        const answer = { ...r, order_id: r.order_id.toLowerCase() };
+      for (const r of parsed.data.orders) {
         const now = options.clock.now();
         const input = { deviceId: device.deviceId, now };
-        const before = await request.inVenue((c) => replayedBefore(c, venueId, answer.order_id));
+        const orderId = r.order_id.toLowerCase();
+        const before = await request.inVenue((c) => replayedBefore(c, venueId, orderId));
         if (before) {
           results.push(before);
           continue;
         }
+        // A cash quick sale (U-16) gets its number first, as Pay does online; a refused one keeps it.
+        const sale =
+          "kind" in r && r.kind === "cash_sale"
+            ? ({ ...r, order_id: orderId } as QueuedCashSale)
+            : null;
+        const answer = sale ? null : ({ ...r, order_id: orderId } as QueuedRound);
+        const number = sale ? await quickSaleNumber(options.pool, venueId) : 0;
         try {
           results.push(
-            await inVenueRefusing(request, (c) => replayRound(c, venueId, answer, input)),
+            await inVenueRefusing(request, (c) =>
+              sale
+                ? replayCashSale(c, venueId, sale, { ...input, number })
+                : replayRound(c, venueId, answer!, input),
+            ),
           );
         } catch (e) {
           const reason = isDuplicate(e) ? null : reasonOf(e);
@@ -108,15 +155,15 @@ export function offlineOrderRoutes(app: FastifyInstance, options: { clock: Clock
             results.push(
               reason
                 ? await request.inVenue((c) =>
-                    recordFailed(c, venueId, answer, { ...input, reason }),
+                    sale
+                      ? recordFailedCashSale(c, venueId, sale, { ...input, reason })
+                      : recordFailed(c, venueId, answer!, { ...input, reason }),
                   )
-                : (await request.inVenue((c) => replayedBefore(c, venueId, answer.order_id)))!,
+                : (await request.inVenue((c) => replayedBefore(c, venueId, orderId)))!,
             );
           } catch (again) {
             if (!isDuplicate(again)) throw again;
-            results.push(
-              (await request.inVenue((c) => replayedBefore(c, venueId, answer.order_id)))!,
-            );
+            results.push((await request.inVenue((c) => replayedBefore(c, venueId, orderId)))!);
           }
         }
       }
@@ -150,6 +197,7 @@ export function offlineOrderRoutes(app: FastifyInstance, options: { clock: Clock
           `select r.id, r.client_order_id as order_id, r.queued_on::text, r.replayed_on::text,
                   to_json(r.queued_at) #>> '{}' as queued_at, to_json(r.replayed_at) #>> '{}' as replayed_at,
                   r.tab_name, r.staff_name, r.lines, r.total_cents, r.cash_note, r.outcome, r.reason,
+                  r.kind, r.cash_cents, r.tendered_cents,
                   o.status as order_status, coalesce(o.check_id, r.check_id) as check_id, k.status as check_status,
                   case when r.cash_payment_id is null then null else json_build_object(
                     'amount_cents', (select p.amount_cents::int from payments p
@@ -278,6 +326,120 @@ export function offlineOrderRoutes(app: FastifyInstance, options: { clock: Clock
         logged_to: taken.loggedTo,
         check_status: taken.settled.status,
       };
+    },
+  );
+
+  // Confirm replayed orders (U-16): the cash quick sales taken offline that the server refused, so
+  // the bartender knows the drink was sold for cash that isn't on the books. OK takes one off the
+  // list; a manager still sees it on Review after outage.
+  const bar = {
+    principals: ["owner_manager", "staff"],
+    module: "core",
+    action: "pos.use",
+  } as const;
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/offline-orders/refused",
+    { config: route(bar) },
+    async (request) =>
+      request.inVenue(async (c) => {
+        const venueId = request.venueId!;
+        const clock = await venueClock(c, venueId);
+        const night = businessDate(
+          options.clock.now(),
+          clock.timeZone,
+          clock.dayCutover,
+        ).businessDate.toString();
+        const r = await c.query(
+          `select r.id, r.client_order_id as order_id, to_json(r.queued_at) #>> '{}' as queued_at,
+                  r.staff_name, r.lines, r.total_cents, r.cash_cents, r.reason
+             from offline_replays r
+            where r.venue_id = $1 and r.kind = 'cash_sale' and r.outcome = 'failed' and r.seen_at is null
+              and (r.queued_on = $2::date or r.replayed_on = $2::date)
+            order by r.queued_at, r.id`,
+          [venueId, night],
+        );
+        return { sales: r.rows };
+      }),
+  );
+
+  app.post<{ Params: { venueId: string; replayId: string } }>(
+    "/v1/venues/:venueId/offline-orders/:replayId/seen",
+    { config: route({ ...bar, idempotency: "optional" }) },
+    async (request) => {
+      if (!uuid.safeParse(request.params.replayId).success)
+        throw new ApiError("not_found", "no such offline sale");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "this is a person's work");
+      return request.inVenue(async (c) => {
+        const r = await c.query(
+          `update offline_replays set seen_by = $3, seen_at = $4
+            where venue_id = $1 and id = $2 and kind = 'cash_sale' and outcome = 'failed'
+            returning id`,
+          [request.venueId, request.params.replayId, p.userId, options.clock.now().toString()],
+        );
+        if (r.rowCount === 0) throw new ApiError("not_found", "no such offline sale");
+        return { id: request.params.replayId, seen: true };
+      });
+    },
+  );
+
+  /**
+   * This computer's drawer for a cash sale offline (U-16): the printer it hangs on (a USB printer this
+   * computer hosts, or a network printer on the LAN) and the kick in that printer's command set. Null
+   * while "Take cash quick sales while offline" is off, or when no drawer hangs on such a printer, so
+   * the computer then keeps nothing and its drawer stays locked offline.
+   */
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/offline-orders/drawer",
+    { config: route({ principals: ["shared_device"], module: "core" }) },
+    async (request) => {
+      const device = request.signedDevice;
+      if (!device || device.venueId !== request.venueId)
+        throw new ApiError("forbidden", "a computer asks for its own drawer");
+      if (!(DESKTOPS as readonly string[]).includes(device.kind))
+        throw new ApiError("forbidden", "only the bar and front-desk computers queue offline");
+      return request.inVenue(async (c) => {
+        const venueId = request.venueId!;
+        const clock = await venueClock(c, venueId);
+        const night = businessDate(
+          options.clock.now(),
+          clock.timeZone,
+          clock.dayCutover,
+        ).businessDate.toString();
+        if (!(await offlineCashTerms(c, venueId, night))) return { drawer: null };
+        const r = await c.query<{
+          name: string;
+          protocol: string | null;
+          serial: string | null;
+          network_address: string | null;
+          network_port: number | null;
+          command_set: string | null;
+          host_device_id: string | null;
+        }>(
+          `select d.name, p.protocol, p.serial, p.network_address, p.network_port, p.command_set,
+                  p.host_device_id
+             from devices v
+             join cash_drawers d on d.venue_id = v.venue_id and d.id = v.cash_drawer_id
+             join devices p on p.venue_id = d.venue_id and p.id = d.printer_device_id
+                           and p.kind = 'printer' and p.revoked_at is null
+            where v.venue_id = $1 and v.id = $2`,
+          [venueId, device.deviceId],
+        );
+        const p = r.rows[0];
+        const lan = p?.protocol === "lan" && p.network_address && p.network_port;
+        const usb = p && !lan && p.host_device_id === device.deviceId && p.serial;
+        if (!p || (!lan && !usb)) return { drawer: null };
+        const kick = p.command_set === "star_raster" ? starRasterDrawerKick() : drawerKickEscPos();
+        return {
+          drawer: {
+            name: p.name,
+            printer: lan
+              ? { kind: "lan", address: p.network_address, port: p.network_port }
+              : { kind: "usb", serial: p.serial },
+            kick: Buffer.from(kick).toString("base64"),
+          },
+        };
+      });
     },
   );
 }

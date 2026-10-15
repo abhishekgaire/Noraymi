@@ -1,7 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { venueOnBackupInternet, venueVendorHealth } from "@west4/db";
+import { venueOnBackupInternet, venueVendorHealth, type Queryable } from "@west4/db";
+import { businessDate } from "@west4/rules";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
+import { venueClock } from "../rooms/assignment.js";
 
 /**
  * The venue's connection (M8-01; spec 09 · Outages):
@@ -13,6 +15,10 @@ import { route } from "../http/conventions.js";
  * banner. vendor.health and the router's events make the screens fetch it at once.
  */
 export function connectionRoutes(app: FastifyInstance, options: { clock: Clock }): void {
+  const tonight = async (c: Queryable, venueId: string) => {
+    const v = await venueClock(c, venueId);
+    return businessDate(options.clock.now(), v.timeZone, v.dayCutover).businessDate.toString();
+  };
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/connection",
     { config: route({ principals: ["owner_manager", "staff", "shared_device"], module: "core" }) },
@@ -26,10 +32,14 @@ export function connectionRoutes(app: FastifyInstance, options: { clock: Clock }
           // Replayed offline orders asked to wait for a bartender's Accept (M8-05).
           replayed_waiting: (
             await c.query<{ n: number }>(
-              `select count(*)::int as n from orders o
+              `select (select count(*)::int from orders o
                 where o.venue_id = $1 and o.source = 'offline' and o.status = 'held'
-                  and (select k.training from checks k where k.venue_id = o.venue_id and k.id = o.check_id) = $2`,
-              [venueId, request.training],
+                  and (select k.training from checks k where k.venue_id = o.venue_id and k.id = o.check_id) = $2)
+                -- Cash quick sales taken offline that the replay refused, until someone taps OK (U-16).
+                + (select count(*)::int from offline_replays r
+                    where r.venue_id = $1 and not $2 and r.kind = 'cash_sale' and r.outcome = 'failed'
+                      and r.seen_at is null and (r.queued_on = $3::date or r.replayed_on = $3::date)) as n`,
+              [venueId, request.training, await tonight(c, venueId)],
             )
           ).rows[0]!.n,
           vendors: {

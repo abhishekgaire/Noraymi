@@ -263,6 +263,12 @@ export const posSchema = z
      * on, so a venue saved before it existed gets it; false turns it off.
      */
     zReportAtClose: z.boolean().optional(),
+    /**
+     * "Take cash quick sales while offline" (U-16; D133): in queue mode the bar computer also takes a
+     * cash quick sale, opens the drawer and replays the sale once on reconnect. Off by default, and
+     * absent reads as off, so the drawer stays locked offline (spec 09) until the owner turns it on.
+     */
+    offlineCashSales: z.boolean().optional(),
     orderAging: z
       .object({
         phonesSec: z.number().nonnegative(),

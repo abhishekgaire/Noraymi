@@ -495,7 +495,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       routerRoutes(scope, { clock });
       setOfflineCodeKey(config.auth.secretKey);
       offlineCodeRoutes(scope, { clock });
-      offlineOrderRoutes(scope, { clock });
+      offlineOrderRoutes(scope, { clock, pool: gatePoolRef! });
       attachedRoutes(scope);
       pushRoutes(scope, { settings: options.push ?? loadPushSettings(config.env), clock });
       teamRoutes(scope, {

@@ -49,6 +49,12 @@ interface West4Desktop {
     list(): Promise<unknown[]>;
     /** Drop the rounds the server answered on replay (M8-05). */
     settle(orderIds: string[]): Promise<number>;
+    /** Cash quick sales while offline (U-16): this computer's drawer, kept while online (null forgets it). */
+    setDrawer?(drawer: unknown): Promise<void>;
+    /** Whether a drawer is kept for a cash sale offline (U-16). */
+    hasDrawer?(): Promise<boolean>;
+    /** Keep a cash sale in queue mode and open the drawer; `kicked` says whether it opened. */
+    addSale?(sale: unknown): Promise<{ sale: unknown; kicked: boolean }>;
   };
   readonly venue: {
     configure(clock: {

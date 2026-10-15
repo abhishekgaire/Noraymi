@@ -360,6 +360,34 @@ function registerIpc(): void {
     "west4:queue:settle",
     guarded((orderIds: unknown) => queue.settle(orderIds)),
   );
+  // Cash quick sales while offline (U-16; D133): the computer keeps its drawer while online (null
+  // while the venue's switch is off), and a cash sale kept in queue mode opens that drawer here, on
+  // the printer's own port. Nothing else can open it from the page.
+  ipcMain.handle(
+    "west4:queue:set-drawer",
+    guarded((drawer: unknown) => queue.setDrawer(drawer)),
+  );
+  ipcMain.handle(
+    "west4:queue:has-drawer",
+    guarded(() => queue.drawer() !== null),
+  );
+  ipcMain.handle(
+    "west4:queue:add-sale",
+    guarded(async (sale: unknown) => {
+      const kept = queue.addSale(queueNow(), sale);
+      const drawer = queue.drawer();
+      if (!drawer) return { sale: kept, kicked: false };
+      try {
+        const bytes = Buffer.from(drawer.kick, "base64");
+        if (drawer.printer.kind === "usb") await printers.print(drawer.printer.serial, bytes);
+        else await sendRaw(drawer.printer.address, drawer.printer.port, bytes);
+        return { sale: kept, kicked: true };
+      } catch {
+        // The sale is kept either way; the screen says to open the drawer with its key.
+        return { sale: kept, kicked: false };
+      }
+    }),
+  );
 }
 
 /** How long the first load of the staff app may take before it's asked for again. */
