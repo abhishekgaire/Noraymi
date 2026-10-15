@@ -660,3 +660,15 @@
     grid-template-columns: 280px minmax(0, 1fr) 300px;
   }
 }
+
+/* U-10: an order that blocks Present the check carries Accept and Cancel on its own line. */
+.present .blocked li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.present .blocked li .actions {
+  margin: 0;
+}

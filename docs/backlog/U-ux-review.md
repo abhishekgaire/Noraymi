@@ -157,7 +157,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-10 · Ending a room in fewer taps
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M4, U-01
 - **Spec:** [Payment flows](../spec/07-payment-flows.md) · Present the check
@@ -168,8 +168,8 @@ Definition of done: see CLAUDE.md.
   - Once paid and the receipt chosen, the screen goes back to the board, and the paid screen has **Mark clean** (the room stays "cleaning" until someone does it).
   - Remove the doubled "tab so far" (Tonight.tsx 559 and 621) and the doubled Rooms in use for managers (the glance and the boxes, 919–940).
 - **Acceptance:**
-  - [ ] Room 9's close-out on the outside machine: tile, Present & pay, Outside card machine, receipt, Mark clean: 5 taps.
-- **Notes:**
+  - [x] Room 9's close-out on the outside machine: tile, Present & pay, Outside card machine, receipt, Mark clean: 5 taps.
+- **Notes:** Oct 15, 2026. No migration and no new route: every step uses an existing route. The board panel's **Present & pay** opens the room tab asking it to present (router state, cleared after one use so a reload never presents again), and the room tab presents through `POST /checks/:id/present`. **Add drinks** opens the room's own add-drinks on the panel, and Tab & close out → stays as a secondary button. Before Present, the room tab shows **Ways to pay** (in U-01's order); the first tap presents the check, then that panel shows. A refused Present lists each blocking order with **Accept** and **Cancel**, which use `POST /orders/:id/accept|cancel` (orders.accept; alcohol checks run again at Accept, sold at Accept) and then present again. One hook (`usePresent` in PresentCheck.tsx) does the presenting for the button, the first payment tap and Present & pay. After the receipt, the room tab goes back to /tonight with the room's panel open on Mark clean while it's still cleaning; the paid screen has Mark clean too. The panel shows the tab so far once (the box, now labelled "Tab so far"; the `board.tabSoFar` and `board.panel.tab` keys are removed). On a phone, owners and managers no longer get the In room box, since the glance shows Rooms in use. Tests: the e2e tests "U-10 · Room 9's close-out on the outside machine … 5 taps" and "U-10 · Present & pay while Peach's Margaritas ring …"; the board tile-by-tile, Present the check and DeskRoom close-out tests are updated where this ticket changes them. Cautious defaults: Cancel on a blocking order is a staff cancel (`for` left out); with a card behind the bar, the screen moves on only after Returned; Change tip and Refund stay on the paid screen until the receipt is picked; Mark clean tapped before the receipt makes the receipt go back to the board with no panel open; with readers registered the reader panel comes first, so the 5-tap count is for the outside machine, as the acceptance says.
 
 ### U-11 · Room orders without runners
 

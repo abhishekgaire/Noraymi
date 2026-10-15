@@ -1953,3 +1953,13 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. On a phone (390 wide) **+ Walk-in** is in the header too; with no room free it opens the waitlist.
 7. Spanish: **Por llegar · …**, **Registrar llegada de …**, **Buscar una reserva**, **para 6–12**.
 
+### 31.10 Ending a room in fewer taps (U-10)
+
+1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. Turn **Outside card machine** on in Admin → Features. West 4 has readers, so the reader panel comes first and the outside machine's form sits below it; at a venue with no readers the outside machine comes first (U-01). The steps are the same. Sign in as Andy on the front-desk computer (Rooms).
+2. Tap Room 9. The panel shows **Tab so far** once (in its box), and has **Present & pay**, **Add drinks** and **Tab & close out →**. Tap **Add drinks**: the add-drinks panel opens right there; tap it again to close it.
+3. Tap **Present & pay** while Peach's 2 × Margarita still rings: the room tab opens with "2 × Margarita · Peach is ringing at the bar · accept or cancel it first" and **Accept** and **Cancel** on the line. Tap **Accept**: the Margaritas join the tab and the check is presented ("Check presented · ordering is closed"). (Cancel instead takes them off and presents.)
+4. The outside machine's form shows the left-to-pay amount. Tap **Record payment**: Paid. Pick a receipt (**No receipt**): the screen goes back to Rooms with Room 9's panel open on **Mark clean**. Tap it: Room 9 is open. From the tile, that's 5 taps: tile, Present & pay, Record payment, the receipt, Mark clean.
+5. On another room, tap **Tab & close out →** instead: before Present the room tab shows **Ways to pay**. Tap **Cash**: the check is presented first, then the cash panel shows. As a manager, **Reopen the check** brings Ways to pay back.
+6. On the paid screen, **Mark clean** can come before the receipt; the receipt then goes back to Rooms with no panel open. With a card behind the bar, **Returned** comes first.
+7. On a phone (390 wide) as Andy, the glance's **Rooms in use** shows and the **In room** box doesn't; as Diego (front desk) the In room box shows.
+8. Spanish: **Presentar y cobrar**, **Aceptar** / **Cancelar**, **Formas de pago**, **Marcar limpia**.

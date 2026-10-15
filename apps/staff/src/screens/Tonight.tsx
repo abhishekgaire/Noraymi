@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { SyncFooter } from "../connection.js";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
+import { AddDrinks } from "./AddDrinks.js";
 import { Temporal } from "@west4/shared";
 import { api } from "../api.js";
 import { Glance } from "./Glance.js";
@@ -192,7 +193,17 @@ export function Tonight() {
   const [arriving, setArriving] = useState<Arrival[]>([]);
   const [booked, setBooked] = useState<Arrival[]>([]);
   // The open room (V-08): its details and controls show in the side panel, a sheet on a phone.
-  const [selected, setSelected] = useState<string | null>(null);
+  // Back from a paid close-out (U-10) the room's panel opens on Mark clean.
+  const location = useLocation();
+  const [selected, setSelected] = useState<string | null>(
+    () => (location.state as { room?: string } | null)?.room ?? null,
+  );
+  useEffect(() => {
+    if ((location.state as { room?: string } | null)?.room)
+      void navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
+  // Add drinks on the room's panel (U-10): the room's own add-drinks, without opening the room.
+  const [addingTo, setAddingTo] = useState<string | null>(null);
   const phone = usePhone();
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => {
@@ -613,7 +624,8 @@ export function Tonight() {
                 <b>{words}</b>
               </div>
               <div>
-                <span className="board-label">{t("board.panel.tab")}</span>
+                {/* One tab so far on the panel (U-10): the box, not a second line below. */}
+                <span className="board-label">{t("room.tabSoFar")}</span>
                 <b>{money(r.session.tab_so_far_cents as never)}</b>
               </div>
             </div>
@@ -640,7 +652,31 @@ export function Tonight() {
               </div>
             )}
             <div className="actions room-panel-actions">
-              <Link className="button primary" to={`/room/${r.room_id}`}>
+              {/* Ending a room from its panel (U-10; D133): Present & pay presents the check through
+                  its own route on the room's screen and opens the ways to pay; Add drinks rings
+                  right here. */}
+              {s.check_id && can("payments.take") && (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() =>
+                    void navigate(`/room/${r.room_id}`, { state: { presentAndPay: true } })
+                  }
+                >
+                  {t("board.presentPay")}
+                </button>
+              )}
+              {s.check_id && can("orders.accept") && (
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-expanded={addingTo === r.room_id}
+                  onClick={() => setAddingTo(addingTo === r.room_id ? null : r.room_id)}
+                >
+                  {t("drinks.title")}
+                </button>
+              )}
+              <Link className="button secondary" to={`/room/${r.room_id}`}>
                 {t("room.open")}
               </Link>
               <button
@@ -676,11 +712,15 @@ export function Tonight() {
                 </button>
               )}
             </div>
+            {addingTo === r.room_id && s.check_id && (
+              <AddDrinks
+                venueId={venueId}
+                checkId={s.check_id}
+                sessionId={s.id}
+                onSent={() => void load()}
+              />
+            )}
             <div className="room-panel-section">
-              <h3 className="board-label">{t("room.tabSoFar")}</h3>
-              <div className="small">
-                {t("board.tabSoFar", { amount: money(r.session.tab_so_far_cents as never) })}
-              </div>
               <div className="small muted">
                 {t("session.timeSoFar", { amount: money(s.room_time_cents as never) })}
               </div>
@@ -1014,10 +1054,13 @@ export function Tonight() {
           the timeline first. */}
       {phone && counts && (
         <div className="board-boxes">
-          <div className="lime">
-            <b>{counts.in_use}</b>
-            <span>{t("board.box.inRoom")}</span>
-          </div>
+          {/* An owner or manager reads rooms in use on the glance above, once (U-10). */}
+          {!managing && (
+            <div className="lime">
+              <b>{counts.in_use}</b>
+              <span>{t("board.box.inRoom")}</span>
+            </div>
+          )}
           <div>
             <b>{counts.open}</b>
             <span>{t("board.box.open")}</span>
