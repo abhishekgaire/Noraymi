@@ -54,15 +54,15 @@ Definition of done: see CLAUDE.md.
 
 ### U-03 · Split a cardless tab
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** P-03
 - **Spec:** [Bar POS](../spec/10-staff-screens-bar-pos.md) · Split; [Payment flows](../spec/07-payment-flows.md)
 - **Build:**
   - **Split** shows on cardless tabs too (Rail.tsx about 1574 hides it when `no_hold`); each share can be paid by cash, the outside card machine or a reader, as the venue has them.
 - **Acceptance:**
-  - [ ] A cardless Sing Sing tab splits three ways: cash, outside machine, outside machine; it closes when the last share is paid.
-- **Notes:**
+  - [x] A cardless Sing Sing tab splits three ways: cash, outside machine, outside machine; it closes when the last share is paid.
+- **Notes:** Built Oct 15, 2026. The server already took it: `POST /tabs/{t}/split` never looked at the hold, a share's `claimShare` leaves out a hold only when there is one, cash and the outside card machine both take a `share_id`, and `takeOverHold` closes a tab with no hold once its allocations cover what's due. So no API change, no migration, no new route and no new strings. The bar POS (Rail.tsx) now shows **Split** on a cardless tab (`cardless`: no payment and no card); SplitPanel already gives every share its own **Pay this share** when there's no held card, and U-01 already put the outside machine (before Cash with no reader) on each share. Cautious defaults: a *reopened* tab with no hold (M6-12) still has no Split, as spec 10 says, since its earlier capture makes its shares a different question; cash shares aren't cash-discounted (existing behavior, as before U-03; U-02 owns the cash price). Tests: `tab-split.int.test.ts` "U-03: split a cardless tab" ×2 (three ways: cash, outside, outside, shares by largest remainder adding to the total, a wrong amount and a paid share refused, the tab `closed` and the check `paid` with Stripe never called; Stop splitting keeps the paid share and the rest closes it); e2e "U-03 · a cardless tab splits three ways…" at the end of `e2e/staff.spec.ts` (the full flow through the UI, as app_rw). Spec 10 (Split) and spec 07 (Bar tab step 8) updated, citing D133; manual test 31.3.
 
 ### U-04 · The tab screen: the round first, nothing left unsent, a clean screen after closing
 

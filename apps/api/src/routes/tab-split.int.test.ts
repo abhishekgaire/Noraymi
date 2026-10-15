@@ -538,3 +538,113 @@ describe("M8-19: a void after a cash payment alerts the owner", () => {
     expect(owners.rows.map((o) => o.name)).toContain("Abhishek G.");
   });
 });
+
+describe("U-03: split a cardless tab (D133)", () => {
+  /** Sing Sing's way: tabs without a card, and the outside card machine on. */
+  const cardless = async (name: string) => {
+    await owner.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardRequired', false),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId],
+    );
+    const r = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs`,
+      headers: { "idempotency-key": `u03-cardless-${++n}` },
+      payload: { card: "none", name },
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    return r.json<{ tab: { id: string; check_id: string } }>().tab;
+  };
+  const outside = (checkId: string, amountCents: number, shareId?: string) =>
+    app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/checks/${checkId}/payments`,
+      headers: { "idempotency-key": `u03-outside-${++n}` },
+      payload: { method: "outside_card", amount_cents: amountCents, share_id: shareId },
+    });
+
+  beforeAll(async () => {
+    await owner.query(
+      "delete from venue_modules where venue_id = $1 and module_id = 'outside_card'",
+      [venueId],
+    );
+    await owner.query(
+      "insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')",
+      [venueId],
+    );
+  });
+
+  it("a cardless tab splits three ways: cash, outside machine, outside machine; it closes on the last share", async () => {
+    const before = fake.requests.length;
+    const tab = await cardless("Dana U03");
+    expect((await send(tab.check_id, jessRound())).statusCode).toBe(201);
+    const r = await split(tab.id, 3);
+    expect(r.statusCode, r.body).toBe(201);
+    const row = await tabRow(tab.id);
+    const total = row.totals.total_cents;
+    const shares = row.split!.shares;
+    // Largest remainder: the parts add up to the cent, the first shares take the leftover cents.
+    expect(shares.reduce((s, x) => s + x.amount_cents, 0)).toBe(total);
+    const even = Math.floor(total / 3);
+    expect(shares.map((s) => s.amount_cents)).toEqual(
+      [0, 1, 2].map((i) => even + (i < total - even * 3 ? 1 : 0)),
+    );
+    expect(row).toMatchObject({ state: "open", paid_cents: 0, rest_cents: total });
+
+    expect((await cash(tab.check_id, shares[0]!)).statusCode).toBe(201);
+    const first = await outside(tab.check_id, shares[1]!.amount_cents, shares[1]!.id);
+    expect(first.statusCode, first.body).toBe(201);
+    expect(await tabRow(tab.id)).toMatchObject({
+      state: "open",
+      paid_cents: shares[0]!.amount_cents + shares[1]!.amount_cents,
+      rest_cents: shares[2]!.amount_cents,
+    });
+    // A share pays its own amount, and a paid share isn't paid twice.
+    expect((await outside(tab.check_id, 1, shares[2]!.id)).statusCode).toBe(400);
+    expect(
+      (await outside(tab.check_id, shares[1]!.amount_cents, shares[1]!.id)).statusCode,
+    ).toBeGreaterThanOrEqual(400);
+
+    const last = await outside(tab.check_id, shares[2]!.amount_cents, shares[2]!.id);
+    expect(last.statusCode, last.body).toBe(201);
+    expect(last.json()).toMatchObject({ check_status: "paid" });
+    expect(await tabRow(tab.id)).toMatchObject({ state: "closed" });
+    expect(await checkStatusOf(tab.check_id)).toBe("paid");
+    const paid = await owner.query<{ method: string; cents: number }>(
+      `select p.method, a.amount_cents::int as cents from payment_allocations a
+         join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
+        where a.check_id = $1 and a.state = 'captured'`,
+      [tab.check_id],
+    );
+    expect(paid.rows.map((m) => m.method).sort()).toEqual(["cash", "outside_card", "outside_card"]);
+    expect(paid.rows.reduce((s, m) => s + m.cents, 0)).toBe(total);
+    // No reader and no hold: Stripe hears nothing.
+    expect(fake.requests.length).toBe(before);
+  });
+
+  it("Stop splitting on a cardless tab keeps the paid share; the rest is paid as one and the tab closes", async () => {
+    const tab = await cardless("Eli U03");
+    expect((await send(tab.check_id, jessRound())).statusCode).toBe(201);
+    expect((await split(tab.id, 2)).statusCode).toBe(201);
+    const row = await tabRow(tab.id);
+    const shares = row.split!.shares;
+    expect((await cash(tab.check_id, shares[0]!)).statusCode).toBe(201);
+    const stop = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/splits/${row.split!.id}/stop`,
+    });
+    expect(stop.statusCode, stop.body).toBe(200);
+    const after = await tabRow(tab.id);
+    expect(after).toMatchObject({
+      state: "open",
+      split: null,
+      rest_cents: shares[1]!.amount_cents,
+    });
+    const rest = await outside(tab.check_id, after.rest_cents);
+    expect(rest.statusCode, rest.body).toBe(201);
+    expect(await tabRow(tab.id)).toMatchObject({ state: "closed" });
+  });
+});

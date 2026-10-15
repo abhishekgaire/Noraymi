@@ -1606,15 +1606,19 @@ export function Rail() {
                       >
                         {t("rail.repeat")}
                       </button>
-                      {tab.state === "open" && tab.rest_cents > 0 && !tab.no_hold && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => setSplitting(tab.id)}
-                        >
-                          {t("split.title")}
-                        </button>
-                      )}
+                      {/* Split (M6-10) on a held tab, and on a cardless one too (U-03, D133); a reopened
+                          tab with no hold still pays its rest in one go (M6-12). */}
+                      {tab.state === "open" &&
+                        tab.rest_cents > 0 &&
+                        (!tab.no_hold || tab.cardless) && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setSplitting(tab.id)}
+                          >
+                            {t("split.title")}
+                          </button>
+                        )}
                       {tab.state === "open" && !tab.split && tab.paid_cents === 0 && (
                         <button
                           type="button"
