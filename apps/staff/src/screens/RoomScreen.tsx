@@ -140,6 +140,8 @@ export function RoomScreen() {
   );
   const [checkStatus, setCheckStatus] = useState<string | null>(null);
   const [dueCents, setDueCents] = useState(0);
+  // U-02: what cash pays for what's due with the cash discount on (the API's), or null.
+  const [cashDueCents, setCashDueCents] = useState<number | null>(null);
   const [cashTaken, setCashTaken] = useState<Taken | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
   const [onFile, setOnFile] = useState<OnFile | null>(null);
@@ -184,6 +186,7 @@ export function RoomScreen() {
                 pending_discount?: PendingDiscount | null;
                 holds?: { tab_id: string; name: string; cents: number }[];
                 amount_due_cents?: number;
+                cash_due_cents?: number | null;
                 split?: Split | null;
                 on_file?: OnFile | null;
                 held_card?: HeldCard | null;
@@ -209,6 +212,7 @@ export function RoomScreen() {
         setHolds(("holds" in check ? check.holds : null) ?? []);
         setCheckStatus(check.check?.status ?? null);
         setDueCents(check.amount_due_cents ?? 0);
+        setCashDueCents(("cash_due_cents" in check ? check.cash_due_cents : null) ?? null);
         setSplit(("split" in check ? check.split : null) ?? null);
         setPaidLines(("payments" in check ? check.payments : null) ?? []);
         const status = check.check?.status;
@@ -808,6 +812,7 @@ export function RoomScreen() {
                     venueId={venueId}
                     checkId={s.check_id}
                     dueCents={share ? share.amount_cents : dueCents}
+                    cashCents={share ? null : cashDueCents}
                     shareId={share?.id ?? null}
                     onTaken={(taken) => {
                       setShare(null);

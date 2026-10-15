@@ -39,7 +39,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-02 · Show the cash price wherever cash is taken
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** the cash discount (rule 10), P-01
 - **Spec:** [Money rules](../spec/05-money-rules.md) · rule 10; [Payment flows](../spec/07-payment-flows.md)
@@ -48,9 +48,9 @@ Definition of done: see CLAUDE.md.
   - The API returns the cash price with each sale, tab and check (the same `cashPriceFor` as the printed bill), so the screen never works it out itself.
   - The screen shows both prices before the guest chooses: "Card $13.92 · Cash $13.45".
 - **Acceptance:**
-  - [ ] Sing Sing's 3.38%: a $13.92 drink shows Cash $13.45, Exact takes $13.45 with $0.00 change, and the Z report matches.
-  - [ ] money-cases cash-discount groups pass; no float touches an amount.
-- **Notes:**
+  - [x] Sing Sing's 3.38%: a $13.92 drink shows Cash $13.45, Exact takes $13.45 with $0.00 change, and the Z report matches. (Built to rule 10: $13.92 shows **Cash $13.41**; see Notes.)
+  - [x] money-cases cash-discount groups pass; no float touches an amount.
+- **Notes:** Built Oct 15, 2026. The API gives the cash price with every read a cash panel works from, through one helper, `cashPricer` in `apps/api/src/payments/surcharge.ts` (one read of the night's terms, then the same `cashDiscount` rule and food weights `applyCashDiscount` uses when the cash is taken; `cashPriceFor`, the printed bill's, now goes through it): the check read (`checkView`, so the quick sale and a room's close-out) carries `cash_due_cents`, each tab in the tab list `cash_rest_cents`, and Close the night's tabs that couldn't be charged `cash_owed_cents` (`failedTabs` now takes `now`); each is null with the discount off or nothing due. The staff app's `CashPanel` takes `cashCents`: Exact, the $5/$10/$20 offers, the change and **Take … in cash** come from it, while `amount_cents` sent stays the card amount, which the server discounts as before. A new `CardAndCash` line, "Card $13.92 · Cash $13.41" (`cash.bothPrices`, en/es), shows in the cash panel (the quick sale and room close-out show it beside the card buttons), under Close tab's total before a way to pay is chosen, and on Close the night's failed-tab row. **The acceptance's $13.45 is the ticket's arithmetic, not the rule's:** Money rules 10 takes the 3.38% ($0.47) and the matching tax on it ($0.04) off, so a $13.92 amount due is Cash $13.41; built to the spec, pinned by a new money case `cash_discount_sing_sing_cash_price` (test data). Cautious defaults: a split share shows one price (the server never discounts a share, so the cash price would be wrong there); the cash price is for tonight's business date, as the cash is taken; on an open tab with a check discount and food at cash prices (`foodIncludesFee` false) the food weights are the lines before Pay finalizes, so the shown price can differ by a cent from what's taken; Sing Sing (food includes the fee) is unaffected. Found, not changed: `cashDiscountFor` doesn't check the Cash discount switch (`cash_discount` module), only the `pay.cardFee` mode, while the surcharge does; the cash price and the cash taken agree either way. No migration, no new route. Tests: money case above (rules unit); `quick-sale.int.test.ts` "U-02 …" (sale, check and tab carry the rule's cash price, Exact pays it with $0.00 change, the X report's cash is the cash price, null with it off); e2e "U-02 · cash discount: …" at the end of `e2e/staff.spec.ts`. Spec 07 (Room close-out · Cash) and screens.md N21 updated, citing D133; manual test 31.2.
 
 ### U-03 · Split a cardless tab
 

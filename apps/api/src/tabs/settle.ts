@@ -12,6 +12,7 @@ import { tabHoldOf } from "../payments/splits.js";
 import { openAttempt } from "../payments/state.js";
 import { goAhead } from "../payments/card-on-file.js";
 import { tabSavedCard } from "./saved-card.js";
+import { cashPricer } from "../payments/surcharge.js";
 
 /**
  * Settling a tab whose capture failed (M6-17; Payment flows · Bar tab with a growing hold, step 7; Data
@@ -149,7 +150,7 @@ export async function settleToSavedCard(
 }
 
 /** The manager's list (screens Night note 12): every capture_failed tab, whatever its night, with what it owes. */
-export async function failedTabs(c: Queryable, venueId: string) {
+export async function failedTabs(c: Queryable, venueId: string, now: Temporal.Instant) {
   const r = await c.query<{
     id: string;
     name: string;
@@ -164,6 +165,10 @@ export async function failedTabs(c: Queryable, venueId: string) {
       order by k.business_date, t.opened_at, t.id`,
     [venueId],
   );
+  // U-02: cash settles a failed tab at the cash price with the cash discount on (posted to today).
+  const cashPrice = r.rows.length
+    ? await cashPricer(c, venueId, await postingDate(c, venueId, now))
+    : null;
   const out = [];
   for (const t of r.rows) {
     const hold = await tabHoldOf(c, venueId, t.check_id);
@@ -182,6 +187,8 @@ export async function failedTabs(c: Queryable, venueId: string) {
       card: t.card_last4 ? { brand: t.card_brand ?? "", last4: t.card_last4 } : null,
       business_date: t.business_date,
       owed_cents: owed,
+      cash_owed_cents:
+        cashPrice && owed > 0 ? await cashPrice({ checkId: t.check_id, amountCents: owed }) : null,
       saved_card: (await tabSavedCard(c, venueId, t.check_id)) !== null,
     });
   }

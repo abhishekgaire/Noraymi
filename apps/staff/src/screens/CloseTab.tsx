@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
-import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
+import { CardAndCash, CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
 import { TapPayment } from "./TapPayment.js";
 import { SavedCard } from "./SavedCard.js";
@@ -59,6 +59,7 @@ export function CloseTab({
   checkId,
   card,
   totalCents,
+  cashCents = null,
   resume,
   noHold = false,
   savedCard = null,
@@ -70,6 +71,8 @@ export function CloseTab({
   checkId: string;
   card: string | null;
   totalCents: number;
+  /** U-02: what cash pays for `totalCents` with the cash discount on (the API's), or null. */
+  cashCents?: number | null;
   /** The tab is already closing (`tipping`): pick up where it is. */
   resume: boolean;
   /** A reopened tab whose hold was captured (M6-12): no "Close to the card". */
@@ -193,6 +196,7 @@ export function CloseTab({
       <p className="total">
         {t("rail.total")} <strong>{money((closing?.balance_cents ?? totalCents) as never)}</strong>
       </p>
+      {!closing && !paidOther && <CardAndCash cardCents={totalCents} cashCents={cashCents} />}
       {closing && closing.gratuity_cents > 0 && <p className="small">{t("closeOut.gratuity")}</p>}
 
       {paidOther && (
@@ -252,6 +256,7 @@ export function CloseTab({
               venueId={venueId}
               checkId={checkId}
               dueCents={totalCents}
+              cashCents={cashCents}
               payUrl={payUrl}
               oneTap
               onTaken={(taken) => {

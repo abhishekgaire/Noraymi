@@ -249,6 +249,34 @@ async function cashWeights(
 }
 
 /**
+ * What cash would pay on a night with the cash discount on (P-01, U-02): one read of the terms, then
+ * any number of amounts priced by the same rule as taking the cash, writing nothing; null with the
+ * discount off. `extraOtherCents` is pre-tax that isn't a line yet (an open room's time so far).
+ */
+export async function cashPricer(
+  c: Queryable,
+  venueId: string,
+  businessDate: string,
+): Promise<
+  | ((input: { checkId: string; amountCents: number; extraOtherCents?: number }) => Promise<number>)
+  | null
+> {
+  const terms = await cashDiscountFor(c, venueId, businessDate);
+  if (!terms) return null;
+  return async (input) => {
+    const weights = await cashWeights(c, venueId, input.checkId, terms.foodIncludesFee);
+    return cashDiscount({
+      amountCents: input.amountCents,
+      pct: terms.pct,
+      taxRatePct: terms.taxRatePct,
+      foodIncludesFee: terms.foodIncludesFee,
+      foodWeightCents: weights.food,
+      otherWeightCents: weights.other + (terms.foodIncludesFee ? 0 : (input.extraOtherCents ?? 0)),
+    }).cashPaysCents;
+  };
+}
+
+/**
  * What cash would pay for an amount on a check with the cash discount on (P-01: the printed bill's
  * cash price), the same rule as taking the cash, writing nothing; null with the discount off.
  * `extraOtherCents` is pre-tax that isn't a line yet (an open room's time so far).
@@ -258,17 +286,8 @@ export async function cashPriceFor(
   venueId: string,
   input: { checkId: string; amountCents: number; businessDate: string; extraOtherCents?: number },
 ): Promise<number | null> {
-  const terms = await cashDiscountFor(c, venueId, input.businessDate);
-  if (!terms) return null;
-  const weights = await cashWeights(c, venueId, input.checkId, terms.foodIncludesFee);
-  return cashDiscount({
-    amountCents: input.amountCents,
-    pct: terms.pct,
-    taxRatePct: terms.taxRatePct,
-    foodIncludesFee: terms.foodIncludesFee,
-    foodWeightCents: weights.food,
-    otherWeightCents: weights.other + (terms.foodIncludesFee ? 0 : (input.extraOtherCents ?? 0)),
-  }).cashPaysCents;
+  const price = await cashPricer(c, venueId, input.businessDate);
+  return price ? price(input) : null;
 }
 
 /**
