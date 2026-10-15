@@ -424,3 +424,4 @@
 | [U-20 · One word for each thing](U-ux-review.md#u-20--one-word-for-each-thing) | S | P-11, P-05 |
 | [U-21 · Admin an owner can find their way around](U-ux-review.md#u-21--admin-an-owner-can-find-their-way-around) | M | P-10, P-13, P-14 |
 | [U-22 · Every sheet and dialog works the same way](U-ux-review.md#u-22--every-sheet-and-dialog-works-the-same-way) | M | none |
+| [U-23 · Card holds on tabs as a switch, and the card behind the bar for tabs](U-ux-review.md#u-23--card-holds-on-tabs-as-a-switch-and-the-card-behind-the-bar-for-tabs) | M | P-03, U-05, D116 (Card behind the bar for rooms) |
