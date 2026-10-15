@@ -58,6 +58,9 @@ export {
   menuOrderSchema,
   staffMenuIds,
   inMenuOrder,
+  pinAgainActions,
+  pinAgainSchema,
+  PIN_AGAIN_DEFAULTS,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,
   walkInTakes,
@@ -68,6 +71,7 @@ export {
 } from "./settings.js";
 export type {
   ApprovalMode,
+  PinAgainAction,
   ApprovalSettings,
   TextingKind,
   TextingSettings,
@@ -128,8 +132,11 @@ export {
   isAction,
   isRole,
   permissionFor,
+  grantableAdminSections,
+  isGrantableAdminSection,
+  settingsKeySections,
 } from "./roles.js";
-export type { Role, Action, PermissionOverride } from "./roles.js";
+export type { Role, Action, PermissionOverride, GrantableAdminSection } from "./roles.js";
 export {
   DEVICE_HEADERS,
   DEVICE_SIGNATURE_WINDOW_MS,

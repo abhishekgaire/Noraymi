@@ -136,20 +136,65 @@ export async function withOfflineRead<T>(
   }
 }
 
+/**
+ * Ask for the PIN again (P-10): the screen that asks (PinAgainDialog, mounted once in the shell).
+ * It gets the action and, after a wrong try, why; it answers the PIN typed, or null when closed.
+ */
+export type PinAgainPrompt = (
+  action: string,
+  problem: "wrong" | "locked" | null,
+) => Promise<string | null>;
+let pinAgainPrompt: PinAgainPrompt | null = null;
+export function setPinAgainPrompt(prompt: PinAgainPrompt | null): void {
+  pinAgainPrompt = prompt;
+}
+
 export async function api<T>(
   method: "GET" | "PATCH" | "POST" | "PUT",
   path: string,
   body?: unknown,
   options: { stepUp?: string; idempotencyKey?: string } = {},
 ): Promise<T> {
-  return withOfflineRead(method, path, () => liveApi<T>(method, path, body, options));
+  return withOfflineRead(method, path, () => withPinAgain<T>(method, path, body, options));
+}
+
+/**
+ * A write the venue asks the PIN again for answers pin_again_required (P-10): the person types
+ * their own PIN and the same call goes again with it, the same Idempotency-Key and all. A wrong
+ * PIN asks again; closing the dialog gives the screen the refusal.
+ */
+async function withPinAgain<T>(
+  method: "GET" | "POST" | "PATCH" | "PUT",
+  path: string,
+  body: unknown,
+  options: { stepUp?: string; idempotencyKey?: string },
+): Promise<T> {
+  try {
+    return await liveApi<T>(method, path, body, options);
+  } catch (error) {
+    if (!(error instanceof ApiCallError) || error.code !== "pin_again_required" || !pinAgainPrompt)
+      throw error;
+    const action = typeof error.details["action"] === "string" ? error.details["action"] : "";
+    let problem: "wrong" | "locked" | null = null;
+    for (;;) {
+      const pin = await pinAgainPrompt(action, problem);
+      if (pin === null) throw error;
+      try {
+        return await liveApi<T>(method, path, body, { ...options, pinAgain: pin });
+      } catch (again) {
+        if (again instanceof ApiCallError && again.code === "unauthorized") problem = "wrong";
+        else if (again instanceof ApiCallError && again.code === "rate_limited") problem = "locked";
+        else throw again;
+      }
+    }
+  }
 }
 
 async function liveApi<T>(
   method: "GET" | "POST" | "PATCH" | "PUT",
   path: string,
   body: unknown,
-  options: { stepUp?: string; idempotencyKey?: string },
+  options: { stepUp?: string; idempotencyKey?: string; pinAgain?: string },
 ): Promise<T> {
   let response: Response;
   try {
@@ -159,6 +204,8 @@ async function liveApi<T>(
       headers: {
         ...sessionHeaders(),
         ...(options.stepUp ? { "x-step-up": options.stepUp } : {}),
+        // The person's own PIN, typed again for an action the venue asks it for (P-10).
+        ...(options.pinAgain ? { "x-pin-again": options.pinAgain } : {}),
         // Money routes need one (M4-11): a retry of the same tap is the same payment.
         ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {}),
       },
@@ -204,6 +251,8 @@ export interface Membership {
   /** The modules the Console allows, on or off (K-01): Admin → Kitchen shows only where Kitchen is allowed. */
   readonly modules_allowed?: readonly ModuleId[];
   readonly permissions: readonly Action[];
+  /** Can also open (P-10): the Admin sections the owner gave this person on top of their role. */
+  readonly admin_sections?: readonly string[];
   /** Training mode (M7-03): the person or this device; the shell shows the band. */
   readonly training?: boolean;
   /** Set up your venue (O-02): "pending" on a venue made in our Console until Finish setup. */

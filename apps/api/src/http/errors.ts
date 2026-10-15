@@ -11,6 +11,8 @@ export const ERROR_STATUS = {
   session_locked: 401,
   session_expired: 401,
   step_up_required: 403,
+  /** The venue asks for the PIN again on this action (P-10): send the person's own PIN as X-PIN-Again. */
+  pin_again_required: 403,
   version_conflict: 409,
   in_progress: 409,
   alcohol_closed: 409,

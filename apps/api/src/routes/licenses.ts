@@ -58,12 +58,18 @@ const userOf = (request: FastifyRequest) =>
   request.principal.kind === "user" ? request.principal.userId : null;
 
 export function licenseRoutes(app: FastifyInstance, options: { clock: Clock }): void {
-  const read = route({ principals: ["owner_manager"], module: "core", action: "admin.access" });
+  const read = route({
+    principals: ["owner_manager"],
+    module: "core",
+    action: "admin.access",
+    section: "licenses",
+  });
   const write = route({
     principals: ["owner_manager"],
     module: "core",
     action: "admin.access",
     idempotency: "optional",
+    section: "licenses",
   });
 
   app.get<{ Params: { venueId: string } }>(

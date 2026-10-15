@@ -17,6 +17,7 @@ describe("settings schemas", () => {
       [
         "alerts",
         "approvals",
+        "pinAgain",
         "barMode",
         "contacts",
         "deposit",

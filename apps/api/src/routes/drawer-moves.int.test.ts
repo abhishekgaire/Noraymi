@@ -252,8 +252,10 @@ describe("drops, paid-outs, no-sales and tip-outs", () => {
     const noPin = await post(`/drawer-sessions/${bar.id}/no-sale`, {
       reason: "Change for the jukebox",
     });
-    expect(noPin.statusCode).toBe(400);
-    expect(noPin.json().error.details.reason).toBe("pin");
+    // Asked with the venue's Ask for the PIN again list (P-10), where no-sale is on by default.
+    expect(noPin.statusCode).toBe(403);
+    expect(noPin.json().error.code).toBe("pin_again_required");
+    expect(noPin.json().error.details.action).toBe("no_sale");
     const ok = await post(`/drawer-sessions/${bar.id}/no-sale`, {
       reason: "Change for the jukebox",
       pin: "4071",

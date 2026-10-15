@@ -3219,3 +3219,26 @@ a.song-count {
   border-color: var(--w4-pink);
   font-weight: 600;
 }
+
+/* Can also open (P-10): the person's extra Admin sections, opened in place in the Team table. */
+.also-open > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.also-open > fieldset,
+.pin-again-choices {
+  display: grid;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.also-open label.check,
+.pin-again-choices label.check {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

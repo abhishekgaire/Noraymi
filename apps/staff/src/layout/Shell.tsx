@@ -83,7 +83,14 @@ function Frame({
   const topBar = useMemo(() => ({ node: slotNode, setOwnWho }), [slotNode]);
   // What this person may open, in the venue's order (P-13).
   const entries = inMenuOrder(
-    visibleMenu({ modules: membership.modules, permissions: membership.permissions }, menu),
+    visibleMenu(
+      {
+        modules: membership.modules,
+        permissions: membership.permissions,
+        adminSections: membership.admin_sections ?? [],
+      },
+      menu,
+    ),
     membership.menu_order,
   );
   const unread = useUnreadTexts(membership.venue_id, membership.permissions.includes("texts.send"));
@@ -120,6 +127,7 @@ function Frame({
   const tabs = phoneTabs({
     modules: membership.modules,
     permissions: membership.permissions,
+    adminSections: membership.admin_sections ?? [],
     role: membership.role,
   });
 

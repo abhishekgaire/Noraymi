@@ -796,6 +796,7 @@ export function paymentRoutes(
         module: "core",
         action: "payments.take",
         idempotency: "required",
+        pinAgain: "change_tip",
       }),
     },
     async (request, reply) => {

@@ -424,7 +424,8 @@ export function tabRoutes(
 
   app.post<{ Params: { venueId: string }; Body: unknown }>(
     "/v1/venues/:venueId/tabs",
-    { config: opening },
+    // Opening a tab may ask for the PIN again (P-10); cancelling an opening never does.
+    { config: route({ ...opening.route, pinAgain: "open_tab" }) },
     async (request, reply) => {
       const cardless = cardlessBody.safeParse(request.body);
       const parsed = openBody.safeParse(request.body);

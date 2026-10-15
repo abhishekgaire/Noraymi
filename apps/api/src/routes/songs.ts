@@ -90,6 +90,7 @@ export function songRoutes(
     principals: ["owner_manager"],
     module: "bar_mode",
     action: "admin.access",
+    section: "barMode",
   });
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/songbook",
@@ -105,6 +106,7 @@ export function songRoutes(
         module: "bar_mode",
         action: "admin.access",
         idempotency: "optional",
+        section: "barMode",
       }),
     },
     async (request, reply) => {

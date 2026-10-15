@@ -3,12 +3,16 @@ import {
   localeNames,
   locales,
   roles,
+  type GrantableAdminSection,
   type Locale,
   type MessageKey,
   type MessageParams,
   type Role,
 } from "@west4/shared";
 import { api, stepUpToken, type ApiCallError } from "../../api.js";
+import { CanAlsoOpen } from "./CanAlsoOpen.js";
+
+const NONE: readonly string[] = [];
 import { usE164 } from "../../us-phone.js";
 import { readDevice } from "../../device.js";
 import { roleKey, useT } from "../../i18n.js";
@@ -112,6 +116,8 @@ export function Team() {
   const allowed = signedIn?.membership.permissions.includes("admin.team") ?? false;
 
   const [people, setPeople] = useState<Person[] | null>(null);
+  // Can also open (P-10): each person's Admin sections on top of their role.
+  const [grants, setGrants] = useState<Record<string, readonly string[]>>({});
   const [devices, setDevices] = useState<TrainingDevice[] | null>(null);
   const [frontDeskBar, setFrontDeskBar] = useState<boolean | null>(null);
   const [readers, setReaders] = useState<string[]>([]);
@@ -124,11 +130,16 @@ export function Team() {
   const device = useDeviceKind();
 
   const load = useCallback(async () => {
-    const [team, permissions, paired] = await Promise.all([
+    const [team, permissions, paired, sections] = await Promise.all([
       api<{ people: Person[] }>("GET", `/v1/venues/${venueId}/team`),
       api<{ rows: PermissionRow[] }>("GET", `/v1/venues/${venueId}/permissions`),
       api<{ devices: TrainingDevice[] }>("GET", `/v1/venues/${venueId}/devices`),
+      api<{ people: { membership_id: string; sections: string[] }[] }>(
+        "GET",
+        `/v1/venues/${venueId}/admin-sections`,
+      ),
     ]);
+    setGrants(Object.fromEntries(sections.people.map((p) => [p.membership_id, p.sections])));
     setPeople(team.people);
     setDevices(paired.devices.filter((d) => TRAINING_KINDS.has(d.kind) && !d.revoked_at));
     setFrontDeskBar(permissions.rows.find((r) => r.action === "pos.use")?.front_desk ?? true);
@@ -211,6 +222,17 @@ export function Team() {
         "PATCH",
         `/v1/venues/${venueId}/team/${person.membership_id}`,
         { training },
+        { stepUp },
+      );
+      return null;
+    });
+
+  const setAlsoOpen = (person: Person, sections: GrantableAdminSection[]) =>
+    change(person.membership_id, async (stepUp) => {
+      await api(
+        "PUT",
+        `/v1/venues/${venueId}/team/${person.membership_id}/admin-sections`,
+        { sections },
         { stepUp },
       );
       return null;
@@ -388,6 +410,7 @@ export function Team() {
                 <th>{t("team.waiting")}</th>
                 <th>{t("team.language")}</th>
                 <th>{t("team.training")}</th>
+                <th>{t("team.alsoOpen")}</th>
                 <th>{t("team.tips")}</th>
                 <th>{t("team.badges")}</th>
                 <th>{t("team.actions")}</th>
@@ -456,6 +479,19 @@ export function Team() {
                         />
                         <span>{person.training ? t("training.mark") : t("team.training.off")}</span>
                       </label>
+                    </td>
+                    <td>
+                      {gone ? (
+                        "—"
+                      ) : (
+                        <CanAlsoOpen
+                          name={person.name}
+                          role={person.role}
+                          granted={grants[person.membership_id] ?? NONE}
+                          disabled={working}
+                          onSave={(sections) => setAlsoOpen(person, sections)}
+                        />
+                      )}
                     </td>
                     <td>
                       {person.role === "owner" || person.role === "manager" ? (

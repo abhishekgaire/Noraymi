@@ -55,6 +55,7 @@ import { kitchenRoutes } from "./routes/kitchen.js";
 import { ModuleGate } from "./http/module-gate.js";
 import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
+import { adminSectionRoutes } from "./routes/admin-sections.js";
 import { attachedRoutes, devicesRoutes } from "./routes/devices.js";
 import { micSigner } from "./devices/mic-outlet.js";
 import { pushRoutes } from "./routes/push.js";
@@ -481,6 +482,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       modulesRoutes(scope, { gate: gate!, clock });
       kitchenRoutes(scope, { clock });
       permissionsRoutes(scope, { gate: permissions! });
+      adminSectionRoutes(scope, { clock, gate: permissions! });
       devicesRoutes(scope, { clock, micSigner: micSigner(config.auth.secretKey) });
       routerRoutes(scope, { clock });
       setOfflineCodeKey(config.auth.secretKey);

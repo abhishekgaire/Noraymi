@@ -15,7 +15,15 @@ import { ApiError } from "../http/errors.js";
 export function rulePackRoutes(app: FastifyInstance, options: { clock: Clock }): void {
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/rule-pack",
-    { config: route({ principals: ["owner_manager"], module: "core", action: "admin.access" }) },
+    {
+      // Every Admin shows the next rule-pack notice; Cash drawers reads it too (P-10: any grant).
+      config: route({
+        principals: ["owner_manager"],
+        module: "core",
+        action: "admin.access",
+        section: "any",
+      }),
+    },
     async (request) => {
       const venue = await request.inVenue(async (c) => {
         const r = await c.query<{

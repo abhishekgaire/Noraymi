@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { defaultPermissions, actions, type Action, type Role } from "@west4/shared";
+import {
+  defaultPermissions,
+  actions,
+  grantableAdminSections,
+  type Action,
+  type Role,
+} from "@west4/shared";
 import { adminSections, visibleSections } from "./sections.js";
 
 const permissionsOf = (role: Role): Action[] => actions.filter((a) => defaultPermissions[a][role]);
@@ -79,6 +85,24 @@ describe("the Admin sections", () => {
     for (const role of ["bartender", "front_desk", "staff"] as const) {
       expect(visibleSections(permissionsOf(role), { includeUnshipped: true })).toEqual([]);
     }
+  });
+
+  it("P-10: shows a bartender only the sections the owner gave them, never Team, Payments or Console", () => {
+    const maya = visibleSections(permissionsOf("bartender"), {
+      role: "bartender",
+      granted: ["menu", "hours", "team", "payments", "console", "venue"],
+    }).map((s) => s.id);
+    expect(maya).toEqual(["hours", "menu"]);
+  });
+
+  it("P-10: every grantable section is a real Admin section a manager's role already opens", () => {
+    const manager = visibleSections(permissionsOf("manager"), {
+      role: "manager",
+      allowedModules: ["kitchen"],
+    }).map((s) => s.id);
+    for (const id of grantableAdminSections) expect(manager).toContain(id);
+    for (const id of ["team", "payments", "console", "venue"])
+      expect(grantableAdminSections as readonly string[]).not.toContain(id);
   });
 
   it("lists only shipped sections by default, each with a hint", () => {

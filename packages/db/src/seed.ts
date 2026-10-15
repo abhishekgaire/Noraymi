@@ -613,6 +613,8 @@ export function mapSeedSettings(
     approvals: s["approvals"],
     // The side menu's order (P-13): absent, so the app's own order.
     menuOrder: s["menuOrder"],
+    // Ask for the PIN again (P-10): absent, so only no-sale asks, as before.
+    pinAgain: s["pinAgain"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,
@@ -984,6 +986,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "order_drafts",
       "pin_lockouts",
       "staff_badges",
+      // Can also open (P-10) names its person.
+      "admin_section_grants",
       "invites",
       "phone_codes",
       "device_pairing_codes",

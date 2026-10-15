@@ -64,6 +64,26 @@ describe("the side menu", () => {
     ]);
   });
 
+  it("P-10: shows a bartender Admin once the owner gives them a section, and nothing else more", () => {
+    const given = visibleMenu({
+      modules: everythingOn,
+      permissions: allowedFor("bartender"),
+      adminSections: ["menu"],
+      includeUnshipped: true,
+    }).map((e) => e.id);
+    expect(given).toContain("admin");
+    expect(given).not.toContain("reports");
+    expect(given).not.toContain("closeNight");
+    const tabs = phoneTabs({
+      modules: everythingOn,
+      permissions: allowedFor("bartender"),
+      adminSections: ["menu"],
+      role: "bartender",
+    }).map((tab) => tab.id);
+    expect(tabs).toContain("admin");
+    expect(tabs).not.toContain("reports");
+  });
+
   it("shows the song queue only in bar mode", () => {
     const off = visibleMenu({
       modules: { ...everythingOn, bar_mode: "off" },

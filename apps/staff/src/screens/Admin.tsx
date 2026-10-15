@@ -46,6 +46,7 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   const sections = visibleSections(state.membership.permissions, {
     allowedModules: state.membership.modules_allowed ?? [],
     role: state.membership.role,
+    granted: state.membership.admin_sections ?? [],
   });
   return (
     <div className="admin">
@@ -88,7 +89,11 @@ export function AdminIndex() {
   const { t } = useT();
   const { state } = useSession();
   if (state.status !== "signedIn") return null;
-  const first = visibleSections(state.membership.permissions)[0];
+  const first = visibleSections(state.membership.permissions, {
+    allowedModules: state.membership.modules_allowed ?? [],
+    role: state.membership.role,
+    granted: state.membership.admin_sections ?? [],
+  })[0];
   return first ? (
     <Navigate to={first.path} replace />
   ) : (
