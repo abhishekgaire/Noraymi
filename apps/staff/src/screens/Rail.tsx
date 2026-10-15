@@ -36,6 +36,8 @@ import { CloseTab } from "./CloseTab.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { TapPayment } from "./TapPayment.js";
 import { CashPanel } from "./CashPanel.js";
+import { OutsideCardPanel } from "./OutsideCardPanel.js";
+import { hasReaders, useReaders } from "../useReaders.js";
 import { RefundSheet } from "./RefundSheet.js";
 import { TipChangeSheet } from "./TipChangeSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
@@ -211,6 +213,9 @@ export function Rail() {
   const { subscribe, connected } = useEvents();
   const signedIn = state.status === "signedIn" ? state : null;
   const venueId = signedIn?.membership.venue_id ?? "";
+  // A split share's reader panel only where there's a reader; with none the outside machine comes first (U-01).
+  const readerList = useReaders(venueId);
+  const readers = hasReaders(readerList);
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
   const me = signedIn?.me.user;
   const meId = me?.id ?? "";
@@ -1537,11 +1542,25 @@ export function Rail() {
                           checkId={tab.check_id}
                           dueCents={share.amount_cents}
                           shareId={share.id}
+                          readerList={readerList}
                           onDone={() => {
                             setShare(null);
                             void load();
                           }}
                         />
+                        {!readers && (
+                          <OutsideCardPanel
+                            key={`outside-${share.id}`}
+                            venueId={venueId}
+                            checkId={tab.check_id}
+                            dueCents={share.amount_cents}
+                            shareId={share.id}
+                            onTaken={() => {
+                              setShare(null);
+                              void load();
+                            }}
+                          />
+                        )}
                         <CashPanel
                           key={`cash-${share.id}`}
                           venueId={venueId}
@@ -1553,6 +1572,19 @@ export function Rail() {
                             void load();
                           }}
                         />
+                        {readers && (
+                          <OutsideCardPanel
+                            key={`outside-${share.id}`}
+                            venueId={venueId}
+                            checkId={tab.check_id}
+                            dueCents={share.amount_cents}
+                            shareId={share.id}
+                            onTaken={() => {
+                              setShare(null);
+                              void load();
+                            }}
+                          />
+                        )}
                       </>
                     )}
                     {!tab.split && (

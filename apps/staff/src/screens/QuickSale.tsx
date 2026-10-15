@@ -9,16 +9,21 @@ import {
   type KitchenNotes,
 } from "./SendToKitchen.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
+import { OutsideCardPanel } from "./OutsideCardPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
 import { SongCredit } from "./SongCredit.js";
 import { TapPayment } from "./TapPayment.js";
+import { useModuleOn } from "../useModule.js";
+import { hasReaders, useReaders } from "../useReaders.js";
 
 /**
  * Quick sale on the bar POS (M6-05; Staff screens and the bar POS · Paying at
  * the bar: Cash and Receipt): the person's own walk-up sale. The drinks are
  * rung from the grid into their quick draft; Pay makes the sale's own check
  * and opens the pay panel: a tap at the reader (its tip choices worked out on
- * the drinks before tax) or cash, one tap on what the guest handed over. Then
+ * the drinks before tax), the venue's outside card machine (U-01: the main card
+ * button where there's no reader, the amount filled in) or cash, one tap on
+ * what the guest handed over. Then
  * the receipt. "Back to the sale" voids an unpaid sale, keeping its number,
  * and puts its drinks back. Ringing the next drink starts the next sale.
  */
@@ -61,6 +66,11 @@ export function QuickSale({
   const [lastRing, setLastRing] = useState(0);
   // The grid tap a sale was paid from: a drinks panel shown again never rings it a second time.
   const [used, setUsed] = useState(0);
+  // The outside card machine (U-01): offered next to cash while its switch is on; the reader panel only where there's a reader.
+  const outsideOn = useModuleOn("outside_card");
+  const [outside, setOutside] = useState(false);
+  const readerList = useReaders(venueId);
+  const readers = hasReaders(readerList);
 
   // A drink rung after a sale was paid starts the next sale, without choosing.
   if (ringRequest && ringRequest.n !== lastRing) {
@@ -69,6 +79,7 @@ export function QuickSale({
       setSale(null);
       setPaid(false);
       setCash(null);
+      setOutside(false);
     }
   }
 
@@ -126,6 +137,7 @@ export function QuickSale({
     try {
       await api("POST", `/v1/venues/${venueId}/quick-sales/${sale.check_id}/void`);
       setSale(null);
+      setOutside(false);
       onChanged();
     } catch (e) {
       setError(e instanceof ApiCallError ? e.message : t("drinks.failed"));
@@ -197,26 +209,59 @@ export function QuickSale({
               })}
             </p>
           )}
-          <TapPayment
-            venueId={venueId}
-            checkId={sale.check_id}
-            dueCents={sale.amount_due_cents}
-            onDone={() => {
-              setPaid(true);
-              onChanged();
-            }}
-          />
-          <CashPanel
-            venueId={venueId}
-            checkId={sale.check_id}
-            dueCents={sale.amount_due_cents}
-            oneTap
-            onTaken={(taken) => {
-              setCash(taken);
-              setPaid(true);
-              onChanged();
-            }}
-          />
+          {outside ? (
+            <>
+              <OutsideCardPanel
+                venueId={venueId}
+                checkId={sale.check_id}
+                dueCents={sale.amount_due_cents}
+                onTaken={() => {
+                  setPaid(true);
+                  onChanged();
+                }}
+              />
+              <button type="button" className="link" onClick={() => setOutside(false)}>
+                {t("rail.otherWays")}
+              </button>
+            </>
+          ) : (
+            <>
+              {readers && (
+                <TapPayment
+                  venueId={venueId}
+                  checkId={sale.check_id}
+                  dueCents={sale.amount_due_cents}
+                  readerList={readerList}
+                  onDone={() => {
+                    setPaid(true);
+                    onChanged();
+                  }}
+                />
+              )}
+              {/* No reader: the outside card machine is the card button, first. */}
+              {outsideOn && !readers && (
+                <button type="button" className="primary" onClick={() => setOutside(true)}>
+                  {t("outsideCard.title")}
+                </button>
+              )}
+              <CashPanel
+                venueId={venueId}
+                checkId={sale.check_id}
+                dueCents={sale.amount_due_cents}
+                oneTap
+                onTaken={(taken) => {
+                  setCash(taken);
+                  setPaid(true);
+                  onChanged();
+                }}
+              />
+              {outsideOn && readers && (
+                <button type="button" className="secondary" onClick={() => setOutside(true)}>
+                  {t("outsideCard.title")}
+                </button>
+              )}
+            </>
+          )}
           <button type="button" className="link" onClick={() => void back()}>
             {t("rail.backToSale")}
           </button>

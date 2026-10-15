@@ -5777,10 +5777,9 @@ test("Tap at the reader: Room 9's $498.60 waits on the front-desk reader, a decl
       .getByRole("button", { name: "Present the check" })
       .click();
     const tap = page.getByRole("region", { name: "Tap at the reader" });
-    await expect(tap.getByText("Pick a reader first")).toBeVisible();
-    // Nothing goes to a reader until one is picked.
-    await expect(tap.getByRole("button", { name: "Send $498.60 to the reader" })).toBeDisabled();
-    await tap.getByLabel("Front desk S710").check();
+    // This station's own reader starts picked (U-01): one tap sends.
+    await expect(tap.getByLabel("Front desk S710")).toBeChecked();
+    await expect(tap.getByText("Pick a reader first")).toHaveCount(0);
     await tap.getByRole("button", { name: "Send $498.60 to the reader" }).click();
     await expect(tap.getByRole("status")).toHaveText(
       "Waiting for a tap on the front-desk reader · Cancel",
@@ -11630,6 +11629,147 @@ test("P-14 · Activity log for the owner, masked, filtered by person and kind; A
     await other.close();
     await db.query("rollback").catch(() => {});
     await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
+ * U-01 · the outside card machine on a quick sale, and no reader panel where there are no readers
+ * (Sing Sing's way: no Stripe reader registered, the outside machine on). A walk-up card sale is
+ * the drink, Pay, Outside card machine and Record payment, with the amount filled in; Close tab
+ * offers the outside machine and no Another card.
+ */
+test("U-01 · no readers: a walk-up card sale on the outside card machine in four taps, and no reader panel anywhere", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    // No registered reader, as at Sing Sing.
+    await db.query("update devices set stripe_reader_id = null where stripe_reader_id is not null");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    const sale = panel.getByRole("region", { name: "Quick sale" });
+    await expect(sale.getByRole("button", { name: "Outside card machine" })).toBeVisible();
+    await expect(sale.getByRole("region", { name: "Tap at the reader" })).toHaveCount(0);
+    await expect(sale.getByText("Pick a reader first")).toHaveCount(0);
+    await sale.getByRole("button", { name: "Outside card machine" }).click();
+    const machine = sale.getByRole("form", { name: "Outside card machine" });
+    // The amount is filled in from the sale.
+    await expect(machine.getByLabel("Amount charged, $")).toHaveValue(/^\d+\.\d\d$/);
+    await machine.getByRole("button", { name: "Record payment" }).click();
+    await expect(panel.getByRole("button", { name: "Text" })).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query<{ n: number }>(
+              `select count(*)::int as n from payments p join payment_allocations a on a.payment_id = p.id
+                 join checks c on c.id = a.check_id
+                where p.venue_id = $1 and p.method = 'outside_card' and c.status = 'paid'`,
+              [venueId],
+            )
+          ).rows[0]!.n,
+      )
+      .toBe(1);
+    expect(await clippedText(page)).toEqual([]);
+
+    // Close tab: the outside machine, and no Another card on a reader that isn't there.
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await panel.getByRole("button", { name: "Close tab" }).click();
+    await expect(panel.getByRole("button", { name: "Outside card machine" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Another card" })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});
+
+/** U-01 · Room 9's close-out with no reader: no reader panel, the outside machine before cash. */
+test("U-01 · no readers: Room 9's close-out has no reader panel and offers the outside machine first", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await db.query("update devices set stripe_reader_id = null where stripe_reader_id is not null");
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const machine = page.getByRole("form", { name: "Outside card machine" });
+    await expect(machine).toBeVisible();
+    await expect(machine.getByLabel("Amount charged, $")).toHaveValue("498.60");
+    await expect(page.getByRole("region", { name: "Tap at the reader" })).toHaveCount(0);
+    // The outside machine comes before cash.
+    const order = await page
+      .locator("form.outside-card, section.cash, section.tap-payment")
+      .evaluateAll((els) => els.map((e) => e.className));
+    expect(order[0]).toContain("outside-card");
+  } finally {
+    await db.end();
+  }
+});
+
+/** U-01 · West 4: at the bar computer the Bar S710 starts picked, so one tap sends a quick sale. */
+test("U-01 · West 4: the bar reader is pre-selected on a quick sale; one tap sends", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    const tap = panel.getByRole("region", { name: "Tap at the reader" });
+    await expect(tap.getByLabel("Bar S710")).toBeChecked();
+    await expect(tap.getByText("Pick a reader first")).toHaveCount(0);
+    await tap.getByRole("button", { name: /^Send \$.* to the reader$/ }).click();
+    await expect(tap.getByRole("status")).toHaveText(
+      "Waiting for a tap on the bar reader · Cancel",
+    );
+  } finally {
     await db.end();
   }
 });

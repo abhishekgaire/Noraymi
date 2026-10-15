@@ -12,7 +12,7 @@ Every flow follows Stripe's rules against double charges: one PaymentIntent per 
 
 ### What staff see during a card payment
 
-The room tab on desktop and phone, the bar POS pay panel and each split share show the same states. Card payments pick a reader first: Front desk S710 or Bar S710.
+The room tab on desktop and phone, the bar POS pay panel and each split share show the same states. Card payments pick a reader first: Front desk S710 or Bar S710, with this station's own reader (or the only one) already picked ([D133](../decisions.md), U-01). A venue with no registered reader shows no reader panel at all: the outside card machine, where it's on, is the card way to pay and comes first; with both, the reader comes first.
 
 | State | When | Staff see | What they can do |
 | --- | --- | --- | --- |

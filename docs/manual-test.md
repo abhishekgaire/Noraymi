@@ -1867,3 +1867,17 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. With Spanish chosen: **Registro de actividad**, Persona, Tipo, Desde, Hasta, Quitar filtros.
 5. Sign in as Andy (a manager): Admin lists **About** but no Activity log (managers come with P-10). About shows the staff app's version, "Not in the desktop app" in a browser (the desktop app's version on the bar computer), the server's version, West 4 Boho Karaoke and its venue id, and Support · Email and Phone, "Not set yet" until `SUPPORT_EMAIL` and `SUPPORT_PHONE` are set. (Venue B's rows never show: `activity.int.test.ts` checks it.)
 
+
+## 31. Fewer taps (U)
+
+The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each subsection walks one.
+
+### 31.1 The outside card machine on a quick sale, and no reader panel without readers (U-01)
+
+1. Start the demo with `scripts/demo-start.sh --sing-sing` (Sing Sing has **Paid on outside card machine** on and no Stripe reader). On the bar computer, switch to Sing Sing and sign in as Maya (`4071`).
+2. Tap a drink, then **Pay for 1**. The pay panel shows **Outside card machine** first, then Cash; no "Tap at the reader" panel and no "Pick a reader first" anywhere.
+3. Tap **Outside card machine**: the amount charged is already filled in with the sale's total. Tap **Record payment**: the receipt choices show, and the payment is in Close the night's **Outside card machine** total. That's four taps: the drink, Pay, Outside card machine, Record payment. **Other ways to pay** goes back to the choices without recording anything.
+4. Open a tab and tap **Close tab**: **Outside card machine** and Cash, never **Another card**. Room close-out (Present the check on a room) and a split share show the outside machine's form before Cash, with no reader panel.
+5. With Spanish chosen: **Terminal de tarjetas externa** and **Otras formas de pago**.
+6. Back at West 4 (readers registered by the demo), on the bar computer as Maya: ring a drink and **Pay for 1**. The reader panel comes first with **Bar S710** already picked, so **Send $… to the reader** works in one tap; on the front desk, Room 9's close-out has **Front desk S710** picked. With Paid on outside card machine switched on in Admin → Features, **Outside card machine** shows below Cash.
+7. With the switch off, the server refuses an outside-machine payment on a quick sale (`quick-sale.int.test.ts` checks it).

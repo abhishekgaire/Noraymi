@@ -2470,6 +2470,7 @@ export const en = {
   "rail.86.all": "86 all of it",
   "rail.86.restoreAll": "Back on: all of it",
   "rail.backToSale": "Back to the sale",
+  "rail.otherWays": "Other ways to pay",
   "rail.picked": "The tab or room",
   "rail.pickFirst": "Pick a tab or a room first.",
   "rail.hold": "Hold {amount}",

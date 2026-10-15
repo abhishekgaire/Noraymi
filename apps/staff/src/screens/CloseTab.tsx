@@ -7,6 +7,7 @@ import { TapPayment } from "./TapPayment.js";
 import { SavedCard } from "./SavedCard.js";
 import { OutsideCardPanel } from "./OutsideCardPanel.js";
 import { useModuleOn } from "../useModule.js";
+import { hasReaders, useReaders } from "../useReaders.js";
 
 /**
  * Close a tab to its held card (M6-08; Staff screens and the bar POS · Paying
@@ -86,6 +87,9 @@ export function CloseTab({
   const [done, setDone] = useState(false);
   // Another card or cash (M6-11), or the saved card on a reopened tab (M6-12), and what it paid.
   const outsideOn = useModuleOn("outside_card");
+  // Another card on a reader only where there's a reader; with none the outside machine comes first (U-01).
+  const readerList = useReaders(venueId);
+  const readers = hasReaders(readerList);
   const [other, setOther] = useState<"card" | "cash" | "saved" | "outside" | null>(
     savedCard?.paymentId ? "saved" : null,
   );
@@ -226,6 +230,7 @@ export function CloseTab({
               checkId={checkId}
               dueCents={totalCents}
               payUrl={payUrl}
+              readerList={readerList}
               onDone={() => {
                 setPaidOther("card");
                 onChanged();
@@ -285,14 +290,27 @@ export function CloseTab({
               <span data-guest-text>{savedCard.card}</span>
             </button>
           )}
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() => setOther("card")}
-          >
-            {t("closeTab.anotherCard")}
-          </button>
+          {readers ? (
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setOther("card")}
+            >
+              {t("closeTab.anotherCard")}
+            </button>
+          ) : (
+            outsideOn && (
+              <button
+                type="button"
+                className={noHold && !savedCard ? "primary" : "secondary"}
+                disabled={busy}
+                onClick={() => setOther("outside")}
+              >
+                {t("outsideCard.title")}
+              </button>
+            )
+          )}
           <button
             type="button"
             className="secondary"
@@ -301,7 +319,7 @@ export function CloseTab({
           >
             {t("cash.title")}
           </button>
-          {outsideOn && (
+          {outsideOn && readers && (
             <button
               type="button"
               className="secondary"

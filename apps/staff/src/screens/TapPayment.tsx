@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cents, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
-import { readDevice } from "../device.js";
 import { useT } from "../i18n.js";
+import { useReaders, type ReaderList } from "../useReaders.js";
 import { TestCard } from "./TestCard.js";
 
 /**
@@ -10,15 +10,9 @@ import { TestCard } from "./TestCard.js";
  * payment; screens N21): pick a reader first (this screen's station first),
  * add an optional additional tip, and the card states every paying screen
  * shows: Waiting · Cancel, Paid, Declined (tap again), Checking with Stripe,
- * Reader offline (use the other reader) and Reader busy.
+ * Reader offline (use the other reader) and Reader busy. The station's own reader (or the only one)
+ * starts picked, so one tap sends (U-01); a venue with no registered reader gets no panel at all.
  */
-interface Reader {
-  readonly id: string;
-  readonly label: string;
-  readonly registered: boolean;
-  readonly online: boolean;
-  readonly station: "bar" | "front_desk";
-}
 interface Payment {
   readonly id: string;
   readonly status: string;
@@ -44,6 +38,7 @@ export function TapPayment({
   dueCents,
   shareId,
   payUrl,
+  readerList,
   onDone,
 }: {
   venueId: string;
@@ -56,32 +51,21 @@ export function TapPayment({
    * here), and a declined card can be canceled so the tab takes drinks again.
    */
   payUrl?: string;
+  /** The venue's readers, when the screen already read them (U-01). */
+  readerList?: ReaderList;
   onDone: () => void;
 }) {
   const { t, money } = useT();
-  const [readers, setReaders] = useState<readonly Reader[]>([]);
-  const [picked, setPicked] = useState<string | null>(null);
+  const list = useReaders(venueId, readerList);
+  const readers = list.readers ?? [];
+  const [chosen, setPicked] = useState<string | null>(null);
+  // The station's own reader, or the only one, until another is picked (U-01).
+  const picked = chosen ?? readers[0]?.id ?? null;
   const [tip, setTip] = useState("");
   const [payment, setPayment] = useState<Payment | null>(null);
   const [problem, setProblem] = useState<Problem>(null);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-
-  useEffect(() => {
-    void (async () => {
-      const [list, device] = await Promise.all([
-        api<{ readers: Reader[] }>("GET", `/v1/venues/${venueId}/readers`),
-        readDevice().catch(() => null),
-      ]);
-      const mine = device?.kind === "bar_computer" ? "bar" : "front_desk";
-      // This screen's station first.
-      setReaders(
-        list.readers
-          .filter((r) => r.registered)
-          .sort((a, b) => Number(b.station === mine) - Number(a.station === mine)),
-      );
-    })().catch(() => setProblem({ kind: "failed" }));
-  }, [venueId]);
 
   const poll = useCallback(
     (id: string) => {
@@ -165,6 +149,10 @@ export function TapPayment({
 
   // Nothing to pay and nothing in flight: no panel. A payment in flight keeps it, whatever is due now.
   if (dueCents <= 0 && !payment) return null;
+  // No reader to tap (still loading, or none registered: the outside card machine or cash instead).
+  if (!payment && !list.failed && readers.length === 0) return null;
+  // Readers that couldn't be read say so, as a failed call does.
+  const shown: Problem = problem ?? (list.failed ? { kind: "failed" } : null);
   return (
     <section className="tap-payment" aria-label={t("pay.tap.title")}>
       <h3>{t("pay.tap.title")}</h3>
@@ -222,7 +210,7 @@ export function TapPayment({
       )}
       {payment?.state === "unknown" && <p role="status">{t("pay.unknown")}</p>}
       {payment?.state === "paid" && <p role="status">{t("pay.paid")}</p>}
-      {payment?.state === "declined" && !problem && (
+      {payment?.state === "declined" && !shown && (
         <p role="alert">
           {t("pay.declined")}
           {payUrl && (
@@ -236,11 +224,11 @@ export function TapPayment({
         </p>
       )}
       {payment?.state === "canceled" && <p role="status">{t("pay.canceled")}</p>}
-      {problem?.kind === "offline" && (
-        <p role="alert">{t(`pay.offline.${other(problem.station)}` as MessageKey)}</p>
+      {shown?.kind === "offline" && (
+        <p role="alert">{t(`pay.offline.${other(shown.station)}` as MessageKey)}</p>
       )}
-      {problem?.kind === "busy" && <p role="alert">{t("pay.busy")}</p>}
-      {problem?.kind === "failed" && (
+      {shown?.kind === "busy" && <p role="alert">{t("pay.busy")}</p>}
+      {shown?.kind === "failed" && (
         <p className="error" role="alert">
           {t("pay.failed")}
         </p>

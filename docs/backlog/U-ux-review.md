@@ -23,7 +23,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-01 · The outside card machine on a quick sale, and no reader panel where there are no readers
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** F (outside card machine), M6 (quick sale)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md) · Outside card machine; [Bar POS](../spec/10-staff-screens-bar-pos.md)
@@ -32,10 +32,10 @@ Definition of done: see CLAUDE.md.
   - Wherever a payment is taken (quick sale, Close tab, a room's close-out, a split share), the Stripe reader panel shows only when the venue has a registered reader. With none, the outside card machine is the main card button; with both, the reader first.
   - When there are readers, the station's own reader (or the only one) is pre-selected (TapPayment.tsx:63 starts with none).
 - **Acceptance:**
-  - [ ] At Sing Sing (no readers, outside machine on) a walk-up card sale is: drink, Pay, Outside card machine, Done; no empty reader list anywhere.
-  - [ ] At West 4 the bar reader is pre-selected; one tap sends.
-  - [ ] Server refuses the outside machine when its feature is off (already so; covered by a test on the quick-sale path).
-- **Notes:**
+  - [x] At Sing Sing (no readers, outside machine on) a walk-up card sale is: drink, Pay, Outside card machine, Done; no empty reader list anywhere.
+  - [x] At West 4 the bar reader is pre-selected; one tap sends.
+  - [x] Server refuses the outside machine when its feature is off (already so; covered by a test on the quick-sale path).
+- **Notes:** Built Oct 15, 2026. One hook, `apps/staff/src/useReaders.ts`, reads the venue's registered readers (this station's first: the bar computer's Bar S710, the front desk's Front desk S710) for TapPayment and the screens around it. TapPayment pre-picks the first reader (`picked` falls back to it until another is chosen) and renders nothing when the list came back empty; a list that can't be read still shows the panel with "Couldn't take the payment" rather than hiding a reader that may exist. Quick sale: no reader → **Outside card machine** (primary) then Cash; readers → the reader panel, Cash, then Outside card machine; the button opens OutsideCardPanel with the sale's amount filled in and **Other ways to pay** (`rail.otherWays`, new, en/es) goes back. Close tab: no reader → no **Another card**, the outside machine in its place (primary on a cardless tab with no saved card). Room close-out and a bar tab's split share: with no reader the outside machine's form comes before Cash (and the split share gains the outside machine, which U-03 builds on for cardless tabs). Cautious defaults: while the reader list loads, the screens treat it as "no reader" so a reader button never shows and then vanishes at a venue without one (at West 4 the reader appears a moment later); the acceptance's "Done" is the outside panel's existing **Record payment** button (the glossary's verb), not a new label; Close the night's failed-tab row is left as it was (only a reader-held card can fail there). No migration, no new route. Tests: `quick-sale.int.test.ts` (outside machine refused while the switch is off, pays the quick sale when on); e2e "U-01 · …" ×3 at the end of `e2e/staff.spec.ts`; "Tap at the reader: Room 9…" now expects Front desk S710 pre-picked instead of "Pick a reader first". Spec 07 (What staff see during a card payment) and spec 10 (Paying at the bar) updated, citing D133; manual test 31.1.
 
 ### U-02 · Show the cash price wherever cash is taken
 

@@ -242,4 +242,34 @@ describe("Quick sale", () => {
     ).json();
     expect(draft.lines).toEqual([{ variant_id: v("bud"), qty: 2, option_ids: [] }]);
   });
+
+  it("U-01: the outside card machine on a quick sale is refused while its switch is off, and pays it when on", async () => {
+    const sale = (await sell([{ variant_id: v("bud"), qty: 1 }])).json();
+    const outside = () =>
+      app.inject({
+        method: "POST",
+        url: `/v1/venues/${venueId}/checks/${sale.check_id}/payments`,
+        headers: { "idempotency-key": `quick-outside-${++n}` },
+        payload: { method: "outside_card", amount_cents: sale.amount_due_cents, tip_cents: 100 },
+      });
+    const off = await outside();
+    expect(off.statusCode, off.body).toBe(404);
+    expect(off.json().error.details).toMatchObject({ reason: "outside_card_off" });
+    await owner.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    try {
+      const on = await outside();
+      expect(on.statusCode, on.body).toBe(201);
+      const k = await owner.query("select status from checks where id = $1", [sale.check_id]);
+      expect(k.rows[0].status).toBe("paid");
+    } finally {
+      await owner.query(
+        "update venue_modules set state = 'off' where venue_id = $1 and module_id = 'outside_card'",
+        [venueId],
+      );
+    }
+  });
 });

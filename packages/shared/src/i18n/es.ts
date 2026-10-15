@@ -2519,6 +2519,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.86.all": "86 todo",
   "rail.86.restoreAll": "Disponible otra vez: todo",
   "rail.backToSale": "Volver a la venta",
+  "rail.otherWays": "Otras formas de pago",
   "rail.picked": "La cuenta o sala",
   "rail.pickFirst": "Elige primero una cuenta o una sala.",
   "rail.hold": "Retención {amount}",

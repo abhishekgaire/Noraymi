@@ -28,6 +28,7 @@ import { ScanId } from "./ScanId.js";
 import "./desk.css";
 import { RoomQrActions } from "./RoomQrActions.js";
 import { OutsideCardPanel } from "./OutsideCardPanel.js";
+import { hasReaders, useReaders } from "../useReaders.js";
 
 /**
  * DeskRoom on the desktop and Room on the phone (M2-31; screens DeskRoom and
@@ -120,6 +121,9 @@ export function RoomScreen() {
   const signedIn = state.status === "signedIn" ? state : null;
   const venueId = signedIn?.membership.venue_id ?? "";
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
+  // The reader panel only where there's a reader; with none the outside machine comes first (U-01).
+  const readerList = useReaders(venueId);
+  const readers = hasReaders(readerList);
   const [room, setRoom] = useState<BoardRoom | null>(null);
   const [lines, setLines] = useState<readonly Line[]>([]);
   // Food not sent to the kitchen (K-05): shown with Send to kitchen before the check is presented or paid.
@@ -750,10 +754,29 @@ export function RoomScreen() {
                     checkId={s.check_id}
                     dueCents={share ? share.amount_cents : dueCents}
                     shareId={share?.id ?? null}
+                    readerList={readerList}
                     onDone={() => {
                       // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
                       setShare(null);
                       setDone(t("pay.paid"));
+                      void load();
+                    }}
+                  />
+                )}
+              {/* No reader (U-01): the venue's own outside card machine is the card way to pay, first. */}
+              {s.check_id &&
+                (checkStatus === "finalized" || checkStatus === "partly_paid") &&
+                (!split || share) &&
+                !readers &&
+                signedIn?.membership.permissions.includes("payments.take") && (
+                  <OutsideCardPanel
+                    key={`outside-${share?.id ?? "check"}`}
+                    venueId={venueId}
+                    checkId={s.check_id}
+                    dueCents={share ? share.amount_cents : dueCents}
+                    shareId={share?.id ?? null}
+                    onTaken={() => {
+                      setShare(null);
                       void load();
                     }}
                   />
@@ -797,6 +820,7 @@ export function RoomScreen() {
               {s.check_id &&
                 (checkStatus === "finalized" || checkStatus === "partly_paid") &&
                 (!split || share) &&
+                readers &&
                 signedIn?.membership.permissions.includes("payments.take") && (
                   <OutsideCardPanel
                     key={`outside-${share?.id ?? "check"}`}
