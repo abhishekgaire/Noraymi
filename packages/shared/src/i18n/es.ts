@@ -277,6 +277,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "admin.needsPasskey": "Admin necesita una llave de acceso",
   "tabs.home": "Inicio",
   "tabs.alerts": "Alertas",
+  "tabs.more": "Más",
+  "tabs.more.waiting": "{count} esperando en Más",
   "badge.signingIn": "Tarjeta leída · iniciando tu sesión",
   "badge.failed": "Esa tarjeta no funcionó · inténtalo de nuevo o toca tu nombre y luego tu PIN",
   "team.title": "Equipo",

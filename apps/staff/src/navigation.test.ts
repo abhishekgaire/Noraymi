@@ -10,7 +10,17 @@ import {
   type ModuleStates,
   type Role,
 } from "@west4/shared";
-import { hiddenScreens, homeFor, menu, phoneTabs, visibleMenu } from "./navigation.js";
+import {
+  hiddenScreens,
+  homeFor,
+  menu,
+  phoneDestinations,
+  phoneMore,
+  phoneTabLimit,
+  phoneTabs,
+  phoneTabsByRole,
+  visibleMenu,
+} from "./navigation.js";
 
 const allowedFor = (role: Role): Action[] => actions.filter((a) => defaultPermissions[a][role]);
 const everythingOn: ModuleStates = Object.fromEntries(
@@ -74,14 +84,14 @@ describe("the side menu", () => {
     expect(given).toContain("admin");
     expect(given).not.toContain("reports");
     expect(given).not.toContain("closeNight");
-    const tabs = phoneTabs({
+    const more = phoneMore({
       modules: everythingOn,
       permissions: allowedFor("bartender"),
       adminSections: ["menu"],
       role: "bartender",
     }).map((tab) => tab.id);
-    expect(tabs).toContain("admin");
-    expect(tabs).not.toContain("reports");
+    expect(more).toContain("admin");
+    expect(more).not.toContain("reports");
   });
 
   it("shows the song queue only in bar mode", () => {
@@ -120,34 +130,78 @@ describe("the side menu", () => {
   });
 });
 
-describe("the staff phone's tabs (M2-32)", () => {
+describe("the staff phone's tabs (M2-32; U-19)", () => {
+  const ctx = (role: Role, modules: ModuleStates = everythingOn) => ({
+    role,
+    modules,
+    permissions: allowedFor(role),
+  });
   const tabsFor = (role: Role, modules: ModuleStates = everythingOn) =>
-    phoneTabs({ role, modules, permissions: allowedFor(role) }).map((t) => t.id);
+    phoneTabs(ctx(role, modules)).map((t) => t.id);
+  const moreFor = (role: Role, modules: ModuleStates = everythingOn) =>
+    phoneMore(ctx(role, modules)).map((t) => t.id);
+  // Everything a phone can reach: the tabs, then More's list.
+  const reachFor = (role: Role, modules: ModuleStates = everythingOn) => [
+    ...tabsFor(role, modules),
+    ...moreFor(role, modules),
+  ];
 
-  it("a manager's phone: Bookings, Rooms, Calls, Waitlist, Messages, Approvals, Tips to enter, Clock in and out, Alerts and Admin", () => {
-    expect(tabsFor("manager")).toEqual([
-      "tonight",
+  it("U-19: each role's tabs follow the table: home first, then its most used, four at most", () => {
+    expect(tabsFor("bartender")).toEqual(["home", "rooms", "calls", "messages"]);
+    expect(tabsFor("front_desk")).toEqual(["rooms", "tonight", "calls", "messages"]);
+    expect(tabsFor("staff")).toEqual(["home", "tonight", "calls", "waitlist"]);
+    expect(tabsFor("manager")).toEqual(["rooms", "approvals", "calls", "messages"]);
+    expect(tabsFor("owner")).toEqual(["rooms", "approvals", "reports", "calls"]);
+    for (const role of roles) {
+      expect(tabsFor(role).length).toBeLessThanOrEqual(phoneTabLimit);
+      expect(phoneTabsByRole[role].length).toBeGreaterThan(phoneTabLimit);
+    }
+    expect(phoneTabs(ctx("bartender"))[0]?.path).toBe("/bar");
+    expect(phoneTabs(ctx("staff"))[0]?.path).toBe("/runs");
+  });
+
+  it("U-19: nothing shows twice between the tabs and More, and More ends with Lock", () => {
+    for (const role of roles) {
+      for (const modules of [everythingOn, { ...everythingOn, guest_texts: "off" as const }]) {
+        const paths = [...phoneTabs(ctx(role, modules)), ...phoneMore(ctx(role, modules))].map(
+          (t) => t.path,
+        );
+        expect(new Set(paths).size, role).toBe(paths.length);
+        expect(moreFor(role, modules).at(-1)).toBe("lock");
+      }
+    }
+  });
+
+  it("U-19: a bartender's More holds the side menu's other entries and the phone's own screens", () => {
+    const more = moreFor("bartender");
+    expect(more).toEqual(expect.arrayContaining(["barOrders", "songQueue", "tips", "clock"]));
+    expect(more).toEqual(expect.arrayContaining(["mytips", "alerts", "lock"]));
+    // The bar POS (home), the board (Rooms) and Messages are tabs, so More leaves them out.
+    const paths = phoneMore(ctx("bartender")).map((t) => t.path);
+    for (const tab of ["/bar", "/tonight", "/calls", "/messages"]) expect(paths).not.toContain(tab);
+  });
+
+  it("U-19: a switched-off feature lets the next name in the role's row take its place", () => {
+    expect(tabsFor("bartender", { ...everythingOn, guest_texts: "off" })).toEqual([
+      "home",
       "rooms",
       "calls",
-      "waitlist",
-      "messages",
-      "approvals",
-      "incidents",
       "tips",
-      "clock",
-      "mytips",
-      "reports",
-      "offlineCodes",
-      "alerts",
-      "admin",
     ]);
+  });
+
+  it("U-19: More keeps the venue's menu order (P-13)", () => {
+    const order = phoneMore({ ...ctx("manager"), menuOrder: ["reports", "barOrders"] }).map(
+      (t) => t.id,
+    );
+    expect(order.indexOf("reports")).toBeLessThan(order.indexOf("barOrders"));
+    expect(order.indexOf("barOrders")).toBeLessThan(order.indexOf("barPos"));
+    expect(order.at(-1)).toBe("lock");
   });
 
   it("names the board Rooms and tonight's bookings Bookings: never two Rooms, never Tonight (D111)", () => {
     for (const role of roles) {
-      const keys = phoneTabs({ role, modules: everythingOn, permissions: allowedFor(role) }).map(
-        (t) => t.labelKey,
-      );
+      const keys = phoneDestinations(ctx(role)).map((t) => t.labelKey);
       expect(keys.filter((k) => k === "tabs.rooms").length).toBeLessThanOrEqual(1);
       expect(keys.some((k) => /tonight/i.test(k))).toBe(false);
     }
@@ -156,52 +210,55 @@ describe("the staff phone's tabs (M2-32)", () => {
 
   it("Offline codes (M8-04) are on managers' and owners' phones only", () => {
     for (const role of roles)
-      expect(tabsFor(role).includes("offlineCodes")).toBe(role === "owner" || role === "manager");
+      expect(reachFor(role).includes("offlineCodes")).toBe(role === "owner" || role === "manager");
   });
 
   it("Incidents (M8-08) are on managers' and owners' phones only, and leave with Safety & ID records off", () => {
     for (const role of roles) {
-      expect(tabsFor(role).includes("incidents")).toBe(role === "owner" || role === "manager");
-      expect(tabsFor(role, { ...everythingOn, safety: "off" })).not.toContain("incidents");
+      const destinations = phoneDestinations(ctx(role)).map((t) => t.id);
+      expect(destinations.includes("incidents")).toBe(role === "owner" || role === "manager");
+      expect(reachFor(role, { ...everythingOn, safety: "off" })).not.toContain("incidents");
     }
   });
 
-  it("Clock in and out (M7-01) and My tips (M7-10) leave every phone with Team, time clock & tips off", () => {
+  it("Clock in and out (M7-01) leaves every phone with Team, time clock & tips off", () => {
     for (const role of roles) {
-      expect(tabsFor(role)).toContain("clock");
-      expect(tabsFor(role)).toContain("mytips");
-      expect(tabsFor(role, { ...everythingOn, team: "off" })).not.toContain("clock");
-      expect(tabsFor(role, { ...everythingOn, team: "off" })).not.toContain("mytips");
+      expect(reachFor(role)).toContain("clock");
+      expect(reachFor(role, { ...everythingOn, team: "off" })).not.toContain("clock");
+      expect(reachFor(role, { ...everythingOn, team: "off" })).not.toContain("mytips");
     }
+  });
+
+  it("U-19: My tips (M7-10) only for those who share in tips (tips.share)", () => {
+    for (const role of roles)
+      expect(reachFor(role).includes("mytips"), role).toBe(allowedFor(role).includes("tips.share"));
+    expect(reachFor("manager")).not.toContain("mytips");
+    expect(reachFor("bartender")).toContain("mytips");
   });
 
   it("Tips to enter (M6-09) is on the phones that use the bar POS, while bar tabs are on", () => {
-    expect(tabsFor("bartender")).toContain("tips");
-    expect(tabsFor("staff")).not.toContain("tips");
-    expect(tabsFor("manager", { ...everythingOn, bar_tabs: "off" })).not.toContain("tips");
+    expect(reachFor("bartender")).toContain("tips");
+    expect(reachFor("staff")).not.toContain("tips");
+    const own = (role: Role, modules: ModuleStates) =>
+      phoneDestinations(ctx(role, modules)).map((t) => t.id);
+    expect(own("manager", { ...everythingOn, bar_tabs: "off" })).not.toContain("tips");
   });
 
-  it("a runner's phone: Runs, check-in and the waitlist, and Calls; no Approvals, no Rooms", () => {
-    expect(tabsFor("staff")).toEqual([
-      "home",
-      "tonight",
-      "calls",
-      "waitlist",
-      "clock",
-      "mytips",
-      "alerts",
-    ]);
+  it("a runner's phone: Runs, check-in and the waitlist, and Calls; no Approvals, no Rooms tab", () => {
+    expect(tabsFor("staff")).not.toContain("rooms");
+    expect(reachFor("staff")).not.toContain("approvals");
   });
 
-  it("every staff phone gets Calls; only managers and owners get Approvals", () => {
+  it("every staff phone gets Calls as a tab; only managers and owners get Approvals", () => {
     for (const role of roles) {
       expect(tabsFor(role)).toContain("calls");
-      expect(tabsFor(role).includes("approvals")).toBe(role === "owner" || role === "manager");
+      expect(reachFor(role).includes("approvals")).toBe(role === "owner" || role === "manager");
     }
   });
 
   it("turning off Walk-in waitlist removes the Waitlist tab", () => {
-    expect(tabsFor("front_desk", { ...everythingOn, waitlist: "off" })).not.toContain("waitlist");
+    expect(reachFor("front_desk", { ...everythingOn, waitlist: "off" })).not.toContain("waitlist");
+    expect(reachFor("staff", { ...everythingOn, waitlist: "off" })).not.toContain("waitlist");
   });
 });
 

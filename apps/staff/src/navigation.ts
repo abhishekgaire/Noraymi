@@ -1,4 +1,5 @@
 import {
+  inMenuOrder,
   moduleDef,
   moduleIds,
   stateOf,
@@ -176,9 +177,9 @@ export function homeFor(role: Role): string {
 
 /**
  * A phone opens the portal of the person who signed in, with that role's
- * tabs only (Pin note 4): the role's home, Alerts on this phone, and Admin's
- * stub for owners and managers, and the tabs modules hide (messages, the
- * waitlist, Clock in and out, My tips).
+ * tabs only (Pin note 4). U-19 (D133): at most five bottom tabs, the role's
+ * home first, then its most used, then **More**, which opens the ☰ list of
+ * everything else; nothing shows in both.
  */
 export interface PhoneTab {
   readonly id: string;
@@ -186,7 +187,8 @@ export interface PhoneTab {
   readonly path: string;
 }
 
-export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
+/** Every screen this person's phone may open, in the app's order (modules and permissions applied). */
+export function phoneDestinations(context: MenuContext & { role: Role }): PhoneTab[] {
   const can = (a: Action) => context.permissions.includes(a);
   const tabs: PhoneTab[] = [];
   // The role's own home first: Runs for runners, the bar POS for bartenders (M3 and M1).
@@ -216,8 +218,9 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   // Clock in and out (M7-01; screens N24), while Team, time clock & tips is on.
   if (context.modules.team !== "off")
     tabs.push({ id: "clock", labelKey: "tabs.clock", path: "/clock" });
-  // My tips (M7-10), with the time clock under Team, time clock & tips.
-  if (context.modules.team !== "off")
+  // My tips (M7-10), under Team, time clock & tips, for the people who share in tips (U-19:
+  // `tips.share`, no longer everyone).
+  if (can("tips.share") && context.modules.team !== "off")
     tabs.push({ id: "mytips", labelKey: "tabs.myTips", path: "/my-tips" });
   // Reports (M7-18), for owners and managers while Reports & accounting is on.
   if (can("reports.view") && context.modules.reports !== "off")
@@ -225,8 +228,65 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   // Offline codes (M8-04): managers' and owners' phones only keep each computer's codes.
   if (context.role === "owner" || context.role === "manager")
     tabs.push({ id: "offlineCodes", labelKey: "offlineCodes.title", path: "/offline-codes" });
-  tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
+  // Alerts on this phone (push and sound): always under More, so it takes its full name.
+  tabs.push({ id: "alerts", labelKey: "setup.title", path: "/setup" });
   if (mayOpen(context, "admin.access"))
     tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;
+}
+
+/** The most bottom tabs a phone shows before More (U-19): five in all with More. */
+export const phoneTabLimit = 4;
+
+/**
+ * Which bottom tabs each role gets (U-19, D133; spec 10 · rule 1, phone), in order: the first
+ * four this person can open become tabs and More is the fifth; everything else is under More.
+ * The stand-ins take a place only when a switched-off feature or a permission removes one before.
+ *
+ * | Role       | Tabs, then More                         | Stand-ins              |
+ * | ---------- | --------------------------------------- | ---------------------- |
+ * | Bartender  | Bar POS, Rooms, Calls, Messages         | Tips to enter, Clock   |
+ * | Front desk | Rooms, Bookings, Calls, Messages        | Waitlist, Clock        |
+ * | Runner     | Runs, Bookings, Calls, Waitlist         | Clock, My tips         |
+ * | Manager    | Rooms, Approvals, Calls, Messages       | Bookings, Incidents    |
+ * | Owner      | Rooms, Approvals, Reports, Calls        | Messages, Bookings     |
+ */
+export const phoneTabsByRole: Readonly<Record<Role, readonly string[]>> = {
+  bartender: ["home", "rooms", "calls", "messages", "tips", "clock"],
+  front_desk: ["rooms", "tonight", "calls", "messages", "waitlist", "clock"],
+  staff: ["home", "tonight", "calls", "waitlist", "clock", "mytips"],
+  manager: ["rooms", "approvals", "calls", "messages", "tonight", "incidents"],
+  owner: ["rooms", "approvals", "reports", "calls", "messages", "tonight"],
+};
+
+/** The phone's bottom tabs before More (U-19): at most four, from the role's row of the table. */
+export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
+  const open = phoneDestinations(context);
+  const tabs: PhoneTab[] = [];
+  for (const id of phoneTabsByRole[context.role] ?? []) {
+    const tab = open.find((t) => t.id === id);
+    if (tab && tabs.length < phoneTabLimit) tabs.push(tab);
+  }
+  return tabs;
+}
+
+/**
+ * More (U-19): the ☰ list on a phone, holding only what isn't a bottom tab. The side menu's
+ * entries in the venue's order (P-13) come first, then the phone's own screens (Bookings, Calls,
+ * Waitlist, Approvals and the rest), and Lock last. A screen is matched by its path, so the bar
+ * POS (the bartender's home) and the board (Rooms) never show twice.
+ */
+export function phoneMore(
+  context: MenuContext & { role: Role; menuOrder?: readonly string[] | null | undefined },
+): PhoneTab[] {
+  const tabPaths = new Set(phoneTabs(context).map((t) => t.path));
+  const entries = inMenuOrder(visibleMenu(context), context.menuOrder);
+  const menuPaths = new Set(entries.map((e) => e.path));
+  const item = (e: PhoneTab): PhoneTab => ({ id: e.id, labelKey: e.labelKey, path: e.path });
+  const fromMenu = entries.filter((e) => e.id !== "lock" && !tabPaths.has(e.path)).map(item);
+  const own = phoneDestinations(context).filter(
+    (d) => !tabPaths.has(d.path) && !menuPaths.has(d.path),
+  );
+  const lock = entries.filter((e) => e.id === "lock").map(item);
+  return [...fromMenu, ...own, ...lock];
 }

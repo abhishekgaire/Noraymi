@@ -16,6 +16,46 @@
   .shell > .tabs {
     align-items: center;
   }
+  /* Five tabs at most (U-19) share the width; a long name wraps between its words, never inside one. */
+  .shell > .tabs {
+    gap: 2px;
+    padding: 6px 4px;
+  }
+  .shell > .tabs .tab {
+    flex: 1 1 auto;
+    padding: 0 5px;
+    font-size: var(--w4-text-sm);
+    line-height: 1.15;
+  }
+  .shell > .tabs .tab .badge {
+    margin-left: 3px;
+  }
+  .shell > .tabs .tab.more {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: var(--w4-text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .shell > .tabs .tab.more.active {
+    background: var(--w4-lime);
+    color: var(--w4-on-accent);
+  }
+  /* More's list opens above the bottom tabs, over the screen, and scrolls inside itself. */
+  .shell.menu-open > .side {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(57px + env(safe-area-inset-bottom));
+    z-index: 35;
+    max-height: calc(100vh - 57px - 48px);
+    overflow-y: auto;
+    border-top: 1px solid var(--w4-line);
+    border-bottom: none;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* --- Pin: the sign-in on the bar computer and on a phone. One centred column, 340 wide. */
