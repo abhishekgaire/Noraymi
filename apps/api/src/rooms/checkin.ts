@@ -297,10 +297,15 @@ async function seat(ctx: Context, input: SeatInput) {
   try {
     return await seatOnce(ctx, input);
   } catch (e) {
-    if (e instanceof AlcoholRefused)
+    if (e instanceof AlcoholRefused) {
+      // The session and its check were made in the refused transaction and rolled back with it, so
+      // the refusal is logged on neither (a log naming them would fail its foreign keys).
+      const refused = e.madeNothing();
       await withVenue(ctx.pool, { venueId: input.venueId }, (c) =>
-        logRefused(c, input.venueId, e.refused),
+        logRefused(c, input.venueId, refused.refused),
       );
+      throw refused;
+    }
     throw e;
   }
 }

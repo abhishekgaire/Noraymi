@@ -13,6 +13,7 @@ import {
 import { businessDate, tipChoices } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { AlcoholRefused } from "../orders/alcohol.js";
 import { placeStaffOrder, type StaffLine } from "../orders/place.js";
 import { checkView } from "../rooms/checks.js";
 import { finalizeCheck } from "../rooms/finalize.js";
@@ -72,15 +73,22 @@ export async function startQuickSale(
     openedAt: input.now.toString(),
     training: input.training ?? false,
   });
-  await placeStaffOrder(c, venueId, {
-    checkId,
-    lines: input.lines,
-    clientOrderId: input.clientOrderId,
-    userId: input.userId,
-    membershipId: input.membershipId,
-    deviceId: input.deviceId,
-    now: input.now,
-  });
+  try {
+    await placeStaffOrder(c, venueId, {
+      checkId,
+      lines: input.lines,
+      clientOrderId: input.clientOrderId,
+      userId: input.userId,
+      membershipId: input.membershipId,
+      deviceId: input.deviceId,
+      now: input.now,
+    });
+  } catch (e) {
+    // The sale's check is made in this same transaction, so a refused drink (after 4 AM) rolls it
+    // back: the refusal is logged afterwards on no check, or its log would point at a check that's gone.
+    if (e instanceof AlcoholRefused) throw e.madeNothing();
+    throw e;
+  }
   await finalizeCheck(c, venueId, checkId, { userId: input.userId, now: input.now });
   await c.query("update checks set status = 'finalized' where venue_id = $1 and id = $2", [
     venueId,

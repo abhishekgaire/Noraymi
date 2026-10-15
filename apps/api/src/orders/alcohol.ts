@@ -31,7 +31,7 @@ export class AlcoholRefused extends ApiError {
   /** `extra` adds to the details: a move names the cut-off's reason (M6-13). */
   constructor(
     readonly refused: Refused,
-    extra: Record<string, unknown> = {},
+    private readonly extra: Record<string, unknown> = {},
   ) {
     super(
       refused.reason === "cut_off" ? "cut_off" : "alcohol_closed",
@@ -39,6 +39,18 @@ export class AlcoholRefused extends ApiError {
         ? "alcohol is paused for this room or tab"
         : "the bar has stopped serving alcohol",
       { details: { reason: refused.reason, items: refused.items, ...extra } },
+    );
+  }
+
+  /**
+   * The same refusal, logged on no session, check, guest or order: for a route that makes them in the
+   * refused transaction itself (a quick sale's check, a room started on a package), which the rollback
+   * removes before the log is written, so a log naming them would fail its foreign keys.
+   */
+  madeNothing(): AlcoholRefused {
+    return new AlcoholRefused(
+      { ...this.refused, sessionId: null, checkId: null, roomGuestId: null, orderId: null },
+      this.extra,
     );
   }
 }
