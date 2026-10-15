@@ -303,6 +303,11 @@ export function Rail() {
   const [foodChoice, setFoodChoice] = useState<Item | null>(null);
   const [unsentFood, setUnsentFood] = useState(0);
   const [warnClose, setWarnClose] = useState<string | null>(null);
+  // U-04 (D133): this person's drinks rung and not sent on the picked tab, Close tab's warning about
+  // them, and Send & close asked from that warning.
+  const [unsentDrinks, setUnsentDrinks] = useState(0);
+  const [warnUnsent, setWarnUnsent] = useState<string | null>(null);
+  const [sendCloseRequest, setSendCloseRequest] = useState(0);
   const [kitchenRequest, setKitchenRequest] = useState(0);
   // The drinks panel goes away while a tab is closed, split or refunded, and comes back fresh: the last tap
   // on the grid must not ring again when it does (M6-12).
@@ -558,6 +563,7 @@ export function Rail() {
     setShare(null);
     setRefunding(null);
     setMovingTab(null);
+    setWarnUnsent(null);
     setPicked(next);
   };
   /** Reopen (M6-12): a tab closed tonight comes back, with what was paid kept as paid. */
@@ -573,6 +579,9 @@ export function Rail() {
   };
   const canRefund = signedIn?.membership.permissions.includes("refunds.request") ?? false;
   const canTakePayments = signedIn?.membership.permissions.includes("payments.take") ?? false;
+  /** Close tab's panel, or the unsent food warning first (K-05). */
+  const openClose = (tabId: string) =>
+    unsentFood > 0 ? setWarnClose(tabId) : setClosingTab(tabId);
   /** Repeat round (M6-03): the last round into the unsent drinks, naming what was left out. */
   const repeat = async (tabId: string) => {
     setError(null);
@@ -1405,6 +1414,70 @@ export function Rail() {
                     onDone={() => void load()}
                   />
                 )}
+                {/* The round first (U-04, D133): Repeat round, the drinks being rung and Send sit right
+                    under the tab's name, above what's already on it. */}
+                {/* Not on a closed tab (U-04), nor while it's being closed, split or moved. */}
+                {tab && fixOpen && (
+                  <div className="actions round-actions">
+                    <button
+                      type="button"
+                      className="secondary repeat"
+                      onClick={() => void repeat(tab.id)}
+                    >
+                      {t("rail.repeat")}
+                    </button>
+                  </div>
+                )}
+                {leftOut && (
+                  <p className="small" role="status">
+                    {leftOut}
+                  </p>
+                )}
+                {tab && <QueuedRounds tabId={tab.id} />}
+                {queueOpen ? (
+                  tab?.state === "open" ? (
+                    <QueuePanel
+                      key={`queue-${tab.id}`}
+                      venueId={venueId}
+                      tab={tab}
+                      ringRequest={ringRequest}
+                      lookup={queueLookup}
+                    />
+                  ) : (
+                    <p className="small muted">{t("queue.round.tabsOnly")}</p>
+                  )
+                ) : (
+                  checkId &&
+                  closingTab !== tab?.id &&
+                  !tab?.split &&
+                  splitting !== tab?.id && (
+                    <AddDrinks
+                      refresh={draftRefresh}
+                      key={checkId}
+                      venueId={venueId}
+                      checkId={checkId}
+                      sessionId={room?.session?.id ?? null}
+                      search={false}
+                      ringRequest={ringRequest}
+                      gift={tab?.state === "open" ? { tabId: tab.id, timeZone } : undefined}
+                      onUnsentFood={setUnsentFood}
+                      kitchenRequest={kitchenRequest}
+                      onSent={() => void load()}
+                      onUnsentDrinks={setUnsentDrinks}
+                      sendAndClose={
+                        tab && tab.state === "open" && (tab.hold || tab.no_hold)
+                          ? {
+                              request: sendCloseRequest,
+                              onSent: () => {
+                                setWarnUnsent(null);
+                                openClose(tab.id);
+                              },
+                            }
+                          : undefined
+                      }
+                    />
+                  )
+                )}
                 <ul className="on-tab" aria-label={t("rail.onTab")}>
                   {drinks.map((l) => {
                     const body = (
@@ -1497,6 +1570,16 @@ export function Rail() {
                     }
                     onClose={() => {
                       setClosingTab(null);
+                      void load();
+                    }}
+                    onClosed={(summary) => {
+                      // U-04 (D133): closed and the receipt chosen: back to Quick sale, nothing picked,
+                      // so the next drink rings as a new quick sale.
+                      const name = tab.name;
+                      pick({ kind: "quick" });
+                      setNotice(
+                        [t("closeTab.closedName", { name }), summary].filter(Boolean).join(" · "),
+                      );
                       void load();
                     }}
                     onChanged={() => void load()}
@@ -1600,13 +1683,6 @@ export function Rail() {
                 ) : (
                   tab && (
                     <div className="actions">
-                      <button
-                        type="button"
-                        className="secondary repeat"
-                        onClick={() => void repeat(tab.id)}
-                      >
-                        {t("rail.repeat")}
-                      </button>
                       {/* Split (M6-10) on a held tab, and on a cardless one too (U-03, D133); a reopened
                           tab with no hold still pays its rest in one go (M6-12). */}
                       {tab.state === "open" &&
@@ -1642,8 +1718,8 @@ export function Rail() {
                           type="button"
                           className="primary"
                           onClick={() =>
-                            // Food not sent yet: the warning first, with Send to kitchen (K-05).
-                            unsentFood > 0 ? setWarnClose(tab.id) : setClosingTab(tab.id)
+                            // Drinks rung and not sent: say so, with Send & close (U-04, D133).
+                            unsentDrinks > 0 ? setWarnUnsent(tab.id) : openClose(tab.id)
                           }
                         >
                           {t("closeTab.title")}
@@ -1651,6 +1727,23 @@ export function Rail() {
                       )}
                     </div>
                   )
+                )}
+                {tab && warnUnsent === tab.id && unsentDrinks > 0 && closingTab !== tab.id && (
+                  <div className="unsent-close" role="alert">
+                    <p>{t("closeTab.unsent", { count: unsentDrinks })}</p>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => setSendCloseRequest((n) => n + 1)}
+                      >
+                        {t("drinks.sendAndClose")}
+                      </button>
+                      <button type="button" className="link" onClick={() => setWarnUnsent(null)}>
+                        {t("closeTab.back")}
+                      </button>
+                    </div>
+                  </div>
                 )}
                 {tab && warnClose === tab.id && unsentFood > 0 && closingTab !== tab.id && (
                   <UnsentWarning
@@ -1667,11 +1760,6 @@ export function Rail() {
                     onBack={() => setWarnClose(null)}
                   />
                 )}
-                {leftOut && (
-                  <p className="small" role="status">
-                    {leftOut}
-                  </p>
-                )}
                 {/* Tap a sent drink for Void, Comp or Move (M6-13: Move onto another open tab; M6-15). */}
                 {fixOpen && checkId && (
                   <FixPanel
@@ -1682,6 +1770,7 @@ export function Rail() {
                     pending={pendingFixes}
                     pick={fixing}
                     onPick={setFixing}
+                    foldWhenIdle
                     {...(tab
                       ? {
                           moveTabs: openTabs
@@ -1701,6 +1790,7 @@ export function Rail() {
                     discount={discount.standing}
                     pending={discount.pending}
                     open={fixOpen}
+                    folded
                     onDone={() => void load()}
                   />
                 )}
@@ -1712,39 +1802,6 @@ export function Rail() {
                     room={room.name}
                     onSaved={() => void load()}
                   />
-                )}
-                {tab && <QueuedRounds tabId={tab.id} />}
-                {queueOpen ? (
-                  tab?.state === "open" ? (
-                    <QueuePanel
-                      key={`queue-${tab.id}`}
-                      venueId={venueId}
-                      tab={tab}
-                      ringRequest={ringRequest}
-                      lookup={queueLookup}
-                    />
-                  ) : (
-                    <p className="small muted">{t("queue.round.tabsOnly")}</p>
-                  )
-                ) : (
-                  checkId &&
-                  closingTab !== tab?.id &&
-                  !tab?.split &&
-                  splitting !== tab?.id && (
-                    <AddDrinks
-                      refresh={draftRefresh}
-                      key={checkId}
-                      venueId={venueId}
-                      checkId={checkId}
-                      sessionId={room?.session?.id ?? null}
-                      search={false}
-                      ringRequest={ringRequest}
-                      gift={tab?.state === "open" ? { tabId: tab.id, timeZone } : undefined}
-                      onUnsentFood={setUnsentFood}
-                      kitchenRequest={kitchenRequest}
-                      onSent={() => void load()}
-                    />
-                  )
                 )}
               </>
             )}

@@ -5404,9 +5404,9 @@ test("Close tab: Close to the card, $6.00 picked on the bar reader captures $38.
     ).rows[0]!;
     expect(pay).toEqual({ status: "captured", amount: 3266, tip: 600, tab: "captured" });
 
-    // The receipt: Print, then Done; the tab is in Closed tonight.
+    // The receipt: Print ends it (U-04, no Done); the tab is in Closed tonight.
     await closing.getByRole("button", { name: "Print" }).click();
-    await closing.getByRole("button", { name: "Done" }).click();
+    await expect(closing).toHaveCount(0);
     await expect(panel.getByRole("button", { name: "Close tab" })).toHaveCount(0);
   } finally {
     await db.end();
@@ -5681,8 +5681,9 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
     await expect.poll(readerAction).toBe("collect_inputs:in_progress");
     await guestPicks("none");
     await expect(closing).toContainText("Paid $272.19 with a tip of $0.00");
+    // No receipt ends it (U-04): back on Quick sale, no Done.
     await closing.getByRole("button", { name: "No receipt" }).click();
-    await closing.getByRole("button", { name: "Done" }).click();
+    await expect(closing).toHaveCount(0);
     expect(await tabState()).toBe("captured");
 
     // Closed tonight, then Reopen: "Paid $272.19 · no hold", no Close to card, nothing to pay.
@@ -5722,7 +5723,13 @@ test("Reopen a $272.19 tab: Paid · no hold, then a Modelo on the saved card aft
       )
     ).rows;
     expect(charged).toEqual([{ amount: 980, method: "card_on_file", status: "captured" }]);
-    await closing.getByRole("button", { name: "Done" }).click();
+    // The receipt choice ends it (U-04): No receipt, and the screen is back on Quick sale.
+    await closing
+      .getByRole("region", { name: "Receipt" })
+      .getByRole("button", { name: "No receipt" })
+      .click();
+    await expect(closing).toHaveCount(0);
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveCount(0);
   } finally {
     await db.end();
   }
@@ -8514,8 +8521,10 @@ test("the bar POS: Maya's fix panel, $63 then $50 left, and a void in 4 taps und
       .getByRole("list", { name: "Rooms" })
       .getByRole("button", { name: /Room 9/ })
       .click();
-    await expect(fix).toContainText("$63.00 left this shift");
+    // Folded until a line is tapped (U-04, D133).
+    await expect(fix).toHaveCount(0);
     await panel.getByRole("button", { name: "Fix · Margarita · Peach" }).click();
+    await expect(fix).toContainText("$63.00 left this shift");
     await fix.getByLabel("How many").fill("1");
     await fix.getByRole("button", { name: "Spilled or dropped" }).click();
     await fix.getByRole("button", { name: "COMP · the house pays for it" }).click();
@@ -12239,3 +12248,139 @@ test("U-09 · Room 3 offers Check in Jae & co., and + Walk-in for 6 takes the sm
     await db.end();
   }
 });
+
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-04 (D133) · the tab screen: the round and Send sit under the tab's name, above what's on it, with Fix
+ * and Discount folded; Close tab with a Jäger Bomb rung and not sent says "1 not sent · Send them first or
+ * Send & close" instead of leaving it off, and Send & close sends it through the usual route and opens
+ * Close tab at $32.66; Close to the card, the tip on the reader, then Print ends it with no Done (3 taps
+ * on the tab), and the screen is back on Quick sale with nothing picked, so the next drink is a quick sale.
+ */
+test("U-04 · the round first, Send & close charges the unsent drink, and Close to the card is 3 taps back to Quick sale", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await signInMayaAtTheBar(page, request, db);
+    const ids = (
+      await db.query<{ reader: string; account: string }>(
+        `select d.stripe_reader_id as reader, o.stripe_account_id as account
+           from devices d join venues v on v.id = d.venue_id join organizations o on o.id = v.org_id
+          where d.name = 'Bar S710' and not d.sandbox`,
+      )
+    ).rows[0]!;
+    const headers = {
+      authorization: "Bearer rk_test_fake_payments",
+      "stripe-account": ids.account,
+    };
+    const readerAction = async () => {
+      const r = await request.get(`${STRIPE}/v1/terminal/readers/${ids.reader}`, { headers });
+      const action = ((await r.json()) as { action?: { type?: string; status?: string } }).action;
+      return `${action?.type ?? ""}:${action?.status ?? ""}`;
+    };
+    const unsentOnSeat7 = async () =>
+      (
+        await db.query<{ n: number }>(
+          `select count(*)::int as n from order_drafts d join tabs t on t.check_id = d.check_id
+            where t.name = 'Seat 7' and jsonb_array_length(d.lines) > 0`,
+        )
+      ).rows[0]!.n;
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: "New tab" }).click();
+    await panel.getByRole("button", { name: "Read to guest ✓" }).click();
+    await expect.poll(readerAction).toBe("collect_payment_method:in_progress");
+    const tapped = await request.post(
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/present_payment_method`,
+      {
+        headers: {
+          ...headers,
+          "idempotency-key": `e2e-u04-present-${Date.now()}-${Math.random()}`,
+        },
+        form: { "card_present[number]": "4000003800000008" },
+      },
+    );
+    expect(tapped.ok(), await tapped.text()).toBe(true);
+    await panel.getByRole("button", { name: "Seat 7" }).click();
+    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Seat 7");
+
+    // The first round: 2 × Modelo, sent.
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    const round = panel.getByRole("region", { name: "Add drinks" });
+    await round.getByRole("button", { name: "Send 2 to the bar" }).click();
+    const onTab = panel.getByRole("list", { name: "On the tab" });
+    await expect(onTab).toContainText("2 × Modelo");
+
+    // The round sits under the tab's name, above what's already on it; Fix and Discount are folded.
+    const roundBox = (await round.boundingBox())!;
+    const onTabBox = (await onTab.boundingBox())!;
+    expect(roundBox.y).toBeLessThan(onTabBox.y);
+    await expect(panel.getByRole("button", { name: "Repeat round" })).toBeVisible();
+    await expect(panel.getByRole("region", { name: "Fix a sent drink" })).toHaveCount(0);
+    await expect(panel.getByRole("region", { name: "Discount", exact: true })).toHaveCount(0);
+
+    // A Jäger Bomb rung and not sent: Close tab says so instead of leaving it off.
+    await page.getByRole("tab", { name: "Shots" }).click();
+    await page.getByRole("button", { name: /^Jäger Bomb · \$/ }).click();
+    await expect(round.getByRole("button", { name: "Send & close" })).toBeVisible();
+    await panel.getByRole("button", { name: "Close tab", exact: true }).click();
+    const warning = panel.getByRole("alert").filter({ hasText: "not sent" });
+    await expect(warning).toContainText("1 not sent · Send them first or Send & close");
+    await expect(panel.getByRole("region", { name: "Close tab" })).toHaveCount(0);
+    await expect.poll(unsentOnSeat7).toBe(1);
+
+    // Send & close: the Jäger goes on through the usual route, then Close tab at $32.66.
+    await warning.getByRole("button", { name: "Send & close" }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    await expect(closing.locator(".total")).toContainText("$32.66");
+    await expect(onTab).toContainText("Jäger Bomb");
+    expect(await unsentOnSeat7()).toBe(0);
+
+    // Close to the card, the guest tips $6.00 on the reader, Print: closed, no Done.
+    const started = Date.now();
+    await closing.getByRole("button", { name: /^Close to the card/ }).click();
+    await expect(closing).toContainText("Waiting for the tip on the bar reader");
+    await expect.poll(readerAction).toBe("collect_inputs:in_progress");
+    const picked = await request.post(
+      `${STRIPE}/v1/test_helpers/terminal/readers/${ids.reader}/succeed_input_collection`,
+      {
+        headers: { ...headers, "idempotency-key": `e2e-u04-tip-${Date.now()}-${Math.random()}` },
+        form: { selection: "tip_1" },
+      },
+    );
+    expect(picked.ok(), await picked.text()).toBe(true);
+    await expect(closing).toContainText("Paid $38.66 with a tip of $6.00");
+    await closing.getByRole("button", { name: "Print" }).click();
+    timedTask("Close a tab to the card (U-04)", 3, Date.now() - started, 20_000);
+
+    // Back on Quick sale with nothing picked, saying what was paid; no Done anywhere.
+    await expect(panel.getByRole("region", { name: "Close tab" })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Done" })).toHaveCount(0);
+    await expect(panel.getByRole("status").filter({ hasText: "Tab closed · Seat 7" })).toHaveText(
+      "Tab closed · Seat 7 · Paid $38.66 with a tip of $6.00",
+    );
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Repeat round" })).toHaveCount(0);
+    const pay = (
+      await db.query<{ status: string; amount: number; tip: number; tab: string }>(
+        `select p.status, p.amount_cents::int as amount, p.tip_cents::int as tip, t.state as tab
+           from tabs t join payments p on p.id = t.payment_id where t.name = 'Seat 7'`,
+      )
+    ).rows[0]!;
+    expect(pay).toEqual({ status: "captured", amount: 3266, tip: 600, tab: "captured" });
+
+    // The next drink rings as a new quick sale, never on the closed tab.
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await expect(panel.getByRole("button", { name: "Pay for 1" })).toBeVisible();
+    expect(await unsentOnSeat7()).toBe(0);

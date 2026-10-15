@@ -12,12 +12,15 @@ export function ReceiptStep({
   checkId,
   roomName,
   doneText,
+  onDone,
 }: {
   venueId: string;
   checkId: string;
   roomName: string;
   /** What shows once the receipt is sent (a bar tab: "Tab closed"); a room goes to cleaning. */
   doneText?: string;
+  /** U-04 (D133): the receipt choice ends it; the caller moves on (a bar tab goes back to Quick sale). */
+  onDone?: () => void;
 }) {
   const { t } = useT();
   const [asking, setAsking] = useState<"text" | "email" | null>(null);
@@ -35,6 +38,7 @@ export function ReceiptStep({
           idempotencyKey: `receipt-${checkId}-${Date.now()}`,
         });
       setFinished(true);
+      onDone?.();
     } catch {
       setFailed(true);
     } finally {

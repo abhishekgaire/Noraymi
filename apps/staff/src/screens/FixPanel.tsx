@@ -59,6 +59,8 @@ export function FixPanel(props: {
   /** The bar POS lists the tab's lines itself: the line tapped there, and how to pick another. */
   pick?: number | null;
   onPick?: (lineId: number | null) => void;
+  /** The bar POS (U-04, D133): nothing shows until a line is tapped (or a fix just made says so). */
+  foldWhenIdle?: boolean;
   onDone: () => void;
 }) {
   const { t, money } = useT();
@@ -182,6 +184,7 @@ export function FixPanel(props: {
     }
   };
 
+  if (props.foldWhenIdle && !open && !message && !error) return null;
   return (
     <section className="fix-panel" aria-label={t("fix.title")}>
       <h3>{t("fix.title")}</h3>

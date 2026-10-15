@@ -1904,6 +1904,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 7. Another cardless tab, split 2 ways, one share paid in cash, then **Stop splitting**: the paid share stays paid, and **Close tab** takes the rest in one go.
 8. Spanish: **Dividir**, **Pagar esta parte**. At West 4 (cards required) a tab reopened after it was paid still has no Split; it pays its rest in one go as before.
 
+### 31.4 The tab screen: the round first, nothing left unsent, a clean screen after closing (U-04)
+
+1. Start the demo (`scripts/demo-start.sh`). On the bar computer, sign in as Maya (`4071`) and open a new tab on the bar reader (Read to guest ✓, a label such as Seat 7, Open).
+2. Under the tab's name come **Repeat round**, the round being rung and **Send** (with **Send & close** beside it), above **On the tab**, the total and Split, Move, Print bill and Close tab. No Fix or Discount panel shows until you tap a sent line or **Discount the check**.
+3. Ring 2 × Modelo and **Send 2 to the bar**. Ring a Jäger Bomb and don't send it. Tap **Close tab**: it doesn't open; it says "1 not sent · Send them first or Send & close", with **Send & close** and **Back to the tab**.
+4. Tap **Send & close**: the Jäger Bomb goes on the tab (it shows under On the tab) and Close tab opens at $32.66. Nothing rung is left unsent.
+5. **Close to the card**, pick a tip on the bar reader, then **Print** (or Text, or No receipt). There's no Done: the screen goes straight back to **Quick sale**, nothing picked, reading "Tab closed · Seat 7 · Paid … with a tip of …". The tab is in Closed tonight. That's 3 taps on the tab.
+6. Tap a drink: it rings as a new quick sale (**Pay for 1**), not on the closed tab, and Repeat round isn't offered for a closed tab.
+7. Closing in cash instead keeps the change (and Wrong amount? Fix the change) in view after the receipt until **Done**, which also goes back to Quick sale.
+8. Spanish: **Enviar y cerrar**, "1 sin enviar · Envíalas primero o usa Enviar y cerrar", "Cuenta cerrada · Seat 7".
+
 
 ### 31.8 The manager's PIN where the approval is asked (U-08)
 

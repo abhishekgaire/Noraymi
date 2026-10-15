@@ -47,6 +47,8 @@ export function DiscountPanel(props: {
   pending: PendingDiscount | null;
   /** Whether the check is still open: a discount changes only then (before payment). */
   open: boolean;
+  /** The bar POS (U-04, D133): with no discount standing or asked, only its button until it's pressed. */
+  folded?: boolean;
   onDone: () => void;
 }) {
   const { t, money } = useT();
@@ -122,6 +124,12 @@ export function DiscountPanel(props: {
     }
   };
 
+  if (props.folded && !props.discount && !props.pending && !editing && !message && !error)
+    return props.open && on ? (
+      <button type="button" className="secondary discount-open" onClick={() => setEditing(true)}>
+        {t("discount.open")}
+      </button>
+    ) : null;
   return (
     <section className="fix-panel discount-panel" aria-label={t("discount.title")}>
       <h3>{t("discount.title")}</h3>

@@ -121,6 +121,12 @@ export function AddDrinks(props: {
   kitchenRequest?: number;
   /** A bar tab (M6-24): Send the singer a drink sends the round as a gift to a singer in the queue. */
   gift?: { readonly tabId: string; readonly timeZone: string } | undefined;
+  /** How many drinks this person has rung and not sent (U-04), for Close tab's "2 not sent". */
+  onUnsentDrinks?: (count: number) => void;
+  /** Send & close on a bar tab that can close (U-04, D133): sends the round through the usual route,
+   *  then `onSent` opens Close tab. Bumping `request` (the Close tab warning's Send & close) does the
+   *  same. A round that didn't go on (waiting for a manager, a raise being checked) never closes. */
+  sendAndClose?: { readonly request: number; readonly onSent: () => void } | undefined;
 }) {
   const { t, money, time } = useT();
   const { subscribe } = useEvents();
@@ -477,7 +483,7 @@ export function AddDrinks(props: {
     props.onSent();
   };
 
-  const send = async (payAnyway = false) => {
+  const send = async (payAnyway = false, close = false) => {
     // A quick sale paid with food not sent: the warning first, with Send to kitchen beside it.
     if (props.onPay && !payAnyway && unsentCount > 0) {
       setWarnPay(true);
@@ -510,9 +516,10 @@ export function AddDrinks(props: {
           props.onSent();
           return;
         }
-        if (answer.status === "approval_pending")
+        if (answer.status === "approval_pending") {
           setNotice(t("rail.holdDeclined.waiting", { name: answer.waiting_for?.name ?? "" }));
-        else if (giftName) setNotice(t("gift.sent", { name: giftName }));
+          close = false;
+        } else if (giftName) setNotice(t("gift.sent", { name: giftName }));
       }
       setGiftFor("");
       setLines([]);
@@ -522,6 +529,7 @@ export function AddDrinks(props: {
       // once, without waiting for the event stream.
       await Promise.all([loadDraft(), loadOrders(), loadCheck().catch(() => undefined)]);
       props.onSent();
+      if (close) props.sendAndClose?.onSent();
     } catch (e) {
       const err = e as ApiCallError;
       const cut = err?.details?.["cut_off"] as { at: string; by: string | null } | undefined;
@@ -544,6 +552,24 @@ export function AddDrinks(props: {
     ? (items ?? []).filter((i) => i.name.toLowerCase().includes(q)).slice(0, 8)
     : [];
   const count = lines.reduce((n, l) => n + l.qty, 0);
+  const onUnsentDrinks = props.onUnsentDrinks;
+  useEffect(() => onUnsentDrinks?.(count), [onUnsentDrinks, count]);
+  // Gone (the tab closing, split or switched): nothing of this panel's is counted.
+  useEffect(() => () => onUnsentDrinks?.(0), [onUnsentDrinks]);
+  // Send & close asked from outside (U-04): the same as tapping it here.
+  const closeRequest = props.sendAndClose?.request ?? 0;
+  const seenRequest = useRef(closeRequest);
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const missingRef = useRef(missing);
+  missingRef.current = missing;
+  useEffect(() => {
+    if (closeRequest === seenRequest.current) return;
+    seenRequest.current = closeRequest;
+    const gap = missingRef.current;
+    if (gap) setError(t("drinks.sendMissing", gap));
+    else void sendRef.current(false, true);
+  }, [closeRequest, t]);
 
   return (
     <section className="add-drinks" aria-label={t("drinks.title")}>
@@ -714,6 +740,16 @@ export function AddDrinks(props: {
                       ? t("gift.send", { count, name: giftName })
                       : t("drinks.send", { count })}
             </button>
+            {props.sendAndClose && !props.onPay && (
+              <button
+                type="button"
+                className="secondary send-close"
+                disabled={missing !== undefined || count === 0 || sending}
+                onClick={() => void send(false, true)}
+              >
+                {t("drinks.sendAndClose")}
+              </button>
+            )}
           </div>
         </div>
       )}

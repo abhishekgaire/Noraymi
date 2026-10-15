@@ -497,6 +497,7 @@ Food on the bar POS (K-05) follows `FoodBar.dc.html`: Food after the ten section
 19. **Diego on the Rail (F28, C2).** The canvas has Diego own tabs as "Front desk · covering the bar" while his role is Staff. Build it as allowed for the Front desk role, with Admin's switch to turn it off. *Decided in [FB 2]. Spec: [Tenancy and access][spec-02].*
 20. **Training band (F39).** The canvas has none. Build the band and T- check numbers ([N30](#n30-training-band)). *Decided in [FB 4.14]. Spec: [Security and data retention][spec-12].*
 21. **Late demo (F40).** The canvas's late demo is Sat 4:02 AM. Keep it, with business date Fri Sep 25. It comes before Night's 4:12 AM. *Decided in [FB 1].*
+22. **The round first, and a clean screen after closing (U-04).** The canvas puts the round under Repeat round, Split, Move, Print, Close tab, Fix and Discount, ends a close with Done, and leaves the closed tab picked. Build Repeat round, the round and Send (with Send & close beside it) right under the tab's name, Fix and Discount folded until a line is tapped or Discount the check is pressed; Close tab with drinks not sent says "2 not sent · Send them first or Send & close"; the receipt choice ends a close to the card, and the screen goes back to Quick sale with nothing picked. *Decided in [D133](decisions.md). Spec: [Staff screens and the bar POS][spec-10].*
 
 ### DeskRoom
 

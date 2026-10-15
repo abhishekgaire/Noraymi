@@ -64,6 +64,7 @@ export function CloseTab({
   noHold = false,
   savedCard = null,
   onClose,
+  onClosed,
   onChanged,
 }: {
   venueId: string;
@@ -79,7 +80,11 @@ export function CloseTab({
   noHold?: boolean;
   /** The card saved from its first tap, and a charge on it already waiting. */
   savedCard?: { card: string; paymentId: string | null } | null;
+  /** Back: the tab stays picked and open. */
   onClose: () => void;
+  /** U-04 (D133): the tab is closed and the receipt chosen; the bar POS goes back to Quick sale, with
+   *  what was paid in words. Without it, `onClose`. */
+  onClosed?: (summary: string | null) => void;
   onChanged: () => void;
 }) {
   const { t, money } = useT();
@@ -100,6 +105,17 @@ export function CloseTab({
   const payUrl = `/v1/venues/${venueId}/tabs/${tabId}/pay`;
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const base = `/v1/venues/${venueId}/tabs/${tabId}/close`;
+  // Closed and the receipt chosen: once, whichever way it was paid.
+  const finished = useRef(false);
+  const finish = useCallback(
+    (summary: string | null) => {
+      if (finished.current) return;
+      finished.current = true;
+      if (onClosed) onClosed(summary);
+      else onClose();
+    },
+    [onClose, onClosed],
+  );
 
   const waiting = (c: Closing) =>
     ["asking", "custom", "raising", "capturing"].includes(c.state) ||
@@ -189,6 +205,21 @@ export function CloseTab({
   const asking = closing !== null && (state === "asking" || state === "custom");
   const charging = closing !== null && (state === "raising" || state === "capturing");
   const backToOpen = state === "canceled" || state === "timed_out";
+  // Close to the card (U-04, D133): the receipt choice ends it, no Done; a texted receipt once the
+  // guest's number is in. What was paid goes with it, to show on Quick sale.
+  const paidWords =
+    closing && state === "captured"
+      ? t("closeTab.paid", {
+          amount: money((closing.capture_cents ?? 0) as never),
+          tip: money((closing.tip_cents ?? 0) as never),
+        })
+      : null;
+  const ended =
+    state === "captured" &&
+    (done || (!!closing?.receipt && (closing.receipt !== "text" || closing.receipt_sent)));
+  useEffect(() => {
+    if (ended) finish(paidWords);
+  }, [ended, paidWords, finish]);
 
   return (
     <section className="close-tab" aria-label={t("closeTab.title")}>
@@ -205,15 +236,22 @@ export function CloseTab({
             <CashResult venueId={venueId} taken={paidOther} />
           )}
           <p role="status">{noHold ? t("pay.paid") : t("closeTab.released")}</p>
+          {/* U-04: on a card the receipt choice ends it; with cash the change (and Fix the change)
+              stays in view until Done. */}
           <ReceiptStep
             venueId={venueId}
             checkId={checkId}
             roomName=""
             doneText={t("closeTab.closed")}
+            {...(paidOther === "card" || paidOther === "saved"
+              ? { onDone: () => finish(null) }
+              : {})}
           />
-          <button type="button" className="primary" onClick={onClose}>
-            {t("closeTab.done")}
-          </button>
+          {paidOther !== "card" && paidOther !== "saved" && (
+            <button type="button" className="primary" onClick={() => finish(null)}>
+              {t("closeTab.done")}
+            </button>
+          )}
         </>
       )}
       {other && !paidOther && (
@@ -389,11 +427,7 @@ export function CloseTab({
               tip: money((closing.tip_cents ?? 0) as never),
             })}
           </p>
-          {done || (closing.receipt === "text" && closing.receipt_sent) ? (
-            <button type="button" className="primary" onClick={onClose}>
-              {t("closeTab.done")}
-            </button>
-          ) : closing.receipt === "text" ? (
+          {ended ? null : closing.receipt === "text" ? (
             <p role="status">{t("closeTab.typeNumber")}</p>
           ) : (
             <div className="actions" aria-label={t("closeOut.receipt")}>
@@ -429,7 +463,7 @@ export function CloseTab({
       {(slipped || state === "slip") && (
         <div role="status">
           <p>{t("closeTab.slipPrinted")}</p>
-          <button type="button" className="primary" onClick={onClose}>
+          <button type="button" className="primary" onClick={() => finish(null)}>
             {t("closeTab.done")}
           </button>
         </div>
