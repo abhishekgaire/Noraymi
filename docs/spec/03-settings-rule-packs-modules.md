@@ -177,7 +177,11 @@ type BarModeSettings = {             // the same shape as in Song systems and te
 
 type AlertSettings = {
   roomEndingMin: number;             // 10: a tile turns amber, and "Please wrap up" or "Booked time ending" goes out,
-};                                   // this long before the booked end; it turns red once the room runs over
+                                     // this long before the booked end; it turns red once the room runs over
+  roomSound?: boolean;               // Sound when a room's time is up (P-05): absent reads as on; the bar computer
+                                     // plays it once at amber and once at red ([Devices](09-devices-printing-offline.md))
+  roomSoundVolume?: number;          // 0 to 100; absent reads as 50
+};
 
 type PhoneSettings = {
   callNumber: string;                // E.164: on the site, in texts, behind every Call button and "Call to book"

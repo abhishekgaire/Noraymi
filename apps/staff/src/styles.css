@@ -3084,3 +3084,28 @@ a.song-count {
   display: grid;
   gap: 8px;
 }
+
+/*
+ * Sound when a room's time is up (P-05): the rooms' names in a strip above every screen until
+ * tapped. In the page's flow, so it never covers a button the bartender needs.
+ */
+.room-sound {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.room-sound p {
+  margin: 0;
+}
+.room-sound-room {
+  min-height: 44px;
+  text-align: left;
+  border-left: 6px solid var(--w4-amber);
+}
+.room-sound-room.red {
+  border-left-color: var(--w4-pink);
+}

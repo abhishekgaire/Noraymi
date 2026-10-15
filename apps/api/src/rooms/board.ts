@@ -6,7 +6,7 @@ import { barLostSince, venueOpenNow } from "./bar-presence.js";
 import { alcoholNow } from "../orders/alcohol.js";
 import { clearOutFor } from "./clear-out.js";
 import { ageSwitchAt, businessDate } from "@west4/rules";
-import { Temporal } from "@west4/shared";
+import { Temporal, roomSoundOn, roomSoundVolume } from "@west4/shared";
 import { availability, venueClock } from "./assignment.js";
 import { openCalls } from "./calls.js";
 import { headcount } from "./headcount.js";
@@ -227,6 +227,12 @@ export async function board(
     // a reason; null while Safety & ID records is off, so the pin hides.
     manager_needed: (await safetyOn(c, venueId)) ? await openIncidentCount(c, venueId) : null,
     alerts,
+    // Sound when a room's time is up (P-05; Admin → Alerts & rules): the bar computer plays it once
+    // when a tile turns amber and once when it turns red. Read here so a change shows at the next poll.
+    room_sound: {
+      on: roomSoundOn(alertSettings?.value),
+      volume: roomSoundVolume(alertSettings?.value),
+    },
     // The alcohol window now and when it next changes, so every screen greys alcohol together (M3-20).
     alcohol: await alcoholNow(c, venueId, now),
   };

@@ -296,7 +296,30 @@ export const barModeSchema = z
   })
   .strict();
 
-export const alertsSchema = z.object({ roomEndingMin: z.number().int().nonnegative() }).strict();
+export const alertsSchema = z
+  .object({
+    roomEndingMin: z.number().int().nonnegative(),
+    /**
+     * Sound when a room's time is up (P-05): the bar computer plays a sound once when a room's tile
+     * turns amber and once when it turns red. Absent reads as on (`roomSoundOn`).
+     */
+    roomSound: z.boolean().optional(),
+    /** Its volume, 0 to 100; absent reads as 50 (`roomSoundVolume`). */
+    roomSoundVolume: z.number().int().min(0).max(100).optional(),
+  })
+  .strict();
+
+/** P-05: the room sound is on unless the venue switched it off. */
+export function roomSoundOn(a: { roomSound?: boolean | undefined } | null | undefined): boolean {
+  return a?.roomSound !== false;
+}
+
+/** P-05: the room sound's volume, 0 to 100 (50 until the venue sets it). */
+export function roomSoundVolume(
+  a: { roomSoundVolume?: number | undefined } | null | undefined,
+): number {
+  return a?.roomSoundVolume ?? 50;
+}
 
 const e164 = z.string().regex(/^\+[1-9]\d{6,14}$/, "an E.164 phone number");
 /**

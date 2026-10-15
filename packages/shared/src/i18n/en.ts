@@ -1239,6 +1239,16 @@ export const en = {
   "alertsRules.roomEnding": "Warn this many minutes before a room's booked end",
   "alertsRules.roomEnding.hint":
     "The tile turns amber, and the wrap-up texts go out, this long before the end.",
+  // Sound when a room's time is up (P-05).
+  "alertsRules.sound": "Sound when a room's time is up",
+  "alertsRules.sound.hint":
+    "The bar computer plays it once when a room's tile turns amber and once when it turns red, and shows the room's name until someone taps it. Guests never hear it.",
+  "alertsRules.volume": "Volume",
+  "alertsRules.volume.test": "Play it",
+  "roomSound.title": "Room time",
+  "roomSound.wrapUp": "{room} · Wrap up",
+  "roomSound.past": "{room} · its time is up",
+  "roomSound.tap": "tap to clear",
   "signIn.submitPin": "Sign in",
   // Admin → Menu (M3-04).
   "admin.section.menu": "Menu",

@@ -4,6 +4,8 @@ import {
   parseSetting,
   settingsKeys,
   startsNextBusinessDate,
+  roomSoundOn,
+  roomSoundVolume,
   tabCardRequired,
   walkInTakesOf,
   withLaterPart,
@@ -175,5 +177,23 @@ describe("Open a tab without a card (P-03)", () => {
     expect(parseSetting("tabs", { ...tabs, cardRequired: false }).ok).toBe(true);
     expect(parseSetting("tabs", tabs).ok).toBe(true);
     expect(parseSetting("tabs", { ...tabs, cardRequired: "no" }).ok).toBe(false);
+  });
+});
+
+describe("Sound when a room's time is up (P-05)", () => {
+  it("is on at volume 50 until the venue changes it; saved alerts without it still parse", () => {
+    expect(roomSoundOn({ roomEndingMin: 10 } as never)).toBe(true);
+    expect(roomSoundOn(null)).toBe(true);
+    expect(roomSoundOn({ roomSound: false })).toBe(false);
+    expect(roomSoundVolume({})).toBe(50);
+    expect(roomSoundVolume({ roomSoundVolume: 0 })).toBe(0);
+    expect(parseSetting("alerts", { roomEndingMin: 10 }).ok).toBe(true);
+  });
+  it("is a yes or no and a volume from 0 to 100", () => {
+    const ok = { roomEndingMin: 10, roomSound: false, roomSoundVolume: 80 };
+    expect(parseSetting("alerts", ok).ok).toBe(true);
+    expect(parseSetting("alerts", { ...ok, roomSound: "off" }).ok).toBe(false);
+    expect(parseSetting("alerts", { ...ok, roomSoundVolume: 101 }).ok).toBe(false);
+    expect(parseSetting("alerts", { ...ok, roomSoundVolume: 2.5 }).ok).toBe(false);
   });
 });
