@@ -34,7 +34,12 @@ export interface ApprovalLists {
   readonly asked_by_me: readonly Approval[];
   /** How the venue decides approvals (D124), and who may type their PIN at the register. */
   readonly mode?: "phone" | "pin" | "none";
-  readonly approvers?: readonly { readonly user_id: string; readonly name: string }[];
+  readonly approvers?: readonly {
+    readonly user_id: string;
+    readonly name: string;
+    /** On the clock now (U-08): the register's dialog picks this one first. */
+    readonly on_clock?: boolean;
+  }[];
 }
 
 export const approvalKinds = [

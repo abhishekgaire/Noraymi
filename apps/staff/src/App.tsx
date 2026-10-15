@@ -18,6 +18,7 @@ import { Runs } from "./screens/Runs.js";
 import { ChimeLoop } from "./chime.js";
 import { RoomSoundLoop } from "./room-sound.js";
 import { PinAgainDialog } from "./layout/PinAgainDialog.js";
+import { ManagerPinDialog } from "./approvals/PinApproval.js";
 import { Phone } from "./screens/admin/Phone.js";
 import { Website } from "./screens/admin/Website.js";
 import { Deposits } from "./screens/admin/Deposits.js";
@@ -89,6 +90,7 @@ function WithLocale({ children }: { children: ReactNode }) {
       <ChimeLoop />
       <RoomSoundLoop />
       <PinAgainDialog />
+      <ManagerPinDialog />
       {children}
     </LocaleProvider>
   );

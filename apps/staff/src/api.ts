@@ -149,13 +149,96 @@ export function setPinAgainPrompt(prompt: PinAgainPrompt | null): void {
   pinAgainPrompt = prompt;
 }
 
+/**
+ * A manager's PIN where the approval is asked (U-08; spec 02 · Approvals): with approvals decided by
+ * a manager's PIN at the register, a write that answers approval_pending opens the dialog
+ * (ManagerPinDialog, mounted once) right there. The dialog sends the PIN to the server, which decides
+ * and audits it; it answers what was decided, with words to show, or null when closed for later.
+ */
+export interface ManagerPinAsk {
+  readonly venueId: string;
+  readonly approvalId: string;
+  /** Who the request was routed to; picked first when they're on the clock. */
+  readonly routedTo: string | null;
+}
+export type ManagerPinOutcome = {
+  readonly status: "approved" | "declined" | "expired";
+  /** Why, in the staff's language: "Declined by Andy C.", "No longer needed". */
+  readonly message: string;
+} | null;
+export type ManagerPinPrompt = (ask: ManagerPinAsk) => Promise<ManagerPinOutcome>;
+let managerPinPrompt: ManagerPinPrompt | null = null;
+export function setManagerPinPrompt(prompt: ManagerPinPrompt | null): void {
+  managerPinPrompt = prompt;
+}
+/** A window event: an approval asked or decided on this screen, for the waiting strip (U-08). */
+export const APPROVALS_CHANGED = "west4:approvals-changed";
+/** Open the manager's PIN dialog for a pending approval (the waiting strip's Manager's PIN too). */
+export function askManagerPin(ask: ManagerPinAsk): Promise<ManagerPinOutcome> {
+  return managerPinPrompt ? managerPinPrompt(ask) : Promise.resolve(null);
+}
+
 export async function api<T>(
   method: "GET" | "PATCH" | "POST" | "PUT",
   path: string,
   body?: unknown,
   options: { stepUp?: string; idempotencyKey?: string } = {},
 ): Promise<T> {
-  return withOfflineRead(method, path, () => withPinAgain<T>(method, path, body, options));
+  const answer = await withOfflineRead(method, path, () =>
+    withPinAgain<T>(method, path, body, options),
+  );
+  return method === "GET" ? answer : withManagerPin(path, answer);
+}
+
+interface PinPending {
+  readonly status: "approval_pending";
+  readonly approval_id: string;
+  readonly decided_with: "pin";
+  readonly waiting_for?: { readonly user_id?: string } | null;
+}
+const pinPending = (x: unknown): x is PinPending =>
+  typeof x === "object" &&
+  x !== null &&
+  (x as { status?: unknown }).status === "approval_pending" &&
+  (x as { decided_with?: unknown }).decided_with === "pin" &&
+  typeof (x as { approval_id?: unknown }).approval_id === "string";
+
+/**
+ * After a write (U-08): each approval it left pending for a manager's PIN, at the top of the answer or
+ * one level down (a fault's pause and comp), is asked for in the dialog. Approved, the screen gets the
+ * answer as if no approval were needed (`approved`, nobody to wait for); declined or no longer
+ * needed, a top-level one is the call's refusal, in words; closed for later, the answer is unchanged
+ * and the waiting strip keeps offering Manager's PIN.
+ */
+async function withManagerPin<T>(path: string, answer: T): Promise<T> {
+  if (!managerPinPrompt || typeof answer !== "object" || answer === null) return answer;
+  const venueId = /^\/v1\/venues\/([^/]+)\//.exec(path)?.[1];
+  if (!venueId) return answer;
+  const decide = async (p: PinPending) => {
+    const outcome = await askManagerPin({
+      venueId,
+      approvalId: p.approval_id,
+      routedTo: p.waiting_for?.user_id ?? null,
+    });
+    // The waiting strip reads the list again at once (a shared screen gets no per-person events).
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(APPROVALS_CHANGED));
+    return outcome;
+  };
+  if (pinPending(answer)) {
+    const outcome = await decide(answer);
+    if (!outcome) return answer;
+    if (outcome.status === "approved") return { ...answer, status: "approved", waiting_for: null };
+    throw new ApiCallError(409, `approval_${outcome.status}`, outcome.message);
+  }
+  let changed: Record<string, unknown> | null = null;
+  for (const [key, value] of Object.entries(answer as Record<string, unknown>)) {
+    if (!pinPending(value)) continue;
+    const outcome = await decide(value);
+    if (!outcome) continue;
+    changed = { ...(changed ?? (answer as Record<string, unknown>)) };
+    changed[key] = { ...value, status: outcome.status, waiting_for: null };
+  }
+  return (changed ?? answer) as T;
 }
 
 /**

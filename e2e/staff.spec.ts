@@ -11633,3 +11633,108 @@ test("P-14 · Activity log for the owner, masked, filtered by person and kind; A
     await db.end();
   }
 });
+
+/**
+ * The manager's PIN where the approval is asked (U-08; spec 02 · Approvals; D124, D133): with approvals
+ * by a manager's PIN at the register, Maya's void of Room 9's Large bucket ($70.00, over the $25 limit)
+ * opens "Needs a manager's PIN" right there, Andy (on the clock) picked over Abhishek; a wrong PIN says
+ * so in words, Andy's PIN voids it and the row records it. Later leaves the next one on the strip,
+ * which reads "Needs a manager's PIN" (never "Waiting for Andy"), opens the same dialog, and clears
+ * itself a few seconds after the decision.
+ */
+test("U-08: a void over the limit asks for Andy's PIN right there, and the strip offers it later", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+         values ($1, 'approvals', (select coalesce(max(version), 0) + 1 from venue_settings where venue_id = $1 and key = 'approvals'), '{"mode":"pin"}', '2026-09-25')`,
+      [v],
+    );
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+    const fix = panel.getByRole("region", { name: "Fix a sent drink" });
+    await page
+      .getByRole("list", { name: "Rooms" })
+      .getByRole("button", { name: /Room 9/ })
+      .click();
+
+    // VOID, the dialog opens where it was asked.
+    await panel.getByRole("button", { name: "Fix · Large bucket · 10 beers" }).click();
+    await fix.getByLabel("Not made").check();
+    await fix.getByRole("button", { name: "Rang it wrong" }).click();
+    await fix.getByRole("button", { name: "VOID · take the sale back" }).click();
+    const dialog = page.getByRole("dialog", { name: "Needs a manager's PIN" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Void · Large bucket · 10 beers · $70.00");
+    await expect(dialog.getByRole("radio", { name: "Andy C." })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Abhishek G." })).not.toBeChecked();
+    await expect(fix).not.toContainText("Waiting for");
+    for (const target of await dialog.locator("button, label.check").all())
+      expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await dialog.getByLabel("Their PIN").fill("000000");
+    await dialog.getByRole("button", { name: "Approve" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText("That PIN isn't right. Try again.");
+    await dialog.getByLabel("Their PIN").fill("730915");
+    await dialog.getByRole("button", { name: "Approve" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(fix.getByRole("status")).toHaveText("Voided: Large bucket · 10 beers");
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+      "VOID · Large bucket · 10 beers",
+    );
+    const room9 = (
+      await db.query<{ id: string }>(
+        "select row_id as id from seed_ids where venue_id = $1 and slug = 'chk_room9'",
+        [v],
+      )
+    ).rows[0]!.id;
+    const andy = (await db.query<{ id: string }>("select id from users where name = 'Andy C.'"))
+      .rows[0]!.id;
+    expect(
+      (
+        await db.query(
+          "select status, decided_with, approver_id, amount_cents::int as amount_cents from approvals where target_id = $1 and kind = 'void'",
+          [room9],
+        )
+      ).rows,
+    ).toEqual([{ status: "approved", decided_with: "pin", approver_id: andy, amount_cents: 7000 }]);
+    expect(
+      (
+        await db.query(
+          "select approved_by, reason from check_lines where check_id = $1 and description = 'VOID · Large bucket · 10 beers'",
+          [room9],
+        )
+      ).rows,
+    ).toEqual([{ approved_by: andy, reason: "Rang it wrong" }]);
+
+    // Later: the strip keeps it, in words that name no phone, and opens the same dialog.
+    await panel.getByRole("button", { name: "Fix · Jäger Bomb" }).click();
+    await fix.getByLabel("Not made").check();
+    await fix.getByRole("button", { name: "Rang it wrong" }).click();
+    await fix.getByRole("button", { name: "VOID · take the sale back" }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Later" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(fix.getByRole("status")).toHaveText("Needs a manager's PIN");
+    const strip = page.locator("ul.waiting");
+    await expect(strip).toContainText("Void Needs a manager's PIN");
+    await expect(strip).not.toContainText("Waiting for");
+    await strip.getByRole("button", { name: "Manager's PIN" }).click();
+    await expect(dialog.getByRole("radio", { name: "Andy C." })).toBeChecked();
+    await dialog.getByLabel("Their PIN").fill("730915");
+    await dialog.getByRole("button", { name: "Approve" }).click();
+    await expect(strip).toContainText("Approved by Andy C.");
+    await expect(strip).toHaveCount(0, { timeout: 15_000 });
+    await expect(panel.getByRole("list", { name: "On the tab" })).toContainText(
+      "VOID · Jäger Bomb",
+    );
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

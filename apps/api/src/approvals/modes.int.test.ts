@@ -148,6 +148,15 @@ describe("how approvals are decided (F-04)", () => {
     expect(
       (JSON.parse(list.body).approvers as { name: string }[]).map((p) => p.name).sort(),
     ).toEqual([expect.stringMatching(/^Abhishek/), expect.stringMatching(/^Andy/)]);
+    // U-08: Andy is on the clock tonight, Abhishek isn't; the register's dialog picks Andy.
+    expect(
+      Object.fromEntries(
+        (JSON.parse(list.body).approvers as { name: string; on_clock: boolean }[]).map((p) => [
+          p.name.split(" ")[0],
+          p.on_clock,
+        ]),
+      ),
+    ).toEqual({ Abhishek: false, Andy: true });
     const wrong = await signed(
       desk,
       pinPath(a.approval_id),

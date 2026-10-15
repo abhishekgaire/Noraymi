@@ -4091,11 +4091,17 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "deposits.depositsOff":
     "Los depósitos en las reservas están apagados · las reservas en línea no cobran depósito ni retienen la tarjeta. Actívalos en Admin → Funciones.",
   "approvals.pin.button": "PIN del gerente",
-  "approvals.pin.title": "Aprobar con el PIN de un gerente",
+  "approvals.pin.title": "Necesita el PIN de un gerente",
   "approvals.pin.who": "Quién aprueba",
   "approvals.pin.pin": "Su PIN",
   "approvals.pin.needed": "Elige quién aprueba y escribe su PIN",
   "approvals.pin.nobody": "Ningún otro gerente o dueño puede aprobar aquí",
+  "approvals.pin.needs": "Necesita el PIN de un gerente",
+  "approvals.pin.later": "Más tarde",
+  "approvals.pin.notAllowed": "Esa persona no puede aprobar esto. Elige a otra.",
+  "approvals.pin.offline": "Sin conexión · inténtalo cuando vuelva",
+  "approvals.pin.loadFailed": "No se pudo cargar quién puede aprobar.",
+  "approvals.pin.retry": "Reintentar",
   "approvals.mode": "Aprobaciones",
   "approvals.mode.hint":
     "Cómo se deciden las cortesías, anulaciones, reembolsos y las demás solicitudes por encima de un límite. Todas se registran, elijas lo que elijas.",

@@ -3988,11 +3988,17 @@ export const en = {
   "deposits.depositsOff":
     "Deposits on bookings is off · online bookings take no deposit or card hold. Turn it on in Admin → Features.",
   "approvals.pin.button": "Manager's PIN",
-  "approvals.pin.title": "Approve with a manager's PIN",
+  "approvals.pin.title": "Needs a manager's PIN",
   "approvals.pin.who": "Who's approving",
   "approvals.pin.pin": "Their PIN",
   "approvals.pin.needed": "Pick who's approving and type their PIN",
   "approvals.pin.nobody": "No other manager or owner can approve here",
+  "approvals.pin.needs": "Needs a manager's PIN",
+  "approvals.pin.later": "Later",
+  "approvals.pin.notAllowed": "They can't approve this one. Pick someone else.",
+  "approvals.pin.offline": "Offline · try again when it's back",
+  "approvals.pin.loadFailed": "Couldn't load who can approve.",
+  "approvals.pin.retry": "Try again",
   "approvals.mode": "Approvals",
   "approvals.mode.hint":
     "How comps, voids, refunds and the other requests over a limit are decided. Every one is recorded whatever you choose.",
