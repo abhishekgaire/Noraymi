@@ -32,6 +32,7 @@ import { taxQuarterRoutes } from "./routes/tax-quarter.js";
 import { reportRoutes } from "./routes/reports.js";
 import { monthReportRoutes } from "./routes/month-report.js";
 import { glanceRoutes } from "./routes/glance.js";
+import { aboutFromEnv, activityRoutes } from "./routes/activity.js";
 import { tabHandOverRoutes } from "./routes/tab-hand-over.js";
 import { songRoutes } from "./routes/songs.js";
 import { publicSongRoutes, singerAuthenticator } from "./routes/songs-public.js";
@@ -436,6 +437,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       reportRoutes(scope, { clock });
       monthReportRoutes(scope, { clock });
       glanceRoutes(scope, { clock });
+      // Admin → Activity log and About (P-14).
+      activityRoutes(scope, { about: aboutFromEnv(process.env) });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

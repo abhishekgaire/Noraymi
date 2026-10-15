@@ -1859,3 +1859,11 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 3. On the bar computer, sign in as Maya (`4071`): her side menu is in the same order, Calendar first and Lock last, with no Reports, Close the night or Admin (a bartender's menu, only placed differently). The phone's tabs at the bottom of a phone keep each role's own order.
 4. With Spanish chosen: **Orden del menú**, "Subir Calendario", "Guardar orden", "Usar el orden de la app", and the side menu starts with **Calendario**.
 5. Tap **Use the app's order**, then **Save order**: everyone's menu is back to Rooms first. (The order never reaches another venue: with `--sing-sing`, Sing Sing's menu keeps the app's order; `menu-order.int.test.ts` checks it.)
+### 30.14 Activity log and About (P-14)
+
+1. Sign in as Abhishek (the owner) with a passkey and open Admin → **Activity log**: the venue's changes, newest first, each with when (business date and time), who (a person, "The system" or "Our support staff"), Added, Changed or Removed and the record's kind, and its changed fields.
+2. Check a guest's row (Kind: `guests`): the name shows as initials ("M. T."), phone and email read "hidden". A team member's PIN change reads `pin_verifier hidden`; no PIN, token, key or card detail ever shows.
+3. Pick Person **Andy C.**, then Kind, then From and To: the list follows each filter; dates with nothing read "Nothing matches these filters." **Clear filters** brings everything back; **Show older** loads the next 50.
+4. With Spanish chosen: **Registro de actividad**, Persona, Tipo, Desde, Hasta, Quitar filtros.
+5. Sign in as Andy (a manager): Admin lists **About** but no Activity log (managers come with P-10). About shows the staff app's version, "Not in the desktop app" in a browser (the desktop app's version on the bar computer), the server's version, West 4 Boho Karaoke and its venue id, and Support · Email and Phone, "Not set yet" until `SUPPORT_EMAIL` and `SUPPORT_PHONE` are set. (Venue B's rows never show: `activity.int.test.ts` checks it.)
+
