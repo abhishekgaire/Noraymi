@@ -96,7 +96,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-06 · Fix the card tip field's float math, and ask for the tip once
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M4
 - **Spec:** [Money rules](../spec/05-money-rules.md) · cents
@@ -104,8 +104,14 @@ Definition of done: see CLAUDE.md.
   - TapPayment.tsx:106 parses the tip with `Math.round(Number(tip) * 100)`; use the shared cents parser (no float), and check every other money input in apps/staff for the same.
   - When the reader asks the guest for the tip, the screen doesn't also show a Tip field (QuickSale.tsx:193, TapPayment.tsx:181); the field shows only when the reader won't ask.
 - **Acceptance:**
-  - [ ] A unit test feeds "1.005", "0.1", "12" through the parser; no `Number(...) * 100` on money is left in apps/staff (a lint rule or a grep test).
+  - [x] A unit test feeds "1.005", "0.1", "12" through the parser; no `Number(...) * 100` on money is left in apps/staff (a lint rule or a grep test).
 - **Notes:**
+  - The shared parser is `parseDollars(text, maxWholeDigits = 7)` in `packages/shared/src/money.ts`, with `dollarsText(cents)` for a field's starting text; `money.test.ts` feeds "12" (1200), "0.1" (10) and "1.005" (null), plus a property test that every cent amount round-trips.
+  - **Cautious default:** a third decimal ("1.005") is refused (the field is marked wrong and the button stays off), never rounded; a minus sign, "1." and "1e3" are refused too.
+  - Fixed: TapPayment's tip (`Math.round(Number(tip) * 100)`, the only real float), OutsideCardPanel's starting amount (`(dueCents / 100).toFixed(2)`). Moved onto the shared parser (they were digit-based, each its own copy): CashPanel, DiscountPanel (amount), DrawerPanel, RefundSheet, TipChangeSheet, TimeClock (cash tips), admin CashDrawers and Prices' `dollarsToCents` (which Menu, Licenses and RefundAlerts use). Onto the shared formatter: Prices, Licenses, RefundAlerts, Menu, CashDrawers and the guest room page. Each keeps its own limit on whole dollars. Rail.tsx and CloseTab.tsx had no money parsing, so they aren't touched.
+  - The guard is `apps/staff/src/no-float-money.test.ts` (in `pnpm test:unit`): it greps apps/staff, console, desktop and guest sources for `parseFloat`, `Number(…) * 100`, `Math.round(… * 100)`, `.toFixed(` and cents or amount `/ 100`; a line that isn't money says `money-float-ok: <why>` on it or the line above. Two do: DiscountPanel's percent (hundredths) and Reports' bar width.
+  - The tip once: the server skips the reader's tip screen only on room checks (`payments/run.ts`, `skipTipping: kind === "room"`), so TapPayment takes `readerSkipsTip` (default false) and only RoomScreen passes it. The quick sale, a bar tab's Close tab, a bar split share and Close the night show no tip field. **Cautious default:** `pay.tipScreen.on` isn't read for this, since the server doesn't use it to skip the reader's screen either; the server still accepts a `tip_cents` on a bar check (unchanged).
+  - Spec 05 rule 1 and spec 07 (room close-out, step 3) say this, citing D133. e2e: the U-06 test at the end of staff.spec.ts; manual test 31.6.
 
 ### U-07 · No sale and Lock on the bar POS
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { foodCategories, moveCategory, stateOf, type MessageKey } from "@west4/shared";
+import { dollarsText, foodCategories, moveCategory, stateOf, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -91,8 +91,7 @@ interface PriceRule {
 
 const DAYS = [1, 2, 3, 4, 5, 6, 0] as const;
 const KINDS = ["happy_hour", "special", "hourly"] as const;
-const money = (cents: number) =>
-  `$${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+const money = (cents: number) => `$${dollarsText(cents)}`;
 const centsText = (cents: number) => money(cents).slice(1);
 const hhmm = (min: number) =>
   `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;

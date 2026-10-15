@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { parseDollars } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { useModuleOn } from "../useModule.js";
@@ -23,14 +24,13 @@ export interface PendingDiscount {
   readonly cents: number;
 }
 
-const toCents = (text: string): number | null => {
-  const m = /^\s*\$?(\d+)(?:\.(\d{1,2}))?\s*$/.exec(text);
-  return m ? Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")) : null;
-};
+/** Typed dollars as cents through the shared parser, never a float (U-06). */
+const toCents = (text: string): number | null => parseDollars(text);
 /** A percent with at most two decimals, from 0.01 to 100. */
 const toPct = (text: string): number | null => {
   const m = /^\s*(\d{1,3})(?:\.(\d{1,2}))?\s*%?\s*$/.exec(text);
   if (!m) return null;
+  // money-float-ok: a percent read as whole hundredths, not an amount; the server works the cents out.
   const hundredths = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
   return hundredths >= 1 && hundredths <= 10_000 ? hundredths / 100 : null;
 };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Temporal, type CashSettings } from "@west4/shared";
+import { dollarsText, parseDollars, Temporal, type CashSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
@@ -23,13 +23,9 @@ interface Pack {
   readonly current: { readonly cash?: { readonly mustAccept: boolean } } | null;
 }
 
-const dollars = (cents: number) =>
-  `${Math.floor(cents / 100)}${cents % 100 ? `.${String(cents % 100).padStart(2, "0")}` : ""}`;
-/** "300" or "20.50" to cents, without a float. */
-function toCents(text: string): number | null {
-  const m = /^\s*(\d{1,7})(?:\.(\d{1,2}))?\s*$/.exec(text);
-  return m ? Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")) : null;
-}
+const dollars = (cents: number) => dollarsText(cents).replace(/\.00$/, "");
+/** Typed dollars as cents through the shared parser, never a float (U-06). */
+const toCents = (text: string): number | null => parseDollars(text, 7);
 
 export function CashDrawers() {
   const { t, date } = useT();

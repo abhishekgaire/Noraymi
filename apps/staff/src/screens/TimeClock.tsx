@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { shiftMinutes, type Duty, type Punch } from "@west4/rules";
-import type { Cents, Temporal } from "@west4/shared";
+import { parseDollars, type Cents, type Temporal } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
@@ -335,8 +335,7 @@ function Checklist({
       setFailed(true);
     }
   };
-  const cents = /^\s*(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(tips);
-  const tipCents = cents ? Number(cents[1]) * 100 + Number((cents[2] ?? "").padEnd(2, "0")) : null;
+  const tipCents = parseDollars(tips, 6);
   return (
     <section className="checklist" aria-label={t("checklist.title")}>
       <h3>{items.length === 0 ? t("checklist.clear") : t("checklist.title")}</h3>

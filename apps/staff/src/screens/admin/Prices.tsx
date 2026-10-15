@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { PriceSettings } from "@west4/shared";
+import { dollarsText, parseDollars, type PriceSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
@@ -20,12 +20,9 @@ const DAYS = [1, 2, 3, 4, 5, 6, 0] as const;
 
 /** "10.50" as 1050 cents, without floats; null when it isn't a dollar amount. */
 export function dollarsToCents(text: string): number | null {
-  const m = /^\s*\$?(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(text);
-  if (!m) return null;
-  return Number(m[1]) * 100 + Number((m[2] ?? "0").padEnd(2, "0"));
+  return parseDollars(text, 6);
 }
-const centsText = (cents: number) =>
-  `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+const centsText = dollarsText;
 const hhmm = (min: number) =>
   `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 const minutesOf = (value: string) => {

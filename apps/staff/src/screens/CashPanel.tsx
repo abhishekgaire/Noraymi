@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { cashOffers, changeDue } from "@west4/rules";
-import { cents } from "@west4/shared";
+import { cents, parseDollars } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 
@@ -17,10 +17,8 @@ export interface Taken {
 }
 
 const newKey = () => `cash-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-const toCents = (text: string): number | null => {
-  const m = /^\s*\$?(\d+)(?:\.(\d{1,2}))?\s*$/.exec(text);
-  return m ? Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")) : null;
-};
+/** Typed dollars as cents through the shared parser, never a float (U-06). */
+const toCents = (text: string): number | null => parseDollars(text);
 
 /**
  * Both prices before the guest chooses (U-02; Money rules 10): "Card $13.92 · Cash $13.41", with the

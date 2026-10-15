@@ -1915,6 +1915,15 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 7. Closing in cash instead keeps the change (and Wrong amount? Fix the change) in view after the receipt until **Done**, which also goes back to Quick sale.
 8. Spanish: **Enviar y cerrar**, "1 sin enviar · Envíalas primero o usa Enviar y cerrar", "Cuenta cerrada · Seat 7".
 
+### 31.6 The tip asked once, and money typed in cents (U-06)
+
+1. Start the demo with `scripts/demo-start.sh` (West 4, both readers registered). On the bar computer, sign in as Maya (`4071`), tap a drink, then **Pay for 1**. The reader panel has **Bar S710** picked and **Send $… to the reader**, and no **Additional tip (optional)** field: the reader asks the guest for the tip on its own screen. The same on a tab's **Close tab** and on a split share's reader panel.
+2. As Andy on the front desk, open Room 9 and **Present the check**. Room checks carry the 20% gratuity, so the reader skips its tip screen, and the panel shows **Additional tip (optional)** instead.
+3. Type `1.005`: the field is marked wrong and **Send $498.60 to the reader** can't be pressed (a third decimal is never rounded). Type `0.1`: the button reads **Send $498.70 to the reader** (10¢, not 9¢ or 11¢). Type `12`: **Send $510.60 to the reader**. Clear the field: back to **$498.60**.
+4. Every other money field reads typed dollars the same way: the cash panel's **Other** amount and cash tip, the outside card machine's amount and tip, a discount's amount, a refund, **Fix tip**, the drawer counts and paid-outs, the cash tips at clock-out, and Admin's prices, menu prices, license fees, refund alert and cash drawer amounts. `1.005` is refused in each, and `0.1` is $0.10.
+5. Spanish: **Propina adicional (opcional)**.
+
+
 
 ### 31.8 The manager's PIN where the approval is asked (U-08)
 

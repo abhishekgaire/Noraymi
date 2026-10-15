@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Cents } from "@west4/shared";
+import { parseDollars, type Cents } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
@@ -87,12 +87,8 @@ interface Answer {
   readonly over_short_cents: number;
 }
 
-/** Dollars typed as text to cents, never through a float: "275" and "275.5" and "275.50". */
-function toCents(text: string): number | null {
-  const m = /^\s*(\d{1,7})(?:\.(\d{1,2}))?\s*$/.exec(text);
-  if (!m) return null;
-  return Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
-}
+/** Typed dollars as cents through the shared parser, never a float (U-06). */
+const toCents = (text: string): number | null => parseDollars(text, 7);
 
 export function DrawerPanel({ venueId, canHandOver }: { venueId: string; canHandOver: boolean }) {
   const { t, money } = useT();

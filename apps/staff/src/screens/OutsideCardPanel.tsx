@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { outsideCardNoteOk } from "@west4/rules";
+import { dollarsText, parseDollars } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { useModuleOn } from "../useModule.js";
@@ -10,10 +11,8 @@ import { useModuleOn } from "../useModule.js";
  * approval code here. Never the card number: a long run of digits is refused on screen and by the
  * server. Shows only while the venue's switch is on.
  */
-const toCents = (text: string): number | null => {
-  const m = /^\s*\$?(\d+)(?:\.(\d{1,2}))?\s*$/.exec(text);
-  return m ? Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")) : null;
-};
+/** Typed dollars as cents through the shared parser, never a float (U-06). */
+const toCents = (text: string): number | null => parseDollars(text);
 const newKey = () => `outside-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function OutsideCardPanel({
@@ -34,7 +33,7 @@ export function OutsideCardPanel({
 }) {
   const { t, money } = useT();
   const on = useModuleOn("outside_card");
-  const [amount, setAmount] = useState(() => (dueCents / 100).toFixed(2));
+  const [amount, setAmount] = useState(() => dollarsText(dueCents));
   const [tip, setTip] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);

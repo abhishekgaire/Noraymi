@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import type { PosSettings } from "@west4/shared";
+import { dollarsText, type PosSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { dollarsToCents } from "./Prices.js";
 
 const MAX_CENTS = 1_000_000;
-const centsText = (c: number) => `${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
+const centsText = dollarsText;
 
 /**
  * Admin → Payments · Refund alerts (D104; spec 02 · On the record): refunds over this amount alert

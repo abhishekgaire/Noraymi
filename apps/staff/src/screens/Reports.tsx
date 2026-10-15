@@ -229,6 +229,7 @@ export function Reports() {
                 <span
                   className="bar"
                   style={
+                    // money-float-ok: a bar's width as a percent of the best night, not an amount.
                     { "--share": `${Math.round((w.net_cents / best) * 100)}%` } as CSSProperties
                   }
                 />

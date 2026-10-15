@@ -759,6 +759,7 @@ export function RoomScreen() {
                     dueCents={share ? share.amount_cents : dueCents}
                     shareId={share?.id ?? null}
                     readerList={readerList}
+                    readerSkipsTip
                     onDone={() => {
                       // Paid stays on screen after the room goes to cleaning (the receipt step comes in M4-19).
                       setShare(null);

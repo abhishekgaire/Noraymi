@@ -100,3 +100,26 @@ export function divideByWeights(amount: Cents, weights: readonly number[]): Cent
   }
   return floors.map((f) => cents(Number(f)));
 }
+
+/**
+ * What a person typed in a money field, as cents, read digit by digit so no
+ * float touches it (U-06): "12" is 1200, "0.1" is 10, "$4.50" is 450. A
+ * leading "$" and surrounding spaces are allowed; anything else, including a
+ * third decimal ("1.005"), a minus sign or more than `maxWholeDigits` whole
+ * dollars, is null, never rounded, so the field says it isn't an amount.
+ */
+export function parseDollars(text: string, maxWholeDigits = 7): Cents | null {
+  if (!Number.isSafeInteger(maxWholeDigits) || maxWholeDigits < 1 || maxWholeDigits > 13) {
+    throw new RangeError(`maxWholeDigits must be 1 to 13, got ${String(maxWholeDigits)}`);
+  }
+  const m = new RegExp(`^\\s*\\$?(\\d{1,${maxWholeDigits}})(?:\\.(\\d{1,2}))?\\s*$`).exec(text);
+  if (!m) return null;
+  return cents(Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")));
+}
+
+/** Cents as the text a money field starts with: 1050 is "10.50", -250 is "-2.50". No float. */
+export function dollarsText(amount: number): string {
+  const c = cents(amount);
+  const abs = Math.abs(c);
+  return `${c < 0 ? "-" : ""}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
