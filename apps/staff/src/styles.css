@@ -1656,8 +1656,15 @@ main select {
   outline: 2px solid currentColor;
 }
 .rail-right .send,
+.rail-right .send-close,
 .rail-right button.primary {
   min-height: 56px;
+}
+/* U-04: Close tab with drinks not sent says so, with Send & close beside it. */
+.rail-right .unsent-close {
+  border: 1px solid currentColor;
+  border-radius: var(--w4-radius);
+  padding: 8px 12px;
 }
 .rail .visually-hidden {
   position: absolute;

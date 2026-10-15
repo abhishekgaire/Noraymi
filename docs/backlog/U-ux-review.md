@@ -66,7 +66,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-04 · The tab screen: the round first, nothing left unsent, a clean screen after closing
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M6
 - **Spec:** [Bar POS](../spec/10-staff-screens-bar-pos.md) · Tabs, Send & close
@@ -76,10 +76,10 @@ Definition of done: see CLAUDE.md.
   - After a tab is closed and the receipt chosen, the screen goes back to Quick sale with nothing selected (today the closed tab stays picked and Repeat round still works on it: Rail.tsx about 1490, 1567).
   - Closing to the card on file: Close tab, Close to the card, the receipt choice ends it (no separate Done) (CloseTab.tsx 200–208, 361–372).
 - **Acceptance:**
-  - [ ] Unsent drinks are never dropped silently; Send & close charges them.
-  - [ ] After closing, the next drink rings as a new quick sale.
-  - [ ] Closing to the card is 3 taps.
-- **Notes:**
+  - [x] Unsent drinks are never dropped silently; Send & close charges them.
+  - [x] After closing, the next drink rings as a new quick sale.
+  - [x] Closing to the card is 3 taps.
+- **Notes:** Built Oct 15, 2026. Staff app only: no API change, no migration, no new route. **The round first:** on the bar POS (Rail.tsx) Repeat round, the round (AddDrinks) and Send now sit right under the tab's name and chips (and the cut-off control), above On the tab, the total and the actions row (Split, Move, Print bill, Close tab); this holds for a room picked on the bar POS too. Fix a sent drink (FixPanel `foldWhenIdle`) shows nothing until a line is tapped, and stays up while it reports what it just did; Discount (DiscountPanel `folded`) is only its **Discount the check** button until pressed, unless a discount is standing or waiting. Repeat round shows only on an open tab nobody is closing, splitting or moving. **Send & close:** a button beside Send on a tab that can close (open, with a hold or with none); it sends through the same `POST /checks/{c}/orders` as Send (so the 4 AM stop, cut-offs, 86'd items and the hold check apply on the server), and opens Close tab only when the round went on: a round waiting for a manager (hold raise declined) or a raise being checked with Stripe stays unsent and Close tab doesn't open. Unsent food still gets the K-05 warning before Close tab. **Close tab with drinks not sent** (this person's draft) shows "N not sent · Send them first or Send & close" with Send & close and Back to the tab, instead of opening. **After closing:** CloseTab's new `onClosed` sends the bar POS back to Quick sale with nothing picked, the notice "Tab closed · Seat 7 · Paid $38.66 with a tip of $6.00"; on the card (to the held card, another card, the outside machine, the saved card) the receipt choice (ReceiptStep's new `onDone`) ends it with no Done, a texted receipt once the guest's number is in. Cautious defaults: **a cash close keeps the change** (and Fix the change) in view after the receipt until **Done** (which then also goes to Quick sale), since the change in large type is what the bartender reads out; the slip path keeps its Done too. The unsent warning offers no "close anyway": unwanted drinks come off the round with − first, so nothing rung is ever left behind by a close. Other people's unsent drinks on the tab still show as the tab row's "2 not sent" badge (existing) and aren't sent by Send & close, since unsent drinks belong to whoever rang them. "Stay in view" is by position (the round is at the top of the right panel), not a sticky panel. Strings: `drinks.sendAndClose`, `closeTab.unsent`, `closeTab.closedName` (en, es). Tests: e2e "U-04 · the round first, Send & close charges the unsent drink, and Close to the card is 3 taps back to Quick sale" at the end of `e2e/staff.spec.ts` (the round above On the tab, Fix and Discount folded, the warning, Send & close leaving no draft and capturing $32.66 + $6.00, Print ending it, Quick sale with nothing picked, the next Modelo a quick sale); the existing close tests no longer tap Done after the receipt, and the bar comp test opens the Fix panel by its line. The whole of `e2e/staff.spec.ts` and `e2e/desktop.spec.ts` ran isolated: 180 passed; the K-05 food reminder test failed once on its clock-timed step and passed alone, and the phone close-out test fails without readers registered, as on main before d325fdd fixed it. Spec 10 (the right panel, Ringing, Receipt, the taps table) and screens.md Rail note 22 updated, citing D133; manual test 31.4.
 
 ### U-05 · Opening and closing a cardless tab where cardless is the venue's way
 
